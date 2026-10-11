@@ -46,10 +46,10 @@ def test_maps_one_batch_stanza_result_to_versioned_artifact() -> None:
             SimpleNamespace(
                 text="Goethe schrieb.",
                 tokens=[
+                    SimpleNamespace(words=[word("Goethe", "Goethe", "PROPN", "Case=Nom", 0, 6)]),
                     SimpleNamespace(
-                        words=[word("Goethe", "Goethe", "PROPN", "Case=Nom", 0, 6)]
+                        words=[word("schrieb", "schreiben", "VERB", "Tense=Past", 7, 14)]
                     ),
-                    SimpleNamespace(words=[word("schrieb", "schreiben", "VERB", "Tense=Past", 7, 14)]),
                     SimpleNamespace(words=[word(".", ".", "PUNCT", None, 14, 15)]),
                 ],
             )
@@ -96,9 +96,7 @@ def test_maps_dependency_heads_through_multiword_tokens() -> None:
                 text="L'uomo mangia dell'acqua.",
                 tokens=[
                     SimpleNamespace(
-                        words=[
-                            word("L'", "il", "DET", None, 0, 2, id=1, head=2, deprel="det")
-                        ]
+                        words=[word("L'", "il", "DET", None, 0, 2, id=1, head=2, deprel="det")]
                     ),
                     SimpleNamespace(
                         words=[
@@ -107,7 +105,17 @@ def test_maps_dependency_heads_through_multiword_tokens() -> None:
                     ),
                     SimpleNamespace(
                         words=[
-                            word("mangia", "mangiare", "VERB", None, 7, 13, id=3, head=0, deprel="root")
+                            word(
+                                "mangia",
+                                "mangiare",
+                                "VERB",
+                                None,
+                                7,
+                                13,
+                                id=3,
+                                head=0,
+                                deprel="root",
+                            )
                         ]
                     ),
                     SimpleNamespace(
@@ -132,7 +140,15 @@ def test_maps_dependency_heads_through_multiword_tokens() -> None:
 
     tokens = producer.analyze("L'uomo mangia dell'acqua.", "it").sentences[0].tokens
 
-    assert [token.dependency for token in tokens] == ["det", "nsubj", "root", "case", "det", "obj", "punct"]
+    assert [token.dependency for token in tokens] == [
+        "det",
+        "nsubj",
+        "root",
+        "case",
+        "det",
+        "obj",
+        "punct",
+    ]
     assert [token.head for token in tokens] == [1, 2, 2, 5, 5, 2, 2]
 
 
@@ -144,7 +160,9 @@ def test_cleans_edge_punctuation_without_changing_offsets_or_internal_punctuatio
                 tokens=[
                     SimpleNamespace(words=[word("‹die", "die", "DET", None, 0, 4)]),
                     SimpleNamespace(words=[word("Besten›", "gut", "ADJ", None, 5, 12)]),
-                    SimpleNamespace(words=[word("O'Neill-like", "O'Neill-like", "PROPN", None, 13, 25)]),
+                    SimpleNamespace(
+                        words=[word("O'Neill-like", "O'Neill-like", "PROPN", None, 13, 25)]
+                    ),
                 ],
             )
         ]
@@ -166,7 +184,9 @@ def test_cleans_all_unicode_punctuation_and_symbol_edges() -> None:
             SimpleNamespace(
                 text=" ".join(surfaces),
                 tokens=[
-                    SimpleNamespace(words=[word(surface, surface, "NOUN", None, i, i + len(surface))])
+                    SimpleNamespace(
+                        words=[word(surface, surface, "NOUN", None, i, i + len(surface))]
+                    )
                     for i, surface in enumerate(surfaces)
                 ],
             )
@@ -176,21 +196,37 @@ def test_cleans_all_unicode_punctuation_and_symbol_edges() -> None:
 
     tokens = producer.analyze(" ".join(surfaces), "de").sentences[0].tokens
 
-    assert [token.surface for token in tokens] == ["Wort", "Haus", "Baum", "O'Neill-like", "L'", "."]
+    assert [token.surface for token in tokens] == [
+        "Wort",
+        "Haus",
+        "Baum",
+        "O'Neill-like",
+        "L'",
+        ".",
+    ]
     assert [token.canonical_lemma for token in tokens] == [
-        "wort", "haus", "baum", "o'neill-like", "l'", "."
+        "wort",
+        "haus",
+        "baum",
+        "o'neill-like",
+        "l'",
+        ".",
     ]
 
 
 def test_cleans_reported_lemma_boundaries_and_preserves_internal_punctuation() -> None:
-    first_text = "Die Versammlung der Phaiaken verfügt damit über eine gewissermaßen ‹passive Souveränität›."
+    first_text = (
+        "Die Versammlung der Phaiaken verfügt damit über eine gewissermaßen ‹passive Souveränität›."
+    )
     second_text = "Beide Voraussetzungen wären beispielsweise in Al Mina gegeben, wo in dem entscheidenden Zeitraum griechische Händler und/oder Söldner angesiedelt waren."
     result = SimpleNamespace(
         sentences=[
             SimpleNamespace(
                 text=first_text,
                 tokens=[
-                    SimpleNamespace(words=[word("Souveränität›", "Souveränität›", "NOUN", None, 76, 89)])
+                    SimpleNamespace(
+                        words=[word("Souveränität›", "Souveränität›", "NOUN", None, 76, 89)]
+                    )
                 ],
             ),
             SimpleNamespace(
@@ -214,7 +250,10 @@ def test_cleans_reported_lemma_boundaries_and_preserves_internal_punctuation() -
     assert second_tokens[0].raw_lemma == "/oder"
     assert second_tokens[0].surface == "und/oder"
     assert second_tokens[0].canonical_lemma == "oder"
-    assert (second_tokens[0].location.start_offset, second_tokens[0].location.end_offset) == (117, 125)
+    assert (second_tokens[0].location.start_offset, second_tokens[0].location.end_offset) == (
+        117,
+        125,
+    )
 
 
 def test_pipe_separated_lemma_uses_first_alternative_and_preserves_raw_lemma(caplog) -> None:
@@ -223,7 +262,9 @@ def test_pipe_separated_lemma_uses_first_alternative_and_preserves_raw_lemma(cap
             SimpleNamespace(
                 text="Nausikaa geleitet ihn.",
                 tokens=[
-                    SimpleNamespace(words=[word("geleitet", "geleiten|leiten", "VERB", None, 9, 17)])
+                    SimpleNamespace(
+                        words=[word("geleitet", "geleiten|leiten", "VERB", None, 9, 17)]
+                    )
                 ],
             )
         ]
@@ -260,7 +301,7 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
     result = SimpleNamespace(
         sentences=[
             SimpleNamespace(
-                    text="Straße, Maße, Masse, daß, Haß, Eßzimmer",
+                text="Straße, Maße, Masse, daß, Haß, Eßzimmer",
                 tokens=[
                     SimpleNamespace(words=[word("Straße", "Straße", "NOUN", None, 0, 6)]),
                     SimpleNamespace(words=[word("Maße", "Maße", "NOUN", None, 8, 12)]),
@@ -294,71 +335,207 @@ def test_german_separable_verbs_reattach_and_ignore_homographs() -> None:
             SimpleNamespace(
                 text="Er ist aufgestanden.",
                 tokens=[
-                    SimpleNamespace(words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
+                    SimpleNamespace(
+                        words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]
+                    ),
                     SimpleNamespace(words=[word("ist", "sein", "AUX", None, 3, 6, id=2, head=0)]),
-                    SimpleNamespace(words=[word("aufgestanden", "aufstehen", "VERB", None, 7, 19, id=3, head=2, deprel="xcomp")]),
-                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 19, 20, id=4, head=2, deprel="punct")]),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "aufgestanden",
+                                "aufstehen",
+                                "VERB",
+                                None,
+                                7,
+                                19,
+                                id=3,
+                                head=2,
+                                deprel="xcomp",
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 19, 20, id=4, head=2, deprel="punct")]
+                    ),
                 ],
             ),
             SimpleNamespace(
                 text="Ich stehe auf.",
                 tokens=[
-                    SimpleNamespace(words=[word("Ich", "ich", "PRON", None, 0, 3, id=1, head=2, deprel="nsubj")]),
-                    SimpleNamespace(words=[word("stehe", "stehen", "VERB", None, 4, 9, id=2, head=0)]),
-                    SimpleNamespace(words=[word("auf", "auf", "ADV", None, 10, 13, id=3, head=2, deprel="compound:prt")]),
-                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 13, 14, id=4, head=2, deprel="punct")]),
+                    SimpleNamespace(
+                        words=[word("Ich", "ich", "PRON", None, 0, 3, id=1, head=2, deprel="nsubj")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("stehe", "stehen", "VERB", None, 4, 9, id=2, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "auf",
+                                "auf",
+                                "ADV",
+                                None,
+                                10,
+                                13,
+                                id=3,
+                                head=2,
+                                deprel="compound:prt",
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 13, 14, id=4, head=2, deprel="punct")]
+                    ),
                 ],
             ),
             SimpleNamespace(
                 text="Er stellt das wieder her.",
                 tokens=[
-                    SimpleNamespace(words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
-                    SimpleNamespace(words=[word("stellt", "stellen", "VERB", None, 3, 9, id=2, head=0)]),
-                    SimpleNamespace(words=[word("das", "das", "DET", None, 10, 13, id=3, head=2, deprel="det")]),
-                    SimpleNamespace(words=[word("wieder", "wieder", "ADV", None, 14, 20, id=4, head=2, deprel="compound:prt")]),
-                    SimpleNamespace(words=[word("her", "her", "ADV", None, 21, 24, id=5, head=2, deprel="compound:prt")]),
-                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 24, 25, id=6, head=2, deprel="punct")]),
+                    SimpleNamespace(
+                        words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("stellt", "stellen", "VERB", None, 3, 9, id=2, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[word("das", "das", "DET", None, 10, 13, id=3, head=2, deprel="det")]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "wieder",
+                                "wieder",
+                                "ADV",
+                                None,
+                                14,
+                                20,
+                                id=4,
+                                head=2,
+                                deprel="compound:prt",
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "her",
+                                "her",
+                                "ADV",
+                                None,
+                                21,
+                                24,
+                                id=5,
+                                head=2,
+                                deprel="compound:prt",
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 24, 25, id=6, head=2, deprel="punct")]
+                    ),
                 ],
             ),
             SimpleNamespace(
                 text="Die Tür ist auf.",
                 tokens=[
-                    SimpleNamespace(words=[word("Die", "die", "DET", None, 0, 3, id=1, head=2, deprel="det")]),
-                    SimpleNamespace(words=[word("Tür", "Tür", "NOUN", None, 4, 7, id=2, head=3, deprel="nsubj")]),
+                    SimpleNamespace(
+                        words=[word("Die", "die", "DET", None, 0, 3, id=1, head=2, deprel="det")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("Tür", "Tür", "NOUN", None, 4, 7, id=2, head=3, deprel="nsubj")]
+                    ),
                     SimpleNamespace(words=[word("ist", "sein", "AUX", None, 8, 11, id=3, head=0)]),
-                    SimpleNamespace(words=[word("auf", "auf", "ADV", None, 12, 15, id=4, head=3, deprel="xcomp")]),
-                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 15, 16, id=5, head=3, deprel="punct")]),
+                    SimpleNamespace(
+                        words=[
+                            word("auf", "auf", "ADV", None, 12, 15, id=4, head=3, deprel="xcomp")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 15, 16, id=5, head=3, deprel="punct")]
+                    ),
                 ],
             ),
             SimpleNamespace(
                 text="Er steht auf dem Berg.",
                 tokens=[
-                    SimpleNamespace(words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
-                    SimpleNamespace(words=[word("steht", "stehen", "VERB", None, 3, 8, id=2, head=0)]),
-                    SimpleNamespace(words=[word("auf", "auf", "ADP", None, 9, 12, id=3, head=5, deprel="case")]),
-                    SimpleNamespace(words=[word("dem", "der", "DET", None, 13, 16, id=4, head=5, deprel="det")]),
-                    SimpleNamespace(words=[word("Berg", "Berg", "NOUN", None, 17, 21, id=5, head=2, deprel="obl")]),
-                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 21, 22, id=6, head=2, deprel="punct")]),
+                    SimpleNamespace(
+                        words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("steht", "stehen", "VERB", None, 3, 8, id=2, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[word("auf", "auf", "ADP", None, 9, 12, id=3, head=5, deprel="case")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("dem", "der", "DET", None, 13, 16, id=4, head=5, deprel="det")]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("Berg", "Berg", "NOUN", None, 17, 21, id=5, head=2, deprel="obl")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 21, 22, id=6, head=2, deprel="punct")]
+                    ),
                 ],
             ),
             SimpleNamespace(
                 text="Es bleibt nach wie vor.",
                 tokens=[
-                    SimpleNamespace(words=[word("Es", "es", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
-                    SimpleNamespace(words=[word("bleibt", "bleiben", "VERB", None, 3, 9, id=2, head=0)]),
-                    SimpleNamespace(words=[word("nach", "nach", "ADV", None, 10, 14, id=3, head=2, deprel="advmod")]),
-                    SimpleNamespace(words=[word("wie", "wie", "ADV", None, 15, 18, id=4, head=2, deprel="advmod")]),
-                    SimpleNamespace(words=[word("vor", "vor", "ADV", None, 19, 22, id=5, head=2, deprel="advmod")]),
-                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 22, 23, id=6, head=2, deprel="punct")]),
+                    SimpleNamespace(
+                        words=[word("Es", "es", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("bleibt", "bleiben", "VERB", None, 3, 9, id=2, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("nach", "nach", "ADV", None, 10, 14, id=3, head=2, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("wie", "wie", "ADV", None, 15, 18, id=4, head=2, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("vor", "vor", "ADV", None, 19, 22, id=5, head=2, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 22, 23, id=6, head=2, deprel="punct")]
+                    ),
                 ],
             ),
             SimpleNamespace(
                 text="Er geht zack.",
                 tokens=[
-                    SimpleNamespace(words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
-                    SimpleNamespace(words=[word("geht", "gehen", "VERB", None, 3, 7, id=2, head=0)]),
-                    SimpleNamespace(words=[word("zack", "zack", "ADV", None, 8, 12, id=3, head=2, deprel="compound:prt")]),
-                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 12, 13, id=4, head=2, deprel="punct")]),
+                    SimpleNamespace(
+                        words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("geht", "gehen", "VERB", None, 3, 7, id=2, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "zack",
+                                "zack",
+                                "ADV",
+                                None,
+                                8,
+                                12,
+                                id=3,
+                                head=2,
+                                deprel="compound:prt",
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 12, 13, id=4, head=2, deprel="punct")]
+                    ),
                 ],
             ),
         ]
@@ -434,7 +611,17 @@ def test_modern_greek_maps_mwt_words_and_dependency_data() -> None:
                     SimpleNamespace(
                         words=[
                             word("σε", "σε", "ADP", None, 0, 2, id=1, head=3, deprel="case"),
-                            word("το", "ο", "DET", "Case=Acc|Gender=Neut|Number=Sing", 0, 2, id=2, head=3, deprel="det"),
+                            word(
+                                "το",
+                                "ο",
+                                "DET",
+                                "Case=Acc|Gender=Neut|Number=Sing",
+                                0,
+                                2,
+                                id=2,
+                                head=3,
+                                deprel="det",
+                            ),
                         ]
                     ),
                     SimpleNamespace(
@@ -599,29 +786,114 @@ def test_italian_linguistic_regression_fixture() -> None:
         SimpleNamespace(
             text="L'uomo e le ragazze bevono dell'acqua.",
             tokens=[
-                SimpleNamespace(words=[word("L'", "il", "DET", "Definite=Def|Gender=Masc|Number=Sing|PronType=Art", 0, 2)]),
-                SimpleNamespace(words=[word("uomo", "uomo", "NOUN", "Gender=Masc|Number=Sing", 2, 6)]),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "L'",
+                            "il",
+                            "DET",
+                            "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+                            0,
+                            2,
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word("uomo", "uomo", "NOUN", "Gender=Masc|Number=Sing", 2, 6)]
+                ),
                 SimpleNamespace(words=[word("e", "e", "CCONJ", None, 7, 8)]),
-                SimpleNamespace(words=[word("le", "il", "DET", "Definite=Def|Gender=Fem|Number=Plur|PronType=Art", 9, 11)]),
-                SimpleNamespace(words=[word("ragazze", "ragazza", "NOUN", "Gender=Fem|Number=Plur", 12, 19)]),
-                SimpleNamespace(words=[word("bevono", "bere", "VERB", "Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin", 20, 26)]),
-                SimpleNamespace(words=[word("dell'", "di", "ADP", None, 27, 32), word("dell'", "il", "DET", "Definite=Def|Gender=Fem|Number=Sing|PronType=Art", 27, 32)]),
-                SimpleNamespace(words=[word("acqua", "acqua", "NOUN", "Gender=Fem|Number=Sing", 32, 37)]),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "le",
+                            "il",
+                            "DET",
+                            "Definite=Def|Gender=Fem|Number=Plur|PronType=Art",
+                            9,
+                            11,
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word("ragazze", "ragazza", "NOUN", "Gender=Fem|Number=Plur", 12, 19)]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "bevono",
+                            "bere",
+                            "VERB",
+                            "Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin",
+                            20,
+                            26,
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word("dell'", "di", "ADP", None, 27, 32),
+                        word(
+                            "dell'",
+                            "il",
+                            "DET",
+                            "Definite=Def|Gender=Fem|Number=Sing|PronType=Art",
+                            27,
+                            32,
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word("acqua", "acqua", "NOUN", "Gender=Fem|Number=Sing", 32, 37)]
+                ),
                 SimpleNamespace(words=[word(".", ".", "PUNCT", None, 37, 38)]),
             ],
         ),
         SimpleNamespace(
             text="Maria portera`? No, porterà pane e dammelo!",
             tokens=[
-                SimpleNamespace(words=[word("Maria", "Maria", "PROPN", "Gender=Fem|Number=Sing", 39, 44)]),
+                SimpleNamespace(
+                    words=[word("Maria", "Maria", "PROPN", "Gender=Fem|Number=Sing", 39, 44)]
+                ),
                 SimpleNamespace(words=[word("portera`", "portera`", "X", None, 45, 53)]),
                 SimpleNamespace(words=[word("?", "?", "PUNCT", None, 53, 54)]),
                 SimpleNamespace(words=[word("No", "no", "ADV", None, 55, 57)]),
                 SimpleNamespace(words=[word(",", ",", "PUNCT", None, 57, 58)]),
-                SimpleNamespace(words=[word("porterà", "portare", "VERB", "Mood=Ind|Number=Sing|Person=3|Tense=Fut|VerbForm=Fin", 59, 66)]),
-                SimpleNamespace(words=[word("pane", "pane", "NOUN", "Gender=Masc|Number=Sing", 67, 71)]),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "porterà",
+                            "portare",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=3|Tense=Fut|VerbForm=Fin",
+                            59,
+                            66,
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word("pane", "pane", "NOUN", "Gender=Masc|Number=Sing", 67, 71)]
+                ),
                 SimpleNamespace(words=[word("e", "e", "CCONJ", None, 72, 73)]),
-                SimpleNamespace(words=[word("damme", "dare", "VERB", "Mood=Imp|Number=Sing|Person=2|VerbForm=Fin", 74, 79), word("lo", "lo", "PRON", "Clitic=Yes|Gender=Masc|Number=Sing|Person=3|PronType=Prs", 79, 81)]),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "damme",
+                            "dare",
+                            "VERB",
+                            "Mood=Imp|Number=Sing|Person=2|VerbForm=Fin",
+                            74,
+                            79,
+                        ),
+                        word(
+                            "lo",
+                            "lo",
+                            "PRON",
+                            "Clitic=Yes|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+                            79,
+                            81,
+                        ),
+                    ]
+                ),
                 SimpleNamespace(words=[word("!", "!", "PUNCT", None, 81, 82)]),
             ],
         ),
@@ -637,7 +909,9 @@ def test_italian_linguistic_regression_fixture() -> None:
         analyzed_at=datetime(2026, 8, 25, tzinfo=UTC),
     )
 
-    expected = json.loads((Path(__file__).parent / "testdata" / "italian_stanza_expected.json").read_text())
+    expected = json.loads(
+        (Path(__file__).parent / "testdata" / "italian_stanza_expected.json").read_text()
+    )
     assert MessageToDict(artifact, preserving_proto_field_name=True) == expected
 
 
@@ -650,33 +924,241 @@ def test_greek_linguistic_regression_fixture() -> None:
         SimpleNamespace(
             text=first,
             tokens=[
-                SimpleNamespace(words=[word("σε", "σε", "ADP", None, 0, 3, id=1, head=3, deprel="case"), word("το", "ο", "DET", "Case=Acc|Gender=Neut|Number=Sing|PronType=Art", 0, 3, id=2, head=3, deprel="det")]),
-                SimpleNamespace(words=[word("σπίτι", "σπίτι", "NOUN", "Case=Acc|Gender=Neut|Number=Sing", 4, 9, id=3, head=6, deprel="nsubj")]),
-                SimpleNamespace(words=[word("ο", "ο", "DET", "Case=Nom|Gender=Masc|Number=Sing|PronType=Art", 10, 11, id=4, head=5, deprel="det")]),
-                SimpleNamespace(words=[word("Νίκος", "Νίκος", "PROPN", "Case=Nom|Gender=Masc|Number=Sing", 12, 17, id=5, head=6, deprel="nsubj")]),
-                SimpleNamespace(words=[word("διαβάζει", "διαβάζω", "VERB", "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin", 18, 26, id=6, head=0, deprel="root")]),
-                SimpleNamespace(words=[word("ιστορίες", "ιστορία", "NOUN", "Case=Acc|Gender=Fem|Number=Plur", 27, 35, id=7, head=6, deprel="obj")]),
-                SimpleNamespace(words=[word(".", ".", "PUNCT", None, 35, 36, id=8, head=6, deprel="punct")]),
+                SimpleNamespace(
+                    words=[
+                        word("σε", "σε", "ADP", None, 0, 3, id=1, head=3, deprel="case"),
+                        word(
+                            "το",
+                            "ο",
+                            "DET",
+                            "Case=Acc|Gender=Neut|Number=Sing|PronType=Art",
+                            0,
+                            3,
+                            id=2,
+                            head=3,
+                            deprel="det",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "σπίτι",
+                            "σπίτι",
+                            "NOUN",
+                            "Case=Acc|Gender=Neut|Number=Sing",
+                            4,
+                            9,
+                            id=3,
+                            head=6,
+                            deprel="nsubj",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "ο",
+                            "ο",
+                            "DET",
+                            "Case=Nom|Gender=Masc|Number=Sing|PronType=Art",
+                            10,
+                            11,
+                            id=4,
+                            head=5,
+                            deprel="det",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "Νίκος",
+                            "Νίκος",
+                            "PROPN",
+                            "Case=Nom|Gender=Masc|Number=Sing",
+                            12,
+                            17,
+                            id=5,
+                            head=6,
+                            deprel="nsubj",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "διαβάζει",
+                            "διαβάζω",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+                            18,
+                            26,
+                            id=6,
+                            head=0,
+                            deprel="root",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "ιστορίες",
+                            "ιστορία",
+                            "NOUN",
+                            "Case=Acc|Gender=Fem|Number=Plur",
+                            27,
+                            35,
+                            id=7,
+                            head=6,
+                            deprel="obj",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word(".", ".", "PUNCT", None, 35, 36, id=8, head=6, deprel="punct")]
+                ),
             ],
         ),
         SimpleNamespace(
             text=second,
             tokens=[
-                SimpleNamespace(words=[word("Οι", "ο", "DET", "Case=Nom|Gender=Masc|Number=Plur|PronType=Art", 37, 39, id=1, head=2, deprel="det")]),
-                SimpleNamespace(words=[word("φίλοι", "φίλος", "NOUN", "Case=Nom|Gender=Masc|Number=Plur", 40, 45, id=2, head=3, deprel="nsubj")]),
-                SimpleNamespace(words=[word("επιστρέφουν", "επιστρέφω", "VERB", "Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin", 46, 57, id=3, head=0, deprel="root")]),
-                SimpleNamespace(words=[word("σε", "σε", "ADP", None, 58, 62, id=4, head=6, deprel="case"), word("την", "ο", "DET", "Case=Acc|Gender=Fem|Number=Sing|PronType=Art", 58, 62, id=5, head=6, deprel="det")]),
-                SimpleNamespace(words=[word("πλατεία", "πλατεία", "NOUN", "Case=Acc|Gender=Fem|Number=Sing", 63, 70, id=6, head=3, deprel="obl")]),
-                SimpleNamespace(words=[word(",", ",", "PUNCT", None, 70, 71, id=7, head=3, deprel="punct")]),
-                SimpleNamespace(words=[word("ενώ", "ενώ", "SCONJ", None, 72, 75, id=8, head=3, deprel="mark")]),
-                SimpleNamespace(words=[word("ο", "ο", "DET", "Case=Nom|Gender=Masc|Number=Sing|PronType=Art", 76, 77, id=9, head=10, deprel="det")]),
-                SimpleNamespace(words=[word("ΚΟΣΜΟΣ", "κόσμος", "NOUN", "Case=Nom|Gender=Masc|Number=Sing", 78, 84, id=10, head=11, deprel="nsubj")]),
-                SimpleNamespace(words=[word("γελά", "γελάω", "VERB", "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin", 85, 89, id=11, head=0, deprel="root")]),
-                SimpleNamespace(words=[word(".", ".", "PUNCT", None, 89, 90, id=12, head=11, deprel="punct")]),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "Οι",
+                            "ο",
+                            "DET",
+                            "Case=Nom|Gender=Masc|Number=Plur|PronType=Art",
+                            37,
+                            39,
+                            id=1,
+                            head=2,
+                            deprel="det",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "φίλοι",
+                            "φίλος",
+                            "NOUN",
+                            "Case=Nom|Gender=Masc|Number=Plur",
+                            40,
+                            45,
+                            id=2,
+                            head=3,
+                            deprel="nsubj",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "επιστρέφουν",
+                            "επιστρέφω",
+                            "VERB",
+                            "Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin",
+                            46,
+                            57,
+                            id=3,
+                            head=0,
+                            deprel="root",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word("σε", "σε", "ADP", None, 58, 62, id=4, head=6, deprel="case"),
+                        word(
+                            "την",
+                            "ο",
+                            "DET",
+                            "Case=Acc|Gender=Fem|Number=Sing|PronType=Art",
+                            58,
+                            62,
+                            id=5,
+                            head=6,
+                            deprel="det",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "πλατεία",
+                            "πλατεία",
+                            "NOUN",
+                            "Case=Acc|Gender=Fem|Number=Sing",
+                            63,
+                            70,
+                            id=6,
+                            head=3,
+                            deprel="obl",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word(",", ",", "PUNCT", None, 70, 71, id=7, head=3, deprel="punct")]
+                ),
+                SimpleNamespace(
+                    words=[word("ενώ", "ενώ", "SCONJ", None, 72, 75, id=8, head=3, deprel="mark")]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "ο",
+                            "ο",
+                            "DET",
+                            "Case=Nom|Gender=Masc|Number=Sing|PronType=Art",
+                            76,
+                            77,
+                            id=9,
+                            head=10,
+                            deprel="det",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "ΚΟΣΜΟΣ",
+                            "κόσμος",
+                            "NOUN",
+                            "Case=Nom|Gender=Masc|Number=Sing",
+                            78,
+                            84,
+                            id=10,
+                            head=11,
+                            deprel="nsubj",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "γελά",
+                            "γελάω",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+                            85,
+                            89,
+                            id=11,
+                            head=0,
+                            deprel="root",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word(".", ".", "PUNCT", None, 89, 90, id=12, head=11, deprel="punct")]
+                ),
             ],
         ),
     ]
-    artifact = Producer(pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=sentences)).analyze(
+    artifact = Producer(
+        pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=sentences)
+    ).analyze(
         text,
         "el",
         SourceDocument("greek-book", "fixture:greek", "Greek fixture"),
@@ -694,5 +1176,7 @@ def test_greek_linguistic_regression_fixture() -> None:
         "depparse": "gdt_greek-bert",
     }
     assert config.model_version == "stanza-1.15.0-gdt-accurate"
-    expected = json.loads((Path(__file__).parent / "testdata" / "greek_stanza_expected.json").read_text())
+    expected = json.loads(
+        (Path(__file__).parent / "testdata" / "greek_stanza_expected.json").read_text()
+    )
     assert MessageToDict(artifact, preserving_proto_field_name=True) == expected

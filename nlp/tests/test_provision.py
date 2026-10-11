@@ -85,9 +85,7 @@ def test_empty_directory_provisions_every_configured_language(tmp_path) -> None:
 
 
 def test_second_run_against_the_same_directory_is_a_no_op(tmp_path) -> None:
-    provision(
-        tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload()
-    )
+    provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload())
     rerun = RecordingDownload()
 
     provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=rerun)
@@ -97,9 +95,7 @@ def test_second_run_against_the_same_directory_is_a_no_op(tmp_path) -> None:
 
 
 def test_changed_stanza_version_wipes_and_provisions_from_scratch(tmp_path) -> None:
-    provision(
-        tmp_path, ["de"], stanza_version="1.14.0", download=RecordingDownload()
-    )
+    provision(tmp_path, ["de"], stanza_version="1.14.0", download=RecordingDownload())
     sentinel = tmp_path / "de" / "tokenize" / "stale.pt"
     sentinel.parent.mkdir(parents=True)
     sentinel.write_text("stale", encoding="utf-8")
@@ -117,17 +113,13 @@ def test_changed_stanza_version_wipes_and_provisions_from_scratch(tmp_path) -> N
     [
         LanguageModelConfig(language="de", processors="tokenize,pos,lemma"),
         LanguageModelConfig(language="de", package="accurate"),
-        LanguageModelConfig(
-            language="de", external_model_dependencies=("example/model",)
-        ),
+        LanguageModelConfig(language="de", external_model_dependencies=("example/model",)),
     ],
 )
 def test_changed_model_configuration_wipes_and_provisions_from_scratch(
     tmp_path, changed_config
 ) -> None:
-    provision(
-        tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload()
-    )
+    provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload())
     sentinel = tmp_path / "de" / "tokenize" / "stale.pt"
     sentinel.parent.mkdir(parents=True)
     sentinel.write_text("stale", encoding="utf-8")
@@ -153,9 +145,7 @@ def test_changed_model_configuration_wipes_and_provisions_from_scratch(
 
 
 def test_external_model_dependencies_are_marker_data_not_stanza_downloads(tmp_path) -> None:
-    config = LanguageModelConfig(
-        language="el", external_model_dependencies=("example/model",)
-    )
+    config = LanguageModelConfig(language="el", external_model_dependencies=("example/model",))
     download = RecordingDownload()
     external_download = RecordingExternalDownload()
 
@@ -180,14 +170,11 @@ def test_external_model_dependencies_are_marker_data_not_stanza_downloads(tmp_pa
 def test_missing_external_cache_is_fetched_even_with_a_current_marker(tmp_path) -> None:
     external_download = RecordingExternalDownload()
     with patch(
-        "mouseion_nlp.provision.snapshot_download",
-        side_effect=LocalEntryNotFoundError("missing")
+        "mouseion_nlp.provision.snapshot_download", side_effect=LocalEntryNotFoundError("missing")
     ):
         ensure_external_dependency("example/model", tmp_path, external_download)
 
-    assert external_download.calls == [
-        ("example/model", {"cache_dir": str(tmp_path / "hub")})
-    ]
+    assert external_download.calls == [("example/model", {"cache_dir": str(tmp_path / "hub")})]
 
 
 def test_greek_provisions_stanza_package_and_greekbert(tmp_path) -> None:
@@ -227,9 +214,7 @@ def test_greek_provisions_stanza_package_and_greekbert(tmp_path) -> None:
 
 
 def test_added_language_downloads_only_the_missing_language(tmp_path) -> None:
-    provision(
-        tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload()
-    )
+    provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload())
     grown = RecordingDownload()
 
     provision(tmp_path, ["de", "it"], stanza_version=STANZA_VERSION, download=grown)
@@ -262,20 +247,26 @@ def test_failed_download_aborts_without_writing_the_marker(tmp_path) -> None:
 
 
 def test_main_exits_nonzero_when_a_download_fails(tmp_path) -> None:
-    with patch.dict(
-        "os.environ",
-        {"MOUSEION_NLP_WARM_LANGUAGES": "de", "STANZA_RESOURCES_DIR": str(tmp_path)},
-        clear=True,
-    ), patch("mouseion_nlp.provision.stanza.download", side_effect=RuntimeError("offline")):
+    with (
+        patch.dict(
+            "os.environ",
+            {"MOUSEION_NLP_WARM_LANGUAGES": "de", "STANZA_RESOURCES_DIR": str(tmp_path)},
+            clear=True,
+        ),
+        patch("mouseion_nlp.provision.stanza.download", side_effect=RuntimeError("offline")),
+    ):
         assert main() == 1
 
 
 def test_main_provisions_the_configured_languages(tmp_path) -> None:
-    with patch.dict(
-        "os.environ",
-        {"MOUSEION_NLP_WARM_LANGUAGES": "de,it", "STANZA_RESOURCES_DIR": str(tmp_path)},
-        clear=True,
-    ), patch("mouseion_nlp.provision.stanza.download") as download:
+    with (
+        patch.dict(
+            "os.environ",
+            {"MOUSEION_NLP_WARM_LANGUAGES": "de,it", "STANZA_RESOURCES_DIR": str(tmp_path)},
+            clear=True,
+        ),
+        patch("mouseion_nlp.provision.stanza.download") as download,
+    ):
         assert main() == 0
 
     assert [call.args[0] for call in download.call_args_list] == ["de", "it"]

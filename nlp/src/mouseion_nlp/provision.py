@@ -97,15 +97,14 @@ def read_marker(resources_dir: Path) -> Marker | None:
                 key=lambda config: config.language,
             )
         )
-        if len(model_configs) != len(raw_configs) or tuple(
-            config.language for config in model_configs
-        ) != languages:
+        if (
+            len(model_configs) != len(raw_configs)
+            or tuple(config.language for config in model_configs) != languages
+        ):
             return None
     except (OSError, ValueError, KeyError, TypeError):
         return None
-    return Marker(
-        stanza_version=stanza_version, languages=languages, model_configs=model_configs
-    )
+    return Marker(stanza_version=stanza_version, languages=languages, model_configs=model_configs)
 
 
 def write_marker(resources_dir: Path, marker: Marker) -> None:
@@ -136,9 +135,7 @@ def plan_provisioning(
     if marker is None or marker.stanza_version != stanza_version:
         return ProvisionPlan(wipe=True, downloads=configured, provisioned=configured)
     marker_configs = {config.language: config for config in marker.model_configs}
-    expected_configs = {
-        language: model_config_for_language(language) for language in configured
-    }
+    expected_configs = {language: model_config_for_language(language) for language in configured}
     if any(
         language in marker.languages and marker_configs.get(language) != config
         for language, config in expected_configs.items()

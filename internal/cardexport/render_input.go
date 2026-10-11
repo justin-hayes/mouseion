@@ -26,7 +26,7 @@ func renderInputFromEntry(entry Entry) RenderInput {
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 		Sentence: entry.Sentence, Translation: entry.Translation,
 		SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget,
-		TargetWord:                 entry.TargetWord, Gloss: entry.Gloss, Plural: entry.Plural, IPA: entry.IPA,
+		TargetWord: entry.TargetWord, Gloss: entry.Gloss, Plural: entry.Plural, IPA: entry.IPA,
 		PrincipalParts: entry.PrincipalParts, DictionaryProviderVersion: entry.DictionaryProviderVersion,
 		OmittedEvidenceCount: entry.OmittedEvidenceCount,
 		Morphology:           entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes,

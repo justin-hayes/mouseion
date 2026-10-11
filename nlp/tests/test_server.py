@@ -104,7 +104,10 @@ def test_warmup_failure_does_not_mark_another_language_ready(capsys) -> None:
     assert [(item.language, item.ready) for item in capabilities] == [("de", False), ("it", True)]
     assert capabilities[0].model_version == ""
     assert capabilities[1].model_version == "it-fixture-2"
-    assert "failed to warm Stanza pipeline for language 'de': model unavailable" in capsys.readouterr().err
+    assert (
+        "failed to warm Stanza pipeline for language 'de': model unavailable"
+        in capsys.readouterr().err
+    )
 
 
 def test_greek_capability_uses_public_features_and_accurate_model_version() -> None:
@@ -135,7 +138,8 @@ def test_greek_warmup_failure_preserves_other_ready_languages(capsys) -> None:
 
     warm_configured_languages(servicer)
     capabilities = {
-        capability.language: capability for capability in servicer.GetCapabilities(None, None).languages
+        capability.language: capability
+        for capability in servicer.GetCapabilities(None, None).languages
     }
 
     assert capabilities["de"].ready
