@@ -68,7 +68,7 @@ jobs:
 
       # Installs are binary-only and pinned. The NLP package is not installed
       # from source: the tests import it from PYTHONPATH (nlp/src, set by
-      # make coverage), so only its runtime dependencies are needed here.
+      # make coverage). Its runtime dependencies are pinned in the dev requirements.
       - name: Install Python dev dependencies
         run: |
           uv pip install --python .venv/bin/python \
@@ -85,16 +85,6 @@ jobs:
             --only-binary :all: \
             torch==2.14.1 \
             --index-url https://download.pytorch.org/whl/cpu
-
-      # Runtime dependencies of nlp/pyproject.toml, pinned to the same versions.
-      - name: Install NLP runtime dependencies
-        run: |
-          uv pip install --python .venv/bin/python \
-            --disable-pip-version-check \
-            --only-binary :all: \
-            stanza==1.14.0 \
-            huggingface-hub==1.33.0 \
-            transformers==5.10.1
 
       - name: Go and Python coverage
         run: make coverage
