@@ -1,0 +1,23 @@
+name: Dependency review
+
+# Flags pull requests that introduce a dependency with a known high-severity
+# (or higher) vulnerability. Runs on fork pull requests too: the job needs no
+# secrets and only reads repository contents, so it is not gated by the CI
+# change classifier in ci.yml.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
