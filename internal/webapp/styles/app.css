@@ -2,6 +2,14 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "./fonts.css" layer(components);
+@import "./mouseion.css" layer(components);
+@import "./login.css" layer(components);
+@import "./my-books.css" layer(components);
+@import "./catalog-ops.css" layer(components);
+@import "./reading.css" layer(components);
+@import "./vocabulary.css" layer(components);
+
 @plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
   themes: false;
   include: button, input, alert;
@@ -31,14 +39,6 @@
 @source "../*.templ";
 @source "../components.go";
 @source "../static/my-books.js";
-
-@import "./fonts.css" layer(components);
-@import "./mouseion.css" layer(components);
-@import "./login.css" layer(components);
-@import "./my-books.css" layer(components);
-@import "./catalog-ops.css" layer(components);
-@import "./reading.css" layer(components);
-@import "./vocabulary.css" layer(components);
 
 /* daisyUI's input component uses a translucent text-derived border by default.
  * Give the shared public component class Mouseion's meaningful boundary token. */
