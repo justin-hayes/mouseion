@@ -548,9 +548,9 @@ func changes(proposal domain.LemmaReviewProposal) []Change {
 // sentinels. Any other error is an infrastructure failure and passes through.
 func mapStoreError(err error) error {
 	switch {
-	case errors.Is(err, persistence.ErrLemmaDecisionCurrentReading):
+	case errors.Is(err, domain.ErrLemmaDecisionCurrentReading):
 		return domain.ErrLemmaReviewCurrentReading
-	case errors.Is(err, persistence.ErrLemmaReviewPreviewStale), errors.Is(err, persistence.ErrNotFound):
+	case errors.Is(err, domain.ErrLemmaReviewPreviewStale), errors.Is(err, persistence.ErrNotFound):
 		return domain.ErrLemmaReviewStale
 	case errors.Is(err, persistence.ErrVocabularyBrowseCountsPending), errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable):
 		return domain.ErrLemmaReviewCountsRefreshing

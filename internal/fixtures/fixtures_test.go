@@ -191,7 +191,7 @@ func TestLemmaDecisionProposalIsRejectedForTheCurrentReadingBook(t *testing.T) {
 		Occurrences: occurrences[:1], NormalizationProfile: "german-post-1996", NormalizationVersion: "6",
 	}
 	err = store.PutLemmaDecisionProposal(t.Context(), proposal, "any-fingerprint")
-	require.ErrorIs(t, err, persistence.ErrLemmaDecisionCurrentReading, "the gate runs before the preview fingerprint")
+	require.ErrorIs(t, err, domain.ErrLemmaDecisionCurrentReading, "the gate runs before the preview fingerprint")
 	err = store.PutLemmaDecisions(t.Context(), proposal.Decisions())
 	require.ErrorIs(t, err, persistence.ErrNotFound, "the single-decision path keeps its not-found contract")
 	unchanged, err := store.ListLemmaReviewOccurrences(t.Context(), OwnerID, BookID, "Weg")

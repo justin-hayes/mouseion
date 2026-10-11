@@ -99,7 +99,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "unrelated-known", "NOUN")
 	require.NoError(t, err)
 	err = store.PutLemmaDecisionProposal(ctx, proposal, preview.Fingerprint)
-	require.ErrorIs(t, err, persistence.ErrLemmaReviewPreviewStale, "a Known change to an identity the proposal affects after preview is rejected inside the decision transaction")
+	require.ErrorIs(t, err, domain.ErrLemmaReviewPreviewStale, "a Known change to an identity the proposal affects after preview is rejected inside the decision transaction")
 	unchangedAfterStaleProposal, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
 	assert.Empty(t, unchangedAfterStaleProposal[0].CorrectedLemma, "a stale preview cannot persist its proposed identity")

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/storecontract"
@@ -58,7 +59,26 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 		vocabulary = append(vocabulary, domain.DeckPreparationVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS})
 	}
 	h.store.bookSnapshotVocabulary[bookID] = vocabulary
+	h.store.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] = contractReviewOccurrences(owner, bookID, seed.Occurrences)
 	return bookID
+}
+
+// contractReviewOccurrences lays the scenario's occurrences out in sentence order,
+// one sentence each, the way the PostgreSQL harness stores them.
+func contractReviewOccurrences(owner, bookID string, seeds []storecontract.OccurrenceSeed) []domain.LemmaReviewOccurrence {
+	occurrences := make([]domain.LemmaReviewOccurrence, 0, len(seeds))
+	start := int64(0)
+	for ordinal, seed := range seeds {
+		end := start + int64(utf8.RuneCountInString(seed.Surface))
+		occurrences = append(occurrences, domain.LemmaReviewOccurrence{
+			OwnerID: owner, BookID: bookID, CorpusID: bookID + "-corpus", AnalysisRunID: bookID + "-run",
+			SourceDocumentID: "contract-unit", StartOffset: start, EndOffset: end,
+			SentenceOrdinal: int64(ordinal), TokenOrdinal: 0, Surface: seed.Surface, RawLemma: seed.Lemma,
+			CanonicalLemma: seed.Lemma, UPOS: seed.UPOS, Dependency: "root", SentenceText: seed.Surface,
+		})
+		start = end + 1
+	}
+	return occurrences
 }
 
 func (h *contractHarness) SeedKnownVocabulary(_ *testing.T, owner string, identities []domain.SnapshotIdentity) {
@@ -116,6 +136,22 @@ func (h *contractHarness) ListKnownVocabulary(owner, language string) ([]domain.
 	return h.store.ListKnownVocabulary(context.Background(), owner, language)
 }
 
+func (h *contractHarness) ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
+	return h.store.ListLemmaReviewOccurrences(context.Background(), owner, bookID, surface)
+}
+
+func (h *contractHarness) SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error {
+	return h.store.SaveLemmaReviewFlags(context.Background(), flags)
+}
+
+func (h *contractHarness) ReadLemmaReviewProposal(proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error) {
+	return h.store.ReadLemmaReviewProposal(context.Background(), proposal)
+}
+
+func (h *contractHarness) PutLemmaDecisionProposal(proposal domain.LemmaReviewProposal, expectedFingerprint string) error {
+	return h.store.PutLemmaDecisionProposal(context.Background(), proposal, expectedFingerprint)
+}
+
 func (h *contractHarness) PrepareCurrentReadingDeck(owner, bookID, expectedSnapshotID string) (domain.DeckPreparation, error) {
 	handle, err := h.deck.PrepareCurrentReadingDeck(context.Background(), owner, bookID, expectedSnapshotID)
 	return handle.Preparation, err
@@ -126,5 +162,6 @@ func (h *contractHarness) RepreparePreparation(owner, id, expectedSnapshotID str
 	return handle.Preparation, err
 }
 
-func (h *contractHarness) Store() storecontract.Store  { return h }
-func (h *contractHarness) Seeds() storecontract.Seeder { return h }
+func (h *contractHarness) Store() storecontract.Store                  { return h }
+func (h *contractHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
+func (h *contractHarness) Seeds() storecontract.Seeder                 { return h }

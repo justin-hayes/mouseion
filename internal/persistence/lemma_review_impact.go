@@ -12,10 +12,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
 
-// ErrLemmaReviewPreviewStale reports that the learner's vocabulary state or the
-// surface form's occurrences changed after the proposal was previewed.
-var ErrLemmaReviewPreviewStale = errors.New("persistence: lemma review preview is stale")
-
 // ReadLemmaReviewProposal previews a proposal in one repeatable-read transaction.
 // For every identity the proposal moves, it reads the effective count in this
 // Book now and after the proposal, the count across the learner's other
