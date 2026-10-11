@@ -1,4 +1,3 @@
-PYTHON ?= python3
 UV ?= uv
 VENV := .venv
 VENV_BIN := $(VENV)/bin
@@ -34,11 +33,18 @@ GOLANGCI_LINT_VERSION := 2.14.0
 go-tmp: templ-if-installed
 	mkdir -p $(GOTMPDIR)
 
+# uv is pinned because its lock output is part of the reproducible install. CI and
+# the NLP image pin the same version (ADR 0089).
+UV_VERSION := 0.13.0
+
+# Installs the Python environment from nlp/uv.lock: binary-only, locked, and with
+# the NLP project itself never built (nlp/pyproject.toml sets package = false).
 setup:
-	$(UV) venv --clear --python 3.13 $(VENV)
-	$(UV) pip install --python $(VENV_BIN)/python -r nlp/requirements-dev.txt
-	$(UV) pip install --python $(VENV_BIN)/python torch --index-url https://download.pytorch.org/whl/cpu
-	$(UV) pip install --python $(VENV_BIN)/python -e nlp
+	@test "$$($(UV) --version 2>/dev/null | cut -d' ' -f2)" = "$(UV_VERSION)" || { \
+		printf 'uv $(UV_VERSION) is required; install it (for example, uv self update 0.13.0 or pip install uv==0.13.0).\n' >&2; \
+		exit 1; \
+	}
+	UV_PROJECT_ENVIRONMENT=$(CURDIR)/$(VENV) $(UV) sync --project nlp --python 3.13 --locked --no-build --group dev
 
 build: go-tmp
 	go build ./...
@@ -49,7 +55,7 @@ build: go-tmp
 python-test-preflight:
 	@$(VENV_BIN)/python -c 'import pytest' >/dev/null 2>&1 || { \
 		printf '%s\n' "Python test environment is missing pytest ($(VENV_BIN)/python)." \
-			"Run 'make setup' to create .venv with the pinned test requirements, then retry." >&2; \
+			"Run 'make setup' to create .venv from nlp/uv.lock, then retry." >&2; \
 		exit 1; \
 	}
 
@@ -176,10 +182,12 @@ dictionary-index:
 	test -w "$(dir $(DICTIONARY_OUTPUT))" && test -x "$(dir $(DICTIONARY_OUTPUT))" || (printf '%s\n' "dictionary output directory '$(dir $(DICTIONARY_OUTPUT))' is not writable." "If Docker created it as root, run: sudo chown \"$$(id -u):$$(id -g)\" '$(dir $(DICTIONARY_OUTPUT))'" >&2; exit 1)
 	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py $(DICTIONARY_SOURCE_ARGS) --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)" --dump-date "$(DICTIONARY_DUMP_DATE)" --extraction-date "$(DICTIONARY_EXTRACTION_DATE)" --wiktextract-commit "$(DICTIONARY_WIKTEXTRACT_COMMIT)"
 
-gen:
+# go-tmp runs first: make expands every recipe line before running any of them,
+# and the go tool plugin paths below need $(GOTMPDIR) to exist on a fresh checkout.
+gen: go-tmp
 	mkdir -p gen/go gen/python $(GOTMPDIR)
-	test -x $(VENV_BIN)/python || $(PYTHON) -m venv $(VENV)
-	$(VENV_BIN)/python -c 'import importlib.metadata; assert importlib.metadata.version("grpcio-tools") == "1.71.2"' || $(VENV_BIN)/python -m pip install --disable-pip-version-check grpcio-tools==1.71.2
+	test -x $(VENV_BIN)/python || $(MAKE) setup
+	$(VENV_BIN)/python -c 'import importlib.metadata; assert importlib.metadata.version("grpcio-tools") == "1.71.2"' || { printf '%s\n' "grpcio-tools 1.71.2 is missing from $(VENV); run 'make setup'." >&2; exit 1; }
 	protoc -I proto --plugin=protoc-gen-go=$(PROTOC_GEN_GO) --go_out=gen/go --go_opt=paths=source_relative --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative --python_out=gen/python $(PROTO_FILE)
 	$(VENV_BIN)/python -m grpc_tools.protoc -I proto --grpc_python_out=gen/python $(PROTO_FILE)
 	touch gen/python/mouseion/__init__.py gen/python/mouseion/v1/__init__.py
@@ -210,4 +218,4 @@ dev: go-tmp
 	go run ./cmd/server
 
 clean:
-	rm -rf bin .pytest_cache .ruff_cache nlp/src/mouseion_nlp.egg-info
+	rm -rf bin .pytest_cache .ruff_cache

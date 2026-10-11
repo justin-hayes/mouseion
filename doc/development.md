@@ -14,8 +14,10 @@ How to build, test, and change Mouseion. For running an installation, see the
 - Docker, for Testcontainers-based integration tests
 - Node.js 20, only for the Playwright browser suite
 
-Go dependencies are pinned in `go.mod`/`go.sum`; Python development
-dependencies are pinned in `nlp/requirements-dev.txt`.
+Go dependencies are pinned in `go.mod`/`go.sum`. Python dependencies are
+declared in `nlp/pyproject.toml` and locked, with hashes, in `nlp/uv.lock`
+([ADR 0089](adr/0089-nlp-python-dependency-locking.md)). `make setup` needs uv
+`0.13.0` on PATH; CI and the NLP image pin the same version.
 
 ```sh
 GO_BIN_DIR="$(go env GOBIN 2>/dev/null)"
@@ -31,8 +33,10 @@ make lint
 make check-frontend-css
 ```
 
-`make setup` creates `.venv` with the pinned development requirements and
-CPU-only PyTorch. Python commands need `PYTHONPATH=nlp/src:gen/python`.
+`make setup` creates `.venv` from `nlp/uv.lock` with `uv sync --locked
+--no-build`: binary-only wheels, CPU-only PyTorch from the lock's explicit
+index, and no build of the NLP project. Python commands need
+`PYTHONPATH=nlp/src:gen/python`.
 
 Formatting is enforced: `make lint` fails on unformatted Go or Python. Fix it
 with `golangci-lint fmt ./...` and `.venv/bin/ruff format nlp/src nlp/tests`.
@@ -108,7 +112,7 @@ build tag is not analysed.
 
 `make coverage` writes the NLP service's Python coverage as a Cobertura XML
 report to `.tmp/coverage/python.xml`, measured over `nlp/src` with pytest-cov
-(pinned in `nlp/requirements-dev.txt`). Its file paths are relative to the
+(pinned in the `dev` group of `nlp/pyproject.toml`). Its file paths are relative to the
 repository root, so SonarQube Cloud can match them to sources. It then runs the
 Go unit tests and the Go integration tests, each with a coverage profile, and
 writes the filtered profiles to `.tmp/coverage/go-unit.out` and
@@ -290,7 +294,7 @@ stylesheet check.
 | Committed generated Python (`gen/python/**`) | Python and regeneration | skipped | skipped |
 | Migrations (`migrations/**`) | Go and regeneration | run | run |
 | Go dependencies (`go.mod`, `go.sum`) | Go and regeneration | run | run |
-| Python dependencies (`nlp/requirements*.txt`, `nlp/pyproject.toml`) | Python and regeneration | skipped | skipped |
+| Python dependencies (`nlp/pyproject.toml`, `nlp/uv.lock`) | Python and regeneration | skipped | skipped |
 | Build tooling, workflow, unmatched paths, manual dispatch | every check | run | run |
 
 Browser smoke is a single required check. It passes when its four shards
@@ -351,7 +355,8 @@ inventing their own.
 - **What it updates:** GitHub Actions (`github-actions`, `/`), Go modules
   (`gomod`, `/`), the root `Dockerfile` image (`docker`, `/`), the root
   `compose.yaml` images (`docker-compose`, `/`), Python NLP dependencies
-  (`pip`, `/nlp`), and the browser acceptance npm packages (`npm`, `/e2e`).
+  (`uv`, `/nlp`, which updates `nlp/uv.lock` together with `nlp/pyproject.toml`),
+  and the browser acceptance npm packages (`npm`, `/e2e`).
 - **Schedule:** weekly, on Monday at 06:00 Berlin time.
 - **Grouping:** minor and patch updates share one pull request per ecosystem.
   Major updates are not grouped, so each breaking change gets its own review.
@@ -399,7 +404,7 @@ tracking issue. Each rule carries its reason as a comment in `dependabot.yml`.
 | `github.com/a-h/templ` | `gomod` | The module must match the templ CLI pin (`TEMPL_VERSION`), which generates the committed views. Newer templ requires Go 1.25 or later. | Manual bump, below. | #1742 |
 | `google.golang.org/protobuf` | `gomod` | Must equal the `protoc-gen-go` tool version in `go.mod`, so the runtime and the generator that verify `gen/` move together. | Manual bump, below. | #1742 |
 | `golang` (tags `>= 1.28`) | `docker` | The Go toolchain is set by the `go` directive in `go.mod`, which CI reads. An image ahead of it would drift from the build. | Manual Go bump, below. | #1742 |
-| `grpcio`, `grpcio-tools`, `protobuf` | `pip` | `grpcio-tools` generates the committed Python protobuf code that CI verifies. grpcio is held at 1.71.2 for the Python 3.13 pin; Python 3.14 needs a grpcio upgrade first. | Manual Python protobuf bump, below. | #1743 |
+| `grpcio`, `grpcio-tools`, `protobuf` | `uv` | `grpcio-tools` generates the committed Python protobuf code that CI verifies. grpcio is held at 1.71.2 for the Python 3.13 pin; Python 3.14 needs a grpcio upgrade first. | Manual Python protobuf bump, below. | #1743 |
 | `@playwright/test` | `npm` (`/e2e`) | Must match the digest-pinned Playwright image in `ci.yml`, which Dependabot cannot update. CI fails when they differ. | Manual Playwright bump: [`e2e/README.md`](../e2e/README.md), "Dependency and update policy". | #1743 |
 
 Excluding a dependency also stops its security pull requests, so watch the
@@ -448,13 +453,22 @@ one by hand, then regenerate and verify as listed.
   `golangci/golangci-lint-action` step of `ci.yml`): change both, then run
   `make lint`.
 - **grpcio, grpcio-tools, protobuf** (Python; `grpcio==` and `protobuf==` in
-  `nlp/pyproject.toml`, all three pins in `nlp/requirements-dev.txt`, and the
+  `nlp/pyproject.toml`, `grpcio-tools==` in its `dev` group, and the
   `grpcio-tools==` check in the `Makefile` `gen` target):
   1. Change all of those to the target versions together, and confirm the target
      has wheels for the Python version the project pins (3.13 today).
-  2. `make setup`, then `make gen`, and review `git diff gen/` against the
+  2. `uv lock --project nlp --check` must pass, so run `uv lock --project nlp`
+     and commit `nlp/uv.lock` with the pins.
+  3. `make setup`, then `make gen`, and review `git diff gen/` against the
      change. `gen/python` is committed and CI checks it.
-  3. `make build test lint`.
+  4. `make build test lint`.
+- **torch** (`torch==` in `nlp/pyproject.toml`, which resolves from the PyTorch
+  CPU index): change the pin, then `uv lock --project nlp`, and commit the lock
+  with it. The Sonar workflow installs from the same lock, so it follows.
+- **Other Python packages** held by the Dependabot ignore rules: edit the pin in
+  `nlp/pyproject.toml`, then `uv lock --project nlp --upgrade-package <name>` and
+  `uv lock --project nlp --check`. Dependabot's `uv` ecosystem proposes routine
+  updates against `nlp/uv.lock` and `nlp/pyproject.toml` together.
 - **@playwright/test** (`e2e/package.json`, `e2e/package-lock.json`, and the
   `PLAYWRIGHT_IMAGE` tag and digest in `ci.yml`): do not bump it alone. Follow
   [`e2e/README.md`](../e2e/README.md), "Dependency and update policy", which

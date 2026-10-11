@@ -100,46 +100,37 @@ jobs:
       # Python
       # ------------------------------------------------------------------
 
+      # uv is pinned to the version the Makefile and the NLP image use (ADR 0089).
       - name: Set up uv
         if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: '0.13.0'
           enable-cache: true
-          cache-dependency-glob: nlp/requirements-dev.txt
+          cache-dependency-glob: nlp/uv.lock
 
       - name: Set up Python 3.13
         if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
         run: uv python install 3.13
 
-      - name: Create Python environment
+      # Fails when nlp/pyproject.toml and nlp/uv.lock disagree; run `uv lock` to fix.
+      - name: Check Python lock
         if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
-        run: uv venv --python 3.13 .venv
+        run: uv lock --project nlp --check
 
-      # Generation runs grpcio-tools from these requirements, so generated changes need them too.
-      - name: Install Python dev dependencies
+      # Installs only from the lock: binary-only, CPU-only torch from its explicit
+      # index, and the NLP project is never built. Generation runs grpcio-tools
+      # from the dev group, so generated changes need it too. The environment path
+      # must be absolute: uv resolves a relative UV_PROJECT_ENVIRONMENT from nlp/.
+      - name: Install Python dependencies
         if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
         run: |
-          uv pip install --python .venv/bin/python \
-            --disable-pip-version-check \
-            -r nlp/requirements-dev.txt
-
-      # Install CPU-only Torch explicitly before installing Mouseion.
-      # This prevents Stanza from pulling in the much larger CUDA-enabled
-      # Linux dependency stack on CI runners.
-      - name: Install CPU-only PyTorch
-        if: needs.changes.outputs.python == 'true'
-        run: |
-          uv pip install --python .venv/bin/python \
-            --disable-pip-version-check \
-            torch \
-            --index-url https://download.pytorch.org/whl/cpu
-
-      - name: Install Mouseion NLP
-        if: needs.changes.outputs.python == 'true'
-        run: |
-          uv pip install --python .venv/bin/python \
-            --disable-pip-version-check \
-            -e nlp
+          UV_PROJECT_ENVIRONMENT="$GITHUB_WORKSPACE/.venv" uv sync \
+            --project nlp \
+            --python 3.13 \
+            --locked \
+            --no-build \
+            --group dev
 
       - name: Python build
         if: needs.changes.outputs.python == 'true'

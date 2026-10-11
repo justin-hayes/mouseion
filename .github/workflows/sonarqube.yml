@@ -48,37 +48,28 @@ jobs:
 
       # make coverage runs the NLP tests, so it needs the same Python environment
       # as ci.yml. Its preflight fails fast when this environment is missing.
+      # uv is pinned to the version ci.yml and the Makefile use (ADR 0089).
       - name: Set up uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: '0.13.0'
           enable-cache: true
-          cache-dependency-glob: nlp/requirements-dev.txt
+          cache-dependency-glob: nlp/uv.lock
 
       - name: Set up Python 3.13
         run: uv python install 3.13
 
-      - name: Create Python environment
-        run: uv venv --python 3.13 .venv
-
-      # Installs are binary-only and pinned. The NLP package is not installed
-      # from source: the tests import it from PYTHONPATH (nlp/src, set by
-      # make coverage). Its runtime dependencies are pinned in the dev requirements.
-      - name: Install Python dev dependencies
+      # Installs only from nlp/uv.lock, the same locked, binary-only environment
+      # as ci.yml. The NLP package is never installed: the tests import it from
+      # PYTHONPATH (nlp/src, set by make coverage).
+      - name: Install Python dependencies
         run: |
-          uv pip install --python .venv/bin/python \
-            --disable-pip-version-check \
-            --only-binary :all: \
-            -r nlp/requirements-dev.txt
-
-      # Install CPU-only Torch explicitly, as in ci.yml. Pinned to the version in
-      # the CPU index that the NLP service resolves.
-      - name: Install CPU-only PyTorch
-        run: |
-          uv pip install --python .venv/bin/python \
-            --disable-pip-version-check \
-            --only-binary :all: \
-            torch==2.14.1 \
-            --index-url https://download.pytorch.org/whl/cpu
+          UV_PROJECT_ENVIRONMENT="$GITHUB_WORKSPACE/.venv" uv sync \
+            --project nlp \
+            --python 3.13 \
+            --locked \
+            --no-build \
+            --group dev
 
       - name: Go and Python coverage
         run: make coverage

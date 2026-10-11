@@ -17,7 +17,7 @@ Mouseion is a self-hosted reading environment for learning foreign languages. Go
 Go 1.27, Python 3.13 (pin `3.13`; 3.14 needs a grpcio upgrade, since the pinned grpcio 1.71.2 has no 3.14 wheels), protoc 29.x, templ pinned to `v0.3.1070` (newer templ requires Go >= 1.25).
 
 ```sh
-make setup            # .venv + nlp/requirements-dev.txt + CPU-only torch
+make setup            # .venv from nlp/uv.lock (uv 0.13.0, locked, binary-only, CPU torch)
 make gen              # protobuf -> gen/go, gen/python (source of truth: proto/)
 make templ            # templ generate -> internal/webapp/*_templ.go (committed)
 make build            # go build ./... + python compileall
@@ -30,13 +30,8 @@ make dev              # go run ./cmd/server (needs Postgres + NLP running)
 ```
 
 Non-obvious setup:
-- Create the Python environment with `uv venv --clear --python 3.13 .venv` before
-  running Python tests. Then install the pinned requirements with
-  `uv pip install --python .venv/bin/python -r nlp/requirements-dev.txt`,
-  `uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu`,
-  and `uv pip install --python .venv/bin/python -e nlp`. This avoids relying on
-  the host `python3` version or Debian's `ensurepip` package.
-- `make gen` needs `protoc` on PATH; `protoc-gen-go`, `protoc-gen-go-grpc`, and templ run via `go tool` from the `tool` directives in `go.mod` (no install step), and `grpcio-tools==1.71.2` is installed into `.venv` by `make setup`. Run `make gen` in the venv-configured shell; CI verifies it via `git diff --exit-code`.
+- Python dependencies are declared in `nlp/pyproject.toml` and locked in `nlp/uv.lock`; `make setup` needs uv 0.13.0 on PATH (the version the Makefile, CI, and the NLP image pin) and runs `uv sync --project nlp --locked --no-build --group dev` into `.venv`. It installs only locked, binary-only wheels, CPU-only torch from the lock's explicit index, and never builds the NLP project. Do not run `pip` or `uv pip` against the environment. After changing a dependency, run `uv lock --project nlp`, then `uv lock --project nlp --check`; CI fails when the lock is stale.
+- `make gen` needs `protoc` on PATH; `protoc-gen-go`, `protoc-gen-go-grpc`, and templ run via `go tool` from the `tool` directives in `go.mod` (no install step), and `grpcio-tools==1.71.2` comes from the dev group in `make setup`. Run `make gen` in the venv-configured shell; CI verifies it via `git diff --exit-code`.
 - Python commands require `PYTHONPATH=nlp/src:gen/python` and the `.venv` from `make setup`.
 - Integration tests use Testcontainers (needs a working Docker daemon) or fall back to `MOUSEION_TEST_DATABASE_URL` (default `postgres://postgres@localhost:5432/mouseion_test`). Every supported integration command uses Go's `-count=1` flag, so repeated runs execute the packages again and never report `(cached)`; ordinary unit-test commands retain Go's normal result caching.
 - Integration tests use one named, reusable Testcontainers PostgreSQL instance. `testutil.Postgres` migrates a template database once per migration set and gives every test its own clone, so tests are isolated and packages run in parallel; a full `make test-integration` takes well under a minute once compiled. An external `MOUSEION_TEST_DATABASE_URL` role therefore needs `CREATEDB`. Remove the reusable container with `docker rm -f mouseion-test-postgres` when it is no longer needed (this also discards stale template databases).
@@ -65,7 +60,7 @@ See ADR 0038 and ADR 0070. Rules an agent will otherwise get wrong:
 
 ## Human-review boundary
 
-`.github/CODEOWNERS` requires human review for: workflows/CI, `migrations/`, `doc/adr/`, `doc/product.md`, `internal/auth/`, `internal/webauth/`, `internal/security/`, `go.mod`/`go.sum`, `nlp/pyproject.toml`, `nlp/requirements*.txt`, Dockerfiles, compose files, `.env*`, and `AGENTS.md`. PRs touching these must not be auto-merged without that review. Do not modify secrets, production, rulesets, or branch protection.
+`.github/CODEOWNERS` requires human review for: workflows/CI, `migrations/`, `doc/adr/`, `doc/product.md`, `internal/auth/`, `internal/webauth/`, `internal/security/`, `go.mod`/`go.sum`, `nlp/pyproject.toml`, `nlp/uv.lock`, Dockerfiles, compose files, `.env*`, and `AGENTS.md`. PRs touching these must not be auto-merged without that review. Do not modify secrets, production, rulesets, or branch protection.
 
 ## Repo conventions
 

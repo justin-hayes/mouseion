@@ -102,8 +102,10 @@ expect "generated Go output runs generated, Go, and browser checks" "browser bui
   gen/go/mouseion/v1/normalized_corpus.pb.go
 expect "generated Python output runs generated and python checks" "build generated python" \
   gen/python/mouseion/v1/normalized_corpus_pb2.py
-expect "Python dependency manifest runs generated and python checks" "build generated python" \
-  nlp/requirements-dev.txt
+expect "Python dependency lock runs generated and python checks" "build generated python" \
+  nlp/uv.lock
+expect "Python dependency declaration runs generated and python checks" "build generated python" \
+  nlp/pyproject.toml
 expect "build tooling runs every check" "$ALL" \
   Makefile
 expect "tools change runs every check" "$ALL" \
