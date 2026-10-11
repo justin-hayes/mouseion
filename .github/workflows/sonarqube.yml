@@ -91,20 +91,26 @@ jobs:
 
       # Lint reports are inputs to SonarQube Cloud only. Enforcement stays with
       # the lint jobs in ci.yml, so findings must not fail this workflow. The
-      # golangci-lint version matches the one pinned in ci.yml.
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+      # golangci-lint action installs the same pinned version as ci.yml, with a
+      # checksum-verified binary.
+      - name: Create lint report directory
+        run: mkdir -p .tmp/lint
+
+      - name: golangci-lint report for SonarQube Cloud
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        continue-on-error: true
+        with:
+          version: v2.14.0
+          args: --output.checkstyle.path=.tmp/lint/golangci-lint-report.xml
 
       # The reports are written in the formats Sonar imports: golangci-lint
       # checkstyle XML and Ruff JSON. A missing or empty report fails the step,
       # so a broken lint run stays visible.
-      - name: Lint reports for SonarQube Cloud
+      - name: Ruff report for SonarQube Cloud
         run: |
-          mkdir -p .tmp/lint
-          golangci-lint run --output.checkstyle.path=.tmp/lint/golangci-lint-report.xml ./... || true
-          test -s .tmp/lint/golangci-lint-report.xml
           .venv/bin/ruff check --output-format json nlp/src nlp/tests > .tmp/lint/ruff-report.json || true
           test -s .tmp/lint/ruff-report.json
+          test -s .tmp/lint/golangci-lint-report.xml
 
       - name: SonarQube Cloud scan
         if: env.HAS_SONAR_TOKEN == 'true'
