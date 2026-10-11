@@ -3,7 +3,11 @@ UV ?= uv
 VENV := .venv
 VENV_BIN := $(VENV)/bin
 PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
-PROTOC_GEN_GO_GRPC := $(shell go env GOPATH)/bin/protoc-gen-go-grpc
+# protoc-gen-go and protoc-gen-go-grpc are `tool` directives in go.mod, so their
+# versions and checksums come from go.sum. `go tool -n` builds them (cached) and
+# prints the binary path that protoc needs for --plugin.
+PROTOC_GEN_GO = $(shell go tool -n protoc-gen-go)
+PROTOC_GEN_GO_GRPC = $(shell go tool -n protoc-gen-go-grpc)
 # sqlc is installed separately (the CI setup action provides the release
 # binary); callers may override this with a locally installed executable.
 SQLC ?= sqlc
@@ -20,7 +24,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage lint lint-go gen templ templ-install templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage lint lint-go gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
@@ -121,28 +125,27 @@ lint: lint-go
 	$(VENV_BIN)/ruff check nlp/src nlp/tests
 	$(VENV_BIN)/ruff format --check nlp/src nlp/tests
 
-# templ is pinned: newer releases require Go >= 1.25.
-TEMPL ?= templ
+# templ is pinned in go.mod (tool directive) and must match TEMPL_VERSION: newer
+# releases require Go >= 1.25.
+TEMPL ?= go tool templ
 TEMPL_VERSION := v0.3.1070
 
-templ-install:
-	mkdir -p $(GOTMPDIR)
-	go install github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION)
-
 templ:
+	mkdir -p $(GOTMPDIR)
 	@test "$$($(TEMPL) version 2>/dev/null)" = "$(TEMPL_VERSION)" || { \
-		printf 'templ $(TEMPL_VERSION) is required; run make templ-install and put $$(go env GOPATH)/bin on PATH.\n' >&2; \
+		printf 'templ $(TEMPL_VERSION) is required; check the templ tool directive in go.mod.\n' >&2; \
 		exit 1; \
 	}
 	$(TEMPL) generate
 
-# CodeQL autobuild and fresh checkouts have no templ; CI's generated-code check
-# runs the strict `make templ` and fails on stale output.
+# Fresh checkouts without a working Go module cache fall back to the committed
+# views; CI's generated-code check runs the strict `make templ` and fails on
+# stale output.
 templ-if-installed:
 	@if test "$$($(TEMPL) version 2>/dev/null)" = "$(TEMPL_VERSION)"; then \
 		$(TEMPL) generate; \
 	else \
-		printf 'templ $(TEMPL_VERSION) not found; using the committed internal/webapp/*_templ.go (make templ-install to regenerate).\n' >&2; \
+		printf 'templ $(TEMPL_VERSION) not found; using the committed internal/webapp/*_templ.go (run make templ to regenerate).\n' >&2; \
 	fi
 
 # Build committed frontend stylesheets with checksummed standalone tools; Go
@@ -175,10 +178,9 @@ dictionary-index:
 
 gen:
 	mkdir -p gen/go gen/python $(GOTMPDIR)
-	test "$$($(PROTOC_GEN_GO_GRPC) --version 2>/dev/null)" = "protoc-gen-go-grpc 1.5.1" || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 	test -x $(VENV_BIN)/python || $(PYTHON) -m venv $(VENV)
 	$(VENV_BIN)/python -c 'import importlib.metadata; assert importlib.metadata.version("grpcio-tools") == "1.71.2"' || $(VENV_BIN)/python -m pip install --disable-pip-version-check grpcio-tools==1.71.2
-	protoc -I proto --go_out=gen/go --go_opt=paths=source_relative --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative --python_out=gen/python $(PROTO_FILE)
+	protoc -I proto --plugin=protoc-gen-go=$(PROTOC_GEN_GO) --go_out=gen/go --go_opt=paths=source_relative --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative --python_out=gen/python $(PROTO_FILE)
 	$(VENV_BIN)/python -m grpc_tools.protoc -I proto --grpc_python_out=gen/python $(PROTO_FILE)
 	touch gen/python/mouseion/__init__.py gen/python/mouseion/v1/__init__.py
 

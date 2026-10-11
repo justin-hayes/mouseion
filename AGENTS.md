@@ -19,7 +19,6 @@ Go 1.27, Python 3.13 (pin `3.13`; 3.14 needs a grpcio upgrade, since the pinned 
 ```sh
 make setup            # .venv + nlp/requirements-dev.txt + CPU-only torch
 make gen              # protobuf -> gen/go, gen/python (source of truth: proto/)
-make templ-install    # install pinned templ (go install)
 make templ            # templ generate -> internal/webapp/*_templ.go (committed)
 make build            # go build ./... + python compileall
 make test             # go test ./... + pytest (PYTHONPATH=nlp/src:gen/python)
@@ -37,7 +36,7 @@ Non-obvious setup:
   `uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu`,
   and `uv pip install --python .venv/bin/python -e nlp`. This avoids relying on
   the host `python3` version or Debian's `ensurepip` package.
-- `make gen` also needs `protoc` and `protoc-gen-go` on PATH; the Makefile only auto-installs `protoc-gen-go-grpc` v1.5.1 and `grpcio-tools==1.71.2`. Run `make gen` in the venv-configured shell; CI verifies it via `git diff --exit-code`.
+- `make gen` needs `protoc` on PATH; `protoc-gen-go`, `protoc-gen-go-grpc`, and templ run via `go tool` from the `tool` directives in `go.mod` (no install step), and `grpcio-tools==1.71.2` is installed into `.venv` by `make setup`. Run `make gen` in the venv-configured shell; CI verifies it via `git diff --exit-code`.
 - Python commands require `PYTHONPATH=nlp/src:gen/python` and the `.venv` from `make setup`.
 - Integration tests use Testcontainers (needs a working Docker daemon) or fall back to `MOUSEION_TEST_DATABASE_URL` (default `postgres://postgres@localhost:5432/mouseion_test`). Every supported integration command uses Go's `-count=1` flag, so repeated runs execute the packages again and never report `(cached)`; ordinary unit-test commands retain Go's normal result caching.
 - Integration tests use one named, reusable Testcontainers PostgreSQL instance. `testutil.Postgres` migrates a template database once per migration set and gives every test its own clone, so tests are isolated and packages run in parallel; a full `make test-integration` takes well under a minute once compiled. An external `MOUSEION_TEST_DATABASE_URL` role therefore needs `CREATEDB`. Remove the reusable container with `docker rm -f mouseion-test-postgres` when it is no longer needed (this also discards stale template databases).
@@ -50,7 +49,7 @@ is optional fast feedback, not a replacement for the final full-tree run.
 
 ## Generated artifacts
 
-Regenerate rather than hand-edit. `internal/webapp/*_templ.go` (templ), `gen/{go,python}` (protobuf), and `gen/sqlc` (sqlc, pinned to v1.31.1 via `make sqlc`) are committed and CI asserts they're current. After regenerating, review the diff to confirm it matches the source change. Migrations are embedded in the server binary via `migrations/embed.go`. Run `make templ` after any `.templ` change and commit both files; Go-compiling `make` targets also regenerate when the pinned templ is installed. Keep templates split by feature (`internal/webapp/*.templ`) instead of growing one file.
+Regenerate rather than hand-edit. `internal/webapp/*_templ.go` (templ), `gen/{go,python}` (protobuf), and `gen/sqlc` (sqlc, pinned to v1.31.1 via `make sqlc`) are committed and CI asserts they're current. After regenerating, review the diff to confirm it matches the source change. Migrations are embedded in the server binary via `migrations/embed.go`. Run `make templ` after any `.templ` change and commit both files; Go-compiling `make` targets also regenerate when the pinned templ resolves through `go tool`. Keep templates split by feature (`internal/webapp/*.templ`) instead of growing one file.
 
 Never hand-resolve a merge or rebase conflict in a generated file. Generated templ output records source line and column positions, so it often conflicts when the `.templ` source merges cleanly. Resolve the source (`.templ`, `proto/`, `sqlc/queries/`, migrations), then regenerate (`make templ`, `make gen`, `make sqlc`) and `git add` the result; regeneration overwrites the conflicted file, markers included.
 

@@ -56,7 +56,7 @@ updates:
       # later. The CLI is not in a file Dependabot reads, so it moves by hand with
       # this module. Lift by bumping them together (doc/development.md, Dependency updates).
       - dependency-name: "github.com/a-h/templ"
-      # google.golang.org/protobuf: kept equal to the protoc-gen-go version that CI
+      # google.golang.org/protobuf: kept equal to the protoc-gen-go tool version in go.mod
       # installs, so the runtime and the generator that verify gen/go and gen/python
       # move together. Lift by bumping them together (doc/development.md, Dependency updates).
       - dependency-name: "google.golang.org/protobuf"
