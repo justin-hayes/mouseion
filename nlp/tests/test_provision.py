@@ -1,9 +1,14 @@
 import json
 from unittest.mock import patch
 
-from huggingface_hub.errors import LocalEntryNotFoundError
 import pytest
+from huggingface_hub.errors import LocalEntryNotFoundError
 
+from mouseion_nlp.model_config import (
+    GREEK_BERT_MODEL,
+    LanguageModelConfig,
+    model_config_for_language,
+)
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
     ensure_external_dependency,
@@ -12,9 +17,8 @@ from mouseion_nlp.provision import (
     read_marker,
     wipe_resources,
 )
-from mouseion_nlp.model_config import GREEK_BERT_MODEL, LanguageModelConfig, model_config_for_language
 
-STANZA_VERSION = "1.14.0"
+STANZA_VERSION = "1.15.0"
 
 
 class RecordingDownload:
@@ -94,7 +98,7 @@ def test_second_run_against_the_same_directory_is_a_no_op(tmp_path) -> None:
 
 def test_changed_stanza_version_wipes_and_provisions_from_scratch(tmp_path) -> None:
     provision(
-        tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload()
+        tmp_path, ["de"], stanza_version="1.14.0", download=RecordingDownload()
     )
     sentinel = tmp_path / "de" / "tokenize" / "stale.pt"
     sentinel.parent.mkdir(parents=True)
@@ -248,7 +252,7 @@ def test_missing_marker_wipes_a_partially_baked_volume(tmp_path) -> None:
 
 
 def test_failed_download_aborts_without_writing_the_marker(tmp_path) -> None:
-    def failing_download(language: str, **kwargs) -> None:  # noqa: ARG001
+    def failing_download(language: str, **kwargs) -> None:
         raise RuntimeError("model source unreachable")
 
     with pytest.raises(RuntimeError, match="model source unreachable"):

@@ -21,13 +21,13 @@ Run it as ``python -m mouseion_nlp.provision``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import shutil
 import sys
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from pathlib import Path
 
 import stanza
 from huggingface_hub import snapshot_download
@@ -36,7 +36,6 @@ from stanza.resources.common import DEFAULT_MODEL_DIR
 
 from .model_config import LanguageModelConfig, model_config_for_language
 from .server import configured_languages
-
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
 DEFAULT_HF_HOME = Path("/opt/huggingface")

@@ -37,6 +37,6 @@
     }
   ],
   "source_documents":[{"id":"italian-book","source_identifier":"fixture:italian","title":"Italian fixture"}],
-  "analysis":{"run_id":"italian-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.14.0"},
+  "analysis":{"run_id":"italian-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.15.0"},
   "normalization_profile":{"name":"unicode-casefold","version":"1.2.0"}
 }

@@ -36,6 +36,6 @@
     }
   ],
   "source_documents":[{"id":"greek-book","source_identifier":"fixture:greek","title":"Greek fixture"}],
-  "analysis":{"run_id":"greek-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.14.0"},
+  "analysis":{"run_id":"greek-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.15.0"},
   "normalization_profile":{"name":"modern-greek","version":"1"}
 }

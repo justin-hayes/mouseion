@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-
 DEFAULT_PROCESSORS = "tokenize,pos,lemma,depparse"
 GREEK_BERT_MODEL = "nlpaueb/bert-base-greek-uncased-v1"
 Package = str | Mapping[str, str]
@@ -84,7 +83,7 @@ _LANGUAGE_MODEL_CONFIGS = {
             "depparse": "gdt_greek-bert",
         },
         external_model_dependencies=(GREEK_BERT_MODEL,),
-        model_version="stanza-1.14.0-gdt-accurate",
+        model_version="stanza-1.15.0-gdt-accurate",
     ),
     "it": LanguageModelConfig(language="it"),
 }

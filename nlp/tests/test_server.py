@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import grpc
 from mouseion.v1 import normalized_corpus_pb2, normalized_corpus_pb2_grpc
+
 from mouseion_nlp.server import (
     AnalyzerServicer,
     configured_languages,

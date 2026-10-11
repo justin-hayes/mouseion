@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from functools import lru_cache
 import json
 import logging
 import os
-from pathlib import Path
-from typing import Any, Callable
 import unicodedata
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from functools import cache
+from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import stanza
@@ -115,7 +116,7 @@ GERMAN_SEPARABLE_PREFIXES = frozenset(
 )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _stanza_pipeline(language: str) -> Any:
     config = model_config_for_language(language)
     kwargs = {
@@ -207,7 +208,7 @@ class Producer:
         offsets. Sentence offsets use their first and last token.
         """
         source = document or SourceDocument()
-        analyzed = analyzed_at or datetime.now(timezone.utc)
+        analyzed = analyzed_at or datetime.now(UTC)
         stanza_document = self._pipeline_factory(language)(text)
         sentences = [
             self._map_sentence(sentence, source, language)
@@ -226,7 +227,7 @@ class Producer:
             ],
             analysis=normalized_corpus_pb2.AnalysisProvenance(
                 run_id=run_id or str(uuid4()),
-                analyzed_at=analyzed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                analyzed_at=analyzed.astimezone(UTC).isoformat().replace("+00:00", "Z"),
                 analyzer_name="stanza",
                 analyzer_version=stanza.__version__,
             ),
