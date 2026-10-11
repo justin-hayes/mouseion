@@ -50,6 +50,60 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # github.com/a-h/templ: the module must match the templ CLI that `make templ`
+      # and the Dockerfile run, and newer templ requires Go 1.25 or later. The CLI
+      # is not in a file Dependabot reads, so both pins move by hand with this
+      # module. Lift by bumping them together (doc/development.md, Dependency updates).
+      - dependency-name: "github.com/a-h/templ"
+      # google.golang.org/protobuf: kept equal to the protoc-gen-go version that CI
+      # installs, so the runtime and the generator that verify gen/go and gen/python
+      # move together. Lift by bumping them together (doc/development.md, Dependency updates).
+      - dependency-name: "google.golang.org/protobuf"
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build(deps)
+    groups:
+      docker-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # golang: the Go toolchain is set by the go directive in go.mod, which CI reads
+      # through go-version-file. Dependabot cannot ignore updates that raise the go
+      # directive, so this rule keeps the Dockerfile image from moving past the 1.27
+      # line on its own. Raising Go is a manual change (doc/development.md, Dependency updates).
+      - dependency-name: "golang"
+        versions:
+          - ">= 1.28"
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build(deps)
+    groups:
+      docker-compose-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: pip
     directory: /nlp

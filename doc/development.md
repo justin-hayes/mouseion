@@ -279,7 +279,9 @@ follows the same conventions, so later ecosystems copy the pattern rather than
 inventing their own.
 
 - **What it updates:** GitHub Actions (`github-actions`, `/`), Go modules
-  (`gomod`, `/`), and Python NLP dependencies (`pip`, `/nlp`).
+  (`gomod`, `/`), the root `Dockerfile` image (`docker`, `/`), the root
+  `compose.yaml` images (`docker-compose`, `/`), and Python NLP dependencies
+  (`pip`, `/nlp`).
 - **Schedule:** weekly, on Monday at 06:00 Berlin time.
 - **Grouping:** minor and patch updates share one pull request per ecosystem.
   Major updates are not grouped, so each breaking change gets its own review.
@@ -320,11 +322,58 @@ Two consequences follow:
 ### Exclusions
 
 Each exclusion needs an `ignore` rule in `dependabot.yml`, a reason, and a
-tracking issue. The list is empty until the follow-up tickets add entries.
+tracking issue. Each rule carries its reason as a comment in `dependabot.yml`.
 
-| Dependency | Ecosystem | Reason | Tracking issue |
-| --- | --- | --- | --- |
-| _None yet_ | | | |
+| Dependency | Ecosystem | Reason | Lifted by | Tracking issue |
+| --- | --- | --- | --- | --- |
+| `github.com/a-h/templ` | `gomod` | The module must match the templ CLI pin (`TEMPL_VERSION`, Dockerfile). Newer templ requires Go 1.25 or later. | Manual bump, below. | #1742 |
+| `google.golang.org/protobuf` | `gomod` | Must equal the `protoc-gen-go` version CI installs, so the runtime and the generator that verify `gen/` move together. | Manual bump, below. | #1742 |
+| `golang` (tags `>= 1.28`) | `docker` | The Go toolchain is set by the `go` directive in `go.mod`, which CI reads. An image ahead of it would drift from the build. | Manual Go bump, below. | #1742 |
+
+Excluding a dependency also stops its security pull requests, so watch the
+Dependabot alerts for each excluded dependency and bump it by hand when one
+appears.
+
+#### Go directive raises
+
+Dependabot cannot express "updates that raise the `go` directive" as an ignore
+rule. A `gomod` pull request whose diff changes the `go` line in `go.mod` is
+therefore closed without merging, unless the maintainer is doing the Go bump
+below. The `golang` ignore rule covers the Docker image side only.
+
+### Manual bumps
+
+These pins are not in files Dependabot reads, or are excluded above. Bump each
+one by hand, then regenerate and verify as listed.
+
+- **templ** (`github.com/a-h/templ`, `TEMPL_VERSION` in the `Makefile`, the
+  `templ@` line in the `Dockerfile`):
+  1. Check the release's minimum Go version against the `go` directive.
+  2. `go get github.com/a-h/templ@vX.Y.Z`, then update `TEMPL_VERSION` and the
+     `Dockerfile` `templ@` line to the same version.
+  3. `make templ-install && make templ && make build test lint`.
+- **protoc-gen-go and the protobuf runtime** (`google.golang.org/protobuf` in
+  `go.mod`, `protoc-gen-go@` in `.github/workflows/ci.yml`):
+  1. `go get google.golang.org/protobuf@vX.Y.Z`, then update the
+     `protoc-gen-go@` version in `ci.yml` to match.
+  2. `make gen`, then review `git diff gen/` against the source change. The
+     generated headers record the generator version.
+  3. `make build test`.
+- **protoc-gen-go-grpc** (`PROTOC_GEN_GO_GRPC` version in the `Makefile`, currently
+  `v1.5.1`): change the version in the `Makefile` `go install` line, then run
+  `make gen` and review the `gen/go` diff. Its runtime, `google.golang.org/grpc`,
+  is a normal Dependabot-managed module.
+- **Go toolchain** (the `go` directive in `go.mod`, the `golang:` tag in the
+  `Dockerfile`, and the `golang` ignore rule's `>= 1.28` bound in
+  `dependabot.yml`): raise all three together. CI reads `go.mod`, so it follows
+  without a separate edit. Move the `>= 1.28` bound up with the image, so the
+  `docker` ecosystem can propose the next one.
+- **sqlc** (`SQLC_VERSION` in the `Makefile`, `sqlc-version` in the
+  `sqlc-dev/setup-sqlc` step of `ci.yml`): change both, then run `make sqlc` and
+  review the `gen/sqlc` diff against the query change.
+- **golangci-lint** (`GOLANGCI_LINT_VERSION` in the `Makefile`, `version` in the
+  `golangci/golangci-lint-action` step of `ci.yml`): change both, then run
+  `make lint`.
 
 ## Conventions
 
