@@ -89,6 +89,29 @@ jobs:
       - name: Go and Python coverage
         run: make coverage
 
+      # Lint reports are inputs to SonarQube Cloud only. Enforcement stays with
+      # the lint jobs in ci.yml, so findings must not fail this workflow. The
+      # golangci-lint action installs the same pinned version as ci.yml, with a
+      # checksum-verified binary.
+      - name: Create lint report directory
+        run: mkdir -p .tmp/lint
+
+      - name: golangci-lint report for SonarQube Cloud
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        continue-on-error: true
+        with:
+          version: v2.14.0
+          args: --output.checkstyle.path=.tmp/lint/golangci-lint-report.xml
+
+      # The reports are written in the formats Sonar imports: golangci-lint
+      # checkstyle XML and Ruff JSON. A missing or empty report fails the step,
+      # so a broken lint run stays visible.
+      - name: Ruff report for SonarQube Cloud
+        run: |
+          .venv/bin/ruff check --output-format json nlp/src nlp/tests > .tmp/lint/ruff-report.json || true
+          test -s .tmp/lint/ruff-report.json
+          test -s .tmp/lint/golangci-lint-report.xml
+
       - name: SonarQube Cloud scan
         if: env.HAS_SONAR_TOKEN == 'true'
         uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
