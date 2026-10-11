@@ -271,6 +271,61 @@ fixture job, the upload and download, and the shards; the required check still
 reports success. Local `make browser-smoke` is unchanged and still runs
 `go run` through Playwright.
 
+## Dependency updates
+
+Dependabot version updates are configured in
+[`.github/dependabot.yml`](../.github/dependabot.yml). Each ecosystem entry
+follows the same conventions, so later ecosystems copy the pattern rather than
+inventing their own.
+
+- **What it updates:** GitHub Actions (`github-actions`, `/`), Go modules
+  (`gomod`, `/`), and Python NLP dependencies (`pip`, `/nlp`).
+- **Schedule:** weekly, on Monday at 06:00 Berlin time.
+- **Grouping:** minor and patch updates share one pull request per ecosystem.
+  Major updates are not grouped, so each breaking change gets its own review.
+- **Open pull request cap:** at most five open version-update pull requests per
+  ecosystem.
+- **Commit messages:** Conventional Commit prefixes, `ci(deps)` for GitHub
+  Actions and `build(deps)` for application ecosystems.
+- **Pinning:** GitHub Actions stay pinned to a full commit SHA with the version
+  as a trailing comment. Dependabot updates both together. A reason for keeping
+  an action on an old version goes in a comment line above its `uses:` line,
+  because Dependabot rewrites the trailing comment.
+- **Review:** Dependabot pull requests are not auto-merged. The configuration,
+  workflows, and dependency manifests are in `.github/CODEOWNERS` and need human
+  review.
+
+### Security alerts
+
+Known vulnerabilities in dependencies appear under the repository's
+**Security** tab, in Dependabot alerts. When Dependabot security updates are
+enabled in the repository settings, Dependabot opens a pull request for each
+alert it can fix. Pull requests also run dependency review
+(`.github/workflows/dependency-review.yml`), which flags newly introduced
+vulnerable dependencies.
+
+### Ignore rules and security updates
+
+GitHub documents that an `ignore` rule in `dependabot.yml` applies to both
+version updates and security updates for the named dependency
+([Controlling which dependencies are updated by Dependabot](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/controlling-dependencies-updated)).
+Two consequences follow:
+
+- Excluding a dependency also stops its security pull requests. An excluded
+  dependency has to be watched through its Dependabot alerts by hand.
+- `update-types` in an `allow` rule restricts only version updates. GitHub
+  documents that security updates are created regardless, so `update-types`
+  cannot hold back a security fix.
+
+### Exclusions
+
+Each exclusion needs an `ignore` rule in `dependabot.yml`, a reason, and a
+tracking issue. The list is empty until the follow-up tickets add entries.
+
+| Dependency | Ecosystem | Reason | Tracking issue |
+| --- | --- | --- | --- |
+| _None yet_ | | | |
+
 ## Conventions
 
 - [Conventional Commits](https://www.conventionalcommits.org/):
