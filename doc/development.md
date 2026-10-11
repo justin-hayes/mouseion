@@ -280,8 +280,8 @@ inventing their own.
 
 - **What it updates:** GitHub Actions (`github-actions`, `/`), Go modules
   (`gomod`, `/`), the root `Dockerfile` image (`docker`, `/`), the root
-  `compose.yaml` images (`docker-compose`, `/`), and Python NLP dependencies
-  (`pip`, `/nlp`).
+  `compose.yaml` images (`docker-compose`, `/`), Python NLP dependencies
+  (`pip`, `/nlp`), and the browser acceptance npm packages (`npm`, `/e2e`).
 - **Schedule:** weekly, on Monday at 06:00 Berlin time.
 - **Grouping:** minor and patch updates share one pull request per ecosystem.
   Major updates are not grouped, so each breaking change gets its own review.
@@ -329,6 +329,8 @@ tracking issue. Each rule carries its reason as a comment in `dependabot.yml`.
 | `github.com/a-h/templ` | `gomod` | The module must match the templ CLI pin (`TEMPL_VERSION`, Dockerfile). Newer templ requires Go 1.25 or later. | Manual bump, below. | #1742 |
 | `google.golang.org/protobuf` | `gomod` | Must equal the `protoc-gen-go` version CI installs, so the runtime and the generator that verify `gen/` move together. | Manual bump, below. | #1742 |
 | `golang` (tags `>= 1.28`) | `docker` | The Go toolchain is set by the `go` directive in `go.mod`, which CI reads. An image ahead of it would drift from the build. | Manual Go bump, below. | #1742 |
+| `grpcio`, `grpcio-tools`, `protobuf` | `pip` | `grpcio-tools` generates the committed Python protobuf code that CI verifies. grpcio is held at 1.71.2 for the Python 3.13 pin; Python 3.14 needs a grpcio upgrade first. | Manual Python protobuf bump, below. | #1743 |
+| `@playwright/test` | `npm` (`/e2e`) | Must match the digest-pinned Playwright image in `ci.yml`, which Dependabot cannot update. CI fails when they differ. | Manual Playwright bump: [`e2e/README.md`](../e2e/README.md), "Dependency and update policy". | #1743 |
 
 Excluding a dependency also stops its security pull requests, so watch the
 Dependabot alerts for each excluded dependency and bump it by hand when one
@@ -374,6 +376,18 @@ one by hand, then regenerate and verify as listed.
 - **golangci-lint** (`GOLANGCI_LINT_VERSION` in the `Makefile`, `version` in the
   `golangci/golangci-lint-action` step of `ci.yml`): change both, then run
   `make lint`.
+- **grpcio, grpcio-tools, protobuf** (Python; `grpcio==` and `protobuf==` in
+  `nlp/pyproject.toml`, all three pins in `nlp/requirements-dev.txt`, and the
+  `grpcio-tools==` check in the `Makefile` `gen` target):
+  1. Change all of those to the target versions together, and confirm the target
+     has wheels for the Python version the project pins (3.13 today).
+  2. `make setup`, then `make gen`, and review `git diff gen/` against the
+     change. `gen/python` is committed and CI checks it.
+  3. `make build test lint`.
+- **@playwright/test** (`e2e/package.json`, `e2e/package-lock.json`, and the
+  `PLAYWRIGHT_IMAGE` tag and digest in `ci.yml`): do not bump it alone. Follow
+  [`e2e/README.md`](../e2e/README.md), "Dependency and update policy", which
+  moves the package, lockfile, and image together.
 
 ## Conventions
 
