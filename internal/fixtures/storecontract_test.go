@@ -42,11 +42,16 @@ func (h *contractHarness) OtherOwner() string { return otherLearnerID }
 func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontract.BookSeed) string {
 	h.books++
 	bookID := fmt.Sprintf("contract-book-%d", h.books)
+	language := storecontract.Language
+	if seed.LanguageUnknown {
+		// An empty source language is how the fixtures shelf reports an unchosen language.
+		language = ""
+	}
 	h.store.mu.Lock()
 	defer h.store.mu.Unlock()
 	h.store.books = append(h.store.books, domain.SourceMaterialSummary{
 		Source: domain.SourceMaterial{
-			ID: bookID, OwnerID: owner, Language: storecontract.Language, Title: "Contract Book",
+			ID: bookID, OwnerID: owner, Language: language, Title: "Contract Book",
 			MediaType: "application/epub+zip", ContentRevisionID: bookID + "-revision", ContentSnapshotID: bookID + "-snapshot",
 		},
 		Signals: analyzedSignals, AnalysisRunID: bookID + "-run", CorpusID: bookID + "-corpus",
@@ -162,6 +167,27 @@ func (h *contractHarness) RepreparePreparation(owner, id, expectedSnapshotID str
 	return handle.Preparation, err
 }
 
+func (h *contractHarness) GetBookDetail(owner, bookID string) (domain.MyBook, error) {
+	return h.store.GetBookDetail(context.Background(), owner, bookID)
+}
+
+func (h *contractHarness) GetBookVisibility(owner, bookID string) (bool, int64, error) {
+	return h.store.GetBookVisibility(context.Background(), owner, bookID)
+}
+
+func (h *contractHarness) SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (bool, error) {
+	return h.store.SetBookHidden(context.Background(), owner, bookID, expectedRevision, hidden)
+}
+
+func (h *contractHarness) TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
+	return h.store.TransitionBookDisposition(context.Background(), owner, bookID, expectedRevision, disposition)
+}
+
+func (h *contractHarness) ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error) {
+	return h.store.ImportPreviouslyRead(context.Background(), owner, bookID)
+}
+
 func (h *contractHarness) Store() storecontract.Store                  { return h }
 func (h *contractHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
+func (h *contractHarness) BookState() storecontract.BookStateStore     { return h }
 func (h *contractHarness) Seeds() storecontract.Seeder                 { return h }

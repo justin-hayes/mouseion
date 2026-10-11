@@ -412,13 +412,8 @@ func snapshotSizeForGoal(ctx context.Context, q *sqlcgen.Queries, snapshotID, ow
 	return len(rows), nil
 }
 
-// StartResult is the outcome of a Start. Replayed reports that the requested
-// Book was already the current reading, so the Start wrote nothing and Reading
-// is that existing reading.
-type StartResult struct {
-	Reading  domain.CurrentReading
-	Replayed bool
-}
+// StartResult is domain.StartResult.
+type StartResult = domain.StartResult
 
 // StartCurrentReading creates the owner's current reading for an eligible To Read
 // Book in language.
@@ -471,7 +466,7 @@ func (s *PostgresStore) startCurrentReading(ctx context.Context, owner, language
 		return StartResult{}, err
 	}
 	decision := domain.DecideStart(facts)
-	if err = StartDecisionError(decision); err != nil {
+	if err = domain.StartDecisionError(decision); err != nil {
 		return StartResult{}, err
 	}
 	if decision.Outcome == domain.StartReplayed {
@@ -522,23 +517,6 @@ func readCurrentReadingLocked(ctx context.Context, q *sqlcgen.Queries, owner, la
 
 // CurrentReadingIneligibleError is domain.CurrentReadingIneligibleError.
 type CurrentReadingIneligibleError = domain.CurrentReadingIneligibleError
-
-// StartDecisionError maps a domain Start decision to the error every store
-// returns for it, so adapters reject a Start the same way. Accepted and replayed
-// decisions map to nil.
-func StartDecisionError(decision domain.StartDecision) error {
-	switch decision.Outcome {
-	case domain.StartAccepted, domain.StartReplayed:
-		return nil
-	case domain.StartRejectedAlreadyCurrent:
-		return ErrCurrentReadingExists
-	case domain.StartRejectedUnresolvedFlags:
-		return ErrUnresolvedLemmaReviewFlags
-	case domain.StartRejectedIneligible:
-		return CurrentReadingIneligibleError{Reason: decision.Reason}
-	}
-	return CurrentReadingIneligibleError{Reason: decision.Reason}
-}
 
 // loadStartFacts reads the facts domain.DecideStart decides over, in the order
 // the Start rules consult them. The caller holds the learner-state and Book

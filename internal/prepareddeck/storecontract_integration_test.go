@@ -59,8 +59,29 @@ func TestStoreContracts(t *testing.T) {
 	storecontract.Run(t, newPostgresHarness)
 }
 
+func (h *postgresHarness) GetBookDetail(owner, bookID string) (domain.MyBook, error) {
+	return h.store.GetBookDetail(h.ctx, owner, bookID)
+}
+
+func (h *postgresHarness) GetBookVisibility(owner, bookID string) (bool, int64, error) {
+	return h.store.GetBookVisibility(h.ctx, owner, bookID)
+}
+
+func (h *postgresHarness) SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (bool, error) {
+	return h.store.SetBookHidden(h.ctx, owner, bookID, expectedRevision, hidden)
+}
+
+func (h *postgresHarness) TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
+	return h.store.TransitionBookDisposition(h.ctx, owner, bookID, expectedRevision, disposition)
+}
+
+func (h *postgresHarness) ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error) {
+	return h.store.ImportPreviouslyRead(h.ctx, owner, bookID)
+}
+
 func (h *postgresHarness) Store() storecontract.Store                  { return h }
 func (h *postgresHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
+func (h *postgresHarness) BookState() storecontract.BookStateStore     { return h }
 func (h *postgresHarness) Seeds() storecontract.Seeder                 { return h }
 
 func (h *postgresHarness) Owner() string      { return h.owner }
@@ -81,7 +102,11 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 	identifier := fmt.Sprintf("contract-book-%d", h.books)
 	source, err := h.store.PutSourceMaterialWithExtractedUnits(h.ctx, domain.SourceMaterial{OwnerID: owner, Language: storecontract.Language, SourceIdentifier: identifier, Title: "Contract Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
 	require.NoError(t, err)
-	book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: storecontract.Language})
+	languageState, languageTag := domain.LanguageChosen, storecontract.Language
+	if seed.LanguageUnknown {
+		languageState, languageTag = domain.LanguageUnknown, ""
+	}
+	book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: languageState, LanguageTag: languageTag})
 	require.NoError(t, err)
 	require.NoError(t, h.store.LinkSourceToBook(h.ctx, owner, book.ID, source.ID))
 	runID, corpusID := h.completeAnalysis(t, owner, book.ID, source.ID, identifier)

@@ -17,7 +17,7 @@ type BookDispositionStore interface {
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 }
 
-var ErrStaleBookDisposition = errors.New("book disposition changed since this page was loaded")
+var ErrStaleBookDisposition = domain.ErrStaleBookDisposition
 
 func (s *PostgresStore) GetBookDisposition(ctx context.Context, owner, bookID string) (domain.BookDisposition, error) {
 	disposition, err := s.queries().GetBookDisposition(ctx, sqlcgen.GetBookDispositionParams{OwnerID: owner, BookID: bookID})

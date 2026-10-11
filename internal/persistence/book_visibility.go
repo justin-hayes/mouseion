@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
@@ -16,7 +17,7 @@ type BookVisibilityStore interface {
 	SetBookHidden(context.Context, string, string, int64, bool) (bool, error)
 }
 
-var ErrStaleBookVisibility = errors.New("book visibility changed since this page was loaded")
+var ErrStaleBookVisibility = domain.ErrStaleBookVisibility
 
 func (s *PostgresStore) GetBookVisibility(ctx context.Context, owner, bookID string) (bool, int64, error) {
 	state, err := s.queries().GetBookVisibility(ctx, sqlcgen.GetBookVisibilityParams{Owner: owner, Book: bookID})

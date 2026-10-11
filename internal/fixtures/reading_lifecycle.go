@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 func (s *Store) ImportPreviouslyRead(_ context.Context, owner, bookID string) (domain.ReadingCompletion, error) {
@@ -29,7 +28,7 @@ func (s *Store) ImportPreviouslyRead(_ context.Context, owner, bookID string) (d
 		}
 	}
 	if !found || book.Book.LanguageState != domain.LanguageChosen || book.IsCurrentReading {
-		return domain.ReadingCompletion{}, persistence.ErrNotFound
+		return domain.ReadingCompletion{}, domain.ErrNotFound
 	}
 	completion := domain.ReadingCompletion{
 		OwnerID: owner, BookID: bookID, Language: book.Book.LanguageTag,
@@ -56,32 +55,32 @@ func (s *Store) StartCurrentReading(ctx context.Context, owner, language, bookID
 
 // StartCurrentReadingResult applies domain.DecideStart. A replayed Start
 // returns the existing reading and writes nothing.
-func (s *Store) StartCurrentReadingResult(_ context.Context, owner, language, bookID string) (persistence.StartResult, error) {
+func (s *Store) StartCurrentReadingResult(_ context.Context, owner, language, bookID string) (domain.StartResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	language = normalizeFixtureLanguage(language)
 	goal := domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}
 	if err := goal.Validate(); err != nil {
-		return persistence.StartResult{}, err
+		return domain.StartResult{}, err
 	}
 	if !s.fixtureBookExists(owner, bookID) {
-		return persistence.StartResult{}, errNotFound
+		return domain.StartResult{}, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
 	key := fixtureGoalKey(owner, language)
 	decision := domain.DecideStart(s.fixtureStartFacts(owner, language, bookID))
-	if err := persistence.StartDecisionError(decision); err != nil {
-		return persistence.StartResult{}, err
+	if err := domain.StartDecisionError(decision); err != nil {
+		return domain.StartResult{}, err
 	}
 	if decision.Outcome == domain.StartReplayed {
-		return persistence.StartResult{Reading: s.currentReadings[key], Replayed: true}, nil
+		return domain.StartResult{Reading: s.currentReadings[key], Replayed: true}, nil
 	}
 	now := time.Now()
 	goal = s.fixtureGoalFromBook(owner, language, bookID, now)
 	goal.CreatedAt, goal.UpdatedAt = now, now
 	s.currentReadings[key] = goal
 	s.snapshotLifecycles[goal.SnapshotID] = domain.CurrentReadingSnapshotLifecycle{BookID: bookID, CreatedAt: now}
-	return persistence.StartResult{Reading: goal}, nil
+	return domain.StartResult{Reading: goal}, nil
 }
 
 // fixtureStartFacts loads the facts domain.DecideStart decides over. Fixture
@@ -128,7 +127,7 @@ func (s *Store) SwitchCurrentReading(_ context.Context, owner, language, bookID,
 		UnresolvedFlags:   s.hasUnresolvedLemmaReviewFlag(owner, bookID),
 	}
 	decision := domain.DecideSwitchCurrentReading(facts)
-	if err := fixtureCurrentReadingRejection(decision, persistence.ErrNotFound); err != nil {
+	if err := fixtureCurrentReadingRejection(decision, domain.ErrNotFound); err != nil {
 		return domain.CurrentReading{}, err
 	}
 	if decision.Verdict == domain.CurrentReadingReplay {
@@ -153,13 +152,13 @@ func fixtureCurrentReadingRejection(decision domain.CurrentReadingDecision, noCu
 	case domain.CurrentReadingRejectNoCurrent:
 		return noCurrent
 	case domain.CurrentReadingRejectIneligible:
-		return persistence.CurrentReadingIneligibleError{Reason: decision.Ineligible}
+		return domain.CurrentReadingIneligibleError{Reason: decision.Ineligible}
 	case domain.CurrentReadingRejectUnresolvedFlags:
-		return persistence.ErrUnresolvedLemmaReviewFlags
+		return domain.ErrUnresolvedLemmaReviewFlags
 	case domain.CurrentReadingRejectStale:
-		return persistence.ErrCurrentReadingStale
+		return domain.ErrCurrentReadingStale
 	}
-	return persistence.ErrCurrentReadingStale
+	return domain.ErrCurrentReadingStale
 }
 
 // snapshotLifecycle returns the recorded lifecycle of a snapshot, nil when none
@@ -260,7 +259,7 @@ func (s *Store) EndCurrentReading(_ context.Context, owner, language, expectedBo
 		Current:  goal,
 		Snapshot: s.snapshotLifecycle(expectedSnapshotID),
 	})
-	if err := fixtureCurrentReadingRejection(decision, persistence.ErrCurrentReadingStale); err != nil {
+	if err := fixtureCurrentReadingRejection(decision, domain.ErrCurrentReadingStale); err != nil {
 		return err
 	}
 	if decision.Verdict == domain.CurrentReadingReplay {
@@ -294,9 +293,9 @@ func (s *Store) FinishCurrentReading(_ context.Context, owner, language, expecte
 	switch decision.Outcome {
 	case domain.CurrentReadingFinishRejected:
 		if decision.Rejection == domain.CurrentReadingFinishUnknown {
-			return domain.CurrentReadingFinishResult{}, persistence.ErrNotFound
+			return domain.CurrentReadingFinishResult{}, domain.ErrNotFound
 		}
-		return domain.CurrentReadingFinishResult{}, persistence.ErrCurrentReadingStale
+		return domain.CurrentReadingFinishResult{}, domain.ErrCurrentReadingStale
 	case domain.CurrentReadingFinishReplayed:
 		// The recorded completion is the result.
 	case domain.CurrentReadingFinishPlanned:
