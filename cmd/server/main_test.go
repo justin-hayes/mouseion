@@ -96,6 +96,26 @@ func TestOpenDictionaryIndexMissingFileIsOptional(t *testing.T) {
 	assert.Nil(t, index)
 }
 
+func TestOpenOptionalDictionaryIndexUnsetIsAbsent(t *testing.T) {
+	t.Setenv("MOUSEION_DICTIONARY_INDEX", "  ")
+
+	index, found, err := openOptionalDictionaryIndex(t.Context())
+
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Nil(t, index)
+}
+
+func TestOpenOptionalDictionaryIndexMissingFileIsAbsent(t *testing.T) {
+	t.Setenv("MOUSEION_DICTIONARY_INDEX", filepath.Join(t.TempDir(), "absent.sqlite"))
+
+	index, found, err := openOptionalDictionaryIndex(t.Context())
+
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Nil(t, index)
+}
+
 func TestOpenDictionaryIndexRejectsInvalidPath(t *testing.T) {
 	index, found, err := openDictionaryIndex(t.Context(), t.TempDir())
 

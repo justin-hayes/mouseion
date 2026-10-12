@@ -98,13 +98,9 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
-	var dictionaryIndex *dictionary.Index
-	var hasDictionaryIndex bool
-	if path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX")); path != "" {
-		dictionaryIndex, hasDictionaryIndex, err = openDictionaryIndex(ctx, path)
-		if err != nil {
-			return err
-		}
+	dictionaryIndex, hasDictionaryIndex, err := openOptionalDictionaryIndex(ctx)
+	if err != nil {
+		return err
 	}
 	if hasDictionaryIndex {
 		defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
@@ -289,6 +285,16 @@ func validateHealthcheckTarget(target string) error {
 
 func loopbackHost(host string) bool {
 	return host == "localhost" || (net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback())
+}
+
+// openOptionalDictionaryIndex opens the index named by MOUSEION_DICTIONARY_INDEX.
+// An unset variable is the same absent state as a missing file.
+func openOptionalDictionaryIndex(ctx context.Context) (*dictionary.Index, bool, error) {
+	path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX"))
+	if path == "" {
+		return nil, false, nil
+	}
+	return openDictionaryIndex(ctx, path)
 }
 
 // openDictionaryIndex loads the optional local dictionary index. An absent file
