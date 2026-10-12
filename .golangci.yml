@@ -69,6 +69,10 @@ linters:
     - unqueryvet # SELECT * in SQL strings
     - iotamixing # iota mixed with explicit values in one const block
     - tparallel # inconsistent t.Parallel use in tests and subtests
+    # Layering (#1974). Production code must not reach into test
+    # infrastructure or the fixtures store; both are gated below in settings,
+    # with deny messages that cite ADR 0091.
+    - depguard
 
   # Evaluated and rejected; do not re-add without revisiting the reason here:
   # - contextcheck: false positives on templ-generated code.
@@ -77,6 +81,42 @@ linters:
   # - dupword: false positives on German test data.
 
   settings:
+    # ADR 0091 §§4–5. Rules are keyed by file glob and only ever deny, so a
+    # new import outside these groups is unaffected. Each deny cites the ADR,
+    # so the fix is a design change or an ADR amendment, never a suppression.
+    depguard:
+      rules:
+        # §5: test-infrastructure packages are for test files only. Files
+        # inside the packages themselves are excluded so they may share code
+        # with one another; those four paths appear again in the deny list
+        # below, and the two lists must change together.
+        test-infrastructure:
+          list-mode: lax
+          files:
+            - "!$test"
+            - "!**/internal/storecontract/**"
+            - "!**/internal/testutil/**"
+            - "!**/internal/testwrite/**"
+            - "!**/internal/analyzer/analyzertest/**"
+          deny:
+            - pkg: github.com/justin-hayes/mouseion/internal/storecontract
+              desc: "ADR 0091 §5: storecontract is test infrastructure; import it only from test files"
+            - pkg: github.com/justin-hayes/mouseion/internal/testutil
+              desc: "ADR 0091 §5: testutil is test infrastructure; import it only from test files"
+            - pkg: github.com/justin-hayes/mouseion/internal/testwrite
+              desc: "ADR 0091 §5: testwrite is test infrastructure; import it only from test files"
+            - pkg: github.com/justin-hayes/mouseion/internal/analyzer/analyzertest
+              desc: "ADR 0091 §5: analyzertest is test infrastructure; import it only from test files"
+        # §4: the fixtures store may be reached only from the fixture server
+        # and from test files.
+        fixtures-store:
+          list-mode: lax
+          files:
+            - "!$test"
+            - "!**/cmd/fixtureserver/**"
+          deny:
+            - pkg: github.com/justin-hayes/mouseion/internal/fixtures
+              desc: "ADR 0091 §4: the fixtures store may be imported only by cmd/fixtureserver and test files"
     gocognit:
       # Matches SonarQube Cloud's go:S3776 default of 15, so the local gate
       # and Sonar agree; no further ratchet step follows.
