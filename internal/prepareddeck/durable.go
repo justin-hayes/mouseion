@@ -196,7 +196,7 @@ func insertLivePreparationJobTx(ctx context.Context, tx pgx.Tx, client riverClie
 		return 0, err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return 0, fmt.Errorf("River did not return a live %s job", kind)
+		return 0, fmt.Errorf("prepareddeck: River did not return a live %s job", kind)
 	}
 	return inserted.Job.ID, nil
 }

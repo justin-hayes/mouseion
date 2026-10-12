@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -33,14 +34,20 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
+	return reportBackfill(report, os.Stdout)
+}
+
+// reportBackfill prints the run summary and fails while conflicts remain, so the
+// operator sees the owners to resolve and the exit status says whether to retry.
+func reportBackfill(report persistence.GermanVocabularyBackfillReport, out io.Writer) error {
 	for _, conflict := range report.Conflicts {
 		log.Printf("unresolved German vocabulary conflict: owner=%s table=%s lemma=%s upos=%s detail=%s", conflict.OwnerID, conflict.Table, conflict.CanonicalLemma, conflict.UPOS, conflict.Detail)
 	}
-	if _, err = fmt.Fprintf(os.Stdout, "German vocabulary backfill complete: owners=%d examined=%d updated=%d merged=%d conflicts=%d\n", report.Owners, report.Examined, report.Updated, report.Merged, len(report.Conflicts)); err != nil {
+	if _, err := fmt.Fprintf(out, "German vocabulary backfill complete: owners=%d examined=%d updated=%d merged=%d conflicts=%d\n", report.Owners, report.Examined, report.Updated, report.Merged, len(report.Conflicts)); err != nil {
 		return err
 	}
 	if len(report.Conflicts) > 0 {
-		return errors.New("German vocabulary backfill found unresolved conflicts")
+		return errors.New("vocabularybackfill: German vocabulary backfill found unresolved conflicts")
 	}
 	return nil
 }
