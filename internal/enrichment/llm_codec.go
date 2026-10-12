@@ -217,6 +217,33 @@ func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, bod
 	return response, usage, nil
 }
 
+// chatCompletionEnvelope is the bounded Chat Completions view the codec reads:
+// the first choice's message and the provider-reported usage.
+type chatCompletionEnvelope struct {
+	Choices []struct {
+		Message chatMessage `json:"message"`
+	} `json:"choices"`
+	Usage TranslationUsage `json:"usage"`
+}
+
+// decodedTranslationFields is the strict provider content object before
+// validation and normalization. Optional meaning fields stay raw so each
+// response shape or malformed value is handled as its own step.
+type decodedTranslationFields struct {
+	ItemID                     string          `json:"item_id"`
+	SourceLanguage             string          `json:"source_language"`
+	TargetLanguage             string          `json:"target_language"`
+	Translation                string          `json:"translation"`
+	SentenceTranslation        string          `json:"sentence_translation"`
+	SentenceTranslationTargets json.RawMessage `json:"sentence_translation_targets"`
+	SenseOrder                 json.RawMessage `json:"sense_order"`
+	FallbackGloss              json.RawMessage `json:"fallback_gloss"`
+	Gloss                      json.RawMessage `json:"gloss"`
+	EvidenceIDs                json.RawMessage `json:"evidence_ids"`
+	ContextOnly                json.RawMessage `json:"context_only"`
+	UnresolvedReason           json.RawMessage `json:"unresolved_reason"`
+}
+
 func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, body []byte, expectedItemID string) (TranslationResponse, TranslationUsage, error) {
 	if c == nil {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: nil translation codec")
@@ -224,68 +251,16 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if len(body) > maxTranslationResponseBytes {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: response exceeds 1 MiB")
 	}
-	var decoded struct {
-		Choices []struct {
-			Message chatMessage `json:"message"`
-		} `json:"choices"`
-		Usage TranslationUsage `json:"usage"`
+	decoded, err := decodeChatCompletion(body)
+	if err != nil {
+		return TranslationResponse{}, TranslationUsage{}, err
 	}
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	if err := decoder.Decode(&decoded); err != nil {
-		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LLM response: %w", err)
+	result, err := decodeTranslationFields(decoded.Choices[0].Message.Content)
+	if err != nil {
+		return TranslationResponse{}, TranslationUsage{}, err
 	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: trailing JSON content")
-	}
-	if len(decoded.Choices) == 0 {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: no choices")
-	}
-	var result struct {
-		ItemID                     string          `json:"item_id"`
-		SourceLanguage             string          `json:"source_language"`
-		TargetLanguage             string          `json:"target_language"`
-		Translation                string          `json:"translation"`
-		SentenceTranslation        string          `json:"sentence_translation"`
-		SentenceTranslationTargets json.RawMessage `json:"sentence_translation_targets"`
-		SenseOrder                 json.RawMessage `json:"sense_order"`
-		FallbackGloss              json.RawMessage `json:"fallback_gloss"`
-		Gloss                      json.RawMessage `json:"gloss"`
-		EvidenceIDs                json.RawMessage `json:"evidence_ids"`
-		ContextOnly                json.RawMessage `json:"context_only"`
-		UnresolvedReason           json.RawMessage `json:"unresolved_reason"`
-	}
-	resultDecoder := json.NewDecoder(strings.NewReader(decoded.Choices[0].Message.Content))
-	if duplicate, err := hasDuplicateObjectKey(decoded.Choices[0].Message.Content); err != nil {
-		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LLM translation: %w", err)
-	} else if duplicate {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: duplicate field")
-	}
-	resultDecoder.DisallowUnknownFields()
-	if err := resultDecoder.Decode(&result); err != nil {
-		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LLM translation: %w", err)
-	}
-	if err := resultDecoder.Decode(&struct{}{}); err != io.EOF {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: trailing JSON content")
-	}
-	result.ItemID = strings.TrimSpace(result.ItemID)
-	result.SourceLanguage = strings.TrimSpace(result.SourceLanguage)
-	result.TargetLanguage = strings.TrimSpace(result.TargetLanguage)
-	result.Translation = strings.TrimSpace(result.Translation)
-	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
-	if result.ItemID == "" || result.ItemID != expectedItemID {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: item_id mismatch")
-	}
-	if result.SourceLanguage == "" || result.SourceLanguage != strings.TrimSpace(input.Language) {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: source_language mismatch")
-	}
-	if result.TargetLanguage == "" || result.TargetLanguage != translationTargetLanguage(input) {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: target_language mismatch")
-	}
-	if result.Translation == "" {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: translation is empty")
-	}
-	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: sentence_translation is empty")
+	if err := validateTranslationIdentity(input, expectedItemID, result); err != nil {
+		return TranslationResponse{}, TranslationUsage{}, err
 	}
 	if decoded.Usage.PromptTokens < 0 || decoded.Usage.CompletionTokens < 0 || decoded.Usage.TotalTokens < 0 {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: invalid usage")
@@ -293,28 +268,88 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if hasMarkup(result.Translation) || hasMarkup(result.SentenceTranslation) {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
+	response, err := buildTranslationResponse(input, result)
+	if err != nil {
+		return TranslationResponse{}, TranslationUsage{}, err
+	}
+	return response, decoded.Usage, nil
+}
+
+// decodeChatCompletion decodes the bounded envelope and rejects trailing
+// content or an empty choice list.
+func decodeChatCompletion(body []byte) (chatCompletionEnvelope, error) {
+	var decoded chatCompletionEnvelope
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	if err := decoder.Decode(&decoded); err != nil {
+		return chatCompletionEnvelope{}, fmt.Errorf("decode LLM response: %w", err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return chatCompletionEnvelope{}, errors.New("decode LLM response: trailing JSON content")
+	}
+	if len(decoded.Choices) == 0 {
+		return chatCompletionEnvelope{}, errors.New("decode LLM response: no choices")
+	}
+	return decoded, nil
+}
+
+// decodeTranslationFields decodes the strict provider content object. Duplicate
+// keys and unknown fields are rejected, and echoed identity fields are trimmed.
+func decodeTranslationFields(content string) (decodedTranslationFields, error) {
+	var result decodedTranslationFields
+	resultDecoder := json.NewDecoder(strings.NewReader(content))
+	if duplicate, err := hasDuplicateObjectKey(content); err != nil {
+		return decodedTranslationFields{}, fmt.Errorf("decode LLM translation: %w", err)
+	} else if duplicate {
+		return decodedTranslationFields{}, errors.New("decode LLM translation: duplicate field")
+	}
+	resultDecoder.DisallowUnknownFields()
+	if err := resultDecoder.Decode(&result); err != nil {
+		return decodedTranslationFields{}, fmt.Errorf("decode LLM translation: %w", err)
+	}
+	if err := resultDecoder.Decode(&struct{}{}); err != io.EOF {
+		return decodedTranslationFields{}, errors.New("decode LLM translation: trailing JSON content")
+	}
+	result.ItemID = strings.TrimSpace(result.ItemID)
+	result.SourceLanguage = strings.TrimSpace(result.SourceLanguage)
+	result.TargetLanguage = strings.TrimSpace(result.TargetLanguage)
+	result.Translation = strings.TrimSpace(result.Translation)
+	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
+	return result, nil
+}
+
+// validateTranslationIdentity enforces the echoed identity, languages and
+// required translation fields against the frozen request.
+func validateTranslationIdentity(input TranslationRequest, expectedItemID string, result decodedTranslationFields) error {
+	if result.ItemID == "" || result.ItemID != expectedItemID {
+		return errors.New("decode LLM translation: item_id mismatch")
+	}
+	if result.SourceLanguage == "" || result.SourceLanguage != strings.TrimSpace(input.Language) {
+		return errors.New("decode LLM translation: source_language mismatch")
+	}
+	if result.TargetLanguage == "" || result.TargetLanguage != translationTargetLanguage(input) {
+		return errors.New("decode LLM translation: target_language mismatch")
+	}
+	if result.Translation == "" {
+		return errors.New("decode LLM translation: translation is empty")
+	}
+	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
+		return errors.New("decode LLM translation: sentence_translation is empty")
+	}
+	return nil
+}
+
+// buildTranslationResponse assembles the optional meaning fields and applies
+// the shared normalization contract.
+func buildTranslationResponse(input TranslationRequest, result decodedTranslationFields) (TranslationResponse, error) {
 	response := TranslationResponse{Translation: result.Translation, SentenceTranslation: result.SentenceTranslation}
 	if len(result.SentenceTranslationTargets) > 0 && string(result.SentenceTranslationTargets) != "null" {
 		response.SentenceTranslationTargets = decodeOptionalTargets(result.SentenceTranslationTargets)
 	}
-	if input.RequireContextualGloss && (len(result.Gloss) == 0 || len(result.EvidenceIDs) == 0 || len(result.ContextOnly) == 0 || string(result.Gloss) == "null" || string(result.EvidenceIDs) == "null" || string(result.ContextOnly) == "null") {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: incomplete contextual gloss outcome")
+	if err := requireContextualGlossFields(input, result); err != nil {
+		return TranslationResponse{}, err
 	}
-	if len(result.Gloss) != 0 || len(result.EvidenceIDs) != 0 || len(result.ContextOnly) != 0 || len(result.UnresolvedReason) != 0 {
-		if err := json.Unmarshal(result.Gloss, &response.Gloss); err != nil {
-			return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: invalid gloss")
-		}
-		if err := json.Unmarshal(result.EvidenceIDs, &response.EvidenceIDs); err != nil {
-			return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: invalid evidence_ids")
-		}
-		if err := json.Unmarshal(result.ContextOnly, &response.ContextOnly); err != nil {
-			return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: invalid context_only")
-		}
-		if len(result.UnresolvedReason) != 0 {
-			if err := json.Unmarshal(result.UnresolvedReason, &response.UnresolvedReason); err != nil {
-				return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: invalid unresolved_reason")
-			}
-		}
+	if err := decodeMeaningFields(result, &response); err != nil {
+		return TranslationResponse{}, err
 	}
 	if order, warning := decodeSenseOrder(result.SenseOrder); warning != "" {
 		response.Warnings = append(response.Warnings, warning)
@@ -326,11 +361,39 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	} else {
 		response.FallbackGloss = fallback
 	}
-	response, normalizeErr := NormalizeTranslationResponse(input, response)
-	if normalizeErr != nil {
-		return TranslationResponse{}, TranslationUsage{}, normalizeErr
+	return NormalizeTranslationResponse(input, response)
+}
+
+// requireContextualGlossFields rejects a contextual-gloss response that omits
+// one of the four mandatory outcome fields (even when it sent JSON null).
+func requireContextualGlossFields(input TranslationRequest, result decodedTranslationFields) error {
+	if input.RequireContextualGloss && (len(result.Gloss) == 0 || len(result.EvidenceIDs) == 0 || len(result.ContextOnly) == 0 || string(result.Gloss) == "null" || string(result.EvidenceIDs) == "null" || string(result.ContextOnly) == "null") {
+		return errors.New("decode LLM translation: incomplete contextual gloss outcome")
 	}
-	return response, decoded.Usage, nil
+	return nil
+}
+
+// decodeMeaningFields decodes the optional meaning fields one shape at a time,
+// keeping a malformed optional field's error distinct from the others.
+func decodeMeaningFields(result decodedTranslationFields, response *TranslationResponse) error {
+	if len(result.Gloss) == 0 && len(result.EvidenceIDs) == 0 && len(result.ContextOnly) == 0 && len(result.UnresolvedReason) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(result.Gloss, &response.Gloss); err != nil {
+		return errors.New("decode LLM translation: invalid gloss")
+	}
+	if err := json.Unmarshal(result.EvidenceIDs, &response.EvidenceIDs); err != nil {
+		return errors.New("decode LLM translation: invalid evidence_ids")
+	}
+	if err := json.Unmarshal(result.ContextOnly, &response.ContextOnly); err != nil {
+		return errors.New("decode LLM translation: invalid context_only")
+	}
+	if len(result.UnresolvedReason) != 0 {
+		if err := json.Unmarshal(result.UnresolvedReason, &response.UnresolvedReason); err != nil {
+			return errors.New("decode LLM translation: invalid unresolved_reason")
+		}
+	}
+	return nil
 }
 
 func decodeOptionalTargets(raw json.RawMessage) []string {
@@ -355,40 +418,8 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.RequireContextualGloss {
-		if len([]rune(response.Gloss)) > MaxFallbackGlossRunes || hasMarkup(response.Gloss) {
-			return TranslationResponse{}, errors.New("decode LLM translation: invalid contextual gloss")
-		}
-		if len([]rune(response.UnresolvedReason)) > 200 || hasMarkup(response.UnresolvedReason) {
-			return TranslationResponse{}, errors.New("decode LLM translation: invalid unresolved reason")
-		}
-		knownEvidence := make(map[string]struct{}, len(input.CandidateSenses))
-		for _, sense := range input.CandidateSenses {
-			if sense.EvidenceID != "" {
-				knownEvidence[sense.EvidenceID] = struct{}{}
-			}
-		}
-		seenEvidence := make(map[string]struct{}, len(response.EvidenceIDs))
-		for _, id := range response.EvidenceIDs {
-			if id == "" {
-				return TranslationResponse{}, errors.New("decode LLM translation: empty evidence ID")
-			}
-			if _, ok := knownEvidence[id]; !ok {
-				return TranslationResponse{}, errors.New("decode LLM translation: unknown evidence ID")
-			}
-			if _, duplicate := seenEvidence[id]; duplicate {
-				return TranslationResponse{}, errors.New("decode LLM translation: duplicate evidence ID")
-			}
-			seenEvidence[id] = struct{}{}
-		}
-		if response.ContextOnly != (len(response.EvidenceIDs) == 0) {
-			return TranslationResponse{}, errors.New("decode LLM translation: context_only contradicts evidence IDs")
-		}
-		if response.Gloss == "" {
-			if !response.ContextOnly || len(response.EvidenceIDs) != 0 || response.UnresolvedReason == "" {
-				return TranslationResponse{}, errors.New("decode LLM translation: unresolved meaning is incomplete")
-			}
-		} else if response.UnresolvedReason != "" {
-			return TranslationResponse{}, errors.New("decode LLM translation: resolved meaning includes unresolved reason")
+		if err := validateContextualMeaning(input, response); err != nil {
+			return TranslationResponse{}, err
 		}
 	}
 	if input.ExampleSentence != "" && response.SentenceTranslation == "" {
@@ -397,6 +428,56 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	if hasMarkup(response.Translation) || hasMarkup(response.SentenceTranslation) {
 		return TranslationResponse{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
+	return reconcileSenseSelection(input, response), nil
+}
+
+// validateContextualMeaning enforces the strict contextual-gloss contract:
+// bounded gloss and reason, evidence IDs drawn from the frozen candidates, and
+// a consistent resolved-or-unresolved outcome.
+func validateContextualMeaning(input TranslationRequest, response TranslationResponse) error {
+	if len([]rune(response.Gloss)) > MaxFallbackGlossRunes || hasMarkup(response.Gloss) {
+		return errors.New("decode LLM translation: invalid contextual gloss")
+	}
+	if len([]rune(response.UnresolvedReason)) > 200 || hasMarkup(response.UnresolvedReason) {
+		return errors.New("decode LLM translation: invalid unresolved reason")
+	}
+	knownEvidence := make(map[string]struct{}, len(input.CandidateSenses))
+	for _, sense := range input.CandidateSenses {
+		if sense.EvidenceID != "" {
+			knownEvidence[sense.EvidenceID] = struct{}{}
+		}
+	}
+	seenEvidence := make(map[string]struct{}, len(response.EvidenceIDs))
+	for _, id := range response.EvidenceIDs {
+		if id == "" {
+			return errors.New("decode LLM translation: empty evidence ID")
+		}
+		if _, ok := knownEvidence[id]; !ok {
+			return errors.New("decode LLM translation: unknown evidence ID")
+		}
+		if _, duplicate := seenEvidence[id]; duplicate {
+			return errors.New("decode LLM translation: duplicate evidence ID")
+		}
+		seenEvidence[id] = struct{}{}
+	}
+	if response.ContextOnly != (len(response.EvidenceIDs) == 0) {
+		return errors.New("decode LLM translation: context_only contradicts evidence IDs")
+	}
+	if response.Gloss == "" {
+		if !response.ContextOnly || len(response.EvidenceIDs) != 0 || response.UnresolvedReason == "" {
+			return errors.New("decode LLM translation: unresolved meaning is incomplete")
+		}
+	} else if response.UnresolvedReason != "" {
+		return errors.New("decode LLM translation: resolved meaning includes unresolved reason")
+	}
+	return nil
+}
+
+// reconcileSenseSelection applies the sense-selection warning and fallback-gloss
+// rules: an invalid selection falls back to deterministic order, an over-limit
+// selection is truncated, and fallback glosses are bounded and mutually
+// exclusive with a sense selection.
+func reconcileSenseSelection(input TranslationRequest, response TranslationResponse) TranslationResponse {
 	selectionInvalid := !ValidateSenseSelection(response.SenseOrder, len(input.CandidateSenses))
 	for _, warning := range response.Warnings {
 		selectionInvalid = selectionInvalid || strings.HasPrefix(warning, "sense selection") || strings.HasPrefix(warning, "invalid sense selection")
@@ -418,7 +499,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 		response.FallbackGloss = ""
 		response.Warnings = append(response.Warnings, "fallback gloss supplied with a sense selection; ignoring it")
 	}
-	return response, nil
+	return response
 }
 
 func hasWarning(warnings []string, want string) bool {
