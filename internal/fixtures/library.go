@@ -148,35 +148,55 @@ func (s *Store) fixtureBooksFromMetadata(owner string) []domain.MyBook {
 // LatestCompletionSource.
 func (s *Store) applyFixtureBookEvidence(books []domain.MyBook) {
 	for i := range books {
-		if books[i].Book.ID == BookID {
-			books[i].CoverageKnownTokens = 974
-			books[i].CoverageTotalTokens = 1000
-			books[i].DeckState = "ready"
-			books[i].DeckCardCount = 412
-			preparedAt := fixtureJourneyTime
-			books[i].DeckPreparedAt = &preparedAt
+		s.applyFixtureBookEvidenceLocked(&books[i])
+	}
+}
+
+// applyFixtureBookEvidenceLocked decorates one assembled Book with the evidence
+// the fixture models. Callers hold s.mu.
+func (s *Store) applyFixtureBookEvidenceLocked(book *domain.MyBook) {
+	if book.Book.ID == BookID {
+		book.CoverageKnownTokens = 974
+		book.CoverageTotalTokens = 1000
+		book.DeckState = "ready"
+		book.DeckCardCount = 412
+		preparedAt := fixtureJourneyTime
+		book.DeckPreparedAt = &preparedAt
+	}
+	if s.fixtureBookIsCurrentReading(book.Book.OwnerID, book.Book.ID) {
+		book.IsCurrentReading = true
+	}
+	s.applyFixtureBookCompletions(book)
+}
+
+// fixtureBookIsCurrentReading reports whether the owner has an active reading of
+// the Book. Callers hold s.mu.
+func (s *Store) fixtureBookIsCurrentReading(owner, bookID string) bool {
+	for _, reading := range s.currentReadings {
+		if reading.OwnerID == owner && reading.BookID == bookID {
+			return true
 		}
-		for _, reading := range s.currentReadings {
-			if reading.OwnerID == books[i].Book.OwnerID && reading.BookID == books[i].Book.ID {
-				books[i].IsCurrentReading = true
-				break
-			}
+	}
+	return false
+}
+
+// applyFixtureBookCompletions counts the imported and current-reading history of
+// one Book and dates it from its latest completion. Callers hold s.mu.
+func (s *Store) applyFixtureBookCompletions(book *domain.MyBook) {
+	if imported, ok := s.importedHistory[fixtureDispositionKey(book.Book.OwnerID, book.Book.ID)]; ok {
+		book.CompletionCount++
+		book.LatestCompletionAt = &imported.CompletedAt
+		book.LatestCompletionSource = domain.ReadingCompletionPreviouslyRead
+	}
+	for _, completion := range s.readingHistory {
+		if completion.OwnerID != book.Book.OwnerID || completion.BookID != book.Book.ID {
+			continue
 		}
-		if imported, ok := s.importedHistory[fixtureDispositionKey(books[i].Book.OwnerID, books[i].Book.ID)]; ok {
-			books[i].CompletionCount++
-			books[i].LatestCompletionAt = &imported.CompletedAt
-			books[i].LatestCompletionSource = domain.ReadingCompletionPreviouslyRead
-		}
-		for _, completion := range s.readingHistory {
-			if completion.OwnerID != books[i].Book.OwnerID || completion.BookID != books[i].Book.ID {
-				continue
-			}
-			books[i].CompletionCount++
-			if books[i].LatestCompletionAt == nil || completion.CompletedAt.After(*books[i].LatestCompletionAt) {
-				completedAt := completion.CompletedAt
-				books[i].LatestCompletionAt = &completedAt
-				books[i].LatestCompletionSource = completion.Source
-			}
+		book.CompletionCount++
+		if book.LatestCompletionAt == nil || completion.CompletedAt.After(*book.LatestCompletionAt) {
+			completedAt := completion.CompletedAt
+			book.LatestCompletionAt = &completedAt
+			book.LatestCompletionSource = completion.Source
 		}
 	}
 }
@@ -499,22 +519,29 @@ func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, e
 	}
 	for _, source := range s.books {
 		if source.Source.OwnerID == owner && (source.Source.ID == bookID || source.BookID == bookID) {
-			state := domain.LanguageChosen
-			if strings.TrimSpace(source.Source.Language) == "" {
-				state = domain.LanguageUnknown
-			}
-			resolvedBookID := source.BookID
-			if resolvedBookID == "" {
-				resolvedBookID = source.Source.ID
-			}
-			title := source.BookTitle
-			if title == "" {
-				title = source.Source.Title
-			}
-			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, Author: source.BookAuthor, LanguageState: state, LanguageTag: source.Source.Language}, nil
+			return fixtureBookFromSource(owner, source), nil
 		}
 	}
 	return domain.Book{}, errNotFound
+}
+
+// fixtureBookFromSource derives the Book a source entry identifies: the
+// resolved Book ID prefers BookID over the source ID, a blank language is
+// unchosen, and the title falls back to the source title.
+func fixtureBookFromSource(owner string, source domain.SourceMaterialSummary) domain.Book {
+	state := domain.LanguageChosen
+	if strings.TrimSpace(source.Source.Language) == "" {
+		state = domain.LanguageUnknown
+	}
+	resolvedBookID := source.BookID
+	if resolvedBookID == "" {
+		resolvedBookID = source.Source.ID
+	}
+	title := source.BookTitle
+	if title == "" {
+		title = source.Source.Title
+	}
+	return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, Author: source.BookAuthor, LanguageState: state, LanguageTag: source.Source.Language}
 }
 
 func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, error) {
@@ -580,31 +607,46 @@ func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, auth
 	}
 	for i := range s.books {
 		if s.books[i].Source.OwnerID == owner && (s.books[i].Source.ID == bookID || s.books[i].BookID == bookID) {
-			resolvedBookID := s.books[i].BookID
-			if resolvedBookID == "" {
-				resolvedBookID = s.books[i].Source.ID
-			}
-			s.books[i].BookTitle = title
-			s.books[i].BookAuthor = strings.TrimSpace(author)
-			if languageState == domain.LanguageUnknown {
-				languageTag = ""
-			}
-			s.books[i].Source.Language = languageTag
-			s.clearFixtureGoalsForRetaggedBook(owner, resolvedBookID, languageState, languageTag)
-			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, Author: strings.TrimSpace(author), LanguageState: languageState, LanguageTag: languageTag}, nil
+			return s.updateFixtureSourceMetadataLocked(i, owner, title, author, languageState, languageTag), nil
 		}
 	}
 	for i := range s.myBooks {
 		if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == bookID {
-			s.myBooks[i].Book.Title = title
-			s.myBooks[i].Book.Author = strings.TrimSpace(author)
-			s.myBooks[i].Book.LanguageState = languageState
-			s.myBooks[i].Book.LanguageTag = languageTag
-			s.clearFixtureGoalsForRetaggedBook(owner, bookID, languageState, languageTag)
-			return s.myBooks[i].Book, nil
+			return s.updateFixtureMyBookMetadataLocked(i, owner, title, author, languageState, languageTag), nil
 		}
 	}
 	return domain.Book{}, errNotFound
+}
+
+// updateFixtureSourceMetadataLocked writes metadata to the source entry at
+// index, resolving its Book ID, and clears goals the retag invalidates. Callers
+// hold s.mu.
+func (s *Store) updateFixtureSourceMetadataLocked(index int, owner, title, author, languageState, languageTag string) domain.Book {
+	source := &s.books[index]
+	resolvedBookID := source.BookID
+	if resolvedBookID == "" {
+		resolvedBookID = source.Source.ID
+	}
+	source.BookTitle = title
+	source.BookAuthor = strings.TrimSpace(author)
+	if languageState == domain.LanguageUnknown {
+		languageTag = ""
+	}
+	source.Source.Language = languageTag
+	s.clearFixtureGoalsForRetaggedBook(owner, resolvedBookID, languageState, languageTag)
+	return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, Author: strings.TrimSpace(author), LanguageState: languageState, LanguageTag: languageTag}
+}
+
+// updateFixtureMyBookMetadataLocked writes metadata to the metadata-only entry
+// at index and clears goals the retag invalidates. Callers hold s.mu.
+func (s *Store) updateFixtureMyBookMetadataLocked(index int, owner, title, author, languageState, languageTag string) domain.Book {
+	book := &s.myBooks[index].Book
+	book.Title = title
+	book.Author = strings.TrimSpace(author)
+	book.LanguageState = languageState
+	book.LanguageTag = languageTag
+	s.clearFixtureGoalsForRetaggedBook(owner, book.ID, languageState, languageTag)
+	return *book
 }
 
 func (s *Store) clearFixtureGoalsForRetaggedBook(owner, bookID, languageState, language string) {

@@ -67,47 +67,75 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	}
 	page.Books = []domain.VocabularyBrowseBook{{ID: BookID, Title: "Der lange Weg nach Hause", HasCurrentAnalysis: true, HasVocabularyEvidence: true}}
 	page.CorpusRevision = "fixture-current-reading-vocabulary-v1"
-	switch s.vocabularyBrowseScenario() {
-	case VocabularyBrowseScenarioNoAnalysis:
-		page.Books[0].HasCurrentAnalysis, page.Books[0].HasVocabularyEvidence = false, false
-		page.BooksWithoutCurrentAnalysis = 1
-		return page, nil
-	case VocabularyBrowseScenarioNoVocabulary:
-		page.Books[0].HasVocabularyEvidence = false
-		return page, nil
-	case VocabularyBrowseScenarioCountsUpdating:
-		page.BrowseCountsUpdating = true
-		return page, nil
-	case VocabularyBrowseScenarioCountsUnavailable:
-		page.BrowseCountsUnavailable = true
+	scenario := s.vocabularyBrowseScenario()
+	if fixtureVocabularyBrowseScenario(&page, scenario) {
 		return page, nil
 	}
 	if query.Prefix == "paging" {
-		// A deliberately paged fixture for browser interaction checks; the ordinary
-		// two-row fixture remains small and representative on every other query.
-		page.Total, page.InventoryTotal, page.ScopedInventoryTotal = 26, 26, 26
-		page.Page = min(page.Page, 2)
-		start := (page.Page - 1) * 25
-		rows := make([]domain.VocabularyBrowseRow, 0, min(start+25, 26)-start)
-		for i := start; i < min(start+25, 26); i++ {
-			rows = append(rows, domain.VocabularyBrowseRow{CanonicalLemma: fmt.Sprintf("paging%02d", i), UPOS: "NOUN", OccurrenceCount: 1, AcrossBooksOccurrenceCount: 1})
-		}
-		page.Rows = rows
-		return page, nil
+		return fixtureVocabularyBrowsePaging(page), nil
 	}
-	rows := []domain.VocabularyBrowseRow{
-		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, AcrossBooksOccurrenceCount: 8, Generated: true},
-		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
+	page.Total, page.InventoryTotal, page.ScopedInventoryTotal, page.Rows = fixtureVocabularyBrowseFilteredRows(fixtureVocabularyBrowseRows(scenario), query)
+	lastPage := max(1, int((page.Total+24)/25))
+	if page.Page > lastPage {
+		page.Page = lastPage
 	}
-	if s.vocabularyBrowseScenario() == VocabularyBrowseScenarioAccounted {
-		rows = []domain.VocabularyBrowseRow{
+	return page, nil
+}
+
+// fixtureVocabularyBrowseScenario applies a named Browse scenario to the page
+// and reports whether it replaces the ordinary rows.
+func fixtureVocabularyBrowseScenario(page *domain.VocabularyBrowsePage, scenario string) bool {
+	switch scenario {
+	case VocabularyBrowseScenarioNoAnalysis:
+		page.Books[0].HasCurrentAnalysis, page.Books[0].HasVocabularyEvidence = false, false
+		page.BooksWithoutCurrentAnalysis = 1
+	case VocabularyBrowseScenarioNoVocabulary:
+		page.Books[0].HasVocabularyEvidence = false
+	case VocabularyBrowseScenarioCountsUpdating:
+		page.BrowseCountsUpdating = true
+	case VocabularyBrowseScenarioCountsUnavailable:
+		page.BrowseCountsUnavailable = true
+	default:
+		return false
+	}
+	return true
+}
+
+// fixtureVocabularyBrowsePaging serves the deliberately multi-page fixture the
+// browser interaction checks page through.
+func fixtureVocabularyBrowsePaging(page domain.VocabularyBrowsePage) domain.VocabularyBrowsePage {
+	page.Total, page.InventoryTotal, page.ScopedInventoryTotal = 26, 26, 26
+	page.Page = min(page.Page, 2)
+	start := (page.Page - 1) * 25
+	rows := make([]domain.VocabularyBrowseRow, 0, min(start+25, 26)-start)
+	for i := start; i < min(start+25, 26); i++ {
+		rows = append(rows, domain.VocabularyBrowseRow{CanonicalLemma: fmt.Sprintf("paging%02d", i), UPOS: "NOUN", OccurrenceCount: 1, AcrossBooksOccurrenceCount: 1})
+	}
+	page.Rows = rows
+	return page
+}
+
+// fixtureVocabularyBrowseRows returns the representative rows, or the accounted
+// scenario's already-known identities.
+func fixtureVocabularyBrowseRows(scenario string) []domain.VocabularyBrowseRow {
+	if scenario == VocabularyBrowseScenarioAccounted {
+		return []domain.VocabularyBrowseRow{
 			{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
 			{CanonicalLemma: "lesen", UPOS: "VERB", OccurrenceCount: 3, AcrossBooksOccurrenceCount: 3, Known: true, Reserved: true},
 		}
 	}
-	inventoryTotal := int64(len(rows))
+	return []domain.VocabularyBrowseRow{
+		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, AcrossBooksOccurrenceCount: 8, Generated: true},
+		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
+	}
+}
+
+// fixtureVocabularyBrowseFilteredRows applies the accounted-for and prefix
+// filters and returns the totals they drive alongside the surviving rows.
+func fixtureVocabularyBrowseFilteredRows(rows []domain.VocabularyBrowseRow, query domain.VocabularyBrowseQuery) (total, inventoryTotal, scopedInventoryTotal int64, filtered []domain.VocabularyBrowseRow) {
+	inventoryTotal = int64(len(rows))
 	if !query.IncludeAll {
-		filtered := rows[:0]
+		filtered = rows[:0]
 		for _, row := range rows {
 			if !row.Known && !row.Reserved && !row.InBookDeck {
 				filtered = append(filtered, row)
@@ -117,7 +145,7 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	}
 	prefix := strings.ToLower(strings.TrimSpace(query.Prefix))
 	if prefix != "" {
-		filtered := rows[:0]
+		filtered = rows[:0]
 		for _, row := range rows {
 			if strings.HasPrefix(strings.ToLower(row.CanonicalLemma), prefix) {
 				filtered = append(filtered, row)
@@ -125,15 +153,7 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 		}
 		rows = filtered
 	}
-	page.Total = int64(len(rows))
-	page.InventoryTotal = inventoryTotal
-	page.ScopedInventoryTotal = inventoryTotal
-	lastPage := max(1, int((page.Total+24)/25))
-	if page.Page > lastPage {
-		page.Page = lastPage
-	}
-	page.Rows = rows
-	return page, nil
+	return int64(len(rows)), inventoryTotal, inventoryTotal, rows
 }
 
 // ListVocabularyConcordance serves deterministic synthetic evidence so browser
@@ -156,6 +176,34 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-books") {
 		return fixtureMultiBookConcordance(result), nil
 	}
+	lemma := strings.ToLower(strings.TrimSpace(query.Term))
+	// Mirror the persisted lookup: an evidenced effective lemma wins and
+	// expands its forms; any other term matches only that source form.
+	result.Match, result.Term = fixtureConcordanceMatch(query.Match, lemma), lemma
+	if query.Priority == BookID {
+		// The fixture corpus is a single Book, so a captured priority always matches.
+		result.PriorityBookID, result.PriorityTitle = BookID, "Der lange Weg nach Hause"
+		result.PriorityState = domain.ConcordancePriorityMatches
+	}
+	fixtureConcordancePage(&result, fixtureConcordanceMatches(result.Match, lemma, query.UPOS), query.Page)
+	return result, nil
+}
+
+// fixtureConcordanceMatch applies the supplied interpretation, recognizing the
+// fixture's evidenced lemmas as lemma matches when none is supplied.
+func fixtureConcordanceMatch(supplied, lemma string) string {
+	if supplied != "" {
+		return supplied
+	}
+	if lemma == "haus" || lemma == "heim" {
+		return domain.ConcordanceMatchLemma
+	}
+	return domain.ConcordanceMatchForm
+}
+
+// fixtureConcordanceMatches returns the synthetic occurrences the applied
+// interpretation selects, skipping the deliberately excluded row.
+func fixtureConcordanceMatches(match, lemma, upos string) []domain.ConcordanceResultOccurrence {
 	fixtureRows := []domain.ConcordanceResultOccurrence{
 		fixtureConcordanceOccurrence("heim", true, false),
 		fixtureConcordanceOccurrence("haus", false, true),
@@ -164,44 +212,43 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 	for i := 3; i < 28; i++ {
 		fixtureRows = append(fixtureRows, fixtureConcordanceOccurrence("haus", false, false))
 	}
-	lemma := strings.ToLower(strings.TrimSpace(query.Term))
-	// Mirror the persisted lookup: an evidenced effective lemma wins and
-	// expands its forms; any other term matches only that source form.
-	match := query.Match
-	if match == "" {
-		match = domain.ConcordanceMatchForm
-		if lemma == "haus" || lemma == "heim" {
-			match = domain.ConcordanceMatchLemma
-		}
-	}
-	result.Match, result.Term = match, lemma
-	if query.Priority == BookID {
-		// The fixture corpus is a single Book, so a captured priority always matches.
-		result.PriorityBookID, result.PriorityTitle = BookID, "Der lange Weg nach Hause"
-		result.PriorityState = domain.ConcordancePriorityMatches
-	}
 	var matches []domain.ConcordanceResultOccurrence
 	for i, occurrence := range fixtureRows {
 		// Each synthetic row represents a distinct sentence occurrence; keep IDs
 		// unique just as the persisted corpus query does.
 		occurrence.SentenceOrdinal = int64(i)
-		matched := match == domain.ConcordanceMatchLemma && lemma == occurrence.EffectiveLemma && (query.UPOS == "" || query.UPOS == occurrence.UPOS) ||
-			match == domain.ConcordanceMatchForm && lemma == strings.ToLower(occurrence.Surface)
-		if occurrence.Excluded || !matched {
-			continue
+		if fixtureConcordanceRowMatched(occurrence, match, lemma, upos) {
+			matches = append(matches, occurrence)
 		}
-		matches = append(matches, occurrence)
 	}
+	return matches
+}
+
+// fixtureConcordanceRowMatched reports whether one occurrence fits the applied
+// interpretation and requested part of speech.
+func fixtureConcordanceRowMatched(occurrence domain.ConcordanceResultOccurrence, match, lemma, upos string) bool {
+	if occurrence.Excluded {
+		return false
+	}
+	switch match {
+	case domain.ConcordanceMatchLemma:
+		return lemma == occurrence.EffectiveLemma && (upos == "" || upos == occurrence.UPOS)
+	case domain.ConcordanceMatchForm:
+		return lemma == strings.ToLower(occurrence.Surface)
+	}
+	return false
+}
+
+// fixtureConcordancePage pages the matches onto result.
+func fixtureConcordancePage(result *domain.ConcordanceResult, matches []domain.ConcordanceResultOccurrence, page int) {
 	const pageSize = 25
-	start := (query.Page - 1) * pageSize
+	start := (page - 1) * pageSize
 	if start >= len(matches) {
-		return result, nil
+		return
 	}
-	end := start + pageSize
-	end = min(end, len(matches))
+	end := min(start+pageSize, len(matches))
 	result.HasNext = end < len(matches)
 	result.Occurrences = matches[start:end]
-	return result, nil
 }
 
 func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, unit string, sentence, target int64, targetSurface string) (domain.SentenceStudy, error) {

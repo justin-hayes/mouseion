@@ -842,3 +842,258 @@ func TestStoreSwitchCurrentReadingDecidesFromSnapshotLifecycleAndFlags(t *testin
 	assert.Equal(t, restarted.SnapshotID, finished.Completion.SnapshotID)
 	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", restarted.BookID, restarted.SnapshotID), domain.ErrCurrentReadingStale, "a completed snapshot is never an End replay")
 }
+
+// TestVocabularyBrowsePagesTheFixtureAndClampsPages holds how Browse serves the
+// deliberately multi-page fixture and clamps pages: the "paging" prefix gives a
+// multi-page fixture, and an ordinary prefix filters the default rows and clamps
+// a stale page back into range.
+func TestVocabularyBrowsePagesTheFixtureAndClampsPages(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+	paging := func(page int) domain.VocabularyBrowseQuery {
+		return domain.VocabularyBrowseQuery{Language: "de", CurrentBookID: BookID, ReadingBookID: BookID, Prefix: "paging", Page: page}
+	}
+	cases := []struct {
+		name      string
+		query     domain.VocabularyBrowseQuery
+		wantPage  int
+		wantTotal int64
+		wantRows  int
+		wantFirst string
+	}{
+		{name: "the first page serves the leading fixture rows", query: paging(1), wantPage: 1, wantTotal: 26, wantRows: 25, wantFirst: "paging00"},
+		{name: "the second page serves the final fixture row", query: paging(2), wantPage: 2, wantTotal: 26, wantRows: 1, wantFirst: "paging25"},
+		{name: "a page beyond the fixture clamps to the last page", query: paging(99), wantPage: 2, wantTotal: 26, wantRows: 1, wantFirst: "paging25"},
+		{name: "a page below one becomes the first page", query: paging(0), wantPage: 1, wantTotal: 26, wantRows: 25, wantFirst: "paging00"},
+		{
+			name:      "an ordinary prefix filters the default rows and clamps the page",
+			query:     domain.VocabularyBrowseQuery{Language: "de", CurrentBookID: BookID, ReadingBookID: BookID, Prefix: "  GE ", Page: 5},
+			wantPage:  1,
+			wantTotal: 1,
+			wantRows:  1,
+			wantFirst: "gehen",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", tc.query)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantPage, page.Page)
+			assert.Equal(t, tc.wantTotal, page.Total)
+			require.Len(t, page.Rows, tc.wantRows)
+			assert.Equal(t, tc.wantFirst, page.Rows[0].CanonicalLemma)
+		})
+	}
+}
+
+// TestVocabularyBrowseWithoutTheFixtureBookReturnsAnEmptyPage holds the Browse
+// guard: the canned rows only appear for the fixture Book, so an ended reading
+// and another current Book both yield an empty page that still names the
+// current Book.
+func TestVocabularyBrowseWithoutTheFixtureBookReturnsAnEmptyPage(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+	query := domain.VocabularyBrowseQuery{Language: "de", Page: 1}
+	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", reading.BookID, reading.SnapshotID))
+
+	inactive, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
+	require.NoError(t, err)
+	assert.Empty(t, inactive.CurrentBookID)
+	assert.Empty(t, inactive.Books)
+	assert.Empty(t, inactive.Rows)
+
+	started, err := store.StartCurrentReading(ctx, OwnerID, "de", routeMatchBookID)
+	require.NoError(t, err)
+	other, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
+	require.NoError(t, err)
+	assert.Equal(t, routeMatchBookID, started.BookID)
+	assert.Equal(t, routeMatchBookID, other.CurrentBookID)
+	assert.Empty(t, other.Books)
+	assert.Empty(t, other.Rows)
+}
+
+// TestFixtureGetBookResolvesUntaggedSourceAndReportsMissing holds how GetBook
+// projects a source entry and what it does when no Book matches.
+func TestFixtureGetBookResolvesUntaggedSourceAndReportsMissing(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+	store.books = append(store.books, domain.SourceMaterialSummary{
+		Source: domain.SourceMaterial{ID: "fixture-untagged-source", OwnerID: OwnerID, Title: "Untagged"},
+		BookID: "fixture-untagged-book",
+	})
+
+	t.Run("a source with a blank language is unchosen", func(t *testing.T) {
+		book, err := store.GetBook(ctx, OwnerID, "fixture-untagged-book")
+		require.NoError(t, err)
+		assert.Equal(t, domain.LanguageUnknown, book.LanguageState)
+		assert.Empty(t, book.LanguageTag)
+		assert.Equal(t, "Untagged", book.Title)
+	})
+
+	t.Run("a source with no resolved Book ID is addressed by its source ID", func(t *testing.T) {
+		resolved, err := store.GetBook(ctx, OwnerID, "fixture-empty")
+		require.NoError(t, err)
+		assert.Equal(t, "fixture-empty", resolved.ID)
+	})
+
+	t.Run("an unknown Book is not found", func(t *testing.T) {
+		_, err := store.GetBook(ctx, OwnerID, "missing")
+		require.ErrorIs(t, err, domain.ErrNotFound)
+	})
+}
+
+// TestFixtureUpdateBookMetadataNormalizesChosenLanguageAndReportsMissing holds
+// what UpdateBookMetadata writes for a chosen language and when no Book matches.
+func TestFixtureUpdateBookMetadataNormalizesChosenLanguageAndReportsMissing(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+
+	t.Run("a chosen language is canonicalized", func(t *testing.T) {
+		book, err := store.UpdateBookMetadata(ctx, OwnerID, routeDiffersBookID, "Neuer Titel", "  Mara Weiss  ", domain.LanguageChosen, "DE_de")
+		require.NoError(t, err)
+		assert.Equal(t, "Neuer Titel", book.Title)
+		assert.Equal(t, "Mara Weiss", book.Author)
+		assert.Equal(t, domain.LanguageChosen, book.LanguageState)
+		assert.Equal(t, "de", book.LanguageTag)
+	})
+
+	t.Run("an unknown Book is not found", func(t *testing.T) {
+		_, err := store.UpdateBookMetadata(ctx, OwnerID, "missing", "Titel", "", domain.LanguageChosen, "de")
+		require.ErrorIs(t, err, domain.ErrNotFound)
+	})
+}
+
+// TestStoreStudyLanguagesIgnoreTagsThatNormalizeAway holds that a raw tag which
+// trims to something but canonicalizes to no base language never becomes a study
+// language.
+func TestStoreStudyLanguagesIgnoreTagsThatNormalizeAway(t *testing.T) {
+	store := NewStore()
+	store.books = append(store.books, domain.SourceMaterialSummary{
+		Source: domain.SourceMaterial{ID: "fixture-empty-tag-source", OwnerID: OwnerID, Language: "-"},
+	})
+	store.myBooks = append(store.myBooks, domain.MyBook{
+		Book: domain.Book{ID: "fixture-empty-tag-book", OwnerID: OwnerID, LanguageState: domain.LanguageChosen, LanguageTag: "-"},
+	})
+
+	languages, err := store.ListStudyLanguages(t.Context(), OwnerID)
+	require.NoError(t, err)
+	got := make([]string, 0, len(languages))
+	for _, language := range languages {
+		got = append(got, language.Language)
+	}
+	assert.Equal(t, []string{"de", "it"}, got, "a tag that normalizes away is not a study language")
+}
+
+// TestFixtureLemmaDecisionRejectsAStaleOccurrenceClaim holds the decision
+// write's precondition: a decision whose occurrence carries a correction the
+// stored occurrence does not have is refused as not found and stores nothing.
+func TestFixtureLemmaDecisionRejectsAStaleOccurrenceClaim(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+	occurrences, err := store.ListLemmaReviewOccurrences(ctx, OwnerID, routeMatchBookID, "Weg")
+	require.NoError(t, err)
+	require.NotEmpty(t, occurrences)
+
+	stale := occurrences[0]
+	stale.CorrectedLemma = "pfad" // the stored occurrence carries no correction
+	err = store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: stale, CanonicalLemma: "pfad"}})
+	require.ErrorIs(t, err, domain.ErrNotFound)
+
+	unchanged, err := store.ListLemmaReviewOccurrences(ctx, OwnerID, routeMatchBookID, "Weg")
+	require.NoError(t, err)
+	assert.Empty(t, unchanged[0].CorrectedLemma, "a rejected decision persists nothing")
+}
+
+// TestStoreReservedVocabularyIgnoresOtherBooksPreparations holds the reserved
+// fallback: for a reading without a frozen snapshot, preparations for another
+// Book contribute no vocabulary.
+func TestStoreReservedVocabularyIgnoresOtherBooksPreparations(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", reading.BookID, reading.SnapshotID))
+
+	_, err = store.StartCurrentReading(ctx, OwnerID, "de", routeDiffersBookID)
+	require.NoError(t, err)
+	reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, reserved, "the seeded preparations belong to another Book")
+}
+
+// TestStoreReservedVocabularyKeepsOnlyTheReadingLanguage holds the reserved
+// filter: a frozen snapshot may carry several languages, and only the reading's
+// language is returned.
+func TestStoreReservedVocabularyKeepsOnlyTheReadingLanguage(t *testing.T) {
+	store := NewStore()
+	store.SetGoalSnapshotVocabulary("fixture-de-goal-snapshot", []domain.DeckPreparationVocabulary{
+		{OwnerID: OwnerID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"},
+		{OwnerID: OwnerID, Language: "it", CanonicalLemma: "andare", UPOS: "VERB"},
+	})
+
+	reserved, err := store.ListReservedVocabulary(t.Context(), OwnerID, "de")
+	require.NoError(t, err)
+	require.Len(t, reserved, 1)
+	assert.Equal(t, "gehen", reserved[0].CanonicalLemma)
+}
+
+// TestStoreFinishCurrentReadingReportsUnknownWithoutAReading holds the Finish
+// rejection for an expectation that names neither a current reading nor a
+// recorded completion.
+func TestStoreFinishCurrentReadingReportsUnknownWithoutAReading(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", reading.BookID, reading.SnapshotID))
+
+	_, err = store.FinishCurrentReading(ctx, OwnerID, "de", reading.BookID, reading.SnapshotID)
+	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+// TestStoreFinishCurrentReadingReleasesStudyingPreparationsByLegacyIdentity
+// holds which studying preparations Finish releases: one matching the reading
+// by its legacy source-material identity is released, and one for another
+// analysis is left alone.
+func TestStoreFinishCurrentReadingReleasesStudyingPreparationsByLegacyIdentity(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	studying := time.Date(2026, time.June, 1, 9, 0, 0, 0, time.UTC)
+	store.preps = append(store.preps,
+		domain.DeckPreparation{
+			ID: "fixture-studying-legacy", OwnerID: OwnerID, BookID: BookID,
+			SourceMaterialID: reading.SourceMaterialID, AnalysisRunID: reading.AnalysisRunID,
+			State: domain.DeckPreparationReady, StudyingAt: &studying,
+		},
+		domain.DeckPreparation{
+			ID: "fixture-studying-other", OwnerID: OwnerID, BookID: BookID,
+			SourceMaterialID: "fixture-other-source", AnalysisRunID: "fixture-other-run",
+			State: domain.DeckPreparationReady, StudyingAt: &studying,
+		},
+	)
+
+	_, err = store.FinishCurrentReading(ctx, OwnerID, "de", BookID, reading.SnapshotID)
+	require.NoError(t, err)
+
+	released := make(map[string]domain.DeckPreparation, len(store.preps))
+	for _, preparation := range store.preps {
+		released[preparation.ID] = preparation
+	}
+
+	t.Run("a legacy identity preparation is released", func(t *testing.T) {
+		legacy := released["fixture-studying-legacy"]
+		assert.Nil(t, legacy.StudyingAt)
+		require.NotNil(t, legacy.ReleasedAt)
+		assert.Equal(t, domain.DeckPreparationReady, legacy.State)
+	})
+
+	t.Run("a preparation for another analysis keeps studying", func(t *testing.T) {
+		other := released["fixture-studying-other"]
+		require.NotNil(t, other.StudyingAt)
+		assert.Nil(t, other.ReleasedAt)
+	})
+}
