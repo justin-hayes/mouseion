@@ -110,6 +110,90 @@ func (unavailableIndex) Alternatives(context.Context, string, string, string, st
 	return nil, errors.New("local index unavailable")
 }
 
+// indexedLemmaIndex reports every requested lemma as present and fails the test
+// if Alternatives runs: an indexed lemma must short-circuit before evidence is
+// consulted.
+type indexedLemmaIndex struct{}
+
+func (indexedLemmaIndex) LemmaExists(context.Context, string, string, string) (bool, error) {
+	return true, nil
+}
+
+func (indexedLemmaIndex) Alternatives(context.Context, string, string, string, string) ([]Alternative, error) {
+	return nil, errors.New("an indexed lemma must not consult alternatives")
+}
+
+// alternativesUnavailableIndex misses every lemma but cannot read alternatives,
+// separating the alternatives read failure from the lemma-existence failure.
+type alternativesUnavailableIndex struct{}
+
+func (alternativesUnavailableIndex) LemmaExists(context.Context, string, string, string) (bool, error) {
+	return false, nil
+}
+
+func (alternativesUnavailableIndex) Alternatives(context.Context, string, string, string, string) ([]Alternative, error) {
+	return nil, errors.New("local index unavailable")
+}
+
+func TestGermanDoesNotConsultAlternativesWhenTheLemmaIsIndexed(t *testing.T) {
+	occurrences := []Occurrence{{ID: "indexed", Language: "de", Surface: "Drachen", Lemma: "drache", UPOS: "NOUN", Sentence: "Der Drache schläft."}}
+	flags, assessed, err := Detect(context.Background(), "de", occurrences, indexedLemmaIndex{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !assessed || len(flags) != 0 {
+		t.Fatalf("assessed=%v flags=%#v, want an assessed occurrence with no flag for an indexed lemma", assessed, flags)
+	}
+}
+
+func TestUnavailableAlternativesIsNotAnAssessment(t *testing.T) {
+	occurrences := []Occurrence{{ID: "one", Language: "de", Surface: "Basketballspiel", Lemma: "Basketballspiel", UPOS: "NOUN", Sentence: "Das Basketballspiel beginnt."}}
+	flags, assessed, err := Detect(context.Background(), "de", occurrences, alternativesUnavailableIndex{})
+	if err == nil || assessed || len(flags) != 0 {
+		t.Fatalf("flags=%#v assessed=%v err=%v; a failed alternatives read must not be treated as clean", flags, assessed, err)
+	}
+}
+
+func TestGermanSkipsOccurrencesOutsideTheReviewableScope(t *testing.T) {
+	index := fixtureIndex{
+		"Drachen|Ein Drache lauert.": {{Lemma: "Drache", UPOS: "NOUN", Source: "kaikki", Version: "v1", EvidenceID: "e1", ContextRelevant: true}},
+	}
+	occurrences := []Occurrence{
+		{ID: "reviewed", Language: "de", Surface: "Drachen", Lemma: "Drach", UPOS: "NOUN", Sentence: "Ein Drache lauert.", Reviewed: true},
+		{ID: "excluded", Language: "de", Surface: "Drachen", Lemma: "Drach", UPOS: "NOUN", Sentence: "Ein Drache lauert.", Excluded: true},
+		{ID: "italian", Language: "it", Surface: "Drachen", Lemma: "Drach", UPOS: "NOUN", Sentence: "Ein Drache lauert."},
+		{ID: "  ", Language: "de", Surface: "Drachen", Lemma: "Drach", UPOS: "NOUN", Sentence: "Ein Drache lauert."},
+		{ID: "blank-lemma", Language: "de", Surface: "Drachen", Lemma: "   ", UPOS: "NOUN", Sentence: "Ein Drache lauert."},
+	}
+	flags, assessed, err := Detect(context.Background(), "de", occurrences, index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !assessed || len(flags) != 0 {
+		t.Fatalf("assessed=%v flags=%#v, want the reviewable scope to skip all of these occurrences", assessed, flags)
+	}
+}
+
+func TestRepeatedAlternativeIdentityIsCountedOnce(t *testing.T) {
+	const sentence = "Ein Drache lauert."
+	occurrences := []Occurrence{
+		{ID: "drache-1", Language: "de", Surface: "Drache", Lemma: "drache", UPOS: "NOUN", Sentence: "Der Drache schläft."},
+		{ID: "drache-2", Language: "de", Surface: "Drache", Lemma: "drache", UPOS: "NOUN", Sentence: "Ein Drache wacht."},
+		{ID: "drach", Language: "de", Surface: "Drachen", Lemma: "Drach", UPOS: "NOUN", Sentence: sentence},
+	}
+	index := fixtureIndex{"Drachen|" + sentence: {
+		{Lemma: "Drache", UPOS: "NOUN", Source: "kaikki", Version: "v1", EvidenceID: "e1", ContextRelevant: true},
+		{Lemma: "Drache", UPOS: "NOUN", Source: "kaikki", Version: "v1", EvidenceID: "e2", ContextRelevant: true},
+	}}
+	flags, assessed, err := Detect(context.Background(), "de", occurrences, index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !assessed || len(flags) != 1 || flags[0].OccurrenceID != "drach" {
+		t.Fatalf("assessed=%v flags=%#v, want one flag: two indexed occurrences plus one distinct potential alternative reach the floor", assessed, flags)
+	}
+}
+
 func TestUnavailableIndexIsNotAnAssessment(t *testing.T) {
 	occurrences := []Occurrence{{ID: "one", Language: "de", Surface: "Drachen", Lemma: "Drach", UPOS: "NOUN", Sentence: "Ein Drache."}}
 	flags, assessed, err := Detect(context.Background(), "de", occurrences, unavailableIndex{})

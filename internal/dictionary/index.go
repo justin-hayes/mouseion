@@ -114,45 +114,71 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if language == "" || lemma == "" {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	rows, err := i.db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, upos, upos)
+	exactSenses, weakSenses, morphology, foundExact, err := lookupEntryRows(ctx, i.db, language, lemma, upos)
 	if err != nil {
-		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary lookup: %w", err)
-	}
-	defer rows.Close() //nolint:errcheck // Rows.Err below reports actionable lookup failures.
-	var exactSenses, weakSenses []enrichment.LexicalSense
-	var gender, article, plural, ipa, principalParts string
-	foundExact := false
-	for rows.Next() {
-		var entryUPOS, sensesJSON, rowGender, rowArticle, rowPlural, rowIPA, rowPrincipalParts string
-		if err = rows.Scan(&entryUPOS, &sensesJSON, &rowGender, &rowArticle, &rowPlural, &rowIPA, &rowPrincipalParts); err != nil {
-			return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary lookup row: %w", err)
-		}
-		var senses []enrichment.LexicalSense
-		if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
-			return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
-		}
-		exactMatch := entryUPOS == upos && upos != ""
-		if exactMatch {
-			foundExact = true
-			gender, article, plural, ipa, principalParts = rowGender, rowArticle, rowPlural, rowIPA, rowPrincipalParts
-		} else {
-			for senseIndex := range senses {
-				senses[senseIndex].MatchStrength = "lemma_only_missing_pos"
-			}
-		}
-		if exactMatch {
-			exactSenses = append(exactSenses, senses...)
-		} else {
-			weakSenses = append(weakSenses, senses...)
-		}
-	}
-	if err = rows.Err(); err != nil {
-		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary lookup rows: %w", err)
+		return enrichment.LexicalEntry{}, false, err
 	}
 	if !foundExact && len(weakSenses) == 0 {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	senses := combineSenses(exactSenses, weakSenses)
+	senses, err := finalizeLookupSenses(combineSenses(exactSenses, weakSenses), language, lemma, upos, i.version)
+	if err != nil {
+		return enrichment.LexicalEntry{}, false, err
+	}
+	orderedExact, orderedWeak := splitSensesByMatchStrength(senses)
+	ordered := combineSenses(enrichment.OrderSenses(request, orderedExact), enrichment.OrderSenses(request, orderedWeak))
+	result := enrichment.LexicalEntry{Senses: ordered, CandidateSenses: append([]enrichment.LexicalSense(nil), senses...), IPA: morphology.ipa, PrincipalParts: morphology.principalParts}
+	if language == "el" {
+		result.Gender, result.Article, result.Plural = morphology.gender, morphology.article, morphology.plural
+	} else if len(ordered) > 0 {
+		result.Gender, result.Article, result.Plural = ordered[0].Gender, ordered[0].Article, ordered[0].Plural
+	}
+	return result, true, nil
+}
+
+// lookupMorphology carries the morphology columns of an exact-identity row.
+type lookupMorphology struct {
+	gender, article, plural, ipa, principalParts string
+}
+
+// lookupEntryRows runs the candidate query and separates rows that match the
+// requested part of speech from lemma-only fallbacks, keeping the exact row's
+// morphology.
+func lookupEntryRows(ctx context.Context, db *sql.DB, language, lemma, upos string) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
+	rows, err := db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, upos, upos)
+	if err != nil {
+		return nil, nil, lookupMorphology{}, false, fmt.Errorf("dictionary lookup: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // Rows.Err below reports actionable lookup failures.
+	for rows.Next() {
+		var entryUPOS, sensesJSON, rowGender, rowArticle, rowPlural, rowIPA, rowPrincipalParts string
+		if err = rows.Scan(&entryUPOS, &sensesJSON, &rowGender, &rowArticle, &rowPlural, &rowIPA, &rowPrincipalParts); err != nil {
+			return nil, nil, lookupMorphology{}, false, fmt.Errorf("dictionary lookup row: %w", err)
+		}
+		var senses []enrichment.LexicalSense
+		if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
+			return nil, nil, lookupMorphology{}, false, fmt.Errorf("dictionary senses: %w", err)
+		}
+		if entryUPOS == upos && upos != "" {
+			foundExact = true
+			morphology = lookupMorphology{gender: rowGender, article: rowArticle, plural: rowPlural, ipa: rowIPA, principalParts: rowPrincipalParts}
+			exactSenses = append(exactSenses, senses...)
+			continue
+		}
+		for senseIndex := range senses {
+			senses[senseIndex].MatchStrength = "lemma_only_missing_pos"
+		}
+		weakSenses = append(weakSenses, senses...)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, nil, lookupMorphology{}, false, fmt.Errorf("dictionary lookup rows: %w", err)
+	}
+	return exactSenses, weakSenses, morphology, foundExact, nil
+}
+
+// finalizeLookupSenses fills each sense's evidence identity and provider
+// defaults, then drops senses that collapse onto one evidence identity.
+func finalizeLookupSenses(senses []enrichment.LexicalSense, language, lemma, upos, version string) ([]enrichment.LexicalSense, error) {
 	seenEvidenceIDs := make(map[string]struct{}, len(senses))
 	for index := 0; index < len(senses); {
 		sense := &senses[index]
@@ -163,7 +189,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 			}
 			identity, marshalErr := json.Marshal(evidenceIdentity{Language: language, Lemma: lemma, UPOS: evidenceUPOS, Gloss: sense.Gloss, Phrase: sense.Phrase, Examples: sense.Examples, Topics: sense.Topics, Tags: sense.Tags})
 			if marshalErr != nil {
-				return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary evidence identity: %w", marshalErr)
+				return nil, fmt.Errorf("dictionary evidence identity: %w", marshalErr)
 			}
 			digest := sha256.Sum256(identity)
 			sense.EvidenceID = "wiktionary:" + hex.EncodeToString(digest[:])
@@ -178,7 +204,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 			sense.Origin = "Kaikki.org Wiktextract enwiktionary"
 		}
 		if sense.Version == "" {
-			sense.Version = i.version
+			sense.Version = version
 		}
 		if sense.MatchStrength == "" {
 			sense.MatchStrength = "exact_lemma_pos"
@@ -190,28 +216,20 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 		seenEvidenceIDs[sense.EvidenceID] = struct{}{}
 		index++
 	}
-	var orderedExactSenses, orderedWeakSenses []enrichment.LexicalSense
+	return senses, nil
+}
+
+// splitSensesByMatchStrength separates senses that match the requested identity
+// from lemma-only fallbacks so each group can be ordered independently.
+func splitSensesByMatchStrength(senses []enrichment.LexicalSense) (exact, weak []enrichment.LexicalSense) {
 	for _, sense := range senses {
 		if sense.MatchStrength == "lemma_only_missing_pos" {
-			orderedWeakSenses = append(orderedWeakSenses, sense)
+			weak = append(weak, sense)
 		} else {
-			orderedExactSenses = append(orderedExactSenses, sense)
+			exact = append(exact, sense)
 		}
 	}
-	orderedExact := enrichment.OrderSenses(request, orderedExactSenses)
-	orderedWeak := enrichment.OrderSenses(request, orderedWeakSenses)
-	ordered := combineSenses(orderedExact, orderedWeak)
-	result := enrichment.LexicalEntry{Senses: ordered, CandidateSenses: append([]enrichment.LexicalSense(nil), senses...), IPA: ipa, PrincipalParts: principalParts}
-	if language == "el" {
-		result.Gender = gender
-		result.Article = article
-		result.Plural = plural
-	} else if len(ordered) > 0 {
-		result.Gender = ordered[0].Gender
-		result.Article = ordered[0].Article
-		result.Plural = ordered[0].Plural
-	}
-	return result, true, nil
+	return exact, weak
 }
 
 // combineSenses concatenates two sense lists without writing into first's

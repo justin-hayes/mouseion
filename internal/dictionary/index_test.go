@@ -13,6 +13,29 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// dictionaryFixtureSchema is the read-only schema OpenIndex expects.
+const dictionaryFixtureSchema = `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1')`
+
+// newTestIndex opens a valid SQLite index seeded with seedStatements; callers
+// with no seed get an empty but usable provider handle.
+func newTestIndex(t *testing.T, seedStatements ...string) *Index {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), dictionaryFixtureSchema)
+	require.NoError(t, err)
+	for _, statement := range seedStatements {
+		_, err = db.ExecContext(t.Context(), statement)
+		require.NoError(t, err)
+	}
+	require.NoError(t, db.Close())
+	index, err := OpenIndex(t.Context(), path)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, index.Close()) })
+	return index
+}
+
 func TestOpenIndexRejectsDirectory(t *testing.T) {
 	dir := t.TempDir()
 
@@ -169,6 +192,32 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, found)
 	assert.Empty(t, result.Senses)
+}
+
+func TestIndexLookupRejectsMalformedSenses(t *testing.T) {
+	index := newTestIndex(t, `INSERT INTO entries VALUES ('de', 'haus', 'NOUN', 'not-json', '', '', '', '', '')`)
+
+	_, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+	require.Error(t, err)
+	assert.False(t, found)
+	assert.Contains(t, err.Error(), "dictionary senses")
+}
+
+func TestIndexLookupWithoutAnIndexOrIdentityIsAbsent(t *testing.T) {
+	t.Run("a nil index has no entry", func(t *testing.T) {
+		var absent *Index
+		result, found, err := absent.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+		require.NoError(t, err)
+		assert.False(t, found)
+		assert.Empty(t, result.Senses)
+	})
+	t.Run("an empty identity has no entry", func(t *testing.T) {
+		index := newTestIndex(t)
+		result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{})
+		require.NoError(t, err)
+		assert.False(t, found)
+		assert.Empty(t, result.Senses)
+	})
 }
 
 func TestIndexLookupUsesMorphologyFromRankedSense(t *testing.T) {
