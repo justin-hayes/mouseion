@@ -316,49 +316,71 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 	}
 	// Local state commits first. Provider and River cancellation are explicitly
 	// best effort because their work is fenced by the cancelled run.
-	rows, queryErr := s.pool.Query(ctx, `SELECT id FROM river_job WHERE args->>'owner_id'=$1 AND args->>'preparation_id'=$2 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id`, owner, id)
-	if queryErr == nil {
-		var jobIDs []int64
-		complete := true
-		for rows.Next() {
-			var jobID int64
-			if scanErr := rows.Scan(&jobID); scanErr != nil {
-				complete = false
-				break
-			}
-			jobIDs = append(jobIDs, jobID)
-		}
-		complete = complete && rows.Err() == nil
-		rows.Close()
-		if complete && s.client != nil {
-			for _, jobID := range jobIDs {
-				if _, cancelErr := s.client.JobCancel(ctx, jobID); cancelErr != nil {
-					log.Printf("prepared deck cancellation warning: River job cancellation failed; the cancelled run fences its work: owner_id=%s preparation_id=%s run_id=%s river_job_id=%d: %v", owner, id, p.CurrentRunID, jobID, cancelErr)
-				}
-			}
-		}
-	}
+	s.cancelLiveJobs(ctx, owner, id, p.CurrentRunID)
 	if s.batchCanceller != nil && p.CurrentRunID != "" {
-		if batchIDs, listErr := s.store.ListPreparedDeckLiveBatchIDs(ctx, owner, id, p.CurrentRunID); listErr == nil {
-			for _, batchID := range batchIDs {
-				if _, cancelErr := s.batchCanceller.CancelBatch(ctx, batchID); cancelErr != nil {
-					log.Printf("prepared deck cancellation warning: provider batch cancellation failed; the cancelled run fences its results: owner_id=%s preparation_id=%s run_id=%s provider_batch_id=%s: %v", owner, id, p.CurrentRunID, batchID, cancelErr)
-				}
-			}
-		}
+		s.cancelLiveBatches(ctx, owner, id, p.CurrentRunID)
 		if cleaner, ok := s.batchCanceller.(batchFileDeleter); ok {
-			if chunks, listErr := s.store.ListPreparedDeckBatchChunks(ctx, owner, id, p.CurrentRunID); listErr == nil {
-				cleanup := &BatchCleanupWorker{Store: s.store, Provider: cleaner}
-				for _, chunk := range chunks {
-					cleanupArgs := BatchCleanupJobArgs{OwnerID: owner, PreparationID: id, RunID: p.CurrentRunID, ChunkID: chunk.ID, Generation: chunk.Generation}
-					if cleanupErr := cleanup.Cleanup(context.WithoutCancel(ctx), cleanupArgs); cleanupErr != nil {
-						logImmediateBatchCleanupFailure(cleanupArgs, cleanupErr)
-					}
-				}
-			}
+			s.cleanupBatchFiles(ctx, cleaner, owner, id, p.CurrentRunID)
 		}
 	}
 	return p, nil
+}
+
+// cancelLiveJobs cancels every live River job for the preparation. It cancels
+// nothing unless the complete job list was read.
+func (s *Service) cancelLiveJobs(ctx context.Context, owner, id, runID string) {
+	jobIDs, complete := s.liveJobIDs(ctx, owner, id)
+	if !complete || s.client == nil {
+		return
+	}
+	for _, jobID := range jobIDs {
+		if _, cancelErr := s.client.JobCancel(ctx, jobID); cancelErr != nil {
+			log.Printf("prepared deck cancellation warning: River job cancellation failed; the cancelled run fences its work: owner_id=%s preparation_id=%s run_id=%s river_job_id=%d: %v", owner, id, runID, jobID, cancelErr)
+		}
+	}
+}
+
+func (s *Service) liveJobIDs(ctx context.Context, owner, id string) ([]int64, bool) {
+	rows, err := s.pool.Query(ctx, `SELECT id FROM river_job WHERE args->>'owner_id'=$1 AND args->>'preparation_id'=$2 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id`, owner, id)
+	if err != nil {
+		return nil, false
+	}
+	defer rows.Close()
+	var jobIDs []int64
+	for rows.Next() {
+		var jobID int64
+		if err := rows.Scan(&jobID); err != nil {
+			return jobIDs, false
+		}
+		jobIDs = append(jobIDs, jobID)
+	}
+	return jobIDs, rows.Err() == nil
+}
+
+func (s *Service) cancelLiveBatches(ctx context.Context, owner, id, runID string) {
+	batchIDs, err := s.store.ListPreparedDeckLiveBatchIDs(ctx, owner, id, runID)
+	if err != nil {
+		return
+	}
+	for _, batchID := range batchIDs {
+		if _, cancelErr := s.batchCanceller.CancelBatch(ctx, batchID); cancelErr != nil {
+			log.Printf("prepared deck cancellation warning: provider batch cancellation failed; the cancelled run fences its results: owner_id=%s preparation_id=%s run_id=%s provider_batch_id=%s: %v", owner, id, runID, batchID, cancelErr)
+		}
+	}
+}
+
+func (s *Service) cleanupBatchFiles(ctx context.Context, cleaner batchFileDeleter, owner, id, runID string) {
+	chunks, err := s.store.ListPreparedDeckBatchChunks(ctx, owner, id, runID)
+	if err != nil {
+		return
+	}
+	cleanup := &BatchCleanupWorker{Store: s.store, Provider: cleaner}
+	for _, chunk := range chunks {
+		cleanupArgs := BatchCleanupJobArgs{OwnerID: owner, PreparationID: id, RunID: runID, ChunkID: chunk.ID, Generation: chunk.Generation}
+		if cleanupErr := cleanup.Cleanup(context.WithoutCancel(ctx), cleanupArgs); cleanupErr != nil {
+			logImmediateBatchCleanupFailure(cleanupArgs, cleanupErr)
+		}
+	}
 }
 
 type queryRower interface {

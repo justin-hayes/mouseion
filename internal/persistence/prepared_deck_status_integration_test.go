@@ -40,16 +40,19 @@ func TestDeckPreparationStatusPhaseWithoutDurableRun(t *testing.T) {
 		{name: "queued", prepare: func(*testing.T, domain.DeckPreparation) {}, state: domain.DeckPreparationQueued, phase: "queued"},
 		{name: "preparing", prepare: claim, state: domain.DeckPreparationPreparing, phase: "freezing"},
 		{name: "ready", prepare: func(t *testing.T, p domain.DeckPreparation) {
+			t.Helper()
 			claim(t, p)
 			_, completeErr := store.CompleteDeckPreparation(ctx, owner.ID, p.ID, domain.DeckPreparation{Artifact: []byte("apkg"), Filename: "ready.apkg", DeckName: "ready", TotalCards: 1})
 			require.NoError(t, completeErr)
 		}, state: domain.DeckPreparationReady, phase: "completed"},
 		{name: "failed", prepare: func(t *testing.T, p domain.DeckPreparation) {
+			t.Helper()
 			claim(t, p)
 			_, failErr := store.FailDeckPreparation(ctx, owner.ID, p.ID, "failed for the test")
 			require.NoError(t, failErr)
 		}, state: domain.DeckPreparationFailed, phase: "failed"},
 		{name: "cancelled", prepare: func(t *testing.T, p domain.DeckPreparation) {
+			t.Helper()
 			_, cancelErr := store.CancelDeckPreparation(ctx, owner.ID, p.ID)
 			require.NoError(t, cancelErr)
 		}, state: domain.DeckPreparationCancelled, phase: "cancelled"},
