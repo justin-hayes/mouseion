@@ -25,7 +25,7 @@ make test             # go test ./... + pytest (PYTHONPATH=nlp/src:gen/python)
 make test-integration # go test -count=1 -tags=integration ./internal/...
 make coverage-new     # make coverage, then preview Sonar's 80% new-code coverage gate
 make lint-go          # pinned golangci-lint over the complete Go module
-make lint             # make lint-go + ruff check nlp/src nlp/tests nlp/scripts
+make lint             # make lint-go + ruff check/format + mypy over the NLP source
 make browser-smoke    # Playwright against cmd/fixtureserver
 make dev              # go run ./cmd/server (needs Postgres + NLP running)
 ```

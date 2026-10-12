@@ -151,6 +151,7 @@ jobs:
         run: |
           .venv/bin/ruff check nlp/src nlp/tests nlp/scripts
           .venv/bin/ruff format --check nlp/src nlp/tests nlp/scripts
+          .venv/bin/mypy --config-file nlp/pyproject.toml nlp/src
 
       # ------------------------------------------------------------------
       # Generated templ, protobuf, and sqlc code

@@ -44,6 +44,11 @@ Formatting is enforced: `make lint` fails on unformatted Go or Python. Fix it
 with `golangci-lint fmt ./...` and
 `.venv/bin/ruff format nlp/src nlp/tests nlp/scripts`.
 
+`make lint` also type-checks the NLP service source (`nlp/src`) with mypy, using
+the configuration in `nlp/pyproject.toml`. The generated protobuf package is on
+the type search path, so the gRPC request and response messages are typed;
+third-party libraries without stubs are listed in per-module overrides there.
+
 ## Common commands
 
 | Command | Purpose |
@@ -54,7 +59,7 @@ with `golangci-lint fmt ./...` and
 | `make coverage` | Python and Go coverage reports in `.tmp/coverage/` (the Go integration part needs the `make test-integration` database prerequisites) |
 | `make coverage-new` | `make coverage`, then previews SonarQube Cloud's 80% new-code coverage gate for the lines changed since `origin/main` and lists the uncovered ones |
 | `make test-integration RACE=1` | PostgreSQL-backed Go integration tests under the race detector; the same command CI runs (see the Tests section for the database prerequisites) |
-| `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check` and `ruff format --check` |
+| `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check`, `ruff format --check`, and `mypy` over the NLP source |
 | `make vuln` | govulncheck over the whole module: fails on call-reachable vulnerabilities in dependencies or in the Go standard library and toolchain. CI runs it on Go changes |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
 | `make dev` | Run the web server (needs PostgreSQL and the NLP service) |
