@@ -252,47 +252,81 @@ func (s *Service) advanceTx(ctx context.Context, tx pgx.Tx, owner, id string, fo
 	if p.RetiredAt != nil {
 		return Handle{}, persistence.ErrInvalidTransition
 	}
-	if p.State == domain.DeckPreparationReady && (p.Error == domain.DeckPreparationRequiresRepreparationError || forceReprepare) {
-		// Either the immutable specification cannot be rendered or the learner
-		// explicitly requested current meaning evidence. Retire the current row
-		// and roll forward to a new specification bound to the same exact
-		// analysis and Current reading snapshot.
-		if p.BookID != "" {
-			if err := sqlcRetireDeckPreparationsForBook(ctx, tx, owner, p.BookID); err != nil {
-				return Handle{}, err
-			}
-		} else if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET retired_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND retired_at IS NULL`, owner, p.ID); err != nil {
-			return Handle{}, err
-		}
-		var created bool
-		p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, p)
+	switch {
+	case rollsPreparationForward(p, forceReprepare):
+		p, id, err = rollPreparationForward(ctx, tx, owner, p)
 		if err != nil {
 			return Handle{}, err
 		}
-		if !created {
-			return Handle{}, errors.New("re-preparation did not create a new specification")
-		}
-		id = p.ID
-	} else if p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
-		previousState := p.State
-		p, err = scanPreparation(tx.QueryRow(ctx, requeueFailedPreparationSQL, owner, id))
+	case p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled:
+		p, err = requeueFailedPreparation(ctx, tx, owner, id, p)
 		if err != nil {
 			return Handle{}, err
 		}
-		if err := recordPreparationHistoryTx(ctx, tx, owner, id, string(domain.DeckPreparationQueued), map[string]any{"from": previousState}); err != nil {
-			return Handle{}, err
-		}
-	} else if p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing {
+	case p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing:
 		return Handle{}, persistence.ErrInvalidTransition
 	}
+	p, jobID, err := s.enqueuePreparationJob(ctx, tx, owner, id, p)
+	if err != nil {
+		return Handle{}, err
+	}
+	return Handle{Preparation: p, JobID: jobID}, nil
+}
+
+// rollsPreparationForward reports the Ready states that must be retired and
+// recreated: an immutable specification that cannot render, or an explicit
+// request for current meaning evidence.
+func rollsPreparationForward(p domain.DeckPreparation, forceReprepare bool) bool {
+	return p.State == domain.DeckPreparationReady && (p.Error == domain.DeckPreparationRequiresRepreparationError || forceReprepare)
+}
+
+// rollPreparationForward retires a Ready preparation and creates its successor
+// bound to the same exact analysis and Current reading snapshot. Either the
+// immutable specification cannot be rendered or the learner explicitly
+// requested current meaning evidence. The returned id names the successor.
+func rollPreparationForward(ctx context.Context, tx pgx.Tx, owner string, p domain.DeckPreparation) (domain.DeckPreparation, string, error) {
+	if p.BookID != "" {
+		if err := sqlcRetireDeckPreparationsForBook(ctx, tx, owner, p.BookID); err != nil {
+			return domain.DeckPreparation{}, "", err
+		}
+	} else if _, err := tx.Exec(ctx, `UPDATE deck_preparations SET retired_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND retired_at IS NULL`, owner, p.ID); err != nil {
+		return domain.DeckPreparation{}, "", err
+	}
+	p, created, err := persistence.CreateDeckPreparationTx(ctx, tx, p)
+	if err != nil {
+		return domain.DeckPreparation{}, "", err
+	}
+	if !created {
+		return domain.DeckPreparation{}, "", errors.New("re-preparation did not create a new specification")
+	}
+	return p, p.ID, nil
+}
+
+// requeueFailedPreparation returns a Failed or Cancelled preparation to Queued
+// and records the transition in the preparation's history.
+func requeueFailedPreparation(ctx context.Context, tx pgx.Tx, owner, id string, previous domain.DeckPreparation) (domain.DeckPreparation, error) {
+	previousState := previous.State
+	p, err := scanPreparation(tx.QueryRow(ctx, requeueFailedPreparationSQL, owner, id))
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	if err := recordPreparationHistoryTx(ctx, tx, owner, id, string(domain.DeckPreparationQueued), map[string]any{"from": previousState}); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return p, nil
+}
+
+// enqueuePreparationJob queues the preparation and turns a failed enqueue into a
+// recorded preparation failure, so the caller still reports the updated row.
+func (s *Service) enqueuePreparationJob(ctx context.Context, tx pgx.Tx, owner, id string, p domain.DeckPreparation) (domain.DeckPreparation, int64, error) {
 	p, jobID, err := s.ensurePreparationJob(ctx, tx, p)
 	if err != nil {
 		p, err = markPreparationFailedTx(ctx, tx, owner, id, fmt.Sprintf("could not enqueue preparation: %v", err))
 		if err != nil {
-			return Handle{}, err
+			return domain.DeckPreparation{}, 0, err
 		}
 	}
-	return Handle{Preparation: p, JobID: jobID}, nil
+	return p, jobID, nil
 }
 
 // lockBookForUpdate fences the Book before the Current reading and preparation

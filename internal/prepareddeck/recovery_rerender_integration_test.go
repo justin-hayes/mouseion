@@ -7,8 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
@@ -46,6 +49,126 @@ func TestRecoveryWorkerEnqueuesEachStaleDeckOnce(t *testing.T) {
 	var jobs int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND state IN ('available','pending','running','retryable','scheduled')`, (RerenderJobArgs{}).Kind()).Scan(&jobs))
 	assert.Equal(t, 2, jobs)
+}
+
+func TestRecoveryWorkerSnoozesAtDefaultIntervalWhenUnset(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	store, err := persistence.Open(ctx, integrationDatabase(t, ctx))
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+
+	worker := &RecoveryWorker{Store: store, Client: jobLessRiverClient{}}
+	err = worker.Work(ctx, nil)
+
+	var snooze *river.JobSnoozeError
+	require.ErrorAs(t, err, &snooze)
+	assert.Equal(t, DefaultBatchPollInterval, snooze.Duration, "an unset interval falls back to the default poll interval")
+}
+
+func TestRecoveryWorkerSurfacesStoreReadFailure(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	store, err := persistence.Open(ctx, integrationDatabase(t, ctx))
+	require.NoError(t, err)
+	worker := &RecoveryWorker{Store: store, Client: jobLessRiverClient{}}
+	require.NoError(t, store.Close())
+
+	err = worker.Work(ctx, nil)
+
+	require.Error(t, err, "a failed recovery read is returned, never silently snoozed")
+}
+
+func TestRecoveryRepairSkipsBatchOutcomeWithoutInsertingTranslationWork(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, _ := newBatchIntegrationRun(t, ctx)
+	require.Equal(t, domain.PreparedDeckExecutionBatch, run.run.ExecutionMode)
+	worker := &RecoveryWorker{Store: run.store, Client: jobLessRiverClient{}}
+
+	err := worker.repair(ctx, domain.PreparedDeckRecoveryWork{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0, Kind: "outcome"})
+
+	require.NoError(t, err, "Batch outcomes are repaired by their durable chunk jobs, not the standard recovery path")
+}
+
+func TestRecoveryRepairReconstructsEachDurableJobKind(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client := newBatchIntegrationRun(t, ctx)
+	chunks, err := run.store.ListPreparedDeckBatchChunks(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, chunks, 1)
+	worker := &RecoveryWorker{Store: run.store, Client: client}
+
+	cases := map[string]struct {
+		work    domain.PreparedDeckRecoveryWork
+		wantErr error
+	}{
+		"batch submission":     {work: domain.PreparedDeckRecoveryWork{Kind: "batch_submission", ChunkID: chunks[0].ID, Generation: 1}},
+		"batch reconciliation": {work: domain.PreparedDeckRecoveryWork{Kind: "batch_reconciliation", ChunkID: chunks[0].ID, Generation: 1}, wantErr: persistence.ErrPreparedDeckClaimLost},
+		"finalizer":            {work: domain.PreparedDeckRecoveryWork{Kind: "finalizer", Generation: 0}, wantErr: persistence.ErrPreparedDeckClaimLost},
+		"batch cleanup":        {work: domain.PreparedDeckRecoveryWork{Kind: "batch_cleanup", ChunkID: chunks[0].ID, Generation: 0}},
+		"unknown kind":         {work: domain.PreparedDeckRecoveryWork{Kind: "no_such_kind"}},
+	}
+	for name, test := range cases {
+		t.Run(name, func(t *testing.T) {
+			work := test.work
+			work.OwnerID, work.PreparationID, work.RunID = run.owner, run.prep.ID, run.run.ID
+			err := worker.repair(ctx, work)
+			if test.wantErr == nil {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, test.wantErr)
+		})
+	}
+}
+
+func TestRecoveryRepairAdvancesTranslationCompletion(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, _, _ := newStandardIntegrationRun(t, ctx, 1, 1)
+	worker := &RecoveryWorker{Store: run.store, Client: jobLessRiverClient{}}
+
+	err := worker.repair(ctx, domain.PreparedDeckRecoveryWork{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Kind: "translation_completion"})
+
+	require.NoError(t, err, "a run with pending outcomes has nothing to advance yet")
+}
+
+// newBatchIntegrationRun freezes a real Batch run so recovery can observe a
+// non-standard execution mode.
+func newBatchIntegrationRun(t *testing.T, ctx context.Context) (standardIntegrationRun, *river.Client[pgx.Tx]) {
+	t.Helper()
+	store, err := persistence.Open(ctx, integrationDatabase(t, ctx))
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "batch-recovery-"+uuid.NewString(), false)
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: "Batch Recovery", MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("text"), FullText: "text"})
+	require.NoError(t, err)
+	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: source.Title, ContentHash: source.ContentHash})
+	require.NoError(t, err)
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "recovery-model", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	entries := []cardexport.Entry{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus steht heute dort.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}}
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, entries, testutil.PresentationProvider{Name: codec.ProviderName(), Version: codec.ContextualGlossProviderVersion(), TargetLanguage: "en", RequireContextualGloss: true})
+	require.NoError(t, err)
+	runID := uuid.NewString()
+	chunks, err := PlanBatchChunks(codec, runID, 1, codec.Model(), enrichment.OpenAIChatCompletionsEndpoint, deck.WorkProjection(), BatchChunkLimits{MaxRequests: 10})
+	require.NoError(t, err)
+	config := persistence.PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ExecutionMode: string(domain.PreparedDeckExecutionBatch), TargetLanguage: "en", ContextMode: string(enrichment.SentenceContext), Provider: codec.ProviderName(), ProviderVersion: codec.ContextualGlossProviderVersion(), Endpoint: enrichment.OpenAIChatCompletionsEndpoint, Model: codec.Model(), BatchMaxRequests: 10, BatchMaxBytes: persistence.DefaultBatchMaxBytes}
+	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: deck.StorageProjection(), Config: config, Chunks: chunks}}
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &BatchSubmitWorker{})
+	river.AddWorker(workers, &BatchPollWorker{})
+	river.AddWorker(workers, &BatchCleanupWorker{})
+	river.AddWorker(workers, &integrationFinalizeWorker{})
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
+	result, err := NewDurableCoordinator(store, client, planner).Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID})
+	require.NoError(t, err)
+	return standardIntegrationRun{store: store, owner: owner.ID, prep: preparation, run: result.Run}, client
 }
 
 func createCompletedStaleDeck(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, name string) domain.DeckPreparation {

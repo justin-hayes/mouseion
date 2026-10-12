@@ -133,7 +133,7 @@ type DurableFreezeRequest struct {
 // current-run pointer, and initial River jobs atomically. A concurrent retry
 // observes the committed run without invoking the planner again.
 func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRequest) (result persistence.FreezePreparedDeckRunResult, err error) {
-	if c == nil || c.pool == nil || c.store == nil || c.client == nil || c.planner == nil || strings.TrimSpace(request.OwnerID) == "" || strings.TrimSpace(request.PreparationID) == "" {
+	if !c.validFreezeRequest(request) {
 		return persistence.FreezePreparedDeckRunResult{}, ErrInvalidInput
 	}
 	tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
@@ -149,29 +149,48 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
 	if preparation.CurrentRunID != "" {
-		if err := tx.Commit(ctx); err != nil {
-			return persistence.FreezePreparedDeckRunResult{}, err
-		}
-		run, getErr := c.store.GetCurrentPreparedDeckRun(ctx, request.OwnerID, request.PreparationID)
-		if getErr != nil {
-			return persistence.FreezePreparedDeckRunResult{}, getErr
-		}
-		_, digest, getErr := c.store.LoadPreparedDeckStorageProjection(ctx, request.OwnerID, request.PreparationID, run.ID)
-		if getErr != nil {
-			return persistence.FreezePreparedDeckRunResult{}, getErr
-		}
-		if request.ExpectedManifestDigest != "" && request.ExpectedManifestDigest != digest {
-			return persistence.FreezePreparedDeckRunResult{}, persistence.ErrImmutable
-		}
-		chunks, getErr := c.store.ListPreparedDeckBatchChunks(ctx, request.OwnerID, request.PreparationID, run.ID)
-		return persistence.FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, Existing: true, NeedsFinalizer: run.State == domain.PreparedDeckRunFinalizing}, getErr
+		return c.freezeExistingRun(ctx, tx, request)
 	}
+	return c.freezeNewRun(ctx, tx, request, preparation)
+}
+
+// validFreezeRequest reports whether the coordinator and request carry every
+// identity Freeze needs before it opens a transaction.
+func (c *DurableCoordinator) validFreezeRequest(request DurableFreezeRequest) bool {
+	return c != nil && c.pool != nil && c.store != nil && c.client != nil && c.planner != nil && strings.TrimSpace(request.OwnerID) != "" && strings.TrimSpace(request.PreparationID) != ""
+}
+
+// freezeExistingRun commits the lock and returns the already-frozen run without
+// invoking the planner again, verifying the requested manifest digest when one
+// was supplied.
+func (c *DurableCoordinator) freezeExistingRun(ctx context.Context, tx pgx.Tx, request DurableFreezeRequest) (persistence.FreezePreparedDeckRunResult, error) {
+	if err := tx.Commit(ctx); err != nil {
+		return persistence.FreezePreparedDeckRunResult{}, err
+	}
+	run, err := c.store.GetCurrentPreparedDeckRun(ctx, request.OwnerID, request.PreparationID)
+	if err != nil {
+		return persistence.FreezePreparedDeckRunResult{}, err
+	}
+	_, digest, err := c.store.LoadPreparedDeckStorageProjection(ctx, request.OwnerID, request.PreparationID, run.ID)
+	if err != nil {
+		return persistence.FreezePreparedDeckRunResult{}, err
+	}
+	if request.ExpectedManifestDigest != "" && request.ExpectedManifestDigest != digest {
+		return persistence.FreezePreparedDeckRunResult{}, persistence.ErrImmutable
+	}
+	chunks, err := c.store.ListPreparedDeckBatchChunks(ctx, request.OwnerID, request.PreparationID, run.ID)
+	return persistence.FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, Existing: true, NeedsFinalizer: run.State == domain.PreparedDeckRunFinalizing}, err
+}
+
+// freezeNewRun plans and commits the run, immutable manifest, outcomes, chunk
+// placeholders, current-run pointer and initial River jobs atomically.
+func (c *DurableCoordinator) freezeNewRun(ctx context.Context, tx pgx.Tx, request DurableFreezeRequest, preparation domain.DeckPreparation) (persistence.FreezePreparedDeckRunResult, error) {
 	plan, err := c.planner.PlanPreparedDeckRun(ctx, tx, preparation)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("plan durable prepared deck: %w", err)
 	}
 	plan.OwnerID, plan.PreparationID, plan.ExpectedManifestDigest = request.OwnerID, request.PreparationID, request.ExpectedManifestDigest
-	result, err = c.store.FreezePreparedDeckRunTx(ctx, tx, plan)
+	result, err := c.store.FreezePreparedDeckRunTx(ctx, tx, plan)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
@@ -350,7 +369,28 @@ func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, 
 	if renderInputVersion >= cardexport.RenderInputVersion {
 		return projection, nil, nil
 	}
+	ordinalsByCorpus, itemsByCorpus, err := legacyRecoveryCoordinates(projection)
+	if err != nil {
+		return cardexport.StorageProjection{}, nil, err
+	}
+	if len(itemsByCorpus) == 0 {
+		return projection, nil, nil
+	}
+	corpusStore, ok := store.(durableRerenderCorpusStore)
+	if !ok {
+		return cardexport.StorageProjection{}, nil, fmt.Errorf("%w: corpus reader is unavailable", ErrRequiresRepreparation)
+	}
+	recovered, err := recoverCorpusRenderInputs(ctx, corpusStore, owner, ordinalsByCorpus, itemsByCorpus)
+	if err != nil {
+		return cardexport.StorageProjection{}, nil, err
+	}
+	return projection, recovered, nil
+}
 
+// legacyRecoveryCoordinates groups the accepted manifest items that predate
+// stored sentence tokens by the corpus and ordinals they need recovered. An
+// item without a corpus coordinate cannot be recovered.
+func legacyRecoveryCoordinates(projection cardexport.StorageProjection) (map[string][]int64, map[string][]cardexport.ManifestItem, error) {
 	ordinalsByCorpus := make(map[string][]int64)
 	itemsByCorpus := make(map[string][]cardexport.ManifestItem)
 	for _, item := range projection.Items {
@@ -358,7 +398,7 @@ func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, 
 			continue
 		}
 		if strings.TrimSpace(item.CorpusID) == "" || item.SentenceOrdinal < 0 {
-			return cardexport.StorageProjection{}, nil, fmt.Errorf("%w: manifest item %d has no corpus coordinate", ErrRequiresRepreparation, item.Ordinal)
+			return nil, nil, fmt.Errorf("%w: manifest item %d has no corpus coordinate", ErrRequiresRepreparation, item.Ordinal)
 		}
 		if _, ok := itemsByCorpus[item.CorpusID]; !ok {
 			ordinalsByCorpus[item.CorpusID] = nil
@@ -366,29 +406,27 @@ func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, 
 		ordinalsByCorpus[item.CorpusID] = append(ordinalsByCorpus[item.CorpusID], item.SentenceOrdinal)
 		itemsByCorpus[item.CorpusID] = append(itemsByCorpus[item.CorpusID], item)
 	}
-	if len(itemsByCorpus) == 0 {
-		return projection, nil, nil
-	}
+	return ordinalsByCorpus, itemsByCorpus, nil
+}
 
-	corpusStore, ok := store.(durableRerenderCorpusStore)
-	if !ok {
-		return cardexport.StorageProjection{}, nil, fmt.Errorf("%w: corpus reader is unavailable", ErrRequiresRepreparation)
-	}
+// recoverCorpusRenderInputs reads each affected corpus once and rebuilds the
+// exact render inputs, refusing any sentence whose stored parse is unavailable.
+func recoverCorpusRenderInputs(ctx context.Context, corpusStore durableRerenderCorpusStore, owner string, ordinalsByCorpus map[string][]int64, itemsByCorpus map[string][]cardexport.ManifestItem) ([]cardexport.RecoveredRenderInput, error) {
 	recovered := make([]cardexport.RecoveredRenderInput, 0)
 	for corpusID, items := range itemsByCorpus {
 		sentences, err := corpusStore.ListCorpusSentences(ctx, owner, corpusID, ordinalsByCorpus[corpusID])
 		if err != nil {
-			return cardexport.StorageProjection{}, nil, fmt.Errorf("recover corpus %s: %w", corpusID, err)
+			return nil, fmt.Errorf("recover corpus %s: %w", corpusID, err)
 		}
 		for _, item := range items {
 			sentence, found := sentences[item.SentenceOrdinal]
 			if !found || strings.TrimSpace(sentence.Text) == "" || sentence.Text != item.Entry.Sentence || !hasDependencyParse(sentence) {
-				return cardexport.StorageProjection{}, nil, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
+				return nil, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
 			}
 			recovered = append(recovered, cardexport.RecoveredRenderInput{ManifestOrdinal: item.Ordinal, Sentence: sentence.Text, SentenceTokens: sentence.Tokens})
 		}
 	}
-	return projection, recovered, nil
+	return recovered, nil
 }
 
 func hasDependencyParse(sentence analyzer.Sentence) bool {
