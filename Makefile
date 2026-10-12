@@ -140,8 +140,8 @@ lint-go: go-tmp
 	"$(GOLANGCI_LINT)" run ./...
 
 lint: lint-go
-	$(VENV_BIN)/ruff check nlp/src nlp/tests
-	$(VENV_BIN)/ruff format --check nlp/src nlp/tests
+	$(VENV_BIN)/ruff check nlp/src nlp/tests nlp/scripts
+	$(VENV_BIN)/ruff format --check nlp/src nlp/tests nlp/scripts
 
 # Fails on call-reachable vulnerabilities in the module's dependencies and in
 # the Go standard library or toolchain. govulncheck is pinned through the tool

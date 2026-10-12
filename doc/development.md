@@ -41,7 +41,8 @@ index, and no build of the NLP project. Python commands need
 `PYTHONPATH=nlp/src:gen/python`.
 
 Formatting is enforced: `make lint` fails on unformatted Go or Python. Fix it
-with `golangci-lint fmt ./...` and `.venv/bin/ruff format nlp/src nlp/tests`.
+with `golangci-lint fmt ./...` and
+`.venv/bin/ruff format nlp/src nlp/tests nlp/scripts`.
 
 ## Common commands
 
@@ -127,9 +128,10 @@ build tag is not analysed.
 ### Test coverage
 
 `make coverage` writes the NLP service's Python coverage as a Cobertura XML
-report to `.tmp/coverage/python.xml`, measured over `nlp/src` with pytest-cov
-(pinned in the `dev` group of `nlp/pyproject.toml`). Its file paths are relative to the
-repository root, so SonarQube Cloud can match them to sources. It then runs the
+report to `.tmp/coverage/python.xml`, measured over `nlp/src` and `nlp/scripts`
+with pytest-cov (pinned in the `dev` group of `nlp/pyproject.toml`). Its file
+paths are relative to the repository root, so SonarQube Cloud can match them to
+sources. It then runs the
 Go unit tests and the Go integration tests, each with a coverage profile, and
 writes the filtered profiles to `.tmp/coverage/go-unit.out` and
 `.tmp/coverage/go-integration.out`. `.tmp/` is gitignored, so the reports are
@@ -158,8 +160,8 @@ report covers it. Like SonarQube Cloud, the check passes when the change adds
 fewer than 20 new lines of code; `tools/new-code-lines.sh` counts them, and
 `tools/coverage-new_test.sh` checks that count. Sonar decides which lines are
 new with its own diff, so the two line counts can differ by a few lines, and
-Python and JavaScript files outside the coverage reports (`nlp/scripts`,
-`tools`) count as uncovered in Sonar but are not checked here.
+Python and JavaScript files outside the coverage reports (`tools`, and other
+tooling) count as uncovered in Sonar but are not checked here.
 
 Test coverage here means line and branch coverage: the share of statements the
 tests execute and the share of conditional branches they take. The Cobertura

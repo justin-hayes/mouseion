@@ -16,8 +16,8 @@
 # change adds fewer than 20 new lines of code (tools/new-code-lines.sh).
 #
 # Known differences from SonarQube Cloud: Sonar decides which lines are new
-# with its own diff, so the line counts can differ by a few lines; and Python
-# and JavaScript files outside the coverage reports (nlp/scripts, tools) count
+# with its own diff, so the line counts can differ by a few lines; and files
+# outside the coverage reports (tools, and other Python and JavaScript) count
 # as uncovered in Sonar but are not checked here.
 set -euo pipefail
 

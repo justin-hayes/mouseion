@@ -4,19 +4,18 @@
 from __future__ import annotations
 
 import argparse
-from collections import OrderedDict
-from datetime import date
 import gzip
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import sqlite3
 import tempfile
 import unicodedata
+from collections import OrderedDict
+from datetime import date
+from pathlib import Path
 from urllib.request import urlopen
-
 
 LANGUAGES = {"de", "it", "el"}
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
@@ -65,10 +64,36 @@ PRINCIPAL_PARTS_PATTERN = re.compile(
     r"past tense\s+(?P<preterite>[^,]+),\s*"
     r"past participle\s+(?P<participle>[^,)]+)"
 )
+SCHEMA = """
+PRAGMA journal_mode = DELETE;
+CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE entries (
+    language TEXT NOT NULL,
+    lemma TEXT NOT NULL,
+    upos TEXT NOT NULL,
+    senses_json TEXT NOT NULL,
+    gender TEXT NOT NULL,
+    article TEXT NOT NULL,
+    plural TEXT NOT NULL,
+    ipa TEXT NOT NULL,
+    principal_parts TEXT NOT NULL,
+    PRIMARY KEY (language, lemma, upos)
+);
+"""
+INSERT_ENTRIES_SQL = (
+    "INSERT INTO entries"
+    "(language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+)
 
 
 def load_german_normalization_policy() -> dict:
-    path = Path(__file__).resolve().parents[2] / "internal" / "canonicalization" / "german_post1996.json"
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "internal"
+        / "canonicalization"
+        / "german_post1996.json"
+    )
     with path.open(encoding="utf-8") as source:
         return json.load(source)
 
@@ -167,7 +192,9 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
         return "l'"
     if gender == "Fem":
         return "la"
-    if word.startswith(("z", "x", "y", "gn", "ps", "pn")) or (word.startswith("s") and len(word) > 1 and word[1] not in "aeiouàèéìòóù"):
+    if word.startswith(("z", "x", "y", "gn", "ps", "pn")) or (
+        word.startswith("s") and len(word) > 1 and word[1] not in "aeiouàèéìòóù"
+    ):
         return "lo"
     return "il"
 
@@ -303,7 +330,9 @@ def download_input(force: bool) -> Path:
     if output.exists() and not force:
         return output
     output.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(dir=output.parent, prefix=output.name + ".", suffix=".tmp")
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=output.parent, prefix=output.name + ".", suffix=".tmp"
+    )
     temporary_path = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as destination, urlopen(KAIKKI_DOWNLOAD_URL) as source:
@@ -314,88 +343,138 @@ def download_input(force: bool) -> Path:
     return output
 
 
-def derive(input_path: Path, output_path: Path, provider_version: str, dump_date: str = "", extraction_date: str = "", wiktextract_commit: str = "") -> None:
+def new_entry() -> dict:
+    return {
+        "senses": [],
+        "gender": "",
+        "genders": set(),
+        "article": "",
+        "article_from_source": False,
+        "fallback_article": "",
+        "plural": "",
+        "ipa": "",
+        "principal_parts": "",
+    }
+
+
+def record_sense(
+    entries: dict[tuple[str, str, str], dict],
+    key: tuple[str, str, str],
+    sense: dict,
+    item: dict,
+    upos: str,
+) -> None:
+    language = key[0]
+    entry = entries.setdefault(key, new_entry())
+    identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
+    if not any(
+        json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity
+        for existing in entry["senses"]
+    ):
+        entry["senses"].append(sense)
+    if sense["Gender"]:
+        entry["genders"].add(sense["Gender"])
+    entry["gender"] = next(iter(entry["genders"])) if len(entry["genders"]) == 1 else ""
+    source_article = supplied_article_for(language, item.get("forms"))
+    if source_article:
+        entry["article"] = source_article
+        entry["article_from_source"] = True
+    elif not entry["fallback_article"]:
+        entry["fallback_article"] = sense["Article"]
+    if not entry["article_from_source"]:
+        entry["article"] = entry["fallback_article"] if entry["gender"] else ""
+    entry["plural"] = entry["plural"] or sense["Plural"]
+    entry["ipa"] = entry["ipa"] or ipa_for(item)
+    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(language, upos, item)
+
+
+def senses_for_item(item: dict):
+    for raw_sense in item.get("senses", []):
+        if not isinstance(raw_sense, dict):
+            continue
+        for upos in upos_for(item, raw_sense):
+            sense = sense_from(item, raw_sense, upos)
+            if sense is not None:
+                yield upos, sense
+
+
+def indexed_key(item: dict) -> tuple[str, str] | None:
+    language = item.get("lang_code")
+    if language not in LANGUAGES:
+        return None
+    word = item.get("word")
+    if not isinstance(word, str) or not word.strip():
+        return None
+    return language, normalize(language, word)
+
+
+def collect_entries(input_path: Path) -> dict[tuple[str, str, str], dict]:
     entries: dict[tuple[str, str, str], dict] = {}
     with open_input(input_path) as source:
         for line in source:
             if not line.strip():
                 continue
             item = json.loads(line)
-            language = item.get("lang_code")
-            if language not in LANGUAGES:
+            key = indexed_key(item)
+            if key is None:
                 continue
-            word = item.get("word")
-            if not isinstance(word, str) or not word.strip():
-                continue
-            lemma = normalize(language, word)
-            for raw_sense in item.get("senses", []):
-                if not isinstance(raw_sense, dict):
-                    continue
-                for upos in upos_for(item, raw_sense):
-                    sense = sense_from(item, raw_sense, upos)
-                    if sense is None:
-                        continue
-                    key = (language, lemma, upos)
-                    entry = entries.setdefault(key, {"senses": [], "gender": "", "genders": set(), "article": "", "article_from_source": False, "fallback_article": "", "plural": "", "ipa": "", "principal_parts": ""})
-                    identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
-                    if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
-                        entry["senses"].append(sense)
-                    if sense["Gender"]:
-                        entry["genders"].add(sense["Gender"])
-                    entry["gender"] = next(iter(entry["genders"])) if len(entry["genders"]) == 1 else ""
-                    source_article = supplied_article_for(language, item.get("forms"))
-                    if source_article:
-                        entry["article"] = source_article
-                        entry["article_from_source"] = True
-                    elif not entry["fallback_article"]:
-                        entry["fallback_article"] = sense["Article"]
-                    if not entry["article_from_source"]:
-                        entry["article"] = entry["fallback_article"] if entry["gender"] else ""
-                    entry["plural"] = entry["plural"] or sense["Plural"]
-                    entry["ipa"] = entry["ipa"] or ipa_for(item)
-                    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(language, upos, item)
+            language, lemma = key
+            for upos, sense in senses_for_item(item):
+                record_sense(entries, (language, lemma, upos), sense, item, upos)
+    return entries
 
+
+def metadata_rows(
+    provider_version: str, dump_date: str, extraction_date: str, wiktextract_commit: str
+) -> dict[str, str]:
+    return {
+        "provider_version": provider_version,
+        "license": "Wiktionary-derived data: CC BY-SA 3.0 / GFDL",
+        "generated_at": date.today().isoformat(),
+        "source": "Kaikki.org Wiktextract enwiktionary JSONL",
+        "attribution": "Wiktionary contributors; CC BY-SA 3.0 / GFDL",
+        "dump_date": dump_date,
+        "extraction_date": extraction_date,
+        "wiktextract_commit": wiktextract_commit,
+    }
+
+
+def entry_rows(entries: dict[tuple[str, str, str], dict]):
+    for (language, lemma, upos), entry in sorted(entries.items()):
+        yield (
+            language,
+            lemma,
+            upos,
+            json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":")),
+            entry["gender"],
+            entry["article"],
+            entry["plural"],
+            entry["ipa"],
+            entry["principal_parts"],
+        )
+
+
+def write_index(
+    output_path: Path,
+    entries: dict[tuple[str, str, str], dict],
+    provider_version: str,
+    dump_date: str,
+    extraction_date: str,
+    wiktextract_commit: str,
+) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False) as temporary:
+    with tempfile.NamedTemporaryFile(
+        dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False
+    ) as temporary:
         temporary_path = Path(temporary.name)
     try:
         connection = sqlite3.connect(temporary_path)
-        connection.executescript(
-            """
-            PRAGMA journal_mode = DELETE;
-            CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE entries (
-                language TEXT NOT NULL,
-                lemma TEXT NOT NULL,
-                upos TEXT NOT NULL,
-                senses_json TEXT NOT NULL,
-                gender TEXT NOT NULL,
-                article TEXT NOT NULL,
-                plural TEXT NOT NULL,
-                ipa TEXT NOT NULL,
-                principal_parts TEXT NOT NULL,
-                PRIMARY KEY (language, lemma, upos)
-            );
-            """
-        )
-        metadata = {
-            "provider_version": provider_version,
-            "license": "Wiktionary-derived data: CC BY-SA 3.0 / GFDL",
-            "generated_at": date.today().isoformat(),
-            "source": "Kaikki.org Wiktextract enwiktionary JSONL",
-            "attribution": "Wiktionary contributors; CC BY-SA 3.0 / GFDL",
-            "dump_date": dump_date,
-            "extraction_date": extraction_date,
-            "wiktextract_commit": wiktextract_commit,
-        }
-        connection.executemany("INSERT INTO metadata(key, value) VALUES (?, ?)", metadata.items())
+        connection.executescript(SCHEMA)
         connection.executemany(
-            "INSERT INTO entries(language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                (language, lemma, upos, json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":")), entry["gender"], entry["article"], entry["plural"], entry["ipa"], entry["principal_parts"])
-                for (language, lemma, upos), entry in sorted(entries.items())
-            ),
+            "INSERT INTO metadata(key, value) VALUES (?, ?)",
+            metadata_rows(provider_version, dump_date, extraction_date, wiktextract_commit).items(),
         )
+        connection.executemany(INSERT_ENTRIES_SQL, entry_rows(entries))
         connection.commit()
         connection.execute("PRAGMA journal_mode = OFF")
         connection.close()
@@ -405,11 +484,31 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
         temporary_path.unlink(missing_ok=True)
 
 
+def derive(
+    input_path: Path,
+    output_path: Path,
+    provider_version: str,
+    dump_date: str = "",
+    extraction_date: str = "",
+    wiktextract_commit: str = "",
+) -> None:
+    write_index(
+        output_path,
+        collect_entries(input_path),
+        provider_version,
+        dump_date,
+        extraction_date,
+        wiktextract_commit,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path, help="raw Kaikki/Wiktextract JSONL(.gz)")
-    source.add_argument("--download", action="store_true", help="download the raw Kaikki dump first")
+    source.add_argument(
+        "--download", action="store_true", help="download the raw Kaikki dump first"
+    )
     parser.add_argument("--force-download", action="store_true", help="redownload the Kaikki dump")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--provider-version")
@@ -425,8 +524,18 @@ def main(argv: list[str] | None = None) -> int:
             input_path = download_input(args.force_download)
         except (OSError, RuntimeError) as error:
             parser.error(f"could not download Kaikki dump: {error}")
-    provider_version = args.provider_version or f"dump={args.dump_date or 'unknown'};extraction={args.extraction_date};wiktextract={args.wiktextract_commit or 'unknown'}"
-    derive(input_path, args.output, provider_version, args.dump_date, args.extraction_date, args.wiktextract_commit)
+    provider_version = (
+        args.provider_version
+        or f"dump={args.dump_date or 'unknown'};extraction={args.extraction_date};wiktextract={args.wiktextract_commit or 'unknown'}"
+    )
+    derive(
+        input_path,
+        args.output,
+        provider_version,
+        args.dump_date,
+        args.extraction_date,
+        args.wiktextract_commit,
+    )
     print(f"Wrote {args.output}")
     return 0
 

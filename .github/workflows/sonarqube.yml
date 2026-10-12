@@ -93,7 +93,7 @@ jobs:
       # so a broken lint run stays visible.
       - name: Ruff report for SonarQube Cloud
         run: |
-          .venv/bin/ruff check --output-format json nlp/src nlp/tests > .tmp/lint/ruff-report.json || true
+          .venv/bin/ruff check --output-format json nlp/src nlp/tests nlp/scripts > .tmp/lint/ruff-report.json || true
           test -s .tmp/lint/ruff-report.json
           test -s .tmp/lint/golangci-lint-report.xml
 
