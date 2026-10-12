@@ -161,8 +161,11 @@ new with its own diff, so the two line counts can differ by a few lines, and
 Python and JavaScript files outside the coverage reports (`nlp/scripts`,
 `tools`) count as uncovered in Sonar but are not checked here.
 
-Test coverage here means test line coverage: the share of statements that the
-tests execute. It is not vocabulary coverage, the learner-facing measure in
+Test coverage here means line and branch coverage: the share of statements the
+tests execute and the share of conditional branches they take. The Cobertura
+report carries the branch data, so SonarQube Cloud shows condition coverage for
+the NLP service; the local `coverage-new` preview still counts lines only. It
+is not vocabulary coverage, the learner-facing measure in
 [#1732](https://github.com/justin-hayes/mouseion/issues/1732). The two are
 unrelated, and a figure from one never describes the other.
 
