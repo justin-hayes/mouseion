@@ -383,7 +383,18 @@ func projectNavigationChoices(document navigationDocument, units []ExtractedUnit
 	if len(document.entries) == 0 || len(units) == 0 {
 		return nil, false
 	}
+	starts, ok := navigationEntryStarts(document, units)
+	if !ok {
+		return nil, false
+	}
+	return navigationChoices(document, units, starts)
+}
 
+// navigationEntryStarts resolves the index of the first readable unit each
+// navigation entry targets. It rejects a projection where unit order regresses,
+// an entry's href does not match exactly one unit, entry targets do not
+// advance, or the first entry does not target the first readable unit.
+func navigationEntryStarts(document navigationDocument, units []ExtractedUnit) ([]int, bool) {
 	byHref := make(map[string][]int, len(units))
 	for i, unit := range units {
 		if i > 0 && unit.Order <= units[i-1].Order {
@@ -404,7 +415,13 @@ func projectNavigationChoices(document navigationDocument, units []ExtractedUnit
 	if starts[0] != 0 {
 		return nil, false
 	}
+	return starts, true
+}
 
+// navigationChoices builds one choice per entry, each owning the units between
+// its start and the next entry's start. It rejects an entry that would own no
+// units.
+func navigationChoices(document navigationDocument, units []ExtractedUnit, starts []int) ([]TOCChoice, bool) {
 	choices := make([]TOCChoice, 0, len(document.entries))
 	for i, entry := range document.entries {
 		end := len(units)

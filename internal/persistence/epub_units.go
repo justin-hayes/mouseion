@@ -22,54 +22,13 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 	if err = units.ValidateOffsets(v.FullText); err != nil {
 		return out, fmt.Errorf("validate extracted units: %w", err)
 	}
-	digest := v.ContentHash
-	digestVersion := 0
-	if v.Content != nil {
-		sum := sha256.Sum256(v.Content)
-		digest = "sha256:" + hex.EncodeToString(sum[:])
-		digestVersion = 1
-	}
-	if digest == "" {
-		return out, errors.New("persist EPUB source: content identity is required")
-	}
-	if digestVersion == 0 && !strings.HasPrefix(digest, "legacy:") {
-		digest = "legacy:" + digest
-	}
-	storedContent := v.Content
-	if storedContent == nil {
-		storedContent = []byte{}
+	revision, err := sourceMaterialContentIdentity(v)
+	if err != nil {
+		return out, err
 	}
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		q := sqlcgen.New(tx)
-		row, err := q.UpsertSourceMaterialForExtractedUnits(ctx, sqlcgen.UpsertSourceMaterialForExtractedUnitsParams{
-			OwnerID: v.OwnerID, Language: v.Language, SourceIdentifier: v.SourceIdentifier,
-			Title: v.Title, MediaType: v.MediaType, ContentHash: digest, Content: storedContent, FullText: v.FullText,
-		})
-		if err != nil {
-			return err
-		}
-		out = sourceMaterialFromFields(row.ID, row.OwnerID, row.Language, row.SourceIdentifier, row.Title, row.MediaType, row.ContentHash, "", "", row.Content, row.FullText, 0, row.CreatedAt)
-		revision := contentRevisionInput{fullText: v.FullText, digest: digest, digestVersion: digestVersion, content: storedContent}
-		revisionID, changed, err := putSourceMaterialRevision(ctx, q, out, revision)
-		if err != nil {
-			return err
-		}
-		if changed {
-			if err := writeExtractedUnits(ctx, q, out, revisionID, units); err != nil {
-				return err
-			}
-		}
-		current, err := q.GetCurrentSourceMaterialContent(ctx, sqlcgen.GetCurrentSourceMaterialContentParams{OwnerID: out.OwnerID, ID: out.ID})
-		if err != nil {
-			return err
-		}
-		out.Content = current.Content
-		out.FullText = current.FullText
-		out.ContentHash = current.ContentHash
-		out.ContentDigest = current.ContentDigest
-		out.ContentRevisionID = current.ContentRevisionID
-		out.ContentDigestVersion = current.DigestVersion
-		return nil
+		out, err = putSourceMaterialWithExtractedUnits(ctx, sqlcgen.New(tx), v, units, revision)
+		return err
 	})
 	return out, err
 }
@@ -83,6 +42,72 @@ type contentRevisionInput struct {
 	digest        string
 	digestVersion int
 	content       []byte
+}
+
+// sourceMaterialContentIdentity resolves the content identity the revision will
+// be stored under: a digest of the incoming bytes when present, otherwise the
+// caller-supplied ContentHash, tagged as legacy when it predates content
+// hashing. Content is stored as empty bytes when the caller supplies none.
+func sourceMaterialContentIdentity(v domain.SourceMaterial) (contentRevisionInput, error) {
+	revision := contentRevisionInput{fullText: v.FullText, content: v.Content}
+	if v.Content != nil {
+		sum := sha256.Sum256(v.Content)
+		revision.digest = "sha256:" + hex.EncodeToString(sum[:])
+		revision.digestVersion = 1
+		return revision, nil
+	}
+	revision.content = []byte{}
+	revision.digest = v.ContentHash
+	if revision.digest == "" {
+		return contentRevisionInput{}, errors.New("persist EPUB source: content identity is required")
+	}
+	if !strings.HasPrefix(revision.digest, "legacy:") {
+		revision.digest = "legacy:" + revision.digest
+	}
+	return revision, nil
+}
+
+// putSourceMaterialWithExtractedUnits upserts the source-material row, resolves
+// its content revision, records the snapshot when the revision changed, and
+// returns the stored material with its current content. It runs in the caller's
+// transaction so the row lock, revision and units stay atomic. On failure it
+// returns the material built so far.
+func putSourceMaterialWithExtractedUnits(ctx context.Context, q *sqlcgen.Queries, v domain.SourceMaterial, units domain.ExtractedUnits, revision contentRevisionInput) (out domain.SourceMaterial, err error) {
+	row, err := q.UpsertSourceMaterialForExtractedUnits(ctx, sqlcgen.UpsertSourceMaterialForExtractedUnitsParams{
+		OwnerID: v.OwnerID, Language: v.Language, SourceIdentifier: v.SourceIdentifier,
+		Title: v.Title, MediaType: v.MediaType, ContentHash: revision.digest, Content: revision.content, FullText: v.FullText,
+	})
+	if err != nil {
+		return out, err
+	}
+	out = sourceMaterialFromFields(row.ID, row.OwnerID, row.Language, row.SourceIdentifier, row.Title, row.MediaType, row.ContentHash, "", "", row.Content, row.FullText, 0, row.CreatedAt)
+	revisionID, changed, err := putSourceMaterialRevision(ctx, q, out, revision)
+	if err != nil {
+		return out, err
+	}
+	if changed {
+		if err := writeExtractedUnits(ctx, q, out, revisionID, units); err != nil {
+			return out, err
+		}
+	}
+	return refreshStoredSourceMaterialContent(ctx, q, out)
+}
+
+// refreshStoredSourceMaterialContent replaces out's content fields with the
+// source's current stored content, which can belong to an earlier revision than
+// the one just written.
+func refreshStoredSourceMaterialContent(ctx context.Context, q *sqlcgen.Queries, out domain.SourceMaterial) (domain.SourceMaterial, error) {
+	current, err := q.GetCurrentSourceMaterialContent(ctx, sqlcgen.GetCurrentSourceMaterialContentParams{OwnerID: out.OwnerID, ID: out.ID})
+	if err != nil {
+		return out, err
+	}
+	out.Content = current.Content
+	out.FullText = current.FullText
+	out.ContentHash = current.ContentHash
+	out.ContentDigest = current.ContentDigest
+	out.ContentRevisionID = current.ContentRevisionID
+	out.ContentDigestVersion = current.DigestVersion
+	return out, nil
 }
 
 // putSourceMaterialRevision resolves the content revision for revision while
@@ -194,35 +219,8 @@ func (s *PostgresStore) GetExtractedUnitSnapshot(ctx context.Context, owner, sou
 		return "", out, err
 	}
 	for _, row := range rows {
-		order, conversionErr := checked.Uint64FromInt64(row.UnitOrder)
-		if conversionErr != nil {
-			return "", out, fmt.Errorf("validate persisted unit order: %w", conversionErr)
-		}
-		spineIndex, conversionErr := checked.Uint64FromInt64(row.SpineIndex)
-		if conversionErr != nil {
-			return "", out, fmt.Errorf("validate persisted spine index: %w", conversionErr)
-		}
-		startOffset, conversionErr := checked.Uint64FromInt64(row.StartOffset)
-		if conversionErr != nil {
-			return "", out, fmt.Errorf("validate persisted unit start offset: %w", conversionErr)
-		}
-		endOffset, conversionErr := checked.Uint64FromInt64(row.EndOffset)
-		if conversionErr != nil {
-			return "", out, fmt.Errorf("validate persisted unit end offset: %w", conversionErr)
-		}
-		var unit domain.ExtractedUnit
-		unit.ID, unit.Order, unit.SpineIndex = row.UnitID, order, spineIndex
-		unit.Title, unit.TitleSource, unit.Text = row.Title, row.TitleSource, row.Text
-		unit.StartOffset, unit.EndOffset = startOffset, endOffset
-		unit.PackagePath, unit.ManifestID, unit.SourceHref = row.PackagePath, row.ManifestID, row.SourceHref
-		unit.ResolvedHref, unit.MediaType, unit.Linear = row.ResolvedHref, row.MediaType, row.Linear
-		if err := json.Unmarshal(row.Properties, &unit.Properties); err != nil {
-			return "", out, err
-		}
-		if err := json.Unmarshal(row.NavigationLabels, &unit.NavigationLabels); err != nil {
-			return "", out, err
-		}
-		if err := json.Unmarshal(row.LandmarkTypes, &unit.LandmarkTypes); err != nil {
+		unit, err := extractedUnitFromRow(row)
+		if err != nil {
 			return "", out, err
 		}
 		out.Units = append(out.Units, unit)
@@ -231,4 +229,41 @@ func (s *PostgresStore) GetExtractedUnitSnapshot(ctx context.Context, owner, sou
 		return "", out, fmt.Errorf("validate persisted extracted units: %w", err)
 	}
 	return snapshot.USnapshotID, out, nil
+}
+
+// extractedUnitFromRow converts one persisted unit row, translating its signed
+// columns and JSON collections into the domain unit.
+func extractedUnitFromRow(row sqlcgen.ListCurrentExtractedUnitsRow) (domain.ExtractedUnit, error) {
+	order, err := checked.Uint64FromInt64(row.UnitOrder)
+	if err != nil {
+		return domain.ExtractedUnit{}, fmt.Errorf("validate persisted unit order: %w", err)
+	}
+	spineIndex, err := checked.Uint64FromInt64(row.SpineIndex)
+	if err != nil {
+		return domain.ExtractedUnit{}, fmt.Errorf("validate persisted spine index: %w", err)
+	}
+	startOffset, err := checked.Uint64FromInt64(row.StartOffset)
+	if err != nil {
+		return domain.ExtractedUnit{}, fmt.Errorf("validate persisted unit start offset: %w", err)
+	}
+	endOffset, err := checked.Uint64FromInt64(row.EndOffset)
+	if err != nil {
+		return domain.ExtractedUnit{}, fmt.Errorf("validate persisted unit end offset: %w", err)
+	}
+	var unit domain.ExtractedUnit
+	unit.ID, unit.Order, unit.SpineIndex = row.UnitID, order, spineIndex
+	unit.Title, unit.TitleSource, unit.Text = row.Title, row.TitleSource, row.Text
+	unit.StartOffset, unit.EndOffset = startOffset, endOffset
+	unit.PackagePath, unit.ManifestID, unit.SourceHref = row.PackagePath, row.ManifestID, row.SourceHref
+	unit.ResolvedHref, unit.MediaType, unit.Linear = row.ResolvedHref, row.MediaType, row.Linear
+	if err := json.Unmarshal(row.Properties, &unit.Properties); err != nil {
+		return domain.ExtractedUnit{}, err
+	}
+	if err := json.Unmarshal(row.NavigationLabels, &unit.NavigationLabels); err != nil {
+		return domain.ExtractedUnit{}, err
+	}
+	if err := json.Unmarshal(row.LandmarkTypes, &unit.LandmarkTypes); err != nil {
+		return domain.ExtractedUnit{}, err
+	}
+	return unit, nil
 }
