@@ -48,8 +48,57 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 			errResult = errors.Join(errResult, err)
 		}
 	}()
+	revision, err := concordanceRevision(ctx, tx, owner, language)
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	if lookup.Revision != "" && lookup.Revision != revision {
+		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Stale: true}, nil
+	}
+	queries := sqlcgen.New(tx)
+	interpretation, err := recognizeConcordanceMatch(ctx, queries, owner, language, lookup)
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Match: interpretation.match, Term: interpretation.term}
+	priority, err := loadConcordancePriority(ctx, queries, owner, language, lookup.Priority)
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	result.PriorityBookID, result.PriorityTitle = priority.bookID, priority.title
+	if priority.invalid {
+		result.InvalidPriority = true
+		return result, nil
+	}
+	const maxConcordancePage = int((1<<31-1)/25 + 1)
+	if lookup.Page > maxConcordancePage {
+		if err := tx.Commit(ctx); err != nil {
+			return domain.ConcordanceResult{}, err
+		}
+		result.HasPrevious = true
+		result.PriorityState = concordancePriorityState(result.PriorityBookID, priority.analyzed, false)
+		return result, nil
+	}
+	rows, err := loadConcordanceRows(ctx, queries, owner, language, lookup.Page, interpretation, result.PriorityBookID)
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	page := trimConcordanceRows(rows, lookup.Page)
+	result.HasNext, result.Continued = page.hasNext, page.continued
+	result.PriorityState = concordancePriorityState(result.PriorityBookID, priority.analyzed, page.priorityMatched)
+	result.Occurrences = projectConcordanceOccurrences(page.rows)
+	return result, nil
+}
+
+// concordanceRevision fingerprints the current analysis identity and occurrence
+// corrections for the owner and study language, so a later page request can
+// detect that the evidence it was built from changed.
+func concordanceRevision(ctx context.Context, tx pgx.Tx, owner, language string) (string, error) {
 	var revision string
-	err = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT md5(
 		  COALESCE((SELECT jsonb_agg(jsonb_build_array(ca.book_id, ca.analysis_run_id, ca.corpus_id, b.title) ORDER BY ca.book_id)::text
 		    FROM current_analysis_identity ca
@@ -64,91 +113,126 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 		    JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
 		    WHERE d.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2), '[]')
 		)`, owner, language).Scan(&revision)
-	if err != nil {
-		return domain.ConcordanceResult{}, err
-	}
-	if lookup.Revision != "" && lookup.Revision != revision {
-		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Stale: true}, nil
-	}
+	return revision, err
+}
+
+// concordanceInterpretation is a resolved lookup interpretation: the match mode,
+// the UPOS filter (empty unless the match is the lemma), and the term the query
+// matches on.
+type concordanceInterpretation struct {
+	match string
+	upos  string
+	term  string
+}
+
+// recognizeConcordanceMatch resolves the requested interpretation. An explicit
+// match is honored; an unspecified one is recognized from evidence, preferring
+// an evidenced effective lemma over the literal source form.
+func recognizeConcordanceMatch(ctx context.Context, queries *sqlcgen.Queries, owner, language string, lookup domain.ConcordanceLookup) (concordanceInterpretation, error) {
 	lemmaTerm, formTerm := concordanceTerms(language, lookup.Term)
-	queries := sqlcgen.New(tx)
-	match, upos := lookup.Match, lookup.UPOS
-	if match == "" {
+	interpretation := concordanceInterpretation{match: lookup.Match, upos: lookup.UPOS}
+	if interpretation.match == "" {
 		evidenced, err := queries.ConcordanceLemmaEvidenced(ctx, sqlcgen.ConcordanceLemmaEvidencedParams{
 			Owner: owner, Language: language, Term: lemmaTerm,
 		})
 		if err != nil {
-			return domain.ConcordanceResult{}, err
+			return concordanceInterpretation{}, err
 		}
-		match = domain.ConcordanceMatchForm
+		interpretation.match = domain.ConcordanceMatchForm
 		if evidenced {
-			match = domain.ConcordanceMatchLemma
+			interpretation.match = domain.ConcordanceMatchLemma
 		}
 	}
-	if match != domain.ConcordanceMatchLemma {
-		upos = ""
+	if interpretation.match != domain.ConcordanceMatchLemma {
+		interpretation.upos = ""
 	}
-	term := formTerm
-	if match == domain.ConcordanceMatchLemma {
-		term = lemmaTerm
+	interpretation.term = formTerm
+	if interpretation.match == domain.ConcordanceMatchLemma {
+		interpretation.term = lemmaTerm
 	}
-	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Match: match, Term: term}
-	priorityAnalyzed := false
-	if lookup.Priority != "" && lookup.Priority != domain.ConcordancePriorityNone {
-		if !concordanceBookIDPattern.MatchString(lookup.Priority) {
-			result.InvalidPriority = true
-			return result, nil
-		}
-		book, err := queries.GetConcordancePriorityBook(ctx, sqlcgen.GetConcordancePriorityBookParams{
-			Owner: owner, Book: lookup.Priority, Language: pgtype.Text{String: language, Valid: true},
-		})
-		if errors.Is(err, pgx.ErrNoRows) {
-			result.InvalidPriority = true
-			return result, nil
-		}
-		if err != nil {
-			return domain.ConcordanceResult{}, err
-		}
-		result.PriorityBookID, result.PriorityTitle, priorityAnalyzed = lookup.Priority, book.Title, book.Analyzed
+	return interpretation, nil
+}
+
+// concordancePriority is a captured priority Book after validation. An invalid
+// identity (malformed, unowned, or in another language) is reported rather than
+// treated as the explicit absence of a priority.
+type concordancePriority struct {
+	bookID   string
+	title    string
+	analyzed bool
+	invalid  bool
+}
+
+// loadConcordancePriority validates a captured priority Book identity and loads
+// its title and analysis state. A malformed identity or one that is not the
+// owner's Book in the study language is invalid; it never opens another owner's
+// Book.
+func loadConcordancePriority(ctx context.Context, queries *sqlcgen.Queries, owner, language, priority string) (concordancePriority, error) {
+	if priority == "" || priority == domain.ConcordancePriorityNone {
+		return concordancePriority{}, nil
 	}
-	const maxConcordancePage = int((1<<31-1)/25 + 1)
-	if lookup.Page > maxConcordancePage {
-		if err := tx.Commit(ctx); err != nil {
-			return domain.ConcordanceResult{}, err
-		}
-		result.HasPrevious = true
-		result.PriorityState = concordancePriorityState(result.PriorityBookID, priorityAnalyzed, false)
-		return result, nil
+	if !concordanceBookIDPattern.MatchString(priority) {
+		return concordancePriority{invalid: true}, nil
 	}
-	// Later pages start one row early so the preceding row can say whether the
-	// first Book group is a continuation.
-	offset := (int64(lookup.Page) - 1) * 25
-	if lookup.Page > 1 {
+	book, err := queries.GetConcordancePriorityBook(ctx, sqlcgen.GetConcordancePriorityBookParams{
+		Owner: owner, Book: priority, Language: pgtype.Text{String: language, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return concordancePriority{invalid: true}, nil
+	}
+	if err != nil {
+		return concordancePriority{}, err
+	}
+	return concordancePriority{bookID: priority, title: book.Title, analyzed: book.Analyzed}, nil
+}
+
+// loadConcordanceRows fetches the page's rows. Later pages start one row early
+// so the preceding row can say whether the first Book group is a continuation.
+func loadConcordanceRows(ctx context.Context, queries *sqlcgen.Queries, owner, language string, page int, interpretation concordanceInterpretation, priorityBook string) ([]sqlcgen.ListVocabularyConcordanceRow, error) {
+	offset := (int64(page) - 1) * 25
+	if page > 1 {
 		offset--
 	}
-	rows, err := queries.ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
-		Owner: owner, Language: language, Match: match, Term: term, Upos: upos,
-		PriorityBook: result.PriorityBookID, Offset: offset,
+	return queries.ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
+		Owner: owner, Language: language, Match: interpretation.match, Term: interpretation.term, Upos: interpretation.upos,
+		PriorityBook: priorityBook, Offset: offset,
 	})
-	if err != nil {
-		return domain.ConcordanceResult{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return domain.ConcordanceResult{}, err
-	}
-	priorityMatched := len(rows) > 0 && rows[0].PriorityMatched
-	result.PriorityState = concordancePriorityState(result.PriorityBookID, priorityAnalyzed, priorityMatched)
+}
+
+// concordanceRowPage is one requested page after trimming the extra row that
+// proves a next page and the leading row that carries the previous page's Book
+// identity.
+type concordanceRowPage struct {
+	rows            []sqlcgen.ListVocabularyConcordanceRow
+	priorityMatched bool
+	hasNext         bool
+	continued       bool
+}
+
+// trimConcordanceRows turns the one-extra-row fetch into a page: on later pages
+// the leading row reconstructs whether the first Book group continues, and a
+// row beyond the page size proves a next page without inventing a total.
+func trimConcordanceRows(rows []sqlcgen.ListVocabularyConcordanceRow, page int) concordanceRowPage {
+	pageRows := concordanceRowPage{priorityMatched: len(rows) > 0 && rows[0].PriorityMatched}
 	var previousBookID string
-	if lookup.Page > 1 && len(rows) > 0 {
+	if page > 1 && len(rows) > 0 {
 		previousBookID, rows = rows[0].BookID, rows[1:]
 	}
 	if len(rows) > 25 {
-		result.HasNext = true
+		pageRows.hasNext = true
 		rows = rows[:25]
 	}
-	result.Continued = len(rows) > 0 && rows[0].BookID == previousBookID
+	pageRows.rows = rows
+	pageRows.continued = len(rows) > 0 && rows[0].BookID == previousBookID
+	return pageRows
+}
+
+// projectConcordanceOccurrences maps result rows to the occurrence fields the
+// page renders.
+func projectConcordanceOccurrences(rows []sqlcgen.ListVocabularyConcordanceRow) []domain.ConcordanceResultOccurrence {
+	var occurrences []domain.ConcordanceResultOccurrence
 	for _, row := range rows {
-		occurrence := domain.ConcordanceResultOccurrence{
+		occurrences = append(occurrences, domain.ConcordanceResultOccurrence{
 			ConcordanceOccurrence: concordanceOccurrenceFromFields(
 				row.Surface, row.CanonicalLemma, row.Upos, row.Dependency,
 				row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText,
@@ -160,10 +244,9 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 			),
 			RawLemma: row.RawLemma, EffectiveLemma: row.EffectiveLemma,
 			Corrected: row.Corrected, Excluded: row.Excluded,
-		}
-		result.Occurrences = append(result.Occurrences, occurrence)
+		})
 	}
-	return result, nil
+	return occurrences
 }
 
 // concordanceBookIDPattern is the canonical text form of a Book identity; any
