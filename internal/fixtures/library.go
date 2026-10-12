@@ -74,69 +74,111 @@ func (s *Store) GetBookDetail(_ context.Context, owner, id string) (domain.MyBoo
 }
 
 func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
-	out := make([]domain.MyBook, 0, len(s.books)+len(s.myBooks))
+	out := s.fixtureBooksFromSources(owner)
+	out = append(out, s.fixtureBooksFromMetadata(owner)...)
+	s.applyFixtureBookEvidence(out)
+	return out
+}
+
+// fixtureBooksFromSources builds the acquired-source entries of an owner's
+// collection: one entry per acquired source, scoped to the owner when one is
+// given. Visibility is applied here because a source entry is otherwise
+// indistinguishable from a metadata entry.
+func (s *Store) fixtureBooksFromSources(owner string) []domain.MyBook {
+	out := make([]domain.MyBook, 0, len(s.books))
 	for i := range s.books {
 		source := s.books[i]
 		if owner != "" && source.Source.OwnerID != owner {
 			continue
 		}
-		languageState := domain.LanguageChosen
-		languageTag := normalizeFixtureLanguage(source.Source.Language)
-		if strings.TrimSpace(languageTag) == "" {
-			languageState = domain.LanguageUnknown
-			languageTag = ""
-		}
-		bookID := source.BookID
-		if bookID == "" {
-			bookID = source.Source.ID
-		}
-		if source.BookTitle == "" {
-			source.BookTitle = source.Source.Title
-		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, Author: source.BookAuthor, LanguageState: languageState, LanguageTag: languageTag}, Cover: fixtureCover(bookID), Acquired: &source, Disposition: s.bookDispositionLocked(source.Source.OwnerID, bookID), DispositionRevision: s.bookDispositionRevisionLocked(source.Source.OwnerID, bookID)})
-		s.applyVisibilityLocked(&out[len(out)-1])
+		book := s.fixtureMyBookFromSource(source)
+		s.applyVisibilityLocked(&book)
+		out = append(out, book)
 	}
+	return out
+}
+
+// fixtureMyBookFromSource derives one acquired-source entry. The Book identity
+// prefers the resolved Book ID over the source ID, the title falls back to the
+// source title, and a blank language is the unchosen state.
+func (s *Store) fixtureMyBookFromSource(source domain.SourceMaterialSummary) domain.MyBook {
+	languageState := domain.LanguageChosen
+	languageTag := normalizeFixtureLanguage(source.Source.Language)
+	if strings.TrimSpace(languageTag) == "" {
+		languageState = domain.LanguageUnknown
+		languageTag = ""
+	}
+	bookID := source.BookID
+	if bookID == "" {
+		bookID = source.Source.ID
+	}
+	if source.BookTitle == "" {
+		source.BookTitle = source.Source.Title
+	}
+	return domain.MyBook{
+		Book:                domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, Author: source.BookAuthor, LanguageState: languageState, LanguageTag: languageTag},
+		Cover:               fixtureCover(bookID),
+		Acquired:            &source,
+		Disposition:         s.bookDispositionLocked(source.Source.OwnerID, bookID),
+		DispositionRevision: s.bookDispositionRevisionLocked(source.Source.OwnerID, bookID),
+	}
+}
+
+// fixtureBooksFromMetadata builds the metadata-only entries of an owner's
+// collection, applying the same disposition and visibility projection as the
+// acquired-source entries.
+func (s *Store) fixtureBooksFromMetadata(owner string) []domain.MyBook {
+	out := make([]domain.MyBook, 0, len(s.myBooks))
 	for _, book := range s.myBooks {
-		if owner == "" || book.Book.OwnerID == owner {
-			book.Disposition = s.bookDispositionLocked(book.Book.OwnerID, book.Book.ID)
-			book.DispositionRevision = s.bookDispositionRevisionLocked(book.Book.OwnerID, book.Book.ID)
-			s.applyVisibilityLocked(&book)
-			out = append(out, book)
+		if owner != "" && book.Book.OwnerID != owner {
+			continue
 		}
+		book.Disposition = s.bookDispositionLocked(book.Book.OwnerID, book.Book.ID)
+		book.DispositionRevision = s.bookDispositionRevisionLocked(book.Book.OwnerID, book.Book.ID)
+		s.applyVisibilityLocked(&book)
+		out = append(out, book)
 	}
-	for i := range out {
-		if out[i].Book.ID == BookID {
-			out[i].CoverageKnownTokens = 974
-			out[i].CoverageTotalTokens = 1000
-			out[i].DeckState = "ready"
-			out[i].DeckCardCount = 412
+	return out
+}
+
+// applyFixtureBookEvidence decorates the assembled collection with the evidence
+// the fixture models per Book: deck coverage and state, the current reading, and
+// reading completions from both the imported and current-reading histories. The
+// latest completion across both histories supplies LatestCompletionAt and
+// LatestCompletionSource.
+func (s *Store) applyFixtureBookEvidence(books []domain.MyBook) {
+	for i := range books {
+		if books[i].Book.ID == BookID {
+			books[i].CoverageKnownTokens = 974
+			books[i].CoverageTotalTokens = 1000
+			books[i].DeckState = "ready"
+			books[i].DeckCardCount = 412
 			preparedAt := fixtureJourneyTime
-			out[i].DeckPreparedAt = &preparedAt
+			books[i].DeckPreparedAt = &preparedAt
 		}
 		for _, reading := range s.currentReadings {
-			if reading.OwnerID == out[i].Book.OwnerID && reading.BookID == out[i].Book.ID {
-				out[i].IsCurrentReading = true
+			if reading.OwnerID == books[i].Book.OwnerID && reading.BookID == books[i].Book.ID {
+				books[i].IsCurrentReading = true
 				break
 			}
 		}
-		if imported, ok := s.importedHistory[fixtureDispositionKey(out[i].Book.OwnerID, out[i].Book.ID)]; ok {
-			out[i].CompletionCount++
-			out[i].LatestCompletionAt = &imported.CompletedAt
-			out[i].LatestCompletionSource = domain.ReadingCompletionPreviouslyRead
+		if imported, ok := s.importedHistory[fixtureDispositionKey(books[i].Book.OwnerID, books[i].Book.ID)]; ok {
+			books[i].CompletionCount++
+			books[i].LatestCompletionAt = &imported.CompletedAt
+			books[i].LatestCompletionSource = domain.ReadingCompletionPreviouslyRead
 		}
 		for _, completion := range s.readingHistory {
-			if completion.OwnerID != out[i].Book.OwnerID || completion.BookID != out[i].Book.ID {
+			if completion.OwnerID != books[i].Book.OwnerID || completion.BookID != books[i].Book.ID {
 				continue
 			}
-			out[i].CompletionCount++
-			if out[i].LatestCompletionAt == nil || completion.CompletedAt.After(*out[i].LatestCompletionAt) {
+			books[i].CompletionCount++
+			if books[i].LatestCompletionAt == nil || completion.CompletedAt.After(*books[i].LatestCompletionAt) {
 				completedAt := completion.CompletedAt
-				out[i].LatestCompletionAt = &completedAt
-				out[i].LatestCompletionSource = completion.Source
+				books[i].LatestCompletionAt = &completedAt
+				books[i].LatestCompletionSource = completion.Source
 			}
 		}
 	}
-	return out
 }
 
 func fixtureDispositionKey(owner, bookID string) string { return owner + "\x00" + bookID }
