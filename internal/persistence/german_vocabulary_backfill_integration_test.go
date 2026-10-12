@@ -170,3 +170,77 @@ func TestBackfillGermanVocabularyRollsBackCuratedConflict(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }
+
+func TestBackfillGermanVocabularyPreservesEarliestGeneratedProvenance(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "german-backfill-provenance", false)
+	require.NoError(t, err)
+	deck, err := store.PutDeck(ctx, owner.ID, "de", "Provenance")
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "provenance", Title: "Provenance", MediaType: "text/plain", ContentHash: "provenance-hash", Content: []byte("Haß"), FullText: "Haß"})
+	require.NoError(t, err)
+	oldTime := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	newTime := oldTime.Add(time.Hour)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id,first_generated_at) VALUES($1,'de','haß','NOUN',$2,$3,$4),($1,'de','hass','NOUN',$2,NULL,$5)`, owner.ID, deck.ID, source.ID, oldTime, newTime)
+	require.NoError(t, err)
+
+	report, err := store.BackfillGermanVocabulary(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Updated)
+	assert.Equal(t, 1, report.Merged)
+	var lemma, firstDeckID, firstSourceID string
+	var firstGeneratedAt time.Time
+	err = store.Pool().QueryRow(ctx, `SELECT canonical_lemma, first_deck_id::text, COALESCE(first_source_material_id::text,''), first_generated_at FROM generated_vocabulary WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&lemma, &firstDeckID, &firstSourceID, &firstGeneratedAt)
+	require.NoError(t, err)
+	assert.Equal(t, "hass", lemma)
+	assert.Equal(t, deck.ID, firstDeckID)
+	assert.Equal(t, source.ID, firstSourceID)
+	assert.True(t, firstGeneratedAt.Equal(oldTime))
+}
+
+func TestBackfillGermanVocabularyBreaksGeneratedIdentityTiesDeterministically(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	tie := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+
+	t.Run("smallest first deck wins", func(t *testing.T) {
+		owner, err := store.CreateUser(ctx, "german-backfill-deck-tie", false)
+		require.NoError(t, err)
+		first, err := store.PutDeck(ctx, owner.ID, "de", "First")
+		require.NoError(t, err)
+		second, err := store.PutDeck(ctx, owner.ID, "de", "Second")
+		require.NoError(t, err)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_generated_at) VALUES($1,'de','haß','NOUN',$2,$3),($1,'de','hass','NOUN',$4,$3)`, owner.ID, first.ID, tie, second.ID)
+		require.NoError(t, err)
+
+		report, err := store.BackfillGermanVocabulary(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, 1, report.Updated)
+		var winner string
+		err = store.Pool().QueryRow(ctx, `SELECT first_deck_id::text FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='hass'`, owner.ID).Scan(&winner)
+		require.NoError(t, err)
+		assert.Equal(t, min(first.ID, second.ID), winner)
+	})
+
+	t.Run("smallest first source wins", func(t *testing.T) {
+		owner, err := store.CreateUser(ctx, "german-backfill-source-tie", false)
+		require.NoError(t, err)
+		deck, err := store.PutDeck(ctx, owner.ID, "de", "Tie")
+		require.NoError(t, err)
+		first, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "first", Title: "First", MediaType: "text/plain", ContentHash: "first-hash", Content: []byte("Haß"), FullText: "Haß"})
+		require.NoError(t, err)
+		second, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "second", Title: "Second", MediaType: "text/plain", ContentHash: "second-hash", Content: []byte("Hass"), FullText: "Hass"})
+		require.NoError(t, err)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id,first_generated_at) VALUES($1,'de','haß','NOUN',$2,$3,$4),($1,'de','hass','NOUN',$2,$5,$4)`, owner.ID, deck.ID, first.ID, tie, second.ID)
+		require.NoError(t, err)
+
+		report, err := store.BackfillGermanVocabulary(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, 1, report.Updated)
+		var winner string
+		err = store.Pool().QueryRow(ctx, `SELECT first_source_material_id::text FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='hass'`, owner.ID).Scan(&winner)
+		require.NoError(t, err)
+		assert.Equal(t, min(first.ID, second.ID), winner)
+	})
+}
