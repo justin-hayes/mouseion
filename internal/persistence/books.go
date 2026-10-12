@@ -560,6 +560,14 @@ func ensureBookExists(ctx context.Context, tx pgx.Tx, owner, bookID string) erro
 	return nil
 }
 
+// LockBookForUpdateTx locks the owner's Book row for update and reports a
+// missing Book as ErrNotFound. It is the first lock every Book deck writer
+// takes, so the Book fences the Current reading and preparation rows that
+// follow.
+func (s *PostgresStore) LockBookForUpdateTx(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
+	return lockBookForUpdate(ctx, sqlcgen.New(tx), owner, bookID)
+}
+
 func activateMembership(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
 	return sqlcgen.New(tx).ActivateBookMembership(ctx, sqlcgen.ActivateBookMembershipParams{OwnerID: owner, BookID: bookID})
 }

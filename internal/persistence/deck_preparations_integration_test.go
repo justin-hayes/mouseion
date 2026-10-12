@@ -6,8 +6,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -248,6 +250,40 @@ func TestDeckPreparationRepreparationCreatesCurrentAnalysisGeneration(t *testing
 	repeated, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: runID, Filename: "changed.apkg", DeckName: "Changed", ContentHash: "changed"})
 	require.NoError(t, err)
 	assert.Equal(t, current.ID, repeated.ID, "the current generation remains idempotent")
+}
+
+func TestDeckPreparationBookLocksMapMissingRows(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "deck-lock-owner", false)
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "deck-lock-source", Title: "Book", MediaType: "text/plain", ContentHash: "deck-lock-hash", Content: []byte("Buch"), FullText: "Buch"})
+	require.NoError(t, err)
+
+	tx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "transaction", func() error { return tx.Rollback(ctx) })
+
+	t.Run("lock a missing book", func(t *testing.T) {
+		require.ErrorIs(t, store.LockBookForUpdateTx(ctx, tx, owner.ID, uuid.NewString()), ErrNotFound)
+	})
+	t.Run("resolve and lock a missing source material", func(t *testing.T) {
+		_, lookupErr := store.LockSourceMaterialBookForUpdateTx(ctx, tx, owner.ID, uuid.NewString())
+		require.ErrorIs(t, lookupErr, ErrNotFound)
+	})
+	t.Run("resolve an unlinked source material", func(t *testing.T) {
+		bookID, lookupErr := store.LockSourceMaterialBookForUpdateTx(ctx, tx, owner.ID, source.ID)
+		require.NoError(t, lookupErr)
+		assert.Empty(t, bookID)
+	})
+	t.Run("retire with a malformed book identity", func(t *testing.T) {
+		retireErr := store.RetireDeckPreparationsForBookTx(ctx, tx, owner.ID, "not-a-uuid")
+		require.ErrorContains(t, retireErr, "invalid Current reading book identity")
+	})
+	t.Run("create a preparation for a missing source material", func(t *testing.T) {
+		_, createErr := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: uuid.NewString(), Filename: "missing.apkg", DeckName: "Missing", ContentHash: "missing"})
+		require.ErrorIs(t, createErr, ErrNotFound)
+	})
 }
 
 func createPreparation(t *testing.T, ctx context.Context, store *PostgresStore, owner, source, hash string) domain.DeckPreparation {

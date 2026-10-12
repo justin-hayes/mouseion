@@ -511,7 +511,7 @@ func (s *PostgresStore) startCurrentReading(ctx context.Context, owner, language
 	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return StartResult{}, err
 	}
-	if err := lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
+	if err := lockBookForUpdate(ctx, q, owner, bookID); err != nil {
 		return StartResult{}, err
 	}
 	facts, identity, err := loadStartFacts(ctx, tx, q, owner, language, bookID)
@@ -663,7 +663,10 @@ func currentReadingEligibility(ctx context.Context, q *sqlcgen.Queries, owner, l
 	return domain.CurrentReadingEligibilityIn(classification, facts.BookLanguage, language), nil
 }
 
-func lockCurrentReadingBook(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
+// lockBookForUpdate locks the owner's Book row for update and reports a missing
+// Book as ErrNotFound. Callers use it to fence the Book before they lock the
+// Current reading or preparation rows that hang off it.
+func lockBookForUpdate(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
 	_, err := q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

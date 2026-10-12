@@ -375,6 +375,36 @@ func seedAnalyzedReading(t *testing.T, ctx context.Context, store *persistence.P
 	return source, book, analysisHandle, reading
 }
 
+func TestReprepareRefusesPreparationWhoseBookIsMissing(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "missing-book-owner", false)
+	require.NoError(t, err)
+	source, book, _, reading := seedAnalyzedReading(t, ctx, store, owner, "missing-book-source")
+	workers := river.NewWorkers()
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
+	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
+	service := &Service{pool: store.Pool(), client: client, store: store}
+	preparation, err := service.PrepareCurrentReadingDeck(ctx, owner.ID, book.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	// Foreign-key triggers are disabled so the test can build the dangling
+	// Book reference the preparation lock must reject; a normal delete would
+	// cascade the preparation away before the lock ran. The per-test database
+	// clone discards the change, so nothing re-enables them.
+	_, err = store.Pool().Exec(ctx, `ALTER TABLE source_materials DISABLE TRIGGER ALL`)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE source_materials SET book_id=$1 WHERE owner_id=$2 AND id=$3`, uuid.NewString(), owner.ID, source.ID)
+	require.NoError(t, err)
+	_, err = service.Reprepare(ctx, owner.ID, preparation.Preparation.ID, reading.SnapshotID)
+	require.ErrorIs(t, err, persistence.ErrNotFound, "a preparation whose Book row is missing is not found")
+}
+
 func TestCancelLogsBestEffortRemoteFailuresWithoutChangingOutcome(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()

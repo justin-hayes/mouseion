@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -44,7 +43,7 @@ func (s *Service) PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, 
 		return Handle{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	if err := lockBookForUpdate(ctx, tx, owner, bookID); err != nil {
+	if err := s.store.LockBookForUpdateTx(ctx, tx, owner, bookID); err != nil {
 		return Handle{}, err
 	}
 	current, analysis, err := s.store.LockCurrentReadingDeckFacts(ctx, tx, owner, bookID)
@@ -201,7 +200,7 @@ func (s *Service) PreparationAdmissions(ctx context.Context, owner, id string) (
 // admitPreparationTx locks the preparation's Book, Current reading, and
 // preparation, then returns the preparation if the action is admitted.
 func (s *Service) admitPreparationTx(ctx context.Context, tx pgx.Tx, owner, id, expectedSnapshotID string, action domain.DeckAction) (domain.DeckPreparation, error) {
-	p, err := lockPreparationForUpdate(ctx, tx, owner, id)
+	p, err := s.lockPreparationForUpdate(ctx, tx, owner, id)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
@@ -227,7 +226,7 @@ func (s *Service) createCurrentReadingDeckTx(ctx context.Context, tx pgx.Tx, own
 		return Handle{}, fmt.Errorf("%w: Current reading snapshot does not match the completed analysis", ErrAnalysisUnavailable)
 	}
 	source := completed.Source
-	if err := sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
+	if err := s.store.RetireDeckPreparationsForBookTx(ctx, tx, owner, bookID); err != nil {
 		return Handle{}, err
 	}
 	p, _, err := persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: completed.RunID, SnapshotID: current.SnapshotID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
@@ -245,7 +244,7 @@ func (s *Service) createCurrentReadingDeckTx(ctx context.Context, tx pgx.Tx, own
 // The caller has already admitted the request under the Book and Current reading
 // locks. forceReprepare rolls a Ready preparation to a new generation.
 func (s *Service) advanceTx(ctx context.Context, tx pgx.Tx, owner, id string, forceReprepare bool) (Handle, error) {
-	p, err := lockPreparationForUpdate(ctx, tx, owner, id)
+	p, err := s.lockPreparationForUpdate(ctx, tx, owner, id)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -254,7 +253,7 @@ func (s *Service) advanceTx(ctx context.Context, tx pgx.Tx, owner, id string, fo
 	}
 	switch {
 	case rollsPreparationForward(p, forceReprepare):
-		p, id, err = rollPreparationForward(ctx, tx, owner, p)
+		p, id, err = s.rollPreparationForward(ctx, tx, owner, p)
 		if err != nil {
 			return Handle{}, err
 		}
@@ -284,9 +283,9 @@ func rollsPreparationForward(p domain.DeckPreparation, forceReprepare bool) bool
 // bound to the same exact analysis and Current reading snapshot. Either the
 // immutable specification cannot be rendered or the learner explicitly
 // requested current meaning evidence. The returned id names the successor.
-func rollPreparationForward(ctx context.Context, tx pgx.Tx, owner string, p domain.DeckPreparation) (domain.DeckPreparation, string, error) {
+func (s *Service) rollPreparationForward(ctx context.Context, tx pgx.Tx, owner string, p domain.DeckPreparation) (domain.DeckPreparation, string, error) {
 	if p.BookID != "" {
-		if err := sqlcRetireDeckPreparationsForBook(ctx, tx, owner, p.BookID); err != nil {
+		if err := s.store.RetireDeckPreparationsForBookTx(ctx, tx, owner, p.BookID); err != nil {
 			return domain.DeckPreparation{}, "", err
 		}
 	} else if _, err := tx.Exec(ctx, `UPDATE deck_preparations SET retired_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND retired_at IS NULL`, owner, p.ID); err != nil {
@@ -327,16 +326,6 @@ func (s *Service) enqueuePreparationJob(ctx context.Context, tx pgx.Tx, owner, i
 		}
 	}
 	return p, jobID, nil
-}
-
-// lockBookForUpdate fences the Book before the Current reading and preparation
-// rows. Every Book deck writer takes this lock first.
-func lockBookForUpdate(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
-	_, err := sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return persistence.ErrNotFound
-	}
-	return err
 }
 
 // The statements are package constants; the column list is a constant too, so

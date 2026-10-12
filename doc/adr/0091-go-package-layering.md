@@ -11,7 +11,7 @@ The Go code has a layering that earlier decisions rely on, but no gate checks it
 `go list -tags=integration` at `21e0a090`, test imports included, shows the current graph:
 
 - **Domain.** `internal/domain` imports the standard library and `internal/canonicalization`. Its tests add testify.
-- **Generated sqlc code.** `gen/sqlc` is imported by `internal/persistence` and by two files in `internal/prepareddeck` (`current_reading_admission.go`, `jobs.go`). Prepared-deck calls three generated queries, `GetBookForUpdate`, `GetSourceMaterialBookForUpdate` and `RetireDeckPreparationsForBook`. Persistence calls all three for the same purposes.
+- **Generated sqlc code.** `gen/sqlc` is imported only by `internal/persistence`. At `21e0a090` two files in `internal/prepareddeck` (`current_reading_admission.go`, `jobs.go`) also imported it and called three generated queries, `GetBookForUpdate`, `GetSourceMaterialBookForUpdate` and `RetireDeckPreparationsForBook`; [#1976](https://github.com/justin-hayes/mouseion/issues/1976) moved those calls behind transaction-scoped persistence methods. Persistence calls all three for the same purposes.
 - **pgx.** Non-test files in `internal/persistence`, `internal/txcleanup`, `cmd/server`, the job packages `internal/analysis`, `internal/cataloguesync`, `internal/knownvocab` and `internal/prepareddeck`, generated `gen/sqlc`, and `internal/testutil` import `github.com/jackc/pgx/v5`. The only other importers are three `internal/webapp` integration tests, which build River clients and inspect database state.
 - **Fixtures store.** `internal/fixtures` is imported by `cmd/fixtureserver` and by `internal/webapp` tests. `cmd/fixtureserver` also imports `internal/persistence`, for the `persistence.MyBooksBrowseResult` type in a store wrapper. `internal/fixtures` itself imports neither persistence, pgx nor sqlc.
 - **Test infrastructure.** `internal/storecontract`, `internal/testutil`, `internal/testwrite` and `internal/analyzer/analyzertest` are imported only by test files. `testwrite` is used by tests in `cataloguesync`, `enrichment`, `opds` and `webapp`.
@@ -36,11 +36,10 @@ Each rule names a package group, says what it may and may not import, and gives 
 
 - **Allow:** `internal/persistence`, in non-test and test files.
 - **Deny:** every other package, in non-test and test files.
-- **Temporary exception:** `internal/prepareddeck` (`current_reading_admission.go`, `jobs.go`), until [#1976](https://github.com/justin-hayes/mouseion/issues/1976) moves those calls behind persistence. See [Temporary exceptions](#temporary-exceptions).
 
 **Why.** `sqlc.yaml` already describes `gen/sqlc` as the persistence query layer. Its row and parameter types (`pgtype.UUID`, nullable wrappers, per-query structs) mirror the schema. Persistence exists to translate them into domain types, so an importer outside persistence couples itself to column shapes and has to change with every migration.
 
-Prepared-deck's direct use is **not intended**. Its three queries duplicate persistence calls that make the same Book-row lock and preparation retirement. With the queries in two packages, the Book-before-preparation lock order is defined twice and can drift. Prepared-deck already reaches persistence through transaction-scoped methods (`LoadPreparedDeckInputFactsTx`, `FreezePreparedDeckRunTx`), so persistence can expose these three operations in the same way.
+Prepared-deck's direct use is **not intended**. Its three queries duplicate persistence calls that make the same Book-row lock and preparation retirement. With the queries in two packages, the Book-before-preparation lock order is defined twice and can drift. Prepared-deck already reaches persistence through transaction-scoped methods (`LoadPreparedDeckInputFactsTx`, `FreezePreparedDeckRunTx`), so persistence now exposes these three operations in the same way ([#1976](https://github.com/justin-hayes/mouseion/issues/1976)).
 
 ### 3. pgx: named owners of connections and transactions
 
@@ -100,9 +99,7 @@ A `//nolint:depguard` directive must give a reason that names ADR 0091 and the f
 
 ## Temporary exceptions
 
-| Import | Rule | Follow-up |
-| --- | --- | --- |
-| `internal/prepareddeck/current_reading_admission.go` and `internal/prepareddeck/jobs.go` import `gen/sqlc` | §2 (lint) | [#1976](https://github.com/justin-hayes/mouseion/issues/1976) moves the three queries behind transaction-scoped persistence methods. |
+None. [#1976](https://github.com/justin-hayes/mouseion/issues/1976) moved prepared-deck's `gen/sqlc` calls behind persistence, and [#1977](https://github.com/justin-hayes/mouseion/issues/1977) moved `MOUSEION_SECRET` validation out of persistence.
 
 No other import or reference at `21e0a090` violates these rules.
 
