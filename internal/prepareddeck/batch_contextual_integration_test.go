@@ -40,6 +40,8 @@ type contextualStandardFixtureProvider struct {
 
 func (p contextualStandardFixtureProvider) Name() string    { return p.name }
 func (p contextualStandardFixtureProvider) Version() string { return p.version }
+func (p contextualStandardFixtureProvider) Enabled() bool   { return true }
+
 func (p contextualStandardFixtureProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	if request.CanonicalLemma == "umhauen" {
 		return enrichment.TranslationResponse{

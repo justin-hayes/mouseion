@@ -30,7 +30,7 @@ func (w *StandardTranslationWorker) now() time.Time {
 }
 
 func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTranslationJobArgs) error {
-	if w == nil || w.Store == nil || w.Provider == nil || w.Client == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || args.Ordinal < 0 || args.Generation < 0 {
+	if w == nil || w.Store == nil || w.Provider == nil || !w.Provider.Enabled() || w.Client == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || args.Ordinal < 0 || args.Generation < 0 {
 		return ErrInvalidInput
 	}
 	run, err := w.Store.GetPreparedDeckRun(ctx, args.OwnerID, args.PreparationID, args.RunID)

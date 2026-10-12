@@ -52,6 +52,8 @@ type emptyCandidateFallbackStub struct {
 
 func (*emptyCandidateFallbackStub) Name() string    { return "llm" }
 func (*emptyCandidateFallbackStub) Version() string { return "model-1" }
+func (s *emptyCandidateFallbackStub) Enabled() bool { return true }
+
 func (s *emptyCandidateFallbackStub) Translate(_ context.Context, r TranslationRequest) (TranslationResponse, error) {
 	s.requests = append(s.requests, r)
 	response := TranslationResponse{Translation: "rare word", SentenceTranslation: "The rare thing is important today.", SentenceTranslationTargets: []string{"rare"}}
@@ -63,6 +65,8 @@ func (s *emptyCandidateFallbackStub) Translate(_ context.Context, r TranslationR
 
 func (s *translationStub) Name() string    { return s.name }
 func (s *translationStub) Version() string { return s.version }
+func (s *translationStub) Enabled() bool   { return true }
+
 func (s *translationStub) Translate(_ context.Context, r TranslationRequest) (TranslationResponse, error) {
 	s.requests = append(s.requests, r)
 	if len(s.requests) <= s.failures {
@@ -81,7 +85,7 @@ func (frequencyStub) Frequency(context.Context, Identity) (float64, bool, error)
 
 func TestServiceLocalPipelineNeedsNoExternalProvider(t *testing.T) {
 	c := Candidate{Identity: Identity{"de", "haus", "NOUN"}, Morphology: map[string]string{"Number": "Sing"}}
-	r := NewService(Config{}, frequencyStub{}, NewStanzaMorphology("1.8"), GermanIPA{}, nil, nil).Enrich(context.Background(), []Candidate{c})[0]
+	r := NewService(Config{}, frequencyStub{}, NewStanzaMorphology("1.8"), GermanIPA{}, DisabledTranslationProvider{}, nil).Enrich(context.Background(), []Candidate{c})[0]
 	assert.True(t, r.Frequency.Available)
 	assert.True(t, r.Morphology.Available)
 	assert.True(t, r.Pronunciation.Available)
@@ -219,6 +223,8 @@ type classifiedProvider struct{ err error }
 
 func (*classifiedProvider) Name() string    { return "fake" }
 func (*classifiedProvider) Version() string { return "1" }
+func (p *classifiedProvider) Enabled() bool { return true }
+
 func (p *classifiedProvider) Translate(context.Context, TranslationRequest) (TranslationResponse, error) {
 	if p.err != nil {
 		return TranslationResponse{}, p.err
