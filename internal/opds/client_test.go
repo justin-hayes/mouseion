@@ -264,7 +264,7 @@ func TestDownloadImageIsUnrestrictedButBounded(t *testing.T) {
 			testwrite.String(t, w, "not an EPUB")
 		case "/too-large":
 			_, err := w.Write(make([]byte, maxImageResponse+1))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}
 	}))
 	defer server.Close()

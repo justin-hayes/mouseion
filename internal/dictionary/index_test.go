@@ -2,7 +2,6 @@ package dictionary
 
 import (
 	"database/sql"
-	"errors"
 	"io/fs"
 	"path/filepath"
 	"testing"
@@ -22,7 +21,7 @@ func TestOpenIndexRejectsDirectory(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, index)
 	require.ErrorIs(t, err, ErrInvalidIndex)
-	assert.False(t, errors.Is(err, fs.ErrNotExist), "a directory is a misconfiguration, not an absent index")
+	require.NotErrorIs(t, err, fs.ErrNotExist, "a directory is a misconfiguration, not an absent index")
 	assert.Contains(t, err.Error(), "directory")
 }
 

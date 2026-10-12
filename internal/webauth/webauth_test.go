@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRequireUserRedirectsOnlyBrowserNavigation(t *testing.T) {
 	h := (&Handler{}).RequireUser(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		require.FailNow(t, "protected handler called")
+		assert.Fail(t, "protected handler called")
 	}))
 	tests := []struct {
 		name, method, accept, fetchMode string
@@ -39,7 +38,7 @@ func TestRequireUserRedirectsOnlyBrowserNavigation(t *testing.T) {
 
 func TestRequireUserDoesNotRedirectHTMXRequestTypes(t *testing.T) {
 	h := (&Handler{}).RequireUser(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		require.FailNow(t, "protected handler called")
+		assert.Fail(t, "protected handler called")
 	}))
 	for _, requestType := range []string{"full", "partial"} {
 		t.Run(requestType, func(t *testing.T) {

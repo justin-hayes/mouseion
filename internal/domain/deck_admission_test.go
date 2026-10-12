@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -139,9 +138,9 @@ func TestDecideDeckAdmissionPrecedence(t *testing.T) {
 func TestDeckAdmissionErrMapsEachRefusal(t *testing.T) {
 	require.NoError(t, DeckAdmit.Err())
 	assert.True(t, DeckAdmit.Admitted())
-	assert.True(t, errors.Is(DeckAdmissionStale.Err(), ErrDeckPreparationStale))
-	assert.True(t, errors.Is(DeckAdmissionNotCurrentReading.Err(), ErrDeckPreparationNotCurrentReading))
-	assert.True(t, errors.Is(DeckAdmissionNotRequired.Err(), ErrDeckPreparationNotRequired))
-	assert.True(t, errors.Is(DeckAdmissionInvalidTransition.Err(), ErrDeckPreparationInvalidTransition))
+	require.ErrorIs(t, DeckAdmissionStale.Err(), ErrDeckPreparationStale)
+	require.ErrorIs(t, DeckAdmissionNotCurrentReading.Err(), ErrDeckPreparationNotCurrentReading)
+	require.ErrorIs(t, DeckAdmissionNotRequired.Err(), ErrDeckPreparationNotRequired)
+	require.ErrorIs(t, DeckAdmissionInvalidTransition.Err(), ErrDeckPreparationInvalidTransition)
 	assert.False(t, DeckAdmissionStale.Admitted())
 }

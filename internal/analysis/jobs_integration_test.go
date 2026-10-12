@@ -414,10 +414,11 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	assert.Equal(t, mainTextConfigIdentity, provenance["selection_algorithm"])
 	assert.Equal(t, true, provenance["selection_identified"])
 	assert.Equal(t, true, provenance["selection_applied"])
-	assert.Equal(t, float64(1), provenance["body_matter_start"])
-	assert.Equal(t, float64(2), provenance["back_matter_start"])
-	assert.Equal(t, float64(1), provenance["selected_unit_count"])
-	assert.Equal(t, float64(3), provenance["total_unit_count"])
+	// Provenance counts are JSON integers, which decode exactly; 1e-9 rejects any fractional value.
+	assert.InDelta(t, float64(1), provenance["body_matter_start"], 1e-9)
+	assert.InDelta(t, float64(2), provenance["back_matter_start"], 1e-9)
+	assert.InDelta(t, float64(1), provenance["selected_unit_count"], 1e-9)
+	assert.InDelta(t, float64(3), provenance["total_unit_count"], 1e-9)
 	assert.Equal(t, []any{selectedUnits[0].ID, selectedUnits[2].ID}, provenance["excluded_unit_ids"])
 
 	gotSnapshotID, afterSnapshot, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, selectedSource.ID)
@@ -448,8 +449,8 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	assert.Equal(t, snapshotConfigIdentity, wholeProvenance["selection_algorithm"])
 	assert.Equal(t, false, wholeProvenance["selection_identified"])
 	assert.Equal(t, false, wholeProvenance["selection_applied"])
-	assert.Equal(t, float64(2), wholeProvenance["selected_unit_count"])
-	assert.Equal(t, float64(2), wholeProvenance["total_unit_count"])
+	assert.InDelta(t, float64(2), wholeProvenance["selected_unit_count"], 1e-9)
+	assert.InDelta(t, float64(2), wholeProvenance["total_unit_count"], 1e-9)
 	assert.Equal(t, []any{}, wholeProvenance["excluded_unit_ids"])
 
 	noOpText, noOpUnits := makeSourceUnits("noop", []string{"Main Inhalt.", "Weiterer Inhalt."}, [][]string{{"bodymatter"}, nil})
@@ -916,7 +917,8 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	assert.Equal(t, int64(1), corpus.Statistics.DistinctLemmaCount)
 	require.NotNil(t, corpus.Statistics.TextProfile)
 	assert.Equal(t, int64(2), corpus.Statistics.TextProfile.SentenceCount)
-	assert.Equal(t, float64(1), corpus.Statistics.TextProfile.MedianSentenceTokenCount)
+	// A median of integer token counts is exact in float64 (an integer or .5); 1e-9 only absorbs arithmetic noise.
+	assert.InDelta(t, float64(1), corpus.Statistics.TextProfile.MedianSentenceTokenCount, 1e-9)
 	completedStatus, err := service.Cancel(ctx, alice.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, completedStatus.State)
