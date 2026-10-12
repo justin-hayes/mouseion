@@ -325,3 +325,93 @@ func TestDeterministicLocalProviders(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotEqual(t, c.Morphology, got, "morphology was not copied")
 }
+
+// errorCache is an ExternalCache whose Get and Put can be made to fail so the
+// required-cache and graceful-degradation branches are reachable in tests.
+type errorCache struct {
+	getErr, putErr error
+}
+
+func (c errorCache) Get(context.Context, CacheKey) (CacheEntry, bool, error) {
+	return CacheEntry{}, false, c.getErr
+}
+
+func (c errorCache) Put(_ context.Context, entry CacheEntry) (CacheEntry, error) {
+	return entry, c.putErr
+}
+
+// emptyResponseProvider returns a structurally empty translation so the
+// normalizer's required-field check is exercised through the external path.
+type emptyResponseProvider struct{}
+
+func (*emptyResponseProvider) Name() string    { return "llm" }
+func (*emptyResponseProvider) Version() string { return "1" }
+func (*emptyResponseProvider) Enabled() bool   { return true }
+func (*emptyResponseProvider) Translate(context.Context, TranslationRequest) (TranslationResponse, error) {
+	return TranslationResponse{}, nil
+}
+
+func TestExternalRequiresCacheWhenCacheBacked(t *testing.T) {
+	provider := &translationStub{name: "llm", version: "1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil)
+	_, metrics, err := service.EnrichExternalObserved(context.Background(), Candidate{Identity: Identity{"de", "haus", "NOUN"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "external enrichment cache is required")
+	assert.Equal(t, 1, metrics.CacheErrors)
+	assert.Empty(t, provider.requests)
+}
+
+func TestExternalCacheReadFailureIsFatalWhenRequired(t *testing.T) {
+	provider := &translationStub{name: "llm", version: "1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, errorCache{getErr: errors.New("cache unavailable")})
+	_, metrics, err := service.EnrichExternalObserved(context.Background(), Candidate{Identity: Identity{"de", "haus", "NOUN"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "translation cache get")
+	assert.Equal(t, 1, metrics.CacheErrors)
+	assert.Empty(t, provider.requests)
+}
+
+func TestExternalCacheReadFailureDegradesToWarning(t *testing.T) {
+	provider := &translationStub{name: "llm", version: "1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, errorCache{getErr: errors.New("cache unavailable")})
+	result := service.Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}}})[0]
+	assert.True(t, result.Translation.Available)
+	assert.Contains(t, result.Warnings, "translation cache: cache unavailable")
+	assert.Len(t, provider.requests, 1)
+}
+
+func TestExternalCacheWriteFailureIsFatalWhenRequired(t *testing.T) {
+	provider := &translationStub{name: "llm", version: "1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, errorCache{putErr: errors.New("cache read-only")})
+	_, metrics, err := service.EnrichExternalObserved(context.Background(), Candidate{Identity: Identity{"de", "haus", "NOUN"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "translation cache put")
+	assert.Equal(t, 1, metrics.CacheErrors)
+}
+
+func TestExternalCacheWriteFailureDegradesToWarning(t *testing.T) {
+	provider := &translationStub{name: "llm", version: "1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, errorCache{putErr: errors.New("cache read-only")})
+	result := service.Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}}})[0]
+	assert.True(t, result.Translation.Available)
+	assert.Contains(t, result.Warnings, "translation cache: cache read-only")
+}
+
+func TestExternalCancellationIsClassified(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, &classifiedProvider{err: errors.New("opaque")}, &memoryCache{values: map[CacheKey]CacheEntry{}})
+	_, metrics, err := service.EnrichExternalObserved(ctx, Candidate{Identity: Identity{"de", "haus", "NOUN"}})
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, metrics.Cancellations)
+	assert.Zero(t, metrics.OtherErrors)
+}
+
+func TestExternalNormalizationFailureIsClassified(t *testing.T) {
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, &emptyResponseProvider{}, &memoryCache{values: map[CacheKey]CacheEntry{}})
+	_, metrics, err := service.EnrichExternalObserved(context.Background(), Candidate{Identity: Identity{"de", "haus", "NOUN"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "translation is empty")
+	assert.Equal(t, 1, metrics.OtherErrors)
+}

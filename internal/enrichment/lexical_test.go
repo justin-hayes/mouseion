@@ -105,6 +105,26 @@ func TestOrderSensesIgnoresGreekFunctionWords(t *testing.T) {
 	assert.Equal(t, "primary", ordered[0].Gloss)
 }
 
+func TestOrderSensesTokenContextRequiresResolvableTarget(t *testing.T) {
+	senses := []LexicalSense{{Gloss: "primary"}, {Gloss: "secondary", Topics: []string{"schwimmen", "nsubj"}}}
+	tokens := []analyzer.Token{
+		{Surface: "Der", CanonicalLemma: "der", UPOS: "DET"},
+		{Surface: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "nsubj"},
+		{Surface: "schwimmt", CanonicalLemma: "schwimmen", UPOS: "VERB", Dependency: "root"},
+	}
+	for _, test := range []struct {
+		name, target string
+	}{
+		{"empty target cannot anchor a token window", ""},
+		{"absent target cannot anchor a token window", "Fahrrad"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ordered := OrderSenses(LexicalLookupRequest{TargetWord: test.target, SentenceTokens: tokens}, senses)
+			assert.Equal(t, "primary", ordered[0].Gloss)
+		})
+	}
+}
+
 func TestRenderGlossLimitsSensesAndTokens(t *testing.T) {
 	got := RenderGloss([]LexicalSense{{Gloss: "one two three four"}, {Gloss: "second meaning"}, {Gloss: "third"}}, 2, 3)
 	assert.Equal(t, "one two three · second meaning", got)
