@@ -76,8 +76,12 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	assert.Equal(t, "New title", updatedLibrary[0].BookTitle, "refreshed canonical title was not projected into source summary")
 	assert.Equal(t, "New author", updatedLibrary[0].BookAuthor, "refreshed canonical author was not projected into source summary")
 
-	_, err = store.GetBookCatalogEntryAlias(ctx, other.ID, bookID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner isolation is independently checked for alias and book lookup.
-	_, err = store.GetBook(ctx, other.ID, bookID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	t.Run("cross-owner alias lookup is not found", func(t *testing.T) {
+		_, err := store.GetBookCatalogEntryAlias(ctx, other.ID, bookID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+	t.Run("cross-owner book lookup is not found", func(t *testing.T) {
+		_, err := store.GetBook(ctx, other.ID, bookID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 }

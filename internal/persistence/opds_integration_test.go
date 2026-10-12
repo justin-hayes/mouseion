@@ -57,15 +57,21 @@ func TestOpdsConnectionCRUDEncryptionAndOwnerIsolation(t *testing.T) {
 	listed, err = store.ListOpdsConnections(ctx, bob.ID)
 	require.NoError(t, err)
 	assert.Empty(t, listed)
-	_, err = store.GetOpdsConnection(ctx, bob.ID, created.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner-isolation, update, delete, and post-delete checks are independent.
+	t.Run("cross-owner get is not found", func(t *testing.T) {
+		_, err := store.GetOpdsConnection(ctx, bob.ID, created.ID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 	created.Name = "Updated"
 	created.URL = "https://books.example/new-opds"
 	created.Password = "new-password"
-	_, err = store.UpdateOpdsConnection(ctx, bob.ID, created)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner-isolation, update, delete, and post-delete checks are independent.
-	err = store.DeleteOpdsConnection(ctx, bob.ID, created.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner-isolation, update, delete, and post-delete checks are independent.
+	t.Run("cross-owner update is not found", func(t *testing.T) {
+		_, err := store.UpdateOpdsConnection(ctx, bob.ID, created)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+	t.Run("cross-owner delete is not found", func(t *testing.T) {
+		err := store.DeleteOpdsConnection(ctx, bob.ID, created.ID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 	updated, err := store.UpdateOpdsConnection(ctx, alice.ID, created)
 	require.NoError(t, err)
 	assert.Equal(t, "Updated", updated.Name)
