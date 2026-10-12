@@ -109,3 +109,8 @@ tool (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc
 	google.golang.org/protobuf/cmd/protoc-gen-go
 )
+
+// x/tools (a go tool dependency) still requires goldmark v1.4.13, which has
+// CVE-2026-5160 (fixed in 1.7.17). Nothing in this module builds goldmark, so
+// pin the whole graph to a fixed release until x/tools raises its floor.
+replace github.com/yuin/goldmark => github.com/yuin/goldmark v1.8.6
