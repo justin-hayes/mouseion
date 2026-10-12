@@ -45,8 +45,10 @@ testpaths = ["tests"]
 [tool.coverage.run]
 # make coverage runs from the repository root. Relative filenames, and no
 # source root to strip, keep the Cobertura report paths resolvable from there.
+# The developer scripts are measured too: the derive/measure tests import them,
+# and SonarQube Cloud needs their coverage to judge new lines in the scripts.
 relative_files = true
-include = ["nlp/src/*"]
+include = ["nlp/src/*", "nlp/scripts/*"]
 # Branch coverage as well as line coverage, so the Cobertura report carries the
 # condition attributes (branch="true", condition-coverage) on lines with
 # branches that SonarQube Cloud reads for Python condition coverage.

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import gzip
 import importlib.util
+import io
 import json
 import sqlite3
 import stat
+from datetime import date
 from pathlib import Path
 
 
@@ -474,4 +476,95 @@ def test_meanings_without_mapped_pos_are_retained_without_inventing_pos(tmp_path
         "house",
         "house",
     ]
+    connection.close()
+
+
+def test_download_input_fetches_and_caches_the_dump(monkeypatch, tmp_path: Path):
+    module = load_script()
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    payload = (
+        b'{"word": "haus", "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["house"]}]}\n'
+    )
+    monkeypatch.setattr(module, "urlopen", lambda url: io.BytesIO(payload))
+
+    path = module.download_input(force=True)
+
+    assert path == tmp_path / "mouseion" / "raw-wiktextract-data.jsonl.gz"
+    assert path.read_bytes() == payload
+
+
+def test_download_input_reuses_the_cached_dump(monkeypatch, tmp_path: Path):
+    module = load_script()
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    cached = tmp_path / "mouseion" / "raw-wiktextract-data.jsonl.gz"
+    cached.parent.mkdir(parents=True)
+    cached.write_bytes(b"cached")
+
+    def unexpected_download(url):
+        raise AssertionError("cached input must not be downloaded again")
+
+    monkeypatch.setattr(module, "urlopen", unexpected_download)
+
+    assert module.download_input(force=False) == cached
+
+
+def test_non_dict_senses_are_skipped(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "senses.jsonl"
+    source.write_text(
+        json.dumps(
+            {
+                "word": "haus",
+                "lang_code": "de",
+                "pos": "noun",
+                "senses": ["not a mapping"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT count(*) FROM entries").fetchone() == (0,)
+    connection.close()
+
+
+def test_main_derives_the_index_from_arguments(tmp_path: Path):
+    module = load_script()
+    source = Path(__file__).parents[1] / "testdata" / "dictionary_fixture.jsonl"
+    output = tmp_path / "dictionary.sqlite"
+
+    assert module.main(["--input", str(source), "--output", str(output)]) == 0
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT count(*) FROM entries").fetchone() == (7,)
+    assert connection.execute(
+        "SELECT value FROM metadata WHERE key = 'provider_version'"
+    ).fetchone() == (
+        "dump=unknown;extraction=" + date.today().isoformat() + ";wiktextract=unknown",
+    )
+    connection.close()
+
+
+def test_entries_without_a_usable_word_are_skipped(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "words.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(item)
+            for item in [
+                {"word": "", "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["x"]}]},
+                {"word": 5, "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["x"]}]},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT count(*) FROM entries").fetchone() == (0,)
     connection.close()
