@@ -36,7 +36,7 @@ func TestOptionalLemmaSuggestionIsBoundedAndNeverApplied(t *testing.T) {
 	require.True(t, ok)
 	webHandler.services.LemmaReview = lemmaReviewWithSuggestions(webHandler, provider)
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
-		"csrf_token": {csrf}, "form": {"Weg"}, "target": {lemmaOccurrenceIDs(t, store, "fixture-route-match", "Weg")[0]},
+		"csrf_token": {csrf}, "form": {"Weg"}, "target": {wegOccurrenceIDs(t, store, "fixture-route-match")[0]},
 	}, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "LLM lemma suggestion — not applied")
@@ -57,7 +57,7 @@ func TestFailedOptionalLemmaSuggestionKeepsManualReviewAvailable(t *testing.T) {
 	require.True(t, ok)
 	webHandler.services.LemmaReview = lemmaReviewWithSuggestions(webHandler, &lemmaSuggestionFixture{err: context.DeadlineExceeded})
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
-		"csrf_token": {csrf}, "form": {"Weg"}, "target": {lemmaOccurrenceIDs(t, store, "fixture-route-match", "Weg")[0]},
+		"csrf_token": {csrf}, "form": {"Weg"}, "target": {wegOccurrenceIDs(t, store, "fixture-route-match")[0]},
 	}, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "A lemma suggestion is unavailable right now.")
@@ -76,7 +76,7 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 	assert.Contains(t, activePage.Body.String(), "A ready deck is a historical artifact")
 	endGermanFixtureReading(t, store)
 	reviewBookID := "fixture-route-match"
-	weg := lemmaOccurrenceIDs(t, store, reviewBookID, "Weg")
+	weg := wegOccurrenceIDs(t, store, reviewBookID)
 	path := "/reading/books/" + reviewBookID + "/lemma-review?form=Weg"
 	get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 	for _, cookie := range cookies {
@@ -160,7 +160,7 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	require.NoError(t, err)
 	oldSnapshotID := oldReading.SnapshotID
 	endGermanFixtureReading(t, store)
-	weg := lemmaOccurrenceIDs(t, store, fixtures.BookID, "Weg")
+	weg := wegOccurrenceIDs(t, store, fixtures.BookID)
 
 	preview := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
 		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {weg[0]}, "decision": {"correct"}, "lemma": {"Pfad"},
@@ -195,11 +195,11 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	assert.Equal(t, "pfad", occurrences[0].CorrectedLemma)
 }
 
-// lemmaOccurrenceIDs lists one form's occurrence IDs in review order. Review
+// wegOccurrenceIDs lists the occurrence IDs of the form "Weg" in review order. Review
 // forms address occurrences by these stable IDs, not by list position.
-func lemmaOccurrenceIDs(t *testing.T, store lemmareview.Store, bookID, form string) []string {
+func wegOccurrenceIDs(t *testing.T, store lemmareview.Store, bookID string) []string {
 	t.Helper()
-	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, bookID, form)
+	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, bookID, "Weg")
 	require.NoError(t, err)
 	ids := make([]string, 0, len(occurrences))
 	for _, occurrence := range occurrences {

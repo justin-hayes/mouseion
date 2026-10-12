@@ -121,11 +121,11 @@ func (s metadataBookAcquisitionStub) FindAcquisitionTarget(context.Context, stri
 	return s.target, nil
 }
 
-func createAccount(t *testing.T, ctx context.Context, store *persistence.PostgresStore, username, password string, legacyAdmin bool) domain.User {
+func createAccount(t *testing.T, ctx context.Context, store *persistence.PostgresStore, username, password string) domain.User {
 	t.Helper()
 	hash, err := auth.HashPassword(password)
 	require.NoError(t, err)
-	u, err := store.CreateUserWithPassword(ctx, username, hash, legacyAdmin)
+	u, err := store.CreateUserWithPassword(ctx, username, hash, false)
 	require.NoError(t, err)
 	return u
 }
@@ -319,7 +319,7 @@ func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
+	alice := createAccount(t, ctx, store, "alice", "alice-password")
 	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	known := &recordingKnownVocab{service: knownvocab.NewService(store)}
@@ -349,7 +349,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
-	owner := createAccount(t, ctx, store, "metadata-owner", "owner-password", false)
+	owner := createAccount(t, ctx, store, "metadata-owner", "owner-password")
 	downloads := 0
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/book.epub" {
@@ -424,7 +424,7 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	owner := createAccount(t, ctx, store, "language-refresh-owner", "owner-password", false)
+	owner := createAccount(t, ctx, store, "language-refresh-owner", "owner-password")
 	book, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "http-language-correction", "Language correction", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Language catalog", URL: "https://language.example/opds"})
 	require.NoError(t, err)
@@ -523,7 +523,7 @@ func TestAuthenticatedNeedsLanguageBookRemainsActionableAndOutsideStudyLanguages
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	owner := createAccount(t, ctx, store, "needs-language-owner", "owner-password", false)
+	owner := createAccount(t, ctx, store, "needs-language-owner", "owner-password")
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Awaiting a language", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
 	authService := auth.New(store, time.Hour)
@@ -557,8 +557,8 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
-	createAccount(t, ctx, store, "bob", "bob-password", false)
+	alice := createAccount(t, ctx, store, "alice", "alice-password")
+	createAccount(t, ctx, store, "bob", "bob-password")
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Disposition from My Books", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}

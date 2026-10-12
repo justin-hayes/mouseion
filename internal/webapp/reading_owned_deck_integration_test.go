@@ -35,7 +35,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
-	owner := createAccount(t, ctx, store, "reading-owned-deck", "reading-owned-password", false)
+	owner := createAccount(t, ctx, store, "reading-owned-deck", "reading-owned-password")
 	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "reading-owned-deck", "Reading-owned deck", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3},
 		{Language: "de", CanonicalLemma: "buch", UPOS: "NOUN", OccurrenceCount: 3},

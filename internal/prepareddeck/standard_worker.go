@@ -52,20 +52,20 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 
 	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
-		return w.fail(ctx, args, token, "orchestration", "manifest", true, false)
+		return w.fail(ctx, args, token, "orchestration", "manifest", true)
 	}
 	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
 	if err != nil {
-		return w.fail(ctx, args, token, "identity", "manifest_item", true, false)
+		return w.fail(ctx, args, token, "identity", "manifest_item", true)
 	}
 	work, found := deck.WorkByOrdinal(args.Ordinal)
 	if !found {
-		return w.fail(ctx, args, token, "identity", "manifest_item", true, false)
+		return w.fail(ctx, args, token, "identity", "manifest_item", true)
 	}
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricTranslationUnits, Phase: "translating", State: "in_progress", Provider: "openai", Value: 1})
 	key := work.CacheKey
 	if entry, hit, cacheErr := w.Store.Get(ctx, key); cacheErr != nil {
-		return w.fail(ctx, args, token, "persistence", "cache_lookup", false, false)
+		return w.fail(ctx, args, token, "persistence", "cache_lookup", false)
 	} else if hit && enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) && (!work.Request.RequireContextualGloss || strings.TrimSpace(entry.FallbackGloss) != "") {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheHits, Phase: "cache", State: "completed", Provider: "openai", Value: 1})
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, CacheHit: true, CacheLatency: 0}, w.finalizer)
@@ -215,7 +215,7 @@ func shouldRetryStandardProviderAttempt(retryable bool, providerAttemptCount, ma
 	return retryable && providerAttemptCount+1 < maxProviderAttempts
 }
 
-func (w *StandardTranslationWorker) fail(ctx context.Context, args StandardTranslationJobArgs, token, class, code string, providerAttempt, providerCall bool) error {
+func (w *StandardTranslationWorker) fail(ctx context.Context, args StandardTranslationJobArgs, token, class, code string, providerAttempt bool) error {
 	return w.failWithLatency(ctx, args, token, class, code, providerAttempt, 0)
 }
 

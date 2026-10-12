@@ -30,8 +30,8 @@ func TestCurrentReadingSwitchIsAtomicAndReturnFreezesFreshSnapshot(t *testing.T)
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
-	owner := createAccount(t, ctx, store, "reading-switch", "learner-password", false)
-	other := createAccount(t, ctx, store, "reading-switch-other", "other-learner-password", false)
+	owner := createAccount(t, ctx, store, "reading-switch", "learner-password")
+	other := createAccount(t, ctx, store, "reading-switch-other", "other-learner-password")
 	seed := func(suffix string, lemmas ...string) domain.Book {
 		t.Helper()
 		occurrences := make([]domain.LemmaOccurrence, 0, len(lemmas))
@@ -155,7 +155,7 @@ func TestCurrentReadingSwitchBlocksOnUnresolvedLemmaReview(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
-	owner := createAccount(t, ctx, store, "reading-switch-review", "learner-password", false)
+	owner := createAccount(t, ctx, store, "reading-switch-review", "learner-password")
 	seed := func(suffix, lemma string) domain.Book {
 		t.Helper()
 		book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, suffix, "Review "+suffix, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3}})

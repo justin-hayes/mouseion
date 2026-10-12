@@ -27,8 +27,8 @@ func TestBookCoverEndpointRequiresActiveMyBooksMembership(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 
-	alice := createAccount(t, ctx, store, "cover-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "cover-bob", "bob-password", false)
+	alice := createAccount(t, ctx, store, "cover-alice", "alice-password")
+	bob := createAccount(t, ctx, store, "cover-bob", "bob-password")
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Cover catalog", URL: "https://cover.example/opds"})
 	require.NoError(t, err)
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Retained cover", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})

@@ -51,7 +51,7 @@ func TestReadyDeckIsOfferedAndRepreparedOnIdentityChangeWithProductionWiring(t *
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
-	owner := createAccount(t, ctx, store, "lemma-reprepare-owner", "learner-password", false)
+	owner := createAccount(t, ctx, store, "lemma-reprepare-owner", "learner-password")
 	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "lemma-reprepare", "Lemma reprepare", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "drach", UPOS: "NOUN", OccurrenceCount: 2},
 	})

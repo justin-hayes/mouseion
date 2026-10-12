@@ -29,7 +29,7 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	store := openVisibilityStore(t, ctx)
-	owner := createAccount(t, ctx, store, "coverage-projection", "learner-password", false)
+	owner := createAccount(t, ctx, store, "coverage-projection", "learner-password")
 	// haus x3, baum x2, tisch x1: six analyzable tokens.
 	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "coverage-projection", "Coverage projection", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3},

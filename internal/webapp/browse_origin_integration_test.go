@@ -42,8 +42,8 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 
-	alice := createAccount(t, ctx, store, "origin-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "origin-bob", "bob-password", false)
+	alice := createAccount(t, ctx, store, "origin-alice", "alice-password")
+	bob := createAccount(t, ctx, store, "origin-bob", "bob-password")
 	lemmas := make([]string, 30)
 	for i := range lemmas {
 		lemmas[i] = fmt.Sprintf("wort%02d", i)

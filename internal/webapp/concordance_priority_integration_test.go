@@ -40,8 +40,8 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 
-	alice := createAccount(t, ctx, store, "priority-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "priority-bob", "bob-password", false)
+	alice := createAccount(t, ctx, store, "priority-alice", "alice-password")
+	bob := createAccount(t, ctx, store, "priority-bob", "bob-password")
 	seed := func(owner, key, title string) domain.Book {
 		book, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 		return book

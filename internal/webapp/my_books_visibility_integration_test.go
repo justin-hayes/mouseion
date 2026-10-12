@@ -30,8 +30,8 @@ func TestAuthenticatedMyBooksHideAndUnhideRecovery(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "vis-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "vis-bob", "bob-password", false)
+	alice := createAccount(t, ctx, store, "vis-alice", "alice-password")
+	bob := createAccount(t, ctx, store, "vis-bob", "bob-password")
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 
 	create := func(title, state, tag string) domain.Book {

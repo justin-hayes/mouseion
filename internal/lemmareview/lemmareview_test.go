@@ -73,23 +73,19 @@ func (i fakeIndex) Alternatives(context.Context, string, string, string, string)
 	return nil, nil
 }
 
-func germanBook(acquired bool) domain.MyBook {
-	book := domain.MyBook{Book: domain.Book{LanguageTag: "de"}}
-	if acquired {
-		book.Acquired = &domain.SourceMaterialSummary{}
-	}
-	return book
+func germanBook() domain.MyBook {
+	return domain.MyBook{Book: domain.Book{LanguageTag: "de"}, Acquired: &domain.SourceMaterialSummary{}}
 }
 
-func occurrence(offset int64) domain.LemmaReviewOccurrence {
+func occurrence() domain.LemmaReviewOccurrence {
 	return domain.LemmaReviewOccurrence{
-		AnalysisRunID: "run", SourceDocumentID: "doc", StartOffset: offset, EndOffset: offset + 3,
+		AnalysisRunID: "run", SourceDocumentID: "doc", StartOffset: 0, EndOffset: 3,
 		Surface: "Weg", CanonicalLemma: "weg", UPOS: "NOUN", SentenceText: "Der Weg.",
 	}
 }
 
 func TestAssessNonGermanBookIsNotAssessed(t *testing.T) {
-	store := &fakeStore{book: domain.MyBook{Book: domain.Book{LanguageTag: "it"}, Acquired: &domain.SourceMaterialSummary{}}, occurrences: []domain.LemmaReviewOccurrence{occurrence(0)}}
+	store := &fakeStore{book: domain.MyBook{Book: domain.Book{LanguageTag: "it"}, Acquired: &domain.SourceMaterialSummary{}}, occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
 	service := New(Config{Store: store, RiskIndex: fakeIndex{exists: false}})
 
 	assessment, err := service.Assess(context.Background(), "owner", "book")
@@ -100,7 +96,7 @@ func TestAssessNonGermanBookIsNotAssessed(t *testing.T) {
 }
 
 func TestAssessWithoutIndexIsNotAssessed(t *testing.T) {
-	store := &fakeStore{book: germanBook(true), occurrences: []domain.LemmaReviewOccurrence{occurrence(0)}}
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
 	service := New(Config{Store: store})
 
 	assessment, err := service.Assess(context.Background(), "owner", "book")
@@ -111,7 +107,7 @@ func TestAssessWithoutIndexIsNotAssessed(t *testing.T) {
 }
 
 func TestAssessIndexFailureIsNotAssessedNotAnError(t *testing.T) {
-	store := &fakeStore{book: germanBook(true), occurrences: []domain.LemmaReviewOccurrence{occurrence(0)}}
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
 	service := New(Config{Store: store, RiskIndex: fakeIndex{err: errors.New("index offline")}})
 
 	assessment, err := service.Assess(context.Background(), "owner", "book")
@@ -121,7 +117,7 @@ func TestAssessIndexFailureIsNotAssessedNotAnError(t *testing.T) {
 }
 
 func TestAssessIndexTimeoutIsNotAssessed(t *testing.T) {
-	store := &fakeStore{book: germanBook(true), occurrences: []domain.LemmaReviewOccurrence{occurrence(0)}}
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
 	service := New(Config{Store: store, RiskIndex: fakeIndex{block: true}})
 
 	started := time.Now()
@@ -133,9 +129,9 @@ func TestAssessIndexTimeoutIsNotAssessed(t *testing.T) {
 }
 
 func TestAssessReportsUnresolvedFlags(t *testing.T) {
-	flagged := occurrence(0)
+	flagged := occurrence()
 	flagged.ReviewFlagReason = "alternative exists"
-	store := &fakeStore{book: germanBook(true), occurrences: []domain.LemmaReviewOccurrence{flagged}}
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{flagged}}
 	service := New(Config{Store: store})
 
 	assessment, err := service.Assess(context.Background(), "owner", "book")
@@ -146,10 +142,10 @@ func TestAssessReportsUnresolvedFlags(t *testing.T) {
 }
 
 func TestAssessResolvedFlagsAreNotUnresolved(t *testing.T) {
-	flagged := occurrence(0)
+	flagged := occurrence()
 	flagged.ReviewFlagReason = "alternative exists"
 	flagged.ReviewFlagResolution = "kept"
-	store := &fakeStore{book: germanBook(true), occurrences: []domain.LemmaReviewOccurrence{flagged}}
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{flagged}}
 	service := New(Config{Store: store})
 
 	assessment, err := service.Assess(context.Background(), "owner", "book")
@@ -159,7 +155,7 @@ func TestAssessResolvedFlagsAreNotUnresolved(t *testing.T) {
 }
 
 func TestAssessAssessedCleanBookSavesNoFlags(t *testing.T) {
-	store := &fakeStore{book: germanBook(true), occurrences: []domain.LemmaReviewOccurrence{occurrence(0)}}
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
 	service := New(Config{Store: store, RiskIndex: fakeIndex{exists: true}})
 
 	assessment, err := service.Assess(context.Background(), "owner", "book")

@@ -106,7 +106,7 @@ func TestCurrentReadingSectionRendersReadingOnlyAndResidualStates(t *testing.T) 
 func TestIsCurrentReadingControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
 	currentReading.CurrentReadingSnapshotID = "goal-snapshot"
-	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
+	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
 	assert.NotContains(t, html, `action="/goal/books/`)
 	assert.Contains(t, html, `action="/reading/finish"`)
 	assert.Contains(t, html, `name="expected_current_book_id" value="goal"`, "finish form did not carry the current Book: %s", html)
@@ -145,7 +145,7 @@ func readingFixtureSession(t *testing.T) (http.Handler, []*http.Cookie, string, 
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Analysis: fixtures.Analysis{Store: store}, CatalogueSync: fixtures.NewCatalogueSync(store), PreparedDeck: fixtures.PreparedDeck{Store: store}, SessionLifetime: time.Hour})
 	loginPage := httptest.NewRecorder()
 	h.ServeHTTP(loginPage, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil))
-	initialCSRFCookie := cookieByName(t, loginPage.Result().Cookies(), csrfCookie)
+	initialCSRFCookie := findCSRFCookie(t, loginPage.Result().Cookies())
 	token := regexp.MustCompile(`name="csrf_token" value="([^"]+)"`).FindStringSubmatch(loginPage.Body.String())[1]
 	loginRequest := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/login", strings.NewReader(url.Values{"csrf_token": {token}, "username": {fixtures.Username}, "password": {fixtures.Password}}.Encode()))
 	loginRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -154,17 +154,17 @@ func readingFixtureSession(t *testing.T) (http.Handler, []*http.Cookie, string, 
 	h.ServeHTTP(loginResponse, loginRequest)
 	require.Equal(t, http.StatusSeeOther, loginResponse.Code)
 	cookies := loginResponse.Result().Cookies()
-	return h, cookies, cookieByName(t, cookies, csrfCookie).Value, store
+	return h, cookies, findCSRFCookie(t, cookies).Value, store
 }
 
-func cookieByName(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie {
+func findCSRFCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
 	t.Helper()
 	for _, cookie := range cookies {
-		if cookie.Name == name {
+		if cookie.Name == csrfCookie {
 			return cookie
 		}
 	}
-	require.FailNowf(t, "cookie not found", "cookie %q not found", name)
+	require.FailNowf(t, "cookie not found", "cookie %q not found", csrfCookie)
 	return nil
 }
 

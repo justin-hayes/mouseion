@@ -30,7 +30,7 @@ func TestStaleOldLanguageRequestsRecoverWithoutDurableMutation(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
-	owner := createAccount(t, ctx, store, "language-context", "learner-password", false)
+	owner := createAccount(t, ctx, store, "language-context", "learner-password")
 	book, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "language-context", "Language context", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3}})
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	// A second study language makes a deliberate switch possible.
@@ -86,7 +86,7 @@ func TestStaleOldLanguageRequestsRecoverWithoutDurableMutation(t *testing.T) {
 	assert.Contains(t, notice.Body.String(), "Your study language changed")
 
 	// Another owner's session is unaffected by, and cannot reuse, this state.
-	other := createAccount(t, ctx, store, "language-context-other", "other-learner-password", false)
+	other := createAccount(t, ctx, store, "language-context-other", "other-learner-password")
 	otherCookies, otherCSRF := loginCookies(t, h, other.Username, "other-learner-password")
 	response := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {otherCSRF}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {reading.SnapshotID}}, otherCookies)
 	assert.NotEqual(t, http.StatusOK, response.Code)
