@@ -688,81 +688,102 @@ func (s *Service) Result(ctx context.Context, owner string, id int64) (domain.Co
 	return corpus, err
 }
 
-func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result Status, err error) {
+func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, error) {
 	status, err := s.Get(ctx, owner, id)
 	if err != nil {
 		return Status{}, err
 	}
-	if status.RunID != "" {
-		tx, txErr := s.pool.Begin(ctx)
-		if txErr != nil {
-			return Status{}, txErr
-		}
-		defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-		if _, txErr = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); txErr != nil {
-			return Status{}, fmt.Errorf("lock analysis cancellation: %w", txErr)
-		}
-		run, txErr := s.loadRunState(ctx, tx, owner, status.RunID, true)
-		if txErr != nil {
-			return Status{}, txErr
-		}
-		if run.State == "completed" {
-			var riverJobID int64
-			txErr = tx.QueryRow(ctx, `SELECT river_job_id FROM analysis_run_attempts WHERE run_id=$1 AND state IN ('queued','running') ORDER BY attempt_number DESC LIMIT 1 FOR UPDATE`, status.RunID).Scan(&riverJobID)
-			if errors.Is(txErr, pgx.ErrNoRows) {
-				if txErr := tx.Commit(ctx); txErr != nil {
-					return Status{}, txErr
-				}
-				return s.Get(ctx, owner, id)
-			}
-			if txErr != nil {
-				return Status{}, fmt.Errorf("find live finalization attempt: %w", txErr)
-			}
-			if _, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',error='',finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, status.RunID, riverJobID); txErr != nil {
-				return Status{}, txErr
-			}
-			if txErr := tx.Commit(ctx); txErr != nil {
-				return Status{}, txErr
-			}
-			if s.client != nil {
-				if _, cancelErr := s.client.JobCancel(ctx, riverJobID); cancelErr != nil {
-					log.Printf("analysis finalization cancellation cleanup failed: owner=%s run_id=%s job_id=%d: %v", owner, status.RunID, riverJobID, cancelErr)
-				}
-			}
-			return s.Get(ctx, owner, id)
-		}
-		updated, txErr := tx.Exec(ctx, `UPDATE analysis_runs SET state='cancelled',last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, owner, status.RunID)
-		if txErr != nil {
-			return Status{}, txErr
-		}
-		if updated.RowsAffected() == 0 {
-			if txErr := tx.Commit(ctx); txErr != nil {
-				return Status{}, txErr
-			}
-			return s.Get(ctx, owner, id)
-		}
-		_, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, status.RunID)
-		if txErr != nil {
-			return Status{}, txErr
-		}
-		if txErr := tx.Commit(ctx); txErr != nil {
-			return Status{}, txErr
-		}
-		// Durable cancellation commits before River cleanup. The cancelled run
-		// and attempt fence any worker that races with best-effort cleanup.
-		cleanupErr := cleanupCancelledAnalysis(ctx, owner, status.RunID, s.findLiveJob, s.client.JobCancel)
-		if cleanupErr != nil {
-			log.Printf("analysis cancellation cleanup failed: owner=%s run_id=%s: %v", owner, status.RunID, cleanupErr)
-		}
-		status.State = rivertype.JobStateCancelled
-		status.LogicalState = "cancelled"
-		status.Error = ""
-		return status, nil
+	if status.RunID == "" {
+		return s.cancelLegacyJob(ctx, owner, id)
 	}
+	return s.cancelSnapshotRun(ctx, owner, id, status)
+}
+
+// cancelLegacyJob cancels a handle without a snapshot run through River.
+func (s *Service) cancelLegacyJob(ctx context.Context, owner string, id int64) (Status, error) {
 	if _, err := s.client.JobCancel(ctx, id); err != nil {
 		return Status{}, fmt.Errorf("cancel analysis job: %w", err)
 	}
 	return s.Get(ctx, owner, id)
+}
+
+// cancelSnapshotRun cancels the snapshot run behind a handle. The advisory lock
+// and the run row lock serialize cancellation with retry and publication.
+func (s *Service) cancelSnapshotRun(ctx context.Context, owner string, id int64, status Status) (result Status, err error) {
+	tx, txErr := s.pool.Begin(ctx)
+	if txErr != nil {
+		return Status{}, txErr
+	}
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	if _, txErr = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); txErr != nil {
+		return Status{}, fmt.Errorf("lock analysis cancellation: %w", txErr)
+	}
+	run, txErr := s.loadRunState(ctx, tx, owner, status.RunID, true)
+	if txErr != nil {
+		return Status{}, txErr
+	}
+	if run.State == "completed" {
+		return s.cancelCompletedFinalization(ctx, tx, owner, id, status)
+	}
+	return s.cancelActiveRun(ctx, tx, owner, id, status)
+}
+
+// cancelCompletedFinalization cancels the live finalization attempt of a
+// completed run, leaving the immutable corpus in place.
+func (s *Service) cancelCompletedFinalization(ctx context.Context, tx pgx.Tx, owner string, id int64, status Status) (Status, error) {
+	var riverJobID int64
+	txErr := tx.QueryRow(ctx, `SELECT river_job_id FROM analysis_run_attempts WHERE run_id=$1 AND state IN ('queued','running') ORDER BY attempt_number DESC LIMIT 1 FOR UPDATE`, status.RunID).Scan(&riverJobID)
+	if errors.Is(txErr, pgx.ErrNoRows) {
+		if txErr := tx.Commit(ctx); txErr != nil {
+			return Status{}, txErr
+		}
+		return s.Get(ctx, owner, id)
+	}
+	if txErr != nil {
+		return Status{}, fmt.Errorf("find live finalization attempt: %w", txErr)
+	}
+	if _, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',error='',finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, status.RunID, riverJobID); txErr != nil {
+		return Status{}, txErr
+	}
+	if txErr := tx.Commit(ctx); txErr != nil {
+		return Status{}, txErr
+	}
+	if s.client != nil {
+		if _, cancelErr := s.client.JobCancel(ctx, riverJobID); cancelErr != nil {
+			log.Printf("analysis finalization cancellation cleanup failed: owner=%s run_id=%s job_id=%d: %v", owner, status.RunID, riverJobID, cancelErr)
+		}
+	}
+	return s.Get(ctx, owner, id)
+}
+
+// cancelActiveRun cancels a queued or running run and its live attempts, then
+// clears the River work best-effort after the durable cancellation commits.
+func (s *Service) cancelActiveRun(ctx context.Context, tx pgx.Tx, owner string, id int64, status Status) (Status, error) {
+	updated, txErr := tx.Exec(ctx, `UPDATE analysis_runs SET state='cancelled',last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, owner, status.RunID)
+	if txErr != nil {
+		return Status{}, txErr
+	}
+	if updated.RowsAffected() == 0 {
+		if txErr := tx.Commit(ctx); txErr != nil {
+			return Status{}, txErr
+		}
+		return s.Get(ctx, owner, id)
+	}
+	if _, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, status.RunID); txErr != nil {
+		return Status{}, txErr
+	}
+	if txErr := tx.Commit(ctx); txErr != nil {
+		return Status{}, txErr
+	}
+	// Durable cancellation commits before River cleanup. The cancelled run
+	// and attempt fence any worker that races with best-effort cleanup.
+	if cleanupErr := cleanupCancelledAnalysis(ctx, owner, status.RunID, s.findLiveJob, s.client.JobCancel); cleanupErr != nil {
+		log.Printf("analysis cancellation cleanup failed: owner=%s run_id=%s: %v", owner, status.RunID, cleanupErr)
+	}
+	status.State = rivertype.JobStateCancelled
+	status.LogicalState = "cancelled"
+	status.Error = ""
+	return status, nil
 }
 
 func cleanupCancelledAnalysis(ctx context.Context, owner, runID string, findLiveJob func(context.Context, string, string) (int64, error), cancelJob func(context.Context, int64) (*rivertype.JobRow, error)) error {
@@ -803,58 +824,83 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 	}
 	state := run.State
 	if state == "queued" || state == "running" {
-		jobID, jobErr := s.liveJobIDTx(ctx, tx, owner, status.RunID)
-		if jobErr == nil {
-			if err := tx.Commit(ctx); err != nil {
-				return Handle{}, err
-			}
-			return Handle{ID: id, JobID: jobID, DisplayNumber: status.DisplayNumber, RunID: status.RunID}, nil
+		handle, requeue, pendingErr := s.retryPendingRun(ctx, tx, owner, id, status, state)
+		if pendingErr != nil {
+			return Handle{}, pendingErr
 		}
-		if !errors.Is(jobErr, pgx.ErrNoRows) {
-			return Handle{}, jobErr
+		if !requeue {
+			return handle, nil
 		}
-		if state == "running" {
-			_, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID, safeAnalysisError(errors.New("analysis worker is no longer active")))
-			if err != nil {
-				return Handle{}, err
-			}
-			state = "failed"
-		} else {
-			args, argsErr := snapshotArgsTx(ctx, tx, owner, status.RunID)
-			if argsErr != nil {
-				return Handle{}, argsErr
-			}
-			jobID, argsErr = s.ensureAttemptTx(ctx, tx, args, status.RunID, false)
-			if argsErr != nil {
-				return Handle{}, argsErr
-			}
-			if err := tx.Commit(ctx); err != nil {
-				return Handle{}, err
-			}
-			return Handle{ID: id, JobID: jobID, DisplayNumber: status.DisplayNumber, RunID: status.RunID}, nil
-		}
+		state = "failed"
 	}
 	if state == "completed" {
-		args, argsErr := snapshotArgsTx(ctx, tx, owner, status.RunID)
-		if argsErr != nil {
-			return Handle{}, argsErr
-		}
-		retry, shouldRetry, retryErr := s.retryCompletedPublicationTx(ctx, tx, args, owner, status.RunID, id, status.DisplayNumber)
-		if retryErr != nil {
-			return Handle{}, retryErr
-		}
-		if !shouldRetry {
-			return Handle{}, errors.New("analysis publication does not need retry")
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return Handle{}, err
-		}
-		return retry, nil
+		return s.retryCompletedRun(ctx, tx, owner, id, status)
 	}
 	if state != "failed" && state != "cancelled" {
 		return Handle{}, fmt.Errorf("analysis run is not retryable from %s", state)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID); err != nil {
+	return s.requeueRun(ctx, tx, owner, id, status, state)
+}
+
+// retryPendingRun resumes a queued run, or a running run that still has live
+// River work. A running run whose worker is gone is failed and reported with
+// requeue=true, so the caller requeues it from the failed state.
+func (s *Service) retryPendingRun(ctx context.Context, tx pgx.Tx, owner string, id int64, status Status, state string) (Handle, bool, error) {
+	jobID, jobErr := s.liveJobIDTx(ctx, tx, owner, status.RunID)
+	if jobErr == nil {
+		if err := tx.Commit(ctx); err != nil {
+			return Handle{}, false, err
+		}
+		return Handle{ID: id, JobID: jobID, DisplayNumber: status.DisplayNumber, RunID: status.RunID}, false, nil
+	}
+	if !errors.Is(jobErr, pgx.ErrNoRows) {
+		return Handle{}, false, jobErr
+	}
+	if state == "running" {
+		_, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID, safeAnalysisError(errors.New("analysis worker is no longer active")))
+		if err != nil {
+			return Handle{}, false, err
+		}
+		return Handle{}, true, nil
+	}
+	args, err := snapshotArgsTx(ctx, tx, owner, status.RunID)
+	if err != nil {
+		return Handle{}, false, err
+	}
+	jobID, err = s.ensureAttemptTx(ctx, tx, args, status.RunID, false)
+	if err != nil {
+		return Handle{}, false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Handle{}, false, err
+	}
+	return Handle{ID: id, JobID: jobID, DisplayNumber: status.DisplayNumber, RunID: status.RunID}, false, nil
+}
+
+// retryCompletedRun replays the publication of a completed run whose corpus is
+// still the current evidence, or reports that no retry is needed.
+func (s *Service) retryCompletedRun(ctx context.Context, tx pgx.Tx, owner string, id int64, status Status) (Handle, error) {
+	args, err := snapshotArgsTx(ctx, tx, owner, status.RunID)
+	if err != nil {
+		return Handle{}, err
+	}
+	retry, shouldRetry, err := s.retryCompletedPublicationTx(ctx, tx, args, owner, status.RunID, id, status.DisplayNumber)
+	if err != nil {
+		return Handle{}, err
+	}
+	if !shouldRetry {
+		return Handle{}, errors.New("analysis publication does not need retry")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Handle{}, err
+	}
+	return retry, nil
+}
+
+// requeueRun resets a failed or cancelled run to queued, enqueues a fresh
+// attempt, and records the retry in operational history.
+func (s *Service) requeueRun(ctx context.Context, tx pgx.Tx, owner string, id int64, status Status, state string) (Handle, error) {
+	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID); err != nil {
 		return Handle{}, err
 	}
 	args, err := snapshotArgsTx(ctx, tx, owner, status.RunID)
@@ -1585,14 +1631,8 @@ func insertCorpusTokens(ctx context.Context, tx pgx.Tx, ownerID, language, runID
 	}
 	for sentenceOrdinal, sentence := range sentences {
 		for tokenOrdinal, token := range sentence.Tokens {
-			if token.Dependency == "" {
-				return fmt.Errorf("persist normalized corpus token %d in sentence %d: dependency is required", tokenOrdinal, sentenceOrdinal)
-			}
-			if uint64(token.Head) >= uint64(len(sentence.Tokens)) {
-				return fmt.Errorf("persist normalized corpus token %d in sentence %d: head ordinal %d is out of range", tokenOrdinal, sentenceOrdinal, token.Head)
-			}
-			if token.Dependency == "root" && uint64(token.Head) != uint64(tokenOrdinal) {
-				return fmt.Errorf("persist normalized corpus token %d in sentence %d: root must be self-headed", tokenOrdinal, sentenceOrdinal)
+			if err := validateCorpusToken(sentenceOrdinal, tokenOrdinal, len(sentence.Tokens), token); err != nil {
+				return err
 			}
 			if tokenCount == normalizedCorpusTokenInsertBatchSize {
 				if err := flushTokens(); err != nil {
@@ -1604,32 +1644,57 @@ func insertCorpusTokens(ctx context.Context, tx pgx.Tx, ownerID, language, runID
 			} else {
 				query.WriteString(",")
 			}
-			morphology := token.Morphology
-			if morphology == nil {
-				morphology = map[string]string{}
-			}
-			morphologyJSON, err := json.Marshal(morphology)
+			tuple, rowArgs, err := corpusTokenRow(ownerID, language, runID, corpusID, sentenceOrdinal, tokenOrdinal, len(args)+1, token)
 			if err != nil {
 				return err
 			}
-			startOffset, offsetErr := checked.Int64FromUint64(token.Location.StartOffset)
-			if offsetErr != nil {
-				return fmt.Errorf("persist normalized corpus token %d in sentence %d: start offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
-			}
-			endOffset, offsetErr := checked.Int64FromUint64(token.Location.EndOffset)
-			if offsetErr != nil {
-				return fmt.Errorf("persist normalized corpus token %d in sentence %d: end offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
-			}
-			arg := len(args) + 1
-			fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7, arg+8, arg+9, arg+10, arg+11, arg+12, arg+13, arg+14)
-			args = append(args, ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset)
+			query.WriteString(tuple)
+			args = append(args, rowArgs...)
 			tokenCount++
 		}
 	}
-	if err := flushTokens(); err != nil {
-		return err
+	return flushTokens()
+}
+
+// validateCorpusToken rejects an analyzed token whose dependency or head cannot
+// describe the sentence it belongs to.
+func validateCorpusToken(sentenceOrdinal, tokenOrdinal, tokenTotal int, token analyzer.Token) error {
+	if token.Dependency == "" {
+		return fmt.Errorf("persist normalized corpus token %d in sentence %d: dependency is required", tokenOrdinal, sentenceOrdinal)
+	}
+	if int64(token.Head) >= int64(tokenTotal) {
+		return fmt.Errorf("persist normalized corpus token %d in sentence %d: head ordinal %d is out of range", tokenOrdinal, sentenceOrdinal, token.Head)
+	}
+	if token.Dependency == "root" && int64(token.Head) != int64(tokenOrdinal) {
+		return fmt.Errorf("persist normalized corpus token %d in sentence %d: root must be self-headed", tokenOrdinal, sentenceOrdinal)
 	}
 	return nil
+}
+
+// corpusTokenRow builds the INSERT value tuple and arguments for one analyzed
+// token's row: its identity and morphology, and its checked offsets. firstArg is
+// the one-based parameter index the tuple starts at.
+func corpusTokenRow(ownerID, language, runID, corpusID string, sentenceOrdinal, tokenOrdinal, firstArg int, token analyzer.Token) (string, []any, error) {
+	morphology := token.Morphology
+	if morphology == nil {
+		morphology = map[string]string{}
+	}
+	morphologyJSON, err := json.Marshal(morphology)
+	if err != nil {
+		return "", nil, err
+	}
+	startOffset, offsetErr := checked.Int64FromUint64(token.Location.StartOffset)
+	if offsetErr != nil {
+		return "", nil, fmt.Errorf("persist normalized corpus token %d in sentence %d: start offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
+	}
+	endOffset, offsetErr := checked.Int64FromUint64(token.Location.EndOffset)
+	if offsetErr != nil {
+		return "", nil, fmt.Errorf("persist normalized corpus token %d in sentence %d: end offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
+	}
+	var tuple strings.Builder
+	fmt.Fprintf(&tuple, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", firstArg, firstArg+1, firstArg+2, firstArg+3, firstArg+4, firstArg+5, firstArg+6, firstArg+7, firstArg+8, firstArg+9, firstArg+10, firstArg+11, firstArg+12, firstArg+13, firstArg+14)
+	args := []any{ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset}
+	return tuple.String(), args, nil
 }
 
 func (w *Worker) recordCandidateGenerationFailure(ctx context.Context, owner, corpusID string, jobID int64, stage string, cause error) error {
