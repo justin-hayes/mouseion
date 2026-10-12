@@ -743,7 +743,9 @@ func nounArticle(language, upos, lemma, morphology string) string {
 		articleGenders = evidence.singularGenders
 	}
 	if len(articleGenders) == 1 {
-		return singleGenderArticle(baseLanguage, articleGenders, lemma)
+		for article := range articleGenders {
+			return singleGenderArticle(baseLanguage, article, lemma)
+		}
 	}
 	if len(evidence.genders) == 0 && evidence.allPlural {
 		return pluralArticle
@@ -829,16 +831,13 @@ func collectGenderEvidence(variants []map[string]string, articles map[string]str
 	return evidence, true
 }
 
-// singleGenderArticle renders the sole resolved gender, resolving the Italian
-// definite article from the lemma. The map has exactly one entry.
-func singleGenderArticle(baseLanguage string, articleGenders map[string]bool, lemma string) string {
-	for article := range articleGenders {
-		if baseLanguage == "it" {
-			return italianDefiniteArticle(article, lemma)
-		}
-		return article
+// singleGenderArticle renders one resolved gender, resolving the Italian
+// definite article from the lemma.
+func singleGenderArticle(baseLanguage, article, lemma string) string {
+	if baseLanguage == "it" {
+		return italianDefiniteArticle(article, lemma)
 	}
-	return ""
+	return article
 }
 
 func italianDefiniteArticle(gender, lemma string) string {
