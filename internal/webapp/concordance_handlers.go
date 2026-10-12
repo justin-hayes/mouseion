@@ -45,47 +45,25 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	invite := func(status int, message string) {
 		renderStatus(w, r, status, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, false, message, "", origin))
 	}
-	switch {
-	case !request.pageValid:
-		invite(http.StatusBadRequest, concordanceNoticePage)
+	if status, message, rejected := concordanceRequestRejection(request, lookup, language); rejected {
+		invite(status, message)
 		return
-	case lookup.Match != "" && lookup.Match != domain.ConcordanceMatchLemma && lookup.Match != domain.ConcordanceMatchForm,
-		lookup.Match == "" && lookup.UPOS != "",
-		lookup.Match == domain.ConcordanceMatchForm && lookup.UPOS != "",
-		lookup.Match != "" && lookup.Term == "",
-		lookup.Priority == "" && lookup.Revision != "":
-		invite(http.StatusBadRequest, concordanceNoticeState)
-		return
-	case language == "" || lookup.Term == "":
-		invite(http.StatusOK, "")
-		return
-	case len(strings.Fields(lookup.Term)) > 1:
-		invite(http.StatusBadRequest, concordanceNoticeOneTerm)
-		return
-	}
-	current, err := h.services.Store.Vocabulary.GetCurrentReading(queryCtx, u.ID, language)
-	if err != nil {
-		loadError(language, err)
-		return
-	}
-	currentPriority := domain.ConcordancePriorityNone
-	if current.IsActive() {
-		currentPriority = current.BookID
 	}
 	// A fresh lookup captures the then-current Book, or its explicit absence.
 	// Supported applied state keeps what it captured, even after the learner
 	// starts, ends, or switches reading.
+	currentPriority, err := h.concordanceCurrentPriority(queryCtx, u.ID, language)
+	if err != nil {
+		loadError(language, err)
+		return
+	}
 	if lookup.Priority == "" {
 		lookup.Priority = currentPriority
 	}
 	result, err := h.services.Store.Vocabulary.ListVocabularyConcordance(queryCtx, u.ID, language, lookup)
 	if err != nil {
 		log.Printf("mouseion: load Vocabulary Concordance: %v", err)
-		status := http.StatusInternalServerError
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
-			status = http.StatusGatewayTimeout
-		}
-		h.renderConcordanceFailure(w, r, status, u, language, lookup, origin, false)
+		h.renderConcordanceFailure(w, r, concordanceResultErrorStatus(err, queryCtx), u, language, lookup, origin, false)
 		return
 	}
 	if result.Stale {
@@ -100,6 +78,49 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	lookup = concordanceAppliedLookup(lookup, result)
 	readingChanged := lookup.Priority != currentPriority
 	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", request.focusTarget, origin))
+}
+
+// concordanceRequestRejection reports the client-visible rejection a Concordance
+// request earns before any evidence is read. A blank language or term is a valid
+// empty invitation, not a rejection.
+func concordanceRequestRejection(request concordanceRequest, lookup domain.ConcordanceLookup, language string) (int, string, bool) {
+	switch {
+	case !request.pageValid:
+		return http.StatusBadRequest, concordanceNoticePage, true
+	case lookup.Match != "" && lookup.Match != domain.ConcordanceMatchLemma && lookup.Match != domain.ConcordanceMatchForm,
+		lookup.Match == "" && lookup.UPOS != "",
+		lookup.Match == domain.ConcordanceMatchForm && lookup.UPOS != "",
+		lookup.Match != "" && lookup.Term == "",
+		lookup.Priority == "" && lookup.Revision != "":
+		return http.StatusBadRequest, concordanceNoticeState, true
+	case language == "" || lookup.Term == "":
+		return http.StatusOK, "", true
+	case len(strings.Fields(lookup.Term)) > 1:
+		return http.StatusBadRequest, concordanceNoticeOneTerm, true
+	}
+	return http.StatusOK, "", false
+}
+
+// concordanceCurrentPriority names the Book a fresh lookup should prefer, or the
+// explicit absence of a Current reading.
+func (h *Handler) concordanceCurrentPriority(ctx context.Context, owner, language string) (string, error) {
+	current, err := h.services.Store.Vocabulary.GetCurrentReading(ctx, owner, language)
+	if err != nil {
+		return "", err
+	}
+	if !current.IsActive() {
+		return domain.ConcordancePriorityNone, nil
+	}
+	return current.BookID, nil
+}
+
+// concordanceResultErrorStatus maps a failed Concordance read to the status its
+// failure page carries.
+func concordanceResultErrorStatus(err error, ctx context.Context) int {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return http.StatusGatewayTimeout
+	}
+	return http.StatusInternalServerError
 }
 
 // concordanceRequest is a Concordance page request parsed from the query before

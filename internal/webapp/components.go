@@ -104,39 +104,55 @@ func isBookCoverTitleSeparator(r rune) bool {
 }
 
 func bookCoverInitial(title, language string) string {
-	title = strings.TrimFunc(title, isBookCoverTitleSeparator)
-	canonicalLanguage := strings.ToLower(strings.SplitN(strings.ReplaceAll(language, "_", "-"), "-", 2)[0])
-	articles := map[string][]string{
-		"de": {"der", "die", "das"},
-		"it": {"il", "la", "lo", "gli", "le", "l'", "l’"},
-		"el": {"ο", "η", "το", "οι"},
-	}[canonicalLanguage]
-	lowerTitle := strings.ToLower(title)
-	for _, article := range articles {
-		if article == "l'" || article == "l’" {
-			if lowerTitle == article {
-				break
-			}
-			if strings.HasPrefix(lowerTitle, article) {
-				title = title[len(article):]
-				break
-			}
-			continue
-		}
-		if lowerTitle == article {
-			break
-		}
-		if strings.HasPrefix(lowerTitle, article) && len(title) > len(article) && unicode.IsSpace(rune(title[len(article)])) {
-			title = strings.TrimLeftFunc(title[len(article):], isBookCoverTitleSeparator)
-			break
-		}
-	}
+	title = bookCoverTitleWithoutArticle(strings.TrimFunc(title, isBookCoverTitleSeparator), language)
 	for _, r := range title {
 		if unicode.IsLetter(r) {
 			return strings.ToUpper(string(r))
 		}
 	}
 	return "?"
+}
+
+// bookCoverTitleWithoutArticle drops a leading definite or elided article for
+// the Book's language, so the placeholder shows the first distinctive letter.
+func bookCoverTitleWithoutArticle(title, language string) string {
+	lowerTitle := strings.ToLower(title)
+	for _, article := range bookCoverArticles(language) {
+		if lowerTitle == article {
+			break
+		}
+		if stripped, ok := bookCoverStripArticle(title, lowerTitle, article); ok {
+			return stripped
+		}
+	}
+	return title
+}
+
+// bookCoverStripArticle removes one leading article and reports whether it
+// applied. An elided article (l') joins the next word without a space; a spaced
+// article counts only when a separator follows it.
+func bookCoverStripArticle(title, lowerTitle, article string) (string, bool) {
+	if article == "l'" || article == "l’" {
+		if strings.HasPrefix(lowerTitle, article) {
+			return title[len(article):], true
+		}
+		return title, false
+	}
+	if strings.HasPrefix(lowerTitle, article) && len(title) > len(article) && unicode.IsSpace(rune(title[len(article)])) {
+		return strings.TrimLeftFunc(title[len(article):], isBookCoverTitleSeparator), true
+	}
+	return title, false
+}
+
+// bookCoverArticles lists the articles a cover initial ignores. The language is
+// reduced to its primary subtag so regional variants share one list.
+func bookCoverArticles(language string) []string {
+	canonicalLanguage := strings.ToLower(strings.SplitN(strings.ReplaceAll(language, "_", "-"), "-", 2)[0])
+	return map[string][]string{
+		"de": {"der", "die", "das"},
+		"it": {"il", "la", "lo", "gli", "le", "l'", "l’"},
+		"el": {"ο", "η", "το", "οι"},
+	}[canonicalLanguage]
 }
 
 type StatusTone string

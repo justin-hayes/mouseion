@@ -475,3 +475,113 @@ func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
 		assert.NotContains(t, response.Body.String(), forbidden, "retired language view markup remains %q: %s", forbidden, response.Body.String())
 	}
 }
+
+// libraryExtrasFailStore fails one of the My Books reads that decorate the
+// result rows after the browse itself has succeeded.
+type libraryExtrasFailStore struct {
+	*browseRecordingStore
+	aliasErr       error
+	connectionsErr error
+}
+
+func (s libraryExtrasFailStore) GetBookCatalogEntryAlias(ctx context.Context, owner, bookID string) (domain.BookAlias, error) {
+	if s.aliasErr != nil {
+		return domain.BookAlias{}, s.aliasErr
+	}
+	return s.browseRecordingStore.GetBookCatalogEntryAlias(ctx, owner, bookID)
+}
+
+func (s libraryExtrasFailStore) ListOpdsConnections(ctx context.Context, owner string) ([]domain.OpdsConnection, error) {
+	if s.connectionsErr != nil {
+		return nil, s.connectionsErr
+	}
+	return s.browseRecordingStore.ListOpdsConnections(ctx, owner)
+}
+
+func TestLibraryHandlerRendersFailureWhenBrowsingExtrasFail(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		store func(*browseRecordingStore) allStoreCapabilities
+	}{
+		{
+			name: "refresh eligibility",
+			store: func(b *browseRecordingStore) allStoreCapabilities {
+				return libraryExtrasFailStore{browseRecordingStore: b, aliasErr: errors.New("alias read failed")}
+			},
+		},
+		{
+			name: "catalog connections",
+			store: func(b *browseRecordingStore) allStoreCapabilities {
+				return libraryExtrasFailStore{browseRecordingStore: b, connectionsErr: errors.New("connections read failed")}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, cookies, _, fixtureStore := readingFixtureSession(t)
+			handler := requireHandler(t, h)
+			base := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
+				Items: []domain.MyBook{{Book: domain.Book{ID: "book-1", OwnerID: fixtures.OwnerID, Title: "Book 1", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}},
+				Total: 1, ScopeTotal: 1, AllCount: 1, Counts: []persistence.LanguageCount{{Tag: "de", Count: 1}},
+			}}
+			handler.services.Store = storeDependencies(tc.store(base))
+
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library", nil)
+			for _, cookie := range cookies {
+				request.AddCookie(cookie)
+			}
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			assert.Equal(t, http.StatusInternalServerError, response.Code)
+			assert.Contains(t, response.Body.String(), myBooksLoadFailureMessage)
+		})
+	}
+}
+
+func TestLibraryHandlerClampsAnEmptyScopeToItsFirstPage(t *testing.T) {
+	h, cookies, _, fixtureStore := readingFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.Store = storeDependencies(&browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{Total: 0, ScopeTotal: 0}})
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?page=2", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/library", response.Header().Get("Location"))
+}
+
+func TestLibraryHandlerClampsAnEmptyFilteredScopeToItsFirstPage(t *testing.T) {
+	h, cookies, _, fixtureStore := readingFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.Store = storeDependencies(&browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{Total: 0, ScopeTotal: 0}})
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?page=2&q=Dampf", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/library?q=Dampf", response.Header().Get("Location"))
+}
+
+func TestLibraryHandlerDropsAnExplicitLanguageParameter(t *testing.T) {
+	h, cookies, _, fixtureStore := readingFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.Store = storeDependencies(&browseRecordingStore{Store: fixtureStore})
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?language=de&q=Dampf", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/library?q=Dampf", response.Header().Get("Location"))
+}

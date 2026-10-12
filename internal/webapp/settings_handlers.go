@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -48,49 +49,25 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	language := knownVocabImportLanguage(r)
-	language = canonicalization.NormalizeLanguage(language)
-	var input bytes.Buffer
-	file, header, err := r.FormFile("vocabulary_file")
-	if err == nil {
-		defer func() {
-			if closeErr := file.Close(); closeErr != nil {
-				log.Printf("close uploaded vocabulary file: %v", closeErr)
-			}
-		}()
-		if contentType := header.Header.Get("Content-Type"); contentType != "" {
-			mediaType, _, mediaErr := mime.ParseMediaType(contentType)
-			if mediaErr != nil || (mediaType != "text/plain" && mediaType != "application/octet-stream") {
-				h.renderKnownVocabResult(w, r, language, "Choose a UTF-8 plain text file to import.")
-				return
-			}
-		}
-		if _, err = io.Copy(&input, file); err != nil {
-			h.renderKnownVocabResult(w, r, language, "The uploaded file could not be read.")
-			return
-		}
-	} else if !errors.Is(err, http.ErrMissingFile) {
-		h.renderKnownVocabResult(w, r, language, "The uploaded file could not be read.")
+	language := canonicalization.NormalizeLanguage(knownVocabImportLanguage(r))
+	input, ok := h.readKnownVocabUpload(w, r, language)
+	if !ok {
 		return
 	}
 	if language == "" {
 		h.renderKnownVocabResult(w, r, language, "Choose a language before importing.")
 		return
 	}
-	studyLanguages, err := h.services.Store.Shell.ListStudyLanguages(r.Context(), u.ID)
+	selected, err := h.knownVocabLanguageSelected(r.Context(), u.ID, language)
 	if err != nil {
 		fail(w, err)
 		return
-	}
-	selected := false
-	for _, studyLanguage := range studyLanguages {
-		selected = selected || studyLanguage.Language == language
 	}
 	if !selected {
 		h.renderKnownVocabResult(w, r, language, "Choose a study language present in your library before importing.")
 		return
 	}
-	if input.Len() == 0 {
+	if input == "" {
 		h.renderKnownVocabResult(w, r, language, "Choose a non-empty UTF-8 text file to import.")
 		return
 	}
@@ -98,7 +75,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		fail(w, errors.New("known vocabulary service is unavailable"))
 		return
 	}
-	handle, err := h.services.KnownVocab.Submit(r.Context(), u.ID, language, input.String())
+	handle, err := h.services.KnownVocab.Submit(r.Context(), u.ID, language, input)
 	if err != nil {
 		h.renderKnownVocabResult(w, r, language, "Import failed: "+err.Error())
 		return
@@ -108,6 +85,53 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, fmt.Sprintf("/vocabulary/imports/%d/status", handle.ID))
+}
+
+// readKnownVocabUpload reads the optional uploaded file and rejects a media type
+// that is not plain text. It renders the failure itself and reports false when
+// the upload cannot be read. A missing file is an empty import.
+func (h *Handler) readKnownVocabUpload(w http.ResponseWriter, r *http.Request, language string) (string, bool) {
+	file, header, err := r.FormFile("vocabulary_file")
+	if errors.Is(err, http.ErrMissingFile) {
+		return "", true
+	}
+	if err != nil {
+		h.renderKnownVocabResult(w, r, language, "The uploaded file could not be read.")
+		return "", false
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("close uploaded vocabulary file: %v", closeErr)
+		}
+	}()
+	if contentType := header.Header.Get("Content-Type"); contentType != "" {
+		mediaType, _, mediaErr := mime.ParseMediaType(contentType)
+		if mediaErr != nil || (mediaType != "text/plain" && mediaType != "application/octet-stream") {
+			h.renderKnownVocabResult(w, r, language, "Choose a UTF-8 plain text file to import.")
+			return "", false
+		}
+	}
+	var input bytes.Buffer
+	if _, err := io.Copy(&input, file); err != nil {
+		h.renderKnownVocabResult(w, r, language, "The uploaded file could not be read.")
+		return "", false
+	}
+	return input.String(), true
+}
+
+// knownVocabLanguageSelected reports whether the learner already studies the
+// chosen language, so an import cannot create a study language out of nothing.
+func (h *Handler) knownVocabLanguageSelected(ctx context.Context, owner, language string) (bool, error) {
+	studyLanguages, err := h.services.Store.Shell.ListStudyLanguages(ctx, owner)
+	if err != nil {
+		return false, err
+	}
+	for _, studyLanguage := range studyLanguages {
+		if studyLanguage.Language == language {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (h *Handler) knownVocabImportStatus(w http.ResponseWriter, r *http.Request) {

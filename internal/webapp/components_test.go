@@ -181,6 +181,8 @@ func TestBookCoverInitialIgnoresLeadingArticleForBookLanguage(t *testing.T) {
 		{name: "article alone", title: "Die", language: "de", want: "D"},
 		{name: "punctuation before article", title: "— Die Verwandlung", language: "de", want: "V"},
 		{name: "elided Italian article", title: "L'amica geniale", language: "it", want: "A"},
+		{name: "elided Italian article with a typographic apostrophe", title: "L’amica geniale", language: "it", want: "A"},
+		{name: "regional language subtag still strips the article", title: "Der Prozess", language: "de-AT", want: "P"},
 		{name: "unknown language keeps first letter", title: "Der Prozess", language: "fr", want: "D"},
 	}
 	for _, tt := range tests {
