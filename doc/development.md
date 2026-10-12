@@ -407,7 +407,44 @@ Known vulnerabilities in dependencies appear under the repository's
 enabled in the repository settings, Dependabot opens a pull request for each
 alert it can fix. Pull requests also run dependency review
 (`.github/workflows/dependency-review.yml`), which flags newly introduced
-vulnerable dependencies.
+vulnerable dependencies and dependencies whose license is not allowed. The
+action posts its findings as a comment on the pull request, so the job log is
+only needed for detail.
+
+### License check
+
+Dependency review checks the license of every dependency a pull request adds or
+changes against the `allow-licenses` list in
+`.github/workflows/dependency-review.yml`. That list is derived from the SPDX
+licenses, compatible with this project's AGPL-3.0-only license, that the Go,
+Python and npm dependency graphs use today. It was built from the repository's
+dependency graph (the SPDX SBOM at
+`/repos/{owner}/{repo}/dependency-graph/sbom`, or **Security → Dependency
+graph → Export SBOM** in the UI); the pull request that added it records the
+licenses found and how each unrecognised one was handled. Only runtime
+dependencies are checked by default (`fail-on-scopes`).
+
+A dependency whose license is not on the list, or whose detected license GitHub
+cannot parse as an SPDX expression, fails the check and is named in the PR
+comment. To handle a rejected license:
+
+1. Read the dependency's own license files instead of trusting the detected
+   string. A combined or `LicenseRef-`-prefixed result is often a detection
+   artifact: a permissively licensed package can carry extra files (a patent
+   grant, a data license, a developer certificate of origin) that GitHub folds
+   into the expression.
+2. If the dependency is compatible with AGPL-3.0-only and its reported
+   expression is valid SPDX, add the missing identifier to `allow-licenses` in
+   the same pull request, with a comment saying why. The `WITH …` exception
+   forms (for example `Apache-2.0 WITH LLVM-exception`) are allowed.
+3. If the report is a detection artifact that cannot be expressed as an SPDX
+   identifier, exclude the package from the check with
+   `allow-dependencies-licenses` (a list of package URLs) and record the reason,
+   rather than adding the artifact to the allow list.
+4. If the license is genuinely incompatible, replace the dependency.
+
+The workflow and the allow list are CODEOWNERS paths, so changing them needs
+human review.
 
 ### Ignore rules and security updates
 
