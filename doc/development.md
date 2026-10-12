@@ -52,7 +52,7 @@ with `golangci-lint fmt ./...` and `.venv/bin/ruff format nlp/src nlp/tests`.
 | `make test-go RACE=1` | Go unit tests under the race detector; the same command CI runs. `RACE=1` is shared with `make test` and the integration targets |
 | `make coverage` | Python and Go coverage reports in `.tmp/coverage/` (the Go integration part needs the `make test-integration` database prerequisites) |
 | `make coverage-new` | `make coverage`, then previews SonarQube Cloud's 80% new-code coverage gate for the lines changed since `origin/main` and lists the uncovered ones |
-| `make test-integration` | PostgreSQL-backed Go integration tests |
+| `make test-integration RACE=1` | PostgreSQL-backed Go integration tests under the race detector; the same command CI runs (see the Tests section for the database prerequisites) |
 | `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check` and `ruff format --check` |
 | `make vuln` | govulncheck over the whole module: fails on call-reachable vulnerabilities in dependencies or in the Go standard library and toolchain. CI runs it on Go changes |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
@@ -100,7 +100,10 @@ build tag is not analysed.
   are isolated and packages run in parallel. Without Docker, set
   `MOUSEION_TEST_DATABASE_URL` to a PostgreSQL role with `CREATEDB`. Remove the
   reusable container with `docker rm -f mouseion-test-postgres`.
-  `make test-integration-shared` runs the shared-database runner.
+  `make test-integration-shared` runs the shared-database runner. CI's
+  "Integration tests" job runs the suite under the race detector with
+  `make test-integration RACE=1`, the same switch a developer uses to reproduce
+  a race failure locally.
 - **Targeted runs** — `make test-go PACKAGES='./internal/webapp ./internal/foo'`
   or `make test-go-integration PACKAGES='./internal/persistence'`. Both put Go
   build temporary files in a per-run directory under `.tmp/go-test`. If a
@@ -283,7 +286,8 @@ CI runs on ephemeral GitHub-hosted `ubuntu-24.04` runners, so pull requests
 from forks never execute on maintainer infrastructure. The build, lint,
 vulnerability, integration, and browser-smoke jobs run in parallel; the Go
 unit-test step in "Build and test" runs under the race detector through
-`make test-go RACE=1`. The `Go vulnerability check` job runs `make vuln`
+`make test-go RACE=1`, and the "Integration tests" job runs through
+`make test-integration RACE=1`. The `Go vulnerability check` job runs `make vuln`
 (govulncheck) over the whole module on every Go change, so a call-reachable
 vulnerability in a dependency or in the Go standard library or toolchain fails
 the change. A finding fixed only in a newer Go release is cleared by raising the
