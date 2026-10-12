@@ -38,10 +38,20 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 	require.NoError(t, err, "acquired detail=%+v err=%v", detail, err)
 	require.NotNil(t, detail.Acquired, "acquired detail=%+v err=%v", detail, err)
 	assert.Equal(t, domain.BookAnalyzed, detail.EvidenceState(), "acquired detail=%+v err=%v", detail, err)
-	_, err = store.GetBookDetail(ctx, "other-owner", BookID)
-	assert.ErrorIs(t, err, domain.ErrNotFound, "cross-owner detail error=%v", err) //nolint:testifylint // Cross-owner and unknown-detail lookups are independent cases.
-	_, err = store.GetBookDetail(ctx, OwnerID, "unknown")
-	assert.ErrorIs(t, err, domain.ErrNotFound, "unknown detail error=%v", err)
+	missingDetails := []struct {
+		name   string
+		owner  string
+		bookID string
+	}{
+		{"cross-owner detail is not found", "other-owner", BookID},
+		{"unknown detail is not found", OwnerID, "unknown"},
+	}
+	for _, tc := range missingDetails {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := store.GetBookDetail(ctx, tc.owner, tc.bookID)
+			require.ErrorIs(t, err, domain.ErrNotFound)
+		})
+	}
 }
 
 func TestFixtureConcordanceLemmaMatchSkipsOtherLemmasAndExcludedRows(t *testing.T) {
@@ -464,8 +474,10 @@ func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
 	assert.Equal(t, "Metadata-only migration book", result.Book.Title, "refresh result=%+v err=%v", result, err)
 
 	store.aliases[0].ConnectionID = "fixture-failed-connection"
-	_, err = sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only")
-	assert.ErrorIs(t, err, cataloguesync.ErrNotFound, "wrong connection acquisition error=%v", err) //nolint:testifylint // Acquisition failure and refresh result are independent checks.
+	t.Run("wrong connection acquisition is not found", func(t *testing.T) {
+		_, err := sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only")
+		require.ErrorIs(t, err, cataloguesync.ErrNotFound, "wrong connection acquisition error=%v", err)
+	})
 	result, err = sync.RefreshEntry(ctx, OwnerID, "fixture-metadata-only")
 	require.NoError(t, err, "wrong connection refresh=%+v err=%v", result, err)
 	assert.True(t, result.Missing, "wrong connection refresh=%+v err=%v", result, err)
