@@ -824,11 +824,11 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 	}
 	state := run.State
 	if state == "queued" || state == "running" {
-		handle, requeue, pendingErr := s.retryPendingRun(ctx, tx, owner, id, status, state)
+		handle, orphaned, pendingErr := s.retryPendingRun(ctx, tx, owner, id, status, state)
 		if pendingErr != nil {
 			return Handle{}, pendingErr
 		}
-		if !requeue {
+		if !orphaned {
 			return handle, nil
 		}
 		state = "failed"
@@ -843,8 +843,8 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 }
 
 // retryPendingRun resumes a queued run, or a running run that still has live
-// River work. A running run whose worker is gone is failed and reported with
-// requeue=true, so the caller requeues it from the failed state.
+// River work. It reports orphaned=true when a running run's worker is gone and
+// the run was failed, so the caller requeues it from the failed state.
 func (s *Service) retryPendingRun(ctx context.Context, tx pgx.Tx, owner string, id int64, status Status, state string) (Handle, bool, error) {
 	jobID, jobErr := s.liveJobIDTx(ctx, tx, owner, status.RunID)
 	if jobErr == nil {
