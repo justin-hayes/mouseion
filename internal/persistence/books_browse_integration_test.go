@@ -5,6 +5,7 @@ package persistence
 import (
 	"context"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
@@ -403,6 +404,40 @@ func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.
 	assert.Equal(t, got.DeckState, refreshDetail.DeckState)
 	assert.Equal(t, got.DeckCardCount, refreshDetail.DeckCardCount)
 	assert.True(t, refreshDetail.IsCurrentReading)
+}
+
+func TestMyBooksBrowseRejectsInvalidDispositionAndClampsPagination(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "browse-pagination", false)
+	require.NoError(t, err)
+	for _, title := range []string{"Alpha", "Beta", "Gamma"} {
+		input, createErr := domain.NewBook(owner.ID, title, domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "de")
+		require.NoError(t, createErr)
+		_, createErr = store.CreateBook(ctx, input)
+		require.NoError(t, createErr)
+	}
+
+	t.Run("an unknown disposition is rejected before any read", func(t *testing.T) {
+		_, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "", "bogus", false, 0, 25)
+		require.ErrorContains(t, err, "invalid book disposition")
+	})
+
+	clamped, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "", "", false, -3, -1)
+	require.NoError(t, err)
+	t.Run("a non-positive limit yields no items but keeps the scope total", func(t *testing.T) {
+		assert.Equal(t, 3, clamped.Total)
+		assert.Empty(t, clamped.Items)
+	})
+
+	overflow, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "", "", false, 1, math.MaxInt)
+	require.NoError(t, err)
+	t.Run("an overflowing page end falls back to the collection end", func(t *testing.T) {
+		require.Len(t, overflow.Items, 2)
+		assert.Equal(t, "Beta", overflow.Items[0].Book.Title)
+		assert.Equal(t, "Gamma", overflow.Items[1].Book.Title)
+	})
 }
 
 func dispositionCountForBucket(counts []DispositionCount, disposition domain.BookDisposition) int {
