@@ -86,53 +86,61 @@ func (s *PostgresStore) backfillGermanOwner(ctx context.Context, owner string, p
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, $2))`, owner, germanVocabularyBackfillLockSalt); err != nil {
 		return report, nil, err
 	}
-	if conflict, found, err := germanCuratedConflict(ctx, tx, owner, profile); err != nil {
+	report, conflict, err = backfillGermanOwnerTx(ctx, tx, owner, profile)
+	if err != nil {
 		return report, nil, err
-	} else if found {
-		conflict.OwnerID = owner
-		return report, &conflict, nil
 	}
-
-	if n, m, err := backfillKnownVocabulary(ctx, tx, owner, profile); err != nil {
-		return report, nil, err
-	} else {
-		report.updated += n
-		report.merged += m
-	}
-	if n, m, err := backfillVocabularyStates(ctx, tx, owner, profile); err != nil {
-		return report, nil, err
-	} else {
-		report.updated += n
-		report.merged += m
-	}
-	if n, m, err := backfillGeneratedVocabulary(ctx, tx, owner, profile); err != nil {
-		return report, nil, err
-	} else {
-		report.updated += n
-		report.merged += m
-	}
-	if n, m, err := backfillSelectionCandidates(ctx, tx, owner, profile); err != nil {
-		return report, nil, err
-	} else {
-		report.updated += n
-		report.merged += m
-	}
-	if n, m, err := backfillExampleSentences(ctx, tx, owner, profile); err != nil {
-		return report, nil, err
-	} else {
-		report.updated += n
-		report.merged += m
-	}
-	if n, err := backfillCuratedSentences(ctx, tx, owner, profile); err != nil {
-		return report, nil, err
-	} else {
-		report.updated += n
+	if conflict != nil {
+		return report, conflict, nil
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return report, nil, err
 	}
 	report.examined = report.updated + report.merged
 	return report, nil, nil
+}
+
+// backfillGermanOwnerTx refuses the owner when the backfill would collide with
+// curated sentences, and otherwise folds every record kind onto its canonical
+// lemma.
+func backfillGermanOwnerTx(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (report germanOwnerBackfillReport, conflict *GermanVocabularyBackfillConflict, err error) {
+	curated, found, err := germanCuratedConflict(ctx, tx, owner, profile)
+	if err != nil {
+		return report, nil, err
+	}
+	if found {
+		curated.OwnerID = owner
+		return report, &curated, nil
+	}
+	report, err = backfillGermanOwnerRecords(ctx, tx, owner, profile)
+	return report, nil, err
+}
+
+// backfillGermanOwnerRecords merges every record kind in turn, accumulating the
+// updated and merged counts. Curated sentences run last and report one count
+// because they are retargeted in place rather than merged.
+func backfillGermanOwnerRecords(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (report germanOwnerBackfillReport, err error) {
+	merges := []func(context.Context, pgx.Tx, string, canonicalization.Profile) (int, int, error){
+		backfillKnownVocabulary,
+		backfillVocabularyStates,
+		backfillGeneratedVocabulary,
+		backfillSelectionCandidates,
+		backfillExampleSentences,
+	}
+	for _, merge := range merges {
+		updated, merged, err := merge(ctx, tx, owner, profile)
+		if err != nil {
+			return report, err
+		}
+		report.updated += updated
+		report.merged += merged
+	}
+	updated, err := backfillCuratedSentences(ctx, tx, owner, profile)
+	if err != nil {
+		return report, err
+	}
+	report.updated += updated
+	return report, nil
 }
 
 func germanAffected[T any](rows []T, current func(T) string, profile canonicalization.Profile) map[string]bool {
@@ -682,55 +690,86 @@ func candidateLemmas(rows []selectionCandidateRow) []string {
 	return result
 }
 
+// mergeSelectionCandidates folds one corpus's candidate facts onto a single row,
+// unioning their observations and sentence references, summing their
+// occurrences, and keeping the smallest min_occurrences any fact declares.
 func mergeSelectionCandidates(rows []selectionCandidateRow) (selectionCandidateRow, error) {
 	if len(rows) == 0 {
 		return selectionCandidateRow{}, errors.New("empty candidate group")
 	}
-	result := rows[0]
-	var err error
-	result.observedForms, err = mergeJSONArray(rows[0].observedForms, nil)
+	result, minOccurrences, err := mergeSelectionCandidateRows(rows)
 	if err != nil {
 		return selectionCandidateRow{}, err
-	}
-	result.sentenceReferences, err = mergeJSONArray(rows[0].sentenceReferences, nil)
-	if err != nil {
-		return selectionCandidateRow{}, err
-	}
-	result.occurrenceCount = 0
-	minOccurrences := 0
-	for _, row := range rows {
-		result.occurrenceCount += row.occurrenceCount
-		result.observedForms, err = mergeJSONArray(result.observedForms, row.observedForms)
-		if err != nil {
-			return selectionCandidateRow{}, err
-		}
-		result.sentenceReferences, err = mergeJSONArray(result.sentenceReferences, row.sentenceReferences)
-		if err != nil {
-			return selectionCandidateRow{}, err
-		}
-		if row.selectedAt.After(result.selectedAt) {
-			result.selectedAt = row.selectedAt
-		}
-		var provenance map[string]any
-		if err := json.Unmarshal(row.provenance, &provenance); err != nil {
-			return selectionCandidateRow{}, err
-		}
-		if value, ok := provenance["min_occurrences"].(float64); ok {
-			converted, conversionErr := checked.IntFromFloat64(value)
-			if conversionErr != nil {
-				return selectionCandidateRow{}, fmt.Errorf("invalid min_occurrences: %w", conversionErr)
-			}
-			if converted < 0 {
-				return selectionCandidateRow{}, errors.New("invalid min_occurrences: value must not be negative")
-			}
-			if minOccurrences == 0 || converted < minOccurrences {
-				minOccurrences = converted
-			}
-		}
 	}
 	provenance := map[string]any{"min_occurrences": minOccurrences, "occurrence_count": result.occurrenceCount}
 	result.provenance, err = json.Marshal(provenance)
 	return result, err
+}
+
+// mergeSelectionCandidateRows starts from the first fact and folds every fact
+// in, returning the merged row and the smallest declared min_occurrences.
+func mergeSelectionCandidateRows(rows []selectionCandidateRow) (selectionCandidateRow, int, error) {
+	result := rows[0]
+	var err error
+	if result.observedForms, err = mergeJSONArray(result.observedForms, nil); err != nil {
+		return selectionCandidateRow{}, 0, err
+	}
+	if result.sentenceReferences, err = mergeJSONArray(result.sentenceReferences, nil); err != nil {
+		return selectionCandidateRow{}, 0, err
+	}
+	result.occurrenceCount = 0
+	minOccurrences := 0
+	for _, row := range rows {
+		if err := mergeSelectionCandidateRow(&result, row); err != nil {
+			return selectionCandidateRow{}, 0, err
+		}
+		converted, declared, err := minimumSelectionCandidateOccurrences(row.provenance)
+		if err != nil {
+			return selectionCandidateRow{}, 0, err
+		}
+		if declared && (minOccurrences == 0 || converted < minOccurrences) {
+			minOccurrences = converted
+		}
+	}
+	return result, minOccurrences, nil
+}
+
+// mergeSelectionCandidateRow folds one fact's observations, sentence
+// references, occurrence count and selection time into result.
+func mergeSelectionCandidateRow(result *selectionCandidateRow, row selectionCandidateRow) error {
+	result.occurrenceCount += row.occurrenceCount
+	var err error
+	if result.observedForms, err = mergeJSONArray(result.observedForms, row.observedForms); err != nil {
+		return err
+	}
+	if result.sentenceReferences, err = mergeJSONArray(result.sentenceReferences, row.sentenceReferences); err != nil {
+		return err
+	}
+	if row.selectedAt.After(result.selectedAt) {
+		result.selectedAt = row.selectedAt
+	}
+	return nil
+}
+
+// minimumSelectionCandidateOccurrences reads min_occurrences from one fact's
+// provenance, reporting whether the fact declares it.
+func minimumSelectionCandidateOccurrences(provenance []byte) (int, bool, error) {
+	var fields map[string]any
+	if err := json.Unmarshal(provenance, &fields); err != nil {
+		return 0, false, err
+	}
+	value, ok := fields["min_occurrences"].(float64)
+	if !ok {
+		return 0, false, nil
+	}
+	converted, err := checked.IntFromFloat64(value)
+	if err != nil {
+		return 0, false, fmt.Errorf("invalid min_occurrences: %w", err)
+	}
+	if converted < 0 {
+		return 0, false, errors.New("invalid min_occurrences: value must not be negative")
+	}
+	return converted, true, nil
 }
 
 func mergeJSONArray(left, right []byte) ([]byte, error) {
@@ -781,39 +820,21 @@ type selectedSentenceGroupKey struct{ corpusID, canonicalLemma, upos string }
 // curated sentences would collide. found is false when the backfill is safe to
 // apply; conflict is only meaningful when found is true.
 func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (conflict GermanVocabularyBackfillConflict, found bool, err error) {
-	rows, err := tx.Query(ctx, `SELECT canonical_lemma, upos FROM curated_sentences WHERE owner_id=$1 AND language='de'`, owner)
+	values, err := loadCuratedSentenceIdentities(ctx, tx, owner)
 	if err != nil {
 		return GermanVocabularyBackfillConflict{}, false, err
 	}
-	defer rows.Close()
-	var values []backfillIdentity
-	for rows.Next() {
-		var row backfillIdentity
-		if err := rows.Scan(&row.lemma, &row.upos); err != nil {
-			return GermanVocabularyBackfillConflict{}, false, err
-		}
-		values = append(values, row)
-	}
-	if err := rows.Err(); err != nil {
-		return GermanVocabularyBackfillConflict{}, false, err
-	}
-	counts := map[backfillIdentity]int{}
-	for _, row := range values {
-		target := backfillIdentity{lemma: profile.Canonical(row.lemma), upos: row.upos}
-		if target.lemma != row.lemma {
-			counts[target]++
-		}
-	}
+	historical := curatedHistoricalIdentityCounts(values, profile)
 	for _, row := range values {
 		target := profile.Canonical(row.lemma)
+		if target != row.lemma && historical[backfillIdentity{lemma: target, upos: row.upos}] > 1 {
+			return GermanVocabularyBackfillConflict{Table: "curated_sentences", CanonicalLemma: target, UPOS: row.upos, Detail: "multiple historical curated facts converge on one identity"}, true, nil
+		}
 		if target == row.lemma {
 			continue
 		}
-		if counts[backfillIdentity{lemma: target, upos: row.upos}] > 1 {
-			return GermanVocabularyBackfillConflict{Table: "curated_sentences", CanonicalLemma: target, UPOS: row.upos, Detail: "multiple historical curated facts converge on one identity"}, true, nil
-		}
-		var exists bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM curated_sentences WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3)`, owner, target, row.upos).Scan(&exists); err != nil {
+		exists, err := curatedModernIdentityExists(ctx, tx, owner, target, row.upos)
+		if err != nil {
 			return GermanVocabularyBackfillConflict{}, false, err
 		}
 		if exists {
@@ -821,6 +842,46 @@ func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile
 		}
 	}
 	return GermanVocabularyBackfillConflict{}, false, nil
+}
+
+// loadCuratedSentenceIdentities reads the identities of the owner's curated
+// sentences.
+func loadCuratedSentenceIdentities(ctx context.Context, tx pgx.Tx, owner string) ([]backfillIdentity, error) {
+	rows, err := tx.Query(ctx, `SELECT canonical_lemma, upos FROM curated_sentences WHERE owner_id=$1 AND language='de'`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var values []backfillIdentity
+	for rows.Next() {
+		var row backfillIdentity
+		if err := rows.Scan(&row.lemma, &row.upos); err != nil {
+			return nil, err
+		}
+		values = append(values, row)
+	}
+	return values, rows.Err()
+}
+
+// curatedHistoricalIdentityCounts counts how many non-canonical curated
+// identities each target identity absorbs.
+func curatedHistoricalIdentityCounts(values []backfillIdentity, profile canonicalization.Profile) map[backfillIdentity]int {
+	counts := map[backfillIdentity]int{}
+	for _, row := range values {
+		target := backfillIdentity{lemma: profile.Canonical(row.lemma), upos: row.upos}
+		if target.lemma != row.lemma {
+			counts[target]++
+		}
+	}
+	return counts
+}
+
+// curatedModernIdentityExists reports whether the canonical identity already
+// exists for owner.
+func curatedModernIdentityExists(ctx context.Context, tx pgx.Tx, owner, lemma, upos string) (bool, error) {
+	var exists bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM curated_sentences WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3)`, owner, lemma, upos).Scan(&exists)
+	return exists, err
 }
 
 func backfillCuratedSentences(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (int, error) {

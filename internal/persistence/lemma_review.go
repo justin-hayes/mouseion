@@ -22,48 +22,85 @@ func (s *PostgresStore) SaveLemmaReviewFlags(ctx context.Context, flags []domain
 	}
 	first := flags[0].Occurrence
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		if _, err := sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: first.OwnerID, ID: first.BookID}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrNotFound
-			}
+		if err := lockLemmaReviewFlagBook(ctx, tx, first); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, first.OwnerID+":"+first.BookID); err != nil {
+		return saveLemmaReviewFlagsTx(ctx, tx, first, flags)
+	})
+}
+
+// lockLemmaReviewFlagBook takes the Book's shared advisory lock, matching the
+// decision and vocabulary-freeze paths, and reports a missing Book as
+// ErrNotFound.
+func lockLemmaReviewFlagBook(ctx context.Context, tx pgx.Tx, first domain.LemmaReviewOccurrence) error {
+	if _, err := sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: first.OwnerID, ID: first.BookID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, first.OwnerID+":"+first.BookID); err != nil {
+		return err
+	}
+	return nil
+}
+
+// saveLemmaReviewFlagsTx records every flag against the first flag's Book. A
+// flag outside that Book or its current analysis is rejected as ErrNotFound.
+func saveLemmaReviewFlagsTx(ctx context.Context, tx pgx.Tx, first domain.LemmaReviewOccurrence, flags []domain.LemmaReviewFlag) error {
+	for _, flag := range flags {
+		if err := saveLemmaReviewFlag(ctx, tx, first, flag); err != nil {
 			return err
 		}
-		for _, flag := range flags {
-			o := flag.Occurrence
-			if o.OwnerID != first.OwnerID || o.BookID != first.BookID || o.CorpusID == "" || o.AnalysisRunID == "" || o.SourceDocumentID == "" || o.EndOffset <= o.StartOffset || strings.TrimSpace(flag.Reason) == "" {
-				return ErrNotFound
-			}
-			var occurrenceExists bool
-			if err := tx.QueryRow(ctx, `SELECT EXISTS(
+	}
+	return nil
+}
+
+// saveLemmaReviewFlag rejects a flag whose occurrence is missing required
+// evidence or is not in the Book's current analysis, then inserts the flag's
+// evidence. A flag the learner already resolved is never reopened, because the
+// insert conflicts with the stored row.
+func saveLemmaReviewFlag(ctx context.Context, tx pgx.Tx, first domain.LemmaReviewOccurrence, flag domain.LemmaReviewFlag) error {
+	o := flag.Occurrence
+	if o.OwnerID != first.OwnerID || o.BookID != first.BookID || o.CorpusID == "" || o.AnalysisRunID == "" || o.SourceDocumentID == "" || o.EndOffset <= o.StartOffset || strings.TrimSpace(flag.Reason) == "" {
+		return ErrNotFound
+	}
+	exists, err := occurrenceInCurrentAnalysis(ctx, tx, o)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrNotFound
+	}
+	provenance, err := marshalLemmaReviewFlagProvenance(flag.Provenance)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO occurrence_lemma_review_flags(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,reason,evidence_provenance) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) ON CONFLICT(owner_id,book_id,analysis_run_id,source_document_id,start_offset,end_offset) DO NOTHING`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.SourceDocumentID, o.StartOffset, o.EndOffset, flag.Reason, string(provenance))
+	return err
+}
+
+// occurrenceInCurrentAnalysis reports whether o is a token of the Book's current
+// completed analysis, identified by its corpus, run and sentence unit.
+func occurrenceInCurrentAnalysis(ctx context.Context, tx pgx.Tx, o domain.LemmaReviewOccurrence) (bool, error) {
+	var exists bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS(
 				SELECT 1 FROM book_current_analyses cai
 				JOIN corpora c ON c.owner_id=cai.owner_id AND c.id=$3 AND c.analysis_run_id=cai.analysis_run_id
 				JOIN corpus_tokens t ON t.owner_id=c.owner_id AND t.corpus_id=c.id AND t.analysis_run_id=c.analysis_run_id
 				JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.corpus_id=t.corpus_id AND s.analysis_run_id=t.analysis_run_id AND s.sentence_ordinal=t.sentence_ordinal
 				WHERE cai.owner_id=$1 AND cai.book_id=$2 AND cai.analysis_run_id=$4
-				AND t.start_offset=$5 AND t.end_offset=$6 AND s.unit_id=$7)`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.StartOffset, o.EndOffset, o.SourceDocumentID).Scan(&occurrenceExists); err != nil {
-				return err
-			}
-			if !occurrenceExists {
-				return ErrNotFound
-			}
-			provenanceValue := flag.Provenance
-			if provenanceValue == nil {
-				provenanceValue = map[string]any{}
-			}
-			provenance, err := json.Marshal(provenanceValue)
-			if err != nil {
-				return err
-			}
-			_, err = tx.Exec(ctx, `INSERT INTO occurrence_lemma_review_flags(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,reason,evidence_provenance) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) ON CONFLICT(owner_id,book_id,analysis_run_id,source_document_id,start_offset,end_offset) DO NOTHING`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.SourceDocumentID, o.StartOffset, o.EndOffset, flag.Reason, string(provenance))
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+				AND t.start_offset=$5 AND t.end_offset=$6 AND s.unit_id=$7)`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.StartOffset, o.EndOffset, o.SourceDocumentID).Scan(&exists)
+	return exists, err
+}
+
+// marshalLemmaReviewFlagProvenance encodes a flag's evidence, defaulting a
+// missing map to an empty object.
+func marshalLemmaReviewFlagProvenance(provenance map[string]any) ([]byte, error) {
+	if provenance == nil {
+		provenance = map[string]any{}
+	}
+	return json.Marshal(provenance)
 }
 
 func unresolvedLemmaReviewFlags(ctx context.Context, tx pgx.Tx, owner, book, analysisRun string) (bool, error) {
