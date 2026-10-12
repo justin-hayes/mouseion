@@ -73,6 +73,10 @@ linters:
       min-complexity: 70
     interfacebloat:
       max: 10
+    exhaustive:
+      # An explicit default: is how unknown upstream states (River JobState,
+      # OpenAI Batch status) are handled, so it counts as exhaustive.
+      default-signifies-exhaustive: true
     errcheck:
       check-blank: true
       check-type-assertions: true
