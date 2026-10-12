@@ -29,27 +29,29 @@ func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.De
 	if goal.IsActive() && goal.SnapshotID != "" {
 		snapshot, snapshotExists := s.goalSnapshotVocabulary[goal.SnapshotID]
 		hasSnapshot = snapshotExists
-		for _, item := range snapshot {
-			if item.Language == language {
-				item.GraduatedAt = nil
-				result = append(result, item)
-				seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS] = struct{}{}
-			}
-		}
+		result = appendReservedVocabulary(result, seen, snapshot, language)
 	}
 	if !hasSnapshot && goal.IsActive() && goal.SourceMaterialID != "" {
 		for _, preparation := range s.preps {
 			if preparation.OwnerID != owner || preparation.SourceMaterialID != goal.SourceMaterialID || preparation.AnalysisRunID != goal.AnalysisRunID {
 				continue
 			}
-			for _, item := range s.deckVocabularyFor(owner, preparation.ID) {
-				if item.Language == language {
-					item.GraduatedAt = nil
-					result = append(result, item)
-					seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS] = struct{}{}
-				}
-			}
+			result = appendReservedVocabulary(result, seen, s.deckVocabularyFor(owner, preparation.ID), language)
 		}
+	}
+	return result
+}
+
+// appendReservedVocabulary appends the items in language to result with any
+// graduated marker cleared, recording each identity in seen.
+func appendReservedVocabulary(result []domain.DeckPreparationVocabulary, seen map[string]struct{}, items []domain.DeckPreparationVocabulary, language string) []domain.DeckPreparationVocabulary {
+	for _, item := range items {
+		if item.Language != language {
+			continue
+		}
+		item.GraduatedAt = nil
+		result = append(result, item)
+		seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS] = struct{}{}
 	}
 	return result
 }

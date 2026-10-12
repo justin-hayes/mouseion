@@ -113,43 +113,52 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 	// Fixture source summaries represent the active acquired library books; the
 	// fixture does not model a separate membership row for them.
 	seen := make(map[string]struct{})
-	displayNames := make(map[string]string, len(s.supported))
-	for _, language := range s.supported {
-		tag := normalizeFixtureLanguage(language.Language)
-		if tag != "" {
-			displayNames[tag] = language.DisplayName
-		}
-	}
+	displayNames := fixtureLanguageDisplayNames(s.supported)
 	var out []domain.StudyLanguage
-	addStudyLanguage := func(raw string) {
-		language := normalizeFixtureLanguage(raw)
-		if language == "" {
-			return
-		}
-		if _, ok := seen[language]; ok {
-			return
-		}
-		seen[language] = struct{}{}
-		displayName := displayNames[language]
-		if displayName == "" {
-			displayName = language
-		}
-		out = append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
-	}
 	for _, book := range s.books {
 		if book.Source.OwnerID != owner || strings.TrimSpace(book.Source.Language) == "" {
 			continue
 		}
-		addStudyLanguage(book.Source.Language)
+		out = addFixtureStudyLanguage(out, seen, displayNames, book.Source.Language)
 	}
 	for _, book := range s.myBooks {
 		if book.Book.OwnerID != owner || book.Book.LanguageState != domain.LanguageChosen || strings.TrimSpace(book.Book.LanguageTag) == "" {
 			continue
 		}
-		addStudyLanguage(book.Book.LanguageTag)
+		out = addFixtureStudyLanguage(out, seen, displayNames, book.Book.LanguageTag)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })
 	return out, nil
+}
+
+// fixtureLanguageDisplayNames maps each supported language's canonical tag to
+// its display name.
+func fixtureLanguageDisplayNames(supported []domain.SupportedLanguage) map[string]string {
+	displayNames := make(map[string]string, len(supported))
+	for _, language := range supported {
+		if tag := normalizeFixtureLanguage(language.Language); tag != "" {
+			displayNames[tag] = language.DisplayName
+		}
+	}
+	return displayNames
+}
+
+// addFixtureStudyLanguage appends the canonical raw language to out when it is
+// non-empty and not already present, preferring the supported display name.
+func addFixtureStudyLanguage(out []domain.StudyLanguage, seen map[string]struct{}, displayNames map[string]string, raw string) []domain.StudyLanguage {
+	language := normalizeFixtureLanguage(raw)
+	if language == "" {
+		return out
+	}
+	if _, ok := seen[language]; ok {
+		return out
+	}
+	seen[language] = struct{}{}
+	displayName := displayNames[language]
+	if displayName == "" {
+		displayName = language
+	}
+	return append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
 }
 
 func (s *Store) ListKnownVocabularyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {

@@ -121,6 +121,20 @@ func (s *Store) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaRevi
 func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaReviewDecision) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.validateLemmaDecisionsLocked(decisions); err != nil {
+		return err
+	}
+	for _, decision := range decisions {
+		s.applyLemmaDecisionLocked(decision)
+	}
+	return nil
+}
+
+// validateLemmaDecisionsLocked refuses any decision whose occurrence is unknown,
+// belongs to the active reading, or no longer carries the state the decision
+// claims. Validating every decision before applying any mirrors the persistence
+// store's transaction. Callers hold s.mu.
+func (s *Store) validateLemmaDecisionsLocked(decisions []domain.LemmaReviewDecision) error {
 	for _, decision := range decisions {
 		occurrence := decision.Occurrence
 		if !s.hasLemmaOccurrenceLocked(occurrence) {
@@ -134,31 +148,34 @@ func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaRev
 			return errNotFound
 		}
 	}
-	for _, decision := range decisions {
-		occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded
-		key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
-		if excluded {
+	return nil
+}
+
+// applyLemmaDecisionLocked stores one decision's correction or exclusion and
+// resolves its review flag. Callers hold s.mu.
+func (s *Store) applyLemmaDecisionLocked(decision domain.LemmaReviewDecision) {
+	occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded
+	key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+	if excluded {
+		delete(s.lemmaCorrections, key)
+		s.lemmaExclusions[key] = true
+	} else {
+		delete(s.lemmaExclusions, key)
+		if lemma == occurrence.CanonicalLemma {
 			delete(s.lemmaCorrections, key)
-			s.lemmaExclusions[key] = true
 		} else {
-			delete(s.lemmaExclusions, key)
-			if lemma == occurrence.CanonicalLemma {
-				delete(s.lemmaCorrections, key)
-			} else {
-				s.lemmaCorrections[key] = lemma
-			}
-		}
-		if flag, ok := s.lemmaReviewFlags[key]; ok {
-			flag.Resolution = "correct"
-			if excluded {
-				flag.Resolution = "exclude"
-			} else if lemma == occurrence.CanonicalLemma {
-				flag.Resolution = "keep"
-			}
-			s.lemmaReviewFlags[key] = flag
+			s.lemmaCorrections[key] = lemma
 		}
 	}
-	return nil
+	if flag, ok := s.lemmaReviewFlags[key]; ok {
+		flag.Resolution = "correct"
+		if excluded {
+			flag.Resolution = "exclude"
+		} else if lemma == occurrence.CanonicalLemma {
+			flag.Resolution = "keep"
+		}
+		s.lemmaReviewFlags[key] = flag
+	}
 }
 
 // lemmaDecisionBlockedByCurrentReadingLocked mirrors the store's gate: a
