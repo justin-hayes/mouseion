@@ -2,6 +2,7 @@ package selection
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -30,6 +31,24 @@ func (m *memoryStore) PutSelectionCandidate(_ context.Context, c domain.Selectio
 	return true, nil
 }
 
+// failingStore returns the configured error from each Store method so tests can
+// exercise the error paths Select uses to wrap store failures.
+type failingStore struct {
+	knownErr    error
+	reservedErr error
+	putErr      error
+}
+
+func (f failingStore) IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error) {
+	return false, f.knownErr
+}
+func (f failingStore) IsReservedVocabulary(context.Context, string, string, string, string) (bool, error) {
+	return false, f.reservedErr
+}
+func (f failingStore) PutSelectionCandidate(context.Context, domain.SelectionCandidate) (bool, error) {
+	return false, f.putErr
+}
+
 func tok(surface, lemma, upos string) analyzer.Token {
 	return analyzer.Token{Surface: surface, CanonicalLemma: lemma, UPOS: upos}
 }
@@ -54,6 +73,42 @@ func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
 	assert.Equal(t, []string{"Haus", "Häuser"}, got[0].ObservedForms)
 	assert.Equal(t, 2, got[0].OccurrenceCount)
 	assert.Len(t, got[0].SentenceReferences, 2)
+}
+
+func TestSelectSkipsBelowMinimumOccurrencesBeforeStoreLookups(t *testing.T) {
+	store := &memoryStore{known: map[string]bool{}}
+	cfg := DefaultConfig("corpus")
+	cfg.MinOccurrences = 2
+	corpus := fixture(tok("Haus", "Haus", "NOUN"), tok("Haus", "Haus", "NOUN"), tok("selten", "selten", "ADJ"))
+
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, cfg)
+
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "Haus", got[0].Identity.CanonicalLemma)
+	assert.Len(t, store.saved, 1, "an occurrence below the floor must not reach the store")
+}
+
+func TestSelectPropagatesStoreFailures(t *testing.T) {
+	corpus := fixture(tok("Haus", "Haus", "NOUN"))
+	knownFailure := errors.New("known lookup failed")
+	reservedFailure := errors.New("reserved lookup failed")
+	persistFailure := errors.New("persist failed")
+	for name, test := range map[string]struct {
+		store   failingStore
+		wantErr error
+		message string
+	}{
+		"known lookup":    {failingStore{knownErr: knownFailure}, knownFailure, "get known vocabulary"},
+		"reserved lookup": {failingStore{reservedErr: reservedFailure}, reservedFailure, "get reserved vocabulary"},
+		"persist":         {failingStore{putErr: persistFailure}, persistFailure, "persist candidate"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewService(test.store).Select(context.Background(), "alice", corpus, DefaultConfig("corpus"))
+			require.ErrorIs(t, err, test.wantErr)
+			assert.Contains(t, err.Error(), test.message)
+		})
+	}
 }
 
 func TestProjectAppliesExactOccurrenceDecisionsWithoutChangingAnalyzerEvidence(t *testing.T) {

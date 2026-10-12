@@ -43,6 +43,22 @@ func TestGermanPost1996Fixtures(t *testing.T) {
 	}
 }
 
+func TestGermanPost1996StripsEdgeSymbolsAndKeepsEdgeApostrophes(t *testing.T) {
+	tests := []struct{ name, raw, want string }{
+		{"leading currency symbol is stripped", "$Haus", "haus"},
+		{"trailing currency symbol is stripped", "Haus€", "haus"},
+		{"leading apostrophe is preserved", "'Haus", "'haus"},
+		{"trailing apostrophe is preserved", "Haus’", "haus’"},
+		{"a lemma that is only decoration is returned unchanged", "//", "//"},
+	}
+	profile := GermanPost1996()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, profile.Canonical(tt.raw), tt.raw)
+		})
+	}
+}
+
 func TestGermanPost1996DoesNotCollapseDistinctLexemes(t *testing.T) {
 	profile := GermanPost1996()
 	for _, pair := range [][2]string{{"Maße", "Masse"}, {"Bus", "Buß"}, {"weisen", "weißen"}} {

@@ -182,32 +182,8 @@ func finalizeLookupSenses(senses []enrichment.LexicalSense, language, lemma, upo
 	seenEvidenceIDs := make(map[string]struct{}, len(senses))
 	for index := 0; index < len(senses); {
 		sense := &senses[index]
-		if sense.EvidenceID == "" {
-			evidenceUPOS := upos
-			if sense.MatchStrength == "lemma_only_missing_pos" {
-				evidenceUPOS = ""
-			}
-			identity, marshalErr := json.Marshal(evidenceIdentity{Language: language, Lemma: lemma, UPOS: evidenceUPOS, Gloss: sense.Gloss, Phrase: sense.Phrase, Examples: sense.Examples, Topics: sense.Topics, Tags: sense.Tags})
-			if marshalErr != nil {
-				return nil, fmt.Errorf("dictionary evidence identity: %w", marshalErr)
-			}
-			digest := sha256.Sum256(identity)
-			sense.EvidenceID = "wiktionary:" + hex.EncodeToString(digest[:])
-		}
-		if sense.Source == "" {
-			sense.Source = "wiktionary"
-		}
-		if sense.Kind == "" {
-			sense.Kind = "meaning"
-		}
-		if sense.Origin == "" {
-			sense.Origin = "Kaikki.org Wiktextract enwiktionary"
-		}
-		if sense.Version == "" {
-			sense.Version = version
-		}
-		if sense.MatchStrength == "" {
-			sense.MatchStrength = "exact_lemma_pos"
+		if err := finalizeSense(sense, language, lemma, upos, version); err != nil {
+			return nil, err
 		}
 		if _, duplicate := seenEvidenceIDs[sense.EvidenceID]; duplicate {
 			senses = append(senses[:index], senses[index+1:]...)
@@ -217,6 +193,49 @@ func finalizeLookupSenses(senses []enrichment.LexicalSense, language, lemma, upo
 		index++
 	}
 	return senses, nil
+}
+
+// finalizeSense computes a sense's stable evidence identity when it has none
+// and fills the provider defaults, leaving explicit values untouched.
+func finalizeSense(sense *enrichment.LexicalSense, language, lemma, upos, version string) error {
+	if sense.EvidenceID == "" {
+		evidenceID, err := lookupEvidenceID(sense, language, lemma, upos)
+		if err != nil {
+			return err
+		}
+		sense.EvidenceID = evidenceID
+	}
+	if sense.Source == "" {
+		sense.Source = "wiktionary"
+	}
+	if sense.Kind == "" {
+		sense.Kind = "meaning"
+	}
+	if sense.Origin == "" {
+		sense.Origin = "Kaikki.org Wiktextract enwiktionary"
+	}
+	if sense.Version == "" {
+		sense.Version = version
+	}
+	if sense.MatchStrength == "" {
+		sense.MatchStrength = "exact_lemma_pos"
+	}
+	return nil
+}
+
+// lookupEvidenceID derives the evidence identity for a sense without one. A
+// lemma-only sense names no part of speech in its evidence.
+func lookupEvidenceID(sense *enrichment.LexicalSense, language, lemma, upos string) (string, error) {
+	evidenceUPOS := upos
+	if sense.MatchStrength == "lemma_only_missing_pos" {
+		evidenceUPOS = ""
+	}
+	identity, err := json.Marshal(evidenceIdentity{Language: language, Lemma: lemma, UPOS: evidenceUPOS, Gloss: sense.Gloss, Phrase: sense.Phrase, Examples: sense.Examples, Topics: sense.Topics, Tags: sense.Tags})
+	if err != nil {
+		return "", fmt.Errorf("dictionary evidence identity: %w", err)
+	}
+	digest := sha256.Sum256(identity)
+	return "wiktionary:" + hex.EncodeToString(digest[:]), nil
 }
 
 // splitSensesByMatchStrength separates senses that match the requested identity
