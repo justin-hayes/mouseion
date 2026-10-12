@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"slices"
 	"strconv"
 	"strings"
@@ -331,21 +332,28 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 		rows.Close()
 		if complete && s.client != nil {
 			for _, jobID := range jobIDs {
-				_, _ = s.client.JobCancel(ctx, jobID) //nolint:errcheck // River cancellation is best effort after local durable cancellation.
+				if _, cancelErr := s.client.JobCancel(ctx, jobID); cancelErr != nil {
+					log.Printf("prepared deck cancellation warning: River job cancellation failed; the cancelled run fences its work: owner_id=%s preparation_id=%s run_id=%s river_job_id=%d: %v", owner, id, p.CurrentRunID, jobID, cancelErr)
+				}
 			}
 		}
 	}
 	if s.batchCanceller != nil && p.CurrentRunID != "" {
 		if batchIDs, listErr := s.store.ListPreparedDeckLiveBatchIDs(ctx, owner, id, p.CurrentRunID); listErr == nil {
 			for _, batchID := range batchIDs {
-				_, _ = s.batchCanceller.CancelBatch(ctx, batchID) //nolint:errcheck // Provider cancellation is best effort after local durable cancellation.
+				if _, cancelErr := s.batchCanceller.CancelBatch(ctx, batchID); cancelErr != nil {
+					log.Printf("prepared deck cancellation warning: provider batch cancellation failed; the cancelled run fences its results: owner_id=%s preparation_id=%s run_id=%s provider_batch_id=%s: %v", owner, id, p.CurrentRunID, batchID, cancelErr)
+				}
 			}
 		}
 		if cleaner, ok := s.batchCanceller.(batchFileDeleter); ok {
 			if chunks, listErr := s.store.ListPreparedDeckBatchChunks(ctx, owner, id, p.CurrentRunID); listErr == nil {
 				cleanup := &BatchCleanupWorker{Store: s.store, Provider: cleaner}
 				for _, chunk := range chunks {
-					_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: owner, PreparationID: id, RunID: p.CurrentRunID, ChunkID: chunk.ID, Generation: chunk.Generation}) //nolint:errcheck // Durable recovery retries cleanup when the immediate attempt fails.
+					cleanupArgs := BatchCleanupJobArgs{OwnerID: owner, PreparationID: id, RunID: p.CurrentRunID, ChunkID: chunk.ID, Generation: chunk.Generation}
+					if cleanupErr := cleanup.Cleanup(context.WithoutCancel(ctx), cleanupArgs); cleanupErr != nil {
+						logImmediateBatchCleanupFailure(cleanupArgs, cleanupErr)
+					}
 				}
 			}
 		}
@@ -380,7 +388,7 @@ func (s *Service) ensurePreparationJob(ctx context.Context, tx pgx.Tx, p domain.
 			} else if !errors.Is(confirmErr, pgx.ErrNoRows) {
 				return p, 0, confirmErr
 			}
-			return p, 0, errors.New("River did not return a live preparation job")
+			return p, 0, errors.New("prepareddeck: River did not return a live preparation job")
 		}
 		return p, result.Job.ID, nil
 	}

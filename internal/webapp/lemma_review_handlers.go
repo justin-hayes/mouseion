@@ -69,12 +69,8 @@ func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	suggestion, err := h.services.LemmaReview.Suggest(r.Context(), owner.ID, bookID, occurrenceID)
-	if errors.Is(err, domain.ErrLemmaReviewOccurrenceMissing) {
-		http.Error(w, err.Error(), http.StatusConflict)
-		return
-	}
 	if err != nil {
-		fail(w, err)
+		writeLemmaReviewError(w, err)
 		return
 	}
 	review, err := h.services.LemmaReview.Review(r.Context(), owner.ID, bookID, form)
@@ -221,28 +217,50 @@ func lemmaReviewProposal(r *http.Request, language string, occurrenceIDs []strin
 	}
 }
 
-// writeLemmaReviewError maps the workflow's rejections to statuses. Anything
-// else is an infrastructure failure.
+// lemmaReviewRejection is how the webapp answers one workflow rejection: the
+// HTTP status and the learner-facing message.
+type lemmaReviewRejection struct {
+	sentinel error
+	status   int
+	message  string
+}
+
+// lemmaReviewRejections is the one place learner-facing lemma review copy lives.
+// Every domain rejection needs an entry; the table test enforces it.
+var lemmaReviewRejections = []lemmaReviewRejection{
+	{domain.ErrLemmaReviewCurrentReading, http.StatusConflict, "Stop this Book's current reading before changing its vocabulary."},
+	{domain.ErrLemmaReviewStale, http.StatusConflict, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again."},
+	{domain.ErrLemmaReviewCountsRefreshing, http.StatusConflict, "Vocabulary counts are being refreshed. No decision was saved; review it again shortly."},
+	{domain.ErrLemmaReviewBlockedByReading, http.StatusConflict, "Stop the other current reading before accepting this change; then Mouseion can start this Book again and prepare its new snapshot."},
+	{domain.ErrLemmaReviewNotToRead, http.StatusConflict, "Move this Book to To Read before accepting this change, so Mouseion can restart it and prepare the new snapshot."},
+	{domain.ErrLemmaReviewRepreparationRequired, http.StatusBadRequest, "Explicitly confirm re-preparation of the existing ready deck before accepting this identity change."},
+	{domain.ErrLemmaReviewOccurrenceUnavailable, http.StatusBadRequest, "The selected occurrence changed. Find it again before reviewing."},
+	{domain.ErrLemmaReviewOccurrenceMissing, http.StatusConflict, "That occurrence is no longer available in this analysis."},
+	{domain.ErrLemmaReviewNoSelection, http.StatusBadRequest, "The preview contains no selected occurrences."},
+	{domain.ErrLemmaReviewDecision, http.StatusBadRequest, "Choose a decision to preview."},
+	{domain.ErrLemmaReviewLemma, http.StatusBadRequest, "Enter one valid canonical lemma without spaces."},
+	{domain.ErrLemmaReviewUnsupportedLanguage, http.StatusBadRequest, "Choose a supported study language before correcting a lemma."},
+}
+
+// lemmaReviewRejectionFor returns the table entry for a workflow rejection.
+func lemmaReviewRejectionFor(err error) (lemmaReviewRejection, bool) {
+	for _, rejection := range lemmaReviewRejections {
+		if errors.Is(err, rejection.sentinel) {
+			return rejection, true
+		}
+	}
+	return lemmaReviewRejection{}, false
+}
+
+// writeLemmaReviewError maps the workflow's rejections to statuses and learner
+// copy. Anything else is an infrastructure failure.
 func writeLemmaReviewError(w http.ResponseWriter, err error) {
-	for _, sentinel := range []error{
-		domain.ErrLemmaReviewCurrentReading, domain.ErrLemmaReviewStale, domain.ErrLemmaReviewCountsRefreshing,
-		domain.ErrLemmaReviewBlockedByReading, domain.ErrLemmaReviewNotToRead,
-	} {
-		if errors.Is(err, sentinel) {
-			http.Error(w, err.Error(), http.StatusConflict)
-			return
-		}
+	rejection, ok := lemmaReviewRejectionFor(err)
+	if !ok {
+		fail(w, err)
+		return
 	}
-	for _, sentinel := range []error{
-		domain.ErrLemmaReviewRepreparationRequired, domain.ErrLemmaReviewOccurrenceUnavailable, domain.ErrLemmaReviewOccurrenceMissing,
-		domain.ErrLemmaReviewNoSelection, domain.ErrLemmaReviewDecision, domain.ErrLemmaReviewLemma, domain.ErrLemmaReviewUnsupportedLanguage,
-	} {
-		if errors.Is(err, sentinel) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-	}
-	fail(w, err)
+	http.Error(w, rejection.message, rejection.status)
 }
 
 func yesNo(value bool) string {

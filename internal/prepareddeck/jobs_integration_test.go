@@ -3,22 +3,29 @@
 package prepareddeck
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
@@ -366,6 +373,108 @@ func seedAnalyzedReading(t *testing.T, ctx context.Context, store *persistence.P
 	require.NoError(t, err)
 	require.Positive(t, reading.SnapshotSize)
 	return source, book, analysisHandle, reading
+}
+
+func TestCancelLogsBestEffortRemoteFailuresWithoutChangingOutcome(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "best-effort-cancel-owner", false)
+	require.NoError(t, err)
+	source, book, _, reading := seedAnalyzedReading(t, ctx, store, owner, "best-effort-cancel-book")
+	workers := river.NewWorkers()
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
+	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
+	provider := &failingBatchProvider{err: errors.New("provider unavailable")}
+	service := &Service{pool: store.Pool(), client: &failingCancelRiverClient{client: client}, store: store, batchCanceller: provider}
+	handle, err := service.PrepareCurrentReadingDeck(ctx, owner.ID, book.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	require.NotZero(t, handle.JobID)
+
+	// A live batch chunk makes Cancel reach provider cancellation and file cleanup.
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}}, testutil.PresentationProvider{Name: "openai", Version: "v1", TargetLanguage: "en"})
+	require.NoError(t, err)
+	freezeTx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	frozen, freezeErr := store.FreezePreparedDeckRunTx(ctx, freezeTx, persistence.FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: handle.Preparation.ID, Projection: deck.StorageProjection(), Config: persistence.PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test"}, Chunks: []persistence.PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("c", 64), InputBytes: 64, Ordinals: []int{0}}}})
+	if freezeErr != nil {
+		require.NoError(t, errors.Join(freezeErr, txcleanup.Rollback(ctx, freezeTx)))
+	}
+	require.NoError(t, freezeTx.Commit(ctx))
+	jobTx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	chunkID := frozen.Chunks[0].ID
+	submitErr := store.SetPreparedDeckBatchSubmissionJobTx(ctx, jobTx, owner.ID, handle.Preparation.ID, frozen.Run.ID, chunkID, 1, 9102)
+	if submitErr != nil {
+		require.NoError(t, errors.Join(submitErr, txcleanup.Rollback(ctx, jobTx)))
+	}
+	require.NoError(t, jobTx.Commit(ctx))
+	submissionToken := uuid.NewString()
+	_, err = store.ClaimPreparedDeckBatchSubmission(ctx, owner.ID, handle.Preparation.ID, frozen.Run.ID, chunkID, 1, submissionToken, time.Now().UTC().Add(time.Minute))
+	require.NoError(t, err)
+	_, err = store.RecordPreparedDeckBatchSubmitted(ctx, owner.ID, handle.Preparation.ID, frozen.Run.ID, chunkID, 1, submissionToken, "cancel-file", "cancel-batch", time.Now().UTC())
+	require.NoError(t, err)
+
+	// Rejecting the write that records a failed deletion makes the immediate
+	// cleanup return an error, the path that durable recovery must cover.
+	_, err = store.Pool().Exec(ctx, `CREATE FUNCTION reject_failed_cleanup_write() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'cleanup state write unavailable'; END$$`)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `CREATE TRIGGER reject_failed_cleanup_write BEFORE UPDATE OF input_file_cleanup_state ON deck_preparation_batch_chunks FOR EACH ROW WHEN (NEW.input_file_cleanup_state = 'failed') EXECUTE FUNCTION reject_failed_cleanup_write()`)
+	require.NoError(t, err)
+
+	var output bytes.Buffer
+	previousWriter, previousFlags := log.Writer(), log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	}()
+
+	cancelled, err := service.Cancel(ctx, owner.ID, handle.Preparation.ID)
+	require.NoError(t, err, "best-effort remote failures must not fail cancellation")
+	assert.Equal(t, domain.DeckPreparationCancelled, cancelled.State)
+	logged := output.String()
+	assert.Contains(t, logged, "River job cancellation failed")
+	assert.Contains(t, logged, "preparation_id="+handle.Preparation.ID)
+	assert.Contains(t, logged, "river_job_id="+strconv.FormatInt(handle.JobID, 10))
+	assert.Contains(t, logged, "provider batch cancellation failed")
+	assert.Contains(t, logged, "provider_batch_id=cancel-batch")
+	assert.Contains(t, logged, "provider file deletion failed; durable recovery will retry while attempts remain")
+	assert.Contains(t, logged, "chunk_id="+chunkID)
+	assert.Contains(t, logged, "file_role=input")
+	assert.Contains(t, logged, "immediate cleanup failed; durable recovery will retry")
+	assert.Contains(t, logged, "cleanup state write unavailable")
+	chunk, err := store.GetPreparedDeckBatchChunk(ctx, owner.ID, handle.Preparation.ID, frozen.Run.ID, chunkID)
+	require.NoError(t, err)
+	assert.Equal(t, "pending", chunk.InputFileCleanupState, "rejected cleanup write must leave the file pending for recovery")
+}
+
+// failingCancelRiverClient keeps River insertion real while job cancellation fails.
+type failingCancelRiverClient struct{ client *river.Client[pgx.Tx] }
+
+func (c *failingCancelRiverClient) InsertTx(ctx context.Context, tx pgx.Tx, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
+	return c.client.InsertTx(ctx, tx, args, opts)
+}
+
+func (*failingCancelRiverClient) JobCancel(context.Context, int64) (*rivertype.JobRow, error) {
+	return nil, errors.New("River cancellation unavailable")
+}
+
+// failingBatchProvider fails every provider cancellation and file deletion.
+type failingBatchProvider struct{ err error }
+
+func (p *failingBatchProvider) CancelBatch(context.Context, string) (enrichment.Batch, error) {
+	return enrichment.Batch{}, p.err
+}
+
+func (p *failingBatchProvider) DeleteFile(context.Context, string) (enrichment.OpenAIFileDeletion, error) {
+	return enrichment.OpenAIFileDeletion{}, p.err
 }
 
 type failingRiverClient struct{ err error }

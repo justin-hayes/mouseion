@@ -208,7 +208,7 @@ func (w *BatchSubmitWorker) recordSubmitted(ctx context.Context, args BatchSubmi
 			return 0, insertErr
 		}
 		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-			return 0, errors.New("River did not return a live Batch polling job")
+			return 0, errors.New("prepareddeck: River did not return a live Batch polling job")
 		}
 		return inserted.Job.ID, nil
 	})
@@ -247,7 +247,7 @@ func (w *BatchSubmitWorker) advanceIfTerminal(ctx context.Context, args BatchSub
 			return insertErr
 		}
 		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-			return errors.New("River did not return a live finalizer job")
+			return errors.New("prepareddeck: River did not return a live finalizer job")
 		}
 		return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, run.FinalizationDispatchGeneration, inserted.Job.ID)
 	})

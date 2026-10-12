@@ -140,7 +140,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id, expectedSnapshotID st
 	} else if !errors.Is(confirmErr, pgx.ErrNoRows) {
 		return Handle{}, confirmErr
 	} else {
-		return Handle{}, errors.New("River did not return a live rerender job")
+		return Handle{}, errors.New("prepareddeck: River did not return a live rerender job")
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Handle{}, err

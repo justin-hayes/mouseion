@@ -30,7 +30,7 @@ func (w *StandardTranslationWorker) now() time.Time {
 }
 
 func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTranslationJobArgs) error {
-	if w == nil || w.Store == nil || w.Provider == nil || w.Client == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || args.Ordinal < 0 || args.Generation < 0 {
+	if w == nil || w.Store == nil || w.Provider == nil || !w.Provider.Enabled() || w.Client == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || args.Ordinal < 0 || args.Generation < 0 {
 		return ErrInvalidInput
 	}
 	run, err := w.Store.GetPreparedDeckRun(ctx, args.OwnerID, args.PreparationID, args.RunID)
@@ -101,8 +101,8 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	providerLatency := w.now().Sub(started)
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchRequests, Phase: "provider", State: "completed", Provider: "openai", Value: 1})
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderRequestLatency, Phase: "provider", State: "completed", Provider: "openai", Value: seconds(providerLatency)})
-	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageInputTokens, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.PromptTokens)})
-	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageOutputTokens, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.CompletionTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageInputCount, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.PromptTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageOutputCount, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.CompletionTokens)})
 	if callErr != nil {
 		class, code, retryable := classifyStandardProviderError(callErr, ctx)
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderErrors, Phase: "provider", State: "failed", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
@@ -183,7 +183,7 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return a retry job")
+		return errors.New("prepareddeck: River did not return a retry job")
 	}
 	if err := w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, updated.DispatchGeneration, inserted.Job.ID); err != nil {
 		return err
@@ -250,7 +250,7 @@ func (w *StandardTranslationWorker) finalizer(ctx context.Context, tx pgx.Tx, ru
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return a finalizer job")
+		return errors.New("prepareddeck: River did not return a finalizer job")
 	}
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
 }

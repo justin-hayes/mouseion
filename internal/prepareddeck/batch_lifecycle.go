@@ -308,7 +308,10 @@ func (w *BatchPollWorker) cleanupTerminalBatchFiles(ctx context.Context, args Ba
 	// immediate attempt cannot run.
 	if cleaner, ok := w.Provider.(batchFileDeleter); ok {
 		cleanup := &BatchCleanupWorker{Store: w.Store, Provider: cleaner, Now: w.Now, Metrics: w.Metrics}
-		_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation}) //nolint:errcheck // durable recovery retries cleanup when the immediate attempt fails.
+		cleanupArgs := BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation}
+		if err := cleanup.Cleanup(context.WithoutCancel(ctx), cleanupArgs); err != nil {
+			logImmediateBatchCleanupFailure(cleanupArgs, err)
+		}
 	}
 }
 
@@ -321,8 +324,8 @@ func (w *BatchPollWorker) recordTerminalBatchMetrics(batch enrichment.Batch, upd
 	if batch.Status == enrichment.BatchStatusCompleted {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRequests, Phase: "reconciling", State: "completed", Provider: "openai", Value: float64(successes)})
 	}
-	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageInputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.InputTokens)})
-	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageOutputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.OutputTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageInputCount, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.InputTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageOutputCount, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.OutputTokens)})
 }
 
 // batchProviderResultCounts mirrors OpenAI's request_counts semantics: a
@@ -347,7 +350,7 @@ func (w *BatchPollWorker) insertSubmissionJob(ctx context.Context, tx pgx.Tx, ch
 		return 0, err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return 0, errors.New("River did not return a live Batch submission job")
+		return 0, errors.New("prepareddeck: River did not return a live Batch submission job")
 	}
 	return inserted.Job.ID, nil
 }
@@ -358,7 +361,7 @@ func (w *BatchPollWorker) insertFinalizerJob(ctx context.Context, tx pgx.Tx, run
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return a live finalizer job")
+		return errors.New("prepareddeck: River did not return a live finalizer job")
 	}
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
 }

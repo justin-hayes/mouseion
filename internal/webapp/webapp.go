@@ -20,6 +20,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
@@ -216,7 +217,7 @@ func NewWithError(s Services) (*Handler, error) {
 		return nil, fmt.Errorf("webapp: initialize web key: %w", err)
 	}
 	if s.LemmaReview == nil {
-		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})
+		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})
 	}
 	h := &Handler{services: s, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /login", h.loginPage)

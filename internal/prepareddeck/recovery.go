@@ -136,7 +136,7 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 			return insertErr
 		}
 		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-			return errors.New("River did not return live standard translation recovery work")
+			return errors.New("prepareddeck: River did not return live standard translation recovery work")
 		}
 		if setErr := w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, generation, inserted.Job.ID); setErr != nil {
 			return setErr
@@ -170,7 +170,7 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return live durable recovery work")
+		return errors.New("prepareddeck: River did not return live durable recovery work")
 	}
 	switch item.Kind {
 	case "batch_submission":
@@ -202,7 +202,7 @@ func (w *RecoveryWorker) insertFinalizer(ctx context.Context, tx pgx.Tx, run dom
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return a live finalizer job")
+		return errors.New("prepareddeck: River did not return a live finalizer job")
 	}
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
 }
@@ -221,7 +221,7 @@ func EnsureRecoveryJob(ctx context.Context, store *persistence.PostgresStore, cl
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return a live prepared-deck recovery job")
+		return errors.New("prepareddeck: River did not return a live prepared-deck recovery job")
 	}
 	return tx.Commit(ctx)
 }

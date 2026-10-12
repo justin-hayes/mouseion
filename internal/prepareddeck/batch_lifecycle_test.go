@@ -1,9 +1,12 @@
 package prepareddeck
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +18,39 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// terminalCleanupProvider can poll and delete files, so terminal batch cleanup runs.
+type terminalCleanupProvider struct{}
+
+func (terminalCleanupProvider) GetBatch(context.Context, string) (enrichment.Batch, error) {
+	return enrichment.Batch{}, nil
+}
+
+func (terminalCleanupProvider) FileContent(context.Context, string, io.Writer) error {
+	return nil
+}
+
+func (terminalCleanupProvider) DeleteFile(context.Context, string) (enrichment.OpenAIFileDeletion, error) {
+	return enrichment.OpenAIFileDeletion{}, nil
+}
+
+func TestTerminalBatchCleanupLogsImmediateFailureAndDoesNotFailPolling(t *testing.T) {
+	var output bytes.Buffer
+	previousWriter, previousFlags := log.Writer(), log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	}()
+
+	// A nil store makes the immediate cleanup return ErrInvalidInput without touching the database.
+	worker := &BatchPollWorker{Provider: terminalCleanupProvider{}}
+	worker.cleanupTerminalBatchFiles(context.Background(), BatchPollJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run", ChunkID: "chunk"}, domain.PreparedDeckBatchChunk{Generation: 2})
+
+	assert.Contains(t, output.String(), "immediate cleanup failed; durable recovery will retry")
+	assert.Contains(t, output.String(), "owner_id=owner preparation_id=preparation run_id=run chunk_id=chunk generation=2")
+}
 
 func TestBatchProviderStatusesMapToPollingOrTerminalReconciliation(t *testing.T) {
 	for _, test := range []struct {

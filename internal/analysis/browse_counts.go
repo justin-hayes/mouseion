@@ -65,7 +65,7 @@ func (w *BrowseCountsRebuildWorker) Work(ctx context.Context, job *river.Job[Bro
 // startup reconciliation safe to repeat.
 func (s *Service) EnqueueMissingBrowseCountRebuilds(ctx context.Context) (err error) {
 	if s == nil || s.pool == nil || s.client == nil {
-		return errors.New("Browse rebuild service is not configured")
+		return errors.New("analysis: Browse rebuild service is not configured")
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -111,7 +111,7 @@ func (s *Service) EnqueueMissingBrowseCountRebuilds(ctx context.Context) (err er
 // It is used after an occurrence decision invalidates that Book's readiness.
 func (s *Service) EnqueueBrowseCountRebuild(ctx context.Context, ownerID, bookID string) (err error) {
 	if s == nil || s.pool == nil || s.client == nil {
-		return errors.New("Browse rebuild service is not configured")
+		return errors.New("analysis: Browse rebuild service is not configured")
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

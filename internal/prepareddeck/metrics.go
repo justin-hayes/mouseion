@@ -11,8 +11,8 @@ const (
 	MetricBatchQueueAge             = "batch_queue_age_seconds"
 	MetricBatchProviderTransitions  = "batch_provider_transitions_total"
 	MetricBatchRequests             = "batch_requests_total"
-	MetricBatchUsageInputTokens     = "batch_usage_input_tokens_total"  //nolint:gosec // metric names are not credentials.
-	MetricBatchUsageOutputTokens    = "batch_usage_output_tokens_total" //nolint:gosec // metric names are not credentials.
+	MetricBatchUsageInputCount      = "batch_usage_input_tokens_total"
+	MetricBatchUsageOutputCount     = "batch_usage_output_tokens_total"
 	MetricBatchValidationFailures   = "batch_validation_failures_total"
 	MetricBatchRetries              = "batch_retries_total"
 	MetricBatchReconciliationErrors = "batch_reconciliation_errors_total"
@@ -140,7 +140,7 @@ func boundedBatchMetric(metric BatchMetric) BatchMetric {
 
 func knownBatchMetricName(name string) bool {
 	switch name {
-	case MetricBatchSubmissions, MetricBatchQueueAge, MetricBatchProviderTransitions, MetricBatchRequests, MetricBatchUsageInputTokens, MetricBatchUsageOutputTokens, MetricBatchValidationFailures, MetricBatchRetries, MetricBatchReconciliationErrors, MetricBatchFileCleanup, MetricBatchPhaseLatency, MetricBatchTotalLatency, MetricBatchStuckBatches, MetricTranslationUnits, MetricProviderRequestLatency, MetricProviderErrors, MetricCacheHits, MetricCacheMisses, MetricAPKGOutcome:
+	case MetricBatchSubmissions, MetricBatchQueueAge, MetricBatchProviderTransitions, MetricBatchRequests, MetricBatchUsageInputCount, MetricBatchUsageOutputCount, MetricBatchValidationFailures, MetricBatchRetries, MetricBatchReconciliationErrors, MetricBatchFileCleanup, MetricBatchPhaseLatency, MetricBatchTotalLatency, MetricBatchStuckBatches, MetricTranslationUnits, MetricProviderRequestLatency, MetricProviderErrors, MetricCacheHits, MetricCacheMisses, MetricAPKGOutcome:
 		return true
 	default:
 		return false

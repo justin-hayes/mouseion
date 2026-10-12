@@ -1,11 +1,13 @@
 package fixtures
 
 import (
+	"io/fs"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
 var contractStatusHeader = regexp.MustCompile(`(?m)^// Contract status: (contractual|illustrative)\.`)
@@ -13,7 +15,12 @@ var contractStatusHeader = regexp.MustCompile(`(?m)^// Contract status: (contrac
 // Every non-test source file must declare whether it is contractual under
 // ADR 0088 or illustrative canned state.
 func TestSourceFilesDeclareContractStatus(t *testing.T) {
-	paths, err := filepath.Glob("*.go")
+	root, err := os.OpenRoot(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Cleanup(t, "source root", root.Close)
+	paths, err := fs.Glob(root.FS(), "*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +28,7 @@ func TestSourceFilesDeclareContractStatus(t *testing.T) {
 		if strings.HasSuffix(path, "_test.go") {
 			continue
 		}
-		data, err := os.ReadFile(path) //nolint:gosec // path is a source file from this package's directory glob.
+		data, err := root.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -96,6 +96,14 @@ func TestPlanBatchChunksRejectsReorderedItems(t *testing.T) {
 	assert.Error(t, err, "reordered items were accepted")
 }
 
+func TestPlanBatchChunksRejectsRepeatedOrdinals(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "eins", UPOS: "NOUN"}
+	_, err = PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, []cardexport.WorkItem{{Ordinal: 1, CacheKey: key}, {Ordinal: 1, CacheKey: key}}, BatchChunkLimits{})
+	assert.Error(t, err, "repeated ordinals were accepted")
+}
+
 func TestPlanBatchChunksRejectsWorkWithoutFrozenIdentity(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
 	require.NoError(t, err)

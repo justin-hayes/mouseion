@@ -40,6 +40,8 @@ type completeLoopTranslationProvider struct{}
 func (completeLoopTranslationProvider) Name() string    { return "openai-compatible" }
 func (completeLoopTranslationProvider) Version() string { return "complete-loop" }
 
+func (completeLoopTranslationProvider) Enabled() bool { return true }
+
 func (completeLoopTranslationProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	return enrichment.TranslationResponse{
 		Translation:                "house",
