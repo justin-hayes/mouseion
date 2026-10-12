@@ -341,6 +341,48 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	assert.Equal(t, "el", active)
 }
 
+func TestResolveOrCreateBookForAcquisitionReusesAliasesAndRejectsConflicts(t *testing.T) {
+	ctx := context.Background()
+	url, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, url)
+
+	owner, err := store.CreateUser(ctx, "acquisition-resolution-owner", false)
+	require.NoError(t, err)
+
+	aliased, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Aliased", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	require.NoError(t, err)
+	require.NoError(t, store.AddBookAlias(ctx, owner.ID, aliased.ID, domain.AliasStrongBibliographic, domain.NamespaceSourceIdentifier, "legacy-alias-source"))
+
+	t.Run("a connectionless source alias resolves to its Book", func(t *testing.T) {
+		resolved, err := store.ResolveOrCreateBookForAcquisition(ctx, owner.ID, "legacy-alias-source", "de", "Aliased")
+		require.NoError(t, err)
+		assert.Equal(t, aliased.ID, resolved)
+	})
+
+	other, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Other", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	require.NoError(t, err)
+
+	t.Run("an explicit Book that does not exist is not found", func(t *testing.T) {
+		_, err := store.ResolveOrCreateBookForAcquisitionForBook(ctx, owner.ID, "00000000-0000-0000-0000-000000000000", "legacy-alias-source", "de", "Aliased")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("an explicit Book that disagrees with the source alias is rejected", func(t *testing.T) {
+		_, err := store.ResolveOrCreateBookForAcquisitionForBook(ctx, owner.ID, other.ID, "legacy-alias-source", "de", "Aliased")
+		require.ErrorIs(t, err, ErrAliasConflict)
+	})
+
+	linkedSource := putBookSource(t, ctx, store, owner.ID, "linked-source", "Linked", []byte("linked-epub"), "linked text")
+	linkedBook, err := store.ResolveOrCreateBookForAcquisition(ctx, owner.ID, linkedSource.SourceIdentifier, linkedSource.Language, linkedSource.Title)
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, linkedBook, linkedSource.ID))
+
+	t.Run("an explicit Book that disagrees with the linked source is rejected", func(t *testing.T) {
+		_, err := store.ResolveOrCreateBookForAcquisitionForBook(ctx, owner.ID, other.ID, linkedSource.SourceIdentifier, linkedSource.Language, linkedSource.Title)
+		require.ErrorIs(t, err, ErrSourceBookConflict)
+	})
+}
+
 func insertLegacySource(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, language, identifier, title string, content []byte) string {
 	t.Helper()
 	var id string
