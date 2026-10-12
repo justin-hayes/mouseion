@@ -42,7 +42,9 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	require.NoError(t, err)
 	service := NewService(store)
 	_, err = service.Coverage(ctx, alice.ID, corpus.ID)
-	assert.ErrorIs(t, err, ErrStatisticsUnavailable, "legacy coverage error = %v", err) //nolint:testifylint // Independent legacy behavior check; the test then verifies the analyzed path.
+	t.Run("legacy coverage reports statistics unavailable", func(t *testing.T) {
+		require.ErrorIs(t, err, ErrStatisticsUnavailable)
+	})
 	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "eins", "NOUN")
 	require.NoError(t, err)
 	_, err = store.PutKnownVocabulary(ctx, bob.ID, "de", "zwei", "VERB")

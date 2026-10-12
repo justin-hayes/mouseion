@@ -18,7 +18,9 @@ func TestRequireDependencyParsing(t *testing.T) {
 		Language: "de-DE", SupportedFeatures: []string{"tokenize", analyzer.FeatureDepparse}, Ready: true,
 	}}}}
 
-	assert.NoError(t, requireDependencyParsing(context.Background(), provider, "de")) //nolint:testifylint // Independent capability case; the test continues with other provider states.
+	t.Run("available dependency parsing is accepted", func(t *testing.T) {
+		require.NoError(t, requireDependencyParsing(context.Background(), provider, "de"))
+	})
 
 	missing := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
 		Language: "de", SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: true,
@@ -31,7 +33,9 @@ func TestRequireDependencyParsing(t *testing.T) {
 		Degraded:  true,
 		Languages: []analyzer.LanguageCapability{{Language: "de", SupportedFeatures: []string{analyzer.FeatureDepparse}}},
 	}}
-	assert.NoError(t, requireDependencyParsing(context.Background(), degraded, "de")) //nolint:testifylint // Independent capability case; the test continues with other provider states.
+	t.Run("degraded provider state still permits dependency parsing", func(t *testing.T) {
+		require.NoError(t, requireDependencyParsing(context.Background(), degraded, "de"))
+	})
 
 	outage := analyzertest.CapabilityProvider{Err: errors.New("NLP unavailable")}
 	err = requireDependencyParsing(context.Background(), outage, "de")

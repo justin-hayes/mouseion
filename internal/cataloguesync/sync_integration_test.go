@@ -223,9 +223,13 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, listErr)
 	assert.Empty(t, bobBooks)
 	_, err = store.GetCatalogueSyncStatus(ctx, bob.ID, connection.ID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound) //nolint:testifylint // Independent owner-isolation check; the following lookup is separate.
+	t.Run("bob cannot read Alice's sync status", func(t *testing.T) {
+		require.ErrorIs(t, err, persistence.ErrNotFound)
+	})
 	_, err = store.GetOpdsConnection(ctx, bob.ID, connection.ID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound) //nolint:testifylint // Independent owner-isolation check; the later assertion verifies Alice's access.
+	t.Run("bob cannot read Alice's connection", func(t *testing.T) {
+		require.ErrorIs(t, err, persistence.ErrNotFound)
+	})
 	got, err := store.GetOpdsConnection(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "catalog-secret", got.Password)
