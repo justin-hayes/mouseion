@@ -55,45 +55,47 @@ func main() {
 	}
 }
 
+// serverConfig is the environment the server needs before it opens any
+// dependency: a usable secret, a database URL, and the listen address. Loading
+// these first stops those misconfigurations with no partial startup.
+type serverConfig struct {
+	databaseURL     string
+	addr            string
+	secureCookies   bool
+	sessionLifetime time.Duration
+}
+
+// serverDependencies holds the clients and providers built after the store
+// opens and before the web application. The HTTP handler reads the same
+// instances, so requests and workers share one capability cache and one River
+// client.
+type serverDependencies struct {
+	authService       *auth.Service
+	authHandler       *webauth.Handler
+	opdsService       *opds.Service
+	capabilities      analyzer.CapabilityProvider
+	lemmaSuggestions  enrichment.LemmaSuggestionProvider
+	batchProvider     *enrichment.OpenAIBatchClient
+	catalogueSyncDeps cataloguesync.StoreDependencies
+	riverClient       *river.Client[pgx.Tx]
+}
+
 func run() (err error) {
 	ctx := context.Background()
-	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
-		return fmt.Errorf("invalid MOUSEION_SECRET: %w", err)
-	}
-	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")
-	if databaseURL == "" {
-		return errors.New("MOUSEION_DATABASE_URL is required")
-	}
-	if err := persistence.Migrate(databaseURL); err != nil {
+	cfg, err := loadServerConfig()
+	if err != nil {
 		return err
 	}
-	store, err := persistence.Open(ctx, databaseURL)
+	store, err := migrateAndOpenStore(ctx, cfg.databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeIntoResult("PostgreSQL store", store.Close, &err)
-	addr := os.Getenv("MOUSEION_HTTP_ADDR")
-	if addr == "" {
-		addr = ":8080"
-	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := fmt.Fprintln(w, "ok"); err != nil {
-			log.Printf("write health response: %v", err)
-		}
-	})
-	secureCookies := strings.EqualFold(os.Getenv("MOUSEION_COOKIE_SECURE"), "true")
-	lifetime := 24 * time.Hour
-	authService := auth.New(store, lifetime)
-	authHandler := webauth.New(authService, secureCookies, lifetime)
-	epubService := epub.NewService(store)
-	opdsService := opds.NewService(store, epubService, nil)
 	nlp, err := analyzer.NewGRPCAnalyzer("")
 	if err != nil {
 		return err
 	}
 	defer closeIntoResult("NLP analyzer", nlp.Close, &err)
-	selectionService := selection.NewService(store)
 	llmConfig, err := enrichment.LLMConfigFromEnv()
 	if err != nil {
 		return err
@@ -103,33 +105,88 @@ func run() (err error) {
 		return err
 	}
 	defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
-	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
+	deps, err := startServerDependencies(ctx, cfg, store, nlp, dictionaryIndex, llmConfig)
 	if err != nil {
 		return err
 	}
-	lemmaSuggestions, err := enrichment.NewConfiguredLemmaSuggestionProvider(llmConfig, nil)
+	defer stopRiverClient(ctx, deps.riverClient, &err)
+	mux := newServerMux()
+	mux.Handle("/static/", webapp.StaticHandler())
+	handler, err := buildWebHandler(ctx, cfg, store, dictionaryIndex, hasDictionaryIndex, deps)
 	if err != nil {
 		return err
+	}
+	mux.Handle("/", handler)
+	log.Print("mouseion web server listening")
+	return newHTTPServer(cfg.addr, mux).ListenAndServe()
+}
+
+// loadServerConfig validates the environment every start depends on: a usable
+// secret, a database URL, and the listen address. It never opens a dependency.
+func loadServerConfig() (serverConfig, error) {
+	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
+		return serverConfig{}, fmt.Errorf("invalid MOUSEION_SECRET: %w", err)
+	}
+	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")
+	if databaseURL == "" {
+		return serverConfig{}, errors.New("MOUSEION_DATABASE_URL is required")
+	}
+	addr := os.Getenv("MOUSEION_HTTP_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+	return serverConfig{
+		databaseURL:     databaseURL,
+		addr:            addr,
+		secureCookies:   strings.EqualFold(os.Getenv("MOUSEION_COOKIE_SECURE"), "true"),
+		sessionLifetime: 24 * time.Hour,
+	}, nil
+}
+
+// migrateAndOpenStore migrates before opening, so the shared store only ever
+// talks to the current schema.
+func migrateAndOpenStore(ctx context.Context, databaseURL string) (*persistence.PostgresStore, error) {
+	if err := persistence.Migrate(databaseURL); err != nil {
+		return nil, err
+	}
+	return persistence.Open(ctx, databaseURL)
+}
+
+// startServerDependencies builds every long-lived client and provider and
+// starts the River client, in the order the request handlers and workers expect.
+func startServerDependencies(ctx context.Context, cfg serverConfig, store *persistence.PostgresStore, nlp *analyzer.GRPCAnalyzer, dictionaryIndex *dictionary.Index, llmConfig enrichment.LLMConfig) (*serverDependencies, error) {
+	authService := auth.New(store, cfg.sessionLifetime)
+	authHandler := webauth.New(authService, cfg.secureCookies, cfg.sessionLifetime)
+	epubService := epub.NewService(store)
+	opdsService := opds.NewService(store, epubService, nil)
+	selectionService := selection.NewService(store)
+	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
+	if err != nil {
+		return nil, err
+	}
+	lemmaSuggestions, err := enrichment.NewConfiguredLemmaSuggestionProvider(llmConfig, nil)
+	if err != nil {
+		return nil, err
 	}
 	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	batchConfig, err := prepareddeck.BatchConfigFromEnv()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	preparedDeckConfig, err := prepareddeck.PreparedDeckConfigFromEnv()
 	if err != nil {
-		return fmt.Errorf("invalid prepared-deck configuration: %w", err)
+		return nil, fmt.Errorf("invalid prepared-deck configuration: %w", err)
 	}
 	var batchProvider *enrichment.OpenAIBatchClient
 	var batchCodec *enrichment.TranslationCodec
 	if llmConfig.Enabled {
 		batchCodec, err = enrichment.NewTranslationCodec(llmConfig)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		batchProvider, err = enrichment.NewOpenAIBatchClient(llmConfig, nil)
 		if err != nil {
-			return fmt.Errorf("prepared-deck external translation requires the official OpenAI Batch endpoint: %w", err)
+			return nil, fmt.Errorf("prepared-deck external translation requires the official OpenAI Batch endpoint: %w", err)
 		}
 	}
 	batchMetrics := prepareddeck.NewMetricsCollector()
@@ -140,54 +197,83 @@ func run() (err error) {
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	catalogueWorker.Client = riverClient
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	prepareddeck.AddCustomDeckPreparationWorker(workers, store)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
 	if err := prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
-		return err
+		return nil, err
 	}
 	if err := riverClient.Start(ctx); err != nil {
-		return err
+		return nil, err
 	}
-	defer func() {
-		if stopErr := riverClient.Stop(ctx); stopErr != nil {
-			stopErr = fmt.Errorf("stop analysis workers: %w", stopErr)
-			if err == nil {
-				err = stopErr
-			} else {
-				err = errors.Join(err, stopErr)
-			}
-		}
-	}()
-	analysisService := analysis.NewService(store.Pool(), riverClient)
-	if err = analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
-		return fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
+	return &serverDependencies{
+		authService:       authService,
+		authHandler:       authHandler,
+		opdsService:       opdsService,
+		capabilities:      capabilities,
+		lemmaSuggestions:  lemmaSuggestions,
+		batchProvider:     batchProvider,
+		catalogueSyncDeps: catalogueSyncDeps,
+		riverClient:       riverClient,
+	}, nil
+}
+
+// buildWebHandler registers the catalogue-sync schedules, then assembles the web
+// application from the dependencies the workers share.
+func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.PostgresStore, dictionaryIndex *dictionary.Index, hasDictionaryIndex bool, deps *serverDependencies) (*webapp.Handler, error) {
+	analysisService := analysis.NewService(store.Pool(), deps.riverClient)
+	if err := analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
+		return nil, fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
 	}
-	knownVocabService := knownvocab.NewJobService(store.Pool(), riverClient)
+	knownVocabService := knownvocab.NewJobService(store.Pool(), deps.riverClient)
 	var preparedDeckService *prepareddeck.Service
-	if batchProvider != nil {
-		preparedDeckService = prepareddeck.NewServiceWithBatchCanceller(store, riverClient, batchProvider)
+	if deps.batchProvider != nil {
+		preparedDeckService = prepareddeck.NewServiceWithBatchCanceller(store, deps.riverClient, deps.batchProvider)
 	} else {
-		preparedDeckService = prepareddeck.NewService(store, riverClient)
+		preparedDeckService = prepareddeck.NewService(store, deps.riverClient)
 	}
-	catalogueSyncService := cataloguesync.NewService(catalogueSyncDeps, riverClient, opdsService, capabilities)
+	catalogueSyncService := cataloguesync.NewService(deps.catalogueSyncDeps, deps.riverClient, deps.opdsService, deps.capabilities)
 	if err := catalogueSyncService.RegisterAll(ctx); err != nil {
-		return err
+		return nil, err
 	}
-	mux.Handle("/static/", webapp.StaticHandler())
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
-	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
+	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
 	if err != nil {
-		return fmt.Errorf("initialize web application: %w", err)
+		return nil, fmt.Errorf("initialize web application: %w", err)
 	}
-	mux.Handle("/", webHandler)
-	log.Print("mouseion web server listening")
-	return newHTTPServer(addr, mux).ListenAndServe()
+	return webHandler, nil
+}
+
+// newServerMux builds the outer mux and the liveness route that answers before
+// the web application is ready.
+func newServerMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := fmt.Fprintln(w, "ok"); err != nil {
+			log.Printf("write health response: %v", err)
+		}
+	})
+	return mux
+}
+
+// stopRiverClient stops the analysis workers, joining a stop failure with any
+// in-flight result so a shutdown problem never masks a startup one.
+func stopRiverClient(ctx context.Context, client *river.Client[pgx.Tx], result *error) {
+	stopErr := client.Stop(ctx)
+	if stopErr == nil {
+		return
+	}
+	stopErr = fmt.Errorf("stop analysis workers: %w", stopErr)
+	if *result == nil {
+		*result = stopErr
+	} else {
+		*result = errors.Join(*result, stopErr)
+	}
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {
