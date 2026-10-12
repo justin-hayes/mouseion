@@ -14,7 +14,7 @@ from mouseion_nlp import Producer, SourceDocument
 from mouseion_nlp.model_config import LanguageModelConfig, model_config_for_language
 
 
-def word(
+def word(  # noqa: PLR0913 - mirrors the Stanza Word fields the fake token exposes
     text: str,
     lemma: str,
     upos: str,

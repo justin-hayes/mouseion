@@ -11,6 +11,7 @@ from mouseion_nlp.model_config import (
 )
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
+    ExternalModels,
     ensure_external_dependency,
     main,
     provision,
@@ -136,7 +137,7 @@ def test_changed_model_configuration_wipes_and_provisions_from_scratch(
             ["de"],
             stanza_version=STANZA_VERSION,
             download=upgraded,
-            external_download=external_download,
+            external=ExternalModels(download=external_download),
         )
 
     assert not sentinel.exists()
@@ -155,8 +156,7 @@ def test_external_model_dependencies_are_marker_data_not_stanza_downloads(tmp_pa
             ["el"],
             stanza_version=STANZA_VERSION,
             download=download,
-            external_download=external_download,
-            hf_home=tmp_path / "huggingface",
+            external=ExternalModels(download=external_download, hf_home=tmp_path / "huggingface"),
         )
 
     assert download.languages == ["el"]
@@ -172,7 +172,9 @@ def test_missing_external_cache_is_fetched_even_with_a_current_marker(tmp_path) 
     with patch(
         "mouseion_nlp.provision.snapshot_download", side_effect=LocalEntryNotFoundError("missing")
     ):
-        ensure_external_dependency("example/model", tmp_path, external_download)
+        ensure_external_dependency(
+            "example/model", ExternalModels(download=external_download, hf_home=tmp_path)
+        )
 
     assert external_download.calls == [("example/model", {"cache_dir": str(tmp_path / "hub")})]
 
@@ -186,8 +188,7 @@ def test_greek_provisions_stanza_package_and_greekbert(tmp_path) -> None:
         ["el"],
         stanza_version=STANZA_VERSION,
         download=download,
-        external_download=external_download,
-        hf_home=tmp_path / "huggingface",
+        external=ExternalModels(download=external_download, hf_home=tmp_path / "huggingface"),
     )
 
     assert download.calls == [
@@ -306,6 +307,53 @@ def test_wipe_resources_keeps_the_directory(tmp_path) -> None:
 def test_read_marker_ignores_a_non_string_language_set(tmp_path) -> None:
     (tmp_path / MARKER_FILENAME).write_text(
         json.dumps({"stanza_version": STANZA_VERSION, "languages": 5}), encoding="utf-8"
+    )
+
+    assert read_marker(tmp_path) is None
+
+
+def test_read_marker_ignores_a_non_object_payload(tmp_path) -> None:
+    (tmp_path / MARKER_FILENAME).write_text("[]", encoding="utf-8")
+
+    assert read_marker(tmp_path) is None
+
+
+def test_read_marker_ignores_a_non_string_language_in_the_list(tmp_path) -> None:
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps({"stanza_version": STANZA_VERSION, "languages": ["de", 5], "model_configs": []}),
+        encoding="utf-8",
+    )
+
+    assert read_marker(tmp_path) is None
+
+
+def test_read_marker_ignores_a_language_without_a_matching_config(tmp_path) -> None:
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps({"stanza_version": STANZA_VERSION, "languages": ["de"], "model_configs": []}),
+        encoding="utf-8",
+    )
+
+    assert read_marker(tmp_path) is None
+
+
+def test_read_marker_ignores_an_invalid_model_package(tmp_path) -> None:
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps(
+            {
+                "stanza_version": STANZA_VERSION,
+                "languages": ["de"],
+                "model_configs": [
+                    {
+                        "language": "de",
+                        "processors": "tokenize,pos,lemma,depparse",
+                        "package": 5,
+                        "external_model_dependencies": [],
+                        "model_version": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
     )
 
     assert read_marker(tmp_path) is None

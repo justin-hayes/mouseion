@@ -133,15 +133,18 @@ def measure(corpus: Any) -> Measurement:
     )
 
 
-def render_report(
-    measurement: Measurement,
-    *,
-    source_title: str,
-    source_url: str,
-    source_sha256: str,
-    stanza_version: str,
-    generator_command: str,
-) -> str:
+@dataclass(frozen=True)
+class ReportProvenance:
+    """The source and tooling details rendered into a measurement report."""
+
+    source_title: str
+    source_url: str
+    source_sha256: str
+    stanza_version: str
+    generator_command: str
+
+
+def render_report(measurement: Measurement, provenance: ReportProvenance) -> str:
     """Render the committed Markdown evidence report."""
     accepted = measurement.accepted_particle_count
     skipped = measurement.skipped_particle_count
@@ -158,10 +161,10 @@ def render_report(
         "",
         "## Provenance",
         "",
-        f"- Source: [{source_title}]({source_url})",
-        f"- Sample SHA-256: `{source_sha256}`",
-        f"- Stanza version: `{stanza_version}`",
-        f"- Regenerate: `{generator_command}`",
+        f"- Source: [{provenance.source_title}]({provenance.source_url})",
+        f"- Sample SHA-256: `{provenance.source_sha256}`",
+        f"- Stanza version: `{provenance.stanza_version}`",
+        f"- Regenerate: `{provenance.generator_command}`",
         "- An unavailable Stanza German model causes the generator to print `SKIP`, exit with status 3, and write no report; this committed report is left unchanged.",
         "",
         "## Counts",

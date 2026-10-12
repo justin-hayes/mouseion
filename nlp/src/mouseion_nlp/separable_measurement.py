@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from mouseion_nlp import Producer, SourceDocument
-from mouseion_nlp.precision import measure, render_report
+from mouseion_nlp.precision import ReportProvenance, measure, render_report
 
 SOURCE_TITLE = "Die Leiden des jungen Werther — Band 1"
 SOURCE_URL = "https://www.gutenberg.org/ebooks/2407"
@@ -38,11 +38,13 @@ def run(input_path: Path, output_path: Path) -> int:
     )
     report = render_report(
         measure(corpus),
-        source_title=SOURCE_TITLE,
-        source_url=SOURCE_URL,
-        source_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
-        stanza_version=producer.model_version("de"),
-        generator_command=GENERATOR_COMMAND,
+        ReportProvenance(
+            source_title=SOURCE_TITLE,
+            source_url=SOURCE_URL,
+            source_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            stanza_version=producer.model_version("de"),
+            generator_command=GENERATOR_COMMAND,
+        ),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(report, encoding="utf-8")

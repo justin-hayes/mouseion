@@ -64,6 +64,18 @@ class ProvisionPlan:
     provisioned: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class ExternalModels:
+    """Where external (non-Stanza) models are fetched and cached."""
+
+    download: Callable[..., object] = snapshot_download
+    hf_home: Path | None = None
+
+    def cache_root(self) -> Path:
+        """Resolve the Hugging Face cache root for this run."""
+        return Path(self.hf_home) if self.hf_home is not None else configured_hf_home()
+
+
 def marker_path(resources_dir: Path) -> Path:
     """Return the marker location inside a Stanza resource directory."""
     return resources_dir / MARKER_FILENAME
@@ -74,35 +86,39 @@ def read_marker(resources_dir: Path) -> Marker | None:
     path = marker_path(resources_dir)
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            return None
-        stanza_version = payload["stanza_version"]
-        raw_languages = payload["languages"]
-        raw_configs = payload["model_configs"]
-        if not isinstance(stanza_version, str) or not isinstance(raw_languages, list):
-            return None
-        if not all(isinstance(language, str) for language in raw_languages):
-            return None
-        languages = tuple(sorted(set(raw_languages)))
-        if not isinstance(raw_configs, list):
-            return None
-        model_configs = tuple(
-            sorted(
-                (
-                    config
-                    for payload_config in raw_configs
-                    if (config := LanguageModelConfig.from_marker_payload(payload_config))
-                    is not None
-                ),
-                key=lambda config: config.language,
-            )
+        return _marker_from_payload(payload)
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _marker_from_payload(payload: object) -> Marker | None:
+    """Build a marker from a decoded payload, rejecting any invalid shape."""
+    if not isinstance(payload, dict):
+        return None
+    stanza_version = payload.get("stanza_version")
+    raw_languages = payload.get("languages")
+    raw_configs = payload.get("model_configs")
+    if not isinstance(stanza_version, str) or not isinstance(raw_languages, list):
+        return None
+    if not all(isinstance(language, str) for language in raw_languages):
+        return None
+    languages = tuple(sorted(set(raw_languages)))
+    if not isinstance(raw_configs, list):
+        return None
+    model_configs = tuple(
+        sorted(
+            (
+                config
+                for payload_config in raw_configs
+                if (config := LanguageModelConfig.from_marker_payload(payload_config)) is not None
+            ),
+            key=lambda config: config.language,
         )
-        if (
-            len(model_configs) != len(raw_configs)
-            or tuple(config.language for config in model_configs) != languages
-        ):
-            return None
-    except (OSError, ValueError, KeyError, TypeError):
+    )
+    if (
+        len(model_configs) != len(raw_configs)
+        or tuple(config.language for config in model_configs) != languages
+    ):
         return None
     return Marker(stanza_version=stanza_version, languages=languages, model_configs=model_configs)
 
@@ -156,18 +172,14 @@ def wipe_resources(resources_dir: Path) -> None:
             entry.unlink()
 
 
-def ensure_external_dependency(
-    dependency: str,
-    hf_home: Path,
-    download: Callable[..., object],
-) -> None:
+def ensure_external_dependency(dependency: str, external: ExternalModels) -> None:
     """Verify a cached Hugging Face dependency and fetch it if absent."""
-    cache_dir = str(hf_home / "hub")
+    cache_dir = str(external.cache_root() / "hub")
     try:
         snapshot_download(dependency, cache_dir=cache_dir, local_files_only=True)
     except LocalEntryNotFoundError:
         print(f"provisioning Hugging Face model '{dependency}'…", flush=True)
-        download(dependency, cache_dir=cache_dir)
+        external.download(dependency, cache_dir=cache_dir)
 
 
 def provision(
@@ -176,8 +188,7 @@ def provision(
     *,
     stanza_version: str,
     download: Callable[..., object] | None = None,
-    external_download: Callable[..., object] | None = None,
-    hf_home: Path | None = None,
+    external: ExternalModels | None = None,
 ) -> ProvisionPlan:
     """Provision the resource directory for the configured languages.
 
@@ -185,8 +196,7 @@ def provision(
     failed provisioning run cannot write a marker and exits non-zero.
     """
     download = download or stanza.download
-    external_download = external_download or snapshot_download
-    hf_home = Path(hf_home) if hf_home is not None else configured_hf_home()
+    external = external or ExternalModels()
     resources_dir = Path(resources_dir)
     plan = plan_provisioning(read_marker(resources_dir), stanza_version, languages)
     resources_dir.mkdir(parents=True, exist_ok=True)
@@ -209,7 +219,7 @@ def provision(
         for dependency in model_config_for_language(language).external_model_dependencies
     }
     for dependency in sorted(dependencies):
-        ensure_external_dependency(dependency, hf_home, external_download)
+        ensure_external_dependency(dependency, external)
     model_configs = tuple(model_config_for_language(language) for language in plan.provisioned)
     write_marker(
         resources_dir,
@@ -225,10 +235,14 @@ def provision(
 def main() -> int:
     """Provision the configured languages as a one-shot init command."""
     resources_dir = Path(os.getenv("STANZA_RESOURCES_DIR", DEFAULT_MODEL_DIR))
-    hf_home = configured_hf_home()
     languages = [descriptor.language for descriptor in configured_languages()]
     try:
-        provision(resources_dir, languages, stanza_version=stanza.__version__, hf_home=hf_home)
+        provision(
+            resources_dir,
+            languages,
+            stanza_version=stanza.__version__,
+            external=ExternalModels(hf_home=configured_hf_home()),
+        )
     except Exception as error:  # noqa: BLE001
         print(f"stanza provisioning failed: {error}", file=sys.stderr, flush=True)
         return 1

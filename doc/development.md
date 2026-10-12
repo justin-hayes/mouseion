@@ -49,6 +49,11 @@ the configuration in `nlp/pyproject.toml`. The generated protobuf package is on
 the type search path, so the gRPC request and response messages are typed;
 third-party libraries without stubs are listed in per-module overrides there.
 
+The Python lint also covers security (`S`, flake8-bandit) and complexity
+(`C90`, `PLR0911`, `PLR0912`, `PLR0913`, `PLR0915`). Their thresholds are set
+explicitly in `nlp/pyproject.toml`; a function that genuinely needs more carries
+a justified `# noqa` rather than a raised limit.
+
 ## Common commands
 
 | Command | Purpose |
@@ -59,7 +64,7 @@ third-party libraries without stubs are listed in per-module overrides there.
 | `make coverage` | Python and Go coverage reports in `.tmp/coverage/` (the Go integration part needs the `make test-integration` database prerequisites) |
 | `make coverage-new` | `make coverage`, then previews SonarQube Cloud's 80% new-code coverage gate for the lines changed since `origin/main` and lists the uncovered ones |
 | `make test-integration RACE=1` | PostgreSQL-backed Go integration tests under the race detector; the same command CI runs (see the Tests section for the database prerequisites) |
-| `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check`, `ruff format --check`, and `mypy` over the NLP source |
+| `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check`, `ruff format --check`, and `mypy` over the NLP source. Ruff enforces flake8-bandit security rules (`S`) and the `C90`/`PLR0911`/`PLR0912`/`PLR0913`/`PLR0915` complexity rules on `nlp/src`, `nlp/tests` and `nlp/scripts`, with the thresholds set explicitly in `nlp/pyproject.toml` |
 | `make vuln` | govulncheck over the whole module: fails on call-reachable vulnerabilities in dependencies or in the Go standard library and toolchain. CI runs it on Go changes |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
 | `make dev` | Run the web server (needs PostgreSQL and the NLP service) |
