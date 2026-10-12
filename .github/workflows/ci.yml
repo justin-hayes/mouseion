@@ -92,9 +92,11 @@ jobs:
         if: needs.changes.outputs.go == 'true'
         run: go build ./...
 
+      # The unit suite runs under the race detector through the same Makefile
+      # switch developers use locally (doc/development.md).
       - name: Go test
         if: needs.changes.outputs.go == 'true'
-        run: go test ./...
+        run: make test-go RACE=1
 
       # ------------------------------------------------------------------
       # Python

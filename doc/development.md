@@ -47,6 +47,7 @@ with `golangci-lint fmt ./...` and `.venv/bin/ruff format nlp/src nlp/tests`.
 | --- | --- |
 | `make build` | `go build ./...` plus Python `compileall` |
 | `make test` | Go unit tests and pytest |
+| `make test-go RACE=1` | Go unit tests under the race detector; the same command CI runs. `RACE=1` is shared with `make test` and the integration targets |
 | `make coverage` | Python and Go coverage reports in `.tmp/coverage/` (the Go integration part needs the `make test-integration` database prerequisites) |
 | `make coverage-new` | `make coverage`, then previews SonarQube Cloud's 80% new-code coverage gate for the lines changed since `origin/main` and lists the uncovered ones |
 | `make test-integration` | PostgreSQL-backed Go integration tests |
@@ -84,7 +85,11 @@ build tag is not analysed.
 ## Tests
 
 - **Unit tests** — `go test ./...` and `make test`. Results use Go's normal
-  test cache.
+  test cache. CI's "Build and test" job runs the unit suite under the race
+  detector with `make test-go RACE=1`, the same switch a developer uses to
+  reproduce a race failure locally. `RACE=1` is shared with the other Go test
+  targets, so `make test`, `make test-go-integration`, `make test-integration`,
+  and `make test-integration-shared` all accept it.
 - **Integration tests** — `make test-integration` runs every package with the
   `integration` build tag and `-count=1`, so results are never cached. They use
   one named, reusable Testcontainers PostgreSQL instance; a template database is
@@ -273,9 +278,11 @@ writing SQL, and keep data-only backfills separate from structural DDL
 
 CI runs on ephemeral GitHub-hosted `ubuntu-24.04` runners, so pull requests
 from forks never execute on maintainer infrastructure. The build, lint,
-integration, and browser-smoke jobs run in parallel; browser smoke is split
-across four Playwright shards behind a single `Browser smoke` check. Shards run
-the suite in a digest-pinned Playwright image that already contains the browsers
+integration, and browser-smoke jobs run in parallel; the Go unit-test step in
+"Build and test" runs under the race detector through `make test-go RACE=1`.
+Browser smoke is split across four Playwright shards behind a single
+`Browser smoke` check. Shards run the suite in a digest-pinned Playwright image
+that already contains the browsers
 and their system libraries, so they do not install APT packages or download
 browsers ([e2e/README.md](../e2e/README.md) describes the pin and its coupling
 to the locked `@playwright/test` version). Each job
