@@ -135,17 +135,33 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 			workErr = w.recordFailure(ctx, job.ID, a.OwnerID, workErr)
 		}
 	}()
+	return w.importEntries(ctx, job.ID, a.OwnerID, language, total, parsed)
+}
+
+// importEntries runs the import in one transaction: it checks the target
+// library language, applies each parsed entry, reports progress in batches,
+// and records completion before committing.
+func (w *Worker) importEntries(ctx context.Context, id int64, owner, language string, total int, parsed ParseResult) (err error) {
 	tx, err := w.Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer func() { workErr = errors.Join(workErr, txcleanup.Rollback(ctx, tx)) }()
-	if err := requireLibraryLanguage(ctx, tx, a.OwnerID, language); err != nil {
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	if err := requireLibraryLanguage(ctx, tx, owner, language); err != nil {
 		return err
 	}
 	result := ImportResult{Rejected: parsed.Rejected}
+	if err := w.applyParsedEntries(ctx, tx, id, owner, language, total, parsed, &result); err != nil {
+		return err
+	}
+	return w.persistCompletion(ctx, tx, id, owner, language, total, result)
+}
+
+// applyParsedEntries upserts each parsed entry and reports progress in batches
+// while entries remain.
+func (w *Worker) applyParsedEntries(ctx context.Context, tx pgx.Tx, id int64, owner, language string, total int, parsed ParseResult, result *ImportResult) error {
 	for i, entry := range parsed.Entries {
-		alreadyKnown, accepted, err := applyEntry(ctx, tx, a.OwnerID, language, entry, &result)
+		alreadyKnown, accepted, err := applyEntry(ctx, tx, owner, language, entry, result)
 		if err != nil {
 			return err
 		}
@@ -159,12 +175,12 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 		processed := len(parsed.Rejected) + i + 1
 		if processed%100 == 0 && processed < total {
-			if err := w.reportProgress(ctx, job.ID, a.OwnerID, processed, total, &result); err != nil {
+			if err := w.reportProgress(ctx, id, owner, processed, total, result); err != nil {
 				return err
 			}
 		}
 	}
-	return w.persistCompletion(ctx, tx, job.ID, a.OwnerID, language, total, result)
+	return nil
 }
 
 // requireLibraryLanguage rejects an import for a language the owner has no
