@@ -72,9 +72,7 @@ func listPreparedDeckBatchChunks(ctx context.Context, q sqlcgen.DBTX, owner, pre
 		if queryErr != nil {
 			return nil, queryErr
 		}
-		for _, ordinal := range ordinals {
-			chunks[i].Ordinals = append(chunks[i].Ordinals, ordinal)
-		}
+		chunks[i].Ordinals = append(chunks[i].Ordinals, ordinals...)
 	}
 	return chunks, nil
 }

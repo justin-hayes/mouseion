@@ -185,8 +185,9 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 		// Each synthetic row represents a distinct sentence occurrence; keep IDs
 		// unique just as the persisted corpus query does.
 		occurrence.SentenceOrdinal = int64(i)
-		if occurrence.Excluded || !(match == domain.ConcordanceMatchLemma && lemma == occurrence.EffectiveLemma && (query.UPOS == "" || query.UPOS == occurrence.UPOS) ||
-			match == domain.ConcordanceMatchForm && lemma == strings.ToLower(occurrence.Surface)) {
+		matched := match == domain.ConcordanceMatchLemma && lemma == occurrence.EffectiveLemma && (query.UPOS == "" || query.UPOS == occurrence.UPOS) ||
+			match == domain.ConcordanceMatchForm && lemma == strings.ToLower(occurrence.Surface)
+		if occurrence.Excluded || !matched {
 			continue
 		}
 		matches = append(matches, occurrence)

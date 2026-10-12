@@ -115,21 +115,22 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		return "", fmt.Errorf("cardexport: encode manifest: %w", err)
 	}
 	var prefix string
-	if s.SchemaVersion == LegacyManifestSchemaVersion {
+	switch s.SchemaVersion {
+	case LegacyManifestSchemaVersion:
 		prefix = "mouseion-prepared-deck-manifest-v1\x00"
-	} else if s.SchemaVersion == PreviousManifestSchemaVersion {
+	case PreviousManifestSchemaVersion:
 		prefix = "mouseion-prepared-deck-manifest-v2\x00"
-	} else if s.SchemaVersion == ManifestSchemaVersionV3 {
+	case ManifestSchemaVersionV3:
 		prefix = "mouseion-prepared-deck-manifest-v3\x00"
-	} else if s.SchemaVersion == ManifestSchemaVersionV4 {
+	case ManifestSchemaVersionV4:
 		prefix = "mouseion-prepared-deck-manifest-v4\x00"
-	} else if s.SchemaVersion == ManifestSchemaVersionV5 {
+	case ManifestSchemaVersionV5:
 		prefix = "mouseion-prepared-deck-manifest-v5\x00"
-	} else if s.SchemaVersion == ManifestSchemaVersionV6 {
+	case ManifestSchemaVersionV6:
 		prefix = "mouseion-prepared-deck-manifest-v6\x00"
-	} else if s.SchemaVersion == ManifestSchemaVersionV7 {
+	case ManifestSchemaVersionV7:
 		prefix = "mouseion-prepared-deck-manifest-v7\x00"
-	} else {
+	default:
 		prefix = "mouseion-prepared-deck-manifest-v8\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
@@ -194,21 +195,22 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		return "", fmt.Errorf("cardexport: encode manifest item: %w", err)
 	}
 	var prefix string
-	if schemaVersion == LegacyManifestSchemaVersion {
+	switch schemaVersion {
+	case LegacyManifestSchemaVersion:
 		prefix = "mouseion-prepared-deck-candidate-v1\x00"
-	} else if schemaVersion == PreviousManifestSchemaVersion {
+	case PreviousManifestSchemaVersion:
 		prefix = "mouseion-prepared-deck-candidate-v2\x00"
-	} else if schemaVersion == ManifestSchemaVersionV3 {
+	case ManifestSchemaVersionV3:
 		prefix = "mouseion-prepared-deck-candidate-v3\x00"
-	} else if schemaVersion == ManifestSchemaVersionV4 {
+	case ManifestSchemaVersionV4:
 		prefix = "mouseion-prepared-deck-candidate-v4\x00"
-	} else if schemaVersion == ManifestSchemaVersionV5 {
+	case ManifestSchemaVersionV5:
 		prefix = "mouseion-prepared-deck-candidate-v5\x00"
-	} else if schemaVersion == ManifestSchemaVersionV6 {
+	case ManifestSchemaVersionV6:
 		prefix = "mouseion-prepared-deck-candidate-v6\x00"
-	} else if schemaVersion == ManifestSchemaVersionV7 {
+	case ManifestSchemaVersionV7:
 		prefix = "mouseion-prepared-deck-candidate-v7\x00"
-	} else {
+	default:
 		prefix = "mouseion-prepared-deck-candidate-v8\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))

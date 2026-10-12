@@ -155,10 +155,14 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		}
 	}
 	failedCount, expiredCount := batch.RequestCounts.Failed-counts.expiredFailures, counts.expiredFailures
-	if batch.Status == enrichment.BatchStatusExpired {
+	switch batch.Status {
+	case enrichment.BatchStatusExpired:
 		expiredCount += len(missingOrdinals)
-	} else if batch.Status == enrichment.BatchStatusFailed || batch.Status == enrichment.BatchStatusCancelled {
+	case enrichment.BatchStatusFailed, enrichment.BatchStatusCancelled:
 		failedCount += len(missingOrdinals)
+	case enrichment.BatchStatusValidating, enrichment.BatchStatusInProgress, enrichment.BatchStatusFinalizing,
+		enrichment.BatchStatusCompleted, enrichment.BatchStatusCancelling:
+		// Only expired and failed or cancelled batches count missing ordinals.
 	}
 	update := batchReconciliationUpdate(batch, domain.PreparedDeckBatchCompleted, terminalChunkErrorClass(batch.Status), terminalBatchErrorCode(batch), expiredCount)
 	update.FailedCount = failedCount

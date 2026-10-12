@@ -100,14 +100,15 @@ func (p *contextualBatchFixtureProvider) CreateBatch(_ context.Context, request 
 			response["sentence_translation_targets"] = []string{"knocks", "over"}
 			response["unresolved_reason"] = ""
 		}
-		if identity.Ordinal == 1 {
+		switch identity.Ordinal {
+		case 1:
 			response["gloss"] = "contextual meaning"
 			response["sentence_translation"] = "This complete sentence has no target alignment."
 			response["sentence_translation_targets"] = []string{}
 			response["unresolved_reason"] = ""
-		} else if identity.Ordinal == 0 {
+		case 0:
 			response["context_only"] = true
-		} else {
+		default:
 			response["gloss"] = "contextual meaning"
 			response["unresolved_reason"] = ""
 			if identity.Ordinal == 2 {

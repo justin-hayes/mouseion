@@ -304,7 +304,7 @@ func LanguageIDs(feed Feed) []string {
 
 func languageEntryID(entry Entry) string {
 	for _, link := range entry.Links {
-		if link.Rel != "subsection" && link.Rel != "alternate" && !(strings.EqualFold(link.Type, "application/atom+xml") && len(FindEPUBs(entry)) == 0) {
+		if link.Rel != "subsection" && link.Rel != "alternate" && (!strings.EqualFold(link.Type, "application/atom+xml") || len(FindEPUBs(entry)) != 0) {
 			continue
 		}
 		parsed, err := url.Parse(link.Href)

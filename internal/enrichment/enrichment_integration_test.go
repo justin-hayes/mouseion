@@ -32,7 +32,7 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 		assert.True(t, found)
 		assert.Equal(t, "house", got.Translation)
 		assert.Equal(t, "building", got.FallbackGloss)
-		assert.Equal(t, "dictionary-v4", got.CacheKey.DictionaryProviderVersion)
+		assert.Equal(t, "dictionary-v4", got.DictionaryProviderVersion)
 		assert.Equal(t, "The house is large.", got.SentenceTranslation)
 		assert.Equal(t, "house", got.SentenceTranslationTarget)
 		assert.Equal(t, []string{"house"}, got.SentenceTranslationTargets)
@@ -122,7 +122,7 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, "something uncommon", stored.FallbackGloss)
-	assert.Equal(t, "dictionary-v4", stored.CacheKey.DictionaryProviderVersion)
+	assert.Equal(t, "dictionary-v4", stored.DictionaryProviderVersion)
 	assert.Empty(t, stored.SenseSelection)
 
 	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, []cardexport.StoredResult{{CacheKey: key, Record: enrichment.CacheEntry{

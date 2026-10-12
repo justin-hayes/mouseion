@@ -62,7 +62,7 @@ func lemmaReviewIdentityStates(ctx context.Context, tx pgx.Tx, scope browseCount
 	for _, identity := range affected {
 		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
 		lemmaSet[normalized.lemma] = struct{}{}
-		identities = append(identities, currentReadingVocabularyIdentity{lemma: normalized.lemma, upos: normalized.upos})
+		identities = append(identities, currentReadingVocabularyIdentity(normalized))
 	}
 	lemmas := make([]string, 0, len(lemmaSet))
 	for lemma := range lemmaSet {
@@ -96,7 +96,7 @@ func lemmaReviewIdentityStates(ctx context.Context, tx pgx.Tx, scope browseCount
 		}
 		states = append(states, domain.LemmaReviewIdentityState{
 			Identity: identity, InBook: before[normalized].occurrences, AfterInBook: after[normalized].occurrences,
-			OtherBooks: others[currentReadingVocabularyIdentity{lemma: normalized.lemma, upos: normalized.upos}],
+			OtherBooks: others[currentReadingVocabularyIdentity(normalized)],
 			Known:      knownLemmaReviewContains(known, normalized), Reserved: reserved,
 		})
 	}
