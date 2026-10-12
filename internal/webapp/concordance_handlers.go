@@ -25,24 +25,9 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	u := user(r)
 	queryCtx, cancel := context.WithTimeout(r.Context(), h.interactiveReadTimeout())
 	defer cancel()
-	query := r.URL.Query()
-	lookup := domain.ConcordanceLookup{
-		Term: strings.TrimSpace(query.Get("term")), Match: strings.TrimSpace(query.Get("as")),
-		UPOS: strings.TrimSpace(query.Get("upos")), Page: 1,
-		Revision: strings.TrimSpace(query.Get("rev")),
-		Priority: strings.TrimSpace(query.Get("priority")),
-	}
-	focusTarget := strings.TrimSpace(query.Get("focus"))
-	origin := parseBrowseOrigin(query)
-	pageValid := true
-	if raw := query.Get("page"); raw != "" {
-		if page, parseErr := strconv.Atoi(raw); parseErr == nil && page > 0 {
-			lookup.Page = page
-		} else {
-			pageValid = false
-		}
-	}
+	request := parseConcordanceRequest(r)
 	requestedLanguage, _ := activeStudyLanguageForContext(r.Context())
+	lookup, origin := request.lookup, request.origin
 	lookup.Language = requestedLanguage
 	loadError := func(language string, err error) {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
@@ -52,40 +37,16 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		log.Printf("mouseion: load Concordance context: %v", err)
 		h.renderConcordanceFailure(w, r, http.StatusInternalServerError, u, language, lookup, origin, false)
 	}
-	languages, err := h.services.Store.Shell.ListStudyLanguages(queryCtx, u.ID)
+	language, origin, err := h.loadConcordanceBrowseContext(queryCtx, u, requestedLanguage, origin)
 	if err != nil {
-		loadError(requestedLanguage, err)
+		loadError(language, err)
 		return
-	}
-	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(queryCtx, u.ID)
-	if err != nil {
-		loadError(requestedLanguage, err)
-		return
-	}
-	language := requestedLanguage
-	if !learnerLanguagePresent(languages, knownLanguages, language) {
-		language = ""
-	}
-	// The origin is only a pointer back to a Browse excursion. It must name an
-	// owned Book in the study language, or it is dropped; it never exposes
-	// another owner's Book and authorizes nothing.
-	if origin.Active() && language != "" {
-		detail, detailErr := h.services.Store.Vocabulary.GetBookDetail(queryCtx, u.ID, origin.BookID)
-		switch {
-		case errors.Is(detailErr, persistence.ErrNotFound):
-			origin = browseOrigin{}
-		case detailErr != nil:
-			loadError(language, detailErr)
-			return
-		case detail.Book.LanguageTag != language:
-			origin = browseOrigin{}
-		}
 	}
 	invite := func(status int, message string) {
 		renderStatus(w, r, status, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, false, message, "", origin))
 	}
 	switch {
-	case !pageValid:
+	case !request.pageValid:
 		invite(http.StatusBadRequest, concordanceNoticePage)
 		return
 	case lookup.Match != "" && lookup.Match != domain.ConcordanceMatchLemma && lookup.Match != domain.ConcordanceMatchForm,
@@ -138,7 +99,75 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	}
 	lookup = concordanceAppliedLookup(lookup, result)
 	readingChanged := lookup.Priority != currentPriority
-	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", focusTarget, origin))
+	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", request.focusTarget, origin))
+}
+
+// concordanceRequest is a Concordance page request parsed from the query before
+// it is resolved against the learner's evidence.
+type concordanceRequest struct {
+	lookup      domain.ConcordanceLookup
+	focusTarget string
+	origin      browseOrigin
+	pageValid   bool
+}
+
+// parseConcordanceRequest reads the query into a lookup, keeping an explicitly
+// requested page only when it is a positive integer.
+func parseConcordanceRequest(r *http.Request) concordanceRequest {
+	query := r.URL.Query()
+	request := concordanceRequest{
+		lookup: domain.ConcordanceLookup{
+			Term: strings.TrimSpace(query.Get("term")), Match: strings.TrimSpace(query.Get("as")),
+			UPOS: strings.TrimSpace(query.Get("upos")), Page: 1,
+			Revision: strings.TrimSpace(query.Get("rev")),
+			Priority: strings.TrimSpace(query.Get("priority")),
+		},
+		focusTarget: strings.TrimSpace(query.Get("focus")),
+		origin:      parseBrowseOrigin(query),
+		pageValid:   true,
+	}
+	if raw := query.Get("page"); raw != "" {
+		if page, err := strconv.Atoi(raw); err == nil && page > 0 {
+			request.lookup.Page = page
+		} else {
+			request.pageValid = false
+		}
+	}
+	return request
+}
+
+// loadConcordanceBrowseContext resolves the study language against the learner's
+// languages and validates the origin pointer to an owned Book in that language.
+// It returns the language to render with even when it fails, so a failure page
+// keeps the requested scope.
+func (h *Handler) loadConcordanceBrowseContext(ctx context.Context, u domain.User, requestedLanguage string, origin browseOrigin) (string, browseOrigin, error) {
+	languages, err := h.services.Store.Shell.ListStudyLanguages(ctx, u.ID)
+	if err != nil {
+		return requestedLanguage, origin, err
+	}
+	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(ctx, u.ID)
+	if err != nil {
+		return requestedLanguage, origin, err
+	}
+	language := requestedLanguage
+	if !learnerLanguagePresent(languages, knownLanguages, language) {
+		language = ""
+	}
+	// The origin is only a pointer back to a Browse excursion. It must name an
+	// owned Book in the study language, or it is dropped; it never exposes
+	// another owner's Book and authorizes nothing.
+	if origin.Active() && language != "" {
+		detail, detailErr := h.services.Store.Vocabulary.GetBookDetail(ctx, u.ID, origin.BookID)
+		switch {
+		case errors.Is(detailErr, persistence.ErrNotFound):
+			origin = browseOrigin{}
+		case detailErr != nil:
+			return language, origin, detailErr
+		case detail.Book.LanguageTag != language:
+			origin = browseOrigin{}
+		}
+	}
+	return language, origin, nil
 }
 
 func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Request, status int, u domain.User, language string, lookup domain.ConcordanceLookup, origin browseOrigin, changed bool) {
