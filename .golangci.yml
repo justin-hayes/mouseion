@@ -48,6 +48,25 @@ linters:
     - nakedret
     - usetesting
     - forcetypeassert
+    # Zero-finding guards (#1815): these report nothing today, so they stay on
+    # to block the defects they catch from being reintroduced.
+    - bidichk
+    - asasalint
+    - fatcontext
+    - nosprintfhostport
+    - exptostd
+    - loggercheck
+    - gochecknoinits
+    - goprintffuncname
+    - unqueryvet
+    - iotamixing
+    - tparallel
+
+  # Evaluated and rejected; do not re-add without revisiting the reason here:
+  # - contextcheck: false positives on templ-generated code.
+  # - wrapcheck, err113, goconst, inamedparam, revive: high volume, mostly noise.
+  # - paralleltest: no test uses t.Parallel, so it has nothing to check.
+  # - dupword: false positives on German test data.
 
   settings:
     gocognit:
