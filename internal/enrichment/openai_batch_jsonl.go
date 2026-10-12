@@ -113,36 +113,57 @@ func (c *TranslationCodec) WriteBatchJSONL(dst io.Writer, runID string, generati
 	if err != nil || generation < 1 {
 		return 0, providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, err)
 	}
-	ordered := append([]BatchTranslationItem(nil), items...)
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Ordinal < ordered[j].Ordinal })
-	for i, item := range ordered {
-		if item.Ordinal < 0 || (i > 0 && item.Ordinal == ordered[i-1].Ordinal) {
-			return 0, providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, nil)
-		}
+	ordered, err := orderedBatchItems(items)
+	if err != nil {
+		return 0, err
 	}
 	counter := &countingWriter{writer: dst}
 	encoder := json.NewEncoder(counter)
 	encoder.SetEscapeHTML(false)
 	for _, item := range ordered {
-		customID, customIDErr := BatchCustomID(canonicalRunID, item.Ordinal, generation)
-		if customIDErr != nil {
-			return 0, providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, customIDErr)
-		}
-		body, encodeErr := c.encodeRequest(item.Request, customID)
-		if encodeErr != nil {
-			return 0, providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, encodeErr)
-		}
-		line := struct {
-			CustomID string          `json:"custom_id"`
-			Method   string          `json:"method"`
-			URL      string          `json:"url"`
-			Body     json.RawMessage `json:"body"`
-		}{customID, "POST", OpenAIChatCompletionsEndpoint, body}
-		if encodeErr = encoder.Encode(line); encodeErr != nil {
-			return 0, providerError("encode Batch JSONL", ProviderErrorTransport, 0, encodeErr)
+		if err := c.writeBatchJSONLLine(encoder, canonicalRunID, generation, item); err != nil {
+			return 0, err
 		}
 	}
 	return counter.count, nil
+}
+
+// orderedBatchItems copies items into ascending ordinal order and rejects
+// negative or duplicate ordinals.
+func orderedBatchItems(items []BatchTranslationItem) ([]BatchTranslationItem, error) {
+	ordered := append([]BatchTranslationItem(nil), items...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Ordinal < ordered[j].Ordinal })
+	for i, item := range ordered {
+		if item.Ordinal < 0 || (i > 0 && item.Ordinal == ordered[i-1].Ordinal) {
+			return nil, providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, nil)
+		}
+	}
+	return ordered, nil
+}
+
+// batchRequestLine is one Batch API request envelope.
+type batchRequestLine struct {
+	CustomID string          `json:"custom_id"`
+	Method   string          `json:"method"`
+	URL      string          `json:"url"`
+	Body     json.RawMessage `json:"body"`
+}
+
+// writeBatchJSONLLine encodes one request line under its correlation key.
+func (c *TranslationCodec) writeBatchJSONLLine(encoder *json.Encoder, runID string, generation int, item BatchTranslationItem) error {
+	customID, err := BatchCustomID(runID, item.Ordinal, generation)
+	if err != nil {
+		return providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, err)
+	}
+	body, err := c.encodeRequest(item.Request, customID)
+	if err != nil {
+		return providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, err)
+	}
+	line := batchRequestLine{customID, "POST", OpenAIChatCompletionsEndpoint, body}
+	if err := encoder.Encode(line); err != nil {
+		return providerError("encode Batch JSONL", ProviderErrorTransport, 0, err)
+	}
+	return nil
 }
 
 // DecodeBatchResults correlates unordered output and error JSONL by custom ID.
@@ -176,15 +197,9 @@ func (c *TranslationCodec) decodeBatchResults(runID string, generation int, item
 	if err != nil || generation < 1 {
 		return nil, nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, err)
 	}
-	expected := make(map[int]TranslationRequest, len(items))
-	for _, item := range items {
-		if item.Ordinal < 0 {
-			return nil, nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
-		}
-		if _, duplicate := expected[item.Ordinal]; duplicate {
-			return nil, nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
-		}
-		expected[item.Ordinal] = item.Request
+	expected, err := expectedBatchRequests(items)
+	if err != nil {
+		return nil, nil, err
 	}
 	outcomes := make(map[int]BatchTranslationOutcome, len(items))
 	for _, source := range []io.Reader{output, errorOutput} {
@@ -195,6 +210,28 @@ func (c *TranslationCodec) decodeBatchResults(runID string, generation int, item
 			return nil, nil, err
 		}
 	}
+	return outcomes, missingBatchOrdinals(expected, outcomes), nil
+}
+
+// expectedBatchRequests indexes the manifest by ordinal and rejects negative or
+// duplicate ordinals before any provider line is trusted.
+func expectedBatchRequests(items []BatchTranslationItem) (map[int]TranslationRequest, error) {
+	expected := make(map[int]TranslationRequest, len(items))
+	for _, item := range items {
+		if item.Ordinal < 0 {
+			return nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
+		}
+		if _, duplicate := expected[item.Ordinal]; duplicate {
+			return nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
+		}
+		expected[item.Ordinal] = item.Request
+	}
+	return expected, nil
+}
+
+// missingBatchOrdinals returns the sorted manifest ordinals absent from both
+// provider files.
+func missingBatchOrdinals(expected map[int]TranslationRequest, outcomes map[int]BatchTranslationOutcome) []int {
 	missing := make([]int, 0, len(expected)-len(outcomes))
 	for ordinal := range expected {
 		if _, found := outcomes[ordinal]; !found {
@@ -202,45 +239,53 @@ func (c *TranslationCodec) decodeBatchResults(runID string, generation int, item
 		}
 	}
 	sort.Ints(missing)
-	return outcomes, missing, nil
+	return missing
 }
 
 func (c *TranslationCodec) decodeBatchResultReader(source io.Reader, runID string, generation int, expected map[int]TranslationRequest, outcomes map[int]BatchTranslationOutcome) error {
 	scanner := bufio.NewScanner(source)
 	scanner.Buffer(make([]byte, 64<<10), maxBatchResultLineBytes)
 	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(bytes.TrimSpace(line)) == 0 {
-			return batchResultError(BatchResultMalformed, nil)
-		}
-		var wire batchResultWire
-		decoder := json.NewDecoder(bytes.NewReader(line))
-		if err := decoder.Decode(&wire); err != nil {
-			return batchResultError(BatchResultMalformed, err)
-		}
-		if err := decoder.Decode(&struct{}{}); err != io.EOF {
-			return batchResultError(BatchResultMalformed, nil)
-		}
-		identity, err := ParseBatchCustomID(wire.CustomID)
-		if err != nil || identity.RunID != runID || identity.Generation != generation {
-			return batchResultError(BatchResultUnknown, err)
-		}
-		request, known := expected[identity.Ordinal]
-		if !known {
-			return batchResultError(BatchResultUnknown, nil)
-		}
-		if _, duplicate := outcomes[identity.Ordinal]; duplicate {
-			return batchResultError(BatchResultDuplicate, nil)
-		}
-		outcome, err := c.decodeBatchResultLine(wire, identity.Ordinal, request)
-		if err != nil {
+		if err := c.recordBatchResultLine(scanner.Bytes(), runID, generation, expected, outcomes); err != nil {
 			return err
 		}
-		outcomes[identity.Ordinal] = outcome
 	}
 	if err := scanner.Err(); err != nil {
 		return batchResultError(BatchResultMalformed, err)
 	}
+	return nil
+}
+
+// recordBatchResultLine validates one provider line and records its outcome.
+// Blank, malformed, unknown, and duplicate lines fail the whole decode.
+func (c *TranslationCodec) recordBatchResultLine(line []byte, runID string, generation int, expected map[int]TranslationRequest, outcomes map[int]BatchTranslationOutcome) error {
+	if len(bytes.TrimSpace(line)) == 0 {
+		return batchResultError(BatchResultMalformed, nil)
+	}
+	var wire batchResultWire
+	decoder := json.NewDecoder(bytes.NewReader(line))
+	if err := decoder.Decode(&wire); err != nil {
+		return batchResultError(BatchResultMalformed, err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return batchResultError(BatchResultMalformed, nil)
+	}
+	identity, err := ParseBatchCustomID(wire.CustomID)
+	if err != nil || identity.RunID != runID || identity.Generation != generation {
+		return batchResultError(BatchResultUnknown, err)
+	}
+	request, known := expected[identity.Ordinal]
+	if !known {
+		return batchResultError(BatchResultUnknown, nil)
+	}
+	if _, duplicate := outcomes[identity.Ordinal]; duplicate {
+		return batchResultError(BatchResultDuplicate, nil)
+	}
+	outcome, err := c.decodeBatchResultLine(wire, identity.Ordinal, request)
+	if err != nil {
+		return err
+	}
+	outcomes[identity.Ordinal] = outcome
 	return nil
 }
 

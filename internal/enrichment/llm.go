@@ -47,46 +47,83 @@ func LLMConfigFromEnv() (LLMConfig, error) {
 		Timeout:         defaultLLMTimeout,
 		ReasoningEffort: defaultReasoningEffort,
 	}
-	if value := strings.TrimSpace(os.Getenv("MOUSEION_LLM_ENABLED")); value != "" {
-		enabled, err := strconv.ParseBool(value)
-		if err != nil {
-			return LLMConfig{}, fmt.Errorf("MOUSEION_LLM_ENABLED must be a boolean: %w", err)
-		}
-		cfg.Enabled = enabled
+	if err := parseLLMBoolEnv("MOUSEION_LLM_ENABLED", &cfg.Enabled); err != nil {
+		return LLMConfig{}, err
 	}
-	if value := strings.TrimSpace(os.Getenv("MOUSEION_LLM_TIMEOUT")); value != "" {
-		timeout, err := time.ParseDuration(value)
-		if err != nil || timeout <= 0 {
-			return LLMConfig{}, fmt.Errorf("MOUSEION_LLM_TIMEOUT must be a positive Go duration: %q", value)
-		}
-		cfg.Timeout = timeout
+	if err := parseLLMTimeoutEnv(&cfg.Timeout); err != nil {
+		return LLMConfig{}, err
 	}
-	if value := strings.TrimSpace(os.Getenv(llmReasoningEffortEnv)); value != "" {
-		reasoningEffort, err := parseReasoningEffort(value)
-		if err != nil {
-			return LLMConfig{}, fmt.Errorf("%s %w", llmReasoningEffortEnv, err)
-		}
-		cfg.ReasoningEffort = reasoningEffort
+	if err := parseLLMReasoningEffortEnv(&cfg.ReasoningEffort); err != nil {
+		return LLMConfig{}, err
 	}
-	if value := strings.TrimSpace(os.Getenv(llmReasoningSupportEnv)); value != "" {
-		supports, err := strconv.ParseBool(value)
-		if err != nil {
-			return LLMConfig{}, fmt.Errorf("%s must be a boolean: %w", llmReasoningSupportEnv, err)
-		}
-		cfg.SupportsReasoningEffort = supports
+	if err := parseLLMBoolEnv(llmReasoningSupportEnv, &cfg.SupportsReasoningEffort); err != nil {
+		return LLMConfig{}, err
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = defaultLLMBaseURL
 	}
-	if cfg.Enabled {
-		if cfg.APIKey == "" {
-			return LLMConfig{}, errors.New("MOUSEION_LLM_API_KEY is required when MOUSEION_LLM_ENABLED is true")
-		}
-		if cfg.Model == "" {
-			return LLMConfig{}, errors.New("MOUSEION_LLM_MODEL is required when MOUSEION_LLM_ENABLED is true")
-		}
+	if err := cfg.validateEnabled(); err != nil {
+		return LLMConfig{}, err
 	}
 	return cfg, nil
+}
+
+// parseLLMBoolEnv parses one optional boolean variable into dst. An unset or
+// blank value leaves dst unchanged.
+func parseLLMBoolEnv(name string, dst *bool) error {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return nil
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fmt.Errorf("%s must be a boolean: %w", name, err)
+	}
+	*dst = parsed
+	return nil
+}
+
+// parseLLMTimeoutEnv parses the optional positive provider timeout into dst.
+func parseLLMTimeoutEnv(dst *time.Duration) error {
+	value := strings.TrimSpace(os.Getenv("MOUSEION_LLM_TIMEOUT"))
+	if value == "" {
+		return nil
+	}
+	timeout, err := time.ParseDuration(value)
+	if err != nil || timeout <= 0 {
+		return fmt.Errorf("MOUSEION_LLM_TIMEOUT must be a positive Go duration: %q", value)
+	}
+	*dst = timeout
+	return nil
+}
+
+// parseLLMReasoningEffortEnv parses the optional reasoning-effort selector.
+func parseLLMReasoningEffortEnv(dst *string) error {
+	value := strings.TrimSpace(os.Getenv(llmReasoningEffortEnv))
+	if value == "" {
+		return nil
+	}
+	reasoningEffort, err := parseReasoningEffort(value)
+	if err != nil {
+		return fmt.Errorf("%s %w", llmReasoningEffortEnv, err)
+	}
+	*dst = reasoningEffort
+	return nil
+}
+
+// validateEnabled requires the credentials an enabled provider needs before it
+// can reach the network.
+func (cfg LLMConfig) validateEnabled() error {
+	if !cfg.Enabled {
+		return nil
+	}
+	if cfg.APIKey == "" {
+		return errors.New("MOUSEION_LLM_API_KEY is required when MOUSEION_LLM_ENABLED is true")
+	}
+	if cfg.Model == "" {
+		return errors.New("MOUSEION_LLM_MODEL is required when MOUSEION_LLM_ENABLED is true")
+	}
+	return nil
 }
 
 // NewConfiguredLLMProvider returns a DisabledTranslationProvider when the

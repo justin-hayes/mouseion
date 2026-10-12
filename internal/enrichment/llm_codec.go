@@ -17,7 +17,10 @@ var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target 
 
 var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only exact evidence_id values from candidate_senses that support the gloss. If no defensible contextual meaning can be given, return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
-const maxTranslationResponseBytes = 1 << 20
+const (
+	maxTranslationResponseBytes = 1 << 20
+	maxUnresolvedReasonRunes    = 200
+)
 
 // ErrInvalidTranslationResponse marks a provider response that failed the
 // strict translation schema, identity, or language validation. Callers may
@@ -435,12 +438,41 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 // bounded gloss and reason, evidence IDs drawn from the frozen candidates, and
 // a consistent resolved-or-unresolved outcome.
 func validateContextualMeaning(input TranslationRequest, response TranslationResponse) error {
-	if len([]rune(response.Gloss)) > MaxFallbackGlossRunes || hasMarkup(response.Gloss) {
+	if err := validateContextualGloss(response.Gloss); err != nil {
+		return err
+	}
+	if err := validateContextualUnresolvedReason(response.UnresolvedReason); err != nil {
+		return err
+	}
+	if err := validateContextualEvidence(input, response); err != nil {
+		return err
+	}
+	if err := validateContextualEvidenceAgreement(response); err != nil {
+		return err
+	}
+	return validateContextualOutcome(response)
+}
+
+// validateContextualGloss caps the free-text gloss and rejects markup.
+func validateContextualGloss(gloss string) error {
+	if len([]rune(gloss)) > MaxFallbackGlossRunes || hasMarkup(gloss) {
 		return errors.New("decode LLM translation: invalid contextual gloss")
 	}
-	if len([]rune(response.UnresolvedReason)) > 200 || hasMarkup(response.UnresolvedReason) {
+	return nil
+}
+
+// validateContextualUnresolvedReason caps the free-text unresolved reason and
+// rejects markup.
+func validateContextualUnresolvedReason(reason string) error {
+	if len([]rune(reason)) > maxUnresolvedReasonRunes || hasMarkup(reason) {
 		return errors.New("decode LLM translation: invalid unresolved reason")
 	}
+	return nil
+}
+
+// validateContextualEvidence requires every evidence ID to be named, known, and
+// unique.
+func validateContextualEvidence(input TranslationRequest, response TranslationResponse) error {
 	knownEvidence := make(map[string]struct{}, len(input.CandidateSenses))
 	for _, sense := range input.CandidateSenses {
 		if sense.EvidenceID != "" {
@@ -449,25 +481,48 @@ func validateContextualMeaning(input TranslationRequest, response TranslationRes
 	}
 	seenEvidence := make(map[string]struct{}, len(response.EvidenceIDs))
 	for _, id := range response.EvidenceIDs {
-		if id == "" {
-			return errors.New("decode LLM translation: empty evidence ID")
+		if err := validateEvidenceID(id, knownEvidence, seenEvidence); err != nil {
+			return err
 		}
-		if _, ok := knownEvidence[id]; !ok {
-			return errors.New("decode LLM translation: unknown evidence ID")
-		}
-		if _, duplicate := seenEvidence[id]; duplicate {
-			return errors.New("decode LLM translation: duplicate evidence ID")
-		}
-		seenEvidence[id] = struct{}{}
 	}
+	return nil
+}
+
+// validateContextualEvidenceAgreement requires context_only to agree with the
+// evidence list.
+func validateContextualEvidenceAgreement(response TranslationResponse) error {
 	if response.ContextOnly != (len(response.EvidenceIDs) == 0) {
 		return errors.New("decode LLM translation: context_only contradicts evidence IDs")
 	}
+	return nil
+}
+
+// validateEvidenceID rejects an evidence ID that is blank, unknown, or already
+// seen in this response.
+func validateEvidenceID(id string, knownEvidence, seenEvidence map[string]struct{}) error {
+	if id == "" {
+		return errors.New("decode LLM translation: empty evidence ID")
+	}
+	if _, ok := knownEvidence[id]; !ok {
+		return errors.New("decode LLM translation: unknown evidence ID")
+	}
+	if _, duplicate := seenEvidence[id]; duplicate {
+		return errors.New("decode LLM translation: duplicate evidence ID")
+	}
+	seenEvidence[id] = struct{}{}
+	return nil
+}
+
+// validateContextualOutcome requires either a resolved gloss or a complete
+// unresolved meaning, and never both.
+func validateContextualOutcome(response TranslationResponse) error {
 	if response.Gloss == "" {
 		if !response.ContextOnly || len(response.EvidenceIDs) != 0 || response.UnresolvedReason == "" {
 			return errors.New("decode LLM translation: unresolved meaning is incomplete")
 		}
-	} else if response.UnresolvedReason != "" {
+		return nil
+	}
+	if response.UnresolvedReason != "" {
 		return errors.New("decode LLM translation: resolved meaning includes unresolved reason")
 	}
 	return nil

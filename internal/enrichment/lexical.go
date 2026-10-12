@@ -65,6 +65,7 @@ const (
 	MaxFallbackGlossRunes     = 200
 	glossSeparator            = " · "
 	minimumContextScore       = 2
+	phraseContextMatchScore   = 100
 )
 
 // ValidateSenseSelection validates ordered sense indices against the frozen
@@ -92,46 +93,83 @@ func OrderSenses(request LexicalLookupRequest, senses []LexicalSense) []LexicalS
 		return ordered
 	}
 	contextWords := sentenceContext(request)
-	type scoredSense struct {
-		sense LexicalSense
-		score int
+	scored := scoreSenses(request, ordered, contextWords)
+	if maxSenseScore(scored) >= minimumContextScore {
+		orderSensesByScore(scored)
 	}
-	scored := make([]scoredSense, len(ordered))
-	for i, sense := range ordered {
-		score := 0
-		for word := range senseWords(sense) {
-			if contextWords[word] {
-				score++
-			}
-		}
-		if phrase := sensePhrase(sense.Phrase); len(phrase) > 0 && containsPhrase(request.RepresentativeSentence, phrase) {
-			score += 100
-		}
-		scored[i] = scoredSense{sense: sense, score: score}
+	for i, item := range scored {
+		ordered[i] = item.sense
 	}
+	return ordered
+}
+
+// scoredSense pairs an ordered sense with its context score.
+type scoredSense struct {
+	sense LexicalSense
+	score int
+}
+
+// scoreSenses names the ordering keys for every sense before any reordering.
+func scoreSenses(request LexicalLookupRequest, senses []LexicalSense, contextWords map[string]bool) []scoredSense {
+	scored := make([]scoredSense, len(senses))
+	for i, sense := range senses {
+		scored[i] = scoredSense{sense: sense, score: senseScore(request, sense, contextWords)}
+	}
+	return scored
+}
+
+// senseScore combines the two ordering keys: distinct sentence words shared
+// with the sense, weighted one each, and a fixed-phrase match that dominates
+// word overlap.
+func senseScore(request LexicalLookupRequest, sense LexicalSense, contextWords map[string]bool) int {
+	return senseContextScore(sense, contextWords) + sensePhraseScore(request, sense)
+}
+
+// senseContextScore counts distinct sentence words that also appear in the
+// sense gloss, examples, topics, tags, or phrase.
+func senseContextScore(sense LexicalSense, contextWords map[string]bool) int {
+	score := 0
+	for word := range senseWords(sense) {
+		if contextWords[word] {
+			score++
+		}
+	}
+	return score
+}
+
+// sensePhraseScore rewards an exact phrase match in the representative
+// sentence with phraseContextMatchScore.
+func sensePhraseScore(request LexicalLookupRequest, sense LexicalSense) int {
+	phrase := sensePhrase(sense.Phrase)
+	if len(phrase) > 0 && containsPhrase(request.RepresentativeSentence, phrase) {
+		return phraseContextMatchScore
+	}
+	return 0
+}
+
+func maxSenseScore(scored []scoredSense) int {
 	maxScore := scored[0].score
 	for _, item := range scored[1:] {
 		if item.score > maxScore {
 			maxScore = item.score
 		}
 	}
-	// Stable insertion order is intentional. In particular, a low-signal
-	// sentence must not displace the dictionary's primary sense.
-	if maxScore >= minimumContextScore {
-		for i := 1; i < len(scored); i++ {
-			item := scored[i]
-			j := i
-			for j > 0 && scored[j-1].score < item.score {
-				scored[j] = scored[j-1]
-				j--
-			}
-			scored[j] = item
+	return maxScore
+}
+
+// orderSensesByScore sorts by descending score with a stable insertion order.
+// Stable order is intentional. In particular, a low-signal sentence must not
+// displace the dictionary's primary sense.
+func orderSensesByScore(scored []scoredSense) {
+	for i := 1; i < len(scored); i++ {
+		item := scored[i]
+		j := i
+		for j > 0 && scored[j-1].score < item.score {
+			scored[j] = scored[j-1]
+			j--
 		}
+		scored[j] = item
 	}
-	for i, item := range scored {
-		ordered[i] = item.sense
-	}
-	return ordered
 }
 
 // RenderGloss renders the compact, stable field used on the card back.
