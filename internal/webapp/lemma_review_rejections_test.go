@@ -1,8 +1,11 @@
 package webapp
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -36,4 +39,30 @@ func TestEveryLemmaReviewRejectionHasLearnerMapping(t *testing.T) {
 		assert.Less(t, rejection.status, http.StatusInternalServerError, "%v is a client rejection", sentinel)
 	}
 	assert.Len(t, lemmaReviewRejections, len(sentinels), "each mapping must correspond to one domain sentinel")
+}
+
+func TestWriteLemmaReviewErrorAnswersRejectionsWithLearnerCopy(t *testing.T) {
+	response := httptest.NewRecorder()
+	writeLemmaReviewError(response, fmt.Errorf("wrapped: %w", domain.ErrLemmaReviewStale))
+	assert.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "Learner vocabulary state or this proposal changed after preview.")
+}
+
+func TestWriteLemmaReviewErrorTreatsOtherFailuresAsInfrastructure(t *testing.T) {
+	response := httptest.NewRecorder()
+	writeLemmaReviewError(response, errors.New("database unavailable"))
+	assert.Equal(t, http.StatusInternalServerError, response.Code, "unmapped errors take the generic failure path")
+}
+
+func TestLemmaSuggestionForMissingOccurrenceIsConflict(t *testing.T) {
+	h, cookies, csrf, store := readingFixtureSession(t)
+	endGermanFixtureReading(t, store)
+	webHandler, ok := h.(*Handler)
+	require.True(t, ok)
+	webHandler.services.LemmaReview = lemmaReviewWithSuggestions(webHandler, &lemmaSuggestionFixture{})
+	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
+		"csrf_token": {csrf}, "form": {"Weg"}, "target": {"no-such-occurrence"},
+	}, cookies)
+	require.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "That occurrence is no longer available in this analysis.")
 }
