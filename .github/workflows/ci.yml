@@ -240,10 +240,12 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # Every package with integration tests runs; each test gets its own
-      # database cloned from a migrated template, so packages run in parallel.
+      # Every package with integration tests runs under the race detector,
+      # through the same Makefile switch developers use locally
+      # (doc/development.md); each test gets its own database cloned from a
+      # migrated template, so packages run in parallel.
       - name: Go integration test
-        run: make test-integration
+        run: make test-integration RACE=1
 
   govulncheck:
     name: Go vulnerability check
