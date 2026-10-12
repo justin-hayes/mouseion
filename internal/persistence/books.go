@@ -847,40 +847,62 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,466))`, owner+":"+sourceIdentifier); err != nil {
 		return "", err
 	}
+	bookID := requestedBookID
 	if requestedBookID != "" {
-		if err := ensureBookExists(ctx, tx, owner, requestedBookID); err != nil {
+		if err := confirmAcquisitionBook(ctx, tx, q, owner, requestedBookID, sourceIdentifier); err != nil {
 			return "", err
 		}
-		linkedBook, getErr := q.GetSourceMaterialBookByIdentifierForUpdate(ctx, sqlcgen.GetSourceMaterialBookByIdentifierForUpdateParams{OwnerID: owner, SourceIdentifier: sourceIdentifier})
-		err = getErr
-		if errors.Is(err, pgx.ErrNoRows) {
-			linkedBook = ""
-		} else if err != nil {
+	} else {
+		bookID, err = matchAcquisitionBook(ctx, tx, q, owner, sourceIdentifier)
+		if err != nil {
 			return "", err
 		}
-		if linkedBook != "" && linkedBook != requestedBookID {
-			return "", ErrSourceBookConflict
+		if bookID == "" {
+			bookID, err = createAcquisitionBook(ctx, tx, q, owner, language, title)
+			if err != nil {
+				return "", err
+			}
 		}
-		aliasedBook, getErr := q.GetUnscopedAliasBookForUpdate(ctx, sqlcgen.GetUnscopedAliasBookForUpdateParams{OwnerID: owner, Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
-		err = getErr
-		if errors.Is(err, pgx.ErrNoRows) {
-			aliasedBook = ""
-		} else if err != nil {
-			return "", err
-		}
-		if aliasedBook != "" && aliasedBook != requestedBookID {
-			return "", ErrAliasConflict
-		}
-		if err := activateMembership(ctx, tx, owner, requestedBookID); err != nil {
-			return "", err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return "", err
-		}
-		return requestedBookID, nil
 	}
-	linkedBook, getErr := q.GetSourceMaterialBookByIdentifierForUpdate(ctx, sqlcgen.GetSourceMaterialBookByIdentifierForUpdateParams{OwnerID: owner, SourceIdentifier: sourceIdentifier})
-	err = getErr
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return bookID, nil
+}
+
+// confirmAcquisitionBook validates an explicitly selected Book against the
+// source identifier's linked material and connectionless alias, activating its
+// membership when both agree. A disagreement is a conflict.
+func confirmAcquisitionBook(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, requestedBookID, sourceIdentifier string) error {
+	if err := ensureBookExists(ctx, tx, owner, requestedBookID); err != nil {
+		return err
+	}
+	linkedBook, err := q.GetSourceMaterialBookByIdentifierForUpdate(ctx, sqlcgen.GetSourceMaterialBookByIdentifierForUpdateParams{OwnerID: owner, SourceIdentifier: sourceIdentifier})
+	if errors.Is(err, pgx.ErrNoRows) {
+		linkedBook = ""
+	} else if err != nil {
+		return err
+	}
+	if linkedBook != "" && linkedBook != requestedBookID {
+		return ErrSourceBookConflict
+	}
+	aliasedBook, err := q.GetUnscopedAliasBookForUpdate(ctx, sqlcgen.GetUnscopedAliasBookForUpdateParams{OwnerID: owner, Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
+	if errors.Is(err, pgx.ErrNoRows) {
+		aliasedBook = ""
+	} else if err != nil {
+		return err
+	}
+	if aliasedBook != "" && aliasedBook != requestedBookID {
+		return ErrAliasConflict
+	}
+	return activateMembership(ctx, tx, owner, requestedBookID)
+}
+
+// matchAcquisitionBook returns the Book already linked to or connectionless-
+// aliased by the source identifier, activating its membership. It returns ""
+// when no Book matches and the caller must create one.
+func matchAcquisitionBook(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, sourceIdentifier string) (string, error) {
+	linkedBook, err := q.GetSourceMaterialBookByIdentifierForUpdate(ctx, sqlcgen.GetSourceMaterialBookByIdentifierForUpdateParams{OwnerID: owner, SourceIdentifier: sourceIdentifier})
 	if errors.Is(err, pgx.ErrNoRows) {
 		linkedBook = ""
 	} else if err != nil {
@@ -893,32 +915,24 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		if err := activateMembership(ctx, tx, owner, linkedBook); err != nil {
 			return "", err
 		}
-		if err := tx.Commit(ctx); err != nil {
-			return "", err
-		}
 		return linkedBook, nil
 	}
-
-	var bookID string
-	bookRow, getErr := q.GetBookByUnscopedAliasForUpdate(ctx, sqlcgen.GetBookByUnscopedAliasForUpdateParams{OwnerID: owner, Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
-	err = getErr
+	bookRow, err := q.GetBookByUnscopedAliasForUpdate(ctx, sqlcgen.GetBookByUnscopedAliasForUpdateParams{OwnerID: owner, Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
 	if errors.Is(err, pgx.ErrNoRows) {
-		bookID = ""
-	} else if err != nil {
+		return "", nil
+	}
+	if err != nil {
 		return "", err
-	} else {
-		bookID = bookRow.BID
 	}
-	if bookID != "" {
-		if err := activateMembership(ctx, tx, owner, bookID); err != nil {
-			return "", err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return "", err
-		}
-		return bookID, nil
+	if err := activateMembership(ctx, tx, owner, bookRow.BID); err != nil {
+		return "", err
 	}
+	return bookRow.BID, nil
+}
 
+// createAcquisitionBook creates a new acquisition-provenance Book, activates
+// its membership, and places it in the Inbox.
+func createAcquisitionBook(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, title string) (string, error) {
 	createdRow, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, Author: "", MetadataProvenance: domain.MetadataProvenanceAcquisition, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
 	if err != nil {
 		return "", err
@@ -927,9 +941,6 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		return "", err
 	}
 	if err := q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: createdRow.ID}); err != nil {
-		return "", err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return "", err
 	}
 	return createdRow.ID, nil

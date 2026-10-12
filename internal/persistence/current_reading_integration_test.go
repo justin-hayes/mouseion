@@ -544,6 +544,27 @@ func TestEndCurrentReadingRequiresExactCommitmentAndVerifiesReplays(t *testing.T
 	assert.Equal(t, switched.SnapshotID, current.SnapshotID)
 }
 
+func TestFinishCurrentReadingRejectsMalformedCommitment(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "finish-malformed-commitment", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "finish-malformed")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de", "not-a-uuid", reading.SnapshotID)
+	require.ErrorIs(t, err, ErrCurrentReadingStale, "malformed Book identity is stale")
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, "not-a-uuid")
+	require.ErrorIs(t, err, ErrCurrentReadingStale, "malformed snapshot identity is stale")
+	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, reading.SnapshotID, current.SnapshotID, "rejected finish leaves the reading active")
+}
+
 func TestCurrentReadingStartAndSwitchRejectEachIneligibilityReason(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
