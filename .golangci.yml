@@ -69,9 +69,8 @@ linters:
     - unqueryvet # SELECT * in SQL strings
     - iotamixing # iota mixed with explicit values in one const block
     - tparallel # inconsistent t.Parallel use in tests and subtests
-    # Layering (#1974). Production code must not reach into test
-    # infrastructure or the fixtures store; both are gated below in settings,
-    # with deny messages that cite ADR 0091.
+    # Layering (#1974, #1975). ADR 0091's package groups are gated below in
+    # settings, with deny messages that cite the ADR section at stake.
     - depguard
 
   # Evaluated and rejected; do not re-add without revisiting the reason here:
@@ -81,11 +80,72 @@ linters:
   # - dupword: false positives on German test data.
 
   settings:
-    # ADR 0091 §§4–5. Rules are keyed by file glob and only ever deny, so a
-    # new import outside these groups is unaffected. Each deny cites the ADR,
-    # so the fix is a design change or an ADR amendment, never a suppression.
+    # ADR 0091. Rules are keyed by file glob; each deny cites the ADR section
+    # at stake, so the fix is a design change or an ADR amendment, never a
+    # suppression. The ADR lists no temporary exceptions, so none appear here.
     depguard:
       rules:
+        # §1: the domain imports the standard library and canonicalization
+        # only. The list is strict, so an import the deny list does not name
+        # still fails; the deny entries add the ADR citation and the category.
+        domain:
+          list-mode: strict
+          files:
+            - "**/internal/domain/**"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/justin-hayes/mouseion/internal/canonicalization
+          deny:
+            # `github.com/justin-hayes/mouseion` covers every other internal
+            # package; the longer allow prefix above keeps canonicalization.
+            - pkg: github.com/justin-hayes/mouseion
+              desc: "ADR 0091 §1: the domain may import only the standard library and internal/canonicalization"
+            - pkg: github.com/jackc/pgx
+              desc: "ADR 0091 §1: the domain may import only the standard library and internal/canonicalization"
+            - pkg: github.com/riverqueue/river
+              desc: "ADR 0091 §1: the domain may import only the standard library and internal/canonicalization"
+            - pkg: google.golang.org
+              desc: "ADR 0091 §1: the domain may import only the standard library and internal/canonicalization"
+        # §1: domain test files may also import testify.
+        domain-tests:
+          list-mode: strict
+          files:
+            - "**/internal/domain/*_test.go"
+          allow:
+            - $gostd
+            - github.com/justin-hayes/mouseion/internal/canonicalization
+            - github.com/stretchr/testify
+        # §2: generated sqlc code is imported only by persistence, in test
+        # files too.
+        sqlc:
+          list-mode: lax
+          files:
+            - "!**/gen/sqlc/**"
+            - "!**/internal/persistence/**"
+          deny:
+            - pkg: github.com/justin-hayes/mouseion/gen/sqlc
+              desc: "ADR 0091 §2: generated sqlc code may be imported only by internal/persistence"
+        # §3: pgx is confined to the packages that own a connection or a
+        # transaction. Test files in any package may import it, so the files
+        # glob excludes `$test`. Paths named here also appear in the ADR §3
+        # table; the two lists must change together.
+        pgx:
+          list-mode: lax
+          files:
+            - "!$test"
+            - "!**/internal/persistence/**"
+            - "!**/gen/sqlc/**"
+            - "!**/internal/txcleanup/**"
+            - "!**/cmd/server/**"
+            - "!**/internal/analysis/**"
+            - "!**/internal/cataloguesync/**"
+            - "!**/internal/knownvocab/**"
+            - "!**/internal/prepareddeck/**"
+            - "!**/internal/testutil/**"
+          deny:
+            - pkg: github.com/jackc/pgx
+              desc: "ADR 0091 §3: pgx may be imported only by internal/persistence, gen/sqlc, internal/txcleanup, cmd/server, internal/analysis, internal/cataloguesync, internal/knownvocab, internal/prepareddeck and internal/testutil"
         # §5: test-infrastructure packages are for test files only. Files
         # inside the packages themselves are excluded so they may share code
         # with one another; those four paths appear again in the deny list
@@ -117,6 +177,22 @@ linters:
           deny:
             - pkg: github.com/justin-hayes/mouseion/internal/fixtures
               desc: "ADR 0091 §4: the fixtures store may be imported only by cmd/fixtureserver and test files"
+        # §4: the fixtures store is a second adapter behind the same interfaces,
+        # not a PostgreSQL client, so it may not reach into persistence. Its
+        # gen/sqlc and pgx bans follow from the §2 and §3 rules above.
+        fixtures-no-persistence:
+          list-mode: lax
+          files:
+            - "**/internal/fixtures/**"
+          deny:
+            - pkg: github.com/justin-hayes/mouseion/internal/persistence
+              desc: "ADR 0091 §4: internal/fixtures may not import internal/persistence"
+        # §6: the web app needs no rule of its own. Its deny list is exactly
+        # the union enforced above — pgx (§3), gen/sqlc (§2), internal/fixtures
+        # (§4) and test infrastructure (§5) — so those rules already fire on a
+        # web app file. The ADR's "errors and value types only" limit on the
+        # web app's persistence import, and its ban on constructing a
+        # PostgreSQL store in the fixture server, are checked in review.
     gocognit:
       # Matches SonarQube Cloud's go:S3776 default of 15, so the local gate
       # and Sonar agree; no further ratchet step follows.
