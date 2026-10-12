@@ -33,14 +33,14 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 		`id="library-results"`, `data-focus-id="library-results"`, `aria-label="My Books results"`, `Page 2 of 2`, `href="/library?needs-language"`,
 		`href="/library"`, `href="/library?page=2"`,
 	} {
-		assert.True(t, strings.Contains(html, want), "browse markup missing %q: %s", want, html)
+		assert.Contains(t, html, want, "browse markup missing %q: %s", want, html)
 	}
-	assert.False(t, strings.Contains(html, `href="/books/de-book"`), "My Books browse linked to the retired Book detail page: %s", html)
+	assert.NotContains(t, html, `href="/books/de-book"`, "My Books browse linked to the retired Book detail page: %s", html)
 	for _, forbidden := range []string{"All languages", "Unknown language", `aria-label="Languages"`, `name="language"`, `language: de`, "language not chosen", `href="/books/unknown-book"`} {
-		assert.False(t, strings.Contains(html, forbidden), "legacy language browse markup remains %q: %s", forbidden, html)
+		assert.NotContains(t, html, forbidden, "legacy language browse markup remains %q: %s", forbidden, html)
 	}
-	assert.True(t, strings.Contains(html, `hx-push-url="true"`), "browse controls are missing HTMX URL enhancement: %s", html)
-	assert.True(t, strings.Contains(html, `hx-target="#library-results"`), "browse controls are missing HTMX URL enhancement: %s", html)
+	assert.Contains(t, html, `hx-push-url="true"`, "browse controls are missing HTMX URL enhancement: %s", html)
+	assert.Contains(t, html, `hx-target="#library-results"`, "browse controls are missing HTMX URL enhancement: %s", html)
 }
 
 func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
@@ -58,7 +58,7 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 			require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, tc.state).Render(context.Background(), &output))
 			html := output.String()
 			for _, want := range tc.wants {
-				assert.True(t, strings.Contains(html, want), "no-match markup missing %q: %s", want, html)
+				assert.Contains(t, html, want, "no-match markup missing %q: %s", want, html)
 			}
 			assert.Equal(t, 1, strings.Count(html, `role="status"`), "no-match state should have one scoped live region: %s", html)
 		})
@@ -249,8 +249,8 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	partialVary := strings.Join(htmxResponse.Header().Values("Vary"), ",")
 	assert.Contains(t, partialVary, "HX-Request-Type")
 	assert.Contains(t, partialVary, "Accept-Encoding")
-	assert.True(t, strings.Contains(htmxResponse.Body.String(), `<section id="library-results"`), "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
-	assert.False(t, strings.Contains(htmxResponse.Body.String(), "<!doctype html>"), "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
+	assert.Contains(t, htmxResponse.Body.String(), `<section id="library-results"`, "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
+	assert.NotContains(t, htmxResponse.Body.String(), "<!doctype html>", "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
 	store.result.Total = 0
 	store.result.ScopeTotal = 26
 	response = request("/library?page=3")
@@ -267,11 +267,11 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	response = request("/library?needs-language")
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, domain.LanguageUnknown, store.language)
-	assert.True(t, strings.Contains(response.Body.String(), "Books awaiting a language"), "needs-language browse body=%s", response.Body.String())
-	assert.True(t, strings.Contains(response.Body.String(), "Unknown Book"), "needs-language browse body=%s", response.Body.String())
-	assert.False(t, strings.Contains(response.Body.String(), `href="/books/unknown-book"`), "needs-language browse exposed mutation actions: %s", response.Body.String())
-	assert.False(t, strings.Contains(response.Body.String(), "Move to To Read"), "needs-language browse exposed mutation actions: %s", response.Body.String())
-	assert.False(t, strings.Contains(response.Body.String(), "Remove from My Books"), "needs-language browse exposed mutation actions: %s", response.Body.String())
+	assert.Contains(t, response.Body.String(), "Books awaiting a language", "needs-language browse body=%s", response.Body.String())
+	assert.Contains(t, response.Body.String(), "Unknown Book", "needs-language browse body=%s", response.Body.String())
+	assert.NotContains(t, response.Body.String(), `href="/books/unknown-book"`, "needs-language browse exposed mutation actions: %s", response.Body.String())
+	assert.NotContains(t, response.Body.String(), "Move to To Read", "needs-language browse exposed mutation actions: %s", response.Body.String())
+	assert.NotContains(t, response.Body.String(), "Remove from My Books", "needs-language browse exposed mutation actions: %s", response.Body.String())
 	// The retired Set Aside filter is an unknown disposition: it is ignored like
 	// any other unknown value, so the page shows every disposition.
 	response = request("/library?disposition=set_aside")
@@ -306,13 +306,13 @@ func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.
 	html := response.Body.String()
 	eligibleStart := strings.Index(html, `id="book-row-fixture-metadata-only"`)
 	ineligibleStart := strings.Index(html, `id="book-row-no-alias"`)
-	require.True(t, eligibleStart >= 0, "metadata-only rows missing: %s", html)
-	require.True(t, ineligibleStart >= 0, "metadata-only rows missing: %s", html)
+	require.GreaterOrEqual(t, eligibleStart, 0, "metadata-only rows missing: %s", html)
+	require.GreaterOrEqual(t, ineligibleStart, 0, "metadata-only rows missing: %s", html)
 	eligibleRow := html[eligibleStart:ineligibleStart]
 	ineligibleRow := html[ineligibleStart:]
-	assert.True(t, strings.Contains(eligibleRow, "Refresh metadata"), "eligible metadata-only row omitted refresh: %s", eligibleRow)
-	assert.True(t, strings.Contains(eligibleRow, `hx-target="#book-row-fixture-metadata-only"`), "eligible metadata-only row omitted refresh: %s", eligibleRow)
-	assert.False(t, strings.Contains(ineligibleRow, "Refresh metadata"), "ineligible metadata-only row exposed refresh: %s", ineligibleRow)
+	assert.Contains(t, eligibleRow, "Refresh metadata", "eligible metadata-only row omitted refresh: %s", eligibleRow)
+	assert.Contains(t, eligibleRow, `hx-target="#book-row-fixture-metadata-only"`, "eligible metadata-only row omitted refresh: %s", eligibleRow)
+	assert.NotContains(t, ineligibleRow, "Refresh metadata", "ineligible metadata-only row exposed refresh: %s", ineligibleRow)
 }
 
 func TestMyBooksBrowseRequestDefaults(t *testing.T) {
@@ -357,7 +357,7 @@ func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
 	filtersStart := strings.Index(html, `<nav class="library-filters"`)
 	require.GreaterOrEqual(t, filtersStart, 0)
 	filtersEnd := strings.Index(html[filtersStart:], `</nav>`)
-	require.Greater(t, filtersEnd, 0)
+	require.Positive(t, filtersEnd)
 	filters := html[filtersStart : filtersStart+filtersEnd]
 	assert.NotContains(t, filters, "hx-get=")
 }
@@ -451,8 +451,8 @@ func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {
 	state := MyBooksBrowseState{Enabled: true}
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, strings.Contains(html, "Set up a catalog connection"), "empty unscoped My Books state lost catalogue setup: %s", html)
-	assert.True(t, strings.Contains(html, `href="/catalogs">Set up a catalog</a>`), "empty unscoped My Books state lost catalogue setup: %s", html)
+	assert.Contains(t, html, "Set up a catalog connection", "empty unscoped My Books state lost catalogue setup: %s", html)
+	assert.Contains(t, html, `href="/catalogs">Set up a catalog</a>`, "empty unscoped My Books state lost catalogue setup: %s", html)
 }
 
 func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
@@ -472,6 +472,6 @@ func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
 	response := request("/library")
 	assert.Equal(t, http.StatusOK, response.Code)
 	for _, forbidden := range []string{`id="language-view-panel"`, "Coverage across", "Language view", "Highest-impact unknown vocabulary", "Per-book spread"} {
-		assert.False(t, strings.Contains(response.Body.String(), forbidden), "retired language view markup remains %q: %s", forbidden, response.Body.String())
+		assert.NotContains(t, response.Body.String(), forbidden, "retired language view markup remains %q: %s", forbidden, response.Body.String())
 	}
 }

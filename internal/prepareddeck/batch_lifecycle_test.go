@@ -132,7 +132,7 @@ func TestTerminalBatchResultsPreserveProviderCountsAndExpiredItems(t *testing.T)
 		Status:        enrichment.BatchStatusCompleted,
 		RequestCounts: enrichment.BatchRequestCounts{Completed: 1, Failed: 1},
 	}, chunk)
-	assert.Equal(t, "", code)
+	assert.Empty(t, code)
 	assert.Equal(t, 1, counts.successes)
 	assert.Equal(t, 1, counts.expiredFailures)
 
@@ -142,7 +142,7 @@ func TestTerminalBatchResultsPreserveProviderCountsAndExpiredItems(t *testing.T)
 		Status:        enrichment.BatchStatusExpired,
 		RequestCounts: enrichment.BatchRequestCounts{Completed: 1},
 	}, chunk)
-	assert.Equal(t, "", code)
+	assert.Empty(t, code)
 	assert.Equal(t, 1, counts.successes)
 }
 
@@ -209,7 +209,7 @@ func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing
 	output := fmt.Sprintf(`{"id":"batch_req_1","custom_id":%q,"response":{"status_code":200,"request_id":"req_1","body":{"choices":[{"index":0,"message":{"role":"assistant","content":%q}}]}},"error":null}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":"house","gloss":"building","sentence_translation":"","sentence_translation_targets":[]}`, customID))
 	outcomes, missing, err := codec.DecodeBatchResultsPartial(runID, 1, []enrichment.BatchTranslationItem{item}, strings.NewReader(output), nil)
 	require.NoError(t, err)
-	assert.Len(t, missing, 0)
+	assert.Empty(t, missing)
 	assert.Equal(t, 200, outcomes[item.Ordinal].StatusCode)
 	assert.Equal(t, enrichment.ProviderErrorInvalidResponse, outcomes[item.Ordinal].ErrorClass)
 	completed, failed := batchProviderResultCounts(outcomes)

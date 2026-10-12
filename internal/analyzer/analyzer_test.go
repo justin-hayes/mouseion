@@ -23,7 +23,7 @@ func TestFakeSatisfiesAnalyzerContract(t *testing.T) {
 			},
 		}
 		tb.Cleanup(func() {
-			require.Equal(tb, 1, len(fake.Requests()), "Analyze() call count = %d, want 1", len(fake.Requests()))
+			require.Len(tb, fake.Requests(), 1, "Analyze() call count = %d, want 1", len(fake.Requests()))
 		})
 		return fake
 	})

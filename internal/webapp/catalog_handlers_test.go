@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,7 +28,7 @@ func TestCatalogsRouteRendersCatalogManagementScreen(t *testing.T) {
 		`class="feedback feedback--error"`,
 		"Sync failed",
 	} {
-		assert.True(t, strings.Contains(response.Body.String(), want), "GET /catalogs missing %q: %s", want, response.Body.String())
+		assert.Contains(t, response.Body.String(), want, "GET /catalogs missing %q: %s", want, response.Body.String())
 	}
 }
 

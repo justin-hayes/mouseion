@@ -192,7 +192,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Morphology: `{"Gender":"Masc"}`,
 	}
 	require.NoError(t, service.resolveLexicalEntry(t.Context(), &sharpS))
-	assert.Equal(t, `{"Article":"die","Gender":"Fem","Plural":"Straßen"}`, sharpS.Morphology)
+	assert.JSONEq(t, `{"Article":"die","Gender":"Fem","Plural":"Straßen"}`, sharpS.Morphology)
 	assert.Equal(t, "street", sharpS.Gloss)
 	assert.Equal(t, "Straßen", sharpS.Plural)
 

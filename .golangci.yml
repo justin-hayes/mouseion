@@ -109,13 +109,9 @@ linters:
         # sentence case and trailing punctuation are kept as written.
         - -ST1005
     testifylint:
-      disable-all: true
-      enable:
-        - error-nil
-        - require-error
-        - go-require
-        - error-is-as
-        - float-compare
+      # Every checker is on (#1814), so assertions follow one style and failures
+      # print actual values. No checker is disabled.
+      enable-all: true
 
   exclusions:
     generated: strict

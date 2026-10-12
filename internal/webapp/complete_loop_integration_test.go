@@ -152,7 +152,7 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	assert.Equal(t, http.StatusSeeOther, connectionResponse.Code)
 	connections, err := store.ListOpdsConnections(ctx, owner.ID)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(connections))
+	require.Len(t, connections, 1)
 	connection := connections[0]
 
 	syncResponse := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/sync", url.Values{"csrf_token": {csrf}}, cookies)
@@ -173,7 +173,7 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	})
 	books, err := store.ListMyBooks(ctx, owner.ID)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(books))
+	require.Len(t, books, 1)
 	assert.Equal(t, "Complete Loop Book", books[0].Title)
 	bookID := books[0].ID
 	metadataOnly, err := store.GetBookDetail(ctx, owner.ID, bookID)
@@ -246,7 +246,7 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 
 	preparations, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, preparation.SourceMaterialID)
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(preparations))
+	assert.Len(t, preparations, 1)
 
 	reservedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
 	require.NoError(t, err)
@@ -291,7 +291,7 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(known))
+	require.Len(t, known, 1)
 	assert.Equal(t, "haus", known[0].CanonicalLemma)
 	assert.Equal(t, "NOUN", known[0].UPOS)
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
@@ -307,7 +307,7 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	currentReading, err = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, bookID, currentReading.BookID)
-	assert.NotEqual(t, "", currentReading.SnapshotID)
+	assert.NotEmpty(t, currentReading.SnapshotID)
 	stopped := perform(t, h, http.MethodPost, "/reading/end", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {bookID}, "expected_current_snapshot_id": {currentReading.SnapshotID},
 	}, cookies)

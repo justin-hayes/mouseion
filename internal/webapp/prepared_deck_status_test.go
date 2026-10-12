@@ -48,7 +48,7 @@ func TestPreparationResponseExposesPhaseCountsWithoutProviderIdentity(t *testing
 	require.NoError(t, err)
 	text := strings.ToLower(string(encoded))
 	for _, prohibited := range []string{"batch_id", "input_file_id", "output_file_id", "error_file_id", "raw", "prompt", "response"} {
-		assert.False(t, strings.Contains(text, prohibited), "status contains prohibited data %q: %s", prohibited, encoded)
+		assert.NotContains(t, text, prohibited, "status contains prohibited data %q: %s", prohibited, encoded)
 	}
 	assert.Equal(t, "waiting", response.Phase)
 	assert.Equal(t, int64(7200), response.Batch.AgeSeconds)
@@ -107,7 +107,7 @@ func TestPreparationFailureMessageUsesBoundedActionableClasses(t *testing.T) {
 		"unknown":              "could not be completed",
 	} {
 		got := preparationFailureMessage(class)
-		assert.True(t, strings.Contains(got, want), "class=%q message=%q want %q", class, got, want)
+		assert.Contains(t, got, want, "class=%q message=%q want %q", class, got, want)
 	}
 	response := preparationResponse(domain.DeckPreparation{State: domain.DeckPreparationFailed, Error: "raw provider response file-secret", FailureClass: "provider"})
 	assert.False(t, strings.Contains(strings.ToLower(response.Error), "raw provider response") || strings.Contains(response.Error, "file-secret"), "failure response leaked raw error: %q", response.Error)
@@ -115,7 +115,7 @@ func TestPreparationFailureMessageUsesBoundedActionableClasses(t *testing.T) {
 
 func TestEmptyReadyPreparationDoesNotExposeDownload(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{ID: "empty", State: domain.DeckPreparationReady})
-	assert.Equal(t, "", response.DownloadURL)
+	assert.Empty(t, response.DownloadURL)
 }
 
 func TestQualityOmittedZeroCardPreparationExposesDownload(t *testing.T) {
@@ -161,10 +161,10 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageRead
 	crossLanguageContext := context.WithValue(context.Background(), shellViewContextKey{}, &shellView{ActiveLanguage: "it"})
 	got, err = h.reachablePreparationReturnURL(crossLanguageContext, "owner-1", action)
 	require.ErrorIs(t, err, errPreparationOtherLanguage)
-	assert.Equal(t, "", got)
+	assert.Empty(t, got)
 
 	store.detail.Acquired.Signals = testFailed
 	got, err = h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
 	require.NoError(t, err)
-	assert.Equal(t, "", got)
+	assert.Empty(t, got)
 }

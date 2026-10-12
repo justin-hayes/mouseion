@@ -79,7 +79,7 @@ func TestAuthenticationAndAuthorizationAgainstPostgres(t *testing.T) {
 	require.Len(t, cookies, 1, "login set no session cookie: body=%s", w.Body.String())
 	cookie := cookies[0]
 	assert.True(t, cookie.HttpOnly, "unsafe cookie: %+v", cookie)
-	assert.Greater(t, cookie.MaxAge, 0, "unsafe cookie: %+v", cookie)
+	assert.Positive(t, cookie.MaxAge, "unsafe cookie: %+v", cookie)
 	raw, err := s.Login(ctx, "bob", "bob-password")
 	require.NoError(t, err)
 	got, err := s.Authenticate(ctx, raw)

@@ -41,7 +41,7 @@ func TestBackfillGermanVocabularyMergesMutableIdentityProjections(t *testing.T) 
 	report, err := store.BackfillGermanVocabulary(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, report.Conflicts)
-	assert.Greater(t, report.Updated, 0)
+	assert.Positive(t, report.Updated)
 	var count int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='hass' AND upos='NOUN'`, owner.ID).Scan(&count)
 	require.NoError(t, err)

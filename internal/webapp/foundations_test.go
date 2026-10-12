@@ -30,9 +30,9 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 		`href="/static/app.css"`,
 		`src="/static/vendor/htmx-4.0.0.min.js"`,
 	} {
-		assert.True(t, strings.Contains(html, want), "layout missing bundled asset %q", want)
+		assert.Contains(t, html, want, "layout missing bundled asset %q", want)
 	}
-	assert.False(t, strings.Contains(html, "cdn.jsdelivr.net"), "layout must not depend on the jsDelivr CDN")
+	assert.NotContains(t, html, "cdn.jsdelivr.net", "layout must not depend on the jsDelivr CDN")
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
 	response := httptest.NewRecorder()
@@ -248,7 +248,7 @@ func TestAppStylesExposeMouseionFoundations(t *testing.T) {
 		".table-region td",
 		"@media (max-width: 40rem)",
 	} {
-		assert.True(t, strings.Contains(css, want), "application CSS missing foundation %q", want)
+		assert.Contains(t, css, want, "application CSS missing foundation %q", want)
 	}
 }
 
@@ -297,10 +297,10 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 
 	html := output.String()
 	for _, pattern := range []string{`class="library-masthead"`, `class="library-books"`, `class="library-book__identity-link"`} {
-		assert.True(t, strings.Contains(html, pattern), "library missing shared pattern %q", pattern)
+		assert.Contains(t, html, pattern, "library missing shared pattern %q", pattern)
 	}
-	assert.True(t, strings.Contains(html, `class="bibliographic-title">`), "book title must use the bibliographic typography role")
-	assert.False(t, strings.Contains(html, `role="grid"`), "library must use native list semantics")
+	assert.Contains(t, html, `class="bibliographic-title">`, "book title must use the bibliographic typography role")
+	assert.NotContains(t, html, `role="grid"`, "library must use native list semantics")
 }
 
 func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
@@ -313,7 +313,7 @@ func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
 		`class="empty-state"`,
 		`class="empty-state__actions"`,
 	} {
-		assert.True(t, strings.Contains(html, pattern), "library missing shared pattern %q", pattern)
+		assert.Contains(t, html, pattern, "library missing shared pattern %q", pattern)
 	}
 }
 
@@ -321,7 +321,7 @@ func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, Layout("Mouseion", nil, "csrf-token").Render(context.Background(), &output))
 	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`, `aria-label="Deck preparation progress"`} {
-		assert.True(t, strings.Contains(output.String(), pattern), "application shell missing %q: %s", pattern, output.String())
+		assert.Contains(t, output.String(), pattern, "application shell missing %q: %s", pattern, output.String())
 	}
 }
 
@@ -329,7 +329,7 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 	var upload bytes.Buffer
 	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, "").Render(context.Background(), &upload))
 	for _, want := range []string{`method="post"`, `action="/vocabulary/import"`, `enctype="multipart/form-data"`, `hx-encoding="multipart/form-data"`, `id="vocabulary-results"`} {
-		assert.True(t, strings.Contains(upload.String(), want), "known-vocabulary upload missing %q: %s", want, upload.String())
+		assert.Contains(t, upload.String(), want, "known-vocabulary upload missing %q: %s", want, upload.String())
 	}
 
 	var progress bytes.Buffer
@@ -341,7 +341,7 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 		`hx-trigger="every 2s"`,
 		`2 of 5 rows processed.`,
 	} {
-		assert.True(t, strings.Contains(progress.String(), want), "import status missing %q: %s", want, progress.String())
+		assert.Contains(t, progress.String(), want, "import status missing %q: %s", want, progress.String())
 	}
 }
 
@@ -349,10 +349,10 @@ func TestVocabularyPageUsesActiveLanguageWithoutPicker(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, "").Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, strings.Contains(html, "Viewing <strong>German</strong> <code>de</code>"), "active language context missing: %s", html)
-	assert.False(t, strings.Contains(html, `<select name="language"`), "Vocabulary page exposes a per-page language control: %s", html)
-	assert.False(t, strings.Contains(html, "Known vocabulary by language"), "Vocabulary page exposes a per-page language control: %s", html)
-	assert.False(t, strings.Contains(html, "return_to"), "Vocabulary page exposes a per-page language control: %s", html)
+	assert.Contains(t, html, "Viewing <strong>German</strong> <code>de</code>", "active language context missing: %s", html)
+	assert.NotContains(t, html, `<select name="language"`, "Vocabulary page exposes a per-page language control: %s", html)
+	assert.NotContains(t, html, "Known vocabulary by language", "Vocabulary page exposes a per-page language control: %s", html)
+	assert.NotContains(t, html, "return_to", "Vocabulary page exposes a per-page language control: %s", html)
 }
 
 func TestVocabularyHeaderKeepsPeerViewsUnderOneDestinationHeading(t *testing.T) {
@@ -369,11 +369,11 @@ func TestVocabularyPageDoesNotDisplayKnownVocabulary(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "it", DisplayName: "Italian"}}, "it", nil, "").Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, strings.Contains(html, "Viewing <strong>Italian</strong> <code>it</code>"), "active language context missing: %s", html)
-	assert.True(t, strings.Contains(html, "Importing is unavailable"), "historical language state missing: %s", html)
-	assert.False(t, strings.Contains(html, "Known vocabulary</h2>"), "Vocabulary page renders a known-vocabulary heading: %s", html)
-	assert.False(t, strings.Contains(html, `class="table-region"`), "Vocabulary page renders a known-vocabulary table: %s", html)
-	assert.False(t, strings.Contains(html, `enctype="multipart/form-data"`), "historical language exposes an import form: %s", html)
+	assert.Contains(t, html, "Viewing <strong>Italian</strong> <code>it</code>", "active language context missing: %s", html)
+	assert.Contains(t, html, "Importing is unavailable", "historical language state missing: %s", html)
+	assert.NotContains(t, html, "Known vocabulary</h2>", "Vocabulary page renders a known-vocabulary heading: %s", html)
+	assert.NotContains(t, html, `class="table-region"`, "Vocabulary page renders a known-vocabulary table: %s", html)
+	assert.NotContains(t, html, `enctype="multipart/form-data"`, "historical language exposes an import form: %s", html)
 }
 
 func TestVocabularyImportUsesOwnedShellAndKeepsNativeForm(t *testing.T) {
@@ -418,22 +418,22 @@ func TestVocabularyPageEmptyLibraryPointsToCatalogsAndHidesImport(t *testing.T) 
 	var output bytes.Buffer
 	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", nil, nil, "", nil, "").Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, strings.Contains(html, "No study languages yet"), "empty Vocabulary state missing catalogue guidance: %s", html)
-	assert.True(t, strings.Contains(html, `href="/catalogs"`), "empty Vocabulary state missing catalogue guidance: %s", html)
-	assert.False(t, strings.Contains(html, `enctype="multipart/form-data"`), "empty Vocabulary state exposes import controls: %s", html)
-	assert.False(t, strings.Contains(html, `name="language"`), "empty Vocabulary state exposes import controls: %s", html)
+	assert.Contains(t, html, "No study languages yet", "empty Vocabulary state missing catalogue guidance: %s", html)
+	assert.Contains(t, html, `href="/catalogs"`, "empty Vocabulary state missing catalogue guidance: %s", html)
+	assert.NotContains(t, html, `enctype="multipart/form-data"`, "empty Vocabulary state exposes import controls: %s", html)
+	assert.NotContains(t, html, `name="language"`, "empty Vocabulary state exposes import controls: %s", html)
 }
 
 func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, KnownVocabImportStatus(knownvocab.Status{ID: 12, State: rivertype.JobStateCompleted, Language: "de", Imported: 5}).Render(context.Background(), &output))
-	assert.False(t, strings.Contains(output.String(), "hx-trigger"), "completed vocabulary import still polls: %s", output.String())
-	assert.False(t, strings.Contains(output.String(), "hx-get"), "completed vocabulary import still polls: %s", output.String())
+	assert.NotContains(t, output.String(), "hx-trigger", "completed vocabulary import still polls: %s", output.String())
+	assert.NotContains(t, output.String(), "hx-get", "completed vocabulary import still polls: %s", output.String())
 
 	output.Reset()
 	require.NoError(t, KnownVocabImportStatus(knownvocab.Status{ID: 12, State: rivertype.JobStateCancelled, Language: "de"}).Render(context.Background(), &output))
-	assert.False(t, strings.Contains(output.String(), "hx-trigger"), "cancelled vocabulary import still polls: %s", output.String())
-	assert.False(t, strings.Contains(output.String(), "hx-get"), "cancelled vocabulary import still polls: %s", output.String())
+	assert.NotContains(t, output.String(), "hx-trigger", "cancelled vocabulary import still polls: %s", output.String())
+	assert.NotContains(t, output.String(), "hx-get", "cancelled vocabulary import still polls: %s", output.String())
 }
 
 func TestKnownVocabImportTargetsVocabulary(t *testing.T) {
@@ -444,10 +444,10 @@ func TestKnownVocabImportTargetsVocabulary(t *testing.T) {
 func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.T) {
 	var processing bytes.Buffer
 	require.NoError(t, KnownVocabImportStatus(knownvocab.Status{ID: 12, Language: "de", State: rivertype.JobStateRunning, Processed: 1, Total: 3}).Render(context.Background(), &processing))
-	assert.True(t, strings.Contains(processing.String(), "Processing"), "processing status missing safe-leave contract: %s", processing.String())
-	assert.True(t, strings.Contains(processing.String(), "You can leave this page"), "processing status missing safe-leave contract: %s", processing.String())
-	assert.True(t, strings.Contains(processing.String(), `aria-busy="true"`), "processing status missing safe-leave contract: %s", processing.String())
-	assert.True(t, strings.Contains(processing.String(), `hx-get="/vocabulary/imports/12/status"`), "processing status missing safe-leave contract: %s", processing.String())
+	assert.Contains(t, processing.String(), "Processing", "processing status missing safe-leave contract: %s", processing.String())
+	assert.Contains(t, processing.String(), "You can leave this page", "processing status missing safe-leave contract: %s", processing.String())
+	assert.Contains(t, processing.String(), `aria-busy="true"`, "processing status missing safe-leave contract: %s", processing.String())
+	assert.Contains(t, processing.String(), `hx-get="/vocabulary/imports/12/status"`, "processing status missing safe-leave contract: %s", processing.String())
 
 	for _, test := range []struct {
 		name  string
@@ -464,9 +464,9 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 			status := knownvocab.Status{ID: 12, Language: "de", State: test.state, Imported: 2, AlreadyKnown: 1, Rejected: []knownvocab.Rejection{{Row: 3, Original: "bad\tline", Error: "expected exactly one lemma"}}}
 			require.NoError(t, KnownVocabImportStatus(status).Render(context.Background(), &output))
 			html := output.String()
-			assert.True(t, strings.Contains(html, test.want), "status missing result contract: %s", html)
-			assert.True(t, strings.Contains(html, "2 new"), "status missing result contract: %s", html)
-			assert.True(t, strings.Contains(html, "1 duplicates"), "status missing result contract: %s", html)
+			assert.Contains(t, html, test.want, "status missing result contract: %s", html)
+			assert.Contains(t, html, "2 new", "status missing result contract: %s", html)
+			assert.Contains(t, html, "1 duplicates", "status missing result contract: %s", html)
 			assert.Equal(t, test.table, strings.Contains(html, `class="table-region"`), "status missing result contract: %s", html)
 			if test.state == rivertype.JobStateDiscarded || test.state == rivertype.JobStateCancelled {
 				for _, want := range []string{
@@ -474,7 +474,7 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 					`href="/vocabulary/import"`,
 					"Return to Vocabulary to retry the import",
 				} {
-					assert.True(t, strings.Contains(html, want), "recovery status missing %q: %s", want, html)
+					assert.Contains(t, html, want, "recovery status missing %q: %s", want, html)
 				}
 			}
 		})
@@ -712,7 +712,7 @@ func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
 				"<strong>German</strong> <code>de</code>",
 				`id="vocabulary-results"`,
 			} {
-				assert.True(t, strings.Contains(response.Body.String(), want), "parse failure response missing %q: %s", want, response.Body.String())
+				assert.Contains(t, response.Body.String(), want, "parse failure response missing %q: %s", want, response.Body.String())
 			}
 		})
 	}

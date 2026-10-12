@@ -130,12 +130,12 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 			html := output.String()
 			assert.True(t, strings.Contains(html, "Return to book") || test.name != "queued", "status missing return-to-book link: %s", html)
 			for _, want := range test.want {
-				assert.True(t, strings.Contains(html, want), "status missing %q: %s", want, html)
+				assert.Contains(t, html, want, "status missing %q: %s", want, html)
 			}
 			for _, unwanted := range test.unwanted {
-				assert.False(t, strings.Contains(html, unwanted), "status contains %q: %s", unwanted, html)
+				assert.NotContains(t, html, unwanted, "status contains %q: %s", unwanted, html)
 			}
-			assert.True(t, strings.Contains(html, `value="`+strconv.Itoa(test.progress)+`"`), "status progress does not include %d: %s", test.progress, html)
+			assert.Contains(t, html, `value="`+strconv.Itoa(test.progress)+`"`, "status progress does not include %d: %s", test.progress, html)
 		})
 	}
 }
@@ -206,7 +206,7 @@ func TestDeckPreparationStatusPageUsesReadingEntryForBothBackLinks(t *testing.T)
 	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/reading#journey-book-book-1", action).Render(context.Background(), &output))
 	html := output.String()
 	assert.Equal(t, 3, strings.Count(html, `href="/reading#journey-book-book-1"`), "Journey anchor link count=%d: %s", strings.Count(html, `href="/reading#journey-book-book-1"`), html)
-	assert.False(t, strings.Contains(html, "/books/source-1"), "status page contains retired book link: %s", html)
+	assert.NotContains(t, html, "/books/source-1", "status page contains retired book link: %s", html)
 }
 
 func TestDeckPreparationStatusPageOmitsBackLinksWithoutReadingEntry(t *testing.T) {
@@ -229,10 +229,10 @@ func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
 		"No recurring vocabulary",
 		"This book has no recurring vocabulary to study",
 	} {
-		assert.True(t, strings.Contains(html, want), "empty deck state missing %q: %s", want, html)
+		assert.Contains(t, html, want, "empty deck state missing %q: %s", want, html)
 	}
 	for _, unwanted := range []string{"Completeness", "Download deck", "0 cards"} {
-		assert.False(t, strings.Contains(html, unwanted), "empty deck state contains %q: %s", unwanted, html)
+		assert.NotContains(t, html, unwanted, "empty deck state contains %q: %s", unwanted, html)
 	}
 }
 
@@ -244,9 +244,9 @@ func TestZeroCardReadyDeckWithQualityOmissionsKeepsCompleteness(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 	html := output.String()
-	assert.False(t, strings.Contains(html, "No recurring vocabulary"), "quality omissions were presented as missing vocabulary: %s", html)
+	assert.NotContains(t, html, "No recurring vocabulary", "quality omissions were presented as missing vocabulary: %s", html)
 	for _, want := range []string{"Completeness", "0 cards", "Download deck"} {
-		assert.True(t, strings.Contains(html, want), "quality omission state missing %q: %s", want, html)
+		assert.Contains(t, html, want, "quality omission state missing %q: %s", want, html)
 	}
 }
 
@@ -294,12 +294,12 @@ func TestReadyDeckRendersTruthfulReadingStates(t *testing.T) {
 			require.NoError(t, DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output))
 			html := output.String()
 			for _, want := range test.want {
-				assert.True(t, strings.Contains(html, want), "state missing %q: %s", want, html)
+				assert.Contains(t, html, want, "state missing %q: %s", want, html)
 			}
 			for _, omit := range test.omit {
-				assert.False(t, strings.Contains(html, omit), "state contains %q: %s", omit, html)
+				assert.NotContains(t, html, omit, "state contains %q: %s", omit, html)
 			}
-			assert.False(t, strings.Contains(html, "campaign operations"), "ready state exposed Campaign queue copy: %s", html)
+			assert.NotContains(t, html, "campaign operations", "ready state exposed Campaign queue copy: %s", html)
 		})
 	}
 }

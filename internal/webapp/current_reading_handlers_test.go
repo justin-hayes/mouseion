@@ -76,7 +76,7 @@ func TestCurrentReadingSectionRendersEmptyStateAndLiveFeedback(t *testing.T) {
 		"No current Book yet",
 		"Start an analyzed To Read book when you are ready to begin reading.",
 	} {
-		assert.True(t, strings.Contains(html, want), "Goal section missing %q: %s", want, html)
+		assert.Contains(t, html, want, "Goal section missing %q: %s", want, html)
 	}
 
 	html = renderCurrentReadingSection(t, nil, "", "This current reading changed since this page was loaded.", "")
@@ -89,18 +89,18 @@ func TestCurrentReadingSectionRendersReadingOnlyAndResidualStates(t *testing.T) 
 	unassessed.CurrentReadingUnassessed = true
 	readingOnlyHTML := renderCurrentReadingSection(t, &unassessed, "", "", "reading-only")
 	for _, want := range []string{"Reading only", "No analysis or deck-eligible vocabulary exists yet", "Reading directly is the current path"} {
-		assert.True(t, strings.Contains(readingOnlyHTML, want), "unassessed Goal missing %q: %s", want, readingOnlyHTML)
+		assert.Contains(t, readingOnlyHTML, want, "unassessed Goal missing %q: %s", want, readingOnlyHTML)
 	}
 
 	assessed := testReadingBook("assessed", "Assessed without deck", testAnalyzed)
 	assessed.ReadingOnly = true
 	assessed.CurrentReadingUnassessed = false
 	assessedHTML := renderCurrentReadingSection(t, &assessed, "", "", "assessed")
-	assert.True(t, strings.Contains(assessedHTML, "Analysis evidence exists, but this Book has no deck-eligible vocabulary"), "assessed reading-only copy missing: %s", assessedHTML)
+	assert.Contains(t, assessedHTML, "Analysis evidence exists, but this Book has no deck-eligible vocabulary", "assessed reading-only copy missing: %s", assessedHTML)
 
 	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
 	currentReadingHTML := renderCurrentReadingSection(t, &currentReading, "", "", "goal")
-	assert.False(t, strings.Contains(currentReadingHTML, "Clear Current reading"), "retired Goal clear action remained visible: %s", currentReadingHTML)
+	assert.NotContains(t, currentReadingHTML, "Clear Current reading", "retired Goal clear action remained visible: %s", currentReadingHTML)
 }
 
 func TestIsCurrentReadingControlsUseExpectedStateAndStaySeparated(t *testing.T) {
@@ -109,12 +109,12 @@ func TestIsCurrentReadingControlsUseExpectedStateAndStaySeparated(t *testing.T) 
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.NotContains(t, html, `action="/goal/books/`)
 	assert.Contains(t, html, `action="/reading/finish"`)
-	assert.True(t, strings.Contains(html, `name="expected_current_book_id" value="goal"`), "finish form did not carry the current Book: %s", html)
-	assert.True(t, strings.Contains(html, `name="expected_current_snapshot_id" value="goal-snapshot"`), "finish form did not carry the current Book snapshot: %s", html)
+	assert.Contains(t, html, `name="expected_current_book_id" value="goal"`, "finish form did not carry the current Book: %s", html)
+	assert.Contains(t, html, `name="expected_current_snapshot_id" value="goal-snapshot"`, "finish form did not carry the current Book snapshot: %s", html)
 	currentReadingStart := strings.Index(html, `id="journey-book-goal"`)
 	currentReadingEnd := strings.Index(html[currentReadingStart:], "</article>")
 	currentReadingCard := html[currentReadingStart : currentReadingStart+currentReadingEnd]
-	assert.False(t, strings.Contains(currentReadingCard, `action="/goal/books/`), "current Book card exposed a legacy Goal control: %s", currentReadingCard)
+	assert.NotContains(t, currentReadingCard, `action="/goal/books/`, "current Book card exposed a legacy Goal control: %s", currentReadingCard)
 }
 
 func TestMyBooksCurrentReadingControlsAndReadingLink(t *testing.T) {
@@ -131,9 +131,9 @@ func TestMyBooksCurrentReadingControlsAndReadingLink(t *testing.T) {
 	currentReadingCard := html[currentReadingStart:otherStart]
 	otherCard := html[otherStart:]
 	for _, want := range []string{"Currently reading", "View in Reading", "/reading#journey-book-goal-book"} {
-		assert.True(t, strings.Contains(currentReadingCard, want), "current Book card missing %q: %s", want, currentReadingCard)
+		assert.Contains(t, currentReadingCard, want, "current Book card missing %q: %s", want, currentReadingCard)
 	}
-	assert.False(t, strings.Contains(currentReadingCard, "To Read"), "current Book was also presented as To Read: %s", currentReadingCard)
+	assert.NotContains(t, currentReadingCard, "To Read", "current Book was also presented as To Read: %s", currentReadingCard)
 	assert.False(t, strings.Contains(otherCard, "Start reading") || strings.Contains(otherCard, `action="/goal/books/other-book"`), "My Books exposed a choose form: %s", otherCard)
 }
 
@@ -164,7 +164,7 @@ func cookieByName(t *testing.T, cookies []*http.Cookie, name string) *http.Cooki
 			return cookie
 		}
 	}
-	require.FailNow(t, "cookie %q not found", name)
+	require.FailNowf(t, "cookie not found", "cookie %q not found", name)
 	return nil
 }
 
@@ -251,7 +251,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 		"Italiano",
 		"0 lemmas are set aside from vocabulary selection while you read this Book.",
 	} {
-		assert.True(t, strings.Contains(body, want), "Italian Journey page missing %q: %s", want, body)
+		assert.Contains(t, body, want, "Italian Journey page missing %q: %s", want, body)
 	}
 	assert.True(t, strings.Contains(body, `id="journey-book-fixture-italian-goal"`) && !strings.Contains(body, `id="journey-book-fixture-book"`), "Italian Journey page exposed the German Goal: %s", body)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
@@ -439,7 +439,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 		"Vocabulary: 2 identities newly Known; 0 identities already Known",
 		`href="/reading">Choose a To Read book</a>`,
 	} {
-		assert.True(t, strings.Contains(finished.Body.String(), want), "finish outcome missing %q: %s", want, finished.Body.String())
+		assert.Contains(t, finished.Body.String(), want, "finish outcome missing %q: %s", want, finished.Body.String())
 	}
 	assert.NotContains(t, finished.Body.String(), "achievement")
 	assert.NotContains(t, finished.Body.String(), "Where next?")
@@ -456,8 +456,8 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {currentReadingBefore.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, repeated.Code)
-	assert.True(t, strings.Contains(repeated.Body.String(), "Reading finished"), "idempotent finish body=%s", repeated.Body.String())
-	assert.True(t, strings.Contains(repeated.Body.String(), "Der lange Weg nach Hause"), "idempotent finish lost Book title: %s", repeated.Body.String())
+	assert.Contains(t, repeated.Body.String(), "Reading finished", "idempotent finish body=%s", repeated.Body.String())
+	assert.Contains(t, repeated.Body.String(), "Der lange Weg nach Hause", "idempotent finish lost Book title: %s", repeated.Body.String())
 }
 
 func TestCurrentReadingFinishRejectsStaleAndMissingCSRF(t *testing.T) {
@@ -468,7 +468,7 @@ func TestCurrentReadingFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 		"csrf_token": {csrf}, "expected_current_book_id": {"stale-book"}, "expected_current_snapshot_id": {currentReading.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, stale.Code)
-	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+current+reading+changed"), "stale finish location=%q", stale.Header().Get("Location"))
+	assert.Contains(t, stale.Header().Get("Location"), "This+current+reading+changed", "stale finish location=%q", stale.Header().Get("Location"))
 	missingCSRF := readingTestRequest(t, h, "/reading/finish", url.Values{"expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {currentReading.SnapshotID}}, cookies)
 	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	assert.Equal(t, fixtures.BookID, currentReading.BookID, "rejected finish changed Goal=%+v", currentReading)
@@ -479,7 +479,7 @@ func TestCurrentReadingFinishOutcomeShowsStructuredVocabularyCounts(t *testing.T
 	var output bytes.Buffer
 	require.NoError(t, CurrentReadingFinish(residual).Render(context.Background(), &output))
 	for _, want := range []string{"Vocabulary: 2 identities newly Known; 0 identities already Known", "Choose a To Read book"} {
-		assert.True(t, strings.Contains(output.String(), want), "residual outcome missing %q: %s", want, output.String())
+		assert.Contains(t, output.String(), want, "residual outcome missing %q: %s", want, output.String())
 	}
 	assert.NotContains(t, output.String(), "achievement")
 }

@@ -63,7 +63,7 @@ func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing
 	currentReadingCardStart := strings.Index(html, `id="journey-book-goal"`)
 	currentReadingCardEnd := strings.Index(html[currentReadingCardStart:], "</article>")
 	require.GreaterOrEqual(t, currentReadingCardStart, 0)
-	require.Greater(t, currentReadingCardEnd, 0)
+	require.Positive(t, currentReadingCardEnd)
 	assert.NotContains(t, html[currentReadingCardStart:currentReadingCardStart+currentReadingCardEnd], "external_translation_consent")
 }
 
@@ -185,5 +185,5 @@ func TestReadingTreatsAnalyzedEvidenceAndEligibleCurrentReadingsAsCurrent(t *tes
 	item.Coverage = &domain.AnalysisCoverage{AnalyzableTokenCount: 10}
 
 	assert.Equal(t, readingEvidenceCurrent, readingEvidenceState(item))
-	assert.True(t, item.Book.EvidenceClassification().Eligibility == domain.CurrentReadingEligible, "eligibility is owned by the domain classification")
+	assert.Equal(t, domain.CurrentReadingEligible, item.Book.EvidenceClassification().Eligibility, "eligibility is owned by the domain classification")
 }

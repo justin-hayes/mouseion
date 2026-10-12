@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"slices"
@@ -152,7 +153,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	serializedFields = strings.Split(fields, "\x1f")
 	require.Len(t, serializedFields, 12)
-	assert.Equal(t, "", serializedFields[10])
+	assert.Empty(t, serializedFields[10])
 	var distinctSortFields int64
 	err = db.QueryRowContext(t.Context(), `SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields)
 	require.NoError(t, err)
@@ -315,7 +316,7 @@ func assertJSONShape(t *testing.T, name string, value map[string]any, shape map[
 	for field, wantType := range shape {
 		got, ok := value[field]
 		if !ok {
-			assert.Fail(t, "%s missing required field %q", name, field)
+			assert.Fail(t, fmt.Sprintf("%s missing required field %q", name, field))
 			continue
 		}
 		valid := false
@@ -339,7 +340,7 @@ func assertJSONShape(t *testing.T, name string, value map[string]any, shape map[
 			}
 		}
 		if !valid {
-			assert.Fail(t, "%s field %q = %#v, want %s", name, field, got, wantType)
+			assert.Fail(t, fmt.Sprintf("%s field %q = %#v, want %s", name, field, got, wantType))
 		}
 	}
 }
@@ -469,7 +470,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.True(t, strings.HasPrefix(german.BackExtra, "das Haus\n"), "German noun article = %q, back = %q", german.Article, german.BackExtra)
 	italian, err := makeNote("alice", renderInputFromEntry(Entry{Language: "it", CanonicalLemma: "portare", UPOS: "VERB", Sentence: "Domani Lucia porterà il pane fresco alla famiglia.", TargetWord: "porterà", Morphology: `{"Mood":"Ind"}`}))
 	require.NoError(t, err)
-	assert.Equal(t, "", italian.Article)
+	assert.Empty(t, italian.Article)
 
 	path := t.TempDir() + "/collection.anki2"
 	db, err := sql.Open("sqlite", path)
