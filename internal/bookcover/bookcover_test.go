@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"math"
 	"testing"
 )
 
@@ -212,9 +213,12 @@ func pngWithDimensions(width, height uint32) []byte {
 }
 
 func pngChunk(chunkType, data []byte) []byte {
+	if int64(len(data)) > math.MaxUint32 {
+		panic("png test chunk exceeds the PNG length field")
+	}
 	var out bytes.Buffer
 	var length [4]byte
-	binary.BigEndian.PutUint32(length[:], uint32(len(data))) //nolint:gosec // test chunks are deliberately small.
+	binary.BigEndian.PutUint32(length[:], uint32(len(data))) //nolint:gosec // the guard above panics before the conversion can overflow.
 	out.Write(length[:])
 	out.Write(chunkType)
 	out.Write(data)
