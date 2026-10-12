@@ -199,6 +199,7 @@ func jobState(status analysis.Status) string {
 	case "running":
 		return "Running"
 	default:
+		// River's JobState is an open upstream enumeration; unknown states retain their provider label.
 		return cases.Title(language.Und).String(string(status.State))
 	}
 }
