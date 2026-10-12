@@ -78,10 +78,9 @@ linters:
 
   settings:
     gocognit:
-      # A ratchet toward SonarQube Cloud's go:S3776 default of 15: lower it
-      # only once no production function exceeds the new value. Next step:
-      # 15 (#1887).
-      min-complexity: 30
+      # Matches SonarQube Cloud's go:S3776 default of 15, so the local gate
+      # and Sonar agree; no further ratchet step follows.
+      min-complexity: 15
     gocritic:
       # Only likely-bug checks; style and performance checks stay off. A
       # disabled tag overrides an enabled one, so experimental and opinionated
