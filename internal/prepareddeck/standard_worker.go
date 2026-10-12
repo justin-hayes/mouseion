@@ -33,22 +33,10 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	if !w.canExecute(args) {
 		return ErrInvalidInput
 	}
-	run, err := w.Store.GetPreparedDeckRun(ctx, args.OwnerID, args.PreparationID, args.RunID)
-	if err != nil {
+	token, claimed, proceed, err := w.claimTranslation(ctx, args)
+	if err != nil || !proceed {
 		return err
 	}
-	if run.ExecutionMode != domain.PreparedDeckExecutionStandard || run.State != domain.PreparedDeckRunTranslating {
-		return nil
-	}
-	token := uuid.NewString()
-	claimed, err := w.Store.ClaimPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, w.now().Add(standardTranslationLease))
-	if err != nil {
-		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition) {
-			return nil
-		}
-		return err
-	}
-
 	work, found, err := w.restoreWork(ctx, args, token)
 	if !found {
 		return err
@@ -63,6 +51,34 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		}
 		return err
 	}
+	return w.translateClaimed(ctx, args, token, claimed, work)
+}
+
+// claimTranslation loads the frozen run and fences one item. It reports
+// proceed=false when the run no longer admits standard translation or another
+// owner holds the item claim.
+func (w *StandardTranslationWorker) claimTranslation(ctx context.Context, args StandardTranslationJobArgs) (string, domain.PreparedDeckTranslationOutcome, bool, error) {
+	run, err := w.Store.GetPreparedDeckRun(ctx, args.OwnerID, args.PreparationID, args.RunID)
+	if err != nil {
+		return "", domain.PreparedDeckTranslationOutcome{}, false, err
+	}
+	if run.ExecutionMode != domain.PreparedDeckExecutionStandard || run.State != domain.PreparedDeckRunTranslating {
+		return "", domain.PreparedDeckTranslationOutcome{}, false, nil
+	}
+	token := uuid.NewString()
+	claimed, err := w.Store.ClaimPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, w.now().Add(standardTranslationLease))
+	if err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition) {
+			return "", domain.PreparedDeckTranslationOutcome{}, false, nil
+		}
+		return "", domain.PreparedDeckTranslationOutcome{}, false, err
+	}
+	return token, claimed, true, nil
+}
+
+// translateClaimed makes the bounded provider call for one claimed item,
+// validates the response, and persists the outcome.
+func (w *StandardTranslationWorker) translateClaimed(ctx context.Context, args StandardTranslationJobArgs, token string, claimed domain.PreparedDeckTranslationOutcome, work cardexport.WorkItem) error {
 	request := work.Request
 	response, providerLatency, callErr := w.translate(ctx, request)
 	if callErr != nil {

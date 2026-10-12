@@ -317,6 +317,61 @@ func TestBatchSubmitRecoversAmbiguousSubmission(t *testing.T) {
 		assert.Equal(t, "ambiguous_submission", stored.ErrorClass)
 		assert.Equal(t, "provider_error", stored.ErrorCode)
 	})
+
+	t.Run("a stale matching Batch is ignored for the exact recent match", func(t *testing.T) {
+		fixture := newBatchSubmitFixture(t, ctx)
+		chunk := fixture.run.Chunks[0]
+		metadata := batchMetadata(fixture.run.Run.ID, chunk.ID, chunk.Generation)
+		now := time.Now()
+		stale := enrichment.Batch{ID: "stale-batch", InputFileID: "file-input", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now.Add(-8 * 24 * time.Hour).Unix(), Metadata: metadata}
+		recent := enrichment.Batch{ID: "recent-batch", InputFileID: "file-input", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now.Unix(), Metadata: metadata}
+		setBatchChunkState(t, ctx, fixture.store, chunk.ID, domain.PreparedDeckBatchSubmitting)
+		worker := &BatchSubmitWorker{Store: fixture.store, Client: fixture.client, Provider: &submitFixtureProvider{batches: []enrichment.BatchList{{Data: []enrichment.Batch{stale, recent}}}}, Codec: fixture.codec}
+		require.NoError(t, worker.Submit(ctx, fixture.args(chunk.ID, chunk.Generation)))
+		stored := fixture.loadChunk(t, ctx, chunk.ID)
+		assert.Equal(t, domain.PreparedDeckBatchSubmitted, stored.State)
+		assert.Equal(t, "recent-batch", stored.BatchID)
+	})
+
+	t.Run("multiple matching Batches are ambiguous", func(t *testing.T) {
+		fixture := newBatchSubmitFixture(t, ctx)
+		chunk := fixture.run.Chunks[0]
+		metadata := batchMetadata(fixture.run.Run.ID, chunk.ID, chunk.Generation)
+		now := time.Now().Unix()
+		first := enrichment.Batch{ID: "one", InputFileID: "file-input", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now, Metadata: metadata}
+		second := enrichment.Batch{ID: "two", InputFileID: "file-input", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now, Metadata: metadata}
+		provider := &submitFixtureProvider{batches: []enrichment.BatchList{
+			{Data: []enrichment.Batch{first, second}, FirstID: "one", LastID: "two", HasMore: true},
+			{Data: []enrichment.Batch{{ID: "three", InputFileID: "file-input", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now, Metadata: metadata}}},
+		}}
+		setBatchChunkState(t, ctx, fixture.store, chunk.ID, domain.PreparedDeckBatchSubmitting)
+		worker := &BatchSubmitWorker{Store: fixture.store, Provider: provider, Codec: fixture.codec}
+		require.NoError(t, worker.Submit(ctx, fixture.args(chunk.ID, chunk.Generation)))
+		stored := fixture.loadChunk(t, ctx, chunk.ID)
+		assert.Equal(t, domain.PreparedDeckBatchAmbiguous, stored.State)
+		assert.Equal(t, "ambiguous_submission", stored.ErrorClass)
+		assert.Equal(t, "provider_error", stored.ErrorCode)
+		assert.Len(t, provider.batches, 1, "the duplicate must stop listing before the next page")
+	})
+
+	t.Run("the exact match is found across provider pages", func(t *testing.T) {
+		fixture := newBatchSubmitFixture(t, ctx)
+		chunk := fixture.run.Chunks[0]
+		metadata := batchMetadata(fixture.run.Run.ID, chunk.ID, chunk.Generation)
+		now := time.Now().Unix()
+		unrelated := enrichment.Batch{ID: "unrelated", InputFileID: "file-input", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now, Metadata: batchMetadata(fixture.run.Run.ID, "other-chunk", chunk.Generation)}
+		match := enrichment.Batch{ID: "paged-batch", InputFileID: "file-input", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now, Metadata: metadata}
+		setBatchChunkState(t, ctx, fixture.store, chunk.ID, domain.PreparedDeckBatchSubmitting)
+		pages := []enrichment.BatchList{
+			{Data: []enrichment.Batch{unrelated}, FirstID: "unrelated", LastID: "unrelated", HasMore: true},
+			{Data: []enrichment.Batch{match}, FirstID: "paged-batch", LastID: "paged-batch"},
+		}
+		worker := &BatchSubmitWorker{Store: fixture.store, Client: fixture.client, Provider: &submitFixtureProvider{batches: pages}, Codec: fixture.codec}
+		require.NoError(t, worker.Submit(ctx, fixture.args(chunk.ID, chunk.Generation)))
+		stored := fixture.loadChunk(t, ctx, chunk.ID)
+		assert.Equal(t, domain.PreparedDeckBatchSubmitted, stored.State)
+		assert.Equal(t, "paged-batch", stored.BatchID)
+	})
 }
 
 // TestBatchSubmitSurfacesFrozenContractViolations pins the durable contract
