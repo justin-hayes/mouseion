@@ -395,6 +395,11 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingProven
 	require.NoError(t, err)
 	assert.Equal(t, 2, again.DeckRevision)
 	assert.Equal(t, []byte("rerendered artifact"), again.Artifact)
+	t.Run("a requested version older than the stored run publishes nothing", func(t *testing.T) {
+		older, olderErr := store.SupersedePreparedDeckArtifact(ctx, owner.ID, preparation.ID, result.Run.ID, 1, rerendered)
+		require.NoError(t, olderErr)
+		require.Equal(t, again.DeckRevision, older.DeckRevision, "the stored presentation version is authoritative")
+	})
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET render_input_version=0 WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_runs SET render_input_version=0 WHERE owner_id=$1 AND id=$2`, owner.ID, result.Run.ID)
@@ -403,6 +408,12 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingProven
 	require.NoError(t, err)
 	assert.Equal(t, 3, updatedInput.DeckRevision)
 	assert.Equal(t, cardexport.RenderInputVersion, updatedInput.RenderInputVersion)
+	t.Run("a run that is no longer current is rejected", func(t *testing.T) {
+		_, stateErr := store.Pool().Exec(ctx, `UPDATE deck_preparations SET retired_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID)
+		require.NoError(t, stateErr)
+		_, stateErr = store.SupersedePreparedDeckArtifact(ctx, owner.ID, preparation.ID, result.Run.ID, cardexport.PresentationVersion, rerendered)
+		require.ErrorIs(t, stateErr, ErrInvalidTransition)
+	})
 }
 
 func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *testing.T) {

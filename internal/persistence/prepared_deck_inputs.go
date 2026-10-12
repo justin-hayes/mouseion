@@ -51,55 +51,92 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 	if err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
+	result := PreparedDeckInputFacts{DeckName: deckName, CorpusID: corpusID, Candidates: candidates}
+	languages := candidateLanguages(candidates)
+	if err := attachPreparedDeckCurrentReadingSnapshotTx(ctx, q, preparation, &result); err != nil {
+		return PreparedDeckInputFacts{}, err
+	}
+	if err := attachPreparedDeckAnalysisFactsTx(ctx, tx, q, preparation, corpusID, &result, languages); err != nil {
+		return PreparedDeckInputFacts{}, err
+	}
+	if err := attachPreparedDeckVocabularyFacts(ctx, tx, preparation.OwnerID, languages, &result); err != nil {
+		return PreparedDeckInputFacts{}, err
+	}
+	return result, nil
+}
+
+// candidateLanguages collects the normalized languages of the selected
+// candidates, so vocabulary facts are loaded once per language.
+func candidateLanguages(candidates []domain.SelectionCandidate) map[string]struct{} {
 	languages := make(map[string]struct{}, len(candidates))
 	for _, candidate := range candidates {
 		languages[canonicalization.NormalizeLanguage(candidate.Language)] = struct{}{}
 	}
-	result := PreparedDeckInputFacts{DeckName: deckName, CorpusID: corpusID, Candidates: candidates}
-	if snapshot, snapshotErr := q.GetActiveCurrentReadingSnapshotForPreparation(ctx, sqlcgen.GetActiveCurrentReadingSnapshotForPreparationParams{Owner: preparation.OwnerID, Preparation: preparation.ID}); snapshotErr == nil {
+	return languages
+}
+
+// attachPreparedDeckCurrentReadingSnapshotTx resolves the Current reading
+// snapshot a preparation is bound to. A bound snapshot that is missing is an
+// error, while a stale unbound lookup is ignored; any other failure propagates.
+func attachPreparedDeckCurrentReadingSnapshotTx(ctx context.Context, q *sqlcgen.Queries, preparation domain.DeckPreparation, result *PreparedDeckInputFacts) error {
+	snapshot, err := q.GetActiveCurrentReadingSnapshotForPreparation(ctx, sqlcgen.GetActiveCurrentReadingSnapshotForPreparationParams{Owner: preparation.OwnerID, Preparation: preparation.ID})
+	if err == nil {
 		result.CurrentReadingSnapshotActive = true
-		result.CurrentReadingSnapshot, snapshotErr = listCurrentReadingSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
-		if snapshotErr != nil {
-			return PreparedDeckInputFacts{}, snapshotErr
-		}
-	} else if preparation.SnapshotID != "" {
-		if errors.Is(snapshotErr, pgx.ErrNoRows) {
-			return PreparedDeckInputFacts{}, fmt.Errorf("prepared deck Current reading snapshot %q is unavailable: %w", preparation.SnapshotID, ErrNotFound)
-		}
-		return PreparedDeckInputFacts{}, snapshotErr
-	} else if !errors.Is(snapshotErr, pgx.ErrNoRows) {
-		return PreparedDeckInputFacts{}, snapshotErr
+		result.CurrentReadingSnapshot, err = listCurrentReadingSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
+		return err
 	}
-	if !result.CurrentReadingSnapshotActive && corpusID != "" {
-		analysis, corrections, loadErr := loadAnalysisProjectionFactsTx(ctx, tx, q, preparation, corpusID)
-		err = loadErr
-		if err != nil {
-			return PreparedDeckInputFacts{}, err
+	if preparation.SnapshotID != "" {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("prepared deck Current reading snapshot %q is unavailable: %w", preparation.SnapshotID, ErrNotFound)
 		}
-		if len(analysis.Sentences) > 0 {
-			result.Analysis = &analysis
-			languages[canonicalization.NormalizeLanguage(analysis.Language)] = struct{}{}
-		}
-		result.Corrections = corrections
+		return err
 	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	return nil
+}
+
+// attachPreparedDeckAnalysisFactsTx loads the analysis projection and
+// corrections for a direct corpus-scoped preparation. A Current reading
+// snapshot already carries its own vocabulary, so the projection is skipped.
+func attachPreparedDeckAnalysisFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, preparation domain.DeckPreparation, corpusID string, result *PreparedDeckInputFacts, languages map[string]struct{}) error {
+	if result.CurrentReadingSnapshotActive || corpusID == "" {
+		return nil
+	}
+	analysis, corrections, err := loadAnalysisProjectionFactsTx(ctx, tx, q, preparation, corpusID)
+	if err != nil {
+		return err
+	}
+	if len(analysis.Sentences) > 0 {
+		result.Analysis = &analysis
+		languages[canonicalization.NormalizeLanguage(analysis.Language)] = struct{}{}
+	}
+	result.Corrections = corrections
+	return nil
+}
+
+// attachPreparedDeckVocabularyFacts appends the known, generated and reserved
+// vocabulary of every language the candidates reference.
+func attachPreparedDeckVocabularyFacts(ctx context.Context, tx pgx.Tx, owner string, languages map[string]struct{}, result *PreparedDeckInputFacts) error {
 	for language := range languages {
-		known, knownErr := listKnownVocabulary(ctx, tx, preparation.OwnerID, language)
-		if knownErr != nil {
-			return PreparedDeckInputFacts{}, knownErr
+		known, err := listKnownVocabulary(ctx, tx, owner, language)
+		if err != nil {
+			return err
 		}
-		generated, generatedErr := listUnattachedGeneratedVocabulary(ctx, tx, preparation.OwnerID, language)
-		if generatedErr != nil {
-			return PreparedDeckInputFacts{}, generatedErr
+		generated, err := listUnattachedGeneratedVocabulary(ctx, tx, owner, language)
+		if err != nil {
+			return err
 		}
-		reserved, reservedErr := listReservedVocabulary(ctx, tx, preparation.OwnerID, language)
-		if reservedErr != nil {
-			return PreparedDeckInputFacts{}, reservedErr
+		reserved, err := listReservedVocabulary(ctx, tx, owner, language)
+		if err != nil {
+			return err
 		}
 		result.Known = append(result.Known, known...)
 		result.Generated = append(result.Generated, generated...)
 		result.Reserved = append(result.Reserved, reserved...)
 	}
-	return result, nil
+	return nil
 }
 
 func loadAnalysisProjectionFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, preparation domain.DeckPreparation, corpusID string) (analyzer.Result, []domain.OccurrenceLemmaCorrection, error) {
@@ -107,50 +144,100 @@ func loadAnalysisProjectionFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Qu
 	if err != nil {
 		return analyzer.Result{}, nil, err
 	}
-	var bookID *string
-	if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+	bookID, err := preparedDeckSourceBookID(ctx, tx, preparation)
+	if err != nil {
 		return analyzer.Result{}, nil, err
 	}
-	var correctionRows []sqlcgen.ListOccurrenceLemmaCorrectionsRow
-	if bookID != nil {
-		correctionRows, err = q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{Owner: preparation.OwnerID, Book: *bookID, Corpus: corpusID, AnalysisRun: preparation.AnalysisRunID})
-		if err != nil {
-			return analyzer.Result{}, nil, err
-		}
+	correctionRows, err := listOccurrenceLemmaCorrectionsTx(ctx, q, preparation, corpusID, bookID)
+	if err != nil {
+		return analyzer.Result{}, nil, err
 	}
+	analysis, err := analysisFromTokenEvidence(rows)
+	if err != nil {
+		return analyzer.Result{}, nil, err
+	}
+	corrections, err := occurrenceLemmaCorrections(correctionRows)
+	if err != nil {
+		return analyzer.Result{}, nil, err
+	}
+	return analysis, corrections, nil
+}
+
+// preparedDeckSourceBookID returns the Book a preparation's source is linked
+// to, or nil for an unlinked legacy source.
+func preparedDeckSourceBookID(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (*string, error) {
+	var bookID *string
+	if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+		return nil, err
+	}
+	return bookID, nil
+}
+
+// listOccurrenceLemmaCorrectionsTx loads the corrections recorded against the
+// source's Book. An unlinked source has no Book to correct.
+func listOccurrenceLemmaCorrectionsTx(ctx context.Context, q *sqlcgen.Queries, preparation domain.DeckPreparation, corpusID string, bookID *string) ([]sqlcgen.ListOccurrenceLemmaCorrectionsRow, error) {
+	if bookID == nil {
+		return nil, nil
+	}
+	rows, err := q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{Owner: preparation.OwnerID, Book: *bookID, Corpus: corpusID, AnalysisRun: preparation.AnalysisRunID})
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// analysisFromTokenEvidence rebuilds the analysed corpus from persisted token
+// rows, grouping tokens into sentences by their stored ordinal.
+func analysisFromTokenEvidence(rows []sqlcgen.ListAnalysisTokenEvidenceRow) (analyzer.Result, error) {
 	var analysis analyzer.Result
-	sentences := make(map[int64]int)
+	indexByOrdinal := make(map[int64]int)
 	for _, row := range rows {
-		index, ok := sentences[row.SentenceOrdinal]
+		index, ok := indexByOrdinal[row.SentenceOrdinal]
 		if !ok {
 			index = len(analysis.Sentences)
-			sentences[row.SentenceOrdinal] = index
+			indexByOrdinal[row.SentenceOrdinal] = index
 			analysis.Sentences = append(analysis.Sentences, analyzer.Sentence{Text: row.SentenceText})
 		}
-		head, convertErr := checked.Uint32FromInt64(row.Head)
-		if convertErr != nil || row.StartOffset < 0 || row.EndOffset < 0 {
-			return analyzer.Result{}, nil, errors.New("decode persisted token location: invalid offsets or head")
-		}
-		var morphology map[string]string
-		if err = json.Unmarshal(row.Morphology, &morphology); err != nil {
-			return analyzer.Result{}, nil, fmt.Errorf("decode persisted token morphology: %w", err)
+		token, err := decodeTokenEvidence(row)
+		if err != nil {
+			return analyzer.Result{}, err
 		}
 		analysis.Language = row.Language
-		analysis.Sentences[index].Tokens = append(analysis.Sentences[index].Tokens, analyzer.Token{
-			Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
-			UPOS: row.Upos, Dependency: row.Dependency, Head: head, Morphology: morphology,
-			Location: analyzer.SourceLocation{SourceDocumentID: row.UnitID, StartOffset: uint64(row.StartOffset), EndOffset: uint64(row.EndOffset)},
-		})
+		analysis.Sentences[index].Tokens = append(analysis.Sentences[index].Tokens, token)
 	}
-	corrections := make([]domain.OccurrenceLemmaCorrection, 0, len(correctionRows))
-	for _, row := range correctionRows {
+	return analysis, nil
+}
+
+// decodeTokenEvidence decodes one persisted token row, rejecting an invalid
+// location or head ordinal.
+func decodeTokenEvidence(row sqlcgen.ListAnalysisTokenEvidenceRow) (analyzer.Token, error) {
+	head, err := checked.Uint32FromInt64(row.Head)
+	if err != nil || row.StartOffset < 0 || row.EndOffset < 0 {
+		return analyzer.Token{}, errors.New("decode persisted token location: invalid offsets or head")
+	}
+	var morphology map[string]string
+	if err := json.Unmarshal(row.Morphology, &morphology); err != nil {
+		return analyzer.Token{}, fmt.Errorf("decode persisted token morphology: %w", err)
+	}
+	return analyzer.Token{
+		Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
+		UPOS: row.Upos, Dependency: row.Dependency, Head: head, Morphology: morphology,
+		Location: analyzer.SourceLocation{SourceDocumentID: row.UnitID, StartOffset: uint64(row.StartOffset), EndOffset: uint64(row.EndOffset)},
+	}, nil
+}
+
+// occurrenceLemmaCorrections decodes the persisted occurrence lemma
+// corrections, rejecting an invalid source offset.
+func occurrenceLemmaCorrections(rows []sqlcgen.ListOccurrenceLemmaCorrectionsRow) ([]domain.OccurrenceLemmaCorrection, error) {
+	corrections := make([]domain.OccurrenceLemmaCorrection, 0, len(rows))
+	for _, row := range rows {
 		if row.StartOffset < 0 || row.EndOffset < 0 {
-			return analyzer.Result{}, nil, errors.New("decode persisted lemma correction: invalid offsets")
+			return nil, errors.New("decode persisted lemma correction: invalid offsets")
 		}
 		lemma := row.CanonicalLemma.String
 		corrections = append(corrections, domain.OccurrenceLemmaCorrection{SourceDocumentID: row.SourceDocumentID, StartOffset: row.StartOffset, EndOffset: row.EndOffset, CanonicalLemma: lemma, Excluded: row.Excluded})
 	}
-	return analysis, corrections, nil
+	return corrections, nil
 }
 
 // LoadPreparedDeckCandidateFactsTx loads render and sentence facts for the
@@ -219,45 +306,81 @@ func preparedDeckProjectedEntryScopeTx(ctx context.Context, tx pgx.Tx, q *sqlcge
 // every selected candidate references, keyed by corpus and ordinal. A
 // candidate whose references do not decode contributes no ordinals.
 func loadPreparedDeckCandidateSentencesTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, selected []domain.SelectionCandidate) (map[string]map[int64]analyzer.Sentence, error) {
-	ordinalsByCorpus := make(map[string]map[int64]struct{})
-	for _, candidate := range selected {
-		var refs []struct {
-			SentenceIndex int `json:"sentence_index"`
-		}
-		if json.Unmarshal(candidate.SentenceReferences, &refs) != nil {
-			continue
-		}
-		ordinals := ordinalsByCorpus[candidate.CorpusID]
-		if ordinals == nil {
-			ordinals = make(map[int64]struct{})
-			ordinalsByCorpus[candidate.CorpusID] = ordinals
-		}
-		for _, ref := range refs {
-			if ref.SentenceIndex >= 0 {
-				ordinals[int64(ref.SentenceIndex)] = struct{}{}
-			}
-		}
-	}
+	ordinalsByCorpus := candidateSentenceOrdinalsByCorpus(selected)
 	sentencesByCorpus := make(map[string]map[int64]analyzer.Sentence, len(ordinalsByCorpus))
-	for id, ordinalSet := range ordinalsByCorpus {
-		ordinals := make([]int64, 0, len(ordinalSet))
-		for ordinal := range ordinalSet {
-			ordinals = append(ordinals, ordinal)
-		}
-		sentences, sentenceErr := listCorpusSentences(ctx, tx, preparation.OwnerID, id, ordinals)
-		if sentenceErr != nil {
-			return nil, fmt.Errorf("list persisted corpus sentences for %s: %w", id, sentenceErr)
+	for corpusID, ordinalSet := range ordinalsByCorpus {
+		sentences, err := loadCorpusSentenceOrdinals(ctx, tx, preparation.OwnerID, corpusID, ordinalSet)
+		if err != nil {
+			return nil, err
 		}
 		if len(sentences) > 0 {
-			for ordinal := range ordinalSet {
-				if _, ok := sentences[ordinal]; !ok {
-					return nil, fmt.Errorf("list persisted corpus sentences for %s: missing sentence ordinal %d", id, ordinal)
-				}
-			}
-			sentencesByCorpus[id] = sentences
+			sentencesByCorpus[corpusID] = sentences
 		}
 	}
 	return sentencesByCorpus, nil
+}
+
+// candidateSentenceOrdinalsByCorpus groups the sentence ordinals each selected
+// candidate references by corpus. A candidate whose references do not decode
+// contributes no ordinals.
+func candidateSentenceOrdinalsByCorpus(selected []domain.SelectionCandidate) map[string]map[int64]struct{} {
+	ordinalsByCorpus := make(map[string]map[int64]struct{})
+	for _, candidate := range selected {
+		ordinals, ok := decodeCandidateSentenceOrdinals(candidate)
+		if !ok {
+			continue
+		}
+		corpusOrdinals := ordinalsByCorpus[candidate.CorpusID]
+		if corpusOrdinals == nil {
+			corpusOrdinals = make(map[int64]struct{})
+			ordinalsByCorpus[candidate.CorpusID] = corpusOrdinals
+		}
+		for _, ordinal := range ordinals {
+			corpusOrdinals[ordinal] = struct{}{}
+		}
+	}
+	return ordinalsByCorpus
+}
+
+// decodeCandidateSentenceOrdinals returns the non-negative sentence ordinals a
+// candidate references. ok is false when its references do not decode.
+func decodeCandidateSentenceOrdinals(candidate domain.SelectionCandidate) (ordinals []int64, ok bool) {
+	var refs []struct {
+		SentenceIndex int `json:"sentence_index"`
+	}
+	if json.Unmarshal(candidate.SentenceReferences, &refs) != nil {
+		return nil, false
+	}
+	ordinals = make([]int64, 0, len(refs))
+	for _, ref := range refs {
+		if ref.SentenceIndex >= 0 {
+			ordinals = append(ordinals, int64(ref.SentenceIndex))
+		}
+	}
+	return ordinals, true
+}
+
+// loadCorpusSentenceOrdinals loads the persisted sentences one corpus
+// references and rejects a missing ordinal instead of silently dropping
+// context. A corpus that holds none of the ordinals yields an empty map.
+func loadCorpusSentenceOrdinals(ctx context.Context, tx pgx.Tx, owner, corpusID string, ordinalSet map[int64]struct{}) (map[int64]analyzer.Sentence, error) {
+	ordinals := make([]int64, 0, len(ordinalSet))
+	for ordinal := range ordinalSet {
+		ordinals = append(ordinals, ordinal)
+	}
+	sentences, err := listCorpusSentences(ctx, tx, owner, corpusID, ordinals)
+	if err != nil {
+		return nil, fmt.Errorf("list persisted corpus sentences for %s: %w", corpusID, err)
+	}
+	if len(sentences) == 0 {
+		return sentences, nil
+	}
+	for ordinal := range ordinalSet {
+		if _, ok := sentences[ordinal]; !ok {
+			return nil, fmt.Errorf("list persisted corpus sentences for %s: missing sentence ordinal %d", corpusID, ordinal)
+		}
+	}
+	return sentences, nil
 }
 
 // loadPreparedDeckCandidateEntryTx loads one candidate's coverage entry. When
