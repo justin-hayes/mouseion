@@ -455,6 +455,53 @@ func TestCancelLogsBestEffortRemoteFailuresWithoutChangingOutcome(t *testing.T) 
 	assert.Equal(t, "pending", chunk.InputFileCleanupState, "rejected cleanup write must leave the file pending for recovery")
 }
 
+func TestCancelWithoutDurableRunCancelsRiverJobsOnly(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "runless-cancel-owner", false)
+	require.NoError(t, err)
+	other, err := store.CreateUser(ctx, "runless-cancel-other", false)
+	require.NoError(t, err)
+	_, book, _, reading := seedAnalyzedReading(t, ctx, store, owner, "runless-cancel-book")
+	workers := river.NewWorkers()
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
+	canceller := &recordingBatchCanceller{}
+	service := &Service{pool: store.Pool(), client: client, store: store, batchCanceller: canceller}
+	handle, err := service.PrepareCurrentReadingDeck(ctx, owner.ID, book.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	require.NotZero(t, handle.JobID)
+	require.Empty(t, handle.Preparation.CurrentRunID)
+
+	t.Run("cross-owner cancel is not found", func(t *testing.T) {
+		_, cancelErr := service.Cancel(ctx, other.ID, handle.Preparation.ID)
+		require.ErrorIs(t, cancelErr, persistence.ErrNotFound)
+	})
+	var state string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM river_job WHERE id=$1`, handle.JobID).Scan(&state))
+	assert.NotEqual(t, "cancelled", state, "a rejected cancel must leave the job live")
+
+	cancelled, err := service.Cancel(ctx, owner.ID, handle.Preparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationCancelled, cancelled.State)
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM river_job WHERE id=$1`, handle.JobID).Scan(&state))
+	assert.Equal(t, "cancelled", state)
+	assert.Zero(t, canceller.calls, "a preparation without a durable run has no provider batches")
+}
+
+// recordingBatchCanceller counts provider cancellations and cannot delete files.
+type recordingBatchCanceller struct{ calls int }
+
+func (c *recordingBatchCanceller) CancelBatch(context.Context, string) (enrichment.Batch, error) {
+	c.calls++
+	return enrichment.Batch{}, nil
+}
+
 // failingCancelRiverClient keeps River insertion real while job cancellation fails.
 type failingCancelRiverClient struct{ client *river.Client[pgx.Tx] }
 

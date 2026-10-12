@@ -32,12 +32,13 @@ type finalizerStoreStub struct {
 	corpusSentences                                    map[string]map[int64]analyzer.Sentence
 	corpusCalls                                        int
 	failCalls                                          int
-	loadErr                                            error
+	failClass, failCode                                string
+	loadErr, claimErr, completeErr, failErr            error
 }
 
 func (s *finalizerStoreStub) ClaimPreparedDeckFinalization(_ context.Context, _, _, _ string, generation int, token string, leaseExpiresAt time.Time) (domain.PreparedDeckRun, error) {
 	s.claimedGeneration, s.claimedToken, s.claimLeaseExpiresAt = generation, token, leaseExpiresAt
-	return s.run, nil
+	return s.run, s.claimErr
 }
 
 func (s *finalizerStoreStub) LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.StorageProjection, []cardexport.StoredResult, error) {
@@ -48,7 +49,7 @@ func (s *finalizerStoreStub) LoadPreparedDeckFinalization(context.Context, strin
 func (s *finalizerStoreStub) CompletePreparedDeckRun(_ context.Context, _, _, _, token string, _ cardexport.Artifact) (domain.DeckPreparation, error) {
 	s.completeCalls++
 	s.completedToken = token
-	return s.preparation, nil
+	return s.preparation, s.completeErr
 }
 
 func (s *finalizerStoreStub) GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error) {
@@ -86,9 +87,10 @@ func (s *finalizerStoreStub) ListCorpusSentences(_ context.Context, _, corpusID 
 	return result, nil
 }
 
-func (s *finalizerStoreStub) FailPreparedDeckFinalization(context.Context, string, string, string, string, string, string) error {
+func (s *finalizerStoreStub) FailPreparedDeckFinalization(_ context.Context, _, _, _, _, class, code string) error {
 	s.failCalls++
-	return nil
+	s.failClass, s.failCode = class, code
+	return s.failErr
 }
 
 type finalizerRendererStub struct {
@@ -209,6 +211,140 @@ func TestDurableFinalizerFailsRunForPresentationValidationError(t *testing.T) {
 	t.Run("does not publish", func(t *testing.T) {
 		require.Zero(t, store.completeCalls)
 	})
+}
+
+func TestDurableFinalizerRejectsIncompleteInput(t *testing.T) {
+	store := &finalizerStoreStub{}
+	cases := map[string]*DurableFinalizer{
+		"nil finalizer": nil,
+		"no store":      {Renderer: &finalizerRendererStub{}},
+		"no renderer":   {Store: store},
+	}
+	for name, finalizer := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := finalizer.Finalize(context.Background(), "owner", "preparation", "run", 0)
+			require.ErrorIs(t, err, ErrInvalidInput)
+		})
+	}
+	t.Run("blank identity", func(t *testing.T) {
+		_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}}).Finalize(context.Background(), "owner", " ", "run", 0)
+		require.ErrorIs(t, err, ErrInvalidInput)
+	})
+	assert.Empty(t, store.claimedToken, "invalid input must not claim the run")
+}
+
+func TestDurableFinalizerReturnsClaimFailureWithoutLoading(t *testing.T) {
+	store := &finalizerStoreStub{claimErr: persistence.ErrPreparedDeckClaimLost}
+	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+	require.ErrorIs(t, err, persistence.ErrPreparedDeckClaimLost)
+	assert.Zero(t, store.loadCalls)
+	assert.Zero(t, store.failCalls)
+}
+
+func TestDurableFinalizerLoadFailure(t *testing.T) {
+	cases := []struct {
+		name      string
+		loadErr   error
+		wantFails int
+	}{
+		{name: "identity mismatch fails the run", loadErr: persistence.ErrPreparedDeckIdentity, wantFails: 1},
+		{name: "invalid presentation input fails the run", loadErr: cardexport.ErrInvalidInput, wantFails: 1},
+		{name: "transient load error leaves the run for retry", loadErr: errors.New("database unavailable")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, loadErr: tc.loadErr}
+			renderer := &finalizerRendererStub{}
+			_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+			require.ErrorIs(t, err, tc.loadErr)
+			assert.Equal(t, tc.wantFails, store.failCalls)
+			if tc.wantFails > 0 {
+				assert.Equal(t, "presentation", store.failClass)
+				assert.Equal(t, "invalid_manifest", store.failCode)
+			}
+			assert.Zero(t, renderer.calls)
+			assert.Zero(t, store.completeCalls)
+		})
+	}
+}
+
+func TestDurableFinalizerClassifiesRecordedFailures(t *testing.T) {
+	cases := []struct {
+		name                 string
+		renderer             *finalizerRendererStub
+		wantClass, wantCode  string
+		wantRenderErrWrapped bool
+	}{
+		{name: "restore failure", renderer: &finalizerRendererStub{restoreErr: errors.New("restore failed")}, wantClass: "presentation", wantCode: "invalid_manifest"},
+		{name: "render failure", renderer: &finalizerRendererStub{err: errors.New("render failed")}, wantClass: "presentation", wantCode: "render_failed", wantRenderErrWrapped: true},
+		{name: "all meanings unresolved", renderer: &finalizerRendererStub{err: cardexport.ErrAllMeaningsUnresolved}, wantClass: "validation", wantCode: "all_meanings_unresolved", wantRenderErrWrapped: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			failErr := errors.New("failure write unavailable")
+			store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, failErr: failErr}
+			_, err := (&DurableFinalizer{Store: store, Renderer: tc.renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+			require.ErrorIs(t, err, failErr, "a failed failure write is joined to the returned error")
+			assert.Contains(t, err.Error(), "record finalization failure")
+			if tc.wantRenderErrWrapped {
+				assert.Contains(t, err.Error(), "render durable prepared deck")
+			}
+			assert.Equal(t, tc.wantClass, store.failClass)
+			assert.Equal(t, tc.wantCode, store.failCode)
+			assert.Zero(t, store.completeCalls)
+		})
+	}
+}
+
+func TestDurableFinalizerDoesNotRecordFailureAfterCancellation(t *testing.T) {
+	cases := map[string]struct {
+		store    *finalizerStoreStub
+		renderer *finalizerRendererStub
+	}{
+		"load":    {store: &finalizerStoreStub{loadErr: persistence.ErrPreparedDeckIdentity}, renderer: &finalizerRendererStub{}},
+		"restore": {store: &finalizerStoreStub{}, renderer: &finalizerRendererStub{restoreErr: errors.New("restore failed")}},
+		"render":  {store: &finalizerStoreStub{}, renderer: &finalizerRendererStub{err: errors.New("render failed")}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			tc.store.run = domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}
+			_, err := (&DurableFinalizer{Store: tc.store, Renderer: tc.renderer}).Finalize(ctx, "owner", "preparation", "run", 0)
+			require.Error(t, err)
+			assert.Zero(t, tc.store.failCalls, "a cancelled finalizer leaves the run for its successor")
+		})
+	}
+}
+
+func TestDurableFinalizerReturnsPublicationFailure(t *testing.T) {
+	completeErr := persistence.ErrPreparedDeckClaimLost
+	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, completeErr: completeErr}
+	metrics := &recordingBatchMetrics{}
+	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}, Metrics: metrics}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+	require.ErrorIs(t, err, completeErr)
+	assert.Equal(t, 1, store.completeCalls)
+	assert.Zero(t, store.failCalls)
+	assert.Contains(t, metrics.metrics, BatchMetric{Mode: "unknown", Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
+}
+
+func TestDurableFinalizerRecordsOutcomeMetricsByExecutionMode(t *testing.T) {
+	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing, ExecutionMode: domain.PreparedDeckExecutionStandard}}
+	metrics := &recordingBatchMetrics{}
+	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}, Metrics: metrics}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+	require.NoError(t, err)
+	assert.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricAPKGOutcome, Phase: "finalizing", State: "completed", Provider: "openai", Value: 1})
+	names := make([]string, 0, len(metrics.metrics))
+	for _, metric := range metrics.metrics {
+		names = append(names, metric.Name)
+	}
+	assert.Equal(t, []string{MetricAPKGOutcome, MetricBatchPhaseLatency, MetricBatchTotalLatency}, names)
+}
+
+type recordingBatchMetrics struct{ metrics []BatchMetric }
+
+func (m *recordingBatchMetrics) ObserveBatch(metric BatchMetric) {
+	m.metrics = append(m.metrics, metric)
 }
 
 func TestDurableFinalizerLogsInvalidSenseSelectionFromDiagnostics(t *testing.T) {
