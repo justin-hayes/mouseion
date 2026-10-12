@@ -239,3 +239,87 @@ func TestBoundedProviderCodePreservesOnlyApprovedDiagnostics(t *testing.T) {
 		assert.Equal(t, "provider_error", boundedProviderCode(untrusted), "untrusted code %q was retained as %q", untrusted, boundedProviderCode(untrusted))
 	}
 }
+
+// TestPlanBatchChunksRejectsInvalidPlanningInput pins every planning guard that
+// runs before any item is serialized, so splitting encoding from packing cannot
+// silently accept a plan the provider boundary would reject.
+func TestPlanBatchChunksRejectsInvalidPlanningInput(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	work := []cardexport.WorkItem{{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN"}}}
+	tests := []struct {
+		name       string
+		codec      *enrichment.TranslationCodec
+		generation int
+		model      string
+		endpoint   string
+		work       []cardexport.WorkItem
+		limits     BatchChunkLimits
+	}{
+		{name: "missing codec", codec: nil, generation: 1, model: "gpt-test", endpoint: enrichment.OpenAIChatCompletionsEndpoint, work: work},
+		{name: "missing work", codec: codec, generation: 1, model: "gpt-test", endpoint: enrichment.OpenAIChatCompletionsEndpoint},
+		{name: "missing generation", codec: codec, generation: 0, model: "gpt-test", endpoint: enrichment.OpenAIChatCompletionsEndpoint, work: work},
+		{name: "missing model", codec: codec, generation: 1, endpoint: enrichment.OpenAIChatCompletionsEndpoint, work: work},
+		{name: "ineligible endpoint", codec: codec, generation: 1, model: "gpt-test", endpoint: "/v1/responses", work: work},
+		{name: "model contradicts codec", codec: codec, generation: 1, model: "other-model", endpoint: enrichment.OpenAIChatCompletionsEndpoint, work: work},
+		{name: "negative request limit", codec: codec, generation: 1, model: "gpt-test", endpoint: enrichment.OpenAIChatCompletionsEndpoint, work: work, limits: BatchChunkLimits{MaxRequests: -1}},
+		{name: "negative byte limit", codec: codec, generation: 1, model: "gpt-test", endpoint: enrichment.OpenAIChatCompletionsEndpoint, work: work, limits: BatchChunkLimits{MaxBytes: -1}},
+		{name: "negative token limit", codec: codec, generation: 1, model: "gpt-test", endpoint: enrichment.OpenAIChatCompletionsEndpoint, work: work, limits: BatchChunkLimits{MaxPromptTokens: -1}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			plans, planErr := PlanBatchChunks(test.codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", test.generation, test.model, test.endpoint, test.work, test.limits)
+			require.Error(t, planErr, "invalid planning input was accepted")
+			assert.Nil(t, plans)
+		})
+	}
+}
+
+// TestPlanBatchChunksRejectsItemBeyondConfiguredLimits pins the per-item ceiling
+// check: the first item must not be packed when it cannot be sent alone.
+func TestPlanBatchChunksRejectsItemBeyondConfiguredLimits(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	work := []cardexport.WorkItem{{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN"}}}
+	tests := []struct {
+		name   string
+		limits BatchChunkLimits
+	}{
+		{name: "byte limit", limits: BatchChunkLimits{MaxBytes: 1}},
+		{name: "token budget", limits: BatchChunkLimits{MaxPromptTokens: 1}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			plans, planErr := PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, work, test.limits)
+			require.Error(t, planErr, "item beyond the configured limit was accepted")
+			assert.Nil(t, plans)
+		})
+	}
+}
+
+// TestPlanBatchChunksMarksFirstRetryGenerationChunk pins the split reasons for a
+// retry generation with one request per chunk.
+func TestPlanBatchChunksMarksFirstRetryGenerationChunk(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	work := []cardexport.WorkItem{
+		{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN"}},
+		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN"}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "baum", UPOS: "NOUN"}},
+	}
+	tests := []struct {
+		name       string
+		chunkIndex int
+		want       string
+	}{
+		{name: "first retry generation chunk is a retry", chunkIndex: 0, want: "retry"},
+		{name: "chunk split by the request limit", chunkIndex: 1, want: "request_limit"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			plans, planErr := PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 2, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, work, BatchChunkLimits{MaxRequests: 1})
+			require.NoError(t, planErr)
+			require.Len(t, plans, 2)
+			assert.Equal(t, test.want, plans[test.chunkIndex].SplitReason)
+		})
+	}
+}

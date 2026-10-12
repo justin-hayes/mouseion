@@ -45,13 +45,25 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 	if limits.MaxRequests < 1 || limits.MaxBytes < 1 || limits.MaxPromptTokens < 1 {
 		return nil, errors.New("prepareddeck: invalid Batch chunk limits")
 	}
-
-	type encodedItem struct {
-		item  enrichment.BatchTranslationItem
-		line  []byte
-		token int64
+	encoded, err := encodeBatchItems(codec, runID, generation, work, limits)
+	if err != nil {
+		return nil, err
 	}
-	encoded := make([]encodedItem, len(work))
+	return packBatchChunks(encoded, generation, model, endpoint, limits)
+}
+
+// encodedBatchItem is one frozen request serialized exactly once, with the
+// conservative prompt budget used to enforce the token ceiling.
+type encodedBatchItem struct {
+	item  enrichment.BatchTranslationItem
+	line  []byte
+	token int64
+}
+
+// encodeBatchItems validates frozen order and identity, then serializes every
+// item and enforces the per-item ceilings. The encoding is never repeated.
+func encodeBatchItems(codec *enrichment.TranslationCodec, runID string, generation int, work []cardexport.WorkItem, limits BatchChunkLimits) ([]encodedBatchItem, error) {
+	encoded := make([]encodedBatchItem, len(work))
 	previousOrdinal := 0
 	for i, item := range work {
 		if i > 0 && item.Ordinal <= previousOrdinal {
@@ -74,9 +86,15 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 		if int64(line.Len()) > limits.MaxBytes || token > limits.MaxPromptTokens {
 			return nil, fmt.Errorf("prepareddeck: Batch item %d exceeds a configured limit", item.Ordinal)
 		}
-		encoded[i] = encodedItem{item: batchItem, line: append([]byte(nil), line.Bytes()...), token: token}
+		encoded[i] = encodedBatchItem{item: batchItem, line: append([]byte(nil), line.Bytes()...), token: token}
 	}
+	return encoded, nil
+}
 
+// packBatchChunks groups consecutive encoded items into plans without crossing
+// a ceiling. The limit reason recorded on a plan explains why the next chunk
+// starts where it does.
+func packBatchChunks(encoded []encodedBatchItem, generation int, model, endpoint string, limits BatchChunkLimits) ([]persistence.PreparedDeckBatchChunkPlan, error) {
 	plans := make([]persistence.PreparedDeckBatchChunkPlan, 0, (len(encoded)+limits.MaxRequests-1)/limits.MaxRequests)
 	nextSplitReason := "run"
 	for position := 0; position < len(encoded); {
@@ -87,15 +105,8 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 		for position < len(encoded) {
 			next := encoded[position]
 			if position > start {
-				switch {
-				case position-start >= limits.MaxRequests:
-					nextSplitReason = "request_limit"
-				case size+int64(len(next.line)) > limits.MaxBytes:
-					nextSplitReason = "byte_limit"
-				case tokens+next.token > limits.MaxPromptTokens:
-					nextSplitReason = "token_limit"
-				}
-				if position-start >= limits.MaxRequests || size+int64(len(next.line)) > limits.MaxBytes || tokens+next.token > limits.MaxPromptTokens {
+				if limitReason := batchChunkLimitReason(position-start, size, tokens, next, limits); limitReason != "" {
+					nextSplitReason = limitReason
 					break
 				}
 			}
@@ -106,23 +117,45 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 		if position == start {
 			return nil, errors.New("prepareddeck: Batch chunk planner made no progress")
 		}
-		var input bytes.Buffer
-		ordinals := make([]int, 0, position-start)
-		for _, item := range encoded[start:position] {
-			_, _ = input.Write(item.line)
-			ordinals = append(ordinals, item.item.Ordinal)
-		}
-		digest := sha256.Sum256(input.Bytes())
 		if generation > 1 && len(plans) == 0 {
 			reason = "retry"
 		}
-		plans = append(plans, persistence.PreparedDeckBatchChunkPlan{
-			ChunkIndex: len(plans), Generation: generation, Model: model, Endpoint: endpoint,
-			SplitReason: reason, InputDigest: hex.EncodeToString(digest[:]), InputBytes: int64(input.Len()),
-			EstimatedPromptTokens: tokens, Ordinals: ordinals,
-		})
+		plans = append(plans, buildBatchChunkPlan(encoded[start:position], generation, model, endpoint, reason, len(plans)))
 	}
 	return plans, nil
+}
+
+// batchChunkLimitReason reports the first configured ceiling the next item would
+// cross, in the order the planner checks them, or "" when it still fits.
+func batchChunkLimitReason(count int, size, tokens int64, next encodedBatchItem, limits BatchChunkLimits) string {
+	switch {
+	case count >= limits.MaxRequests:
+		return "request_limit"
+	case size+int64(len(next.line)) > limits.MaxBytes:
+		return "byte_limit"
+	case tokens+next.token > limits.MaxPromptTokens:
+		return "token_limit"
+	default:
+		return ""
+	}
+}
+
+// buildBatchChunkPlan hashes and describes one contiguous run of encoded items.
+func buildBatchChunkPlan(items []encodedBatchItem, generation int, model, endpoint, reason string, chunkIndex int) persistence.PreparedDeckBatchChunkPlan {
+	var input bytes.Buffer
+	var tokens int64
+	ordinals := make([]int, 0, len(items))
+	for _, item := range items {
+		_, _ = input.Write(item.line)
+		tokens += item.token
+		ordinals = append(ordinals, item.item.Ordinal)
+	}
+	digest := sha256.Sum256(input.Bytes())
+	return persistence.PreparedDeckBatchChunkPlan{
+		ChunkIndex: chunkIndex, Generation: generation, Model: model, Endpoint: endpoint,
+		SplitReason: reason, InputDigest: hex.EncodeToString(digest[:]), InputBytes: int64(input.Len()),
+		EstimatedPromptTokens: tokens, Ordinals: ordinals,
+	}
 }
 
 func batchTranslationItems(work []cardexport.WorkItem) []enrichment.BatchTranslationItem {
