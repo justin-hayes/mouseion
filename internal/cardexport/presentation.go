@@ -338,97 +338,149 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		return Artifact{}, FinalizeDiagnostics{}, ErrInvalidInput
 	}
 	manifest := deck.manifest.clone()
-	keys := manifest.cacheKeys
-	if len(keys) == 0 {
-		if len(results) != 0 {
-			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: external results supplied for a local deck", ErrInvalidInput)
-		}
-		artifact, _, err := renderManifest(ctx, manifest, nil)
-		if err != nil {
-			return Artifact{}, FinalizeDiagnostics{}, err
-		}
-		diagnostics := manifestDiagnostics(manifest)
-		artifact.Diagnostics = cloneDiagnostics(diagnostics)
-		return artifact, diagnostics, nil
+	if len(manifest.cacheKeys) == 0 {
+		return finalizeLocalDeck(ctx, manifest, results)
 	}
-	if facts.Consent && facts.Configured {
-		mode := strings.ToLower(strings.TrimSpace(facts.ExecutionMode))
-		if mode != "standard" && mode != "batch" {
-			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: invalid prepared deck execution mode", ErrInvalidInput)
-		}
-		if facts.TargetLanguage == "" || facts.Provider == "" || facts.ProviderVersion == "" {
-			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: incomplete external run facts", ErrInvalidInput)
-		}
-		for _, key := range keys {
-			historicalV1Target := manifest.schemaVersion == LegacyManifestSchemaVersion && key.TargetLanguage == ""
-			if (!historicalV1Target && key.TargetLanguage != facts.TargetLanguage) || key.Provider != facts.Provider || key.ProviderVersion != facts.ProviderVersion {
-				return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: run facts contradict manifest cache identity", ErrInvalidInput)
-			}
-		}
+	if err := validateExternalRunFacts(manifest, facts); err != nil {
+		return Artifact{}, FinalizeDiagnostics{}, err
 	}
-
-	byKey := make(map[enrichment.CacheKey]StoredResult, len(results))
-	for _, result := range results {
-		if _, duplicate := byKey[result.CacheKey]; duplicate {
-			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: duplicate stored enrichment result", ErrInvalidInput)
-		}
-		if result.Record.CacheKey != (enrichment.CacheKey{}) && result.Record.CacheKey != result.CacheKey {
-			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: stored enrichment record identity does not match key", ErrInvalidInput)
-		}
-		if !containsCacheKey(keys, result.CacheKey) {
-			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: stored enrichment identity is not frozen", ErrInvalidInput)
-		}
-		byKey[result.CacheKey] = result
-	}
-	mode := strings.TrimSpace(facts.ExecutionMode)
-	contextualIdentity := slices.ContainsFunc(keys, func(key enrichment.CacheKey) bool { return key.MeaningEvidenceHash != "" })
-	contextualBatch := strings.EqualFold(mode, "batch") && contextualIdentity
-	required := facts.Consent && facts.Configured && (strings.EqualFold(mode, "standard") || contextualBatch)
-	aligned := make([]ExactEnrichment, 0, len(keys))
-	accepted := make([]RenderInput, 0, len(manifest.accepted))
-	cacheKeys := make([]enrichment.CacheKey, 0, len(keys))
-	meaningOmissions := make([]MeaningOmission, 0)
-	degraded := make([]string, 0)
-	for i, key := range keys {
-		result, found := byKey[key]
-		if !found {
-			if required {
-				return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is missing", ErrInvalidInput)
-			}
-			aligned = append(aligned, exactEnrichmentFromStoredResult(StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key}}, manifest, i))
-			accepted = append(accepted, manifest.accepted[i])
-			cacheKeys = append(cacheKeys, key)
-			continue
-		}
-		if result.OmissionReason != "" {
-			if result.Record.Translation != "" || result.Record.SentenceTranslation != "" || result.Record.FallbackGloss != "" {
-				return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: unresolved result includes translation fields", ErrInvalidInput)
-			}
-			meaningOmissions = append(meaningOmissions, MeaningOmission{Target: manifest.accepted[i].TargetWord, Reason: result.OmissionReason})
-			continue
-		}
-		if required && (!storedRecordHasRequiredFields(result.Record, manifest.accepted[i]) || (contextualIdentity && strings.TrimSpace(result.Record.FallbackGloss) == "")) {
-			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is incomplete", ErrInvalidInput)
-		}
-		aligned = append(aligned, exactEnrichmentFromStoredResult(result, manifest, i))
-		accepted = append(accepted, manifest.accepted[i])
-		cacheKeys = append(cacheKeys, key)
-	}
-	if len(keys) > 0 && len(meaningOmissions) == len(keys) {
-		return Artifact{}, FinalizeDiagnostics{}, ErrAllMeaningsUnresolved
-	}
-	manifest.accepted = accepted
-	manifest.cacheKeys = cacheKeys
-	artifact, renderDiagnostics, err := renderManifest(ctx, manifest, aligned)
+	byKey, err := indexStoredResults(manifest.cacheKeys, results)
 	if err != nil {
 		return Artifact{}, FinalizeDiagnostics{}, err
 	}
-	degraded = appendUniqueCodes(degraded, renderDiagnostics...)
+	alignment, err := alignStoredResults(manifest, byKey, facts)
+	if err != nil {
+		return Artifact{}, FinalizeDiagnostics{}, err
+	}
+	manifest.accepted = alignment.accepted
+	manifest.cacheKeys = alignment.cacheKeys
+	artifact, renderDiagnostics, err := renderManifest(ctx, manifest, alignment.enrichments)
+	if err != nil {
+		return Artifact{}, FinalizeDiagnostics{}, err
+	}
 	diagnostics := manifestDiagnostics(manifest)
-	diagnostics.MeaningOmissions = append([]MeaningOmission(nil), meaningOmissions...)
-	diagnostics.DegradationCodes = append(diagnostics.DegradationCodes, degraded...)
+	diagnostics.MeaningOmissions = append([]MeaningOmission(nil), alignment.meaningOmissions...)
+	diagnostics.DegradationCodes = appendUniqueCodes(diagnostics.DegradationCodes, renderDiagnostics...)
 	artifact.Diagnostics = cloneDiagnostics(diagnostics)
 	return artifact, diagnostics, nil
+}
+
+// finalizeLocalDeck renders a deck that never froze an external identity. It
+// rejects supplied external results because no work was requested for it.
+func finalizeLocalDeck(ctx context.Context, manifest manifest, results []StoredResult) (FinalArtifact, FinalizeDiagnostics, error) {
+	if len(results) != 0 {
+		return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: external results supplied for a local deck", ErrInvalidInput)
+	}
+	artifact, _, err := renderManifest(ctx, manifest, nil)
+	if err != nil {
+		return Artifact{}, FinalizeDiagnostics{}, err
+	}
+	diagnostics := manifestDiagnostics(manifest)
+	artifact.Diagnostics = cloneDiagnostics(diagnostics)
+	return artifact, diagnostics, nil
+}
+
+// validateExternalRunFacts enforces that a consented, configured external run
+// describes exactly the provider, version, target and execution mode frozen into
+// the manifest. Unconsented or unconfigured runs select no external policy.
+func validateExternalRunFacts(manifest manifest, facts RunFacts) error {
+	if !facts.Consent || !facts.Configured {
+		return nil
+	}
+	mode := strings.ToLower(strings.TrimSpace(facts.ExecutionMode))
+	if mode != "standard" && mode != "batch" {
+		return fmt.Errorf("%w: invalid prepared deck execution mode", ErrInvalidInput)
+	}
+	if facts.TargetLanguage == "" || facts.Provider == "" || facts.ProviderVersion == "" {
+		return fmt.Errorf("%w: incomplete external run facts", ErrInvalidInput)
+	}
+	for _, key := range manifest.cacheKeys {
+		historicalV1Target := manifest.schemaVersion == LegacyManifestSchemaVersion && key.TargetLanguage == ""
+		if (!historicalV1Target && key.TargetLanguage != facts.TargetLanguage) || key.Provider != facts.Provider || key.ProviderVersion != facts.ProviderVersion {
+			return fmt.Errorf("%w: run facts contradict manifest cache identity", ErrInvalidInput)
+		}
+	}
+	return nil
+}
+
+// indexStoredResults validates and indexes the exact stored enrichment rows by
+// cache identity. A duplicate row, a row whose record identity disagrees with
+// its key, and a row for a key the manifest never froze are each rejected.
+func indexStoredResults(keys []enrichment.CacheKey, results []StoredResult) (map[enrichment.CacheKey]StoredResult, error) {
+	byKey := make(map[enrichment.CacheKey]StoredResult, len(results))
+	for _, result := range results {
+		if _, duplicate := byKey[result.CacheKey]; duplicate {
+			return nil, fmt.Errorf("%w: duplicate stored enrichment result", ErrInvalidInput)
+		}
+		if result.Record.CacheKey != (enrichment.CacheKey{}) && result.Record.CacheKey != result.CacheKey {
+			return nil, fmt.Errorf("%w: stored enrichment record identity does not match key", ErrInvalidInput)
+		}
+		if !containsCacheKey(keys, result.CacheKey) {
+			return nil, fmt.Errorf("%w: stored enrichment identity is not frozen", ErrInvalidInput)
+		}
+		byKey[result.CacheKey] = result
+	}
+	return byKey, nil
+}
+
+// finalizeAlignment is the render plan produced by overlaying stored results:
+// the exact enrichments to apply, the surviving accepted inputs and cache keys,
+// and the meanings the external provider explicitly could not resolve.
+type finalizeAlignment struct {
+	enrichments      []ExactEnrichment
+	accepted         []RenderInput
+	cacheKeys        []enrichment.CacheKey
+	meaningOmissions []MeaningOmission
+}
+
+// alignStoredResults overlays stored results onto the frozen manifest in
+// manifest order. Each accepted candidate survives with an exact enrichment, an
+// explicitly unresolved meaning is dropped and recorded, and a missing result
+// is tolerated only when the run does not require one.
+func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredResult, facts RunFacts) (finalizeAlignment, error) {
+	keys := manifest.cacheKeys
+	required, contextualIdentity := externalResultRequirements(keys, facts)
+	alignment := finalizeAlignment{
+		enrichments:      make([]ExactEnrichment, 0, len(keys)),
+		accepted:         make([]RenderInput, 0, len(manifest.accepted)),
+		cacheKeys:        make([]enrichment.CacheKey, 0, len(keys)),
+		meaningOmissions: make([]MeaningOmission, 0),
+	}
+	for i, key := range keys {
+		stored, found := byKey[key]
+		if !found {
+			if required {
+				return finalizeAlignment{}, fmt.Errorf("%w: required enrichment result is missing", ErrInvalidInput)
+			}
+			stored = StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key}}
+		} else if stored.OmissionReason != "" {
+			if stored.Record.Translation != "" || stored.Record.SentenceTranslation != "" || stored.Record.FallbackGloss != "" {
+				return finalizeAlignment{}, fmt.Errorf("%w: unresolved result includes translation fields", ErrInvalidInput)
+			}
+			alignment.meaningOmissions = append(alignment.meaningOmissions, MeaningOmission{Target: manifest.accepted[i].TargetWord, Reason: stored.OmissionReason})
+			continue
+		} else if required && (!storedRecordHasRequiredFields(stored.Record, manifest.accepted[i]) || (contextualIdentity && strings.TrimSpace(stored.Record.FallbackGloss) == "")) {
+			return finalizeAlignment{}, fmt.Errorf("%w: required enrichment result is incomplete", ErrInvalidInput)
+		}
+		alignment.enrichments = append(alignment.enrichments, exactEnrichmentFromStoredResult(stored, manifest, i))
+		alignment.accepted = append(alignment.accepted, manifest.accepted[i])
+		alignment.cacheKeys = append(alignment.cacheKeys, key)
+	}
+	if len(keys) > 0 && len(alignment.meaningOmissions) == len(keys) {
+		return finalizeAlignment{}, ErrAllMeaningsUnresolved
+	}
+	return alignment, nil
+}
+
+// externalResultRequirements reports whether a missing stored result is an error
+// for this run, and whether any frozen identity carries contextual evidence that
+// makes a contextual Gloss mandatory.
+func externalResultRequirements(keys []enrichment.CacheKey, facts RunFacts) (required, contextualIdentity bool) {
+	mode := strings.TrimSpace(facts.ExecutionMode)
+	contextualIdentity = slices.ContainsFunc(keys, func(key enrichment.CacheKey) bool { return key.MeaningEvidenceHash != "" })
+	contextualBatch := strings.EqualFold(mode, "batch") && contextualIdentity
+	required = facts.Consent && facts.Configured && (strings.EqualFold(mode, "standard") || contextualBatch)
+	return required, contextualIdentity
 }
 
 func projectionHeader(projections []CandidateProjection) (string, string, error) {
