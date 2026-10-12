@@ -304,27 +304,45 @@ func LanguageIDs(feed Feed) []string {
 
 func languageEntryID(entry Entry) string {
 	for _, link := range entry.Links {
-		if link.Rel != "subsection" && link.Rel != "alternate" && (!strings.EqualFold(link.Type, "application/atom+xml") || len(FindEPUBs(entry)) != 0) {
+		if !isLanguageEntryLink(entry, link) {
 			continue
 		}
-		parsed, err := url.Parse(link.Href)
-		if err != nil {
+		id, ok := languageLinkID(link.Href)
+		if !ok {
 			continue
-		}
-		id, err := strconv.Atoi(strings.Trim(strings.TrimRight(parsed.Path, "/"), "/"))
-		if err != nil || id < 1 {
-			parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-			if len(parts) == 0 {
-				continue
-			}
-			id, err = strconv.Atoi(parts[len(parts)-1])
-			if err != nil || id < 1 {
-				continue
-			}
 		}
 		return strconv.Itoa(id)
 	}
 	return ""
+}
+
+// isLanguageEntryLink reports whether a link advertises a language subsection:
+// either by relation, or by an Atom navigation link on an entry that is not
+// itself an EPUB acquisition.
+func isLanguageEntryLink(entry Entry, link Link) bool {
+	if link.Rel == "subsection" || link.Rel == "alternate" {
+		return true
+	}
+	return strings.EqualFold(link.Type, "application/atom+xml") && len(FindEPUBs(entry)) == 0
+}
+
+// languageLinkID derives the numeric language identifier from a link target,
+// preferring the whole trimmed path and falling back to its final segment.
+func languageLinkID(href string) (int, bool) {
+	parsed, err := url.Parse(href)
+	if err != nil {
+		return 0, false
+	}
+	path := strings.Trim(parsed.Path, "/")
+	if id, err := strconv.Atoi(path); err == nil && id >= 1 {
+		return id, true
+	}
+	parts := strings.Split(path, "/")
+	id, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil || id < 1 {
+		return 0, false
+	}
+	return id, true
 }
 
 func sameLanguageLabel(left, right string) bool {

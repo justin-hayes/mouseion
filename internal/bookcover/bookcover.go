@@ -46,46 +46,20 @@ func Normalize(raw []byte, advertisedTypes ...string) ([]byte, string, int, int,
 	if err != nil {
 		return nil, "", 0, 0, "", err
 	}
-	for _, advertisedType := range advertisedTypes {
-		advertised, err := normalizedAdvertisedType(advertisedType)
-		if err != nil {
-			return nil, "", 0, 0, "", err
-		}
-		if advertised != "" && advertised != decoded {
-			return nil, "", 0, 0, "", fmt.Errorf("%w: advertised %q, decoded %q", ErrMediaTypeMismatch, advertised, decoded)
-		}
+	if err := checkMediaTypeClaims(decoded, advertisedTypes); err != nil {
+		return nil, "", 0, 0, "", err
+	}
+	if err := rejectAnimated(raw, decoded); err != nil {
+		return nil, "", 0, 0, "", err
 	}
 
-	if decoded == "image/png" {
-		animated, err := pngIsAnimated(raw)
-		if err != nil {
-			return nil, "", 0, 0, "", err
-		}
-		if animated {
-			return nil, "", 0, 0, "", ErrAnimated
-		}
-	}
-
-	config, format, err := image.DecodeConfig(bytes.NewReader(raw))
+	config, err := checkCoverLimits(raw, decoded)
 	if err != nil {
-		return nil, "", 0, 0, "", fmt.Errorf("%w: %w", ErrMalformed, err)
+		return nil, "", 0, 0, "", err
 	}
-	if formatMediaType(format) != decoded {
-		return nil, "", 0, 0, "", ErrMediaTypeMismatch
-	}
-	if config.Width <= 0 || config.Height <= 0 {
-		return nil, "", 0, 0, "", ErrMalformed
-	}
-	if int64(config.Width) > maxPixels/int64(config.Height) {
-		return nil, "", 0, 0, "", ErrDimensionsTooLarge
-	}
-
-	source, format, err := image.Decode(bytes.NewReader(raw))
+	source, err := decodeCover(raw, decoded)
 	if err != nil {
-		return nil, "", 0, 0, "", fmt.Errorf("%w: %w", ErrMalformed, err)
-	}
-	if formatMediaType(format) != decoded {
-		return nil, "", 0, 0, "", ErrMediaTypeMismatch
+		return nil, "", 0, 0, "", err
 	}
 
 	width, height := targetSize(config.Width, config.Height)
@@ -93,22 +67,91 @@ func Normalize(raw []byte, advertisedTypes ...string) ([]byte, string, int, int,
 		source = resize(source, width, height)
 	}
 
+	normalizedBytes, err := encodeCover(source, decoded)
+	if err != nil {
+		return nil, "", 0, 0, "", err
+	}
+	digest := sha256.Sum256(normalizedBytes)
+	return normalizedBytes, decoded, width, height, "sha256:" + hex.EncodeToString(digest[:]), nil
+}
+
+// checkMediaTypeClaims rejects any advertised media type that disagrees with
+// the decoded raster. Empty claims are ignored.
+func checkMediaTypeClaims(decoded string, advertisedTypes []string) error {
+	for _, advertisedType := range advertisedTypes {
+		advertised, err := normalizedAdvertisedType(advertisedType)
+		if err != nil {
+			return err
+		}
+		if advertised != "" && advertised != decoded {
+			return fmt.Errorf("%w: advertised %q, decoded %q", ErrMediaTypeMismatch, advertised, decoded)
+		}
+	}
+	return nil
+}
+
+// rejectAnimated refuses an animated PNG before the far larger full decode.
+func rejectAnimated(raw []byte, decoded string) error {
+	if decoded != "image/png" {
+		return nil
+	}
+	animated, err := pngIsAnimated(raw)
+	if err != nil {
+		return err
+	}
+	if animated {
+		return ErrAnimated
+	}
+	return nil
+}
+
+// checkCoverLimits validates the header-declared media type and dimensions
+// without decoding the full raster.
+func checkCoverLimits(raw []byte, decoded string) (image.Config, error) {
+	config, format, err := image.DecodeConfig(bytes.NewReader(raw))
+	if err != nil {
+		return image.Config{}, fmt.Errorf("%w: %w", ErrMalformed, err)
+	}
+	if formatMediaType(format) != decoded {
+		return image.Config{}, ErrMediaTypeMismatch
+	}
+	if config.Width <= 0 || config.Height <= 0 {
+		return image.Config{}, ErrMalformed
+	}
+	if int64(config.Width) > maxPixels/int64(config.Height) {
+		return image.Config{}, ErrDimensionsTooLarge
+	}
+	return config, nil
+}
+
+// decodeCover decodes the full raster and rechecks its media type.
+func decodeCover(raw []byte, decoded string) (image.Image, error) {
+	source, format, err := image.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrMalformed, err)
+	}
+	if formatMediaType(format) != decoded {
+		return nil, ErrMediaTypeMismatch
+	}
+	return source, nil
+}
+
+// encodeCover re-encodes the display raster in the decoded format.
+func encodeCover(source image.Image, decoded string) ([]byte, error) {
 	var normalized bytes.Buffer
+	var err error
 	switch decoded {
 	case "image/jpeg":
 		err = jpeg.Encode(&normalized, source, &jpeg.Options{Quality: 90})
 	case "image/png":
 		err = png.Encode(&normalized, source)
 	default:
-		return nil, "", 0, 0, "", ErrUnsupported
+		return nil, ErrUnsupported
 	}
 	if err != nil {
-		return nil, "", 0, 0, "", fmt.Errorf("encode normalized cover: %w", err)
+		return nil, fmt.Errorf("encode normalized cover: %w", err)
 	}
-
-	normalizedBytes := normalized.Bytes()
-	digest := sha256.Sum256(normalizedBytes)
-	return normalizedBytes, decoded, width, height, "sha256:" + hex.EncodeToString(digest[:]), nil
+	return normalized.Bytes(), nil
 }
 
 func normalizedAdvertisedType(advertised string) (string, error) {
