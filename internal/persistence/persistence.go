@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/deploysecret"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/justin-hayes/mouseion/migrations"
@@ -33,8 +34,6 @@ import (
 // ErrNotFound and the Current reading refusals are defined in domain so store
 // contracts can assert on them; these names are the same sentinels.
 var ErrNotFound = domain.ErrNotFound
-var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for OPDS credentials")
-var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32 bytes")
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 var ErrCurrentReadingExists = domain.ErrCurrentReadingExists
@@ -184,22 +183,9 @@ func missing(err error) error {
 	return err
 }
 
-// ValidateSecret rejects a missing or weak MOUSEION_SECRET. Passwords are
-// encrypted with AES-256-GCM. The key is derived from the deployment's
-// MOUSEION_SECRET; changing it makes existing credentials unreadable.
-func ValidateSecret(secret string) error {
-	if strings.TrimSpace(secret) == "" {
-		return ErrSecretRequired
-	}
-	if len([]byte(secret)) < 32 {
-		return ErrSecretWeak
-	}
-	return nil
-}
-
 func credentialAEAD() (cipher.AEAD, error) {
 	secret := os.Getenv("MOUSEION_SECRET")
-	if err := ValidateSecret(secret); err != nil {
+	if err := deploysecret.ValidateSecret(secret); err != nil {
 		return nil, err
 	}
 	key := sha256.Sum256([]byte(secret))
