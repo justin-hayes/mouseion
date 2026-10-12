@@ -335,34 +335,56 @@ func (w *BatchSubmitWorker) advanceIfTerminal(ctx context.Context, args BatchSub
 	return err
 }
 
+// findExistingBatch lists the provider's recent Batches and matches them
+// against the local chunk identity, requiring exactly one match.
 func (w *BatchSubmitWorker) findExistingBatch(ctx context.Context, metadata map[string]string, inputFileID string) (*enrichment.Batch, error) {
-	var match *enrichment.Batch
-	var after string
 	recentAfter := w.now().Add(-7 * 24 * time.Hour).Unix()
+	var match *enrichment.Batch
+	err := w.forEachProviderBatch(ctx, func(batch enrichment.Batch) error {
+		if batch.CreatedAt > 0 && batch.CreatedAt < recentAfter {
+			return nil
+		}
+		if !batchMatchesChunk(batch, metadata, inputFileID) {
+			return nil
+		}
+		if match != nil {
+			return errors.New("multiple provider Batches match local chunk")
+		}
+		candidate := batch
+		match = &candidate
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return match, nil
+}
+
+// forEachProviderBatch pages through the provider listing once, bounded to 1000
+// pages so a misbehaving cursor cannot loop forever, and stops as soon as visit
+// returns an error.
+func (w *BatchSubmitWorker) forEachProviderBatch(ctx context.Context, visit func(enrichment.Batch) error) error {
+	var after string
 	for range 1000 {
 		list, err := w.Provider.ListBatches(ctx, enrichment.ListBatchesRequest{After: after, Limit: 100})
 		if err != nil {
-			return nil, errors.New("provider Batch listing failed")
+			return errors.New("provider Batch listing failed")
 		}
 		for i := range list.Data {
-			batch := list.Data[i]
-			if batch.CreatedAt > 0 && batch.CreatedAt < recentAfter {
-				continue
-			}
-			if metadataMatches(batch.Metadata, metadata) && batch.Endpoint == enrichment.OpenAIChatCompletionsEndpoint && (inputFileID == "" || batch.InputFileID == inputFileID) {
-				if match != nil {
-					return nil, errors.New("multiple provider Batches match local chunk")
-				}
-				candidate := batch
-				match = &candidate
+			if err := visit(list.Data[i]); err != nil {
+				return err
 			}
 		}
 		if !list.HasMore || list.LastID == "" || list.LastID == after {
-			break
+			return nil
 		}
 		after = list.LastID
 	}
-	return match, nil
+	return nil
+}
+
+func batchMatchesChunk(batch enrichment.Batch, metadata map[string]string, inputFileID string) bool {
+	return metadataMatches(batch.Metadata, metadata) && batch.Endpoint == enrichment.OpenAIChatCompletionsEndpoint && (inputFileID == "" || batch.InputFileID == inputFileID)
 }
 
 func submissionBatchItems(deck cardexport.FrozenDeck, ordinals []int, outcomes map[int]domain.PreparedDeckTranslationOutcome) ([]enrichment.BatchTranslationItem, error) {

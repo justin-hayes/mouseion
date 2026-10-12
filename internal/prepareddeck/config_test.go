@@ -71,8 +71,9 @@ func TestPreparedDeckConfigFromEnv(t *testing.T) {
 	assert.Equal(t, time.Minute, got.StandardRetryMaxDelay)
 	for _, test := range []struct{ env, value string }{
 		{TranslationModeEnv, "other"}, {StandardMaxConcurrencyEnv, "0"}, {StandardMaxConcurrencyEnv, "65"},
-		{StandardMaxAttemptsEnv, "0"}, {StandardMaxAttemptsEnv, "21"}, {StandardRetryBaseDelayEnv, "0s"},
-		{StandardRetryMaxDelayEnv, "500ms"},
+		{StandardMaxConcurrencyEnv, "many"}, {StandardMaxAttemptsEnv, "0"}, {StandardMaxAttemptsEnv, "21"},
+		{StandardMaxAttemptsEnv, "many"}, {StandardRetryBaseDelayEnv, "0s"}, {StandardRetryBaseDelayEnv, "not-a-duration"},
+		{StandardRetryBaseDelayEnv, "25h"}, {StandardRetryMaxDelayEnv, "25h"}, {StandardRetryMaxDelayEnv, "500ms"},
 	} {
 		t.Run(test.env+"="+test.value, func(t *testing.T) {
 			t.Setenv(test.env, test.value)

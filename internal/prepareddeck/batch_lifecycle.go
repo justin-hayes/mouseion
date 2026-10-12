@@ -48,7 +48,7 @@ func (w *BatchPollWorker) Work(ctx context.Context, job *river.Job[BatchPollJobA
 // Poll owns one short provider observation. Nonterminal states are persisted
 // before the same River job snoozes for the configured, bounded-jitter delay.
 func (w *BatchPollWorker) Poll(ctx context.Context, args BatchPollJobArgs) error {
-	if w == nil || w.Store == nil || w.Client == nil || w.Provider == nil || w.Codec == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || strings.TrimSpace(args.ChunkID) == "" || args.Generation < 0 {
+	if !w.validPollInput(args) {
 		return ErrInvalidInput
 	}
 	started := w.now()
@@ -60,62 +60,106 @@ func (w *BatchPollWorker) Poll(ctx context.Context, args BatchPollJobArgs) error
 		}
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchTotalLatency, Phase: "waiting", Provider: "openai", Value: seconds(w.now().Sub(totalStarted))})
 	}()
-	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
+	chunk, proceed, err := w.loadPollChunk(ctx, args)
 	if err != nil {
 		return err
 	}
 	totalStarted = chunk.CreatedAt
-	if chunk.ReconciliationGeneration != args.Generation {
+	if !proceed {
 		return nil
 	}
-	switch chunk.State {
+	claimed, token, proceed, err := w.claimPollWork(ctx, args, chunk)
+	if err != nil || !proceed {
+		return err
+	}
+	return w.observeProviderBatch(ctx, args, claimed, token)
+}
+
+func (w *BatchPollWorker) validPollInput(args BatchPollJobArgs) bool {
+	return w != nil && w.Store != nil && w.Client != nil && w.Provider != nil && w.Codec != nil && strings.TrimSpace(args.OwnerID) != "" && strings.TrimSpace(args.PreparationID) != "" && strings.TrimSpace(args.RunID) != "" && strings.TrimSpace(args.ChunkID) != "" && args.Generation >= 0
+}
+
+// loadPollChunk loads the observation target and reports whether this attempt
+// still owns a nonterminal chunk of the requested generation.
+func (w *BatchPollWorker) loadPollChunk(ctx context.Context, args BatchPollJobArgs) (domain.PreparedDeckBatchChunk, bool, error) {
+	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
+	if err != nil {
+		return domain.PreparedDeckBatchChunk{}, false, err
+	}
+	if chunk.ReconciliationGeneration != args.Generation || pollChunkSettled(chunk.State) {
+		return chunk, false, nil
+	}
+	return chunk, true, nil
+}
+
+func pollChunkSettled(state domain.PreparedDeckBatchChunkState) bool {
+	switch state {
 	case domain.PreparedDeckBatchCompleted, domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
-		return nil
-	case domain.PreparedDeckBatchPending, domain.PreparedDeckBatchSubmitting, domain.PreparedDeckBatchSubmitted, domain.PreparedDeckBatchPolling, domain.PreparedDeckBatchReconciling:
-		// Nonterminal chunks continue through reconciliation.
+		return true
+	default:
+		// Every other state is still pollable.
+		return false
 	}
+}
+
+// claimPollWork fences the chunk for this observation, preserving the exact
+// ordered membership loaded before the claim.
+func (w *BatchPollWorker) claimPollWork(ctx context.Context, args BatchPollJobArgs, chunk domain.PreparedDeckBatchChunk) (domain.PreparedDeckBatchChunk, string, bool, error) {
 	claimToken := uuid.NewString()
 	claimed, err := w.Store.ClaimPreparedDeckBatchReconciliation(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, w.now().Add(batchReconciliationLease))
+	if err != nil {
+		if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+			return domain.PreparedDeckBatchChunk{}, "", false, nil
+		}
+		return domain.PreparedDeckBatchChunk{}, "", false, err
+	}
+	claimed.Ordinals = append([]int(nil), chunk.Ordinals...)
+	return claimed, claimToken, true, nil
+}
+
+// observeProviderBatch reads one provider status and dispatches it: a
+// nonterminal status is persisted and snoozed, an untrustworthy observation
+// fails the chunk, and a trusted terminal status reconciles its results.
+func (w *BatchPollWorker) observeProviderBatch(ctx context.Context, args BatchPollJobArgs, claimed domain.PreparedDeckBatchChunk, token string) error {
+	batch, err := w.Provider.GetBatch(ctx, claimed.BatchID)
+	if err != nil {
+		if temporaryProviderError(err) {
+			return w.snoozeAfterPollError(ctx, claimed, args, token, providerErrorCode(err))
+		}
+		return w.failUntrustworthy(ctx, args, token, string(enrichment.BatchStatusFailed), "reconciliation", providerErrorCode(err))
+	}
+	if !knownBatchStatus(batch.Status) {
+		return w.failUntrustworthy(ctx, args, token, string(enrichment.BatchStatusFailed), "validation", "unsupported_status")
+	}
+	if err = validatePolledBatch(claimed, batch); err != nil {
+		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "batch_identity")
+	}
+	if string(batch.Status) != claimed.ProviderStatus {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchProviderTransitions, Phase: "waiting", State: string(batch.Status), Provider: "openai", Value: 1})
+	}
+	if !terminalBatchStatus(batch.Status) {
+		return w.snoozeNonterminalBatch(ctx, args, token, batch)
+	}
+	if terminalBatchFailsRun(batch) {
+		// A provider-level terminal failure prevents trusted reconciliation. There
+		// is no trustworthy basis for publishing a partial artifact, and a
+		// cancelled provider Batch must never turn into a local retry.
+		return w.failUntrustworthy(ctx, args, token, string(batch.Status), terminalChunkErrorClass(batch.Status), terminalChunkErrorCode(batch.Status))
+	}
+	return w.reconcileTerminal(ctx, claimed, args, token, batch)
+}
+
+// snoozeNonterminalBatch persists a nonterminal provider status and asks River
+// to poll again after the configured delay.
+func (w *BatchPollWorker) snoozeNonterminalBatch(ctx context.Context, args BatchPollJobArgs, token string, batch enrichment.Batch) error {
+	_, err := w.Store.FinishPreparedDeckBatchReconciliation(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, token, batchReconciliationUpdate(batch, domain.PreparedDeckBatchPolling, "", "", 0))
 	if err != nil {
 		if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
 			return nil
 		}
 		return err
 	}
-	claimed.Ordinals = append([]int(nil), chunk.Ordinals...)
-	batch, err := w.Provider.GetBatch(ctx, claimed.BatchID)
-	if err != nil {
-		if temporaryProviderError(err) {
-			return w.snoozeAfterPollError(ctx, claimed, args, claimToken, providerErrorCode(err))
-		}
-		return w.failUntrustworthy(ctx, args, claimToken, string(enrichment.BatchStatusFailed), "reconciliation", providerErrorCode(err))
-	}
-	if !knownBatchStatus(batch.Status) {
-		return w.failUntrustworthy(ctx, args, claimToken, string(enrichment.BatchStatusFailed), "validation", "unsupported_status")
-	}
-	if err = validatePolledBatch(claimed, batch); err != nil {
-		return w.failUntrustworthy(ctx, args, claimToken, string(batch.Status), "validation", "batch_identity")
-	}
-	if string(batch.Status) != claimed.ProviderStatus {
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchProviderTransitions, Phase: "waiting", State: string(batch.Status), Provider: "openai", Value: 1})
-	}
-	if !terminalBatchStatus(batch.Status) {
-		_, err = w.Store.FinishPreparedDeckBatchReconciliation(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, batchReconciliationUpdate(batch, domain.PreparedDeckBatchPolling, "", "", 0))
-		if err != nil {
-			if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
-				return nil
-			}
-			return err
-		}
-		return river.JobSnooze(w.pollDelay())
-	}
-	if terminalBatchFailsRun(batch) {
-		// A provider-level terminal failure prevents trusted reconciliation. There
-		// is no trustworthy basis for publishing a partial artifact, and a
-		// cancelled provider Batch must never turn into a local retry.
-		return w.failUntrustworthy(ctx, args, claimToken, string(batch.Status), terminalChunkErrorClass(batch.Status), terminalChunkErrorCode(batch.Status))
-	}
-	return w.reconcileTerminal(ctx, claimed, args, claimToken, batch)
+	return river.JobSnooze(w.pollDelay())
 }
 
 func terminalBatchFailsRun(batch enrichment.Batch) bool {

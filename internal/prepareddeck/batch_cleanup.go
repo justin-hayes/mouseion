@@ -50,60 +50,91 @@ func (w *BatchCleanupWorker) Work(ctx context.Context, job *river.Job[BatchClean
 }
 
 func (w *BatchCleanupWorker) Cleanup(ctx context.Context, args BatchCleanupJobArgs) error {
-	if w == nil || w.Store == nil || w.Provider == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || strings.TrimSpace(args.ChunkID) == "" {
+	if !w.validCleanupInput(args) {
 		return ErrInvalidInput
 	}
-	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
-	if err != nil {
+	claimed, token, proceed, err := w.claimCleanup(ctx, args)
+	if err != nil || !proceed {
 		return err
 	}
-	if chunk.State != domain.PreparedDeckBatchCompleted && chunk.State != domain.PreparedDeckBatchCancelled {
-		return nil
-	}
-	token := uuid.NewString()
-	claimed, err := w.Store.ClaimPreparedDeckBatchCleanup(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, token, w.now().Add(batchCleanupLease))
-	if err != nil {
-		if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
-			return nil
-		}
-		return err
-	}
-	update := persistence.PreparedDeckBatchCleanupUpdate{
-		InputFileState: claimed.InputFileCleanupState, OutputFileState: claimed.OutputFileCleanupState, ErrorFileState: claimed.ErrorFileCleanupState,
-		InputFileAttempts: claimed.InputFileCleanupAttempts, OutputFileAttempts: claimed.OutputFileCleanupAttempts, ErrorFileAttempts: claimed.ErrorFileCleanupAttempts,
-	}
-	cleanupErrorClass, cleanupErrorCode := "", ""
-	updateFile := func(role, id, state string, attempts *int, next *string) {
-		if id == "" {
-			*next = "not_needed"
-			return
-		}
-		if state == "deleted" || state == "not_needed" || *attempts >= 3 {
-			*next = state
-			return
-		}
-		*attempts++
-		_, deleteErr := w.Provider.DeleteFile(ctx, id)
-		if deleteErr == nil || providerFileGone(deleteErr) {
-			*next = "deleted"
-			observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "deleted", Provider: "openai", Value: 1})
-			return
-		}
-		*next = "failed"
-		cleanupErrorClass = "provider"
-		cleanupErrorCode = "delete_file"
-		log.Printf("prepared deck batch cleanup warning: provider file deletion failed; durable recovery will retry while attempts remain: owner_id=%s preparation_id=%s run_id=%s chunk_id=%s generation=%d file_role=%s: %v", args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, role, deleteErr)
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "failed", ErrorClass: cleanupErrorClass, Provider: "openai", Value: 1})
-	}
-	updateFile("input", claimed.InputFileID, claimed.InputFileCleanupState, &update.InputFileAttempts, &update.InputFileState)
-	updateFile("output", claimed.OutputFileID, claimed.OutputFileCleanupState, &update.OutputFileAttempts, &update.OutputFileState)
-	updateFile("error", claimed.ErrorFileID, claimed.ErrorFileCleanupState, &update.ErrorFileAttempts, &update.ErrorFileState)
-	update.ErrorClass, update.ErrorCode = cleanupErrorClass, cleanupErrorCode
+	update := w.cleanupFiles(ctx, args, claimed)
 	_, err = w.Store.FinishPreparedDeckBatchCleanup(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, token, update)
 	if errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition) {
 		return nil
 	}
 	return err
+}
+
+func (w *BatchCleanupWorker) validCleanupInput(args BatchCleanupJobArgs) bool {
+	return w != nil && w.Store != nil && w.Provider != nil && strings.TrimSpace(args.OwnerID) != "" && strings.TrimSpace(args.PreparationID) != "" && strings.TrimSpace(args.RunID) != "" && strings.TrimSpace(args.ChunkID) != ""
+}
+
+// claimCleanup loads the settled chunk and leases its cleanup projection. It
+// reports proceed=false when the chunk is not settled or another owner holds
+// the claim, so cleanup never runs on an unsettled or already-claimed chunk.
+func (w *BatchCleanupWorker) claimCleanup(ctx context.Context, args BatchCleanupJobArgs) (domain.PreparedDeckBatchChunk, string, bool, error) {
+	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
+	if err != nil {
+		return domain.PreparedDeckBatchChunk{}, "", false, err
+	}
+	if chunk.State != domain.PreparedDeckBatchCompleted && chunk.State != domain.PreparedDeckBatchCancelled {
+		return domain.PreparedDeckBatchChunk{}, "", false, nil
+	}
+	token := uuid.NewString()
+	claimed, err := w.Store.ClaimPreparedDeckBatchCleanup(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, token, w.now().Add(batchCleanupLease))
+	if err != nil {
+		if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+			return domain.PreparedDeckBatchChunk{}, "", false, nil
+		}
+		return domain.PreparedDeckBatchChunk{}, "", false, err
+	}
+	return claimed, token, true, nil
+}
+
+// cleanupFileOutcome is the durable result of one provider file deletion.
+type cleanupFileOutcome struct {
+	state    string
+	attempts int
+	failed   bool
+}
+
+// cleanupFiles deletes each provider file independently and returns the
+// cleanup projection to persist. Each file has its own durable state, so a
+// retry never makes a successful deletion depend on another file.
+func (w *BatchCleanupWorker) cleanupFiles(ctx context.Context, args BatchCleanupJobArgs, claimed domain.PreparedDeckBatchChunk) persistence.PreparedDeckBatchCleanupUpdate {
+	input := w.cleanupFile(ctx, args, "input", claimed.InputFileID, claimed.InputFileCleanupState, claimed.InputFileCleanupAttempts)
+	output := w.cleanupFile(ctx, args, "output", claimed.OutputFileID, claimed.OutputFileCleanupState, claimed.OutputFileCleanupAttempts)
+	errorFile := w.cleanupFile(ctx, args, "error", claimed.ErrorFileID, claimed.ErrorFileCleanupState, claimed.ErrorFileCleanupAttempts)
+	update := persistence.PreparedDeckBatchCleanupUpdate{
+		InputFileState: input.state, OutputFileState: output.state, ErrorFileState: errorFile.state,
+		InputFileAttempts: input.attempts, OutputFileAttempts: output.attempts, ErrorFileAttempts: errorFile.attempts,
+	}
+	if input.failed || output.failed || errorFile.failed {
+		update.ErrorClass, update.ErrorCode = "provider", "delete_file"
+	}
+	return update
+}
+
+// cleanupFile deletes one provider file at most once per attempt. A file that
+// is absent, already settled, or out of attempts keeps its prior state; a
+// successful or already-gone deletion becomes "deleted". Cleanup is best
+// effort, so a provider failure is recorded for durable recovery to retry.
+func (w *BatchCleanupWorker) cleanupFile(ctx context.Context, args BatchCleanupJobArgs, role, fileID, state string, attempts int) cleanupFileOutcome {
+	if fileID == "" {
+		return cleanupFileOutcome{state: "not_needed", attempts: attempts}
+	}
+	if state == "deleted" || state == "not_needed" || attempts >= 3 {
+		return cleanupFileOutcome{state: state, attempts: attempts}
+	}
+	attempts++
+	_, deleteErr := w.Provider.DeleteFile(ctx, fileID)
+	if deleteErr == nil || providerFileGone(deleteErr) {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "deleted", Provider: "openai", Value: 1})
+		return cleanupFileOutcome{state: "deleted", attempts: attempts}
+	}
+	log.Printf("prepared deck batch cleanup warning: provider file deletion failed; durable recovery will retry while attempts remain: owner_id=%s preparation_id=%s run_id=%s chunk_id=%s generation=%d file_role=%s: %v", args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, role, deleteErr)
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "failed", ErrorClass: "provider", Provider: "openai", Value: 1})
+	return cleanupFileOutcome{state: "failed", attempts: attempts, failed: true}
 }
 
 // logImmediateBatchCleanupFailure reports an immediate cleanup attempt that

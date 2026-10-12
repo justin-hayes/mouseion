@@ -14,10 +14,74 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestBatchPollRejectsInvalidInput pins the input guard that runs before any
+// read: a nil worker or any missing worker dependency, identity, or negative
+// generation must return ErrInvalidInput instead of touching the store.
+func TestBatchPollRejectsInvalidInput(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	valid := BatchPollJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run", ChunkID: "chunk"}
+	complete := func() *BatchPollWorker {
+		return &BatchPollWorker{Store: &persistence.PostgresStore{}, Client: jobLessRiverClient{}, Provider: terminalCleanupProvider{}, Codec: codec}
+	}
+	tests := []struct {
+		name string
+		run  func() error
+	}{
+		{name: "nil worker", run: func() error {
+			var nilWorker *BatchPollWorker
+			return nilWorker.Poll(context.Background(), valid)
+		}},
+		{name: "missing store", run: func() error {
+			return (&BatchPollWorker{Client: jobLessRiverClient{}, Provider: terminalCleanupProvider{}, Codec: codec}).Poll(context.Background(), valid)
+		}},
+		{name: "missing client", run: func() error {
+			return (&BatchPollWorker{Store: &persistence.PostgresStore{}, Provider: terminalCleanupProvider{}, Codec: codec}).Poll(context.Background(), valid)
+		}},
+		{name: "missing provider", run: func() error {
+			return (&BatchPollWorker{Store: &persistence.PostgresStore{}, Client: jobLessRiverClient{}, Codec: codec}).Poll(context.Background(), valid)
+		}},
+		{name: "missing codec", run: func() error {
+			return (&BatchPollWorker{Store: &persistence.PostgresStore{}, Client: jobLessRiverClient{}, Provider: terminalCleanupProvider{}}).Poll(context.Background(), valid)
+		}},
+		{name: "missing owner", run: func() error {
+			args := valid
+			args.OwnerID = " "
+			return complete().Poll(context.Background(), args)
+		}},
+		{name: "missing preparation", run: func() error {
+			args := valid
+			args.PreparationID = ""
+			return complete().Poll(context.Background(), args)
+		}},
+		{name: "missing run", run: func() error {
+			args := valid
+			args.RunID = ""
+			return complete().Poll(context.Background(), args)
+		}},
+		{name: "missing chunk", run: func() error {
+			args := valid
+			args.ChunkID = ""
+			return complete().Poll(context.Background(), args)
+		}},
+		{name: "negative generation", run: func() error {
+			args := valid
+			args.Generation = -1
+			return complete().Poll(context.Background(), args)
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.ErrorIs(t, test.run(), ErrInvalidInput)
+		})
+	}
+}
 
 // terminalCleanupProvider can poll and delete files, so terminal batch cleanup runs.
 type terminalCleanupProvider struct{}
