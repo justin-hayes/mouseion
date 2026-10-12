@@ -210,41 +210,9 @@ func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackf
 			continue
 		}
 		result.Examined++
-		connections, err := s.connections.ListOpdsConnections(ctx, alias.OwnerID)
+		connectionID, err := s.findCatalogueEntryAliasConnection(ctx, alias)
 		if err != nil {
-			return result, fmt.Errorf("list connections for alias %s: %w", alias.ID, err)
-		}
-		sort.SliceStable(connections, func(i, j int) bool {
-			return connections[i].ID < connections[j].ID
-		})
-		matches := make(map[string]struct{})
-		for _, connection := range connections {
-			languages, err := s.reader.Languages(ctx, alias.OwnerID, connection.ID)
-			if err != nil {
-				return result, fmt.Errorf("read languages for alias %s from connection %s: %w", alias.ID, connection.ID, err)
-			}
-			for _, languageID := range opds.LanguageIDs(languages) {
-				feed, err := s.reader.BrowseLanguageUnfiltered(ctx, alias.OwnerID, connection.ID, languageID)
-				if err != nil {
-					return result, fmt.Errorf("read feed %s for alias %s from connection %s: %w", languageID, alias.ID, connection.ID, err)
-				}
-				for _, entry := range feed.Entries {
-					if strings.TrimSpace(entry.ID) == strings.TrimSpace(alias.Value) {
-						matches[connection.ID] = struct{}{}
-						break
-					}
-				}
-			}
-		}
-		if len(matches) == 0 {
-			return result, fmt.Errorf("catalogue alias %s value %q is absent from every owner connection feed", alias.ID, alias.Value)
-		}
-		if len(matches) != 1 {
-			return result, fmt.Errorf("catalogue alias %s value %q is present in %d owner connections", alias.ID, alias.Value, len(matches))
-		}
-		var connectionID string
-		for connectionID = range matches {
-			break
+			return result, err
 		}
 		if err := s.aliases.SetCatalogueEntryAliasConnection(ctx, alias.OwnerID, alias.ID, connectionID); err != nil {
 			return result, fmt.Errorf("assign connection %s to alias %s: %w", connectionID, alias.ID, err)
@@ -252,6 +220,48 @@ func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackf
 		result.Updated++
 	}
 	return result, nil
+}
+
+// findCatalogueEntryAliasConnection derives the one owner connection whose
+// feeds advertise the legacy alias value, rejecting a value that is absent
+// from every feed or present in more than one connection.
+func (s *Service) findCatalogueEntryAliasConnection(ctx context.Context, alias domain.BookAlias) (string, error) {
+	connections, err := s.connections.ListOpdsConnections(ctx, alias.OwnerID)
+	if err != nil {
+		return "", fmt.Errorf("list connections for alias %s: %w", alias.ID, err)
+	}
+	sort.SliceStable(connections, func(i, j int) bool {
+		return connections[i].ID < connections[j].ID
+	})
+	matches := make(map[string]struct{})
+	for _, connection := range connections {
+		languages, err := s.reader.Languages(ctx, alias.OwnerID, connection.ID)
+		if err != nil {
+			return "", fmt.Errorf("read languages for alias %s from connection %s: %w", alias.ID, connection.ID, err)
+		}
+		for _, languageID := range opds.LanguageIDs(languages) {
+			feed, err := s.reader.BrowseLanguageUnfiltered(ctx, alias.OwnerID, connection.ID, languageID)
+			if err != nil {
+				return "", fmt.Errorf("read feed %s for alias %s from connection %s: %w", languageID, alias.ID, connection.ID, err)
+			}
+			for _, entry := range feed.Entries {
+				if strings.TrimSpace(entry.ID) == strings.TrimSpace(alias.Value) {
+					matches[connection.ID] = struct{}{}
+					break
+				}
+			}
+		}
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("catalogue alias %s value %q is absent from every owner connection feed", alias.ID, alias.Value)
+	}
+	if len(matches) != 1 {
+		return "", fmt.Errorf("catalogue alias %s value %q is present in %d owner connections", alias.ID, alias.Value, len(matches))
+	}
+	for connectionID := range matches {
+		return connectionID, nil
+	}
+	return "", nil
 }
 
 // PeriodicJobID is stable across process restarts and unique per owner and
@@ -387,56 +397,94 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 	if alias.BookID != book.ID || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
 		return RefreshResult{}, ErrNotFound
 	}
+	resolved, err := s.resolveRefreshEntry(ctx, owner, book, alias)
+	if err != nil {
+		return RefreshResult{Book: book, Failed: true}, err
+	}
+	if !resolved.found {
+		return RefreshResult{Book: book, Missing: true}, nil
+	}
+	return s.applyRefreshedEntry(ctx, owner, book, resolved)
+}
+
+// applyRefreshedEntry reconciles the matched catalogue entry, which compares
+// the feed metadata against the Book and persists any change, then records and
+// schedules the entry's cover advertisement. It returns the metadata-only
+// refresh outcome.
+func (s *Service) applyRefreshedEntry(ctx context.Context, owner string, book domain.Book, resolved refreshEntry) (RefreshResult, error) {
+	reconciled, err := s.catalogue.ReconcileCatalogueEntry(ctx, owner, resolved.connectionID, resolved.entry.ID, resolved.entry.Title, resolved.entry.Author, languageTag(resolved.scope))
+	if err != nil {
+		return RefreshResult{Book: book, Failed: true}, err
+	}
+	coverPending, err := s.recordAndEnqueueCover(ctx, owner, reconciled.Book.ID, resolved.connectionID, resolved.entry)
+	if err != nil {
+		return RefreshResult{Book: reconciled.Book, Failed: true}, err
+	}
+	return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.AuthorChanged || reconciled.LanguageChanged, Created: reconciled.Created, CoverPending: coverPending, CurrentReadingEnded: reconciled.CurrentReadingEnded}, nil
+}
+
+// refreshEntry is the catalogue entry a Book refresh resolved to, together
+// with the connection and language scope that produced it.
+type refreshEntry struct {
+	connectionID string
+	entry        opds.Entry
+	scope        languageScope
+	found        bool
+}
+
+// resolveRefreshEntry loads the alias's connection, derives the Book's
+// eligible language scopes, and walks their EPUB feeds for the recorded source
+// identifier. It never trusts a job-supplied URL.
+func (s *Service) resolveRefreshEntry(ctx context.Context, owner string, book domain.Book, alias domain.BookAlias) (refreshEntry, error) {
 	connection, err := s.connections.GetOpdsConnection(ctx, owner, alias.ConnectionID)
 	if errors.Is(err, persistence.ErrNotFound) {
-		return RefreshResult{Book: book, Failed: true}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
+		return refreshEntry{}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
 	}
 	if err != nil {
-		return RefreshResult{Book: book, Failed: true}, err
+		return refreshEntry{}, err
 	}
-	supported, err := s.catalogue.ListSupportedLanguages(ctx)
+	scopes, err := s.refreshLanguageScopes(ctx, owner, connection.ID, book)
 	if err != nil {
-		return RefreshResult{Book: book, Failed: true}, err
-	}
-	languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
-	if readErr != nil {
-		return RefreshResult{Book: book, Failed: true}, readErr
-	}
-	var scopes []languageScope
-	if s.capabilities != nil {
-		capabilities, capabilityErr := s.capabilities.GetCapabilities(ctx)
-		if capabilityErr != nil {
-			return RefreshResult{Book: book, Failed: true}, capabilityErr
-		}
-		scopes = eligibleLanguages(languages, capabilities)
-	} else {
-		displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
-		if languageID := opds.LanguageID(languages, book.LanguageTag, displayName); languageID != "" {
-			scopes = []languageScope{{capability: analyzer.LanguageCapability{Language: book.LanguageTag}, languageID: languageID}}
-		}
+		return refreshEntry{}, err
 	}
 	for _, scope := range scopes {
 		feed, feedErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, scope.languageID)
 		if feedErr != nil {
-			return RefreshResult{Book: book, Failed: true}, feedErr
+			return refreshEntry{}, feedErr
 		}
 		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
 			if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {
 				continue
 			}
-			entryLanguage := languageTag(scope)
-			reconciled, reconcileErr := s.catalogue.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, entry.Author, entryLanguage)
-			if reconcileErr != nil {
-				return RefreshResult{Book: book, Failed: true}, reconcileErr
-			}
-			coverPending, coverErr := s.recordAndEnqueueCover(ctx, owner, reconciled.Book.ID, connection.ID, entry)
-			if coverErr != nil {
-				return RefreshResult{Book: reconciled.Book, Failed: true}, coverErr
-			}
-			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.AuthorChanged || reconciled.LanguageChanged, Created: reconciled.Created, CoverPending: coverPending, CurrentReadingEnded: reconciled.CurrentReadingEnded}, nil
+			return refreshEntry{connectionID: connection.ID, entry: entry, scope: scope, found: true}, nil
 		}
 	}
-	return RefreshResult{Book: book, Missing: true}, nil
+	return refreshEntry{}, nil
+}
+
+// refreshLanguageScopes mirrors the sync scope: ready non-English capabilities
+// when available, otherwise the Book's advertised language feed.
+func (s *Service) refreshLanguageScopes(ctx context.Context, owner, connectionID string, book domain.Book) ([]languageScope, error) {
+	supported, err := s.catalogue.ListSupportedLanguages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	languages, err := s.reader.Languages(ctx, owner, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if s.capabilities == nil {
+		displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
+		if languageID := opds.LanguageID(languages, book.LanguageTag, displayName); languageID != "" {
+			return []languageScope{{capability: analyzer.LanguageCapability{Language: book.LanguageTag}, languageID: languageID}}, nil
+		}
+		return nil, nil
+	}
+	capabilities, err := s.capabilities.GetCapabilities(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return eligibleLanguages(languages, capabilities), nil
 }
 
 func (s *Service) recordAndEnqueueCover(ctx context.Context, owner, bookID, connectionID string, entry opds.Entry) (bool, error) {

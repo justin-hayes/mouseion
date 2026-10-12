@@ -88,12 +88,25 @@ type refreshStore struct {
 	aliasErr        error
 	backfillAliases []domain.BookAlias
 	assigned        map[string]string
+	// Error injection pins the failure branches of each step.
+	listAliasesErr error
+	connectionsErr error
+	setErr         error
+	bookErr        error
+	supportedErr   error
+	reconcileErr   error
 }
 
 func (s *refreshStore) ListUnscopedCatalogueEntryAliases(context.Context) ([]domain.BookAlias, error) {
+	if s.listAliasesErr != nil {
+		return nil, s.listAliasesErr
+	}
 	return append([]domain.BookAlias(nil), s.backfillAliases...), nil
 }
 func (s *refreshStore) SetCatalogueEntryAliasConnection(_ context.Context, owner, aliasID, connectionID string) error {
+	if s.setErr != nil {
+		return s.setErr
+	}
 	if s.assigned == nil {
 		s.assigned = make(map[string]string)
 	}
@@ -102,6 +115,9 @@ func (s *refreshStore) SetCatalogueEntryAliasConnection(_ context.Context, owner
 }
 
 func (s *refreshStore) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
+	if s.bookErr != nil {
+		return domain.Book{}, s.bookErr
+	}
 	if s.book.OwnerID != owner || s.book.ID != bookID {
 		return domain.Book{}, persistence.ErrNotFound
 	}
@@ -126,6 +142,9 @@ func (s *refreshStore) GetBookCatalogEntryAliasForConnection(_ context.Context, 
 	return s.alias, nil
 }
 func (s *refreshStore) GetOpdsConnection(_ context.Context, owner, id string) (domain.OpdsConnection, error) {
+	if s.connectionsErr != nil {
+		return domain.OpdsConnection{}, s.connectionsErr
+	}
 	for _, connection := range s.connections {
 		if connection.OwnerID == "" || connection.OwnerID == owner {
 			if connection.ID == id {
@@ -136,6 +155,9 @@ func (s *refreshStore) GetOpdsConnection(_ context.Context, owner, id string) (d
 	return domain.OpdsConnection{}, persistence.ErrNotFound
 }
 func (s *refreshStore) ListOpdsConnections(_ context.Context, owner string) ([]domain.OpdsConnection, error) {
+	if s.connectionsErr != nil {
+		return nil, s.connectionsErr
+	}
 	connections := make([]domain.OpdsConnection, 0, len(s.connections))
 	for _, connection := range s.connections {
 		if connection.OwnerID == "" || connection.OwnerID == owner {
@@ -151,12 +173,18 @@ func (s *refreshStore) ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsC
 	return nil, nil
 }
 func (s *refreshStore) ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error) {
+	if s.supportedErr != nil {
+		return nil, s.supportedErr
+	}
 	return append([]domain.SupportedLanguage(nil), s.supported...), nil
 }
 func (s *refreshStore) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error {
 	return nil
 }
 func (s *refreshStore) ReconcileCatalogueEntry(_ context.Context, owner, connectionID, sourceIdentifier, title, author, language string) (persistence.CatalogueEntryReconcileResult, error) {
+	if s.reconcileErr != nil {
+		return persistence.CatalogueEntryReconcileResult{}, s.reconcileErr
+	}
 	s.reconciles++
 	s.lastOwner = owner
 	s.lastConnection = connectionID
@@ -226,14 +254,22 @@ func newRefreshService(store *refreshStore, reader catalogueReader) *Service {
 }
 
 type backfillReader struct {
-	languages map[string]opds.Feed
-	feeds     map[string]opds.Feed
+	languages    map[string]opds.Feed
+	feeds        map[string]opds.Feed
+	languagesErr error
+	feedErr      error
 }
 
 func (r *backfillReader) Languages(_ context.Context, owner, connection string) (opds.Feed, error) {
+	if r.languagesErr != nil {
+		return opds.Feed{}, r.languagesErr
+	}
 	return r.languages[owner+":"+connection], nil
 }
 func (r *backfillReader) BrowseLanguage(_ context.Context, owner, connection, language string) (opds.Feed, error) {
+	if r.feedErr != nil {
+		return opds.Feed{}, r.feedErr
+	}
 	return r.feeds[owner+":"+connection+":"+language], nil
 }
 func (r *backfillReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, language string) (opds.Feed, error) {
@@ -289,6 +325,60 @@ func TestBackfillLeavesStrongBibliographicAliasesUnselected(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Examined)
 	assert.Empty(t, store.assigned)
+}
+
+func TestBackfillCatalogueEntryAliasesRejectsUnavailableService(t *testing.T) {
+	store := &refreshStore{}
+	tests := []struct {
+		name    string
+		service *Service
+	}{
+		{name: "nil service", service: nil},
+		{name: "missing aliases", service: NewService(StoreDependencies{Connections: store, Catalogue: store, Statuses: store}, nil, &backfillReader{}, nil)},
+		{name: "missing connections", service: NewService(StoreDependencies{Catalogue: store, Aliases: store, Statuses: store}, nil, &backfillReader{}, nil)},
+		{name: "missing reader", service: NewService(StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store}, nil, nil, nil)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := tc.service.BackfillCatalogueEntryAliases(context.Background())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "catalogue alias backfill service is unavailable")
+		})
+	}
+}
+
+// TestBackfillCatalogueEntryAliasesSurfacesStepFailures pins the failure
+// branches of paging, deriving the owning connection, and writing the result
+// through the public seam, so the split into private steps cannot silently
+// change an error.
+func TestBackfillCatalogueEntryAliasesSurfacesStepFailures(t *testing.T) {
+	alias := domain.BookAlias{ID: "a", OwnerID: "alice", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry"}
+	ownerConnection := []domain.OpdsConnection{{ID: "one", OwnerID: "alice"}}
+	languages := map[string]opds.Feed{"alice:one": {Entries: []opds.Entry{{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}}}}}
+	matchedFeed := map[string]opds.Feed{"alice:one:7": {Entries: []opds.Entry{{ID: "entry"}}}}
+	tests := []struct {
+		name         string
+		store        *refreshStore
+		reader       *backfillReader
+		wantErr      string
+		wantExamined int
+	}{
+		{name: "list aliases fails", store: &refreshStore{listAliasesErr: errors.New("aliases unavailable")}, reader: &backfillReader{}, wantErr: "list unscoped catalogue aliases", wantExamined: 0},
+		{name: "list connections fails", store: &refreshStore{backfillAliases: []domain.BookAlias{alias}, connectionsErr: errors.New("connections unavailable")}, reader: &backfillReader{}, wantErr: "list connections for alias a", wantExamined: 1},
+		{name: "languages read fails", store: &refreshStore{backfillAliases: []domain.BookAlias{alias}, connections: ownerConnection}, reader: &backfillReader{languagesErr: errors.New("languages unavailable")}, wantErr: "read languages for alias a from connection one", wantExamined: 1},
+		{name: "feed read fails", store: &refreshStore{backfillAliases: []domain.BookAlias{alias}, connections: ownerConnection}, reader: &backfillReader{languages: languages, feedErr: errors.New("feed unavailable")}, wantErr: "read feed 7 for alias a from connection one", wantExamined: 1},
+		{name: "assign fails", store: &refreshStore{backfillAliases: []domain.BookAlias{alias}, connections: ownerConnection, setErr: errors.New("write unavailable")}, reader: &backfillReader{languages: languages, feeds: matchedFeed}, wantErr: "assign connection one to alias a", wantExamined: 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := newRefreshService(tc.store, tc.reader).BackfillCatalogueEntryAliases(context.Background())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+			assert.Equal(t, tc.wantExamined, result.Examined)
+			assert.Zero(t, result.Updated)
+			assert.Empty(t, tc.store.assigned)
+		})
+	}
 }
 
 func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
@@ -444,10 +534,127 @@ func TestRefreshAndAcquisitionReportMissingAliasConnection(t *testing.T) {
 	assert.Empty(t, reader.connections)
 }
 
+// TestRefreshEntrySurfacesLoadFailures pins the load/rejection branches of the
+// refresh fetch step through the public seam, so splitting it into private
+// functions cannot silently change an error or result shape.
+func TestRefreshEntrySurfacesLoadFailures(t *testing.T) {
+	book := domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"}
+	connection := []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}}
+	validAlias := domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"}
+	unavailable := errors.New("store unavailable")
+	tests := []struct {
+		name       string
+		store      *refreshStore
+		wantErr    error
+		wantFailed bool
+		wantBookID string
+	}{
+		{name: "book load fails", store: &refreshStore{bookErr: unavailable}, wantErr: unavailable, wantFailed: true},
+		{name: "alias not found", store: &refreshStore{book: book, aliasErr: persistence.ErrNotFound}, wantErr: ErrNotFound},
+		{name: "alias load fails", store: &refreshStore{book: book, aliasErr: unavailable}, wantErr: unavailable, wantFailed: true, wantBookID: "book-1"},
+		{name: "alias shape rejects", store: &refreshStore{book: book, alias: domain.BookAlias{BookID: "other", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"}}, wantErr: ErrNotFound},
+		{name: "connection load fails", store: &refreshStore{book: book, alias: validAlias, connectionsErr: unavailable}, wantErr: unavailable, wantFailed: true, wantBookID: "book-1"},
+		{name: "supported languages fail", store: &refreshStore{book: book, alias: validAlias, connections: connection, supportedErr: unavailable}, wantErr: unavailable, wantFailed: true, wantBookID: "book-1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Title"}}}}
+			result, err := newRefreshService(tc.store, reader).RefreshEntry(context.Background(), "alice", "book-1")
+			require.ErrorIs(t, err, tc.wantErr)
+			assert.Equal(t, tc.wantFailed, result.Failed)
+			assert.False(t, result.Missing)
+			assert.Equal(t, tc.wantBookID, result.Book.ID)
+			assert.Zero(t, reader.reads, "a rejected refresh read catalogue feeds")
+		})
+	}
+}
+
+// TestRefreshEntrySurfacesPersistFailures pins the capability-comparison and
+// persist branches through the public seam, so splitting them into private
+// functions cannot silently change an error or result shape.
+func TestRefreshEntrySurfacesPersistFailures(t *testing.T) {
+	book := domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"}
+	connection := []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}}
+	validAlias := domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"}
+	feed := opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}}
+
+	t.Run("capabilities fail", func(t *testing.T) {
+		unavailable := errors.New("capabilities unavailable")
+		store := &refreshStore{book: book, alias: validAlias, connections: connection, supported: []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}}}
+		reader := &refreshReader{feed: feed}
+		result, err := newRefreshServiceWithCapabilities(store, reader, erroringCapabilities{err: unavailable}).RefreshEntry(context.Background(), "alice", "book-1")
+		require.ErrorIs(t, err, unavailable)
+		assert.True(t, result.Failed)
+		assert.Equal(t, "book-1", result.Book.ID)
+		assert.Zero(t, reader.reads)
+	})
+
+	t.Run("reconcile fails", func(t *testing.T) {
+		unavailable := errors.New("reconcile unavailable")
+		store := &refreshStore{book: book, alias: validAlias, connections: connection, supported: []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}}, reconcileErr: unavailable}
+		reader := &refreshReader{feed: feed}
+		result, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
+		require.ErrorIs(t, err, unavailable)
+		assert.True(t, result.Failed)
+		assert.Equal(t, "book-1", result.Book.ID)
+		assert.Equal(t, 1, reader.reads)
+	})
+
+	t.Run("cover fails", func(t *testing.T) {
+		unavailable := errors.New("cover unavailable")
+		store := &recordingCoverStore{
+			book:        book,
+			alias:       validAlias,
+			connections: connection,
+			supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
+			reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", LanguageTag: "de"}},
+			recordErr:   unavailable,
+		}
+		reader := &refreshReader{feed: feed}
+		service := NewService(StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store}, nil, reader, nil)
+		result, err := service.RefreshEntry(context.Background(), "alice", "book-1")
+		require.ErrorIs(t, err, unavailable)
+		assert.True(t, result.Failed)
+		assert.Equal(t, "book-1", result.Book.ID)
+	})
+}
+
+// TestRefreshEntryUsesCapabilityScopes pins the eligible-language branch used
+// when a capability provider is configured.
+func TestRefreshEntryUsesCapabilityScopes(t *testing.T) {
+	store := &refreshStore{
+		book:        domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+		alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
+		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
+		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "New title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, TitleChanged: true},
+	}
+	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "New title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}}}
+	capabilities := stubCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
+	result, err := newRefreshServiceWithCapabilities(store, reader, capabilities).RefreshEntry(context.Background(), "alice", "book-1")
+	require.NoError(t, err)
+	assert.True(t, result.Updated)
+	assert.False(t, result.Missing)
+	assert.False(t, result.Failed)
+	assert.Equal(t, 1, store.reconciles)
+}
+
 type stubCapabilities struct{ value analyzer.Capabilities }
 
 func (s stubCapabilities) GetCapabilities(context.Context) (analyzer.Capabilities, error) {
 	return s.value, nil
+}
+
+type erroringCapabilities struct{ err error }
+
+func (c erroringCapabilities) GetCapabilities(context.Context) (analyzer.Capabilities, error) {
+	return analyzer.Capabilities{}, c.err
+}
+
+// newRefreshServiceWithCapabilities builds the service with a capability
+// provider so the eligible-language branch is exercised through the public seam.
+func newRefreshServiceWithCapabilities(store *refreshStore, reader catalogueReader, capabilities analyzer.CapabilityProvider) *Service {
+	return NewService(StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store}, nil, reader, capabilities)
 }
 
 // recordingCoverStore captures advertisement decisions and can fail them to
