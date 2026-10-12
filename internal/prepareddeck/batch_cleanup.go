@@ -3,6 +3,7 @@ package prepareddeck
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -72,7 +73,7 @@ func (w *BatchCleanupWorker) Cleanup(ctx context.Context, args BatchCleanupJobAr
 		InputFileAttempts: claimed.InputFileCleanupAttempts, OutputFileAttempts: claimed.OutputFileCleanupAttempts, ErrorFileAttempts: claimed.ErrorFileCleanupAttempts,
 	}
 	cleanupErrorClass, cleanupErrorCode := "", ""
-	updateFile := func(id, state string, attempts *int, next *string) {
+	updateFile := func(role, id, state string, attempts *int, next *string) {
 		if id == "" {
 			*next = "not_needed"
 			return
@@ -91,17 +92,25 @@ func (w *BatchCleanupWorker) Cleanup(ctx context.Context, args BatchCleanupJobAr
 		*next = "failed"
 		cleanupErrorClass = "provider"
 		cleanupErrorCode = "delete_file"
+		log.Printf("prepared deck batch cleanup warning: provider file deletion failed; durable recovery will retry while attempts remain: owner_id=%s preparation_id=%s run_id=%s chunk_id=%s generation=%d file_role=%s: %v", args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, role, deleteErr)
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "failed", ErrorClass: cleanupErrorClass, Provider: "openai", Value: 1})
 	}
-	updateFile(claimed.InputFileID, claimed.InputFileCleanupState, &update.InputFileAttempts, &update.InputFileState)
-	updateFile(claimed.OutputFileID, claimed.OutputFileCleanupState, &update.OutputFileAttempts, &update.OutputFileState)
-	updateFile(claimed.ErrorFileID, claimed.ErrorFileCleanupState, &update.ErrorFileAttempts, &update.ErrorFileState)
+	updateFile("input", claimed.InputFileID, claimed.InputFileCleanupState, &update.InputFileAttempts, &update.InputFileState)
+	updateFile("output", claimed.OutputFileID, claimed.OutputFileCleanupState, &update.OutputFileAttempts, &update.OutputFileState)
+	updateFile("error", claimed.ErrorFileID, claimed.ErrorFileCleanupState, &update.ErrorFileAttempts, &update.ErrorFileState)
 	update.ErrorClass, update.ErrorCode = cleanupErrorClass, cleanupErrorCode
 	_, err = w.Store.FinishPreparedDeckBatchCleanup(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, token, update)
 	if errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition) {
 		return nil
 	}
 	return err
+}
+
+// logImmediateBatchCleanupFailure reports an immediate cleanup attempt that
+// returned an error. The cleanup claim is recovered durably, so the chunk is
+// retried by recovery rather than by the caller.
+func logImmediateBatchCleanupFailure(args BatchCleanupJobArgs, err error) {
+	log.Printf("prepared deck batch cleanup warning: immediate cleanup failed; durable recovery will retry: owner_id=%s preparation_id=%s run_id=%s chunk_id=%s generation=%d: %v", args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, err)
 }
 
 func providerFileGone(err error) bool {
