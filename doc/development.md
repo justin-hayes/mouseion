@@ -107,6 +107,10 @@ build tag is not analysed.
 - **Python** — pytest under `nlp/tests` covers the NLP producer, gRPC server,
   model provisioning, dictionary-index derivation, and the precision
   measurement script.
+- **Go assertions** — independent checks in one test are named `t.Run`
+  subtests that use `require`, and dependent steps stay one sequence. See
+  [assertion conventions](agents/assertion-conventions.md); the OPDS client and
+  service tests are the worked example.
 
 ### Test coverage
 
