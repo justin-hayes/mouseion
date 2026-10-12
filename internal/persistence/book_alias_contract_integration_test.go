@@ -23,8 +23,10 @@ func TestBookAliasConnectionContract(t *testing.T) {
 	require.NoError(t, err)
 	err = store.AddBookAlias(ctx, owner.ID, book.ID, domain.AliasStrongBibliographic, "isbn", "978-contract")
 	require.NoError(t, err)
-	err = store.AddBookAlias(ctx, owner.ID, book.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "connection-required")
-	assert.Error(t, err, "connectionless catalogue alias was accepted") //nolint:testifylint // Rejection and the subsequent owner lookup are independent boundary checks.
+	t.Run("connectionless catalogue alias is rejected", func(t *testing.T) {
+		err := store.AddBookAlias(ctx, owner.ID, book.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "connection-required")
+		require.Error(t, err, "connectionless catalogue alias was accepted")
+	})
 	var aliasCount int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1`, owner.ID).Scan(&aliasCount)
 	require.NoError(t, err)

@@ -69,15 +69,21 @@ func TestCurrentReadingPersistence(t *testing.T) {
 
 	otherAliceBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice second goal book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
-	_, err = store.StartCurrentReading(ctx, alice.ID, "de", otherAliceBook.ID)
-	assert.ErrorIs(t, err, ErrCurrentReadingExists) //nolint:testifylint // Duplicate-goal rejection is independent of later eligibility cases.
+	t.Run("duplicate goal is rejected", func(t *testing.T) {
+		_, err := store.StartCurrentReading(ctx, alice.ID, "de", otherAliceBook.ID)
+		require.ErrorIs(t, err, ErrCurrentReadingExists)
+	})
 
 	noDeckBook, err := store.CreateBook(ctx, domain.Book{OwnerID: carol.ID, Title: "Carol reading-only book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
-	_, err = store.StartCurrentReading(ctx, carol.ID, "de", noDeckBook.ID)
-	assert.ErrorIs(t, err, ErrCurrentReadingIneligible) //nolint:testifylint // Eligibility rejection is an independent goal case.
-	_, err = store.StartCurrentReading(ctx, carol.ID, "de", bobBook.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner reading rejection is independently asserted.
+	t.Run("book without deck is ineligible", func(t *testing.T) {
+		_, err := store.StartCurrentReading(ctx, carol.ID, "de", noDeckBook.ID)
+		require.ErrorIs(t, err, ErrCurrentReadingIneligible)
+	})
+	t.Run("cross-owner reading is not found", func(t *testing.T) {
+		_, err := store.StartCurrentReading(ctx, carol.ID, "de", bobBook.ID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 
 	replacementBook, replacementSource, _ := createReadingFixture(t, ctx, store, carol.ID, "goal-replacement")
 	makeAnalyzedToReadBook(t, ctx, store, replacementBook, replacementSource)
@@ -85,21 +91,29 @@ func TestCurrentReadingPersistence(t *testing.T) {
 	require.NoError(t, err)
 	switchTarget, switchSource, _ := createReadingFixture(t, ctx, store, carol.ID, "goal-switch-target")
 	makeAnalyzedToReadBook(t, ctx, store, switchTarget, switchSource)
-	_, err = store.SwitchCurrentReading(ctx, carol.ID, "de", otherAliceBook.ID, replacementBook.ID, started.SnapshotID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner switch target rejection is independent of the valid switch.
-	_, err = store.SwitchCurrentReading(ctx, carol.ID, "de", switchTarget.ID, "stale-book", started.SnapshotID)
-	assert.ErrorIs(t, err, ErrCurrentReadingStale) //nolint:testifylint // Stale-book switch rejection is independent of the valid switch.
+	t.Run("cross-owner switch target is not found", func(t *testing.T) {
+		_, err := store.SwitchCurrentReading(ctx, carol.ID, "de", otherAliceBook.ID, replacementBook.ID, started.SnapshotID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+	t.Run("stale book switch is rejected", func(t *testing.T) {
+		_, err := store.SwitchCurrentReading(ctx, carol.ID, "de", switchTarget.ID, "stale-book", started.SnapshotID)
+		require.ErrorIs(t, err, ErrCurrentReadingStale)
+	})
 	switched, err := store.SwitchCurrentReading(ctx, carol.ID, "de", switchTarget.ID, replacementBook.ID, started.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, switchTarget.ID, switched.BookID, "valid switch")
-	err = store.EndCurrentReading(ctx, carol.ID, "de", replacementBook.ID, started.SnapshotID)
-	assert.ErrorIs(t, err, ErrCurrentReadingStale) //nolint:testifylint // Stale end rejection is independent of the valid end.
+	t.Run("stale end is rejected", func(t *testing.T) {
+		err := store.EndCurrentReading(ctx, carol.ID, "de", replacementBook.ID, started.SnapshotID)
+		require.ErrorIs(t, err, ErrCurrentReadingStale)
+	})
 	err = store.EndCurrentReading(ctx, carol.ID, "de", switchTarget.ID, switched.SnapshotID)
 	require.NoError(t, err, "valid end")
 	err = store.EndCurrentReading(ctx, carol.ID, "de", switchTarget.ID, switched.SnapshotID)
 	require.NoError(t, err, "replaying end is idempotent")
-	err = store.EndCurrentReading(ctx, bob.ID, "de", aliceBook.ID, started.SnapshotID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner end rejection is independent of the final owner lookup.
+	t.Run("cross-owner end is not found", func(t *testing.T) {
+		err := store.EndCurrentReading(ctx, bob.ID, "de", aliceBook.ID, started.SnapshotID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 	goal, err = store.GetCurrentReading(ctx, bob.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, domain.CurrentReading{}, goal, "cross-owner get goal")

@@ -59,8 +59,10 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "book-1", Title: "Private", MediaType: "application/epub+zip", ContentHash: "sha256:shared", Content: []byte("epub"), FullText: "private sentence"})
 	require.NoError(t, err)
-	_, err = store.GetSourceMaterial(ctx, bob.ID, source.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner corpus lookup is independent of the later mutation checks.
+	t.Run("cross-owner source lookup is not found", func(t *testing.T) {
+		_, err := store.GetSourceMaterial(ctx, bob.ID, source.ID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 	library, err := store.ListSourceMaterials(ctx, alice.ID)
 	require.NoError(t, err)
 	require.Len(t, library, 1)
@@ -100,15 +102,21 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	assert.Equal(t, domain.RunQueued, library[0].Signals.LatestRun, "alice library after legacy corpus")
 	assert.Empty(t, library[0].AnalysisRunID, "alice library after legacy corpus")
 	assert.Empty(t, library[0].CorpusID, "alice library after legacy corpus")
-	_, err = store.GetCorpus(ctx, bob.ID, corpus.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner lookup and mutation rejection are independent checks.
-	_, err = store.PutExampleSentence(ctx, bob.ID, corpus.ID, "s1", "stolen", []byte(`{}`))
-	assert.Error(t, err, "bob inserted a sentence into alice corpus") //nolint:testifylint // Mutation rejection and subsequent vocabulary checks are independent.
+	t.Run("cross-owner corpus lookup is not found", func(t *testing.T) {
+		_, err := store.GetCorpus(ctx, bob.ID, corpus.ID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+	t.Run("cross-owner sentence insert is rejected", func(t *testing.T) {
+		_, err := store.PutExampleSentence(ctx, bob.ID, corpus.ID, "s1", "stolen", []byte(`{}`))
+		require.Error(t, err, "bob inserted a sentence into alice corpus")
+	})
 
 	known, err := store.PutKnownVocabulary(ctx, alice.ID, "de", "gehen", "VERB")
 	require.NoError(t, err)
-	_, err = store.GetKnownVocabulary(ctx, bob.ID, known.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner known-vocabulary lookup is independently asserted.
+	t.Run("cross-owner known vocabulary lookup is not found", func(t *testing.T) {
+		_, err := store.GetKnownVocabulary(ctx, bob.ID, known.ID)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 	deck, err := store.PutDeck(ctx, alice.ID, "de", "Study")
 	require.NoError(t, err)
 	_, err = store.PutCard(ctx, domain.Card{OwnerID: bob.ID, DeckID: deck.ID, DedupKey: "x", CanonicalLemma: "Haus", UPOS: "NOUN", Front: "x", Back: "y"})
