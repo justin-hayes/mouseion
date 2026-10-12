@@ -247,37 +247,72 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); err != nil {
 		return Handle{}, fmt.Errorf("lock analysis submission: %w", err)
 	}
-	if bookID != "" {
-		var lockedBook string
-		err = tx.QueryRow(ctx, `SELECT id::text FROM books WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, bookID).Scan(&lockedBook)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Handle{}, ErrNotFound
-		}
+	if err := admitToReadBookAnalysis(ctx, tx, owner, bookID); err != nil {
+		return Handle{}, err
+	}
+	args, err := loadSubmissionInputs(ctx, tx, owner, bookID, sourceID)
+	if err != nil {
+		return Handle{}, err
+	}
+	result, handled, err := s.submitExistingRun(ctx, tx, owner, args)
+	if err != nil {
+		return Handle{}, err
+	}
+	if !handled {
+		result, err = s.createAnalysisRun(ctx, tx, owner, args)
 		if err != nil {
-			return Handle{}, fmt.Errorf("lock To Read Book for analysis: %w", err)
-		}
-		var disposition string
-		var current bool
-		err = tx.QueryRow(ctx, `SELECT d.disposition, EXISTS(SELECT 1 FROM primary_goals g WHERE g.owner_id=b.owner_id AND g.book_id=b.id)
-			FROM books b JOIN book_dispositions d ON d.owner_id=b.owner_id AND d.book_id=b.id
-			WHERE b.owner_id=$1 AND b.id=$2`, owner, bookID).Scan(&disposition, &current)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Handle{}, ErrNotFound
-		}
-		if err != nil {
-			return Handle{}, fmt.Errorf("check To Read Book for analysis: %w", err)
-		}
-		if current {
-			return Handle{}, ErrCurrentBook
-		}
-		if disposition != "to_read" {
-			return Handle{}, ErrNotFound
+			return Handle{}, err
 		}
 	}
+	if err := tx.Commit(ctx); err != nil {
+		return Handle{}, err
+	}
+	return result, nil
+}
+
+// admitToReadBookAnalysis locks the optional To Read Book and rejects the
+// submission when the Book is the current Book or is no longer To Read. The
+// Book row lock is shared with current-reading transitions, so the checks and
+// job insertion linearize with a concurrent start.
+func admitToReadBookAnalysis(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
+	if bookID == "" {
+		return nil
+	}
+	var lockedBook string
+	err := tx.QueryRow(ctx, `SELECT id::text FROM books WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, bookID).Scan(&lockedBook)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock To Read Book for analysis: %w", err)
+	}
+	var disposition string
+	var current bool
+	err = tx.QueryRow(ctx, `SELECT d.disposition, EXISTS(SELECT 1 FROM primary_goals g WHERE g.owner_id=b.owner_id AND g.book_id=b.id)
+		FROM books b JOIN book_dispositions d ON d.owner_id=b.owner_id AND d.book_id=b.id
+		WHERE b.owner_id=$1 AND b.id=$2`, owner, bookID).Scan(&disposition, &current)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("check To Read Book for analysis: %w", err)
+	}
+	if current {
+		return ErrCurrentBook
+	}
+	if disposition != "to_read" {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// loadSubmissionInputs loads the immutable EPUB source and its extracted-unit
+// snapshot and resolves the main-text decision into the River job arguments.
+func loadSubmissionInputs(ctx context.Context, tx pgx.Tx, owner, bookID, sourceID string) (JobArgs, error) {
 	var args JobArgs
 	var revisionID, snapshotID, mediaType string
 	var sourceBookID string
-	err = tx.QueryRow(ctx, `SELECT s.owner_id,s.id,s.language,s.source_identifier,s.title,
+	err := tx.QueryRow(ctx, `SELECT s.owner_id,s.id,s.language,s.source_identifier,s.title,
 		COALESCE(r.revision_id::text,''),CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,
 		COALESCE(s.current_snapshot_id::text,''),s.media_type,COALESCE(s.book_id::text,'')
 		FROM source_materials s
@@ -285,84 +320,88 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 		WHERE s.owner_id=$1 AND s.id=$2`, owner, sourceID).
 		Scan(&args.OwnerID, &args.SourceMaterialID, &args.Language, &args.SourceIdentifier, &args.Title, &revisionID, &args.ContentHash, &snapshotID, &mediaType, &sourceBookID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Handle{}, ErrNotFound
+		return JobArgs{}, ErrNotFound
 	}
 	if err != nil {
-		return Handle{}, fmt.Errorf("load EPUB for analysis: %w", err)
+		return JobArgs{}, fmt.Errorf("load EPUB for analysis: %w", err)
 	}
 	if bookID != "" && sourceBookID != bookID {
-		return Handle{}, ErrNotFound
+		return JobArgs{}, ErrNotFound
 	}
 	if mediaType != "application/epub+zip" {
-		return Handle{}, ErrEPUBRequired
+		return JobArgs{}, ErrEPUBRequired
 	}
 	if revisionID == "" || snapshotID == "" {
-		return Handle{}, domain.ErrExtractedUnitsUnavailable
+		return JobArgs{}, domain.ErrExtractedUnitsUnavailable
 	}
-	args.RunID = ""
 	args.ContentRevisionID, args.SnapshotID = revisionID, snapshotID
 	allUnits, err := loadSnapshotUnits(ctx, tx, owner, sourceID, revisionID, snapshotID)
 	if err != nil {
-		return Handle{}, fmt.Errorf("load extracted EPUB units: %w", err)
+		return JobArgs{}, fmt.Errorf("load extracted EPUB units: %w", err)
 	}
 	decision := identifyMainText(allUnits)
 	args.AnalyzerName, args.AnalyzerVersion = snapshotAnalyzerName, snapshotAnalyzerVersion
 	args.ConfigIdentity = snapshotConfigIdentityFor(decision)
+	return args, nil
+}
+
+// submitExistingRun attaches the submission to an existing run for its
+// snapshot identity. Queued or running runs ensure an attempt; a completed run
+// retries publication; a failed or cancelled run is requeued with history. It
+// reports handled=false only when no run exists, so the caller creates one.
+func (s *Service) submitExistingRun(ctx context.Context, tx pgx.Tx, owner string, args JobArgs) (Handle, bool, error) {
 	var runID, state string
-	err = tx.QueryRow(ctx, `SELECT id::text,state FROM analysis_runs WHERE owner_id=$1 AND content_revision_id=$2 AND analyzer_name=$3 AND analyzer_version=$4 AND config_identity=$5 FOR UPDATE`, owner, revisionID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID, &state)
-	if err == nil {
-		var id, display int64
-		if err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner, runID).Scan(&id, &display); err != nil {
-			return Handle{}, fmt.Errorf("load existing analysis handle: %w", err)
-		}
-		switch state {
-		case "queued", "running":
-			args.RunID = runID
-			if _, err = s.ensureAttemptTx(ctx, tx, args, runID, state == "running"); err != nil {
-				return Handle{}, err
-			}
-		case "completed":
-			retry, shouldRetry, retryErr := s.retryCompletedPublicationTx(ctx, tx, args, owner, runID, id, display)
-			if retryErr != nil {
-				return Handle{}, retryErr
-			}
-			if shouldRetry {
-				if err := tx.Commit(ctx); err != nil {
-					return Handle{}, err
-				}
-				return retry, nil
-			}
-		case "failed", "cancelled":
-			if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID); err != nil {
-				return Handle{}, err
-			}
-			args.RunID = runID
-			jobID, retryErr := s.ensureAttemptTx(ctx, tx, args, runID, false)
-			if retryErr != nil {
-				return Handle{}, retryErr
-			}
-			details, marshalErr := json.Marshal(map[string]any{"run_id": runID, "from": state})
-			if marshalErr != nil {
-				return Handle{}, fmt.Errorf("encode analysis retry history: %w", marshalErr)
-			}
-			if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
-				return Handle{}, err
-			}
-			if err := tx.Commit(ctx); err != nil {
-				return Handle{}, err
-			}
-			return Handle{ID: id, JobID: jobID, DisplayNumber: display, RunID: runID}, nil
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return Handle{}, err
-		}
-		return Handle{ID: id, JobID: id, DisplayNumber: display, RunID: runID}, nil
+	err := tx.QueryRow(ctx, `SELECT id::text,state FROM analysis_runs WHERE owner_id=$1 AND content_revision_id=$2 AND analyzer_name=$3 AND analyzer_version=$4 AND config_identity=$5 FOR UPDATE`, owner, args.ContentRevisionID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID, &state)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Handle{}, false, nil
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return Handle{}, fmt.Errorf("check existing analysis: %w", err)
+	if err != nil {
+		return Handle{}, false, fmt.Errorf("check existing analysis: %w", err)
 	}
-	runID = uuid.NewString()
-	if err = tx.QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,attempt_count) VALUES($1,$2,$3,$4,$5,$6,$7,'queued',1) RETURNING id::text`, owner, sourceID, revisionID, snapshotID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID); err != nil {
+	var id, display int64
+	if err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner, runID).Scan(&id, &display); err != nil {
+		return Handle{}, false, fmt.Errorf("load existing analysis handle: %w", err)
+	}
+	switch state {
+	case "queued", "running":
+		args.RunID = runID
+		if _, err = s.ensureAttemptTx(ctx, tx, args, runID, state == "running"); err != nil {
+			return Handle{}, false, err
+		}
+	case "completed":
+		retry, shouldRetry, retryErr := s.retryCompletedPublicationTx(ctx, tx, args, owner, runID, id, display)
+		if retryErr != nil {
+			return Handle{}, false, retryErr
+		}
+		if shouldRetry {
+			return retry, true, nil
+		}
+	case "failed", "cancelled":
+		if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID); err != nil {
+			return Handle{}, false, err
+		}
+		args.RunID = runID
+		jobID, retryErr := s.ensureAttemptTx(ctx, tx, args, runID, false)
+		if retryErr != nil {
+			return Handle{}, false, retryErr
+		}
+		details, marshalErr := json.Marshal(map[string]any{"run_id": runID, "from": state})
+		if marshalErr != nil {
+			return Handle{}, false, fmt.Errorf("encode analysis retry history: %w", marshalErr)
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
+			return Handle{}, false, err
+		}
+		return Handle{ID: id, JobID: jobID, DisplayNumber: display, RunID: runID}, true, nil
+	}
+	return Handle{ID: id, JobID: id, DisplayNumber: display, RunID: runID}, true, nil
+}
+
+// createAnalysisRun creates the immutable run for the submission's snapshot,
+// enqueues its River job, and records the display handle and first attempt.
+func (s *Service) createAnalysisRun(ctx context.Context, tx pgx.Tx, owner string, args JobArgs) (Handle, error) {
+	var runID string
+	if err := tx.QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,attempt_count) VALUES($1,$2,$3,$4,$5,$6,$7,'queued',1) RETURNING id::text`, owner, args.SourceMaterialID, args.ContentRevisionID, args.SnapshotID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID); err != nil {
 		return Handle{}, fmt.Errorf("create analysis run: %w", err)
 	}
 	args.RunID, args.Attempt = runID, 1
@@ -371,13 +410,10 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 		return Handle{}, fmt.Errorf("enqueue analysis: %w", err)
 	}
 	var display int64
-	if err := tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,analysis_run_id,display_number) VALUES($1,$2,$3,$4,$5::uuid,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2)) RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash, runID).Scan(&display); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,analysis_run_id,display_number) VALUES($1,$2,$3,$4,$5::uuid,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2)) RETURNING display_number`, inserted.Job.ID, owner, args.SourceMaterialID, args.ContentHash, runID).Scan(&display); err != nil {
 		return Handle{}, err
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO analysis_run_attempts(run_id,owner_id,source_material_id,attempt_number,river_job_id,state) VALUES($1,$2,$3,1,$4,'queued')`, runID, owner, sourceID, inserted.Job.ID); err != nil {
-		return Handle{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO analysis_run_attempts(run_id,owner_id,source_material_id,attempt_number,river_job_id,state) VALUES($1,$2,$3,1,$4,'queued')`, runID, owner, args.SourceMaterialID, inserted.Job.ID); err != nil {
 		return Handle{}, err
 	}
 	return Handle{ID: inserted.Job.ID, JobID: inserted.Job.ID, DisplayNumber: display, RunID: runID}, nil

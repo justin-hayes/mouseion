@@ -1343,3 +1343,265 @@ func TestRiverAnalysisRecordsFailureAcrossRunAttemptJobAndHistory(t *testing.T) 
 		require.Equal(t, message, recorded["error"])
 	})
 }
+
+// TestAnalysisSubmissionRejectsIneligibleSourcesAndBooks pins every admission
+// and source-loading rejection of the shared submission path through its public
+// seam, so the split into named steps cannot silently change an error or write
+// an operational row for a rejected submission.
+func TestAnalysisSubmissionRejectsIneligibleSourcesAndBooks(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "submission-guards", false)
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	service := NewService(pool, riverClient)
+
+	newBook := func(title string) domain.Book {
+		book, bookErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+		require.NoError(t, bookErr)
+		return book
+	}
+	toReadBook := newBook("Guard to read")
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, toReadBook.ID, domain.BookDispositionToRead))
+	linkedSource, err := putAnalysisSource(ctx, store, owner.ID, "guard-linked", toReadBook.Title, "Guten Tag.", "sha256:guard-linked")
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, toReadBook.ID, linkedSource.ID))
+
+	otherBook := newBook("Guard other to read")
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, otherBook.ID, domain.BookDispositionToRead))
+
+	inboxBook := newBook("Guard inbox")
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, inboxBook.ID, domain.BookDispositionInbox))
+
+	nonEPUB, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "guard-pdf", Title: "PDF", MediaType: "application/pdf", ContentHash: "sha256:guard-pdf", Content: []byte("pdf"), FullText: "pdf"})
+	require.NoError(t, err)
+	legacyEPUB, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "guard-legacy", Title: "Legacy", MediaType: "application/epub+zip", ContentHash: "sha256:guard-legacy", Content: []byte("legacy"), FullText: "legacy"})
+	require.NoError(t, err)
+	missingUnits, err := putAnalysisSource(ctx, store, owner.ID, "guard-missing-units", "Missing units", "Guten Tag.", "sha256:guard-missing-units")
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DELETE FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, missingUnits.ID)
+	require.NoError(t, err)
+
+	const absentUUID = "00000000-0000-0000-0000-000000000001"
+
+	tests := []struct {
+		name     string
+		submit   func() (Handle, error)
+		wantErr  error
+		wantText string
+	}{
+		{name: "missing owner", submit: func() (Handle, error) { return service.SubmitAnalysis(ctx, " ", linkedSource.ID) }, wantText: "analysis owner and source are required"},
+		{name: "missing source identifier", submit: func() (Handle, error) { return service.SubmitAnalysis(ctx, owner.ID, " ") }, wantText: "analysis owner and source are required"},
+		{name: "missing book identifier", submit: func() (Handle, error) { return service.SubmitToReadBookAnalysis(ctx, owner.ID, "  ", linkedSource.ID) }, wantText: "analysis Book is required"},
+		{name: "malformed book identifier", submit: func() (Handle, error) {
+			return service.SubmitToReadBookAnalysis(ctx, owner.ID, "not-a-uuid", linkedSource.ID)
+		}, wantText: "lock To Read Book for analysis"},
+		{name: "missing book", submit: func() (Handle, error) {
+			return service.SubmitToReadBookAnalysis(ctx, owner.ID, absentUUID, linkedSource.ID)
+		}, wantErr: ErrNotFound},
+		{name: "book is not to read", submit: func() (Handle, error) {
+			return service.SubmitToReadBookAnalysis(ctx, owner.ID, inboxBook.ID, linkedSource.ID)
+		}, wantErr: ErrNotFound},
+		{name: "unknown source", submit: func() (Handle, error) { return service.SubmitAnalysis(ctx, owner.ID, absentUUID) }, wantErr: ErrNotFound},
+		{name: "source belongs to another book", submit: func() (Handle, error) {
+			return service.SubmitToReadBookAnalysis(ctx, owner.ID, otherBook.ID, linkedSource.ID)
+		}, wantErr: ErrNotFound},
+		{name: "non-EPUB source", submit: func() (Handle, error) { return service.SubmitAnalysis(ctx, owner.ID, nonEPUB.ID) }, wantErr: ErrEPUBRequired},
+		{name: "EPUB without current revision", submit: func() (Handle, error) { return service.SubmitAnalysis(ctx, owner.ID, legacyEPUB.ID) }, wantErr: domain.ErrExtractedUnitsUnavailable},
+		{name: "EPUB without extracted units", submit: func() (Handle, error) { return service.SubmitAnalysis(ctx, owner.ID, missingUnits.ID) }, wantErr: domain.ErrExtractedUnitsUnavailable, wantText: "load extracted EPUB units"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handle, submitErr := test.submit()
+			require.Error(t, submitErr)
+			assert.Equal(t, Handle{}, handle)
+			if test.wantErr != nil {
+				require.ErrorIs(t, submitErr, test.wantErr)
+			}
+			if test.wantText != "" {
+				assert.Contains(t, submitErr.Error(), test.wantText)
+			}
+			var runs, jobs, history int
+			require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, owner.ID).Scan(&runs))
+			require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, owner.ID).Scan(&jobs))
+			require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='analysis'`, owner.ID).Scan(&history))
+			assert.Zero(t, runs, "rejected submission created an analysis run")
+			assert.Zero(t, jobs, "rejected submission created an analysis job")
+			assert.Zero(t, history, "rejected submission wrote operational history")
+		})
+	}
+}
+
+type failingInsertAnalysisClient struct {
+	*river.Client[pgx.Tx]
+	err error
+}
+
+func (c *failingInsertAnalysisClient) InsertTx(context.Context, pgx.Tx, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error) {
+	return nil, c.err
+}
+
+// TestAnalysisSubmissionSurfacesOperationalFailures pins the write-failure
+// branches of the shared submission path through its public seam, so the split
+// into named steps keeps failing loudly instead of silently returning a zero
+// handle or leaving a partial run behind.
+func TestAnalysisSubmissionSurfacesOperationalFailures(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "submission-failures", false)
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	service := NewService(pool, riverClient)
+
+	t.Run("missing existing analysis handle", func(t *testing.T) {
+		source, sourceErr := putAnalysisSource(ctx, store, owner.ID, "failure-handle", "Handle", "Guten Tag.", "sha256:failure-handle")
+		require.NoError(t, sourceErr)
+		handle, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.NoError(t, submitErr)
+		_, execErr := pool.Exec(ctx, `DELETE FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID)
+		require.NoError(t, execErr)
+		_, submitErr = service.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.ErrorContains(t, submitErr, "load existing analysis handle")
+	})
+
+	t.Run("missing book disposition", func(t *testing.T) {
+		book, bookErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "No disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+		require.NoError(t, bookErr)
+		_, execErr := pool.Exec(ctx, `DELETE FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID)
+		require.NoError(t, execErr)
+		source, sourceErr := putAnalysisSource(ctx, store, owner.ID, "failure-disposition", "Disposition", "Guten Tag.", "sha256:failure-disposition")
+		require.NoError(t, sourceErr)
+		_, submitErr := service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
+		require.ErrorIs(t, submitErr, ErrNotFound)
+	})
+
+	t.Run("river insert failure", func(t *testing.T) {
+		source, sourceErr := putAnalysisSource(ctx, store, owner.ID, "failure-enqueue", "Enqueue", "Guten Tag.", "sha256:failure-enqueue")
+		require.NoError(t, sourceErr)
+		failing := NewService(pool, &failingInsertAnalysisClient{Client: riverClient, err: errors.New("River insert unavailable")})
+		_, submitErr := failing.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.ErrorContains(t, submitErr, "enqueue analysis")
+		var runs int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID).Scan(&runs))
+		assert.Zero(t, runs, "failed enqueue persisted an analysis run")
+	})
+
+	triggerCases := []struct {
+		name    string
+		table   string
+		message string
+	}{
+		{name: "create analysis run failure", table: "analysis_runs", message: "simulated analysis run failure"},
+		{name: "analysis job failure", table: "analysis_jobs", message: "simulated analysis job failure"},
+		{name: "first attempt failure", table: "analysis_run_attempts", message: "simulated analysis attempt failure"},
+	}
+	for i, test := range triggerCases {
+		t.Run(test.name, func(t *testing.T) {
+			function := fmt.Sprintf("reject_submission_%d", i)
+			trigger := function + "_trg"
+			_, execErr := pool.Exec(ctx, fmt.Sprintf(`CREATE FUNCTION %s() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION '%s'; END $$; CREATE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION %s()`, function, test.message, trigger, test.table, function))
+			require.NoError(t, execErr)
+			t.Cleanup(func() {
+				_, dropErr := pool.Exec(context.Background(), fmt.Sprintf(`DROP TRIGGER %s ON %s; DROP FUNCTION %s()`, trigger, test.table, function))
+				require.NoError(t, dropErr)
+			})
+			source, sourceErr := putAnalysisSource(ctx, store, owner.ID, "failure-"+test.table, test.name, "Guten Tag.", "sha256:failure-"+test.table)
+			require.NoError(t, sourceErr)
+			_, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+			require.ErrorContains(t, submitErr, test.message)
+		})
+	}
+}
+
+// TestAnalysisSubmissionSurfacesExistingRunFailures pins the write-failure
+// branches of the existing-run step through the public seam: an attempt that
+// cannot be ensured for a queued run, and a failed run whose requeue cannot
+// update the run, ensure an attempt, or record history.
+func TestAnalysisSubmissionSurfacesExistingRunFailures(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "existing-run-failures", false)
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	service := NewService(pool, riverClient)
+	failing := NewService(pool, &failingInsertAnalysisClient{Client: riverClient, err: errors.New("River insert unavailable")})
+
+	newQueuedRun := func(t *testing.T, identifier string) domain.SourceMaterial {
+		t.Helper()
+		source, sourceErr := putAnalysisSource(ctx, store, owner.ID, identifier, identifier, "Guten Tag.", "sha256:"+identifier)
+		require.NoError(t, sourceErr)
+		_, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.NoError(t, submitErr)
+		return source
+	}
+	dropLiveWork := func(t *testing.T, source domain.SourceMaterial) {
+		t.Helper()
+		_, execErr := pool.Exec(ctx, `DELETE FROM analysis_run_attempts WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID)
+		require.NoError(t, execErr)
+		_, execErr = pool.Exec(ctx, `DELETE FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'source_material_id'=$3`, (JobArgs{}).Kind(), owner.ID, source.ID)
+		require.NoError(t, execErr)
+	}
+	failRun := func(t *testing.T, source domain.SourceMaterial) {
+		t.Helper()
+		_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state='failed' WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID)
+		require.NoError(t, execErr)
+	}
+	rejectWrites := func(t *testing.T, name, operation, table, message string) {
+		t.Helper()
+		_, execErr := pool.Exec(ctx, fmt.Sprintf(`CREATE FUNCTION %s() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION '%s'; END $$; CREATE TRIGGER %s_trg BEFORE %s ON %s FOR EACH ROW EXECUTE FUNCTION %s()`, name, message, name, operation, table, name))
+		require.NoError(t, execErr)
+		t.Cleanup(func() {
+			_, dropErr := pool.Exec(context.Background(), fmt.Sprintf(`DROP TRIGGER %s_trg ON %s; DROP FUNCTION %s()`, name, table, name))
+			require.NoError(t, dropErr)
+		})
+	}
+
+	t.Run("queued attempt insert failure", func(t *testing.T) {
+		source := newQueuedRun(t, "existing-queued-attempt")
+		dropLiveWork(t, source)
+		_, submitErr := failing.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.ErrorContains(t, submitErr, "River insert unavailable")
+	})
+
+	t.Run("requeue attempt insert failure", func(t *testing.T) {
+		source := newQueuedRun(t, "existing-requeue-attempt")
+		dropLiveWork(t, source)
+		failRun(t, source)
+		_, submitErr := failing.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.ErrorContains(t, submitErr, "River insert unavailable")
+	})
+
+	t.Run("requeue update failure", func(t *testing.T) {
+		source := newQueuedRun(t, "existing-requeue-update")
+		failRun(t, source)
+		rejectWrites(t, "reject_requeue_update", "UPDATE", "analysis_runs", "simulated requeue update failure")
+		_, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.ErrorContains(t, submitErr, "simulated requeue update failure")
+	})
+
+	t.Run("requeue history failure", func(t *testing.T) {
+		source := newQueuedRun(t, "existing-requeue-history")
+		failRun(t, source)
+		rejectWrites(t, "reject_requeue_history", "INSERT", "processing_history", "simulated requeue history failure")
+		_, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.ErrorContains(t, submitErr, "simulated requeue history failure")
+	})
+}
