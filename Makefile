@@ -23,7 +23,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage lint lint-go gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
@@ -110,6 +110,12 @@ coverage: python-test-preflight go-tmp
 	mkdir -p $(COVERAGE_DIR)
 	PYTHONPATH=nlp/src:gen/python COVERAGE_FILE=$(COVERAGE_DIR)/python.coverage $(VENV_BIN)/pytest -q nlp/tests --cov --cov-config=nlp/pyproject.toml --cov-report=xml:$(COVERAGE_DIR)/python.xml
 	tools/go-coverage.sh
+
+# Previews SonarQube Cloud's 80% new-code coverage gate for the lines changed
+# since the merge base with origin/main (COVERAGE_BASE overrides) and lists the
+# uncovered ones. Run it before opening a pull request; Sonar's gate decides.
+coverage-new: coverage
+	tools/coverage-new.sh
 
 lint-go: go-tmp
 	@version="$$( "$(GOLANGCI_LINT)" version 2>&1 )" || { \
