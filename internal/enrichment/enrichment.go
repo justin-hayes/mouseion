@@ -343,34 +343,63 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		return r, metrics, errors.New("external enrichment cache is required")
 	}
 	key, _ := s.ExternalCacheKey(c)
+	entry, hit, warning, err := s.lookupExternal(ctx, key, &metrics, requireCache)
+	if warning != "" {
+		r.Warnings = append(r.Warnings, warning)
+	}
+	if err != nil {
+		return r, metrics, err
+	}
+	if !hit {
+		stored, warnings, err := s.recordExternal(ctx, c, key, &metrics, requireCache)
+		r.Warnings = append(r.Warnings, warnings...)
+		if err != nil {
+			return r, metrics, err
+		}
+		entry = stored
+	}
+	s.setExternal(&r, entry)
+	return r, metrics, nil
+}
+
+// lookupExternal consults the cache once. A cache read error is fatal only when
+// the cache is required; otherwise it becomes a warning and the caller records
+// a fresh translation. A nil cache is always a miss.
+func (s *Service) lookupExternal(ctx context.Context, key CacheKey, metrics *ExternalMetrics, requireCache bool) (CacheEntry, bool, string, error) {
+	if s.cache == nil {
+		return CacheEntry{}, false, "", nil
+	}
+	entry, hit, err := s.readExternalCache(ctx, key, metrics)
+	if err != nil {
+		if requireCache {
+			return CacheEntry{}, false, "", fmt.Errorf("translation cache get: %w", err)
+		}
+		return CacheEntry{}, false, "translation cache: " + err.Error(), nil
+	}
+	return entry, hit, "", nil
+}
+
+// recordExternal translates one cache miss, normalizes the response, and stores
+// the fresh entry. A cache write error is fatal only when the cache is required.
+// Response and non-fatal cache warnings are returned even when the call fails so
+// the caller can preserve them.
+func (s *Service) recordExternal(ctx context.Context, c Candidate, key CacheKey, metrics *ExternalMetrics, requireCache bool) (CacheEntry, []string, error) {
 	sentence := ""
 	if key.SentenceHash != "" {
 		sentence = c.ExampleSentence
 	}
-	if s.cache != nil {
-		entry, hit, err := s.readExternalCache(ctx, key, &metrics)
-		if err != nil {
-			if requireCache {
-				return r, metrics, fmt.Errorf("translation cache get: %w", err)
-			}
-			r.Warnings = append(r.Warnings, "translation cache: "+err.Error())
-		} else if hit {
-			s.setExternal(&r, entry)
-			return r, metrics, nil
-		}
-	}
 	req := externalTranslationRequest(c, sentence)
-	response, err := s.callTranslationWithRetry(ctx, req, &metrics)
+	response, err := s.callTranslationWithRetry(ctx, req, metrics)
 	if err != nil {
 		metrics.addError(ClassifyExternalError(err))
-		return r, metrics, err
+		return CacheEntry{}, nil, err
 	}
 	response, err = NormalizeTranslationResponse(req, response)
 	if err != nil {
 		metrics.addError(ExternalErrorOther)
-		return r, metrics, err
+		return CacheEntry{}, nil, err
 	}
-	r.Warnings = append(r.Warnings, response.Warnings...)
+	warnings := append([]string(nil), response.Warnings...)
 	entry := CacheEntry{
 		CacheKey:                   key,
 		Translation:                response.Translation,
@@ -380,19 +409,17 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		SenseSelection:             append([]int{}, response.SenseOrder...),
 		CachedAt:                   s.now().UTC(),
 	}
-	if s.cache != nil {
-		stored, putErr := s.storeExternalCache(ctx, entry, &metrics)
-		if putErr != nil {
-			if requireCache {
-				return r, metrics, fmt.Errorf("translation cache put: %w", putErr)
-			}
-			r.Warnings = append(r.Warnings, "translation cache: "+putErr.Error())
-		} else {
-			entry = stored
-		}
+	if s.cache == nil {
+		return entry, warnings, nil
 	}
-	s.setExternal(&r, entry)
-	return r, metrics, nil
+	stored, putErr := s.storeExternalCache(ctx, entry, metrics)
+	if putErr != nil {
+		if requireCache {
+			return CacheEntry{}, warnings, fmt.Errorf("translation cache put: %w", putErr)
+		}
+		return entry, append(warnings, "translation cache: "+putErr.Error()), nil
+	}
+	return stored, warnings, nil
 }
 
 // externalTranslationRequest builds the provider request from the cached

@@ -3,6 +3,8 @@ package enrichment_test
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -128,3 +130,149 @@ func TestTranslationCodecPreservesReasoningCapabilityBehavior(t *testing.T) {
 	assert.Contains(t, string(body), `"temperature":0`, "custom endpoint body=%s", body)
 	assert.NotContains(t, string(body), `"reasoning_effort"`, "custom endpoint body=%s", body)
 }
+
+func TestWriteBatchJSONLRejectsInvalidManifests(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	runID := "123e4567-e89b-12d3-a456-426614174000"
+	item := enrichment.BatchTranslationItem{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}
+	for name, write := range map[string]func() error{
+		"nil codec": func() error {
+			var typed *enrichment.TranslationCodec
+			_, err := typed.WriteBatchJSONL(io.Discard, runID, 1, []enrichment.BatchTranslationItem{item})
+			return err
+		},
+		"nil destination": func() error {
+			_, err := codec.WriteBatchJSONL(nil, runID, 1, []enrichment.BatchTranslationItem{item})
+			return err
+		},
+		"no items": func() error {
+			_, err := codec.WriteBatchJSONL(io.Discard, runID, 1, nil)
+			return err
+		},
+		"invalid run ID": func() error {
+			_, err := codec.WriteBatchJSONL(io.Discard, "not-a-uuid", 1, []enrichment.BatchTranslationItem{item})
+			return err
+		},
+		"zero generation": func() error {
+			_, err := codec.WriteBatchJSONL(io.Discard, runID, 0, []enrichment.BatchTranslationItem{item})
+			return err
+		},
+		"negative ordinal": func() error {
+			_, err := codec.WriteBatchJSONL(io.Discard, runID, 1, []enrichment.BatchTranslationItem{{Ordinal: -1, Request: item.Request}})
+			return err
+		},
+		"duplicate ordinal": func() error {
+			_, err := codec.WriteBatchJSONL(io.Discard, runID, 1, []enrichment.BatchTranslationItem{item, item})
+			return err
+		},
+		"invalid request body": func() error {
+			_, err := codec.WriteBatchJSONL(io.Discard, runID, 1, []enrichment.BatchTranslationItem{{Ordinal: 1}})
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var providerErr *enrichment.ProviderError
+			require.ErrorAs(t, write(), &providerErr)
+			assert.Equal(t, enrichment.ProviderErrorInvalidRequest, providerErr.Class)
+		})
+	}
+}
+
+func TestWriteBatchJSONLReportsDestinationWriteFailure(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	_, err = codec.WriteBatchJSONL(failingWriter{}, "123e4567-e89b-12d3-a456-426614174000", 1, []enrichment.BatchTranslationItem{
+		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}},
+	})
+	var providerErr *enrichment.ProviderError
+	require.ErrorAs(t, err, &providerErr)
+	assert.Equal(t, enrichment.ProviderErrorTransport, providerErr.Class)
+}
+
+func TestDecodeBatchResultsRejectsInvalidManifestIdentities(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	runID := "123e4567-e89b-12d3-a456-426614174000"
+	item := enrichment.BatchTranslationItem{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}
+	for name, decode := range map[string]func() error{
+		"nil codec": func() error {
+			var typed *enrichment.TranslationCodec
+			_, err := typed.DecodeBatchResults(runID, 1, []enrichment.BatchTranslationItem{item}, nil, nil)
+			return err
+		},
+		"no items": func() error {
+			_, err := codec.DecodeBatchResults(runID, 1, nil, nil, nil)
+			return err
+		},
+		"invalid run ID": func() error {
+			_, err := codec.DecodeBatchResults("not-a-uuid", 1, []enrichment.BatchTranslationItem{item}, nil, nil)
+			return err
+		},
+		"zero generation": func() error {
+			_, err := codec.DecodeBatchResults(runID, 0, []enrichment.BatchTranslationItem{item}, nil, nil)
+			return err
+		},
+		"negative ordinal": func() error {
+			_, err := codec.DecodeBatchResults(runID, 1, []enrichment.BatchTranslationItem{{Ordinal: -1, Request: item.Request}}, nil, nil)
+			return err
+		},
+		"duplicate ordinal": func() error {
+			_, err := codec.DecodeBatchResults(runID, 1, []enrichment.BatchTranslationItem{item, item}, nil, nil)
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var providerErr *enrichment.ProviderError
+			require.ErrorAs(t, decode(), &providerErr)
+			assert.Equal(t, enrichment.ProviderErrorInvalidRequest, providerErr.Class)
+		})
+	}
+}
+
+func TestDecodeBatchResultsRejectsBlankTrailingAndForeignLines(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	runID := "123e4567-e89b-12d3-a456-426614174000"
+	item := enrichment.BatchTranslationItem{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}
+	id, err := enrichment.BatchCustomID(runID, 1, 1)
+	require.NoError(t, err)
+	foreignID, err := enrichment.BatchCustomID("223e4567-e89b-12d3-a456-426614174000", 1, 1)
+	require.NoError(t, err)
+	for name, fixture := range map[string]struct {
+		content string
+		kind    enrichment.BatchResultErrorKind
+	}{
+		"blank line":      {"\n", enrichment.BatchResultMalformed},
+		"trailing tokens": {`{"custom_id":"` + id + `"}x` + "\n", enrichment.BatchResultMalformed},
+		"foreign run ID":  {`{"custom_id":"` + foreignID + `","error":{"code":"x"}}` + "\n", enrichment.BatchResultUnknown},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := codec.DecodeBatchResults(runID, 1, []enrichment.BatchTranslationItem{item}, strings.NewReader(fixture.content), nil)
+			var resultErr *enrichment.BatchResultError
+			require.ErrorAs(t, err, &resultErr)
+			assert.Equal(t, fixture.kind, resultErr.Kind, "err=%v", err)
+		})
+	}
+}
+
+func TestDecodeBatchResultsReportsReadFailure(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	_, err = codec.DecodeBatchResults("123e4567-e89b-12d3-a456-426614174000", 1, []enrichment.BatchTranslationItem{
+		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}},
+	}, errorReader{}, nil)
+	var resultErr *enrichment.BatchResultError
+	require.ErrorAs(t, err, &resultErr)
+	assert.Equal(t, enrichment.BatchResultMalformed, resultErr.Kind)
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("synthetic destination failure")
+}
+
+type errorReader struct{}
+
+func (errorReader) Read([]byte) (int, error) { return 0, errors.New("synthetic read failure") }

@@ -210,6 +210,32 @@ func (c *OpenAIBatchClient) UploadFile(ctx context.Context, filename string, con
 	if c == nil || content == nil || !privacySafeFilename(filename) {
 		return OpenAIFile{}, providerError("upload file", ProviderErrorInvalidRequest, 0, nil)
 	}
+	upload := startBatchUpload(filename, content)
+	req, err := c.newRequest(ctx, http.MethodPost, "/files", upload.reader)
+	if err != nil {
+		return OpenAIFile{}, upload.abort(err)
+	}
+	req.Header.Set("Content-Type", upload.contentType)
+	var file OpenAIFile
+	if err := upload.complete(c.doJSON(req, "upload file", &file)); err != nil {
+		return OpenAIFile{}, err
+	}
+	if !validOpenAIFile(file) {
+		return OpenAIFile{}, providerError("upload file", ProviderErrorMalformedResponse, 0, nil)
+	}
+	return c.waitForFileReady(ctx, file)
+}
+
+// batchFileUpload owns the streaming multipart body for one upload and the
+// writer goroutine that produces it. Exactly one of abort or complete must be
+// called to release the goroutine.
+type batchFileUpload struct {
+	reader      *io.PipeReader
+	contentType string
+	group       *errgroup.Group
+}
+
+func startBatchUpload(filename string, content io.Reader) *batchFileUpload {
 	reader, writer := io.Pipe()
 	multipartWriter := multipart.NewWriter(writer)
 	var group errgroup.Group
@@ -223,36 +249,39 @@ func (c *OpenAIBatchClient) UploadFile(ctx context.Context, filename string, con
 		}
 		return err
 	})
-	req, err := c.newRequest(ctx, http.MethodPost, "/files", reader)
-	if err != nil {
-		if closeErr := reader.CloseWithError(err); closeErr != nil {
-			err = errors.Join(err, closeErr)
-		}
-		if waitErr := group.Wait(); waitErr != nil {
-			err = errors.Join(err, waitErr)
-		}
-		return OpenAIFile{}, err
+	return &batchFileUpload{
+		reader:      reader,
+		contentType: multipartWriter.FormDataContentType(),
+		group:       &group,
 	}
-	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
-	var file OpenAIFile
-	err = c.doJSON(req, "upload file", &file)
-	if closeErr := reader.CloseWithError(err); closeErr != nil {
+}
+
+// abort releases the writer goroutine after the request could not be built,
+// joining the writer's raw failure with err.
+func (u *batchFileUpload) abort(err error) error {
+	if closeErr := u.reader.CloseWithError(err); closeErr != nil {
 		err = errors.Join(err, closeErr)
 	}
-	if writeErr := group.Wait(); writeErr != nil {
+	if waitErr := u.group.Wait(); waitErr != nil {
+		err = errors.Join(err, waitErr)
+	}
+	return err
+}
+
+// complete releases the writer goroutine after the request completes, folds a
+// write failure in as a classified provider error, and returns nil on success.
+func (u *batchFileUpload) complete(requestErr error) error {
+	if closeErr := u.reader.CloseWithError(requestErr); closeErr != nil {
+		requestErr = errors.Join(requestErr, closeErr)
+	}
+	if writeErr := u.group.Wait(); writeErr != nil {
 		class := ProviderErrorTransport
 		if errors.Is(writeErr, errBatchFileTooLarge) {
 			class = ProviderErrorResponseTooLarge
 		}
-		err = errors.Join(err, providerError("upload file", class, 0, writeErr))
+		requestErr = errors.Join(requestErr, providerError("upload file", class, 0, writeErr))
 	}
-	if err != nil {
-		return OpenAIFile{}, err
-	}
-	if !validOpenAIFile(file) {
-		return OpenAIFile{}, providerError("upload file", ProviderErrorMalformedResponse, 0, nil)
-	}
-	return c.waitForFileReady(ctx, file)
+	return requestErr
 }
 
 // GetFile returns a Batch input file using the same authenticated client that
