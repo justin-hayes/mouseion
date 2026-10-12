@@ -86,7 +86,7 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 	if err != nil {
 		return PreparedDeckBatchReconcileResult{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return PreparedDeckBatchReconcileResult{}, err
 	}
 	return PreparedDeckBatchReconcileResult{Chunk: chunk, Run: run, RetryChunks: retryChunks}, nil
@@ -225,7 +225,7 @@ func persistPreparedDeckBatchCache(ctx context.Context, tx pgx.Tx, member prepar
 		return err
 	}
 	targets := append([]string{}, entry.SentenceTranslationTargets...)
-	if err = sqlcgen.New(tx).UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, SentenceTranslationTargets: targets, CachedAt: entry.CachedAt}); err != nil {
+	if err := sqlcgen.New(tx).UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, SentenceTranslationTargets: targets, CachedAt: entry.CachedAt}); err != nil {
 		return err
 	}
 	// The cache is immutable and first-writer-wins. Read the committed row so
@@ -310,7 +310,7 @@ func insertPreparedDeckRetryChunks(ctx context.Context, tx pgx.Tx, params Prepar
 			}
 			return nil, err
 		}
-		if err = setPreparedDeckBatchSubmissionJobTx(ctx, tx, chunk, jobID); err != nil {
+		if err := setPreparedDeckBatchSubmissionJobTx(ctx, tx, chunk, jobID); err != nil {
 			return nil, err
 		}
 		chunk.SubmissionJobID, chunk.SubmissionGeneration = jobID, generation
@@ -370,7 +370,7 @@ func advancePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, run domain.Prepare
 	if insertFinalizer == nil {
 		return run, ErrInvalidTransition
 	}
-	if err = insertFinalizer(ctx, tx, run); err != nil {
+	if err := insertFinalizer(ctx, tx, run); err != nil {
 		return domain.PreparedDeckRun{}, err
 	}
 	return run, nil

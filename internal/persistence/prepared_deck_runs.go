@@ -126,7 +126,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		return FreezePreparedDeckRunResult{}, err
 	}
 	if config.ExecutionMode == string(domain.PreparedDeckExecutionBatch) {
-		if err = validateChunkPlans(params.Chunks, config, manifestWork.pending); err != nil {
+		if err := validateChunkPlans(params.Chunks, config, manifestWork.pending); err != nil {
 			return FreezePreparedDeckRunResult{}, err
 		}
 	} else if len(params.Chunks) != 0 {
@@ -151,20 +151,20 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		translationCompletedAt = &completedAt
 	}
 	selectedCount, acceptedCount, omittedCount := params.Projection.Counts()
-	if err = insertPreparedDeckRunRow(ctx, tx, params, config, runID, runNumber, runState, translationState, acceptedCount, manifestWork.completedCount, translationCompletedAt); err != nil {
+	if err := insertPreparedDeckRunRow(ctx, tx, params, config, runID, runNumber, runState, translationState, acceptedCount, manifestWork.completedCount, translationCompletedAt); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if err = insertPreparedDeckManifestRow(ctx, tx, params, runID, digest, selectedCount, acceptedCount, omittedCount); err != nil {
+	if err := insertPreparedDeckManifestRow(ctx, tx, params, runID, digest, selectedCount, acceptedCount, omittedCount); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if err = insertPreparedDeckManifestItems(ctx, tx, params, config, candidateDigests, runID, manifestWork.pending); err != nil {
+	if err := insertPreparedDeckManifestItems(ctx, tx, params, config, candidateDigests, runID, manifestWork.pending); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	chunks, err := insertPreparedDeckChunkPlans(ctx, tx, params, candidateDigests, runID)
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if err = sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: params.OwnerID, ID: params.PreparationID, CurrentRunID: uuidArg(runID)}); err != nil {
+	if err := sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: params.OwnerID, ID: params.PreparationID, CurrentRunID: uuidArg(runID)}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	run, err := getPreparedDeckRun(ctx, tx, params.OwnerID, params.PreparationID, runID)
@@ -324,7 +324,7 @@ func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezeP
 			return nil, err
 		}
 		for position, ordinal := range plan.Ordinals {
-			if err = sqlcgen.New(tx).InsertPreparedDeckBatchChunkItem(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, ChunkID: chunkID, Generation: plan.Generation, Position: position, Ordinal: ordinal, CandidateDigest: candidateDigests[ordinal]}); err != nil {
+			if err := sqlcgen.New(tx).InsertPreparedDeckBatchChunkItem(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, ChunkID: chunkID, Generation: plan.Generation, Position: position, Ordinal: ordinal, CandidateDigest: candidateDigests[ordinal]}); err != nil {
 				return nil, err
 			}
 		}

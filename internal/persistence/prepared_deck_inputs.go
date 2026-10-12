@@ -108,7 +108,7 @@ func loadAnalysisProjectionFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Qu
 		return analyzer.Result{}, nil, err
 	}
 	var bookID *string
-	if err = tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
 		return analyzer.Result{}, nil, err
 	}
 	var correctionRows []sqlcgen.ListOccurrenceLemmaCorrectionsRow
@@ -170,7 +170,7 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	useProjectedEntry := preparation.SnapshotID != ""
 	if !useProjectedEntry && corpusID != "" {
 		var bookID string
-		if err = tx.QueryRow(ctx, `SELECT COALESCE(book_id::text, '') FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(book_id::text, '') FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
 			return nil, err
 		}
 		if bookID != "" {

@@ -69,7 +69,7 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 		if err != nil {
 			return err
 		}
-		if err = q.StartPreparedDeckTranslation(ctx, sqlcgen.StartPreparedDeckTranslationParams{
+		if err := q.StartPreparedDeckTranslation(ctx, sqlcgen.StartPreparedDeckTranslationParams{
 			OwnerID: owner, PreparationID: preparationID, ID: runID,
 		}); err != nil {
 			return err
@@ -254,7 +254,7 @@ func advancePreparedDeckRunAfterOutcomeTx(ctx context.Context, q *sqlcgen.Querie
 	}
 	run = preparedDeckRunFromModel(model)
 	if insertFinalizer != nil {
-		if err = insertFinalizer(ctx, tx, run); err != nil {
+		if err := insertFinalizer(ctx, tx, run); err != nil {
 			return run, err
 		}
 	}
@@ -385,7 +385,7 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmitted(ctx context.Context, ow
 	if err != nil {
 		return chunk, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.PreparedDeckBatchChunk{}, err
 	}
 	return chunk, nil
@@ -453,7 +453,7 @@ func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, 
 	if err != nil {
 		return 0, fmt.Errorf("invalid completed cache-hit count: %w", err)
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
 	return result, nil

@@ -452,10 +452,10 @@ func (s *PostgresStore) startCurrentReading(ctx context.Context, owner, language
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return StartResult{}, err
 	}
-	if err = lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
+	if err := lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
 		return StartResult{}, err
 	}
 	facts, identity, err := loadStartFacts(ctx, tx, q, owner, language, bookID)
@@ -463,7 +463,7 @@ func (s *PostgresStore) startCurrentReading(ctx context.Context, owner, language
 		return StartResult{}, err
 	}
 	decision := domain.DecideStart(facts)
-	if err = domain.StartDecisionError(decision); err != nil {
+	if err := domain.StartDecisionError(decision); err != nil {
 		return StartResult{}, err
 	}
 	if decision.Outcome == domain.StartReplayed {
@@ -488,11 +488,11 @@ func (s *PostgresStore) startCurrentReading(ctx context.Context, owner, language
 	goal.CorpusID = identity.CaCorpusID
 	goal.SnapshotSize = len(candidates)
 	if beforeCommit != nil {
-		if err = beforeCommit(ctx, tx, goal); err != nil {
+		if err := beforeCommit(ctx, tx, goal); err != nil {
 			return StartResult{}, err
 		}
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return StartResult{}, err
 	}
 	return StartResult{Reading: goal}, nil
@@ -530,7 +530,7 @@ func loadStartFacts(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, l
 	case !errors.Is(err, pgx.ErrNoRows):
 		return facts, identity, err
 	}
-	if err = loadStartEvidence(ctx, q, owner, bookID, &facts); err != nil {
+	if err := loadStartEvidence(ctx, q, owner, bookID, &facts); err != nil {
 		return facts, identity, err
 	}
 	identity, err = q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Book: bookID})

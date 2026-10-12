@@ -61,14 +61,14 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 			return err
 		}
 		if revisionID != currentRevisionID {
-			if err = q.SetCurrentContentRevision(ctx, sqlcgen.SetCurrentContentRevisionParams{OwnerID: out.OwnerID, ID: out.ID, CurrentContentRevisionID: uuidArg(revisionID)}); err != nil {
+			if err := q.SetCurrentContentRevision(ctx, sqlcgen.SetCurrentContentRevisionParams{OwnerID: out.OwnerID, ID: out.ID, CurrentContentRevisionID: uuidArg(revisionID)}); err != nil {
 				return err
 			}
 			snapshotID, err := q.InsertSourceMaterialUnitSnapshot(ctx, sqlcgen.InsertSourceMaterialUnitSnapshotParams{OwnerID: out.OwnerID, SourceMaterialID: out.ID, ContentRevisionID: revisionID, SchemaVersion: units.SchemaVersion})
 			if err != nil {
 				return err
 			}
-			if err = q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: out.OwnerID, ID: out.ID, CurrentSnapshotID: uuidArg(snapshotID)}); err != nil {
+			if err := q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: out.OwnerID, ID: out.ID, CurrentSnapshotID: uuidArg(snapshotID)}); err != nil {
 				return err
 			}
 			for _, unit := range units.Units {
@@ -100,7 +100,7 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 				if marshalErr != nil {
 					return marshalErr
 				}
-				if err = q.InsertSourceMaterialUnit(ctx, sqlcgen.InsertSourceMaterialUnitParams{
+				if err := q.InsertSourceMaterialUnit(ctx, sqlcgen.InsertSourceMaterialUnitParams{
 					OwnerID: out.OwnerID, SourceMaterialID: out.ID, SnapshotID: snapshotID, UnitID: unit.ID,
 					UnitOrder: unitOrder, SpineIndex: spineIndex, Title: unit.Title, TitleSource: unit.TitleSource,
 					Text: unit.Text, StartOffset: startOffset, EndOffset: endOffset, PackagePath: unit.PackagePath,
@@ -172,13 +172,13 @@ func (s *PostgresStore) GetExtractedUnitSnapshot(ctx context.Context, owner, sou
 		unit.StartOffset, unit.EndOffset = startOffset, endOffset
 		unit.PackagePath, unit.ManifestID, unit.SourceHref = row.PackagePath, row.ManifestID, row.SourceHref
 		unit.ResolvedHref, unit.MediaType, unit.Linear = row.ResolvedHref, row.MediaType, row.Linear
-		if err = json.Unmarshal(row.Properties, &unit.Properties); err != nil {
+		if err := json.Unmarshal(row.Properties, &unit.Properties); err != nil {
 			return "", out, err
 		}
-		if err = json.Unmarshal(row.NavigationLabels, &unit.NavigationLabels); err != nil {
+		if err := json.Unmarshal(row.NavigationLabels, &unit.NavigationLabels); err != nil {
 			return "", out, err
 		}
-		if err = json.Unmarshal(row.LandmarkTypes, &unit.LandmarkTypes); err != nil {
+		if err := json.Unmarshal(row.LandmarkTypes, &unit.LandmarkTypes); err != nil {
 			return "", out, err
 		}
 		out.Units = append(out.Units, unit)

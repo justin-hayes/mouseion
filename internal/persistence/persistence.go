@@ -135,7 +135,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 		if reserved {
 			return nil
 		}
-		if err = q.PutSelectionCandidate(ctx, sqlcgen.PutSelectionCandidateParams{
+		if err := q.PutSelectionCandidate(ctx, sqlcgen.PutSelectionCandidateParams{
 			OwnerID: candidate.OwnerID, CorpusID: candidate.CorpusID, Language: candidate.Language,
 			CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 			OccurrenceCount: candidate.OccurrenceCount, ObservedForms: candidate.ObservedForms,
@@ -368,10 +368,10 @@ func (s *PostgresStore) CreateFirstUserAndSession(ctx context.Context, username,
 	if err != nil {
 		return u, false, err
 	}
-	if err = q.InsertSession(ctx, sqlcgen.InsertSessionParams{UserID: row.ID, TokenHash: tokenHash, ExpiresAt: expiresAt}); err != nil {
+	if err := q.InsertSession(ctx, sqlcgen.InsertSessionParams{UserID: row.ID, TokenHash: tokenHash, ExpiresAt: expiresAt}); err != nil {
 		return u, false, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return u, false, err
 	}
 	return domain.User{ID: row.ID, Username: row.Username, CreatedAt: row.CreatedAt}, true, nil
@@ -650,7 +650,7 @@ func (s *PostgresStore) PutCorpus(ctx context.Context, owner, sourceID, hash str
 		if err != nil {
 			return err
 		}
-		if err = q.UpdateCorpusArtifactHash(ctx, sqlcgen.UpdateCorpusArtifactHashParams{OwnerID: owner, ID: latest.ID, ArtifactHash: hash}); err != nil {
+		if err := q.UpdateCorpusArtifactHash(ctx, sqlcgen.UpdateCorpusArtifactHashParams{OwnerID: owner, ID: latest.ID, ArtifactHash: hash}); err != nil {
 			return err
 		}
 		v = domain.Corpus{ID: latest.ID, OwnerID: latest.OwnerID, SourceMaterialID: latest.SourceMaterialID, ArtifactHash: hash, Status: latest.Status, CreatedAt: latest.CreatedAt}
@@ -753,7 +753,7 @@ func (s *PostgresStore) ReplaceSelectedSentences(ctx context.Context, owner, cor
 		if !ownsCorpus {
 			return ErrNotFound
 		}
-		if err = q.DeleteSelectedSentences(ctx, sqlcgen.DeleteSelectedSentencesParams{OwnerID: owner, CorpusID: corpus, Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos)}); err != nil {
+		if err := q.DeleteSelectedSentences(ctx, sqlcgen.DeleteSelectedSentencesParams{OwnerID: owner, CorpusID: corpus, Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos)}); err != nil {
 			return err
 		}
 		for _, example := range examples {
@@ -765,7 +765,7 @@ func (s *PostgresStore) ReplaceSelectedSentences(ctx context.Context, owner, cor
 			if conversionErr != nil {
 				return fmt.Errorf("invalid selected sentence score: %w", conversionErr)
 			}
-			if err = q.InsertSelectedSentence(ctx, sqlcgen.InsertSelectedSentenceParams{
+			if err := q.InsertSelectedSentence(ctx, sqlcgen.InsertSelectedSentenceParams{
 				OwnerID: owner, CorpusID: corpus, SentenceKey: example.SentenceKey,
 				SentenceText: example.Text, SourceLocation: example.SourceLocation,
 				Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
@@ -864,7 +864,7 @@ func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, o
 		Text          string          `json:"text"`
 		Location      json.RawMessage `json:"location"`
 	}
-	if err = json.Unmarshal(row.EligibleSentenceRefs, &candidates); err != nil {
+	if err := json.Unmarshal(row.EligibleSentenceRefs, &candidates); err != nil {
 		return v, err
 	}
 	for _, candidate := range candidates {
@@ -886,7 +886,7 @@ func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, o
 		if err != nil {
 			return v, err
 		}
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return v, err
 		}
 		return exampleSentenceFromFields(inserted.ID, inserted.OwnerID, inserted.CorpusID, inserted.SentenceKey, inserted.SentenceText, inserted.SourceLocation, inserted.Language, inserted.CanonicalLemma, inserted.Upos, inserted.SelectionRank, inserted.SelectionScore, inserted.SelectionReasons, inserted.IsChosen, inserted.CreatedAt), nil
@@ -909,7 +909,7 @@ func (s *PostgresStore) CurateReviewSentence(ctx context.Context, owner, example
 			return ErrNotFound
 		}
 		if editedText != "" {
-			if err = q.UpdateExampleSentenceText(ctx, sqlcgen.UpdateExampleSentenceTextParams{ID: exampleID, OwnerID: owner, SentenceText: editedText}); err != nil {
+			if err := q.UpdateExampleSentenceText(ctx, sqlcgen.UpdateExampleSentenceTextParams{ID: exampleID, OwnerID: owner, SentenceText: editedText}); err != nil {
 				return err
 			}
 		}
