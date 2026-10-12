@@ -120,6 +120,26 @@ func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies 
 		DistinctLemmaCount:   input.Statistics.DistinctLemmaCount,
 		TextProfile:          input.Statistics.TextProfile,
 	}
+	eligible := classifyOccurrences(&result, input, vocabularies, reservedIsKnown)
+	// Persisted statistics are authoritative. Clamp learner-derived values so
+	// malformed legacy rows can never produce impossible coverage output.
+	result.KnownTokenCount = min(result.KnownTokenCount, result.AnalyzableTokenCount)
+	result.UnknownTokenCount = max(result.AnalyzableTokenCount-result.KnownTokenCount, 0)
+
+	sortEligible(eligible)
+	eligibleTokens := eligibleTokenCount(eligible)
+	topUnknownCount := min(topUnknownLimit, len(eligible))
+	result.TopUnknownLemmas = append([]domain.LemmaOccurrence(nil), eligible[:topUnknownCount]...)
+	result.UnknownConcentration = projection(eligible, concentrationSize, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount)
+	result.Projections = coverageProjections(eligible, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount)
+	result.Thresholds = coverageThresholds(eligible, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount)
+	return result, eligible
+}
+
+// classifyOccurrences accumulates the known, reserved, and unknown counts onto
+// result and returns the eligible identities that remain unknown, in input
+// order.
+func classifyOccurrences(result *domain.AnalysisCoverage, input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, reservedIsKnown bool) []domain.LemmaOccurrence {
 	eligible := make([]domain.LemmaOccurrence, 0, len(input.Lemmas))
 	for _, lemma := range input.Lemmas {
 		vocab := vocabularies[lemma.Language]
@@ -140,42 +160,54 @@ func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies 
 			eligible = append(eligible, lemma)
 		}
 	}
-	// Persisted statistics are authoritative. Clamp learner-derived values so
-	// malformed legacy rows can never produce impossible coverage output.
-	result.KnownTokenCount = min(result.KnownTokenCount, result.AnalyzableTokenCount)
-	result.UnknownTokenCount = max(result.AnalyzableTokenCount-result.KnownTokenCount, 0)
+	return eligible
+}
 
+// sortEligible orders unknown identities by descending occurrence count then
+// stable key, the deterministic order the projections consume.
+func sortEligible(eligible []domain.LemmaOccurrence) {
 	sort.Slice(eligible, func(i, j int) bool {
 		if eligible[i].OccurrenceCount != eligible[j].OccurrenceCount {
 			return eligible[i].OccurrenceCount > eligible[j].OccurrenceCount
 		}
 		return occurrenceKey(eligible[i]) < occurrenceKey(eligible[j])
 	})
-	var eligibleTokens int64
+}
+
+func eligibleTokenCount(eligible []domain.LemmaOccurrence) int64 {
+	var total int64
 	for _, lemma := range eligible {
-		eligibleTokens += lemma.OccurrenceCount
+		total += lemma.OccurrenceCount
 	}
-	topUnknownCount := min(topUnknownLimit, len(eligible))
-	result.TopUnknownLemmas = append([]domain.LemmaOccurrence(nil), eligible[:topUnknownCount]...)
-	result.UnknownConcentration = projection(eligible, concentrationSize, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount)
-	result.Projections = make([]domain.CoverageProjection, 0, len(projectionSizes))
+	return total
+}
+
+// coverageProjections builds the fixed-size projections of the unknown pool.
+func coverageProjections(eligible []domain.LemmaOccurrence, eligibleTokens, knownTokens, analyzableTokens int64) []domain.CoverageProjection {
+	projections := make([]domain.CoverageProjection, 0, len(projectionSizes))
 	for _, size := range projectionSizes {
-		result.Projections = append(result.Projections, projection(eligible, size, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount))
+		projections = append(projections, projection(eligible, size, eligibleTokens, knownTokens, analyzableTokens))
 	}
-	result.Thresholds = make([]domain.CoverageThreshold, 0, len(thresholdTargets))
+	return projections
+}
+
+// coverageThresholds builds the reachable-target thresholds over the unknown
+// pool in its deterministic order.
+func coverageThresholds(eligible []domain.LemmaOccurrence, eligibleTokens, knownTokens, analyzableTokens int64) []domain.CoverageThreshold {
+	thresholds := make([]domain.CoverageThreshold, 0, len(thresholdTargets))
 	for _, target := range thresholdTargets {
 		threshold := domain.CoverageThreshold{TargetPercent: target, EligibleTokenCount: eligibleTokens}
 		for _, lemma := range eligible {
-			if reachesThreshold(result.KnownTokenCount, threshold.OccurrenceCount, result.AnalyzableTokenCount, target) {
+			if reachesThreshold(knownTokens, threshold.OccurrenceCount, analyzableTokens, target) {
 				break
 			}
 			threshold.LemmaCount++
 			threshold.OccurrenceCount += lemma.OccurrenceCount
 		}
-		threshold.Reachable = reachesThreshold(result.KnownTokenCount, threshold.OccurrenceCount, result.AnalyzableTokenCount, target)
-		result.Thresholds = append(result.Thresholds, threshold)
+		threshold.Reachable = reachesThreshold(knownTokens, threshold.OccurrenceCount, analyzableTokens, target)
+		thresholds = append(thresholds, threshold)
 	}
-	return result, eligible
+	return thresholds
 }
 
 func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, knownTokens, analyzableTokens int64) domain.CoverageProjection {
