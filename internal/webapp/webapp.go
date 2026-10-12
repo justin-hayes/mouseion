@@ -19,6 +19,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/deploysecret"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
@@ -213,8 +214,8 @@ func New(s Services) *Handler {
 }
 
 func NewWithError(s Services) (*Handler, error) {
-	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
-		return nil, fmt.Errorf("webapp: initialize web key: %w", err)
+	if err := deploysecret.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
+		return nil, fmt.Errorf("webapp: validate MOUSEION_SECRET: %w", err)
 	}
 	if s.LemmaReview == nil {
 		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})

@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/deploysecret"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
@@ -124,7 +125,7 @@ func run() (err error) {
 // loadServerConfig validates the environment every start depends on: a usable
 // secret, a database URL, and the listen address. It never opens a dependency.
 func loadServerConfig() (serverConfig, error) {
-	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
+	if err := deploysecret.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		return serverConfig{}, fmt.Errorf("invalid MOUSEION_SECRET: %w", err)
 	}
 	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")

@@ -15,7 +15,7 @@ The Go code has a layering that earlier decisions rely on, but no gate checks it
 - **pgx.** Non-test files in `internal/persistence`, `internal/txcleanup`, `cmd/server`, the job packages `internal/analysis`, `internal/cataloguesync`, `internal/knownvocab` and `internal/prepareddeck`, generated `gen/sqlc`, and `internal/testutil` import `github.com/jackc/pgx/v5`. The only other importers are three `internal/webapp` integration tests, which build River clients and inspect database state.
 - **Fixtures store.** `internal/fixtures` is imported by `cmd/fixtureserver` and by `internal/webapp` tests. `cmd/fixtureserver` also imports `internal/persistence`, for the `persistence.MyBooksBrowseResult` type in a store wrapper. `internal/fixtures` itself imports neither persistence, pgx nor sqlc.
 - **Test infrastructure.** `internal/storecontract`, `internal/testutil`, `internal/testwrite` and `internal/analyzer/analyzertest` are imported only by test files. `testwrite` is used by tests in `cataloguesync`, `enrichment`, `opds` and `webapp`.
-- **Web app.** Non-test `internal/webapp` files import the domain, canonicalization, service and job packages, `auth`/`webauth`, and `internal/persistence`, but not pgx, sqlc, fixtures or test infrastructure. Their persistence uses are sentinel errors (`ErrNotFound`, `ErrCurrentReadingStale`, `ErrCurrentReadingExists` and seven others), value types in store interface signatures (`MyBooksBrowseResult`, `StartResult`, `LanguageCount`, `CurrentReadingIneligibleError`), and one function, `ValidateSecret`, which `NewWithError` calls to check `MOUSEION_SECRET`. No web app file names `persistence.PostgresStore`.
+- **Web app.** Non-test `internal/webapp` files import the domain, canonicalization, service and job packages, `auth`/`webauth`, and `internal/persistence`, but not pgx, sqlc, fixtures or test infrastructure. Their persistence uses are sentinel errors (`ErrNotFound`, `ErrCurrentReadingStale`, `ErrCurrentReadingExists` and seven others) and value types in store interface signatures (`MyBooksBrowseResult`, `StartResult`, `LanguageCount`, `CurrentReadingIneligibleError`). No web app file names `persistence.PostgresStore`, and none calls a persistence function: [#1977](https://github.com/justin-hayes/mouseion/issues/1977) moved the `MOUSEION_SECRET` check to the `internal/deploysecret` leaf package.
 
 All of the above are direct imports. Transitively, both `internal/fixtures` and `internal/webapp` link pgx and `gen/sqlc` through the job packages, and the rules below do not try to prevent that.
 
@@ -85,8 +85,7 @@ The test-infrastructure packages are `internal/storecontract`, `internal/testuti
 
 ### 6. Web app: domain, services and store interfaces
 
-- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `knownvocab`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`), `internal/auth` and `internal/webauth`. It may import `internal/persistence` **only** for sentinel errors and value types that appear in its store interfaces.
-- **Temporary exception:** the `persistence.ValidateSecret` call in `webapp.go`, until [#1977](https://github.com/justin-hayes/mouseion/issues/1977) moves secret validation out of persistence.
+- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `knownvocab`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`), `internal/auth` and `internal/webauth`. It may import `internal/persistence` **only** for sentinel errors and value types that appear in its store interfaces.
 - **Enforcement:** the allow list states intent. Lint enforces the deny entries below. A new internal dependency outside the allow list needs this ADR amended, and review checks for one.
 - **Deny (non-test files):** pgx, `gen/sqlc`, `internal/fixtures` and every test-infrastructure package.
 - **Deny (test files):** `gen/sqlc`. Web app tests may import fixtures, test infrastructure and pgx.
@@ -104,7 +103,6 @@ A `//nolint:depguard` directive must give a reason that names ADR 0091 and the f
 | Import | Rule | Follow-up |
 | --- | --- | --- |
 | `internal/prepareddeck/current_reading_admission.go` and `internal/prepareddeck/jobs.go` import `gen/sqlc` | §2 (lint) | [#1976](https://github.com/justin-hayes/mouseion/issues/1976) moves the three queries behind transaction-scoped persistence methods. |
-| `internal/webapp/webapp.go` calls `persistence.ValidateSecret` | §6 (review) | [#1977](https://github.com/justin-hayes/mouseion/issues/1977) moves `MOUSEION_SECRET` validation out of persistence. |
 
 No other import or reference at `21e0a090` violates these rules.
 

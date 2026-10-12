@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/deploysecret"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
@@ -21,7 +22,7 @@ func main() {
 }
 
 func run() (err error) {
-	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
+	if err := deploysecret.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		return err
 	}
 	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")
