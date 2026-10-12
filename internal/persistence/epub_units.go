@@ -49,66 +49,14 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 			return err
 		}
 		out = sourceMaterialFromFields(row.ID, row.OwnerID, row.Language, row.SourceIdentifier, row.Title, row.MediaType, row.ContentHash, "", "", row.Content, row.FullText, 0, row.CreatedAt)
-		currentRevisionID, err := q.GetCurrentContentRevisionForUpdate(ctx, sqlcgen.GetCurrentContentRevisionForUpdateParams{OwnerID: out.OwnerID, ID: out.ID})
+		revision := contentRevisionInput{fullText: v.FullText, digest: digest, digestVersion: digestVersion, content: storedContent}
+		revisionID, changed, err := putSourceMaterialRevision(ctx, q, out, revision)
 		if err != nil {
 			return err
 		}
-		revisionID, err := q.GetSourceContentRevisionByDigest(ctx, sqlcgen.GetSourceContentRevisionByDigestParams{OwnerID: out.OwnerID, SourceMaterialID: out.ID, ContentDigest: digest})
-		if errors.Is(err, pgx.ErrNoRows) {
-			revisionID, err = q.InsertSourceContentRevision(ctx, sqlcgen.InsertSourceContentRevisionParams{OwnerID: out.OwnerID, SourceMaterialID: out.ID, DigestVersion: digestVersion, ContentDigest: digest, Content: storedContent, FullText: v.FullText})
-		}
-		if err != nil {
-			return err
-		}
-		if revisionID != currentRevisionID {
-			if err := q.SetCurrentContentRevision(ctx, sqlcgen.SetCurrentContentRevisionParams{OwnerID: out.OwnerID, ID: out.ID, CurrentContentRevisionID: uuidArg(revisionID)}); err != nil {
+		if changed {
+			if err := writeExtractedUnits(ctx, q, out, revisionID, units); err != nil {
 				return err
-			}
-			snapshotID, err := q.InsertSourceMaterialUnitSnapshot(ctx, sqlcgen.InsertSourceMaterialUnitSnapshotParams{OwnerID: out.OwnerID, SourceMaterialID: out.ID, ContentRevisionID: revisionID, SchemaVersion: units.SchemaVersion})
-			if err != nil {
-				return err
-			}
-			if err := q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: out.OwnerID, ID: out.ID, CurrentSnapshotID: uuidArg(snapshotID)}); err != nil {
-				return err
-			}
-			for _, unit := range units.Units {
-				unitOrder, conversionErr := checked.Int64FromUint64(unit.Order)
-				if conversionErr != nil {
-					return conversionErr
-				}
-				spineIndex, conversionErr := checked.Int64FromUint64(unit.SpineIndex)
-				if conversionErr != nil {
-					return conversionErr
-				}
-				startOffset, conversionErr := checked.Int64FromUint64(unit.StartOffset)
-				if conversionErr != nil {
-					return conversionErr
-				}
-				endOffset, conversionErr := checked.Int64FromUint64(unit.EndOffset)
-				if conversionErr != nil {
-					return conversionErr
-				}
-				properties, marshalErr := json.Marshal(unit.Properties)
-				if marshalErr != nil {
-					return marshalErr
-				}
-				navigationLabels, marshalErr := json.Marshal(unit.NavigationLabels)
-				if marshalErr != nil {
-					return marshalErr
-				}
-				landmarkTypes, marshalErr := json.Marshal(unit.LandmarkTypes)
-				if marshalErr != nil {
-					return marshalErr
-				}
-				if err := q.InsertSourceMaterialUnit(ctx, sqlcgen.InsertSourceMaterialUnitParams{
-					OwnerID: out.OwnerID, SourceMaterialID: out.ID, SnapshotID: snapshotID, UnitID: unit.ID,
-					UnitOrder: unitOrder, SpineIndex: spineIndex, Title: unit.Title, TitleSource: unit.TitleSource,
-					Text: unit.Text, StartOffset: startOffset, EndOffset: endOffset, PackagePath: unit.PackagePath,
-					ManifestID: unit.ManifestID, SourceHref: unit.SourceHref, ResolvedHref: unit.ResolvedHref, MediaType: unit.MediaType,
-					Properties: properties, Linear: unit.Linear, NavigationLabels: navigationLabels, LandmarkTypes: landmarkTypes,
-				}); err != nil {
-					return err
-				}
 			}
 		}
 		current, err := q.GetCurrentSourceMaterialContent(ctx, sqlcgen.GetCurrentSourceMaterialContentParams{OwnerID: out.OwnerID, ID: out.ID})
@@ -124,6 +72,102 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 		return nil
 	})
 	return out, err
+}
+
+// contentRevisionInput carries the incoming revision's identity and bytes from
+// the content-identity step to the revision write. fullText is kept apart from
+// the stored source because the upsert does not rewrite an existing source's
+// full text.
+type contentRevisionInput struct {
+	fullText      string
+	digest        string
+	digestVersion int
+	content       []byte
+}
+
+// putSourceMaterialRevision resolves the content revision for revision while
+// holding the source-material row lock, inserting the revision when the digest
+// is new and making it current when it differs from the stored current
+// revision. It reports whether the current revision changed, which is the
+// signal to record the matching extracted-unit snapshot.
+func putSourceMaterialRevision(ctx context.Context, q *sqlcgen.Queries, source domain.SourceMaterial, revision contentRevisionInput) (revisionID string, changed bool, err error) {
+	currentRevisionID, err := q.GetCurrentContentRevisionForUpdate(ctx, sqlcgen.GetCurrentContentRevisionForUpdateParams{OwnerID: source.OwnerID, ID: source.ID})
+	if err != nil {
+		return "", false, err
+	}
+	revisionID, err = q.GetSourceContentRevisionByDigest(ctx, sqlcgen.GetSourceContentRevisionByDigestParams{OwnerID: source.OwnerID, SourceMaterialID: source.ID, ContentDigest: revision.digest})
+	if errors.Is(err, pgx.ErrNoRows) {
+		revisionID, err = q.InsertSourceContentRevision(ctx, sqlcgen.InsertSourceContentRevisionParams{OwnerID: source.OwnerID, SourceMaterialID: source.ID, DigestVersion: revision.digestVersion, ContentDigest: revision.digest, Content: revision.content, FullText: revision.fullText})
+	}
+	if err != nil {
+		return "", false, err
+	}
+	if revisionID == currentRevisionID {
+		return revisionID, false, nil
+	}
+	if err := q.SetCurrentContentRevision(ctx, sqlcgen.SetCurrentContentRevisionParams{OwnerID: source.OwnerID, ID: source.ID, CurrentContentRevisionID: uuidArg(revisionID)}); err != nil {
+		return "", false, err
+	}
+	return revisionID, true, nil
+}
+
+// writeExtractedUnits records the snapshot that carries a revision's units,
+// makes it current, and inserts each unit. Snapshots and units are immutable;
+// a later revision adds a new snapshot instead of rewriting this one.
+func writeExtractedUnits(ctx context.Context, q *sqlcgen.Queries, source domain.SourceMaterial, revisionID string, units domain.ExtractedUnits) error {
+	snapshotID, err := q.InsertSourceMaterialUnitSnapshot(ctx, sqlcgen.InsertSourceMaterialUnitSnapshotParams{OwnerID: source.OwnerID, SourceMaterialID: source.ID, ContentRevisionID: revisionID, SchemaVersion: units.SchemaVersion})
+	if err != nil {
+		return err
+	}
+	if err := q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: source.OwnerID, ID: source.ID, CurrentSnapshotID: uuidArg(snapshotID)}); err != nil {
+		return err
+	}
+	for _, unit := range units.Units {
+		if err := insertExtractedUnit(ctx, q, source, snapshotID, unit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// insertExtractedUnit converts one extracted unit's unsigned offsets and
+// marshals its optional collections before inserting the row.
+func insertExtractedUnit(ctx context.Context, q *sqlcgen.Queries, source domain.SourceMaterial, snapshotID string, unit domain.ExtractedUnit) error {
+	unitOrder, err := checked.Int64FromUint64(unit.Order)
+	if err != nil {
+		return err
+	}
+	spineIndex, err := checked.Int64FromUint64(unit.SpineIndex)
+	if err != nil {
+		return err
+	}
+	startOffset, err := checked.Int64FromUint64(unit.StartOffset)
+	if err != nil {
+		return err
+	}
+	endOffset, err := checked.Int64FromUint64(unit.EndOffset)
+	if err != nil {
+		return err
+	}
+	properties, err := json.Marshal(unit.Properties)
+	if err != nil {
+		return err
+	}
+	navigationLabels, err := json.Marshal(unit.NavigationLabels)
+	if err != nil {
+		return err
+	}
+	landmarkTypes, err := json.Marshal(unit.LandmarkTypes)
+	if err != nil {
+		return err
+	}
+	return q.InsertSourceMaterialUnit(ctx, sqlcgen.InsertSourceMaterialUnitParams{
+		OwnerID: source.OwnerID, SourceMaterialID: source.ID, SnapshotID: snapshotID, UnitID: unit.ID,
+		UnitOrder: unitOrder, SpineIndex: spineIndex, Title: unit.Title, TitleSource: unit.TitleSource,
+		Text: unit.Text, StartOffset: startOffset, EndOffset: endOffset, PackagePath: unit.PackagePath,
+		ManifestID: unit.ManifestID, SourceHref: unit.SourceHref, ResolvedHref: unit.ResolvedHref, MediaType: unit.MediaType,
+		Properties: properties, Linear: unit.Linear, NavigationLabels: navigationLabels, LandmarkTypes: landmarkTypes,
+	})
 }
 
 // GetExtractedUnits returns the current owner-scoped snapshot in unit order.

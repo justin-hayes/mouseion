@@ -102,6 +102,53 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	assert.Equal(t, 0, remainingUnits)
 }
 
+func TestImportReimportRestoresPreviousRevision(t *testing.T) {
+	ctx := context.Background()
+	url, admin := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "epub store", store.Close)
+	owner, err := store.CreateUser(ctx, "epub-revision-return", false)
+	require.NoError(t, err)
+
+	first, err := NewService(store).Import(ctx, owner.ID, "de", fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
+	require.NoError(t, err)
+	require.NotEmpty(t, first.Source.ContentRevisionID)
+	firstSnapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, first.Source.ID)
+	require.NoError(t, err)
+
+	changed, err := NewService(store).Import(ctx, owner.ID, "de", fixtureDirectory(t, "testfixtures/epub3-reimport"))
+	require.NoError(t, err)
+	changedSnapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, first.Source.ID)
+	require.NoError(t, err)
+	t.Run("an import with changed content records a new revision and snapshot", func(t *testing.T) {
+		require.Equal(t, first.Source.ID, changed.Source.ID)
+		require.NotEqual(t, first.Source.ContentRevisionID, changed.Source.ContentRevisionID)
+		require.NotEqual(t, firstSnapshotID, changedSnapshotID)
+	})
+
+	restored, err := NewService(store).Import(ctx, owner.ID, "de", fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
+	require.NoError(t, err)
+	restoredUnits, err := store.GetExtractedUnits(ctx, owner.ID, first.Source.ID)
+	require.NoError(t, err)
+	restoredSnapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, first.Source.ID)
+	require.NoError(t, err)
+	t.Run("re-importing a known revision makes it current again", func(t *testing.T) {
+		require.Equal(t, first.Source.ID, restored.Source.ID)
+		require.Equal(t, first.Source.ContentHash, restored.Source.ContentHash)
+		require.Equal(t, first.Source.ContentRevisionID, restored.Source.ContentRevisionID)
+		require.Equal(t, first.Book.ExtractedUnits, restoredUnits)
+	})
+	t.Run("restoring a revision adds a snapshot but no revision row", func(t *testing.T) {
+		require.NotEqual(t, firstSnapshotID, restoredSnapshotID)
+		require.NotEqual(t, changedSnapshotID, restoredSnapshotID)
+		var revisionCount int
+		err := admin.QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, first.Source.ID).Scan(&revisionCount)
+		require.NoError(t, err)
+		require.Equal(t, 2, revisionCount)
+	})
+}
+
 func TestImportMainTextFixturePreservesAllDeclaredUnits(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
