@@ -179,14 +179,15 @@ gated() {
 gated ci build yes
 gated golangci go yes
 gated integration go yes
+gated govulncheck go yes
 gated browser-fixture browser yes
 gated browser-smoke-shard browser no
 
 guards=$(grep -c 'Fail when change detection failed' "$workflow" || true)
-if [[ "$guards" -eq 4 ]]; then
-  echo "ok   four guarded jobs fail when change detection failed"
+if [[ "$guards" -eq 5 ]]; then
+  echo "ok   five guarded jobs fail when change detection failed"
 else
-  echo "FAIL expected 4 change-detection guard steps, found $guards"
+  echo "FAIL expected 5 change-detection guard steps, found $guards"
   failures=$((failures + 1))
 fi
 

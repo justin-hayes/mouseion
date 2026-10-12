@@ -29,7 +29,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
@@ -142,6 +142,15 @@ lint-go: go-tmp
 lint: lint-go
 	$(VENV_BIN)/ruff check nlp/src nlp/tests
 	$(VENV_BIN)/ruff format --check nlp/src nlp/tests
+
+# Fails on call-reachable vulnerabilities in the module's dependencies and in
+# the Go standard library or toolchain. govulncheck is pinned through the tool
+# directive in go.mod, so its version and result set are reproducible; CI runs
+# the same target. A finding fixed only in a newer Go release means raising the
+# go directive in go.mod (doc/development.md, Dependency updates), not editing
+# this target.
+vuln: go-tmp
+	go tool govulncheck ./...
 
 # templ is pinned in go.mod (tool directive) and must match TEMPL_VERSION: newer
 # releases require Go >= 1.25.
