@@ -41,7 +41,8 @@ index, and no build of the NLP project. Python commands need
 `PYTHONPATH=nlp/src:gen/python`.
 
 Formatting is enforced: `make lint` fails on unformatted Go or Python. Fix it
-with `golangci-lint fmt ./...` and `.venv/bin/ruff format nlp/src nlp/tests`.
+with `golangci-lint fmt ./...` and
+`.venv/bin/ruff format nlp/src nlp/tests nlp/scripts`.
 
 ## Common commands
 

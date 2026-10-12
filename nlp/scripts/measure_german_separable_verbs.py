@@ -19,7 +19,6 @@ from pathlib import Path
 
 from mouseion_nlp.separable_measurement import run
 
-
 DEFAULT_INPUT = Path("nlp/testdata/german_prose_werther_excerpt.txt")
 DEFAULT_OUTPUT = Path("doc/evidence/german-separable-verb-precision.md")
 
