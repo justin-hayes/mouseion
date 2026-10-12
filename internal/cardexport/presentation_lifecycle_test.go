@@ -702,6 +702,44 @@ func TestPresentationLifecycleOmitsArticleOutsideSupportedNounRules(t *testing.T
 	}
 }
 
+// TestPresentationLifecycleKeepsSingularGenderWhenAPluralGenderIsInvalid pins
+// the German fallback that trusts one valid singular gender even when another
+// variant carries an unrecognised plural gender.
+func TestPresentationLifecycleKeepsSingularGenderWhenAPluralGenderIsInvalid(t *testing.T) {
+	snapshot := cardexport.ManifestSnapshot{
+		SchemaVersion: cardexport.ManifestSchemaVersion, Owner: "owner-1", DeckName: "Book", Filename: cardexport.DownloadFilename("Book"),
+		Items: []cardexport.ManifestItem{{
+			Ordinal: 0, Disposition: cardexport.ManifestAccepted,
+			Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "gauner", UPOS: "NOUN", Sentence: "Ein Gauner wurde gestern verhaftet.", TargetWord: "Gauner", Morphology: `[{"Gender":"Masc","Number":"Sing"},{"Gender":"Common","Number":"Plur"}]`},
+			Quality: cardexport.SentenceQuality{Accepted: true, Score: 12, Reasons: []string{"target present"}},
+		}},
+	}
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, nil, cardexport.RunFacts{})
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "der", artifact.Generated[0].Note.Article)
+}
+
+// TestPresentationLifecycleFallsBackWhenSelectedSensesRenderNoGloss pins that
+// a valid sense selection whose senses carry no gloss lets an eligible fallback
+// still provide the card gloss.
+func TestPresentationLifecycleFallsBackWhenSelectedSensesRenderNoGloss(t *testing.T) {
+	projection := lifecycleProjection()
+	projection.Entry.CandidateSenses = []enrichment.LexicalSense{{EvidenceID: "wikt:blank"}, {EvidenceID: "wikt:house", Gloss: "house"}}
+	deck, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{0}, FallbackGloss: "a place to live"}
+	artifact, diagnostics, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "a place to live", artifact.Generated[0].Note.Gloss)
+	assert.Contains(t, diagnostics.DegradationCodes, cardexport.DegradationFallbackGlossApplied)
+}
+
 // TestPresentationLifecycleAppliesExactSentenceTranslationTarget pins the
 // legacy single-phrase target as one exact-enrichment field through finalize.
 func TestPresentationLifecycleAppliesExactSentenceTranslationTarget(t *testing.T) {
