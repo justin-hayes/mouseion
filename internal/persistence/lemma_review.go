@@ -238,24 +238,39 @@ func rejectLemmaDecisionForCurrentReading(ctx context.Context, tx pgx.Tx, owner,
 
 func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) (bool, error) {
 	occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded
+	changed, expectedLemma, err := validateLemmaDecision(ctx, q, decision)
+	if err != nil {
+		return false, err
+	}
+	if lemma == occurrence.CanonicalLemma && !excluded {
+		return deleteLemmaCorrection(ctx, q, decision, expectedLemma, changed)
+	}
+	return putLemmaCorrection(ctx, q, decision, expectedLemma, changed)
+}
+
+// validateLemmaDecision rereads the occurrence and its current correction under
+// the caller's locks, and reports whether applying decision would change stored
+// correction state.
+func validateLemmaDecision(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) (bool, pgtype.Text, error) {
+	occurrence := decision.Occurrence
 	evidence, err := q.GetCurrentAnalysisOccurrenceEvidence(ctx, sqlcgen.GetCurrentAnalysisOccurrenceEvidenceParams{
 		Owner: occurrence.OwnerID, Book: occurrence.BookID, AnalysisRun: occurrence.AnalysisRunID,
 		SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return false, ErrNotFound
+		return false, pgtype.Text{}, ErrNotFound
 	}
 	if err != nil {
-		return false, err
+		return false, pgtype.Text{}, err
 	}
 	if !selection.OccurrenceEligible(selection.DefaultConfig(""), evidence.CanonicalLemma, evidence.Upos, evidence.Dependency) {
-		return false, ErrNotFound
+		return false, pgtype.Text{}, ErrNotFound
 	}
 	current, err := q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{
 		Owner: occurrence.OwnerID, Book: occurrence.BookID, Corpus: occurrence.CorpusID, AnalysisRun: occurrence.AnalysisRunID,
 	})
 	if err != nil {
-		return false, err
+		return false, pgtype.Text{}, err
 	}
 	currentLemma, currentExcluded := "", false
 	for _, row := range current {
@@ -268,43 +283,55 @@ func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain
 		}
 	}
 	if currentLemma != occurrence.CorrectedLemma || currentExcluded != occurrence.Excluded {
-		return false, ErrNotFound
+		return false, pgtype.Text{}, ErrNotFound
 	}
-	changed := currentLemma != decision.StoredCorrection() || currentExcluded != excluded
+	changed := currentLemma != decision.StoredCorrection() || currentExcluded != decision.Excluded
 	expectedLemma := pgtype.Text{String: occurrence.CorrectedLemma, Valid: occurrence.CorrectedLemma != ""}
-	if lemma == occurrence.CanonicalLemma && !excluded {
-		deleted, deleteErr := q.DeleteOccurrenceLemmaCorrection(ctx, sqlcgen.DeleteOccurrenceLemmaCorrectionParams{
-			Owner: occurrence.OwnerID, Book: occurrence.BookID, AnalysisRun: occurrence.AnalysisRunID,
-			SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
-			ExpectedSurface: occurrence.Surface, ExpectedRawLemma: occurrence.RawLemma,
-			ExpectedCanonicalLemma: occurrence.CanonicalLemma, ExpectedUpos: occurrence.UPOS,
-			ExpectedCorrectedLemma: expectedLemma,
-			ExpectedExcluded:       occurrence.Excluded,
-		})
-		if deleteErr != nil {
-			return false, deleteErr
-		}
-		if deleted == 0 {
-			rows, lookupErr := listEligibleLemmaReviewRows(ctx, q, occurrence.OwnerID, occurrence.BookID, occurrence.Surface)
-			if lookupErr != nil {
-				return false, lookupErr
-			}
-			for _, row := range rows {
-				if row.AnalysisRunID == occurrence.AnalysisRunID && row.UnitID == occurrence.SourceDocumentID && row.StartOffset == occurrence.StartOffset && row.EndOffset == occurrence.EndOffset && row.RawLemma == occurrence.RawLemma && row.CanonicalLemma == occurrence.CanonicalLemma && row.Upos == occurrence.UPOS && row.CorrectedLemma == occurrence.CorrectedLemma && row.Excluded == occurrence.Excluded {
-					return false, nil
-				}
-			}
-			return false, ErrNotFound
-		}
+	return changed, expectedLemma, nil
+}
+
+// deleteLemmaCorrection clears the stored correction when the decision keeps the
+// analyzed lemma; a missing correction is a replay whose eligible row already
+// holds the requested state.
+func deleteLemmaCorrection(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision, expectedLemma pgtype.Text, changed bool) (bool, error) {
+	occurrence := decision.Occurrence
+	deleted, deleteErr := q.DeleteOccurrenceLemmaCorrection(ctx, sqlcgen.DeleteOccurrenceLemmaCorrectionParams{
+		Owner: occurrence.OwnerID, Book: occurrence.BookID, AnalysisRun: occurrence.AnalysisRunID,
+		SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
+		ExpectedSurface: occurrence.Surface, ExpectedRawLemma: occurrence.RawLemma,
+		ExpectedCanonicalLemma: occurrence.CanonicalLemma, ExpectedUpos: occurrence.UPOS,
+		ExpectedCorrectedLemma: expectedLemma,
+		ExpectedExcluded:       occurrence.Excluded,
+	})
+	if deleteErr != nil {
+		return false, deleteErr
+	}
+	if deleted != 0 {
 		return changed, nil
 	}
+	rows, lookupErr := listEligibleLemmaReviewRows(ctx, q, occurrence.OwnerID, occurrence.BookID, occurrence.Surface)
+	if lookupErr != nil {
+		return false, lookupErr
+	}
+	for _, row := range rows {
+		if row.AnalysisRunID == occurrence.AnalysisRunID && row.UnitID == occurrence.SourceDocumentID && row.StartOffset == occurrence.StartOffset && row.EndOffset == occurrence.EndOffset && row.RawLemma == occurrence.RawLemma && row.CanonicalLemma == occurrence.CanonicalLemma && row.Upos == occurrence.UPOS && row.CorrectedLemma == occurrence.CorrectedLemma && row.Excluded == occurrence.Excluded {
+			return false, nil
+		}
+	}
+	return false, ErrNotFound
+}
+
+// putLemmaCorrection stores the correction or exclusion when the decision
+// changes the analyzed lemma.
+func putLemmaCorrection(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision, expectedLemma pgtype.Text, changed bool) (bool, error) {
+	occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded
 	var correctedLemma, normalizationProfile, normalizationVersion pgtype.Text
 	if !excluded {
 		correctedLemma = pgtype.Text{String: lemma, Valid: true}
 		normalizationProfile = pgtype.Text{String: decision.NormalizationProfile, Valid: true}
 		normalizationVersion = pgtype.Text{String: decision.NormalizationVersion, Valid: true}
 	}
-	_, err = q.PutOccurrenceLemmaCorrection(ctx, sqlcgen.PutOccurrenceLemmaCorrectionParams{
+	_, err := q.PutOccurrenceLemmaCorrection(ctx, sqlcgen.PutOccurrenceLemmaCorrectionParams{
 		Owner: occurrence.OwnerID, Book: occurrence.BookID, AnalysisRun: occurrence.AnalysisRunID,
 		SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
 		CanonicalLemma: correctedLemma, NormalizationProfile: normalizationProfile, NormalizationVersion: normalizationVersion, Excluded: excluded,
