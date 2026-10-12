@@ -1391,9 +1391,6 @@
     min-width: 0;
     margin-bottom: var(--mouseion-space-7);
   }
-  #known-vocabulary-results {
-    min-width: 0;
-  }
   .next-action {
     max-width: 52rem;
     margin-bottom: var(--mouseion-space-7);
@@ -3275,13 +3272,6 @@
     max-width: var(--mouseion-width-data);
     padding: var(--mouseion-space-3) var(--mouseion-space-4);
     overflow-wrap: anywhere;
-  }
-  body:is(.vocabulary-shell, .reading-shell) .known-vocabulary-result {
-    border-inline-start: 3px solid var(--mouseion-color-success);
-    background: var(--mouseion-color-surface-raised);
-  }
-  body:is(.vocabulary-shell, .reading-shell) .known-vocabulary-result > :last-child {
-    margin-bottom: 0;
   }
   @media (max-width: 40rem) {
     body:is(.vocabulary-shell, .reading-shell) > #main-content > .vocabulary-page-header {

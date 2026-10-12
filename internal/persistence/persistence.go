@@ -30,8 +30,8 @@ import (
 	"github.com/riverqueue/river/rivermigrate"
 )
 
-// The Current reading refusals are defined in domain so store contracts can
-// assert on them; these names are the same sentinels.
+// ErrNotFound and the Current reading refusals are defined in domain so store
+// contracts can assert on them; these names are the same sentinels.
 var ErrNotFound = domain.ErrNotFound
 var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for OPDS credentials")
 var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32 bytes")
@@ -184,8 +184,9 @@ func missing(err error) error {
 	return err
 }
 
-// Passwords are encrypted with AES-256-GCM. The key is derived from the
-// deployment's MOUSEION_SECRET; changing it makes existing credentials unreadable.
+// ValidateSecret rejects a missing or weak MOUSEION_SECRET. Passwords are
+// encrypted with AES-256-GCM. The key is derived from the deployment's
+// MOUSEION_SECRET; changing it makes existing credentials unreadable.
 func ValidateSecret(secret string) error {
 	if strings.TrimSpace(secret) == "" {
 		return ErrSecretRequired

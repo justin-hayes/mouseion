@@ -467,6 +467,7 @@ func batchCanOmitRequestCounts(status enrichment.BatchStatus) bool {
 		enrichment.BatchStatusFailed, enrichment.BatchStatusCancelling, enrichment.BatchStatusCancelled:
 		return true
 	default:
+		// OpenAI may add provider lifecycle states; unknown states must not omit request counts.
 		return false
 	}
 }
@@ -516,6 +517,7 @@ func terminalBatchStatus(status enrichment.BatchStatus) bool {
 	case enrichment.BatchStatusCompleted, enrichment.BatchStatusFailed, enrichment.BatchStatusExpired, enrichment.BatchStatusCancelled:
 		return true
 	default:
+		// OpenAI may add provider lifecycle states; unknown states remain nonterminal.
 		return false
 	}
 }
@@ -612,6 +614,7 @@ func terminalChunkErrorClass(status enrichment.BatchStatus) string {
 	case enrichment.BatchStatusFailed:
 		return "provider"
 	default:
+		// OpenAI may add provider lifecycle states; only known terminal failures get a class.
 		return ""
 	}
 }

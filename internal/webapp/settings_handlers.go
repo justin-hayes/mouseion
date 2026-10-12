@@ -31,7 +31,7 @@ func (h *Handler) vocabularyImportPage(w http.ResponseWriter, r *http.Request) {
 	if !learnerLanguagePresent(languages, knownLanguages, language) {
 		language = ""
 	}
-	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), languages, knownLanguages, language, nil, ""))
+	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), languages, knownLanguages, language, ""))
 }
 
 func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +134,7 @@ func (h *Handler) knownVocabImportStatus(w http.ResponseWriter, r *http.Request)
 
 func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request, language, message string) {
 	if isPartialHTMXRequest(r) {
-		render(w, r, KnownVocabResult(nil, message))
+		render(w, r, KnownVocabResult(message))
 		return
 	}
 	u := user(r)
@@ -151,7 +151,7 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 	if !learnerLanguagePresent(studyLanguages, knownLanguages, language) {
 		language = ""
 	}
-	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), studyLanguages, knownLanguages, language, nil, message))
+	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), studyLanguages, knownLanguages, language, message))
 }
 
 func knownVocabImportLanguage(r *http.Request) string {

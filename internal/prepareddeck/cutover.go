@@ -166,8 +166,9 @@ func NewStandardPlanner(assembler inputAssembler, presentation *cardexport.Prese
 	return &StandardPlanner{BatchPlanner: NewBatchPlanner(assembler, presentation, codec, externalEnabled, batchConfig), StandardConfig: standardConfig}
 }
 
-// PreparedDeckPlanner selects the executor once, when a new run is frozen.
-// DurableCoordinator intentionally bypasses it for an existing run.
+// NewPreparedDeckPlanner returns the planner that selects the executor once,
+// when a new run is frozen. DurableCoordinator intentionally bypasses it for an
+// existing run.
 func NewPreparedDeckPlanner(assembler inputAssembler, presentation *cardexport.Presentation, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig, config PreparedDeckConfig) DurableRunPlanner {
 	if config.TranslationMode == "batch" {
 		return NewBatchPlanner(assembler, presentation, codec, externalEnabled, batchConfig)

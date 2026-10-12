@@ -3,67 +3,72 @@ version: "2"
 linters:
   default: none
   enable:
-    - govet
-    - bodyclose
-    - durationcheck
-    - nilnesserr
-    - sqlclosecheck
-    - gocheckcompilerdirectives
-    - nolintlint
-    - errorlint
-    - nilerr
-    - nilnil
-    - rowserrcheck
-    - wastedassign
-    - errcheck
-    - unused
-    - ineffassign
-    - gosec
-    - staticcheck
-    - exhaustive
-    - musttag
-    - canonicalheader
-    - recvcheck
-    - noctx
-    - dupl
-    - interfacebloat
-    - gocognit
-    - testifylint
-    - modernize
-    - intrange
-    - unconvert
-    - predeclared
-    - perfsprint
-    - usestdlibvars
-    - errname
-    - godot
-    - misspell
-    - makezero
-    - reassign
-    - sloglint
-    - protogetter
-    - copyloopvar
-    - gochecksumtype
-    - errchkjson
-    - nakedret
-    - usetesting
-    - forcetypeassert
-    - gocritic
-    - unparam
+    # Correctness and error handling.
+    - govet # compiler-adjacent bug checks (printf args, copied locks, struct tags)
+    - staticcheck # bugs, simplifications, and style; settings below
+    - errcheck # unchecked errors, including blank assignments
+    - errorlint # wrapped-error comparisons use errors.Is/As
+    - nilerr # returning nil after checking a non-nil error
+    - nilnesserr # returning a different, nil error after an err check
+    - nilnil # (nil, nil) returns that hide "not found"
+    - errname # sentinel and error type naming
+    - errchkjson # unchecked or unnecessary json.Marshal errors
+    - ineffassign # assignments that are never read
+    - wastedassign # assignments overwritten before use
+    - unused # dead code
+    - unparam # parameters and results that are always the same value
+    - unconvert # redundant type conversions
+    - forcetypeassert # unchecked type assertions that would panic
+    - exhaustive # switches over enums handle every value or default
+    - gochecksumtype # switches over sealed sum types handle every variant
+    - durationcheck # multiplying two time.Durations
+    - makezero # append to a slice created with non-zero length
+    - copyloopvar # redundant pre-Go 1.22 loop variable copies
+    - reassign # reassigning package variables of other packages
+    - predeclared # shadowing predeclared identifiers
+    - recvcheck # mixed value and pointer receivers
+    - gocritic # likely-bug diagnostics only; settings below
+    # Resources, I/O, and data access.
+    - bodyclose # HTTP response bodies are closed
+    - sqlclosecheck # sql rows and statements are closed
+    - rowserrcheck # rows.Err is checked after iteration
+    - noctx # HTTP requests and SQL calls carry a context
+    - musttag # structs passed to encoders have field tags
+    - protogetter # protobuf fields are read through nil-safe getters
+    - canonicalheader # HTTP header keys are canonical
+    - usestdlibvars # stdlib constants instead of literal methods and codes
+    - sloglint # consistent slog key-value usage
+    - gosec # security issues
+    # Complexity and maintainability.
+    - gocognit # cognitive complexity cap; threshold below
+    - nakedret # naked returns in long functions
+    - dupl # duplicated blocks
+    - interfacebloat # interfaces with too many methods
+    - modernize # replace outdated idioms with current stdlib equivalents
+    - intrange # integer range loops where they fit
+    - perfsprint # cheaper alternatives to fmt.Sprintf
+    # Tests.
+    - testifylint # testify assertion correctness and consistent style
+    - thelper # test helpers call t.Helper and name testing parameters consistently
+    - usetesting # t.Context, t.TempDir, and t.Setenv over manual setup
+    # Comments, spelling, and directives.
+    - godot # comments end in a period
+    - misspell # common English misspellings
+    - nolintlint # nolint comments are specific, explained, and still needed
+    - gocheckcompilerdirectives # malformed //go: directives
     # Zero-finding guards (#1815): these report nothing today, so they stay on
     # to block the defects they catch from being reintroduced.
-    - bidichk
-    - asasalint
-    - fatcontext
-    - nosprintfhostport
-    - exptostd
-    - loggercheck
-    - gochecknoinits
-    - goprintffuncname
-    - unqueryvet
-    - iotamixing
-    - tparallel
-    - thelper
+    - bidichk # bidirectional Unicode control characters in source
+    - asasalint # []any passed as a single variadic any argument
+    - fatcontext # contexts nested inside loops
+    - nosprintfhostport # host:port built with Sprintf instead of JoinHostPort
+    - exptostd # golang.org/x/exp helpers that the stdlib now provides
+    - loggercheck # odd key-value pairs in structured logging calls
+    - gochecknoinits # init functions
+    - goprintffuncname # printf-like wrappers end in f
+    - unqueryvet # SELECT * in SQL strings
+    - iotamixing # iota mixed with explicit values in one const block
+    - tparallel # inconsistent t.Parallel use in tests and subtests
 
   # Evaluated and rejected; do not re-add without revisiting the reason here:
   # - contextcheck: false positives on templ-generated code.
@@ -75,15 +80,19 @@ linters:
     gocognit:
       min-complexity: 70
     gocritic:
-      # Only likely-bug checks; style, performance, experimental, and
-      # opinionated checks stay off.
+      # Only likely-bug checks; style and performance checks stay off. A
+      # disabled tag overrides an enabled one, so experimental and opinionated
+      # are not disabled here: that would also drop the diagnostic checks that
+      # carry those tags (deferInLoop, badLock, uncheckedInlineErr, sqlQuery, ...).
       enabled-tags:
         - diagnostic
       disabled-tags:
         - style
         - performance
-        - experimental
-        - opinionated
+      disabled-checks:
+        # About 190 production `if err = f(); err != nil` reuses of an outer
+        # err. Converting them is a separate refactor (#1829).
+        - sloppyReassign
     interfacebloat:
       max: 10
     exhaustive:
@@ -99,15 +108,14 @@ linters:
     staticcheck:
       checks:
         - all
+        # Package comments add little for internal packages.
         - -ST1000
-        - -ST1003
-        - -ST1016
-        - -ST1020
-        - -ST1021
-        - -ST1022
-        # ST1005 is excluded deliberately: error values here double as user-facing
-        # copy (for example the lemma review errors the webapp renders), so their
-        # sentence case and trailing punctuation are kept as written.
+        # ST1005 (lowercase, unpunctuated error strings) is excluded for two
+        # reasons: many messages start with a proper noun ("River did not
+        # return ...", "German vocabulary backfill ..."), which the check cannot
+        # tell apart from sentence case, and the lemma review errors double as
+        # learner-facing copy that the webapp renders as written. #1830 removes
+        # both causes and enables it.
         - -ST1005
     testifylint:
       # Every checker is on (#1814), so assertions follow one style and failures
@@ -123,10 +131,12 @@ linters:
           - gocognit
       # Store contract Run bodies are scenarios, not helpers: the harness runner
       # calls them directly, so t.Helper() would report failures at the runner
-      # line instead of the scenario assertion.
+      # line instead of the scenario assertion. Matched by the exact signature
+      # so real helpers in this package are still checked.
       - path: internal/storecontract/
         linters:
           - thelper
+        source: 'Run: func\(t \*testing\.T, h Harness\) \{'
 
 issues:
   max-issues-per-linter: 0

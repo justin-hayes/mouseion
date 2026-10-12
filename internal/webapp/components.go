@@ -629,6 +629,7 @@ func knownVocabImportSummary(status knownvocab.Status) string {
 	case "discarded":
 		return "The import failed after repeated attempts. Correct the file or configuration and upload it again."
 	default:
+		// River's JobState is an open upstream enumeration; unknown states use the generic summary.
 		return "Review the import result and choose the next action below."
 	}
 }

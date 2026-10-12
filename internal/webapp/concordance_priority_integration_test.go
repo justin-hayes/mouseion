@@ -4,7 +4,6 @@ package webapp
 
 import (
 	"context"
-	"fmt"
 	"html"
 	"net/http"
 	"net/http/httptest"
@@ -293,6 +292,6 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 		assert.Contains(t, back, "priority=none")
 		page := perform(t, h, http.MethodGet, html.UnescapeString(study[1]), nil, cookies)
 		require.Equal(t, http.StatusOK, page.Code)
-		assert.Contains(t, html.UnescapeString(page.Body.String()), fmt.Sprintf(`href="%s"`, html.UnescapeString(back)))
+		assert.Contains(t, html.UnescapeString(page.Body.String()), `href="`+html.UnescapeString(back)+`"`)
 	})
 }
