@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,10 +62,14 @@ func TestDeckPreparationStatusPhaseWithoutDurableRun(t *testing.T) {
 			tc.prepare(t, p)
 			status, statusErr := store.GetDeckPreparationStatus(ctx, owner.ID, p.ID)
 			require.NoError(t, statusErr)
-			assert.Equal(t, tc.state, status.State)
-			assert.Equal(t, tc.phase, status.Phase)
-			assert.Empty(t, status.CurrentRunID)
-			assert.Zero(t, status.TranslationEligible, "a run-less preparation has no translation progress")
+			require.Equal(t, tc.state, status.State)
+			require.Empty(t, status.CurrentRunID)
+			t.Run("derives the phase from the state", func(t *testing.T) {
+				require.Equal(t, tc.phase, status.Phase)
+			})
+			t.Run("reports no translation progress", func(t *testing.T) {
+				require.Zero(t, status.TranslationEligible)
+			})
 		})
 	}
 	t.Run("unknown preparation is not found", func(t *testing.T) {

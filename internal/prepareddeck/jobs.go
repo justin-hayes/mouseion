@@ -340,13 +340,14 @@ func (s *Service) cancelLiveJobs(ctx context.Context, owner, id, runID string) {
 	}
 }
 
-func (s *Service) liveJobIDs(ctx context.Context, owner, id string) ([]int64, bool) {
+// liveJobIDs lists the preparation's live River jobs; complete is false
+// when the list could not be read in full.
+func (s *Service) liveJobIDs(ctx context.Context, owner, id string) (jobIDs []int64, complete bool) {
 	rows, err := s.pool.Query(ctx, `SELECT id FROM river_job WHERE args->>'owner_id'=$1 AND args->>'preparation_id'=$2 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id`, owner, id)
 	if err != nil {
 		return nil, false
 	}
 	defer rows.Close()
-	var jobIDs []int64
 	for rows.Next() {
 		var jobID int64
 		if err := rows.Scan(&jobID); err != nil {

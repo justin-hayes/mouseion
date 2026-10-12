@@ -482,16 +482,27 @@ func TestCancelWithoutDurableRunCancelsRiverJobsOnly(t *testing.T) {
 		_, cancelErr := service.Cancel(ctx, other.ID, handle.Preparation.ID)
 		require.ErrorIs(t, cancelErr, persistence.ErrNotFound)
 	})
-	var state string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM river_job WHERE id=$1`, handle.JobID).Scan(&state))
-	assert.NotEqual(t, "cancelled", state, "a rejected cancel must leave the job live")
+	jobState := func(t *testing.T) string {
+		t.Helper()
+		var state string
+		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM river_job WHERE id=$1`, handle.JobID).Scan(&state))
+		return state
+	}
+	t.Run("rejected cancel leaves the job live", func(t *testing.T) {
+		require.NotEqual(t, "cancelled", jobState(t))
+	})
 
 	cancelled, err := service.Cancel(ctx, owner.ID, handle.Preparation.ID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.DeckPreparationCancelled, cancelled.State)
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM river_job WHERE id=$1`, handle.JobID).Scan(&state))
-	assert.Equal(t, "cancelled", state)
-	assert.Zero(t, canceller.calls, "a preparation without a durable run has no provider batches")
+	t.Run("cancels the preparation", func(t *testing.T) {
+		require.Equal(t, domain.DeckPreparationCancelled, cancelled.State)
+	})
+	t.Run("cancels the River job", func(t *testing.T) {
+		require.Equal(t, "cancelled", jobState(t))
+	})
+	t.Run("does not cancel provider batches", func(t *testing.T) {
+		require.Zero(t, canceller.calls)
+	})
 }
 
 // recordingBatchCanceller counts provider cancellations and cannot delete files.

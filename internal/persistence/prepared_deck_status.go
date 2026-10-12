@@ -53,7 +53,7 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	}
 	appendMeaningOmissions(&p, outcomes, projection.Items)
 	applyRunProgress(&p, run, progress, chunks)
-	if err := s.applyActiveTranslationCoverage(ctx, &p, owner, preparationID, run, progress); err != nil {
+	if err := s.applyActiveRunCompleteness(ctx, &p, owner, preparationID, run, progress); err != nil {
 		return p, err
 	}
 	return p, nil
@@ -151,12 +151,12 @@ func applyRunProgress(p *domain.DeckPreparation, run domain.PreparedDeckRun, pro
 	p.BatchAge = progress.BatchAge
 }
 
-// applyActiveTranslationCoverage replaces the completeness counts of an active
+// applyActiveRunCompleteness replaces the completeness counts of an active
 // consented run. A ready artifact already contains its committed completeness.
 // While a run is active, count only exact cache rows belonging to the frozen
 // manifest. This keeps status correct under duplicate polling and partial
 // success.
-func (s *PostgresStore) applyActiveTranslationCoverage(ctx context.Context, p *domain.DeckPreparation, owner, preparationID string, run domain.PreparedDeckRun, progress domain.PreparedDeckRunProgress) error {
+func (s *PostgresStore) applyActiveRunCompleteness(ctx context.Context, p *domain.DeckPreparation, owner, preparationID string, run domain.PreparedDeckRun, progress domain.PreparedDeckRunProgress) error {
 	if p.State == domain.DeckPreparationReady || !run.ExternalTranslationConsent || !run.ExternalTranslationConfigured {
 		return nil
 	}

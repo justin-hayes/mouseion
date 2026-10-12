@@ -215,30 +215,38 @@ func TestDurableFinalizerFailsRunForPresentationValidationError(t *testing.T) {
 
 func TestDurableFinalizerRejectsIncompleteInput(t *testing.T) {
 	store := &finalizerStoreStub{}
-	cases := map[string]*DurableFinalizer{
-		"nil finalizer": nil,
-		"no store":      {Renderer: &finalizerRendererStub{}},
-		"no renderer":   {Store: store},
+	cases := map[string]struct {
+		finalizer     *DurableFinalizer
+		preparationID string
+	}{
+		"nil finalizer":  {finalizer: nil, preparationID: "preparation"},
+		"no store":       {finalizer: &DurableFinalizer{Renderer: &finalizerRendererStub{}}, preparationID: "preparation"},
+		"no renderer":    {finalizer: &DurableFinalizer{Store: store}, preparationID: "preparation"},
+		"blank identity": {finalizer: &DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}}, preparationID: " "},
 	}
-	for name, finalizer := range cases {
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := finalizer.Finalize(context.Background(), "owner", "preparation", "run", 0)
+			_, err := tc.finalizer.Finalize(context.Background(), "owner", tc.preparationID, "run", 0)
 			require.ErrorIs(t, err, ErrInvalidInput)
 		})
 	}
-	t.Run("blank identity", func(t *testing.T) {
-		_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}}).Finalize(context.Background(), "owner", " ", "run", 0)
-		require.ErrorIs(t, err, ErrInvalidInput)
+	t.Run("does not claim the run", func(t *testing.T) {
+		require.Empty(t, store.claimedToken)
 	})
-	assert.Empty(t, store.claimedToken, "invalid input must not claim the run")
 }
 
 func TestDurableFinalizerReturnsClaimFailureWithoutLoading(t *testing.T) {
 	store := &finalizerStoreStub{claimErr: persistence.ErrPreparedDeckClaimLost}
 	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-	require.ErrorIs(t, err, persistence.ErrPreparedDeckClaimLost)
-	assert.Zero(t, store.loadCalls)
-	assert.Zero(t, store.failCalls)
+	t.Run("propagates the claim error", func(t *testing.T) {
+		require.ErrorIs(t, err, persistence.ErrPreparedDeckClaimLost)
+	})
+	t.Run("does not load the manifest", func(t *testing.T) {
+		require.Zero(t, store.loadCalls)
+	})
+	t.Run("does not record a failure", func(t *testing.T) {
+		require.Zero(t, store.failCalls)
+	})
 }
 
 func TestDurableFinalizerLoadFailure(t *testing.T) {
@@ -256,14 +264,20 @@ func TestDurableFinalizerLoadFailure(t *testing.T) {
 			store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, loadErr: tc.loadErr}
 			renderer := &finalizerRendererStub{}
 			_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-			require.ErrorIs(t, err, tc.loadErr)
-			assert.Equal(t, tc.wantFails, store.failCalls)
+			t.Run("propagates the load error", func(t *testing.T) {
+				require.ErrorIs(t, err, tc.loadErr)
+			})
+			t.Run("records the expected failures", func(t *testing.T) {
+				require.Equal(t, tc.wantFails, store.failCalls)
+			})
 			if tc.wantFails > 0 {
-				assert.Equal(t, "presentation", store.failClass)
-				assert.Equal(t, "invalid_manifest", store.failCode)
+				t.Run("classifies the manifest as invalid", func(t *testing.T) {
+					require.Equal(t, []string{"presentation", "invalid_manifest"}, []string{store.failClass, store.failCode})
+				})
 			}
-			assert.Zero(t, renderer.calls)
-			assert.Zero(t, store.completeCalls)
+			t.Run("neither renders nor publishes", func(t *testing.T) {
+				require.Equal(t, []int{0, 0}, []int{renderer.calls, store.completeCalls})
+			})
 		})
 	}
 }
@@ -285,13 +299,20 @@ func TestDurableFinalizerClassifiesRecordedFailures(t *testing.T) {
 			store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, failErr: failErr}
 			_, err := (&DurableFinalizer{Store: store, Renderer: tc.renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
 			require.ErrorIs(t, err, failErr, "a failed failure write is joined to the returned error")
-			assert.Contains(t, err.Error(), "record finalization failure")
+			t.Run("names the failed failure write", func(t *testing.T) {
+				require.ErrorContains(t, err, "record finalization failure")
+			})
 			if tc.wantRenderErrWrapped {
-				assert.Contains(t, err.Error(), "render durable prepared deck")
+				t.Run("wraps the render error", func(t *testing.T) {
+					require.ErrorContains(t, err, "render durable prepared deck")
+				})
 			}
-			assert.Equal(t, tc.wantClass, store.failClass)
-			assert.Equal(t, tc.wantCode, store.failCode)
-			assert.Zero(t, store.completeCalls)
+			t.Run("records the failure class and code", func(t *testing.T) {
+				require.Equal(t, []string{tc.wantClass, tc.wantCode}, []string{store.failClass, store.failCode})
+			})
+			t.Run("does not publish", func(t *testing.T) {
+				require.Zero(t, store.completeCalls)
+			})
 		})
 	}
 }
@@ -312,7 +333,7 @@ func TestDurableFinalizerDoesNotRecordFailureAfterCancellation(t *testing.T) {
 			tc.store.run = domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}
 			_, err := (&DurableFinalizer{Store: tc.store, Renderer: tc.renderer}).Finalize(ctx, "owner", "preparation", "run", 0)
 			require.Error(t, err)
-			assert.Zero(t, tc.store.failCalls, "a cancelled finalizer leaves the run for its successor")
+			require.Zero(t, tc.store.failCalls, "a cancelled finalizer leaves the run for its successor")
 		})
 	}
 }
@@ -322,10 +343,18 @@ func TestDurableFinalizerReturnsPublicationFailure(t *testing.T) {
 	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, completeErr: completeErr}
 	metrics := &recordingBatchMetrics{}
 	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}, Metrics: metrics}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-	require.ErrorIs(t, err, completeErr)
-	assert.Equal(t, 1, store.completeCalls)
-	assert.Zero(t, store.failCalls)
-	assert.Contains(t, metrics.metrics, BatchMetric{Mode: "unknown", Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
+	t.Run("propagates the publication error", func(t *testing.T) {
+		require.ErrorIs(t, err, completeErr)
+	})
+	t.Run("attempts publication once", func(t *testing.T) {
+		require.Equal(t, 1, store.completeCalls)
+	})
+	t.Run("does not record a failure", func(t *testing.T) {
+		require.Zero(t, store.failCalls)
+	})
+	t.Run("records a failed outcome", func(t *testing.T) {
+		require.Contains(t, metrics.metrics, BatchMetric{Mode: "unknown", Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
+	})
 }
 
 func TestDurableFinalizerRecordsOutcomeMetricsByExecutionMode(t *testing.T) {
@@ -333,12 +362,16 @@ func TestDurableFinalizerRecordsOutcomeMetricsByExecutionMode(t *testing.T) {
 	metrics := &recordingBatchMetrics{}
 	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}, Metrics: metrics}).Finalize(context.Background(), "owner", "preparation", "run", 0)
 	require.NoError(t, err)
-	assert.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricAPKGOutcome, Phase: "finalizing", State: "completed", Provider: "openai", Value: 1})
-	names := make([]string, 0, len(metrics.metrics))
-	for _, metric := range metrics.metrics {
-		names = append(names, metric.Name)
-	}
-	assert.Equal(t, []string{MetricAPKGOutcome, MetricBatchPhaseLatency, MetricBatchTotalLatency}, names)
+	t.Run("records a completed outcome for the execution mode", func(t *testing.T) {
+		require.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricAPKGOutcome, Phase: "finalizing", State: "completed", Provider: "openai", Value: 1})
+	})
+	t.Run("records latencies after the outcome", func(t *testing.T) {
+		names := make([]string, 0, len(metrics.metrics))
+		for _, metric := range metrics.metrics {
+			names = append(names, metric.Name)
+		}
+		require.Equal(t, []string{MetricAPKGOutcome, MetricBatchPhaseLatency, MetricBatchTotalLatency}, names)
+	})
 }
 
 type recordingBatchMetrics struct{ metrics []BatchMetric }

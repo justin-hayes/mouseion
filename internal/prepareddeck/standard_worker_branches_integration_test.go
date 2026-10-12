@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,12 +34,16 @@ func TestStandardWorkerReturnsUnknownRunErrorWithoutClaiming(t *testing.T) {
 
 	require.Error(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: uuid.NewString(), Ordinal: 0, Generation: 0}))
 
-	calls, _ := provider.stats()
-	assert.Zero(t, calls)
-	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
-	require.NoError(t, err)
-	require.Len(t, outcomes, 1)
-	assert.Equal(t, domain.PreparedDeckOutcomePending, outcomes[0].State)
+	t.Run("does not call the provider", func(t *testing.T) {
+		calls, _ := provider.stats()
+		require.Zero(t, calls)
+	})
+	t.Run("leaves the item pending", func(t *testing.T) {
+		outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+		require.NoError(t, err)
+		require.Len(t, outcomes, 1)
+		require.Equal(t, domain.PreparedDeckOutcomePending, outcomes[0].State)
+	})
 }
 
 func TestStandardWorkerRecordsProviderUsageAndLogsWarnings(t *testing.T) {
@@ -67,14 +70,22 @@ func TestStandardWorkerRecordsProviderUsageAndLogsWarnings(t *testing.T) {
 
 	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
 
-	assert.Contains(t, output.String(), "prepared deck translation: integration provider warning")
-	assert.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageInputCount, Phase: "provider", State: "completed", Provider: "openai", Value: 11})
-	assert.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageOutputCount, Phase: "provider", State: "completed", Provider: "openai", Value: 7})
-	assert.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricBatchProviderTransitions, Phase: "translating", State: "completed", Provider: "openai", Value: 1})
-	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
-	require.NoError(t, err)
-	require.Len(t, outcomes, 1)
-	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	t.Run("logs provider warnings", func(t *testing.T) {
+		require.Contains(t, output.String(), "prepared deck translation: integration provider warning")
+	})
+	t.Run("records provider token usage", func(t *testing.T) {
+		require.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageInputCount, Phase: "provider", State: "completed", Provider: "openai", Value: 11})
+		require.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageOutputCount, Phase: "provider", State: "completed", Provider: "openai", Value: 7})
+	})
+	t.Run("records the completed transition", func(t *testing.T) {
+		require.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricBatchProviderTransitions, Phase: "translating", State: "completed", Provider: "openai", Value: 1})
+	})
+	t.Run("completes the item", func(t *testing.T) {
+		outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+		require.NoError(t, err)
+		require.Len(t, outcomes, 1)
+		require.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	})
 }
 
 // A claim lost between the cache lookup and the provider call must leave the
@@ -96,12 +107,16 @@ func TestStandardWorkerDoesNotCallProviderAfterClaimLossOnCacheMiss(t *testing.T
 
 	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
 
-	calls, _ := provider.stats()
-	assert.Zero(t, calls, "provider must not be called after the claim is lost")
-	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
-	require.NoError(t, err)
-	require.Len(t, outcomes, 1)
-	assert.Equal(t, domain.PreparedDeckOutcomeRunning, outcomes[0].State)
+	t.Run("does not call the provider", func(t *testing.T) {
+		calls, _ := provider.stats()
+		require.Zero(t, calls)
+	})
+	t.Run("leaves the item to the new claim", func(t *testing.T) {
+		outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+		require.NoError(t, err)
+		require.Len(t, outcomes, 1)
+		require.Equal(t, domain.PreparedDeckOutcomeRunning, outcomes[0].State)
+	})
 }
 
 // "persistence" is not an accepted outcome error class, so recording the
@@ -122,10 +137,14 @@ func TestStandardWorkerReturnsErrorWhenCacheWriteFails(t *testing.T) {
 	err := worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0})
 	require.ErrorContains(t, err, "deck_preparation_translation_outcomes_error_class_check")
 
-	calls, _ := provider.stats()
-	assert.Equal(t, 1, calls)
-	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
-	require.NoError(t, err)
-	require.Len(t, outcomes, 1)
-	assert.Equal(t, domain.PreparedDeckOutcomeRunning, outcomes[0].State)
+	t.Run("calls the provider once", func(t *testing.T) {
+		calls, _ := provider.stats()
+		require.Equal(t, 1, calls)
+	})
+	t.Run("keeps the running claim", func(t *testing.T) {
+		outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+		require.NoError(t, err)
+		require.Len(t, outcomes, 1)
+		require.Equal(t, domain.PreparedDeckOutcomeRunning, outcomes[0].State)
+	})
 }
