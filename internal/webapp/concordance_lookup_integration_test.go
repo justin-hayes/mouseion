@@ -159,7 +159,12 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 	surfacesOf := func(body string) []string {
 		var surfaces []string
 		for _, part := range strings.Split(lookupResults(body), `<strong class="concordance-observed-target">`)[1:] {
-			surfaces = append(surfaces, part[:strings.Index(part, "<")])
+			surface, _, found := strings.Cut(part, "<")
+			if !found {
+				t.Errorf("observed surface has no closing markup: %q", part)
+				continue
+			}
+			surfaces = append(surfaces, surface)
 		}
 		return surfaces
 	}
@@ -270,7 +275,10 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 		require.Equal(t, http.StatusOK, unmatched.Code)
 		assert.Contains(t, unmatched.Body.String(), ">Word form zzzyx</h2>")
 		assert.Contains(t, unmatched.Body.String(), "No analyzed occurrences of this word form")
-		assert.NotContains(t, unmatched.Body.String()[strings.Index(unmatched.Body.String(), "<main"):], `role="alert"`)
+		unmatchedBody := unmatched.Body.String()
+		if mainStart := strings.Index(unmatchedBody, "<main"); assert.GreaterOrEqual(t, mainStart, 0, "result page must contain a main landmark") {
+			assert.NotContains(t, unmatchedBody[mainStart:], `role="alert"`)
+		}
 		for name, values := range map[string]url.Values{
 			"page zero":     {"term": {"gehen"}, "page": {"0"}},
 			"page text":     {"term": {"gehen"}, "page": {"x"}},
