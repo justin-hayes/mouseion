@@ -299,3 +299,186 @@ func TestTranslationCodecDiscardsInvalidAlignmentWithoutLosingTranslationOrGloss
 	assert.Equal(t, "And then the motorcycle knocks Piero over.", response.SentenceTranslation)
 	assert.Empty(t, response.SentenceTranslationTargets)
 }
+
+// codecTranslationContent builds the strict provider content object from the
+// fields that follow the echoed identity and languages.
+func codecTranslationContent(input TranslationRequest, fields string) string {
+	return `{"item_id":"` + TranslationItemID(input) + `","source_language":"` + input.Language + `","target_language":"` + translationTargetLanguage(input) + `",` + fields + `}`
+}
+
+// decodeCodecContent runs one content object through the shared decoder,
+// exercising the public DecodeResponse seam.
+func decodeCodecContent(t *testing.T, codec *TranslationCodec, input TranslationRequest, fields string) (TranslationResponse, error) {
+	t.Helper()
+	body := `{"choices":[{"message":{"content":` + strconv.Quote(codecTranslationContent(input, fields)) + `}}]}`
+	return codec.DecodeResponse(input, []byte(body))
+}
+
+func TestTranslationCodecRejectsMalformedResponseEnvelope(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
+	content := codecTranslationContent(input, `"translation":"house","sentence_translation":"","sentence_translation_targets":[]`)
+
+	t.Run("nil codec", func(t *testing.T) {
+		var nilCodec *TranslationCodec
+		_, err := nilCodec.DecodeResponse(input, []byte(`{}`))
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrInvalidTranslationResponse)
+		assert.Contains(t, err.Error(), "nil translation codec")
+	})
+
+	for name, body := range map[string]string{
+		"malformed envelope": `not json`,
+		"trailing envelope":  `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}{}`,
+		"no choices":         `{"choices":[]}`,
+		"invalid usage":      `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}],"usage":{"prompt_tokens":-1,"completion_tokens":0,"total_tokens":0}}`,
+		"trailing content":   `{"choices":[{"message":{"content":` + strconv.Quote(content+" {}") + `}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := codec.DecodeResponse(input, []byte(body))
+			require.Error(t, err)
+			require.ErrorIs(t, err, ErrInvalidTranslationResponse)
+		})
+	}
+}
+
+func TestTranslationCodecRejectsMalformedOptionalMeaningFields(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
+	base := `"translation":"house","sentence_translation":"","sentence_translation_targets":[]`
+
+	for name, fields := range map[string]string{
+		"markup translation":   `"translation":"<b>house</b>","sentence_translation":"","sentence_translation_targets":[]`,
+		"invalid gloss":        base + `,"gloss":123`,
+		"invalid evidence ids": base + `,"gloss":"bench","evidence_ids":123`,
+		"invalid context only": base + `,"gloss":"bench","evidence_ids":[],"context_only":"x"`,
+		"invalid reason":       base + `,"gloss":"bench","evidence_ids":[],"context_only":false,"unresolved_reason":123`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := decodeCodecContent(t, codec, input, fields)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, ErrInvalidTranslationResponse)
+		})
+	}
+
+	for _, test := range []struct {
+		name, fields, warning string
+	}{
+		{"invalid sense order", base + `,"sense_order":"x"`, "invalid sense selection; using deterministic order"},
+		{"invalid fallback gloss", base + `,"fallback_gloss":123`, "invalid fallback gloss; ignoring it"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response, err := decodeCodecContent(t, codec, input, test.fields)
+			require.NoError(t, err)
+			assert.Contains(t, response.Warnings, test.warning)
+		})
+	}
+
+	t.Run("non-array targets are dropped", func(t *testing.T) {
+		response, err := decodeCodecContent(t, codec, input, `"translation":"house","sentence_translation":"","sentence_translation_targets":123`)
+		require.NoError(t, err)
+		assert.Empty(t, response.SentenceTranslationTargets)
+	})
+}
+
+func TestNormalizeTranslationResponseRejectsMalformedMeaningFields(t *testing.T) {
+	lemmaOnly := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
+	withSentence := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."}
+	contextual := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:seat", Gloss: "bench"}}}
+	contextualResponse := func() TranslationResponse {
+		return TranslationResponse{Translation: "bank", SentenceTranslation: "She sits on the bench.", Gloss: "bench", EvidenceIDs: []string{"wikt:seat"}}
+	}
+
+	for _, test := range []struct {
+		name    string
+		input   TranslationRequest
+		build   func() TranslationResponse
+		message string
+	}{
+		{"empty translation", lemmaOnly, func() TranslationResponse { return TranslationResponse{} }, "translation is empty"},
+		{"missing sentence translation", withSentence, func() TranslationResponse { return TranslationResponse{Translation: "house"} }, "sentence_translation is empty"},
+		{"markup translation", lemmaOnly, func() TranslationResponse { return TranslationResponse{Translation: "<b>house</b>"} }, "HTML or markup"},
+		{"overlong contextual gloss", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.Gloss = strings.Repeat("g", MaxFallbackGlossRunes+1)
+			return response
+		}, "invalid contextual gloss"},
+		{"markup contextual gloss", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.Gloss = "<b>bench</b>"
+			return response
+		}, "invalid contextual gloss"},
+		{"overlong unresolved reason", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.Gloss, response.EvidenceIDs, response.ContextOnly = "", nil, true
+			response.UnresolvedReason = strings.Repeat("r", 201)
+			return response
+		}, "invalid unresolved reason"},
+		{"empty evidence id", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.EvidenceIDs = []string{""}
+			return response
+		}, "empty evidence ID"},
+		{"duplicate evidence id", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.EvidenceIDs = []string{"wikt:seat", "wikt:seat"}
+			return response
+		}, "duplicate evidence ID"},
+		{"unknown evidence id", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.EvidenceIDs = []string{"wikt:unknown"}
+			return response
+		}, "unknown evidence ID"},
+		{"context only contradicts evidence", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.ContextOnly = true
+			return response
+		}, "context_only contradicts evidence IDs"},
+		{"unresolved meaning incomplete", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.Gloss, response.EvidenceIDs, response.ContextOnly = "", nil, true
+			return response
+		}, "unresolved meaning is incomplete"},
+		{"resolved meaning with unresolved reason", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.UnresolvedReason = "why"
+			return response
+		}, "resolved meaning includes unresolved reason"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NormalizeTranslationResponse(test.input, test.build())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.message)
+		})
+	}
+}
+
+func TestNormalizeTranslationResponseAppliesSelectionAndFallbackRules(t *testing.T) {
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "laufen", UPOS: "VERB", CandidateSenses: []LexicalSense{{Gloss: "run"}, {Gloss: "walk"}}}
+
+	t.Run("resets a selection flagged by an earlier warning", func(t *testing.T) {
+		response := TranslationResponse{Translation: "run", SentenceTranslation: "It runs.", SenseOrder: []int{0}, FallbackGloss: "operate", Warnings: []string{"invalid sense selection; using deterministic order"}}
+		got, err := NormalizeTranslationResponse(input, response)
+		require.NoError(t, err)
+		assert.Empty(t, got.SenseOrder)
+		assert.Empty(t, got.FallbackGloss)
+		assert.Equal(t, []string{"invalid sense selection; using deterministic order"}, got.Warnings)
+	})
+
+	t.Run("ignores an invalid fallback gloss", func(t *testing.T) {
+		got, err := NormalizeTranslationResponse(input, TranslationResponse{Translation: "run", SentenceTranslation: "It runs.", FallbackGloss: "<b>operate</b>"})
+		require.NoError(t, err)
+		assert.Empty(t, got.FallbackGloss)
+		assert.Contains(t, got.Warnings, "invalid fallback gloss; ignoring it")
+	})
+
+	t.Run("drops a fallback gloss supplied with a sense selection", func(t *testing.T) {
+		got, err := NormalizeTranslationResponse(input, TranslationResponse{Translation: "run", SentenceTranslation: "It runs.", SenseOrder: []int{0}, FallbackGloss: "operate"})
+		require.NoError(t, err)
+		assert.Equal(t, []int{0}, got.SenseOrder)
+		assert.Empty(t, got.FallbackGloss)
+		assert.Contains(t, got.Warnings, "fallback gloss supplied with a sense selection; ignoring it")
+	})
+}

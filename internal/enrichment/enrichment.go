@@ -348,23 +348,57 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		sentence = c.ExampleSentence
 	}
 	if s.cache != nil {
-		started := time.Now()
-		entry, ok, err := s.cache.Get(ctx, key)
-		metrics.CacheLatency += time.Since(started)
+		entry, hit, err := s.readExternalCache(ctx, key, &metrics)
 		if err != nil {
-			metrics.CacheErrors++
 			if requireCache {
 				return r, metrics, fmt.Errorf("translation cache get: %w", err)
 			}
 			r.Warnings = append(r.Warnings, "translation cache: "+err.Error())
-		} else if ok {
-			metrics.CacheHits++
+		} else if hit {
 			s.setExternal(&r, entry)
 			return r, metrics, nil
-		} else {
-			metrics.CacheMisses++
 		}
 	}
+	req := externalTranslationRequest(c, sentence)
+	response, err := s.callTranslationWithRetry(ctx, req, &metrics)
+	if err != nil {
+		metrics.addError(ClassifyExternalError(err))
+		return r, metrics, err
+	}
+	response, err = NormalizeTranslationResponse(req, response)
+	if err != nil {
+		metrics.addError(ExternalErrorOther)
+		return r, metrics, err
+	}
+	r.Warnings = append(r.Warnings, response.Warnings...)
+	entry := CacheEntry{
+		CacheKey:                   key,
+		Translation:                response.Translation,
+		FallbackGloss:              response.FallbackGloss,
+		SentenceTranslation:        response.SentenceTranslation,
+		SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
+		SenseSelection:             append([]int{}, response.SenseOrder...),
+		CachedAt:                   s.now().UTC(),
+	}
+	if s.cache != nil {
+		stored, putErr := s.storeExternalCache(ctx, entry, &metrics)
+		if putErr != nil {
+			if requireCache {
+				return r, metrics, fmt.Errorf("translation cache put: %w", putErr)
+			}
+			r.Warnings = append(r.Warnings, "translation cache: "+putErr.Error())
+		} else {
+			entry = stored
+		}
+	}
+	s.setExternal(&r, entry)
+	return r, metrics, nil
+}
+
+// externalTranslationRequest builds the provider request from the cached
+// candidate facts, keeping the sentence and target word only when context is
+// available.
+func externalTranslationRequest(c Candidate, sentence string) TranslationRequest {
 	target := textmatch.CleanLexicalSurface(c.TargetWord)
 	if target == "" {
 		target = textmatch.CleanLexicalSurface(c.CanonicalLemma)
@@ -374,12 +408,49 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		req.TargetWord = target
 	}
 	req.ExampleSentence = sentence
+	return req
+}
+
+// readExternalCache consults the cache once and accounts for its latency and
+// outcome. The caller decides whether an error is fatal.
+func (s *Service) readExternalCache(ctx context.Context, key CacheKey, metrics *ExternalMetrics) (CacheEntry, bool, error) {
+	started := time.Now()
+	entry, ok, err := s.cache.Get(ctx, key)
+	metrics.CacheLatency += time.Since(started)
+	if err != nil {
+		metrics.CacheErrors++
+		return CacheEntry{}, false, err
+	}
+	if ok {
+		metrics.CacheHits++
+		return entry, true, nil
+	}
+	metrics.CacheMisses++
+	return CacheEntry{}, false, nil
+}
+
+// storeExternalCache writes the entry once and accounts for its latency and
+// outcome. The caller decides whether an error is fatal.
+func (s *Service) storeExternalCache(ctx context.Context, entry CacheEntry, metrics *ExternalMetrics) (CacheEntry, error) {
+	started := time.Now()
+	stored, err := s.cache.Put(ctx, entry)
+	metrics.CacheLatency += time.Since(started)
+	if err != nil {
+		metrics.CacheErrors++
+		return CacheEntry{}, err
+	}
+	return stored, nil
+}
+
+// callTranslationWithRetry performs the bounded provider call and retries
+// retryable failures under the configured backoff policy.
+func (s *Service) callTranslationWithRetry(ctx context.Context, req TranslationRequest, metrics *ExternalMetrics) (TranslationResponse, error) {
 	metrics.ProviderCalls++
 	maxRetries, conversionErr := checked.Uint64FromInt(s.config.MaxAttempts - 1)
 	if conversionErr != nil {
-		return r, metrics, conversionErr
+		return TranslationResponse{}, conversionErr
 	}
-	response, err := backoff.RetryWithData(func() (TranslationResponse, error) {
+	return backoff.RetryWithData(func() (TranslationResponse, error) {
 		metrics.Attempts++
 		if metrics.Attempts > 1 {
 			metrics.Retries++
@@ -405,41 +476,6 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		backoff.WithMaxInterval(time.Duration(1<<63-1)),
 		backoff.WithMaxElapsedTime(0),
 	), maxRetries), ctx))
-	if err != nil {
-		metrics.addError(ClassifyExternalError(err))
-		return r, metrics, err
-	}
-	response, err = NormalizeTranslationResponse(req, response)
-	if err != nil {
-		metrics.addError(ExternalErrorOther)
-		return r, metrics, err
-	}
-	r.Warnings = append(r.Warnings, response.Warnings...)
-	entry := CacheEntry{
-		CacheKey:                   key,
-		Translation:                response.Translation,
-		FallbackGloss:              response.FallbackGloss,
-		SentenceTranslation:        response.SentenceTranslation,
-		SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
-		SenseSelection:             append([]int{}, response.SenseOrder...),
-		CachedAt:                   s.now().UTC(),
-	}
-	if s.cache != nil {
-		started := time.Now()
-		stored, putErr := s.cache.Put(ctx, entry)
-		metrics.CacheLatency += time.Since(started)
-		if putErr != nil {
-			metrics.CacheErrors++
-			if requireCache {
-				return r, metrics, fmt.Errorf("translation cache put: %w", putErr)
-			}
-			r.Warnings = append(r.Warnings, "translation cache: "+putErr.Error())
-		} else {
-			entry = stored
-		}
-	}
-	s.setExternal(&r, entry)
-	return r, metrics, nil
 }
 
 func (s *Service) setExternal(r *Result, e CacheEntry) {

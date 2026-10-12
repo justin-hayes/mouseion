@@ -166,34 +166,41 @@ func RenderGloss(senses []LexicalSense, maxSenses, maxTokens int) string {
 func sentenceContext(request LexicalLookupRequest) map[string]bool {
 	words := make(map[string]bool)
 	if len(request.SentenceTokens) == 0 {
-		fields := strings.Fields(request.RepresentativeSentence)
-		target := normalizeWord(request.TargetWord)
-		if target == "" {
-			return words
-		}
-		for i, field := range fields {
-			if normalizeWord(field) != target {
-				continue
-			}
-			start, end := i-5, i+6
-			if start < 0 {
-				start = 0
-			}
-			if end > len(fields) {
-				end = len(fields)
-			}
-			for _, candidate := range fields[start:end] {
-				if word := normalizeWord(candidate); isContextWord(request.Language, word) && word != target {
-					words[word] = true
-				}
-			}
-			return words
-		}
+		addFieldSentenceContext(request, words)
 		return words
 	}
+	addTokenSentenceContext(request, words)
+	return words
+}
+
+// addFieldSentenceContext scores words from the plain representative sentence
+// around the first field that matches the target.
+func addFieldSentenceContext(request LexicalLookupRequest, words map[string]bool) {
 	target := normalizeWord(request.TargetWord)
 	if target == "" {
-		return words
+		return
+	}
+	fields := strings.Fields(request.RepresentativeSentence)
+	for i, field := range fields {
+		if normalizeWord(field) != target {
+			continue
+		}
+		start, end := contextWindow(i, len(fields))
+		for _, candidate := range fields[start:end] {
+			if word := normalizeWord(candidate); isContextWord(request.Language, word) && word != target {
+				words[word] = true
+			}
+		}
+		return
+	}
+}
+
+// addTokenSentenceContext scores lemmas and dependency relations from the token
+// window around the first token that matches the target.
+func addTokenSentenceContext(request LexicalLookupRequest, words map[string]bool) {
+	target := normalizeWord(request.TargetWord)
+	if target == "" {
+		return
 	}
 	index := -1
 	for i, token := range request.SentenceTokens {
@@ -203,15 +210,9 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 		}
 	}
 	if index < 0 {
-		return words
+		return
 	}
-	start, end := index-5, index+6
-	if start < 0 {
-		start = 0
-	}
-	if end > len(request.SentenceTokens) {
-		end = len(request.SentenceTokens)
-	}
+	start, end := contextWindow(index, len(request.SentenceTokens))
 	for _, token := range request.SentenceTokens[start:end] {
 		if word := normalizeWord(token.CanonicalLemma); isContextWord(request.Language, word) && word != target && contentPOS(token.UPOS) {
 			words[word] = true
@@ -220,7 +221,18 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 			words[relation] = true
 		}
 	}
-	return words
+}
+
+// contextWindow returns the five-token neighbourhood, clamped to the sequence.
+func contextWindow(index, length int) (int, int) {
+	start, end := index-5, index+6
+	if start < 0 {
+		start = 0
+	}
+	if end > length {
+		end = length
+	}
+	return start, end
 }
 
 func senseWords(sense LexicalSense) map[string]bool {
