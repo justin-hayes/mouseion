@@ -4,6 +4,8 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -243,4 +245,223 @@ func TestBackfillGermanVocabularyBreaksGeneratedIdentityTiesDeterministically(t 
 		require.NoError(t, err)
 		assert.Equal(t, min(first.ID, second.ID), winner)
 	})
+}
+
+// backfillTestID returns a deterministic, table-unique uuid for a case and row
+// rank, so a backfill test can control id tie-breaks without collisions.
+func backfillTestID(caseIndex, rank int) string {
+	return fmt.Sprintf("%08x-0000-0000-0000-%012x", caseIndex+1, rank)
+}
+
+func TestBackfillGermanVocabularyChoosesKnownIdentityWinner(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	created := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	later := created.Add(time.Hour)
+
+	cases := []struct {
+		name    string
+		entries []struct {
+			rank      int
+			lemma     string
+			createdAt time.Time
+		}
+		wantWinnerRank int
+		wantUpdated    int
+	}{
+		{
+			name: "earliest creation wins over a later spelling",
+			entries: []struct {
+				rank      int
+				lemma     string
+				createdAt time.Time
+			}{
+				{1, "hass", created},
+				{2, "haß", later},
+			},
+			wantWinnerRank: 1,
+			wantUpdated:    0,
+		},
+		{
+			name: "smallest id breaks an equal creation tie",
+			entries: []struct {
+				rank      int
+				lemma     string
+				createdAt time.Time
+			}{
+				{1, "haß", created},
+				{2, "hass", created},
+			},
+			wantWinnerRank: 1,
+			wantUpdated:    1,
+		},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			owner, err := store.CreateUser(ctx, fmt.Sprintf("german-known-winner-%d", i), false)
+			require.NoError(t, err)
+			for _, entry := range tc.entries {
+				_, err = store.Pool().Exec(ctx, `INSERT INTO known_vocabulary(id,owner_id,language,canonical_lemma,upos,created_at) VALUES($1,$2,'de',$3,'NOUN',$4)`, backfillTestID(i, entry.rank), owner.ID, entry.lemma, entry.createdAt)
+				require.NoError(t, err)
+			}
+
+			report, err := store.BackfillGermanVocabulary(ctx)
+			require.NoError(t, err)
+			assert.Empty(t, report.Conflicts)
+			assert.Equal(t, tc.wantUpdated, report.Updated)
+
+			var count int
+			err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND upos='NOUN'`, owner.ID).Scan(&count)
+			require.NoError(t, err)
+			assert.Equal(t, 1, count)
+			var winner, lemma string
+			err = store.Pool().QueryRow(ctx, `SELECT id::text, canonical_lemma FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND upos='NOUN'`, owner.ID).Scan(&winner, &lemma)
+			require.NoError(t, err)
+			assert.Equal(t, backfillTestID(i, tc.wantWinnerRank), winner)
+			assert.Equal(t, "hass", lemma)
+		})
+	}
+}
+
+func TestBackfillGermanVocabularyChoosesVocabularyStateWinner(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	created := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	later := created.Add(time.Hour)
+
+	cases := []struct {
+		name    string
+		entries []struct {
+			rank      int
+			lemma     string
+			state     string
+			updatedAt time.Time
+		}
+		wantWinnerRank int
+		wantState      string
+		wantUpdated    int
+	}{
+		{
+			name: "higher state precedence wins over recency",
+			entries: []struct {
+				rank      int
+				lemma     string
+				state     string
+				updatedAt time.Time
+			}{
+				{1, "hass", "candidate", later},
+				{2, "haß", "known", created},
+			},
+			wantWinnerRank: 2,
+			wantState:      "known",
+			wantUpdated:    1,
+		},
+		{
+			name: "latest update wins at equal precedence",
+			entries: []struct {
+				rank      int
+				lemma     string
+				state     string
+				updatedAt time.Time
+			}{
+				{1, "haß", "candidate", created},
+				{2, "hass", "candidate", later},
+			},
+			wantWinnerRank: 2,
+			wantState:      "candidate",
+			wantUpdated:    0,
+		},
+		{
+			name: "smallest id breaks an equal precedence and update tie",
+			entries: []struct {
+				rank      int
+				lemma     string
+				state     string
+				updatedAt time.Time
+			}{
+				{1, "haß", "candidate", created},
+				{2, "hass", "candidate", created},
+			},
+			wantWinnerRank: 1,
+			wantState:      "candidate",
+			wantUpdated:    1,
+		},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			owner, err := store.CreateUser(ctx, fmt.Sprintf("german-state-winner-%d", i), false)
+			require.NoError(t, err)
+			for _, entry := range tc.entries {
+				_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(id,owner_id,language,canonical_lemma,upos,state,updated_at) VALUES($1,$2,'de',$3,'NOUN',$4,$5)`, backfillTestID(i, entry.rank), owner.ID, entry.lemma, entry.state, entry.updatedAt)
+				require.NoError(t, err)
+			}
+
+			report, err := store.BackfillGermanVocabulary(ctx)
+			require.NoError(t, err)
+			assert.Empty(t, report.Conflicts)
+			assert.Equal(t, tc.wantUpdated, report.Updated)
+
+			var count int
+			err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM vocabulary_states WHERE owner_id=$1 AND language='de' AND upos='NOUN'`, owner.ID).Scan(&count)
+			require.NoError(t, err)
+			assert.Equal(t, 1, count)
+			var winner, lemma, state string
+			err = store.Pool().QueryRow(ctx, `SELECT id::text, canonical_lemma, state FROM vocabulary_states WHERE owner_id=$1 AND language='de' AND upos='NOUN'`, owner.ID).Scan(&winner, &lemma, &state)
+			require.NoError(t, err)
+			assert.Equal(t, backfillTestID(i, tc.wantWinnerRank), winner)
+			assert.Equal(t, "hass", lemma)
+			assert.Equal(t, tc.wantState, state)
+		})
+	}
+}
+
+func TestBackfillGermanVocabularyMergesSelectionCandidatesPerCorpus(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "german-selection-corpus", false)
+	require.NoError(t, err)
+	first := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	second := first.Add(time.Hour)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance,selected_at) VALUES
+		($1,'alpha','de','haß','NOUN',2,'["Haß"]','["a1"]','{"min_occurrences":2}',$2),
+		($1,'alpha','de','hass','NOUN',3,'["Hass"]','["a2"]','{"min_occurrences":1}',$3),
+		($1,'beta','de','haß','NOUN',5,'["Haß"]','["b1"]','{"min_occurrences":3}',$2)`, owner.ID, first, second)
+	require.NoError(t, err)
+
+	report, err := store.BackfillGermanVocabulary(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, report.Conflicts)
+	assert.Equal(t, 2, report.Updated)
+	assert.Equal(t, 1, report.Merged)
+
+	cases := []struct {
+		corpus          string
+		wantOccurrences int
+		wantForms       []string
+		wantReasons     []string
+		wantSelectedAt  time.Time
+	}{
+		{corpus: "alpha", wantOccurrences: 5, wantForms: []string{"Haß", "Hass"}, wantReasons: []string{"a1", "a2"}, wantSelectedAt: second},
+		{corpus: "beta", wantOccurrences: 5, wantForms: []string{"Haß"}, wantReasons: []string{"b1"}, wantSelectedAt: first},
+	}
+	for _, tc := range cases {
+		t.Run(tc.corpus, func(t *testing.T) {
+			var count int
+			err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2 AND language='de' AND canonical_lemma='hass' AND upos='NOUN'`, owner.ID, tc.corpus).Scan(&count)
+			require.NoError(t, err)
+			assert.Equal(t, 1, count)
+			var occurrences int
+			var forms, reasons []byte
+			var selectedAt time.Time
+			err = store.Pool().QueryRow(ctx, `SELECT occurrence_count, observed_forms, eligible_sentence_refs, selected_at FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2 AND language='de' AND canonical_lemma='hass' AND upos='NOUN'`, owner.ID, tc.corpus).Scan(&occurrences, &forms, &reasons, &selectedAt)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantOccurrences, occurrences)
+			assert.True(t, selectedAt.Equal(tc.wantSelectedAt))
+			var gotForms, gotReasons []string
+			require.NoError(t, json.Unmarshal(forms, &gotForms))
+			require.NoError(t, json.Unmarshal(reasons, &gotReasons))
+			assert.ElementsMatch(t, tc.wantForms, gotForms)
+			assert.ElementsMatch(t, tc.wantReasons, gotReasons)
+		})
+	}
 }

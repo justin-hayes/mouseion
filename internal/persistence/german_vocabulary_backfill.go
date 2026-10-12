@@ -160,37 +160,66 @@ func backfillKnownVocabulary(ctx context.Context, tx pgx.Tx, owner string, profi
 	var updated, merged int
 	for target := range affected {
 		for _, upos := range distinctUPOS(rows, target, profile) {
-			var group []knownVocabularyRow
-			for _, row := range rows {
-				if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
-					group = append(group, row)
-				}
-			}
+			group := knownVocabularyGroup(rows, target, upos, profile)
 			if len(group) == 0 {
 				continue
 			}
-			sort.Slice(group, func(i, j int) bool {
-				if !group[i].createdAt.Equal(group[j].createdAt) {
-					return group[i].createdAt.Before(group[j].createdAt)
-				}
-				return group[i].id < group[j].id
-			})
-			winner := group[0]
-			for _, row := range group[1:] {
-				if _, err = tx.Exec(ctx, `DELETE FROM known_vocabulary WHERE owner_id=$1 AND id=$2`, owner, row.id); err != nil {
-					return updated, merged, err
-				}
-				merged++
+			groupUpdated, groupMerged, err := mergeKnownVocabularyGroup(ctx, tx, owner, target, group)
+			if err != nil {
+				return updated, merged, err
 			}
-			if winner.lemma != target {
-				if _, err = tx.Exec(ctx, `UPDATE known_vocabulary SET canonical_lemma=$3 WHERE owner_id=$1 AND id=$2`, owner, winner.id, target); err != nil {
-					return updated, merged, err
-				}
-				updated++
-			}
+			updated += groupUpdated
+			merged += groupMerged
 		}
 	}
 	return updated, merged, nil
+}
+
+// knownVocabularyGroup selects the historical facts that canonicalize to target
+// at upos. distinctUPOS only yields upos with a match, so the result is never
+// empty.
+func knownVocabularyGroup(rows []knownVocabularyRow, target, upos string, profile canonicalization.Profile) []knownVocabularyRow {
+	var group []knownVocabularyRow
+	for _, row := range rows {
+		if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
+			group = append(group, row)
+		}
+	}
+	return group
+}
+
+// mergeKnownVocabularyGroup folds one identity group of known vocabulary facts
+// onto its canonical lemma. The earliest created row wins, ties broken by id;
+// the other rows are merged away and the winner is retargeted when its lemma is
+// not already canonical.
+func mergeKnownVocabularyGroup(ctx context.Context, tx pgx.Tx, owner, target string, group []knownVocabularyRow) (int, int, error) {
+	winner := earliestKnownVocabulary(group)
+	var merged int
+	for _, row := range group[1:] {
+		if _, err := tx.Exec(ctx, `DELETE FROM known_vocabulary WHERE owner_id=$1 AND id=$2`, owner, row.id); err != nil {
+			return 0, merged, err
+		}
+		merged++
+	}
+	if winner.lemma != target {
+		if _, err := tx.Exec(ctx, `UPDATE known_vocabulary SET canonical_lemma=$3 WHERE owner_id=$1 AND id=$2`, owner, winner.id, target); err != nil {
+			return 0, merged, err
+		}
+		return 1, merged, nil
+	}
+	return 0, merged, nil
+}
+
+// earliestKnownVocabulary sorts group by creation time, ties broken by id, and
+// returns its winner.
+func earliestKnownVocabulary(group []knownVocabularyRow) knownVocabularyRow {
+	sort.Slice(group, func(i, j int) bool {
+		if !group[i].createdAt.Equal(group[j].createdAt) {
+			return group[i].createdAt.Before(group[j].createdAt)
+		}
+		return group[i].id < group[j].id
+	})
+	return group[0]
 }
 
 func queryKnownVocabulary(ctx context.Context, tx pgx.Tx, owner string) ([]knownVocabularyRow, error) {
@@ -236,41 +265,70 @@ func backfillVocabularyStates(ctx context.Context, tx pgx.Tx, owner string, prof
 		return 0, 0, err
 	}
 	affected := germanAffected(rows, func(row vocabularyStateRow) string { return row.lemma }, profile)
-	priority := map[string]int{"candidate": 1, "ignored": 2, "accepted": 3, "generated": 4, "known": 5}
 	var updated, merged int
 	for target := range affected {
 		for _, upos := range distinctStateUPOS(rows, target, profile) {
-			var group []vocabularyStateRow
-			for _, row := range rows {
-				if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
-					group = append(group, row)
-				}
+			group := vocabularyStateGroup(rows, target, upos, profile)
+			groupUpdated, groupMerged, err := mergeVocabularyStateGroup(ctx, tx, owner, target, group)
+			if err != nil {
+				return updated, merged, err
 			}
-			sort.Slice(group, func(i, j int) bool {
-				if priority[group[i].state] != priority[group[j].state] {
-					return priority[group[i].state] > priority[group[j].state]
-				}
-				if !group[i].updatedAt.Equal(group[j].updatedAt) {
-					return group[i].updatedAt.After(group[j].updatedAt)
-				}
-				return group[i].id < group[j].id
-			})
-			winner := group[0]
-			for _, row := range group[1:] {
-				if _, err = tx.Exec(ctx, `DELETE FROM vocabulary_states WHERE owner_id=$1 AND id=$2`, owner, row.id); err != nil {
-					return updated, merged, err
-				}
-				merged++
-			}
-			if winner.lemma != target {
-				if _, err = tx.Exec(ctx, `UPDATE vocabulary_states SET canonical_lemma=$3, state=$4, updated_at=$5 WHERE owner_id=$1 AND id=$2`, owner, winner.id, target, winner.state, winner.updatedAt); err != nil {
-					return updated, merged, err
-				}
-				updated++
-			}
+			updated += groupUpdated
+			merged += groupMerged
 		}
 	}
 	return updated, merged, nil
+}
+
+// vocabularyStateGroup selects the historical states that canonicalize to
+// target at upos. distinctStateUPOS only yields upos with a match, so the
+// result is never empty.
+func vocabularyStateGroup(rows []vocabularyStateRow, target, upos string, profile canonicalization.Profile) []vocabularyStateRow {
+	var group []vocabularyStateRow
+	for _, row := range rows {
+		if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
+			group = append(group, row)
+		}
+	}
+	return group
+}
+
+// mergeVocabularyStateGroup folds one identity group of vocabulary states onto
+// its canonical lemma. The highest-precedence state wins (known over candidate),
+// ties broken by most recent update and then id; the other rows are merged away
+// and the winner is retargeted when its lemma is not already canonical.
+func mergeVocabularyStateGroup(ctx context.Context, tx pgx.Tx, owner, target string, group []vocabularyStateRow) (int, int, error) {
+	winner := preferredVocabularyState(group)
+	var merged int
+	for _, row := range group[1:] {
+		if _, err := tx.Exec(ctx, `DELETE FROM vocabulary_states WHERE owner_id=$1 AND id=$2`, owner, row.id); err != nil {
+			return 0, merged, err
+		}
+		merged++
+	}
+	if winner.lemma != target {
+		if _, err := tx.Exec(ctx, `UPDATE vocabulary_states SET canonical_lemma=$3, state=$4, updated_at=$5 WHERE owner_id=$1 AND id=$2`, owner, winner.id, target, winner.state, winner.updatedAt); err != nil {
+			return 0, merged, err
+		}
+		return 1, merged, nil
+	}
+	return 0, merged, nil
+}
+
+// preferredVocabularyState sorts group by state precedence, then most recent
+// update, ties broken by id, and returns its winner.
+func preferredVocabularyState(group []vocabularyStateRow) vocabularyStateRow {
+	priority := map[string]int{"candidate": 1, "ignored": 2, "accepted": 3, "generated": 4, "known": 5}
+	sort.Slice(group, func(i, j int) bool {
+		if priority[group[i].state] != priority[group[j].state] {
+			return priority[group[i].state] > priority[group[j].state]
+		}
+		if !group[i].updatedAt.Equal(group[j].updatedAt) {
+			return group[i].updatedAt.After(group[j].updatedAt)
+		}
+		return group[i].id < group[j].id
+	})
+	return group[0]
 }
 
 func queryVocabularyStates(ctx context.Context, tx pgx.Tx, owner string) ([]vocabularyStateRow, error) {
@@ -539,36 +597,59 @@ func backfillSelectionCandidates(ctx context.Context, tx pgx.Tx, owner string, p
 	affected := germanAffected(rows, func(row selectionCandidateRow) string { return row.lemma }, profile)
 	var updated, merged int
 	for target := range affected {
-		uposSet := map[string]bool{}
-		for _, row := range rows {
-			if row.lemma == target || profile.Canonical(row.lemma) == target {
-				uposSet[row.upos] = true
-			}
-		}
-		for upos := range uposSet {
-			forCorpus := map[string][]selectionCandidateRow{}
-			for _, row := range rows {
-				if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
-					forCorpus[row.corpusID] = append(forCorpus[row.corpusID], row)
-				}
-			}
-			for corpusID, group := range forCorpus {
-				mergedRow, err := mergeSelectionCandidates(group)
+		for upos := range selectionCandidateUPOS(rows, target, profile) {
+			for corpusID, group := range selectionCandidateGroups(rows, target, upos, profile) {
+				groupUpdated, groupMerged, err := mergeSelectionCandidateGroup(ctx, tx, owner, target, upos, corpusID, group)
 				if err != nil {
-					return updated, merged, fmt.Errorf("merge selection candidate %s/%s: %w", target, upos, err)
-				}
-				if _, err = tx.Exec(ctx, `DELETE FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2 AND language='de' AND canonical_lemma=ANY($3::text[]) AND upos=$4`, owner, corpusID, candidateLemmas(group), upos); err != nil {
 					return updated, merged, err
 				}
-				if _, err = tx.Exec(ctx, `INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance, selected_at) VALUES($1,$2,'de',$3,$4,$5,$6,$7,$8,$9)`, owner, corpusID, target, upos, mergedRow.occurrenceCount, mergedRow.observedForms, mergedRow.sentenceReferences, mergedRow.provenance, mergedRow.selectedAt); err != nil {
-					return updated, merged, err
-				}
-				updated++
-				merged += len(group) - 1
+				updated += groupUpdated
+				merged += groupMerged
 			}
 		}
 	}
 	return updated, merged, nil
+}
+
+// selectionCandidateUPOS collects the upos that carry a fact canonicalizing to
+// target.
+func selectionCandidateUPOS(rows []selectionCandidateRow, target string, profile canonicalization.Profile) map[string]bool {
+	uposSet := map[string]bool{}
+	for _, row := range rows {
+		if row.lemma == target || profile.Canonical(row.lemma) == target {
+			uposSet[row.upos] = true
+		}
+	}
+	return uposSet
+}
+
+// selectionCandidateGroups collects the facts that canonicalize to target at
+// upos, keyed by corpus: each corpus owns an independent conflict.
+func selectionCandidateGroups(rows []selectionCandidateRow, target, upos string, profile canonicalization.Profile) map[string][]selectionCandidateRow {
+	forCorpus := map[string][]selectionCandidateRow{}
+	for _, row := range rows {
+		if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
+			forCorpus[row.corpusID] = append(forCorpus[row.corpusID], row)
+		}
+	}
+	return forCorpus
+}
+
+// mergeSelectionCandidateGroup folds one corpus's candidate facts for one
+// identity group onto its canonical lemma. It reports one updated identity and
+// the number of rows the merge eliminated.
+func mergeSelectionCandidateGroup(ctx context.Context, tx pgx.Tx, owner, target, upos, corpusID string, group []selectionCandidateRow) (int, int, error) {
+	mergedRow, err := mergeSelectionCandidates(group)
+	if err != nil {
+		return 0, 0, fmt.Errorf("merge selection candidate %s/%s: %w", target, upos, err)
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2 AND language='de' AND canonical_lemma=ANY($3::text[]) AND upos=$4`, owner, corpusID, candidateLemmas(group), upos); err != nil {
+		return 0, 0, err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance, selected_at) VALUES($1,$2,'de',$3,$4,$5,$6,$7,$8,$9)`, owner, corpusID, target, upos, mergedRow.occurrenceCount, mergedRow.observedForms, mergedRow.sentenceReferences, mergedRow.provenance, mergedRow.selectedAt); err != nil {
+		return 0, 0, err
+	}
+	return 1, len(group) - 1, nil
 }
 
 func querySelectionCandidates(ctx context.Context, tx pgx.Tx, owner string) ([]selectionCandidateRow, error) {
