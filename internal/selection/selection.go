@@ -118,8 +118,7 @@ func validateProjectInput(corpus analyzer.Result, cfg SelectionConfig) error {
 func indexOccurrenceDecisions(corpus analyzer.Result, decisions []OccurrenceDecision) (map[OccurrenceIdentity]OccurrenceDecision, error) {
 	byOccurrence := make(map[OccurrenceIdentity]OccurrenceDecision, len(decisions))
 	for _, decision := range decisions {
-		lemmaProvided := strings.TrimSpace(decision.Lemma) != ""
-		if decision.Occurrence.SourceDocumentID == "" || decision.Occurrence.EndOffset < decision.Occurrence.StartOffset || (decision.Excluded && lemmaProvided) || (!decision.Excluded && !lemmaProvided) {
+		if !validOccurrenceDecision(decision) {
 			return nil, ErrInvalidDecision
 		}
 		if _, exists := byOccurrence[decision.Occurrence]; exists {
@@ -130,6 +129,25 @@ func indexOccurrenceDecisions(corpus analyzer.Result, decisions []OccurrenceDeci
 	if len(byOccurrence) == 0 {
 		return byOccurrence, nil
 	}
+	if err := requireUniqueOccurrences(corpus, byOccurrence); err != nil {
+		return nil, err
+	}
+	return byOccurrence, nil
+}
+
+// validOccurrenceDecision reports whether a decision addresses an occurrence
+// with a non-inverted span and carries exactly one action: an exclusion or a
+// replacement lemma, never both and never neither.
+func validOccurrenceDecision(decision OccurrenceDecision) bool {
+	if decision.Occurrence.SourceDocumentID == "" || decision.Occurrence.EndOffset < decision.Occurrence.StartOffset {
+		return false
+	}
+	return decision.Excluded != (strings.TrimSpace(decision.Lemma) != "")
+}
+
+// requireUniqueOccurrences verifies that every indexed occurrence matches
+// exactly one analyzed token, so no decision applies to an ambiguous span.
+func requireUniqueOccurrences(corpus analyzer.Result, byOccurrence map[OccurrenceIdentity]OccurrenceDecision) error {
 	occurrenceCounts := make(map[OccurrenceIdentity]int, len(byOccurrence))
 	for _, sentence := range corpus.Sentences {
 		for _, token := range sentence.Tokens {
@@ -141,10 +159,10 @@ func indexOccurrenceDecisions(corpus analyzer.Result, decisions []OccurrenceDeci
 	}
 	for identity := range byOccurrence {
 		if occurrenceCounts[identity] != 1 {
-			return nil, ErrInvalidDecision
+			return ErrInvalidDecision
 		}
 	}
-	return byOccurrence, nil
+	return nil
 }
 
 // sortedIdentities orders aggregate identities by lemma then part of speech,
@@ -279,41 +297,60 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 		return nil, err
 	}
 	out := make([]Candidate, 0)
-	for _, c := range projected {
-		id := c.Identity
-		if c.OccurrenceCount < cfg.MinOccurrences {
-			continue
-		}
-		known, err := s.store.IsKnownVocabularyIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
+	for _, candidate := range projected {
+		kept, err := s.selectCandidate(ctx, owner, cfg, candidate)
 		if err != nil {
-			return nil, fmt.Errorf("get known vocabulary: %w", err)
-		}
-		reserved, err := s.store.IsReservedVocabulary(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
-		if err != nil {
-			return nil, fmt.Errorf("get reserved vocabulary: %w", err)
-		}
-		if !allowsIdentity(c.OccurrenceCount, cfg.MinOccurrences, known, reserved) {
-			continue
-		}
-		formsJSON, err := json.Marshal(c.ObservedForms)
-		if err != nil {
-			return nil, fmt.Errorf("encode observed forms: %w", err)
-		}
-		refsJSON, err := json.Marshal(c.SentenceReferences)
-		if err != nil {
-			return nil, fmt.Errorf("encode sentence references: %w", err)
-		}
-		provenanceJSON, err := json.Marshal(c.Provenance)
-		if err != nil {
-			return nil, fmt.Errorf("encode candidate provenance: %w", err)
-		}
-		kept, err := s.store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: cfg.CorpusID, Language: id.Language, CanonicalLemma: id.CanonicalLemma, UPOS: id.UPOS, OccurrenceCount: c.OccurrenceCount, ObservedForms: formsJSON, SentenceReferences: refsJSON, Provenance: provenanceJSON})
-		if err != nil {
-			return nil, fmt.Errorf("persist candidate: %w", err)
+			return nil, err
 		}
 		if kept {
-			out = append(out, c)
+			out = append(out, candidate)
 		}
 	}
 	return out, nil
+}
+
+// selectCandidate applies owner state to one projected candidate and persists
+// it, reporting whether the store kept the row.
+func (s *Service) selectCandidate(ctx context.Context, owner string, cfg SelectionConfig, candidate Candidate) (bool, error) {
+	id := candidate.Identity
+	if candidate.OccurrenceCount < cfg.MinOccurrences {
+		return false, nil
+	}
+	known, err := s.store.IsKnownVocabularyIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
+	if err != nil {
+		return false, fmt.Errorf("get known vocabulary: %w", err)
+	}
+	reserved, err := s.store.IsReservedVocabulary(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
+	if err != nil {
+		return false, fmt.Errorf("get reserved vocabulary: %w", err)
+	}
+	if !allowsIdentity(candidate.OccurrenceCount, cfg.MinOccurrences, known, reserved) {
+		return false, nil
+	}
+	formsJSON, refsJSON, provenanceJSON, err := marshalCandidate(candidate)
+	if err != nil {
+		return false, err
+	}
+	kept, err := s.store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: cfg.CorpusID, Language: id.Language, CanonicalLemma: id.CanonicalLemma, UPOS: id.UPOS, OccurrenceCount: candidate.OccurrenceCount, ObservedForms: formsJSON, SentenceReferences: refsJSON, Provenance: provenanceJSON})
+	if err != nil {
+		return false, fmt.Errorf("persist candidate: %w", err)
+	}
+	return kept, nil
+}
+
+// marshalCandidate encodes the JSON columns of one candidate row.
+func marshalCandidate(candidate Candidate) ([]byte, []byte, []byte, error) {
+	formsJSON, err := json.Marshal(candidate.ObservedForms)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("encode observed forms: %w", err)
+	}
+	refsJSON, err := json.Marshal(candidate.SentenceReferences)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("encode sentence references: %w", err)
+	}
+	provenanceJSON, err := json.Marshal(candidate.Provenance)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("encode candidate provenance: %w", err)
+	}
+	return formsJSON, refsJSON, provenanceJSON, nil
 }
