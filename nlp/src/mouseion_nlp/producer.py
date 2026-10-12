@@ -246,8 +246,8 @@ class Producer:
         words = []
         for token in sentence.tokens:
             for word in token.words:
-                start = getattr(word, "start_char", None)
-                end = getattr(word, "end_char", None)
+                start: int | None = getattr(word, "start_char", None)
+                end: int | None = getattr(word, "end_char", None)
                 if start is None:
                     start = getattr(token, "start_char", 0)
                 if end is None:
@@ -270,6 +270,7 @@ class Producer:
         tokens = []
         for ordinal, (word, _token, start, end, surface, lemma, primary_lemma) in enumerate(words):
             head_id = getattr(word, "head", 0)
+            head: int | None
             if head_id == 0:
                 dependency = "root"
                 head = ordinal

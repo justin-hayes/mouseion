@@ -20,6 +20,7 @@ dev = [
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "grpcio-tools==1.71.2",
+    "mypy==2.4.0",
     "ruff==0.16.10",
     "setuptools==84.0.0",
 ]
@@ -80,3 +81,27 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 [tool.ruff.lint.per-file-ignores]
 # Test fakes match production signatures without using every argument.
 "tests/**" = ["ARG"]
+
+[tool.mypy]
+python_version = "3.13"
+# The service runs from PYTHONPATH (nlp/src, gen/python) and is never installed.
+# Put the committed generated protobuf package on the type search path so
+# `from mouseion.v1 import ...` resolves to its .pyi stubs; the path is relative
+# to the repository root, where `make lint` runs mypy.
+mypy_path = "gen/python"
+
+# The runtime dependencies below ship no py.typed marker. Stanza has no stub
+# package; for grpc and google.protobuf we use these per-module overrides rather
+# than the types-* stub packages, whose versions track the runtime majors. This
+# is not a global ignore_missing_imports: the generated protobuf .pyi stubs
+# still type the request and response messages.
+[[tool.mypy.overrides]]
+module = [
+    "grpc",
+    "grpc.*",  # gen/python's *_pb2_grpc.py imports grpc._utilities
+    "google.protobuf",
+    "google.protobuf.*",  # the generated .pyi stubs import these
+    "stanza",
+    "stanza.*",
+]
+ignore_missing_imports = true

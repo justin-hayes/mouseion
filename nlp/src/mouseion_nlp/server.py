@@ -138,7 +138,7 @@ def warm_configured_languages(servicer: AnalyzerServicer) -> None:
 
 def serve(address: str | None = None) -> NoReturn:
     """Serve until terminated, using MOUSEION_NLP_ADDR when set."""
-    bind_address = address or os.getenv("MOUSEION_NLP_ADDR", "[::]:50051")
+    bind_address = address or os.environ.get("MOUSEION_NLP_ADDR", "[::]:50051")
     server = create_server()
     # Pre-warm the Stanza pipeline (downloads the model on first run and loads it
     # into memory) BEFORE the server accepts analysis requests. Otherwise the

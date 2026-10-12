@@ -23,7 +23,7 @@ class LanguageModelConfig:
 
     def marker_payload(self) -> dict[str, Any]:
         """Return the stable, JSON-compatible marker representation."""
-        package: str | dict[str, str] | None = self.package
+        package: Package | None = self.package
         if isinstance(package, Mapping):
             package = dict(sorted(package.items()))
         return {
