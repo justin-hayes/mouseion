@@ -354,13 +354,31 @@ func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.
 	_, err := opdsClient.ListPage(context.Background(), catalog.URL+"/same-redirect")
 	require.NoError(t, err)
 	assert.True(t, customRedirectCalled, "custom CheckRedirect was not called")
-	_, err = opdsClient.ListPage(context.Background(), catalog.URL+"/external-redirect")
-	assert.Error(t, err, "external redirect was followed") //nolint:testifylint // Redirect protections are independent requests collected in one test.
-	_, err = opdsClient.Download(context.Background(), catalog.URL+"/download-redirect")
-	assert.Error(t, err, "external download redirect was followed") //nolint:testifylint // Redirect protections are independent requests collected in one test.
-	_, _, err = opdsClient.DownloadImage(context.Background(), catalog.URL+"/download-redirect")
-	assert.Error(t, err, "external image redirect was followed") //nolint:testifylint // Redirect protections are independent requests collected in one test.
-	assert.False(t, externalHit, "external redirect target was fetched")
+	externalRedirects := []struct {
+		name  string
+		fetch func() error
+	}{
+		{"external redirect", func() error {
+			_, err := opdsClient.ListPage(context.Background(), catalog.URL+"/external-redirect")
+			return err
+		}},
+		{"external download redirect", func() error {
+			_, err := opdsClient.Download(context.Background(), catalog.URL+"/download-redirect")
+			return err
+		}},
+		{"external image redirect", func() error {
+			_, _, err := opdsClient.DownloadImage(context.Background(), catalog.URL+"/download-redirect")
+			return err
+		}},
+	}
+	for _, tc := range externalRedirects {
+		t.Run(tc.name+" is rejected", func(t *testing.T) {
+			require.Error(t, tc.fetch(), "external redirect was followed")
+		})
+	}
+	t.Run("external target is not fetched", func(t *testing.T) {
+		require.False(t, externalHit, "external redirect target was fetched")
+	})
 }
 
 func TestHTTPSRedirectCannotDowngradeCatalogRequest(t *testing.T) {
@@ -376,9 +394,13 @@ func TestHTTPSRedirectCannotDowngradeCatalogRequest(t *testing.T) {
 		}, nil
 	})}, Auth{Username: "reader", Password: "secret", Origin: "https://catalog.example"})
 	_, err := client.ListPage(context.Background(), "https://catalog.example/redirect")
-	assert.Error(t, err, "HTTPS downgrade was followed") //nolint:testifylint // The request-count assertion independently verifies no downgrade was followed.
-	require.Len(t, requests, 1)
-	assert.Equal(t, "https://catalog.example/redirect", requests[0])
+	t.Run("downgrade is rejected", func(t *testing.T) {
+		require.Error(t, err, "HTTPS downgrade was followed")
+	})
+	t.Run("only the original request is sent", func(t *testing.T) {
+		require.Len(t, requests, 1)
+		require.Equal(t, "https://catalog.example/redirect", requests[0])
+	})
 }
 
 func TestDiscoveredCatalogTargetsAreValidatedBeforeFetching(t *testing.T) {
@@ -409,17 +431,42 @@ func TestDiscoveredCatalogTargetsAreValidatedBeforeFetching(t *testing.T) {
 	defer catalog.Close()
 
 	client := NewClient(catalog.Client(), Auth{})
-	_, err := client.List(context.Background(), catalog.URL+"/next-root")
-	assert.Error(t, err, "external rel-next target was followed") //nolint:testifylint // Each discovered-target validation is an independent request case.
-	_, err = NewClient(catalog.Client(), Auth{Origin: catalog.URL}).ListPage(context.Background(), external.URL+"/direct-page")
-	assert.Error(t, err, "external direct pagination target was fetched") //nolint:testifylint // Each discovered-target validation is an independent request case.
-	_, err = client.Search(context.Background(), catalog.URL+"/search-root", "book")
-	assert.Error(t, err, "external rel-search target was fetched") //nolint:testifylint // Each discovered-target validation is an independent request case.
-	_, err = client.Search(context.Background(), catalog.URL+"/description-root", "book")
-	assert.Error(t, err, "external OpenSearch description was fetched") //nolint:testifylint // Each discovered-target validation is an independent request case.
-	_, err = client.Search(context.Background(), catalog.URL+"/expanded-root", "book")
-	assert.Error(t, err, "external expanded search template was fetched") //nolint:testifylint // Each discovered-target validation is an independent request case.
-	assert.False(t, externalHit, "external discovered target was reached")
+	directClient := NewClient(catalog.Client(), Auth{Origin: catalog.URL})
+	discoveredTargets := []struct {
+		name  string
+		fetch func() error
+		// failure is the message shown when the external target is reached.
+		failure string
+	}{
+		{"rel-next target", func() error {
+			_, err := client.List(context.Background(), catalog.URL+"/next-root")
+			return err
+		}, "external rel-next target was followed"},
+		{"direct pagination target", func() error {
+			_, err := directClient.ListPage(context.Background(), external.URL+"/direct-page")
+			return err
+		}, "external direct pagination target was fetched"},
+		{"rel-search target", func() error {
+			_, err := client.Search(context.Background(), catalog.URL+"/search-root", "book")
+			return err
+		}, "external rel-search target was fetched"},
+		{"OpenSearch description", func() error {
+			_, err := client.Search(context.Background(), catalog.URL+"/description-root", "book")
+			return err
+		}, "external OpenSearch description was fetched"},
+		{"expanded search template", func() error {
+			_, err := client.Search(context.Background(), catalog.URL+"/expanded-root", "book")
+			return err
+		}, "external expanded search template was fetched"},
+	}
+	for _, tc := range discoveredTargets {
+		t.Run(tc.name+" is rejected", func(t *testing.T) {
+			require.Error(t, tc.fetch(), tc.failure)
+		})
+	}
+	t.Run("external target is not reached", func(t *testing.T) {
+		require.False(t, externalHit, "external discovered target was reached")
+	})
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
