@@ -108,15 +108,13 @@ linters:
     staticcheck:
       checks:
         - all
+        # Package comments add little for internal packages.
         - -ST1000
-        - -ST1003
-        - -ST1016
-        - -ST1020
-        - -ST1021
-        - -ST1022
-        # ST1005 is excluded deliberately: error values here double as user-facing
-        # copy (for example the lemma review errors the webapp renders), so their
-        # sentence case and trailing punctuation are kept as written.
+        # ST1005 (lowercase, unpunctuated error strings) is excluded for two
+        # reasons: many messages start with a proper noun ("River did not
+        # return ...", "German vocabulary backfill ..."), which the check cannot
+        # tell apart from sentence case, and the lemma review errors double as
+        # learner-facing copy that the webapp renders as written.
         - -ST1005
     testifylint:
       # Every checker is on (#1814), so assertions follow one style and failures

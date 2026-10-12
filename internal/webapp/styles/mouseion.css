@@ -1028,10 +1028,6 @@ progress {
   margin-bottom: var(--mouseion-space-7);
 }
 
-#known-vocabulary-results {
-  min-width: 0;
-}
-
 .next-action {
   max-width: 52rem;
   margin-bottom: var(--mouseion-space-7);

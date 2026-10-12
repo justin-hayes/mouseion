@@ -359,8 +359,9 @@ func (s *Store) GetSourceMaterial(_ context.Context, o, id string) (domain.Sourc
 	return domain.SourceMaterial{}, errNotFound
 }
 
-// My Books persistence is intentionally small in the browser fixture; these
-// methods cover the learner-facing metadata controls without a database.
+// ListMyBooks returns no Books. My Books persistence is intentionally small in
+// the browser fixture; these methods cover the learner-facing metadata controls
+// without a database.
 func (s *Store) ListMyBooks(context.Context, string) ([]domain.Book, error) { return nil, nil }
 
 func (s *Store) GetBookCoverResource(_ context.Context, owner, bookID string) (domain.BookCoverResource, error) {
