@@ -290,6 +290,31 @@ func TestLanguageIDPrefersExactLanguageOverBaseLanguage(t *testing.T) {
 
 	assert.Equal(t, "8", LanguageID(feed, "de-DE", "German (Germany)"))
 }
+
+// TestLanguageIDsDeriveIdentifiersFromLanguageLinks pins each way a language
+// navigation entry can advertise its identifier, through the public language
+// seam, so splitting identification into private steps cannot change it.
+func TestLanguageIDsDeriveIdentifiersFromLanguageLinks(t *testing.T) {
+	acquired := Link{Rel: AcquisitionRel, Type: EPUBMediaType, Href: "/one.epub"}
+	tests := []struct {
+		name  string
+		entry Entry
+		want  []string
+	}{
+		{name: "subsection link with a trailing slash", entry: Entry{Links: []Link{{Rel: "subsection", Href: "/language/7/"}}}, want: []string{"7"}},
+		{name: "alternate link whose whole path is numeric", entry: Entry{Links: []Link{{Rel: "alternate", Href: "/8"}}}, want: []string{"8"}},
+		{name: "atom link without an EPUB acquisition", entry: Entry{Links: []Link{{Type: "application/atom+xml", Href: "/language/9"}}}, want: []string{"9"}},
+		{name: "atom link alongside an EPUB acquisition", entry: Entry{Links: []Link{{Type: "application/atom+xml", Href: "/language/10"}, acquired}}, want: []string{}},
+		{name: "unparseable link target", entry: Entry{Links: []Link{{Rel: "subsection", Href: "%"}}}, want: []string{}},
+		{name: "non-numeric language path", entry: Entry{Links: []Link{{Rel: "subsection", Href: "/language/german"}}}, want: []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, LanguageIDs(Feed{Entries: []Entry{tt.entry}}))
+		})
+	}
+}
+
 func TestCredentialsAreScopedToCatalogOrigin(t *testing.T) {
 	receivedCredentials := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

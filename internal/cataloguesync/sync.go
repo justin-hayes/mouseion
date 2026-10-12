@@ -233,23 +233,18 @@ func (s *Service) findCatalogueEntryAliasConnection(ctx context.Context, alias d
 	sort.SliceStable(connections, func(i, j int) bool {
 		return connections[i].ID < connections[j].ID
 	})
-	matches := make(map[string]struct{})
+	var matches []string
 	for _, connection := range connections {
 		languages, err := s.reader.Languages(ctx, alias.OwnerID, connection.ID)
 		if err != nil {
 			return "", fmt.Errorf("read languages for alias %s from connection %s: %w", alias.ID, connection.ID, err)
 		}
-		for _, languageID := range opds.LanguageIDs(languages) {
-			feed, err := s.reader.BrowseLanguageUnfiltered(ctx, alias.OwnerID, connection.ID, languageID)
-			if err != nil {
-				return "", fmt.Errorf("read feed %s for alias %s from connection %s: %w", languageID, alias.ID, connection.ID, err)
-			}
-			for _, entry := range feed.Entries {
-				if strings.TrimSpace(entry.ID) == strings.TrimSpace(alias.Value) {
-					matches[connection.ID] = struct{}{}
-					break
-				}
-			}
+		advertises, err := s.connectionAdvertisesAlias(ctx, alias, connection, languages)
+		if err != nil {
+			return "", err
+		}
+		if advertises {
+			matches = append(matches, connection.ID)
 		}
 	}
 	if len(matches) == 0 {
@@ -258,10 +253,26 @@ func (s *Service) findCatalogueEntryAliasConnection(ctx context.Context, alias d
 	if len(matches) != 1 {
 		return "", fmt.Errorf("catalogue alias %s value %q is present in %d owner connections", alias.ID, alias.Value, len(matches))
 	}
-	for connectionID := range matches {
-		return connectionID, nil
+	return matches[0], nil
+}
+
+// connectionAdvertisesAlias walks every language feed of one connection for
+// the alias's source identifier.
+func (s *Service) connectionAdvertisesAlias(ctx context.Context, alias domain.BookAlias, connection domain.OpdsConnection, languages opds.Feed) (bool, error) {
+	found := false
+	for _, languageID := range opds.LanguageIDs(languages) {
+		feed, err := s.reader.BrowseLanguageUnfiltered(ctx, alias.OwnerID, connection.ID, languageID)
+		if err != nil {
+			return false, fmt.Errorf("read feed %s for alias %s from connection %s: %w", languageID, alias.ID, connection.ID, err)
+		}
+		for _, entry := range feed.Entries {
+			if strings.TrimSpace(entry.ID) == strings.TrimSpace(alias.Value) {
+				found = true
+				break
+			}
+		}
 	}
-	return "", nil
+	return found, nil
 }
 
 // PeriodicJobID is stable across process restarts and unique per owner and
@@ -559,58 +570,89 @@ func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID strin
 	if s == nil || s.catalogue == nil || s.connections == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
 		return AcquisitionTarget{}, ErrNotFound
 	}
-	book, err := s.catalogue.GetBook(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return AcquisitionTarget{}, ErrNotFound
-	}
+	book, alias, err := s.loadAcquisitionIdentity(ctx, owner, bookID)
 	if err != nil {
 		return AcquisitionTarget{}, err
+	}
+	connectionID, entry, href, err := s.resolveAcquisitionEntry(ctx, owner, book, alias)
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	return AcquisitionTarget{ConnectionID: connectionID, Language: book.LanguageTag, Entry: entry, Href: href}, nil
+}
+
+// loadAcquisitionIdentity loads the owner-scoped Book and its catalog-entry
+// alias, rejecting a missing or blank source identity.
+func (s *Service) loadAcquisitionIdentity(ctx context.Context, owner, bookID string) (domain.Book, domain.BookAlias, error) {
+	book, err := s.catalogue.GetBook(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return domain.Book{}, domain.BookAlias{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.Book{}, domain.BookAlias{}, err
 	}
 	alias, err := s.catalogue.GetBookCatalogEntryAlias(ctx, owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
-		return AcquisitionTarget{}, ErrNotFound
+		return domain.Book{}, domain.BookAlias{}, ErrNotFound
 	}
 	if err != nil {
-		return AcquisitionTarget{}, err
+		return domain.Book{}, domain.BookAlias{}, err
 	}
 	if strings.TrimSpace(alias.Value) == "" {
-		return AcquisitionTarget{}, ErrNotFound
+		return domain.Book{}, domain.BookAlias{}, ErrNotFound
 	}
+	return book, alias, nil
+}
+
+// resolveAcquisitionEntry finds the current feed entry the alias identifies,
+// through the alias connection's feed for the Book's language. An entry whose
+// identifier matches but that advertises no usable EPUB link is skipped, so a
+// later duplicate identity can still resolve.
+func (s *Service) resolveAcquisitionEntry(ctx context.Context, owner string, book domain.Book, alias domain.BookAlias) (string, opds.Entry, string, error) {
 	connection, err := s.connections.GetOpdsConnection(ctx, owner, alias.ConnectionID)
 	if errors.Is(err, persistence.ErrNotFound) {
-		return AcquisitionTarget{}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
+		return "", opds.Entry{}, "", fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
 	}
 	if err != nil {
-		return AcquisitionTarget{}, err
+		return "", opds.Entry{}, "", err
 	}
 	supported, err := s.catalogue.ListSupportedLanguages(ctx)
 	if err != nil {
-		return AcquisitionTarget{}, err
+		return "", opds.Entry{}, "", err
 	}
 	displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
-	languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
-	if readErr != nil {
-		return AcquisitionTarget{}, ErrNotFound
+	languages, err := s.reader.Languages(ctx, owner, connection.ID)
+	if err != nil {
+		return "", opds.Entry{}, "", ErrNotFound
 	}
 	languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
 	if languageID == "" {
-		return AcquisitionTarget{}, ErrNotFound
+		return "", opds.Entry{}, "", ErrNotFound
 	}
-	feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
-	if readErr != nil {
-		return AcquisitionTarget{}, ErrNotFound
+	feed, err := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
+	if err != nil {
+		return "", opds.Entry{}, "", ErrNotFound
 	}
 	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
 		if strings.TrimSpace(entry.ID) != alias.Value {
 			continue
 		}
-		for _, link := range opds.FindEPUBs(entry) {
-			if strings.TrimSpace(link.Href) != "" {
-				return AcquisitionTarget{ConnectionID: connection.ID, Language: book.LanguageTag, Entry: entry, Href: link.Href}, nil
-			}
+		if href, ok := acquisitionHref(entry); ok {
+			return connection.ID, entry, href, nil
 		}
 	}
-	return AcquisitionTarget{}, ErrNotFound
+	return "", opds.Entry{}, "", ErrNotFound
+}
+
+// acquisitionHref returns the first non-blank EPUB download target advertised
+// by the entry.
+func acquisitionHref(entry opds.Entry) (string, bool) {
+	for _, link := range opds.FindEPUBs(entry) {
+		if strings.TrimSpace(link.Href) != "" {
+			return link.Href, true
+		}
+	}
+	return "", false
 }
 
 // RegisterAll restores all schedules after a process start. It intentionally
@@ -773,30 +815,40 @@ WHERE j.kind=$2 AND j.args->>'owner_id'=$1::text ORDER BY j.created_at DESC,j.id
 	defer rows.Close()
 	var out []Status
 	for rows.Next() {
-		var item Status
-		var riverState, durableState, durableError, connectionID, riverErr string
-		var syncedAt *time.Time
-		if err := rows.Scan(&item.ID, &item.Attempt, &item.CreatedAt, &item.FinalizedAt, &riverState, &connectionID, &item.ConnectionName, &durableState, &durableError, &riverErr, &syncedAt); err != nil {
+		item, err := s.listStatus(ctx, owner, rows)
+		if err != nil {
 			return nil, err
-		}
-		item.OwnerID, item.ConnectionID, item.State = owner, connectionID, riverState
-		durableState = string(s.reconcileDurableStatus(ctx, owner, connectionID, domain.CatalogueSyncState(durableState)))
-		if durableState == string(domain.CatalogueSyncFailed) && durableError == "" {
-			durableError = statusCancelledReason
-		}
-		item.LogicalState, item.Error = logicalState(riverState), firstError(durableError, riverErr)
-		if durableState == string(domain.CatalogueSyncFailed) && durableError != "" {
-			item.LogicalState = "failed"
-		}
-		if item.LogicalState == "completed" {
-			item.Progress = 100
-		}
-		if syncedAt != nil {
-			item.UpdatedAt = *syncedAt
 		}
 		out = append(out, item)
 	}
 	return out, rows.Err()
+}
+
+// listStatus projects one joined River and durable row into the owner-facing
+// status, reconciling a stale durable syncing state before it is returned.
+func (s *Service) listStatus(ctx context.Context, owner string, row pgx.Row) (Status, error) {
+	var item Status
+	var riverState, durableState, durableError, connectionID, riverErr string
+	var syncedAt *time.Time
+	if err := row.Scan(&item.ID, &item.Attempt, &item.CreatedAt, &item.FinalizedAt, &riverState, &connectionID, &item.ConnectionName, &durableState, &durableError, &riverErr, &syncedAt); err != nil {
+		return Status{}, err
+	}
+	item.OwnerID, item.ConnectionID, item.State = owner, connectionID, riverState
+	durableState = string(s.reconcileDurableStatus(ctx, owner, connectionID, domain.CatalogueSyncState(durableState)))
+	if durableState == string(domain.CatalogueSyncFailed) && durableError == "" {
+		durableError = statusCancelledReason
+	}
+	item.LogicalState, item.Error = logicalState(riverState), firstError(durableError, riverErr)
+	if durableState == string(domain.CatalogueSyncFailed) && durableError != "" {
+		item.LogicalState = "failed"
+	}
+	if item.LogicalState == "completed" {
+		item.Progress = 100
+	}
+	if syncedAt != nil {
+		item.UpdatedAt = *syncedAt
+	}
+	return item, nil
 }
 
 func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, error) {
@@ -927,62 +979,109 @@ type coverAdvertisement struct {
 }
 
 func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
-	connection, err := s.connections.GetOpdsConnection(ctx, args.OwnerID, args.ConnectionID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return 0, nil
-	}
+	connection, found, err := s.loadSyncConnection(ctx, args)
 	if err != nil {
-		return 0, errors.New("catalog connection could not be loaded")
+		return 0, err
+	}
+	if !found {
+		return 0, nil
 	}
 	if err := s.statuses.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSyncing}); err != nil {
 		return 0, err
 	}
-	capabilities, err := s.capabilities.GetCapabilities(ctx)
+	scope, err := s.syncLanguageScope(ctx, args, connection)
 	if err != nil {
-		return 0, errors.New("NLP language readiness could not be checked")
+		return 0, err
 	}
-	readyLanguages := analyzer.ReadySupportedLanguages(capabilities)
-	if err = s.catalogue.SyncSupportedLanguages(ctx, readyLanguages); err != nil {
-		return 0, errors.New("NLP language reference could not be updated")
-	}
-	languages, err := s.reader.Languages(ctx, args.OwnerID, args.ConnectionID)
+	upserted, advertisements, err := s.reconcileSyncFeeds(ctx, args, connection, scope)
 	if err != nil {
-		return 0, safeSyncError(err, connection)
-	}
-	scope := eligibleLanguages(languages, capabilities)
-	var firstConflict error
-	upserted := 0
-	var advertisements []coverAdvertisement
-	for _, language := range scope {
-		feed, feedErr := s.reader.BrowseLanguage(ctx, args.OwnerID, args.ConnectionID, language.languageID)
-		if feedErr != nil {
-			return upserted, safeSyncError(feedErr, connection)
-		}
-		entryLanguage := languageTag(language)
-		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
-			if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.Title) == "" {
-				continue
-			}
-			result, reconcileErr := s.catalogue.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entry.Author, entryLanguage)
-			if reconcileErr != nil {
-				if firstConflict == nil {
-					firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", entry.ID, reconcileErr)
-				}
-				continue
-			}
-			if result.Upserted() {
-				upserted++
-			}
-			advertisements = append(advertisements, coverAdvertisement{bookID: result.Book.ID, sourceIdentifier: entry.ID, advertised: opds.FindCoverImage(entry) != nil})
-		}
-	}
-	if firstConflict != nil {
-		return upserted, firstConflict
+		return upserted, err
 	}
 	// Only a complete, successful traversal may change retained cover state:
 	// this is the point at which explicit upstream absence is conclusive.
 	s.applyCoverAdvertisements(ctx, args.OwnerID, args.ConnectionID, advertisements)
 	return upserted, nil
+}
+
+// loadSyncConnection reloads the owner-scoped connection for a job. A
+// connection deleted since the job was scheduled is a no-op, not a failure.
+func (s *Service) loadSyncConnection(ctx context.Context, args SyncArgs) (domain.OpdsConnection, bool, error) {
+	connection, err := s.connections.GetOpdsConnection(ctx, args.OwnerID, args.ConnectionID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return domain.OpdsConnection{}, false, nil
+	}
+	if err != nil {
+		return domain.OpdsConnection{}, false, errors.New("catalog connection could not be loaded")
+	}
+	return connection, true, nil
+}
+
+// syncLanguageScope refreshes the NLP language reference and returns the
+// connection's eligible language feeds for reconciliation.
+func (s *Service) syncLanguageScope(ctx context.Context, args SyncArgs, connection domain.OpdsConnection) ([]languageScope, error) {
+	capabilities, err := s.capabilities.GetCapabilities(ctx)
+	if err != nil {
+		return nil, errors.New("NLP language readiness could not be checked")
+	}
+	readyLanguages := analyzer.ReadySupportedLanguages(capabilities)
+	if err = s.catalogue.SyncSupportedLanguages(ctx, readyLanguages); err != nil {
+		return nil, errors.New("NLP language reference could not be updated")
+	}
+	languages, err := s.reader.Languages(ctx, args.OwnerID, args.ConnectionID)
+	if err != nil {
+		return nil, safeSyncError(err, connection)
+	}
+	return eligibleLanguages(languages, capabilities), nil
+}
+
+// reconcileSyncFeeds walks each eligible language feed, reconciling its EPUB
+// entries. A feed read failure aborts immediately; entry conflicts are
+// collected so the first one is reported after the traversal completes.
+func (s *Service) reconcileSyncFeeds(ctx context.Context, args SyncArgs, connection domain.OpdsConnection, scope []languageScope) (int, []coverAdvertisement, error) {
+	upserted := 0
+	var advertisements []coverAdvertisement
+	var firstConflict error
+	for _, language := range scope {
+		feed, err := s.reader.BrowseLanguage(ctx, args.OwnerID, args.ConnectionID, language.languageID)
+		if err != nil {
+			return upserted, nil, safeSyncError(err, connection)
+		}
+		feedUpserted, feedAdvertisements, conflict := s.reconcileSyncEntries(ctx, args, languageTag(language), feed)
+		upserted += feedUpserted
+		advertisements = append(advertisements, feedAdvertisements...)
+		if conflict != nil && firstConflict == nil {
+			firstConflict = conflict
+		}
+	}
+	if firstConflict != nil {
+		return upserted, nil, firstConflict
+	}
+	return upserted, advertisements, nil
+}
+
+// reconcileSyncEntries reconciles the EPUB entries of one language feed,
+// skipping entries the catalogue did not identify or title.
+func (s *Service) reconcileSyncEntries(ctx context.Context, args SyncArgs, entryLanguage string, feed opds.Feed) (int, []coverAdvertisement, error) {
+	upserted := 0
+	var advertisements []coverAdvertisement
+	var firstConflict error
+	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
+		if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.Title) == "" {
+			continue
+		}
+		result, err := s.catalogue.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entry.Author, entryLanguage)
+		if err != nil {
+			if firstConflict == nil {
+				firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", entry.ID, err)
+			}
+			continue
+		}
+		if result.Upserted() {
+			upserted++
+		}
+		advertisements = append(advertisements, coverAdvertisement{bookID: result.Book.ID, sourceIdentifier: entry.ID, advertised: opds.FindCoverImage(entry) != nil})
+	}
+	return upserted, advertisements, firstConflict
 }
 
 // applyCoverAdvertisements records advertised provenance and schedules
@@ -1049,40 +1148,24 @@ func (w *CoverWorker) Work(ctx context.Context, job *river.Job[CoverArgs]) error
 	if w == nil || w.Connections == nil || w.Catalogue == nil || w.Reader == nil || job == nil {
 		return errors.New("book cover worker is unavailable")
 	}
-	owner, bookID := job.Args.OwnerID, job.Args.BookID
-	connectionID, sourceIdentifier := job.Args.ConnectionID, job.Args.SourceIdentifier
-	if strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" || strings.TrimSpace(connectionID) == "" || strings.TrimSpace(sourceIdentifier) == "" {
+	args := job.Args
+	if !coverArgsComplete(args) {
 		return nil
 	}
-	cover, err := w.Catalogue.GetBookCoverForRetrieval(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return nil
-	}
+	eligible, err := w.coverRetrievalEligible(ctx, args)
 	if err != nil {
 		return err
 	}
-	// A validated image is already selected from another source; a later
-	// completion cannot displace the winner.
-	if cover.State == domain.BookCoverAvailable && (cover.SelectedConnectionID != connectionID || cover.SelectedSourceIdentifier != sourceIdentifier) {
-		return nil
-	}
-	alias, err := w.Catalogue.GetBookCatalogEntryAliasForConnection(ctx, owner, bookID, connectionID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(alias.Value) != strings.TrimSpace(sourceIdentifier) {
+	if !eligible {
 		return nil
 	}
 	service := &Service{connections: w.Connections, catalogue: w.Catalogue, reader: w.Reader, capabilities: w.Capabilities}
-	entry, found, err := service.findEntryForConnection(ctx, owner, connectionID, sourceIdentifier)
+	entry, found, err := service.findEntryForConnection(ctx, args.OwnerID, args.ConnectionID, args.SourceIdentifier)
 	if err != nil {
 		return err
 	}
 	if !found {
-		return w.failCoverRetrieval(ctx, owner, bookID, connectionID, sourceIdentifier, job.Args.AdvertisedAt)
+		return w.failCoverRetrieval(ctx, args)
 	}
 	links := opds.CoverImages(entry)
 	if len(links) == 0 {
@@ -1090,25 +1173,70 @@ func (w *CoverWorker) Work(ctx context.Context, job *river.Job[CoverArgs]) error
 		// explicit absence, so leave retained state untouched.
 		return nil
 	}
-	for _, link := range links {
-		raw, advertisedType, fetchErr := w.Reader.FetchCover(ctx, owner, connectionID, link.Href)
-		if fetchErr != nil {
-			continue
-		}
-		normalized, mediaType, width, height, contentHash, normalizeErr := bookcover.Normalize(raw, link.Type, advertisedType)
-		if normalizeErr != nil {
-			continue
-		}
-		return w.Catalogue.SaveBookCover(ctx, owner, bookID, connectionID, sourceIdentifier, job.Args.AdvertisedAt, mediaType, width, height, contentHash, normalized)
+	normalized, mediaType, width, height, contentHash, ok := w.normalizeCover(ctx, args, links)
+	if !ok {
+		return w.failCoverRetrieval(ctx, args)
 	}
-	return w.failCoverRetrieval(ctx, owner, bookID, connectionID, sourceIdentifier, job.Args.AdvertisedAt)
+	return w.Catalogue.SaveBookCover(ctx, args.OwnerID, args.BookID, args.ConnectionID, args.SourceIdentifier, args.AdvertisedAt, mediaType, width, height, contentHash, normalized)
+}
+
+// coverArgsComplete reports whether a job carries the owner-scoped identity
+// needed to reload mutable catalog state.
+func coverArgsComplete(args CoverArgs) bool {
+	return strings.TrimSpace(args.OwnerID) != "" && strings.TrimSpace(args.BookID) != "" &&
+		strings.TrimSpace(args.ConnectionID) != "" && strings.TrimSpace(args.SourceIdentifier) != ""
+}
+
+// coverRetrievalEligible reloads the cover and alias state and reports whether
+// this job may still attempt retrieval for its source generation.
+func (w *CoverWorker) coverRetrievalEligible(ctx context.Context, args CoverArgs) (bool, error) {
+	cover, err := w.Catalogue.GetBookCoverForRetrieval(ctx, args.OwnerID, args.BookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	// A validated image is already selected from another source; a later
+	// completion cannot displace the winner.
+	if cover.State == domain.BookCoverAvailable && (cover.SelectedConnectionID != args.ConnectionID || cover.SelectedSourceIdentifier != args.SourceIdentifier) {
+		return false, nil
+	}
+	alias, err := w.Catalogue.GetBookCatalogEntryAliasForConnection(ctx, args.OwnerID, args.BookID, args.ConnectionID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(alias.Value) != strings.TrimSpace(args.SourceIdentifier) {
+		return false, nil
+	}
+	return true, nil
+}
+
+// normalizeCover fetches advertised images in preference order and returns the
+// first one that normalises, skipping unreachable or invalid candidates.
+func (w *CoverWorker) normalizeCover(ctx context.Context, args CoverArgs, links []opds.Link) ([]byte, string, int, int, string, bool) {
+	for _, link := range links {
+		raw, advertisedType, err := w.Reader.FetchCover(ctx, args.OwnerID, args.ConnectionID, link.Href)
+		if err != nil {
+			continue
+		}
+		normalized, mediaType, width, height, contentHash, err := bookcover.Normalize(raw, link.Type, advertisedType)
+		if err != nil {
+			continue
+		}
+		return normalized, mediaType, width, height, contentHash, true
+	}
+	return nil, "", 0, 0, "", false
 }
 
 // failCoverRetrieval preserves any retained image, records the failure for
 // operators, and returns an error so River retries with existing diagnostics.
 // It deliberately does not surface upstream URLs or credentials.
-func (w *CoverWorker) failCoverRetrieval(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string, advertisedAt time.Time) error {
-	if err := w.Catalogue.MarkBookCoverUnavailable(context.WithoutCancel(ctx), owner, bookID, connectionID, sourceIdentifier, advertisedAt, "cover retrieval or validation failed"); err != nil {
+func (w *CoverWorker) failCoverRetrieval(ctx context.Context, args CoverArgs) error {
+	if err := w.Catalogue.MarkBookCoverUnavailable(context.WithoutCancel(ctx), args.OwnerID, args.BookID, args.ConnectionID, args.SourceIdentifier, args.AdvertisedAt, "cover retrieval or validation failed"); err != nil {
 		return err
 	}
 	return errors.New("book cover retrieval or validation failed")
