@@ -672,6 +672,67 @@ func lifecycleProjection() cardexport.CandidateProjection {
 	}
 }
 
+// TestPresentationLifecycleOmitsArticleOutsideSupportedNounRules pins the
+// article rules that reject unsupported languages, empty morphology, and an
+// invalid non-singular gender through the public render seam.
+func TestPresentationLifecycleOmitsArticleOutsideSupportedNounRules(t *testing.T) {
+	for _, test := range []struct {
+		name, language, lemma, target, sentence, morphology string
+	}{
+		{name: "unsupported language", language: "fr", lemma: "maison", target: "maison", sentence: "La maison est grande.", morphology: `{"Gender":"Fem","Number":"Sing"}`},
+		{name: "empty variant list", language: "de", lemma: "haus", target: "Haus", sentence: "Das Haus steht dort.", morphology: `[]`},
+		{name: "invalid non-singular gender", language: "de", lemma: "gauner", target: "Gauner", sentence: "Viele Gauner wurden verhaftet.", morphology: `[{"Gender":"Masc","Number":"Plur"},{"Gender":"Common","Number":"Plur"}]`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := cardexport.ManifestSnapshot{
+				SchemaVersion: cardexport.ManifestSchemaVersion, Owner: "owner-1", DeckName: "Book", Filename: cardexport.DownloadFilename("Book"),
+				Items: []cardexport.ManifestItem{{
+					Ordinal: 0, Disposition: cardexport.ManifestAccepted,
+					Entry:   cardexport.Entry{Language: test.language, CanonicalLemma: test.lemma, UPOS: "NOUN", Sentence: test.sentence, TargetWord: test.target, Morphology: test.morphology},
+					Quality: cardexport.SentenceQuality{Accepted: true, Score: 12, Reasons: []string{"target present"}},
+				}},
+			}
+			deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+			require.NoError(t, err)
+			artifact, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, nil, cardexport.RunFacts{})
+			require.NoError(t, err)
+			require.Len(t, artifact.Generated, 1)
+			assert.Empty(t, artifact.Generated[0].Note.Article)
+		})
+	}
+}
+
+// TestPresentationLifecycleAppliesExactSentenceTranslationTarget pins the
+// legacy single-phrase target as one exact-enrichment field through finalize.
+func TestPresentationLifecycleAppliesExactSentenceTranslationTarget(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The old house stands there today.", SentenceTranslationTarget: "house"}
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "The old <b>house</b> stands there today.", artifact.Generated[0].Note.EnglishSentence)
+}
+
+// TestPresentationLifecycleRejectsIneligibleContextualGloss pins the exact
+// enrichment invariant that a contextual identity requires an eligible Gloss.
+func TestPresentationLifecycleRejectsIneligibleContextualGloss(t *testing.T) {
+	projection := lifecycleProjection()
+	projection.RequireContextualGloss = true
+	projection.ProviderVersion = "prompt-v12"
+	projection.Entry.CandidateSenses = []enrichment.LexicalSense{{EvidenceID: "wikt:bench", Gloss: "bench"}}
+	deck, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	require.NotEmpty(t, work[0].CacheKey.MeaningEvidenceHash)
+	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house stands there today.", FallbackGloss: "<unsafe>"}
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{})
+	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+}
+
 func lifecycleRestoreSnapshot() cardexport.ManifestSnapshot {
 	sentence := "Das Haus steht heute dort."
 	key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", DictionaryProviderVersion: "dictionary-v1", SentenceHash: enrichment.SentenceHash(sentence)}
