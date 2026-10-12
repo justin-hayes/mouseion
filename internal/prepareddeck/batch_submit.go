@@ -48,7 +48,7 @@ func (w *BatchSubmitWorker) Work(ctx context.Context, job *river.Job[BatchSubmit
 }
 
 func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs) error {
-	if w == nil || w.Store == nil || w.Provider == nil || w.Codec == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || strings.TrimSpace(args.ChunkID) == "" || args.Generation < 1 {
+	if !w.validSubmissionInput(args) {
 		return ErrInvalidInput
 	}
 	started := w.now()
@@ -60,65 +60,133 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 		}
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchTotalLatency, Phase: "submitting", Provider: "openai", Value: seconds(w.now().Sub(totalStarted))})
 	}()
-	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
+	chunk, proceed, err := w.loadSubmissionChunk(ctx, args)
 	if err != nil {
 		return err
 	}
 	totalStarted = chunk.CreatedAt
-	if chunk.Generation != args.Generation {
+	if !proceed {
 		return nil
+	}
+	claimed, token, proceed, err := w.claimSubmissionWork(ctx, args, chunk)
+	if err != nil || !proceed {
+		return err
+	}
+	items, proceed, err := w.buildProviderBatch(ctx, args, claimed, token)
+	if err != nil || !proceed {
+		return err
+	}
+	return w.submitProviderBatch(ctx, args, claimed, token, chunk.State == domain.PreparedDeckBatchSubmitting, items)
+}
+
+func (w *BatchSubmitWorker) validSubmissionInput(args BatchSubmitJobArgs) bool {
+	return w != nil && w.Store != nil && w.Provider != nil && w.Codec != nil && strings.TrimSpace(args.OwnerID) != "" && strings.TrimSpace(args.PreparationID) != "" && strings.TrimSpace(args.RunID) != "" && strings.TrimSpace(args.ChunkID) != "" && args.Generation >= 1
+}
+
+// loadSubmissionChunk loads the immutable chunk row for this attempt and
+// reports whether the attempt still owns submittable work.
+func (w *BatchSubmitWorker) loadSubmissionChunk(ctx context.Context, args BatchSubmitJobArgs) (domain.PreparedDeckBatchChunk, bool, error) {
+	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
+	if err != nil {
+		return domain.PreparedDeckBatchChunk{}, false, err
+	}
+	if chunk.Generation != args.Generation {
+		return chunk, false, nil
 	}
 	switch chunk.State {
-	case domain.PreparedDeckBatchSubmitted, domain.PreparedDeckBatchPolling, domain.PreparedDeckBatchReconciling, domain.PreparedDeckBatchCompleted:
-		return nil
-	case domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
-		return nil
-	case domain.PreparedDeckBatchPending, domain.PreparedDeckBatchSubmitting:
-		// These states continue into the submission claim below.
+	case domain.PreparedDeckBatchSubmitted, domain.PreparedDeckBatchPolling, domain.PreparedDeckBatchReconciling, domain.PreparedDeckBatchCompleted,
+		domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
+		return chunk, false, nil
+	default:
+		return chunk, true, nil
 	}
+}
 
-	wasSubmitting := chunk.State == domain.PreparedDeckBatchSubmitting
+// claimSubmissionWork fences the chunk for this attempt and closes exact cache
+// hits. An all-hit chunk completes without returning submittable work.
+func (w *BatchSubmitWorker) claimSubmissionWork(ctx context.Context, args BatchSubmitJobArgs, chunk domain.PreparedDeckBatchChunk) (domain.PreparedDeckBatchChunk, string, bool, error) {
 	claimToken := uuid.NewString()
 	claimed, err := w.Store.ClaimPreparedDeckBatchSubmission(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, w.now().UTC().Add(batchSubmissionLease))
 	if err != nil {
 		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition) {
-			return nil
+			return domain.PreparedDeckBatchChunk{}, "", false, nil
 		}
-		return err
+		return domain.PreparedDeckBatchChunk{}, "", false, err
 	}
 	// Claim transitions return the scalar chunk row; retain the immutable
 	// ordered membership loaded immediately before the claim.
 	claimed.Ordinals = append([]int(nil), chunk.Ordinals...)
+	done, err := w.completeSubmissionCacheHits(ctx, args, claimed, claimToken)
+	if err != nil || done {
+		return claimed, claimToken, false, err
+	}
+	return claimed, claimToken, true, nil
+}
 
-	cacheHits, err := w.Store.CompletePreparedDeckBatchCacheHits(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken)
+// completeSubmissionCacheHits closes members whose exact cache row already
+// exists. A fully cached chunk dispatches finalization instead of a provider
+// submission.
+func (w *BatchSubmitWorker) completeSubmissionCacheHits(ctx context.Context, args BatchSubmitJobArgs, claimed domain.PreparedDeckBatchChunk, token string) (bool, error) {
+	cacheHits, err := w.Store.CompletePreparedDeckBatchCacheHits(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, token)
 	if err != nil {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "cache_lookup")
+		return false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "validation", "cache_lookup")
 	}
-	if cacheHits == claimed.RequestCount {
-		_, finishErr := w.Store.FinishPreparedDeckBatchSubmission(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, domain.PreparedDeckBatchCompleted, "", "")
-		if finishErr != nil {
-			return finishErr
+	if cacheHits != claimed.RequestCount {
+		return false, nil
+	}
+	if _, err := w.Store.FinishPreparedDeckBatchSubmission(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, token, domain.PreparedDeckBatchCompleted, "", ""); err != nil {
+		return false, err
+	}
+	return true, w.advanceIfTerminal(ctx, args)
+}
+
+// buildProviderBatch restores the run contract and the chunk's exact item set,
+// then re-verifies the claim immediately before the external boundary.
+func (w *BatchSubmitWorker) buildProviderBatch(ctx context.Context, args BatchSubmitJobArgs, claimed domain.PreparedDeckBatchChunk, token string) ([]enrichment.BatchTranslationItem, bool, error) {
+	proceed, err := w.checkSubmissionRunContract(ctx, args, claimed, token)
+	if err != nil || !proceed {
+		return nil, false, err
+	}
+	items, proceed, err := w.loadSubmissionItems(ctx, args, claimed, token)
+	if err != nil || !proceed {
+		return nil, false, err
+	}
+	if err := w.Store.VerifyPreparedDeckBatchSubmissionClaim(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, token); err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+			return nil, false, nil
 		}
-		return w.advanceIfTerminal(ctx, args)
+		return nil, false, err
 	}
+	return items, true, nil
+}
+
+// checkSubmissionRunContract loads the frozen run and confirms it still admits
+// the chunk's frozen contract.
+func (w *BatchSubmitWorker) checkSubmissionRunContract(ctx context.Context, args BatchSubmitJobArgs, claimed domain.PreparedDeckBatchChunk, token string) (bool, error) {
 	run, err := w.Store.GetPreparedDeckRun(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "run_load")
+		return false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "validation", "run_load")
 	}
 	if run.State != domain.PreparedDeckRunTranslating || !run.ExternalTranslationConsent || !run.ExternalTranslationConfigured || run.Model != claimed.Model || run.Endpoint != claimed.Endpoint || run.BatchMaxRequests < claimed.RequestCount || run.BatchMaxBytes < claimed.InputBytes {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "configuration", "frozen_contract")
+		return false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "configuration", "frozen_contract")
 	}
+	return true, nil
+}
+
+// loadSubmissionItems restores the frozen deck and outcomes and rebuilds the
+// exact item set the chunk was planned from.
+func (w *BatchSubmitWorker) loadSubmissionItems(ctx context.Context, args BatchSubmitJobArgs, claimed domain.PreparedDeckBatchChunk, token string) ([]enrichment.BatchTranslationItem, bool, error) {
 	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "manifest_load")
+		return nil, false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "validation", "manifest_load")
 	}
 	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
 	if err != nil {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "manifest_load")
+		return nil, false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "validation", "manifest_load")
 	}
 	outcomes, err := w.Store.ListPreparedDeckTranslationOutcomes(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "outcome_load")
+		return nil, false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "validation", "outcome_load")
 	}
 	byOrdinal := make(map[int]domain.PreparedDeckTranslationOutcome, len(outcomes))
 	for _, outcome := range outcomes {
@@ -131,66 +199,76 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	// crossing the provider boundary.
 	items, err := submissionBatchItems(deck, claimed.Ordinals, byOrdinal)
 	if err != nil {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "chunk_membership")
+		return nil, false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "validation", "chunk_membership")
 	}
 	if len(items) != claimed.RequestCount || claimed.InputBytes <= 0 || claimed.InputDigest == "" {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "chunk_changed")
+		return nil, false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "validation", "chunk_changed")
 	}
 	if claimed.Model != w.Codec.Model() || claimed.Endpoint != enrichment.OpenAIChatCompletionsEndpoint {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "configuration", "frozen_contract")
+		return nil, false, w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "configuration", "frozen_contract")
 	}
-	if err = w.Store.VerifyPreparedDeckBatchSubmissionClaim(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken); err != nil {
-		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
-			return nil
-		}
-		return err
-	}
+	return items, true, nil
+}
 
+// submitProviderBatch either recovers an in-flight ambiguous creation or uploads
+// the JSONL and creates the provider Batch.
+func (w *BatchSubmitWorker) submitProviderBatch(ctx context.Context, args BatchSubmitJobArgs, claimed domain.PreparedDeckBatchChunk, token string, wasSubmitting bool, items []enrichment.BatchTranslationItem) error {
 	metadata := batchMetadata(args.RunID, args.ChunkID, args.Generation)
 	if wasSubmitting {
-		match, recoverErr := w.findExistingBatch(ctx, metadata, claimed.InputFileID)
-		if recoverErr != nil {
-			return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", recoverErr.Error())
-		}
-		if match == nil {
-			return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "creation_unconfirmed")
-		}
-		return w.recordSubmitted(ctx, args, claimToken, inputFileIDOr(claimed, match.InputFileID), match.ID)
+		return w.recoverSubmittedBatch(ctx, args, claimed, token, metadata)
 	}
+	return w.createProviderBatch(ctx, args, claimed, token, metadata, items)
+}
 
+// recoverSubmittedBatch resolves a claim that was already submitting before a
+// restart. Creation is never retried: an exact match is recorded, and a missing
+// or duplicated match is ambiguous.
+func (w *BatchSubmitWorker) recoverSubmittedBatch(ctx context.Context, args BatchSubmitJobArgs, claimed domain.PreparedDeckBatchChunk, token string, metadata map[string]string) error {
+	match, err := w.findExistingBatch(ctx, metadata, claimed.InputFileID)
+	if err != nil {
+		return w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", err.Error())
+	}
+	if match == nil {
+		return w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "creation_unconfirmed")
+	}
+	return w.recordSubmitted(ctx, args, token, inputFileIDOr(claimed, match.InputFileID), match.ID)
+}
+
+// createProviderBatch uploads the JSONL and creates the provider Batch, then
+// records the outcome. A failed CreateBatch response is always ambiguous because
+// the provider may have accepted creation before the response was lost.
+func (w *BatchSubmitWorker) createProviderBatch(ctx context.Context, args BatchSubmitJobArgs, claimed domain.PreparedDeckBatchChunk, token string, metadata map[string]string, items []enrichment.BatchTranslationItem) error {
 	content, err := writeChunkJSONL(w.Codec, args.RunID, args.Generation, items, claimed)
 	if err != nil {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "serialized_chunk")
+		return w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "validation", "serialized_chunk")
 	}
 	filename := fmt.Sprintf("batch_%s.jsonl", claimed.ID)
 	inputFile, err := w.Provider.UploadFile(ctx, filename, content)
 	if err != nil {
 		if temporaryProviderError(err) {
-			return w.snoozeAfterSubmissionError(ctx, args, claimToken, providerErrorCode(err))
+			return w.snoozeAfterSubmissionError(ctx, args, token, providerErrorCode(err))
 		}
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "upload", providerErrorCode(err))
+		return w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "upload", providerErrorCode(err))
 	}
 	if inputFile.ID == "" || inputFile.Bytes != claimed.InputBytes {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "upload", "file_contract")
+		return w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "upload", "file_contract")
 	}
 	created, err := w.Provider.CreateBatch(ctx, enrichment.CreateBatchRequest{InputFileID: inputFile.ID, Metadata: metadata})
 	if err != nil {
-		// The provider may have accepted creation before the response was lost.
-		// Never retry this boundary automatically.
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "create_response_lost")
+		return w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "create_response_lost")
 	}
 	if !validCreatedBatch(created, inputFile.ID, metadata) {
-		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "create_contract")
+		return w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "create_contract")
 	}
-	err = w.recordSubmitted(ctx, args, claimToken, inputFile.ID, created.ID)
-	if err == nil {
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchSubmissions, Phase: "submitting", State: "submitted", Provider: "openai", Value: 1})
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRequests, Phase: "submitting", State: "submitted", Provider: "openai", Value: float64(claimed.RequestCount)})
-		if !claimed.CreatedAt.IsZero() {
-			observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchQueueAge, Phase: "submitting", State: "submitted", Provider: "openai", Value: seconds(w.now().Sub(claimed.CreatedAt))})
-		}
+	if err := w.recordSubmitted(ctx, args, token, inputFile.ID, created.ID); err != nil {
+		return err
 	}
-	return err
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchSubmissions, Phase: "submitting", State: "submitted", Provider: "openai", Value: 1})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRequests, Phase: "submitting", State: "submitted", Provider: "openai", Value: float64(claimed.RequestCount)})
+	if !claimed.CreatedAt.IsZero() {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchQueueAge, Phase: "submitting", State: "submitted", Provider: "openai", Value: seconds(w.now().Sub(claimed.CreatedAt))})
+	}
+	return nil
 }
 
 func (w *BatchSubmitWorker) recordSubmitted(ctx context.Context, args BatchSubmitJobArgs, token, inputFileID, batchID string) (err error) {

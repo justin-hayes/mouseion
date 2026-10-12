@@ -260,24 +260,41 @@ func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params Prepare
 }
 
 func insertPreparedDeckRetryChunks(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, run domain.PreparedDeckRun, generation int, retryOrdinals map[int]struct{}, insertSubmission PreparedDeckBatchSubmissionJobInserter) ([]domain.PreparedDeckBatchChunk, error) {
+	if err := validatePreparedDeckRetryChunks(params.RetryChunks, run, generation, retryOrdinals, insertSubmission); err != nil {
+		return nil, err
+	}
+	return writePreparedDeckRetryChunks(ctx, tx, params, generation, insertSubmission)
+}
+
+// validatePreparedDeckRetryChunks decides which retried ordinals may be written.
+// Every plan must match the run's frozen contract and cover exactly the selected
+// ordinals once, and a submission inserter must be available when work remains.
+func validatePreparedDeckRetryChunks(plans []PreparedDeckBatchChunkPlan, run domain.PreparedDeckRun, generation int, retryOrdinals map[int]struct{}, insertSubmission PreparedDeckBatchSubmissionJobInserter) error {
 	planned := make(map[int]struct{}, len(retryOrdinals))
-	for _, plan := range params.RetryChunks {
+	for _, plan := range plans {
 		if plan.Generation != generation || generation > run.MaxBatchGenerations || plan.Model != run.Model || plan.Endpoint != run.Endpoint || plan.SplitReason != "retry" || len(plan.Ordinals) == 0 || len(plan.Ordinals) > run.BatchMaxRequests || plan.InputBytes < 1 || plan.InputBytes > run.BatchMaxBytes {
-			return nil, ErrInvalidTransition
+			return ErrInvalidTransition
 		}
 		for _, ordinal := range plan.Ordinals {
 			if _, ok := retryOrdinals[ordinal]; !ok {
-				return nil, ErrPreparedDeckIdentity
+				return ErrPreparedDeckIdentity
 			}
 			if _, duplicate := planned[ordinal]; duplicate {
-				return nil, ErrPreparedDeckIdentity
+				return ErrPreparedDeckIdentity
 			}
 			planned[ordinal] = struct{}{}
 		}
 	}
 	if len(planned) != len(retryOrdinals) || (len(retryOrdinals) > 0 && insertSubmission == nil) {
-		return nil, ErrInvalidTransition
+		return ErrInvalidTransition
 	}
+	return nil
+}
+
+// writePreparedDeckRetryChunks writes one retry chunk per validated plan in the
+// caller's transaction, keeping chunk indices contiguous after the existing
+// generation.
+func writePreparedDeckRetryChunks(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, generation int, insertSubmission PreparedDeckBatchSubmissionJobInserter) ([]domain.PreparedDeckBatchChunk, error) {
 	nextIndex32, err := sqlcgen.New(tx).NextPreparedDeckBatchChunkIndex(ctx, sqlcgen.NextPreparedDeckBatchChunkIndexParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Generation: generation})
 	if err != nil {
 		return nil, err
@@ -285,35 +302,44 @@ func insertPreparedDeckRetryChunks(ctx context.Context, tx pgx.Tx, params Prepar
 	nextIndex := int(nextIndex32)
 	chunks := make([]domain.PreparedDeckBatchChunk, 0, len(params.RetryChunks))
 	for _, plan := range params.RetryChunks {
-		chunkID := plan.ID
-		if chunkID == "" {
-			chunkID = uuid.NewString()
+		chunk, insertErr := insertPreparedDeckRetryChunk(ctx, tx, params, plan, generation, nextIndex+len(chunks), insertSubmission)
+		if insertErr != nil {
+			return nil, insertErr
 		}
-		first, last := plan.Ordinals[0], plan.Ordinals[len(plan.Ordinals)-1]
-		chunkIndex := nextIndex + len(chunks)
-		if err := sqlcgen.New(tx).InsertPreparedDeckBatchChunk(ctx, sqlcgen.InsertPreparedDeckBatchChunkParams{ID: chunkID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, ChunkIndex: chunkIndex, Generation: generation, Model: plan.Model, Endpoint: plan.Endpoint, SplitReason: "retry", FirstOrdinal: first, LastOrdinal: last, InputDigest: plan.InputDigest, RequestCount: len(plan.Ordinals), InputBytes: plan.InputBytes, EstimatedPromptTokens: plan.EstimatedPromptTokens}); err != nil {
-			return nil, err
-		}
-		for position, ordinal := range plan.Ordinals {
-			if err := sqlcgen.New(tx).InsertPreparedDeckBatchChunkItemFromManifest(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemFromManifestParams{Owner: params.OwnerID, Preparation: params.PreparationID, Run: params.RunID, Chunk: chunkID, Generation: generation, Position: position, Ordinal: ordinal}); err != nil {
-				return nil, err
-			}
-		}
-		chunk := domain.PreparedDeckBatchChunk{ID: chunkID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, ChunkIndex: chunkIndex, Generation: generation, State: domain.PreparedDeckBatchPending, Model: plan.Model, Endpoint: plan.Endpoint, SplitReason: "retry", FirstOrdinal: first, LastOrdinal: last, InputDigest: plan.InputDigest, RequestCount: len(plan.Ordinals), InputBytes: plan.InputBytes, EstimatedPromptTokens: plan.EstimatedPromptTokens, Ordinals: append([]int(nil), plan.Ordinals...)}
-		jobID, err := insertSubmission(ctx, tx, chunk)
-		if err != nil || jobID < 1 {
-			if err == nil {
-				err = ErrInvalidTransition
-			}
-			return nil, err
-		}
-		if err := setPreparedDeckBatchSubmissionJobTx(ctx, tx, chunk, jobID); err != nil {
-			return nil, err
-		}
-		chunk.SubmissionJobID, chunk.SubmissionGeneration = jobID, generation
 		chunks = append(chunks, chunk)
 	}
 	return chunks, nil
+}
+
+// insertPreparedDeckRetryChunk writes one retry chunk, its ordered members, and
+// its submission job, and returns the durable projection.
+func insertPreparedDeckRetryChunk(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, plan PreparedDeckBatchChunkPlan, generation, chunkIndex int, insertSubmission PreparedDeckBatchSubmissionJobInserter) (domain.PreparedDeckBatchChunk, error) {
+	chunkID := plan.ID
+	if chunkID == "" {
+		chunkID = uuid.NewString()
+	}
+	first, last := plan.Ordinals[0], plan.Ordinals[len(plan.Ordinals)-1]
+	if err := sqlcgen.New(tx).InsertPreparedDeckBatchChunk(ctx, sqlcgen.InsertPreparedDeckBatchChunkParams{ID: chunkID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, ChunkIndex: chunkIndex, Generation: generation, Model: plan.Model, Endpoint: plan.Endpoint, SplitReason: "retry", FirstOrdinal: first, LastOrdinal: last, InputDigest: plan.InputDigest, RequestCount: len(plan.Ordinals), InputBytes: plan.InputBytes, EstimatedPromptTokens: plan.EstimatedPromptTokens}); err != nil {
+		return domain.PreparedDeckBatchChunk{}, err
+	}
+	for position, ordinal := range plan.Ordinals {
+		if err := sqlcgen.New(tx).InsertPreparedDeckBatchChunkItemFromManifest(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemFromManifestParams{Owner: params.OwnerID, Preparation: params.PreparationID, Run: params.RunID, Chunk: chunkID, Generation: generation, Position: position, Ordinal: ordinal}); err != nil {
+			return domain.PreparedDeckBatchChunk{}, err
+		}
+	}
+	chunk := domain.PreparedDeckBatchChunk{ID: chunkID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, ChunkIndex: chunkIndex, Generation: generation, State: domain.PreparedDeckBatchPending, Model: plan.Model, Endpoint: plan.Endpoint, SplitReason: "retry", FirstOrdinal: first, LastOrdinal: last, InputDigest: plan.InputDigest, RequestCount: len(plan.Ordinals), InputBytes: plan.InputBytes, EstimatedPromptTokens: plan.EstimatedPromptTokens, Ordinals: append([]int(nil), plan.Ordinals...)}
+	jobID, err := insertSubmission(ctx, tx, chunk)
+	if err != nil || jobID < 1 {
+		if err == nil {
+			err = ErrInvalidTransition
+		}
+		return domain.PreparedDeckBatchChunk{}, err
+	}
+	if err := setPreparedDeckBatchSubmissionJobTx(ctx, tx, chunk, jobID); err != nil {
+		return domain.PreparedDeckBatchChunk{}, err
+	}
+	chunk.SubmissionJobID, chunk.SubmissionGeneration = jobID, generation
+	return chunk, nil
 }
 
 func setPreparedDeckBatchSubmissionJobTx(ctx context.Context, tx pgx.Tx, chunk domain.PreparedDeckBatchChunk, jobID int64) error {
