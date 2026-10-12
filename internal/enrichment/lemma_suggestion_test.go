@@ -15,10 +15,10 @@ import (
 func TestLemmaSuggestionProviderSendsOnlyBoundedOccurrenceEvidence(t *testing.T) {
 	var sent map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
+		assert.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
 		_, writeErr := w.Write([]byte(`{"choices":[{"message":{"content":"{\"lemma\":\"Drache\"}"}}]}`))
-		require.NoError(t, writeErr)
+		assert.NoError(t, writeErr)
 	}))
 	defer server.Close()
 	provider, err := NewConfiguredLemmaSuggestionProvider(LLMConfig{Enabled: true, APIKey: "secret", Model: "test", BaseURL: server.URL + "/v1"}, server.Client())

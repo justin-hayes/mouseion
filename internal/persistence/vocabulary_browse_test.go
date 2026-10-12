@@ -2,7 +2,6 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -15,7 +14,7 @@ import (
 func TestReadVocabularyBrowseRowsInterruptedBeforeSummary(t *testing.T) {
 	_, err := readVocabularyBrowseRows(interruptedBrowseRows{err: context.DeadlineExceeded}, domain.VocabularyBrowseQuery{Page: 1})
 	require.Error(t, err)
-	require.True(t, errors.Is(err, context.DeadlineExceeded), "got %v", err)
+	require.ErrorIs(t, err, context.DeadlineExceeded, "got %v", err)
 }
 
 func TestReadVocabularyBrowseRowsMissingSummary(t *testing.T) {

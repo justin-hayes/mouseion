@@ -60,7 +60,8 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	assert.Equal(t, "NOUN", externalInput["upos"])
 	assert.Equal(t, "Haus", externalInput["target_word"])
 	assert.Equal(t, "Das Haus ist groß.", externalInput["example_sentence"])
-	assert.Equal(t, float64(0), received["temperature"])
+	// Temperature is configured as exactly 0; 1e-9 only absorbs float64 round-trip noise on a [0, 2] scale.
+	assert.InDelta(t, float64(0), received["temperature"], 1e-9)
 	assert.Nil(t, received["reasoning_effort"])
 }
 
@@ -124,8 +125,10 @@ func TestOpenAITranslationClientLemmaOnlyOmitsSentence(t *testing.T) {
 		var body struct {
 			Messages []chatMessage `json:"messages"`
 		}
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		userContent = body.Messages[1].Content
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		if assert.Len(t, body.Messages, 2) {
+			userContent = body.Messages[1].Content
+		}
 		testwrite.String(t, w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 	}))
 	defer server.Close()

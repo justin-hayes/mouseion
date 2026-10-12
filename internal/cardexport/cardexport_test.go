@@ -583,7 +583,8 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 	for _, cfg := range configs {
 		order = cfg.New.Order
 	}
-	assert.Equal(t, float64(0), order, "new.card order = %v, want 0 (in order added), so text-position due is honored", order)
+	// Order is a JSON integer (0 = in order added); integers decode exactly, so 1e-9 rejects any fraction.
+	assert.InDelta(t, float64(0), order, 1e-9, "new.card order = %v, want 0 (in order added), so text-position due is honored", order)
 	// Every card's position must ascend 1..N, bound to text order.
 	rows, err := db.QueryContext(t.Context(), `SELECT due FROM cards ORDER BY due`)
 	require.NoError(t, err)

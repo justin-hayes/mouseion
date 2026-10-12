@@ -30,12 +30,15 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 			assert.Equal(t, int64(-1), r.ContentLength, "multipart upload was buffered: content length=%d", r.ContentLength)
 			r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
 			parseErr := r.ParseMultipartForm(1 << 20) //nolint:gosec // MaxBytesReader above bounds the complete test request.
-			require.NoError(t, parseErr)
+			assert.NoError(t, parseErr)
 			assert.Equal(t, "batch", r.FormValue("purpose"))
 			assert.Equal(t, "created_at", r.FormValue("expires_after[anchor]"))
 			assert.Equal(t, "604800", r.FormValue("expires_after[seconds]"))
 			file, header, err := r.FormFile("file")
-			require.NoError(t, err)
+			if !assert.NoError(t, err) {
+				http.Error(w, "missing multipart file", http.StatusBadRequest)
+				return
+			}
 			// The multipart file is owned by this request and must close before
 			// the handler returns; t.Cleanup would run after that ownership ends.
 			defer func() {
@@ -44,7 +47,7 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 				}
 			}()
 			content, err := io.ReadAll(file)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, "run-opaque.jsonl", header.Filename)
 			assert.Equal(t, "{\"custom_id\":\"opaque\"}\n", string(content))
 			testwrite.String(t, w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"uploaded"}`)
@@ -57,12 +60,12 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 			testwrite.String(t, w, `{"id":"file-input","object":"file","deleted":true}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/batches":
 			var request map[string]any
-			require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&request))
 			assert.Equal(t, "file-input", request["input_file_id"])
 			assert.Equal(t, OpenAIChatCompletionsEndpoint, request["endpoint"])
 			assert.Equal(t, "24h", request["completion_window"])
 			metadata, ok := request["metadata"].(map[string]any)
-			require.True(t, ok)
+			assert.True(t, ok)
 			assert.Equal(t, "018f64b6-opaque", metadata["chunk_id"])
 			writeBatchStub(t, w, "batch-created", BatchStatusValidating)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/batches/batch-created":

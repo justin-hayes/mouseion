@@ -68,6 +68,9 @@ linters:
       enable:
         - error-nil
         - require-error
+        - go-require
+        - error-is-as
+        - float-compare
 
   exclusions:
     generated: strict

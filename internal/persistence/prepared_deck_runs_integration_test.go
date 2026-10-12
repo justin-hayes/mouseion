@@ -162,7 +162,8 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	loaded, loadedDigest, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 94, loaded.Items[0].Quality.Score)
-	assert.Equal(t, 0.5, loaded.Items[0].Quality.GDEXScore)
+	// GDEX scores are float64 in [0, 1]; 1e-9 absorbs round-trip noise and is far below any meaningful score step.
+	assert.InDelta(t, 0.5, loaded.Items[0].Quality.GDEXScore, 1e-9)
 	assert.Equal(t, []string{"target present", "optimal length"}, loaded.Items[0].Quality.Reasons)
 	assert.True(t, strings.HasPrefix(loaded.Items[0].Entry.Gloss, "house meaning 1"))
 	assert.Equal(t, "fixture-v1", loaded.Items[0].Entry.DictionaryProviderVersion)
