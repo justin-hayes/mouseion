@@ -32,8 +32,12 @@ func TestOpenIndexMissingPathIsNotExist(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, index)
-	assert.ErrorIs(t, err, ErrInvalidIndex) //nolint:testifylint // Invalid-index and missing-file classifications are independently asserted.
-	assert.ErrorIs(t, err, fs.ErrNotExist)
+	t.Run("missing index is an invalid index", func(t *testing.T) {
+		require.ErrorIs(t, err, ErrInvalidIndex)
+	})
+	t.Run("missing file wraps fs.ErrNotExist", func(t *testing.T) {
+		require.ErrorIs(t, err, fs.ErrNotExist)
+	})
 }
 
 func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
@@ -156,8 +160,10 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	assert.Equal(t, "η", result.Article)
 	assert.Equal(t, "δρόμοι", result.Plural)
 
-	_, err = index.db.ExecContext(t.Context(), `INSERT INTO metadata VALUES ('unexpected', 'write')`)
-	assert.Error(t, err) //nolint:testifylint // Read-only write rejection and the following lookup are independent checks.
+	t.Run("index rejects writes", func(t *testing.T) {
+		_, err := index.db.ExecContext(t.Context(), `INSERT INTO metadata VALUES ('unexpected', 'write')`)
+		require.Error(t, err)
+	})
 
 	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "nicht-im-index", UPOS: "NOUN"})
 	require.NoError(t, err)

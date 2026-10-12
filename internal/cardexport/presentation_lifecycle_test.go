@@ -431,8 +431,10 @@ func TestPresentationLifecycleRejectsIdentityAndProvenanceFailures(t *testing.T)
 	work := deck.WorkProjection()
 	wrongKey := work[0].CacheKey
 	wrongKey.ProviderVersion = "other"
-	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
-	assert.ErrorIs(t, err, cardexport.ErrInvalidInput) //nolint:testifylint // Independent malformed-key case; the next case checks another provenance failure.
+	t.Run("mismatched cache key is rejected", func(t *testing.T) {
+		_, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
 
 	wrongRecordKey := work[0].CacheKey
 	wrongRecordKey.Provider = "other"

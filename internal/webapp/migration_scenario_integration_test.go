@@ -146,8 +146,10 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	// Stale writes, missing CSRF, cross-owner references, and invalid progress
 	// are rejected without changing the accepted state.
-	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", secondBook.ID, "stale-book", currentReading.SnapshotID)
-	assert.ErrorIs(t, err, persistence.ErrCurrentReadingStale) //nolint:testifylint // Stale goal rejection is independently asserted before HTTP checks.
+	t.Run("stale goal switch is rejected", func(t *testing.T) {
+		_, err := store.SwitchCurrentReading(ctx, alice.ID, "de", secondBook.ID, "stale-book", currentReading.SnapshotID)
+		require.ErrorIs(t, err, persistence.ErrCurrentReadingStale)
+	})
 	bobCookies, bobCSRF := loginCookies(t, h, "migration-bob", "bob-password")
 	foreign := perform(t, h, http.MethodPost, "/goal/books/"+book.ID, url.Values{"csrf_token": {bobCSRF}, "expected_goal_book_id": {""}}, bobCookies)
 	assert.Equal(t, http.StatusNotFound, foreign.Code)

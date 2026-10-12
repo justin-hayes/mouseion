@@ -172,8 +172,10 @@ func TestRegistryErrors(t *testing.T) {
 	registry := NewRegistry()
 	_, err := registry.For("it")
 	require.NoError(t, err)
-	_, err = registry.Lookup("de", "99")
-	assert.ErrorIs(t, err, ErrProfileNotFound) //nolint:testifylint // Independent registry error case; the following registration remains meaningful.
+	t.Run("unknown profile version is not found", func(t *testing.T) {
+		_, err := registry.Lookup("de", "99")
+		require.ErrorIs(t, err, ErrProfileNotFound)
+	})
 	require.NoError(t, registry.Register(GermanPost1996(), true))
 	assert.ErrorIs(t, registry.Register(GermanPost1996(), false), ErrDuplicateProfile)
 }
