@@ -3,6 +3,7 @@ package cardexport
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
@@ -161,6 +162,20 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	err = db.QueryRowContext(t.Context(), `SELECT count(*) FROM cards`).Scan(&cardCount)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), cardCount)
+}
+
+func TestAnkiPackageFailureReturnsErrorAndRemovesTemporaryCollection(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	apkg, err := renderAPKG(ctx, "Mouseion::de::Buch", nil, "")
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, apkg)
+	entries, err := os.ReadDir(tmp)
+	require.NoError(t, err)
+	assert.Empty(t, entries)
 }
 
 func TestAnkiCardPresentationHierarchy(t *testing.T) {

@@ -33,38 +33,19 @@ func renderAPKG(ctx context.Context, deckName string, notes []Note, description 
 	if err != nil {
 		return nil, err
 	}
-	path := f.Name()
 	// The artifact is already buffered in memory; removal has no recovery path.
 	//nolint:errcheck // Temporary-file removal is documented best-effort cleanup.
-	defer os.Remove(path)
-	if err := f.Close(); err != nil {
+	defer os.Remove(f.Name())
+	collection, buildErr := buildCollection(ctx, f, deckName, notes, description)
+	if err := errors.Join(buildErr, f.Close()); err != nil {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, err
-	}
-	if err = writeCollection(ctx, db, deckName, notes, description); err != nil {
-		return nil, errors.Join(err, db.Close())
-	}
-	if err := db.Close(); err != nil {
-		return nil, err
-	}
-
-	collection, err := os.Open(path) //nolint:gosec // path is returned by os.CreateTemp above.
-	if err != nil {
-		return nil, err
-	}
-	// Reading has completed before the artifact is returned; there is no
-	// recovery action for a failed close of this input handle.
-	//nolint:errcheck // Documented best-effort input cleanup.
-	defer collection.Close()
 	var out bytes.Buffer
 	zw := zip.NewWriter(&out)
 	w, err := zw.CreateHeader(&zip.FileHeader{Name: "collection.anki2", Method: zip.Store})
 	if err == nil {
-		_, err = io.Copy(w, collection)
+		_, err = w.Write(collection)
 	}
 	if err == nil {
 		var media io.Writer
@@ -80,6 +61,19 @@ func renderAPKG(ctx context.Context, deckName string, notes []Note, description 
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+// buildCollection writes the collection through SQLite at f's path, then reads
+// the finished database through f itself, whose offset is still at the start.
+func buildCollection(ctx context.Context, f *os.File, deckName string, notes []Note, description string) ([]byte, error) {
+	db, err := sql.Open("sqlite", f.Name())
+	if err != nil {
+		return nil, err
+	}
+	if err := errors.Join(writeCollection(ctx, db, deckName, notes, description), db.Close()); err != nil {
+		return nil, err
+	}
+	return io.ReadAll(f)
 }
 
 func writeCollection(ctx context.Context, db *sql.DB, deckName string, notes []Note, description string) (err error) {
