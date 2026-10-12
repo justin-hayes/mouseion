@@ -2051,8 +2051,12 @@ func TestAnalysisRetrySurfacesSnapshotArgsFailure(t *testing.T) {
 	_, err = pool.Exec(ctx, `ALTER TABLE source_content_revisions RENAME TO source_content_revisions_hidden`)
 	require.NoError(t, err)
 
-	_, err = service.Retry(ctx, owner.ID, queued.ID)
-	require.ErrorContains(t, err, "source_content_revisions")
-	_, err = service.Retry(ctx, owner.ID, completed.ID)
-	require.ErrorContains(t, err, "source_content_revisions")
+	t.Run("queued run surfaces the argument read failure", func(t *testing.T) {
+		_, retryErr := service.Retry(ctx, owner.ID, queued.ID)
+		require.ErrorContains(t, retryErr, "source_content_revisions")
+	})
+	t.Run("completed run surfaces the argument read failure", func(t *testing.T) {
+		_, retryErr := service.Retry(ctx, owner.ID, completed.ID)
+		require.ErrorContains(t, retryErr, "source_content_revisions")
+	})
 }
