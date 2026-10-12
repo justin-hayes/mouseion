@@ -618,7 +618,6 @@ func knownVocabImportSummary(status knownvocab.Status) string {
 		}
 		return "The import is continuing in the background. You can leave this page and return later."
 	}
-	//nolint:exhaustive // River's JobState is an open upstream enumeration; unknown states use the generic summary.
 	switch status.State {
 	case "completed":
 		return "The import is complete. New rows are now counted as known vocabulary."

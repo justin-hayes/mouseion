@@ -458,7 +458,6 @@ func validatePolledBatch(chunk domain.PreparedDeckBatchChunk, batch enrichment.B
 }
 
 func batchCanOmitRequestCounts(status enrichment.BatchStatus) bool {
-	//nolint:exhaustive // OpenAI may add provider lifecycle states; unknown states must not omit request counts.
 	switch status {
 	case enrichment.BatchStatusValidating, enrichment.BatchStatusInProgress, enrichment.BatchStatusFinalizing,
 		enrichment.BatchStatusFailed, enrichment.BatchStatusCancelling, enrichment.BatchStatusCancelled:
@@ -489,7 +488,6 @@ func batchReconciliationUpdate(batch enrichment.Batch, state domain.PreparedDeck
 
 func providerTerminalTime(batch enrichment.Batch) *time.Time {
 	var unix int64
-	//nolint:exhaustive // OpenAI may add provider lifecycle states; only known terminal timestamps are trusted.
 	switch batch.Status {
 	case enrichment.BatchStatusCompleted:
 		unix = batch.CompletedAt
@@ -499,6 +497,8 @@ func providerTerminalTime(batch enrichment.Batch) *time.Time {
 		unix = batch.ExpiredAt
 	case enrichment.BatchStatusCancelled:
 		unix = batch.CancelledAt
+	default:
+		// Unknown or nonterminal states carry no trusted terminal timestamp.
 	}
 	if unix <= 0 {
 		return nil
@@ -508,7 +508,6 @@ func providerTerminalTime(batch enrichment.Batch) *time.Time {
 }
 
 func terminalBatchStatus(status enrichment.BatchStatus) bool {
-	//nolint:exhaustive // OpenAI may add provider lifecycle states; unknown states remain nonterminal.
 	switch status {
 	case enrichment.BatchStatusCompleted, enrichment.BatchStatusFailed, enrichment.BatchStatusExpired, enrichment.BatchStatusCancelled:
 		return true
@@ -601,7 +600,6 @@ func outcomeErrorClass(class enrichment.ProviderErrorClass) string {
 }
 
 func terminalChunkErrorClass(status enrichment.BatchStatus) string {
-	//nolint:exhaustive // OpenAI may add provider lifecycle states; only known terminal failures get a class.
 	switch status {
 	case enrichment.BatchStatusExpired:
 		return "expired"
