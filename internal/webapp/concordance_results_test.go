@@ -2,13 +2,19 @@ package webapp
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"maps"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
@@ -260,5 +266,74 @@ func TestConcordanceContextTextKeepsOnlyBoundarySpaces(t *testing.T) {
 		if got := concordanceContextText(input); got != want {
 			t.Errorf("concordanceContextText(%q) = %q, want %q", input, got, want)
 		}
+	}
+}
+
+// concordanceFailStore fails one Concordance read after the application shell
+// has loaded, so the handler's own failure handling can be driven directly.
+type concordanceFailStore struct {
+	*fixtures.Store
+	currentReadingErr error
+	concordanceErr    error
+}
+
+func (s concordanceFailStore) GetCurrentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error) {
+	if s.currentReadingErr != nil {
+		return domain.CurrentReading{}, s.currentReadingErr
+	}
+	return s.Store.GetCurrentReading(ctx, owner, language)
+}
+
+func (s concordanceFailStore) ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error) {
+	if s.concordanceErr != nil {
+		return domain.ConcordanceResult{}, s.concordanceErr
+	}
+	return s.Store.ListVocabularyConcordance(ctx, owner, language, lookup)
+}
+
+// TestConcordanceHandlerReportsReadFailures covers the current-reading priority
+// and result reads: a plain failure is a server error, a deadline is a gateway
+// timeout, and neither renders a partial result page.
+func TestConcordanceHandlerReportsReadFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		store    func(*fixtures.Store) allStoreCapabilities
+		wantCode int
+	}{
+		{
+			name: "current reading unavailable",
+			store: func(s *fixtures.Store) allStoreCapabilities {
+				return concordanceFailStore{Store: s, currentReadingErr: errors.New("current reading unavailable")}
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name: "current reading times out",
+			store: func(s *fixtures.Store) allStoreCapabilities {
+				return concordanceFailStore{Store: s, currentReadingErr: context.DeadlineExceeded}
+			},
+			wantCode: http.StatusGatewayTimeout,
+		},
+		{
+			name: "lookup unavailable",
+			store: func(s *fixtures.Store) allStoreCapabilities {
+				return concordanceFailStore{Store: s, concordanceErr: errors.New("concordance unavailable")}
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, cookies, _, store := readingFixtureSession(t)
+			requireHandler(t, h).services.Store = storeDependencies(tc.store(store))
+
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary/concordance?term=gehen", nil)
+			for _, cookie := range cookies {
+				request.AddCookie(cookie)
+			}
+			response := httptest.NewRecorder()
+			h.ServeHTTP(response, request)
+
+			assert.Equal(t, tc.wantCode, response.Code)
+		})
 	}
 }

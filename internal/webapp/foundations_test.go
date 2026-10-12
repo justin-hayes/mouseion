@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"net/url"
 	"strings"
 	"testing"
@@ -659,6 +662,28 @@ func (s totalVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, 
 	return domain.VocabularyBrowsePage{Page: query.Page, Total: s.total, Books: []domain.VocabularyBrowseBook{{ID: query.CurrentBookID, Title: "Current", HasCurrentAnalysis: true}}}, nil
 }
 
+// rowVocabularyBrowseStore answers every Browse read with one row, so the
+// restored focus row can be checked against a page that contains it.
+type rowVocabularyBrowseStore struct{ knownVocabContextStore }
+
+func (rowVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
+	return domain.VocabularyBrowsePage{Page: query.Page, Rows: []domain.VocabularyBrowseRow{{UPOS: "NOUN", CanonicalLemma: "haus"}}}, nil
+}
+
+func TestVocabularyBrowseRestoresAFocusRowOnlyWhenThePageHasIt(t *testing.T) {
+	row := browseRowKey("NOUN", "haus")
+	view, status, _ := loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/reading?q=ha&row="+url.QueryEscape(row), "book-1")
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, row, view.FocusRow)
+	assert.True(t, view.FocusRowFound, "the loaded page contains the named row")
+	assert.False(t, view.FocusRowMissing())
+
+	view, status, _ = loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/reading?q=ha&row="+url.QueryEscape(browseRowKey("VERB", "gehen")), "book-1")
+	require.Equal(t, http.StatusOK, status)
+	assert.False(t, view.FocusRowFound, "a row the page lacks is not reported as found")
+	assert.True(t, view.FocusRowMissing())
+}
+
 func TestVocabularyBrowseExplainsMalformedAndOutOfRangePagesWithFirstPage(t *testing.T) {
 	for _, page := range []string{"abc", "0", "-3", "1.5"} {
 		_, status, html := loadBrowseForTest(t, browseTestServices(knownVocabContextStore{}), "/reading?q=ha&page="+page, "book-1")
@@ -716,4 +741,112 @@ func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
 			}
 		})
 	}
+}
+
+// unitCSRFCookieValue is an unscoped value that pairs the cookie with the form
+// field so handler-level import tests clear checkCSRF without a session.
+var unitCSRFCookieValue = strings.Repeat("mouseion-unit-csrf-", 2)
+
+// knownVocabFormRequest builds an import POST whose shell context is German. A
+// missing file leaves the vocabulary_file part out entirely.
+func knownVocabFormRequest(t *testing.T, contentType, content string, withFile bool) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("csrf_token", unitCSRFCookieValue))
+	if withFile {
+		header := textproto.MIMEHeader{
+			"Content-Disposition": {`form-data; name="vocabulary_file"; filename="known.txt"`},
+			"Content-Type":        {contentType},
+		}
+		part, err := writer.CreatePart(header)
+		require.NoError(t, err)
+		_, err = io.WriteString(part, content)
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/vocabulary/import", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	request.AddCookie(&http.Cookie{Name: csrfCookie, Value: unitCSRFCookieValue, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
+	return request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{ActiveLanguage: "de"}))
+}
+
+// knownVocabOtherLanguageStore studies a language other than the active one, so
+// the import is refused for a language the learner has no books in.
+type knownVocabOtherLanguageStore struct{ knownVocabContextStore }
+
+func (knownVocabOtherLanguageStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+	return []domain.StudyLanguage{{Language: "it", DisplayName: "Italian"}}, nil
+}
+
+// knownVocabStudyLanguageErrorStore fails the study-language read.
+type knownVocabStudyLanguageErrorStore struct{ knownVocabContextStore }
+
+func (knownVocabStudyLanguageErrorStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+	return nil, errors.New("study languages unavailable")
+}
+
+func TestImportKnownVocabRequiresAStudyLanguage(t *testing.T) {
+	h := &Handler{services: Services{Store: storeDependencies(knownVocabOtherLanguageStore{})}}
+	response := httptest.NewRecorder()
+	h.importKnownVocab(response, knownVocabFormRequest(t, "text/plain", "Haus\n", true))
+
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), "Choose a study language present in your library before importing.")
+}
+
+func TestImportKnownVocabWithoutAFileReportsAnEmptyImport(t *testing.T) {
+	h := &Handler{services: Services{Store: storeDependencies(knownVocabContextStore{})}}
+	response := httptest.NewRecorder()
+	h.importKnownVocab(response, knownVocabFormRequest(t, "", "", false))
+
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), "Choose a non-empty UTF-8 text file to import.")
+}
+
+func TestImportKnownVocabReportsAMissingService(t *testing.T) {
+	h := &Handler{services: Services{Store: storeDependencies(knownVocabContextStore{})}}
+	response := httptest.NewRecorder()
+	h.importKnownVocab(response, knownVocabFormRequest(t, "text/plain", "Haus\n", true))
+
+	assert.Equal(t, http.StatusInternalServerError, response.Code)
+	assert.Contains(t, response.Body.String(), "known vocabulary service is unavailable")
+}
+
+func TestImportKnownVocabSurfacesAStudyLanguageReadFailure(t *testing.T) {
+	h := &Handler{services: Services{Store: storeDependencies(knownVocabStudyLanguageErrorStore{})}}
+	response := httptest.NewRecorder()
+	h.importKnownVocab(response, knownVocabFormRequest(t, "text/plain", "Haus\n", true))
+
+	assert.Equal(t, http.StatusInternalServerError, response.Code)
+	assert.Contains(t, response.Body.String(), "study languages unavailable")
+}
+
+// unitKnownVocab accepts an import and returns a fixed handle.
+type unitKnownVocab struct {
+	handle knownvocab.Handle
+	err    error
+}
+
+func (k unitKnownVocab) Submit(context.Context, string, string, string) (knownvocab.Handle, error) {
+	return k.handle, k.err
+}
+
+func (k unitKnownVocab) Get(context.Context, string, int64) (knownvocab.Status, error) {
+	return knownvocab.Status{}, nil
+}
+
+func TestImportKnownVocabPartialSubmissionReturnsTheStatusFragment(t *testing.T) {
+	h := &Handler{services: Services{
+		Store:      storeDependencies(knownVocabContextStore{}),
+		KnownVocab: unitKnownVocab{handle: knownvocab.Handle{ID: 77}},
+	}}
+	request := knownVocabFormRequest(t, "text/plain", "Haus\n", true)
+	request.Header.Set("Hx-Request-Type", "partial")
+	response := httptest.NewRecorder()
+	h.importKnownVocab(response, request)
+
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), `data-workflow="known-vocabulary import"`)
+	assert.NotContains(t, response.Body.String(), "<html")
 }

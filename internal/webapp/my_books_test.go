@@ -91,6 +91,18 @@ func TestMyBookMarginEvidenceShowsDeckStateOnlyForCurrentReading(t *testing.T) {
 	}
 }
 
+func TestMyBookMarginEvidenceDatedDeckReadyNamesThePreparationDate(t *testing.T) {
+	preparedAt := time.Date(2026, time.September, 9, 0, 0, 0, 0, time.UTC)
+	book := domain.MyBook{
+		IsCurrentReading: true,
+		Acquired:         &domain.SourceMaterialSummary{Signals: testAnalyzed},
+		DeckState:        "ready",
+		DeckCardCount:    12,
+		DeckPreparedAt:   &preparedAt,
+	}
+	assert.Contains(t, myBookMarginEvidence(book), "Deck ready: 12 cards, prepared 9 September 2026.")
+}
+
 func TestMyBookMarginEvidenceShowsLatestCompletionForReadBucket(t *testing.T) {
 	completedAt := time.Date(2026, time.August, 2, 0, 0, 0, 0, time.UTC)
 	book := domain.MyBook{
