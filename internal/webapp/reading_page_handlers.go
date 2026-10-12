@@ -421,7 +421,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		book.Book.IsCurrentReading = true
 		book.Cover = coverByBookID[currentReading.BookID]
 		book.ReadingSince = currentReading.CreatedAt
-		if err = h.addReadingEvidence(ctx, owner, &book); err != nil {
+		if err := h.addReadingEvidence(ctx, owner, &book); err != nil {
 			return readingPageView{}, err
 		}
 		book.CurrentReadingUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed

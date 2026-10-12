@@ -44,7 +44,7 @@ func (w *BrowseCountsRebuildWorker) Work(ctx context.Context, job *river.Job[Bro
 	if err != nil {
 		return fmt.Errorf("load current analysis for Browse rebuild: %w", err)
 	}
-	if err = persistence.BuildVocabularyBrowseCountsTx(ctx, tx, a.OwnerID, a.BookID, sourceID, runID, corpusID, language); err != nil {
+	if err := persistence.BuildVocabularyBrowseCountsTx(ctx, tx, a.OwnerID, a.BookID, sourceID, runID, corpusID, language); err != nil {
 		return err
 	}
 	var stillCurrent bool

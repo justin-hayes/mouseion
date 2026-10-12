@@ -127,7 +127,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		return err
 	}
 	total := len(parsed.Entries) + len(parsed.Rejected)
-	if err = w.update(ctx, job.ID, a.OwnerID, "running", map[string]any{"language": language, "processed": len(parsed.Rejected), "total": total, "imported": 0, "already_known": 0, "rejected": parsed.Rejected, "error": ""}, false); err != nil {
+	if err := w.update(ctx, job.ID, a.OwnerID, "running", map[string]any{"language": language, "processed": len(parsed.Rejected), "total": total, "imported": 0, "already_known": 0, "rejected": parsed.Rejected, "error": ""}, false); err != nil {
 		return err
 	}
 	defer func() {
@@ -143,7 +143,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	}
 	defer func() { workErr = errors.Join(workErr, txcleanup.Rollback(ctx, tx)) }()
 	var libraryLanguage bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1 FROM books b
 		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
 		WHERE b.owner_id=$1 AND b.language_state='chosen'
@@ -191,10 +191,10 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 	}
 	final := map[string]any{"language": language, "processed": total, "total": total, "imported": result.Imported, "already_known": result.AlreadyKnown, "rejected": result.Rejected, "error": ""}
-	if err = w.updateTx(ctx, tx, job.ID, a.OwnerID, "completed", final); err != nil {
+	if err := w.updateTx(ctx, tx, job.ID, a.OwnerID, "completed", final); err != nil {
 		return err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 	return river.RecordOutput(ctx, result)

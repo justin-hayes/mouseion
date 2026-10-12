@@ -191,7 +191,7 @@ func (c *TranslationCodec) decodeBatchResults(runID string, generation int, item
 		if source == nil {
 			continue
 		}
-		if err = c.decodeBatchResultReader(source, canonicalRunID, generation, expected, outcomes); err != nil {
+		if err := c.decodeBatchResultReader(source, canonicalRunID, generation, expected, outcomes); err != nil {
 			return nil, nil, err
 		}
 	}

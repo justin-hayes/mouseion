@@ -480,7 +480,7 @@ func hasDuplicateObjectKey(value string) (bool, error) {
 		}
 		seen[key] = struct{}{}
 		var raw json.RawMessage
-		if err = decoder.Decode(&raw); err != nil {
+		if err := decoder.Decode(&raw); err != nil {
 			return false, err
 		}
 	}

@@ -137,7 +137,7 @@ func (s *Service) ensureAttemptTx(ctx context.Context, tx pgx.Tx, args JobArgs, 
 		return 0, err
 	}
 	var state string
-	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE id=$1 FOR UPDATE`, runID).Scan(&state); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE id=$1 FOR UPDATE`, runID).Scan(&state); err != nil {
 		return 0, err
 	}
 	if state != "queued" && state != "completed" {
@@ -146,11 +146,12 @@ func (s *Service) ensureAttemptTx(ctx context.Context, tx pgx.Tx, args JobArgs, 
 			if err == nil {
 				_, err = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',error=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, runID, safeAnalysisError(errors.New("analysis worker is no longer active")))
 			}
+			return 0, err
 		}
-		return 0, err
+		return 0, nil
 	}
 	var attempt int
-	if err = tx.QueryRow(ctx, `UPDATE analysis_runs SET attempt_count=attempt_count+1,updated_at=now() WHERE id=$1 RETURNING attempt_count`, runID).Scan(&attempt); err != nil {
+	if err := tx.QueryRow(ctx, `UPDATE analysis_runs SET attempt_count=attempt_count+1,updated_at=now() WHERE id=$1 RETURNING attempt_count`, runID).Scan(&attempt); err != nil {
 		return 0, err
 	}
 	args.RunID, args.Attempt = runID, attempt
@@ -326,7 +327,7 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 				return Handle{}, retryErr
 			}
 			if shouldRetry {
-				if err = tx.Commit(ctx); err != nil {
+				if err := tx.Commit(ctx); err != nil {
 					return Handle{}, err
 				}
 				return retry, nil
@@ -347,12 +348,12 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 			if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
 				return Handle{}, err
 			}
-			if err = tx.Commit(ctx); err != nil {
+			if err := tx.Commit(ctx); err != nil {
 				return Handle{}, err
 			}
 			return Handle{ID: id, JobID: jobID, DisplayNumber: display, RunID: runID}, nil
 		}
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return Handle{}, err
 		}
 		return Handle{ID: id, JobID: id, DisplayNumber: display, RunID: runID}, nil
@@ -370,13 +371,13 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 		return Handle{}, fmt.Errorf("enqueue analysis: %w", err)
 	}
 	var display int64
-	if err = tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,analysis_run_id,display_number) VALUES($1,$2,$3,$4,$5::uuid,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2)) RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash, runID).Scan(&display); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,analysis_run_id,display_number) VALUES($1,$2,$3,$4,$5::uuid,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2)) RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash, runID).Scan(&display); err != nil {
 		return Handle{}, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO analysis_run_attempts(run_id,owner_id,source_material_id,attempt_number,river_job_id,state) VALUES($1,$2,$3,1,$4,'queued')`, runID, owner, sourceID, inserted.Job.ID); err != nil {
 		return Handle{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Handle{}, err
 	}
 	return Handle{ID: inserted.Job.ID, JobID: inserted.Job.ID, DisplayNumber: display, RunID: runID}, nil
@@ -591,14 +592,14 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result St
 			return Status{}, fmt.Errorf("lock analysis cancellation: %w", txErr)
 		}
 		var runState string
-		if txErr = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&runState); txErr != nil {
+		if txErr := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&runState); txErr != nil {
 			return Status{}, txErr
 		}
 		if runState == "completed" {
 			var riverJobID int64
 			txErr = tx.QueryRow(ctx, `SELECT river_job_id FROM analysis_run_attempts WHERE run_id=$1 AND state IN ('queued','running') ORDER BY attempt_number DESC LIMIT 1 FOR UPDATE`, status.RunID).Scan(&riverJobID)
 			if errors.Is(txErr, pgx.ErrNoRows) {
-				if txErr = tx.Commit(ctx); txErr != nil {
+				if txErr := tx.Commit(ctx); txErr != nil {
 					return Status{}, txErr
 				}
 				return s.Get(ctx, owner, id)
@@ -609,7 +610,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result St
 			if _, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',error='',finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, status.RunID, riverJobID); txErr != nil {
 				return Status{}, txErr
 			}
-			if txErr = tx.Commit(ctx); txErr != nil {
+			if txErr := tx.Commit(ctx); txErr != nil {
 				return Status{}, txErr
 			}
 			if s.client != nil {
@@ -624,7 +625,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result St
 			return Status{}, txErr
 		}
 		if updated.RowsAffected() == 0 {
-			if txErr = tx.Commit(ctx); txErr != nil {
+			if txErr := tx.Commit(ctx); txErr != nil {
 				return Status{}, txErr
 			}
 			return s.Get(ctx, owner, id)
@@ -633,7 +634,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result St
 		if txErr != nil {
 			return Status{}, txErr
 		}
-		if txErr = tx.Commit(ctx); txErr != nil {
+		if txErr := tx.Commit(ctx); txErr != nil {
 			return Status{}, txErr
 		}
 		// Durable cancellation commits before River cleanup. The cancelled run
@@ -686,13 +687,13 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 		return Handle{}, fmt.Errorf("lock analysis retry: %w", err)
 	}
 	var state string
-	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
 		return Handle{}, err
 	}
 	if state == "queued" || state == "running" {
 		jobID, jobErr := s.liveJobIDTx(ctx, tx, owner, status.RunID)
 		if jobErr == nil {
-			if err = tx.Commit(ctx); err != nil {
+			if err := tx.Commit(ctx); err != nil {
 				return Handle{}, err
 			}
 			return Handle{ID: id, JobID: jobID, DisplayNumber: status.DisplayNumber, RunID: status.RunID}, nil
@@ -715,7 +716,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 			if argsErr != nil {
 				return Handle{}, argsErr
 			}
-			if err = tx.Commit(ctx); err != nil {
+			if err := tx.Commit(ctx); err != nil {
 				return Handle{}, err
 			}
 			return Handle{ID: id, JobID: jobID, DisplayNumber: status.DisplayNumber, RunID: status.RunID}, nil
@@ -733,7 +734,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 		if !shouldRetry {
 			return Handle{}, errors.New("analysis publication does not need retry")
 		}
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return Handle{}, err
 		}
 		return retry, nil
@@ -759,7 +760,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
 		return Handle{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Handle{}, err
 	}
 	return Handle{ID: id, JobID: jobID, DisplayNumber: status.DisplayNumber, RunID: status.RunID}, nil
@@ -778,7 +779,7 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (result
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var state string
-	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
 		return Status{}, err
 	}
 	switch state {
@@ -808,7 +809,7 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (result
 			return Status{}, err
 		}
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Status{}, err
 	}
 	return s.Get(ctx, owner, id)
@@ -1097,7 +1098,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 		return err
 	}
 	defer func() { workErr = errors.Join(workErr, txcleanup.Rollback(ctx, tx)) }()
-	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
 		return err
 	}
 	if runState == "cancelled" || runState == "completed" {
@@ -1117,13 +1118,13 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 		VALUES($1,$2,$3,$4::uuid,'complete',$5,$6,$7,$8,$9,$10,$11,$12)
 		ON CONFLICT(owner_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO NOTHING RETURNING id::text`, a.OwnerID, a.SourceMaterialID, artifactHash, a.RunID, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		if err = tx.QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	}
-	if err = persistNormalizedCorpus(ctx, tx, a.OwnerID, merged.Language, a.RunID, corpusID, merged); err != nil {
+	if err := persistNormalizedCorpus(ctx, tx, a.OwnerID, merged.Language, a.RunID, corpusID, merged); err != nil {
 		return err
 	}
 	details, err := analysisHistoryDetails(a, decision, len(allUnits), len(selectedUnits))
@@ -1145,10 +1146,10 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN source_materials s ON s.owner_id=b.owner_id AND s.book_id=b.id AND s.owner_id=$1 AND s.id=$2 WHERE b.owner_id=$1 FOR UPDATE OF b`, a.OwnerID, a.SourceMaterialID).Scan(&bookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	if err = w.generateSelection(ctx, a, job.ID, corpusID, &merged); err != nil {
+	if err := w.generateSelection(ctx, a, job.ID, corpusID, &merged); err != nil {
 		return err
 	}
 	return w.publishCompletedRun(ctx, a, job.ID)
@@ -1287,7 +1288,7 @@ func (w *Worker) publishCompletedRun(ctx context.Context, a JobArgs, riverJobID 
 	var bookID string
 	err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN source_materials s ON s.owner_id=b.owner_id AND s.book_id=b.id AND s.owner_id=$1 AND s.id=$2 WHERE b.owner_id=$1 FOR UPDATE OF b`, a.OwnerID, a.SourceMaterialID).Scan(&bookID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		if err = completePublicationAttempt(ctx, tx, a.RunID, riverJobID); err != nil {
+		if err := completePublicationAttempt(ctx, tx, a.RunID, riverJobID); err != nil {
 			return err
 		}
 		return tx.Commit(ctx)

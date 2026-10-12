@@ -124,7 +124,7 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 	if err != nil {
 		return "", err
 	}
-	if err = s.store.CreateSession(ctx, u.ID, hash, s.now().Add(s.lifetime)); err != nil {
+	if err := s.store.CreateSession(ctx, u.ID, hash, s.now().Add(s.lifetime)); err != nil {
 		return "", err
 	}
 	return raw, nil

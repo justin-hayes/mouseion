@@ -149,7 +149,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
 	if preparation.CurrentRunID != "" {
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return persistence.FreezePreparedDeckRunResult{}, err
 		}
 		run, getErr := c.store.GetCurrentPreparedDeckRun(ctx, request.OwnerID, request.PreparationID)
@@ -175,16 +175,16 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	if err = c.insertBatchSubmissionJobsTx(ctx, tx, request, &result); err != nil {
+	if err := c.insertBatchSubmissionJobsTx(ctx, tx, request, &result); err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	if err = c.insertStandardTranslationJobsTx(ctx, tx, request, &result); err != nil {
+	if err := c.insertStandardTranslationJobsTx(ctx, tx, request, &result); err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	if err = c.insertFinalizerJobTx(ctx, tx, request, &result); err != nil {
+	if err := c.insertFinalizerJobTx(ctx, tx, request, &result); err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
 	return result, nil
@@ -210,7 +210,7 @@ func (c *DurableCoordinator) insertBatchSubmissionJobsTx(ctx context.Context, tx
 		}
 		chunk.SubmissionJobID = jobID
 		chunk.SubmissionGeneration = chunk.Generation
-		if err = c.store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, chunk.ID, chunk.Generation, jobID); err != nil {
+		if err := c.store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, chunk.ID, chunk.Generation, jobID); err != nil {
 			return err
 		}
 	}
@@ -227,7 +227,7 @@ func (c *DurableCoordinator) insertStandardTranslationJobsTx(ctx context.Context
 		if err != nil {
 			return fmt.Errorf("enqueue standard translation ordinal %d: %w", ordinal, err)
 		}
-		if err = c.store.SetPreparedDeckTranslationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, ordinal, 0, jobID); err != nil {
+		if err := c.store.SetPreparedDeckTranslationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, ordinal, 0, jobID); err != nil {
 			return err
 		}
 	}
@@ -243,7 +243,7 @@ func (c *DurableCoordinator) insertFinalizerJobTx(ctx context.Context, tx pgx.Tx
 	if err != nil {
 		return fmt.Errorf("enqueue prepared-deck finalizer: %w", err)
 	}
-	if err = c.store.SetPreparedDeckFinalizationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, result.Run.FinalizationDispatchGeneration, jobID); err != nil {
+	if err := c.store.SetPreparedDeckFinalizationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, result.Run.FinalizationDispatchGeneration, jobID); err != nil {
 		return err
 	}
 	result.Run.FinalizationJobID = jobID

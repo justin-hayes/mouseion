@@ -274,7 +274,7 @@ func (s *Service) Reconcile(ctx context.Context, owner, id string) (result domai
 		return domain.DeckPreparation{}, err
 	}
 	if p.RetiredAt != nil {
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return domain.DeckPreparation{}, err
 		}
 		return p, nil
@@ -286,7 +286,7 @@ func (s *Service) Reconcile(ctx context.Context, owner, id string) (result domai
 			return domain.DeckPreparation{}, err
 		}
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	if p.CurrentRunID != "" {
@@ -411,7 +411,7 @@ func markPreparationFailedTx(ctx context.Context, tx pgx.Tx, owner, id, message 
 	if err != nil {
 		return p, err
 	}
-	if err = recordPreparationHistoryTx(ctx, tx, owner, id, string(domain.DeckPreparationFailed), map[string]any{"error": message}); err != nil {
+	if err := recordPreparationHistoryTx(ctx, tx, owner, id, string(domain.DeckPreparationFailed), map[string]any{"error": message}); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return p, nil
