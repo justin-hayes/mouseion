@@ -452,7 +452,7 @@ WITH hit AS (
 -- name: FinishPreparedDeckBatchSubmission :one
 UPDATE deck_preparation_batch_chunks c
 SET state = $7, error_class = $8, error_code = $9,
-    completed_count = CASE WHEN $7 = 'completed' THEN request_count ELSE completed_count END,
+    completed_count = CASE WHEN $7 = 'completed' THEN c.request_count ELSE c.completed_count END,
     submission_claim_token = NULL, submission_claimed_at = NULL, submission_lease_expires_at = NULL, updated_at = now()
 FROM deck_preparation_runs r
 WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3 AND c.id = $4
