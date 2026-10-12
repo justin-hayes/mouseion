@@ -392,67 +392,72 @@ func scoreSentenceQuality(language, sentence, target string, firstEncounter int6
 	return quality
 }
 
+// award grants points and records the matching acceptance reason.
+func (quality *SentenceQuality) award(points int, reason string) {
+	quality.Score += points
+	quality.Reasons = append(quality.Reasons, reason)
+}
+
+// reject records a rejection reason without changing the score.
+func (quality *SentenceQuality) reject(reason string) {
+	quality.Reasons = append(quality.Reasons, reason)
+}
+
 // scoreLengthQuality applies the length gate: a fragmented or over-long
 // sentence is rejected, otherwise it earns the base score and a context bonus
 // when its word count sits in the useful window.
 func scoreLengthQuality(quality *SentenceQuality, text string) {
 	words := strings.Fields(text)
 	if !utf8.ValidString(text) || len(words) < minimumSentenceWords {
-		quality.Reasons = append(quality.Reasons, "too short or fragmented")
+		quality.reject("too short or fragmented")
 		return
 	}
 	if sentenceTooLong(text) {
-		quality.Reasons = append(quality.Reasons, "too long")
+		quality.reject("too long")
 		return
 	}
-	quality.Score += 30
-	quality.Reasons = append(quality.Reasons, "usable length")
+	quality.award(30, "usable length")
 	if len(words) >= 8 && len(words) <= 30 {
-		quality.Score += 10
-		quality.Reasons = append(quality.Reasons, "useful context window")
+		quality.award(10, "useful context window")
 	}
 }
 
 // scoreTargetQuality requires the selected target to appear as a whole word.
 func scoreTargetQuality(quality *SentenceQuality, text, target string) {
 	if targetIndex(text, strings.TrimSpace(target)) < 0 {
-		quality.Reasons = append(quality.Reasons, "target not present as a word")
+		quality.reject("target not present as a word")
 		return
 	}
-	quality.Score += 25
-	quality.Reasons = append(quality.Reasons, "target present")
+	quality.award(25, "target present")
 }
 
 // scoreSourceLocationQuality requires a valid first-encounter offset.
 func scoreSourceLocationQuality(quality *SentenceQuality, firstEncounter int64) {
 	if firstEncounter < 0 || firstEncounter == math.MaxInt64 {
-		quality.Reasons = append(quality.Reasons, "invalid source location")
+		quality.reject("invalid source location")
 		return
 	}
-	quality.Score += 15
-	quality.Reasons = append(quality.Reasons, "valid source location")
+	quality.award(15, "valid source location")
 }
 
 // scoreBoundaryQuality requires a capitalised or quoted start and a terminal
 // sentence boundary.
 func scoreBoundaryQuality(quality *SentenceQuality, text string) {
 	if !hasCompleteBoundary(text) {
-		quality.Reasons = append(quality.Reasons, "incomplete sentence boundaries")
+		quality.reject("incomplete sentence boundaries")
 		return
 	}
-	quality.Score += 20
-	quality.Reasons = append(quality.Reasons, "complete sentence boundaries")
+	quality.award(20, "complete sentence boundaries")
 }
 
 // scoreStructuralNoiseQuality rejects headings, boilerplate and extraction
 // anomalies that pass the length gate.
 func scoreStructuralNoiseQuality(quality *SentenceQuality, text string) {
 	if structuralNoise(text) {
-		quality.Reasons = append(quality.Reasons, "structural noise or boilerplate")
+		quality.reject("structural noise or boilerplate")
 		return
 	}
-	quality.Score += 10
-	quality.Reasons = append(quality.Reasons, "no obvious structural noise")
+	quality.award(10, "no obvious structural noise")
 }
 
 // scoreGermanGDEXQuality overlays the German GDEX grader. It contributes the
@@ -721,14 +726,14 @@ func nounArticle(language, upos, lemma, morphology string) string {
 	if !ok {
 		return ""
 	}
-	articles, validArticles, pluralArticle, ok := nounArticleForms(baseLanguage)
+	table, ok := nounArticleForms(baseLanguage)
 	if !ok || len(variants) == 0 {
 		return ""
 	}
-	if article, ok := explicitNounArticle(variants, validArticles); ok {
+	if article, ok := explicitNounArticle(variants, table.validArticles); ok {
 		return article
 	}
-	evidence, ok := collectGenderEvidence(variants, articles)
+	evidence, ok := collectGenderEvidence(variants, table.articles)
 	if !ok {
 		return ""
 	}
@@ -748,30 +753,43 @@ func nounArticle(language, upos, lemma, morphology string) string {
 		}
 	}
 	if len(evidence.genders) == 0 && evidence.allPlural {
-		return pluralArticle
+		return table.pluralArticle
 	}
 	return ""
 }
 
-// nounArticleForms returns the gender-to-article table, the dictionary article
-// forms accepted verbatim, and the plural article for a supported base
-// language. Unsupported languages report false.
-func nounArticleForms(baseLanguage string) (articles map[string]string, validArticles map[string]bool, pluralArticle string, ok bool) {
+// nounArticleTable is one supported language's article rules: the gender to
+// article output, the dictionary article forms accepted verbatim, and the
+// plural article.
+type nounArticleTable struct {
+	articles      map[string]string
+	validArticles map[string]bool
+	pluralArticle string
+}
+
+// nounArticleForms returns the article rules for a supported base language.
+// Unsupported languages report false.
+func nounArticleForms(baseLanguage string) (nounArticleTable, bool) {
 	switch baseLanguage {
 	case "de":
-		articles = map[string]string{"masc": "der", "masculine": "der", "fem": "die", "feminine": "die", "neut": "das", "neuter": "das"}
-		validArticles = map[string]bool{"der": true, "die": true, "das": true}
-		pluralArticle = "die"
+		return nounArticleTable{
+			articles:      map[string]string{"masc": "der", "masculine": "der", "fem": "die", "feminine": "die", "neut": "das", "neuter": "das"},
+			validArticles: map[string]bool{"der": true, "die": true, "das": true},
+			pluralArticle: "die",
+		}, true
 	case "it":
-		articles = map[string]string{"masc": "masc", "masculine": "masc", "fem": "fem", "feminine": "fem"}
-		validArticles = map[string]bool{"il": true, "lo": true, "la": true, "l'": true}
+		return nounArticleTable{
+			articles:      map[string]string{"masc": "masc", "masculine": "masc", "fem": "fem", "feminine": "fem"},
+			validArticles: map[string]bool{"il": true, "lo": true, "la": true, "l'": true},
+		}, true
 	case "el":
-		articles = map[string]string{"masc": "ο", "masculine": "ο", "fem": "η", "feminine": "η", "neut": "το", "neuter": "το"}
-		validArticles = map[string]bool{"ο": true, "η": true, "το": true}
+		return nounArticleTable{
+			articles:      map[string]string{"masc": "ο", "masculine": "ο", "fem": "η", "feminine": "η", "neut": "το", "neuter": "το"},
+			validArticles: map[string]bool{"ο": true, "η": true, "το": true},
+		}, true
 	default:
-		return nil, nil, "", false
+		return nounArticleTable{}, false
 	}
-	return articles, validArticles, pluralArticle, true
 }
 
 // explicitNounArticle returns the first dictionary article that names an
@@ -1261,12 +1279,12 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) ([]string
 	if err != nil {
 		return nil, err
 	}
-	if err := validateEnrichmentCandidate(*input, result, outcome.CacheKey, available); err != nil {
+	if err := validateEnrichmentCandidate(testedRenderTarget(*input), result, outcome.CacheKey, available); err != nil {
 		return nil, err
 	}
 	applyEnrichmentTranslations(input, result)
 	if outcome.CacheKey.MeaningEvidenceHash != "" {
-		return applyContextualGloss(input, result)
+		return nil, applyContextualGloss(input, result)
 	}
 	return applySenseSelectionGloss(input, result), nil
 }
@@ -1300,12 +1318,12 @@ func validateEnrichmentProvenance(result enrichment.Result, key enrichment.Cache
 // the frozen cache identity. An entirely empty candidate with no available
 // field selects nothing and is not checked. The sentence hash is checked only
 // when the frozen identity carries one.
-func validateEnrichmentCandidate(input RenderInput, result enrichment.Result, key enrichment.CacheKey, available bool) error {
+func validateEnrichmentCandidate(target string, result enrichment.Result, key enrichment.CacheKey, available bool) error {
 	candidate := result.Candidate
 	if !available && candidate.Language == "" && candidate.CanonicalLemma == "" && candidate.UPOS == "" && candidate.TargetWord == "" && candidate.ExampleSentence == "" && candidate.DictionaryProviderVersion == "" {
 		return nil
 	}
-	if candidate.Language != key.Language || candidate.CanonicalLemma != key.CanonicalLemma || strings.ToUpper(candidate.UPOS) != key.UPOS || candidate.DictionaryProviderVersion != key.DictionaryProviderVersion || testedRenderTarget(input) != testedRenderTarget(RenderInput{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
+	if candidate.Language != key.Language || candidate.CanonicalLemma != key.CanonicalLemma || strings.ToUpper(candidate.UPOS) != key.UPOS || candidate.DictionaryProviderVersion != key.DictionaryProviderVersion || target != testedRenderTarget(RenderInput{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
 		return fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
 	}
 	if key.SentenceHash != "" && enrichment.SentenceHash(candidate.ExampleSentence) != key.SentenceHash {
@@ -1334,14 +1352,14 @@ func applyEnrichmentTranslations(input *RenderInput, result enrichment.Result) {
 // applyContextualGloss applies the provider's contextual Gloss when the frozen
 // identity carries meaning evidence. A contextual run must supply an eligible
 // gloss or the whole enrichment is rejected.
-func applyContextualGloss(input *RenderInput, result enrichment.Result) ([]string, error) {
+func applyContextualGloss(input *RenderInput, result enrichment.Result) error {
 	gloss := strings.TrimSpace(result.FallbackGloss.Value)
 	if !result.FallbackGloss.Available || !fallbackGlossEligible(gloss) {
-		return nil, fmt.Errorf("%w: contextual Gloss is missing or invalid", ErrInvalidInput)
+		return fmt.Errorf("%w: contextual Gloss is missing or invalid", ErrInvalidInput)
 	}
 	input.Gloss = gloss
 	input.fallbackGlossApplied = true
-	return nil, nil
+	return nil
 }
 
 // applySenseSelectionGloss resolves the card Gloss from a validated sense
