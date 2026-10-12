@@ -96,6 +96,9 @@ type TranslationUsage struct {
 type TranslationProvider interface {
 	Name() string
 	Version() string
+	// Enabled reports whether Translate reaches an external service. A disabled
+	// provider is an explicit value, so callers ask this rather than checking nil.
+	Enabled() bool
 	Translate(context.Context, TranslationRequest) (TranslationResponse, error)
 }
 
@@ -289,7 +292,7 @@ func (s *Service) enrichOne(ctx context.Context, c Candidate) Result {
 // ExternalConfigured reports whether admin configuration, user consent, and a
 // provider are all present. Callers use it to avoid enqueueing no-op work.
 func (s *Service) ExternalConfigured() bool {
-	return s.config.ExternalEnabled && s.config.UserOptIn && s.translation != nil
+	return s.config.ExternalEnabled && s.config.UserOptIn && s.translation.Enabled()
 }
 
 // ExternalCacheKey returns the complete immutable cache identity that
@@ -509,6 +512,7 @@ func NewLLMProvider(name, version string, client TranslationClient) (*LLMProvide
 }
 func (p *LLMProvider) Name() string    { return p.name }
 func (p *LLMProvider) Version() string { return p.version }
+func (p *LLMProvider) Enabled() bool   { return true }
 func (p *LLMProvider) Translate(ctx context.Context, r TranslationRequest) (TranslationResponse, error) {
 	return p.client.Translate(ctx, r)
 }

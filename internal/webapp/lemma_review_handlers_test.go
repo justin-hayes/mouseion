@@ -23,6 +23,8 @@ type lemmaSuggestionFixture struct {
 
 func (*lemmaSuggestionFixture) Name() string    { return "fake-provider" }
 func (*lemmaSuggestionFixture) Version() string { return "fake-v1" }
+func (p *lemmaSuggestionFixture) Enabled() bool { return true }
+
 func (p *lemmaSuggestionFixture) SuggestLemma(_ context.Context, request enrichment.LemmaSuggestionRequest) (enrichment.LemmaSuggestion, error) {
 	p.request = request
 	return enrichment.LemmaSuggestion{Lemma: "Pfad"}, p.err
@@ -61,6 +63,20 @@ func TestFailedOptionalLemmaSuggestionKeepsManualReviewAvailable(t *testing.T) {
 	}, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "A lemma suggestion is unavailable right now.")
+	assert.Contains(t, response.Body.String(), "Preview correction")
+}
+
+func TestDisabledLemmaSuggestionsKeepManualReviewAvailable(t *testing.T) {
+	h, cookies, csrf, store := readingFixtureSession(t)
+	endGermanFixtureReading(t, store)
+	webHandler, ok := h.(*Handler)
+	require.True(t, ok)
+	webHandler.services.LemmaReview = lemmaReviewWithSuggestions(webHandler, enrichment.DisabledLemmaSuggestionProvider{})
+	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
+		"csrf_token": {csrf}, "form": {"Weg"}, "target": {wegOccurrenceIDs(t, store, "fixture-route-match")[0]},
+	}, cookies)
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), "LLM suggestions are not configured.")
 	assert.Contains(t, response.Body.String(), "Preview correction")
 }
 

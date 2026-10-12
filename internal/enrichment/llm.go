@@ -89,20 +89,34 @@ func LLMConfigFromEnv() (LLMConfig, error) {
 	return cfg, nil
 }
 
-// NewConfiguredLLMProvider returns nil when the administrator has disabled
-// external LLM translation. The caller must still pass the user's opt-in to
-// EnrichmentConfig; Service is the final policy boundary for every request.
+// NewConfiguredLLMProvider returns a DisabledTranslationProvider when the
+// administrator has turned external LLM translation off. The caller must still
+// pass the user's opt-in to EnrichmentConfig; Service is the final policy
+// boundary for every request.
 func NewConfiguredLLMProvider(cfg LLMConfig, client *http.Client) (TranslationProvider, error) {
 	if !cfg.Enabled {
-		// A nil provider is the explicit disabled-provider contract.
-		//nolint:nilnil // callers distinguish disabled external enrichment from errors.
-		return nil, nil
+		return DisabledTranslationProvider{}, nil
 	}
 	llm, err := NewOpenAITranslationClient(cfg, client)
 	if err != nil {
 		return nil, err
 	}
 	return NewLLMProvider(llm.codec.ProviderName(), llm.codec.ProviderVersion(), llm)
+}
+
+var errExternalTranslationDisabled = errors.New("enrichment: external translation is disabled")
+
+// DisabledTranslationProvider is the translation provider used while external
+// translation is administratively off. It reports Enabled as false and refuses
+// to translate, so a caller that skips the enabled query fails instead of
+// reaching the network.
+type DisabledTranslationProvider struct{}
+
+func (DisabledTranslationProvider) Name() string    { return "disabled" }
+func (DisabledTranslationProvider) Version() string { return "disabled" }
+func (DisabledTranslationProvider) Enabled() bool   { return false }
+func (DisabledTranslationProvider) Translate(context.Context, TranslationRequest) (TranslationResponse, error) {
+	return TranslationResponse{}, errExternalTranslationDisabled
 }
 
 // OpenAITranslationClient implements the OpenAI-compatible Chat Completions

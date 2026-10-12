@@ -53,7 +53,10 @@ func TestLemmaSuggestionProviderSendsOnlyBoundedOccurrenceEvidence(t *testing.T)
 func TestLemmaSuggestionProviderDisabledAndBounds(t *testing.T) {
 	provider, err := NewConfiguredLemmaSuggestionProvider(LLMConfig{}, nil)
 	require.NoError(t, err)
-	assert.Nil(t, provider)
+	require.NotNil(t, provider)
+	assert.False(t, provider.Enabled())
+	_, err = provider.SuggestLemma(context.Background(), LemmaSuggestionRequest{Language: "de", Surface: "Haus", AnalyzedLemma: "haus", UPOS: "NOUN", Sentence: "Ein Haus."})
+	require.Error(t, err)
 	_, err = boundLemmaSuggestionRequest(LemmaSuggestionRequest{Language: "de", Surface: "Haus", AnalyzedLemma: "haus", UPOS: "NOUN", Sentence: strings.Repeat("x", 2001)})
 	assert.Error(t, err)
 }

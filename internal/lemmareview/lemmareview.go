@@ -54,8 +54,9 @@ type BrowseCounts interface {
 	EnqueueBrowseCountRebuild(context.Context, string, string) error
 }
 
-// Config supplies a Service's collaborators. RiskIndex, Suggestions, Preparer and
-// BrowseCounts may be nil; the workflow then runs without the optional step.
+// Config supplies a Service's collaborators. RiskIndex, Preparer and BrowseCounts
+// may be nil; the workflow then runs without the optional step. Suggestions must
+// be set: pass enrichment.DisabledLemmaSuggestionProvider{} when suggestions are off.
 type Config struct {
 	Store        Store
 	RiskIndex    lemmarisk.AlternativeIndex
@@ -281,7 +282,7 @@ func (s *Service) Suggest(ctx context.Context, owner, bookID, occurrenceID strin
 		return Suggestion{}, domain.ErrLemmaReviewOccurrenceMissing
 	}
 	suggestion := Suggestion{OccurrenceID: occurrenceID, Status: SuggestionNotConfigured}
-	if s.suggestions == nil {
+	if !s.suggestions.Enabled() {
 		return suggestion, nil
 	}
 	evidence := EvidenceOf(occurrence)

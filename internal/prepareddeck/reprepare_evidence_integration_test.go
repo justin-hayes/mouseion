@@ -116,6 +116,8 @@ func (p legacyPromptPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx,
 
 func (*reprepareFixtureProvider) Name() string    { return "reprepare-fixture" }
 func (*reprepareFixtureProvider) Version() string { return "1" }
+func (p *reprepareFixtureProvider) Enabled() bool { return true }
+
 func (p *reprepareFixtureProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.mu.Lock()
 	p.calls++

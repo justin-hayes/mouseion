@@ -34,15 +34,30 @@ type LemmaSuggestion struct {
 type LemmaSuggestionProvider interface {
 	Name() string
 	Version() string
+	// Enabled reports whether SuggestLemma reaches an external service.
+	Enabled() bool
 	SuggestLemma(context.Context, LemmaSuggestionRequest) (LemmaSuggestion, error)
 }
 
+var errLemmaSuggestionDisabled = errors.New("enrichment: lemma suggestion is disabled")
+
+// DisabledLemmaSuggestionProvider is the suggestion provider used while external
+// LLM configuration is off. Manual lemma review does not depend on it.
+type DisabledLemmaSuggestionProvider struct{}
+
+func (DisabledLemmaSuggestionProvider) Name() string    { return "disabled" }
+func (DisabledLemmaSuggestionProvider) Version() string { return "disabled" }
+func (DisabledLemmaSuggestionProvider) Enabled() bool   { return false }
+func (DisabledLemmaSuggestionProvider) SuggestLemma(context.Context, LemmaSuggestionRequest) (LemmaSuggestion, error) {
+	return LemmaSuggestion{}, errLemmaSuggestionDisabled
+}
+
 // NewConfiguredLemmaSuggestionProvider follows the same administrator
-// configuration boundary as translation. A disabled provider is represented
-// by nil and does not affect manual review.
+// configuration boundary as translation. A disabled provider does not affect
+// manual review.
 func NewConfiguredLemmaSuggestionProvider(cfg LLMConfig, client *http.Client) (LemmaSuggestionProvider, error) {
 	if !cfg.Enabled {
-		return nil, nil //nolint:nilnil // nil explicitly means configured provider disabled.
+		return DisabledLemmaSuggestionProvider{}, nil
 	}
 	if strings.TrimSpace(cfg.APIKey) == "" || strings.TrimSpace(cfg.Model) == "" {
 		return nil, errors.New("enrichment: LLM API key and model are required")
@@ -70,6 +85,7 @@ func (p *openAILemmaSuggestionProvider) Name() string { return "openai-compatibl
 func (p *openAILemmaSuggestionProvider) Version() string {
 	return p.model + "/" + lemmaSuggestionPromptVersion
 }
+func (p *openAILemmaSuggestionProvider) Enabled() bool { return true }
 
 func (p *openAILemmaSuggestionProvider) SuggestLemma(ctx context.Context, input LemmaSuggestionRequest) (LemmaSuggestion, error) {
 	input, err := boundLemmaSuggestionRequest(input)

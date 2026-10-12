@@ -38,6 +38,8 @@ type barrierTranslationProvider struct {
 func (p *barrierTranslationProvider) Name() string    { return "integration-provider" }
 func (p *barrierTranslationProvider) Version() string { return "1" }
 
+func (p *barrierTranslationProvider) Enabled() bool { return true }
+
 func (p *barrierTranslationProvider) Translate(ctx context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.mu.Lock()
 	p.calls++

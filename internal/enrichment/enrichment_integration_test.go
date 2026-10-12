@@ -75,6 +75,8 @@ type postgresFallbackProvider struct {
 
 func (*postgresFallbackProvider) Name() string    { return "llm" }
 func (*postgresFallbackProvider) Version() string { return "model-1" }
+func (p *postgresFallbackProvider) Enabled() bool { return true }
+
 func (p *postgresFallbackProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.calls++
 	response := enrichment.TranslationResponse{

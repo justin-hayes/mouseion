@@ -126,7 +126,7 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 		provider enrichment.TranslationProvider
 	}{
 		{name: "without consent", config: enrichment.Config{ExternalEnabled: true, UserOptIn: false, ContextMode: enrichment.SentenceContext}, provider: provider},
-		{name: "without provider", config: enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext}},
+		{name: "without provider", config: enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext}, provider: enrichment.DisabledTranslationProvider{}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			gated := enrichment.NewService(test.config, nil, nil, nil, test.provider, nil)
