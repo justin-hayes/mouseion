@@ -337,6 +337,7 @@ func insertLegacySource(t *testing.T, ctx context.Context, pool *pgxpool.Pool, o
 }
 
 func putBookSource(t *testing.T, ctx context.Context, store *PostgresStore, owner, identifier, title string, content []byte, fullText string) domain.SourceMaterial {
+	t.Helper()
 	return putBookSourceInLanguage(t, ctx, store, owner, "de", identifier, title, content, fullText)
 }
 

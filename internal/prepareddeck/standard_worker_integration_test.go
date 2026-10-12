@@ -115,6 +115,7 @@ type standardIntegrationRun struct {
 }
 
 func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, maxAttempts int) (standardIntegrationRun, *river.Client[pgx.Tx], *barrierTranslationProvider) {
+	t.Helper()
 	return newStandardIntegrationRunWithExample(t, ctx, itemCount, maxAttempts, false)
 }
 

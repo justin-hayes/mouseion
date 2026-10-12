@@ -11,19 +11,19 @@ import (
 
 func TestFakeSatisfiesAnalyzerContract(t *testing.T) {
 	analyzertest.RunContract(t, func(
-		t testing.TB,
+		tb testing.TB,
 		wantRequest analyzer.AnalyzeRequest,
 		wantResult analyzer.Result,
 	) analyzer.Analyzer {
-		t.Helper()
+		tb.Helper()
 		fake := &analyzertest.Fake{
 			AnalyzeFunc: func(_ context.Context, request analyzer.AnalyzeRequest) (analyzer.Result, error) {
-				require.Equal(t, wantRequest, request)
+				require.Equal(tb, wantRequest, request)
 				return wantResult, nil
 			},
 		}
-		t.Cleanup(func() {
-			require.Equal(t, 1, len(fake.Requests()), "Analyze() call count = %d, want 1", len(fake.Requests()))
+		tb.Cleanup(func() {
+			require.Equal(tb, 1, len(fake.Requests()), "Analyze() call count = %d, want 1", len(fake.Requests()))
 		})
 		return fake
 	})

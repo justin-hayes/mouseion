@@ -222,6 +222,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			name:   "a decision on another surface form of the same lemma",
 			target: []string{"Haus", "Heim", "Dach"},
 			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, target, _, _ domain.Book) {
+				t.Helper()
 				occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, target.ID, "Dach")
 				require.NoError(t, err)
 				require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "haus", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}))
@@ -233,6 +234,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			target: []string{"Haus", "Heim"},
 			other:  repeat("Haus", 8),
 			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, other, _ domain.Book) {
+				t.Helper()
 				occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, other.ID, "Haus")
 				require.NoError(t, err)
 				require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], Excluded: true}}))
@@ -243,6 +245,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			name:   "an affected identity becoming Known",
 			target: []string{"Haus", "Heim"},
 			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, _ domain.Book) {
+				t.Helper()
 				_, err := store.PutKnownVocabulary(ctx, ownerID, "de", "haus", "NOUN")
 				require.NoError(t, err)
 			},
@@ -253,6 +256,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			target:    []string{"Haus", "Heim"},
 			reserving: true,
 			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, reserving domain.Book) {
+				t.Helper()
 				_, err := store.StartCurrentReading(ctx, ownerID, "de", reserving.ID)
 				require.NoError(t, err)
 			},
@@ -262,6 +266,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			name:   "an unaffected identity becoming Known",
 			target: []string{"Haus", "Heim"},
 			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, _ domain.Book) {
+				t.Helper()
 				_, err := store.PutKnownVocabulary(ctx, ownerID, "de", "unrelated", "NOUN")
 				require.NoError(t, err)
 			},
