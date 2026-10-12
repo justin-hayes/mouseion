@@ -163,16 +163,7 @@ func reconcilePreparedDeckBatchOutcomes(ctx context.Context, tx pgx.Tx, params P
 }
 
 func reconcilePreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, run domain.PreparedDeckRun, chunk domain.PreparedDeckBatchChunk, member preparedDeckBatchMember, item PreparedDeckBatchItemReconciliation) (bool, error) {
-	if item.State != domain.PreparedDeckOutcomeCompleted && item.State != domain.PreparedDeckOutcomePending && item.State != domain.PreparedDeckOutcomeFailed {
-		return false, ErrInvalidTransition
-	}
-	if item.OmissionReason != "" && (item.State != domain.PreparedDeckOutcomeCompleted || strings.TrimSpace(item.OmissionReason) == "" || len([]rune(item.OmissionReason)) > 200 || strings.ContainsAny(item.OmissionReason, "<>") || item.ErrorClass != "" || item.ErrorCode != "" || item.CacheEntry != nil) {
-		return false, ErrInvalidTransition
-	}
-	if item.State == domain.PreparedDeckOutcomeFailed && strings.TrimSpace(item.ErrorClass) == "" {
-		return false, ErrInvalidTransition
-	}
-	if err := validateBoundedError(item.ErrorClass, item.ErrorCode); err != nil {
+	if err := validatePreparedDeckBatchItem(item); err != nil {
 		return false, err
 	}
 	outcomeModel, err := sqlcgen.New(tx).GetPreparedDeckTranslationOutcomeForUpdate(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal})
@@ -180,7 +171,7 @@ func reconcilePreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params Prepa
 		return false, missing(err)
 	}
 	outcome := preparedDeckOutcomeFromModel(outcomeModel)
-	if outcome.State == domain.PreparedDeckOutcomeCompleted || outcome.State == domain.PreparedDeckOutcomeFailed || outcome.State == domain.PreparedDeckOutcomeCancelled {
+	if preparedDeckBatchOutcomeIsTerminal(outcome.State) {
 		return false, nil
 	}
 	if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeRunning {
@@ -189,6 +180,33 @@ func reconcilePreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params Prepa
 	if item.State == domain.PreparedDeckOutcomePending && chunk.Generation >= run.MaxBatchGenerations {
 		return false, ErrInvalidTransition
 	}
+	return persistPreparedDeckBatchItem(ctx, tx, params, chunk, member, item)
+}
+
+// validatePreparedDeckBatchItem enforces the per-item shape rules before any
+// durable outcome is touched.
+func validatePreparedDeckBatchItem(item PreparedDeckBatchItemReconciliation) error {
+	if item.State != domain.PreparedDeckOutcomeCompleted && item.State != domain.PreparedDeckOutcomePending && item.State != domain.PreparedDeckOutcomeFailed {
+		return ErrInvalidTransition
+	}
+	if item.OmissionReason != "" && (item.State != domain.PreparedDeckOutcomeCompleted || strings.TrimSpace(item.OmissionReason) == "" || len([]rune(item.OmissionReason)) > 200 || strings.ContainsAny(item.OmissionReason, "<>") || item.ErrorClass != "" || item.ErrorCode != "" || item.CacheEntry != nil) {
+		return ErrInvalidTransition
+	}
+	if item.State == domain.PreparedDeckOutcomeFailed && strings.TrimSpace(item.ErrorClass) == "" {
+		return ErrInvalidTransition
+	}
+	return validateBoundedError(item.ErrorClass, item.ErrorCode)
+}
+
+// preparedDeckBatchOutcomeIsTerminal reports whether an outcome is already
+// settled and must not be rewritten by a later reconciliation.
+func preparedDeckBatchOutcomeIsTerminal(state domain.PreparedDeckOutcomeState) bool {
+	return state == domain.PreparedDeckOutcomeCompleted || state == domain.PreparedDeckOutcomeFailed || state == domain.PreparedDeckOutcomeCancelled
+}
+
+// persistPreparedDeckBatchItem persists one item's cache entry and durable
+// outcome, returning whether the item still needs another attempt.
+func persistPreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, chunk domain.PreparedDeckBatchChunk, member preparedDeckBatchMember, item PreparedDeckBatchItemReconciliation) (bool, error) {
 	if err := persistPreparedDeckBatchCache(ctx, tx, member, item); err != nil {
 		return false, err
 	}

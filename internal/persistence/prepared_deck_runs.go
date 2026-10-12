@@ -96,7 +96,6 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	preparationState := domain.DeckPreparationState(freezeState.State)
 	currentRunID := uuidString(freezeState.CurrentRunID)
 	digest, candidateDigests, err := params.Projection.Digests()
 	if err != nil {
@@ -108,68 +107,122 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if currentRunID != "" {
 		return existingPreparedDeckRunFreezeResult(ctx, tx, params, currentRunID, digest)
 	}
-	if preparationState != domain.DeckPreparationQueued && preparationState != domain.DeckPreparationPreparing {
-		return FreezePreparedDeckRunResult{}, ErrInvalidTransition
-	}
-	config, err := validatePreparedDeckRunConfig(params.Config)
+	config, manifestWork, err := validateNewPreparedDeckRunFreeze(ctx, tx, params, freezeState)
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
-	}
-	if err := validatePreparedDeckManifestShape(params.Projection, params.OwnerID, freezeState.Filename); err != nil {
-		return FreezePreparedDeckRunResult{}, err
-	}
-	manifestWork, err := classifyPreparedDeckManifest(ctx, tx, params.Projection)
-	if err != nil {
-		return FreezePreparedDeckRunResult{}, err
-	}
-	if err := validatePreparedDeckManifestCacheIdentity(params.Projection, config); err != nil {
-		return FreezePreparedDeckRunResult{}, err
-	}
-	if config.ExecutionMode == string(domain.PreparedDeckExecutionBatch) {
-		if err := validateChunkPlans(params.Chunks, config, manifestWork.pending); err != nil {
-			return FreezePreparedDeckRunResult{}, err
-		}
-	} else if len(params.Chunks) != 0 {
-		return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: standard runs cannot contain Batch chunks", ErrImmutable)
 	}
 	runNumberValue, err := sqlcgen.New(tx).NextPreparedDeckRunNumber(ctx, sqlcgen.NextPreparedDeckRunNumberParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID})
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	runNumber := int(runNumberValue)
-	runID := params.RunID
-	if runID == "" {
-		runID = uuid.NewString()
-	} else if parsed, parseErr := uuid.Parse(runID); parseErr != nil || parsed.String() != runID {
-		return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: invalid durable run identity", ErrImmutable)
-	}
-	runState, translationState := domain.PreparedDeckRunTranslating, domain.PreparedDeckTranslationPending
-	var translationCompletedAt *time.Time
-	if len(manifestWork.pending) == 0 {
-		runState, translationState = domain.PreparedDeckRunFinalizing, domain.PreparedDeckTranslationCompleted
-		completedAt := time.Now().UTC()
-		translationCompletedAt = &completedAt
-	}
-	selectedCount, acceptedCount, omittedCount := params.Projection.Counts()
-	if err := insertPreparedDeckRunRow(ctx, tx, params, config, runID, runNumber, runState, translationState, acceptedCount, manifestWork.completedCount, translationCompletedAt); err != nil {
-		return FreezePreparedDeckRunResult{}, err
-	}
-	if err := insertPreparedDeckManifestRow(ctx, tx, params, runID, digest, selectedCount, acceptedCount, omittedCount); err != nil {
-		return FreezePreparedDeckRunResult{}, err
-	}
-	if err := insertPreparedDeckManifestItems(ctx, tx, params, config, candidateDigests, runID, manifestWork.pending); err != nil {
-		return FreezePreparedDeckRunResult{}, err
-	}
-	chunks, err := insertPreparedDeckChunkPlans(ctx, tx, params, candidateDigests, runID)
+	runID, err := resolvePreparedDeckRunID(params.RunID)
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if err := sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: params.OwnerID, ID: params.PreparationID, CurrentRunID: uuidArg(runID)}); err != nil {
+	runFreeze := preparedDeckRunFreeze{runID: runID, runNumber: int(runNumberValue)}
+	runFreeze.state, runFreeze.translationState, runFreeze.translationCompletedAt = preparedDeckRunInitialStates(manifestWork.pending)
+	chunks, err := writePreparedDeckRunFreeze(ctx, tx, params, config, candidateDigests, digest, runFreeze, manifestWork)
+	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	run, err := getPreparedDeckRun(ctx, tx, params.OwnerID, params.PreparationID, runID)
 	pendingOrdinals := preparedDeckPendingOrdinals(params.Projection.Items, manifestWork.pending)
-	return FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, PendingOrdinals: pendingOrdinals, NeedsFinalizer: runState == domain.PreparedDeckRunFinalizing}, err
+	return FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, PendingOrdinals: pendingOrdinals, NeedsFinalizer: runFreeze.state == domain.PreparedDeckRunFinalizing}, err
+}
+
+// validateNewPreparedDeckRunFreeze checks everything that must hold before a new
+// run may be written: an accepting preparation, a valid frozen configuration,
+// and a manifest whose shape, cache identity and Batch plans match it.
+func validateNewPreparedDeckRunFreeze(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, freezeState sqlcgen.GetDeckPreparationFreezeStateRow) (PreparedDeckRunConfig, preparedDeckManifestWork, error) {
+	preparationState := domain.DeckPreparationState(freezeState.State)
+	if preparationState != domain.DeckPreparationQueued && preparationState != domain.DeckPreparationPreparing {
+		return PreparedDeckRunConfig{}, preparedDeckManifestWork{}, ErrInvalidTransition
+	}
+	config, err := validatePreparedDeckRunConfig(params.Config)
+	if err != nil {
+		return PreparedDeckRunConfig{}, preparedDeckManifestWork{}, err
+	}
+	if err := validatePreparedDeckManifestShape(params.Projection, params.OwnerID, freezeState.Filename); err != nil {
+		return PreparedDeckRunConfig{}, preparedDeckManifestWork{}, err
+	}
+	manifestWork, err := classifyPreparedDeckManifest(ctx, tx, params.Projection)
+	if err != nil {
+		return PreparedDeckRunConfig{}, preparedDeckManifestWork{}, err
+	}
+	if err := validatePreparedDeckManifestCacheIdentity(params.Projection, config); err != nil {
+		return PreparedDeckRunConfig{}, preparedDeckManifestWork{}, err
+	}
+	if err := validatePreparedDeckRunChunks(params.Chunks, config, manifestWork.pending); err != nil {
+		return PreparedDeckRunConfig{}, preparedDeckManifestWork{}, err
+	}
+	return config, manifestWork, nil
+}
+
+// validatePreparedDeckRunChunks applies the Batch/standard split: Batch runs
+// validate their chunk plans, and standard runs must carry none.
+func validatePreparedDeckRunChunks(chunks []PreparedDeckBatchChunkPlan, config PreparedDeckRunConfig, pending map[int]cardexport.ManifestItem) error {
+	if config.ExecutionMode == string(domain.PreparedDeckExecutionBatch) {
+		return validateChunkPlans(chunks, config, pending)
+	}
+	if len(chunks) != 0 {
+		return fmt.Errorf("%w: standard runs cannot contain Batch chunks", ErrImmutable)
+	}
+	return nil
+}
+
+// resolvePreparedDeckRunID keeps a caller-supplied durable identity stable and
+// mints one otherwise, rejecting anything that is not a canonical UUID.
+func resolvePreparedDeckRunID(runID string) (string, error) {
+	if runID == "" {
+		return uuid.NewString(), nil
+	}
+	if parsed, err := uuid.Parse(runID); err != nil || parsed.String() != runID {
+		return "", fmt.Errorf("%w: invalid durable run identity", ErrImmutable)
+	}
+	return runID, nil
+}
+
+// preparedDeckRunFreeze carries the durable identity and initial state of the
+// run row being written.
+type preparedDeckRunFreeze struct {
+	runID                  string
+	runNumber              int
+	state                  domain.PreparedDeckRunState
+	translationState       domain.PreparedDeckTranslationState
+	translationCompletedAt *time.Time
+}
+
+// preparedDeckRunInitialStates selects the run's starting state: a run with no
+// provider work to do starts finalizing, otherwise it starts translating.
+func preparedDeckRunInitialStates(pending map[int]cardexport.ManifestItem) (domain.PreparedDeckRunState, domain.PreparedDeckTranslationState, *time.Time) {
+	if len(pending) == 0 {
+		completedAt := time.Now().UTC()
+		return domain.PreparedDeckRunFinalizing, domain.PreparedDeckTranslationCompleted, &completedAt
+	}
+	return domain.PreparedDeckRunTranslating, domain.PreparedDeckTranslationPending, nil
+}
+
+// writePreparedDeckRunFreeze writes the run, its immutable manifest and items,
+// its Batch chunks, and the current-run pointer in the caller's transaction.
+func writePreparedDeckRunFreeze(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, config PreparedDeckRunConfig, candidateDigests []string, digest string, freeze preparedDeckRunFreeze, manifestWork preparedDeckManifestWork) ([]domain.PreparedDeckBatchChunk, error) {
+	selectedCount, acceptedCount, omittedCount := params.Projection.Counts()
+	if err := insertPreparedDeckRunRow(ctx, tx, params, config, freeze.runID, freeze.runNumber, freeze.state, freeze.translationState, acceptedCount, manifestWork.completedCount, freeze.translationCompletedAt); err != nil {
+		return nil, err
+	}
+	if err := insertPreparedDeckManifestRow(ctx, tx, params, freeze.runID, digest, selectedCount, acceptedCount, omittedCount); err != nil {
+		return nil, err
+	}
+	if err := insertPreparedDeckManifestItems(ctx, tx, params, config, candidateDigests, freeze.runID, manifestWork.pending); err != nil {
+		return nil, err
+	}
+	chunks, err := insertPreparedDeckChunkPlans(ctx, tx, params, candidateDigests, freeze.runID)
+	if err != nil {
+		return nil, err
+	}
+	if err := sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: params.OwnerID, ID: params.PreparationID, CurrentRunID: uuidArg(freeze.runID)}); err != nil {
+		return nil, err
+	}
+	return chunks, nil
 }
 
 func existingPreparedDeckRunFreezeResult(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, runID, digest string) (FreezePreparedDeckRunResult, error) {
@@ -234,18 +287,27 @@ func validatePreparedDeckManifestCacheIdentity(projection cardexport.StorageProj
 		if item.Disposition != cardexport.ManifestAccepted {
 			continue
 		}
-		if requested != (item.CacheKey != nil) {
-			return fmt.Errorf("%w: manifest cache identity contradicts run configuration", ErrImmutable)
+		if err := validatePreparedDeckManifestCacheItem(item, config, requested); err != nil {
+			return err
 		}
-		if item.CacheKey != nil && (item.CacheKey.Provider != config.Provider || item.CacheKey.ProviderVersion != config.ProviderVersion) {
-			return fmt.Errorf("%w: manifest cache identity contradicts provider snapshot", ErrImmutable)
-		}
-		if item.CacheKey != nil && item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(item.Entry.CandidateSenses) {
-			return fmt.Errorf("%w: manifest cache identity contradicts frozen meaning evidence", ErrImmutable)
-		}
-		if item.CacheKey != nil && ((config.ContextMode == "sentence" && item.CacheKey.SentenceHash != enrichment.SentenceHash(item.Entry.Sentence)) || (config.ContextMode == "lemma_only" && item.CacheKey.SentenceHash != "")) {
-			return fmt.Errorf("%w: manifest cache identity contradicts context mode", ErrImmutable)
-		}
+	}
+	return nil
+}
+
+// validatePreparedDeckManifestCacheItem checks one accepted manifest item's
+// frozen cache identity against the requested run configuration.
+func validatePreparedDeckManifestCacheItem(item cardexport.ManifestItem, config PreparedDeckRunConfig, requested bool) error {
+	if requested != (item.CacheKey != nil) {
+		return fmt.Errorf("%w: manifest cache identity contradicts run configuration", ErrImmutable)
+	}
+	if item.CacheKey != nil && (item.CacheKey.Provider != config.Provider || item.CacheKey.ProviderVersion != config.ProviderVersion) {
+		return fmt.Errorf("%w: manifest cache identity contradicts provider snapshot", ErrImmutable)
+	}
+	if item.CacheKey != nil && item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(item.Entry.CandidateSenses) {
+		return fmt.Errorf("%w: manifest cache identity contradicts frozen meaning evidence", ErrImmutable)
+	}
+	if item.CacheKey != nil && ((config.ContextMode == "sentence" && item.CacheKey.SentenceHash != enrichment.SentenceHash(item.Entry.Sentence)) || (config.ContextMode == "lemma_only" && item.CacheKey.SentenceHash != "")) {
+		return fmt.Errorf("%w: manifest cache identity contradicts context mode", ErrImmutable)
 	}
 	return nil
 }
@@ -334,6 +396,22 @@ func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezeP
 }
 
 func validatePreparedDeckRunConfig(config PreparedDeckRunConfig) (PreparedDeckRunConfig, error) {
+	config = applyPreparedDeckRunConfigDefaults(config)
+	if err := validatePreparedDeckExecutionIdentity(config); err != nil {
+		return config, err
+	}
+	if err := validatePreparedDeckTranslationIdentity(config); err != nil {
+		return config, err
+	}
+	if err := validatePreparedDeckRunLimits(config); err != nil {
+		return config, err
+	}
+	return config, nil
+}
+
+// applyPreparedDeckRunConfigDefaults fills every optional field a caller may
+// leave zero, so a validated config is always fully frozen.
+func applyPreparedDeckRunConfigDefaults(config PreparedDeckRunConfig) PreparedDeckRunConfig {
 	if config.ExecutionMode == "" {
 		config.ExecutionMode = "batch"
 	}
@@ -355,54 +433,113 @@ func validatePreparedDeckRunConfig(config PreparedDeckRunConfig) (PreparedDeckRu
 	if config.BatchMaxBytes == 0 {
 		config.BatchMaxBytes = DefaultBatchMaxBytes
 	}
+	return config
+}
+
+// validatePreparedDeckExecutionIdentity requires a known execution mode and the
+// only supported target language.
+func validatePreparedDeckExecutionIdentity(config PreparedDeckRunConfig) error {
 	if (config.ExecutionMode != "standard" && config.ExecutionMode != "batch") || config.TargetLanguage != "en" {
-		return config, fmt.Errorf("%w: invalid frozen execution identity", ErrInvalidTransition)
+		return fmt.Errorf("%w: invalid frozen execution identity", ErrInvalidTransition)
 	}
+	return nil
+}
+
+// validatePreparedDeckTranslationIdentity requires a complete provider identity
+// exactly when external translation was consented to and configured.
+func validatePreparedDeckTranslationIdentity(config PreparedDeckRunConfig) error {
 	requested := config.ExternalTranslationConsent && config.ExternalTranslationConfigured
 	if requested {
 		if (config.ContextMode != "sentence" && config.ContextMode != "lemma_only") || config.Provider == "" || config.ProviderVersion == "" || config.Endpoint != "/v1/chat/completions" || config.Model == "" {
-			return config, fmt.Errorf("%w: incomplete external translation identity", ErrInvalidTransition)
+			return fmt.Errorf("%w: incomplete external translation identity", ErrInvalidTransition)
 		}
-	} else if config.ContextMode != "" || config.Provider != "" || config.ProviderVersion != "" || config.Endpoint != "" || config.Model != "" {
-		return config, fmt.Errorf("%w: disabled external translation has provider identity", ErrInvalidTransition)
+		return nil
 	}
+	if config.ContextMode != "" || config.Provider != "" || config.ProviderVersion != "" || config.Endpoint != "" || config.Model != "" {
+		return fmt.Errorf("%w: disabled external translation has provider identity", ErrInvalidTransition)
+	}
+	return nil
+}
+
+// validatePreparedDeckRunLimits requires every durable run limit to sit inside
+// the supported range.
+func validatePreparedDeckRunLimits(config PreparedDeckRunConfig) error {
 	if config.RetryPolicyVersion < 1 || config.MaxProviderAttempts < 1 || config.MaxBatchGenerations < 1 || config.MaxBatchGenerations > MaximumBatchGenerations || config.BatchMaxRequests < 1 || config.BatchMaxRequests > 50000 || config.BatchMaxBytes < 1 || config.BatchMaxBytes > DefaultBatchMaxBytes {
-		return config, fmt.Errorf("%w: invalid durable run limits", ErrInvalidTransition)
+		return fmt.Errorf("%w: invalid durable run limits", ErrInvalidTransition)
 	}
-	return config, nil
+	return nil
 }
 
 func validateChunkPlans(plans []PreparedDeckBatchChunkPlan, config PreparedDeckRunConfig, pending map[int]cardexport.ManifestItem) error {
 	covered := make(map[int]struct{}, len(pending))
 	identities := make(map[string]struct{}, len(plans))
 	for _, plan := range plans {
-		validSplit := plan.SplitReason == "run" || plan.SplitReason == "request_limit" || plan.SplitReason == "byte_limit" || plan.SplitReason == "token_limit" || plan.SplitReason == "retry"
-		digestBytes, digestErr := hex.DecodeString(plan.InputDigest)
-		validDigest := digestErr == nil && len(digestBytes) == 32 && plan.InputDigest == strings.ToLower(plan.InputDigest)
-		if len(plan.Ordinals) == 0 || len(plan.Ordinals) > config.BatchMaxRequests || plan.InputBytes < 1 || plan.InputBytes > config.BatchMaxBytes || plan.Generation < 1 || plan.Generation > config.MaxBatchGenerations || plan.ChunkIndex < 0 || plan.Model != config.Model || plan.Endpoint != config.Endpoint || !validSplit || !validDigest {
-			return fmt.Errorf("%w: invalid Batch chunk plan", ErrInvalidTransition)
+		if err := validatePreparedDeckChunkPlan(plan, config); err != nil {
+			return err
 		}
 		identity := fmt.Sprintf("%d/%d", plan.Generation, plan.ChunkIndex)
 		if _, exists := identities[identity]; exists {
 			return fmt.Errorf("%w: duplicate Batch chunk identity", ErrImmutable)
 		}
 		identities[identity] = struct{}{}
-		previous := -1
-		for _, ordinal := range plan.Ordinals {
-			if ordinal <= previous {
-				return fmt.Errorf("%w: Batch chunk ordinals are not ordered", ErrImmutable)
-			}
-			if _, exists := pending[ordinal]; !exists {
-				return fmt.Errorf("%w: Batch chunk contains a non-pending item", ErrImmutable)
-			}
-			if _, exists := covered[ordinal]; exists {
-				return fmt.Errorf("%w: Batch item appears in multiple chunks", ErrImmutable)
-			}
-			covered[ordinal], previous = struct{}{}, ordinal
+		if err := validatePreparedDeckChunkOrdinals(plan.Ordinals, pending, covered); err != nil {
+			return err
 		}
 	}
 	if len(covered) != len(pending) {
 		return fmt.Errorf("%w: Batch chunks do not cover pending items", ErrImmutable)
+	}
+	return nil
+}
+
+// validatePreparedDeckChunkPlan checks one Batch chunk plan's shape, split
+// reason, input digest and frozen limits.
+func validatePreparedDeckChunkPlan(plan PreparedDeckBatchChunkPlan, config PreparedDeckRunConfig) error {
+	if !preparedDeckChunkSplitReasonValid(plan.SplitReason) || !preparedDeckChunkDigestValid(plan.InputDigest) || !preparedDeckChunkPlanWithinLimits(plan, config) {
+		return fmt.Errorf("%w: invalid Batch chunk plan", ErrInvalidTransition)
+	}
+	return nil
+}
+
+// preparedDeckChunkSplitReasonValid reports whether a chunk carries a known
+// split reason.
+func preparedDeckChunkSplitReasonValid(reason string) bool {
+	switch reason {
+	case "run", "request_limit", "byte_limit", "token_limit", "retry":
+		return true
+	default:
+		return false
+	}
+}
+
+// preparedDeckChunkDigestValid reports whether a chunk carries a canonical
+// lower-case sha256 input digest.
+func preparedDeckChunkDigestValid(digest string) bool {
+	digestBytes, err := hex.DecodeString(digest)
+	return err == nil && len(digestBytes) == 32 && digest == strings.ToLower(digest)
+}
+
+// preparedDeckChunkPlanWithinLimits reports whether a chunk fits the frozen
+// request, byte and generation limits and the frozen provider identity.
+func preparedDeckChunkPlanWithinLimits(plan PreparedDeckBatchChunkPlan, config PreparedDeckRunConfig) bool {
+	return len(plan.Ordinals) > 0 && len(plan.Ordinals) <= config.BatchMaxRequests && plan.InputBytes >= 1 && plan.InputBytes <= config.BatchMaxBytes && plan.Generation >= 1 && plan.Generation <= config.MaxBatchGenerations && plan.ChunkIndex >= 0 && plan.Model == config.Model && plan.Endpoint == config.Endpoint
+}
+
+// validatePreparedDeckChunkOrdinals checks one plan's ordinals are strictly
+// ascending, pending, and not yet claimed by another plan.
+func validatePreparedDeckChunkOrdinals(ordinals []int, pending map[int]cardexport.ManifestItem, covered map[int]struct{}) error {
+	previous := -1
+	for _, ordinal := range ordinals {
+		if ordinal <= previous {
+			return fmt.Errorf("%w: Batch chunk ordinals are not ordered", ErrImmutable)
+		}
+		if _, exists := pending[ordinal]; !exists {
+			return fmt.Errorf("%w: Batch chunk contains a non-pending item", ErrImmutable)
+		}
+		if _, exists := covered[ordinal]; exists {
+			return fmt.Errorf("%w: Batch item appears in multiple chunks", ErrImmutable)
+		}
+		covered[ordinal], previous = struct{}{}, ordinal
 	}
 	return nil
 }
@@ -510,106 +647,58 @@ func (s *PostgresStore) PreparedDeckRunProgress(ctx context.Context, owner, prep
 	if err != nil {
 		return domain.PreparedDeckRunProgress{}, err
 	}
-	count := func(name string, value int64) (int, error) {
-		converted, conversionErr := checked.IntFromInt64(value)
-		if conversionErr != nil {
-			return 0, fmt.Errorf("invalid %s: %w", name, conversionErr)
+	return preparedDeckRunProgressFromRow(row)
+}
+
+// preparedDeckRunProgressFromRow narrows every count and derives the batch age
+// from the raw progress row.
+func preparedDeckRunProgressFromRow(row sqlcgen.GetPreparedDeckRunProgressRow) (domain.PreparedDeckRunProgress, error) {
+	var progress domain.PreparedDeckRunProgress
+	fields := [...]struct {
+		name  string
+		value int64
+		dest  *int
+	}{
+		{"candidate count", row.CandidateCount, &progress.CandidateCount},
+		{"pending count", row.PendingCount, &progress.PendingCount},
+		{"running count", row.RunningCount, &progress.RunningCount},
+		{"completed count", row.CompletedCount, &progress.CompletedCount},
+		{"failed count", row.FailedCount, &progress.FailedCount},
+		{"cancelled count", row.CancelledCount, &progress.CancelledCount},
+		{"retrying count", row.RetryingCount, &progress.RetryingCount},
+		{"manifest omission count", row.ManifestOmissions, &progress.ManifestOmissions},
+		{"batch chunk count", row.BatchChunkCount, &progress.BatchChunkCount},
+		{"submitted batch chunk count", row.BatchSubmittedChunks, &progress.BatchSubmittedChunks},
+		{"polling batch chunk count", row.BatchPollingChunks, &progress.BatchPollingChunks},
+		{"reconciling batch chunk count", row.BatchReconcilingChunks, &progress.BatchReconcilingChunks},
+		{"completed batch chunk count", row.BatchCompletedChunks, &progress.BatchCompletedChunks},
+		{"failed batch chunk count", row.BatchFailedChunks, &progress.BatchFailedChunks},
+		{"cancelled batch chunk count", row.BatchCancelledChunks, &progress.BatchCancelledChunks},
+		{"batch request count", row.BatchRequestCount, &progress.BatchRequestCount},
+		{"completed batch request count", row.BatchCompletedRequests, &progress.BatchCompletedRequests},
+		{"failed batch request count", row.BatchFailedRequests, &progress.BatchFailedRequests},
+		{"expired batch request count", row.BatchExpiredRequests, &progress.BatchExpiredRequests},
+	}
+	for _, field := range fields {
+		converted, err := checked.IntFromInt64(field.value)
+		if err != nil {
+			return domain.PreparedDeckRunProgress{}, fmt.Errorf("invalid %s: %w", field.name, err)
 		}
-		return converted, nil
+		*field.dest = converted
 	}
-	candidateCount, err := count("candidate count", row.CandidateCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	pendingCount, err := count("pending count", row.PendingCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	runningCount, err := count("running count", row.RunningCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	completedCount, err := count("completed count", row.CompletedCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	failedCount, err := count("failed count", row.FailedCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	cancelledCount, err := count("cancelled count", row.CancelledCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	retryingCount, err := count("retrying count", row.RetryingCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	manifestOmissions, err := count("manifest omission count", row.ManifestOmissions)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchChunkCount, err := count("batch chunk count", row.BatchChunkCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchSubmittedChunks, err := count("submitted batch chunk count", row.BatchSubmittedChunks)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchPollingChunks, err := count("polling batch chunk count", row.BatchPollingChunks)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchReconcilingChunks, err := count("reconciling batch chunk count", row.BatchReconcilingChunks)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchCompletedChunks, err := count("completed batch chunk count", row.BatchCompletedChunks)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchFailedChunks, err := count("failed batch chunk count", row.BatchFailedChunks)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchCancelledChunks, err := count("cancelled batch chunk count", row.BatchCancelledChunks)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchRequestCount, err := count("batch request count", row.BatchRequestCount)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchCompletedRequests, err := count("completed batch request count", row.BatchCompletedRequests)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchFailedRequests, err := count("failed batch request count", row.BatchFailedRequests)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	batchExpiredRequests, err := count("expired batch request count", row.BatchExpiredRequests)
-	if err != nil {
-		return domain.PreparedDeckRunProgress{}, err
-	}
-	progress := domain.PreparedDeckRunProgress{
-		CandidateCount: candidateCount, PendingCount: pendingCount, RunningCount: runningCount,
-		CompletedCount: completedCount, FailedCount: failedCount, CancelledCount: cancelledCount,
-		RetryingCount: retryingCount, ManifestOmissions: manifestOmissions,
-		BatchChunkCount: batchChunkCount, BatchSubmittedChunks: batchSubmittedChunks,
-		BatchPollingChunks: batchPollingChunks, BatchReconcilingChunks: batchReconcilingChunks,
-		BatchCompletedChunks: batchCompletedChunks, BatchFailedChunks: batchFailedChunks,
-		BatchCancelledChunks: batchCancelledChunks, BatchRequestCount: batchRequestCount,
-		BatchCompletedRequests: batchCompletedRequests, BatchFailedRequests: batchFailedRequests,
-		BatchExpiredRequests: batchExpiredRequests, BatchInputTokens: row.BatchInputTokens,
-		BatchOutputTokens: row.BatchOutputTokens,
-	}
-	if row.BatchSubmittedEpoch > 0 {
-		submittedAt := time.Unix(0, int64(row.BatchSubmittedEpoch*float64(time.Second)))
-		if time.Now().After(submittedAt) {
-			progress.BatchAge = time.Since(submittedAt)
-		}
-	}
+	progress.BatchInputTokens, progress.BatchOutputTokens = row.BatchInputTokens, row.BatchOutputTokens
+	applyPreparedDeckBatchAge(&progress, row.BatchSubmittedEpoch)
 	return progress, nil
+}
+
+// applyPreparedDeckBatchAge records how long the oldest submitted chunk has
+// waited. An unsubmitted run has a zero epoch and no age.
+func applyPreparedDeckBatchAge(progress *domain.PreparedDeckRunProgress, submittedEpoch float64) {
+	if submittedEpoch <= 0 {
+		return
+	}
+	submittedAt := time.Unix(0, int64(submittedEpoch*float64(time.Second)))
+	if time.Now().After(submittedAt) {
+		progress.BatchAge = time.Since(submittedAt)
+	}
 }

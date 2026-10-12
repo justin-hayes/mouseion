@@ -166,6 +166,28 @@ func (s *PostgresStore) SetPreparedDeckFinalizationJobTx(ctx context.Context, tx
 }
 
 func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner, preparationID, runID string) (cardexport.StorageProjection, []cardexport.StoredResult, error) {
+	projection, outcomes, err := s.loadPreparedDeckFinalizationInputs(ctx, owner, preparationID, runID)
+	if err != nil {
+		return cardexport.StorageProjection{}, nil, err
+	}
+	if !preparedDeckProjectionHasCacheKeys(projection) {
+		return projection, nil, nil
+	}
+	records, err := s.loadPreparedDeckStoredRecords(ctx, projection)
+	if err != nil {
+		return cardexport.StorageProjection{}, nil, err
+	}
+	stored, err := derivePreparedDeckStoredResults(projection, outcomes, records)
+	if err != nil {
+		return cardexport.StorageProjection{}, nil, err
+	}
+	return projection, stored, nil
+}
+
+// loadPreparedDeckFinalizationInputs reads and guards the rows a finalizer
+// needs: a finalizing or completed run with completed translation, its durable
+// projection, and its translation outcomes.
+func (s *PostgresStore) loadPreparedDeckFinalizationInputs(ctx context.Context, owner, preparationID, runID string) (cardexport.StorageProjection, []domain.PreparedDeckTranslationOutcome, error) {
 	run, err := s.GetPreparedDeckRun(ctx, owner, preparationID, runID)
 	if err != nil {
 		return cardexport.StorageProjection{}, nil, err
@@ -181,20 +203,26 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 	if err != nil {
 		return cardexport.StorageProjection{}, nil, err
 	}
+	return projection, outcomes, nil
+}
+
+// preparedDeckProjectionHasCacheKeys reports whether any manifest item carries
+// a frozen enrichment cache identity.
+func preparedDeckProjectionHasCacheKeys(projection cardexport.StorageProjection) bool {
+	for _, item := range projection.Items {
+		if item.CacheKey != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// derivePreparedDeckStoredResults pairs each accepted manifest item with its
+// terminal outcome and, where completed, its stored record or omission.
+func derivePreparedDeckStoredResults(projection cardexport.StorageProjection, outcomes []domain.PreparedDeckTranslationOutcome, records []PreparedDeckStoredRecord) ([]cardexport.StoredResult, error) {
 	byOrdinal := make(map[int]domain.PreparedDeckTranslationOutcome, len(outcomes))
 	for _, outcome := range outcomes {
 		byOrdinal[outcome.Ordinal] = outcome
-	}
-	withCacheKeys := false
-	for _, item := range projection.Items {
-		withCacheKeys = withCacheKeys || item.CacheKey != nil
-	}
-	if !withCacheKeys {
-		return projection, nil, nil
-	}
-	records, err := s.loadPreparedDeckStoredRecords(ctx, projection)
-	if err != nil {
-		return cardexport.StorageProjection{}, nil, err
 	}
 	byStoredOrdinal := make(map[int]PreparedDeckStoredRecord, len(records))
 	for _, record := range records {
@@ -205,23 +233,36 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 		if item.Disposition != cardexport.ManifestAccepted {
 			continue
 		}
-		outcome, ok := byOrdinal[item.Ordinal]
-		if !ok || (outcome.State != domain.PreparedDeckOutcomeCompleted && outcome.State != domain.PreparedDeckOutcomeFailed) || item.CacheKey == nil {
-			return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
+		result, include, err := derivePreparedDeckStoredResult(item, byOrdinal, byStoredOrdinal)
+		if err != nil {
+			return nil, err
 		}
-		key := *item.CacheKey
-		if outcome.State == domain.PreparedDeckOutcomeCompleted && outcome.OmissionReason == "" {
-			record, found := byStoredOrdinal[item.Ordinal]
-			if !found || !record.Found {
-				return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
-			}
-			entry := record.Entry
-			stored = append(stored, cardexport.StoredResult{CacheKey: key, Record: entry})
-		} else if outcome.State == domain.PreparedDeckOutcomeCompleted && outcome.OmissionReason != "" {
-			stored = append(stored, cardexport.StoredResult{CacheKey: key, OmissionReason: outcome.OmissionReason})
+		if include {
+			stored = append(stored, result)
 		}
 	}
-	return projection, stored, nil
+	return stored, nil
+}
+
+// derivePreparedDeckStoredResult maps one accepted item to the stored finalizer
+// input, or reports that the outcome is not a match.
+func derivePreparedDeckStoredResult(item cardexport.ManifestItem, byOrdinal map[int]domain.PreparedDeckTranslationOutcome, byStoredOrdinal map[int]PreparedDeckStoredRecord) (cardexport.StoredResult, bool, error) {
+	outcome, ok := byOrdinal[item.Ordinal]
+	if !ok || (outcome.State != domain.PreparedDeckOutcomeCompleted && outcome.State != domain.PreparedDeckOutcomeFailed) || item.CacheKey == nil {
+		return cardexport.StoredResult{}, false, ErrPreparedDeckIdentity
+	}
+	key := *item.CacheKey
+	if outcome.State == domain.PreparedDeckOutcomeFailed {
+		return cardexport.StoredResult{}, false, nil
+	}
+	if outcome.OmissionReason != "" {
+		return cardexport.StoredResult{CacheKey: key, OmissionReason: outcome.OmissionReason}, true, nil
+	}
+	record, found := byStoredOrdinal[item.Ordinal]
+	if !found || !record.Found {
+		return cardexport.StoredResult{}, false, ErrPreparedDeckIdentity
+	}
+	return cardexport.StoredResult{CacheKey: key, Record: record.Entry}, true, nil
 }
 
 func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner, preparationID string) (result domain.DeckPreparation, err error) {
@@ -231,9 +272,7 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	model, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
-	p := deckPreparationFromModel(model)
-	err = missing(err)
+	p, err := lockPreparedDeckPreparationForCancellation(ctx, q, owner, preparationID)
 	if err != nil {
 		return p, err
 	}
@@ -243,33 +282,59 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 	if p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing {
 		return p, ErrInvalidTransition
 	}
-	runID := p.CurrentRunID
-	model, err = q.CancelDeckPreparation(ctx, sqlcgen.CancelDeckPreparationParams{Owner: owner, ID: preparationID})
-	err = missing(err)
-	p = deckPreparationFromModel(model)
+	p, err = cancelPreparedDeckPreparationTx(ctx, q, owner, preparationID, p)
 	if err != nil {
 		return p, err
 	}
-	if runID != "" {
-		if err := q.CancelPreparedDeckRun(ctx, sqlcgen.CancelPreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID}); err != nil {
-			return p, err
-		}
-		if err := q.CancelPreparedDeckOutcomes(ctx, sqlcgen.CancelPreparedDeckOutcomesParams{OwnerID: owner, PreparationID: preparationID, RunID: runID}); err != nil {
-			return p, err
-		}
-		if err := q.CancelPreparedDeckBatchChunks(ctx, sqlcgen.CancelPreparedDeckBatchChunksParams{OwnerID: owner, PreparationID: preparationID, RunID: runID}); err != nil {
-			return p, err
-		}
-	}
-	details, err := json.Marshal(map[string]string{"preparation_id": preparationID})
-	if err != nil {
-		return p, err
-	}
-	if err := q.InsertDeckPreparationHistory(ctx, sqlcgen.InsertDeckPreparationHistoryParams{Owner: owner, Status: "cancelled", Details: details}); err != nil {
+	if err := insertPreparedDeckCancellationHistory(ctx, q, owner, preparationID); err != nil {
 		return p, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return p, nil
+}
+
+// lockPreparedDeckPreparationForCancellation locks the preparation row and maps
+// a missing row to ErrNotFound.
+func lockPreparedDeckPreparationForCancellation(ctx context.Context, q *sqlcgen.Queries, owner, preparationID string) (domain.DeckPreparation, error) {
+	model, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
+	p := deckPreparationFromModel(model)
+	if err := missing(err); err != nil {
+		return p, err
+	}
+	return p, nil
+}
+
+// cancelPreparedDeckPreparationTx cancels the preparation and then, when it had
+// a current run, every durable part of that run.
+func cancelPreparedDeckPreparationTx(ctx context.Context, q *sqlcgen.Queries, owner, preparationID string, p domain.DeckPreparation) (domain.DeckPreparation, error) {
+	runID := p.CurrentRunID
+	model, cancelErr := q.CancelDeckPreparation(ctx, sqlcgen.CancelDeckPreparationParams{Owner: owner, ID: preparationID})
+	p = deckPreparationFromModel(model)
+	if err := missing(cancelErr); err != nil {
+		return p, err
+	}
+	if runID == "" {
+		return p, nil
+	}
+	if err := q.CancelPreparedDeckRun(ctx, sqlcgen.CancelPreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID}); err != nil {
+		return p, err
+	}
+	if err := q.CancelPreparedDeckOutcomes(ctx, sqlcgen.CancelPreparedDeckOutcomesParams{OwnerID: owner, PreparationID: preparationID, RunID: runID}); err != nil {
+		return p, err
+	}
+	if err := q.CancelPreparedDeckBatchChunks(ctx, sqlcgen.CancelPreparedDeckBatchChunksParams{OwnerID: owner, PreparationID: preparationID, RunID: runID}); err != nil {
+		return p, err
+	}
+	return p, nil
+}
+
+// insertPreparedDeckCancellationHistory records the cancellation audit row.
+func insertPreparedDeckCancellationHistory(ctx context.Context, q *sqlcgen.Queries, owner, preparationID string) error {
+	details, err := json.Marshal(map[string]string{"preparation_id": preparationID})
+	if err != nil {
+		return err
+	}
+	return q.InsertDeckPreparationHistory(ctx, sqlcgen.InsertDeckPreparationHistoryParams{Owner: owner, Status: "cancelled", Details: details})
 }
