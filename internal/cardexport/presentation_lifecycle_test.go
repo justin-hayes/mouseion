@@ -442,6 +442,66 @@ func TestPresentationLifecycleRejectsIdentityAndProvenanceFailures(t *testing.T)
 	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
+func TestPresentationLifecycleRejectsMalformedFinalizeInputs(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	validFacts := cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"}
+
+	t.Run("nil presentation", func(t *testing.T) {
+		var presentation *cardexport.Presentation
+		_, _, err := presentation.Finalize(t.Context(), deck, nil, validFacts)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+
+	t.Run("local deck rejects external results", func(t *testing.T) {
+		empty, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Empty Book", nil)
+		require.NoError(t, err)
+		_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), empty, []cardexport.StoredResult{{CacheKey: work[0].CacheKey}}, validFacts)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+
+	t.Run("invalid execution mode", func(t *testing.T) {
+		facts := validFacts
+		facts.ExecutionMode = "realtime"
+		_, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, nil, facts)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+
+	t.Run("incomplete external run facts", func(t *testing.T) {
+		facts := validFacts
+		facts.Provider = ""
+		_, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, nil, facts)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+
+	t.Run("run facts contradict frozen cache identity", func(t *testing.T) {
+		facts := validFacts
+		facts.ProviderVersion = "other"
+		_, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, nil, facts)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+
+	t.Run("duplicate stored result", func(t *testing.T) {
+		result := cardexport.StoredResult{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house is quiet."}}
+		_, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{result, result}, validFacts)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+
+	t.Run("unresolved result includes translation fields", func(t *testing.T) {
+		result := cardexport.StoredResult{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house"}, OmissionReason: "no defensible meaning in context"}
+		_, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{result}, validFacts)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+
+	t.Run("required result is incomplete", func(t *testing.T) {
+		result := cardexport.StoredResult{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: work[0].CacheKey, SentenceTranslation: "The house is quiet."}}
+		_, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{result}, validFacts)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+}
+
 func TestPresentationLifecycleRequiresCompleteStandardResults(t *testing.T) {
 	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
