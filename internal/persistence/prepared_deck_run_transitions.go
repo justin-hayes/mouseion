@@ -65,10 +65,7 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 		if err != nil {
 			return outcomeTransitionErrorTx(ctx, q, owner, preparationID, runID, ordinal, missing(err))
 		}
-		outcome, err = preparedDeckOutcomeFromModel(model)
-		if err != nil {
-			return err
-		}
+		outcome = preparedDeckOutcomeFromModel(model)
 		if err := q.StartPreparedDeckTranslation(ctx, sqlcgen.StartPreparedDeckTranslationParams{
 			OwnerID: owner, PreparationID: preparationID, ID: runID,
 		}); err != nil {
@@ -116,10 +113,7 @@ func (s *PostgresStore) RetryPreparedDeckTranslationOutcome(ctx context.Context,
 		if err != nil {
 			return outcomeTransitionErrorTx(ctx, q, owner, preparationID, runID, ordinal, missing(err))
 		}
-		outcome, err = preparedDeckOutcomeFromModel(model)
-		if err != nil {
-			return err
-		}
+		outcome = preparedDeckOutcomeFromModel(model)
 		return nil
 	})
 	return outcome, err
@@ -196,10 +190,7 @@ func finishPreparedDeckTranslationOutcomeTx(ctx context.Context, tx pgx.Tx, owne
 		}
 		return domain.PreparedDeckTranslationOutcome{}, run, err
 	}
-	outcome, err := preparedDeckOutcomeFromModel(model)
-	if err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, run, err
-	}
+	outcome := preparedDeckOutcomeFromModel(model)
 	run, err = advancePreparedDeckRunAfterOutcomeTx(ctx, q, tx, owner, preparationID, runID, run, update, insertFinalizer)
 	return outcome, run, err
 }
@@ -268,7 +259,7 @@ func getPreparedDeckTranslationOutcomeTx(ctx context.Context, q *sqlcgen.Queries
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, missing(err)
 	}
-	return preparedDeckOutcomeFromModel(model)
+	return preparedDeckOutcomeFromModel(model), nil
 }
 
 func boolInt(value bool) int {
@@ -291,7 +282,7 @@ func (s *PostgresStore) RedispatchPreparedDeckTranslationOutcome(ctx context.Con
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, missing(err))
 	}
-	return preparedDeckOutcomeFromModel(model)
+	return preparedDeckOutcomeFromModel(model), nil
 }
 
 // ClaimPreparedDeckFinalization grants a leased, generation-fenced finalizer
