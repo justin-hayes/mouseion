@@ -164,6 +164,17 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	assert.Equal(t, int64(2), cardCount)
 }
 
+// TestAnkiPackageRejectsDuplicateNoteIdentity pins the note-table write: a card
+// package whose notes collide on their stable identity is an error, so the
+// per-table split of collection writing cannot silently drop or overwrite notes.
+func TestAnkiPackageRejectsDuplicateNoteIdentity(t *testing.T) {
+	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: "identity-a", Text: "Das <b>Haus</b>.", Lemma: "Haus", POS: "NOUN", English: "house", EnglishSentence: "The house.", BookTitle: "Buch"}
+	duplicate := note
+	duplicate.Identity = "identity-b"
+	_, err := renderAPKG(t.Context(), DeckName("de", "Buch"), []Note{note, duplicate}, "")
+	require.ErrorContains(t, err, "insert note")
+}
+
 func TestAnkiPackageFailureReturnsErrorAndRemovesTemporaryCollection(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("TMPDIR", tmp)

@@ -77,43 +77,12 @@ func buildCollection(ctx context.Context, f *os.File, deckName string, notes []N
 }
 
 func writeCollection(ctx context.Context, db *sql.DB, deckName string, notes []Note, description string) (err error) {
-	const schema = `
-CREATE TABLE col (id integer primary key, crt integer not null, mod integer not null, scm integer not null, ver integer not null, dty integer not null, usn integer not null, ls integer not null, conf text not null, models text not null, decks text not null, dconf text not null, tags text not null);
-CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, mod integer not null, usn integer not null, tags text not null, flds text not null, sfld text not null, csum integer not null, flags integer not null, data text not null);
-CREATE TABLE cards (id integer primary key, nid integer not null, did integer not null, ord integer not null, mod integer not null, usn integer not null, type integer not null, queue integer not null, due integer not null, ivl integer not null, factor integer not null, reps integer not null, lapses integer not null, left integer not null, odue integer not null, odid integer not null, flags integer not null, data text not null);
-CREATE TABLE revlog (id integer primary key, cid integer not null, usn integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null);
-CREATE TABLE graves (usn integer not null, oid integer not null, type integer not null);
-CREATE INDEX ix_notes_usn ON notes (usn);
-CREATE INDEX ix_cards_usn ON cards (usn);
-CREATE INDEX ix_cards_nid ON cards (nid);
-CREATE INDEX ix_cards_sched ON cards (did, queue, due);
-CREATE INDEX ix_revlog_usn ON revlog (usn);
-CREATE INDEX ix_revlog_cid ON revlog (cid);`
-	if _, err := db.ExecContext(ctx, schema); err != nil {
-		return fmt.Errorf("create Anki schema: %w", err)
+	if err := writeCollectionSchema(ctx, db); err != nil {
+		return err
 	}
-	modelID, deckID := stableID("model|"+noteTypeName), stableID("deck|"+deckName)
-	model := modelMetadata(modelID, deckID)
-	deck := legacyDeck{
-		Desc: description, Name: deckName, ExtendRev: 0, USN: -1,
-		Collapsed: false, BrowserCollapsed: false, NewToday: [2]int{0, 0},
-		TimeToday: [2]int{0, 0}, Dyn: 0, ExtendNew: 0, Conf: 1,
-		RevToday: [2]int{0, 0}, LrnToday: [2]int{0, 0}, ID: deckID, Mod: 0,
-	}
-	models, err := json.Marshal(map[string]any{strconv.FormatInt(modelID, 10): model})
+	modelID, deckID, err := writeCollectionHeader(ctx, db, deckName, description)
 	if err != nil {
-		return fmt.Errorf("marshal Anki models: %w", err)
-	}
-	decks, err := json.Marshal(map[string]legacyDeck{strconv.FormatInt(deckID, 10): deck})
-	if err != nil {
-		return fmt.Errorf("marshal Anki decks: %w", err)
-	}
-	dconf, err := json.Marshal(map[string]legacyDeckConfig{"1": defaultDeckConfig()})
-	if err != nil {
-		return fmt.Errorf("marshal Anki deck configuration: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO col VALUES(1,0,0,0,11,0,0,0,?,?,?,?,?)`, `{}`, string(models), string(decks), string(dconf), `{}`); err != nil {
-		return fmt.Errorf("insert collection: %w", err)
+		return err
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -131,18 +100,94 @@ CREATE INDEX ix_revlog_cid ON revlog (cid);`
 		}
 		err = errors.Join(err, rollbackErr)
 	}()
-	for i, note := range notes {
-		nid, cid := stableID("note|"+note.Key), stableID("card|"+note.Key)
-		fields := strings.Join(noteFields(note), "\x1f")
-		tags := " " + strings.Join(note.Tags, " ") + " "
-		if _, err = tx.ExecContext(ctx, `INSERT INTO notes VALUES(?,?,?,?,?,?,?,?,?,?,?)`, nid, note.Key[:20], modelID, 0, -1, tags, fields, note.Identity, fieldChecksum(note.Identity), 0, ""); err != nil {
-			return fmt.Errorf("insert note: %w", err)
-		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, cid, nid, deckID, 0, 0, -1, 0, 0, i+1, 0, 0, 0, 0, 0, 0, 0, 0, ""); err != nil {
-			return fmt.Errorf("insert card: %w", err)
-		}
+	if err := writeCollectionNoteCards(ctx, tx, modelID, deckID, notes); err != nil {
+		return err
 	}
 	return tx.Commit()
+}
+
+// writeCollectionSchema creates Anki's documented legacy schema version 11
+// tables and indexes.
+func writeCollectionSchema(ctx context.Context, db *sql.DB) error {
+	const schema = `
+CREATE TABLE col (id integer primary key, crt integer not null, mod integer not null, scm integer not null, ver integer not null, dty integer not null, usn integer not null, ls integer not null, conf text not null, models text not null, decks text not null, dconf text not null, tags text not null);
+CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, mod integer not null, usn integer not null, tags text not null, flds text not null, sfld text not null, csum integer not null, flags integer not null, data text not null);
+CREATE TABLE cards (id integer primary key, nid integer not null, did integer not null, ord integer not null, mod integer not null, usn integer not null, type integer not null, queue integer not null, due integer not null, ivl integer not null, factor integer not null, reps integer not null, lapses integer not null, left integer not null, odue integer not null, odid integer not null, flags integer not null, data text not null);
+CREATE TABLE revlog (id integer primary key, cid integer not null, usn integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null);
+CREATE TABLE graves (usn integer not null, oid integer not null, type integer not null);
+CREATE INDEX ix_notes_usn ON notes (usn);
+CREATE INDEX ix_cards_usn ON cards (usn);
+CREATE INDEX ix_cards_nid ON cards (nid);
+CREATE INDEX ix_cards_sched ON cards (did, queue, due);
+CREATE INDEX ix_revlog_usn ON revlog (usn);
+CREATE INDEX ix_revlog_cid ON revlog (cid);`
+	if _, err := db.ExecContext(ctx, schema); err != nil {
+		return fmt.Errorf("create Anki schema: %w", err)
+	}
+	return nil
+}
+
+// writeCollectionHeader writes the collection row and returns the stable model
+// and deck identities its metadata references.
+func writeCollectionHeader(ctx context.Context, db *sql.DB, deckName, description string) (modelID, deckID int64, err error) {
+	modelID, deckID = stableID("model|"+noteTypeName), stableID("deck|"+deckName)
+	model := modelMetadata(modelID, deckID)
+	deck := legacyDeck{
+		Desc: description, Name: deckName, ExtendRev: 0, USN: -1,
+		Collapsed: false, BrowserCollapsed: false, NewToday: [2]int{0, 0},
+		TimeToday: [2]int{0, 0}, Dyn: 0, ExtendNew: 0, Conf: 1,
+		RevToday: [2]int{0, 0}, LrnToday: [2]int{0, 0}, ID: deckID, Mod: 0,
+	}
+	models, err := json.Marshal(map[string]any{strconv.FormatInt(modelID, 10): model})
+	if err != nil {
+		return 0, 0, fmt.Errorf("marshal Anki models: %w", err)
+	}
+	decks, err := json.Marshal(map[string]legacyDeck{strconv.FormatInt(deckID, 10): deck})
+	if err != nil {
+		return 0, 0, fmt.Errorf("marshal Anki decks: %w", err)
+	}
+	dconf, err := json.Marshal(map[string]legacyDeckConfig{"1": defaultDeckConfig()})
+	if err != nil {
+		return 0, 0, fmt.Errorf("marshal Anki deck configuration: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO col VALUES(1,0,0,0,11,0,0,0,?,?,?,?,?)`, `{}`, string(models), string(decks), string(dconf), `{}`); err != nil {
+		return 0, 0, fmt.Errorf("insert collection: %w", err)
+	}
+	return modelID, deckID, nil
+}
+
+// writeCollectionNoteCards writes each note and its single card as one ordered
+// batch inside the caller's transaction, keeping the original per-note
+// statement interleaving.
+func writeCollectionNoteCards(ctx context.Context, tx *sql.Tx, modelID, deckID int64, notes []Note) error {
+	for i, note := range notes {
+		if err := insertNote(ctx, tx, modelID, note); err != nil {
+			return err
+		}
+		if err := insertCard(ctx, tx, deckID, note, i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// insertNote writes one row into Anki's notes table.
+func insertNote(ctx context.Context, tx *sql.Tx, modelID int64, note Note) error {
+	fields := strings.Join(noteFields(note), "\x1f")
+	tags := " " + strings.Join(note.Tags, " ") + " "
+	if _, err := tx.ExecContext(ctx, `INSERT INTO notes VALUES(?,?,?,?,?,?,?,?,?,?,?)`, stableID("note|"+note.Key), note.Key[:20], modelID, 0, -1, tags, fields, note.Identity, fieldChecksum(note.Identity), 0, ""); err != nil {
+		return fmt.Errorf("insert note: %w", err)
+	}
+	return nil
+}
+
+// insertCard writes the single card reviewing one note, bound to the note's
+// position in the batch.
+func insertCard(ctx context.Context, tx *sql.Tx, deckID int64, note Note, ordinal int) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, stableID("card|"+note.Key), stableID("note|"+note.Key), deckID, 0, 0, -1, 0, 0, ordinal+1, 0, 0, 0, 0, 0, 0, 0, 0, ""); err != nil {
+		return fmt.Errorf("insert card: %w", err)
+	}
+	return nil
 }
 
 type legacyDeck struct {
