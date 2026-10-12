@@ -80,7 +80,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	)
 	assert.NotContains(t, html, "German (de)")
 	assert.NotContains(t, html, "Greek (el)")
-	assert.False(t, strings.Contains(html, `value="">Choose a study language`), "active language switcher exposes a selectable empty option")
+	assert.NotContains(t, html, `value="">Choose a study language`, "active language switcher exposes a selectable empty option")
 }
 
 func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
@@ -95,7 +95,7 @@ func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
 
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
 	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, "csrf"), "")
-	assert.Equal(t, "", html, "empty language switcher rendered markup")
+	assert.Empty(t, html, "empty language switcher rendered markup")
 }
 
 func TestCatalogueSyncConnectionViewDoesNotExposeSyncScope(t *testing.T) {
@@ -109,7 +109,7 @@ func TestCatalogueSyncConnectionViewDoesNotExposeSyncScope(t *testing.T) {
 func requireMarkup(t *testing.T, html string, fragments ...string) {
 	t.Helper()
 	for _, fragment := range fragments {
-		assert.True(t, strings.Contains(html, fragment), "markup missing %q\n%s", fragment, html)
+		assert.Contains(t, html, fragment, "markup missing %q\n%s", fragment, html)
 	}
 }
 
@@ -291,9 +291,9 @@ func TestComponentStylesAvailable(t *testing.T) {
 		".table-region",
 		".async-status",
 	} {
-		assert.True(t, strings.Contains(css, selector), "application CSS missing component selector %q", selector)
+		assert.Contains(t, css, selector, "application CSS missing component selector %q", selector)
 	}
 	compactActions := regexp.MustCompile(`(?s)@media \(max-width: 40rem\).*?\.action-group\s*\{[^}]*flex-direction:\s*column`)
 	assert.True(t, compactActions.MatchString(css), "compact component styles must stack action groups")
-	assert.True(t, strings.Contains(css, ".confirmation--danger summary"), "danger confirmations need a distinct semantic treatment")
+	assert.Contains(t, css, ".confirmation--danger summary", "danger confirmations need a distinct semantic treatment")
 }

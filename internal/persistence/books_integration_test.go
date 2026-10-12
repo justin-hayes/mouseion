@@ -110,7 +110,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 			require.NotNil(t, view[i].Acquired, "promoted read model")
 			assert.Equal(t, promotionSource.ID, view[i].Acquired.Source.ID, "promoted read model")
 			assert.Equal(t, domain.LanguageUnknown, view[i].Book.LanguageState, "promoted read model")
-			assert.Equal(t, "", view[i].Book.LanguageTag, "promoted read model")
+			assert.Empty(t, view[i].Book.LanguageTag, "promoted read model")
 			assert.Equal(t, domain.BookAcquiredUnassessed, view[i].EvidenceState(), "promoted read model")
 			break
 		}

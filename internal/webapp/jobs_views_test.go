@@ -3,7 +3,6 @@ package webapp
 import (
 	"bytes"
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -54,7 +53,7 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.Contains(t, detailHTML, "Der lange Weg nach Hause")
 	assert.Contains(t, detailHTML, "Unavailable")
 	assert.NotContains(t, detailHTML, "0001-01-01")
-	assert.True(t, strings.Contains(detailHTML, `role="status"`))
+	assert.Contains(t, detailHTML, `role="status"`)
 }
 
 func TestOperationalShellStylesExcludePico(t *testing.T) {

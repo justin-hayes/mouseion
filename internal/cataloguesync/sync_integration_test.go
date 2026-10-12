@@ -141,7 +141,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.CatalogueSyncSynced, status.State)
 	assert.NotNil(t, status.LastSyncedAt)
-	assert.Equal(t, "", status.LastError)
+	assert.Empty(t, status.LastError)
 	assert.Equal(t, 3, status.LastUpsertedCount)
 	require.NoError(t, worker.Work(ctx, job))
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)

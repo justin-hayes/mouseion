@@ -3,7 +3,6 @@ package webapp
 import (
 	"bytes"
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -55,10 +54,10 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 			require.NoError(t, DeckPreparationStatus("csrf-372", test.prep, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 			statusHTML := output.String()
 			for _, want := range test.want {
-				assert.True(t, strings.Contains(statusHTML, want), "status missing %q: %s", want, statusHTML)
+				assert.Contains(t, statusHTML, want, "status missing %q: %s", want, statusHTML)
 			}
 			for _, unwanted := range test.omit {
-				assert.False(t, strings.Contains(statusHTML, unwanted), "status unexpectedly contains %q: %s", unwanted, statusHTML)
+				assert.NotContains(t, statusHTML, unwanted, "status unexpectedly contains %q: %s", unwanted, statusHTML)
 			}
 		})
 	}

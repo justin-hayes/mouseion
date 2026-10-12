@@ -1,12 +1,12 @@
 package webapp
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +25,7 @@ func TestReconciliation_NoRawHexInTemplates(t *testing.T) {
 		data, err := os.ReadFile(path) //nolint:gosec // filepath.Glob only returns checked-in template paths.
 		require.NoError(t, err, "read %s", path)
 		for _, loc := range hexColor.FindAllIndex(data, -1) {
-			assert.Fail(t, "%s contains raw hex color %q; use documented CSS tokens", path, data[loc[0]:loc[1]])
+			assert.Fail(t, fmt.Sprintf("%s contains raw hex color %q; use documented CSS tokens", path, data[loc[0]:loc[1]]))
 		}
 	}
 }
@@ -42,7 +42,7 @@ func TestReconciliation_DeadTemplatesRemoved(t *testing.T) {
 		data, readErr := os.ReadFile(file) //nolint:gosec // filepath.Glob only returns checked-in generated paths.
 		require.NoError(t, readErr, "read %s", file)
 		for _, dead := range []string{`func Dashboard(`, `func KnownVocabPage(`} {
-			assert.False(t, strings.Contains(string(data), dead), "generated %s still contains removed template %q", file, dead)
+			assert.NotContains(t, string(data), dead, "generated %s still contains removed template %q", file, dead)
 		}
 	}
 }
@@ -84,7 +84,7 @@ func TestReconciliation_NoTODOInTemplates(t *testing.T) {
 		data, err := os.ReadFile(path) //nolint:gosec // filepath.Glob only returns checked-in template paths.
 		require.NoError(t, err, "read %s", path)
 		for _, loc := range todo.FindAllIndex(data, -1) {
-			assert.Fail(t, "%s contains placeholder marker %q", path, data[loc[0]:loc[1]])
+			assert.Fail(t, fmt.Sprintf("%s contains placeholder marker %q", path, data[loc[0]:loc[1]]))
 		}
 	}
 }

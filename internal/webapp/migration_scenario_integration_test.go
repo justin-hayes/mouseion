@@ -6,7 +6,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
@@ -159,7 +158,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {currentReading.SnapshotID}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{"Reading finished", "Vocabulary: 2 identities newly Known; 1 identities already Known", `href="/reading">Choose a To Read book</a>`} {
-		assert.True(t, strings.Contains(finished.Body.String(), want), "finish receipt missing %q: %s", want, finished.Body.String())
+		assert.Contains(t, finished.Body.String(), want, "finish receipt missing %q: %s", want, finished.Body.String())
 	}
 	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
@@ -219,7 +218,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	// Failed analysis retry and prepared-deck retry remain explicit operations.
 	failedJob := perform(t, h, http.MethodPost, "/jobs/43/retry", url.Values{"csrf_token": {csrf}}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, failedJob.Code)
-	assert.True(t, strings.Contains(failedJob.Header().Get("Location"), "Analysis+retry+submitted"), "location=%q", failedJob.Header().Get("Location"))
+	assert.Contains(t, failedJob.Header().Get("Location"), "Analysis+retry+submitted", "location=%q", failedJob.Header().Get("Location"))
 	retryPrep, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: secondSource.ID, Filename: "retry.apkg", DeckName: "Retry deck", ContentHash: "retry-hash"})
 	require.NoError(t, err)
 	_, err = store.ClaimDeckPreparation(ctx, alice.ID, retryPrep.ID)
@@ -234,10 +233,10 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary/import", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, deVocabulary.Code)
 	body := deVocabulary.Body.String()
-	assert.True(t, strings.Contains(body, `enctype="multipart/form-data"`), "import form missing: body=%s", body)
-	assert.False(t, strings.Contains(body, "Known vocabulary</h2>"), "known-vocabulary heading rendered: body=%s", body)
-	assert.False(t, strings.Contains(body, "Haus"), "known-vocabulary row rendered: body=%s", body)
-	assert.False(t, strings.Contains(body, "Explicitly recorded"), "known-vocabulary provenance rendered: body=%s", body)
+	assert.Contains(t, body, `enctype="multipart/form-data"`, "import form missing: body=%s", body)
+	assert.NotContains(t, body, "Known vocabulary</h2>", "known-vocabulary heading rendered: body=%s", body)
+	assert.NotContains(t, body, "Haus", "known-vocabulary row rendered: body=%s", body)
+	assert.NotContains(t, body, "Explicitly recorded", "known-vocabulary provenance rendered: body=%s", body)
 }
 
 func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus, domain.DeckPreparation) {

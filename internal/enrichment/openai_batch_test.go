@@ -49,7 +49,9 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 			content, err := io.ReadAll(file)
 			assert.NoError(t, err)
 			assert.Equal(t, "run-opaque.jsonl", header.Filename)
-			assert.Equal(t, "{\"custom_id\":\"opaque\"}\n", string(content))
+			line := string(content)
+			assert.JSONEq(t, `{"custom_id":"opaque"}`, line)
+			assert.True(t, strings.HasSuffix(line, "\n") && strings.Count(line, "\n") == 1, "batch input must be exactly one newline-terminated JSONL record: %q", line)
 			testwrite.String(t, w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"uploaded"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-input":
 			testwrite.String(t, w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"processed"}`)

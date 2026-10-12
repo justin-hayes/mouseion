@@ -23,9 +23,9 @@ func renderShell(t *testing.T, navContext NavigationContext) string {
 func renderedPrimaryNavigation(t *testing.T, html string) string {
 	t.Helper()
 	start := strings.Index(html, `<nav class="site-header__nav"`)
-	require.True(t, start >= 0, "primary navigation missing: %s", html)
+	require.GreaterOrEqual(t, start, 0, "primary navigation missing: %s", html)
 	end := strings.Index(html[start:], `</nav>`)
-	require.True(t, end >= 0, "primary navigation missing: %s", html)
+	require.GreaterOrEqual(t, end, 0, "primary navigation missing: %s", html)
 	return html[start : start+end]
 }
 
@@ -46,7 +46,7 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 			navigation := renderedPrimaryNavigation(t, html)
 			assert.Equal(t, 1, strings.Count(navigation, `aria-current="page"`), "aria-current count: %s", html)
 			assert.True(t, strings.Contains(navigation, test.currentLink+` aria-current="page"`) && strings.Contains(navigation, test.currentCSS), "current destination missing semantic current class: %s", html)
-			assert.True(t, strings.Contains(html, `data-navigation-context="`+string(test.context)+`"`), "shell context missing: %s", html)
+			assert.Contains(t, html, `data-navigation-context="`+string(test.context)+`"`, "shell context missing: %s", html)
 		})
 	}
 }
@@ -67,11 +67,11 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 	previous := -1
 	for _, fragment := range ordered {
 		position := strings.Index(navigation, fragment)
-		require.True(t, position >= 0, "shell missing %q: %s", fragment, navigation)
-		require.True(t, position > previous, "shell order moved %q before prior control", fragment)
+		require.GreaterOrEqual(t, position, 0, "shell missing %q: %s", fragment, navigation)
+		require.Greater(t, position, previous, "shell order moved %q before prior control", fragment)
 		previous = position
 	}
-	assert.True(t, strings.Contains(html, `aria-label="Primary navigation"`), "primary navigation name changed")
+	assert.Contains(t, html, `aria-label="Primary navigation"`, "primary navigation name changed")
 	assert.Equal(t, 1, strings.Count(html, `<nav `), "shell keeps one navigation landmark")
 	assert.False(t, strings.Index(html, `class="skip-link"`) > strings.Index(html, `<nav class="site-header__nav"`) || strings.Index(html, `</nav>`) > strings.Index(html, `id="main-content"`), "skip link or main content moved out of keyboard/document order")
 }
@@ -124,7 +124,7 @@ func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 		"border-collapse: collapse",
 		"padding: var(--mouseion-space-2) var(--mouseion-space-3)",
 	} {
-		assert.True(t, strings.Contains(css, want), "compact/current class contract missing %q", want)
+		assert.Contains(t, css, want, "compact/current class contract missing %q", want)
 	}
 }
 

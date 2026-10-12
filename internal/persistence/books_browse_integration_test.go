@@ -5,7 +5,6 @@ package persistence
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
@@ -54,7 +53,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	result, err := store.ListMyBooksBrowse(ctx, alice.ID, "Donaudampf", "", "", false, 0, 25)
 	require.NoError(t, err)
 	assert.Equal(t, 2, result.Total)
-	assert.Equal(t, 2, len(result.Items))
+	assert.Len(t, result.Items, 2)
 	assert.Equal(t, 34, result.AllCount)
 	for _, item := range result.Items {
 		assert.Equal(t, alice.ID, item.Book.OwnerID, "cross-owner item leaked: %+v", item)
@@ -110,7 +109,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	page, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "", "", false, 25, 25)
 	require.NoError(t, err)
 	assert.Equal(t, 34, page.Total)
-	assert.Equal(t, 9, len(page.Items), "page slice")
+	assert.Len(t, page.Items, 9, "page slice")
 	tieIDs := []string{tieA.ID, tieB.ID}
 	orderedTies, err := store.ListMyBooksBrowse(ctx, alice.ID, "Same title", "", "", false, 0, 25)
 	require.NoError(t, err)
@@ -124,7 +123,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 33, remaining.AllCount)
 	assert.Equal(t, 33, remaining.Total)
-	assert.False(t, strings.Contains(fmt.Sprint(remaining.Items), percent.ID), "removed membership remained in browse")
+	assert.NotContains(t, fmt.Sprint(remaining.Items), percent.ID, "removed membership remained in browse")
 }
 
 func TestMyBooksBrowseUsesKeysetBatchesAcrossLargeCollection(t *testing.T) {

@@ -88,5 +88,5 @@ func TestProposalIdentitiesCoverBeforeAndAfterInOrder(t *testing.T) {
 
 	exclude := domain.LemmaReviewProposal{Language: "de", Action: "exclude", Occurrences: []domain.LemmaReviewOccurrence{occurrence}}
 	assert.Equal(t, []domain.LemmaReviewIdentity{{Language: "de", CanonicalLemma: "heim", UPOS: "NOUN"}}, ProposalIdentities(exclude))
-	require.Len(t, ProposalIdentities(domain.LemmaReviewProposal{Language: "de", Action: "keep"}), 0)
+	require.Empty(t, ProposalIdentities(domain.LemmaReviewProposal{Language: "de", Action: "keep"}))
 }

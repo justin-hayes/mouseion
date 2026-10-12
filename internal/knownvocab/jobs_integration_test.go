@@ -66,7 +66,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	status = waitKnownVocabJob(t, ctx, service, alice.ID, italian.ID)
 	assert.Equal(t, rivertype.JobStateCompleted, status.State)
 	assert.Equal(t, 1, status.Imported)
-	assert.Len(t, status.Rejected, 0)
+	assert.Empty(t, status.Rejected)
 	// A forged retry without its owner-scoped history handle is rejected before writes.
 	forged := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 999999}, Args: JobArgs{OwnerID: alice.ID, Language: "de", FileContents: "neu"}}
 	err = (&Worker{Pool: store.Pool()}).Work(ctx, forged)

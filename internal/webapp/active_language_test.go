@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -27,10 +26,10 @@ func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
-	assert.True(t, strings.Contains(response.Body.String(), `<option value="it" selected`), "shell did not render the most recently activated language: %s", response.Body.String())
+	assert.Contains(t, response.Body.String(), `<option value="it" selected`, "shell did not render the most recently activated language: %s", response.Body.String())
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
-	assert.Equal(t, "", stored)
+	assert.Empty(t, stored)
 }
 
 func getAs(t *testing.T, h http.Handler, path string, cookies []*http.Cookie) *httptest.ResponseRecorder {

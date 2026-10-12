@@ -86,7 +86,7 @@ func TestServiceLocalPipelineNeedsNoExternalProvider(t *testing.T) {
 	assert.True(t, r.Morphology.Available)
 	assert.True(t, r.Pronunciation.Available)
 	assert.False(t, r.Translation.Available)
-	assert.Len(t, r.Warnings, 0)
+	assert.Empty(t, r.Warnings)
 	assert.Equal(t, "DWDS", r.Frequency.Provenance.Provider)
 	assert.False(t, r.Frequency.Provenance.External)
 }
