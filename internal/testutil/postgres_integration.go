@@ -179,9 +179,8 @@ func templateDatabaseName(migrate func(string) error) string {
 			return err
 		}
 		content, err := fs.ReadFile(migrations.FS, path)
-		if _, writeErr := fmt.Fprintf(h, "%s %d\n", path, len(content)); writeErr != nil {
-			return writeErr
-		}
+		header := fmt.Sprintf("%s %d\n", path, len(content))
+		h.Write([]byte(header))
 		h.Write(content)
 		return err
 	})
