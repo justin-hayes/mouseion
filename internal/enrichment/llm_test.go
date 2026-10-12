@@ -232,6 +232,8 @@ func TestConfiguredLLMProviderDisabledIsExplicitNoOp(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, provider)
 	assert.False(t, provider.Enabled())
+	assert.Equal(t, "disabled", provider.Name())
+	assert.Equal(t, "disabled", provider.Version())
 	_, err = provider.Translate(context.Background(), TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"})
 	require.Error(t, err)
 	service := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)

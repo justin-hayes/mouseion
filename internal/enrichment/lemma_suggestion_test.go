@@ -24,6 +24,7 @@ func TestLemmaSuggestionProviderSendsOnlyBoundedOccurrenceEvidence(t *testing.T)
 	provider, err := NewConfiguredLemmaSuggestionProvider(LLMConfig{Enabled: true, APIKey: "secret", Model: "test", BaseURL: server.URL + "/v1"}, server.Client())
 	require.NoError(t, err)
 	require.NotNil(t, provider)
+	assert.True(t, provider.Enabled())
 	suggestion, err := provider.SuggestLemma(context.Background(), LemmaSuggestionRequest{
 		Language: "de", Surface: "Drachen", AnalyzedLemma: "Drach", UPOS: "NOUN", Sentence: "Ein Drache sieht einen Drachen.",
 		LexicalAlternative: "Drache", LexicalSource: "kaikki", LexicalVersion: "fixture-1",
@@ -55,6 +56,8 @@ func TestLemmaSuggestionProviderDisabledAndBounds(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, provider)
 	assert.False(t, provider.Enabled())
+	assert.Equal(t, "disabled", provider.Name())
+	assert.Equal(t, "disabled", provider.Version())
 	_, err = provider.SuggestLemma(context.Background(), LemmaSuggestionRequest{Language: "de", Surface: "Haus", AnalyzedLemma: "haus", UPOS: "NOUN", Sentence: "Ein Haus."})
 	require.Error(t, err)
 	_, err = boundLemmaSuggestionRequest(LemmaSuggestionRequest{Language: "de", Surface: "Haus", AnalyzedLemma: "haus", UPOS: "NOUN", Sentence: strings.Repeat("x", 2001)})
