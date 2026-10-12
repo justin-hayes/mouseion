@@ -48,6 +48,7 @@ linters:
     - nakedret
     - usetesting
     - forcetypeassert
+    - gocritic
     # Zero-finding guards (#1815): these report nothing today, so they stay on
     # to block the defects they catch from being reintroduced.
     - bidichk
@@ -71,6 +72,16 @@ linters:
   settings:
     gocognit:
       min-complexity: 70
+    gocritic:
+      # Only likely-bug checks; style, performance, experimental, and
+      # opinionated checks stay off.
+      enabled-tags:
+        - diagnostic
+      disabled-tags:
+        - style
+        - performance
+        - experimental
+        - opinionated
     interfacebloat:
       max: 10
     exhaustive:

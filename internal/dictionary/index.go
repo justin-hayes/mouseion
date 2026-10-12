@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -151,7 +152,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if !foundExact && len(weakSenses) == 0 {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	senses := append(exactSenses, weakSenses...)
+	senses := combineSenses(exactSenses, weakSenses)
 	seenEvidenceIDs := make(map[string]struct{}, len(senses))
 	for index := 0; index < len(senses); {
 		sense := &senses[index]
@@ -199,7 +200,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	}
 	orderedExact := enrichment.OrderSenses(request, orderedExactSenses)
 	orderedWeak := enrichment.OrderSenses(request, orderedWeakSenses)
-	ordered := append(orderedExact, orderedWeak...)
+	ordered := combineSenses(orderedExact, orderedWeak)
 	result := enrichment.LexicalEntry{Senses: ordered, CandidateSenses: append([]enrichment.LexicalSense(nil), senses...), IPA: ipa, PrincipalParts: principalParts}
 	if language == "el" {
 		result.Gender = gender
@@ -211,6 +212,13 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 		result.Plural = ordered[0].Plural
 	}
 	return result, true, nil
+}
+
+// combineSenses concatenates two sense lists without writing into first's
+// backing array: the capacity cap forces append to copy whenever second is
+// non-empty, and an empty second returns first unchanged as before.
+func combineSenses(first, second []enrichment.LexicalSense) []enrichment.LexicalSense {
+	return append(slices.Clip(first), second...)
 }
 
 func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (bool, error) {
