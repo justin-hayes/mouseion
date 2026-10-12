@@ -31,6 +31,7 @@ type finalizerStoreStub struct {
 	repreparationCalls                                 int
 	corpusSentences                                    map[string]map[int64]analyzer.Sentence
 	corpusCalls                                        int
+	corpusErr                                          error
 	failCalls                                          int
 	failClass, failCode                                string
 	loadErr, claimErr, completeErr, failErr            error
@@ -78,6 +79,9 @@ func (s *finalizerStoreStub) SupersedePreparedDeckArtifact(_ context.Context, _,
 
 func (s *finalizerStoreStub) ListCorpusSentences(_ context.Context, _, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error) {
 	s.corpusCalls++
+	if s.corpusErr != nil {
+		return nil, s.corpusErr
+	}
 	result := make(map[int64]analyzer.Sentence)
 	for _, ordinal := range ordinals {
 		if sentence, ok := s.corpusSentences[corpusID][ordinal]; ok {
@@ -112,6 +116,32 @@ func (r *finalizerRendererStub) RestoreWithRecoveredRenderInputs(projection card
 func (r *finalizerRendererStub) Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
 	r.calls++
 	return r.artifact, r.diagnostics, r.err
+}
+
+// rerenderStoreWithoutCorpus implements durableRerenderStore but not the corpus
+// reader, so legacy render-input recovery reports that the corpus is unavailable.
+type rerenderStoreWithoutCorpus struct {
+	projection cardexport.StorageProjection
+}
+
+func (rerenderStoreWithoutCorpus) GetPreparedDeckRun(context.Context, string, string, string) (domain.PreparedDeckRun, error) {
+	return domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0}, nil
+}
+
+func (s rerenderStoreWithoutCorpus) LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.StorageProjection, []cardexport.StoredResult, error) {
+	return s.projection, nil, nil
+}
+
+func (rerenderStoreWithoutCorpus) SupersedePreparedDeckArtifact(context.Context, string, string, string, int, cardexport.Artifact) (domain.DeckPreparation, error) {
+	return domain.DeckPreparation{}, nil
+}
+
+func (rerenderStoreWithoutCorpus) GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error) {
+	return domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run"}, nil
+}
+
+func (rerenderStoreWithoutCorpus) MarkPreparedDeckRequiresRepreparation(context.Context, string, string, string) error {
+	return nil
 }
 
 type corpusRendererStub struct {
@@ -555,6 +585,88 @@ func TestDurableRerendererReportsMissingLegacyInputWithoutPublishing(t *testing.
 	t.Run("does not publish", func(t *testing.T) {
 		require.Zero(t, store.supersedeCalls)
 	})
+}
+
+func TestDurableRerendererSkipsLegacyRecoveryWhenRenderInputsAreCurrent(t *testing.T) {
+	store := &finalizerStoreStub{
+		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: 0},
+		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+		corpusSentences: map[string]map[int64]analyzer.Sentence{},
+	}
+	store.projection = legacyRerenderManifest(t)
+	renderer := &corpusRendererStub{}
+
+	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, updated.DeckRevision)
+	assert.Zero(t, store.corpusCalls, "a run already carrying current render inputs must not read the corpus")
+	assert.Equal(t, 1, renderer.calls)
+}
+
+func TestDurableRerendererLeavesManifestsWithNothingToRecoverUnchanged(t *testing.T) {
+	projection := legacyRerenderManifest(t)
+	projection.Items[0].Entry.SentenceTokens = []analyzer.Token{{Surface: "stehe", Dependency: "root", Head: 0}}
+	store := &finalizerStoreStub{
+		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
+		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+		corpusSentences: map[string]map[int64]analyzer.Sentence{},
+	}
+	store.projection = projection
+	renderer := &corpusRendererStub{}
+
+	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, updated.DeckRevision)
+	assert.Zero(t, store.corpusCalls, "items that already carry tokens are not recovered again")
+	assert.Equal(t, 1, renderer.calls)
+}
+
+func TestDurableRerendererReportsManifestWithoutCorpusCoordinate(t *testing.T) {
+	projection := legacyRerenderManifest(t)
+	projection.Items[0].CorpusID = ""
+	store := &finalizerStoreStub{
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+	}
+	store.projection = projection
+	renderer := &corpusRendererStub{}
+
+	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
+
+	require.ErrorIs(t, err, ErrRequiresRepreparation)
+	assert.Zero(t, store.corpusCalls)
+	assert.Zero(t, renderer.calls)
+	assert.Zero(t, store.supersedeCalls)
+}
+
+func TestDurableRerendererSurfacesCorpusReadFailure(t *testing.T) {
+	corpusErr := errors.New("corpus unavailable")
+	store := &finalizerStoreStub{
+		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
+		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+		corpusSentences: map[string]map[int64]analyzer.Sentence{},
+		corpusErr:       corpusErr,
+	}
+	store.projection = legacyRerenderManifest(t)
+	renderer := &corpusRendererStub{}
+
+	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
+
+	require.ErrorIs(t, err, corpusErr)
+	assert.Zero(t, renderer.calls)
+	assert.Zero(t, store.supersedeCalls)
+}
+
+func TestDurableRerendererReportsUnavailableCorpusReader(t *testing.T) {
+	store := rerenderStoreWithoutCorpus{projection: legacyRerenderManifest(t)}
+	renderer := &corpusRendererStub{}
+
+	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
+
+	require.ErrorIs(t, err, ErrRequiresRepreparation)
+	assert.Zero(t, renderer.calls)
 }
 
 func TestRerenderWorkerSurfacesMissingLegacyInputWithoutRetrying(t *testing.T) {

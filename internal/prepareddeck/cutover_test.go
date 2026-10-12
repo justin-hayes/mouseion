@@ -3,7 +3,9 @@ package prepareddeck
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log"
+	"math"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -25,6 +27,8 @@ type inputFactsStore struct {
 	facts          persistence.PreparedDeckInputFacts
 	candidateFacts []persistence.PreparedDeckCandidateFacts
 	requested      []domain.SelectionCandidate
+	inputErr       error
+	candidateErr   error
 }
 
 type plannerDictionary struct{}
@@ -36,6 +40,9 @@ func (plannerDictionary) Lookup(context.Context, enrichment.LexicalLookupRequest
 }
 
 func (s *inputFactsStore) LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.PreparedDeckInputFacts, error) {
+	if s.inputErr != nil {
+		return persistence.PreparedDeckInputFacts{}, s.inputErr
+	}
 	facts := s.facts
 	for _, fact := range s.candidateFacts {
 		facts.Candidates = append(facts.Candidates, fact.Candidate)
@@ -44,6 +51,9 @@ func (s *inputFactsStore) LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, 
 }
 
 func (s *inputFactsStore) LoadPreparedDeckCandidateFactsTx(_ context.Context, _ pgx.Tx, _ domain.DeckPreparation, selected []domain.SelectionCandidate) ([]persistence.PreparedDeckCandidateFacts, error) {
+	if s.candidateErr != nil {
+		return nil, s.candidateErr
+	}
 	s.requested = selected
 	result := make([]persistence.PreparedDeckCandidateFacts, 0, len(selected))
 	for _, wanted := range selected {
@@ -286,4 +296,89 @@ func TestInputAssemblerFailsClosedForMissingCurrentReadingSnapshot(t *testing.T)
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Current reading snapshot")
+}
+
+func TestInputAssemblerSurfacesFactLoadFailures(t *testing.T) {
+	inputErr := errors.New("input facts unavailable")
+	candidateErr := errors.New("candidate facts unavailable")
+	cases := map[string]struct {
+		store *inputFactsStore
+		want  error
+	}{
+		"input facts":     {store: &inputFactsStore{inputErr: inputErr}, want: inputErr},
+		"candidate facts": {store: &inputFactsStore{candidateErr: candidateErr}, want: candidateErr},
+	}
+	for name, test := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, _, err := NewInputAssembler(test.store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: "book"})
+			require.ErrorIs(t, err, test.want)
+		})
+	}
+}
+
+func TestInputAssemblerRejectsMissingFactStore(t *testing.T) {
+	_, _, err := NewInputAssembler(nil).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: "book"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "input fact store is unavailable")
+}
+
+func TestInputAssemblerSelectsFrozenCurrentReadingSnapshot(t *testing.T) {
+	snapshot := domain.SelectionCandidate{OwnerID: "alice", CorpusID: "corpus", Language: "de", CanonicalLemma: "frozen", UPOS: "NOUN", OccurrenceCount: 3}
+	store := &inputFactsStore{
+		facts: persistence.PreparedDeckInputFacts{
+			DeckName:                     "Book",
+			CurrentReadingSnapshotActive: true,
+			CurrentReadingSnapshot:       []domain.SelectionCandidate{snapshot},
+		},
+		candidateFacts: []persistence.PreparedDeckCandidateFacts{{
+			Candidate: snapshot,
+			Entry:     cardexport.Entry{OwnerID: "alice", Language: "de", CanonicalLemma: "frozen", UPOS: "NOUN", SourceDocument: "Book"},
+		}},
+	}
+	projections, deckName, err := NewInputAssembler(store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book", SnapshotID: "snapshot"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Book", deckName)
+	require.Len(t, projections, 1)
+	assert.Equal(t, "frozen", projections[0].Candidate.CanonicalLemma)
+	require.NotEmpty(t, store.requested)
+	assert.Equal(t, "frozen", store.requested[0].CanonicalLemma, "the frozen snapshot bypasses recurring eligibility")
+}
+
+func TestInputAssemblerRejectsInvalidCorrectionOffsets(t *testing.T) {
+	store := &inputFactsStore{facts: persistence.PreparedDeckInputFacts{
+		DeckName:    "Book",
+		CorpusID:    "corpus",
+		Analysis:    &analyzer.Result{Language: "de"},
+		Corrections: []domain.OccurrenceLemmaCorrection{{SourceDocumentID: "unit", StartOffset: -1, EndOffset: 4, CanonicalLemma: "haus"}},
+	}}
+	_, _, err := NewInputAssembler(store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: "book"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid source offsets")
+}
+
+func TestInputAssemblerRejectsCorpusWithoutProjectableLanguage(t *testing.T) {
+	store := &inputFactsStore{facts: persistence.PreparedDeckInputFacts{
+		DeckName: "Book",
+		CorpusID: "corpus",
+		Analysis: &analyzer.Result{},
+	}}
+	_, _, err := NewInputAssembler(store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: "book"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "project effective prepared-deck vocabulary")
+}
+
+func TestInputAssemblerRejectsSourceOffsetBeyondPostgresRange(t *testing.T) {
+	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Text: "Haus", Tokens: []analyzer.Token{{
+		Surface: "Haus", CanonicalLemma: "haus", UPOS: "NOUN",
+		Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: math.MaxUint64, EndOffset: math.MaxUint64},
+	}}}}}
+	store := &inputFactsStore{facts: persistence.PreparedDeckInputFacts{DeckName: "Book", CorpusID: "corpus", Analysis: &corpus}}
+	_, _, err := NewInputAssembler(store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: "book"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source offset exceeds PostgreSQL range")
 }

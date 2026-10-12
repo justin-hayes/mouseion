@@ -43,55 +43,113 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 	if a == nil || a.Store == nil {
 		return nil, "", errors.New("prepareddeck: input fact store is unavailable")
 	}
-	if preparation.SnapshotID == "" && tx != nil {
-		var bookID *string
-		if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
-			return nil, "", fmt.Errorf("resolve direct-deck Book identity: %w", err)
-		}
-		if bookID != nil {
-			if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, preparation.OwnerID+":"+*bookID); err != nil {
-				return nil, "", fmt.Errorf("lock direct-deck vocabulary decisions: %w", err)
-			}
-		}
+	if err := lockDirectDeckVocabularyDecisions(ctx, tx, preparation); err != nil {
+		return nil, "", err
 	}
 	facts, err := a.Store.LoadPreparedDeckInputFactsTx(ctx, tx, preparation)
 	if err != nil {
 		return nil, "", fmt.Errorf("load prepared deck input facts: %w", err)
 	}
-	if !facts.CurrentReadingSnapshotActive && facts.Analysis != nil {
-		facts.Candidates, err = projectPreparedDeckCandidates(preparation, facts.CorpusID, *facts.Analysis, facts.Corrections)
-		if err != nil {
-			return nil, "", err
-		}
-	}
-	selected := make([]domain.SelectionCandidate, 0, len(facts.Candidates))
-	if preparation.SnapshotID != "" && !facts.CurrentReadingSnapshotActive {
-		return nil, "", fmt.Errorf("prepareddeck: Current reading snapshot %q is unavailable", preparation.SnapshotID)
-	}
-	if facts.CurrentReadingSnapshotActive {
-		selected = append(selected, facts.CurrentReadingSnapshot...)
-	} else {
-		eligibility := selection.NewEligibility(facts.Known, facts.Reserved)
-		for _, candidate := range facts.Candidates {
-			if !eligibility.Allows(candidate, selection.DefaultRecurringMinOccurrences) {
-				continue
-			}
-			selected = append(selected, candidate)
-		}
+	selected, err := selectPreparedDeckCandidates(preparation, facts)
+	if err != nil {
+		return nil, "", err
 	}
 	selectedFacts, err := a.Store.LoadPreparedDeckCandidateFactsTx(ctx, tx, preparation, selected)
 	if err != nil {
 		return nil, "", fmt.Errorf("load selected prepared deck facts: %w", err)
 	}
+	return candidateProjections(preparation, facts.DeckName, selectedFacts), facts.DeckName, nil
+}
 
+// lockDirectDeckVocabularyDecisions serializes a direct deck's vocabulary
+// decisions against the Book it belongs to. A preparation bound to a Current
+// reading snapshot inherits that snapshot's lock instead.
+func lockDirectDeckVocabularyDecisions(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) error {
+	if preparation.SnapshotID != "" || tx == nil {
+		return nil
+	}
+	var bookID *string
+	if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+		return fmt.Errorf("resolve direct-deck Book identity: %w", err)
+	}
+	if bookID == nil {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, preparation.OwnerID+":"+*bookID); err != nil {
+		return fmt.Errorf("lock direct-deck vocabulary decisions: %w", err)
+	}
+	return nil
+}
+
+// selectPreparedDeckCandidates chooses the candidates to freeze: the Current
+// reading snapshot when one is active, otherwise the recurring-vocabulary
+// survivors of the projected effective candidates.
+func selectPreparedDeckCandidates(preparation domain.DeckPreparation, facts persistence.PreparedDeckInputFacts) ([]domain.SelectionCandidate, error) {
+	candidates, err := effectivePreparedDeckCandidates(preparation, facts)
+	if err != nil {
+		return nil, err
+	}
+	if preparation.SnapshotID != "" && !facts.CurrentReadingSnapshotActive {
+		return nil, fmt.Errorf("prepareddeck: Current reading snapshot %q is unavailable", preparation.SnapshotID)
+	}
+	if facts.CurrentReadingSnapshotActive {
+		selected := make([]domain.SelectionCandidate, 0, len(facts.CurrentReadingSnapshot))
+		return append(selected, facts.CurrentReadingSnapshot...), nil
+	}
+	eligibility := selection.NewEligibility(facts.Known, facts.Reserved)
+	selected := make([]domain.SelectionCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if !eligibility.Allows(candidate, selection.DefaultRecurringMinOccurrences) {
+			continue
+		}
+		selected = append(selected, candidate)
+	}
+	return selected, nil
+}
+
+// effectivePreparedDeckCandidates projects the immutable analysis when no
+// Current reading snapshot is active, and otherwise returns the loaded
+// candidates unchanged.
+func effectivePreparedDeckCandidates(preparation domain.DeckPreparation, facts persistence.PreparedDeckInputFacts) ([]domain.SelectionCandidate, error) {
+	if facts.CurrentReadingSnapshotActive || facts.Analysis == nil {
+		return facts.Candidates, nil
+	}
+	return projectPreparedDeckCandidates(preparation, facts.CorpusID, *facts.Analysis, facts.Corrections)
+}
+
+// candidateProjections materializes the frozen projections consumed by
+// Presentation from the selected candidate facts.
+func candidateProjections(preparation domain.DeckPreparation, deckName string, selectedFacts []persistence.PreparedDeckCandidateFacts) []cardexport.CandidateProjection {
 	projections := make([]cardexport.CandidateProjection, 0, len(selectedFacts))
 	for _, fact := range selectedFacts {
-		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: facts.DeckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences, RequireContextualGloss: false})
+		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: deckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences, RequireContextualGloss: false})
 	}
-	return projections, facts.DeckName, nil
+	return projections
 }
 
 func projectPreparedDeckCandidates(preparation domain.DeckPreparation, corpusID string, corpus analyzer.Result, corrections []domain.OccurrenceLemmaCorrection) ([]domain.SelectionCandidate, error) {
+	decisions, err := occurrenceDecisions(corrections)
+	if err != nil {
+		return nil, err
+	}
+	projected, err := selection.Project(corpus, selection.DefaultConfig(corpusID), decisions)
+	if err != nil {
+		return nil, fmt.Errorf("project effective prepared-deck vocabulary: %w", err)
+	}
+	result := make([]domain.SelectionCandidate, 0, len(projected))
+	for _, candidate := range projected {
+		mapped, err := projectSelectionCandidate(preparation.OwnerID, corpusID, candidate)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, mapped)
+	}
+	return result, nil
+}
+
+// occurrenceDecisions converts learner corrections into occurrence-scoped
+// selection decisions, rejecting any correction without a usable source span.
+func occurrenceDecisions(corrections []domain.OccurrenceLemmaCorrection) ([]selection.OccurrenceDecision, error) {
 	decisions := make([]selection.OccurrenceDecision, 0, len(corrections))
 	for _, correction := range corrections {
 		if correction.StartOffset < 0 || correction.EndOffset < 0 {
@@ -103,42 +161,50 @@ func projectPreparedDeckCandidates(preparation domain.DeckPreparation, corpusID 
 			Excluded:   correction.Excluded,
 		})
 	}
-	projected, err := selection.Project(corpus, selection.DefaultConfig(corpusID), decisions)
+	return decisions, nil
+}
+
+// projectSelectionCandidate freezes one projected candidate into the persisted
+// selection identity, marshalling its JSON facts and earliest source offset.
+func projectSelectionCandidate(ownerID, corpusID string, candidate selection.Candidate) (domain.SelectionCandidate, error) {
+	forms, err := json.Marshal(candidate.ObservedForms)
 	if err != nil {
-		return nil, fmt.Errorf("project effective prepared-deck vocabulary: %w", err)
+		return domain.SelectionCandidate{}, err
 	}
-	result := make([]domain.SelectionCandidate, 0, len(projected))
-	for _, candidate := range projected {
-		forms, marshalErr := json.Marshal(candidate.ObservedForms)
-		if marshalErr != nil {
-			return nil, marshalErr
-		}
-		references, marshalErr := json.Marshal(candidate.SentenceReferences)
-		if marshalErr != nil {
-			return nil, marshalErr
-		}
-		provenance, marshalErr := json.Marshal(candidate.Provenance)
-		if marshalErr != nil {
-			return nil, marshalErr
-		}
-		firstEncounter := int64(^uint64(0) >> 1)
-		for _, reference := range candidate.SentenceReferences {
-			startOffset, convertErr := checked.Int64FromUint64(reference.Location.StartOffset)
-			if convertErr != nil {
-				return nil, fmt.Errorf("prepareddeck: source offset exceeds PostgreSQL range: %w", convertErr)
-			}
-			if startOffset < firstEncounter {
-				firstEncounter = startOffset
-			}
-		}
-		result = append(result, domain.SelectionCandidate{
-			OwnerID: preparation.OwnerID, CorpusID: corpusID,
-			Language: candidate.Identity.Language, CanonicalLemma: candidate.Identity.CanonicalLemma, UPOS: candidate.Identity.UPOS,
-			OccurrenceCount: candidate.OccurrenceCount, FirstEncounter: firstEncounter,
-			ObservedForms: forms, SentenceReferences: references, Provenance: provenance,
-		})
+	references, err := json.Marshal(candidate.SentenceReferences)
+	if err != nil {
+		return domain.SelectionCandidate{}, err
 	}
-	return result, nil
+	provenance, err := json.Marshal(candidate.Provenance)
+	if err != nil {
+		return domain.SelectionCandidate{}, err
+	}
+	firstEncounter, err := firstEncounterOffset(candidate.SentenceReferences)
+	if err != nil {
+		return domain.SelectionCandidate{}, err
+	}
+	return domain.SelectionCandidate{
+		OwnerID: ownerID, CorpusID: corpusID,
+		Language: candidate.Identity.Language, CanonicalLemma: candidate.Identity.CanonicalLemma, UPOS: candidate.Identity.UPOS,
+		OccurrenceCount: candidate.OccurrenceCount, FirstEncounter: firstEncounter,
+		ObservedForms: forms, SentenceReferences: references, Provenance: provenance,
+	}, nil
+}
+
+// firstEncounterOffset returns the earliest sentence offset in the candidate,
+// rejecting a source offset PostgreSQL cannot store.
+func firstEncounterOffset(references []selection.SentenceReference) (int64, error) {
+	firstEncounter := int64(^uint64(0) >> 1)
+	for _, reference := range references {
+		startOffset, err := checked.Int64FromUint64(reference.Location.StartOffset)
+		if err != nil {
+			return 0, fmt.Errorf("prepareddeck: source offset exceeds PostgreSQL range: %w", err)
+		}
+		if startOffset < firstEncounter {
+			firstEncounter = startOffset
+		}
+	}
+	return firstEncounter, nil
 }
 
 // BatchPlanner freezes transaction-scoped input facts into a durable run. It

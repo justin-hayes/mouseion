@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
@@ -150,9 +151,39 @@ func TestPlannersAssembleEquivalentStandardAndBatchPlans(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, repeated.Existing)
 	assert.Equal(t, 1, counted.calls, "existing-run freeze must not replan")
+	_, err = coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID, ExpectedManifestDigest: "not-the-frozen-digest"})
+	require.ErrorIs(t, err, persistence.ErrImmutable, "an existing run must reject a different expected manifest digest")
+	assert.Equal(t, 1, counted.calls, "a rejected digest must not replan")
 	var translationJobs int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2`, (StandardTranslationJobArgs{}).Kind(), preparation.ID).Scan(&translationJobs))
 	assert.Equal(t, 4, translationJobs, "every selected item must have contextual translation work")
+}
+
+func TestInputAssemblerLocksDirectDeckVocabularyDecisions(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "direct-deck-lock-"+uuid.NewString(), false)
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: "Direct", MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("text"), FullText: "text"})
+	require.NoError(t, err)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
+	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "direct.apkg", DeckName: "Direct", ContentHash: source.ContentHash})
+	require.NoError(t, err)
+
+	tx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	projections, deckName, err := NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, tx, preparation)
+
+	require.NoError(t, err, "a direct deck with a Book takes its vocabulary-decision advisory lock before loading facts")
+	assert.Equal(t, "Direct", deckName)
+	assert.Empty(t, projections)
+	require.NoError(t, tx.Rollback(ctx))
 }
 
 type countingPlanner struct {

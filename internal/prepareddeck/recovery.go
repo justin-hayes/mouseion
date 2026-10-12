@@ -33,10 +33,35 @@ func (w *RecoveryWorker) Work(ctx context.Context, _ *river.Job[RecoveryJobArgs]
 	if w == nil || w.Store == nil || w.Client == nil {
 		return ErrInvalidInput
 	}
-	limit := w.Limit
-	if limit < 1 {
-		limit = 100
+	limit := w.limit()
+	if err := w.repairRecoveryWork(ctx, limit); err != nil {
+		return err
 	}
+	if err := w.enqueueStaleRerenders(ctx, limit); err != nil {
+		return err
+	}
+	return river.JobSnooze(w.interval())
+}
+
+// limit bounds the work one recovery pass claims at once.
+func (w *RecoveryWorker) limit() int {
+	if w.Limit < 1 {
+		return 100
+	}
+	return w.Limit
+}
+
+// interval is the snooze between recovery passes.
+func (w *RecoveryWorker) interval() time.Duration {
+	if w.Interval <= 0 {
+		return DefaultBatchPollInterval
+	}
+	return w.Interval
+}
+
+// repairRecoveryWork reconstructs every persisted recovery identity and records
+// how many Batch runs have stalled.
+func (w *RecoveryWorker) repairRecoveryWork(ctx context.Context, limit int) error {
 	work, err := w.Store.ListPreparedDeckRecoveryWork(ctx, limit)
 	if err != nil {
 		return err
@@ -51,24 +76,31 @@ func (w *RecoveryWorker) Work(ctx context.Context, _ *river.Job[RecoveryJobArgs]
 	}
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchStuckBatches, Phase: "waiting", State: "stuck", Provider: "openai", Value: float64(len(stuck))})
 	for _, item := range work {
-		if err = w.repair(ctx, item); err != nil && !errors.Is(err, persistence.ErrPreparedDeckClaimLost) && !errors.Is(err, persistence.ErrInvalidTransition) {
+		if err := w.repair(ctx, item); err != nil && !ignorableRecoveryError(err) {
 			return err
 		}
 	}
+	return nil
+}
+
+// enqueueStaleRerenders queues a presentation rebuild for every stale deck.
+func (w *RecoveryWorker) enqueueStaleRerenders(ctx context.Context, limit int) error {
 	stale, err := w.Store.ListStalePreparedDecks(ctx, cardexport.PresentationVersion, limit)
 	if err != nil {
 		return err
 	}
 	for _, item := range stale {
-		if err = w.enqueueRerender(ctx, item); err != nil && !errors.Is(err, persistence.ErrPreparedDeckClaimLost) && !errors.Is(err, persistence.ErrInvalidTransition) {
+		if err := w.enqueueRerender(ctx, item); err != nil && !ignorableRecoveryError(err) {
 			return err
 		}
 	}
-	interval := w.Interval
-	if interval <= 0 {
-		interval = DefaultBatchPollInterval
-	}
-	return river.JobSnooze(interval)
+	return nil
+}
+
+// ignorableRecoveryError reports the concurrent-repair outcomes a later pass
+// will observe again.
+func ignorableRecoveryError(err error) bool {
+	return errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition)
 }
 
 func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.PreparedDeckRerenderWork) (err error) {
@@ -106,45 +138,33 @@ func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.Prepar
 	return tx.Commit(ctx)
 }
 
-func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRecoveryWork) (err error) {
-	if item.Kind == "outcome" {
-		run, runErr := w.Store.GetPreparedDeckRun(ctx, item.OwnerID, item.PreparationID, item.RunID)
-		if runErr != nil {
-			return runErr
-		}
-		// The persisted execution mode is the only authority during recovery.
-		// Batch outcomes are repaired by their durable chunk jobs.
-		if run.ExecutionMode != domain.PreparedDeckExecutionStandard {
-			return nil
-		}
-		generation := item.Generation
-		if item.LeaseExpired {
-			redispatched, redispatchErr := w.Store.RedispatchPreparedDeckTranslationOutcome(ctx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, item.Generation)
-			if redispatchErr != nil {
-				return redispatchErr
-			}
-			generation = redispatched.DispatchGeneration
-		}
-		tx, beginErr := w.Store.Pool().Begin(ctx)
-		if beginErr != nil {
-			return beginErr
-		}
-		defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-		args := StandardTranslationJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Ordinal: item.Ordinal, Generation: generation}
-		inserted, insertErr := w.Client.InsertTx(ctx, tx, args, durableInsertOptsForQueue(TranslationQueue))
-		if insertErr != nil {
-			return insertErr
-		}
-		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-			return errors.New("prepareddeck: River did not return live standard translation recovery work")
-		}
-		if setErr := w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, generation, inserted.Job.ID); setErr != nil {
-			return setErr
-		}
-		return tx.Commit(ctx)
+// repair dispatches one persisted recovery identity to the reconstruction step
+// for its stuck state.
+func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRecoveryWork) error {
+	switch item.Kind {
+	case "outcome":
+		return w.repairOutcome(ctx, item)
+	case "translation_completion":
+		return w.repairTranslationCompletion(ctx, item)
+	default:
+		return w.repairDurableJob(ctx, item)
 	}
-	if item.Kind == "translation_completion" {
-		_, err := w.Store.AdvancePreparedDeckRunIfTerminal(ctx, item.OwnerID, item.PreparationID, item.RunID, w.insertFinalizer)
+}
+
+// repairOutcome reconstructs the short standard-translation job for one outcome,
+// redispatching an expired claim to a new generation first. The persisted
+// execution mode is the only authority during recovery: Batch outcomes are
+// repaired by their durable chunk jobs.
+func (w *RecoveryWorker) repairOutcome(ctx context.Context, item domain.PreparedDeckRecoveryWork) (err error) {
+	run, err := w.Store.GetPreparedDeckRun(ctx, item.OwnerID, item.PreparationID, item.RunID)
+	if err != nil {
+		return err
+	}
+	if run.ExecutionMode != domain.PreparedDeckExecutionStandard {
+		return nil
+	}
+	generation, err := w.outcomeGeneration(ctx, item)
+	if err != nil {
 		return err
 	}
 	tx, err := w.Store.Pool().Begin(ctx)
@@ -152,17 +172,50 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 		return err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	var args river.JobArgs
-	switch item.Kind {
-	case "batch_submission":
-		args = BatchSubmitJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
-	case "batch_reconciliation":
-		args = BatchPollJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
-	case "finalizer":
-		args = FinalizeJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Generation: item.Generation}
-	case "batch_cleanup":
-		args = BatchCleanupJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
-	default:
+	args := StandardTranslationJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Ordinal: item.Ordinal, Generation: generation}
+	inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOptsForQueue(TranslationQueue))
+	if err != nil {
+		return err
+	}
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+		return errors.New("prepareddeck: River did not return live standard translation recovery work")
+	}
+	if err := w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, generation, inserted.Job.ID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// outcomeGeneration redispatches an expired standard claim, returning the
+// generation its replacement job must carry.
+func (w *RecoveryWorker) outcomeGeneration(ctx context.Context, item domain.PreparedDeckRecoveryWork) (int, error) {
+	if !item.LeaseExpired {
+		return item.Generation, nil
+	}
+	redispatched, err := w.Store.RedispatchPreparedDeckTranslationOutcome(ctx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, item.Generation)
+	if err != nil {
+		return 0, err
+	}
+	return redispatched.DispatchGeneration, nil
+}
+
+// repairTranslationCompletion advances a run whose standard outcomes are all
+// terminal, dispatching its finalizer when it needs one.
+func (w *RecoveryWorker) repairTranslationCompletion(ctx context.Context, item domain.PreparedDeckRecoveryWork) error {
+	_, err := w.Store.AdvancePreparedDeckRunIfTerminal(ctx, item.OwnerID, item.PreparationID, item.RunID, w.insertFinalizer)
+	return err
+}
+
+// repairDurableJob reconstructs the missing durable job for a chunk or
+// finalizer identity, storing the new River job id on the preparation.
+func (w *RecoveryWorker) repairDurableJob(ctx context.Context, item domain.PreparedDeckRecoveryWork) (err error) {
+	tx, err := w.Store.Pool().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	args := durableRecoveryJobArgs(item)
+	if args == nil {
 		return nil
 	}
 	inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOpts())
@@ -172,22 +225,43 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
 		return errors.New("prepareddeck: River did not return live durable recovery work")
 	}
-	switch item.Kind {
-	case "batch_submission":
-		err = w.Store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.ChunkID, item.Generation, inserted.Job.ID)
-	case "batch_reconciliation":
-		err = w.Store.SetPreparedDeckBatchReconciliationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.ChunkID, item.Generation, inserted.Job.ID)
-	case "finalizer":
-		err = w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Generation, inserted.Job.ID)
-	case "batch_cleanup":
-		// Cleanup jobs are idempotent and claim their own short lease. There is
-		// no provider ID in the River args or recovery projection.
-		err = nil
-	}
-	if err != nil {
+	if err := w.setDurableRecoveryJob(ctx, tx, item, inserted.Job.ID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// durableRecoveryJobArgs maps a stuck-state kind to the River arguments that
+// reconstruct its job, or nil when the kind has no reconstructable job.
+func durableRecoveryJobArgs(item domain.PreparedDeckRecoveryWork) river.JobArgs {
+	switch item.Kind {
+	case "batch_submission":
+		return BatchSubmitJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
+	case "batch_reconciliation":
+		return BatchPollJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
+	case "finalizer":
+		return FinalizeJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Generation: item.Generation}
+	case "batch_cleanup":
+		return BatchCleanupJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
+	default:
+		return nil
+	}
+}
+
+// setDurableRecoveryJob records the reconstructed River job id on the
+// preparation. Cleanup jobs are idempotent and claim their own short lease, so
+// there is no provider id to store.
+func (w *RecoveryWorker) setDurableRecoveryJob(ctx context.Context, tx pgx.Tx, item domain.PreparedDeckRecoveryWork, jobID int64) error {
+	switch item.Kind {
+	case "batch_submission":
+		return w.Store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.ChunkID, item.Generation, jobID)
+	case "batch_reconciliation":
+		return w.Store.SetPreparedDeckBatchReconciliationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.ChunkID, item.Generation, jobID)
+	case "finalizer":
+		return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Generation, jobID)
+	default:
+		return nil
+	}
 }
 
 func durableInsertOptsForQueue(queue string) *river.InsertOpts {
