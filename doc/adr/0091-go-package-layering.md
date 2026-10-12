@@ -15,13 +15,15 @@ The Go code has a layering that earlier decisions rely on, but no gate checks it
 - **pgx.** Non-test files in `internal/persistence`, `internal/txcleanup`, `cmd/server`, the job packages `internal/analysis`, `internal/cataloguesync`, `internal/knownvocab` and `internal/prepareddeck`, generated `gen/sqlc`, and `internal/testutil` import `github.com/jackc/pgx/v5`. The only other importers are three `internal/webapp` integration tests, which build River clients and inspect database state.
 - **Fixtures store.** `internal/fixtures` is imported by `cmd/fixtureserver` and by `internal/webapp` tests. `cmd/fixtureserver` also imports `internal/persistence`, for the `persistence.MyBooksBrowseResult` type in a store wrapper. `internal/fixtures` itself imports neither persistence, pgx nor sqlc.
 - **Test infrastructure.** `internal/storecontract`, `internal/testutil`, `internal/testwrite` and `internal/analyzer/analyzertest` are imported only by test files. `testwrite` is used by tests in `cataloguesync`, `enrichment`, `opds` and `webapp`.
-- **Web app.** Non-test `internal/webapp` files import the domain, canonicalization, service and job packages, `auth`/`webauth`, and `internal/persistence`, but not pgx, sqlc, fixtures or test infrastructure. The persistence uses are three identifiers: the sentinel errors `ErrNotFound` and `ErrCurrentReadingStale`, and the `MyBooksBrowseResult` type in a store interface signature. No web app file names `persistence.PostgresStore`.
+- **Web app.** Non-test `internal/webapp` files import the domain, canonicalization, service and job packages, `auth`/`webauth`, and `internal/persistence`, but not pgx, sqlc, fixtures or test infrastructure. Their persistence uses are sentinel errors (`ErrNotFound`, `ErrCurrentReadingStale`, `ErrCurrentReadingExists` and seven others), value types in store interface signatures (`MyBooksBrowseResult`, `StartResult`, `LanguageCount`, `CurrentReadingIneligibleError`), and one function, `ValidateSecret`, which `NewWithError` calls to check `MOUSEION_SECRET`. No web app file names `persistence.PostgresStore`.
+
+All of the above are direct imports. Transitively, both `internal/fixtures` and `internal/webapp` link pgx and `gen/sqlc` through the job packages, and the rules below do not try to prevent that.
 
 The observed graph is evidence, not the decision. The rules below keep what the earlier ADRs rely on and decide the cases the graph leaves open.
 
 ## Decision
 
-Each rule names a package group, says what it may and may not import, and gives the reason. "Test files" means `_test.go` files, including integration-tagged ones. A rule that names a package covers its non-test files unless it says otherwise. Packages that no rule names are not constrained by this ADR.
+Each rule names a package group, says what it may and may not import, and gives the reason. The rules constrain direct imports only, which is what depguard checks. "Test files" means `_test.go` files, including integration-tagged ones. A rule that names a package covers its non-test files unless it says otherwise. Packages that no rule names are not constrained by this ADR. "Fixtures store" means `internal/fixtures`, and "fixture server" means `cmd/fixtureserver`.
 
 ### 1. Domain: the standard library and canonicalization only
 
@@ -79,15 +81,17 @@ The test-infrastructure packages are `internal/storecontract`, `internal/testuti
 - **Allow:** test files in any package.
 - **Deny:** non-test files in every package, except files inside these packages themselves.
 
-**Why.** These packages exist to make tests short and shared. `testutil` starts containers and clones databases, `storecontract` encodes ADR 0088's cross-adapter scenarios with testify assertions, `testwrite` fails a test on a write error, and `analyzertest` supplies a fake analyzer, fake capabilities and the analyzer contract. None of that belongs in a shipped binary, and production code that called it would fail at runtime or behave like a test double. `analyzertest` is not in the parent issue's list, but it has the same role and importers, so the rule covers it. A new helper package used only by tests joins this group.
+**Why.** These packages exist to make tests short and shared. `testutil` starts containers and clones databases, `storecontract` encodes ADR 0088's cross-adapter scenarios with testify assertions, `testwrite` fails a test on a write error, and `analyzertest` supplies a fake analyzer, fake capabilities and the analyzer contract. None of that belongs in a shipped binary, and production code that called it would fail at runtime or behave like a test double. `analyzertest` is not in the parent issue's list, but it has the same role and importers, so the rule covers it. Adding a package to this group amends this ADR.
 
 ### 6. Web app: domain, services and store interfaces
 
 - **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `knownvocab`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`), `internal/auth` and `internal/webauth`. It may import `internal/persistence` **only** for sentinel errors and value types that appear in its store interfaces.
+- **Temporary exception:** the `persistence.ValidateSecret` call in `webapp.go`, until [#1977](https://github.com/justin-hayes/mouseion/issues/1977) moves secret validation out of persistence.
+- **Enforcement:** the allow list states intent. Lint enforces the deny entries below. A new internal dependency outside the allow list needs this ADR amended, and review checks for one.
 - **Deny (non-test files):** pgx, `gen/sqlc`, `internal/fixtures` and every test-infrastructure package.
 - **Deny (test files):** `gen/sqlc`. Web app tests may import fixtures, test infrastructure and pgx.
 
-**Why.** Handlers render state and route intent. Decisions belong to the domain (ADR 0052), to `selection` for vocabulary counts (ADR 0087), and to the services. Data access goes through store interfaces that the web app defines and both adapters satisfy (ADR 0088). A handler holding pgx or sqlc could query around the store and fork a rule the domain owns. A handler holding `*persistence.PostgresStore` would tie the web app to one adapter, and the fixture server could no longer serve it. Persistence's sentinel errors and result types are a known compromise: they are part of the current store interface signatures. Lint cannot tell a type reference from a store reference, so review enforces the "errors and value types only" limit, and a web app reference to `persistence.PostgresStore` or a persistence constructor is a violation. Moving these types into the domain would let the persistence import be denied outright. That is future work, not a condition of this ADR.
+**Why.** Handlers render state and route intent. Decisions belong to the domain (ADR 0052), to `selection` for vocabulary counts (ADR 0087), and to the services. Data access goes through store interfaces that the web app defines and both adapters satisfy (ADR 0088). A handler holding pgx or sqlc could query around the store and fork a rule the domain owns. A handler holding `*persistence.PostgresStore` would tie the web app to one adapter, and the fixture server could no longer serve it. Persistence's sentinel errors and result types are a known compromise: they are part of the current store interface signatures. Lint cannot tell a type reference from a store reference, so review enforces the "errors and value types only" limit, and a web app reference to `persistence.PostgresStore` or to any persistence function is a violation. Moving these types into the domain would let the persistence import be denied outright. That is future work, not a condition of this ADR.
 
 ### 7. Suppressions cite this ADR
 
@@ -99,9 +103,10 @@ A `//nolint:depguard` directive must give a reason that names ADR 0091 and the f
 
 | Import | Rule | Follow-up |
 | --- | --- | --- |
-| `internal/prepareddeck/current_reading_admission.go` and `internal/prepareddeck/jobs.go` import `gen/sqlc` | §2 | [#1976](https://github.com/justin-hayes/mouseion/issues/1976) moves the three queries behind transaction-scoped persistence methods. |
+| `internal/prepareddeck/current_reading_admission.go` and `internal/prepareddeck/jobs.go` import `gen/sqlc` | §2 (lint) | [#1976](https://github.com/justin-hayes/mouseion/issues/1976) moves the three queries behind transaction-scoped persistence methods. |
+| `internal/webapp/webapp.go` calls `persistence.ValidateSecret` | §6 (review) | [#1977](https://github.com/justin-hayes/mouseion/issues/1977) moves `MOUSEION_SECRET` validation out of persistence. |
 
-No other import at `21e0a090` violates these rules.
+No other import or reference at `21e0a090` violates these rules.
 
 ## Alternatives considered
 
