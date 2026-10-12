@@ -20,18 +20,7 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 		return p, err
 	}
 	if p.CurrentRunID == "" {
-		switch p.State {
-		case domain.DeckPreparationQueued:
-			p.Phase = "queued"
-		case domain.DeckPreparationPreparing:
-			p.Phase = "freezing"
-		case domain.DeckPreparationReady:
-			p.Phase = "completed"
-		case domain.DeckPreparationFailed:
-			p.Phase = "failed"
-		case domain.DeckPreparationCancelled:
-			p.Phase = "cancelled"
-		}
+		p.Phase = runlessPreparationPhase(p.State)
 		return p, nil
 	}
 	run, err := s.GetPreparedDeckRun(ctx, owner, preparationID, p.CurrentRunID)
@@ -54,44 +43,89 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	if err != nil {
 		return p, err
 	}
-	if p.State == domain.DeckPreparationReady && projection.SchemaVersion >= cardexport.ManifestSchemaVersionV8 {
-		records, recordsErr := s.loadPreparedDeckStoredRecords(ctx, projection)
-		if recordsErr != nil {
-			return p, recordsErr
-		}
-		p.ContextualGlossesReported = true
-		for _, record := range records {
-			if !record.Found || record.CacheKey.MeaningEvidenceHash == "" {
-				continue
-			}
-			p.ContextualGlosses++
-			// For contextual-gloss identities, validated non-empty evidence IDs
-			// become selection indices in the durable cache. An empty selection
-			// therefore preserves the provider's explicit context-only outcome.
-			if len(record.Entry.SenseSelection) == 0 {
-				p.ContextOnlyGlosses++
-			}
-		}
+	if err := s.reportContextualGlosses(ctx, &p, projection); err != nil {
+		return p, err
 	}
-	for _, coverage := range frozen.Diagnostics().EvidenceCoverage {
-		p.EvidenceCoverage = append(p.EvidenceCoverage, domain.DeckPreparationEvidenceCoverage{Source: coverage.Source, Configured: coverage.Configured, Selected: coverage.Selected, Matched: coverage.Matched, Candidates: coverage.Candidates, Omitted: coverage.Omitted})
-	}
+	appendEvidenceCoverage(&p, frozen)
 	outcomes, err := s.ListPreparedDeckTranslationOutcomes(ctx, owner, preparationID, run.ID)
 	if err != nil {
 		return p, err
 	}
+	appendMeaningOmissions(&p, outcomes, projection.Items)
+	applyRunProgress(&p, run, progress, chunks)
+	if err := s.applyActiveRunCompleteness(ctx, &p, owner, preparationID, run, progress); err != nil {
+		return p, err
+	}
+	return p, nil
+}
+
+// runlessPreparationPhase is the phase of a preparation that has not frozen a
+// durable run, derived from its state alone.
+func runlessPreparationPhase(state domain.DeckPreparationState) string {
+	switch state {
+	case domain.DeckPreparationQueued:
+		return "queued"
+	case domain.DeckPreparationPreparing:
+		return "freezing"
+	case domain.DeckPreparationReady:
+		return "completed"
+	case domain.DeckPreparationFailed:
+		return "failed"
+	case domain.DeckPreparationCancelled:
+		return "cancelled"
+	}
+	return ""
+}
+
+// reportContextualGlosses counts the contextual glosses of a ready deck whose
+// manifest records meaning evidence.
+func (s *PostgresStore) reportContextualGlosses(ctx context.Context, p *domain.DeckPreparation, projection cardexport.StorageProjection) error {
+	if p.State != domain.DeckPreparationReady || projection.SchemaVersion < cardexport.ManifestSchemaVersionV8 {
+		return nil
+	}
+	records, err := s.loadPreparedDeckStoredRecords(ctx, projection)
+	if err != nil {
+		return err
+	}
+	p.ContextualGlossesReported = true
+	for _, record := range records {
+		if !record.Found || record.CacheKey.MeaningEvidenceHash == "" {
+			continue
+		}
+		p.ContextualGlosses++
+		// For contextual-gloss identities, validated non-empty evidence IDs
+		// become selection indices in the durable cache. An empty selection
+		// therefore preserves the provider's explicit context-only outcome.
+		if len(record.Entry.SenseSelection) == 0 {
+			p.ContextOnlyGlosses++
+		}
+	}
+	return nil
+}
+
+func appendEvidenceCoverage(p *domain.DeckPreparation, frozen cardexport.FrozenDeck) {
+	for _, coverage := range frozen.Diagnostics().EvidenceCoverage {
+		p.EvidenceCoverage = append(p.EvidenceCoverage, domain.DeckPreparationEvidenceCoverage{Source: coverage.Source, Configured: coverage.Configured, Selected: coverage.Selected, Matched: coverage.Matched, Candidates: coverage.Candidates, Omitted: coverage.Omitted})
+	}
+}
+
+// appendMeaningOmissions names the target word of every completed item the
+// provider explicitly left unresolved.
+func appendMeaningOmissions(p *domain.DeckPreparation, outcomes []domain.PreparedDeckTranslationOutcome, items []cardexport.ManifestItem) {
 	for _, outcome := range outcomes {
 		if outcome.OmissionReason == "" || outcome.State != domain.PreparedDeckOutcomeCompleted {
 			continue
 		}
-		for _, item := range projection.Items {
+		for _, item := range items {
 			if item.Ordinal == outcome.Ordinal {
 				p.MeaningOmissions = append(p.MeaningOmissions, domain.DeckPreparationMeaningOmission{TargetWord: item.Entry.TargetWord, Reason: outcome.OmissionReason})
 				break
 			}
 		}
 	}
+}
 
+func applyRunProgress(p *domain.DeckPreparation, run domain.PreparedDeckRun, progress domain.PreparedDeckRunProgress, chunks []domain.PreparedDeckBatchChunk) {
 	p.Phase = preparationPhase(p.State, run, progress, chunks)
 	p.FailureClass = preparedDeckFailureClass(run, chunks)
 	p.TranslationEligible = progress.CandidateCount
@@ -115,27 +149,32 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	p.BatchInputTokens = progress.BatchInputTokens
 	p.BatchOutputTokens = progress.BatchOutputTokens
 	p.BatchAge = progress.BatchAge
+}
 
-	// A ready artifact already contains its committed completeness. While a run
-	// is active, count only exact cache rows belonging to the frozen manifest.
-	// This keeps status correct under duplicate polling and partial success.
-	if p.State != domain.DeckPreparationReady && run.ExternalTranslationConsent && run.ExternalTranslationConfigured {
-		coverage, coverageErr := s.queries().GetPreparedDeckTranslationCoverage(ctx, sqlcgen.GetPreparedDeckTranslationCoverageParams{Owner: owner, Preparation: preparationID, Run: run.ID})
-		if coverageErr != nil {
-			return p, coverageErr
-		}
-		p.CardsWithEnglish, coverageErr = checked.IntFromInt64(coverage.CardsWithEnglish)
-		if coverageErr != nil {
-			return p, fmt.Errorf("invalid cards-with-English count: %w", coverageErr)
-		}
-		p.CardsWithContextualSentenceTranslations, coverageErr = checked.IntFromInt64(coverage.CardsWithContextualSentenceTranslations)
-		if coverageErr != nil {
-			return p, fmt.Errorf("invalid contextual-translation count: %w", coverageErr)
-		}
-		p.TotalCards = progress.CandidateCount
-		p.QualityOmissions = progress.ManifestOmissions
+// applyActiveRunCompleteness replaces the completeness counts of an active
+// consented run. A ready artifact already contains its committed completeness.
+// While a run is active, count only exact cache rows belonging to the frozen
+// manifest. This keeps status correct under duplicate polling and partial
+// success.
+func (s *PostgresStore) applyActiveRunCompleteness(ctx context.Context, p *domain.DeckPreparation, owner, preparationID string, run domain.PreparedDeckRun, progress domain.PreparedDeckRunProgress) error {
+	if p.State == domain.DeckPreparationReady || !run.ExternalTranslationConsent || !run.ExternalTranslationConfigured {
+		return nil
 	}
-	return p, nil
+	coverage, err := s.queries().GetPreparedDeckTranslationCoverage(ctx, sqlcgen.GetPreparedDeckTranslationCoverageParams{Owner: owner, Preparation: preparationID, Run: run.ID})
+	if err != nil {
+		return err
+	}
+	p.CardsWithEnglish, err = checked.IntFromInt64(coverage.CardsWithEnglish)
+	if err != nil {
+		return fmt.Errorf("invalid cards-with-English count: %w", err)
+	}
+	p.CardsWithContextualSentenceTranslations, err = checked.IntFromInt64(coverage.CardsWithContextualSentenceTranslations)
+	if err != nil {
+		return fmt.Errorf("invalid contextual-translation count: %w", err)
+	}
+	p.TotalCards = progress.CandidateCount
+	p.QualityOmissions = progress.ManifestOmissions
+	return nil
 }
 
 // preparedDeckFailureClass keeps specific, bounded chunk diagnostics visible

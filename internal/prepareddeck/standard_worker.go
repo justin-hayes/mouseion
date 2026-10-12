@@ -30,7 +30,7 @@ func (w *StandardTranslationWorker) now() time.Time {
 }
 
 func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTranslationJobArgs) error {
-	if w == nil || w.Store == nil || w.Provider == nil || !w.Provider.Enabled() || w.Client == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || args.Ordinal < 0 || args.Generation < 0 {
+	if !w.canExecute(args) {
 		return ErrInvalidInput
 	}
 	run, err := w.Store.GetPreparedDeckRun(ctx, args.OwnerID, args.PreparationID, args.RunID)
@@ -48,31 +48,14 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		}
 		return err
 	}
-	_ = claimed
 
-	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
-	if err != nil {
-		return w.fail(ctx, args, token, "orchestration", "manifest", true)
-	}
-	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
-	if err != nil {
-		return w.fail(ctx, args, token, "identity", "manifest_item", true)
-	}
-	work, found := deck.WorkByOrdinal(args.Ordinal)
+	work, found, err := w.restoreWork(ctx, args, token)
 	if !found {
-		return w.fail(ctx, args, token, "identity", "manifest_item", true)
+		return err
 	}
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricTranslationUnits, Phase: "translating", State: "in_progress", Provider: "openai", Value: 1})
-	key := work.CacheKey
-	if entry, hit, cacheErr := w.Store.Get(ctx, key); cacheErr != nil {
-		return w.fail(ctx, args, token, "persistence", "cache_lookup", false)
-	} else if hit && enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) && (!work.Request.RequireContextualGloss || strings.TrimSpace(entry.FallbackGloss) != "") {
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheHits, Phase: "cache", State: "completed", Provider: "openai", Value: 1})
-		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, CacheHit: true, CacheLatency: 0}, w.finalizer)
-		return finishErr
-	} else {
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheMisses, Phase: "cache", State: "pending", Provider: "openai", Value: 1})
-		_ = entry
+	if done, err := w.completeFromCache(ctx, args, token, work); done {
+		return err
 	}
 	if err := w.Store.VerifyPreparedDeckTranslationClaim(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token); err != nil {
 		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
@@ -81,6 +64,64 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		return err
 	}
 	request := work.Request
+	response, providerLatency, callErr := w.translate(ctx, request)
+	if callErr != nil {
+		class, code, retryable := classifyStandardProviderError(callErr, ctx)
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderErrors, Phase: "provider", State: "failed", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
+		return w.retryOrFail(ctx, args, token, claimed, retryable, class, code, providerLatency)
+	}
+	response, callErr = enrichment.NormalizeTranslationResponse(request, response)
+	if callErr != nil {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchValidationFailures, Phase: "provider", State: "failed", ErrorClass: "validation", Provider: "openai", Value: 1})
+		return w.retryOrFail(ctx, args, token, claimed, true, "validation", "invalid_response", providerLatency)
+	}
+	for _, warning := range response.Warnings {
+		log.Printf("prepared deck translation: %s", warning)
+	}
+	return w.persistTranslation(ctx, args, token, work, response, providerLatency)
+}
+
+func (w *StandardTranslationWorker) canExecute(args StandardTranslationJobArgs) bool {
+	return w != nil && w.Store != nil && w.Provider != nil && w.Provider.Enabled() && w.Client != nil && strings.TrimSpace(args.OwnerID) != "" && strings.TrimSpace(args.PreparationID) != "" && strings.TrimSpace(args.RunID) != "" && args.Ordinal >= 0 && args.Generation >= 0
+}
+
+// restoreWork finds the claimed item in the frozen manifest. When the item
+// cannot be restored it fails the item and reports found=false with the
+// result of recording that failure.
+func (w *StandardTranslationWorker) restoreWork(ctx context.Context, args StandardTranslationJobArgs, token string) (cardexport.WorkItem, bool, error) {
+	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
+	if err != nil {
+		return cardexport.WorkItem{}, false, w.fail(ctx, args, token, "orchestration", "manifest", true)
+	}
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	if err != nil {
+		return cardexport.WorkItem{}, false, w.fail(ctx, args, token, "identity", "manifest_item", true)
+	}
+	work, found := deck.WorkByOrdinal(args.Ordinal)
+	if !found {
+		return cardexport.WorkItem{}, false, w.fail(ctx, args, token, "identity", "manifest_item", true)
+	}
+	return work, true, nil
+}
+
+// completeFromCache finishes the item from an exact, complete cache entry.
+// It reports done=false on a cache miss, when the provider must be called.
+func (w *StandardTranslationWorker) completeFromCache(ctx context.Context, args StandardTranslationJobArgs, token string, work cardexport.WorkItem) (bool, error) {
+	entry, hit, err := w.Store.Get(ctx, work.CacheKey)
+	if err != nil {
+		return true, w.fail(ctx, args, token, "persistence", "cache_lookup", false)
+	}
+	if !hit || !enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) || (work.Request.RequireContextualGloss && strings.TrimSpace(entry.FallbackGloss) == "") {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheMisses, Phase: "cache", State: "pending", Provider: "openai", Value: 1})
+		return false, nil
+	}
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheHits, Phase: "cache", State: "completed", Provider: "openai", Value: 1})
+	_, _, err = w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, CacheHit: true, CacheLatency: 0}, w.finalizer)
+	return true, err
+}
+
+// translate makes one bounded provider call and records its request metrics.
+func (w *StandardTranslationWorker) translate(ctx context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, time.Duration, error) {
 	started := w.now()
 	timeout := w.AttemptTimeout
 	if timeout <= 0 {
@@ -103,26 +144,22 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderRequestLatency, Phase: "provider", State: "completed", Provider: "openai", Value: seconds(providerLatency)})
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageInputCount, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.PromptTokens)})
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageOutputCount, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.CompletionTokens)})
-	if callErr != nil {
-		class, code, retryable := classifyStandardProviderError(callErr, ctx)
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderErrors, Phase: "provider", State: "failed", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
-		if shouldRetryStandardProviderAttempt(retryable, claimed.ProviderAttemptCount, claimed.MaxProviderAttempts) {
-			return w.retry(ctx, args, token, claimed.ProviderAttemptCount+1, class, code)
-		}
-		return w.failWithLatency(ctx, args, token, class, code, true, providerLatency)
+	return response, providerLatency, callErr
+}
+
+func (w *StandardTranslationWorker) retryOrFail(ctx context.Context, args StandardTranslationJobArgs, token string, claimed domain.PreparedDeckTranslationOutcome, retryable bool, class, code string, providerLatency time.Duration) error {
+	if shouldRetryStandardProviderAttempt(retryable, claimed.ProviderAttemptCount, claimed.MaxProviderAttempts) {
+		return w.retry(ctx, args, token, claimed.ProviderAttemptCount+1, class, code)
 	}
-	response, callErr = enrichment.NormalizeTranslationResponse(request, response)
-	if callErr != nil {
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchValidationFailures, Phase: "provider", State: "failed", ErrorClass: "validation", Provider: "openai", Value: 1})
-		if shouldRetryStandardProviderAttempt(true, claimed.ProviderAttemptCount, claimed.MaxProviderAttempts) {
-			return w.retry(ctx, args, token, claimed.ProviderAttemptCount+1, "validation", "invalid_response")
-		}
-		return w.failWithLatency(ctx, args, token, "validation", "invalid_response", true, providerLatency)
-	}
-	for _, warning := range response.Warnings {
-		log.Printf("prepared deck translation: %s", warning)
-	}
-	if work.Request.RequireContextualGloss && response.Gloss == "" {
+	return w.failWithLatency(ctx, args, token, class, code, true, providerLatency)
+}
+
+// persistTranslation completes the item from a validated provider response:
+// as an explicit omission when the meaning is unresolved, otherwise by
+// storing the claimed cache entry.
+func (w *StandardTranslationWorker) persistTranslation(ctx context.Context, args StandardTranslationJobArgs, token string, work cardexport.WorkItem, response enrichment.TranslationResponse, providerLatency time.Duration) error {
+	request := work.Request
+	if request.RequireContextualGloss && response.Gloss == "" {
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{
 			State: domain.PreparedDeckOutcomeCompleted, OmissionReason: response.UnresolvedReason,
 			ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency,
@@ -130,7 +167,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		return finishErr
 	}
 	selection := evidenceSelectionIndices(request.CandidateSenses, response.EvidenceIDs)
-	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.Gloss, SenseSelection: selection, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...), CachedAt: w.now()}
+	entry := enrichment.CacheEntry{CacheKey: work.CacheKey, Translation: response.Translation, FallbackGloss: response.Gloss, SenseSelection: selection, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...), CachedAt: w.now()}
 	stored, err := w.Store.PutPreparedDeckTranslationIfClaimed(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, entry)
 	if err != nil {
 		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
@@ -142,7 +179,6 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		return w.failWithLatency(ctx, args, token, "cache", "incomplete_entry", true, providerLatency)
 	}
 	_, _, err = w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency}, w.finalizer)
-	_ = stored
 	if err == nil {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchProviderTransitions, Phase: "translating", State: "completed", Provider: "openai", Value: 1})
 	}

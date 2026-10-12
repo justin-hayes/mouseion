@@ -10,6 +10,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClassifyStandardProviderError(t *testing.T) {
@@ -52,6 +53,25 @@ func TestShouldRetryStandardProviderAttempt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, shouldRetryStandardProviderAttempt(tt.retryable, tt.providerAttempts, tt.maxProviderAttempts))
+		})
+	}
+}
+
+func TestStandardTranslationWorkerRejectsIncompleteInput(t *testing.T) {
+	valid := StandardTranslationJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run"}
+	cases := map[string]struct {
+		worker *StandardTranslationWorker
+		args   StandardTranslationJobArgs
+	}{
+		"nil worker":          {worker: nil, args: valid},
+		"no store":            {worker: &StandardTranslationWorker{}, args: valid},
+		"blank run":           {worker: &StandardTranslationWorker{}, args: StandardTranslationJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: " "}},
+		"negative ordinal":    {worker: &StandardTranslationWorker{}, args: StandardTranslationJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run", Ordinal: -1}},
+		"negative generation": {worker: &StandardTranslationWorker{}, args: StandardTranslationJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run", Generation: -1}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			require.ErrorIs(t, tc.worker.execute(context.Background(), tc.args), ErrInvalidInput)
 		})
 	}
 }

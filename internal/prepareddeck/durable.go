@@ -436,14 +436,7 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	if f == nil || f.Store == nil || f.Renderer == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(preparationID) == "" || strings.TrimSpace(runID) == "" {
 		return domain.DeckPreparation{}, ErrInvalidInput
 	}
-	now := time.Now
-	if f.Now != nil {
-		now = f.Now
-	}
-	lease := f.LeaseDuration
-	if lease <= 0 {
-		lease = 5 * time.Minute
-	}
+	now := f.clock()
 	started := now().UTC()
 	var totalStarted time.Time
 	mode := ""
@@ -456,54 +449,98 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	}()
 	claimedAt := now().UTC()
 	token := uuid.NewString()
-	run, err := f.Store.ClaimPreparedDeckFinalization(ctx, owner, preparationID, runID, generation, token, claimedAt.Add(lease))
+	run, err := f.Store.ClaimPreparedDeckFinalization(ctx, owner, preparationID, runID, generation, token, claimedAt.Add(f.lease()))
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	mode = string(run.ExecutionMode)
-	if mode != "standard" && mode != "batch" {
-		mode = "unknown"
-	}
+	mode = finalizeMetricMode(run.ExecutionMode)
 	totalStarted = run.CreatedAt
 	if run.State == domain.PreparedDeckRunCompleted {
 		return f.Store.GetDeckPreparation(ctx, owner, preparationID)
 	}
-	projection, stored, err := f.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
+	claim := finalizationClaim{owner: owner, preparationID: preparationID, runID: runID, token: token}
+	deck, stored, err := f.restoreFrozenDeck(ctx, claim)
 	if err != nil {
-		if ctx.Err() == nil && (errors.Is(err, persistence.ErrPreparedDeckIdentity) || errors.Is(err, cardexport.ErrInvalidInput)) {
-			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest"); failErr != nil {
-				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
-			}
-		}
-		return domain.DeckPreparation{}, err
-	}
-	deck, err := f.Renderer.Restore(projection)
-	if err != nil {
-		if ctx.Err() == nil {
-			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest"); failErr != nil {
-				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
-			}
-		}
 		return domain.DeckPreparation{}, err
 	}
 	artifact, diagnostics, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
-		if ctx.Err() == nil {
-			failureCode := "render_failed"
-			failureClass := "presentation"
-			if errors.Is(err, cardexport.ErrAllMeaningsUnresolved) {
-				failureCode = "all_meanings_unresolved"
-				failureClass = "validation"
-			}
-			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, failureClass, failureCode); failErr != nil {
-				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
-			}
-		}
+		failureClass, failureCode := renderFailure(err)
+		err = f.recordFailure(ctx, claim, failureClass, failureCode, err)
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, fmt.Errorf("render durable prepared deck: %w", err)
 	}
+	return f.publish(ctx, claim, run, mode, artifact, diagnostics)
+}
+
+// finalizationClaim identifies the run a finalizer holds and the token that
+// fences its writes.
+type finalizationClaim struct {
+	owner, preparationID, runID, token string
+}
+
+func (f *DurableFinalizer) clock() func() time.Time {
+	if f.Now != nil {
+		return f.Now
+	}
+	return time.Now
+}
+
+func (f *DurableFinalizer) lease() time.Duration {
+	if f.LeaseDuration <= 0 {
+		return 5 * time.Minute
+	}
+	return f.LeaseDuration
+}
+
+func finalizeMetricMode(executionMode domain.PreparedDeckExecutionMode) string {
+	mode := string(executionMode)
+	if mode != "standard" && mode != "batch" {
+		return "unknown"
+	}
+	return mode
+}
+
+// restoreFrozenDeck loads the frozen manifest and its stored results. A
+// manifest that fails its identity or presentation check fails the run; any
+// other load error leaves the run for a later attempt.
+func (f *DurableFinalizer) restoreFrozenDeck(ctx context.Context, claim finalizationClaim) (cardexport.FrozenDeck, []cardexport.StoredResult, error) {
+	projection, stored, err := f.Store.LoadPreparedDeckFinalization(ctx, claim.owner, claim.preparationID, claim.runID)
+	if err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckIdentity) || errors.Is(err, cardexport.ErrInvalidInput) {
+			err = f.recordFailure(ctx, claim, "presentation", "invalid_manifest", err)
+		}
+		return cardexport.FrozenDeck{}, nil, err
+	}
+	deck, err := f.Renderer.Restore(projection)
+	if err != nil {
+		return cardexport.FrozenDeck{}, nil, f.recordFailure(ctx, claim, "presentation", "invalid_manifest", err)
+	}
+	return deck, stored, nil
+}
+
+func renderFailure(err error) (failureClass, failureCode string) {
+	if errors.Is(err, cardexport.ErrAllMeaningsUnresolved) {
+		return "validation", "all_meanings_unresolved"
+	}
+	return "presentation", "render_failed"
+}
+
+// recordFailure fails the claimed run unless the finalizer itself was
+// cancelled, and joins any error from recording the failure to err.
+func (f *DurableFinalizer) recordFailure(ctx context.Context, claim finalizationClaim, failureClass, failureCode string, err error) error {
+	if ctx.Err() != nil {
+		return err
+	}
+	if failErr := f.Store.FailPreparedDeckFinalization(ctx, claim.owner, claim.preparationID, claim.runID, claim.token, failureClass, failureCode); failErr != nil {
+		return errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
+	}
+	return err
+}
+
+func (f *DurableFinalizer) publish(ctx context.Context, claim finalizationClaim, run domain.PreparedDeckRun, mode string, artifact cardexport.FinalArtifact, diagnostics cardexport.FinalizeDiagnostics) (domain.DeckPreparation, error) {
 	logFinalizeDiagnostics(diagnostics)
-	result, err := f.Store.CompletePreparedDeckRun(ctx, owner, preparationID, runID, token, artifact)
+	result, err := f.Store.CompletePreparedDeckRun(ctx, claim.owner, claim.preparationID, claim.runID, claim.token, artifact)
 	if err != nil {
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, err

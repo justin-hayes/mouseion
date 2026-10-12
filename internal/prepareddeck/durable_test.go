@@ -32,12 +32,13 @@ type finalizerStoreStub struct {
 	corpusSentences                                    map[string]map[int64]analyzer.Sentence
 	corpusCalls                                        int
 	failCalls                                          int
-	loadErr                                            error
+	failClass, failCode                                string
+	loadErr, claimErr, completeErr, failErr            error
 }
 
 func (s *finalizerStoreStub) ClaimPreparedDeckFinalization(_ context.Context, _, _, _ string, generation int, token string, leaseExpiresAt time.Time) (domain.PreparedDeckRun, error) {
 	s.claimedGeneration, s.claimedToken, s.claimLeaseExpiresAt = generation, token, leaseExpiresAt
-	return s.run, nil
+	return s.run, s.claimErr
 }
 
 func (s *finalizerStoreStub) LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.StorageProjection, []cardexport.StoredResult, error) {
@@ -48,7 +49,7 @@ func (s *finalizerStoreStub) LoadPreparedDeckFinalization(context.Context, strin
 func (s *finalizerStoreStub) CompletePreparedDeckRun(_ context.Context, _, _, _, token string, _ cardexport.Artifact) (domain.DeckPreparation, error) {
 	s.completeCalls++
 	s.completedToken = token
-	return s.preparation, nil
+	return s.preparation, s.completeErr
 }
 
 func (s *finalizerStoreStub) GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error) {
@@ -86,9 +87,10 @@ func (s *finalizerStoreStub) ListCorpusSentences(_ context.Context, _, corpusID 
 	return result, nil
 }
 
-func (s *finalizerStoreStub) FailPreparedDeckFinalization(context.Context, string, string, string, string, string, string) error {
+func (s *finalizerStoreStub) FailPreparedDeckFinalization(_ context.Context, _, _, _, _, class, code string) error {
 	s.failCalls++
-	return nil
+	s.failClass, s.failCode = class, code
+	return s.failErr
 }
 
 type finalizerRendererStub struct {
@@ -209,6 +211,173 @@ func TestDurableFinalizerFailsRunForPresentationValidationError(t *testing.T) {
 	t.Run("does not publish", func(t *testing.T) {
 		require.Zero(t, store.completeCalls)
 	})
+}
+
+func TestDurableFinalizerRejectsIncompleteInput(t *testing.T) {
+	store := &finalizerStoreStub{}
+	cases := map[string]struct {
+		finalizer     *DurableFinalizer
+		preparationID string
+	}{
+		"nil finalizer":  {finalizer: nil, preparationID: "preparation"},
+		"no store":       {finalizer: &DurableFinalizer{Renderer: &finalizerRendererStub{}}, preparationID: "preparation"},
+		"no renderer":    {finalizer: &DurableFinalizer{Store: store}, preparationID: "preparation"},
+		"blank identity": {finalizer: &DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}}, preparationID: " "},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := tc.finalizer.Finalize(context.Background(), "owner", tc.preparationID, "run", 0)
+			require.ErrorIs(t, err, ErrInvalidInput)
+		})
+	}
+	t.Run("does not claim the run", func(t *testing.T) {
+		require.Empty(t, store.claimedToken)
+	})
+}
+
+func TestDurableFinalizerReturnsClaimFailureWithoutLoading(t *testing.T) {
+	store := &finalizerStoreStub{claimErr: persistence.ErrPreparedDeckClaimLost}
+	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+	t.Run("propagates the claim error", func(t *testing.T) {
+		require.ErrorIs(t, err, persistence.ErrPreparedDeckClaimLost)
+	})
+	t.Run("does not load the manifest", func(t *testing.T) {
+		require.Zero(t, store.loadCalls)
+	})
+	t.Run("does not record a failure", func(t *testing.T) {
+		require.Zero(t, store.failCalls)
+	})
+}
+
+func TestDurableFinalizerLoadFailure(t *testing.T) {
+	cases := []struct {
+		name      string
+		loadErr   error
+		wantFails int
+	}{
+		{name: "identity mismatch fails the run", loadErr: persistence.ErrPreparedDeckIdentity, wantFails: 1},
+		{name: "invalid presentation input fails the run", loadErr: cardexport.ErrInvalidInput, wantFails: 1},
+		{name: "transient load error leaves the run for retry", loadErr: errors.New("database unavailable")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, loadErr: tc.loadErr}
+			renderer := &finalizerRendererStub{}
+			_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+			t.Run("propagates the load error", func(t *testing.T) {
+				require.ErrorIs(t, err, tc.loadErr)
+			})
+			t.Run("records the expected failures", func(t *testing.T) {
+				require.Equal(t, tc.wantFails, store.failCalls)
+			})
+			if tc.wantFails > 0 {
+				t.Run("classifies the manifest as invalid", func(t *testing.T) {
+					require.Equal(t, []string{"presentation", "invalid_manifest"}, []string{store.failClass, store.failCode})
+				})
+			}
+			t.Run("neither renders nor publishes", func(t *testing.T) {
+				require.Equal(t, []int{0, 0}, []int{renderer.calls, store.completeCalls})
+			})
+		})
+	}
+}
+
+func TestDurableFinalizerClassifiesRecordedFailures(t *testing.T) {
+	cases := []struct {
+		name                 string
+		renderer             *finalizerRendererStub
+		wantClass, wantCode  string
+		wantRenderErrWrapped bool
+	}{
+		{name: "restore failure", renderer: &finalizerRendererStub{restoreErr: errors.New("restore failed")}, wantClass: "presentation", wantCode: "invalid_manifest"},
+		{name: "render failure", renderer: &finalizerRendererStub{err: errors.New("render failed")}, wantClass: "presentation", wantCode: "render_failed", wantRenderErrWrapped: true},
+		{name: "all meanings unresolved", renderer: &finalizerRendererStub{err: cardexport.ErrAllMeaningsUnresolved}, wantClass: "validation", wantCode: "all_meanings_unresolved", wantRenderErrWrapped: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			failErr := errors.New("failure write unavailable")
+			store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, failErr: failErr}
+			_, err := (&DurableFinalizer{Store: store, Renderer: tc.renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+			require.ErrorIs(t, err, failErr, "a failed failure write is joined to the returned error")
+			t.Run("names the failed failure write", func(t *testing.T) {
+				require.ErrorContains(t, err, "record finalization failure")
+			})
+			if tc.wantRenderErrWrapped {
+				t.Run("wraps the render error", func(t *testing.T) {
+					require.ErrorContains(t, err, "render durable prepared deck")
+				})
+			}
+			t.Run("records the failure class and code", func(t *testing.T) {
+				require.Equal(t, []string{tc.wantClass, tc.wantCode}, []string{store.failClass, store.failCode})
+			})
+			t.Run("does not publish", func(t *testing.T) {
+				require.Zero(t, store.completeCalls)
+			})
+		})
+	}
+}
+
+func TestDurableFinalizerDoesNotRecordFailureAfterCancellation(t *testing.T) {
+	cases := map[string]struct {
+		store    *finalizerStoreStub
+		renderer *finalizerRendererStub
+	}{
+		"load":    {store: &finalizerStoreStub{loadErr: persistence.ErrPreparedDeckIdentity}, renderer: &finalizerRendererStub{}},
+		"restore": {store: &finalizerStoreStub{}, renderer: &finalizerRendererStub{restoreErr: errors.New("restore failed")}},
+		"render":  {store: &finalizerStoreStub{}, renderer: &finalizerRendererStub{err: errors.New("render failed")}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			tc.store.run = domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}
+			_, err := (&DurableFinalizer{Store: tc.store, Renderer: tc.renderer}).Finalize(ctx, "owner", "preparation", "run", 0)
+			require.Error(t, err)
+			require.Zero(t, tc.store.failCalls, "a cancelled finalizer leaves the run for its successor")
+		})
+	}
+}
+
+func TestDurableFinalizerReturnsPublicationFailure(t *testing.T) {
+	completeErr := persistence.ErrPreparedDeckClaimLost
+	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}, completeErr: completeErr}
+	metrics := &recordingBatchMetrics{}
+	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}, Metrics: metrics}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+	t.Run("propagates the publication error", func(t *testing.T) {
+		require.ErrorIs(t, err, completeErr)
+	})
+	t.Run("attempts publication once", func(t *testing.T) {
+		require.Equal(t, 1, store.completeCalls)
+	})
+	t.Run("does not record a failure", func(t *testing.T) {
+		require.Zero(t, store.failCalls)
+	})
+	t.Run("records a failed outcome", func(t *testing.T) {
+		require.Contains(t, metrics.metrics, BatchMetric{Mode: "unknown", Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
+	})
+}
+
+func TestDurableFinalizerRecordsOutcomeMetricsByExecutionMode(t *testing.T) {
+	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing, ExecutionMode: domain.PreparedDeckExecutionStandard}}
+	metrics := &recordingBatchMetrics{}
+	_, err := (&DurableFinalizer{Store: store, Renderer: &finalizerRendererStub{}, Metrics: metrics}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+	require.NoError(t, err)
+	t.Run("records a completed outcome for the execution mode", func(t *testing.T) {
+		require.Contains(t, metrics.metrics, BatchMetric{Mode: "standard", Name: MetricAPKGOutcome, Phase: "finalizing", State: "completed", Provider: "openai", Value: 1})
+	})
+	t.Run("records latencies after the outcome", func(t *testing.T) {
+		names := make([]string, 0, len(metrics.metrics))
+		for _, metric := range metrics.metrics {
+			names = append(names, metric.Name)
+		}
+		require.Equal(t, []string{MetricAPKGOutcome, MetricBatchPhaseLatency, MetricBatchTotalLatency}, names)
+	})
+}
+
+type recordingBatchMetrics struct{ metrics []BatchMetric }
+
+func (m *recordingBatchMetrics) ObserveBatch(metric BatchMetric) {
+	m.metrics = append(m.metrics, metric)
 }
 
 func TestDurableFinalizerLogsInvalidSenseSelectionFromDiagnostics(t *testing.T) {
