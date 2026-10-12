@@ -59,7 +59,7 @@ func (s *PostgresStore) SetBookHidden(ctx context.Context, owner, bookID string,
 	if state.Hidden == hidden {
 		return false, tx.Commit(ctx)
 	}
-	if err = q.WriteBookVisibility(ctx, sqlcgen.WriteBookVisibilityParams{Owner: owner, Book: bookID, Hidden: hidden, Revision: expectedRevision + 1}); err != nil {
+	if err := q.WriteBookVisibility(ctx, sqlcgen.WriteBookVisibilityParams{Owner: owner, Book: bookID, Hidden: hidden, Revision: expectedRevision + 1}); err != nil {
 		return false, err
 	}
 	return true, tx.Commit(ctx)

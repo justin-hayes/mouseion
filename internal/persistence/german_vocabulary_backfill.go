@@ -128,7 +128,7 @@ func (s *PostgresStore) backfillGermanOwner(ctx context.Context, owner string, p
 	} else {
 		report.updated += n
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return report, nil, err
 	}
 	report.examined = report.updated + report.merged
@@ -202,7 +202,7 @@ func queryKnownVocabulary(ctx context.Context, tx pgx.Tx, owner string) ([]known
 	var result []knownVocabularyRow
 	for rows.Next() {
 		var row knownVocabularyRow
-		if err = rows.Scan(&row.id, &row.lemma, &row.upos, &row.createdAt); err != nil {
+		if err := rows.Scan(&row.id, &row.lemma, &row.upos, &row.createdAt); err != nil {
 			return nil, err
 		}
 		result = append(result, row)
@@ -282,7 +282,7 @@ func queryVocabularyStates(ctx context.Context, tx pgx.Tx, owner string) ([]voca
 	var result []vocabularyStateRow
 	for rows.Next() {
 		var row vocabularyStateRow
-		if err = rows.Scan(&row.id, &row.lemma, &row.upos, &row.state, &row.updatedAt); err != nil {
+		if err := rows.Scan(&row.id, &row.lemma, &row.upos, &row.state, &row.updatedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, row)
@@ -393,7 +393,7 @@ func queryGeneratedVocabulary(ctx context.Context, tx pgx.Tx, owner string) ([]g
 	var result []generatedVocabularyRow
 	for rows.Next() {
 		var row generatedVocabularyRow
-		if err = rows.Scan(&row.lemma, &row.upos, &row.firstDeckID, &row.firstSourceID, &row.firstGeneratedAt); err != nil {
+		if err := rows.Scan(&row.lemma, &row.upos, &row.firstDeckID, &row.firstSourceID, &row.firstGeneratedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, row)
@@ -429,7 +429,7 @@ func queryDeckVocabulary(ctx context.Context, tx pgx.Tx, owner string, group []g
 	var result []deckVocabularyRow
 	for rows.Next() {
 		var row deckVocabularyRow
-		if err = rows.Scan(&row.preparationID, &row.generatedAt, &row.graduatedAt); err != nil {
+		if err := rows.Scan(&row.preparationID, &row.generatedAt, &row.graduatedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, row)
@@ -523,7 +523,7 @@ func querySelectionCandidates(ctx context.Context, tx pgx.Tx, owner string) ([]s
 	var result []selectionCandidateRow
 	for rows.Next() {
 		var row selectionCandidateRow
-		if err = rows.Scan(&row.corpusID, &row.lemma, &row.upos, &row.occurrenceCount, &row.observedForms, &row.sentenceReferences, &row.provenance, &row.selectedAt); err != nil {
+		if err := rows.Scan(&row.corpusID, &row.lemma, &row.upos, &row.occurrenceCount, &row.observedForms, &row.sentenceReferences, &row.provenance, &row.selectedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, row)
@@ -574,7 +574,7 @@ func mergeSelectionCandidates(rows []selectionCandidateRow) (selectionCandidateR
 			result.selectedAt = row.selectedAt
 		}
 		var provenance map[string]any
-		if err = json.Unmarshal(row.provenance, &provenance); err != nil {
+		if err := json.Unmarshal(row.provenance, &provenance); err != nil {
 			return selectionCandidateRow{}, err
 		}
 		if value, ok := provenance["min_occurrences"].(float64); ok {
@@ -648,12 +648,12 @@ func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile
 	var values []backfillIdentity
 	for rows.Next() {
 		var row backfillIdentity
-		if err = rows.Scan(&row.lemma, &row.upos); err != nil {
+		if err := rows.Scan(&row.lemma, &row.upos); err != nil {
 			return nil, err
 		}
 		values = append(values, row)
 	}
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	counts := map[backfillIdentity]int{}
@@ -672,7 +672,7 @@ func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile
 			return &GermanVocabularyBackfillConflict{Table: "curated_sentences", CanonicalLemma: target, UPOS: row.upos, Detail: "multiple historical curated facts converge on one identity"}, nil
 		}
 		var exists bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM curated_sentences WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3)`, owner, target, row.upos).Scan(&exists); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM curated_sentences WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3)`, owner, target, row.upos).Scan(&exists); err != nil {
 			return nil, err
 		}
 		if exists {
@@ -693,7 +693,7 @@ func backfillCuratedSentences(ctx context.Context, tx pgx.Tx, owner string, prof
 	var updated int
 	for rows.Next() {
 		var id, lemma, upos string
-		if err = rows.Scan(&id, &lemma, &upos); err != nil {
+		if err := rows.Scan(&id, &lemma, &upos); err != nil {
 			return updated, err
 		}
 		target := profile.Canonical(lemma)
@@ -821,7 +821,7 @@ func querySelectedSentences(ctx context.Context, tx pgx.Tx, owner string) ([]sel
 	var result []selectedSentenceRow
 	for rows.Next() {
 		var row selectedSentenceRow
-		if err = rows.Scan(&row.id, &row.corpusID, &row.lemma, &row.upos, &row.selectionRank, &row.selectionScore, &row.selectionReasons, &row.isChosen, &row.createdAt); err != nil {
+		if err := rows.Scan(&row.id, &row.corpusID, &row.lemma, &row.upos, &row.selectionRank, &row.selectionScore, &row.selectionReasons, &row.isChosen, &row.createdAt); err != nil {
 			return nil, err
 		}
 		result = append(result, row)

@@ -95,7 +95,7 @@ func (s *Service) importForAcquisition(ctx context.Context, ownerID, language, b
 			return ImportResult{}, fmt.Errorf("epub: look up existing source material: %w", lookupErr)
 		}
 		if found {
-			if err = s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, existing, book.Title); err != nil {
+			if err := s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, existing, book.Title); err != nil {
 				return ImportResult{}, err
 			}
 			return ImportResult{Source: existing, Book: book, AlreadyPresent: true}, nil

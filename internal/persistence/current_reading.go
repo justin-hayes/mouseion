@@ -44,10 +44,10 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	if err = lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
+	if err := lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
 	facts, identity, err := loadSwitchFacts(ctx, tx, q, owner, language, bookID, expectedBookID, expectedSnapshotID)
@@ -55,7 +55,7 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 		return domain.CurrentReading{}, err
 	}
 	decision := domain.DecideSwitchCurrentReading(facts)
-	if err = currentReadingRejection(decision, ErrNotFound); err != nil {
+	if err := currentReadingRejection(decision, ErrNotFound); err != nil {
 		return domain.CurrentReading{}, err
 	}
 	if decision.Verdict == domain.CurrentReadingReplay {
@@ -64,13 +64,13 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 		if sizeErr != nil {
 			return domain.CurrentReading{}, sizeErr
 		}
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return domain.CurrentReading{}, err
 		}
 		current.SnapshotSize = snapshotSize
 		return current, nil
 	}
-	if err = releaseCurrentReadingSnapshot(ctx, q, owner, decision.ReleaseSnapshotID); err != nil {
+	if err := releaseCurrentReadingSnapshot(ctx, q, owner, decision.ReleaseSnapshotID); err != nil {
 		return domain.CurrentReading{}, err
 	}
 	snapshot, candidates, err := createCurrentReadingSnapshot(ctx, tx, q, owner, language, bookID, identity)
@@ -81,7 +81,7 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	if err != nil {
 		return domain.CurrentReading{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.CurrentReading{}, err
 	}
 	result = currentReadingFromValues(row.OwnerID, row.Language, row.BookID, row.SnapshotID, identity.CaSourceMaterialID, identity.CaAnalysisRunID, identity.CaContentRevisionID, identity.CaSnapshotID, identity.CaCorpusID, len(candidates), row.CreatedAt, row.UpdatedAt)
@@ -102,10 +102,10 @@ func loadSwitchFacts(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, 
 		return facts, identity, err
 	}
 	facts.Current = current
-	if err = loadSnapshotLifecycle(ctx, q, owner, language, expectedSnapshotID, &facts.ExpectedSnapshot); err != nil {
+	if err := loadSnapshotLifecycle(ctx, q, owner, language, expectedSnapshotID, &facts.ExpectedSnapshot); err != nil {
 		return facts, identity, err
 	}
-	if err = loadSnapshotLifecycle(ctx, q, owner, language, current.SnapshotID, &facts.CurrentSnapshot); err != nil {
+	if err := loadSnapshotLifecycle(ctx, q, owner, language, current.SnapshotID, &facts.CurrentSnapshot); err != nil {
 		return facts, identity, err
 	}
 	if facts.TargetEligibility, err = currentReadingEligibility(ctx, q, owner, language, bookID); err != nil {
@@ -164,30 +164,30 @@ func (s *PostgresStore) EndCurrentReading(ctx context.Context, owner, language, 
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return err
 	}
-	if err = lockCurrentReadingBook(ctx, q, owner, expectedBookID); err != nil {
+	if err := lockCurrentReadingBook(ctx, q, owner, expectedBookID); err != nil {
 		return err
 	}
 	facts := domain.EndCurrentReadingFacts{Expected: domain.CurrentReadingCommitment{BookID: expectedBookID, SnapshotID: expectedSnapshotID}}
 	if facts.Current, err = loadCurrentReadingForUpdate(ctx, q, owner, language); err != nil {
 		return err
 	}
-	if err = loadSnapshotLifecycle(ctx, q, owner, language, expectedSnapshotID, &facts.Snapshot); err != nil {
+	if err := loadSnapshotLifecycle(ctx, q, owner, language, expectedSnapshotID, &facts.Snapshot); err != nil {
 		return err
 	}
 	decision := domain.DecideEndCurrentReading(facts)
-	if err = currentReadingRejection(decision, ErrCurrentReadingStale); err != nil {
+	if err := currentReadingRejection(decision, ErrCurrentReadingStale); err != nil {
 		return err
 	}
 	if decision.Verdict == domain.CurrentReadingReplay {
 		return tx.Commit(ctx)
 	}
-	if err = releaseCurrentReadingSnapshot(ctx, q, owner, decision.ReleaseSnapshotID); err != nil {
+	if err := releaseCurrentReadingSnapshot(ctx, q, owner, decision.ReleaseSnapshotID); err != nil {
 		return err
 	}
-	if err = q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {
+	if err := q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -228,7 +228,7 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
 	facts := domain.CurrentReadingFinishFacts{ExpectedBookID: expectedBookID, ExpectedSnapshotID: expectedSnapshotID}
@@ -285,17 +285,17 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 		result = domain.CurrentReadingFinishResult{Completion: currentReadingCompletionFromValues(completionRow.OwnerID, completionRow.Language, completionRow.BookID, completionRow.CompletedAt, completionRow.GoalSnapshotID, plan.SnapshotCount, plan.EligibleCount, plan.NewlyKnownCount, plan.AlreadyKnownCount)}
 	}
 	if facts.Current.IsActive() {
-		if err = upsertBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionInbox); err != nil {
+		if err := upsertBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionInbox); err != nil {
 			return domain.CurrentReadingFinishResult{}, err
 		}
-		if err = releaseCurrentReadingSnapshot(ctx, q, owner, facts.Current.SnapshotID); err != nil {
+		if err := releaseCurrentReadingSnapshot(ctx, q, owner, facts.Current.SnapshotID); err != nil {
 			return domain.CurrentReadingFinishResult{}, err
 		}
-		if err = q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {
+		if err := q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {
 			return domain.CurrentReadingFinishResult{}, err
 		}
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
 	return result, nil

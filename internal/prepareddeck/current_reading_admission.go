@@ -44,7 +44,7 @@ func (s *Service) PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, 
 		return Handle{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	if err = lockBookForUpdate(ctx, tx, owner, bookID); err != nil {
+	if err := lockBookForUpdate(ctx, tx, owner, bookID); err != nil {
 		return Handle{}, err
 	}
 	current, analysis, err := s.store.LockCurrentReadingDeckFacts(ctx, tx, owner, bookID)
@@ -60,7 +60,7 @@ func (s *Service) PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, 
 		livePreparation = &live
 	}
 	admission := domain.DecideDeckAdmission(domain.DeckAdmissionFacts{Action: domain.DeckActionSubmit, BookID: bookID, Current: current, Analysis: analysis, ExpectedSnapshotID: expectedSnapshotID, Preparation: livePreparation})
-	if err = admission.Err(); err != nil {
+	if err := admission.Err(); err != nil {
 		return Handle{}, err
 	}
 	if hasLive {
@@ -74,7 +74,7 @@ func (s *Service) PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, 
 	if err != nil {
 		return Handle{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Handle{}, err
 	}
 	return result, nil
@@ -99,7 +99,7 @@ func (s *Service) Reprepare(ctx context.Context, owner, id, expectedSnapshotID s
 	if err != nil {
 		return Handle{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Handle{}, err
 	}
 	return result, nil
@@ -122,7 +122,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id, expectedSnapshotID st
 		return Handle{}, err
 	}
 	if p.PresentationVersion >= cardexport.PresentationVersion {
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return Handle{}, err
 		}
 		return Handle{Preparation: p}, nil
@@ -142,7 +142,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id, expectedSnapshotID st
 	} else {
 		return Handle{}, errors.New("River did not return a live rerender job")
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Handle{}, err
 	}
 	return Handle{Preparation: p, JobID: jobID}, nil
@@ -210,7 +210,7 @@ func (s *Service) admitPreparationTx(ctx context.Context, tx pgx.Tx, owner, id, 
 		return domain.DeckPreparation{}, err
 	}
 	admission := domain.DecideDeckAdmission(domain.DeckAdmissionFacts{Action: action, BookID: p.BookID, Current: current, Analysis: analysis, ExpectedSnapshotID: expectedSnapshotID, Preparation: &p})
-	if err = admission.Err(); err != nil {
+	if err := admission.Err(); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return p, nil
@@ -227,7 +227,7 @@ func (s *Service) createCurrentReadingDeckTx(ctx context.Context, tx pgx.Tx, own
 		return Handle{}, fmt.Errorf("%w: Current reading snapshot does not match the completed analysis", ErrAnalysisUnavailable)
 	}
 	source := completed.Source
-	if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
+	if err := sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
 		return Handle{}, err
 	}
 	p, _, err := persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: completed.RunID, SnapshotID: current.SnapshotID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
@@ -258,7 +258,7 @@ func (s *Service) advanceTx(ctx context.Context, tx pgx.Tx, owner, id string, fo
 		// and roll forward to a new specification bound to the same exact
 		// analysis and Current reading snapshot.
 		if p.BookID != "" {
-			if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, p.BookID); err != nil {
+			if err := sqlcRetireDeckPreparationsForBook(ctx, tx, owner, p.BookID); err != nil {
 				return Handle{}, err
 			}
 		} else if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET retired_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND retired_at IS NULL`, owner, p.ID); err != nil {
@@ -279,7 +279,7 @@ func (s *Service) advanceTx(ctx context.Context, tx pgx.Tx, owner, id string, fo
 		if err != nil {
 			return Handle{}, err
 		}
-		if err = recordPreparationHistoryTx(ctx, tx, owner, id, string(domain.DeckPreparationQueued), map[string]any{"from": previousState}); err != nil {
+		if err := recordPreparationHistoryTx(ctx, tx, owner, id, string(domain.DeckPreparationQueued), map[string]any{"from": previousState}); err != nil {
 			return Handle{}, err
 		}
 	} else if p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing {

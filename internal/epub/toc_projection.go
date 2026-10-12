@@ -73,7 +73,7 @@ func parseNavigationDocument(data []byte) (navigationDocument, error) {
 	}
 
 	var c container
-	if err = decodeXMLFile(files, "META-INF/container.xml", &c); err != nil {
+	if err := decodeXMLFile(files, "META-INF/container.xml", &c); err != nil {
 		return navigationDocument{}, err
 	}
 	if len(c.Rootfiles) == 0 || strings.TrimSpace(c.Rootfiles[0].FullPath) == "" {
@@ -81,7 +81,7 @@ func parseNavigationDocument(data []byte) (navigationDocument, error) {
 	}
 	opfPath := path.Clean(c.Rootfiles[0].FullPath)
 	var pkg packageDoc
-	if err = decodeXMLFile(files, opfPath, &pkg); err != nil {
+	if err := decodeXMLFile(files, opfPath, &pkg); err != nil {
 		return navigationDocument{}, err
 	}
 	base := path.Dir(opfPath)

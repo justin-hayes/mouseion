@@ -31,7 +31,7 @@ func (s *PostgresStore) GetBookDisposition(ctx context.Context, owner, bookID st
 }
 
 func (s *PostgresStore) SetBookDisposition(ctx context.Context, owner, bookID string, disposition domain.BookDisposition) (err error) {
-	if err = disposition.Validate(); err != nil {
+	if err := disposition.Validate(); err != nil {
 		return err
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -39,10 +39,10 @@ func (s *PostgresStore) SetBookDisposition(ctx context.Context, owner, bookID st
 		return err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
+	if err := ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
-	if err = upsertBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, disposition); err != nil {
+	if err := upsertBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, disposition); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -52,7 +52,7 @@ func (s *PostgresStore) SetBookDisposition(ctx context.Context, owner, bookID st
 // rendered with its form. A single-step replay of the accepted action is safe;
 // an intervening decision (including a change away and back) is stale.
 func (s *PostgresStore) TransitionBookDisposition(ctx context.Context, owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error) {
-	if err = disposition.Validate(); err != nil {
+	if err := disposition.Validate(); err != nil {
 		return false, err
 	}
 	tx, err := s.pool.Begin(ctx)

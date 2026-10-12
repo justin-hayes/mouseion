@@ -28,7 +28,7 @@ func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id stri
 	if err != nil {
 		return ready, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return ready, nil
@@ -59,7 +59,7 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 		if completeErr != nil {
 			return ready, completeErr
 		}
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return domain.DeckPreparation{}, err
 		}
 		return ready, nil
@@ -78,7 +78,7 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 		}
 		return domain.DeckPreparation{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return ready, nil
@@ -114,7 +114,7 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 		presentationVersion = run.PresentationVersion
 	}
 	if run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion {
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return domain.DeckPreparation{}, err
 		}
 		return preparation, nil
@@ -127,7 +127,7 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 		if putErr != nil {
 			return domain.DeckPreparation{}, putErr
 		}
-		if putErr = q.PutPreparedDeckCard(ctx, sqlcgen.PutPreparedDeckCardParams{Owner: owner, Deck: deck.ID, DedupKey: item.Note.Key, CanonicalLemma: item.Input.CanonicalLemma, Upos: item.Input.UPOS, Front: item.Note.Text, Back: item.Note.BackExtra}); putErr != nil {
+		if putErr := q.PutPreparedDeckCard(ctx, sqlcgen.PutPreparedDeckCardParams{Owner: owner, Deck: deck.ID, DedupKey: item.Note.Key, CanonicalLemma: item.Input.CanonicalLemma, Upos: item.Input.UPOS, Front: item.Note.Text, Back: item.Note.BackExtra}); putErr != nil {
 			return domain.DeckPreparation{}, putErr
 		}
 	}
@@ -148,7 +148,7 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 		return domain.DeckPreparation{}, err
 	}
 	updated := deckPreparationFromModel(updatedModel)
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return updated, nil
@@ -181,13 +181,13 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 			return domain.DeckPreparation{}, err
 		}
 		deckID := deck.ID
-		if err = q.PutPreparedDeckCard(ctx, sqlcgen.PutPreparedDeckCardParams{Owner: owner, Deck: deckID, DedupKey: note.Key, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Front: note.Text, Back: note.BackExtra}); err != nil {
+		if err := q.PutPreparedDeckCard(ctx, sqlcgen.PutPreparedDeckCardParams{Owner: owner, Deck: deckID, DedupKey: note.Key, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Front: note.Text, Back: note.BackExtra}); err != nil {
 			return domain.DeckPreparation{}, err
 		}
-		if err = q.InsertGeneratedVocabulary(ctx, sqlcgen.InsertGeneratedVocabularyParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Deck: deckID, Preparation: id}); err != nil {
+		if err := q.InsertGeneratedVocabulary(ctx, sqlcgen.InsertGeneratedVocabularyParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Deck: deckID, Preparation: id}); err != nil {
 			return domain.DeckPreparation{}, err
 		}
-		if err = q.AttachDeckPreparationVocabulary(ctx, sqlcgen.AttachDeckPreparationVocabularyParams{Preparation: id, Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
+		if err := q.AttachDeckPreparationVocabulary(ctx, sqlcgen.AttachDeckPreparationVocabularyParams{Preparation: id, Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
 			return domain.DeckPreparation{}, err
 		}
 	}
@@ -251,7 +251,7 @@ func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.Deck
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return created, nil
@@ -285,7 +285,7 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 		if !errors.Is(err, ErrNotFound) {
 			return domain.DeckPreparation{}, false, err
 		}
-		if err = sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: p.OwnerID, Book: uuidArg(bookID)}); err != nil {
+		if err := sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: p.OwnerID, Book: uuidArg(bookID)}); err != nil {
 			return domain.DeckPreparation{}, false, err
 		}
 		model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Snapshot: nullableUUIDArg(p.SnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
@@ -413,10 +413,10 @@ func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id
 	if marshalErr != nil {
 		return p, marshalErr
 	}
-	if err = sqlcgen.New(tx).InsertDeckPreparationHistory(ctx, sqlcgen.InsertDeckPreparationHistoryParams{Owner: owner, Status: string(next), Details: details}); err != nil {
+	if err := sqlcgen.New(tx).InsertDeckPreparationHistory(ctx, sqlcgen.InsertDeckPreparationHistoryParams{Owner: owner, Status: string(next), Details: details}); err != nil {
 		return p, err
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return p, nil

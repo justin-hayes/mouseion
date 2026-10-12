@@ -131,7 +131,7 @@ func retireBookCoverAdvertisement(ctx context.Context, q *sqlcgen.Queries, curre
 		return nil
 	}
 	if current.State == domain.BookCoverAvailable && sameSource {
-		if err = q.DemoteBookCoverToPending(ctx, sqlcgen.DemoteBookCoverToPendingParams{
+		if err := q.DemoteBookCoverToPending(ctx, sqlcgen.DemoteBookCoverToPendingParams{
 			Owner: owner, Book: bookID, AdvertisedAt: current.AdvertisedAt,
 		}); err != nil {
 			return err

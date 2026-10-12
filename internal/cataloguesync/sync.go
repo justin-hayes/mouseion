@@ -577,7 +577,7 @@ func (s *Service) RegisterAll(ctx context.Context) error {
 		return err
 	}
 	for _, connection := range connections {
-		if err = s.RegisterConnection(ctx, connection.OwnerID, connection.ID); err != nil {
+		if err := s.RegisterConnection(ctx, connection.OwnerID, connection.ID); err != nil {
 			return err
 		}
 	}
@@ -728,7 +728,7 @@ WHERE j.kind=$2 AND j.args->>'owner_id'=$1::text ORDER BY j.created_at DESC,j.id
 		var item Status
 		var riverState, durableState, durableError, connectionID, riverErr string
 		var syncedAt *time.Time
-		if err = rows.Scan(&item.ID, &item.Attempt, &item.CreatedAt, &item.FinalizedAt, &riverState, &connectionID, &item.ConnectionName, &durableState, &durableError, &riverErr, &syncedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Attempt, &item.CreatedAt, &item.FinalizedAt, &riverState, &connectionID, &item.ConnectionName, &durableState, &durableError, &riverErr, &syncedAt); err != nil {
 			return nil, err
 		}
 		item.OwnerID, item.ConnectionID, item.State = owner, connectionID, riverState
@@ -783,7 +783,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 	} else {
 		durable = domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: status.ConnectionID, State: domain.CatalogueSyncFailed, LastError: statusCancelledReason}
 	}
-	if err = s.statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), durable); err != nil {
+	if err := s.statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), durable); err != nil {
 		return Status{}, err
 	}
 	return s.Get(ctx, owner, id)
@@ -886,7 +886,7 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	if err != nil {
 		return 0, errors.New("catalog connection could not be loaded")
 	}
-	if err = s.statuses.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSyncing}); err != nil {
+	if err := s.statuses.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSyncing}); err != nil {
 		return 0, err
 	}
 	capabilities, err := s.capabilities.GetCapabilities(ctx)

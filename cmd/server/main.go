@@ -151,10 +151,10 @@ func run() (err error) {
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	prepareddeck.AddCustomDeckPreparationWorker(workers, store)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
-	if err = prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
+	if err := prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
 		return err
 	}
-	if err = riverClient.Start(ctx); err != nil {
+	if err := riverClient.Start(ctx); err != nil {
 		return err
 	}
 	defer func() {
@@ -179,7 +179,7 @@ func run() (err error) {
 		preparedDeckService = prepareddeck.NewService(store, riverClient)
 	}
 	catalogueSyncService := cataloguesync.NewService(catalogueSyncDeps, riverClient, opdsService, capabilities)
-	if err = catalogueSyncService.RegisterAll(ctx); err != nil {
+	if err := catalogueSyncService.RegisterAll(ctx); err != nil {
 		return err
 	}
 	mux.Handle("/static/", webapp.StaticHandler())

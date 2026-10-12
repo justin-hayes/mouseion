@@ -185,7 +185,7 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
 		return errors.New("River did not return a retry job")
 	}
-	if err = w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, updated.DispatchGeneration, inserted.Job.ID); err != nil {
+	if err := w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, updated.DispatchGeneration, inserted.Job.ID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

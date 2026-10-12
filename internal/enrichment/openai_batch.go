@@ -267,7 +267,7 @@ func (c *OpenAIBatchClient) GetFile(ctx context.Context, fileID string) (OpenAIF
 		return OpenAIFile{}, err
 	}
 	var file OpenAIFile
-	if err = c.doJSON(req, "get file", &file); err != nil {
+	if err := c.doJSON(req, "get file", &file); err != nil {
 		return OpenAIFile{}, err
 	}
 	if !validOpenAIFile(file) {
@@ -398,7 +398,7 @@ func (c *OpenAIBatchClient) DeleteFile(ctx context.Context, fileID string) (Open
 		return OpenAIFileDeletion{}, err
 	}
 	var deleted OpenAIFileDeletion
-	if err = c.doJSON(req, "delete file", &deleted); err != nil {
+	if err := c.doJSON(req, "delete file", &deleted); err != nil {
 		return OpenAIFileDeletion{}, err
 	}
 	if deleted.ID == "" || deleted.Object != "file" || !deleted.Deleted {
@@ -465,7 +465,7 @@ func (c *OpenAIBatchClient) ListBatches(ctx context.Context, input ListBatchesRe
 		LastID  string      `json:"last_id"`
 		HasMore bool        `json:"has_more"`
 	}
-	if err = c.doJSON(req, "list batches", &wire); err != nil {
+	if err := c.doJSON(req, "list batches", &wire); err != nil {
 		return BatchList{}, err
 	}
 	if wire.Object != "list" {

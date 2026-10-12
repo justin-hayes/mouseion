@@ -83,7 +83,7 @@ func getCoverageEntryForBook(ctx context.Context, q sqlcgen.DBTX, owner, bookID 
 		FirstEncounter: candidate.FirstEncounter, Owner: owner, Book: bookID,
 		Corpus: candidate.CorpusID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 	})
-	if err = missing(err); err != nil {
+	if err := missing(err); err != nil {
 		return cardexport.Entry{}, err
 	}
 	entry := cardexport.Entry{OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Sentence: row.Sentence, Translation: row.Translation, TargetWord: row.TargetWord, Morphology: row.Morphology, SourceDocument: row.SourceDocument, Notes: row.Notes, FirstEncounter: row.FirstEncounter}
@@ -95,7 +95,7 @@ func getCoverageEntryForCorpus(ctx context.Context, q sqlcgen.DBTX, owner, corpu
 		FirstEncounter: candidate.FirstEncounter, Owner: owner, Corpus: corpusID,
 		Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 	})
-	if err = missing(err); err != nil {
+	if err := missing(err); err != nil {
 		return cardexport.Entry{}, err
 	}
 	entry := cardexport.Entry{OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Sentence: row.Sentence, Translation: row.Translation, TargetWord: row.TargetWord, Morphology: row.Morphology, SourceDocument: row.SourceDocument, Notes: row.Notes, FirstEncounter: row.FirstEncounter}
