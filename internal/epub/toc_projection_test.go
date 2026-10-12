@@ -99,6 +99,31 @@ func TestProjectTOCChoicesFlatFallbackNormalizesPersistedTitle(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+// TestProjectTOCChoicesRejectsNonAscendingUnitOrder passes a snapshot whose
+// readable units repeat an order. Every navigation entry resolves to exactly
+// one unit and advances, so only the unit-order guard can reject the
+// projection and force the flat fallback.
+func TestProjectTOCChoicesRejectsNonAscendingUnitOrder(t *testing.T) {
+	data, units := tocProjectionFixture(t, `<nav epub:type="toc"><ol>
+<li><a href="Text/one.xhtml">One</a></li>
+<li><a href="Text/two.xhtml">Two</a></li>
+<li><a href="Text/three.xhtml">Three</a></li>
+</ol></nav>`)
+	require.Len(t, units.Units, 3)
+	units.Units[1].Order = units.Units[0].Order
+	assertFlatTOCChoices(t, ProjectTOCChoices(data, units), units)
+}
+
+// TestProjectTOCChoicesWithoutReadableUnitsProjectsNothing blanks every unit's
+// text, so no unit is readable and the projection must not invent choices.
+func TestProjectTOCChoicesWithoutReadableUnitsProjectsNothing(t *testing.T) {
+	data, units := tocProjectionFixture(t, `<nav epub:type="toc"><ol><li><a href="Text/one.xhtml">One</a></li></ol></nav>`)
+	for i := range units.Units {
+		units.Units[i].Text = "  "
+	}
+	assert.Empty(t, ProjectTOCChoices(data, units))
+}
+
 func tocProjectionFixture(t *testing.T, nav string) ([]byte, ExtractedUnits) {
 	t.Helper()
 	manifest := `<item id="one" href="Text/one.xhtml" media-type="application/xhtml+xml"/><item id="two" href="Text/two.xhtml" media-type="application/xhtml+xml"/><item id="three" href="Text/three.xhtml" media-type="application/xhtml+xml"/>`

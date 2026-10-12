@@ -79,6 +79,54 @@ func TestExtractedUnitsRejectIdentityOrderAndTextDrift(t *testing.T) {
 	}
 }
 
+// TestExtractedUnitsRejectOffsetInvariantViolations drives each offset check
+// that ValidateOffsets makes on its own: duplicate identity, a first unit that
+// does not start at zero, a later unit that does not preserve the FullText
+// separator, and a final unit that does not end at the FullText length.
+func TestExtractedUnitsRejectOffsetInvariantViolations(t *testing.T) {
+	fullText := "ab\n\ncd"
+	unit := func(order, spine uint64, manifest, text string, start, end uint64) ExtractedUnit {
+		return ExtractedUnit{ID: UnitID(spine, manifest), Order: order, SpineIndex: spine, ManifestID: manifest, Text: text, StartOffset: start, EndOffset: end}
+	}
+	require.NoError(t, ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: []ExtractedUnit{
+		unit(0, 0, "a", "ab", 0, 2),
+		unit(1, 1, "b", "cd", 4, 6),
+	}}.ValidateOffsets(fullText), "valid fixture")
+
+	tests := []struct {
+		name  string
+		units []ExtractedUnit
+		want  string
+	}{
+		{
+			name:  "duplicate identity",
+			units: []ExtractedUnit{unit(0, 0, "a", "ab", 0, 2), unit(1, 0, "a", "cd", 4, 6)},
+			want:  "duplicate unit identity",
+		},
+		{
+			name:  "first unit does not start at zero",
+			units: []ExtractedUnit{unit(0, 0, "a", "b", 1, 2), unit(1, 1, "b", "cd", 4, 6)},
+			want:  "first unit starts at offset 1",
+		},
+		{
+			name:  "missing FullText separator",
+			units: []ExtractedUnit{unit(0, 0, "a", "ab", 0, 2), unit(1, 1, "b", "cd", 5, 6)},
+			want:  "does not preserve the FullText separator",
+		},
+		{
+			name:  "final unit does not reach FullText length",
+			units: []ExtractedUnit{unit(0, 0, "a", "ab", 0, 2), unit(1, 1, "b", "c", 4, 5)},
+			want:  "final unit does not end at FullText length",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: tt.units}.ValidateOffsets(fullText)
+			require.ErrorContains(t, err, tt.want)
+		})
+	}
+}
+
 func TestExtractedUnitsTreatMissingOrEmptyLegacyDataAsUnavailable(t *testing.T) {
 	for _, document := range []ExtractedUnits{
 		{},
