@@ -6,15 +6,15 @@ import (
 	"io/fs"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // ZipDirectory packages a checked-in fixture directory as an in-memory ZIP.
 func ZipDirectory(t *testing.T, directory string) []byte {
 	t.Helper()
 	root, err := os.OpenRoot(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	Cleanup(t, "fixture root", root.Close)
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
