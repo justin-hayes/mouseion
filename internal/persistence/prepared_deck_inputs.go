@@ -154,7 +154,9 @@ func loadAnalysisProjectionFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Qu
 }
 
 // LoadPreparedDeckCandidateFactsTx loads render and sentence facts for the
-// selected candidates and rejects partially available persisted sentences.
+// selected candidates and rejects partially available persisted sentences. It
+// resolves the coverage scope once, then loads one fact kind at a time, so a
+// new fact kind adds a loader rather than growing this orchestration.
 func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, selected []domain.SelectionCandidate) ([]PreparedDeckCandidateFacts, error) {
 	if s == nil || tx == nil || preparation.OwnerID == "" || preparation.SourceMaterialID == "" {
 		return nil, ErrInvalidTransition
@@ -167,23 +169,56 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	if err != nil {
 		return nil, err
 	}
-	useProjectedEntry := preparation.SnapshotID != ""
-	if !useProjectedEntry && corpusID != "" {
-		var bookID string
-		if err := tx.QueryRow(ctx, `SELECT COALESCE(book_id::text, '') FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
-			return nil, err
-		}
-		if bookID != "" {
-			corrections, correctionErr := q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{
-				Owner: preparation.OwnerID, Book: bookID, Corpus: corpusID, AnalysisRun: preparation.AnalysisRunID,
-			})
-			if correctionErr != nil {
-				return nil, correctionErr
-			}
-			useProjectedEntry = len(corrections) > 0
-		}
+	useProjectedEntry, err := preparedDeckProjectedEntryScopeTx(ctx, tx, q, preparation, corpusID)
+	if err != nil {
+		return nil, err
 	}
+	sentencesByCorpus, err := loadPreparedDeckCandidateSentencesTx(ctx, tx, preparation, selected)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]PreparedDeckCandidateFacts, 0, len(selected))
+	for _, candidate := range selected {
+		entry, entryErr := loadPreparedDeckCandidateEntryTx(ctx, tx, preparation, corpusID, useProjectedEntry, candidate)
+		if entryErr != nil {
+			return nil, entryErr
+		}
+		result = append(result, PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID]})
+	}
+	return result, nil
+}
 
+// preparedDeckProjectedEntryScopeTx reports whether a candidate's coverage
+// entry must be projected from stored sentence references instead of read back
+// from a coverage entry. A Current reading snapshot always projects; a direct
+// preparation projects only once the Book holds occurrence lemma corrections.
+func preparedDeckProjectedEntryScopeTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, preparation domain.DeckPreparation, corpusID string) (bool, error) {
+	if preparation.SnapshotID != "" {
+		return true, nil
+	}
+	if corpusID == "" {
+		return false, nil
+	}
+	var bookID string
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(book_id::text, '') FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+		return false, err
+	}
+	if bookID == "" {
+		return false, nil
+	}
+	corrections, err := q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{
+		Owner: preparation.OwnerID, Book: bookID, Corpus: corpusID, AnalysisRun: preparation.AnalysisRunID,
+	})
+	if err != nil {
+		return false, err
+	}
+	return len(corrections) > 0, nil
+}
+
+// loadPreparedDeckCandidateSentencesTx loads the persisted sentence context
+// every selected candidate references, keyed by corpus and ordinal. A
+// candidate whose references do not decode contributes no ordinals.
+func loadPreparedDeckCandidateSentencesTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, selected []domain.SelectionCandidate) (map[string]map[int64]analyzer.Sentence, error) {
 	ordinalsByCorpus := make(map[string]map[int64]struct{})
 	for _, candidate := range selected {
 		var refs []struct {
@@ -222,29 +257,32 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 			sentencesByCorpus[id] = sentences
 		}
 	}
+	return sentencesByCorpus, nil
+}
 
-	result := make([]PreparedDeckCandidateFacts, 0, len(selected))
-	for _, candidate := range selected {
-		var entry cardexport.Entry
-		if useProjectedEntry {
-			entry, err = projectedCandidateEntry(ctx, tx, preparation, candidate)
-		} else if corpusID != "" {
-			entry, err = getCoverageEntryForCorpus(ctx, tx, preparation.OwnerID, corpusID, candidate)
-		} else {
-			entry, err = getCoverageEntryForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, candidate)
-		}
-		if err != nil {
-			if corpusID == "" || !errors.Is(err, ErrNotFound) {
-				return nil, fmt.Errorf("load coverage facts for %s: %w", candidateIdentity(candidate), err)
-			}
-			entry, err = projectedCandidateEntry(ctx, tx, preparation, candidate)
-			if err != nil {
-				return nil, fmt.Errorf("load projected coverage facts for %s: %w", candidateIdentity(candidate), err)
-			}
-		}
-		result = append(result, PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID]})
+// loadPreparedDeckCandidateEntryTx loads one candidate's coverage entry. When
+// the coverage entry is absent and the candidate carries projected sentence
+// references, the entry is projected instead.
+func loadPreparedDeckCandidateEntryTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, corpusID string, useProjectedEntry bool, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
+	var entry cardexport.Entry
+	var err error
+	if useProjectedEntry {
+		entry, err = projectedCandidateEntry(ctx, tx, preparation, candidate)
+	} else if corpusID != "" {
+		entry, err = getCoverageEntryForCorpus(ctx, tx, preparation.OwnerID, corpusID, candidate)
+	} else {
+		entry, err = getCoverageEntryForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, candidate)
 	}
-	return result, nil
+	if err != nil {
+		if corpusID == "" || !errors.Is(err, ErrNotFound) {
+			return cardexport.Entry{}, fmt.Errorf("load coverage facts for %s: %w", candidateIdentity(candidate), err)
+		}
+		entry, err = projectedCandidateEntry(ctx, tx, preparation, candidate)
+		if err != nil {
+			return cardexport.Entry{}, fmt.Errorf("load projected coverage facts for %s: %w", candidateIdentity(candidate), err)
+		}
+	}
+	return entry, nil
 }
 
 func projectedCandidateEntry(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
