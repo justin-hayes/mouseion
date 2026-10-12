@@ -73,6 +73,56 @@ func TestLoadPreparedDeckCandidateFactsRejectsMissingPersistedSentence(t *testin
 	require.ErrorContains(t, err, "missing sentence ordinal 1")
 }
 
+// TestLoadPreparedDeckCandidateFactsIgnoresUndecodableSentenceReferences pins
+// that a candidate whose persisted sentence references do not decode into the
+// expected shape contributes no ordinals instead of failing the load.
+func TestLoadPreparedDeckCandidateFactsIgnoresUndecodableSentenceReferences(t *testing.T) {
+	ctx := context.Background()
+	f := newCandidateFactsFixture(t, ctx, "candidate-facts-undecodable", "candidate-facts-undecodable")
+
+	candidate := domain.SelectionCandidate{
+		OwnerID: f.ownerID, CorpusID: f.corpusID, Language: "de",
+		CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3,
+		ObservedForms: []byte(`["haus"]`), SentenceReferences: []byte(`{}`), Provenance: []byte(`{}`),
+	}
+	_, err := f.store.PutSelectionCandidate(ctx, candidate)
+	require.NoError(t, err)
+
+	tx, err := f.store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tx.Rollback(ctx)) }()
+	facts, err := f.store.LoadPreparedDeckCandidateFactsTx(ctx, tx, f.preparation, []domain.SelectionCandidate{candidate})
+	require.NoError(t, err)
+	require.Len(t, facts, 1)
+	assert.Empty(t, facts[0].Sentences, "undecodable references carry no sentence facts")
+}
+
+// TestLoadPreparedDeckCandidateFactsPropagatesSentenceLookupFailure drops the
+// sentence table so the lookup failure reaches the caller instead of being read
+// as absent context.
+func TestLoadPreparedDeckCandidateFactsPropagatesSentenceLookupFailure(t *testing.T) {
+	ctx := context.Background()
+	f := newCandidateFactsFixture(t, ctx, "candidate-facts-lookup", "candidate-facts-lookup")
+
+	candidate := domain.SelectionCandidate{
+		OwnerID: f.ownerID, CorpusID: f.corpusID, Language: "de",
+		CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3,
+		ObservedForms:      []byte(`["haus"]`),
+		SentenceReferences: []byte(`[{"sentence_index":0}]`),
+		Provenance:         []byte(`{}`),
+	}
+	_, err := f.store.PutSelectionCandidate(ctx, candidate)
+	require.NoError(t, err)
+	_, err = f.store.Pool().Exec(ctx, `DROP TABLE corpus_sentences CASCADE`)
+	require.NoError(t, err)
+
+	tx, err := f.store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tx.Rollback(ctx)) }()
+	_, err = f.store.LoadPreparedDeckCandidateFactsTx(ctx, tx, f.preparation, []domain.SelectionCandidate{candidate})
+	require.ErrorContains(t, err, "list persisted corpus sentences")
+}
+
 // candidateFactsFixture is the shared direct-preparation setup for candidate
 // fact tests: an analysed To Read Book whose source and corpus a preparation is
 // bound to, so the loaders read corpus-scoped coverage facts.

@@ -43,45 +43,63 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 		return domain.DeckPreparation{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	preparationModel, err := sqlcgen.New(tx).GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
+	ready, err := completePreparedDeckRunTx(ctx, tx, owner, preparationID, runID, claimToken, artifact)
+	if err != nil {
+		return ready, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return ready, nil
+}
+
+// completePreparedDeckRunTx locks the preparation then its run, completes the
+// artifact for the run's versions, and advances the run. An already-committed
+// run is returned unchanged; any mismatch in the finalization claim is fenced.
+func completePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID, claimToken string, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
+	q := sqlcgen.New(tx)
+	preparationModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
 	if err != nil {
 		return domain.DeckPreparation{}, missing(err)
 	}
 	preparationState := domain.DeckPreparationState(preparationModel.State)
 	currentRunID := uuidString(preparationModel.CurrentRunID)
-	runModel, err := sqlcgen.New(tx).GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: owner, PreparationID: preparationID, ID: runID})
+	runModel, err := q.GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: owner, PreparationID: preparationID, ID: runID})
 	if err != nil {
 		return domain.DeckPreparation{}, missing(err)
 	}
 	run := preparedDeckRunFromModel(runModel)
 	if preparationState == domain.DeckPreparationReady && run.State == domain.PreparedDeckRunCompleted && currentRunID == runID {
-		ready, completeErr := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact, run.RenderInputVersion, run.PresentationVersion)
-		if completeErr != nil {
-			return ready, completeErr
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return domain.DeckPreparation{}, err
-		}
-		return ready, nil
+		return completePreparedDeckTx(ctx, tx, owner, preparationID, artifact, run.RenderInputVersion, run.PresentationVersion)
 	}
 	leaseActive := runModel.FinalizationLeaseExpiresAt.Valid && runModel.FinalizationLeaseExpiresAt.Time.After(time.Now())
-	if currentRunID != runID || run.State != domain.PreparedDeckRunFinalizing || run.TranslationState != domain.PreparedDeckTranslationCompleted || run.FinalizationClaimToken == "" || run.FinalizationClaimToken != claimToken || !leaseActive {
+	if !preparedDeckFinalizationClaimsRun(currentRunID, runID, run, claimToken, leaseActive) {
 		return domain.DeckPreparation{}, ErrFenced
 	}
 	ready, err := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact, run.RenderInputVersion, run.PresentationVersion)
 	if err != nil {
 		return ready, err
 	}
-	if _, err = sqlcgen.New(tx).CompletePreparedDeckRun(ctx, sqlcgen.CompletePreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID, FinalizationClaimToken: uuidArg(claimToken)}); err != nil {
+	if _, err = q.CompletePreparedDeckRun(ctx, sqlcgen.CompletePreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID, FinalizationClaimToken: uuidArg(claimToken)}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.DeckPreparation{}, ErrFenced
 		}
 		return domain.DeckPreparation{}, err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return domain.DeckPreparation{}, err
-	}
 	return ready, nil
+}
+
+// preparedDeckFinalizationClaimsRun reports whether the stored run still
+// belongs to the claiming run: the current run, finalizing state, completed
+// translation, claim token, and an unexpired lease must all match.
+func preparedDeckFinalizationClaimsRun(currentRunID, runID string, run domain.PreparedDeckRun, claimToken string, leaseActive bool) bool {
+	if currentRunID != runID || run.State != domain.PreparedDeckRunFinalizing || run.TranslationState != domain.PreparedDeckTranslationCompleted {
+		return false
+	}
+	if run.FinalizationClaimToken == "" || run.FinalizationClaimToken != claimToken {
+		return false
+	}
+	return leaseActive
 }
 
 // SupersedePreparedDeckArtifact replaces one completed run's presentation in
@@ -96,6 +114,19 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 		return domain.DeckPreparation{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	updated, err := supersedePreparedDeckArtifactTx(ctx, tx, owner, preparationID, runID, presentationVersion, artifact)
+	if err != nil {
+		return updated, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return updated, nil
+}
+
+// supersedePreparedDeckArtifactTx checks the run's current presentation before
+// writing a replacement. An up-to-date run is returned unchanged.
+func supersedePreparedDeckArtifactTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID string, presentationVersion int, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
 	q := sqlcgen.New(tx)
 	preparationModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
 	if err != nil {
@@ -107,30 +138,50 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 		return domain.DeckPreparation{}, missing(err)
 	}
 	run := preparedDeckRunFromModel(runModel)
-	if preparation.CurrentRunID != runID || preparation.State != domain.DeckPreparationReady || preparation.RetiredAt != nil || run.State != domain.PreparedDeckRunCompleted {
-		return domain.DeckPreparation{}, ErrInvalidTransition
+	nextPresentationVersion, upToDate, err := preparedDeckRerenderDecision(preparation, run, runID, presentationVersion)
+	if err != nil {
+		return domain.DeckPreparation{}, err
 	}
-	if run.PresentationVersion > presentationVersion {
-		presentationVersion = run.PresentationVersion
-	}
-	if run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion {
-		if err := tx.Commit(ctx); err != nil {
-			return domain.DeckPreparation{}, err
-		}
+	if upToDate {
 		return preparation, nil
 	}
 	if artifact.Filename != preparation.Filename || artifact.DeckName != preparation.DeckName {
 		return domain.DeckPreparation{}, fmt.Errorf("%w: rerendered artifact identity changed", ErrPreparedDeckIdentity)
 	}
+	if err := putPreparedDeckArtifactCards(ctx, q, owner, artifact); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return writeSupersededPreparedDeckArtifact(ctx, q, owner, preparationID, runID, run, nextPresentationVersion, artifact)
+}
+
+// preparedDeckRerenderDecision validates that a completed run can be
+// superseded and returns the presentation version to publish. upToDate reports
+// that the stored run already meets or exceeds the requested versions.
+func preparedDeckRerenderDecision(preparation domain.DeckPreparation, run domain.PreparedDeckRun, runID string, presentationVersion int) (int, bool, error) {
+	if preparation.CurrentRunID != runID || preparation.State != domain.DeckPreparationReady || preparation.RetiredAt != nil || run.State != domain.PreparedDeckRunCompleted {
+		return 0, false, ErrInvalidTransition
+	}
+	if run.PresentationVersion > presentationVersion {
+		presentationVersion = run.PresentationVersion
+	}
+	upToDate := run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion
+	return presentationVersion, upToDate, nil
+}
+
+// putPreparedDeckArtifactCards republishes every generated card through the
+// deck and card upserts a rerender owns.
+func putPreparedDeckArtifactCards(ctx context.Context, q *sqlcgen.Queries, owner string, artifact cardexport.Artifact) error {
 	for _, item := range artifact.Generated {
-		deck, putErr := q.PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: owner, Language: item.Input.Language, Name: item.Note.BookTitle})
-		if putErr != nil {
-			return domain.DeckPreparation{}, putErr
-		}
-		if putErr := q.PutPreparedDeckCard(ctx, sqlcgen.PutPreparedDeckCardParams{Owner: owner, Deck: deck.ID, DedupKey: item.Note.Key, CanonicalLemma: item.Input.CanonicalLemma, Upos: item.Input.UPOS, Front: item.Note.Text, Back: item.Note.BackExtra}); putErr != nil {
-			return domain.DeckPreparation{}, putErr
+		if _, err := putPreparedDeckCardForRecord(ctx, q, owner, item); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+// writeSupersededPreparedDeckArtifact advances the run's presentation revision,
+// treating a lost version predicate as a lost claim.
+func writeSupersededPreparedDeckArtifact(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, run domain.PreparedDeckRun, presentationVersion int, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
 	updatedModel, err := q.SupersedePreparedDeckArtifact(ctx, sqlcgen.SupersedePreparedDeckArtifactParams{
 		Artifact: artifact.APKG, TotalCards: artifact.Completeness.TotalCards,
 		CardsWithEnglish:                        artifact.Completeness.CardsWithEnglish,
@@ -147,57 +198,97 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	updated := deckPreparationFromModel(updatedModel)
-	if err := tx.Commit(ctx); err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	return updated, nil
+	return deckPreparationFromModel(updatedModel), nil
 }
+
+// putPreparedDeckCardForRecord upserts the deck named by one generated record
+// and its prepared-deck card, returning the deck identity.
+func putPreparedDeckCardForRecord(ctx context.Context, q *sqlcgen.Queries, owner string, item cardexport.GeneratedRecord) (string, error) {
+	deck, err := q.PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: owner, Language: item.Input.Language, Name: item.Note.BookTitle})
+	if err != nil {
+		return "", err
+	}
+	if err := q.PutPreparedDeckCard(ctx, sqlcgen.PutPreparedDeckCardParams{Owner: owner, Deck: deck.ID, DedupKey: item.Note.Key, CanonicalLemma: item.Input.CanonicalLemma, Upos: item.Input.UPOS, Front: item.Note.Text, Back: item.Note.BackExtra}); err != nil {
+		return "", err
+	}
+	return deck.ID, nil
+}
+
 func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, artifact cardexport.Artifact, renderInputVersion, presentationVersion int) (domain.DeckPreparation, error) {
 	q := sqlcgen.New(tx)
 	current, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: id})
 	if err != nil {
 		return domain.DeckPreparation{}, missing(err)
 	}
-	state := domain.DeckPreparationState(current.State)
-	if state == domain.DeckPreparationReady {
-		model, getErr := q.GetDeckPreparation(ctx, sqlcgen.GetDeckPreparationParams{Owner: owner, ID: id})
-		p := deckPreparationFromModel(model)
-		if getErr != nil {
-			return p, getErr
+	switch domain.DeckPreparationState(current.State) {
+	case domain.DeckPreparationReady:
+		return completedPreparedDeckResult(ctx, q, owner, id, artifact, renderInputVersion, presentationVersion)
+	case domain.DeckPreparationPreparing:
+		if err := publishPreparedDeckArtifact(ctx, q, owner, id, artifact); err != nil {
+			return domain.DeckPreparation{}, err
 		}
-		if !bytes.Equal(p.Artifact, artifact.APKG) || p.Filename != artifact.Filename || p.DeckName != artifact.DeckName || p.TotalCards != artifact.Completeness.TotalCards || p.CardsWithEnglish != artifact.Completeness.CardsWithEnglish || p.CardsWithContextualSentenceTranslations != artifact.Completeness.CardsWithEnglishSentence || p.CardsWithFallbackGloss != artifact.Completeness.CardsWithFallbackGloss || p.QualityOmissions != artifact.Completeness.QualityOmitted || p.RenderInputVersion != renderInputVersion || p.PresentationVersion != presentationVersion {
-			return p, ErrImmutable
-		}
-		return p, nil
-	}
-	if state != domain.DeckPreparationPreparing {
+		return writeCompletedDeckPreparation(ctx, q, owner, id, artifact, renderInputVersion, presentationVersion)
+	default:
 		return domain.DeckPreparation{}, ErrInvalidTransition
 	}
+}
+
+// completedPreparedDeckResult returns the stored ready preparation when the
+// repeated completion matches it exactly, and ErrImmutable when any published
+// value differs.
+func completedPreparedDeckResult(ctx context.Context, q *sqlcgen.Queries, owner, id string, artifact cardexport.Artifact, renderInputVersion, presentationVersion int) (domain.DeckPreparation, error) {
+	model, err := q.GetDeckPreparation(ctx, sqlcgen.GetDeckPreparationParams{Owner: owner, ID: id})
+	p := deckPreparationFromModel(model)
+	if err != nil {
+		return p, err
+	}
+	if !preparedDeckCompletionMatches(p, artifact, renderInputVersion, presentationVersion) {
+		return p, ErrImmutable
+	}
+	return p, nil
+}
+
+// preparedDeckCompletionMatches reports whether a ready preparation already
+// holds exactly the artifact and versions a repeated completion supplies.
+func preparedDeckCompletionMatches(p domain.DeckPreparation, artifact cardexport.Artifact, renderInputVersion, presentationVersion int) bool {
+	return bytes.Equal(p.Artifact, artifact.APKG) &&
+		p.Filename == artifact.Filename &&
+		p.DeckName == artifact.DeckName &&
+		p.TotalCards == artifact.Completeness.TotalCards &&
+		p.CardsWithEnglish == artifact.Completeness.CardsWithEnglish &&
+		p.CardsWithContextualSentenceTranslations == artifact.Completeness.CardsWithEnglishSentence &&
+		p.CardsWithFallbackGloss == artifact.Completeness.CardsWithFallbackGloss &&
+		p.QualityOmissions == artifact.Completeness.QualityOmitted &&
+		p.RenderInputVersion == renderInputVersion &&
+		p.PresentationVersion == presentationVersion
+}
+
+// publishPreparedDeckArtifact writes every generated card, its generated
+// vocabulary provenance, and the preparation's vocabulary assignment.
+func publishPreparedDeckArtifact(ctx context.Context, q *sqlcgen.Queries, owner, id string, artifact cardexport.Artifact) error {
 	for _, item := range artifact.Generated {
-		entry, note := item.Input, item.Note
-		deck, err := q.PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: owner, Language: entry.Language, Name: note.BookTitle})
+		entry := item.Input
+		deckID, err := putPreparedDeckCardForRecord(ctx, q, owner, item)
 		if err != nil {
-			return domain.DeckPreparation{}, err
-		}
-		deckID := deck.ID
-		if err := q.PutPreparedDeckCard(ctx, sqlcgen.PutPreparedDeckCardParams{Owner: owner, Deck: deckID, DedupKey: note.Key, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Front: note.Text, Back: note.BackExtra}); err != nil {
-			return domain.DeckPreparation{}, err
+			return err
 		}
 		if err := q.InsertGeneratedVocabulary(ctx, sqlcgen.InsertGeneratedVocabularyParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Deck: deckID, Preparation: id}); err != nil {
-			return domain.DeckPreparation{}, err
+			return err
 		}
 		if err := q.AttachDeckPreparationVocabulary(ctx, sqlcgen.AttachDeckPreparationVocabularyParams{Preparation: id, Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
-			return domain.DeckPreparation{}, err
+			return err
 		}
 	}
+	return nil
+}
+
+// writeCompletedDeckPreparation stores the final artifact exactly once and
+// returns the ready preparation.
+func writeCompletedDeckPreparation(ctx context.Context, q *sqlcgen.Queries, owner, id string, artifact cardexport.Artifact, renderInputVersion, presentationVersion int) (domain.DeckPreparation, error) {
 	readyModel, err := q.CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: artifact.APKG, Filename: artifact.Filename, DeckName: artifact.DeckName, TotalCards: artifact.Completeness.TotalCards, CardsWithEnglish: artifact.Completeness.CardsWithEnglish, CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence, CardsWithFallbackGloss: artifact.Completeness.CardsWithFallbackGloss, QualityOmissions: artifact.Completeness.QualityOmitted, RenderInputVersion: renderInputVersion, PresentationVersion: presentationVersion, Owner: owner, ID: id})
 	err = missing(err)
 	ready := deckPreparationFromModel(readyModel)
-	if err != nil {
-		return ready, err
-	}
-	return ready, nil
+	return ready, err
 }
 
 // ListDeckPreparationVocabulary returns the immutable identity snapshot for a
@@ -263,51 +354,82 @@ func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.Deck
 func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPreparation) (domain.DeckPreparation, bool, error) {
 	// These row-locking queries fence the book/source identity while the
 	// preparation is created.
-	bookID, err := sqlcgen.New(tx).GetSourceMaterialBookForUpdate(ctx, sqlcgen.GetSourceMaterialBookForUpdateParams{OwnerID: p.OwnerID, ID: p.SourceMaterialID})
+	q := sqlcgen.New(tx)
+	bookID, err := q.GetSourceMaterialBookForUpdate(ctx, sqlcgen.GetSourceMaterialBookForUpdateParams{OwnerID: p.OwnerID, ID: p.SourceMaterialID})
 	if err != nil {
 		return domain.DeckPreparation{}, false, missing(err)
 	}
 	if bookID != "" {
-		if _, err := sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: p.OwnerID, ID: bookID}); err != nil {
-			return domain.DeckPreparation{}, false, missing(err)
-		}
-		var existing domain.DeckPreparation
-		if p.AnalysisRunID != "" {
-			model, queryErr := sqlcgen.New(tx).GetUnretiredDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetUnretiredDeckPreparationBySourceAnalysisParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: uuidArg(p.AnalysisRunID)})
-			existing, err = deckPreparationFromModel(model), missing(queryErr)
-		} else {
-			model, queryErr := sqlcgen.New(tx).GetUnretiredDeckPreparationBySourceHash(ctx, sqlcgen.GetUnretiredDeckPreparationBySourceHashParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, ContentHash: p.ContentHash})
-			existing, err = deckPreparationFromModel(model), missing(queryErr)
-		}
-		if err == nil {
-			return existing, false, nil
-		}
-		if !errors.Is(err, ErrNotFound) {
-			return domain.DeckPreparation{}, false, err
-		}
-		if err := sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: p.OwnerID, Book: uuidArg(bookID)}); err != nil {
-			return domain.DeckPreparation{}, false, err
-		}
-		model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Snapshot: nullableUUIDArg(p.SnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
-		return deckPreparationFromModel(model), true, err
+		return createBookDeckPreparationTx(ctx, q, p, bookID)
 	}
+	return createUnownedDeckPreparationTx(ctx, q, p)
+}
 
-	var existing domain.DeckPreparation
-	if p.AnalysisRunID != "" {
-		model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetDeckPreparationBySourceAnalysisParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: uuidArg(p.AnalysisRunID)})
-		existing, err = deckPreparationFromModel(model), missing(queryErr)
-	} else {
-		model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceHashWithoutAnalysis(ctx, sqlcgen.GetDeckPreparationBySourceHashWithoutAnalysisParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, ContentHash: p.ContentHash})
-		existing, err = deckPreparationFromModel(model), missing(queryErr)
+// createBookDeckPreparationTx reuses the Book's unretired preparation for this
+// analysis (or content hash), or retires the Book's current preparations and
+// creates the new one.
+func createBookDeckPreparationTx(ctx context.Context, q *sqlcgen.Queries, p domain.DeckPreparation, bookID string) (domain.DeckPreparation, bool, error) {
+	if _, err := q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: p.OwnerID, ID: bookID}); err != nil {
+		return domain.DeckPreparation{}, false, missing(err)
 	}
-	if err == nil {
+	existing, found, err := findUnretiredDeckPreparationTx(ctx, q, p, true)
+	if err != nil {
+		return domain.DeckPreparation{}, false, err
+	}
+	if found {
 		return existing, false, nil
+	}
+	if err := q.RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: p.OwnerID, Book: uuidArg(bookID)}); err != nil {
+		return domain.DeckPreparation{}, false, err
+	}
+	model, err := q.CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Snapshot: nullableUUIDArg(p.SnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
+	return deckPreparationFromModel(model), true, err
+}
+
+// createUnownedDeckPreparationTx reuses an unlinked legacy source's existing
+// preparation for this analysis (or content hash), or creates the first one.
+func createUnownedDeckPreparationTx(ctx context.Context, q *sqlcgen.Queries, p domain.DeckPreparation) (domain.DeckPreparation, bool, error) {
+	existing, found, err := findUnretiredDeckPreparationTx(ctx, q, p, false)
+	if err != nil {
+		return domain.DeckPreparation{}, false, err
+	}
+	if found {
+		return existing, false, nil
+	}
+	model, err := q.CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Snapshot: nullableUUIDArg(p.SnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
+	return deckPreparationFromModel(model), true, err
+}
+
+// findUnretiredDeckPreparationTx reports whether the source already has an
+// unretired preparation matching this preparation's analysis run, or its
+// content hash when the preparation has no analysis. A missing row is not an
+// error; any other lookup failure propagates.
+func findUnretiredDeckPreparationTx(ctx context.Context, q *sqlcgen.Queries, p domain.DeckPreparation, bookScoped bool) (domain.DeckPreparation, bool, error) {
+	model, err := lookupDeckPreparationForSource(ctx, q, p, bookScoped)
+	existing := deckPreparationFromModel(model)
+	err = missing(err)
+	if err == nil {
+		return existing, true, nil
 	}
 	if !errors.Is(err, ErrNotFound) {
 		return domain.DeckPreparation{}, false, err
 	}
-	model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Snapshot: nullableUUIDArg(p.SnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
-	return deckPreparationFromModel(model), true, err
+	return domain.DeckPreparation{}, false, nil
+}
+
+// lookupDeckPreparationForSource selects the existing-preparation query for a
+// Book-linked or unlinked source.
+func lookupDeckPreparationForSource(ctx context.Context, q *sqlcgen.Queries, p domain.DeckPreparation, bookScoped bool) (sqlcgen.DeckPreparation, error) {
+	switch {
+	case bookScoped && p.AnalysisRunID != "":
+		return q.GetUnretiredDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetUnretiredDeckPreparationBySourceAnalysisParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: uuidArg(p.AnalysisRunID)})
+	case bookScoped:
+		return q.GetUnretiredDeckPreparationBySourceHash(ctx, sqlcgen.GetUnretiredDeckPreparationBySourceHashParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, ContentHash: p.ContentHash})
+	case p.AnalysisRunID != "":
+		return q.GetDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetDeckPreparationBySourceAnalysisParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: uuidArg(p.AnalysisRunID)})
+	default:
+		return q.GetDeckPreparationBySourceHashWithoutAnalysis(ctx, sqlcgen.GetDeckPreparationBySourceHashWithoutAnalysisParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, ContentHash: p.ContentHash})
+	}
 }
 
 // ClaimDeckPreparation atomically grants one worker the queued preparation.
