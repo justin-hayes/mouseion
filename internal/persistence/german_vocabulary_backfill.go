@@ -325,63 +325,124 @@ func backfillGeneratedVocabulary(ctx context.Context, tx pgx.Tx, owner string, p
 	var updated, merged int
 	for target := range affected {
 		for _, upos := range distinctGeneratedUPOS(rows, target, profile) {
-			var group []generatedVocabularyRow
-			for _, row := range rows {
-				if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
-					group = append(group, row)
-				}
-			}
-			sort.Slice(group, func(i, j int) bool {
-				if !group[i].firstGeneratedAt.Equal(group[j].firstGeneratedAt) {
-					return group[i].firstGeneratedAt.Before(group[j].firstGeneratedAt)
-				}
-				if group[i].firstDeckID != group[j].firstDeckID {
-					return group[i].firstDeckID < group[j].firstDeckID
-				}
-				return group[i].firstSourceID < group[j].firstSourceID
-			})
-			winner := group[0]
-			temporary := "__mouseion_german_v6_" + uuid.NewString()
-			if _, err = tx.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id, first_generated_at) VALUES($1,'de',$2,$3,$4,NULLIF($5,'')::uuid,$6)`, owner, temporary, upos, winner.firstDeckID, winner.firstSourceID, winner.firstGeneratedAt); err != nil {
-				return updated, merged, err
-			}
-			children, err := queryDeckVocabulary(ctx, tx, owner, group, upos)
+			group := generatedVocabularyGroup(rows, target, upos, profile)
+			groupUpdated, groupMerged, err := mergeGeneratedVocabularyGroup(ctx, tx, owner, target, upos, group)
 			if err != nil {
 				return updated, merged, err
 			}
-			mergedChildren := mergeDeckVocabulary(children)
-			lemmas := make([]string, 0, len(group))
-			for _, row := range group {
-				lemmas = append(lemmas, row.lemma)
-			}
-			if _, err = tx.Exec(ctx, `DELETE FROM deck_preparation_vocabulary WHERE owner_id=$1 AND language='de' AND upos=$3 AND canonical_lemma=ANY($2::text[])`, owner, lemmas, upos); err != nil {
-				return updated, merged, err
-			}
-			for _, child := range mergedChildren {
-				if _, err = tx.Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at, graduated_at) VALUES($1,$2,'de',$3,$4,$5,$6)`, owner, child.preparationID, temporary, upos, child.generatedAt, child.graduatedAt); err != nil {
-					return updated, merged, err
-				}
-			}
-			for _, row := range group {
-				if _, err = tx.Exec(ctx, `DELETE FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3`, owner, row.lemma, upos); err != nil {
-					return updated, merged, err
-				}
-			}
-			if _, err = tx.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id, first_generated_at) VALUES($1,'de',$2,$3,$4,NULLIF($5,'')::uuid,$6)`, owner, target, upos, winner.firstDeckID, winner.firstSourceID, winner.firstGeneratedAt); err != nil {
-				return updated, merged, err
-			}
-			if _, err = tx.Exec(ctx, `UPDATE deck_preparation_vocabulary SET canonical_lemma=$3 WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$4`, owner, temporary, target, upos); err != nil {
-				return updated, merged, err
-			}
-			if _, err = tx.Exec(ctx, `DELETE FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3`, owner, temporary, upos); err != nil {
-				return updated, merged, err
-			}
-			updated++
-			merged += len(group) - 1
-			merged += len(children) - len(mergedChildren)
+			updated += groupUpdated
+			merged += groupMerged
 		}
 	}
 	return updated, merged, nil
+}
+
+// generatedVocabularyGroup selects the historical facts that canonicalize to
+// target at upos. distinctGeneratedUPOS only yields upos with a match, so the
+// result is never empty.
+func generatedVocabularyGroup(rows []generatedVocabularyRow, target, upos string, profile canonicalization.Profile) []generatedVocabularyRow {
+	var group []generatedVocabularyRow
+	for _, row := range rows {
+		if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
+			group = append(group, row)
+		}
+	}
+	return group
+}
+
+// mergeGeneratedVocabularyGroup folds one identity group of generated
+// vocabulary facts onto its canonical lemma. The generated_vocabulary identity
+// and its deck_preparation_vocabulary children are separate record kinds with
+// separate conflicts: several historical spellings collapse to one identity,
+// and several children per deck preparation collapse to one row. Because the
+// children reference the identity by foreign key, the merge stages the
+// canonical identity under a temporary lemma while the children are
+// reconciled, then installs the canonical lemma.
+func mergeGeneratedVocabularyGroup(ctx context.Context, tx pgx.Tx, owner, target, upos string, group []generatedVocabularyRow) (int, int, error) {
+	winner := earliestGeneratedVocabulary(group)
+	temporary := "__mouseion_german_v6_" + uuid.NewString()
+	if err := insertGeneratedVocabulary(ctx, tx, owner, temporary, upos, winner); err != nil {
+		return 0, 0, err
+	}
+	eliminated, err := mergeDeckPreparationVocabulary(ctx, tx, owner, group, upos, temporary)
+	if err != nil {
+		return 0, 0, err
+	}
+	if err := installGeneratedVocabulary(ctx, tx, owner, group, target, upos, winner, temporary); err != nil {
+		return 0, 0, err
+	}
+	return 1, len(group) - 1 + eliminated, nil
+}
+
+// earliestGeneratedVocabulary sorts group by first appearance in place and
+// returns its winner.
+func earliestGeneratedVocabulary(group []generatedVocabularyRow) generatedVocabularyRow {
+	sort.Slice(group, func(i, j int) bool {
+		if !group[i].firstGeneratedAt.Equal(group[j].firstGeneratedAt) {
+			return group[i].firstGeneratedAt.Before(group[j].firstGeneratedAt)
+		}
+		if group[i].firstDeckID != group[j].firstDeckID {
+			return group[i].firstDeckID < group[j].firstDeckID
+		}
+		return group[i].firstSourceID < group[j].firstSourceID
+	})
+	return group[0]
+}
+
+// mergeDeckPreparationVocabulary reconciles the deck_preparation_vocabulary
+// children of one identity group. They conflict when several historical
+// spellings contribute a row for the same deck preparation, so it collapses
+// each preparation onto one child and stages them under the temporary
+// identity, reporting how many children the merge eliminated.
+func mergeDeckPreparationVocabulary(ctx context.Context, tx pgx.Tx, owner string, group []generatedVocabularyRow, upos, temporary string) (int, error) {
+	children, err := queryDeckVocabulary(ctx, tx, owner, group, upos)
+	if err != nil {
+		return 0, err
+	}
+	mergedChildren := mergeDeckVocabulary(children)
+	if _, err := tx.Exec(ctx, `DELETE FROM deck_preparation_vocabulary WHERE owner_id=$1 AND language='de' AND upos=$3 AND canonical_lemma=ANY($2::text[])`, owner, generatedVocabularyLemmas(group), upos); err != nil {
+		return 0, err
+	}
+	for _, child := range mergedChildren {
+		if _, err := tx.Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at, graduated_at) VALUES($1,$2,'de',$3,$4,$5,$6)`, owner, child.preparationID, temporary, upos, child.generatedAt, child.graduatedAt); err != nil {
+			return 0, err
+		}
+	}
+	return len(children) - len(mergedChildren), nil
+}
+
+// installGeneratedVocabulary retires the historical generated_vocabulary
+// identities that conflict with target, installs the canonical identity, and
+// repoints the staged children at it.
+func installGeneratedVocabulary(ctx context.Context, tx pgx.Tx, owner string, group []generatedVocabularyRow, target, upos string, winner generatedVocabularyRow, temporary string) error {
+	for _, row := range group {
+		if _, err := tx.Exec(ctx, `DELETE FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3`, owner, row.lemma, upos); err != nil {
+			return err
+		}
+	}
+	if err := insertGeneratedVocabulary(ctx, tx, owner, target, upos, winner); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE deck_preparation_vocabulary SET canonical_lemma=$3 WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$4`, owner, temporary, target, upos); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3`, owner, temporary, upos); err != nil {
+		return err
+	}
+	return nil
+}
+
+func insertGeneratedVocabulary(ctx context.Context, tx pgx.Tx, owner, lemma, upos string, winner generatedVocabularyRow) error {
+	_, err := tx.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id, first_generated_at) VALUES($1,'de',$2,$3,$4,NULLIF($5,'')::uuid,$6)`, owner, lemma, upos, winner.firstDeckID, winner.firstSourceID, winner.firstGeneratedAt)
+	return err
+}
+
+func generatedVocabularyLemmas(group []generatedVocabularyRow) []string {
+	lemmas := make([]string, 0, len(group))
+	for _, row := range group {
+		lemmas = append(lemmas, row.lemma)
+	}
+	return lemmas
 }
 
 func queryGeneratedVocabulary(ctx context.Context, tx pgx.Tx, owner string) ([]generatedVocabularyRow, error) {
@@ -417,11 +478,7 @@ func distinctGeneratedUPOS(rows []generatedVocabularyRow, target string, profile
 }
 
 func queryDeckVocabulary(ctx context.Context, tx pgx.Tx, owner string, group []generatedVocabularyRow, upos string) ([]deckVocabularyRow, error) {
-	lemmas := make([]string, 0, len(group))
-	for _, row := range group {
-		lemmas = append(lemmas, row.lemma)
-	}
-	rows, err := tx.Query(ctx, `SELECT deck_preparation_id::text, generated_at, graduated_at FROM deck_preparation_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma=ANY($2::text[]) AND upos=$3 ORDER BY deck_preparation_id, generated_at, graduated_at NULLS LAST`, owner, lemmas, upos)
+	rows, err := tx.Query(ctx, `SELECT deck_preparation_id::text, generated_at, graduated_at FROM deck_preparation_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma=ANY($2::text[]) AND upos=$3 ORDER BY deck_preparation_id, generated_at, graduated_at NULLS LAST`, owner, generatedVocabularyLemmas(group), upos)
 	if err != nil {
 		return nil, err
 	}
