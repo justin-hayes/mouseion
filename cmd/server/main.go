@@ -102,9 +102,7 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
-	if hasDictionaryIndex {
-		defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
-	}
+	defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {
 		return err
@@ -181,12 +179,7 @@ func run() (err error) {
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
-	// The dictionary index is optional; a nil *dictionary.Index must not become a
-	// non-nil interface, or detection would call into a missing index.
-	var riskIndex lemmarisk.AlternativeIndex
-	if hasDictionaryIndex {
-		riskIndex = dictionaryIndex
-	}
+	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
 	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
@@ -285,6 +278,16 @@ func validateHealthcheckTarget(target string) error {
 
 func loopbackHost(host string) bool {
 	return host == "localhost" || (net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback())
+}
+
+// dictionaryRiskIndex exposes the optional dictionary as the lemma-risk index.
+// An absent dictionary must stay a nil interface, not a typed nil, or detection
+// would call into a missing index.
+func dictionaryRiskIndex(index *dictionary.Index, found bool) lemmarisk.AlternativeIndex {
+	if !found {
+		return nil
+	}
+	return index
 }
 
 // openOptionalDictionaryIndex opens the index named by MOUSEION_DICTIONARY_INDEX.

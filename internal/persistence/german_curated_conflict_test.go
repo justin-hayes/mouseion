@@ -62,8 +62,13 @@ func (r *conflictRows) Scan(dest ...any) error {
 	if r.scanErr != nil {
 		return r.scanErr
 	}
-	*dest[0].(*string) = r.values[r.pos-1][0]
-	*dest[1].(*string) = r.values[r.pos-1][1]
+	lemma, lemmaOK := dest[0].(*string)
+	upos, uposOK := dest[1].(*string)
+	if !lemmaOK || !uposOK {
+		return errors.New("unexpected scan destinations")
+	}
+	*lemma = r.values[r.pos-1][0]
+	*upos = r.values[r.pos-1][1]
 	return nil
 }
 
@@ -80,7 +85,11 @@ func (r conflictExistsRow) Scan(dest ...any) error {
 	if r.err != nil {
 		return r.err
 	}
-	*dest[0].(*bool) = r.exists
+	exists, ok := dest[0].(*bool)
+	if !ok {
+		return errors.New("unexpected scan destination")
+	}
+	*exists = r.exists
 	return nil
 }
 
