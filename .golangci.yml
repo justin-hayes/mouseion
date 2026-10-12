@@ -89,10 +89,6 @@ linters:
       disabled-tags:
         - style
         - performance
-      disabled-checks:
-        # About 190 production `if err = f(); err != nil` reuses of an outer
-        # err. Converting them is a separate refactor (#1829).
-        - sloppyReassign
     interfacebloat:
       max: 10
     exhaustive:
