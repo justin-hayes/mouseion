@@ -167,9 +167,15 @@ func TestDurableFinalizerDoesNotPublishRenderFailure(t *testing.T) {
 	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}}
 	renderer := &finalizerRendererStub{err: renderErr}
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-	assert.ErrorIs(t, err, renderErr) //nolint:testifylint // Error propagation and durable failure side effects are independently asserted.
-	assert.Zero(t, store.completeCalls)
-	assert.Equal(t, 1, store.failCalls)
+	t.Run("propagates the render error", func(t *testing.T) {
+		require.ErrorIs(t, err, renderErr)
+	})
+	t.Run("does not publish", func(t *testing.T) {
+		require.Zero(t, store.completeCalls)
+	})
+	t.Run("records the failure", func(t *testing.T) {
+		require.Equal(t, 1, store.failCalls)
+	})
 }
 
 func TestDurableFinalizerFailsRestoreFailure(t *testing.T) {
@@ -179,18 +185,30 @@ func TestDurableFinalizerFailsRestoreFailure(t *testing.T) {
 
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
 
-	assert.ErrorIs(t, err, restoreErr) //nolint:testifylint // Error propagation and durable failure side effects are independently asserted.
-	assert.Equal(t, 1, store.failCalls)
-	assert.Zero(t, store.completeCalls)
+	t.Run("propagates the restore error", func(t *testing.T) {
+		require.ErrorIs(t, err, restoreErr)
+	})
+	t.Run("records the failure", func(t *testing.T) {
+		require.Equal(t, 1, store.failCalls)
+	})
+	t.Run("does not publish", func(t *testing.T) {
+		require.Zero(t, store.completeCalls)
+	})
 }
 
 func TestDurableFinalizerFailsRunForPresentationValidationError(t *testing.T) {
 	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}}
 	renderer := &finalizerRendererStub{err: cardexport.ErrInvalidInput}
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-	assert.ErrorIs(t, err, cardexport.ErrInvalidInput) //nolint:testifylint // Error classification and durable failure side effects are independent.
-	assert.Equal(t, 1, store.failCalls)
-	assert.Zero(t, store.completeCalls)
+	t.Run("classifies the validation error", func(t *testing.T) {
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+	t.Run("records the failure", func(t *testing.T) {
+		require.Equal(t, 1, store.failCalls)
+	})
+	t.Run("does not publish", func(t *testing.T) {
+		require.Zero(t, store.completeCalls)
+	})
 }
 
 func TestDurableFinalizerLogsInvalidSenseSelectionFromDiagnostics(t *testing.T) {
@@ -306,10 +324,16 @@ func TestDurableRerendererDoesNotRenderRetiredPreparation(t *testing.T) {
 
 	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 2)
 
-	assert.ErrorIs(t, err, persistence.ErrInvalidTransition) //nolint:testifylint // Rejection and no-render side effects are independent expectations.
-	assert.Zero(t, renderer.calls)
-	assert.Zero(t, store.loadCalls)
-	assert.Zero(t, store.supersedeCalls)
+	t.Run("rejects the retired preparation", func(t *testing.T) {
+		require.ErrorIs(t, err, persistence.ErrInvalidTransition)
+	})
+	t.Run("does not render", func(t *testing.T) {
+		require.Zero(t, renderer.calls)
+	})
+	t.Run("does not load or supersede", func(t *testing.T) {
+		require.Zero(t, store.loadCalls)
+		require.Zero(t, store.supersedeCalls)
+	})
 }
 
 func TestDurableRerendererRecoversLegacyParseFromCorpus(t *testing.T) {
@@ -350,10 +374,18 @@ func TestDurableRerendererReportsMissingLegacyInputWithoutPublishing(t *testing.
 
 	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 1)
 
-	assert.ErrorIs(t, err, ErrRequiresRepreparation) //nolint:testifylint // Missing-input classification and no-publish side effects are independent.
-	assert.Equal(t, 1, store.corpusCalls)
-	assert.Zero(t, renderer.calls)
-	assert.Zero(t, store.supersedeCalls)
+	t.Run("classifies the missing input as requiring repreparation", func(t *testing.T) {
+		require.ErrorIs(t, err, ErrRequiresRepreparation)
+	})
+	t.Run("reads the corpus once", func(t *testing.T) {
+		require.Equal(t, 1, store.corpusCalls)
+	})
+	t.Run("does not render", func(t *testing.T) {
+		require.Zero(t, renderer.calls)
+	})
+	t.Run("does not publish", func(t *testing.T) {
+		require.Zero(t, store.supersedeCalls)
+	})
 }
 
 func TestRerenderWorkerSurfacesMissingLegacyInputWithoutRetrying(t *testing.T) {

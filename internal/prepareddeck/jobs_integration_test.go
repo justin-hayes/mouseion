@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -82,10 +83,14 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	assert.Equal(t, handle.Preparation.ID, exact.ID)
 	assert.Equal(t, analysisHandle.RunID, exact.AnalysisRunID)
-	_, err = service.GetForAnalysis(ctx, other.ID, source.ID, analysisHandle.RunID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner exact preparation lookup") //nolint:testifylint // Cross-owner lookup is independent of the concurrent submission exercise.
-	_, err = service.GetForAnalysis(ctx, owner.ID, other.ID, analysisHandle.RunID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-book exact preparation lookup") //nolint:testifylint // Cross-book lookup is independent of the concurrent submission exercise.
+	t.Run("cross-owner exact preparation lookup is not found", func(t *testing.T) {
+		_, err := service.GetForAnalysis(ctx, other.ID, source.ID, analysisHandle.RunID)
+		require.ErrorIs(t, err, persistence.ErrNotFound)
+	})
+	t.Run("cross-book exact preparation lookup is not found", func(t *testing.T) {
+		_, err := service.GetForAnalysis(ctx, owner.ID, other.ID, analysisHandle.RunID)
+		require.ErrorIs(t, err, persistence.ErrNotFound)
+	})
 	var submissions sync.WaitGroup
 	results := make(chan Handle, 8)
 	errorsCh := make(chan error, 8)
@@ -102,18 +107,14 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	submissions.Wait()
 	close(results)
 	close(errorsCh)
-	for submitErr := range errorsCh {
-		assert.NoError(t, submitErr, "concurrent submit") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
-	}
-	for result := range results {
-		assert.Equal(t, handle.Preparation.ID, result.Preparation.ID)
-		assert.Equal(t, handle.JobID, result.JobID, "concurrent duplicate")
-	}
+	requireConcurrentSubmissions(t, results, errorsCh, handle.Preparation.ID, handle.JobID, "concurrent submit")
 	var jobCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2`, (JobArgs{}).Kind(), handle.Preparation.ID).Scan(&jobCount))
 	assert.Equal(t, 1, jobCount, "duplicate jobs")
-	_, err = service.Get(ctx, other.ID, handle.Preparation.ID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner get") //nolint:testifylint // Cross-owner lookup is independent of the cancellation and retry checks.
+	t.Run("cross-owner get is not found", func(t *testing.T) {
+		_, err := service.Get(ctx, other.ID, handle.Preparation.ID)
+		require.ErrorIs(t, err, persistence.ErrNotFound)
+	})
 	cancelled, err := service.Cancel(ctx, owner.ID, handle.Preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationCancelled, cancelled.State)
@@ -137,13 +138,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	retries.Wait()
 	close(retryResults)
 	close(retryErrors)
-	for retryErr := range retryErrors {
-		assert.NoError(t, retryErr, "concurrent retry") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
-	}
-	for result := range retryResults {
-		assert.Equal(t, handle.Preparation.ID, result.Preparation.ID)
-		assert.Equal(t, retried.JobID, result.JobID, "concurrent retry")
-	}
+	requireConcurrentSubmissions(t, retryResults, retryErrors, handle.Preparation.ID, retried.JobID, "concurrent retry")
 	_, err = store.ClaimDeckPreparation(ctx, owner.ID, retried.Preparation.ID)
 	require.NoError(t, err)
 	_, err = store.CompleteDeckPreparation(ctx, owner.ID, retried.Preparation.ID, domain.DeckPreparation{Artifact: []byte("old-artifact"), Filename: "old.apkg", DeckName: "Old", TotalCards: 1})
@@ -223,13 +218,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	readingSubmissions.Wait()
 	close(readingResults)
 	close(readingErrors)
-	for submitErr := range readingErrors {
-		assert.NoError(t, submitErr, "concurrent Reading submission") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
-	}
-	for result := range readingResults {
-		assert.Equal(t, firstReadingPreparation.Preparation.ID, result.Preparation.ID)
-		assert.Equal(t, firstReadingPreparation.JobID, result.JobID)
-	}
+	requireConcurrentSubmissions(t, readingResults, readingErrors, firstReadingPreparation.Preparation.ID, firstReadingPreparation.JobID, "concurrent Reading submission")
 	require.NotEmpty(t, firstReadingPreparation.Preparation.ID)
 	_, err = store.ClaimDeckPreparation(ctx, owner.ID, firstReadingPreparation.Preparation.ID)
 	require.NoError(t, err)
@@ -424,6 +413,26 @@ func (c *blockingRiverClient) JobCancel(ctx context.Context, id int64) (*riverty
 	return c.client.JobCancel(ctx, id)
 }
 
+// requireConcurrentSubmissions drains every result and error of concurrent
+// submissions before asserting anything, so one failure never hides the rest.
+// Goroutines never assert; the channels must already be closed.
+func requireConcurrentSubmissions(t *testing.T, results <-chan Handle, errs <-chan error, preparationID string, jobID int64, label string) {
+	t.Helper()
+	var failures []error
+	for err := range errs {
+		failures = append(failures, err)
+	}
+	var preparationIDs []string
+	var jobIDs []int64
+	for result := range results {
+		preparationIDs = append(preparationIDs, result.Preparation.ID)
+		jobIDs = append(jobIDs, result.JobID)
+	}
+	require.NoError(t, errors.Join(failures...), label)
+	require.Equal(t, slices.Repeat([]string{preparationID}, len(preparationIDs)), preparationIDs, label)
+	require.Equal(t, slices.Repeat([]int64{jobID}, len(jobIDs)), jobIDs, label)
+}
+
 func TestServiceEnqueueFailureDoesNotLeaveWaitingPreparation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
@@ -437,10 +446,14 @@ func TestServiceEnqueueFailureDoesNotLeaveWaitingPreparation(t *testing.T) {
 	failing := &failingRiverClient{err: errors.New("River unavailable")}
 	service := &Service{pool: store.Pool(), client: failing, store: store}
 	_, err = service.PrepareCurrentReadingDeck(ctx, owner.ID, reading.BookID, reading.SnapshotID)
-	assert.Error(t, err, "expected initial enqueue failure") //nolint:testifylint // Error classification and the rollback query are independent expectations.
 	var count int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1`, owner.ID).Scan(&count))
-	assert.Zero(t, count, "initial enqueue left preparations")
+	t.Run("initial enqueue failure is reported", func(t *testing.T) {
+		require.Error(t, err, "expected initial enqueue failure")
+	})
+	t.Run("failed initial enqueue leaves no preparation", func(t *testing.T) {
+		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1`, owner.ID).Scan(&count))
+		require.Zero(t, count, "initial enqueue left preparations")
+	})
 	p, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisHandle.RunID, SnapshotID: reading.SnapshotID, Filename: "retry.apkg", DeckName: "retry", ContentHash: "retry-hash"})
 	require.NoError(t, err)
 	_, err = store.ClaimDeckPreparation(ctx, owner.ID, p.ID)
