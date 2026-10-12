@@ -89,16 +89,18 @@ func TestProbeHealth(t *testing.T) {
 }
 
 func TestOpenDictionaryIndexMissingFileIsOptional(t *testing.T) {
-	index, err := openDictionaryIndex(t.Context(), filepath.Join(t.TempDir(), "absent.sqlite"))
+	index, found, err := openDictionaryIndex(t.Context(), filepath.Join(t.TempDir(), "absent.sqlite"))
 
 	require.NoError(t, err)
+	assert.False(t, found)
 	assert.Nil(t, index)
 }
 
 func TestOpenDictionaryIndexRejectsInvalidPath(t *testing.T) {
-	index, err := openDictionaryIndex(t.Context(), t.TempDir())
+	index, found, err := openDictionaryIndex(t.Context(), t.TempDir())
 
 	require.Error(t, err)
+	assert.False(t, found)
 	assert.Nil(t, index)
 	assert.Contains(t, err.Error(), "directory")
 }
@@ -111,9 +113,10 @@ func TestOpenDictionaryIndexOpensValidIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
-	index, err := openDictionaryIndex(t.Context(), path)
+	index, found, err := openDictionaryIndex(t.Context(), path)
 
 	require.NoError(t, err)
+	require.True(t, found)
 	require.NotNil(t, index)
 	testutil.Cleanup(t, "dictionary index", index.Close)
 	assert.Equal(t, "fixture-v1", index.Version())

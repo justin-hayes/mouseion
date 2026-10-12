@@ -99,13 +99,14 @@ func run() (err error) {
 		return err
 	}
 	var dictionaryIndex *dictionary.Index
+	var hasDictionaryIndex bool
 	if path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX")); path != "" {
-		dictionaryIndex, err = openDictionaryIndex(ctx, path)
+		dictionaryIndex, hasDictionaryIndex, err = openDictionaryIndex(ctx, path)
 		if err != nil {
 			return err
 		}
 	}
-	if dictionaryIndex != nil {
+	if hasDictionaryIndex {
 		defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
 	}
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
@@ -187,7 +188,7 @@ func run() (err error) {
 	// The dictionary index is optional; a nil *dictionary.Index must not become a
 	// non-nil interface, or detection would call into a missing index.
 	var riskIndex lemmarisk.AlternativeIndex
-	if dictionaryIndex != nil {
+	if hasDictionaryIndex {
 		riskIndex = dictionaryIndex
 	}
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
@@ -292,21 +293,20 @@ func loopbackHost(host string) bool {
 
 // openDictionaryIndex loads the optional local dictionary index. An absent file
 // means the operator has not derived the index, so glosses fall back to the
-// morphology heuristic. A path that exists but is not a usable index is a
-// misconfiguration and must not silently degrade card output.
-func openDictionaryIndex(ctx context.Context, path string) (*dictionary.Index, error) {
-	index, err := dictionary.OpenIndex(ctx, path)
+// morphology heuristic; it reports found=false and is a successful startup mode.
+// A path that exists but is not a usable index is a misconfiguration and must
+// not silently degrade card output.
+func openDictionaryIndex(ctx context.Context, path string) (index *dictionary.Index, found bool, err error) {
+	index, err = dictionary.OpenIndex(ctx, path)
 	if err == nil {
 		log.Print("dictionary index loaded")
-		return index, nil
+		return index, true, nil
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		log.Print("dictionary index not found; continuing without local glosses")
-		// The local dictionary is optional; absence is a successful startup mode.
-		//nolint:nilnil // nil index explicitly represents the absent optional index.
-		return nil, nil
+		return nil, false, nil
 	}
-	return nil, fmt.Errorf("invalid dictionary index at %s: %w", path, err)
+	return nil, false, fmt.Errorf("invalid dictionary index at %s: %w", path, err)
 }
 
 func registerPreparedDeckWorkers(workers *river.Workers, store *persistence.PostgresStore, client *river.Client[pgx.Tx], provider *enrichment.OpenAIBatchClient, codec *enrichment.TranslationCodec, pollInterval time.Duration, metrics prepareddeck.BatchMetrics) {
