@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,6 +52,27 @@ func TestNewHTTPServerHasTimeoutPolicy(t *testing.T) {
 	assert.Equal(t, serverReadTimeout, server.ReadTimeout)
 	assert.Equal(t, serverWriteTimeout, server.WriteTimeout)
 	assert.Equal(t, serverIdleTimeout, server.IdleTimeout)
+}
+
+// Startup validates the secret and database URL before it opens any dependency,
+// so those misconfigurations stop with a named error and no partial startup.
+// These hold that contract through run, the seam a binary actually enters.
+func TestRunRejectsInvalidSecret(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "too-short")
+	t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+
+	err := run()
+
+	require.ErrorContains(t, err, "invalid MOUSEION_SECRET")
+}
+
+func TestRunRequiresDatabaseURL(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", strings.Repeat("s", 32))
+	t.Setenv("MOUSEION_DATABASE_URL", "")
+
+	err := run()
+
+	require.EqualError(t, err, "MOUSEION_DATABASE_URL is required")
 }
 
 func TestProbeHealth(t *testing.T) {
