@@ -16,6 +16,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "diff-cover==10.6.0",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "grpcio-tools==1.71.2",

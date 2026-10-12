@@ -48,6 +48,7 @@ with `golangci-lint fmt ./...` and `.venv/bin/ruff format nlp/src nlp/tests`.
 | `make build` | `go build ./...` plus Python `compileall` |
 | `make test` | Go unit tests and pytest |
 | `make coverage` | Python and Go coverage reports in `.tmp/coverage/` (the Go integration part needs the `make test-integration` database prerequisites) |
+| `make coverage-new` | `make coverage`, then previews SonarQube Cloud's 80% new-code coverage gate for the lines changed since `origin/main` and lists the uncovered ones |
 | `make test-integration` | PostgreSQL-backed Go integration tests |
 | `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check` and `ruff format --check` |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
@@ -132,6 +133,22 @@ only to the package under test. `make coverage` needs the same database
 prerequisites as `make test-integration`: a running Docker daemon for
 Testcontainers, or `MOUSEION_TEST_DATABASE_URL` pointing at a PostgreSQL role
 with `CREATEDB`.
+
+`make coverage-new` runs `make coverage` and then `tools/coverage-new.sh`, a
+local preview of SonarQube Cloud's quality-gate condition, 80% coverage on new
+code, so uncovered lines show up before a pull request is opened. It does not
+run in CI: SonarQube Cloud's gate decides whether a pull request passes. It converts the Go profiles to Cobertura XML
+with gocover-cobertura (a `tool` directive in `go.mod`) and checks them with the
+Python report in diff-cover (the `dev` group of `nlp/pyproject.toml`) against
+the lines changed since the merge base with `origin/main`; set `COVERAGE_BASE`
+to compare with another branch. The change is the working tree, staged and
+unstaged; untracked files are not part of it. A line counts as covered when any
+report covers it. Like SonarQube Cloud, the check passes when the change adds
+fewer than 20 new lines of code; `tools/new-code-lines.sh` counts them, and
+`tools/coverage-new_test.sh` checks that count. Sonar decides which lines are
+new with its own diff, so the two line counts can differ by a few lines, and
+Python and JavaScript files outside the coverage reports (`nlp/scripts`,
+`tools`) count as uncovered in Sonar but are not checked here.
 
 Test coverage here means test line coverage: the share of statements that the
 tests execute. It is not vocabulary coverage, the learner-facing measure in

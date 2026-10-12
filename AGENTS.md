@@ -23,6 +23,7 @@ make templ            # templ generate -> internal/webapp/*_templ.go (committed)
 make build            # go build ./... + python compileall
 make test             # go test ./... + pytest (PYTHONPATH=nlp/src:gen/python)
 make test-integration # go test -count=1 -tags=integration ./internal/...
+make coverage-new     # make coverage, then preview Sonar's 80% new-code coverage gate
 make lint-go          # pinned golangci-lint over the complete Go module
 make lint             # make lint-go + ruff check nlp/src nlp/tests
 make browser-smoke    # Playwright against cmd/fixtureserver
@@ -38,9 +39,13 @@ Non-obvious setup:
 - `make dev` requires a running Postgres (`MOUSEION_DATABASE_URL`) and NLP gRPC (`MOUSEION_NLP_ADDR`, default `localhost:50051`); `MOUSEION_SECRET` is validated at startup.
 
 For Go-only iteration, run `make lint-go` followed by `go test ./...`. Before
-handoff, run `make lint` for the whole project. When `.golangci.yml` changes,
-verify it with `golangci-lint config verify`; `golangci-lint run --fast-only ./...`
-is optional fast feedback, not a replacement for the final full-tree run.
+handoff, run `make lint` for the whole project, and `make coverage-new` when the
+change adds Go or Python code (it needs the integration-test prerequisites); add
+tests for the uncovered lines it lists. SonarQube Cloud's gate stays the
+authority.
+When `.golangci.yml` changes, verify it with `golangci-lint config verify`;
+`golangci-lint run --fast-only ./...` is optional fast feedback, not a
+replacement for the final full-tree run.
 
 ## Generated artifacts
 
