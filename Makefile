@@ -209,7 +209,9 @@ gen: go-tmp
 	mkdir -p gen/go gen/python $(GOTMPDIR)
 	test -x $(VENV_BIN)/python || $(MAKE) setup
 	$(VENV_BIN)/python -c 'import importlib.metadata; assert importlib.metadata.version("grpcio-tools") == "1.71.2"' || { printf '%s\n' "grpcio-tools 1.71.2 is missing from $(VENV); run 'make setup'." >&2; exit 1; }
-	protoc -I proto --plugin=protoc-gen-go=$(PROTOC_GEN_GO) --go_out=gen/go --go_opt=paths=source_relative --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative --python_out=gen/python $(PROTO_FILE)
+	# --pyi_out emits typed stubs next to the generated Python messages so a
+	# static type checker understands the NLP request and response types.
+	protoc -I proto --plugin=protoc-gen-go=$(PROTOC_GEN_GO) --go_out=gen/go --go_opt=paths=source_relative --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative --python_out=gen/python --pyi_out=gen/python $(PROTO_FILE)
 	$(VENV_BIN)/python -m grpc_tools.protoc -I proto --grpc_python_out=gen/python $(PROTO_FILE)
 	touch gen/python/mouseion/__init__.py gen/python/mouseion/v1/__init__.py
 
