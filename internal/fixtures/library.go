@@ -222,83 +222,129 @@ func (s *Store) ListMyBooksBrowse(ctx context.Context, owner, query, language, d
 
 // ListMyBooksBrowseWithVisibility mirrors the production visibility scope:
 // Hidden Books are omitted unless showHidden is set and all counts follow it.
+// The projection is assembled from named steps that read like the PostgreSQL
+// store's equivalent: normalize the request, drop the invisible Books, count
+// what the view offers, filter to the selected scope, order, and page.
 func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	query, language, disposition = normalizeFixtureBrowseInputs(query, language, disposition)
+	everything := s.myBooksForOwner(owner)
+	result := domain.MyBooksBrowseResult{AllCount: len(everything)}
+	visible, hiddenCount := fixtureVisibleBooks(everything, language, showHidden)
+	result.HiddenCount = hiddenCount
+	result.Counts = fixtureLanguageCounts(visible)
+	result.ReadCount, result.DispositionCounts = fixtureWorkflowCounts(visible, language)
+	filtered, scopeTotal := filterFixtureBooks(visible, query, language, disposition, history)
+	result.ScopeTotal = scopeTotal
+	sortFixtureBrowseBooks(filtered)
+	result.Total = len(filtered)
+	result.Items = fixtureBrowsePage(filtered, offset, limit)
+	return result, nil
+}
+
+// normalizeFixtureBrowseInputs trims the search and the scope selectors and
+// canonicalizes the language, except for the explicit unknown scope.
+func normalizeFixtureBrowseInputs(query, language, disposition string) (string, string, string) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
 	disposition = strings.TrimSpace(disposition)
 	if language != domain.LanguageUnknown {
 		language = normalizeFixtureLanguage(language)
 	}
-	everything := s.myBooksForOwner(owner)
-	result := domain.MyBooksBrowseResult{AllCount: len(everything)}
-	all := make([]domain.MyBook, 0, len(everything))
+	return query, language, disposition
+}
+
+// fixtureVisibleBooks drops Hidden Books unless showHidden is set. It also
+// reports the Hidden Books in the language scope, which stays independent of
+// that choice so an empty view can still offer recovery.
+func fixtureVisibleBooks(everything []domain.MyBook, language string, showHidden bool) (visible []domain.MyBook, hiddenCount int) {
+	visible = make([]domain.MyBook, 0, len(everything))
 	for _, book := range everything {
-		inLanguage := language == "" || (language == domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language)
-		if book.Hidden && inLanguage {
-			result.HiddenCount++
+		if book.Hidden {
+			if fixtureBookInLanguage(book, language) {
+				hiddenCount++
+			}
+			if !showHidden {
+				continue
+			}
 		}
-		if book.Hidden && !showHidden {
-			continue
-		}
-		all = append(all, book)
+		visible = append(visible, book)
 	}
+	return visible, hiddenCount
+}
+
+// fixtureLanguageCounts counts the visible Books per language pill, with the
+// unknown pill last. The pills describe the whole visible collection rather
+// than the selected language.
+func fixtureLanguageCounts(books []domain.MyBook) []domain.LanguageCount {
 	counts := map[string]int{}
-	for _, book := range all {
+	for _, book := range books {
 		tag := domain.LanguageUnknown
 		if book.Book.LanguageState == domain.LanguageChosen {
 			tag = normalizeFixtureLanguage(book.Book.LanguageTag)
 		}
 		counts[tag]++
 	}
+	var result []domain.LanguageCount
 	for tag, count := range counts {
-		result.Counts = append(result.Counts, domain.LanguageCount{Tag: tag, Count: count})
+		result = append(result, domain.LanguageCount{Tag: tag, Count: count})
 	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Tag == domain.LanguageUnknown {
+			return false
+		}
+		if result[j].Tag == domain.LanguageUnknown {
+			return true
+		}
+		return result[i].Tag < result[j].Tag
+	})
+	return result
+}
+
+// fixtureWorkflowCounts counts the visible workflow buckets in the language
+// scope: the Read projection and the persisted dispositions. A current reading
+// carries its persisted To Read disposition, so it also counts as To Read.
+func fixtureWorkflowCounts(books []domain.MyBook, language string) (readCount int, counts []domain.DispositionCount) {
 	dispositionCounts := map[domain.BookDisposition]int{}
-	for _, book := range all {
-		if language == "" || (language == domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language) {
-			bucket := book.WorkflowBucket()
-			if bucket == domain.MyBookBucketRead {
-				result.ReadCount++
-			}
-			if disposition, ok := bucket.PersistedDisposition(); ok {
-				dispositionCounts[disposition]++
-			}
-			if bucket == domain.MyBookBucketCurrentReading {
-				dispositionCounts[domain.BookDispositionToRead]++
-			}
+	for _, book := range books {
+		if !fixtureBookInLanguage(book, language) {
+			continue
+		}
+		bucket := book.WorkflowBucket()
+		if bucket == domain.MyBookBucketRead {
+			readCount++
+		}
+		if disposition, ok := bucket.PersistedDisposition(); ok {
+			dispositionCounts[disposition]++
+		}
+		if bucket == domain.MyBookBucketCurrentReading {
+			dispositionCounts[domain.BookDispositionToRead]++
 		}
 	}
 	for disposition, count := range dispositionCounts {
-		result.DispositionCounts = append(result.DispositionCounts, domain.DispositionCount{Disposition: disposition, Count: count})
+		counts = append(counts, domain.DispositionCount{Disposition: disposition, Count: count})
 	}
-	sort.Slice(result.DispositionCounts, func(i, j int) bool {
-		return result.DispositionCounts[i].Disposition < result.DispositionCounts[j].Disposition
+	sort.Slice(counts, func(i, j int) bool {
+		return counts[i].Disposition < counts[j].Disposition
 	})
-	sort.Slice(result.Counts, func(i, j int) bool {
-		if result.Counts[i].Tag == domain.LanguageUnknown {
-			return false
-		}
-		if result.Counts[j].Tag == domain.LanguageUnknown {
-			return true
-		}
-		return result.Counts[i].Tag < result.Counts[j].Tag
-	})
+	return readCount, counts
+}
 
-	filtered := make([]domain.MyBook, 0, len(all))
-	for _, book := range all {
-		if language == "" || (language == domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language) {
-			result.ScopeTotal++
+// filterFixtureBooks applies the search, language, and workflow filters to the
+// visible Books and returns the selected scope size alongside the matches.
+func filterFixtureBooks(books []domain.MyBook, query, language, disposition string, history bool) ([]domain.MyBook, int) {
+	filtered := make([]domain.MyBook, 0, len(books))
+	var scopeTotal int
+	for _, book := range books {
+		inLanguage := fixtureBookInLanguage(book, language)
+		if inLanguage {
+			scopeTotal++
 		}
 		if query != "" && !strings.Contains(strings.ToLower(book.Book.Title), query) {
 			continue
 		}
-		if language == domain.LanguageUnknown {
-			if book.Book.LanguageState != domain.LanguageUnknown {
-				continue
-			}
-		} else if language != "" && (book.Book.LanguageState != domain.LanguageChosen || normalizeFixtureLanguage(book.Book.LanguageTag) != language) {
+		if !inLanguage {
 			continue
 		}
 		if !book.WorkflowBucket().MatchesBrowseFilter(domain.BookDisposition(disposition), history) {
@@ -306,8 +352,28 @@ func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query,
 		}
 		filtered = append(filtered, book)
 	}
-	sort.Slice(filtered, func(i, j int) bool {
-		left, right := filtered[i].Book, filtered[j].Book
+	return filtered, scopeTotal
+}
+
+// fixtureBookInLanguage reports whether a Book belongs to the selected
+// language scope: every language when empty, only unchosen languages for the
+// explicit unknown scope, and a canonical tag match otherwise.
+func fixtureBookInLanguage(book domain.MyBook, language string) bool {
+	switch language {
+	case "":
+		return true
+	case domain.LanguageUnknown:
+		return book.Book.LanguageState == domain.LanguageUnknown
+	default:
+		return book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language
+	}
+}
+
+// sortFixtureBrowseBooks orders a page the way the PostgreSQL browse query
+// does: lowercased title, then exact title, then Book ID.
+func sortFixtureBrowseBooks(books []domain.MyBook) {
+	sort.Slice(books, func(i, j int) bool {
+		left, right := books[i].Book, books[j].Book
 		leftTitle, rightTitle := strings.ToLower(left.Title), strings.ToLower(right.Title)
 		if leftTitle != rightTitle {
 			return leftTitle < rightTitle
@@ -317,21 +383,25 @@ func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query,
 		}
 		return left.ID < right.ID
 	})
-	result.Total = len(filtered)
+}
+
+// fixtureBrowsePage clamps caller-supplied pagination and returns the selected
+// page, guarding the integer overflow the PostgreSQL store also guards.
+func fixtureBrowsePage(books []domain.MyBook, offset, limit int) []domain.MyBook {
 	if offset < 0 {
 		offset = 0
 	}
 	if limit < 0 {
 		limit = 0
 	}
-	if offset < len(filtered) {
-		end := offset + limit
-		if end < offset || end > len(filtered) {
-			end = len(filtered)
-		}
-		result.Items = filtered[offset:end]
+	if offset >= len(books) {
+		return nil
 	}
-	return result, nil
+	end := offset + limit
+	if end < offset || end > len(books) {
+		end = len(books)
+	}
+	return books[offset:end]
 }
 
 func (s *Store) IsMetadataOnlyMyBook(_ context.Context, owner, bookID string) (bool, error) {
