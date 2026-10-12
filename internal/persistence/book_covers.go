@@ -24,82 +24,124 @@ func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner,
 	}
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
-		if _, err := q.LockOpdsConnection(ctx, sqlcgen.LockOpdsConnectionParams{OwnerID: uuidArg(owner), ConnectionID: connectionID}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				retrieve = false
-				return nil
-			}
-			return err
-		}
-		current, err := q.GetBookCoverForUpdate(ctx, sqlcgen.GetBookCoverForUpdateParams{Owner: owner, Book: bookID})
-		if errors.Is(err, pgx.ErrNoRows) {
-			if !advertised {
-				// Absence without a known source is not provenance worth
-				// persisting; leave the Book without a cover row.
-				retrieve = false
-				return nil
-			}
-			inserted, insertErr := q.InsertBookCoverCandidate(ctx, sqlcgen.InsertBookCoverCandidateParams{
-				Owner: owner, Book: bookID, State: domain.BookCoverPending, Advertised: advertised,
-				Connection: connectionID, SourceIdentifier: sourceIdentifier,
-			})
-			if insertErr != nil {
-				return insertErr
-			}
-			retrieve = inserted > 0
-			err = nil
-		} else {
-			if err != nil {
-				return err
-			}
-			sameSource := current.SelectedConnectionID == connectionID && current.SelectedSourceIdentifier == sourceIdentifier
-			if !advertised {
-				retrieve = false
-				return retireBookCoverAdvertisement(ctx, q, current, owner, bookID, connectionID, sourceIdentifier, sameSource)
-			}
-			switch {
-			case current.State == domain.BookCoverAvailable && sameSource:
-				retrieve = true
-				err = q.RefreshBookCoverAdvertisement(ctx, sqlcgen.RefreshBookCoverAdvertisementParams{Owner: owner, Book: bookID})
-			case current.State == domain.BookCoverAvailable:
-				retrieve = false
-			case current.State == domain.BookCoverPending && sameSource && advertised:
-				// Refresh retrieval for the selected source without advancing the
-				// generation; other candidates in this generation remain eligible.
-				retrieve = true
-			case current.State == domain.BookCoverPending && advertised:
-				// Keep one pending generation for concurrent initial candidates;
-				// their first validated completion will select the source atomically.
-				retrieve = true
-			case advertised:
-				retrieve = true
-				err = q.SetBookCoverPending(ctx, sqlcgen.SetBookCoverPendingParams{
-					Owner: owner, Book: bookID, Connection: uuidArg(connectionID), SourceIdentifier: textArg(sourceIdentifier),
-				})
-			}
-		}
+		locked, err := lockBookCoverConnection(ctx, q, owner, connectionID)
 		if err != nil {
 			return err
 		}
-		if retrieve {
-			current, err = q.GetBookCoverForUpdate(ctx, sqlcgen.GetBookCoverForUpdateParams{Owner: owner, Book: bookID})
+		if !locked {
+			retrieve = false
+			return nil
+		}
+		current, err := q.GetBookCoverForUpdate(ctx, sqlcgen.GetBookCoverForUpdateParams{Owner: owner, Book: bookID})
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			retrieve, err = advertiseNewBookCover(ctx, q, owner, bookID, connectionID, sourceIdentifier, advertised)
 			if err != nil {
 				return err
 			}
-			advertisedAt = current.AdvertisedAt.Time
-			_, err = q.RegisterBookCoverCandidate(ctx, sqlcgen.RegisterBookCoverCandidateParams{
-				Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt,
-			})
+		case err != nil:
+			return err
+		default:
+			retrieve, err = applyBookCoverAdvertisement(ctx, q, current, owner, bookID, connectionID, sourceIdentifier, advertised)
 			if err != nil {
 				return err
 			}
 		}
+		if !retrieve {
+			return nil
+		}
+		registeredAt, err := registerBookCoverRetrieval(ctx, q, owner, bookID, connectionID, sourceIdentifier)
+		if err != nil {
+			return err
+		}
+		advertisedAt = registeredAt
 		return nil
 	})
 	if err != nil {
 		return false, time.Time{}, err
 	}
 	return retrieve, advertisedAt, nil
+}
+
+// lockBookCoverConnection locks the advertised Opds connection so concurrent
+// syncs of the same Book cannot interleave source selection. It reports false
+// when the connection does not exist for the owner, so the advertisement is
+// ignored.
+func lockBookCoverConnection(ctx context.Context, q *sqlcgen.Queries, owner, connectionID string) (bool, error) {
+	if _, err := q.LockOpdsConnection(ctx, sqlcgen.LockOpdsConnectionParams{OwnerID: uuidArg(owner), ConnectionID: connectionID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// advertiseNewBookCover records the first advertisement for a Book that has no
+// cover row yet. Absence without a known source is not provenance worth
+// persisting, so a negative advertisement leaves the Book without a cover row.
+func advertiseNewBookCover(ctx context.Context, q *sqlcgen.Queries, owner, bookID, connectionID, sourceIdentifier string, advertised bool) (bool, error) {
+	if !advertised {
+		return false, nil
+	}
+	inserted, err := q.InsertBookCoverCandidate(ctx, sqlcgen.InsertBookCoverCandidateParams{
+		Owner: owner, Book: bookID, State: domain.BookCoverPending, Advertised: advertised,
+		Connection: connectionID, SourceIdentifier: sourceIdentifier,
+	})
+	if err != nil {
+		return false, err
+	}
+	return inserted > 0, nil
+}
+
+// applyBookCoverAdvertisement decides what an advertisement changes for the
+// existing cover row and records it, reporting whether retrieval work is
+// needed.
+func applyBookCoverAdvertisement(ctx context.Context, q *sqlcgen.Queries, current sqlcgen.GetBookCoverForUpdateRow, owner, bookID, connectionID, sourceIdentifier string, advertised bool) (bool, error) {
+	sameSource := current.SelectedConnectionID == connectionID && current.SelectedSourceIdentifier == sourceIdentifier
+	if !advertised {
+		return false, retireBookCoverAdvertisement(ctx, q, current, owner, bookID, connectionID, sourceIdentifier, sameSource)
+	}
+	switch {
+	case current.State == domain.BookCoverAvailable && sameSource:
+		if err := q.RefreshBookCoverAdvertisement(ctx, sqlcgen.RefreshBookCoverAdvertisementParams{Owner: owner, Book: bookID}); err != nil {
+			return false, err
+		}
+		return true, nil
+	case current.State == domain.BookCoverAvailable:
+		return false, nil
+	case current.State == domain.BookCoverPending && sameSource:
+		// Refresh retrieval for the selected source without advancing the
+		// generation; other candidates in this generation remain eligible.
+		return true, nil
+	case current.State == domain.BookCoverPending:
+		// Keep one pending generation for concurrent initial candidates;
+		// their first validated completion will select the source atomically.
+		return true, nil
+	default:
+		if err := q.SetBookCoverPending(ctx, sqlcgen.SetBookCoverPendingParams{
+			Owner: owner, Book: bookID, Connection: uuidArg(connectionID), SourceIdentifier: textArg(sourceIdentifier),
+		}); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+}
+
+// registerBookCoverRetrieval reloads the advertisement generation and enqueues
+// the advertised source as a retrieval candidate, returning its advertised-at.
+func registerBookCoverRetrieval(ctx context.Context, q *sqlcgen.Queries, owner, bookID, connectionID, sourceIdentifier string) (time.Time, error) {
+	current, err := q.GetBookCoverForUpdate(ctx, sqlcgen.GetBookCoverForUpdateParams{Owner: owner, Book: bookID})
+	if err != nil {
+		return time.Time{}, err
+	}
+	advertisedAt := current.AdvertisedAt.Time
+	if _, err := q.RegisterBookCoverCandidate(ctx, sqlcgen.RegisterBookCoverCandidateParams{
+		Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt,
+	}); err != nil {
+		return time.Time{}, err
+	}
+	return advertisedAt, nil
 }
 
 func retireBookCoverAdvertisement(ctx context.Context, q *sqlcgen.Queries, current sqlcgen.GetBookCoverForUpdateRow, owner, bookID, connectionID, sourceIdentifier string, sameSource bool) error {

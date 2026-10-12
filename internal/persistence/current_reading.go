@@ -216,10 +216,7 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	language = canonicalization.NormalizeLanguage(language)
 	// A legacy reading that never received a snapshot has no snapshot identity to
 	// name; the empty expectation still has to match the current row exactly.
-	if _, parseErr := uuid.Parse(expectedBookID); parseErr != nil {
-		return domain.CurrentReadingFinishResult{}, ErrCurrentReadingStale
-	}
-	if _, parseErr := uuid.Parse(expectedSnapshotID); parseErr != nil && expectedSnapshotID != "" {
+	if !validCurrentReadingFinishCommitment(expectedBookID, expectedSnapshotID) {
 		return domain.CurrentReadingFinishResult{}, ErrCurrentReadingStale
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -231,27 +228,10 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
-	facts := domain.CurrentReadingFinishFacts{ExpectedBookID: expectedBookID, ExpectedSnapshotID: expectedSnapshotID}
-	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
-	if err == nil {
-		facts.Current = domain.CurrentReading{OwnerID: owner, Language: language, BookID: current.GBookID, SnapshotID: current.SnapshotID}
-	} else if !errors.Is(err, pgx.ErrNoRows) {
+	facts, err := loadCurrentReadingFinishFacts(ctx, q, owner, language, expectedBookID, expectedSnapshotID)
+	if err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
-	row, err := getReadingCompletion(ctx, q, owner, language, expectedBookID, expectedSnapshotID)
-	if err == nil {
-		completion := currentReadingCompletionFromValues(row.OwnerID, row.Language, row.BookID, row.CompletedAt, row.GoalSnapshotID, row.SnapshotVocabularyCount, row.EligibleVocabularyCount, row.GraduatedVocabularyCount, row.AlreadyKnownVocabularyCount)
-		facts.Completion = &completion
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return domain.CurrentReadingFinishResult{}, err
-	}
-	if facts.Current.IsActive() && facts.Completion == nil && facts.Current.BookID == expectedBookID && facts.Current.SnapshotID == expectedSnapshotID && expectedSnapshotID != "" {
-		facts.Snapshot, facts.Known, err = loadCurrentReadingSnapshotFacts(ctx, q, owner, expectedSnapshotID)
-		if err != nil {
-			return domain.CurrentReadingFinishResult{}, err
-		}
-	}
-
 	decision := domain.PlanCurrentReadingFinish(facts)
 	switch decision.Outcome {
 	case domain.CurrentReadingFinishRejected:
@@ -262,36 +242,13 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	case domain.CurrentReadingFinishReplayed:
 		result = domain.CurrentReadingFinishResult{Completion: decision.Replay}
 	case domain.CurrentReadingFinishPlanned:
-		plan := decision.Plan
-		completedAt := time.Now().UTC()
-		completionRow, insertErr := q.InsertReadingCompletion(ctx, sqlcgen.InsertReadingCompletionParams{
-			Owner: owner, Language: language, Book: expectedBookID, CompletedAt: completedAt,
-			Snapshot: expectedSnapshotID, SnapshotVocabularyCount: plan.SnapshotCount,
-			EligibleVocabularyCount: plan.EligibleCount, GraduatedVocabularyCount: plan.NewlyKnownCount,
-			AlreadyKnownVocabularyCount: plan.AlreadyKnownCount,
-		})
-		if insertErr != nil {
-			return domain.CurrentReadingFinishResult{}, insertErr
+		result, err = recordCurrentReadingFinishPlan(ctx, q, owner, language, expectedBookID, expectedSnapshotID, facts.Current.SnapshotID, decision.Plan)
+		if err != nil {
+			return domain.CurrentReadingFinishResult{}, err
 		}
-		if len(plan.Accept) > 0 {
-			inserted, acceptErr := q.InsertCurrentReadingKnownVocabulary(ctx, knownVocabularyInsertParams(owner, facts.Current.SnapshotID, completedAt, plan.Accept))
-			if acceptErr != nil {
-				return domain.CurrentReadingFinishResult{}, acceptErr
-			}
-			if inserted != len(plan.Accept) {
-				return domain.CurrentReadingFinishResult{}, fmt.Errorf("persistence: finish planned %d Known identities but inserted %d", len(plan.Accept), inserted)
-			}
-		}
-		result = domain.CurrentReadingFinishResult{Completion: currentReadingCompletionFromValues(completionRow.OwnerID, completionRow.Language, completionRow.BookID, completionRow.CompletedAt, completionRow.GoalSnapshotID, plan.SnapshotCount, plan.EligibleCount, plan.NewlyKnownCount, plan.AlreadyKnownCount)}
 	}
 	if facts.Current.IsActive() {
-		if err := upsertBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionInbox); err != nil {
-			return domain.CurrentReadingFinishResult{}, err
-		}
-		if err := releaseCurrentReadingSnapshot(ctx, q, owner, facts.Current.SnapshotID); err != nil {
-			return domain.CurrentReadingFinishResult{}, err
-		}
-		if err := q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {
+		if err := endFinishedCurrentReading(ctx, q, owner, language, expectedBookID, facts.Current.SnapshotID); err != nil {
 			return domain.CurrentReadingFinishResult{}, err
 		}
 	}
@@ -299,6 +256,83 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 		return domain.CurrentReadingFinishResult{}, err
 	}
 	return result, nil
+}
+
+// validCurrentReadingFinishCommitment reports whether the Book identity is a
+// UUID and the snapshot identity is either a UUID or the empty legacy marker.
+func validCurrentReadingFinishCommitment(bookID, snapshotID string) bool {
+	if _, err := uuid.Parse(bookID); err != nil {
+		return false
+	}
+	if snapshotID == "" {
+		return true
+	}
+	_, err := uuid.Parse(snapshotID)
+	return err == nil
+}
+
+// loadCurrentReadingFinishFacts reads the Current reading, any recorded
+// completion, and the snapshot identities a fresh finish would accept. It
+// decides nothing.
+func loadCurrentReadingFinishFacts(ctx context.Context, q *sqlcgen.Queries, owner, language, expectedBookID, expectedSnapshotID string) (domain.CurrentReadingFinishFacts, error) {
+	facts := domain.CurrentReadingFinishFacts{ExpectedBookID: expectedBookID, ExpectedSnapshotID: expectedSnapshotID}
+	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
+	if err == nil {
+		facts.Current = domain.CurrentReading{OwnerID: owner, Language: language, BookID: current.GBookID, SnapshotID: current.SnapshotID}
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return domain.CurrentReadingFinishFacts{}, err
+	}
+	row, err := getReadingCompletion(ctx, q, owner, language, expectedBookID, expectedSnapshotID)
+	if err == nil {
+		completion := currentReadingCompletionFromValues(row.OwnerID, row.Language, row.BookID, row.CompletedAt, row.GoalSnapshotID, row.SnapshotVocabularyCount, row.EligibleVocabularyCount, row.GraduatedVocabularyCount, row.AlreadyKnownVocabularyCount)
+		facts.Completion = &completion
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return domain.CurrentReadingFinishFacts{}, err
+	}
+	if facts.Current.IsActive() && facts.Completion == nil && facts.Current.BookID == expectedBookID && facts.Current.SnapshotID == expectedSnapshotID && expectedSnapshotID != "" {
+		facts.Snapshot, facts.Known, err = loadCurrentReadingSnapshotFacts(ctx, q, owner, expectedSnapshotID)
+		if err != nil {
+			return domain.CurrentReadingFinishFacts{}, err
+		}
+	}
+	return facts, nil
+}
+
+// recordCurrentReadingFinishPlan writes the completion and the newly accepted
+// Known vocabulary for a planned finish, returning the recorded completion.
+func recordCurrentReadingFinishPlan(ctx context.Context, q *sqlcgen.Queries, owner, language, expectedBookID, expectedSnapshotID, snapshotID string, plan domain.CurrentReadingFinishPlan) (domain.CurrentReadingFinishResult, error) {
+	completedAt := time.Now().UTC()
+	completionRow, err := q.InsertReadingCompletion(ctx, sqlcgen.InsertReadingCompletionParams{
+		Owner: owner, Language: language, Book: expectedBookID, CompletedAt: completedAt,
+		Snapshot: expectedSnapshotID, SnapshotVocabularyCount: plan.SnapshotCount,
+		EligibleVocabularyCount: plan.EligibleCount, GraduatedVocabularyCount: plan.NewlyKnownCount,
+		AlreadyKnownVocabularyCount: plan.AlreadyKnownCount,
+	})
+	if err != nil {
+		return domain.CurrentReadingFinishResult{}, err
+	}
+	if len(plan.Accept) > 0 {
+		inserted, acceptErr := q.InsertCurrentReadingKnownVocabulary(ctx, knownVocabularyInsertParams(owner, snapshotID, completedAt, plan.Accept))
+		if acceptErr != nil {
+			return domain.CurrentReadingFinishResult{}, acceptErr
+		}
+		if inserted != len(plan.Accept) {
+			return domain.CurrentReadingFinishResult{}, fmt.Errorf("persistence: finish planned %d Known identities but inserted %d", len(plan.Accept), inserted)
+		}
+	}
+	return domain.CurrentReadingFinishResult{Completion: currentReadingCompletionFromValues(completionRow.OwnerID, completionRow.Language, completionRow.BookID, completionRow.CompletedAt, completionRow.GoalSnapshotID, plan.SnapshotCount, plan.EligibleCount, plan.NewlyKnownCount, plan.AlreadyKnownCount)}, nil
+}
+
+// endFinishedCurrentReading returns the Book to the Inbox and ends the Current
+// reading, releasing its snapshot reservation.
+func endFinishedCurrentReading(ctx context.Context, q *sqlcgen.Queries, owner, language, expectedBookID, snapshotID string) error {
+	if err := upsertBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionInbox); err != nil {
+		return err
+	}
+	if err := releaseCurrentReadingSnapshot(ctx, q, owner, snapshotID); err != nil {
+		return err
+	}
+	return q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language})
 }
 
 // loadCurrentReadingSnapshotFacts reads the frozen identities of a snapshot and
