@@ -187,7 +187,7 @@ func (p *StandardPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, pr
 	if p == nil || p.BatchPlanner == nil {
 		return persistence.FreezePreparedDeckRunParams{}, ErrInvalidInput
 	}
-	return p.BatchPlanner.planPreparedDeckRun(ctx, tx, preparation, domain.PreparedDeckExecutionStandard, p.StandardConfig.StandardMaxAttempts)
+	return p.planPreparedDeckRun(ctx, tx, preparation, domain.PreparedDeckExecutionStandard, p.StandardConfig.StandardMaxAttempts)
 }
 
 func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {

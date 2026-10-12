@@ -314,12 +314,13 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 		if err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner, runID).Scan(&id, &display); err != nil {
 			return Handle{}, fmt.Errorf("load existing analysis handle: %w", err)
 		}
-		if state == "queued" || state == "running" {
+		switch state {
+		case "queued", "running":
 			args.RunID = runID
 			if _, err = s.ensureAttemptTx(ctx, tx, args, runID, state == "running"); err != nil {
 				return Handle{}, err
 			}
-		} else if state == "completed" {
+		case "completed":
 			retry, shouldRetry, retryErr := s.retryCompletedPublicationTx(ctx, tx, args, owner, runID, id, display)
 			if retryErr != nil {
 				return Handle{}, retryErr
@@ -330,7 +331,7 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 				}
 				return retry, nil
 			}
-		} else if state == "failed" || state == "cancelled" {
+		case "failed", "cancelled":
 			if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID); err != nil {
 				return Handle{}, err
 			}
@@ -780,7 +781,8 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (result
 	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
 		return Status{}, err
 	}
-	if state == "queued" {
+	switch state {
+	case "queued":
 		if _, err = s.liveJobIDTx(ctx, tx, owner, status.RunID); errors.Is(err, pgx.ErrNoRows) {
 			args, argsErr := snapshotArgsTx(ctx, tx, owner, status.RunID)
 			if argsErr != nil {
@@ -792,7 +794,7 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (result
 		} else if err != nil {
 			return Status{}, err
 		}
-	} else if state == "running" {
+	case "running":
 		if _, err = s.liveJobIDTx(ctx, tx, owner, status.RunID); errors.Is(err, pgx.ErrNoRows) {
 			message := safeAnalysisError(errors.New("analysis worker is no longer active"))
 			_, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID, message)

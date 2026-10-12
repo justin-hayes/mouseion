@@ -44,6 +44,16 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrNotFound, "unknown detail error=%v", err)
 }
 
+func TestFixtureConcordanceLemmaMatchSkipsOtherLemmasAndExcludedRows(t *testing.T) {
+	store := NewStore()
+	result, err := store.ListVocabularyConcordance(context.Background(), OwnerID, "de", domain.ConcordanceLookup{Term: "Haus", Page: 1})
+	require.NoError(t, err)
+	assert.Equal(t, domain.ConcordanceMatchLemma, result.Match)
+	// Of the 27 fixture rows, one resolves to another lemma and one is excluded,
+	// leaving 25 occurrences that fit on the first page.
+	assert.Len(t, result.Occurrences, 25)
+}
+
 func TestStoreStudyLanguagesDeriveFromFixtureBooks(t *testing.T) {
 	store := NewStore()
 	store.supported = []domain.SupportedLanguage{{Language: " DE ", DisplayName: "German"}}

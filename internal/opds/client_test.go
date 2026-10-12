@@ -15,8 +15,7 @@ import (
 )
 
 func TestListRootPaginationAndAcquisition(t *testing.T) {
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if user, password, ok := r.BasicAuth(); !ok || user != "reader" || password != "secret" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -317,8 +316,7 @@ func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.
 	defer external.Close()
 
 	var customRedirectCalled bool
-	var catalog *httptest.Server
-	catalog = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/same-redirect" {
 			w.Header().Set("Location", "/same-final")
 			w.WriteHeader(http.StatusFound)

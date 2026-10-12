@@ -1015,7 +1015,7 @@ func (w *CoverWorker) Work(ctx context.Context, job *river.Job[CoverArgs]) error
 	}
 	// A validated image is already selected from another source; a later
 	// completion cannot displace the winner.
-	if cover.State == domain.BookCoverAvailable && !(cover.SelectedConnectionID == connectionID && cover.SelectedSourceIdentifier == sourceIdentifier) {
+	if cover.State == domain.BookCoverAvailable && (cover.SelectedConnectionID != connectionID || cover.SelectedSourceIdentifier != sourceIdentifier) {
 		return nil
 	}
 	alias, err := w.Catalogue.GetBookCatalogEntryAliasForConnection(ctx, owner, bookID, connectionID)

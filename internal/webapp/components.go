@@ -226,14 +226,14 @@ const (
 )
 
 func navigationContextForTitle(title string) NavigationContext {
-	switch {
-	case title == "My Books", title == "My Library":
+	switch title {
+	case "My Books", "My Library":
 		return NavigationLibrary
-	case title == "Reading", title == "Learning":
+	case "Reading", "Learning":
 		return NavigationReading
-	case title == "Vocabulary", title == "Known vocabulary":
+	case "Vocabulary", "Known vocabulary":
 		return NavigationVocabulary
-	case title == "Catalogs":
+	case "Catalogs":
 		return NavigationCatalogs
 	default:
 		return NavigationNone
@@ -474,14 +474,17 @@ func deckPreparationActive(preparation domain.DeckPreparation) bool {
 
 func preparationProgress(preparation domain.DeckPreparation) int {
 	progress := 0
-	if preparation.State == domain.DeckPreparationPreparing {
+	switch preparation.State {
+	case domain.DeckPreparationPreparing:
 		if preparation.TranslationEligible > 0 {
 			progress = (preparation.TranslationDone + preparation.TranslationFailed) * 100 / preparation.TranslationEligible
 		} else {
 			progress = 50
 		}
-	} else if preparation.State == domain.DeckPreparationReady || preparation.State == domain.DeckPreparationFailed || preparation.State == domain.DeckPreparationCancelled {
+	case domain.DeckPreparationReady, domain.DeckPreparationFailed, domain.DeckPreparationCancelled:
 		progress = 100
+	case domain.DeckPreparationQueued:
+		// Queued work has not started, so its progress stays at zero.
 	}
 	if progress < 0 {
 		return 0
