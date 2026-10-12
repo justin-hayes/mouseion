@@ -308,7 +308,10 @@ func (w *BatchPollWorker) cleanupTerminalBatchFiles(ctx context.Context, args Ba
 	// immediate attempt cannot run.
 	if cleaner, ok := w.Provider.(batchFileDeleter); ok {
 		cleanup := &BatchCleanupWorker{Store: w.Store, Provider: cleaner, Now: w.Now, Metrics: w.Metrics}
-		_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation}) //nolint:errcheck // durable recovery retries cleanup when the immediate attempt fails.
+		cleanupArgs := BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation}
+		if err := cleanup.Cleanup(context.WithoutCancel(ctx), cleanupArgs); err != nil {
+			logImmediateBatchCleanupFailure(cleanupArgs, err)
+		}
 	}
 }
 
