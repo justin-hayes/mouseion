@@ -420,6 +420,13 @@ func TestCancelLogsBestEffortRemoteFailuresWithoutChangingOutcome(t *testing.T) 
 	_, err = store.RecordPreparedDeckBatchSubmitted(ctx, owner.ID, handle.Preparation.ID, frozen.Run.ID, chunkID, 1, submissionToken, "cancel-file", "cancel-batch", time.Now().UTC())
 	require.NoError(t, err)
 
+	// Rejecting the write that records a failed deletion makes the immediate
+	// cleanup return an error, the path that durable recovery must cover.
+	_, err = store.Pool().Exec(ctx, `CREATE FUNCTION reject_failed_cleanup_write() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'cleanup state write unavailable'; END$$`)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `CREATE TRIGGER reject_failed_cleanup_write BEFORE UPDATE OF input_file_cleanup_state ON deck_preparation_batch_chunks FOR EACH ROW WHEN (NEW.input_file_cleanup_state = 'failed') EXECUTE FUNCTION reject_failed_cleanup_write()`)
+	require.NoError(t, err)
+
 	var output bytes.Buffer
 	previousWriter, previousFlags := log.Writer(), log.Flags()
 	log.SetOutput(&output)
@@ -441,9 +448,11 @@ func TestCancelLogsBestEffortRemoteFailuresWithoutChangingOutcome(t *testing.T) 
 	assert.Contains(t, logged, "provider file deletion failed; durable recovery will retry while attempts remain")
 	assert.Contains(t, logged, "chunk_id="+chunkID)
 	assert.Contains(t, logged, "file_role=input")
+	assert.Contains(t, logged, "immediate cleanup failed; durable recovery will retry")
+	assert.Contains(t, logged, "cleanup state write unavailable")
 	chunk, err := store.GetPreparedDeckBatchChunk(ctx, owner.ID, handle.Preparation.ID, frozen.Run.ID, chunkID)
 	require.NoError(t, err)
-	assert.Equal(t, "failed", chunk.InputFileCleanupState, "failed deletion must stay durable for recovery")
+	assert.Equal(t, "pending", chunk.InputFileCleanupState, "rejected cleanup write must leave the file pending for recovery")
 }
 
 // failingCancelRiverClient keeps River insertion real while job cancellation fails.
