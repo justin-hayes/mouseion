@@ -253,14 +253,18 @@ func replaceCollectionModels(t *testing.T, ctx context.Context, apkg []byte, mod
 	reader, err := zip.NewReader(bytes.NewReader(apkg), int64(len(apkg)))
 	require.NoError(t, err)
 	collection := collectionBytes(t, apkg)
-	path := t.TempDir() + "/collection.anki2"
+	dir := t.TempDir()
+	path := dir + "/collection.anki2"
 	require.NoError(t, os.WriteFile(path, collection, 0o600))
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `UPDATE col SET models=?`, models)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
-	collection, err = os.ReadFile(path) //nolint:gosec // path is a file created in this test's TempDir.
+	root, err := os.OpenRoot(dir)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "temporary directory", root.Close)
+	collection, err = root.ReadFile("collection.anki2")
 	require.NoError(t, err)
 
 	var output bytes.Buffer

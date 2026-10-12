@@ -5,28 +5,28 @@ import (
 	"bytes"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // ZipDirectory packages a checked-in fixture directory as an in-memory ZIP.
 func ZipDirectory(t *testing.T, directory string) []byte {
 	t.Helper()
+	root, err := os.OpenRoot(directory)
+	require.NoError(t, err)
+	Cleanup(t, "fixture root", root.Close)
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	err := filepath.WalkDir(directory, func(name string, entry fs.DirEntry, err error) error {
+	err = fs.WalkDir(root.FS(), ".", func(name string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
 			return err
 		}
-		rel, err := filepath.Rel(directory, name)
+		w, err := zw.Create(name)
 		if err != nil {
 			return err
 		}
-		w, err := zw.Create(filepath.ToSlash(rel))
-		if err != nil {
-			return err
-		}
-		data, err := os.ReadFile(name) //nolint:gosec // filepath.WalkDir confines this to the checked-in fixture directory.
+		data, err := root.ReadFile(name)
 		if err != nil {
 			return err
 		}
