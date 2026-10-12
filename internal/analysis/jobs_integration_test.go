@@ -841,6 +841,100 @@ func TestQueuedPublicationCanBeCancelledAndRetriedWithoutDiscardingCorpus(t *tes
 	assert.NotEqual(t, handle.JobID, retry.JobID, "retry uses a fresh River attempt")
 }
 
+type discardedFinalizationClient struct {
+	row *rivertype.JobRow
+}
+
+func (discardedFinalizationClient) InsertTx(context.Context, pgx.Tx, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error) {
+	return nil, errors.New("unexpected analysis insert")
+}
+
+func (c discardedFinalizationClient) JobGet(context.Context, int64) (*rivertype.JobRow, error) {
+	return c.row, nil
+}
+
+func (discardedFinalizationClient) JobCancel(context.Context, int64) (*rivertype.JobRow, error) {
+	return nil, errors.New("unexpected analysis cancel")
+}
+
+// A finalization attempt whose River job was discarded before the durable
+// attempt row caught up must surface as a failed finalization, carrying River's
+// last error.
+func TestAnalysisStatusReportsDiscardedFinalizationAsFailed(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-finalization-discarded", false)
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "finalization-discarded", "Finalization discarded", "Guten Tag.", "sha256:finalization-discarded")
+	require.NoError(t, err)
+	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	service := NewService(pool, client)
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE analysis_runs SET state='completed',completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE analysis_run_attempts SET state='running',started_at=now() WHERE run_id=$1`, handle.RunID)
+	require.NoError(t, err)
+
+	service.client = discardedFinalizationClient{row: &rivertype.JobRow{State: rivertype.JobStateDiscarded, Errors: []rivertype.AttemptError{{Error: "finalization worker terminated"}}}}
+	status, err := service.Get(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	t.Run("reports the run as discarded", func(t *testing.T) {
+		require.Equal(t, rivertype.JobStateDiscarded, status.State)
+	})
+	t.Run("reports the failed finalization logical state", func(t *testing.T) {
+		require.Equal(t, "finalization-failed", status.LogicalState)
+	})
+	t.Run("carries River's last error", func(t *testing.T) {
+		require.Equal(t, "finalization worker terminated", status.Error)
+	})
+}
+
+// A completed run whose finalization attempt is still queued or running reports
+// the finalizing logical state until the attempt settles.
+func TestAnalysisStatusReportsCompletedRunAsFinalizing(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-finalization-pending", false)
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "finalization-pending", "Finalization pending", "Guten Tag.", "sha256:finalization-pending")
+	require.NoError(t, err)
+	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	service := NewService(pool, client)
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE analysis_runs SET state='completed',completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
+	require.NoError(t, err)
+
+	t.Run("queued attempt is available", func(t *testing.T) {
+		status, err := service.Get(ctx, owner.ID, handle.ID)
+		require.NoError(t, err)
+		require.Equal(t, "finalizing", status.LogicalState)
+		require.Equal(t, rivertype.JobStateAvailable, status.State)
+	})
+
+	_, err = pool.Exec(ctx, `UPDATE analysis_run_attempts SET state='running',started_at=now() WHERE run_id=$1`, handle.RunID)
+	require.NoError(t, err)
+	t.Run("running attempt is running", func(t *testing.T) {
+		status, err := service.Get(ctx, owner.ID, handle.ID)
+		require.NoError(t, err)
+		require.Equal(t, "finalizing", status.LogicalState)
+		require.Equal(t, rivertype.JobStateRunning, status.State)
+	})
+}
+
 func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

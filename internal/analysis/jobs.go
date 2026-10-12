@@ -394,61 +394,136 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 	if err != nil {
 		return Status{}, fmt.Errorf("get analysis handle: %w", err)
 	}
-	if runID != "" {
-		var state, lastError string
-		if err = s.pool.QueryRow(ctx, `SELECT state,last_error,COALESCE(corpus_id::text,''),attempt_count FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).
-			Scan(&state, &lastError, &status.CorpusID, &status.AttemptCount); err != nil {
-			return Status{}, fmt.Errorf("get snapshot analysis run: %w", err)
+	if runID == "" {
+		return s.legacyJobStatus(ctx, status, id)
+	}
+	return s.snapshotJobStatus(ctx, owner, status, runID)
+}
+
+// analysisRunState is the durable state of one analysis run, read by status,
+// cancellation and retry through loadRunState. It carries the run's state, last
+// error, corpus and attempt count, and the latest run attempt when there is one.
+type analysisRunState struct {
+	State        string
+	LastError    string
+	CorpusID     string
+	AttemptCount int
+	Attempt      *analysisRunAttempt
+}
+
+type analysisRunAttempt struct {
+	Number int
+	JobID  int64
+	State  string
+	Error  string
+}
+
+// loadRunState reads the durable state of one analysis run through q. The
+// unlocked read projects what status reports and loads the latest attempt,
+// which status resolves against the live River job. The locked read takes the
+// run row lock used by cancellation and retry and keeps their existing
+// single-column statement, so Attempt stays nil.
+func (s *Service) loadRunState(ctx context.Context, q analysisQueryer, owner, runID string, lock bool) (analysisRunState, error) {
+	var run analysisRunState
+	if lock {
+		if err := q.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, runID).Scan(&run.State); err != nil {
+			return analysisRunState{}, err
 		}
-		status.RunID, status.LogicalState = runID, state
-		status.State = logicalStateRiverState(state)
-		status.Attempt = status.AttemptCount
-		if lastError != "" {
-			status.Error = lastError
-		}
-		var attemptNumber int
-		var jobID int64
-		var attemptState, attemptError string
-		if err = s.pool.QueryRow(ctx, `SELECT attempt_number,river_job_id,state,error FROM analysis_run_attempts WHERE run_id=$1 ORDER BY attempt_number DESC LIMIT 1`, runID).Scan(&attemptNumber, &jobID, &attemptState, &attemptError); err == nil {
-			if state == "completed" && attemptState == "running" && s.client != nil {
-				if row, jobErr := s.client.JobGet(ctx, jobID); jobErr == nil && (row.State == rivertype.JobStateDiscarded || row.State == rivertype.JobStateCancelled) {
-					attemptState = "failed"
-					if len(row.Errors) > 0 {
-						attemptError = row.Errors[len(row.Errors)-1].Error
-					}
-				}
-			}
-			status.Attempt = attemptNumber
-			status.FinalizedAt = nil
-			if state == "completed" {
-				switch attemptState {
-				case "queued", "running":
-					status.LogicalState = "finalizing"
-					status.State = rivertype.JobStateAvailable
-					if attemptState == "running" {
-						status.State = rivertype.JobStateRunning
-					}
-				case "failed":
-					status.LogicalState = "finalization-failed"
-					status.State = rivertype.JobStateDiscarded
-					if attemptError != "" {
-						status.Error = attemptError
-					}
-				case "cancelled":
-					status.LogicalState = "finalization-cancelled"
-					status.State = rivertype.JobStateCancelled
-				}
-			}
-			if state == "completed" || state == "failed" || state == "cancelled" {
-				if finalErr := s.pool.QueryRow(ctx, `SELECT finalized_at FROM analysis_run_attempts WHERE run_id=$1 AND attempt_number=$2`, runID, attemptNumber).Scan(&status.FinalizedAt); finalErr != nil && !errors.Is(finalErr, pgx.ErrNoRows) {
-					return Status{}, fmt.Errorf("get analysis finalization time: %w", finalErr)
-				}
-			}
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			return Status{}, fmt.Errorf("get analysis attempt: %w", err)
-		}
+		return run, nil
+	}
+	if err := q.QueryRow(ctx, `SELECT state,last_error,COALESCE(corpus_id::text,''),attempt_count FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).
+		Scan(&run.State, &run.LastError, &run.CorpusID, &run.AttemptCount); err != nil {
+		return analysisRunState{}, fmt.Errorf("get snapshot analysis run: %w", err)
+	}
+	attempt := analysisRunAttempt{}
+	err := q.QueryRow(ctx, `SELECT attempt_number,river_job_id,state,error FROM analysis_run_attempts WHERE run_id=$1 ORDER BY attempt_number DESC LIMIT 1`, runID).
+		Scan(&attempt.Number, &attempt.JobID, &attempt.State, &attempt.Error)
+	if err == nil {
+		run.Attempt = &attempt
+		return run, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return analysisRunState{}, fmt.Errorf("get analysis attempt: %w", err)
+	}
+	return run, nil
+}
+
+// snapshotJobStatus projects the durable run state of a snapshot-bound analysis
+// onto a status.
+func (s *Service) snapshotJobStatus(ctx context.Context, owner string, status Status, runID string) (Status, error) {
+	run, err := s.loadRunState(ctx, s.pool, owner, runID, false)
+	if err != nil {
+		return Status{}, err
+	}
+	status.RunID, status.LogicalState = runID, run.State
+	status.State = logicalStateRiverState(run.State)
+	status.CorpusID = run.CorpusID
+	status.AttemptCount = run.AttemptCount
+	status.Attempt = run.AttemptCount
+	if run.LastError != "" {
+		status.Error = run.LastError
+	}
+	if run.Attempt == nil {
 		return status, nil
 	}
+	attempt := s.resolveFinalizationAttempt(ctx, run.State, *run.Attempt)
+	status.Attempt = attempt.Number
+	status.FinalizedAt = nil
+	if run.State == "completed" {
+		applyFinalizationStatus(&status, attempt)
+	}
+	if run.State == "completed" || run.State == "failed" || run.State == "cancelled" {
+		if err := s.pool.QueryRow(ctx, `SELECT finalized_at FROM analysis_run_attempts WHERE run_id=$1 AND attempt_number=$2`, runID, attempt.Number).Scan(&status.FinalizedAt); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return Status{}, fmt.Errorf("get analysis finalization time: %w", err)
+		}
+	}
+	return status, nil
+}
+
+// resolveFinalizationAttempt returns the finalization attempt with its
+// effective state: a still-running attempt whose River job River has already
+// discarded or cancelled becomes failed and carries River's last error, while a
+// live or unreadable River job leaves the durable attempt unchanged.
+func (s *Service) resolveFinalizationAttempt(ctx context.Context, runState string, attempt analysisRunAttempt) analysisRunAttempt {
+	if runState != "completed" || attempt.State != "running" || s.client == nil {
+		return attempt
+	}
+	row, err := s.client.JobGet(ctx, attempt.JobID)
+	if err != nil || (row.State != rivertype.JobStateDiscarded && row.State != rivertype.JobStateCancelled) {
+		return attempt
+	}
+	attempt.State = "failed"
+	if len(row.Errors) > 0 {
+		attempt.Error = row.Errors[len(row.Errors)-1].Error
+	}
+	return attempt
+}
+
+// applyFinalizationStatus maps a completed run's finalization attempt onto the
+// status, keeping the pre-finalization logical states.
+func applyFinalizationStatus(status *Status, attempt analysisRunAttempt) {
+	switch attempt.State {
+	case "queued", "running":
+		status.LogicalState = "finalizing"
+		status.State = rivertype.JobStateAvailable
+		if attempt.State == "running" {
+			status.State = rivertype.JobStateRunning
+		}
+	case "failed":
+		status.LogicalState = "finalization-failed"
+		status.State = rivertype.JobStateDiscarded
+		if attempt.Error != "" {
+			status.Error = attempt.Error
+		}
+	case "cancelled":
+		status.LogicalState = "finalization-cancelled"
+		status.State = rivertype.JobStateCancelled
+	}
+}
+
+// legacyJobStatus projects an analysis handle without a snapshot run from the
+// live River job.
+func (s *Service) legacyJobStatus(ctx context.Context, status Status, id int64) (Status, error) {
 	row, err := s.client.JobGet(ctx, id)
 	if err != nil {
 		return Status{}, fmt.Errorf("get River job: %w", err)
@@ -591,11 +666,11 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result St
 		if _, txErr = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); txErr != nil {
 			return Status{}, fmt.Errorf("lock analysis cancellation: %w", txErr)
 		}
-		var runState string
-		if txErr := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&runState); txErr != nil {
+		run, txErr := s.loadRunState(ctx, tx, owner, status.RunID, true)
+		if txErr != nil {
 			return Status{}, txErr
 		}
-		if runState == "completed" {
+		if run.State == "completed" {
 			var riverJobID int64
 			txErr = tx.QueryRow(ctx, `SELECT river_job_id FROM analysis_run_attempts WHERE run_id=$1 AND state IN ('queued','running') ORDER BY attempt_number DESC LIMIT 1 FOR UPDATE`, status.RunID).Scan(&riverJobID)
 			if errors.Is(txErr, pgx.ErrNoRows) {
@@ -686,10 +761,11 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); err != nil {
 		return Handle{}, fmt.Errorf("lock analysis retry: %w", err)
 	}
-	var state string
-	if err := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
+	run, err := s.loadRunState(ctx, tx, owner, status.RunID, true)
+	if err != nil {
 		return Handle{}, err
 	}
+	state := run.State
 	if state == "queued" || state == "running" {
 		jobID, jobErr := s.liveJobIDTx(ctx, tx, owner, status.RunID)
 		if jobErr == nil {
@@ -778,11 +854,11 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (result
 		return Status{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	var state string
-	if err := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
+	run, err := s.loadRunState(ctx, tx, owner, status.RunID, true)
+	if err != nil {
 		return Status{}, err
 	}
-	switch state {
+	switch run.State {
 	case "queued":
 		if _, err = s.liveJobIDTx(ctx, tx, owner, status.RunID); errors.Is(err, pgx.ErrNoRows) {
 			args, argsErr := snapshotArgsTx(ctx, tx, owner, status.RunID)
