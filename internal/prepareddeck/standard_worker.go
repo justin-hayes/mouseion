@@ -125,7 +125,7 @@ func (w *StandardTranslationWorker) restoreWork(ctx context.Context, args Standa
 func (w *StandardTranslationWorker) completeFromCache(ctx context.Context, args StandardTranslationJobArgs, token string, work cardexport.WorkItem) (bool, error) {
 	entry, hit, err := w.Store.Get(ctx, work.CacheKey)
 	if err != nil {
-		return true, w.fail(ctx, args, token, "persistence", "cache_lookup", false)
+		return true, w.fail(ctx, args, token, "cache", "cache_lookup", false)
 	}
 	if !hit || !enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) || (work.Request.RequireContextualGloss && strings.TrimSpace(entry.FallbackGloss) == "") {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheMisses, Phase: "cache", State: "pending", Provider: "openai", Value: 1})
@@ -189,7 +189,7 @@ func (w *StandardTranslationWorker) persistTranslation(ctx context.Context, args
 		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
 			return nil
 		}
-		return w.failWithLatency(ctx, args, token, "persistence", "cache_write", false, providerLatency)
+		return w.failWithLatency(ctx, args, token, "cache", "cache_write", false, providerLatency)
 	}
 	if !enrichment.HasRequiredTranslationFields(stored, request.ExampleSentence) {
 		return w.failWithLatency(ctx, args, token, "cache", "incomplete_entry", true, providerLatency)

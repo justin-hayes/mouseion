@@ -119,10 +119,9 @@ func TestStandardWorkerDoesNotCallProviderAfterClaimLossOnCacheMiss(t *testing.T
 	})
 }
 
-// "persistence" is not an accepted outcome error class, so recording the
-// cache-write failure is itself rejected: the job returns an error for River
-// to retry and the item keeps its running claim.
-func TestStandardWorkerReturnsErrorWhenCacheWriteFails(t *testing.T) {
+// A cache-write failure is recorded as a terminal failure with the cache error
+// class, so the item does not keep its running claim.
+func TestStandardWorkerRecordsCacheWriteFailure(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
@@ -134,17 +133,18 @@ func TestStandardWorkerReturnsErrorWhenCacheWriteFails(t *testing.T) {
 	}
 	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider}
 
-	err := worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0})
-	require.ErrorContains(t, err, "deck_preparation_translation_outcomes_error_class_check")
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
 
 	t.Run("calls the provider once", func(t *testing.T) {
 		calls, _ := provider.stats()
 		require.Equal(t, 1, calls)
 	})
-	t.Run("keeps the running claim", func(t *testing.T) {
+	t.Run("records the cache-write failure", func(t *testing.T) {
 		outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
 		require.NoError(t, err)
 		require.Len(t, outcomes, 1)
-		require.Equal(t, domain.PreparedDeckOutcomeRunning, outcomes[0].State)
+		require.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[0].State)
+		require.Equal(t, "cache", outcomes[0].ErrorClass)
+		require.Equal(t, "cache_write", outcomes[0].ErrorCode)
 	})
 }

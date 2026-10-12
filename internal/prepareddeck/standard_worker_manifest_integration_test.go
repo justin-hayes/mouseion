@@ -61,8 +61,18 @@ func TestStandardWorkerDoesNotTranslateWhenCacheLookupFails(t *testing.T) {
 	require.NoError(t, err)
 	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider}
 
-	require.Error(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
 
-	calls, _ := provider.stats()
-	assert.Zero(t, calls, "provider must not be called when the cache lookup fails")
+	t.Run("does not call the provider", func(t *testing.T) {
+		calls, _ := provider.stats()
+		require.Zero(t, calls, "provider must not be called when the cache lookup fails")
+	})
+	t.Run("records the cache-lookup failure", func(t *testing.T) {
+		outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+		require.NoError(t, err)
+		require.Len(t, outcomes, 1)
+		require.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[0].State)
+		require.Equal(t, "cache", outcomes[0].ErrorClass)
+		require.Equal(t, "cache_lookup", outcomes[0].ErrorCode)
+	})
 }
