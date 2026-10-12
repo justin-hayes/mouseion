@@ -257,6 +257,9 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 		assert.NotContains(t, response.Body.String(), "No analyzed occurrences of this")
 		exact := get(url.Values{"language": {"de"}, "term": {"gehen"}, "as": {"lemma"}, "priority": {zeta.ID}, "page": {"4"}}.Encode())
 		assert.Contains(t, exact.Body.String(), "No results on this page.", "the boundary after the last full page is out of range")
+		beyondMaximum := get(url.Values{"language": {"de"}, "term": {"gehen"}, "as": {"lemma"}, "priority": {zeta.ID}, "page": {"85899347"}}.Encode())
+		assert.Contains(t, beyondMaximum.Body.String(), "No results on this page.", "a page beyond the queryable maximum is out of range")
+		assert.Contains(t, beyondMaximum.Body.String(), "Go to page 1")
 	})
 
 	t.Run("evidence changes need an explicit refresh while visibility and disposition do not", func(t *testing.T) {
