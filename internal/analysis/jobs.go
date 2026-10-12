@@ -364,8 +364,7 @@ func (s *Service) submitExistingRun(ctx context.Context, tx pgx.Tx, owner string
 	}
 	switch state {
 	case "queued", "running":
-		args.RunID = runID
-		if _, err = s.ensureAttemptTx(ctx, tx, args, runID, state == "running"); err != nil {
+		if err := s.resumeExistingRun(ctx, tx, args, runID, state); err != nil {
 			return Handle{}, false, err
 		}
 	case "completed":
@@ -377,24 +376,39 @@ func (s *Service) submitExistingRun(ctx context.Context, tx pgx.Tx, owner string
 			return retry, true, nil
 		}
 	case "failed", "cancelled":
-		if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID); err != nil {
-			return Handle{}, false, err
-		}
-		args.RunID = runID
-		jobID, retryErr := s.ensureAttemptTx(ctx, tx, args, runID, false)
-		if retryErr != nil {
-			return Handle{}, false, retryErr
-		}
-		details, marshalErr := json.Marshal(map[string]any{"run_id": runID, "from": state})
-		if marshalErr != nil {
-			return Handle{}, false, fmt.Errorf("encode analysis retry history: %w", marshalErr)
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
-			return Handle{}, false, err
-		}
-		return Handle{ID: id, JobID: jobID, DisplayNumber: display, RunID: runID}, true, nil
+		return s.requeueExistingRun(ctx, tx, owner, args, runID, state, id, display)
 	}
 	return Handle{ID: id, JobID: id, DisplayNumber: display, RunID: runID}, true, nil
+}
+
+// resumeExistingRun attaches the submission to a queued or running run. A
+// running run fails its orphaned attempt before a fresh one is enqueued, while a
+// queued run resumes in place.
+func (s *Service) resumeExistingRun(ctx context.Context, tx pgx.Tx, args JobArgs, runID, state string) error {
+	args.RunID = runID
+	_, err := s.ensureAttemptTx(ctx, tx, args, runID, state == "running")
+	return err
+}
+
+// requeueExistingRun resets a failed or cancelled run to queued, enqueues a
+// fresh attempt, and records the retry in operational history.
+func (s *Service) requeueExistingRun(ctx context.Context, tx pgx.Tx, owner string, args JobArgs, runID, state string, id, display int64) (Handle, bool, error) {
+	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID); err != nil {
+		return Handle{}, false, err
+	}
+	args.RunID = runID
+	jobID, err := s.ensureAttemptTx(ctx, tx, args, runID, false)
+	if err != nil {
+		return Handle{}, false, err
+	}
+	details, err := json.Marshal(map[string]any{"run_id": runID, "from": state})
+	if err != nil {
+		return Handle{}, false, fmt.Errorf("encode analysis retry history: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
+		return Handle{}, false, err
+	}
+	return Handle{ID: id, JobID: jobID, DisplayNumber: display, RunID: runID}, true, nil
 }
 
 // createAnalysisRun creates the immutable run for the submission's snapshot,
@@ -942,35 +956,61 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (result
 	}
 	switch run.State {
 	case "queued":
-		if _, err = s.liveJobIDTx(ctx, tx, owner, status.RunID); errors.Is(err, pgx.ErrNoRows) {
-			args, argsErr := snapshotArgsTx(ctx, tx, owner, status.RunID)
-			if argsErr != nil {
-				return Status{}, argsErr
-			}
-			if _, err = s.ensureAttemptTx(ctx, tx, args, status.RunID, false); err != nil {
-				return Status{}, err
-			}
-		} else if err != nil {
-			return Status{}, err
-		}
+		err = s.reconcileQueuedRun(ctx, tx, owner, status.RunID)
 	case "running":
-		if _, err = s.liveJobIDTx(ctx, tx, owner, status.RunID); errors.Is(err, pgx.ErrNoRows) {
-			message := safeAnalysisError(errors.New("analysis worker is no longer active"))
-			_, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID, message)
-			if err == nil {
-				_, err = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',error=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, status.RunID, message)
-				if err != nil {
-					return Status{}, err
-				}
-			}
-		} else if err != nil {
-			return Status{}, err
-		}
+		err = s.reconcileRunningRun(ctx, tx, owner, status.RunID)
+	}
+	if err != nil {
+		return Status{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Status{}, err
 	}
 	return s.Get(ctx, owner, id)
+}
+
+// reconcileQueuedRun re-enqueues a queued run only when it has no live River
+// work, loading its arguments for the fresh attempt.
+func (s *Service) reconcileQueuedRun(ctx context.Context, tx pgx.Tx, owner, runID string) error {
+	if _, err := s.liveJobIDTx(ctx, tx, owner, runID); !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	args, err := snapshotArgsTx(ctx, tx, owner, runID)
+	if err != nil {
+		return err
+	}
+	_, err = s.ensureAttemptTx(ctx, tx, args, runID, false)
+	return err
+}
+
+// reconcileRunningRun fails a running run whose River work is gone. It reports
+// the attempt-update failure directly, while a run-update failure is left for
+// the caller's commit to report, matching the inline reconcile flow.
+func (s *Service) reconcileRunningRun(ctx context.Context, tx pgx.Tx, owner, runID string) error {
+	if _, err := s.liveJobIDTx(ctx, tx, owner, runID); !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if err := failOrphanedRunningRun(ctx, tx, owner, runID); err != nil && !errors.Is(err, errOrphanedRunUpdateDeferred) {
+		return err
+	}
+	return nil
+}
+
+// errOrphanedRunUpdateDeferred marks a failed running-run update whose aborted
+// transaction the caller's commit reports. It is returned instead of the run
+// update error because the inline reconcile flow discarded that error and let
+// the commit surface the failure.
+var errOrphanedRunUpdateDeferred = errors.New("running run update deferred to commit")
+
+// failOrphanedRunningRun marks a running run without viable River work as
+// failed and fails its open attempts.
+func failOrphanedRunningRun(ctx context.Context, tx pgx.Tx, owner, runID string) error {
+	message := safeAnalysisError(errors.New("analysis worker is no longer active"))
+	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID, message); err != nil {
+		return errOrphanedRunUpdateDeferred
+	}
+	_, err := tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',error=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, runID, message)
+	return err
 }
 
 func (s *Service) liveJobID(ctx context.Context, owner, runID string) (int64, error) {
@@ -1236,52 +1276,84 @@ func (w *Worker) fetchSnapshotWork(ctx context.Context, a JobArgs) (snapshotPlan
 	return snapshotPlan{decision: decision, totalUnits: len(allUnits), selectedUnits: len(selectedUnits), inputs: inputs}, nil
 }
 
-// analyzeSnapshotWork runs the analyzer over every chunk and derives the
-// artifact identity, shared lemmas, and statistics from the merged result.
-func (w *Worker) analyzeSnapshotWork(ctx context.Context, a JobArgs, inputs []snapshotDocumentInput) (snapshotAnalysis, error) {
-	var merged analyzer.Result
-	totalChunks := 0
-	for _, input := range inputs {
-		totalChunks += len(chunkText(input.text, w.MaxChunkChars))
+// snapshotChunkMerge folds analyzed chunks into the snapshot's merged result
+// and tracks batch progress.
+type snapshotChunkMerge struct {
+	result    analyzer.Result
+	total     int
+	completed int
+}
+
+// merge folds one analyzed chunk into the merged result. chunkIndex is the
+// chunk's index within its document, so only the first chunk contributes source
+// documents.
+func (m *snapshotChunkMerge) merge(chunkIndex int, chunk analyzer.Result) {
+	if m.completed == 0 {
+		m.result = chunk
+		m.result.Sentences = nil
+		m.result.SourceDocuments = nil
 	}
-	completedChunks := 0
-	for _, input := range inputs {
-		chunks := chunkText(input.text, w.MaxChunkChars)
-		var chunkStartOffset uint64
-		for i, chunk := range chunks {
-			chunkResult, analyzeErr := w.Analyzer.Analyze(ctx, analyzer.AnalyzeRequest{Language: a.Language, Document: analyzer.SourceDocument{ID: input.id, SourceIdentifier: input.identifier, Title: input.title, Text: chunk}})
-			if analyzeErr != nil {
-				return snapshotAnalysis{}, fmt.Errorf("snapshot analysis failed: %w", analyzeErr)
-			}
-			if completedChunks == 0 {
-				merged = chunkResult
-				merged.Sentences = nil
-				merged.SourceDocuments = nil
-			}
-			offsetResultLocations(&chunkResult, chunkStartOffset)
-			merged.Sentences = append(merged.Sentences, chunkResult.Sentences...)
-			if i == 0 {
-				merged.SourceDocuments = append(merged.SourceDocuments, chunkResult.SourceDocuments...)
-			}
-			chunkStartOffset += uint64(len([]rune(chunk)))
-			completedChunks++
-			progress := 10 + completedChunks*80/totalChunks
-			if _, updateErr := w.Pool.Exec(ctx, `UPDATE analysis_jobs SET progress=$2,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, a.OwnerID, progress, a.RunID); updateErr != nil {
-				return snapshotAnalysis{}, updateErr
-			}
-		}
+	m.result.Sentences = append(m.result.Sentences, chunk.Sentences...)
+	if chunkIndex == 0 {
+		m.result.SourceDocuments = append(m.result.SourceDocuments, chunk.SourceDocuments...)
 	}
-	artifactHash := normalizedArtifactHash(a.ContentHash, "", a.AnalysisIdentity, a.AnalyzerName, a.AnalyzerVersion, a.ConfigIdentity, merged)
-	lemmas, err := aggregateLemmas(artifactHash, merged)
+	m.completed++
+}
+
+// progress reports the analysis progress once the latest chunk completed.
+func (m *snapshotChunkMerge) progress() int {
+	return 10 + m.completed*80/m.total
+}
+
+// analysis derives the artifact identity, shared lemmas, and statistics from
+// the merged result.
+func (m *snapshotChunkMerge) analysis(a JobArgs) (snapshotAnalysis, error) {
+	artifactHash := normalizedArtifactHash(a.ContentHash, "", a.AnalysisIdentity, a.AnalyzerName, a.AnalyzerVersion, a.ConfigIdentity, m.result)
+	lemmas, err := aggregateLemmas(artifactHash, m.result)
 	if err != nil {
 		return snapshotAnalysis{}, fmt.Errorf("aggregate analyzed lemmas: %w", err)
 	}
 	return snapshotAnalysis{
-		result:     merged,
+		result:     m.result,
 		lemmas:     lemmas,
-		statistics: selection.AnalyzableStatistics(merged, selection.DefaultConfig("")),
-		artifact:   domain.NormalizedArtifact{ContentHash: artifactHash, Language: merged.Language, SchemaVersion: merged.SchemaVersion, NormalizationProfile: merged.NormalizationProfile.Name, NormalizationVersion: merged.NormalizationProfile.Version, AnalyzerName: merged.Analysis.AnalyzerName, AnalyzerVersion: merged.Analysis.AnalyzerVersion},
+		statistics: selection.AnalyzableStatistics(m.result, selection.DefaultConfig("")),
+		artifact:   domain.NormalizedArtifact{ContentHash: artifactHash, Language: m.result.Language, SchemaVersion: m.result.SchemaVersion, NormalizationProfile: m.result.NormalizationProfile.Name, NormalizationVersion: m.result.NormalizationProfile.Version, AnalyzerName: m.result.Analysis.AnalyzerName, AnalyzerVersion: m.result.Analysis.AnalyzerVersion},
 	}, nil
+}
+
+// analyzeSnapshotWork runs the analyzer over every chunk and derives the
+// artifact identity, shared lemmas, and statistics from the merged result.
+func (w *Worker) analyzeSnapshotWork(ctx context.Context, a JobArgs, inputs []snapshotDocumentInput) (snapshotAnalysis, error) {
+	var merge snapshotChunkMerge
+	for _, input := range inputs {
+		merge.total += len(chunkText(input.text, w.MaxChunkChars))
+	}
+	for _, input := range inputs {
+		if err := w.analyzeDocumentChunks(ctx, a, input, &merge); err != nil {
+			return snapshotAnalysis{}, err
+		}
+	}
+	return merge.analysis(a)
+}
+
+// analyzeDocumentChunks analyzes and folds every chunk of one snapshot document,
+// recording progress after each chunk.
+func (w *Worker) analyzeDocumentChunks(ctx context.Context, a JobArgs, input snapshotDocumentInput, merge *snapshotChunkMerge) error {
+	chunks := chunkText(input.text, w.MaxChunkChars)
+	var chunkStartOffset uint64
+	for i, chunk := range chunks {
+		chunkResult, err := w.Analyzer.Analyze(ctx, analyzer.AnalyzeRequest{Language: a.Language, Document: analyzer.SourceDocument{ID: input.id, SourceIdentifier: input.identifier, Title: input.title, Text: chunk}})
+		if err != nil {
+			return fmt.Errorf("snapshot analysis failed: %w", err)
+		}
+		offsetResultLocations(&chunkResult, chunkStartOffset)
+		merge.merge(i, chunkResult)
+		chunkStartOffset += uint64(len([]rune(chunk)))
+		if _, err := w.Pool.Exec(ctx, `UPDATE analysis_jobs SET progress=$2,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, a.OwnerID, merge.progress(), a.RunID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // persistSnapshotWork writes the analyzed corpus in one transaction. proceed is
@@ -1300,51 +1372,86 @@ func (w *Worker) persistSnapshotWork(ctx context.Context, a JobArgs, plan snapsh
 	if runState == "cancelled" || runState == "completed" {
 		return "", false, nil
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(content_hash) DO NOTHING`, analyzed.artifact.ContentHash, analyzed.artifact.Language, analyzed.artifact.SchemaVersion, analyzed.artifact.NormalizationProfile, analyzed.artifact.NormalizationVersion, analyzed.artifact.AnalyzerName, analyzed.artifact.AnalyzerVersion); err != nil {
+	if err := insertCorpusArtifact(ctx, tx, analyzed.artifact); err != nil {
 		return "", false, err
 	}
-	for _, lemma := range analyzed.lemmas {
-		if _, err = tx.Exec(ctx, `INSERT INTO shared_lemmas(content_hash,language,canonical_lemma,upos,morphology,frequency) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(content_hash,canonical_lemma,upos,morphology) DO UPDATE SET frequency=excluded.frequency`, lemma.ContentHash, lemma.Language, lemma.CanonicalLemma, lemma.UPOS, lemma.Morphology, lemma.Frequency); err != nil {
-			return "", false, err
-		}
+	if err := insertSharedLemmas(ctx, tx, analyzed.lemmas); err != nil {
+		return "", false, err
 	}
-	profile := analyzed.statistics.TextProfile
-	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count)
-		VALUES($1,$2,$3,$4::uuid,'complete',$5,$6,$7,$8,$9,$10,$11,$12)
-		ON CONFLICT(owner_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO NOTHING RETURNING id::text`, a.OwnerID, a.SourceMaterialID, analyzed.artifact.ContentHash, a.RunID, analyzed.statistics.AnalyzableTokenCount, analyzed.statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		if err := tx.QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
-			return "", false, err
-		}
-	} else if err != nil {
+	corpusID, err = insertCompletedCorpus(ctx, tx, a, analyzed)
+	if err != nil {
 		return "", false, err
 	}
 	if err := persistNormalizedCorpus(ctx, tx, a.OwnerID, analyzed.result.Language, a.RunID, corpusID, analyzed.result); err != nil {
 		return "", false, err
 	}
-	details, err := analysisHistoryDetails(a, plan.decision, plan.totalUnits, plan.selectedUnits)
-	if err != nil {
-		return "", false, err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'analysis','complete',$3,now())`, a.OwnerID, corpusID, details); err != nil {
-		return "", false, err
-	}
-	if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$3::uuid,last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state<>'cancelled'`, a.OwnerID, a.RunID, corpusID); err != nil {
-		return "", false, err
-	}
-	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$3::uuid,progress=100,error='',updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, corpusID); err != nil {
-		return "", false, err
-	}
-	// The run lock is acquired before the owner/book lock for every snapshot
-	// completion. The book lock serializes replacement of one book's pointer.
-	var bookID string
-	if err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN source_materials s ON s.owner_id=b.owner_id AND s.book_id=b.id AND s.owner_id=$1 AND s.id=$2 WHERE b.owner_id=$1 FOR UPDATE OF b`, a.OwnerID, a.SourceMaterialID).Scan(&bookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err := completeSnapshotRun(ctx, tx, a, plan, corpusID); err != nil {
 		return "", false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return "", false, err
 	}
 	return corpusID, true, nil
+}
+
+// insertCorpusArtifact records the normalized artifact identity, ignoring an
+// artifact that already has the same content hash.
+func insertCorpusArtifact(ctx context.Context, tx pgx.Tx, artifact domain.NormalizedArtifact) error {
+	_, err := tx.Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(content_hash) DO NOTHING`, artifact.ContentHash, artifact.Language, artifact.SchemaVersion, artifact.NormalizationProfile, artifact.NormalizationVersion, artifact.AnalyzerName, artifact.AnalyzerVersion)
+	return err
+}
+
+// insertSharedLemmas upserts the analyzed shared lemmas.
+func insertSharedLemmas(ctx context.Context, tx pgx.Tx, lemmas []domain.SharedLemma) error {
+	for _, lemma := range lemmas {
+		if _, err := tx.Exec(ctx, `INSERT INTO shared_lemmas(content_hash,language,canonical_lemma,upos,morphology,frequency) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(content_hash,canonical_lemma,upos,morphology) DO UPDATE SET frequency=excluded.frequency`, lemma.ContentHash, lemma.Language, lemma.CanonicalLemma, lemma.UPOS, lemma.Morphology, lemma.Frequency); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// insertCompletedCorpus inserts the completed corpus row, or loads the existing
+// one when this run already persisted it.
+func insertCompletedCorpus(ctx context.Context, tx pgx.Tx, a JobArgs, analyzed snapshotAnalysis) (string, error) {
+	profile := analyzed.statistics.TextProfile
+	var corpusID string
+	err := tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count)
+		VALUES($1,$2,$3,$4::uuid,'complete',$5,$6,$7,$8,$9,$10,$11,$12)
+		ON CONFLICT(owner_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO NOTHING RETURNING id::text`, a.OwnerID, a.SourceMaterialID, analyzed.artifact.ContentHash, a.RunID, analyzed.statistics.AnalyzableTokenCount, analyzed.statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		if err := tx.QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
+			return "", err
+		}
+	} else if err != nil {
+		return "", err
+	}
+	return corpusID, nil
+}
+
+// completeSnapshotRun records the completion history, completes the run and job,
+// and takes the source Book lock before the caller commits.
+func completeSnapshotRun(ctx context.Context, tx pgx.Tx, a JobArgs, plan snapshotPlan, corpusID string) error {
+	details, err := analysisHistoryDetails(a, plan.decision, plan.totalUnits, plan.selectedUnits)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'analysis','complete',$3,now())`, a.OwnerID, corpusID, details); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$3::uuid,last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state<>'cancelled'`, a.OwnerID, a.RunID, corpusID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$3::uuid,progress=100,error='',updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, corpusID); err != nil {
+		return err
+	}
+	// The run lock is acquired before the owner/book lock for every snapshot
+	// completion. The book lock serializes replacement of one book's pointer.
+	var bookID string
+	if err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN source_materials s ON s.owner_id=b.owner_id AND s.book_id=b.id AND s.owner_id=$1 AND s.id=$2 WHERE b.owner_id=$1 FOR UPDATE OF b`, a.OwnerID, a.SourceMaterialID).Scan(&bookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	return nil
 }
 
 // selectSnapshotRun generates the candidate selection for a persisted corpus
@@ -1443,56 +1550,91 @@ func loadNormalizedCorpusForSelection(ctx context.Context, pool *pgxpool.Pool, o
 	result := analyzer.Result{Language: language, Sentences: make([]analyzer.Sentence, 0)}
 	var currentOrdinal int64 = -1
 	for rows.Next() {
-		var ordinal, sentenceStart, sentenceEnd, tokenOrdinal, head, tokenStart, tokenEnd int64
-		var text, unitID, surface, rawLemma, canonicalLemma, upos, dependency string
-		var morphologyJSON []byte
-		if err := rows.Scan(&ordinal, &text, &unitID, &sentenceStart, &sentenceEnd, &tokenOrdinal, &surface, &rawLemma, &canonicalLemma, &upos, &dependency, &head, &morphologyJSON, &tokenStart, &tokenEnd); err != nil {
-			return analyzer.Result{}, fmt.Errorf("read persisted corpus for selection: %w", err)
+		row, err := scanPersistedCorpusRow(rows)
+		if err != nil {
+			return analyzer.Result{}, err
 		}
-		if ordinal != currentOrdinal {
-			startOffset, err := checked.Uint64FromInt64(sentenceStart)
-			if err != nil {
-				return analyzer.Result{}, fmt.Errorf("decode persisted sentence start offset %d: %w", ordinal, err)
-			}
-			endOffset, err := checked.Uint64FromInt64(sentenceEnd)
-			if err != nil {
-				return analyzer.Result{}, fmt.Errorf("decode persisted sentence end offset %d: %w", ordinal, err)
-			}
-			result.Sentences = append(result.Sentences, analyzer.Sentence{
-				Text: text, Tokens: make([]analyzer.Token, 0),
-				Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: startOffset, EndOffset: endOffset},
-			})
-			currentOrdinal = ordinal
+		if err := appendPersistedSentence(&result, &currentOrdinal, row); err != nil {
+			return analyzer.Result{}, err
 		}
-		if tokenOrdinal < 0 {
+		if row.tokenOrdinal < 0 {
 			continue
 		}
-		checkedHead, err := checked.Uint32FromInt64(head)
-		if err != nil {
-			return analyzer.Result{}, fmt.Errorf("decode persisted token head for sentence %d: %w", ordinal, err)
+		if err := appendPersistedToken(&result, row); err != nil {
+			return analyzer.Result{}, err
 		}
-		var morphology map[string]string
-		if err = json.Unmarshal(morphologyJSON, &morphology); err != nil {
-			return analyzer.Result{}, fmt.Errorf("decode persisted token morphology for sentence %d: %w", ordinal, err)
-		}
-		tokenStartOffset, err := checked.Uint64FromInt64(tokenStart)
-		if err != nil {
-			return analyzer.Result{}, fmt.Errorf("decode persisted token start offset for sentence %d: %w", ordinal, err)
-		}
-		tokenEndOffset, err := checked.Uint64FromInt64(tokenEnd)
-		if err != nil {
-			return analyzer.Result{}, fmt.Errorf("decode persisted token end offset for sentence %d: %w", ordinal, err)
-		}
-		result.Sentences[len(result.Sentences)-1].Tokens = append(result.Sentences[len(result.Sentences)-1].Tokens, analyzer.Token{
-			Surface: surface, RawLemma: rawLemma, CanonicalLemma: canonicalLemma, UPOS: upos,
-			Dependency: dependency, Head: checkedHead, Morphology: morphology,
-			Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: tokenStartOffset, EndOffset: tokenEndOffset},
-		})
 	}
 	if err = rows.Err(); err != nil {
 		return analyzer.Result{}, fmt.Errorf("iterate persisted corpus for selection: %w", err)
 	}
 	return result, nil
+}
+
+// persistedCorpusRow is one scanned sentence/token row of a persisted corpus.
+type persistedCorpusRow struct {
+	sentenceOrdinal, sentenceStart, sentenceEnd         int64
+	sentenceText, unitID                                string
+	tokenOrdinal, head, tokenStart, tokenEnd            int64
+	surface, rawLemma, canonicalLemma, upos, dependency string
+	morphologyJSON                                      []byte
+}
+
+// scanPersistedCorpusRow reads one row of the persisted-corpus join, keeping a
+// sentence with no token rows so its token ordinal stays -1.
+func scanPersistedCorpusRow(rows pgx.Rows) (persistedCorpusRow, error) {
+	var row persistedCorpusRow
+	if err := rows.Scan(&row.sentenceOrdinal, &row.sentenceText, &row.unitID, &row.sentenceStart, &row.sentenceEnd, &row.tokenOrdinal, &row.surface, &row.rawLemma, &row.canonicalLemma, &row.upos, &row.dependency, &row.head, &row.morphologyJSON, &row.tokenStart, &row.tokenEnd); err != nil {
+		return persistedCorpusRow{}, fmt.Errorf("read persisted corpus for selection: %w", err)
+	}
+	return row, nil
+}
+
+// appendPersistedSentence appends the row's sentence when it is the next
+// sentence ordinal, so a sentence without tokens still contributes one sentence.
+func appendPersistedSentence(result *analyzer.Result, currentOrdinal *int64, row persistedCorpusRow) error {
+	if row.sentenceOrdinal == *currentOrdinal {
+		return nil
+	}
+	startOffset, err := checked.Uint64FromInt64(row.sentenceStart)
+	if err != nil {
+		return fmt.Errorf("decode persisted sentence start offset %d: %w", row.sentenceOrdinal, err)
+	}
+	endOffset, err := checked.Uint64FromInt64(row.sentenceEnd)
+	if err != nil {
+		return fmt.Errorf("decode persisted sentence end offset %d: %w", row.sentenceOrdinal, err)
+	}
+	result.Sentences = append(result.Sentences, analyzer.Sentence{
+		Text: row.sentenceText, Tokens: make([]analyzer.Token, 0),
+		Location: analyzer.SourceLocation{SourceDocumentID: row.unitID, StartOffset: startOffset, EndOffset: endOffset},
+	})
+	*currentOrdinal = row.sentenceOrdinal
+	return nil
+}
+
+// appendPersistedToken decodes and appends the row's token to the last sentence.
+func appendPersistedToken(result *analyzer.Result, row persistedCorpusRow) error {
+	checkedHead, err := checked.Uint32FromInt64(row.head)
+	if err != nil {
+		return fmt.Errorf("decode persisted token head for sentence %d: %w", row.sentenceOrdinal, err)
+	}
+	var morphology map[string]string
+	if err = json.Unmarshal(row.morphologyJSON, &morphology); err != nil {
+		return fmt.Errorf("decode persisted token morphology for sentence %d: %w", row.sentenceOrdinal, err)
+	}
+	tokenStartOffset, err := checked.Uint64FromInt64(row.tokenStart)
+	if err != nil {
+		return fmt.Errorf("decode persisted token start offset for sentence %d: %w", row.sentenceOrdinal, err)
+	}
+	tokenEndOffset, err := checked.Uint64FromInt64(row.tokenEnd)
+	if err != nil {
+		return fmt.Errorf("decode persisted token end offset for sentence %d: %w", row.sentenceOrdinal, err)
+	}
+	result.Sentences[len(result.Sentences)-1].Tokens = append(result.Sentences[len(result.Sentences)-1].Tokens, analyzer.Token{
+		Surface: row.surface, RawLemma: row.rawLemma, CanonicalLemma: row.canonicalLemma, UPOS: row.upos,
+		Dependency: row.dependency, Head: checkedHead, Morphology: morphology,
+		Location: analyzer.SourceLocation{SourceDocumentID: row.unitID, StartOffset: tokenStartOffset, EndOffset: tokenEndOffset},
+	})
+	return nil
 }
 
 // publishCompletedRun promotes only the exact completed corpus whose source
@@ -1508,13 +1650,9 @@ func (w *Worker) publishCompletedRun(ctx context.Context, a JobArgs, riverJobID 
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, a.OwnerID); err != nil {
 		return fmt.Errorf("lock analysis publication: %w", err)
 	}
-	var runState string
-	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
-		return fmt.Errorf("lock completed analysis for publication: %w", err)
-	}
-	var attemptState string
-	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_run_attempts WHERE run_id=$1 AND river_job_id=$2 FOR UPDATE`, a.RunID, riverJobID).Scan(&attemptState); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("lock analysis publication attempt: %w", err)
+	runState, attemptState, err := lockPublicationRun(ctx, tx, a, riverJobID)
+	if err != nil {
+		return err
 	}
 	if attemptState == "cancelled" {
 		return tx.Commit(ctx)
@@ -1522,19 +1660,59 @@ func (w *Worker) publishCompletedRun(ctx context.Context, a JobArgs, riverJobID 
 	if runState != "completed" {
 		return nil
 	}
-	var bookID string
-	err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN source_materials s ON s.owner_id=b.owner_id AND s.book_id=b.id AND s.owner_id=$1 AND s.id=$2 WHERE b.owner_id=$1 FOR UPDATE OF b`, a.OwnerID, a.SourceMaterialID).Scan(&bookID)
-	if errors.Is(err, pgx.ErrNoRows) {
+	bookID, found, err := lockPublicationBook(ctx, tx, a)
+	if err != nil {
+		return err
+	}
+	if !found {
 		if err := completePublicationAttempt(ctx, tx, a.RunID, riverJobID); err != nil {
 			return err
 		}
 		return tx.Commit(ctx)
 	}
-	if err != nil {
-		return fmt.Errorf("lock Book for analysis publication: %w", err)
+	if err := publishEligibleAnalysis(ctx, tx, a, bookID); err != nil {
+		return err
 	}
+	if err = completePublicationAttempt(ctx, tx, a.RunID, riverJobID); err != nil {
+		return fmt.Errorf("complete analysis publication attempt: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET error='',progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID); err != nil {
+		return fmt.Errorf("complete analysis publication status: %w", err)
+	}
+	return tx.Commit(ctx)
+}
+
+// lockPublicationRun takes the run and attempt row locks publication needs and
+// reports their states. A missing attempt leaves its state empty.
+func lockPublicationRun(ctx context.Context, tx pgx.Tx, a JobArgs, riverJobID int64) (runState, attemptState string, err error) {
+	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
+		return "", "", fmt.Errorf("lock completed analysis for publication: %w", err)
+	}
+	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_run_attempts WHERE run_id=$1 AND river_job_id=$2 FOR UPDATE`, a.RunID, riverJobID).Scan(&attemptState); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return "", "", fmt.Errorf("lock analysis publication attempt: %w", err)
+	}
+	return runState, attemptState, nil
+}
+
+// lockPublicationBook locks the Book that owns the publication's source and
+// reports found=false when the source is not linked to a Book.
+func lockPublicationBook(ctx context.Context, tx pgx.Tx, a JobArgs) (string, bool, error) {
+	var bookID string
+	err := tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN source_materials s ON s.owner_id=b.owner_id AND s.book_id=b.id AND s.owner_id=$1 AND s.id=$2 WHERE b.owner_id=$1 FOR UPDATE OF b`, a.OwnerID, a.SourceMaterialID).Scan(&bookID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("lock Book for analysis publication: %w", err)
+	}
+	return bookID, true, nil
+}
+
+// publishEligibleAnalysis promotes the completed run to the Book's current
+// analysis, with its Browse projection, when no newer run superseded it.
+func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID string) error {
 	var eligible bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1
 		FROM analysis_runs r
 		JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id AND s.book_id=$3
@@ -1545,28 +1723,23 @@ func (w *Worker) publishCompletedRun(ctx context.Context, a JobArgs, riverJobID 
 	)`, a.OwnerID, a.RunID, bookID).Scan(&eligible); err != nil {
 		return fmt.Errorf("check completed analysis eligibility: %w", err)
 	}
-	if eligible {
-		var corpusID string
-		if err = tx.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
-			return fmt.Errorf("load completed corpus for Browse projection: %w", err)
-		}
-		if err = persistence.BuildVocabularyBrowseCountsTx(ctx, tx, a.OwnerID, bookID, a.SourceMaterialID, a.RunID, corpusID, a.Language); err != nil {
-			return fmt.Errorf("build Browse projection for analysis publication: %w", err)
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id,promoted_at)
-			VALUES($1,$2,$3,$4,now())
-			ON CONFLICT(owner_id,book_id) DO UPDATE SET source_material_id=excluded.source_material_id,analysis_run_id=excluded.analysis_run_id,promoted_at=excluded.promoted_at
-			WHERE book_current_analyses.analysis_run_id IS DISTINCT FROM excluded.analysis_run_id`, a.OwnerID, bookID, a.SourceMaterialID, a.RunID); err != nil {
-			return fmt.Errorf("publish completed analysis: %w", err)
-		}
+	if !eligible {
+		return nil
 	}
-	if err = completePublicationAttempt(ctx, tx, a.RunID, riverJobID); err != nil {
-		return fmt.Errorf("complete analysis publication attempt: %w", err)
+	var corpusID string
+	if err := tx.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
+		return fmt.Errorf("load completed corpus for Browse projection: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET error='',progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID); err != nil {
-		return fmt.Errorf("complete analysis publication status: %w", err)
+	if err := persistence.BuildVocabularyBrowseCountsTx(ctx, tx, a.OwnerID, bookID, a.SourceMaterialID, a.RunID, corpusID, a.Language); err != nil {
+		return fmt.Errorf("build Browse projection for analysis publication: %w", err)
 	}
-	return tx.Commit(ctx)
+	if _, err := tx.Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id,promoted_at)
+		VALUES($1,$2,$3,$4,now())
+		ON CONFLICT(owner_id,book_id) DO UPDATE SET source_material_id=excluded.source_material_id,analysis_run_id=excluded.analysis_run_id,promoted_at=excluded.promoted_at
+		WHERE book_current_analyses.analysis_run_id IS DISTINCT FROM excluded.analysis_run_id`, a.OwnerID, bookID, a.SourceMaterialID, a.RunID); err != nil {
+		return fmt.Errorf("publish completed analysis: %w", err)
+	}
+	return nil
 }
 
 const (
@@ -1613,47 +1786,64 @@ func insertCorpusSentences(ctx context.Context, tx pgx.Tx, ownerID, runID, corpu
 	return nil
 }
 
-func insertCorpusTokens(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, sentences []analyzer.Sentence) error {
-	var query strings.Builder
-	var args []any
-	tokenCount := 0
-	flushTokens := func() error {
-		if tokenCount == 0 {
-			return nil
-		}
-		if _, err := tx.Exec(ctx, query.String(), args...); err != nil {
+// corpusTokenInserter accumulates one batched corpus-token INSERT, flushing it
+// when it reaches the batch size and at the end.
+type corpusTokenInserter struct {
+	query strings.Builder
+	args  []any
+	count int
+}
+
+// add validates one analyzed token and appends its row, flushing a full batch
+// first.
+func (b *corpusTokenInserter) add(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, sentenceOrdinal, tokenOrdinal, tokenTotal int, token analyzer.Token) error {
+	if err := validateCorpusToken(sentenceOrdinal, tokenOrdinal, tokenTotal, token); err != nil {
+		return err
+	}
+	if b.count == normalizedCorpusTokenInsertBatchSize {
+		if err := b.flush(ctx, tx); err != nil {
 			return err
 		}
-		query.Reset()
-		args = args[:0]
-		tokenCount = 0
+	}
+	if b.count == 0 {
+		b.query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES `)
+	} else {
+		b.query.WriteString(",")
+	}
+	tuple, rowArgs, err := corpusTokenRow(ownerID, language, runID, corpusID, sentenceOrdinal, tokenOrdinal, len(b.args)+1, token)
+	if err != nil {
+		return err
+	}
+	b.query.WriteString(tuple)
+	b.args = append(b.args, rowArgs...)
+	b.count++
+	return nil
+}
+
+// flush writes the accumulated tokens, if any.
+func (b *corpusTokenInserter) flush(ctx context.Context, tx pgx.Tx) error {
+	if b.count == 0 {
 		return nil
 	}
+	if _, err := tx.Exec(ctx, b.query.String(), b.args...); err != nil {
+		return err
+	}
+	b.query.Reset()
+	b.args = b.args[:0]
+	b.count = 0
+	return nil
+}
+
+func insertCorpusTokens(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, sentences []analyzer.Sentence) error {
+	var batch corpusTokenInserter
 	for sentenceOrdinal, sentence := range sentences {
 		for tokenOrdinal, token := range sentence.Tokens {
-			if err := validateCorpusToken(sentenceOrdinal, tokenOrdinal, len(sentence.Tokens), token); err != nil {
+			if err := batch.add(ctx, tx, ownerID, language, runID, corpusID, sentenceOrdinal, tokenOrdinal, len(sentence.Tokens), token); err != nil {
 				return err
 			}
-			if tokenCount == normalizedCorpusTokenInsertBatchSize {
-				if err := flushTokens(); err != nil {
-					return err
-				}
-			}
-			if tokenCount == 0 {
-				query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES `)
-			} else {
-				query.WriteString(",")
-			}
-			tuple, rowArgs, err := corpusTokenRow(ownerID, language, runID, corpusID, sentenceOrdinal, tokenOrdinal, len(args)+1, token)
-			if err != nil {
-				return err
-			}
-			query.WriteString(tuple)
-			args = append(args, rowArgs...)
-			tokenCount++
 		}
 	}
-	return flushTokens()
+	return batch.flush(ctx, tx)
 }
 
 // validateCorpusToken rejects an analyzed token whose dependency or head cannot

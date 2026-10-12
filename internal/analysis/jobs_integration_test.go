@@ -1754,6 +1754,130 @@ func TestAnalysisRetryTransitionsSnapshotRuns(t *testing.T) {
 	}
 }
 
+// TestAnalysisReconcileTransitionsSnapshotRuns pins the public Reconcile seam:
+// a queued run without live River work is re-enqueued, a running run without it
+// is failed, and live or settled runs are left untouched.
+func TestAnalysisReconcileTransitionsSnapshotRuns(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-reconcile", false)
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	service := NewService(pool, riverClient)
+
+	submit := func(t *testing.T, identifier string) Handle {
+		t.Helper()
+		source, sourceErr := putAnalysisSource(ctx, store, owner.ID, identifier, identifier, "Guten Tag.", "sha256:"+identifier)
+		require.NoError(t, sourceErr)
+		handle, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.NoError(t, submitErr)
+		return handle
+	}
+	runState := func(t *testing.T, runID string) string {
+		t.Helper()
+		var state string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, runID).Scan(&state))
+		return state
+	}
+	attemptCount := func(t *testing.T, runID string) int {
+		t.Helper()
+		var count int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT attempt_count FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, runID).Scan(&count))
+		return count
+	}
+	liveJobCount := func(t *testing.T, runID string) int {
+		t.Helper()
+		var count int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'run_id'=$3 AND state IN ('available','pending','running','retryable','scheduled')`, (JobArgs{}).Kind(), owner.ID, runID).Scan(&count))
+		return count
+	}
+	detachLiveWork := func(t *testing.T, handle Handle) {
+		t.Helper()
+		_, execErr := pool.Exec(ctx, `DELETE FROM river_job WHERE id=$1`, handle.JobID)
+		require.NoError(t, execErr)
+	}
+
+	t.Run("queued run with live work is left unchanged", func(t *testing.T) {
+		handle := submit(t, "reconcile-queued-live")
+		status, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.NoError(t, reconcileErr)
+		assert.Equal(t, "queued", runState(t, handle.RunID))
+		assert.Equal(t, 1, attemptCount(t, handle.RunID))
+		assert.Equal(t, 1, liveJobCount(t, handle.RunID))
+		assert.Equal(t, rivertype.JobStateAvailable, status.State)
+	})
+
+	t.Run("queued run without live work re-enqueues", func(t *testing.T) {
+		handle := submit(t, "reconcile-queued-orphan")
+		detachLiveWork(t, handle)
+		status, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.NoError(t, reconcileErr)
+		assert.Equal(t, "queued", runState(t, handle.RunID))
+		assert.Equal(t, 2, attemptCount(t, handle.RunID))
+		assert.Equal(t, 1, liveJobCount(t, handle.RunID))
+		assert.Equal(t, rivertype.JobStateAvailable, status.State)
+	})
+
+	t.Run("running run without live work is failed", func(t *testing.T) {
+		handle := submit(t, "reconcile-running-orphan")
+		_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state='running',started_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
+		require.NoError(t, execErr)
+		detachLiveWork(t, handle)
+		status, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.NoError(t, reconcileErr)
+		assert.Equal(t, "failed", runState(t, handle.RunID))
+		var attemptState string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT state FROM analysis_run_attempts WHERE run_id=$1`, handle.RunID).Scan(&attemptState))
+		assert.Equal(t, "failed", attemptState)
+		assert.Equal(t, rivertype.JobStateDiscarded, status.State)
+	})
+
+	t.Run("running run with live work stays running", func(t *testing.T) {
+		handle := submit(t, "reconcile-running-live")
+		_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state='running',started_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
+		require.NoError(t, execErr)
+		status, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.NoError(t, reconcileErr)
+		assert.Equal(t, "running", runState(t, handle.RunID))
+		assert.Equal(t, rivertype.JobStateRunning, status.State)
+	})
+
+	t.Run("settled run is reported unchanged", func(t *testing.T) {
+		handle := submit(t, "reconcile-settled")
+		_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state='completed',completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
+		require.NoError(t, execErr)
+		status, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.NoError(t, reconcileErr)
+		assert.Equal(t, "completed", runState(t, handle.RunID))
+		assert.Equal(t, "finalizing", status.LogicalState)
+		assert.Equal(t, rivertype.JobStateAvailable, status.State)
+	})
+
+	t.Run("legacy handle is reported unchanged", func(t *testing.T) {
+		source, sourceErr := putAnalysisSource(ctx, store, owner.ID, "reconcile-legacy", "Reconcile legacy", "Guten Tag.", "sha256:reconcile-legacy")
+		require.NoError(t, sourceErr)
+		job, insertErr := riverClient.Insert(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, ContentHash: source.ContentHash, Language: "de"}, &river.InsertOpts{Queue: Queue, MaxAttempts: 1})
+		require.NoError(t, insertErr)
+		_, execErr := pool.Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,display_number) VALUES($1,$2,$3,$4,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2))`, job.Job.ID, owner.ID, source.ID, source.ContentHash)
+		require.NoError(t, execErr)
+		status, reconcileErr := service.Reconcile(ctx, owner.ID, job.Job.ID)
+		require.NoError(t, reconcileErr)
+		assert.Empty(t, status.RunID)
+		assert.Equal(t, rivertype.JobStateAvailable, status.State)
+	})
+
+	t.Run("unknown handle is not found", func(t *testing.T) {
+		_, reconcileErr := service.Reconcile(ctx, owner.ID, 9_000_000)
+		require.ErrorIs(t, reconcileErr, ErrNotFound)
+	})
+}
+
 // TestAnalysisCancelLegacyJobFollowsRiverLifecycle pins the legacy cancellation
 // path: a handle without a snapshot run is cancelled through River directly and
 // reports River's state, which cancellation now names as its own step.
@@ -1866,6 +1990,285 @@ func TestWorkerRejectsMalformedCorpusTokens(t *testing.T) {
 			assert.Zero(t, tokens, "a malformed token must not persist a partial corpus")
 		})
 	}
+}
+
+// TestWorkerPersistsTokenlessCorpusAndReloadsIt pins two moved branches through
+// the worker seam: a corpus with no tokens flushes no token batch, and reloading
+// that corpus for selection skips a sentence that has no token rows.
+func TestWorkerPersistsTokenlessCorpusAndReloadsIt(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "tokenless-corpus", false)
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "tokenless-source", "Tokenless", "Leerer Text.", "sha256:tokenless")
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	service := NewService(pool, riverClient)
+	fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		return analyzer.Result{
+			SchemaVersion:        "1.0.0",
+			Language:             req.Language,
+			Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"},
+			NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
+			Sentences: []analyzer.Sentence{{
+				Text:     req.Document.Text,
+				Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))},
+			}},
+		}, nil
+	}}
+	worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(), Selection: selection.NewService(store)}
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	args, err := snapshotArgsTx(ctx, pool, owner.ID, handle.RunID)
+	require.NoError(t, err)
+	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: handle.JobID}, Args: args}
+	require.NoError(t, worker.Work(ctx, job))
+
+	var corpusID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&corpusID))
+	var tokens, sentences int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpusID).Scan(&tokens))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpus_sentences WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpusID).Scan(&sentences))
+	assert.Zero(t, tokens)
+	assert.Equal(t, 1, sentences)
+
+	// Removing the recorded selection completion forces the completed run to
+	// reload its persisted corpus instead of the in-memory result.
+	_, err = pool.Exec(ctx, `DELETE FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation'`, owner.ID, corpusID)
+	require.NoError(t, err)
+	require.NoError(t, worker.Work(ctx, job))
+	var regenerated int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation' AND status='complete'`, owner.ID, corpusID).Scan(&regenerated))
+	assert.Equal(t, 1, regenerated)
+}
+
+// TestAnalysisReconcileSurfacesOperationalFailures pins the failure branches of
+// the reconcile steps through their public seam, so a failed lookup or write
+// fails loudly instead of leaving an orphaned run silently enrolled.
+func TestAnalysisReconcileSurfacesOperationalFailures(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-reconcile-failures", false)
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	service := NewService(pool, riverClient)
+
+	submit := func(t *testing.T, identifier string) Handle {
+		t.Helper()
+		source, sourceErr := putAnalysisSource(ctx, store, owner.ID, identifier, identifier, "Guten Tag.", "sha256:"+identifier)
+		require.NoError(t, sourceErr)
+		handle, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.NoError(t, submitErr)
+		return handle
+	}
+	runningOrphan := func(t *testing.T, handle Handle) {
+		t.Helper()
+		_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state='running',started_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
+		require.NoError(t, execErr)
+		_, execErr = pool.Exec(ctx, `DELETE FROM river_job WHERE id=$1`, handle.JobID)
+		require.NoError(t, execErr)
+	}
+	hideTable := func(t *testing.T, table string) {
+		t.Helper()
+		hidden := table + "_hidden"
+		_, execErr := pool.Exec(ctx, fmt.Sprintf(`ALTER TABLE %s RENAME TO %s`, table, hidden))
+		require.NoError(t, execErr)
+		t.Cleanup(func() {
+			_, restoreErr := pool.Exec(context.Background(), fmt.Sprintf(`ALTER TABLE %s RENAME TO %s`, hidden, table))
+			require.NoError(t, restoreErr)
+		})
+	}
+	rejectWrite := func(t *testing.T, name, action, table, message string) {
+		t.Helper()
+		_, execErr := pool.Exec(ctx, fmt.Sprintf(`CREATE FUNCTION %s() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION '%s'; END $$; CREATE TRIGGER %s_trg BEFORE %s ON %s FOR EACH ROW EXECUTE FUNCTION %s()`, name, message, name, action, table, name))
+		require.NoError(t, execErr)
+		t.Cleanup(func() {
+			_, dropErr := pool.Exec(context.Background(), fmt.Sprintf(`DROP TRIGGER %s_trg ON %s; DROP FUNCTION %s()`, name, table, name))
+			require.NoError(t, dropErr)
+		})
+	}
+
+	t.Run("queued run surfaces the argument read failure", func(t *testing.T) {
+		handle := submit(t, "reconcile-args-failure")
+		_, execErr := pool.Exec(ctx, `DELETE FROM river_job WHERE id=$1`, handle.JobID)
+		require.NoError(t, execErr)
+		hideTable(t, "source_content_revisions")
+		_, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.ErrorContains(t, reconcileErr, "source_content_revisions")
+	})
+
+	t.Run("running run surfaces the live-work lookup failure", func(t *testing.T) {
+		handle := submit(t, "reconcile-live-lookup-failure")
+		_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state='running',started_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
+		require.NoError(t, execErr)
+		hideTable(t, "river_job")
+		_, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.ErrorContains(t, reconcileErr, "river_job")
+	})
+
+	t.Run("running run surfaces the attempt write failure", func(t *testing.T) {
+		handle := submit(t, "reconcile-attempt-write-failure")
+		runningOrphan(t, handle)
+		rejectWrite(t, "reject_reconcile_attempt", "UPDATE", "analysis_run_attempts", "simulated reconcile attempt failure")
+		_, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.ErrorContains(t, reconcileErr, "simulated reconcile attempt failure")
+	})
+
+	t.Run("running run defers the run write failure to commit", func(t *testing.T) {
+		handle := submit(t, "reconcile-run-write-failure")
+		runningOrphan(t, handle)
+		rejectWrite(t, "reject_reconcile_run", "UPDATE", "analysis_runs", "simulated reconcile run failure")
+		_, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
+		require.Error(t, reconcileErr)
+		assert.NotContains(t, reconcileErr.Error(), "simulated reconcile run failure", "a failed run update is reported by the aborted commit, not returned directly")
+	})
+}
+
+// TestWorkerSnapshotPersistenceSurfacesOperationalFailures pins the write-
+// failure branches of the snapshot persistence steps through the worker seam,
+// so a failed artifact, lemma, corpus, history or progress write fails the run
+// instead of persisting a partial corpus.
+func TestWorkerSnapshotPersistenceSurfacesOperationalFailures(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-persist-failures", false)
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	service := NewService(pool, riverClient)
+
+	submit := func(t *testing.T, identifier string) (*river.Job[JobArgs], *Worker) {
+		t.Helper()
+		source, sourceErr := putAnalysisSource(ctx, store, owner.ID, identifier, identifier, "Hallo Berlin.", "sha256:"+identifier)
+		require.NoError(t, sourceErr)
+		handle, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+		require.NoError(t, submitErr)
+		args, argsErr := snapshotArgsTx(ctx, pool, owner.ID, handle.RunID)
+		require.NoError(t, argsErr)
+		unitID := domain.EPUBUnitID(0, identifier)
+		fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
+			return analyzer.Result{
+				SchemaVersion:        "1.0.0",
+				Language:             req.Language,
+				Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"},
+				NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
+				Sentences: []analyzer.Sentence{{
+					Text:     req.Document.Text,
+					Location: analyzer.SourceLocation{SourceDocumentID: unitID, EndOffset: uint64(len([]rune(req.Document.Text)))},
+					Tokens:   []analyzer.Token{{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Dependency: "root", Head: 0, Location: analyzer.SourceLocation{SourceDocumentID: unitID, EndOffset: 5}}},
+				}},
+			}, nil
+		}}
+		worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(), Selection: selection.NewService(store)}
+		return &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: handle.JobID}, Args: args}, worker
+	}
+	rejectWrite := func(t *testing.T, name, action, table, message string) {
+		t.Helper()
+		_, execErr := pool.Exec(ctx, fmt.Sprintf(`CREATE FUNCTION %s() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION '%s'; END $$; CREATE TRIGGER %s_trg BEFORE %s ON %s FOR EACH ROW EXECUTE FUNCTION %s()`, name, message, name, action, table, name))
+		require.NoError(t, execErr)
+		t.Cleanup(func() {
+			_, dropErr := pool.Exec(context.Background(), fmt.Sprintf(`DROP TRIGGER %s_trg ON %s; DROP FUNCTION %s()`, name, table, name))
+			require.NoError(t, dropErr)
+		})
+	}
+
+	tests := []struct {
+		name       string
+		identifier string
+		action     string
+		table      string
+		message    string
+	}{
+		{"progress write failure", "persist-progress", "UPDATE", "analysis_jobs", "simulated progress failure"},
+		{"artifact write failure", "persist-artifact", "INSERT", "normalized_corpus_artifacts", "simulated artifact failure"},
+		{"lemma write failure", "persist-lemma", "INSERT", "shared_lemmas", "simulated lemma failure"},
+		{"corpus row write failure", "persist-corpus", "INSERT", "corpora", "simulated corpus failure"},
+		{"completion history write failure", "persist-history", "INSERT", "processing_history", "simulated history failure"},
+	}
+	for i, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			job, worker := submit(t, fmt.Sprintf("%s-%d", test.identifier, i))
+			rejectWrite(t, fmt.Sprintf("reject_persist_%d", i), test.action, test.table, test.message)
+			require.ErrorContains(t, worker.Work(ctx, job), test.message)
+		})
+	}
+}
+
+// TestWorkerReloadsMultiTokenCorpusForSelection pins the moved sentence-scanning
+// branch that keeps one sentence across its token rows: a completed run retried
+// for selection reloads a multi-token sentence from persisted evidence without
+// rerunning NLP.
+func TestWorkerReloadsMultiTokenCorpusForSelection(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-reload-multi-token", false)
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "reload-multi-token", "Reload multi token", "Hallo Welt.", "sha256:reload-multi-token")
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	service := NewService(pool, riverClient)
+	unitID := domain.EPUBUnitID(0, "reload-multi-token")
+	calls := 0
+	fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		calls++
+		return analyzer.Result{
+			SchemaVersion:        "1.0.0",
+			Language:             req.Language,
+			Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"},
+			NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
+			Sentences: []analyzer.Sentence{{
+				Text:     req.Document.Text,
+				Location: analyzer.SourceLocation{SourceDocumentID: unitID, EndOffset: uint64(len([]rune(req.Document.Text)))},
+				Tokens: []analyzer.Token{
+					{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Dependency: "root", Head: 0, Location: analyzer.SourceLocation{SourceDocumentID: unitID, EndOffset: 5}},
+					{Surface: "Welt", RawLemma: "Welt", CanonicalLemma: "welt", UPOS: "NOUN", Dependency: "dep", Head: 0, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 10}},
+				},
+			}},
+		}, nil
+	}}
+	worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(), Selection: selection.NewService(store)}
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	args, err := snapshotArgsTx(ctx, pool, owner.ID, handle.RunID)
+	require.NoError(t, err)
+	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: handle.JobID}, Args: args}
+	require.NoError(t, worker.Work(ctx, job))
+	var corpusID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&corpusID))
+	assert.Equal(t, 1, calls)
+
+	// Removing the recorded selection completion forces the completed run to
+	// reload its persisted, multi-token corpus instead of the in-memory result.
+	_, err = pool.Exec(ctx, `DELETE FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation'`, owner.ID, corpusID)
+	require.NoError(t, err)
+	require.NoError(t, worker.Work(ctx, job))
+	assert.Equal(t, 1, calls, "reload must use persisted evidence rather than rerunning NLP")
+	var reloaded int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation' AND status='complete'`, owner.ID, corpusID).Scan(&reloaded))
+	assert.Equal(t, 1, reloaded)
 }
 
 // TestAnalysisCancelAndRetrySurfaceOperationalFailures pins the write-failure
