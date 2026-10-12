@@ -32,62 +32,39 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
-	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(r.URL)
-	showHidden := parseMyBooksShowHidden(r.URL)
-	if _, hasLanguage := r.URL.Query()["language"]; hasLanguage {
-		// #nosec G710 -- myBooksScopedURL constructs only a local /library URL and escapes query values.
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(query, page, needsLanguage, disposition, false, showHidden))
+	request := parseMyBooksLibraryRequest(r.URL)
+	if request.hasLanguage {
+		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, request.page, request.needsLanguage, request.disposition, false, request.showHidden))
 		return
 	}
 	requestedLanguage := activeLanguage
-	if needsLanguage {
+	if request.needsLanguage {
 		requestedLanguage = domain.LanguageUnknown
 	}
-	result, err := browseMyBooks(r.Context(), h.services.Store.MyBooks, u.ID, query, requestedLanguage, string(disposition), history, showHidden, myBooksPageOffset(page), myBooksPageSize)
+	result, err := browseMyBooks(r.Context(), h.services.Store.MyBooks, u.ID, request.query, requestedLanguage, string(request.disposition), request.history, request.showHidden, myBooksPageOffset(request.page), myBooksPageSize)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
 	books := result.Items
-	if activeLanguage == "" && !needsLanguage {
+	if activeLanguage == "" && !request.needsLanguage {
 		books = nil
 		result.Total = 0
 	}
-	browse := myBooksBrowseState(query, page, needsLanguage, disposition, activeLanguage, activeLanguageLabel, result)
-	browse.History = history
-	browse.ShowHidden = showHidden
+	browse := myBooksBrowseState(request.query, request.page, request.needsLanguage, request.disposition, activeLanguage, activeLanguageLabel, result)
+	browse.History = request.history
+	browse.ShowHidden = request.showHidden
 	browse.HiddenCount = result.HiddenCount
-	if result.Total > 0 && myBooksPageOffset(page) >= result.Total {
-		lastPage := myBooksPageCount(result.Total)
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(query, lastPage, needsLanguage, disposition, history, showHidden))
+	if page, redirect := myBooksRedirectPage(request, requestedLanguage, result); redirect {
+		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.needsLanguage, request.disposition, request.history, request.showHidden))
 		return
 	}
-	if page > 1 && result.Total == 0 {
-		lastPage := 1
-		if query == "" && requestedLanguage != "" && disposition == "" {
-			lastPage = myBooksPageCount(result.ScopeTotal)
-			if lastPage == 0 {
-				lastPage = 1
-			}
-		}
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(query, lastPage, needsLanguage, disposition, history, showHidden))
-		return
-	}
-	if err = h.annotateMyBooksWithDisposition(r.Context(), u.ID, books); err != nil {
-		h.renderMyBooksFailure(w, r, u)
-		return
-	}
-	refreshableBookIDs, err := h.refreshableMyBookIDs(r.Context(), u.ID, books)
+	refreshableBookIDs, connectionCount, err := h.loadLibraryBrowsingExtras(r.Context(), u.ID, books)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
 	browse.RefreshableBookIDs = refreshableBookIDs
-	connections, err := h.services.Store.Catalogs.ListOpdsConnections(r.Context(), u.ID)
-	if err != nil {
-		h.renderMyBooksFailure(w, r, u)
-		return
-	}
 	currentReadingBookID := ""
 	if currentReading.IsActive() {
 		currentReadingBookID = currentReading.BookID
@@ -96,7 +73,69 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, browse))
 		return
 	}
-	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), currentReadingBookID, len(connections) > 0, browse))
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), currentReadingBookID, connectionCount > 0, browse))
+}
+
+// myBooksLibraryRequest is the My Books browse state the /library query asks for.
+type myBooksLibraryRequest struct {
+	query         string
+	page          int
+	needsLanguage bool
+	disposition   domain.BookDisposition
+	history       bool
+	showHidden    bool
+	hasLanguage   bool
+}
+
+func parseMyBooksLibraryRequest(rURL *url.URL) myBooksLibraryRequest {
+	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(rURL)
+	return myBooksLibraryRequest{
+		query:         query,
+		page:          page,
+		needsLanguage: needsLanguage,
+		disposition:   disposition,
+		history:       history,
+		showHidden:    parseMyBooksShowHidden(rURL),
+		hasLanguage:   rURL.Query().Has("language"),
+	}
+}
+
+// myBooksRedirectPage clamps an out-of-range page. A page past the last page of
+// a non-empty result, or any page beyond the first of an empty one, recovers to
+// the bucket's own location; an unfiltered empty scope recovers to its last page.
+// It reports the page to redirect to, and whether a redirect is needed at all.
+func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string, result persistence.MyBooksBrowseResult) (int, bool) {
+	if result.Total > 0 && myBooksPageOffset(request.page) >= result.Total {
+		return myBooksPageCount(result.Total), true
+	}
+	if request.page > 1 && result.Total == 0 {
+		if request.query == "" && requestedLanguage != "" && request.disposition == "" {
+			if lastPage := myBooksPageCount(result.ScopeTotal); lastPage > 0 {
+				return lastPage, true
+			}
+		}
+		return 1, true
+	}
+	return 0, false
+}
+
+// loadLibraryBrowsingExtras runs the three My Books reads that decorate the
+// result rows: disposition annotations, refreshable IDs, and the OPDS
+// connection count that decides whether acquisition is offered. It keeps their
+// order, which the validated rows depend on.
+func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) (map[string]bool, int, error) {
+	if err := h.annotateMyBooksWithDisposition(ctx, owner, books); err != nil {
+		return nil, 0, err
+	}
+	refreshableBookIDs, err := h.refreshableMyBookIDs(ctx, owner, books)
+	if err != nil {
+		return nil, 0, err
+	}
+	connections, err := h.services.Store.Catalogs.ListOpdsConnections(ctx, owner)
+	if err != nil {
+		return nil, 0, err
+	}
+	return refreshableBookIDs, len(connections), nil
 }
 
 // redirectMyBooksBrowse preserves ordinary browser redirects while asking
@@ -108,6 +147,7 @@ func redirectMyBooksBrowse(w http.ResponseWriter, r *http.Request, path string) 
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	// #nosec G710 -- SafeReturnPath rejects external destinations; My Books paths are local.
 	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther)
 }
 

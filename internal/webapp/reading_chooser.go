@@ -339,68 +339,136 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 	}
 	view := readingChooserPageView{Language: language, LanguageLabel: languageLabel}
 	for _, book := range books {
-		if book.Disposition != domain.BookDispositionToRead || language == "" || book.Book.LanguageTag != language {
-			continue
-		}
-		// Hidden only keeps a Book out of the default chooser; it never makes
-		// the Book ineligible. Recovery is My Books → Show hidden books →
-		// Unhide → choose it here.
-		if book.Hidden {
+		if !readingChooserCandidate(book, language) {
 			continue
 		}
 		candidate := readingChooserBookView{Book: book}
-		if book.Acquired == nil || !analysisReadyForReading(*book.Acquired) {
-			candidate.State, candidate.Description = readingChooserStatusFor(book.Classification())
-			switch candidate.State {
-			case readingChooserInProgress:
-				view.InProgress = append(view.InProgress, candidate)
-			case readingChooserNeedsAttention:
-				view.Attention = append(view.Attention, candidate)
-			case readingChooserUpdating: // set only once coverage is read, below
-			}
-			continue
+		group, err := h.classifyReadingChooserCandidate(ctx, owner, &candidate)
+		if err != nil {
+			return readingChooserPageView{}, err
 		}
-		if h.services.AnalysisInsights == nil || strings.TrimSpace(book.Acquired.CorpusID) == "" {
-			candidate.State = readingChooserNeedsAttention
-			candidate.Description = "Completed analysis statistics are unavailable. Refresh the page or retry analysis."
-			view.Attention = append(view.Attention, candidate)
-			continue
-		}
-		coverage, coverageErr := h.services.AnalysisInsights.Coverage(ctx, owner, book.Acquired.CorpusID)
-		if errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable) {
-			candidate.State = readingChooserNeedsAttention
-			candidate.Description = "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence."
-			view.Attention = append(view.Attention, candidate)
-			continue
-		}
-		if errors.Is(coverageErr, analysisinsights.ErrCountsUpdating) {
-			candidate.State = readingChooserUpdating
-			candidate.Description = vocabularyCountsUpdatingDescription
-			view.Updating = append(view.Updating, candidate)
-			continue
-		}
-		if coverageErr != nil {
-			return readingChooserPageView{}, coverageErr
-		}
-		candidate.Coverage = &coverage
-		candidate.Band = domain.CoverageBandFor(coverage.KnownTokenCount, coverage.AnalyzableTokenCount)
-		switch candidate.Band {
-		case domain.CoverageBand99Plus:
-			view.At99Plus = append(view.At99Plus, candidate)
-		case domain.CoverageBand97To99:
-			view.At97To99 = append(view.At97To99, candidate)
-		case domain.CoverageBand95To97:
-			view.At95To97 = append(view.At95To97, candidate)
-		case domain.CoverageBandBelow95:
-			view.Below95 = append(view.Below95, candidate)
-		case domain.CoverageBandNoComparison:
-			view.NoComparison = append(view.NoComparison, candidate)
-		}
+		view.addReadingChooserCandidate(group, candidate)
 	}
-	for _, group := range [][]readingChooserBookView{view.At99Plus, view.At97To99, view.At95To97, view.Below95, view.NoComparison, view.Updating, view.InProgress, view.Attention} {
+	view.sortReadingChooserGroups()
+	return view, nil
+}
+
+// readingChooserCandidate reports whether a Book belongs in the chooser at all:
+// a non-hidden To Read Book in the active language.
+func readingChooserCandidate(book domain.MyBook, language string) bool {
+	if book.Disposition != domain.BookDispositionToRead || language == "" || book.Book.LanguageTag != language {
+		return false
+	}
+	// Hidden only keeps a Book out of the default chooser; it never makes the
+	// Book ineligible. Recovery is My Books → Show hidden books → Unhide →
+	// choose it here.
+	return !book.Hidden
+}
+
+// readingChooserGroup names the chooser section a candidate belongs to. The
+// none group drops a candidate, matching a state the chooser never lists.
+type readingChooserGroup uint8
+
+const (
+	readingChooserGroupNone readingChooserGroup = iota
+	readingChooserGroupAt99Plus
+	readingChooserGroupAt97To99
+	readingChooserGroupAt95To97
+	readingChooserGroupBelow95
+	readingChooserGroupNoComparison
+	readingChooserGroupUpdating
+	readingChooserGroupInProgress
+	readingChooserGroupAttention
+)
+
+// classifyReadingChooserCandidate resolves one eligible Book's coverage and
+// reports the section it belongs to.
+func (h *Handler) classifyReadingChooserCandidate(ctx context.Context, owner string, candidate *readingChooserBookView) (readingChooserGroup, error) {
+	book := candidate.Book
+	if book.Acquired == nil || !analysisReadyForReading(*book.Acquired) {
+		candidate.State, candidate.Description = readingChooserStatusFor(book.Classification())
+		return readingChooserGroupForState(candidate.State), nil
+	}
+	if h.services.AnalysisInsights == nil || strings.TrimSpace(book.Acquired.CorpusID) == "" {
+		candidate.State = readingChooserNeedsAttention
+		candidate.Description = "Completed analysis statistics are unavailable. Refresh the page or retry analysis."
+		return readingChooserGroupAttention, nil
+	}
+	coverage, coverageErr := h.services.AnalysisInsights.Coverage(ctx, owner, book.Acquired.CorpusID)
+	switch {
+	case errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable):
+		candidate.State = readingChooserNeedsAttention
+		candidate.Description = "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence."
+		return readingChooserGroupAttention, nil
+	case errors.Is(coverageErr, analysisinsights.ErrCountsUpdating):
+		candidate.State = readingChooserUpdating
+		candidate.Description = vocabularyCountsUpdatingDescription
+		return readingChooserGroupUpdating, nil
+	case coverageErr != nil:
+		return readingChooserGroupNone, coverageErr
+	}
+	candidate.Coverage = &coverage
+	candidate.Band = domain.CoverageBandFor(coverage.KnownTokenCount, coverage.AnalyzableTokenCount)
+	return readingChooserGroupForBand(candidate.Band), nil
+}
+
+// readingChooserGroupForState maps the no-completed-analysis states to their
+// section. Updating is set only once coverage is read, so it lists nothing here.
+func readingChooserGroupForState(state readingChooserState) readingChooserGroup {
+	switch state {
+	case readingChooserInProgress:
+		return readingChooserGroupInProgress
+	case readingChooserNeedsAttention:
+		return readingChooserGroupAttention
+	case readingChooserUpdating:
+	}
+	return readingChooserGroupNone
+}
+
+// readingChooserGroupForBand maps a coverage band to its chooser section.
+func readingChooserGroupForBand(band domain.CoverageBand) readingChooserGroup {
+	switch band {
+	case domain.CoverageBand99Plus:
+		return readingChooserGroupAt99Plus
+	case domain.CoverageBand97To99:
+		return readingChooserGroupAt97To99
+	case domain.CoverageBand95To97:
+		return readingChooserGroupAt95To97
+	case domain.CoverageBandBelow95:
+		return readingChooserGroupBelow95
+	case domain.CoverageBandNoComparison:
+		return readingChooserGroupNoComparison
+	}
+	return readingChooserGroupNone
+}
+
+func (v *readingChooserPageView) addReadingChooserCandidate(group readingChooserGroup, candidate readingChooserBookView) {
+	switch group {
+	case readingChooserGroupAt99Plus:
+		v.At99Plus = append(v.At99Plus, candidate)
+	case readingChooserGroupAt97To99:
+		v.At97To99 = append(v.At97To99, candidate)
+	case readingChooserGroupAt95To97:
+		v.At95To97 = append(v.At95To97, candidate)
+	case readingChooserGroupBelow95:
+		v.Below95 = append(v.Below95, candidate)
+	case readingChooserGroupNoComparison:
+		v.NoComparison = append(v.NoComparison, candidate)
+	case readingChooserGroupUpdating:
+		v.Updating = append(v.Updating, candidate)
+	case readingChooserGroupInProgress:
+		v.InProgress = append(v.InProgress, candidate)
+	case readingChooserGroupAttention:
+		v.Attention = append(v.Attention, candidate)
+	case readingChooserGroupNone:
+	}
+}
+
+// sortReadingChooserGroups orders every section in place by title, author and ID.
+func (v *readingChooserPageView) sortReadingChooserGroups() {
+	for _, group := range [][]readingChooserBookView{v.At99Plus, v.At97To99, v.At95To97, v.Below95, v.NoComparison, v.Updating, v.InProgress, v.Attention} {
 		sort.Slice(group, func(i, j int) bool { return readingChooserLess(group[i], group[j]) })
 	}
-	return view, nil
 }
 
 func readingChooserLess(left, right readingChooserBookView) bool {

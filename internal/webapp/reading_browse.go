@@ -90,6 +90,35 @@ func vocabularyBrowseLastPage(total int64) int {
 // instead of silently widening, clamping, or falling back.
 func (h *Handler) loadReadingBrowse(ctx context.Context, r *http.Request, owner, language string, bookID string) (readingBrowseView, int) {
 	values := r.URL.Query()
+	view, problem, status := parseReadingBrowseRequest(values, language, bookID)
+	if problem != readingBrowseReady {
+		view.Problem = problem
+		return view, status
+	}
+	// Browse is an interactive request, not a durable background job. Bound the
+	// complete read so an unusually broad corpus can never leave the learner
+	// waiting indefinitely or turn a partial read into a successful page.
+	browseCtx, cancel := context.WithTimeout(ctx, h.interactiveReadTimeout())
+	defer cancel()
+	page, problem, status := h.loadReadingBrowsePage(browseCtx, owner, language, view.Query)
+	view.Page = page
+	if problem != readingBrowseReady {
+		view.Problem = problem
+		return view, status
+	}
+	if problem, status = readingBrowsePageCheck(view.Query, page); problem != readingBrowseReady {
+		view.Problem = problem
+		return view, status
+	}
+	view.FocusRow = values.Get("row")
+	view.FocusRowFound = readingBrowseHasRow(page.Rows, view.FocusRow)
+	return view, http.StatusOK
+}
+
+// parseReadingBrowseRequest builds the Browse request from the Reading query and
+// rejects a malformed page number or a request naming a different Current
+// reading than the one the page is showing.
+func parseReadingBrowseRequest(values url.Values, language, bookID string) (readingBrowseView, readingBrowseProblem, int) {
 	view := readingBrowseView{Language: language, Prefix: values.Get("q"), RequestedPage: values.Get("page")}
 	view.Query = domain.VocabularyBrowseQuery{
 		Language: language, Prefix: view.Prefix, CurrentBookID: bookID, ReadingBookID: values.Get("reading"),
@@ -100,48 +129,56 @@ func (h *Handler) loadReadingBrowse(ctx context.Context, r *http.Request, owner,
 	if view.RequestedPage != "" {
 		page, err := strconv.Atoi(view.RequestedPage)
 		if err != nil || page < 1 {
-			view.Problem = readingBrowsePageMalformed
-			return view, http.StatusBadRequest
+			return view, readingBrowsePageMalformed, http.StatusBadRequest
 		}
 		view.Query.Page = page
 	}
 	if view.Query.ReadingBookID != "" && view.Query.ReadingBookID != bookID {
-		view.Problem = readingBrowseChanged
-		return view, http.StatusConflict
+		return view, readingBrowseChanged, http.StatusConflict
 	}
 	view.Query.ReadingBookID = bookID
-	// Browse is an interactive request, not a durable background job. Bound the
-	// complete read so an unusually broad corpus can never leave the learner
-	// waiting indefinitely or turn a partial read into a successful page.
-	browseCtx, cancel := context.WithTimeout(ctx, h.interactiveReadTimeout())
-	defer cancel()
-	page, err := h.services.Store.Reading.ListVocabularyBrowsePage(browseCtx, owner, language, view.Query)
+	return view, readingBrowseReady, http.StatusOK
+}
+
+// loadReadingBrowsePage reads the current-Book page and reports why it failed: a
+// timeout is a gateway timeout, any other failure is a server error.
+func (h *Handler) loadReadingBrowsePage(ctx context.Context, owner, language string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, readingBrowseProblem, int) {
+	page, err := h.services.Store.Reading.ListVocabularyBrowsePage(ctx, owner, language, query)
 	if err != nil {
 		log.Printf("mouseion: load vocabulary Browse: %v", err)
-		status := vocabularyBrowseErrorStatus(err, browseCtx)
-		view.Problem = readingBrowseFailed
-		if status == http.StatusGatewayTimeout {
-			view.Problem = readingBrowseTimedOut
+		if vocabularyBrowseErrorStatus(err, ctx) == http.StatusGatewayTimeout {
+			return domain.VocabularyBrowsePage{}, readingBrowseTimedOut, http.StatusGatewayTimeout
 		}
-		return view, status
+		return domain.VocabularyBrowsePage{}, readingBrowseFailed, http.StatusInternalServerError
 	}
-	page.CurrentBookID, page.ReadingBookID, page.Language = bookID, bookID, language
-	view.Page = page
-	if view.Query.Revision != "" && view.Query.Revision != page.CorpusRevision {
-		view.Problem = readingBrowseChanged
-		return view, http.StatusConflict
+	page.CurrentBookID, page.ReadingBookID, page.Language = query.CurrentBookID, query.CurrentBookID, language
+	return page, readingBrowseReady, http.StatusOK
+}
+
+// readingBrowsePageCheck refuses a page whose evidence changed or whose number
+// the loaded result no longer contains.
+func readingBrowsePageCheck(query domain.VocabularyBrowseQuery, page domain.VocabularyBrowsePage) (readingBrowseProblem, int) {
+	if query.Revision != "" && query.Revision != page.CorpusRevision {
+		return readingBrowseChanged, http.StatusConflict
 	}
-	if view.Query.Page > 1 && view.Query.Page > vocabularyBrowseLastPage(page.Total) && !page.BrowseCountsUpdating && !page.BrowseCountsUnavailable {
-		view.Problem = readingBrowsePageOutOfRange
-		return view, http.StatusNotFound
+	if query.Page > 1 && query.Page > vocabularyBrowseLastPage(page.Total) && !page.BrowseCountsUpdating && !page.BrowseCountsUnavailable {
+		return readingBrowsePageOutOfRange, http.StatusNotFound
 	}
-	view.FocusRow = values.Get("row")
-	for _, row := range page.Rows {
-		if view.FocusRow != "" && browseRowKey(row.UPOS, row.CanonicalLemma) == view.FocusRow {
-			view.FocusRowFound = true
+	return readingBrowseReady, http.StatusOK
+}
+
+// readingBrowseHasRow reports whether the restored page still contains the row
+// a Back to book vocabulary request named.
+func readingBrowseHasRow(rows []domain.VocabularyBrowseRow, focusRow string) bool {
+	if focusRow == "" {
+		return false
+	}
+	for _, row := range rows {
+		if browseRowKey(row.UPOS, row.CanonicalLemma) == focusRow {
+			return true
 		}
 	}
-	return view, http.StatusOK
+	return false
 }
 
 func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query string) string {

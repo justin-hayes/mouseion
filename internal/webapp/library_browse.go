@@ -23,8 +23,18 @@ func myBookMarginEvidence(book domain.MyBook) string {
 	if book.Acquired == nil {
 		return ""
 	}
-	var notes []string
+	notes := myBookAnalysisMarginNotes(book)
+	if note := myBookDeckMarginNote(book); note != "" {
+		notes = append(notes, note)
+	}
+	return strings.Join(notes, " ")
+}
+
+// myBookAnalysisMarginNotes describes the current analysis. It names the
+// re-analysis in flight first, then the published evidence it shadows.
+func myBookAnalysisMarginNotes(book domain.MyBook) []string {
 	classification := book.Classification()
+	var notes []string
 	if note := reanalysisMarginNote(classification); note != "" {
 		notes = append(notes, note)
 	}
@@ -40,15 +50,8 @@ func myBookMarginEvidence(book domain.MyBook) string {
 	case classification.Phase == domain.PhaseStale:
 		notes = append(notes, "Analysis out of date.")
 	case classification.Phase == domain.PhaseAnalyzed:
-		if book.CoverageTotalTokens > 0 {
-			known := max(min(book.CoverageKnownTokens, book.CoverageTotalTokens), 0)
-			percent := float64(known) * 100 / float64(book.CoverageTotalTokens)
-			bandTarget, gap := domain.CoverageGapToNextBand(known, book.CoverageTotalTokens)
-			if bandTarget > 0 {
-				notes = append(notes, fmt.Sprintf("%.1f%% of running words Known. %d more words to reach %d%%.", percent, gap, bandTarget))
-			} else {
-				notes = append(notes, fmt.Sprintf("%.1f%% of running words Known.", percent))
-			}
+		if note := myBookCoverageMarginNote(book); note != "" {
+			notes = append(notes, note)
 		}
 	case classification.Phase == domain.PhaseNotAnalyzed:
 		if classification.Evidence == domain.BookUnavailable {
@@ -57,20 +60,45 @@ func myBookMarginEvidence(book domain.MyBook) string {
 			notes = append(notes, "Not analysed yet.")
 		}
 	}
-	if book.IsCurrentReading && book.DeckState == "ready" {
-		if book.DeckPreparedAt != nil {
-			notes = append(notes, fmt.Sprintf("Deck ready: %d cards, prepared %s.", book.DeckCardCount, book.DeckPreparedAt.Local().Format("2 January 2006")))
-		} else {
-			notes = append(notes, fmt.Sprintf("Deck ready: %d cards.", book.DeckCardCount))
-		}
-	} else if book.IsCurrentReading && (book.DeckState == "preparing" || book.DeckState == "queued") {
-		notes = append(notes, "Deck preparation running.")
-	} else if book.IsCurrentReading && book.DeckState == "failed" {
-		notes = append(notes, "Deck preparation failed.")
-	} else if book.IsCurrentReading && book.DeckState == "cancelled" {
-		notes = append(notes, "Deck preparation cancelled.")
+	return notes
+}
+
+// myBookCoverageMarginNote reports the running-word coverage the current
+// analysis published. A Book without a token total stays silent rather than
+// reporting 0%.
+func myBookCoverageMarginNote(book domain.MyBook) string {
+	if book.CoverageTotalTokens <= 0 {
+		return ""
 	}
-	return strings.Join(notes, " ")
+	known := max(min(book.CoverageKnownTokens, book.CoverageTotalTokens), 0)
+	percent := float64(known) * 100 / float64(book.CoverageTotalTokens)
+	bandTarget, gap := domain.CoverageGapToNextBand(known, book.CoverageTotalTokens)
+	if bandTarget > 0 {
+		return fmt.Sprintf("%.1f%% of running words Known. %d more words to reach %d%%.", percent, gap, bandTarget)
+	}
+	return fmt.Sprintf("%.1f%% of running words Known.", percent)
+}
+
+// myBookDeckMarginNote reports deck preparation for the Current reading only.
+// It is empty for a Book that is not being read and for an unknown deck state.
+func myBookDeckMarginNote(book domain.MyBook) string {
+	if !book.IsCurrentReading {
+		return ""
+	}
+	switch book.DeckState {
+	case "ready":
+		if book.DeckPreparedAt != nil {
+			return fmt.Sprintf("Deck ready: %d cards, prepared %s.", book.DeckCardCount, book.DeckPreparedAt.Local().Format("2 January 2006"))
+		}
+		return fmt.Sprintf("Deck ready: %d cards.", book.DeckCardCount)
+	case "preparing", "queued":
+		return "Deck preparation running."
+	case "failed":
+		return "Deck preparation failed."
+	case "cancelled":
+		return "Deck preparation cancelled."
+	}
+	return ""
 }
 
 // reanalysisMarginNote names a newer run that a published analysis outlives.
