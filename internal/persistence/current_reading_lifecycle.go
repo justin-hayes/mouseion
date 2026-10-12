@@ -107,6 +107,17 @@ func eligibleCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen
 		return nil, err
 	}
 	eligibility := selection.NewEligibility(known, reserved)
+	acrossBooks, err := currentAcrossBookCounts(ctx, tx, owner, language, "", requestedCurrentReadingIdentities(candidates, eligibility))
+	if err != nil {
+		return nil, err
+	}
+	return filterCurrentReadingCandidates(ctx, q, owner, language, candidates, eligibility, acrossBooks)
+}
+
+// requestedCurrentReadingIdentities collects the distinct below-the-floor
+// identities that need a current across-Books total, skipping candidates the
+// learner state already excludes.
+func requestedCurrentReadingIdentities(candidates []domain.SelectionCandidate, eligibility selection.Eligibility) []currentReadingVocabularyIdentity {
 	identities := make([]currentReadingVocabularyIdentity, 0)
 	seen := make(map[currentReadingVocabularyIdentity]struct{})
 	for _, candidate := range candidates {
@@ -119,33 +130,44 @@ func eligibleCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen
 			identities = append(identities, identity)
 		}
 	}
+	return identities
+}
 
-	acrossBooks, err := currentAcrossBookCounts(ctx, tx, owner, language, "", identities)
-	if err != nil {
-		return nil, err
-	}
-
+// filterCurrentReadingCandidates keeps the candidates that meet the frequency
+// rule and are not held by an active snapshot.
+func filterCurrentReadingCandidates(ctx context.Context, q *sqlcgen.Queries, owner, language string, candidates []domain.SelectionCandidate, eligibility selection.Eligibility, acrossBooks map[currentReadingVocabularyIdentity]int64) ([]domain.SelectionCandidate, error) {
 	selected := make([]domain.SelectionCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
-		frequency := int64(0)
-		if candidate.OccurrenceCount < selection.DefaultRecurringMinOccurrences {
-			frequency = acrossBooks[currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}]
-		}
-		if !eligibility.AllowsBookDeckCandidate(candidate, frequency) {
+		if !eligibility.AllowsBookDeckCandidate(candidate, currentReadingCandidateFrequency(candidate, acrossBooks)) {
 			continue
 		}
-		activeReserved, err := q.IsCurrentReadingVocabularyReserved(ctx, sqlcgen.IsCurrentReadingVocabularyReservedParams{
-			Owner: owner, Language: language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
-		})
+		reserved, err := currentReadingCandidateReserved(ctx, q, owner, language, candidate)
 		if err != nil {
 			return nil, err
 		}
-		if activeReserved {
+		if reserved {
 			continue
 		}
 		selected = append(selected, candidate)
 	}
 	return selected, nil
+}
+
+// currentReadingCandidateFrequency is the across-Books total that can qualify a
+// candidate below the in-Book floor.
+func currentReadingCandidateFrequency(candidate domain.SelectionCandidate, acrossBooks map[currentReadingVocabularyIdentity]int64) int64 {
+	if candidate.OccurrenceCount < selection.DefaultRecurringMinOccurrences {
+		return acrossBooks[currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}]
+	}
+	return 0
+}
+
+// currentReadingCandidateReserved reports whether an active snapshot already
+// holds the candidate's identity.
+func currentReadingCandidateReserved(ctx context.Context, q *sqlcgen.Queries, owner, language string, candidate domain.SelectionCandidate) (bool, error) {
+	return q.IsCurrentReadingVocabularyReserved(ctx, sqlcgen.IsCurrentReadingVocabularyReservedParams{
+		Owner: owner, Language: language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+	})
 }
 
 // currentAcrossBookCounts totals each identity's projected count over the
@@ -247,6 +269,20 @@ func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcge
 	if err != nil {
 		return nil, err
 	}
+	decisions, err := currentReadingCorrectionDecisions(corrections)
+	if err != nil {
+		return nil, err
+	}
+	projected, err := selection.Project(analysis, selection.DefaultConfig(identity.CaCorpusID), decisions)
+	if err != nil {
+		return nil, err
+	}
+	return projectedCurrentReadingCandidates(owner, language, identity.CaCorpusID, projected)
+}
+
+// currentReadingCorrectionDecisions translates persisted occurrence corrections
+// into the projection's occurrence decisions.
+func currentReadingCorrectionDecisions(corrections []domain.OccurrenceLemmaCorrection) ([]selection.OccurrenceDecision, error) {
 	decisions := make([]selection.OccurrenceDecision, 0, len(corrections))
 	for _, correction := range corrections {
 		start, startErr := checked.Uint64FromInt64(correction.StartOffset)
@@ -260,42 +296,68 @@ func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcge
 			Excluded:   correction.Excluded,
 		})
 	}
-	projected, err := selection.Project(analysis, selection.DefaultConfig(identity.CaCorpusID), decisions)
-	if err != nil {
-		return nil, err
-	}
+	return decisions, nil
+}
+
+// projectedCurrentReadingCandidates persists the projection as frozen selection
+// candidates, encoding each fact and its first encounter.
+func projectedCurrentReadingCandidates(owner, language, corpusID string, projected []selection.Candidate) ([]domain.SelectionCandidate, error) {
 	candidates := make([]domain.SelectionCandidate, 0, len(projected))
 	for _, candidate := range projected {
-		forms, err := json.Marshal(candidate.ObservedForms)
+		encoded, err := encodeProjectedCurrentReadingCandidate(candidate)
 		if err != nil {
 			return nil, err
 		}
-		refs, err := json.Marshal(candidate.SentenceReferences)
+		first, err := firstProjectedEncounter(candidate.SentenceReferences)
 		if err != nil {
 			return nil, err
-		}
-		provenance, err := json.Marshal(candidate.Provenance)
-		if err != nil {
-			return nil, err
-		}
-		first := int64(^uint64(0) >> 1)
-		for _, ref := range candidate.SentenceReferences {
-			encounter, convertErr := checked.Int64FromUint64(ref.Location.StartOffset)
-			if convertErr != nil {
-				return nil, errors.New("projected occurrence offset exceeds persisted range")
-			}
-			if encounter < first {
-				first = encounter
-			}
 		}
 		candidates = append(candidates, domain.SelectionCandidate{
-			OwnerID: owner, CorpusID: identity.CaCorpusID, Language: language,
+			OwnerID: owner, CorpusID: corpusID, Language: language,
 			CanonicalLemma: candidate.Identity.CanonicalLemma, UPOS: candidate.Identity.UPOS,
 			OccurrenceCount: candidate.OccurrenceCount, FirstEncounter: first,
-			ObservedForms: forms, SentenceReferences: refs, Provenance: provenance, SelectedAt: time.Now().UTC(),
+			ObservedForms: encoded.observedForms, SentenceReferences: encoded.sentenceReferences, Provenance: encoded.provenance, SelectedAt: time.Now().UTC(),
 		})
 	}
 	return candidates, nil
+}
+
+// projectedCurrentReadingEncoding is a projection candidate's JSON facts.
+type projectedCurrentReadingEncoding struct {
+	observedForms      []byte
+	sentenceReferences []byte
+	provenance         []byte
+}
+
+func encodeProjectedCurrentReadingCandidate(candidate selection.Candidate) (projectedCurrentReadingEncoding, error) {
+	var encoded projectedCurrentReadingEncoding
+	var err error
+	if encoded.observedForms, err = json.Marshal(candidate.ObservedForms); err != nil {
+		return encoded, err
+	}
+	if encoded.sentenceReferences, err = json.Marshal(candidate.SentenceReferences); err != nil {
+		return encoded, err
+	}
+	if encoded.provenance, err = json.Marshal(candidate.Provenance); err != nil {
+		return encoded, err
+	}
+	return encoded, nil
+}
+
+// firstProjectedEncounter is the earliest offset a projected candidate occurs
+// at, or the maximum int64 when it has no references.
+func firstProjectedEncounter(refs []selection.SentenceReference) (int64, error) {
+	first := int64(^uint64(0) >> 1)
+	for _, ref := range refs {
+		encounter, err := checked.Int64FromUint64(ref.Location.StartOffset)
+		if err != nil {
+			return 0, errors.New("projected occurrence offset exceeds persisted range")
+		}
+		if encounter < first {
+			first = encounter
+		}
+	}
+	return first, nil
 }
 
 func releaseCurrentReadingSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, snapshotID string) error {
@@ -436,14 +498,8 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 
 func (s *PostgresStore) startCurrentReading(ctx context.Context, owner, language, bookID string, beforeCommit func(context.Context, pgx.Tx, domain.CurrentReading) error) (start StartResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
-	goalInput := domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}
-	if err := goalInput.Validate(); err != nil {
+	if err := validateCurrentReadingStart(owner, language, bookID); err != nil {
 		return StartResult{}, err
-	}
-	// An identity Postgres cannot read as a uuid names no Book, so it is the
-	// same not-found a well-formed unknown Book gets.
-	if !validUUID(owner) || !validUUID(bookID) {
-		return StartResult{}, ErrNotFound
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -467,15 +523,43 @@ func (s *PostgresStore) startCurrentReading(ctx context.Context, owner, language
 		return StartResult{}, err
 	}
 	if decision.Outcome == domain.StartReplayed {
-		current, readErr := readCurrentReadingLocked(ctx, q, owner, language)
-		if readErr != nil {
-			return StartResult{}, readErr
-		}
-		return StartResult{Reading: current, Replayed: true}, nil
+		return replayCurrentReadingStart(ctx, tx, q, owner, language)
 	}
-	snapshot, candidates, snapshotErr := createCurrentReadingSnapshot(ctx, tx, q, owner, language, bookID, identity)
-	if snapshotErr != nil {
-		return StartResult{}, snapshotErr
+	return createStartedCurrentReading(ctx, tx, q, owner, language, bookID, identity, beforeCommit)
+}
+
+// validateCurrentReadingStart rejects a Start whose reading identity is
+// incomplete and treats a Book identity Postgres cannot read as a uuid as the
+// same not-found a well-formed unknown Book gets.
+func validateCurrentReadingStart(owner, language, bookID string) error {
+	if err := (domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}).Validate(); err != nil {
+		return err
+	}
+	if !validUUID(owner) || !validUUID(bookID) {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// replayCurrentReadingStart returns the existing reading a replayed Start found
+// and commits without writing.
+func replayCurrentReadingStart(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language string) (StartResult, error) {
+	current, err := readCurrentReadingLocked(ctx, q, owner, language)
+	if err != nil {
+		return StartResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return StartResult{}, err
+	}
+	return StartResult{Reading: current, Replayed: true}, nil
+}
+
+// createStartedCurrentReading freezes the snapshot, inserts the current reading,
+// runs the optional beforeCommit hook, and commits.
+func createStartedCurrentReading(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, bookID string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow, beforeCommit func(context.Context, pgx.Tx, domain.CurrentReading) error) (StartResult, error) {
+	snapshot, candidates, err := createCurrentReadingSnapshot(ctx, tx, q, owner, language, bookID, identity)
+	if err != nil {
+		return StartResult{}, err
 	}
 	goal, err := insertCurrentReading(ctx, q, owner, language, bookID, snapshot.ID)
 	if err != nil {
