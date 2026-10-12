@@ -77,24 +77,6 @@ func primaryAnalyzerLemma(value string) string {
 
 func cleanLemmaEdges(value string) string {
 	runes := []rune(value)
-	isEdgeDecoration := func(r rune) bool {
-		if slices.Contains(germanPost1996PolicyData.EdgeCleanup.PreserveCharacters, string(r)) {
-			return false
-		}
-		for _, category := range germanPost1996PolicyData.EdgeCleanup.StripUnicodeCategories {
-			switch category {
-			case "P":
-				if unicode.IsPunct(r) {
-					return true
-				}
-			case "S":
-				if unicode.Is(unicode.S, r) {
-					return true
-				}
-			}
-		}
-		return false
-	}
 	start, end := 0, len(runes)
 	for start < end && isEdgeDecoration(runes[start]) {
 		start++
@@ -106,4 +88,36 @@ func cleanLemmaEdges(value string) string {
 		return value
 	}
 	return string(runes[start:end])
+}
+
+// isEdgeDecoration reports whether r is decoration stripped from a lemma's
+// leading or trailing edge. Preserved characters are never decoration.
+func isEdgeDecoration(r rune) bool {
+	if slices.Contains(germanPost1996PolicyData.EdgeCleanup.PreserveCharacters, string(r)) {
+		return false
+	}
+	return stripsUnicodeCategory(r)
+}
+
+// stripsUnicodeCategory reports whether r belongs to any Unicode category the
+// policy strips from lemma edges.
+func stripsUnicodeCategory(r rune) bool {
+	for _, category := range germanPost1996PolicyData.EdgeCleanup.StripUnicodeCategories {
+		if inUnicodeCategory(r, category) {
+			return true
+		}
+	}
+	return false
+}
+
+// inUnicodeCategory reports whether r belongs to one named category the policy
+// supports.
+func inUnicodeCategory(r rune, category string) bool {
+	switch category {
+	case "P":
+		return unicode.IsPunct(r)
+	case "S":
+		return unicode.Is(unicode.S, r)
+	}
+	return false
 }
