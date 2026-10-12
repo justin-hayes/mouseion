@@ -61,6 +61,7 @@ linters:
     - unqueryvet
     - iotamixing
     - tparallel
+    - thelper
 
   # Evaluated and rejected; do not re-add without revisiting the reason here:
   # - contextcheck: false positives on templ-generated code.
@@ -102,6 +103,12 @@ linters:
       - path: _test\.go
         linters:
           - gocognit
+      # Store contract Run bodies are scenarios, not helpers: the harness runner
+      # calls them directly, so t.Helper() would report failures at the runner
+      # line instead of the scenario assertion.
+      - path: internal/storecontract/
+        linters:
+          - thelper
 
 issues:
   max-issues-per-linter: 0

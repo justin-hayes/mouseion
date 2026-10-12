@@ -11,6 +11,7 @@ import (
 )
 
 func createReadingFixture(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
+	t.Helper()
 	return createReadingFixtureInLanguage(t, ctx, store, owner, "de", suffix)
 }
 
@@ -22,6 +23,7 @@ func createReadingFixtureInLanguage(t *testing.T, ctx context.Context, store *Po
 }
 
 func createReadingSourceAndPreparation(t *testing.T, ctx context.Context, store *PostgresStore, owner string, book domain.Book, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
+	t.Helper()
 	return createReadingSourceAndPreparationInLanguage(t, ctx, store, owner, book, book.LanguageTag, suffix)
 }
 

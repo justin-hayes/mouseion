@@ -339,6 +339,7 @@ func TestBatchWireRejectsInconsistentCountsAndUsage(t *testing.T) {
 }
 
 func writeBatchStub(t *testing.T, w io.Writer, id string, status BatchStatus) {
+	t.Helper()
 	testwrite.Fprintf(t, w, `{"id":%q,"object":"batch","endpoint":"/v1/chat/completions","input_file_id":"file-input","completion_window":"24h","status":%q,"output_file_id":"file-output","error_file_id":"file-error","created_at":1,"in_progress_at":2,"expires_at":3,"finalizing_at":4,"completed_at":5,"failed_at":0,"expired_at":0,"cancelling_at":0,"cancelled_at":0,"request_counts":{"total":3,"completed":2,"failed":1},"usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30},"errors":{"object":"list","data":[{"code":"invalid_request","line":7,"message":"private ignored"}]},"metadata":{"chunk_id":"018f64b6-opaque"}}`, id, status)
 }
 

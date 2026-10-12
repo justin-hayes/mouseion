@@ -625,6 +625,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 }
 
 func loginCookies(t *testing.T, h http.Handler, username, password string) ([]*http.Cookie, string) {
+	t.Helper()
 	page := perform(t, h, "GET", "/login", nil, nil)
 	token := hiddenToken(t, page.Body.String())
 	csrfCookieValue := cookieNamed(t, page.Result().Cookies(), csrfCookie)
@@ -660,6 +661,7 @@ func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.
 }
 
 func perform(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
 	return performWithHeader(t, h, method, path, form, cookies, "", "")
 }
 func performWithHeader(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie, header, value string) *httptest.ResponseRecorder {

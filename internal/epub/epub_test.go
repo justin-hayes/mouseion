@@ -17,10 +17,12 @@ type fixtureFile struct {
 }
 
 func fixture(t *testing.T) []byte {
+	t.Helper()
 	return fixtureDirectory(t, "testdata")
 }
 
 func fixtureDirectory(t *testing.T, directory string) []byte {
+	t.Helper()
 	return testutil.ZipDirectory(t, directory)
 }
 
