@@ -147,6 +147,18 @@ func projectBrowseCounts(ctx context.Context, tx pgx.Tx, scope browseCountReadin
 // replace the persisted decision of the same occurrence, which previews a
 // change without writing it.
 func loadBrowseCountFacts(ctx context.Context, tx pgx.Tx, scope browseCountReadiness, lemmas []string, proposed []domain.LemmaReviewDecision) (analyzer.Result, []selection.OccurrenceDecision, error) {
+	rows, err := queryBrowseCountFacts(ctx, tx, scope, lemmas)
+	if err != nil {
+		return analyzer.Result{}, nil, err
+	}
+	defer rows.Close()
+	return scanBrowseCountFacts(rows, scope, proposed)
+}
+
+// queryBrowseCountFacts loads the persisted token facts and corrections for
+// scope's analysis. A non-nil lemmas list narrows the token rows fetched by raw
+// or corrected lemma.
+func queryBrowseCountFacts(ctx context.Context, tx pgx.Tx, scope browseCountReadiness, lemmas []string) (pgx.Rows, error) {
 	rows, err := tx.Query(ctx, `
 SELECT s.sentence_ordinal,s.unit_id,t.canonical_lemma,t.upos,t.dependency,t.start_offset,t.end_offset,d.canonical_lemma,COALESCE(d.excluded,false)
 FROM corpus_tokens t
@@ -162,57 +174,94 @@ WHERE t.owner_id=$1 AND t.analysis_run_id=$4 AND t.corpus_id=$5 AND t.language=$
 ORDER BY s.sentence_ordinal,t.token_ordinal`,
 		scope.owner, scope.book, scope.source, scope.run, scope.corpus, scope.language, scope.snapshot, lemmas)
 	if err != nil {
-		return analyzer.Result{}, nil, fmt.Errorf("load Browse count facts: %w", err)
+		return nil, fmt.Errorf("load Browse count facts: %w", err)
 	}
-	defer rows.Close()
-	proposedByOccurrence := make(map[proposedOccurrence]domain.LemmaReviewDecision, len(proposed))
-	for _, decision := range proposed {
-		o := decision.Occurrence
-		proposedByOccurrence[proposedOccurrence{unit: o.SourceDocumentID, start: o.StartOffset, end: o.EndOffset}] = decision
+	return rows, nil
+}
+
+// browseCountFact is one persisted token fact with the correction persisted for
+// its occurrence, if any.
+type browseCountFact struct {
+	ordinal     int64
+	unit        string
+	lemma, upos string
+	dependency  string
+	start, end  int64
+	correction  *string
+	excluded    bool
+}
+
+// scanBrowseCountFact reads one token fact row, wrapping a scan failure with the
+// same message the scan used to report.
+func scanBrowseCountFact(rows pgx.Rows) (browseCountFact, error) {
+	var fact browseCountFact
+	if err := rows.Scan(&fact.ordinal, &fact.unit, &fact.lemma, &fact.upos, &fact.dependency, &fact.start, &fact.end, &fact.correction, &fact.excluded); err != nil {
+		return browseCountFact{}, fmt.Errorf("scan Browse count facts: %w", err)
 	}
+	return fact, nil
+}
+
+// scanBrowseCountFacts builds the analyzer result and occurrence decisions from
+// the persisted facts, applying each proposed decision in place of the
+// occurrence's persisted decision.
+func scanBrowseCountFacts(rows pgx.Rows, scope browseCountReadiness, proposed []domain.LemmaReviewDecision) (analyzer.Result, []selection.OccurrenceDecision, error) {
+	proposedByOccurrence := proposeBrowseCountDecisions(proposed)
 	analysis := analyzer.Result{Language: scope.language}
 	var decisions []selection.OccurrenceDecision
 	currentOrdinal := int64(-1)
 	for rows.Next() {
-		var (
-			ordinal, start, end int64
-			unit, lemma, upos   string
-			dependency          string
-			correction          *string
-			excluded            bool
-		)
-		if err := rows.Scan(&ordinal, &unit, &lemma, &upos, &dependency, &start, &end, &correction, &excluded); err != nil {
-			return analyzer.Result{}, nil, fmt.Errorf("scan Browse count facts: %w", err)
+		fact, err := scanBrowseCountFact(rows)
+		if err != nil {
+			return analyzer.Result{}, nil, err
 		}
-		if replacement, ok := proposedByOccurrence[proposedOccurrence{unit: unit, start: start, end: end}]; ok {
-			excluded, correction = replacement.Excluded, nil
-			if !excluded && strings.TrimSpace(replacement.CanonicalLemma) != "" {
-				correction = &replacement.CanonicalLemma
-			}
-		}
-		startOffset, startErr := checked.Uint64FromInt64(start)
-		endOffset, endErr := checked.Uint64FromInt64(end)
+		applyProposedBrowseDecision(&fact, proposedByOccurrence)
+		startOffset, startErr := checked.Uint64FromInt64(fact.start)
+		endOffset, endErr := checked.Uint64FromInt64(fact.end)
 		if startErr != nil || endErr != nil {
 			return analyzer.Result{}, nil, errors.New("persisted token contains invalid offsets")
 		}
-		if ordinal != currentOrdinal || len(analysis.Sentences) == 0 {
+		if fact.ordinal != currentOrdinal || len(analysis.Sentences) == 0 {
 			analysis.Sentences = append(analysis.Sentences, analyzer.Sentence{})
-			currentOrdinal = ordinal
+			currentOrdinal = fact.ordinal
 		}
-		location := analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: startOffset, EndOffset: endOffset}
+		location := analyzer.SourceLocation{SourceDocumentID: fact.unit, StartOffset: startOffset, EndOffset: endOffset}
 		last := &analysis.Sentences[len(analysis.Sentences)-1]
-		last.Tokens = append(last.Tokens, analyzer.Token{CanonicalLemma: lemma, UPOS: upos, Dependency: dependency, Location: location})
+		last.Tokens = append(last.Tokens, analyzer.Token{CanonicalLemma: fact.lemma, UPOS: fact.upos, Dependency: fact.dependency, Location: location})
 		switch {
-		case excluded:
-			decisions = append(decisions, selection.OccurrenceDecision{Occurrence: selection.OccurrenceIdentity{SourceDocumentID: unit, StartOffset: startOffset, EndOffset: endOffset}, Excluded: true})
-		case correction != nil && strings.TrimSpace(*correction) != "":
-			decisions = append(decisions, selection.OccurrenceDecision{Occurrence: selection.OccurrenceIdentity{SourceDocumentID: unit, StartOffset: startOffset, EndOffset: endOffset}, Lemma: *correction})
+		case fact.excluded:
+			decisions = append(decisions, selection.OccurrenceDecision{Occurrence: selection.OccurrenceIdentity{SourceDocumentID: fact.unit, StartOffset: startOffset, EndOffset: endOffset}, Excluded: true})
+		case fact.correction != nil && strings.TrimSpace(*fact.correction) != "":
+			decisions = append(decisions, selection.OccurrenceDecision{Occurrence: selection.OccurrenceIdentity{SourceDocumentID: fact.unit, StartOffset: startOffset, EndOffset: endOffset}, Lemma: *fact.correction})
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return analyzer.Result{}, nil, fmt.Errorf("read Browse count facts: %w", err)
 	}
 	return analysis, decisions, nil
+}
+
+// proposeBrowseCountDecisions indexes proposed decisions by occurrence.
+func proposeBrowseCountDecisions(proposed []domain.LemmaReviewDecision) map[proposedOccurrence]domain.LemmaReviewDecision {
+	byOccurrence := make(map[proposedOccurrence]domain.LemmaReviewDecision, len(proposed))
+	for _, decision := range proposed {
+		o := decision.Occurrence
+		byOccurrence[proposedOccurrence{unit: o.SourceDocumentID, start: o.StartOffset, end: o.EndOffset}] = decision
+	}
+	return byOccurrence
+}
+
+// applyProposedBrowseDecision replaces fact's persisted decision with the
+// proposed decision for the same occurrence, which previews a change without
+// writing it.
+func applyProposedBrowseDecision(fact *browseCountFact, proposed map[proposedOccurrence]domain.LemmaReviewDecision) {
+	replacement, ok := proposed[proposedOccurrence{unit: fact.unit, start: fact.start, end: fact.end}]
+	if !ok {
+		return
+	}
+	fact.excluded, fact.correction = replacement.Excluded, nil
+	if !fact.excluded && strings.TrimSpace(replacement.CanonicalLemma) != "" {
+		fact.correction = &replacement.CanonicalLemma
+	}
 }
 
 // browseCountValues projects each candidate to its stored count, marking an

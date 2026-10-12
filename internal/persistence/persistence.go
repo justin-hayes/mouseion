@@ -745,37 +745,48 @@ func (s *PostgresStore) PutExampleSentence(ctx context.Context, owner, corpus, k
 // different owner's corpus.
 func (s *PostgresStore) ReplaceSelectedSentences(ctx context.Context, owner, corpus, language, lemma, upos string, examples []domain.ExampleSentence) error {
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		q := sqlcgen.New(tx)
-		ownsCorpus, err := q.CorpusOwned(ctx, sqlcgen.CorpusOwnedParams{OwnerID: owner, ID: corpus})
-		if err != nil {
+		return replaceSelectedSentencesTx(ctx, sqlcgen.New(tx), owner, corpus, language, lemma, upos, examples)
+	})
+}
+
+// replaceSelectedSentencesTx verifies the corpus belongs to owner, clears the
+// identity's stored examples and inserts the replacement set.
+func replaceSelectedSentencesTx(ctx context.Context, q *sqlcgen.Queries, owner, corpus, language, lemma, upos string, examples []domain.ExampleSentence) error {
+	ownsCorpus, err := q.CorpusOwned(ctx, sqlcgen.CorpusOwnedParams{OwnerID: owner, ID: corpus})
+	if err != nil {
+		return err
+	}
+	if !ownsCorpus {
+		return ErrNotFound
+	}
+	if err := q.DeleteSelectedSentences(ctx, sqlcgen.DeleteSelectedSentencesParams{OwnerID: owner, CorpusID: corpus, Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos)}); err != nil {
+		return err
+	}
+	for _, example := range examples {
+		if err := insertSelectedSentence(ctx, q, owner, corpus, language, lemma, upos, example); err != nil {
 			return err
 		}
-		if !ownsCorpus {
-			return ErrNotFound
-		}
-		if err := q.DeleteSelectedSentences(ctx, sqlcgen.DeleteSelectedSentencesParams{OwnerID: owner, CorpusID: corpus, Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos)}); err != nil {
-			return err
-		}
-		for _, example := range examples {
-			selectionRank, conversionErr := intArg(example.SelectionRank)
-			if conversionErr != nil {
-				return fmt.Errorf("invalid selected sentence rank: %w", conversionErr)
-			}
-			selectionScore, conversionErr := intArg(example.SelectionScore)
-			if conversionErr != nil {
-				return fmt.Errorf("invalid selected sentence score: %w", conversionErr)
-			}
-			if err := q.InsertSelectedSentence(ctx, sqlcgen.InsertSelectedSentenceParams{
-				OwnerID: owner, CorpusID: corpus, SentenceKey: example.SentenceKey,
-				SentenceText: example.Text, SourceLocation: example.SourceLocation,
-				Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
-				SelectionRank: selectionRank, SelectionScore: selectionScore,
-				SelectionReasons: example.SelectionReasons, IsChosen: example.Chosen,
-			}); err != nil {
-				return err
-			}
-		}
-		return nil
+	}
+	return nil
+}
+
+// insertSelectedSentence converts one example's rank and score to their
+// validated column forms and inserts it.
+func insertSelectedSentence(ctx context.Context, q *sqlcgen.Queries, owner, corpus, language, lemma, upos string, example domain.ExampleSentence) error {
+	selectionRank, err := intArg(example.SelectionRank)
+	if err != nil {
+		return fmt.Errorf("invalid selected sentence rank: %w", err)
+	}
+	selectionScore, err := intArg(example.SelectionScore)
+	if err != nil {
+		return fmt.Errorf("invalid selected sentence score: %w", err)
+	}
+	return q.InsertSelectedSentence(ctx, sqlcgen.InsertSelectedSentenceParams{
+		OwnerID: owner, CorpusID: corpus, SentenceKey: example.SentenceKey,
+		SentenceText: example.Text, SourceLocation: example.SourceLocation,
+		Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
+		SelectionRank: selectionRank, SelectionScore: selectionScore,
+		SelectionReasons: example.SelectionReasons, IsChosen: example.Chosen,
 	})
 }
 
