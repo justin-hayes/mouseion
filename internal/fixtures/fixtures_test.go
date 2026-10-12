@@ -2,6 +2,7 @@ package fixtures
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
@@ -186,6 +187,167 @@ func TestStoreMyBooksBrowseUsesCurrentReadingWorkflowBucket(t *testing.T) {
 	}
 	assert.True(t, current.IsCurrentReading)
 	assert.Equal(t, domain.MyBookBucketCurrentReading, current.WorkflowBucket())
+}
+
+// TestStoreMyBooksBrowseVisibilityScope holds the Hidden visibility scope:
+// Hidden Books leave the page unless showHidden is set, HiddenCount follows the
+// selected language regardless of that choice, and AllCount stays complete.
+func TestStoreMyBooksBrowseVisibilityScope(t *testing.T) {
+	store := NewStore()
+	store.books = nil
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{ID: "browse-visible-de", OwnerID: OwnerID, Title: "Visible German", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-hidden-de", OwnerID: OwnerID, Title: "Hidden German", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-hidden-it", OwnerID: OwnerID, Title: "Hidden Italian", LanguageState: domain.LanguageChosen, LanguageTag: "it"}},
+	}
+	store.visibility[fixtureDispositionKey(OwnerID, "browse-hidden-de")] = fixtureVisibility{hidden: true, revision: 1}
+	store.visibility[fixtureDispositionKey(OwnerID, "browse-hidden-it")] = fixtureVisibility{hidden: true, revision: 1}
+
+	t.Run("Hidden Books leave the page but stay counted", func(t *testing.T) {
+		hidden, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, false, 0, 25)
+		require.NoError(t, err)
+		assert.Equal(t, 3, hidden.AllCount, "AllCount stays the complete collection")
+		assert.Equal(t, 1, hidden.HiddenCount, "HiddenCount follows the language scope")
+		assert.Equal(t, 1, hidden.Total)
+		assert.Equal(t, 1, hidden.ScopeTotal)
+		assert.Equal(t, []string{"browse-visible-de"}, fixtureBookIDs(hidden.Items))
+	})
+	t.Run("showHidden pages the Hidden Book without changing HiddenCount", func(t *testing.T) {
+		shown, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, true, 0, 25)
+		require.NoError(t, err)
+		assert.Equal(t, 1, shown.HiddenCount)
+		assert.Equal(t, 2, shown.Total)
+		assert.Equal(t, 2, shown.ScopeTotal)
+		assert.Equal(t, []string{"browse-hidden-de", "browse-visible-de"}, fixtureBookIDs(shown.Items))
+	})
+	t.Run("Hidden Books outside the language scope do not count", func(t *testing.T) {
+		unknown, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", domain.LanguageUnknown, "", false, false, 0, 25)
+		require.NoError(t, err)
+		assert.Zero(t, unknown.HiddenCount)
+		assert.Zero(t, unknown.Total)
+	})
+}
+
+// TestStoreMyBooksBrowseSearchesTitlesAndPages holds the search and pagination
+// steps: a trimmed case-insensitive title substring, clamped caller-supplied
+// paging, and the same overflow guard the PostgreSQL store keeps.
+func TestStoreMyBooksBrowseSearchesTitlesAndPages(t *testing.T) {
+	store := NewStore()
+	store.books = nil
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{ID: "browse-alpha", OwnerID: OwnerID, Title: "Alpha", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-alpha-two", OwnerID: OwnerID, Title: "ALPHA two", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-beta", OwnerID: OwnerID, Title: "Beta", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-alphabet", OwnerID: OwnerID, Title: "alphabet", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+	}
+
+	search, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "  ALPHA ", "de", "", false, false, 0, 25)
+	require.NoError(t, err)
+	t.Run("search is a trimmed case-insensitive title substring", func(t *testing.T) {
+		assert.Equal(t, 3, search.Total)
+		assert.Equal(t, []string{"browse-alpha", "browse-alpha-two", "browse-alphabet"}, fixtureBookIDs(search.Items))
+	})
+
+	first, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, false, 0, 2)
+	require.NoError(t, err)
+	t.Run("the first page takes the leading matches", func(t *testing.T) {
+		assert.Equal(t, 4, first.Total)
+		assert.Equal(t, []string{"browse-alpha", "browse-alpha-two"}, fixtureBookIDs(first.Items))
+	})
+
+	second, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, false, 2, 2)
+	require.NoError(t, err)
+	t.Run("the offset selects the next page", func(t *testing.T) {
+		assert.Equal(t, 4, second.Total)
+		assert.Equal(t, []string{"browse-alphabet", "browse-beta"}, fixtureBookIDs(second.Items))
+	})
+
+	beyond, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, false, 10, 2)
+	require.NoError(t, err)
+	t.Run("an offset beyond the collection is empty", func(t *testing.T) {
+		assert.Equal(t, 4, beyond.Total)
+		assert.Empty(t, beyond.Items)
+	})
+
+	clamped, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, false, -3, -1)
+	require.NoError(t, err)
+	t.Run("negative offset and limit clamp to an empty page", func(t *testing.T) {
+		assert.Equal(t, 4, clamped.Total)
+		assert.Empty(t, clamped.Items)
+	})
+
+	overflow, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, false, 1, math.MaxInt)
+	require.NoError(t, err)
+	t.Run("an overflowing page end falls back to the collection end", func(t *testing.T) {
+		assert.Equal(t, []string{"browse-alpha-two", "browse-alphabet", "browse-beta"}, fixtureBookIDs(overflow.Items))
+	})
+}
+
+// TestStoreMyBooksBrowseCountsLanguageAndWorkflow holds the count steps: the
+// language pills with unknown last, the Read projection, the persisted
+// disposition counts, the Read-history filter, and the language scope.
+func TestStoreMyBooksBrowseCountsLanguageAndWorkflow(t *testing.T) {
+	store := NewStore()
+	store.books = nil
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{ID: "browse-de-inbox", OwnerID: OwnerID, Title: "Inbox", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-de-read", OwnerID: OwnerID, Title: "Read", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, CompletionCount: 1},
+		{Book: domain.Book{ID: "browse-unknown", OwnerID: OwnerID, Title: "Unknown", LanguageState: domain.LanguageUnknown}},
+		{Book: domain.Book{ID: "browse-it-toread", OwnerID: OwnerID, Title: "Italian", LanguageState: domain.LanguageChosen, LanguageTag: "it"}},
+	}
+	store.dispositions[fixtureDispositionKey(OwnerID, "browse-it-toread")] = domain.BookDispositionToRead
+
+	all, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "", "", false, false, 0, 25)
+	require.NoError(t, err)
+	t.Run("the visible collection drives every count", func(t *testing.T) {
+		assert.Equal(t, 4, all.AllCount)
+		assert.Equal(t, 4, all.ScopeTotal)
+		assert.Equal(t, 4, all.Total)
+		assert.Equal(t, 1, all.ReadCount)
+		assert.Equal(t, []domain.LanguageCount{{Tag: "de", Count: 2}, {Tag: "it", Count: 1}, {Tag: "unknown", Count: 1}}, all.Counts, "unknown sorts last")
+		assert.Equal(t, 2, dispositionCount(all.DispositionCounts, domain.BookDispositionInbox))
+		assert.Equal(t, 1, dispositionCount(all.DispositionCounts, domain.BookDispositionToRead))
+	})
+
+	history, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "", "", true, false, 0, 25)
+	require.NoError(t, err)
+	t.Run("Read history selects the Read bucket only", func(t *testing.T) {
+		assert.Equal(t, 1, history.Total)
+		assert.Equal(t, []string{"browse-de-read"}, fixtureBookIDs(history.Items))
+		assert.Equal(t, 1, history.ReadCount)
+	})
+
+	inbox, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "", string(domain.BookDispositionInbox), false, false, 0, 25)
+	require.NoError(t, err)
+	t.Run("the disposition filter selects one bucket", func(t *testing.T) {
+		assert.Equal(t, 2, inbox.Total)
+		assert.Equal(t, []string{"browse-de-inbox", "browse-unknown"}, fixtureBookIDs(inbox.Items))
+	})
+
+	unknownOnly, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", domain.LanguageUnknown, "", false, false, 0, 25)
+	require.NoError(t, err)
+	t.Run("the language scope keeps every pill", func(t *testing.T) {
+		assert.Equal(t, 1, unknownOnly.Total)
+		assert.Equal(t, 1, unknownOnly.ScopeTotal)
+		assert.Equal(t, []domain.LanguageCount{{Tag: "de", Count: 2}, {Tag: "it", Count: 1}, {Tag: "unknown", Count: 1}}, unknownOnly.Counts, "pills describe the whole visible collection")
+	})
+}
+
+// TestStoreMyBooksBrowseOrdersDeterministically holds the ordering step:
+// lowercased title, then exact title, then Book ID.
+func TestStoreMyBooksBrowseOrdersDeterministically(t *testing.T) {
+	store := NewStore()
+	store.books = nil
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{ID: "browse-lower", OwnerID: OwnerID, Title: "beta", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-upper", OwnerID: OwnerID, Title: "Beta", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-tie-b", OwnerID: OwnerID, Title: "Tie", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-tie-a", OwnerID: OwnerID, Title: "Tie", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+	}
+
+	result, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, false, 0, 25)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"browse-upper", "browse-lower", "browse-tie-a", "browse-tie-b"}, fixtureBookIDs(result.Items), "case-insensitive title, then exact title, then ID")
 }
 
 func TestUnresolvedLemmaReviewFlagBlocksStartingFixtureBook(t *testing.T) {
