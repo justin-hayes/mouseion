@@ -54,18 +54,40 @@ type navigationEntry struct {
 }
 
 type navigationElement struct {
-	name  string
-	attrs []struct {
-		name, value string
-	}
+	name     string
+	attrs    []navigationAttr
 	children []*navigationElement
 	text     strings.Builder
 }
 
+type navigationAttr struct {
+	name, value string
+}
+
 func parseNavigationDocument(data []byte) (navigationDocument, error) {
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	files, base, pkg, err := openNavigationArchive(data)
 	if err != nil {
 		return navigationDocument{}, err
+	}
+	for _, item := range pkg.Manifest {
+		if item.MediaType != "application/xhtml+xml" || !hasWord(item.Properties, "nav") {
+			continue
+		}
+		entries, err := navigationDocumentEntries(files, base, item.Href)
+		if err != nil {
+			return navigationDocument{}, err
+		}
+		return navigationDocument{entries: entries}, nil
+	}
+	return navigationDocument{}, errors.New("EPUB has no navigation document")
+}
+
+// openNavigationArchive reads the ZIP's file map and the package document its
+// container points to, returning the package's base directory alongside them.
+func openNavigationArchive(data []byte) (map[string]*zip.File, string, packageDoc, error) {
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, "", packageDoc{}, err
 	}
 	files := make(map[string]*zip.File, len(zr.File))
 	for _, file := range zr.File {
@@ -74,64 +96,66 @@ func parseNavigationDocument(data []byte) (navigationDocument, error) {
 
 	var c container
 	if err := decodeXMLFile(files, "META-INF/container.xml", &c); err != nil {
-		return navigationDocument{}, err
+		return nil, "", packageDoc{}, err
 	}
 	if len(c.Rootfiles) == 0 || strings.TrimSpace(c.Rootfiles[0].FullPath) == "" {
-		return navigationDocument{}, errors.New("navigation document has no package rootfile")
+		return nil, "", packageDoc{}, errors.New("navigation document has no package rootfile")
 	}
 	opfPath := path.Clean(c.Rootfiles[0].FullPath)
 	var pkg packageDoc
 	if err := decodeXMLFile(files, opfPath, &pkg); err != nil {
-		return navigationDocument{}, err
+		return nil, "", packageDoc{}, err
 	}
-	base := path.Dir(opfPath)
+	return files, path.Dir(opfPath), pkg, nil
+}
 
-	for _, item := range pkg.Manifest {
-		if item.MediaType != "application/xhtml+xml" || !hasWord(item.Properties, "nav") {
-			continue
-		}
-		name, resolveErr := resolveResourcePath(base, item.Href)
-		if resolveErr != nil {
-			return navigationDocument{}, resolveErr
-		}
-		file := files[name]
-		if file == nil {
-			return navigationDocument{}, errors.New("navigation resource is missing")
-		}
-		root, parseErr := parseNavigationXML(file)
-		if parseErr != nil {
-			return navigationDocument{}, parseErr
-		}
-		nav := findTOCNavigation(root)
-		if nav == nil {
-			return navigationDocument{}, errors.New("navigation document has no EPUB 3 toc")
-		}
-		list := directNavigationList(nav)
-		if list == nil {
-			return navigationDocument{}, errors.New("EPUB 3 toc has no top-level list")
-		}
-
-		entries := make([]navigationEntry, 0, len(list.children))
-		for _, child := range list.children {
-			if child.name != "li" {
-				return navigationDocument{}, errors.New("EPUB 3 toc has a non-entry list child")
-			}
-			label := navigationEntryLabel(child)
-			if label == "" {
-				return navigationDocument{}, errors.New("EPUB 3 toc entry has no label")
-			}
-			resolvedHref, ok := navigationEntryStart(child, base)
-			if !ok {
-				return navigationDocument{}, errors.New("EPUB 3 toc entry has no usable link")
-			}
-			entries = append(entries, navigationEntry{label: label, resolvedHref: resolvedHref})
-		}
-		if len(entries) == 0 {
-			return navigationDocument{}, errors.New("EPUB 3 toc has no entries")
-		}
-		return navigationDocument{entries: entries}, nil
+// navigationDocumentEntries parses the package's navigation resource and
+// resolves its top-level table-of-contents entries.
+func navigationDocumentEntries(files map[string]*zip.File, base, href string) ([]navigationEntry, error) {
+	name, err := resolveResourcePath(base, href)
+	if err != nil {
+		return nil, err
 	}
-	return navigationDocument{}, errors.New("EPUB has no navigation document")
+	file := files[name]
+	if file == nil {
+		return nil, errors.New("navigation resource is missing")
+	}
+	root, err := parseNavigationXML(file)
+	if err != nil {
+		return nil, err
+	}
+	nav := findTOCNavigation(root)
+	if nav == nil {
+		return nil, errors.New("navigation document has no EPUB 3 toc")
+	}
+	list := directNavigationList(nav)
+	if list == nil {
+		return nil, errors.New("EPUB 3 toc has no top-level list")
+	}
+	return navigationListEntries(list, base)
+}
+
+// navigationListEntries walks one navigation list into ordered entries.
+func navigationListEntries(list *navigationElement, base string) ([]navigationEntry, error) {
+	entries := make([]navigationEntry, 0, len(list.children))
+	for _, child := range list.children {
+		if child.name != "li" {
+			return nil, errors.New("EPUB 3 toc has a non-entry list child")
+		}
+		label := navigationEntryLabel(child)
+		if label == "" {
+			return nil, errors.New("EPUB 3 toc entry has no label")
+		}
+		resolvedHref, ok := navigationEntryStart(child, base)
+		if !ok {
+			return nil, errors.New("EPUB 3 toc entry has no usable link")
+		}
+		entries = append(entries, navigationEntry{label: label, resolvedHref: resolvedHref})
+	}
+	if len(entries) == 0 {
+		return nil, errors.New("EPUB 3 toc has no entries")
+	}
+	return entries, nil
 }
 
 func parseNavigationXML(file *zip.File) (*navigationElement, error) {
@@ -145,46 +169,71 @@ func parseNavigationXML(file *zip.File) (*navigationElement, error) {
 	for {
 		token, tokenErr := decoder.Token()
 		if errors.Is(tokenErr, io.EOF) {
-			if root == nil || len(stack) != 0 {
-				return nil, errors.New("malformed navigation document")
-			}
-			return root, nil
+			return finishNavigationElement(root, stack)
 		}
 		if tokenErr != nil {
 			return nil, tokenErr
 		}
-		switch token := token.(type) {
-		case xml.StartElement:
-			element := &navigationElement{name: strings.ToLower(token.Name.Local)}
-			for _, attr := range token.Attr {
-				name := attr.Name.Local
-				if attr.Name.Space != "" {
-					name = attr.Name.Space + " " + name
-				}
-				element.attrs = append(element.attrs, struct {
-					name, value string
-				}{name: name, value: attr.Value})
-			}
-			if len(stack) == 0 {
-				if root != nil {
-					return nil, errors.New("navigation document has multiple roots")
-				}
-				root = element
-			} else {
-				stack[len(stack)-1].children = append(stack[len(stack)-1].children, element)
-			}
-			stack = append(stack, element)
-		case xml.CharData:
-			if len(stack) > 0 {
-				stack[len(stack)-1].text.Write([]byte(token))
-			}
-		case xml.EndElement:
-			if len(stack) == 0 || stack[len(stack)-1].name != strings.ToLower(token.Name.Local) {
-				return nil, errors.New("malformed navigation document")
-			}
-			stack = stack[:len(stack)-1]
+		root, stack, err = applyNavigationToken(token, root, stack)
+		if err != nil {
+			return nil, err
 		}
 	}
+}
+
+// applyNavigationToken folds one XML token into the element tree under
+// construction and returns the updated root and open-element stack.
+func applyNavigationToken(token xml.Token, root *navigationElement, stack []*navigationElement) (*navigationElement, []*navigationElement, error) {
+	switch token := token.(type) {
+	case xml.StartElement:
+		element := &navigationElement{name: strings.ToLower(token.Name.Local), attrs: navigationAttrs(token.Attr)}
+		switch {
+		case len(stack) == 0 && root != nil:
+			return nil, nil, errors.New("navigation document has multiple roots")
+		case len(stack) == 0:
+			root = element
+		default:
+			stack[len(stack)-1].children = append(stack[len(stack)-1].children, element)
+		}
+		return root, append(stack, element), nil
+	case xml.CharData:
+		if len(stack) > 0 {
+			stack[len(stack)-1].text.Write([]byte(token))
+		}
+	case xml.EndElement:
+		if len(stack) == 0 || stack[len(stack)-1].name != strings.ToLower(token.Name.Local) {
+			return nil, nil, errors.New("malformed navigation document")
+		}
+		stack = stack[:len(stack)-1]
+	}
+	return root, stack, nil
+}
+
+// finishNavigationElement rejects a document that never opened a root or ended
+// with unclosed elements.
+func finishNavigationElement(root *navigationElement, stack []*navigationElement) (*navigationElement, error) {
+	if root == nil || len(stack) != 0 {
+		return nil, errors.New("malformed navigation document")
+	}
+	return root, nil
+}
+
+// navigationAttrs converts XML attributes to the element tree's attribute
+// representation, qualifying namespaced names the same way. Elements without
+// attributes keep a nil slice, as the parser built them before.
+func navigationAttrs(attrs []xml.Attr) []navigationAttr {
+	if len(attrs) == 0 {
+		return nil
+	}
+	out := make([]navigationAttr, 0, len(attrs))
+	for _, attr := range attrs {
+		name := attr.Name.Local
+		if attr.Name.Space != "" {
+			name = attr.Name.Space + " " + name
+		}
+		out = append(out, navigationAttr{name: name, value: attr.Value})
+	}
+	return out
 }
 
 func findTOCNavigation(node *navigationElement) *navigationElement {
