@@ -44,15 +44,14 @@ class LanguageModelConfig:
         package = payload.get("package")
         dependencies = payload.get("external_model_dependencies")
         model_version = payload.get("model_version")
-        if not isinstance(language, str) or not language:
-            return None
-        if not isinstance(processors, str) or not processors:
-            return None
-        if package is not None and not isinstance(package, (str, dict)):
-            return None
-        if isinstance(package, dict) and not all(
-            isinstance(key, str) and isinstance(value, str) for key, value in package.items()
+        if (
+            not isinstance(language, str)
+            or not language
+            or not isinstance(processors, str)
+            or not processors
         ):
+            return None
+        if not _valid_package(package):
             return None
         if not isinstance(dependencies, list) or not all(
             isinstance(dependency, str) for dependency in dependencies
@@ -67,6 +66,15 @@ class LanguageModelConfig:
             external_model_dependencies=tuple(dependencies),
             model_version=model_version,
         )
+
+
+def _valid_package(package: object) -> bool:
+    """Accept an absent package, a single name, or a processor-to-name mapping."""
+    if package is None or isinstance(package, str):
+        return True
+    return isinstance(package, dict) and all(
+        isinstance(key, str) and isinstance(value, str) for key, value in package.items()
+    )
 
 
 _LANGUAGE_MODEL_CONFIGS = {

@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from mouseion_nlp.precision import measure, render_report
+from mouseion_nlp.precision import ReportProvenance, measure, render_report
 
 
 def token(surface, lemma, pos, *, head=0, dependency="root"):
@@ -57,11 +57,13 @@ def test_render_report_explains_review_flags_and_denominator() -> None:
 
     report = render_report(
         measure(corpus),
-        source_title="Sample",
-        source_url="https://example.test/sample",
-        source_sha256="abc",
-        stanza_version="1.14.0",
-        generator_command="generate",
+        ReportProvenance(
+            source_title="Sample",
+            source_url="https://example.test/sample",
+            source_sha256="abc",
+            stanza_version="1.14.0",
+            generator_command="generate",
+        ),
     )
 
     assert "Reattachment events (changed verb tokens)" in report

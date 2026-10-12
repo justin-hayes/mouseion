@@ -6,8 +6,11 @@ import io
 import json
 import sqlite3
 import stat
+import sys
 from datetime import date
 from pathlib import Path
+
+import pytest
 
 
 def load_script():
@@ -16,6 +19,9 @@ def load_script():
     assert spec
     assert spec.loader
     module = importlib.util.module_from_spec(spec)
+    # Register before exec: dataclasses resolves `from __future__ import
+    # annotations` string annotations through sys.modules[cls.__module__].
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -506,6 +512,15 @@ def test_download_input_reuses_the_cached_dump(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(module, "urlopen", unexpected_download)
 
     assert module.download_input(force=False) == cached
+
+
+def test_download_input_rejects_a_non_http_scheme(monkeypatch, tmp_path: Path):
+    module = load_script()
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    monkeypatch.setattr(module, "KAIKKI_DOWNLOAD_URL", "file:///etc/passwd")
+
+    with pytest.raises(RuntimeError, match="non-http"):
+        module.download_input(force=True)
 
 
 def test_non_dict_senses_are_skipped(tmp_path: Path):

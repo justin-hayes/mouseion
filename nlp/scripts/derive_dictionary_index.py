@@ -13,6 +13,7 @@ import sqlite3
 import tempfile
 import unicodedata
 from collections import OrderedDict
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from urllib.request import urlopen
@@ -185,6 +186,10 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
         return {"Masc": "ο", "Fem": "η", "Neut": "το"}.get(gender, "")
     if language != "it":
         return ""
+    return italian_article_for(word, gender)
+
+
+def italian_article_for(word: str, gender: str) -> str:
     word = word.casefold().strip()
     if not word or not gender:
         return ""
@@ -329,6 +334,10 @@ def download_input(force: bool) -> Path:
     output = download_cache_path()
     if output.exists() and not force:
         return output
+    if not KAIKKI_DOWNLOAD_URL.startswith(("http://", "https://")):
+        # S310: urlopen also accepts file: and custom schemes, so reject
+        # anything but the fixed http(s) dump URL before opening it.
+        raise RuntimeError(f"refusing to download from a non-http(s) URL: {KAIKKI_DOWNLOAD_URL}")
     output.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         dir=output.parent, prefix=output.name + ".", suffix=".tmp"
@@ -424,18 +433,25 @@ def collect_entries(input_path: Path) -> dict[tuple[str, str, str], dict]:
     return entries
 
 
-def metadata_rows(
-    provider_version: str, dump_date: str, extraction_date: str, wiktextract_commit: str
-) -> dict[str, str]:
+@dataclass(frozen=True)
+class SourceMetadata:
+    """The dump provenance recorded in the index's metadata table."""
+
+    dump_date: str = ""
+    extraction_date: str = ""
+    wiktextract_commit: str = ""
+
+
+def metadata_rows(provider_version: str, source: SourceMetadata) -> dict[str, str]:
     return {
         "provider_version": provider_version,
         "license": "Wiktionary-derived data: CC BY-SA 3.0 / GFDL",
         "generated_at": date.today().isoformat(),
         "source": "Kaikki.org Wiktextract enwiktionary JSONL",
         "attribution": "Wiktionary contributors; CC BY-SA 3.0 / GFDL",
-        "dump_date": dump_date,
-        "extraction_date": extraction_date,
-        "wiktextract_commit": wiktextract_commit,
+        "dump_date": source.dump_date,
+        "extraction_date": source.extraction_date,
+        "wiktextract_commit": source.wiktextract_commit,
     }
 
 
@@ -458,9 +474,7 @@ def write_index(
     output_path: Path,
     entries: dict[tuple[str, str, str], dict],
     provider_version: str,
-    dump_date: str,
-    extraction_date: str,
-    wiktextract_commit: str,
+    source: SourceMetadata,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
@@ -472,7 +486,7 @@ def write_index(
         connection.executescript(SCHEMA)
         connection.executemany(
             "INSERT INTO metadata(key, value) VALUES (?, ?)",
-            metadata_rows(provider_version, dump_date, extraction_date, wiktextract_commit).items(),
+            metadata_rows(provider_version, source).items(),
         )
         connection.executemany(INSERT_ENTRIES_SQL, entry_rows(entries))
         connection.commit()
@@ -488,17 +502,10 @@ def derive(
     input_path: Path,
     output_path: Path,
     provider_version: str,
-    dump_date: str = "",
-    extraction_date: str = "",
-    wiktextract_commit: str = "",
+    source: SourceMetadata | None = None,
 ) -> None:
     write_index(
-        output_path,
-        collect_entries(input_path),
-        provider_version,
-        dump_date,
-        extraction_date,
-        wiktextract_commit,
+        output_path, collect_entries(input_path), provider_version, source or SourceMetadata()
     )
 
 
@@ -532,9 +539,11 @@ def main(argv: list[str] | None = None) -> int:
         input_path,
         args.output,
         provider_version,
-        args.dump_date,
-        args.extraction_date,
-        args.wiktextract_commit,
+        SourceMetadata(
+            dump_date=args.dump_date,
+            extraction_date=args.extraction_date,
+            wiktextract_commit=args.wiktextract_commit,
+        ),
     )
     print(f"Wrote {args.output}")
     return 0
