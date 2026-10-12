@@ -38,8 +38,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.False(t, languageProfilesForeignKeyExists, "language_profiles migration left foreign key")
 
 	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "migration-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "migration-bob", "bob-password", false)
+	alice := createAccount(t, ctx, store, "migration-alice", "alice-password")
+	bob := createAccount(t, ctx, store, "migration-bob", "bob-password")
 	capabilities := staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
 		{Language: "de", DisplayName: "German", Ready: true},
 		{Language: "it", DisplayName: "Italian", Ready: true},

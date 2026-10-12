@@ -35,7 +35,7 @@ func TestPublishedAnalysisStaysInEffectDuringReanalysis(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 
 	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "reanalysis-alice", "alice-password", false)
+	alice := createAccount(t, ctx, store, "reanalysis-alice", "alice-password")
 	capabilities := staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
 		{Language: "de", DisplayName: "German", Ready: true},
 	}}}

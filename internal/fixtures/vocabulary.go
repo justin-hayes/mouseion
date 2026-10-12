@@ -157,12 +157,12 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 		return fixtureMultiBookConcordance(result), nil
 	}
 	fixtureRows := []domain.ConcordanceResultOccurrence{
-		fixtureConcordanceOccurrence("haus", "heim", true, false),
-		fixtureConcordanceOccurrence("haus", "haus", false, true),
-		fixtureConcordanceOccurrence("haus", "haus", false, false),
+		fixtureConcordanceOccurrence("heim", true, false),
+		fixtureConcordanceOccurrence("haus", false, true),
+		fixtureConcordanceOccurrence("haus", false, false),
 	}
 	for i := 3; i < 28; i++ {
-		fixtureRows = append(fixtureRows, fixtureConcordanceOccurrence("haus", "haus", false, false))
+		fixtureRows = append(fixtureRows, fixtureConcordanceOccurrence("haus", false, false))
 	}
 	lemma := strings.ToLower(strings.TrimSpace(query.Term))
 	// Mirror the persisted lookup: an evidenced effective lemma wins and
@@ -238,7 +238,7 @@ func fixtureMultiBookConcordance(result domain.ConcordanceResult) domain.Concord
 	ordinal := int64(0)
 	for _, book := range books {
 		for range book.hits {
-			occurrence := fixtureConcordanceOccurrence("haus", "haus", false, false)
+			occurrence := fixtureConcordanceOccurrence("haus", false, false)
 			occurrence.BookID, occurrence.BookTitle = book.id, book.title
 			occurrence.SentenceOrdinal = ordinal
 			ordinal++
@@ -248,7 +248,7 @@ func fixtureMultiBookConcordance(result domain.ConcordanceResult) domain.Concord
 	return result
 }
 
-func fixtureConcordanceOccurrence(rawLemma, effectiveLemma string, corrected, excluded bool) domain.ConcordanceResultOccurrence {
+func fixtureConcordanceOccurrence(effectiveLemma string, corrected, excluded bool) domain.ConcordanceResultOccurrence {
 	return domain.ConcordanceResultOccurrence{
 		Surface: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "obj",
 		HeadOrdinal: 1, HeadSurface: "sieht", SentenceText: "Das Haus sieht gut aus.",
@@ -257,7 +257,7 @@ func fixtureConcordanceOccurrence(rawLemma, effectiveLemma string, corrected, ex
 		AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus",
 		UnitID: "fixture-concordance-unit", ChapterTitle: "Kapitel 1", UnitOrder: 0,
 		SentenceOrdinal: 0, TokenOrdinal: 1,
-		RawLemma: rawLemma, EffectiveLemma: effectiveLemma, Corrected: corrected, Excluded: excluded,
+		RawLemma: "haus", EffectiveLemma: effectiveLemma, Corrected: corrected, Excluded: excluded,
 	}
 }
 

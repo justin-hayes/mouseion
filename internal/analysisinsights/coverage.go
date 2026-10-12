@@ -62,8 +62,8 @@ func (s *Service) coverage(ctx context.Context, owner string, input domain.Analy
 		}
 		vocabularies[lemma.Language] = loaded
 	}
-	result, _, err := coverageWithVocabulary(input, vocabularies, reservedIsKnown)
-	return result, err
+	result, _ := coverageWithVocabulary(input, vocabularies, reservedIsKnown)
+	return result, nil
 }
 
 type vocabulary struct {
@@ -112,7 +112,7 @@ func (v vocabulary) generatedFor(sourceMaterialID, key string) bool {
 // coverageWithVocabulary is the shared arithmetic path for coverage results.
 // eligible contains the complete eligible identity list;
 // the public per-book result retains its existing top-five presentation cap.
-func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, reservedIsKnown bool) (domain.AnalysisCoverage, []domain.LemmaOccurrence, error) {
+func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, reservedIsKnown bool) (domain.AnalysisCoverage, []domain.LemmaOccurrence) {
 	result := domain.AnalysisCoverage{
 		SourceMaterialID:     input.SourceMaterialID,
 		AnalysisRunID:        input.AnalysisRunID,
@@ -175,7 +175,7 @@ func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies 
 		threshold.Reachable = reachesThreshold(result.KnownTokenCount, threshold.OccurrenceCount, result.AnalyzableTokenCount, target)
 		result.Thresholds = append(result.Thresholds, threshold)
 	}
-	return result, eligible, nil
+	return result, eligible
 }
 
 func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, knownTokens, analyzableTokens int64) domain.CoverageProjection {

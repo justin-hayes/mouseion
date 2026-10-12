@@ -30,8 +30,8 @@ func TestCurrentReadingInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBounda
 	testutil.Cleanup(t, "store", store.Close)
 
 	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "goal-integration-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "goal-integration-bob", "bob-password", false)
+	alice := createAccount(t, ctx, store, "goal-integration-alice", "alice-password")
+	bob := createAccount(t, ctx, store, "goal-integration-bob", "bob-password")
 	newBook := func(owner domain.User, title string) domain.Book {
 		t.Helper()
 		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})

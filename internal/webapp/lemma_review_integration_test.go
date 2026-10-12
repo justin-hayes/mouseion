@@ -30,7 +30,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	owner := createAccount(t, ctx, store, "lemma-review-owner", "learner-password", false)
+	owner := createAccount(t, ctx, store, "lemma-review-owner", "learner-password")
 	otherOwner, err := store.CreateUser(ctx, "lemma-review-other", false)
 	require.NoError(t, err)
 	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "lemma-review", "Lemma review", []domain.LemmaOccurrence{
@@ -279,7 +279,7 @@ func TestLemmaReviewCanSelectContextSpecificDrachenOccurrences(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	owner := createAccount(t, ctx, store, "drachen-review-owner", "learner-password", false)
+	owner := createAccount(t, ctx, store, "drachen-review-owner", "learner-password")
 	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "drachen-context", "Drachen contexts", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "drach", UPOS: "NOUN", OccurrenceCount: 2},
 	})

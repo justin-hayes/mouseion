@@ -251,14 +251,14 @@ func (s *PostgresStore) CreateOpdsConnection(ctx context.Context, ownerID string
 	if err != nil {
 		return domain.OpdsConnection{}, missing(err)
 	}
-	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.Language, row.CreatedAt, row.UpdatedAt)
+	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.CreatedAt, row.UpdatedAt)
 }
 func (s *PostgresStore) GetOpdsConnection(ctx context.Context, ownerID, id string) (domain.OpdsConnection, error) {
 	row, err := s.queries().GetOpdsConnection(ctx, sqlcgen.GetOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: id})
 	if err != nil {
 		return domain.OpdsConnection{}, missing(err)
 	}
-	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.Language, row.CreatedAt, row.UpdatedAt)
+	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.CreatedAt, row.UpdatedAt)
 }
 
 // OpdsConnectionExists checks ownership without decrypting the credential.
@@ -274,7 +274,7 @@ func (s *PostgresStore) ListOpdsConnections(ctx context.Context, ownerID string)
 	}
 	var out []domain.OpdsConnection
 	for _, row := range rows {
-		v, err := opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.Language, row.CreatedAt, row.UpdatedAt)
+		v, err := opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -308,7 +308,7 @@ func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, ownerID string
 	if err != nil {
 		return domain.OpdsConnection{}, missing(err)
 	}
-	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.Language, row.CreatedAt, row.UpdatedAt)
+	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.CreatedAt, row.UpdatedAt)
 }
 func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id string) error {
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {

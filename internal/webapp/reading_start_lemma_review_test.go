@@ -71,7 +71,7 @@ func startSessionOver(t *testing.T, reading threeWegReading, index lemmarisk.Alt
 	})
 	loginPage := httptest.NewRecorder()
 	h.ServeHTTP(loginPage, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil))
-	initialCSRFCookie := cookieByName(t, loginPage.Result().Cookies(), csrfCookie)
+	initialCSRFCookie := findCSRFCookie(t, loginPage.Result().Cookies())
 	token := regexp.MustCompile(`name="csrf_token" value="([^"]+)"`).FindStringSubmatch(loginPage.Body.String())[1]
 	loginRequest := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/login", strings.NewReader(url.Values{"csrf_token": {token}, "username": {fixtures.Username}, "password": {fixtures.Password}}.Encode()))
 	loginRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -80,7 +80,7 @@ func startSessionOver(t *testing.T, reading threeWegReading, index lemmarisk.Alt
 	h.ServeHTTP(loginResponse, loginRequest)
 	require.Equal(t, http.StatusSeeOther, loginResponse.Code)
 	cookies := loginResponse.Result().Cookies()
-	return h, cookies, cookieByName(t, cookies, csrfCookie).Value
+	return h, cookies, findCSRFCookie(t, cookies).Value
 }
 
 func TestStartRunsLemmaRiskDetectionBeforeFreezingTheBook(t *testing.T) {
@@ -109,7 +109,7 @@ func TestConfirmedIdentityRestartRunsLemmaRiskDetectionBeforeFreezing(t *testing
 
 	// The preview runs without an index, so detection cannot flag anything
 	// before the confirmed restart does.
-	weg := lemmaOccurrenceIDs(t, reading, "fixture-route-match", "Weg")
+	weg := wegOccurrenceIDs(t, reading, "fixture-route-match")
 	previewHandler, cookies, csrf := startSessionOver(t, reading, nil)
 	preview := readingTestRequest(t, previewHandler, lemmaPath, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {weg[0]}, "decision": {"correct"}, "lemma": {"pfad"}}, cookies)
 	require.Equal(t, http.StatusOK, preview.Code)

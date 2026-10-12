@@ -49,6 +49,7 @@ linters:
     - usetesting
     - forcetypeassert
     - gocritic
+    - unparam
     # Zero-finding guards (#1815): these report nothing today, so they stay on
     # to block the defects they catch from being reintroduced.
     - bidichk

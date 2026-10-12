@@ -56,20 +56,20 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	require.NoError(t, err)
 
 	otherPreparation := insertLegacyPreparation(t, ctx, pool, otherOwner.ID, otherBook, otherSource, otherRun, "other-artifact")
-	insertLegacyGeneratedVocabulary(t, ctx, pool, otherOwner.ID, otherPreparation, "de", "other", "NOUN")
-	insertLegacyPreparationVocabulary(t, ctx, pool, otherOwner.ID, otherPreparation, "de", "other", "NOUN")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, otherOwner.ID, otherPreparation, "de", "other")
+	insertLegacyPreparationVocabulary(t, ctx, pool, otherOwner.ID, otherPreparation, "de", "other")
 
 	matchingPreparation := insertLegacyPreparation(t, ctx, pool, matchingOwner.ID, matchingBook, matchingSource, matchingRun, "matching-artifact")
-	insertLegacyGeneratedVocabulary(t, ctx, pool, matchingOwner.ID, matchingPreparation, "de", "legacy", "NOUN")
-	insertLegacyPreparationVocabulary(t, ctx, pool, matchingOwner.ID, matchingPreparation, "de", "legacy", "NOUN")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, matchingOwner.ID, matchingPreparation, "de", "legacy")
+	insertLegacyPreparationVocabulary(t, ctx, pool, matchingOwner.ID, matchingPreparation, "de", "legacy")
 	emptyPreparation := insertLegacyPreparation(t, ctx, pool, emptyOwner.ID, emptyBook, emptySource, emptyRun, "empty-artifact")
-	insertLegacyGeneratedVocabulary(t, ctx, pool, emptyOwner.ID, emptyPreparation, "de", "historical-empty", "NOUN")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, emptyOwner.ID, emptyPreparation, "de", "historical-empty")
 
 	// This reservation has the right owner, Book, and current source but the
 	// wrong study language, so it must not be adopted by the German Goal.
 	languagePreparation := insertLegacyPreparation(t, ctx, pool, languageOwner.ID, languageBook, languageSource, languageRun, "language-artifact")
-	insertLegacyGeneratedVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "falsely-matching", "NOUN")
-	insertLegacyPreparationVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "falsely-matching", "NOUN")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "falsely-matching")
+	insertLegacyPreparationVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "falsely-matching")
 	_, err = pool.Exec(ctx, `INSERT INTO processing_history(owner_id, corpus_id, operation, status, details) VALUES ($1,$2,'prepared-deck','completed','{}')`, languageOwner.ID, languageCorpus)
 	require.NoError(t, err)
 
@@ -280,23 +280,23 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 
 	activePreparation := insertLegacyPreparation(t, ctx, pool, activeOwner.ID, activeBook, activeSource, activeRun, "empty-active-artifact")
 	inactivePreparation := insertLegacyPreparation(t, ctx, pool, inactiveOwner.ID, inactiveBook, inactiveSource, inactiveRun, "empty-inactive-artifact")
-	insertLegacyGeneratedVocabulary(t, ctx, pool, inactiveOwner.ID, inactivePreparation, "de", "historical-inactive", "NOUN")
-	insertLegacyPreparationVocabulary(t, ctx, pool, inactiveOwner.ID, inactivePreparation, "de", "historical-inactive", "NOUN")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, inactiveOwner.ID, inactivePreparation, "de", "historical-inactive")
+	insertLegacyPreparationVocabulary(t, ctx, pool, inactiveOwner.ID, inactivePreparation, "de", "historical-inactive")
 	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET studying_at=NULL WHERE owner_id=$1 AND id=$2`, inactiveOwner.ID, inactivePreparation)
 	require.NoError(t, err)
 	releasedPreparation := insertLegacyPreparation(t, ctx, pool, releasedOwner.ID, releasedBook, releasedSource, releasedRun, "empty-released-artifact")
-	insertLegacyGeneratedVocabulary(t, ctx, pool, releasedOwner.ID, releasedPreparation, "de", "historical-released", "NOUN")
-	insertLegacyPreparationVocabulary(t, ctx, pool, releasedOwner.ID, releasedPreparation, "de", "historical-released", "NOUN")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, releasedOwner.ID, releasedPreparation, "de", "historical-released")
+	insertLegacyPreparationVocabulary(t, ctx, pool, releasedOwner.ID, releasedPreparation, "de", "historical-released")
 	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET studying_at=NULL,released_at=now() WHERE owner_id=$1 AND id=$2`, releasedOwner.ID, releasedPreparation)
 	require.NoError(t, err)
 	foreignPreparation := insertLegacyPreparation(t, ctx, pool, foreignOwner.ID, foreignBook, foreignSource, foreignRun, "empty-foreign-artifact")
-	insertLegacyGeneratedVocabulary(t, ctx, pool, foreignOwner.ID, foreignPreparation, "de", "historical-unmatched", "NOUN")
-	insertLegacyPreparationVocabulary(t, ctx, pool, foreignOwner.ID, foreignPreparation, "de", "historical-unmatched", "NOUN")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, foreignOwner.ID, foreignPreparation, "de", "historical-unmatched")
+	insertLegacyPreparationVocabulary(t, ctx, pool, foreignOwner.ID, foreignPreparation, "de", "historical-unmatched")
 	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET analysis_run_id=NULL WHERE owner_id=$1 AND id=$2`, foreignOwner.ID, foreignPreparation)
 	require.NoError(t, err)
 	languagePreparation := insertLegacyPreparation(t, ctx, pool, languageOwner.ID, languageBook, languageSource, languageRun, "empty-language-artifact")
-	insertLegacyGeneratedVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "historical-cross-language", "NOUN")
-	insertLegacyPreparationVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "historical-cross-language", "NOUN")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "historical-cross-language")
+	insertLegacyPreparationVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "historical-cross-language")
 
 	for _, candidate := range []struct {
 		owner  string
@@ -439,17 +439,17 @@ VALUES ($1,$2,$3,'ready',$4,$5,$6,$7,1,now(),$8,now(),$9)`, preparationID, owner
 	return preparationID
 }
 
-func insertLegacyPreparationVocabulary(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, preparationID, language, lemma, upos string) {
+func insertLegacyPreparationVocabulary(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, preparationID, language, lemma string) {
 	t.Helper()
-	_, err := pool.Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at) VALUES ($1,$2,$3,$4,$5,now())`, owner, preparationID, language, lemma, upos)
+	_, err := pool.Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at) VALUES ($1,$2,$3,$4,$5,now())`, owner, preparationID, language, lemma, "NOUN")
 	require.NoError(t, err)
 }
 
-func insertLegacyGeneratedVocabulary(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, preparationID, language, lemma, upos string) {
+func insertLegacyGeneratedVocabulary(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, preparationID, language, lemma string) {
 	t.Helper()
 	deckID := uuid.NewString()
 	_, err := pool.Exec(ctx, `INSERT INTO decks(id, owner_id, language, name) VALUES ($1,$2,$3,$4)`, deckID, owner, language, "Migration deck")
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id) SELECT $1,$2,$3,$4,$5,source_material_id FROM deck_preparations WHERE owner_id=$1 AND id=$6`, owner, language, lemma, upos, deckID, preparationID)
+	_, err = pool.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id) SELECT $1,$2,$3,$4,$5,source_material_id FROM deck_preparations WHERE owner_id=$1 AND id=$6`, owner, language, lemma, "NOUN", deckID, preparationID)
 	require.NoError(t, err)
 }

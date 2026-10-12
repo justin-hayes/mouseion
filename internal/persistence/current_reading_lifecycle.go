@@ -58,7 +58,7 @@ func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Que
 	}
 	var candidates []domain.SelectionCandidate
 	if hasCorrections {
-		candidates, err = correctedCurrentReadingCandidates(ctx, tx, q, owner, bookID, language, identity)
+		candidates, err = correctedCurrentReadingCandidates(ctx, tx, q, owner, language, identity)
 	} else {
 		var rows []sqlcgen.ListCurrentReadingSnapshotCandidatesRow
 		rows, err = q.ListCurrentReadingSnapshotCandidates(ctx, sqlcgen.ListCurrentReadingSnapshotCandidatesParams{Owner: owner, Language: language, Corpus: identity.CaCorpusID})
@@ -240,7 +240,7 @@ LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos`, owner, langu
 // correctedCurrentReadingCandidates rebuilds the current Book's candidate set
 // from immutable analyzer evidence plus exact-occurrence learner corrections.
 // It runs in the same transaction as the freeze, after the Book row is locked.
-func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, bookID, language string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow) ([]domain.SelectionCandidate, error) {
+func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow) ([]domain.SelectionCandidate, error) {
 	analysis, corrections, err := loadAnalysisProjectionFactsTx(ctx, tx, q, domain.DeckPreparation{
 		OwnerID: owner, SourceMaterialID: identity.CaSourceMaterialID, AnalysisRunID: identity.CaAnalysisRunID,
 	}, identity.CaCorpusID)

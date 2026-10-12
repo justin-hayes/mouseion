@@ -81,8 +81,9 @@ func requireOneRaceWinner(t *testing.T, errs []error, allowedLoserErrs ...error)
 // requireCurrentReadingStateConsistent asserts the language holds at most one
 // Current reading and that its active reservation set is exactly the current
 // reading's snapshot.
-func requireCurrentReadingStateConsistent(t *testing.T, ctx context.Context, store *PostgresStore, owner, language string) domain.CurrentReading {
+func requireCurrentReadingStateConsistent(t *testing.T, ctx context.Context, store *PostgresStore, owner string) domain.CurrentReading {
 	t.Helper()
+	const language = "de"
 	var currentRows int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1 AND language=$2`, owner, language).Scan(&currentRows))
 	require.LessOrEqual(t, currentRows, 1, "more than one Current reading for the language")
@@ -181,7 +182,7 @@ func TestConcurrentCurrentReadingStartsOnDifferentBooksKeepOneWinner(t *testing.
 	)
 	winner := requireOneRaceWinner(t, errs, ErrCurrentReadingExists)
 
-	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner, "de")
+	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner)
 	assert.Equal(t, fixture.books[winner].ID, current.BookID, "the winning Start owns the Current reading")
 	var snapshots int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1`, fixture.owner).Scan(&snapshots))
@@ -211,7 +212,7 @@ func TestConcurrentCurrentReadingStartsOnSameBookKeepOneWinner(t *testing.T) {
 		require.NoError(t, err, "same-Book Start %d", slot)
 	}
 
-	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner, "de")
+	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner)
 	assert.Equal(t, fixture.books[0].ID, current.BookID)
 	fresh := 0
 	for slot := range errs {
@@ -254,7 +255,7 @@ func TestConcurrentCurrentReadingSwitchAndFinishKeepOneWinner(t *testing.T) {
 	// different one.
 	winner := requireOneRaceWinner(t, errs, ErrCurrentReadingStale, ErrNotFound)
 
-	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner, "de")
+	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner)
 	requireSnapshotReleased(t, ctx, store, fixture.owner, initial.SnapshotID, true)
 	switch winner {
 	case switchIndex:
@@ -292,7 +293,7 @@ func TestConcurrentCurrentReadingEndAndFinishKeepOneWinner(t *testing.T) {
 	// and an ended one has no completion for Finish to replay.
 	winner := requireOneRaceWinner(t, errs, ErrCurrentReadingStale, ErrNotFound)
 
-	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner, "de")
+	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner)
 	assert.Empty(t, current.BookID, "the winning transition ended the Current reading")
 	requireSnapshotReleased(t, ctx, store, fixture.owner, initial.SnapshotID, true)
 	switch winner {

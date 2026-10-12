@@ -37,8 +37,8 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
-	owner := createAccount(t, ctx, store, "reading-enqueue-failure", "learner-password", false)
-	otherOwner := createAccount(t, ctx, store, "reading-provider-other", "other-learner-password", false)
+	owner := createAccount(t, ctx, store, "reading-enqueue-failure", "learner-password")
+	otherOwner := createAccount(t, ctx, store, "reading-provider-other", "other-learner-password")
 	book, source, corpus, historicalDeck := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "start-enqueue-failure", "Start enqueue failure", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3}})
 	var analysisRunID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&analysisRunID))
@@ -329,7 +329,7 @@ func TestCurrentReadingStartReportsCrossBookCountReadinessAndRetries(t *testing.
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
-	owner := createAccount(t, ctx, store, "reading-count-readiness", "learner-password", false)
+	owner := createAccount(t, ctx, store, "reading-count-readiness", "learner-password")
 	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "count-readiness-target", "Count readiness target", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "crossing", UPOS: "NOUN", OccurrenceCount: 2}})
 	other, _, otherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "count-readiness-other", "Count readiness other", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "crossing", UPOS: "NOUN", OccurrenceCount: 8}})
 	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance)

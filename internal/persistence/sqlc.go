@@ -218,9 +218,8 @@ func cardFromFields(id, ownerID, deckID, dedupKey, canonicalLemma, upos, front, 
 	}
 }
 
-// opdsFromFields decrypts the stored credential. The language column is a
-// legacy artifact not exposed by the domain type.
-func opdsFromFields(id, ownerID, name, url, username string, encrypted []byte, language string, createdAt, updatedAt time.Time) (domain.OpdsConnection, error) {
+// opdsFromFields decrypts the stored credential.
+func opdsFromFields(id, ownerID, name, url, username string, encrypted []byte, createdAt, updatedAt time.Time) (domain.OpdsConnection, error) {
 	password, err := decryptCredential(encrypted)
 	if err != nil {
 		return domain.OpdsConnection{}, err

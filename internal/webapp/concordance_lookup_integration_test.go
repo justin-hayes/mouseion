@@ -97,8 +97,8 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 
-	alice := createAccount(t, ctx, store, "lookup-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "lookup-bob", "bob-password", false)
+	alice := createAccount(t, ctx, store, "lookup-alice", "alice-password")
+	bob := createAccount(t, ctx, store, "lookup-bob", "bob-password")
 	seed := func(owner, key, title string) (domain.Book, domain.SourceMaterial) {
 		book, source, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 		return book, source
