@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/dictionary"
+	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
@@ -89,16 +91,49 @@ func TestProbeHealth(t *testing.T) {
 }
 
 func TestOpenDictionaryIndexMissingFileIsOptional(t *testing.T) {
-	index, err := openDictionaryIndex(t.Context(), filepath.Join(t.TempDir(), "absent.sqlite"))
+	index, found, err := openDictionaryIndex(t.Context(), filepath.Join(t.TempDir(), "absent.sqlite"))
 
 	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Nil(t, index)
+}
+
+func TestDictionaryRiskIndexAbsentIsNilInterface(t *testing.T) {
+	// assert.Nil treats a typed nil pointer as nil, so compare against the nil interface.
+	assert.Equal(t, lemmarisk.AlternativeIndex(nil), dictionaryRiskIndex(nil, false))
+}
+
+func TestDictionaryRiskIndexExposesOpenedIndex(t *testing.T) {
+	index := &dictionary.Index{}
+
+	assert.Equal(t, lemmarisk.AlternativeIndex(index), dictionaryRiskIndex(index, true))
+}
+
+func TestOpenOptionalDictionaryIndexUnsetIsAbsent(t *testing.T) {
+	t.Setenv("MOUSEION_DICTIONARY_INDEX", "  ")
+
+	index, found, err := openOptionalDictionaryIndex(t.Context())
+
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Nil(t, index)
+}
+
+func TestOpenOptionalDictionaryIndexMissingFileIsAbsent(t *testing.T) {
+	t.Setenv("MOUSEION_DICTIONARY_INDEX", filepath.Join(t.TempDir(), "absent.sqlite"))
+
+	index, found, err := openOptionalDictionaryIndex(t.Context())
+
+	require.NoError(t, err)
+	assert.False(t, found)
 	assert.Nil(t, index)
 }
 
 func TestOpenDictionaryIndexRejectsInvalidPath(t *testing.T) {
-	index, err := openDictionaryIndex(t.Context(), t.TempDir())
+	index, found, err := openDictionaryIndex(t.Context(), t.TempDir())
 
 	require.Error(t, err)
+	assert.False(t, found)
 	assert.Nil(t, index)
 	assert.Contains(t, err.Error(), "directory")
 }
@@ -111,9 +146,10 @@ func TestOpenDictionaryIndexOpensValidIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
-	index, err := openDictionaryIndex(t.Context(), path)
+	index, found, err := openDictionaryIndex(t.Context(), path)
 
 	require.NoError(t, err)
+	require.True(t, found)
 	require.NotNil(t, index)
 	testutil.Cleanup(t, "dictionary index", index.Close)
 	assert.Equal(t, "fixture-v1", index.Version())

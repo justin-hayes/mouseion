@@ -86,11 +86,11 @@ func (s *PostgresStore) backfillGermanOwner(ctx context.Context, owner string, p
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, $2))`, owner, germanVocabularyBackfillLockSalt); err != nil {
 		return report, nil, err
 	}
-	if conflict, err := germanCuratedConflict(ctx, tx, owner, profile); err != nil {
+	if conflict, found, err := germanCuratedConflict(ctx, tx, owner, profile); err != nil {
 		return report, nil, err
-	} else if conflict != nil {
+	} else if found {
 		conflict.OwnerID = owner
-		return report, conflict, nil
+		return report, &conflict, nil
 	}
 
 	if n, m, err := backfillKnownVocabulary(ctx, tx, owner, profile); err != nil {
@@ -639,22 +639,25 @@ type selectedSentenceGroup struct {
 
 type selectedSentenceGroupKey struct{ corpusID, canonicalLemma, upos string }
 
-func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (*GermanVocabularyBackfillConflict, error) {
+// germanCuratedConflict reports whether applying the backfill to the owner's
+// curated sentences would collide. found is false when the backfill is safe to
+// apply; conflict is only meaningful when found is true.
+func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (conflict GermanVocabularyBackfillConflict, found bool, err error) {
 	rows, err := tx.Query(ctx, `SELECT canonical_lemma, upos FROM curated_sentences WHERE owner_id=$1 AND language='de'`, owner)
 	if err != nil {
-		return nil, err
+		return GermanVocabularyBackfillConflict{}, false, err
 	}
 	defer rows.Close()
 	var values []backfillIdentity
 	for rows.Next() {
 		var row backfillIdentity
 		if err := rows.Scan(&row.lemma, &row.upos); err != nil {
-			return nil, err
+			return GermanVocabularyBackfillConflict{}, false, err
 		}
 		values = append(values, row)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return GermanVocabularyBackfillConflict{}, false, err
 	}
 	counts := map[backfillIdentity]int{}
 	for _, row := range values {
@@ -669,19 +672,17 @@ func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile
 			continue
 		}
 		if counts[backfillIdentity{lemma: target, upos: row.upos}] > 1 {
-			return &GermanVocabularyBackfillConflict{Table: "curated_sentences", CanonicalLemma: target, UPOS: row.upos, Detail: "multiple historical curated facts converge on one identity"}, nil
+			return GermanVocabularyBackfillConflict{Table: "curated_sentences", CanonicalLemma: target, UPOS: row.upos, Detail: "multiple historical curated facts converge on one identity"}, true, nil
 		}
 		var exists bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM curated_sentences WHERE owner_id=$1 AND language='de' AND canonical_lemma=$2 AND upos=$3)`, owner, target, row.upos).Scan(&exists); err != nil {
-			return nil, err
+			return GermanVocabularyBackfillConflict{}, false, err
 		}
 		if exists {
-			return &GermanVocabularyBackfillConflict{Table: "curated_sentences", CanonicalLemma: target, UPOS: row.upos, Detail: "both historical and modern curated facts exist"}, nil
+			return GermanVocabularyBackfillConflict{Table: "curated_sentences", CanonicalLemma: target, UPOS: row.upos, Detail: "both historical and modern curated facts exist"}, true, nil
 		}
 	}
-	// A nil conflict means the backfill is safe to apply.
-	//nolint:nilnil // the pointer is the explicit conflict/absence result.
-	return nil, nil
+	return GermanVocabularyBackfillConflict{}, false, nil
 }
 
 func backfillCuratedSentences(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (int, error) {

@@ -98,16 +98,11 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
-	var dictionaryIndex *dictionary.Index
-	if path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX")); path != "" {
-		dictionaryIndex, err = openDictionaryIndex(ctx, path)
-		if err != nil {
-			return err
-		}
+	dictionaryIndex, hasDictionaryIndex, err := openOptionalDictionaryIndex(ctx)
+	if err != nil {
+		return err
 	}
-	if dictionaryIndex != nil {
-		defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
-	}
+	defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {
 		return err
@@ -184,12 +179,7 @@ func run() (err error) {
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
-	// The dictionary index is optional; a nil *dictionary.Index must not become a
-	// non-nil interface, or detection would call into a missing index.
-	var riskIndex lemmarisk.AlternativeIndex
-	if dictionaryIndex != nil {
-		riskIndex = dictionaryIndex
-	}
+	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
 	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
@@ -290,23 +280,42 @@ func loopbackHost(host string) bool {
 	return host == "localhost" || (net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback())
 }
 
+// dictionaryRiskIndex exposes the optional dictionary as the lemma-risk index.
+// An absent dictionary must stay a nil interface, not a typed nil, or detection
+// would call into a missing index.
+func dictionaryRiskIndex(index *dictionary.Index, found bool) lemmarisk.AlternativeIndex {
+	if !found {
+		return nil
+	}
+	return index
+}
+
+// openOptionalDictionaryIndex opens the index named by MOUSEION_DICTIONARY_INDEX.
+// An unset variable is the same absent state as a missing file.
+func openOptionalDictionaryIndex(ctx context.Context) (*dictionary.Index, bool, error) {
+	path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX"))
+	if path == "" {
+		return nil, false, nil
+	}
+	return openDictionaryIndex(ctx, path)
+}
+
 // openDictionaryIndex loads the optional local dictionary index. An absent file
 // means the operator has not derived the index, so glosses fall back to the
-// morphology heuristic. A path that exists but is not a usable index is a
-// misconfiguration and must not silently degrade card output.
-func openDictionaryIndex(ctx context.Context, path string) (*dictionary.Index, error) {
-	index, err := dictionary.OpenIndex(ctx, path)
+// morphology heuristic; it reports found=false and is a successful startup mode.
+// A path that exists but is not a usable index is a misconfiguration and must
+// not silently degrade card output.
+func openDictionaryIndex(ctx context.Context, path string) (index *dictionary.Index, found bool, err error) {
+	index, err = dictionary.OpenIndex(ctx, path)
 	if err == nil {
 		log.Print("dictionary index loaded")
-		return index, nil
+		return index, true, nil
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		log.Print("dictionary index not found; continuing without local glosses")
-		// The local dictionary is optional; absence is a successful startup mode.
-		//nolint:nilnil // nil index explicitly represents the absent optional index.
-		return nil, nil
+		return nil, false, nil
 	}
-	return nil, fmt.Errorf("invalid dictionary index at %s: %w", path, err)
+	return nil, false, fmt.Errorf("invalid dictionary index at %s: %w", path, err)
 }
 
 func registerPreparedDeckWorkers(workers *river.Workers, store *persistence.PostgresStore, client *river.Client[pgx.Tx], provider *enrichment.OpenAIBatchClient, codec *enrichment.TranslationCodec, pollInterval time.Duration, metrics prepareddeck.BatchMetrics) {
