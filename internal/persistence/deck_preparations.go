@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/checked"
@@ -348,6 +350,34 @@ func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.Deck
 	return created, nil
 }
 
+// LockSourceMaterialBookForUpdateTx resolves and locks the Book that owns the
+// source material, so the source-to-Book identity cannot change while the
+// caller writes. An unlinked legacy source returns an empty Book ID; a missing
+// source material is ErrNotFound.
+func (s *PostgresStore) LockSourceMaterialBookForUpdateTx(ctx context.Context, tx pgx.Tx, owner, sourceMaterialID string) (string, error) {
+	return lockSourceMaterialBookForUpdate(ctx, sqlcgen.New(tx), owner, sourceMaterialID)
+}
+
+// RetireDeckPreparationsForBookTx retires every unretired preparation the Book
+// owns. A malformed Book identity is an error rather than a silent no-op, so a
+// bad request cannot retire nothing and report success.
+func (s *PostgresStore) RetireDeckPreparationsForBookTx(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
+	return retireDeckPreparationsForBook(ctx, sqlcgen.New(tx), owner, bookID)
+}
+
+func lockSourceMaterialBookForUpdate(ctx context.Context, q *sqlcgen.Queries, owner, sourceMaterialID string) (string, error) {
+	bookID, err := q.GetSourceMaterialBookForUpdate(ctx, sqlcgen.GetSourceMaterialBookForUpdateParams{OwnerID: owner, ID: sourceMaterialID})
+	return bookID, missing(err)
+}
+
+func retireDeckPreparationsForBook(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
+	parsed, err := uuid.Parse(bookID)
+	if err != nil {
+		return fmt.Errorf("invalid Current reading book identity: %w", err)
+	}
+	return q.RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: owner, Book: pgtype.UUID{Bytes: parsed, Valid: true}})
+}
+
 // CreateDeckPreparationTx is the transactional form used by the River
 // submission path so retirement, preparation creation, and job insertion share
 // one commit boundary.
@@ -355,9 +385,9 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 	// These row-locking queries fence the book/source identity while the
 	// preparation is created.
 	q := sqlcgen.New(tx)
-	bookID, err := q.GetSourceMaterialBookForUpdate(ctx, sqlcgen.GetSourceMaterialBookForUpdateParams{OwnerID: p.OwnerID, ID: p.SourceMaterialID})
+	bookID, err := lockSourceMaterialBookForUpdate(ctx, q, p.OwnerID, p.SourceMaterialID)
 	if err != nil {
-		return domain.DeckPreparation{}, false, missing(err)
+		return domain.DeckPreparation{}, false, err
 	}
 	if bookID != "" {
 		return createBookDeckPreparationTx(ctx, q, p, bookID)
@@ -379,7 +409,7 @@ func createBookDeckPreparationTx(ctx context.Context, q *sqlcgen.Queries, p doma
 	if found {
 		return existing, false, nil
 	}
-	if err := q.RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: p.OwnerID, Book: uuidArg(bookID)}); err != nil {
+	if err := retireDeckPreparationsForBook(ctx, q, p.OwnerID, bookID); err != nil {
 		return domain.DeckPreparation{}, false, err
 	}
 	model, err := q.CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Snapshot: nullableUUIDArg(p.SnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})

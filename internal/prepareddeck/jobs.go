@@ -14,9 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -119,15 +117,11 @@ func NewServiceWithBatchCanceller(store *persistence.PostgresStore, client *rive
 	return service
 }
 
-func sqlcBookForSource(ctx context.Context, tx pgx.Tx, owner, sourceMaterialID string) (string, error) {
-	bookID, err := sqlcgen.New(tx).GetSourceMaterialBookForUpdate(ctx, sqlcgen.GetSourceMaterialBookForUpdateParams{OwnerID: owner, ID: sourceMaterialID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", persistence.ErrNotFound
-	}
-	return bookID, err
-}
-
-func lockPreparationForUpdate(ctx context.Context, tx pgx.Tx, owner, id string) (domain.DeckPreparation, error) {
+// lockPreparationForUpdate locks the preparation's Book, Current reading, and
+// preparation rows in that order, returning the preparation. A missing Book is
+// ErrNotFound, the same not-found contract the Current reading admission lock
+// uses.
+func (s *Service) lockPreparationForUpdate(ctx context.Context, tx pgx.Tx, owner, id string) (domain.DeckPreparation, error) {
 	candidate, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2`, owner, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DeckPreparation{}, persistence.ErrNotFound
@@ -135,12 +129,12 @@ func lockPreparationForUpdate(ctx context.Context, tx pgx.Tx, owner, id string) 
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	bookID, err := sqlcBookForSource(ctx, tx, owner, candidate.SourceMaterialID)
+	bookID, err := s.store.LockSourceMaterialBookForUpdateTx(ctx, tx, owner, candidate.SourceMaterialID)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	if bookID != "" {
-		if _, err = sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); err != nil {
+		if err := s.store.LockBookForUpdateTx(ctx, tx, owner, bookID); err != nil {
 			return domain.DeckPreparation{}, err
 		}
 	}
@@ -152,14 +146,6 @@ func lockPreparationForUpdate(ctx context.Context, tx pgx.Tx, owner, id string) 
 		preparation.BookID = bookID
 	}
 	return preparation, err
-}
-
-func sqlcRetireDeckPreparationsForBook(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
-	parsed, err := uuid.Parse(bookID)
-	if err != nil {
-		return fmt.Errorf("invalid Current reading book identity: %w", err)
-	}
-	return sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: owner, Book: pgtype.UUID{Bytes: parsed, Valid: true}})
 }
 
 type completedAnalysis struct {

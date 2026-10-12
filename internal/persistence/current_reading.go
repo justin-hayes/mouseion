@@ -44,7 +44,7 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	if err := lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
+	if err := lockBookForUpdate(ctx, q, owner, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
 	facts, identity, err := loadSwitchFacts(ctx, tx, q, owner, language, bookID, expectedBookID, expectedSnapshotID)
@@ -186,7 +186,7 @@ func (s *PostgresStore) EndCurrentReading(ctx context.Context, owner, language, 
 	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return err
 	}
-	if err := lockCurrentReadingBook(ctx, q, owner, expectedBookID); err != nil {
+	if err := lockBookForUpdate(ctx, q, owner, expectedBookID); err != nil {
 		return err
 	}
 	facts := domain.EndCurrentReadingFacts{Expected: domain.CurrentReadingCommitment{BookID: expectedBookID, SnapshotID: expectedSnapshotID}}
