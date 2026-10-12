@@ -197,11 +197,15 @@ func TestBatchSubmissionRecoveryRequiresOneRecentExactMatch(t *testing.T) {
 		{ID: "one", InputFileID: "file", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now.Unix(), Metadata: metadata},
 		{ID: "two", InputFileID: "file", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now.Unix(), Metadata: metadata},
 	}}}
-	_, err = worker.findExistingBatch(context.Background(), metadata, "file")
-	assert.Error(t, err, "multiple matching Batches were accepted") //nolint:testifylint // Multiple-match and provider-error cases are independent lookup failures.
+	t.Run("multiple matching Batches are rejected", func(t *testing.T) {
+		_, err := worker.findExistingBatch(context.Background(), metadata, "file")
+		require.Error(t, err, "multiple matching Batches were accepted")
+	})
 	provider.err = errors.New("list unavailable")
-	_, err = worker.findExistingBatch(context.Background(), metadata, "file")
-	assert.Error(t, err, "provider listing failure was not surfaced")
+	t.Run("provider listing failure is surfaced", func(t *testing.T) {
+		_, err := worker.findExistingBatch(context.Background(), metadata, "file")
+		require.Error(t, err, "provider listing failure was not surfaced")
+	})
 }
 
 func TestValidCreatedBatchAcceptsInitialProviderCounts(t *testing.T) {
