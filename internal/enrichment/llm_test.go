@@ -274,6 +274,39 @@ func TestLLMConfigFromEnvRejectsInvalidReasoningSupport(t *testing.T) {
 	assert.Contains(t, err.Error(), "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT must be a boolean")
 }
 
+func TestLLMConfigFromEnvRejectsInvalidEnabledFlag(t *testing.T) {
+	t.Setenv("MOUSEION_LLM_ENABLED", "sometimes")
+	_, err := LLMConfigFromEnv()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "MOUSEION_LLM_ENABLED must be a boolean")
+}
+
+func TestLLMConfigFromEnvRejectsNonPositiveTimeout(t *testing.T) {
+	for _, value := range []string{"soon", "0s", "-1s"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("MOUSEION_LLM_TIMEOUT", value)
+			_, err := LLMConfigFromEnv()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "MOUSEION_LLM_TIMEOUT must be a positive Go duration")
+		})
+	}
+}
+
+func TestLLMConfigFromEnvRequiresCredentialsWhenEnabled(t *testing.T) {
+	t.Setenv("MOUSEION_LLM_ENABLED", "true")
+	t.Run("requires an API key", func(t *testing.T) {
+		t.Setenv("MOUSEION_LLM_API_KEY", "")
+		_, err := LLMConfigFromEnv()
+		require.ErrorContains(t, err, "MOUSEION_LLM_API_KEY is required when MOUSEION_LLM_ENABLED is true")
+	})
+	t.Run("requires a model", func(t *testing.T) {
+		t.Setenv("MOUSEION_LLM_API_KEY", "secret")
+		t.Setenv("MOUSEION_LLM_MODEL", "")
+		_, err := LLMConfigFromEnv()
+		require.ErrorContains(t, err, "MOUSEION_LLM_MODEL is required when MOUSEION_LLM_ENABLED is true")
+	})
+}
+
 func TestKnownReasoningModelRequiresOpenAIEndpoint(t *testing.T) {
 	openAIURL, err := url.Parse("https://api.openai.com/v1")
 	require.NoError(t, err)

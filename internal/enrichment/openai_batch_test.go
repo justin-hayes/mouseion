@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/testwrite"
@@ -338,6 +339,69 @@ func TestBatchWireRejectsInconsistentCountsAndUsage(t *testing.T) {
 		_, err := wire.batch()
 		assert.Error(t, err, "inconsistent Batch accepted: %+v", wire)
 	}
+}
+
+func TestOpenAIBatchClientUploadRejectsMalformedFileResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		testwrite.String(t, w, `{"id":"file-input","object":"file","bytes":1,"filename":"run.jsonl","purpose":"assistants","status":"uploaded"}`)
+	}))
+	defer server.Close()
+	client := newStubbedBatchClient(t, server)
+	_, err := client.UploadFile(context.Background(), "run.jsonl", strings.NewReader("x"))
+	var providerErr *ProviderError
+	require.ErrorAs(t, err, &providerErr)
+	assert.Equal(t, ProviderErrorMalformedResponse, providerErr.Class)
+	assert.Equal(t, "upload file", providerErr.Operation)
+}
+
+func TestOpenAIBatchClientUploadReportsRequestConstructionFailure(t *testing.T) {
+	client := &OpenAIBatchClient{}
+	_, err := client.UploadFile(context.Background(), "run.jsonl", strings.NewReader("x"))
+	var providerErr *ProviderError
+	require.ErrorAs(t, err, &providerErr)
+	assert.Equal(t, ProviderErrorInvalidRequest, providerErr.Class)
+	assert.Equal(t, "create request", providerErr.Operation)
+}
+
+func TestOpenAIBatchClientUploadReportsBodyWriteFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		testwrite.String(t, w, `{"id":"file-input","object":"file","bytes":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
+	}))
+	defer server.Close()
+	client := newStubbedBatchClient(t, server)
+	_, err := client.UploadFile(context.Background(), "run.jsonl", iotest.ErrReader(errors.New("synthetic body failure")))
+	var providerErr *ProviderError
+	require.ErrorAs(t, err, &providerErr)
+	assert.Equal(t, ProviderErrorTransport, providerErr.Class)
+	assert.Equal(t, "upload file", providerErr.Operation)
+}
+
+func TestOpenAIBatchClientUploadRejectsOversizedFile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, copyErr := io.Copy(io.Discard, r.Body); copyErr != nil {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		testwrite.String(t, w, `{"id":"file-input","object":"file","bytes":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
+	}))
+	defer server.Close()
+	client := newStubbedBatchClient(t, server)
+	_, err := client.UploadFile(context.Background(), "run.jsonl", infiniteZeroReader{})
+	require.ErrorContains(t, err, string(ProviderErrorResponseTooLarge), "oversized upload was not classified: %v", err)
+	require.ErrorContains(t, err, "upload file", "oversized upload lost its operation: %v", err)
+}
+
+// infiniteZeroReader streams an unbounded run of zero bytes so oversized-upload
+// handling can be exercised without holding the payload in memory.
+type infiniteZeroReader struct{}
+
+func (infiniteZeroReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = 0
+	}
+	return len(p), nil
 }
 
 func writeBatchStub(t *testing.T, w io.Writer, id string, status BatchStatus) {

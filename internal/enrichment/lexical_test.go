@@ -5,7 +5,18 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestOrderSensesReturnsDegenerateInputsUnchanged(t *testing.T) {
+	t.Run("single sense is returned unchanged", func(t *testing.T) {
+		single := []LexicalSense{{Gloss: "only"}}
+		require.Equal(t, single, OrderSenses(LexicalLookupRequest{RepresentativeSentence: "Das Wort steht hier."}, single))
+	})
+	t.Run("no senses stays nil", func(t *testing.T) {
+		require.Nil(t, OrderSenses(LexicalLookupRequest{}, nil))
+	})
+}
 
 func TestOrderSensesBoostsPhraseAndFallsBackToPrimary(t *testing.T) {
 	senses := []LexicalSense{
