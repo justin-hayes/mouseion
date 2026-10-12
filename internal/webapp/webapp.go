@@ -335,8 +335,7 @@ func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 	token := base64.RawURLEncoding.EncodeToString(b)
-	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.
-	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: token, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: int(h.services.SessionLifetime.Seconds())})
+	http.SetCookie(w, webauth.NewCookie(csrfCookie, token, h.services.SecureCookies, int(h.services.SessionLifetime.Seconds())))
 	return token
 }
 
@@ -372,12 +371,10 @@ func (h *Handler) verifyCSRFToken(w http.ResponseWriter, r *http.Request) (langu
 	return language, scoped, true
 }
 func (h *Handler) setSession(w http.ResponseWriter, token string) {
-	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.
-	http.SetCookie(w, &http.Cookie{Name: webauth.CookieName, Value: token, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: int(h.services.SessionLifetime.Seconds())})
+	http.SetCookie(w, webauth.NewCookie(webauth.CookieName, token, h.services.SecureCookies, int(h.services.SessionLifetime.Seconds())))
 }
 func (h *Handler) clearSession(w http.ResponseWriter) {
-	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.
-	http.SetCookie(w, &http.Cookie{Name: webauth.CookieName, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: -1})
+	http.SetCookie(w, webauth.NewCookie(webauth.CookieName, "", h.services.SecureCookies, -1))
 }
 func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	// SafeReturnPath preserves local navigation while rejecting absolute and
