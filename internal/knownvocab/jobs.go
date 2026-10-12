@@ -132,9 +132,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	}
 	defer func() {
 		if workErr != nil {
-			if updateErr := w.update(context.WithoutCancel(ctx), job.ID, a.OwnerID, "failed", map[string]any{"error": workErr.Error()}, true); updateErr != nil {
-				workErr = errors.Join(workErr, fmt.Errorf("record known vocabulary failure: %w", updateErr))
-			}
+			workErr = w.recordFailure(ctx, job.ID, a.OwnerID, workErr)
 		}
 	}()
 	tx, err := w.Pool.Begin(ctx)
@@ -142,62 +140,108 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		return err
 	}
 	defer func() { workErr = errors.Join(workErr, txcleanup.Rollback(ctx, tx)) }()
-	var libraryLanguage bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(
-		SELECT 1 FROM books b
-		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
-		WHERE b.owner_id=$1 AND b.language_state='chosen'
-		  AND b.language_tag=$2
-	)`, a.OwnerID, language).Scan(&libraryLanguage); err != nil {
+	if err := requireLibraryLanguage(ctx, tx, a.OwnerID, language); err != nil {
 		return err
-	}
-	if !libraryLanguage {
-		return fmt.Errorf("known vocabulary language %q is not present in the library", language)
 	}
 	result := ImportResult{Rejected: parsed.Rejected}
 	for i, entry := range parsed.Entries {
-		normalized, normalizeErr := normalizeImportLemma(language, entry.RawLemma)
-		if normalizeErr != nil && !errors.Is(normalizeErr, canonicalization.ErrUnsupportedLanguage) {
-			return normalizeErr
+		alreadyKnown, accepted, err := applyEntry(ctx, tx, a.OwnerID, language, entry, &result)
+		if err != nil {
+			return err
 		}
-		if normalizeErr != nil || !lexical.IsLemma(normalized.CanonicalLemma) {
-			if normalizeErr == nil {
-				normalizeErr = errors.New("canonical lemma must contain at least one letter")
-			}
-			entry.ErrorTo(&result, normalizeErr)
+		if !accepted {
 			continue
 		}
-		entry.CanonicalLemma, entry.ProfileName, entry.ProfileVersion = normalized.CanonicalLemma, normalized.ProfileName, normalized.ProfileVersion
-		var known bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS).Scan(&known); err != nil {
-			return fmt.Errorf("check row %d: %w", entry.Row, err)
-		}
-		if !known {
-			if _, err = tx.Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS); err != nil {
-				return fmt.Errorf("upsert known vocabulary row %d: %w", entry.Row, err)
-			}
-		}
-		result.Entries = append(result.Entries, entry)
-		if known {
+		if alreadyKnown {
 			result.AlreadyKnown++
 		} else {
 			result.Imported++
 		}
 		processed := len(parsed.Rejected) + i + 1
 		if processed%100 == 0 && processed < total {
-			if err = w.update(ctx, job.ID, a.OwnerID, "running", map[string]any{"processed": processed, "total": total, "imported": result.Imported, "already_known": result.AlreadyKnown, "rejected": result.Rejected}, false); err != nil {
-				return fmt.Errorf("update import progress: %w", err)
+			if err := w.reportProgress(ctx, job.ID, a.OwnerID, processed, total, &result); err != nil {
+				return err
 			}
 		}
 	}
+	return w.persistCompletion(ctx, tx, job.ID, a.OwnerID, language, total, result)
+}
+
+// requireLibraryLanguage rejects an import for a language the owner has no
+// active chosen-language Book in. It runs inside the import transaction so the
+// check and the writes that follow share one snapshot.
+func requireLibraryLanguage(ctx context.Context, tx pgx.Tx, owner, language string) error {
+	var present bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM books b
+		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
+		WHERE b.owner_id=$1 AND b.language_state='chosen'
+		  AND b.language_tag=$2
+	)`, owner, language).Scan(&present); err != nil {
+		return err
+	}
+	if !present {
+		return fmt.Errorf("known vocabulary language %q is not present in the library", language)
+	}
+	return nil
+}
+
+// applyEntry normalizes one parsed entry and upserts its known-vocabulary row.
+// A rejected entry is recorded on result and reported with accepted false; an
+// accepted entry is appended to result and reports whether it was already known.
+func applyEntry(ctx context.Context, tx pgx.Tx, owner, language string, entry Entry, result *ImportResult) (alreadyKnown, accepted bool, err error) {
+	normalized, normalizeErr := normalizeImportLemma(language, entry.RawLemma)
+	if normalizeErr != nil && !errors.Is(normalizeErr, canonicalization.ErrUnsupportedLanguage) {
+		return false, false, normalizeErr
+	}
+	if normalizeErr != nil || !lexical.IsLemma(normalized.CanonicalLemma) {
+		if normalizeErr == nil {
+			normalizeErr = errors.New("canonical lemma must contain at least one letter")
+		}
+		entry.ErrorTo(result, normalizeErr)
+		return false, false, nil
+	}
+	entry.CanonicalLemma, entry.ProfileName, entry.ProfileVersion = normalized.CanonicalLemma, normalized.ProfileName, normalized.ProfileVersion
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, owner, language, entry.CanonicalLemma, entry.UPOS).Scan(&alreadyKnown); err != nil {
+		return false, false, fmt.Errorf("check row %d: %w", entry.Row, err)
+	}
+	if !alreadyKnown {
+		if _, err := tx.Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, owner, language, entry.CanonicalLemma, entry.UPOS); err != nil {
+			return false, false, fmt.Errorf("upsert known vocabulary row %d: %w", entry.Row, err)
+		}
+	}
+	result.Entries = append(result.Entries, entry)
+	return alreadyKnown, true, nil
+}
+
+// reportProgress publishes the periodic running counters while entries remain.
+func (w *Worker) reportProgress(ctx context.Context, id int64, owner string, processed, total int, result *ImportResult) error {
+	if err := w.update(ctx, id, owner, "running", map[string]any{"processed": processed, "total": total, "imported": result.Imported, "already_known": result.AlreadyKnown, "rejected": result.Rejected}, false); err != nil {
+		return fmt.Errorf("update import progress: %w", err)
+	}
+	return nil
+}
+
+// persistCompletion writes the completed status and final counters in the
+// import transaction, commits it, and records the River output.
+func (w *Worker) persistCompletion(ctx context.Context, tx pgx.Tx, id int64, owner, language string, total int, result ImportResult) error {
 	final := map[string]any{"language": language, "processed": total, "total": total, "imported": result.Imported, "already_known": result.AlreadyKnown, "rejected": result.Rejected, "error": ""}
-	if err := w.updateTx(ctx, tx, job.ID, a.OwnerID, "completed", final); err != nil {
+	if err := w.updateTx(ctx, tx, id, owner, "completed", final); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 	return river.RecordOutput(ctx, result)
+}
+
+// recordFailure records one failed import against its processing-history row
+// and completed time, joining any recording failure onto the work error.
+func (w *Worker) recordFailure(ctx context.Context, id int64, owner string, workErr error) error {
+	if updateErr := w.update(context.WithoutCancel(ctx), id, owner, "failed", map[string]any{"error": workErr.Error()}, true); updateErr != nil {
+		return errors.Join(workErr, fmt.Errorf("record known vocabulary failure: %w", updateErr))
+	}
+	return workErr
 }
 
 func normalizeImportLemma(language, rawLemma string) (canonicalization.NormalizedLemma, error) {

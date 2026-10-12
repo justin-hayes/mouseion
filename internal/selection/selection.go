@@ -87,9 +87,35 @@ type aggregate struct {
 // consumers can share the same vocabulary projection before applying their
 // own eligibility and freeze rules.
 func Project(corpus analyzer.Result, cfg SelectionConfig, decisions []OccurrenceDecision) ([]Candidate, error) {
-	if cfg.MinOccurrences < 1 || cfg.AllowedPOS == nil || corpus.Language == "" {
-		return nil, ErrInvalidConfig
+	if err := validateProjectInput(corpus, cfg); err != nil {
+		return nil, err
 	}
+	byOccurrence, err := indexOccurrenceDecisions(corpus, decisions)
+	if err != nil {
+		return nil, err
+	}
+	aggs := aggregateTokens(corpus, cfg, byOccurrence)
+	ids := sortedIdentities(aggs)
+	out := make([]Candidate, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, projectCandidate(id, aggs[id], cfg))
+	}
+	return out, nil
+}
+
+// validateProjectInput rejects inputs with no meaningful projection: a
+// positive occurrence floor, an allowed-POS set, and a corpus language.
+func validateProjectInput(corpus analyzer.Result, cfg SelectionConfig) error {
+	if cfg.MinOccurrences < 1 || cfg.AllowedPOS == nil || corpus.Language == "" {
+		return ErrInvalidConfig
+	}
+	return nil
+}
+
+// indexOccurrenceDecisions validates each learner decision and indexes it by
+// occurrence. Each occurrence carries at most one decision, and that decision
+// must match exactly one analyzed occurrence.
+func indexOccurrenceDecisions(corpus analyzer.Result, decisions []OccurrenceDecision) (map[OccurrenceIdentity]OccurrenceDecision, error) {
 	byOccurrence := make(map[OccurrenceIdentity]OccurrenceDecision, len(decisions))
 	for _, decision := range decisions {
 		lemmaProvided := strings.TrimSpace(decision.Lemma) != ""
@@ -101,23 +127,29 @@ func Project(corpus analyzer.Result, cfg SelectionConfig, decisions []Occurrence
 		}
 		byOccurrence[decision.Occurrence] = decision
 	}
-	if len(byOccurrence) > 0 {
-		occurrenceCounts := make(map[OccurrenceIdentity]int, len(byOccurrence))
-		for _, sentence := range corpus.Sentences {
-			for _, token := range sentence.Tokens {
-				identity := occurrenceIdentity(token)
-				if _, requested := byOccurrence[identity]; requested {
-					occurrenceCounts[identity]++
-				}
-			}
-		}
-		for identity := range byOccurrence {
-			if occurrenceCounts[identity] != 1 {
-				return nil, ErrInvalidDecision
+	if len(byOccurrence) == 0 {
+		return byOccurrence, nil
+	}
+	occurrenceCounts := make(map[OccurrenceIdentity]int, len(byOccurrence))
+	for _, sentence := range corpus.Sentences {
+		for _, token := range sentence.Tokens {
+			identity := occurrenceIdentity(token)
+			if _, requested := byOccurrence[identity]; requested {
+				occurrenceCounts[identity]++
 			}
 		}
 	}
-	aggs := aggregateTokens(corpus, cfg, byOccurrence)
+	for identity := range byOccurrence {
+		if occurrenceCounts[identity] != 1 {
+			return nil, ErrInvalidDecision
+		}
+	}
+	return byOccurrence, nil
+}
+
+// sortedIdentities orders aggregate identities by lemma then part of speech,
+// the deterministic candidate order Project returns.
+func sortedIdentities(aggs map[Identity]*aggregate) []Identity {
 	ids := make([]Identity, 0, len(aggs))
 	for id := range aggs {
 		ids = append(ids, id)
@@ -128,17 +160,18 @@ func Project(corpus analyzer.Result, cfg SelectionConfig, decisions []Occurrence
 		}
 		return ids[i].UPOS < ids[j].UPOS
 	})
-	out := make([]Candidate, 0, len(ids))
-	for _, id := range ids {
-		a := aggs[id]
-		forms := make([]string, 0, len(a.forms))
-		for form := range a.forms {
-			forms = append(forms, form)
-		}
-		sort.Strings(forms)
-		out = append(out, Candidate{Identity: id, OccurrenceCount: a.count, ObservedForms: forms, SentenceReferences: a.refs, Provenance: Provenance{MinOccurrences: cfg.MinOccurrences, OccurrenceCount: a.count}})
+	return ids
+}
+
+// projectCandidate materializes one aggregate's deterministic candidate facts,
+// sorting the observed surface forms.
+func projectCandidate(id Identity, a *aggregate, cfg SelectionConfig) Candidate {
+	forms := make([]string, 0, len(a.forms))
+	for form := range a.forms {
+		forms = append(forms, form)
 	}
-	return out, nil
+	sort.Strings(forms)
+	return Candidate{Identity: id, OccurrenceCount: a.count, ObservedForms: forms, SentenceReferences: a.refs, Provenance: Provenance{MinOccurrences: cfg.MinOccurrences, OccurrenceCount: a.count}}
 }
 
 // AnalyzableStatistics calculates the immutable coverage denominator using the
