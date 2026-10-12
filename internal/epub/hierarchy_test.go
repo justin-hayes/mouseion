@@ -33,6 +33,19 @@ func TestBuildUnitGroupsRejectsContradictoryNavigation(t *testing.T) {
 	assert.Empty(t, BuildUnitGroups(units), "contradictory groups")
 }
 
+func TestBuildUnitGroupsNeedsMultipleUnits(t *testing.T) {
+	assert.Empty(t, BuildUnitGroups(nil), "no groups without units")
+	assert.Empty(t, BuildUnitGroups([]ExtractedUnit{{ID: UnitID(0, "only"), Order: 0, NavigationLabels: []string{"Part"}}}), "no groups for a single unit")
+}
+
+func TestBuildUnitGroupsIgnoresBlankEvidence(t *testing.T) {
+	units := []ExtractedUnit{
+		{ID: UnitID(0, "a"), Order: 0, PackagePath: "OPS/package.opf", ResolvedHref: "OPS/a.xhtml", NavigationLabels: []string{"  ", ""}, LandmarkTypes: []string{" "}},
+		{ID: UnitID(1, "b"), Order: 1, PackagePath: "OPS/package.opf", ResolvedHref: "OPS/b.xhtml", NavigationLabels: []string{""}, LandmarkTypes: []string{""}},
+	}
+	assert.Empty(t, BuildUnitGroups(units), "blank evidence groups")
+}
+
 func TestBuildUnitGroupsFixtures(t *testing.T) {
 	for _, test := range []struct {
 		name      string

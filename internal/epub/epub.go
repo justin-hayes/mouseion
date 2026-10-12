@@ -87,41 +87,91 @@ type packageDoc struct {
 		Identifiers []string `xml:"identifier"`
 	} `xml:"metadata"`
 	Manifest []manifestItem `xml:"manifest>item"`
-	Spine    []struct {
-		IDRef  string `xml:"idref,attr"`
-		Linear string `xml:"linear,attr"`
-	} `xml:"spine>itemref"`
+	Spine    []spineItem    `xml:"spine>itemref"`
+}
+
+// spineItem is one package spine reference in reading order.
+type spineItem struct {
+	IDRef  string `xml:"idref,attr"`
+	Linear string `xml:"linear,attr"`
 }
 
 // Extract validates an EPUB byte stream and extracts XHTML documents in spine order.
 func Extract(data []byte) (ExtractedBook, error) {
+	files, err := openEPUB(data)
+	if err != nil {
+		return ExtractedBook{}, err
+	}
+	pkg, opfPath, err := readPackage(files)
+	if err != nil {
+		return ExtractedBook{}, err
+	}
+	book, err := newExtractedBook(pkg)
+	if err != nil {
+		return ExtractedBook{}, err
+	}
+	items, err := indexManifest(pkg.Manifest)
+	if err != nil {
+		return ExtractedBook{}, err
+	}
+	if err := extractSpine(&book, files, opfPath, items, pkg); err != nil {
+		return ExtractedBook{}, err
+	}
+	if len(book.Chapters) == 0 {
+		return ExtractedBook{}, invalid("package spine contains no readable XHTML content", nil)
+	}
+	if err := book.ExtractedUnits.ValidateOffsets(book.FullText); err != nil {
+		return ExtractedBook{}, invalid("validate extracted units", err)
+	}
+	return book, nil
+}
+
+// openEPUB reads the ZIP container and checks its required mimetype entry,
+// returning the container's files keyed by cleaned path.
+func openEPUB(data []byte) (map[string]*zip.File, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return ExtractedBook{}, invalid("open ZIP container", err)
+		return nil, invalid("open ZIP container", err)
 	}
 	files := make(map[string]*zip.File, len(zr.File))
 	for _, f := range zr.File {
 		files[path.Clean(f.Name)] = f
 	}
-	if f := files["mimetype"]; f == nil {
-		return ExtractedBook{}, invalid("missing mimetype file", nil)
-	} else if value, readErr := readFile(f); readErr != nil {
-		return ExtractedBook{}, invalid("read mimetype file", readErr)
-	} else if strings.TrimSpace(string(value)) != mediaType {
-		return ExtractedBook{}, invalid("mimetype is not "+mediaType, nil)
+	f := files["mimetype"]
+	if f == nil {
+		return nil, invalid("missing mimetype file", nil)
 	}
+	value, err := readFile(f)
+	if err != nil {
+		return nil, invalid("read mimetype file", err)
+	}
+	if strings.TrimSpace(string(value)) != mediaType {
+		return nil, invalid("mimetype is not "+mediaType, nil)
+	}
+	return files, nil
+}
+
+// readPackage locates the package document through META-INF/container.xml and
+// decodes it.
+func readPackage(files map[string]*zip.File) (packageDoc, string, error) {
 	var c container
 	if err := decodeXMLFile(files, "META-INF/container.xml", &c); err != nil {
-		return ExtractedBook{}, invalid("read META-INF/container.xml", err)
+		return packageDoc{}, "", invalid("read META-INF/container.xml", err)
 	}
 	if len(c.Rootfiles) == 0 || strings.TrimSpace(c.Rootfiles[0].FullPath) == "" {
-		return ExtractedBook{}, invalid("container.xml has no package rootfile", nil)
+		return packageDoc{}, "", invalid("container.xml has no package rootfile", nil)
 	}
 	opfPath := path.Clean(c.Rootfiles[0].FullPath)
 	var pkg packageDoc
 	if err := decodeXMLFile(files, opfPath, &pkg); err != nil {
-		return ExtractedBook{}, invalid("read package document "+opfPath, err)
+		return packageDoc{}, "", invalid("read package document "+opfPath, err)
 	}
+	return pkg, opfPath, nil
+}
+
+// newExtractedBook seeds the result with the package metadata and its required
+// identifier, initialising the extracted-unit envelope.
+func newExtractedBook(pkg packageDoc) (ExtractedBook, error) {
 	book := ExtractedBook{
 		Title:            firstNonBlank(pkg.Metadata.Titles),
 		SourceIdentifier: firstNonBlank(pkg.Metadata.Identifiers),
@@ -133,87 +183,130 @@ func Extract(data []byte) (ExtractedBook, error) {
 	if book.SourceIdentifier == "" {
 		return ExtractedBook{}, invalid("package metadata has no identifier", nil)
 	}
-	items := make(map[string]manifestItem, len(pkg.Manifest))
-	for _, item := range pkg.Manifest {
+	return book, nil
+}
+
+// indexManifest keys the manifest by ID, rejecting blank and duplicate IDs.
+func indexManifest(manifest []manifestItem) (map[string]manifestItem, error) {
+	items := make(map[string]manifestItem, len(manifest))
+	for _, item := range manifest {
 		if strings.TrimSpace(item.ID) == "" {
-			return ExtractedBook{}, invalid("manifest item has no ID", nil)
+			return nil, invalid("manifest item has no ID", nil)
 		}
 		if _, exists := items[item.ID]; exists {
-			return ExtractedBook{}, invalid("duplicate manifest item ID "+item.ID, nil)
+			return nil, invalid("duplicate manifest item ID "+item.ID, nil)
 		}
 		items[item.ID] = item
 	}
+	return items, nil
+}
+
+// extractSpine walks the package spine in order, appending one unit per
+// readable XHTML document to book and setting book.FullText.
+func extractSpine(book *ExtractedBook, files map[string]*zip.File, opfPath string, items map[string]manifestItem, pkg packageDoc) error {
 	base := path.Dir(opfPath)
 	navigationLabels, landmarkTypes := navigationMetadata(files, base, pkg.Manifest)
-	var out strings.Builder
-	var offset uint64
+	extractor := spineExtractor{
+		files:            files,
+		base:             base,
+		opfPath:          opfPath,
+		items:            items,
+		navigationLabels: navigationLabels,
+		landmarkTypes:    landmarkTypes,
+	}
 	for spineIndex, ref := range pkg.Spine {
-		if strings.TrimSpace(ref.IDRef) == "" {
-			return ExtractedBook{}, invalid("spine item has no idref", nil)
-		}
-		item, ok := items[ref.IDRef]
-		if !ok {
-			return ExtractedBook{}, invalid("spine references missing manifest item "+ref.IDRef, nil)
-		}
-		if strings.EqualFold(ref.Linear, "no") {
-			continue
-		}
-		if item.MediaType != "application/xhtml+xml" || hasWord(item.Properties, "nav") {
-			continue
-		}
-		name, err := resolveResourcePath(base, item.Href)
+		unit, include, err := extractor.readDocument(uint64(spineIndex), ref)
 		if err != nil {
-			return ExtractedBook{}, invalid("resolve manifest resource "+item.Href, err)
+			return err
 		}
-		text, title, err := extractXHTML(files[name])
-		if err != nil {
-			return ExtractedBook{}, invalid("extract spine document "+name, err)
-		}
-		if text == "" {
+		if !include {
 			continue
 		}
-		if out.Len() > 0 {
-			out.WriteString("\n\n")
-			offset += 2
-		}
-		start := offset
-		out.WriteString(text)
-		offset += uint64(len([]rune(text)))
-		titleSource := UnitTitleHeading
-		if title == "" {
-			title = ref.IDRef
-			titleSource = UnitTitleManifestID
-		}
-		unit := ExtractedUnit{
-			ID:               UnitID(uint64(spineIndex), ref.IDRef),
-			Order:            uint64(len(book.ExtractedUnits.Units)),
-			SpineIndex:       uint64(spineIndex),
-			Title:            title,
-			TitleSource:      titleSource,
-			Text:             text,
-			StartOffset:      start,
-			EndOffset:        offset,
-			PackagePath:      opfPath,
-			ManifestID:       ref.IDRef,
-			SourceHref:       item.Href,
-			ResolvedHref:     name,
-			MediaType:        item.MediaType,
-			Properties:       append([]string{}, strings.Fields(item.Properties)...),
-			Linear:           true,
-			NavigationLabels: append([]string{}, navigationLabels[name]...),
-			LandmarkTypes:    append([]string{}, landmarkTypes[name]...),
-		}
-		book.ExtractedUnits.Units = append(book.ExtractedUnits.Units, unit)
-		book.Chapters = append(book.Chapters, Chapter{ID: ref.IDRef, Title: title, Location: Location{SourceDocumentID: book.SourceIdentifier, Chapter: title, Section: title, StartOffset: start, EndOffset: offset}})
+		extractor.appendUnit(book, unit)
 	}
-	if len(book.Chapters) == 0 {
-		return ExtractedBook{}, invalid("package spine contains no readable XHTML content", nil)
+	book.FullText = extractor.out.String()
+	return nil
+}
+
+// spineExtractor turns spine references into ordered units, keeping the running
+// FullText offset so separators and unit spans stay consistent.
+type spineExtractor struct {
+	files            map[string]*zip.File
+	base             string
+	opfPath          string
+	items            map[string]manifestItem
+	navigationLabels map[string][]string
+	landmarkTypes    map[string][]string
+	out              strings.Builder
+	offset           uint64
+}
+
+// readDocument extracts a single spine reference. It reports include=false for
+// references the reader must skip, including non-linear, navigation, and empty
+// documents.
+func (x *spineExtractor) readDocument(spineIndex uint64, ref spineItem) (ExtractedUnit, bool, error) {
+	if strings.TrimSpace(ref.IDRef) == "" {
+		return ExtractedUnit{}, false, invalid("spine item has no idref", nil)
 	}
-	book.FullText = out.String()
-	if err := book.ExtractedUnits.ValidateOffsets(book.FullText); err != nil {
-		return ExtractedBook{}, invalid("validate extracted units", err)
+	item, ok := x.items[ref.IDRef]
+	if !ok {
+		return ExtractedUnit{}, false, invalid("spine references missing manifest item "+ref.IDRef, nil)
 	}
-	return book, nil
+	if strings.EqualFold(ref.Linear, "no") {
+		return ExtractedUnit{}, false, nil
+	}
+	if item.MediaType != "application/xhtml+xml" || hasWord(item.Properties, "nav") {
+		return ExtractedUnit{}, false, nil
+	}
+	name, err := resolveResourcePath(x.base, item.Href)
+	if err != nil {
+		return ExtractedUnit{}, false, invalid("resolve manifest resource "+item.Href, err)
+	}
+	text, title, err := extractXHTML(x.files[name])
+	if err != nil {
+		return ExtractedUnit{}, false, invalid("extract spine document "+name, err)
+	}
+	if text == "" {
+		return ExtractedUnit{}, false, nil
+	}
+	titleSource := UnitTitleHeading
+	if title == "" {
+		title = ref.IDRef
+		titleSource = UnitTitleManifestID
+	}
+	unit := ExtractedUnit{
+		ID:               UnitID(spineIndex, ref.IDRef),
+		SpineIndex:       spineIndex,
+		Title:            title,
+		TitleSource:      titleSource,
+		Text:             text,
+		PackagePath:      x.opfPath,
+		ManifestID:       ref.IDRef,
+		SourceHref:       item.Href,
+		ResolvedHref:     name,
+		MediaType:        item.MediaType,
+		Properties:       append([]string{}, strings.Fields(item.Properties)...),
+		Linear:           true,
+		NavigationLabels: append([]string{}, x.navigationLabels[name]...),
+		LandmarkTypes:    append([]string{}, x.landmarkTypes[name]...),
+	}
+	return unit, true, nil
+}
+
+// appendUnit writes one included document to the FullText builder, assigning
+// its span and its compatibility chapter.
+func (x *spineExtractor) appendUnit(book *ExtractedBook, unit ExtractedUnit) {
+	if x.out.Len() > 0 {
+		x.out.WriteString("\n\n")
+		x.offset += 2
+	}
+	unit.Order = uint64(len(book.ExtractedUnits.Units))
+	unit.StartOffset = x.offset
+	x.out.WriteString(unit.Text)
+	x.offset += uint64(len([]rune(unit.Text)))
+	unit.EndOffset = x.offset
+	book.ExtractedUnits.Units = append(book.ExtractedUnits.Units, unit)
+	book.Chapters = append(book.Chapters, Chapter{ID: unit.ManifestID, Title: unit.Title, Location: Location{SourceDocumentID: book.SourceIdentifier, Chapter: unit.Title, Section: unit.Title, StartOffset: unit.StartOffset, EndOffset: unit.EndOffset}})
 }
 
 func resolveResourcePath(base, href string) (string, error) {
@@ -419,60 +512,88 @@ func extractXHTML(f *zip.File) (text string, heading string, err error) {
 		return "", "", err
 	}
 	d := xml.NewDecoder(strings.NewReader(xhtmlEntityReplacer.Replace(string(data))))
-	var blocks []string
-	var current strings.Builder
-	var title string
-	skip := 0
-	flush := func() {
-		if s := cleanSpace(current.String()); s != "" {
-			blocks = append(blocks, s)
-		}
-		current.Reset()
-	}
+	extractor := xhtmlExtractor{}
 	for {
-		tok, err := d.Token()
-		if errors.Is(err, io.EOF) {
+		tok, tokenErr := d.Token()
+		if errors.Is(tokenErr, io.EOF) {
 			break
 		}
-		if err != nil {
-			return "", "", fmt.Errorf("malformed XHTML or unsupported encoding: %w", err)
+		if tokenErr != nil {
+			return "", "", fmt.Errorf("malformed XHTML or unsupported encoding: %w", tokenErr)
 		}
-		switch v := tok.(type) {
-		case xml.StartElement:
-			n := strings.ToLower(v.Name.Local)
-			if skip > 0 {
-				skip++
-				continue
-			}
-			if n == "script" || n == "style" || n == "nav" || n == "head" {
-				skip = 1
-				continue
-			}
-			if isBlock(n) {
-				flush()
-			}
-		case xml.EndElement:
-			if skip > 0 {
-				skip--
-				continue
-			}
-			n := strings.ToLower(v.Name.Local)
-			if isBlock(n) {
-				candidate := cleanSpace(current.String())
-				if title == "" && (n == "h1" || n == "h2") {
-					title = candidate
-				}
-				flush()
-			}
-		case xml.CharData:
-			if skip == 0 {
-				current.Write([]byte(v))
-			}
+		extractor.visit(tok)
+	}
+	extractor.flush()
+	return strings.Join(extractor.blocks, "\n\n"), extractor.title, nil
+}
+
+// xhtmlExtractor accumulates the block text and first heading of one document
+// while tracking elements whose content must be skipped.
+type xhtmlExtractor struct {
+	blocks  []string
+	current strings.Builder
+	title   string
+	skip    int
+}
+
+func (x *xhtmlExtractor) visit(tok xml.Token) {
+	switch value := tok.(type) {
+	case xml.StartElement:
+		x.start(strings.ToLower(value.Name.Local))
+	case xml.EndElement:
+		x.end(strings.ToLower(value.Name.Local))
+	case xml.CharData:
+		if x.skip == 0 {
+			x.current.Write([]byte(value))
 		}
 	}
-	flush()
-	return strings.Join(blocks, "\n\n"), title, nil
 }
+
+func (x *xhtmlExtractor) start(name string) {
+	if x.skip > 0 {
+		x.skip++
+		return
+	}
+	if isSkippedElement(name) {
+		x.skip = 1
+		return
+	}
+	if isBlock(name) {
+		x.flush()
+	}
+}
+
+func (x *xhtmlExtractor) end(name string) {
+	if x.skip > 0 {
+		x.skip--
+		return
+	}
+	if !isBlock(name) {
+		return
+	}
+	candidate := cleanSpace(x.current.String())
+	if x.title == "" && isHeading(name) {
+		x.title = candidate
+	}
+	x.flush()
+}
+
+func (x *xhtmlExtractor) flush() {
+	if block := cleanSpace(x.current.String()); block != "" {
+		x.blocks = append(x.blocks, block)
+	}
+	x.current.Reset()
+}
+
+func isSkippedElement(s string) bool {
+	switch s {
+	case "script", "style", "nav", "head":
+		return true
+	}
+	return false
+}
+
+func isHeading(s string) bool { return s == "h1" || s == "h2" }
 
 func isBlock(s string) bool {
 	switch s {

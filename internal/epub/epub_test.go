@@ -249,6 +249,58 @@ func TestExtractXHTMLNamedEntities(t *testing.T) {
 	assert.Equal(t, "Rock & Roll", title)
 }
 
+func TestExtractRejectsInvalidContainerAndPackage(t *testing.T) {
+	container := fixtureFile{"META-INF/container.xml", containerXML}
+	mimetype := fixtureFile{"mimetype", mediaType}
+	chapter := fixtureFile{"OPS/c.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Text.</p></body></html>`}
+	noRootfile := fixtureFile{"META-INF/container.xml", `<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles></rootfiles></container>`}
+	noIdentifierOPF := `<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>No Id</dc:title></metadata><manifest><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>`
+
+	tests := []struct {
+		name  string
+		files []fixtureFile
+		want  string
+	}{
+		{"missing mimetype", []fixtureFile{container, chapter}, "missing mimetype file"},
+		{"unexpected mimetype", []fixtureFile{{"mimetype", "text/plain"}, container, chapter}, "mimetype is not " + mediaType},
+		{"malformed container", []fixtureFile{mimetype, {"META-INF/container.xml", `<container`}, chapter}, "read META-INF/container.xml"},
+		{"container without rootfile", []fixtureFile{mimetype, noRootfile, chapter}, "container.xml has no package rootfile"},
+		{"malformed package", []fixtureFile{mimetype, container, {"OPS/content.opf", `<package`}, chapter}, "read package document OPS/content.opf"},
+		{"package without identifier", []fixtureFile{mimetype, container, {"OPS/content.opf", noIdentifierOPF}, chapter}, "package metadata has no identifier"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Extract(zipFixture(t, tt.files...))
+			require.ErrorIs(t, err, ErrInvalidEPUB)
+			assert.Contains(t, err.Error(), tt.want)
+		})
+	}
+}
+
+func TestExtractSkipsEmptySpineDocuments(t *testing.T) {
+	data := epubFixture(t,
+		validPackage(`<item id="empty" href="empty.xhtml" media-type="application/xhtml+xml"/><item id="full" href="full.xhtml" media-type="application/xhtml+xml"/>`, `<itemref idref="empty"/><itemref idref="full"/>`),
+		fixtureFile{"OPS/empty.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Empty</title></head><body><script>var x = 1;</script></body></html>`},
+		fixtureFile{"OPS/full.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Readable.</p></body></html>`},
+	)
+	book, err := Extract(data)
+	require.NoError(t, err)
+	require.Len(t, book.ExtractedUnits.Units, 1)
+	assert.Equal(t, "full", book.ExtractedUnits.Units[0].ManifestID)
+	assert.Equal(t, uint64(1), book.ExtractedUnits.Units[0].SpineIndex)
+	assert.Equal(t, "Readable.", book.FullText)
+}
+
+func TestExtractRejectsSpineWithoutReadableContent(t *testing.T) {
+	data := epubFixture(t,
+		validPackage(`<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>`, `<itemref idref="nav"/>`),
+		fixtureFile{"OPS/nav.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><nav><ol><li><a href="c.xhtml">C</a></li></ol></nav></body></html>`},
+	)
+	_, err := Extract(data)
+	require.ErrorIs(t, err, ErrInvalidEPUB)
+	assert.Contains(t, err.Error(), "package spine contains no readable XHTML content")
+}
+
 func xhtmlFile(t *testing.T, content string) *zip.File {
 	t.Helper()
 	var buf bytes.Buffer
@@ -271,9 +323,16 @@ func epubFixture(t *testing.T, opf string, extra ...fixtureFile) []byte {
 	t.Helper()
 	files := append([]fixtureFile{
 		{"mimetype", mediaType},
-		{"META-INF/container.xml", `<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0"><rootfiles><rootfile full-path="OPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`},
+		{"META-INF/container.xml", containerXML},
 		{"OPS/content.opf", opf},
 	}, extra...)
+	return zipFixture(t, files...)
+}
+
+const containerXML = `<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0"><rootfiles><rootfile full-path="OPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`
+
+func zipFixture(t *testing.T, files ...fixtureFile) []byte {
+	t.Helper()
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	for _, file := range files {
