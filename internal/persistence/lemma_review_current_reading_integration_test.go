@@ -32,7 +32,6 @@ func TestLemmaDecisionProposalCommittedAfterStartIsRejectedAndSavesNothing(t *te
 
 	err = store.PutLemmaDecisionProposal(ctx, proposal, preview.Fingerprint)
 	require.ErrorIs(t, err, domain.ErrLemmaDecisionCurrentReading)
-	require.EqualError(t, err, "Stop this Book's current reading before changing its vocabulary.")
 	unchanged, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, target.ID, "Heim")
 	require.NoError(t, err)
 	assert.Empty(t, unchanged[0].CorrectedLemma, "a rejected decision persists nothing")

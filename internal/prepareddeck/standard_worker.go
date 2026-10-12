@@ -183,7 +183,7 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return a retry job")
+		return errors.New("prepareddeck: River did not return a retry job")
 	}
 	if err := w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, updated.DispatchGeneration, inserted.Job.ID); err != nil {
 		return err
@@ -250,7 +250,7 @@ func (w *StandardTranslationWorker) finalizer(ctx context.Context, tx pgx.Tx, ru
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return a finalizer job")
+		return errors.New("prepareddeck: River did not return a finalizer job")
 	}
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
 }

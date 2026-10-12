@@ -9,22 +9,22 @@ import (
 	"strings"
 )
 
-// Rejections of a lemma review request. Each message is the learner-facing text
-// the web application shows, so handlers map the sentinel to a status and print
-// it unchanged.
+// Rejections of a lemma review request. These are workflow rejections: the
+// webapp owns their learner-facing wording and maps each sentinel to a status
+// and message, so the messages here serve logs and wrapped errors only.
 var (
-	ErrLemmaReviewCurrentReading        = errors.New("Stop this Book's current reading before changing its vocabulary.")
-	ErrLemmaReviewStale                 = errors.New("Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again.")
-	ErrLemmaReviewCountsRefreshing      = errors.New("Vocabulary counts are being refreshed. No decision was saved; review it again shortly.")
-	ErrLemmaReviewRepreparationRequired = errors.New("Explicitly confirm re-preparation of the existing ready deck before accepting this identity change.")
-	ErrLemmaReviewBlockedByReading      = errors.New("Stop the other current reading before accepting this change; then Mouseion can start this Book again and prepare its new snapshot.")
-	ErrLemmaReviewNotToRead             = errors.New("Move this Book to To Read before accepting this change, so Mouseion can restart it and prepare the new snapshot.")
-	ErrLemmaReviewOccurrenceUnavailable = errors.New("The selected occurrence changed. Find it again before reviewing.")
-	ErrLemmaReviewOccurrenceMissing     = errors.New("That occurrence is no longer available in this analysis.")
-	ErrLemmaReviewNoSelection           = errors.New("The preview contains no selected occurrences.")
-	ErrLemmaReviewDecision              = errors.New("Choose a decision to preview.")
-	ErrLemmaReviewLemma                 = errors.New("Enter one valid canonical lemma without spaces.")
-	ErrLemmaReviewUnsupportedLanguage   = errors.New("Choose a supported study language before correcting a lemma.")
+	ErrLemmaReviewCurrentReading        = errors.New("lemma review: book is the current reading")
+	ErrLemmaReviewStale                 = errors.New("lemma review: vocabulary state or proposal changed after preview")
+	ErrLemmaReviewCountsRefreshing      = errors.New("lemma review: vocabulary counts are being refreshed")
+	ErrLemmaReviewRepreparationRequired = errors.New("lemma review: re-preparation of the ready deck must be confirmed")
+	ErrLemmaReviewBlockedByReading      = errors.New("lemma review: another book is the current reading")
+	ErrLemmaReviewNotToRead             = errors.New("lemma review: book must be moved to To Read before the change is accepted")
+	ErrLemmaReviewOccurrenceUnavailable = errors.New("lemma review: selected occurrence changed")
+	ErrLemmaReviewOccurrenceMissing     = errors.New("lemma review: occurrence is no longer in this analysis")
+	ErrLemmaReviewNoSelection           = errors.New("lemma review: preview has no selected occurrences")
+	ErrLemmaReviewDecision              = errors.New("lemma review: decision is required")
+	ErrLemmaReviewLemma                 = errors.New("lemma review: lemma must be one canonical word without spaces")
+	ErrLemmaReviewUnsupportedLanguage   = errors.New("lemma review: study language does not support lemma correction")
 
 	// ErrLemmaDecisionCurrentReading is what every store returns when a vocabulary
 	// decision targets the Book that is the owner's current reading. It is the

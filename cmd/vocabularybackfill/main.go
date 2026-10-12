@@ -40,7 +40,7 @@ func run() (err error) {
 		return err
 	}
 	if len(report.Conflicts) > 0 {
-		return errors.New("German vocabulary backfill found unresolved conflicts")
+		return errors.New("vocabularybackfill: German vocabulary backfill found unresolved conflicts")
 	}
 	return nil
 }

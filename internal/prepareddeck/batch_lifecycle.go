@@ -347,7 +347,7 @@ func (w *BatchPollWorker) insertSubmissionJob(ctx context.Context, tx pgx.Tx, ch
 		return 0, err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return 0, errors.New("River did not return a live Batch submission job")
+		return 0, errors.New("prepareddeck: River did not return a live Batch submission job")
 	}
 	return inserted.Job.ID, nil
 }
@@ -358,7 +358,7 @@ func (w *BatchPollWorker) insertFinalizerJob(ctx context.Context, tx pgx.Tx, run
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return errors.New("River did not return a live finalizer job")
+		return errors.New("prepareddeck: River did not return a live finalizer job")
 	}
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
 }

@@ -119,7 +119,6 @@ func lemmaDecisionScenarios() []Scenario {
 			proposal := reviewProposal(h, bookID, "correct", "pfad", reviewOccurrence(t, h, bookID, 0))
 			err = h.LemmaReview().PutLemmaDecisionProposal(proposal, previewProposal(t, h, proposal))
 			require.ErrorIs(t, err, domain.ErrLemmaDecisionCurrentReading)
-			require.EqualError(t, err, "Stop this Book's current reading before changing its vocabulary.")
 			assert.Empty(t, reviewOccurrence(t, h, bookID, 0).CorrectedLemma)
 		},
 	}}

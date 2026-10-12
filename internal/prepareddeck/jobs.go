@@ -380,7 +380,7 @@ func (s *Service) ensurePreparationJob(ctx context.Context, tx pgx.Tx, p domain.
 			} else if !errors.Is(confirmErr, pgx.ErrNoRows) {
 				return p, 0, confirmErr
 			}
-			return p, 0, errors.New("River did not return a live preparation job")
+			return p, 0, errors.New("prepareddeck: River did not return a live preparation job")
 		}
 		return p, result.Job.ID, nil
 	}
