@@ -780,6 +780,14 @@ func TestCompletedCorpusRetryRebuildsSelectionWithoutRerunningNLP(t *testing.T) 
 	var corpusStatus string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpusID).Scan(&corpusStatus))
 	assert.Equal(t, "complete", corpusStatus)
+	t.Run("candidate-generation failure is recorded", func(t *testing.T) {
+		var generationDetails []byte
+		require.NoError(t, pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation' AND status='failed' ORDER BY id DESC LIMIT 1`, owner.ID, corpusID).Scan(&generationDetails))
+		var generationRecorded map[string]any
+		require.NoError(t, json.Unmarshal(generationDetails, &generationRecorded))
+		assert.Equal(t, "selection", generationRecorded["stage"])
+		assert.NotEmpty(t, generationRecorded["error"])
+	})
 
 	_, err = pool.Exec(ctx, `DROP TRIGGER reject_selection_candidates ON selection_candidates; DROP FUNCTION reject_selection_candidates()`)
 	require.NoError(t, err)
@@ -1149,4 +1157,95 @@ func TestAnalysisRunSurvivesDispositionChanges(t *testing.T) {
 	assert.Equal(t, 1, runs)
 	assert.Equal(t, 1, jobs)
 	releaseOnce.Do(func() { close(release) })
+}
+
+func TestRiverAnalysisFailsWhenSourceRevisionIsNoLongerCurrent(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "stale-revision", false)
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "stale-revision", "Stale revision", "Hallo Berlin.", "sha256:stale-revision")
+	require.NoError(t, err)
+	fake := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		return analyzer.Result{}, errors.New("Analyze should not be called")
+	}}
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	service := NewService(store.Pool(), client)
+
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	updated, err := putAnalysisSource(ctx, store, owner.ID, "stale-revision", "Stale revision", "Changed text.", "sha256:stale-revision-updated")
+	require.NoError(t, err)
+	require.Equal(t, source.ID, updated.ID)
+	require.NotEqual(t, source.ContentRevisionID, updated.ContentRevisionID)
+	require.NoError(t, client.Start(ctx))
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
+
+	status, err := service.Wait(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateDiscarded, status.State)
+	assert.Equal(t, "Analysis could not be completed. Retry the analysis or review the current source.", status.Error)
+	assert.Empty(t, fake.Requests())
+	var corpusCount int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpora WHERE owner_id=$1`, owner.ID).Scan(&corpusCount))
+	assert.Zero(t, corpusCount)
+}
+
+func TestRiverAnalysisRecordsFailureAcrossRunAttemptJobAndHistory(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-failure-record", false)
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "failure-record", "Failure record", "Hallo Berlin.", "sha256:failure-record")
+	require.NoError(t, err)
+	analyzerErr := errors.New("stanza failed")
+	fake := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		return analyzer.Result{}, analyzerErr
+	}}
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
+	service := NewService(store.Pool(), client)
+
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	status, err := service.Wait(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	require.Equal(t, rivertype.JobStateDiscarded, status.State)
+
+	message := "Analysis could not be completed. Retry the analysis or review the current source."
+	t.Run("run and attempt carry the failure", func(t *testing.T) {
+		var runState, lastError, attemptState, attemptError string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT r.state,r.last_error,a.state,a.error FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&runState, &lastError, &attemptState, &attemptError))
+		require.Equal(t, "failed", runState)
+		require.Equal(t, message, lastError)
+		require.Equal(t, "failed", attemptState)
+		require.Equal(t, message, attemptError)
+	})
+	t.Run("analysis job carries the failure", func(t *testing.T) {
+		var jobError string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT error FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID).Scan(&jobError))
+		require.Equal(t, message, jobError)
+	})
+	t.Run("processing history records the failure", func(t *testing.T) {
+		var details []byte
+		require.NoError(t, pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND operation='analysis' AND status='failed' ORDER BY id DESC LIMIT 1`, owner.ID).Scan(&details))
+		var recorded map[string]any
+		require.NoError(t, json.Unmarshal(details, &recorded))
+		require.Equal(t, handle.RunID, recorded["run_id"])
+		require.EqualValues(t, 1, recorded["attempt"])
+		require.Equal(t, message, recorded["error"])
+	})
 }
