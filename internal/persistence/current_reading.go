@@ -31,11 +31,8 @@ func currentReadingCompletionFromValues(ownerID, language, bookID string, comple
 // method applies the plan.
 func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, language, bookID, expectedBookID, expectedSnapshotID string) (result domain.CurrentReading, err error) {
 	language = canonicalization.NormalizeLanguage(language)
-	if err := (domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}).Validate(); err != nil {
+	if err := validateCurrentReadingSwitch(owner, language, bookID, expectedBookID, expectedSnapshotID); err != nil {
 		return domain.CurrentReading{}, err
-	}
-	if !exactCommitment(expectedBookID, expectedSnapshotID) {
-		return domain.CurrentReading{}, ErrCurrentReadingStale
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -59,17 +56,40 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 		return domain.CurrentReading{}, err
 	}
 	if decision.Verdict == domain.CurrentReadingReplay {
-		current := facts.Current
-		snapshotSize, sizeErr := snapshotSizeForGoal(ctx, q, current.SnapshotID, owner)
-		if sizeErr != nil {
-			return domain.CurrentReading{}, sizeErr
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return domain.CurrentReading{}, err
-		}
-		current.SnapshotSize = snapshotSize
-		return current, nil
+		return replayCurrentReadingSwitch(ctx, tx, q, owner, facts.Current)
 	}
+	return applyCurrentReadingSwitch(ctx, tx, q, owner, language, bookID, identity, decision)
+}
+
+// validateCurrentReadingSwitch rejects a switch whose target identity is
+// incomplete or whose expected commitment is malformed or missing.
+func validateCurrentReadingSwitch(owner, language, bookID, expectedBookID, expectedSnapshotID string) error {
+	if err := (domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}).Validate(); err != nil {
+		return err
+	}
+	if !exactCommitment(expectedBookID, expectedSnapshotID) {
+		return ErrCurrentReadingStale
+	}
+	return nil
+}
+
+// replayCurrentReadingSwitch returns the current reading a replayed switch
+// already holds, committing without writing.
+func replayCurrentReadingSwitch(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner string, current domain.CurrentReading) (domain.CurrentReading, error) {
+	snapshotSize, err := snapshotSizeForGoal(ctx, q, current.SnapshotID, owner)
+	if err != nil {
+		return domain.CurrentReading{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.CurrentReading{}, err
+	}
+	current.SnapshotSize = snapshotSize
+	return current, nil
+}
+
+// applyCurrentReadingSwitch releases the former reading's reservation, freezes
+// the target's snapshot, and commits the switch.
+func applyCurrentReadingSwitch(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, bookID string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow, decision domain.CurrentReadingDecision) (domain.CurrentReading, error) {
 	if err := releaseCurrentReadingSnapshot(ctx, q, owner, decision.ReleaseSnapshotID); err != nil {
 		return domain.CurrentReading{}, err
 	}
@@ -84,8 +104,7 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	if err := tx.Commit(ctx); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	result = currentReadingFromValues(row.OwnerID, row.Language, row.BookID, row.SnapshotID, identity.CaSourceMaterialID, identity.CaAnalysisRunID, identity.CaContentRevisionID, identity.CaSnapshotID, identity.CaCorpusID, len(candidates), row.CreatedAt, row.UpdatedAt)
-	return result, nil
+	return currentReadingFromValues(row.OwnerID, row.Language, row.BookID, row.SnapshotID, identity.CaSourceMaterialID, identity.CaAnalysisRunID, identity.CaContentRevisionID, identity.CaSnapshotID, identity.CaCorpusID, len(candidates), row.CreatedAt, row.UpdatedAt), nil
 }
 
 // loadSwitchFacts reads everything DecideSwitchCurrentReading decides over. The

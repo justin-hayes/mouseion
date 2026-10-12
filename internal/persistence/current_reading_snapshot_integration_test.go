@@ -441,3 +441,28 @@ func TestCurrentReadingCompletionHandlesMissingSnapshotIdempotently(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, otherBook.ID, otherGoal.BookID, "completion crossed the owner boundary")
 }
+
+// TestCurrentReadingStartAndSwitchRejectIncompleteIdentity pins the validation
+// step both transitions run before any database work: an empty language names no
+// reading, so it is rejected as a domain error rather than a not-found.
+func TestCurrentReadingStartAndSwitchRejectIncompleteIdentity(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "reading-incomplete-identity", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "incomplete-identity")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+
+	t.Run("start rejects an incomplete reading identity", func(t *testing.T) {
+		_, err := store.StartCurrentReading(ctx, owner.ID, "", book.ID)
+		require.ErrorContains(t, err, "current reading identity is required")
+		require.NotErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("switch rejects an incomplete reading identity", func(t *testing.T) {
+		_, err := store.SwitchCurrentReading(ctx, owner.ID, "", book.ID, book.ID, "00000000-0000-0000-0000-000000000000")
+		require.ErrorContains(t, err, "current reading identity is required")
+		require.NotErrorIs(t, err, ErrCurrentReadingStale)
+	})
+}

@@ -649,6 +649,110 @@ func TestBookCoverSelectedRefreshAdvancesGenerationAndPreservesImage(t *testing.
 	assert.Equal(t, "replacement", resource.ContentHash)
 }
 
+// TestBookCoverAdvertisementRetireAndAvailabilityBranches pins the advertisement
+// decisions that retain, clear, or demote a cover independently of the candidate
+// bookkeeping: a negative advertisement with no row, a non-selected source that
+// cannot replace an available image, retiring a candidate while an image is
+// available, and re-retiring a settled row.
+func TestBookCoverAdvertisementRetireAndAvailabilityBranches(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "cover branch store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "cover-branch-owner", false)
+	require.NoError(t, err)
+	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First", URL: "https://first.example/opds"})
+	require.NoError(t, err)
+	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
+	require.NoError(t, err)
+
+	t.Run("a negative advertisement without a cover row records nothing", func(t *testing.T) {
+		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "absent-entry", "Absent", "", "de")
+		require.NoError(t, err)
+		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, first.ID, "absent-entry", false)
+		require.NoError(t, err)
+		assert.False(t, retrieve)
+		_, err = store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+		require.ErrorIs(t, err, ErrNotFound, "a negative advertisement with no image stays absent")
+	})
+
+	t.Run("a non-selected source cannot replace an available image", func(t *testing.T) {
+		bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Held image", "held-1", "held-2")
+		require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, first.ID, "held-1", advertisedAt, "image/png", 4, 6, "held", []byte("held-image")))
+		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, second.ID, "held-2", true)
+		require.NoError(t, err)
+		assert.False(t, retrieve, "an alias cannot start retrieval while another source holds the image")
+		cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.BookCoverAvailable, cover.State)
+		assert.Equal(t, first.ID, cover.SelectedConnectionID)
+	})
+
+	t.Run("retiring a non-selected candidate keeps an available image", func(t *testing.T) {
+		bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Keep winner", "keep-1", "keep-2")
+		require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "keep-2", advertisedAt, "image/png", 4, 6, "kept", []byte("kept-image")))
+		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "keep-1", false)
+		require.NoError(t, err)
+		assert.False(t, retrieve)
+		cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.BookCoverAvailable, cover.State)
+		assert.Equal(t, second.ID, cover.SelectedConnectionID)
+	})
+
+	t.Run("retiring the selected source demotes the image while a fallback pends", func(t *testing.T) {
+		bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Demote winner", "demote-1", "demote-2")
+		require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, first.ID, "demote-1", advertisedAt, "image/png", 4, 6, "demoted", []byte("demoted-image")))
+		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "demote-1", false)
+		require.NoError(t, err)
+		assert.False(t, retrieve)
+		cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.BookCoverPending, cover.State, "the pending fallback keeps the generation alive")
+		assert.Empty(t, cover.SelectedConnectionID)
+		assert.Equal(t, advertisedAt, cover.AdvertisedAt)
+	})
+
+	t.Run("retiring the last pending candidate settles a generation with only failures", func(t *testing.T) {
+		bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Settle failures", "settle-1", "settle-2")
+		require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "settle-1", advertisedAt, "first failed"))
+		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, second.ID, "settle-2", false)
+		require.NoError(t, err)
+		assert.False(t, retrieve)
+		cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.BookCoverUnavailable, cover.State)
+	})
+
+	t.Run("a negative advertisement after settling is ignored", func(t *testing.T) {
+		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "settled-entry", "Settled", "", "de")
+		require.NoError(t, err)
+		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, first.ID, "settled-entry", true)
+		require.NoError(t, err)
+		require.True(t, retrieve)
+		retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, first.ID, "settled-entry", false)
+		require.NoError(t, err)
+		require.False(t, retrieve)
+		retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, first.ID, "settled-entry", false)
+		require.NoError(t, err)
+		assert.False(t, retrieve, "a settled row with no advertisement has nothing to retire")
+		cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.BookCoverNone, cover.State)
+		assert.True(t, cover.AdvertisedAt.IsZero(), "a cleared row carries no advertisement generation")
+	})
+
+	t.Run("a duplicate non-selected failure is fenced", func(t *testing.T) {
+		bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Duplicate failure", "dup-1", "dup-2")
+		require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, second.ID, "dup-2", advertisedAt, "second failed"))
+		before := snapshotBookCover(t, ctx, store, owner.ID, bookID)
+		require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, second.ID, "dup-2", advertisedAt, "duplicate failure"))
+		assert.Equal(t, before, snapshotBookCover(t, ctx, store, owner.ID, bookID), "a repeated failure leaves the row untouched")
+	})
+}
+
 type bookCoverSnapshot struct {
 	State              string
 	SelectedConnection string

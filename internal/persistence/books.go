@@ -728,6 +728,19 @@ func (r CatalogueEntryReconcileResult) Upserted() bool {
 // entry (never inferred). Source materials and acquired content are never
 // touched here: membership and identity are metadata-only.
 
+// catalogueEntryReconcileState carries what reconciling one catalogue entry
+// resolved: the Book, the Book an existing alias already names, whether the
+// Book was created, and which metadata an existing Book changed.
+type catalogueEntryReconcileState struct {
+	bookID            string
+	existingAliasBook string
+	created           bool
+	titleChanged      bool
+	authorChanged     bool
+	languageChanged   bool
+	readingEnded      bool
+}
+
 func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, connectionID, sourceIdentifier, title, author, language string) (result CatalogueEntryReconcileResult, err error) {
 	owner, connectionID, sourceIdentifier, title, author, language = strings.TrimSpace(owner), strings.TrimSpace(connectionID), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(title), strings.TrimSpace(author), strings.TrimSpace(language)
 	if owner == "" || connectionID == "" || sourceIdentifier == "" || title == "" || language == "" {
@@ -739,67 +752,14 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	// Advisory lock serializes catalogue identity reconciliation; it is a
-	// domain fence rather than a data query and therefore remains raw SQL.
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+connectionID+":"+sourceIdentifier); err != nil {
+	state, err := resolveCatalogueEntryBook(ctx, tx, q, owner, connectionID, sourceIdentifier, title, author, language)
+	if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	aliasBook, err := q.GetCatalogueAliasBookForUpdate(ctx, sqlcgen.GetCatalogueAliasBookForUpdateParams{OwnerID: owner, ConnectionID: uuidArg(connectionID), Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
-	if errors.Is(err, pgx.ErrNoRows) {
-		aliasBook = ""
-	} else if err != nil {
+	if err := applyCatalogueEntryChanges(ctx, tx, q, owner, connectionID, sourceIdentifier, title, author, language, &state); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	bookID := ""
-	if aliasBook != "" {
-		bookID = aliasBook
-	}
-	created := bookID == ""
-	var titleChanged, authorChanged, languageChanged, readingEnded bool
-	if bookID == "" {
-		createdBook, insertErr := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, Author: author, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
-		err = insertErr
-		if err != nil {
-			return CatalogueEntryReconcileResult{}, err
-		}
-		bookID = createdBook.ID
-	} else {
-		if _, err = q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); err != nil {
-			return CatalogueEntryReconcileResult{}, err
-		}
-		current, getErr := q.GetBookMetadata(ctx, sqlcgen.GetBookMetadataParams{OwnerID: owner, ID: bookID})
-		if err := getErr; err != nil {
-			return CatalogueEntryReconcileResult{}, err
-		}
-		titleChanged = strings.TrimSpace(current.Title) != title
-		authorChanged = strings.TrimSpace(current.Author) != author
-		languageChanged = current.LanguageState != domain.LanguageChosen || current.LanguageTag != language
-	}
-	if err := ensureBookExists(ctx, tx, owner, bookID); err != nil {
-		return CatalogueEntryReconcileResult{}, err
-	}
-	if _, err = q.UpdateBookMetadata(ctx, sqlcgen.UpdateBookMetadataParams{OwnerID: owner, ID: bookID, Title: title, Author: author, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)}); err != nil {
-		return CatalogueEntryReconcileResult{}, err
-	}
-	if languageChanged {
-		if readingEnded, err = removeIncompatibleBookGoals(ctx, q, owner, bookID, language); err != nil {
-			return CatalogueEntryReconcileResult{}, err
-		}
-	}
-	if err := activateMembership(ctx, tx, owner, bookID); err != nil {
-		return CatalogueEntryReconcileResult{}, err
-	}
-	if created {
-		if err := q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: bookID}); err != nil {
-			return CatalogueEntryReconcileResult{}, err
-		}
-	}
-	if aliasBook == "" {
-		if err = q.InsertCatalogueEntryAlias(ctx, sqlcgen.InsertCatalogueEntryAliasParams{OwnerID: owner, BookID: bookID, ConnectionID: uuidArg(connectionID), AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier}); err != nil {
-			return CatalogueEntryReconcileResult{}, aliasConflictError(err)
-		}
-	}
-	bookRow, err := q.GetBook(ctx, sqlcgen.GetBookParams{OwnerID: owner, ID: bookID})
+	bookRow, err := q.GetBook(ctx, sqlcgen.GetBookParams{OwnerID: owner, ID: state.bookID})
 	if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
@@ -807,7 +767,94 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	if err := tx.Commit(ctx); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	return CatalogueEntryReconcileResult{Book: book, Created: created, TitleChanged: titleChanged, AuthorChanged: authorChanged, LanguageChanged: languageChanged, CurrentReadingEnded: readingEnded}, nil
+	return CatalogueEntryReconcileResult{Book: book, Created: state.created, TitleChanged: state.titleChanged, AuthorChanged: state.authorChanged, LanguageChanged: state.languageChanged, CurrentReadingEnded: state.readingEnded}, nil
+}
+
+// resolveCatalogueEntryBook finds or creates the Book the entry identifies and
+// reports which of its metadata the advertised entry changes. It runs under the
+// catalogue identity lock so two syncs of the same entry serialize.
+func resolveCatalogueEntryBook(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, connectionID, sourceIdentifier, title, author, language string) (catalogueEntryReconcileState, error) {
+	var state catalogueEntryReconcileState
+	// Advisory lock serializes catalogue identity reconciliation; it is a
+	// domain fence rather than a data query and therefore remains raw SQL.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+connectionID+":"+sourceIdentifier); err != nil {
+		return state, err
+	}
+	aliasBook, err := q.GetCatalogueAliasBookForUpdate(ctx, sqlcgen.GetCatalogueAliasBookForUpdateParams{OwnerID: owner, ConnectionID: uuidArg(connectionID), Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
+	if errors.Is(err, pgx.ErrNoRows) {
+		aliasBook = ""
+	} else if err != nil {
+		return state, err
+	}
+	state.existingAliasBook = aliasBook
+	state.bookID = aliasBook
+	state.created = state.bookID == ""
+	if state.created {
+		createdBook, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, Author: author, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
+		if err != nil {
+			return state, err
+		}
+		state.bookID = createdBook.ID
+		return state, nil
+	}
+	if _, err := q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: state.bookID}); err != nil {
+		return state, err
+	}
+	current, err := q.GetBookMetadata(ctx, sqlcgen.GetBookMetadataParams{OwnerID: owner, ID: state.bookID})
+	if err != nil {
+		return state, err
+	}
+	state.titleChanged = strings.TrimSpace(current.Title) != title
+	state.authorChanged = strings.TrimSpace(current.Author) != author
+	state.languageChanged = current.LanguageState != domain.LanguageChosen || current.LanguageTag != language
+	return state, nil
+}
+
+// applyCatalogueEntryChanges applies the metadata change and then the
+// membership, inbox and alias placement the reconciled entry needs.
+func applyCatalogueEntryChanges(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, connectionID, sourceIdentifier, title, author, language string, state *catalogueEntryReconcileState) error {
+	if err := applyCatalogueEntryMetadata(ctx, tx, q, owner, title, author, language, state); err != nil {
+		return err
+	}
+	return applyCatalogueEntryPlacement(ctx, tx, q, owner, connectionID, sourceIdentifier, state)
+}
+
+// applyCatalogueEntryMetadata updates the Book's metadata, ending an
+// incompatible Current reading when the language changed.
+func applyCatalogueEntryMetadata(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, title, author, language string, state *catalogueEntryReconcileState) error {
+	if err := ensureBookExists(ctx, tx, owner, state.bookID); err != nil {
+		return err
+	}
+	if _, err := q.UpdateBookMetadata(ctx, sqlcgen.UpdateBookMetadataParams{OwnerID: owner, ID: state.bookID, Title: title, Author: author, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)}); err != nil {
+		return err
+	}
+	if state.languageChanged {
+		readingEnded, err := removeIncompatibleBookGoals(ctx, q, owner, state.bookID, language)
+		if err != nil {
+			return err
+		}
+		state.readingEnded = readingEnded
+	}
+	return nil
+}
+
+// applyCatalogueEntryPlacement activates the Book's membership and records the
+// inbox and catalogue-alias placement for the reconciled entry.
+func applyCatalogueEntryPlacement(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, connectionID, sourceIdentifier string, state *catalogueEntryReconcileState) error {
+	if err := activateMembership(ctx, tx, owner, state.bookID); err != nil {
+		return err
+	}
+	if state.created {
+		if err := q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: state.bookID}); err != nil {
+			return err
+		}
+	}
+	if state.existingAliasBook == "" {
+		if err := q.InsertCatalogueEntryAlias(ctx, sqlcgen.InsertCatalogueEntryAliasParams{OwnerID: owner, BookID: state.bookID, ConnectionID: uuidArg(connectionID), AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier}); err != nil {
+			return aliasConflictError(err)
+		}
+	}
+	return nil
 }
 
 func removeIncompatibleBookGoals(ctx context.Context, q *sqlcgen.Queries, owner, bookID, language string) (bool, error) {
