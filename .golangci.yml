@@ -91,7 +91,7 @@ linters:
         - performance
       disabled-checks:
         # About 190 production `if err = f(); err != nil` reuses of an outer
-        # err. Converting them is a separate refactor, not a lint-config change.
+        # err. Converting them is a separate refactor (#1829).
         - sloppyReassign
     interfacebloat:
       max: 10
@@ -114,7 +114,8 @@ linters:
         # reasons: many messages start with a proper noun ("River did not
         # return ...", "German vocabulary backfill ..."), which the check cannot
         # tell apart from sentence case, and the lemma review errors double as
-        # learner-facing copy that the webapp renders as written.
+        # learner-facing copy that the webapp renders as written. #1830 removes
+        # both causes and enables it.
         - -ST1005
     testifylint:
       # Every checker is on (#1814), so assertions follow one style and failures
