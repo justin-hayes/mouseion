@@ -91,123 +91,217 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 // in the language scope regardless of the selected visibility, so empty views
 // can still offer recovery.
 func (s *PostgresStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (MyBooksBrowseResult, error) {
+	query, language, disposition, err := normalizeMyBooksBrowseRequest(query, language, disposition)
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	accumulator := &myBooksBrowseAccumulator{
+		showHidden:        showHidden,
+		query:             query,
+		disposition:       domain.BookDisposition(disposition),
+		history:           history,
+		window:            myBooksBrowsePageWindow(offset, limit),
+		dispositionCounts: make(map[domain.MyBookBucket]int),
+	}
+	if err := s.collectMyBooksBrowsePage(ctx, owner, language, accumulator); err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	counts, err := s.collectMyBooksBrowseCounts(ctx, owner, language, showHidden)
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	result := accumulator.result
+	result.DispositionCounts = myBooksDispositionCounts(accumulator.dispositionCounts)
+	result.Total = accumulator.filteredCount
+	result.ScopeTotal = counts.scopeTotal
+	result.HiddenCount = counts.hiddenCount
+	result.AllCount = counts.allCount
+	result.Counts = counts.languageCounts
+	return result, nil
+}
+
+// normalizeMyBooksBrowseRequest trims and lowercases the search, trims the
+// scope selectors, validates the disposition before any read, and canonicalizes
+// the language except for the explicit unknown scope.
+func normalizeMyBooksBrowseRequest(query, language, disposition string) (string, string, string, error) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
 	disposition = strings.TrimSpace(disposition)
 	if disposition != "" {
 		if err := domain.BookDisposition(disposition).Validate(); err != nil {
-			return MyBooksBrowseResult{}, err
+			return "", "", "", err
 		}
 	}
 	if language != domain.LanguageUnknown {
 		language = canonicalization.NormalizeLanguage(language)
 	}
+	return query, language, disposition, nil
+}
+
+// myBooksBrowseWindow is the clamped requested page: offset is the first
+// matching row to keep and pageEnd is the exclusive upper bound.
+type myBooksBrowseWindow struct {
+	offset  int
+	pageEnd int
+}
+
+// myBooksBrowsePageWindow clamps caller-supplied pagination and guards the
+// integer overflow a caller-supplied limit can produce.
+func myBooksBrowsePageWindow(offset, limit int) myBooksBrowseWindow {
 	if offset < 0 {
 		offset = 0
 	}
 	if limit < 0 {
 		limit = 0
 	}
-	var result MyBooksBrowseResult
 	pageEnd := offset + limit
 	if pageEnd < offset { // Guard integer overflow from caller-supplied pagination.
 		pageEnd = int(^uint(0) >> 1)
 	}
-	dispositionCounts := make(map[domain.MyBookBucket]int)
-	var filteredCount int
-	err := s.forEachMyBooksBrowseRow(ctx, owner, language, func(row sqlcgen.BrowseMyBooksEvidenceRow) error {
-		book := myBookFromBrowseRow(row)
-		book.Disposition = domain.BookDisposition(row.Disposition)
-		book.DispositionRevision = row.DispositionRevision
-		if book.Hidden && !showHidden {
-			return nil
-		}
-		bucket := book.WorkflowBucket()
-		dispositionCounts[bucket]++
-		if bucket == domain.MyBookBucketCurrentReading {
-			dispositionCounts[domain.MyBookBucketToRead]++
-		}
-		if bucket == domain.MyBookBucketRead {
-			result.ReadCount++
-		}
-		if query != "" && !strings.Contains(strings.ToLower(book.Book.Title), query) && !strings.Contains(strings.ToLower(book.Book.Author), query) {
-			return nil
-		}
-		if !bucket.MatchesBrowseFilter(domain.BookDisposition(disposition), history) {
-			return nil
-		}
-		if filteredCount >= offset && filteredCount < pageEnd {
-			result.Items = append(result.Items, book)
-		}
-		filteredCount++
+	return myBooksBrowseWindow{offset: offset, pageEnd: pageEnd}
+}
+
+// myBooksBrowseAccumulator folds the ordered browse rows into the selected
+// page, the workflow-bucket counts, and the matching-scope size. Classification
+// stays in the domain; this only applies the visibility, search, filter, and
+// page steps.
+type myBooksBrowseAccumulator struct {
+	showHidden        bool
+	query             string
+	disposition       domain.BookDisposition
+	history           bool
+	window            myBooksBrowseWindow
+	dispositionCounts map[domain.MyBookBucket]int
+	result            MyBooksBrowseResult
+	filteredCount     int
+}
+
+// visit applies every step to one row, in the same order the SQL projection and
+// the domain classifier expect: drop the invisible, tally the visible buckets,
+// then search, filter, and page.
+func (a *myBooksBrowseAccumulator) visit(row sqlcgen.BrowseMyBooksEvidenceRow) error {
+	book := myBookFromBrowseRow(row)
+	book.Disposition = domain.BookDisposition(row.Disposition)
+	book.DispositionRevision = row.DispositionRevision
+	if book.Hidden && !a.showHidden {
 		return nil
-	})
-	if err != nil {
-		return MyBooksBrowseResult{}, err
 	}
-	if err := s.populateMyBooksCoverage(ctx, owner, result.Items); err != nil {
-		return MyBooksBrowseResult{}, err
+	bucket := book.WorkflowBucket()
+	a.dispositionCounts[bucket]++
+	if bucket == domain.MyBookBucketCurrentReading {
+		a.dispositionCounts[domain.MyBookBucketToRead]++
 	}
-	for _, item := range []struct {
-		bucket domain.MyBookBucket
-	}{
-		{bucket: domain.MyBookBucketInbox},
-		{bucket: domain.MyBookBucketToRead},
-	} {
-		if count := dispositionCounts[item.bucket]; count > 0 {
-			persistedDisposition, ok := item.bucket.PersistedDisposition()
-			if ok {
-				result.DispositionCounts = append(result.DispositionCounts, DispositionCount{Disposition: persistedDisposition, Count: count})
-			}
+	if bucket == domain.MyBookBucketRead {
+		a.result.ReadCount++
+	}
+	if !myBooksBrowseMatchesQuery(book, a.query) {
+		return nil
+	}
+	if !bucket.MatchesBrowseFilter(a.disposition, a.history) {
+		return nil
+	}
+	if a.filteredCount >= a.window.offset && a.filteredCount < a.window.pageEnd {
+		a.result.Items = append(a.result.Items, book)
+	}
+	a.filteredCount++
+	return nil
+}
+
+// myBooksBrowseMatchesQuery applies the trimmed, lowercased search to a Book's
+// title or author.
+func myBooksBrowseMatchesQuery(book domain.MyBook, query string) bool {
+	if query == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(book.Book.Title), query) || strings.Contains(strings.ToLower(book.Book.Author), query)
+}
+
+// collectMyBooksBrowsePage walks the ordered browse projection and folds it
+// into the accumulator, then loads coverage for the selected page.
+func (s *PostgresStore) collectMyBooksBrowsePage(ctx context.Context, owner, language string, accumulator *myBooksBrowseAccumulator) error {
+	if err := s.forEachMyBooksBrowseRow(ctx, owner, language, accumulator.visit); err != nil {
+		return err
+	}
+	return s.populateMyBooksCoverage(ctx, owner, accumulator.result.Items)
+}
+
+// myBooksDispositionCounts projects the workflow-bucket tallies onto the
+// persisted dispositions My Books offers, in the fixed Inbox-then-To-Read order
+// and omitting empty buckets.
+func myBooksDispositionCounts(counts map[domain.MyBookBucket]int) []DispositionCount {
+	var result []DispositionCount
+	for _, bucket := range []domain.MyBookBucket{domain.MyBookBucketInbox, domain.MyBookBucketToRead} {
+		count := counts[bucket]
+		if count == 0 {
+			continue
+		}
+		if persistedDisposition, ok := bucket.PersistedDisposition(); ok {
+			result = append(result, DispositionCount{Disposition: persistedDisposition, Count: count})
 		}
 	}
-	result.Total = filteredCount
+	return result
+}
+
+// myBooksBrowseCounts is the collection size evidence around the page: the
+// scope total, the Hidden Books in scope, the complete collection size, and the
+// per-language pills.
+type myBooksBrowseCounts struct {
+	scopeTotal     int
+	hiddenCount    int
+	allCount       int
+	languageCounts []LanguageCount
+}
+
+// collectMyBooksBrowseCounts reads the count queries in the same order and with
+// the same scopes the page was built from.
+func (s *PostgresStore) collectMyBooksBrowseCounts(ctx context.Context, owner, language string, showHidden bool) (myBooksBrowseCounts, error) {
 	q := s.queries()
+	var counts myBooksBrowseCounts
 	scopeTotal, err := q.CountMyBooksScope(ctx, sqlcgen.CountMyBooksScopeParams{Owner: owner, Language: language, ShowHidden: showHidden})
 	if err != nil {
-		return MyBooksBrowseResult{}, err
+		return myBooksBrowseCounts{}, err
 	}
-	result.ScopeTotal, err = checked.IntFromInt64(scopeTotal)
+	counts.scopeTotal, err = checked.IntFromInt64(scopeTotal)
 	if err != nil {
-		return MyBooksBrowseResult{}, fmt.Errorf("invalid scoped book count: %w", err)
+		return myBooksBrowseCounts{}, fmt.Errorf("invalid scoped book count: %w", err)
 	}
 	hiddenCount, err := q.CountHiddenMyBooksScope(ctx, sqlcgen.CountHiddenMyBooksScopeParams{Owner: owner, Language: language})
 	if err != nil {
-		return MyBooksBrowseResult{}, err
+		return myBooksBrowseCounts{}, err
 	}
-	result.HiddenCount, err = checked.IntFromInt64(hiddenCount)
+	counts.hiddenCount, err = checked.IntFromInt64(hiddenCount)
 	if err != nil {
-		return MyBooksBrowseResult{}, fmt.Errorf("invalid hidden book count: %w", err)
+		return myBooksBrowseCounts{}, fmt.Errorf("invalid hidden book count: %w", err)
 	}
 	allCount, err := q.CountMyBooksAll(ctx, owner)
 	if err != nil {
-		return MyBooksBrowseResult{}, err
+		return myBooksBrowseCounts{}, err
 	}
-	result.AllCount, err = checked.IntFromInt64(allCount)
+	counts.allCount, err = checked.IntFromInt64(allCount)
 	if err != nil {
-		return MyBooksBrowseResult{}, fmt.Errorf("invalid total book count: %w", err)
+		return myBooksBrowseCounts{}, fmt.Errorf("invalid total book count: %w", err)
 	}
-	counts, err := q.CountMyBooksByLanguage(ctx, sqlcgen.CountMyBooksByLanguageParams{Owner: owner, ShowHidden: showHidden})
+	languageRows, err := q.CountMyBooksByLanguage(ctx, sqlcgen.CountMyBooksByLanguageParams{Owner: owner, ShowHidden: showHidden})
 	if err != nil {
-		return MyBooksBrowseResult{}, err
+		return myBooksBrowseCounts{}, err
 	}
-	for _, count := range counts {
-		bookCount, conversionErr := checked.IntFromInt64(count.BookCount)
+	for _, row := range languageRows {
+		bookCount, conversionErr := checked.IntFromInt64(row.BookCount)
 		if conversionErr != nil {
-			return MyBooksBrowseResult{}, fmt.Errorf("invalid book count for language %q: %w", count.LanguageTag, conversionErr)
+			return myBooksBrowseCounts{}, fmt.Errorf("invalid book count for language %q: %w", row.LanguageTag, conversionErr)
 		}
-		result.Counts = append(result.Counts, LanguageCount{Tag: count.LanguageTag, Count: bookCount})
+		counts.languageCounts = append(counts.languageCounts, LanguageCount{Tag: row.LanguageTag, Count: bookCount})
 	}
-	sort.Slice(result.Counts, func(i, j int) bool {
-		if result.Counts[i].Tag == "unknown" {
+	sort.Slice(counts.languageCounts, func(i, j int) bool {
+		if counts.languageCounts[i].Tag == "unknown" {
 			return false
 		}
-		if result.Counts[j].Tag == "unknown" {
+		if counts.languageCounts[j].Tag == "unknown" {
 			return true
 		}
-		return result.Counts[i].Tag < result.Counts[j].Tag
+		return counts.languageCounts[i].Tag < counts.languageCounts[j].Tag
 	})
-	return result, nil
+	return counts, nil
 }
 
 const myBooksBrowseBatchSize = 256

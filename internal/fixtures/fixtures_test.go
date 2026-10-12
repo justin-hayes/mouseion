@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -348,6 +349,70 @@ func TestStoreMyBooksBrowseOrdersDeterministically(t *testing.T) {
 	result, err := store.ListMyBooksBrowseWithVisibility(t.Context(), OwnerID, "", "de", "", false, false, 0, 25)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"browse-upper", "browse-lower", "browse-tie-a", "browse-tie-b"}, fixtureBookIDs(result.Items), "case-insensitive title, then exact title, then ID")
+}
+
+// TestStoreMyBooksProjectsReadingHistoryEvidence holds the completion evidence
+// the My Books projection derives: an imported previously-read completion and
+// every finish in reading history each count once, the most recent completion
+// supplies LatestCompletionAt and LatestCompletionSource, and another owner's
+// history never leaks in.
+func TestStoreMyBooksProjectsReadingHistoryEvidence(t *testing.T) {
+	store := NewStore()
+	store.books = nil
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{ID: "history-imported", OwnerID: OwnerID, Title: "Imported", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "history-finished", OwnerID: OwnerID, Title: "Finished", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "history-quiet", OwnerID: OwnerID, Title: "Quiet", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+	}
+	importedAt := time.Date(2026, time.March, 1, 9, 0, 0, 0, time.UTC)
+	store.importedHistory[fixtureDispositionKey(OwnerID, "history-imported")] = domain.ReadingCompletion{
+		OwnerID: OwnerID, BookID: "history-imported", CompletedAt: importedAt, Source: domain.ReadingCompletionPreviouslyRead,
+	}
+	earlier := time.Date(2026, time.April, 1, 9, 0, 0, 0, time.UTC)
+	later := time.Date(2026, time.May, 1, 9, 0, 0, 0, time.UTC)
+	store.readingHistory["finish-earlier"] = domain.ReadingCompletion{
+		OwnerID: OwnerID, BookID: "history-finished", CompletedAt: earlier, Source: domain.ReadingCompletionCurrentReading,
+	}
+	// Two completions share the latest timestamp so the projection always sees
+	// a completion that does not advance LatestCompletionAt.
+	store.readingHistory["finish-later-a"] = domain.ReadingCompletion{
+		OwnerID: OwnerID, BookID: "history-finished", CompletedAt: later, Source: domain.ReadingCompletionCurrentReading,
+	}
+	store.readingHistory["finish-later-b"] = domain.ReadingCompletion{
+		OwnerID: OwnerID, BookID: "history-finished", CompletedAt: later, Source: domain.ReadingCompletionCurrentReading,
+	}
+	store.readingHistory["finish-other-owner"] = domain.ReadingCompletion{
+		OwnerID: "another-owner", BookID: "history-finished", CompletedAt: later.Add(time.Hour), Source: domain.ReadingCompletionCurrentReading,
+	}
+
+	books, err := store.ListMyBooksWithEvidence(t.Context(), OwnerID)
+	require.NoError(t, err)
+	byID := make(map[string]domain.MyBook, len(books))
+	for _, book := range books {
+		byID[book.Book.ID] = book
+	}
+
+	t.Run("an imported previously-read completion counts and dates the Book", func(t *testing.T) {
+		imported := byID["history-imported"]
+		assert.Equal(t, 1, imported.CompletionCount)
+		require.NotNil(t, imported.LatestCompletionAt)
+		assert.Equal(t, importedAt, *imported.LatestCompletionAt)
+		assert.Equal(t, domain.ReadingCompletionPreviouslyRead, imported.LatestCompletionSource)
+	})
+
+	t.Run("reading-history finishes count and the latest supplies the date", func(t *testing.T) {
+		finished := byID["history-finished"]
+		assert.Equal(t, 3, finished.CompletionCount, "every owned completion counts and another owner's is ignored")
+		require.NotNil(t, finished.LatestCompletionAt)
+		assert.Equal(t, later, *finished.LatestCompletionAt, "the later completion wins")
+		assert.Equal(t, domain.ReadingCompletionCurrentReading, finished.LatestCompletionSource)
+	})
+
+	t.Run("a Book with no history reports no completion", func(t *testing.T) {
+		quiet := byID["history-quiet"]
+		assert.Zero(t, quiet.CompletionCount)
+		assert.Nil(t, quiet.LatestCompletionAt)
+	})
 }
 
 func TestUnresolvedLemmaReviewFlagBlocksStartingFixtureBook(t *testing.T) {
