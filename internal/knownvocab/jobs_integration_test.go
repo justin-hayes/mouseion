@@ -5,6 +5,7 @@ package knownvocab
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,6 +78,78 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	})
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows))
 	assert.Equal(t, 3, knownRows)
+}
+
+func TestRiverImportRecordsRejectionsAndProgressBeyondOneHundredEntries(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "known vocabulary store", store.Close)
+	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
+	alice, err := store.CreateUser(ctx, "known-rejection-alice", false)
+	require.NoError(t, err)
+	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	workers := river.NewWorkers()
+	AddWorker(workers, store.Pool())
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	testutil.StopOnCleanup(t, "known vocabulary client", client.Stop)
+	service := NewJobService(store.Pool(), client)
+	var contents strings.Builder
+	contents.WriteString("1234\n")
+	const entries = 101
+	for i := range entries {
+		fmt.Fprintf(&contents, "wort%03d\n", i)
+	}
+	handle, err := service.Submit(ctx, alice.ID, "de", contents.String())
+	require.NoError(t, err)
+	status := waitKnownVocabJob(t, ctx, service, alice.ID, handle.ID)
+	require.Equal(t, rivertype.JobStateCompleted, status.State)
+	require.Len(t, status.Rejected, 1)
+	assert.Equal(t, 1, status.Rejected[0].Row)
+	assert.Equal(t, "canonical lemma must contain at least one letter", status.Rejected[0].Error)
+	assert.Equal(t, entries, status.Imported)
+	assert.Zero(t, status.AlreadyKnown)
+	assert.Equal(t, entries+1, status.Processed)
+	assert.Equal(t, entries+1, status.Total)
+	var knownRows int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows))
+	assert.Equal(t, entries, knownRows, "a rejected lemma must not be persisted")
+}
+
+func TestRiverImportRejectsLanguageAbsentFromLibraryAndRecordsFailure(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "known vocabulary store", store.Close)
+	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
+	alice, err := store.CreateUser(ctx, "known-missing-language-alice", false)
+	require.NoError(t, err)
+	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	workers := river.NewWorkers()
+	AddWorker(workers, store.Pool())
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	service := NewJobService(store.Pool(), client)
+	// The owner studies German; a French import has no library language to attach to.
+	handle, err := service.Submit(ctx, alice.ID, "fr", "bonjour\n")
+	require.NoError(t, err)
+	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: handle.ID}, Args: JobArgs{OwnerID: alice.ID, Language: "fr", FileContents: "bonjour\n"}}
+	err = (&Worker{Pool: store.Pool()}).Work(ctx, job)
+	require.EqualError(t, err, `known vocabulary language "fr" is not present in the library`)
+	status, err := service.Get(ctx, alice.ID, handle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, `known vocabulary language "fr" is not present in the library`, status.Error)
+	var knownRows int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows))
+	assert.Zero(t, knownRows, "a rejected language must not import any lemma")
 }
 
 func waitKnownVocabJob(t *testing.T, ctx context.Context, service *JobService, owner string, id int64) Status {

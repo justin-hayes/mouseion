@@ -319,3 +319,20 @@ func TestInvalidConfig(t *testing.T) {
 	_, err := NewService(&memoryStore{}).Select(context.Background(), "", analyzer.Result{}, SelectionConfig{})
 	assert.ErrorIs(t, err, ErrInvalidConfig)
 }
+
+func TestProjectRejectsInvalidConfig(t *testing.T) {
+	allowed := map[string]bool{"NOUN": true}
+	for name, test := range map[string]struct {
+		corpus analyzer.Result
+		config SelectionConfig
+	}{
+		"zero minimum":     {analyzer.Result{Language: "de"}, SelectionConfig{MinOccurrences: 0, AllowedPOS: allowed}},
+		"no allowed parts": {analyzer.Result{Language: "de"}, SelectionConfig{MinOccurrences: 1}},
+		"missing language": {analyzer.Result{}, SelectionConfig{MinOccurrences: 1, AllowedPOS: allowed}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := Project(test.corpus, test.config, nil)
+			assert.ErrorIs(t, err, ErrInvalidConfig)
+		})
+	}
+}
