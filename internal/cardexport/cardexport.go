@@ -611,6 +611,13 @@ func BestSentenceEvidenceFromCorpus(candidate domain.SelectionCandidate, sentenc
 	return bestSentenceEvidence(candidate, sentences)
 }
 
+// rankedSentenceEvidence is one source reference paired with the evidence that
+// ranks it.
+type rankedSentenceEvidence struct {
+	evidence SentenceEvidence
+	sentence int
+}
+
 func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) (SentenceEvidence, bool) {
 	var refs []sentenceReference
 	if json.Unmarshal(candidate.SentenceReferences, &refs) != nil {
@@ -621,66 +628,98 @@ func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int
 		return SentenceEvidence{}, false
 	}
 	forms = append(forms, candidate.CanonicalLemma)
-	type rankedSentence struct {
-		evidence SentenceEvidence
-		sentence int
-	}
-	ranked := make([]rankedSentence, 0, len(refs))
-	for _, ref := range refs {
-		text := ref.Text
-		var tokens []analyzer.Token
-		if persisted != nil {
-			sentence, ok := persisted[int64(ref.SentenceIndex)]
-			if !ok {
-				continue
-			}
-			text = sentence.Text
-			tokens = sentence.Tokens
-			if tokens == nil {
-				tokens = []analyzer.Token{}
-			}
-		}
-		location, valid := referenceStartOffset(ref.Location)
-		if !valid {
-			location = -1
-		}
-		target := ""
-		for _, form := range forms {
-			cleanForm := textmatch.CleanLexicalSurface(form)
-			if targetIndex(text, cleanForm) >= 0 {
-				target = cleanForm
-				break
-			}
-		}
-		quality := scoreSentenceQuality(candidate.Language, text, target, location, tokens)
-		var evidenceTokens []analyzer.Token
-		if persisted != nil {
-			evidenceTokens = append([]analyzer.Token{}, tokens...)
-		}
-		ranked = append(ranked, rankedSentence{evidence: SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens}, sentence: ref.SentenceIndex})
-	}
+	ranked := rankSentenceEvidence(candidate.Language, refs, forms, persisted)
 	if len(ranked) == 0 {
 		return SentenceEvidence{}, false
 	}
-	sort.SliceStable(ranked, func(i, j int) bool {
-		if ranked[i].evidence.Quality.Accepted != ranked[j].evidence.Quality.Accepted {
-			return ranked[i].evidence.Quality.Accepted
-		}
-		if ranked[i].evidence.Quality.GDEXScore != ranked[j].evidence.Quality.GDEXScore {
-			return ranked[i].evidence.Quality.GDEXScore > ranked[j].evidence.Quality.GDEXScore
-		}
-		if ranked[i].evidence.FirstEncounter != ranked[j].evidence.FirstEncounter {
-			return ranked[i].evidence.FirstEncounter < ranked[j].evidence.FirstEncounter
-		}
-		if ranked[i].sentence != ranked[j].sentence {
-			return ranked[i].sentence < ranked[j].sentence
-		}
-		return ranked[i].evidence.Sentence < ranked[j].evidence.Sentence
-	})
+	sort.SliceStable(ranked, func(i, j int) bool { return betterSentenceEvidence(ranked[i], ranked[j]) })
 	evidence := ranked[0].evidence
 	evidence.CorpusID = candidate.CorpusID
 	evidence.SentenceOrdinal = int64(ranked[0].sentence)
 	return evidence, true
+}
+
+// rankSentenceEvidence scores every source reference the persisted corpus can
+// resolve. Unresolvable references are dropped so they cannot displace the rest.
+func rankSentenceEvidence(language string, refs []sentenceReference, forms []string, persisted map[int64]analyzer.Sentence) []rankedSentenceEvidence {
+	ranked := make([]rankedSentenceEvidence, 0, len(refs))
+	for _, ref := range refs {
+		entry, ok := sentenceEvidenceForReference(language, ref, forms, persisted)
+		if ok {
+			ranked = append(ranked, entry)
+		}
+	}
+	return ranked
+}
+
+// sentenceEvidenceForReference resolves one source reference to its text,
+// target, quality and tokens. It reports false when a persisted run cannot
+// resolve the reference's sentence.
+func sentenceEvidenceForReference(language string, ref sentenceReference, forms []string, persisted map[int64]analyzer.Sentence) (rankedSentenceEvidence, bool) {
+	text, tokens, ok := persistedSentence(persisted, ref)
+	if !ok {
+		return rankedSentenceEvidence{}, false
+	}
+	location, valid := referenceStartOffset(ref.Location)
+	if !valid {
+		location = -1
+	}
+	target := matchingSentenceTarget(text, forms)
+	quality := scoreSentenceQuality(language, text, target, location, tokens)
+	var evidenceTokens []analyzer.Token
+	if persisted != nil {
+		evidenceTokens = append([]analyzer.Token{}, tokens...)
+	}
+	return rankedSentenceEvidence{
+		evidence: SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens},
+		sentence: ref.SentenceIndex,
+	}, true
+}
+
+// persistedSentence resolves a reference against the persisted corpus. Without
+// a persisted run it returns the reference's own text and no tokens; with one,
+// an unresolvable reference reports false.
+func persistedSentence(persisted map[int64]analyzer.Sentence, ref sentenceReference) (string, []analyzer.Token, bool) {
+	if persisted == nil {
+		return ref.Text, nil, true
+	}
+	sentence, ok := persisted[int64(ref.SentenceIndex)]
+	if !ok {
+		return "", nil, false
+	}
+	if sentence.Tokens == nil {
+		return sentence.Text, []analyzer.Token{}, true
+	}
+	return sentence.Text, sentence.Tokens, true
+}
+
+// matchingSentenceTarget returns the first observed form that appears as a
+// whole word in text, or the empty string when none does.
+func matchingSentenceTarget(text string, forms []string) string {
+	for _, form := range forms {
+		cleanForm := textmatch.CleanLexicalSurface(form)
+		if targetIndex(text, cleanForm) >= 0 {
+			return cleanForm
+		}
+	}
+	return ""
+}
+
+// betterSentenceEvidence orders accepted candidates first, then by descending
+// GDEX score, ascending first encounter, sentence ordinal and sentence text.
+func betterSentenceEvidence(a, b rankedSentenceEvidence) bool {
+	switch {
+	case a.evidence.Quality.Accepted != b.evidence.Quality.Accepted:
+		return a.evidence.Quality.Accepted
+	case a.evidence.Quality.GDEXScore != b.evidence.Quality.GDEXScore:
+		return a.evidence.Quality.GDEXScore > b.evidence.Quality.GDEXScore
+	case a.evidence.FirstEncounter != b.evidence.FirstEncounter:
+		return a.evidence.FirstEncounter < b.evidence.FirstEncounter
+	case a.sentence != b.sentence:
+		return a.sentence < b.sentence
+	default:
+		return a.evidence.Sentence < b.evidence.Sentence
+	}
 }
 
 func referenceStartOffset(raw json.RawMessage) (int64, bool) {
@@ -717,8 +756,7 @@ func targetIndex(sentence, target string) int {
 }
 
 func nounArticle(language, upos, lemma, morphology string) string {
-	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
-	baseLanguage, _, _ := strings.Cut(language, "-")
+	baseLanguage := baseLanguageCode(language)
 	if !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
 		return ""
 	}
@@ -733,22 +771,29 @@ func nounArticle(language, upos, lemma, morphology string) string {
 	if article, ok := explicitNounArticle(variants, table.validArticles); ok {
 		return article
 	}
+	return genderDerivedArticle(baseLanguage, table, variants, lemma)
+}
+
+// baseLanguageCode normalises a language tag to its lowercase base language.
+func baseLanguageCode(language string) string {
+	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	base, _, _ := strings.Cut(language, "-")
+	return base
+}
+
+// genderDerivedArticle resolves the article from the candidate's gender
+// evidence when no dictionary article names an accepted form.
+func genderDerivedArticle(baseLanguage string, table nounArticleTable, variants []map[string]string, lemma string) string {
 	evidence, ok := collectGenderEvidence(variants, table.articles)
 	if !ok {
 		return ""
 	}
-	if evidence.invalidGender && (baseLanguage != "de" || len(evidence.singularGenders) == 0) {
+	genders, ok := decisiveGenders(baseLanguage, evidence)
+	if !ok {
 		return ""
 	}
-	articleGenders := evidence.genders
-	if baseLanguage == "de" && len(evidence.singularGenders) > 0 {
-		if len(evidence.singularGenders) != 1 {
-			return ""
-		}
-		articleGenders = evidence.singularGenders
-	}
-	if len(articleGenders) == 1 {
-		for article := range articleGenders {
+	if len(genders) == 1 {
+		for article := range genders {
 			return singleGenderArticle(baseLanguage, article, lemma)
 		}
 	}
@@ -756,6 +801,23 @@ func nounArticle(language, upos, lemma, morphology string) string {
 		return table.pluralArticle
 	}
 	return ""
+}
+
+// decisiveGenders selects the gender set that decides the article. German
+// requires one unambiguous singular gender whenever any singular reading
+// exists; an unrecognised gender is fatal unless a German singular reading
+// rescues it.
+func decisiveGenders(baseLanguage string, evidence genderEvidence) (map[string]bool, bool) {
+	if evidence.invalidGender && (baseLanguage != "de" || len(evidence.singularGenders) == 0) {
+		return nil, false
+	}
+	if baseLanguage == "de" && len(evidence.singularGenders) > 0 {
+		if len(evidence.singularGenders) != 1 {
+			return nil, false
+		}
+		return evidence.singularGenders, true
+	}
+	return evidence.genders, true
 }
 
 // nounArticleTable is one supported language's article rules: the gender to
@@ -821,33 +883,47 @@ type genderEvidence struct {
 // unrecognised plural gender is recorded so the caller can apply the
 // language-specific fallback.
 func collectGenderEvidence(variants []map[string]string, articles map[string]string) (genderEvidence, bool) {
-	evidence := genderEvidence{
+	evidence := newGenderEvidence(articles)
+	for _, variant := range variants {
+		number := morphologyValue(variant, "Number")
+		if !evidence.addGender(morphologyValue(variant, "Gender"), isSingularNumber(number), articles) {
+			return genderEvidence{}, false
+		}
+		evidence.allPlural = evidence.allPlural && isPluralNumber(number)
+	}
+	return evidence, true
+}
+
+func newGenderEvidence(articles map[string]string) genderEvidence {
+	return genderEvidence{
 		genders:         make(map[string]bool, len(articles)),
 		singularGenders: make(map[string]bool, len(articles)),
 		allPlural:       true,
 	}
-	for _, variant := range variants {
-		gender := morphologyValue(variant, "Gender")
-		number := morphologyValue(variant, "Number")
-		singular := number == "sing" || number == "singular"
-		if gender != "" {
-			article, ok := articles[gender]
-			if !ok {
-				evidence.invalidGender = true
-				if singular {
-					return genderEvidence{}, false
-				}
-			} else {
-				evidence.genders[article] = true
-				if singular {
-					evidence.singularGenders[article] = true
-				}
-			}
-		}
-		evidence.allPlural = evidence.allPlural && (number == "plur" || number == "plural")
-	}
-	return evidence, true
 }
+
+// addGender folds one variant's gender tag into the evidence. An unrecognised
+// singular gender is immediately fatal and reports false; an unrecognised
+// plural gender is recorded for the caller's language-specific fallback.
+func (evidence *genderEvidence) addGender(gender string, singular bool, articles map[string]string) bool {
+	if gender == "" {
+		return true
+	}
+	article, ok := articles[gender]
+	if !ok {
+		evidence.invalidGender = true
+		return !singular
+	}
+	evidence.genders[article] = true
+	if singular {
+		evidence.singularGenders[article] = true
+	}
+	return true
+}
+
+func isSingularNumber(number string) bool { return number == "sing" || number == "singular" }
+
+func isPluralNumber(number string) bool { return number == "plur" || number == "plural" }
 
 // singleGenderArticle renders one resolved gender, resolving the Italian
 // definite article from the lemma.
@@ -1363,51 +1439,71 @@ func applyContextualGloss(input *RenderInput, result enrichment.Result) error {
 }
 
 // applySenseSelectionGloss resolves the card Gloss from a validated sense
-// selection, falling back to the provider's fallback gloss. A malformed
-// selection suppresses the fallback and records a degradation; an eligible
-// fallback that is used or rejected is recorded the same way.
+// selection, falling back to the provider's fallback gloss.
 func applySenseSelectionGloss(input *RenderInput, result enrichment.Result) []string {
+	choice := chooseSenseSelectionGloss(input, result)
+	if choice.gloss != "" {
+		input.Gloss = choice.gloss
+	}
+	if choice.fallbackApplied {
+		input.fallbackGlossApplied = true
+	}
+	return appendUniqueCodes(nil, choice.diagnostics...)
+}
+
+// senseGlossChoice is the gloss resolved for one enrichment result and the
+// degradation codes that explain it.
+type senseGlossChoice struct {
+	gloss           string
+	fallbackApplied bool
+	diagnostics     []string
+}
+
+// chooseSenseSelectionGloss chooses the gloss for one enrichment result without
+// mutating the input. A malformed selection suppresses the fallback and records
+// a degradation; an eligible fallback that is used or rejected is recorded the
+// same way.
+func chooseSenseSelectionGloss(input *RenderInput, result enrichment.Result) senseGlossChoice {
+	var choice senseGlossChoice
 	selectionValid := false
 	selectionMalformed := false
-	var diagnostics []string
 	if result.SenseSelection.Available {
-		selection := result.SenseSelection.Value
-		if !enrichment.ValidateSenseSelection(selection, len(input.CandidateSenses)) {
+		if !enrichment.ValidateSenseSelection(result.SenseSelection.Value, len(input.CandidateSenses)) {
 			selectionMalformed = true
-			diagnostics = append(diagnostics, DegradationInvalidSenseSelection)
-		} else if len(selection) > 0 {
-			selected := make([]enrichment.LexicalSense, 0, len(selection))
-			for _, index := range selection {
-				selected = append(selected, input.CandidateSenses[index])
-			}
-			if gloss := enrichment.RenderGloss(selected, enrichment.DefaultMaxSenses, enrichment.DefaultMaxTokens); gloss != "" {
-				input.Gloss = gloss
-				selectionValid = true
-			}
+			choice.diagnostics = append(choice.diagnostics, DegradationInvalidSenseSelection)
+		} else {
+			choice.gloss = selectedSenseGloss(input, result.SenseSelection.Value)
+			selectionValid = choice.gloss != ""
 		}
 	}
-	if result.FallbackGloss.Available && !selectionValid && !selectionMalformed {
+	if result.FallbackGloss.Available {
 		fallback := strings.TrimSpace(result.FallbackGloss.Value)
-		if fallbackGlossEligible(fallback) {
-			input.Gloss = fallback
-			input.fallbackGlossApplied = true
-			diagnostics = append(diagnostics, DegradationFallbackGlossApplied)
+		switch {
+		case !selectionValid && !selectionMalformed && fallbackGlossEligible(fallback):
+			choice.gloss = fallback
+			choice.fallbackApplied = true
+			choice.diagnostics = append(choice.diagnostics, DegradationFallbackGlossApplied)
+		case fallback != "" && !fallbackGlossEligible(fallback):
+			choice.diagnostics = append(choice.diagnostics, DegradationFallbackGlossRejected)
 		}
 	}
-	if result.FallbackGloss.Available && strings.TrimSpace(result.FallbackGloss.Value) != "" && !fallbackGlossEligible(result.FallbackGloss.Value) {
-		diagnostics = append(diagnostics, DegradationFallbackGlossRejected)
+	return choice
+}
+
+// selectedSenseGloss renders the gloss for a validated sense selection.
+func selectedSenseGloss(input *RenderInput, selection []int) string {
+	selected := make([]enrichment.LexicalSense, 0, len(selection))
+	for _, index := range selection {
+		selected = append(selected, input.CandidateSenses[index])
 	}
-	return appendUniqueCodes(nil, diagnostics...)
+	return enrichment.RenderGloss(selected, enrichment.DefaultMaxSenses, enrichment.DefaultMaxTokens)
 }
 
 func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 	var forms []string
 	if json.Unmarshal(candidate.ObservedForms, &forms) == nil {
-		for _, form := range forms {
-			cleanForm := textmatch.CleanLexicalSurface(form)
-			if targetIndex(sentence, cleanForm) >= 0 {
-				return cleanForm
-			}
+		if target := matchingSentenceTarget(sentence, forms); target != "" {
+			return target
 		}
 	}
 	return textmatch.CleanLexicalSurface(candidate.CanonicalLemma)
