@@ -1051,53 +1051,74 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	return w.workSnapshot(ctx, job)
 }
 
-func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
-	a := job.Args
+// snapshotDocumentInput is one selected snapshot unit as submitted to the
+// analyzer, carrying the provenance the analyzer echoes back.
+type snapshotDocumentInput struct {
+	id, identifier, title, text string
+}
+
+// snapshotPlan is the fetched and selected snapshot work the analyzer runs on.
+type snapshotPlan struct {
+	decision      epub.MainTextSelection
+	totalUnits    int
+	selectedUnits int
+	inputs        []snapshotDocumentInput
+}
+
+// snapshotAnalysis is the analyzed result plus the derived persistence inputs.
+type snapshotAnalysis struct {
+	result     analyzer.Result
+	lemmas     []domain.SharedLemma
+	statistics domain.AnalysisStatistics
+	artifact   domain.NormalizedArtifact
+}
+
+// beginSnapshotRun marks the run and its attempt running and reports the run
+// state so the caller can skip a run cancelled before it started.
+func (w *Worker) beginSnapshotRun(ctx context.Context, a JobArgs, riverJobID int64) (string, error) {
 	if _, err := w.Pool.Exec(ctx, `UPDATE analysis_runs SET state='running',started_at=COALESCE(started_at,now()),updated_at=now() WHERE owner_id=$1 AND id=$2 AND state='queued'`, a.OwnerID, a.RunID); err != nil {
-		return err
+		return "", err
 	}
-	if _, err := w.Pool.Exec(ctx, `UPDATE analysis_run_attempts SET state='running',started_at=COALESCE(started_at,now()) WHERE run_id=$1 AND river_job_id=$2 AND state='queued'`, a.RunID, job.ID); err != nil {
-		return err
+	if _, err := w.Pool.Exec(ctx, `UPDATE analysis_run_attempts SET state='running',started_at=COALESCE(started_at,now()) WHERE run_id=$1 AND river_job_id=$2 AND state='queued'`, a.RunID, riverJobID); err != nil {
+		return "", err
 	}
 	var runState string
 	if err := w.Pool.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
-		return err
+		return "", err
 	}
-	if runState == "cancelled" {
-		return nil
-	}
-	defer func() {
-		if workErr == nil {
-			return
-		}
-		failureCtx := context.WithoutCancel(ctx)
-		message := safeAnalysisError(workErr)
-		recordFailure := func(operation string, recordErr error) {
-			if recordErr != nil {
-				workErr = errors.Join(workErr, fmt.Errorf("record analysis failure in %s: %w", operation, recordErr))
-			}
-		}
-		_, recordErr := w.Pool.Exec(failureCtx, `UPDATE analysis_runs SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,last_error=CASE WHEN state='cancelled' THEN last_error ELSE $3 END,updated_at=now(),completed_at=CASE WHEN state='cancelled' THEN completed_at ELSE now() END WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, a.OwnerID, a.RunID, message)
-		recordFailure("analysis run", recordErr)
-		_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_run_attempts SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,error=CASE WHEN state='cancelled' THEN error ELSE $3 END,finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running','completed')`, a.RunID, job.ID, message)
-		recordFailure("analysis attempt", recordErr)
-		_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_jobs SET error=$3,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, message)
-		recordFailure("analysis job", recordErr)
-		details, marshalErr := json.Marshal(map[string]any{"run_id": a.RunID, "attempt": a.Attempt, "error": message})
-		if marshalErr != nil {
-			recordFailure("analysis failure history encoding", marshalErr)
-			return
-		}
-		_, recordErr = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'analysis','failed',$2,now())`, a.OwnerID, details)
-		recordFailure("analysis failure history", recordErr)
-	}()
-	if runState == "completed" {
-		if err := w.generateSelection(ctx, a, job.ID, "", nil); err != nil {
-			return err
-		}
-		return w.publishCompletedRun(ctx, a, job.ID)
-	}
+	return runState, nil
+}
 
+// recordSnapshotFailure records one failed snapshot run across the run, its
+// attempt, the analysis job, and processing history. Any recording failure is
+// joined onto the original work error.
+func (w *Worker) recordSnapshotFailure(ctx context.Context, workErr error, a JobArgs, riverJobID int64) error {
+	failureCtx := context.WithoutCancel(ctx)
+	message := safeAnalysisError(workErr)
+	recordFailure := func(operation string, recordErr error) {
+		if recordErr != nil {
+			workErr = errors.Join(workErr, fmt.Errorf("record analysis failure in %s: %w", operation, recordErr))
+		}
+	}
+	_, recordErr := w.Pool.Exec(failureCtx, `UPDATE analysis_runs SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,last_error=CASE WHEN state='cancelled' THEN last_error ELSE $3 END,updated_at=now(),completed_at=CASE WHEN state='cancelled' THEN completed_at ELSE now() END WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, a.OwnerID, a.RunID, message)
+	recordFailure("analysis run", recordErr)
+	_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_run_attempts SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,error=CASE WHEN state='cancelled' THEN error ELSE $3 END,finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running','completed')`, a.RunID, riverJobID, message)
+	recordFailure("analysis attempt", recordErr)
+	_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_jobs SET error=$3,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, message)
+	recordFailure("analysis job", recordErr)
+	details, marshalErr := json.Marshal(map[string]any{"run_id": a.RunID, "attempt": a.Attempt, "error": message})
+	if marshalErr != nil {
+		recordFailure("analysis failure history encoding", marshalErr)
+		return workErr
+	}
+	_, recordErr = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'analysis','failed',$2,now())`, a.OwnerID, details)
+	recordFailure("analysis failure history", recordErr)
+	return workErr
+}
+
+// fetchSnapshotWork validates that the run still points at the current source
+// revision, then loads and selects the units the analyzer runs on.
+func (w *Worker) fetchSnapshotWork(ctx context.Context, a JobArgs) (snapshotPlan, error) {
 	var valid bool
 	if err := w.Pool.QueryRow(ctx, `SELECT EXISTS(
 			SELECT 1 FROM analysis_runs r JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id
@@ -1105,31 +1126,37 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 			WHERE r.id=$1 AND r.owner_id=$2 AND r.source_material_id=$3 AND r.content_revision_id=$4 AND r.snapshot_id=$5
 			  AND s.current_content_revision_id=r.content_revision_id AND s.current_snapshot_id=r.snapshot_id AND rev.content_digest=$6
 		)`, a.RunID, a.OwnerID, a.SourceMaterialID, a.ContentRevisionID, a.SnapshotID, a.ContentHash).Scan(&valid); err != nil {
-		return err
+		return snapshotPlan{}, err
 	}
 	if !valid {
-		return errors.New("the source content revision is no longer current")
+		return snapshotPlan{}, errors.New("the source content revision is no longer current")
 	}
 	if err := requireDependencyParsing(ctx, w.Capabilities, a.Language); err != nil {
-		return err
+		return snapshotPlan{}, err
 	}
 	allUnits, err := loadSnapshotUnits(ctx, w.Pool, a.OwnerID, a.SourceMaterialID, a.ContentRevisionID, a.SnapshotID)
 	if err != nil {
-		return err
+		return snapshotPlan{}, err
 	}
 	decision := identifyMainText(allUnits)
 	selectedUnits := allUnits
 	if a.ConfigIdentity == mainTextConfigIdentity {
 		selectedUnits = selectedSnapshotUnits(allUnits, decision.SelectedUnitIDs)
 	}
-	inputs := make([]struct{ id, identifier, title, text string }, 0, len(selectedUnits))
+	inputs := make([]snapshotDocumentInput, 0, len(selectedUnits))
 	for _, unit := range selectedUnits {
 		identifier := unit.ResolvedHref
 		if identifier == "" {
 			identifier = unit.SourceHref
 		}
-		inputs = append(inputs, struct{ id, identifier, title, text string }{unit.UnitID, identifier, unit.Title, unit.Text})
+		inputs = append(inputs, snapshotDocumentInput{id: unit.UnitID, identifier: identifier, title: unit.Title, text: unit.Text})
 	}
+	return snapshotPlan{decision: decision, totalUnits: len(allUnits), selectedUnits: len(selectedUnits), inputs: inputs}, nil
+}
+
+// analyzeSnapshotWork runs the analyzer over every chunk and derives the
+// artifact identity, shared lemmas, and statistics from the merged result.
+func (w *Worker) analyzeSnapshotWork(ctx context.Context, a JobArgs, inputs []snapshotDocumentInput) (snapshotAnalysis, error) {
 	var merged analyzer.Result
 	totalChunks := 0
 	for _, input := range inputs {
@@ -1142,7 +1169,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 		for i, chunk := range chunks {
 			chunkResult, analyzeErr := w.Analyzer.Analyze(ctx, analyzer.AnalyzeRequest{Language: a.Language, Document: analyzer.SourceDocument{ID: input.id, SourceIdentifier: input.identifier, Title: input.title, Text: chunk}})
 			if analyzeErr != nil {
-				return fmt.Errorf("snapshot analysis failed: %w", analyzeErr)
+				return snapshotAnalysis{}, fmt.Errorf("snapshot analysis failed: %w", analyzeErr)
 			}
 			if completedChunks == 0 {
 				merged = chunkResult
@@ -1158,77 +1185,129 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 			completedChunks++
 			progress := 10 + completedChunks*80/totalChunks
 			if _, updateErr := w.Pool.Exec(ctx, `UPDATE analysis_jobs SET progress=$2,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, a.OwnerID, progress, a.RunID); updateErr != nil {
-				return updateErr
+				return snapshotAnalysis{}, updateErr
 			}
 		}
 	}
 	artifactHash := normalizedArtifactHash(a.ContentHash, "", a.AnalysisIdentity, a.AnalyzerName, a.AnalyzerVersion, a.ConfigIdentity, merged)
 	lemmas, err := aggregateLemmas(artifactHash, merged)
 	if err != nil {
-		return fmt.Errorf("aggregate analyzed lemmas: %w", err)
+		return snapshotAnalysis{}, fmt.Errorf("aggregate analyzed lemmas: %w", err)
 	}
-	statistics := selection.AnalyzableStatistics(merged, selection.DefaultConfig(""))
-	artifact := domain.NormalizedArtifact{ContentHash: artifactHash, Language: merged.Language, SchemaVersion: merged.SchemaVersion, NormalizationProfile: merged.NormalizationProfile.Name, NormalizationVersion: merged.NormalizationProfile.Version, AnalyzerName: merged.Analysis.AnalyzerName, AnalyzerVersion: merged.Analysis.AnalyzerVersion}
+	return snapshotAnalysis{
+		result:     merged,
+		lemmas:     lemmas,
+		statistics: selection.AnalyzableStatistics(merged, selection.DefaultConfig("")),
+		artifact:   domain.NormalizedArtifact{ContentHash: artifactHash, Language: merged.Language, SchemaVersion: merged.SchemaVersion, NormalizationProfile: merged.NormalizationProfile.Name, NormalizationVersion: merged.NormalizationProfile.Version, AnalyzerName: merged.Analysis.AnalyzerName, AnalyzerVersion: merged.Analysis.AnalyzerVersion},
+	}, nil
+}
+
+// persistSnapshotWork writes the analyzed corpus in one transaction. proceed is
+// false when the run was cancelled or completed concurrently, so the caller
+// must not finalize it.
+func (w *Worker) persistSnapshotWork(ctx context.Context, a JobArgs, plan snapshotPlan, analyzed snapshotAnalysis) (corpusID string, proceed bool, err error) {
 	tx, err := w.Pool.Begin(ctx)
 	if err != nil {
-		return err
+		return "", false, err
 	}
-	defer func() { workErr = errors.Join(workErr, txcleanup.Rollback(ctx, tx)) }()
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	var runState string
 	if err := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
-		return err
+		return "", false, err
 	}
 	if runState == "cancelled" || runState == "completed" {
-		return nil
+		return "", false, nil
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(content_hash) DO NOTHING`, artifact.ContentHash, artifact.Language, artifact.SchemaVersion, artifact.NormalizationProfile, artifact.NormalizationVersion, artifact.AnalyzerName, artifact.AnalyzerVersion); err != nil {
-		return err
+	if _, err = tx.Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(content_hash) DO NOTHING`, analyzed.artifact.ContentHash, analyzed.artifact.Language, analyzed.artifact.SchemaVersion, analyzed.artifact.NormalizationProfile, analyzed.artifact.NormalizationVersion, analyzed.artifact.AnalyzerName, analyzed.artifact.AnalyzerVersion); err != nil {
+		return "", false, err
 	}
-	for _, lemma := range lemmas {
+	for _, lemma := range analyzed.lemmas {
 		if _, err = tx.Exec(ctx, `INSERT INTO shared_lemmas(content_hash,language,canonical_lemma,upos,morphology,frequency) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(content_hash,canonical_lemma,upos,morphology) DO UPDATE SET frequency=excluded.frequency`, lemma.ContentHash, lemma.Language, lemma.CanonicalLemma, lemma.UPOS, lemma.Morphology, lemma.Frequency); err != nil {
-			return err
+			return "", false, err
 		}
 	}
-	profile := statistics.TextProfile
-	var corpusID string
+	profile := analyzed.statistics.TextProfile
 	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count)
 		VALUES($1,$2,$3,$4::uuid,'complete',$5,$6,$7,$8,$9,$10,$11,$12)
-		ON CONFLICT(owner_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO NOTHING RETURNING id::text`, a.OwnerID, a.SourceMaterialID, artifactHash, a.RunID, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
+		ON CONFLICT(owner_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO NOTHING RETURNING id::text`, a.OwnerID, a.SourceMaterialID, analyzed.artifact.ContentHash, a.RunID, analyzed.statistics.AnalyzableTokenCount, analyzed.statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if err := tx.QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
-			return err
+			return "", false, err
 		}
 	} else if err != nil {
-		return err
+		return "", false, err
 	}
-	if err := persistNormalizedCorpus(ctx, tx, a.OwnerID, merged.Language, a.RunID, corpusID, merged); err != nil {
-		return err
+	if err := persistNormalizedCorpus(ctx, tx, a.OwnerID, analyzed.result.Language, a.RunID, corpusID, analyzed.result); err != nil {
+		return "", false, err
 	}
-	details, err := analysisHistoryDetails(a, decision, len(allUnits), len(selectedUnits))
+	details, err := analysisHistoryDetails(a, plan.decision, plan.totalUnits, plan.selectedUnits)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'analysis','complete',$3,now())`, a.OwnerID, corpusID, details); err != nil {
-		return err
+		return "", false, err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$3::uuid,last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state<>'cancelled'`, a.OwnerID, a.RunID, corpusID); err != nil {
-		return err
+		return "", false, err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$3::uuid,progress=100,error='',updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, corpusID); err != nil {
-		return err
+		return "", false, err
 	}
 	// The run lock is acquired before the owner/book lock for every snapshot
 	// completion. The book lock serializes replacement of one book's pointer.
 	var bookID string
 	if err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN source_materials s ON s.owner_id=b.owner_id AND s.book_id=b.id AND s.owner_id=$1 AND s.id=$2 WHERE b.owner_id=$1 FOR UPDATE OF b`, a.OwnerID, a.SourceMaterialID).Scan(&bookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return err
+		return "", false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
+		return "", false, err
+	}
+	return corpusID, true, nil
+}
+
+// selectSnapshotRun generates the candidate selection for a persisted corpus
+// and publishes the completed run. A completed run reloads its corpus from
+// persisted evidence instead of the in-memory result.
+func (w *Worker) selectSnapshotRun(ctx context.Context, a JobArgs, riverJobID int64, corpusID string, result *analyzer.Result) error {
+	if err := w.generateSelection(ctx, a, riverJobID, corpusID, result); err != nil {
 		return err
 	}
-	if err := w.generateSelection(ctx, a, job.ID, corpusID, &merged); err != nil {
+	return w.publishCompletedRun(ctx, a, riverJobID)
+}
+
+func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
+	a := job.Args
+	runState, err := w.beginSnapshotRun(ctx, a, job.ID)
+	if err != nil {
 		return err
 	}
-	return w.publishCompletedRun(ctx, a, job.ID)
+	if runState == "cancelled" {
+		return nil
+	}
+	defer func() {
+		if workErr != nil {
+			workErr = w.recordSnapshotFailure(ctx, workErr, a, job.ID)
+		}
+	}()
+	if runState == "completed" {
+		return w.selectSnapshotRun(ctx, a, job.ID, "", nil)
+	}
+	plan, err := w.fetchSnapshotWork(ctx, a)
+	if err != nil {
+		return err
+	}
+	analyzed, err := w.analyzeSnapshotWork(ctx, a, plan.inputs)
+	if err != nil {
+		return err
+	}
+	corpusID, proceed, err := w.persistSnapshotWork(ctx, a, plan, analyzed)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return nil
+	}
+	return w.selectSnapshotRun(ctx, a, job.ID, corpusID, &analyzed.result)
 }
 
 func (w *Worker) generateSelection(ctx context.Context, args JobArgs, riverJobID int64, corpusID string, result *analyzer.Result) error {
@@ -1413,9 +1492,18 @@ const (
 	normalizedCorpusTokenInsertBatchSize    = 4_000
 )
 
+// persistNormalizedCorpus writes the normalized sentences and then the tokens
+// they contain, in the caller's transaction.
 func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, result analyzer.Result) error {
-	for start := 0; start < len(result.Sentences); start += normalizedCorpusSentenceInsertBatchSize {
-		end := min(start+normalizedCorpusSentenceInsertBatchSize, len(result.Sentences))
+	if err := insertCorpusSentences(ctx, tx, ownerID, runID, corpusID, result.Sentences); err != nil {
+		return err
+	}
+	return insertCorpusTokens(ctx, tx, ownerID, language, runID, corpusID, result.Sentences)
+}
+
+func insertCorpusSentences(ctx context.Context, tx pgx.Tx, ownerID, runID, corpusID string, sentences []analyzer.Sentence) error {
+	for start := 0; start < len(sentences); start += normalizedCorpusSentenceInsertBatchSize {
+		end := min(start+normalizedCorpusSentenceInsertBatchSize, len(sentences))
 		var query strings.Builder
 		query.WriteString(`INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES `)
 		args := make([]any, 0, (end-start)*8)
@@ -1423,7 +1511,7 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 			if ordinal > start {
 				query.WriteString(",")
 			}
-			sentence := result.Sentences[ordinal]
+			sentence := sentences[ordinal]
 			startOffset, offsetErr := checked.Int64FromUint64(sentence.Location.StartOffset)
 			if offsetErr != nil {
 				return fmt.Errorf("persist normalized corpus sentence %d: start offset overflows bigint: %w", ordinal, offsetErr)
@@ -1440,7 +1528,10 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 			return err
 		}
 	}
+	return nil
+}
 
+func insertCorpusTokens(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, sentences []analyzer.Sentence) error {
 	var query strings.Builder
 	var args []any
 	tokenCount := 0
@@ -1456,7 +1547,7 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 		tokenCount = 0
 		return nil
 	}
-	for sentenceOrdinal, sentence := range result.Sentences {
+	for sentenceOrdinal, sentence := range sentences {
 		for tokenOrdinal, token := range sentence.Tokens {
 			if token.Dependency == "" {
 				return fmt.Errorf("persist normalized corpus token %d in sentence %d: dependency is required", tokenOrdinal, sentenceOrdinal)
