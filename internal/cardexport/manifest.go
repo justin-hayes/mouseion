@@ -357,52 +357,106 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 }
 
 func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalManifestItem, error) {
-	entry := item.Entry
-	if strings.TrimSpace(entry.OwnerID) != "" || entry.Translation != "" || entry.SentenceTranslation != "" || entry.SentenceTranslationTarget != "" || strings.TrimSpace(entry.Language) == "" || strings.TrimSpace(entry.CanonicalLemma) == "" || strings.TrimSpace(entry.UPOS) == "" || entry.UPOS != strings.ToUpper(entry.UPOS) {
-		return canonicalManifestItem{}, fmt.Errorf("%w: invalid or external manifest entry fields", ErrInvalidInput)
+	if err := validateManifestEntry(item.Entry); err != nil {
+		return canonicalManifestItem{}, err
 	}
 	if item.Disposition != ManifestAccepted && item.Disposition != ManifestQualityOmitted {
 		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest disposition", ErrInvalidInput)
 	}
-	if item.Quality.Accepted != (item.Disposition == ManifestAccepted) {
-		return canonicalManifestItem{}, fmt.Errorf("%w: disposition contradicts quality decision", ErrInvalidInput)
+	if err := validateManifestQuality(item, schemaVersion); err != nil {
+		return canonicalManifestItem{}, err
 	}
-	if item.Quality.Score < 0 || item.Quality.Score > 110 || len(item.Quality.Reasons) > 16 {
-		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest quality result", ErrInvalidInput)
-	}
-	if schemaVersion >= ManifestSchemaVersionV4 && (math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1) {
-		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest GDEX score", ErrInvalidInput)
-	}
-	for _, reason := range item.Quality.Reasons {
-		if _, ok := manifestQualityReasons[reason]; !ok {
-			return canonicalManifestItem{}, fmt.Errorf("%w: unknown manifest quality reason", ErrInvalidInput)
-		}
-	}
-	if entry.TargetWord != testedEntryTarget(entry) {
+	if item.Entry.TargetWord != testedEntryTarget(item.Entry) {
 		return canonicalManifestItem{}, fmt.Errorf("%w: manifest target is not canonical", ErrInvalidInput)
 	}
 	var key *canonicalCacheKey
 	if item.CacheKey != nil {
-		// Legacy v1 manifests persisted cache keys with an empty target
-		// language (it was never part of the v1 digest). The normalized
-		// storage projection may carry the database default, which is also
-		// ignored by the v1 codec.
-		targetOK := item.CacheKey.TargetLanguage != ""
-		if schemaVersion == LegacyManifestSchemaVersion {
-			targetOK = true
+		canonicalKey, err := canonicalizeManifestCacheKey(item, schemaVersion)
+		if err != nil {
+			return canonicalManifestItem{}, err
 		}
-		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (schemaVersion >= ManifestSchemaVersionV4 && item.CacheKey.DictionaryProviderVersion != entry.DictionaryProviderVersion) || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) || (schemaVersion >= ManifestSchemaVersionV8 && item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(entry.CandidateSenses)) {
-			return canonicalManifestItem{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)
-		}
-		key = &canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
-		if schemaVersion >= ManifestSchemaVersionV8 {
-			key.MeaningEvidenceHash = item.CacheKey.MeaningEvidenceHash
+		key = &canonicalKey
+	}
+	entryCanonical, err := canonicalizeManifestEntry(item.Entry, schemaVersion)
+	if err != nil {
+		return canonicalManifestItem{}, err
+	}
+	return canonicalManifestItem{
+		Ordinal: item.Ordinal, Disposition: item.Disposition,
+		Entry:    entryCanonical,
+		Quality:  canonicalizeManifestQuality(item.Quality, schemaVersion),
+		CacheKey: key,
+	}, nil
+}
+
+// validateManifestEntry rejects owner-scoped or external fields and requires the
+// provider-independent identity fields to be present and canonical.
+func validateManifestEntry(entry Entry) error {
+	if strings.TrimSpace(entry.OwnerID) != "" || entry.Translation != "" || entry.SentenceTranslation != "" || entry.SentenceTranslationTarget != "" || strings.TrimSpace(entry.Language) == "" || strings.TrimSpace(entry.CanonicalLemma) == "" || strings.TrimSpace(entry.UPOS) == "" || entry.UPOS != strings.ToUpper(entry.UPOS) {
+		return fmt.Errorf("%w: invalid or external manifest entry fields", ErrInvalidInput)
+	}
+	return nil
+}
+
+// validateManifestQuality requires the accepted flag to agree with the
+// disposition, bounds the score and reason count, applies the schema-versioned
+// GDEX bound, and rejects reasons outside the fixed vocabulary.
+func validateManifestQuality(item ManifestItem, schemaVersion int) error {
+	if item.Quality.Accepted != (item.Disposition == ManifestAccepted) {
+		return fmt.Errorf("%w: disposition contradicts quality decision", ErrInvalidInput)
+	}
+	if item.Quality.Score < 0 || item.Quality.Score > 110 || len(item.Quality.Reasons) > 16 {
+		return fmt.Errorf("%w: invalid manifest quality result", ErrInvalidInput)
+	}
+	if schemaVersion >= ManifestSchemaVersionV4 && (math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1) {
+		return fmt.Errorf("%w: invalid manifest GDEX score", ErrInvalidInput)
+	}
+	for _, reason := range item.Quality.Reasons {
+		if _, ok := manifestQualityReasons[reason]; !ok {
+			return fmt.Errorf("%w: unknown manifest quality reason", ErrInvalidInput)
 		}
 	}
-	quality := canonicalSentenceQuality{Accepted: item.Quality.Accepted, Score: item.Quality.Score, Reasons: append([]string(nil), item.Quality.Reasons...)}
+	return nil
+}
+
+// canonicalizeManifestCacheKey validates the frozen cache identity against the
+// manifest entry and returns its canonical form. The target language is ignored
+// by the legacy v1 codec because that codec never persisted it. The dictionary
+// identity, sentence hash, and meaning-evidence hash are enforced only once
+// their schema version introduced them.
+func canonicalizeManifestCacheKey(item ManifestItem, schemaVersion int) (canonicalCacheKey, error) {
+	entry := item.Entry
+	// Legacy v1 manifests persisted cache keys with an empty target language
+	// (it was never part of the v1 digest). The normalized storage projection
+	// may carry the database default, which is also ignored by the v1 codec.
+	targetOK := item.CacheKey.TargetLanguage != ""
+	if schemaVersion == LegacyManifestSchemaVersion {
+		targetOK = true
+	}
+	if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (schemaVersion >= ManifestSchemaVersionV4 && item.CacheKey.DictionaryProviderVersion != entry.DictionaryProviderVersion) || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) || (schemaVersion >= ManifestSchemaVersionV8 && item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(entry.CandidateSenses)) {
+		return canonicalCacheKey{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)
+	}
+	key := canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
+	if schemaVersion >= ManifestSchemaVersionV8 {
+		key.MeaningEvidenceHash = item.CacheKey.MeaningEvidenceHash
+	}
+	return key, nil
+}
+
+// canonicalizeManifestQuality copies the quality result, adding the GDEX score
+// only for schemas that persist it.
+func canonicalizeManifestQuality(quality SentenceQuality, schemaVersion int) canonicalSentenceQuality {
+	canonical := canonicalSentenceQuality{Accepted: quality.Accepted, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)}
 	if schemaVersion >= ManifestSchemaVersionV4 {
-		quality.GDEXScore = item.Quality.GDEXScore
+		canonical.GDEXScore = quality.GDEXScore
 	}
+	return canonical
+}
+
+// canonicalizeManifestEntry copies the render inputs that each schema version
+// persists, enforcing the bounded candidate-sense and non-negative omitted
+// evidence counts introduced by v6 and v7.
+func canonicalizeManifestEntry(entry Entry, schemaVersion int) (canonicalEntry, error) {
 	entryCanonical := canonicalEntry{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Sentence: entry.Sentence, TargetWord: entry.TargetWord, Morphology: entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes, FirstEncounter: entry.FirstEncounter}
 	if schemaVersion >= ManifestSchemaVersionV4 {
 		entryCanonical.Gloss = entry.Gloss
@@ -415,22 +469,17 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	}
 	if schemaVersion >= ManifestSchemaVersionV6 {
 		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
-			return canonicalManifestItem{}, fmt.Errorf("%w: too many manifest candidate senses", ErrInvalidInput)
+			return canonicalEntry{}, fmt.Errorf("%w: too many manifest candidate senses", ErrInvalidInput)
 		}
 		entryCanonical.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses)
 	}
 	if schemaVersion >= ManifestSchemaVersionV7 {
 		if entry.OmittedEvidenceCount < 0 {
-			return canonicalManifestItem{}, fmt.Errorf("%w: invalid omitted evidence count", ErrInvalidInput)
+			return canonicalEntry{}, fmt.Errorf("%w: invalid omitted evidence count", ErrInvalidInput)
 		}
 		entryCanonical.OmittedEvidenceCount = entry.OmittedEvidenceCount
 	}
-	return canonicalManifestItem{
-		Ordinal: item.Ordinal, Disposition: item.Disposition,
-		Entry:    entryCanonical,
-		Quality:  quality,
-		CacheKey: key,
-	}, nil
+	return entryCanonical, nil
 }
 
 func cloneManifestItems(items []ManifestItem) []ManifestItem {
