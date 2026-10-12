@@ -36,11 +36,8 @@ func renderAPKG(ctx context.Context, deckName string, notes []Note, description 
 	// The artifact is already buffered in memory; removal has no recovery path.
 	//nolint:errcheck // Temporary-file removal is documented best-effort cleanup.
 	defer os.Remove(f.Name())
-	collection, err := buildCollection(ctx, f, deckName, notes, description)
-	if closeErr := f.Close(); closeErr != nil {
-		err = errors.Join(err, closeErr)
-	}
-	if err != nil {
+	collection, buildErr := buildCollection(ctx, f, deckName, notes, description)
+	if err := errors.Join(buildErr, f.Close()); err != nil {
 		return nil, err
 	}
 
@@ -73,10 +70,7 @@ func buildCollection(ctx context.Context, f *os.File, deckName string, notes []N
 	if err != nil {
 		return nil, err
 	}
-	if err := writeCollection(ctx, db, deckName, notes, description); err != nil {
-		return nil, errors.Join(err, db.Close())
-	}
-	if err := db.Close(); err != nil {
+	if err := errors.Join(writeCollection(ctx, db, deckName, notes, description), db.Close()); err != nil {
 		return nil, err
 	}
 	return io.ReadAll(f)
