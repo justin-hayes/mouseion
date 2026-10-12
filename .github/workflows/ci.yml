@@ -245,6 +245,34 @@ jobs:
       - name: Go integration test
         run: make test-integration
 
+  govulncheck:
+    name: Go vulnerability check
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.go == 'true') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Fail when change detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # govulncheck is pinned through the tool directive in go.mod, so this
+      # uses the same version and result set as a local `make vuln`. It downloads
+      # the vulnerability database, so it needs the runner's network.
+      - name: Go vulnerability check
+        run: make vuln
+
   # Builds the commit-matched fixture server once per run attempt for the browser
   # shards. It needs only the checkout, so shards never wait for the Go, Python,
   # lint, or integration jobs, and it does no work unless browser checks are required.

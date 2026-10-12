@@ -5,12 +5,14 @@ How to build, test, and change Mouseion. For running an installation, see the
 
 ## Toolchain
 
-- Go 1.27
+- Go 1.27.2
 - Python 3.13, pinned in `nlp/pyproject.toml`, the NLP image, and CI (3.14 needs
   a grpcio upgrade: the pinned grpcio 1.71.2 has no 3.14 wheels)
 - Protobuf compiler 29.x for regenerating the shared contract (`protoc-gen-go`
   and `protoc-gen-go-grpc` run from `go.mod` tool directives, with no install step)
 - templ `v0.3.1070` (run from the `go.mod` tool directive, with no install step)
+- govulncheck for call-reachable vulnerability scanning (`make vuln`; run from
+  the `go.mod` tool directive, with no install step)
 - Docker, for Testcontainers-based integration tests
 - Node.js 20, only for the Playwright browser suite
 
@@ -52,6 +54,7 @@ with `golangci-lint fmt ./...` and `.venv/bin/ruff format nlp/src nlp/tests`.
 | `make coverage-new` | `make coverage`, then previews SonarQube Cloud's 80% new-code coverage gate for the lines changed since `origin/main` and lists the uncovered ones |
 | `make test-integration` | PostgreSQL-backed Go integration tests |
 | `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check` and `ruff format --check` |
+| `make vuln` | govulncheck over the whole module: fails on call-reachable vulnerabilities in dependencies or in the Go standard library and toolchain. CI runs it on Go changes |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
 | `make dev` | Run the web server (needs PostgreSQL and the NLP service) |
 | `make gen` | Regenerate protobuf code from `proto/` |
@@ -278,14 +281,19 @@ writing SQL, and keep data-only backfills separate from structural DDL
 
 CI runs on ephemeral GitHub-hosted `ubuntu-24.04` runners, so pull requests
 from forks never execute on maintainer infrastructure. The build, lint,
-integration, and browser-smoke jobs run in parallel; the Go unit-test step in
-"Build and test" runs under the race detector through `make test-go RACE=1`.
-Browser smoke is split across four Playwright shards behind a single
-`Browser smoke` check. Shards run the suite in a digest-pinned Playwright image
-that already contains the browsers
-and their system libraries, so they do not install APT packages or download
-browsers ([e2e/README.md](../e2e/README.md) describes the pin and its coupling
-to the locked `@playwright/test` version). Each job
+vulnerability, integration, and browser-smoke jobs run in parallel; the Go
+unit-test step in "Build and test" runs under the race detector through
+`make test-go RACE=1`. The `Go vulnerability check` job runs `make vuln`
+(govulncheck) over the whole module on every Go change, so a call-reachable
+vulnerability in a dependency or in the Go standard library or toolchain fails
+the change. A finding fixed only in a newer Go release is cleared by raising the
+`go` directive in `go.mod` and the `golang:` tag in the `Dockerfile` together
+(Manual bumps), not by ignoring the report. Browser smoke is split across four
+Playwright shards behind a single `Browser smoke` check. Shards run the suite in
+a digest-pinned Playwright image that already contains the browsers and their
+system libraries, so they do not install APT packages or download browsers
+([e2e/README.md](../e2e/README.md) describes the pin and its coupling to the
+locked `@playwright/test` version). Each job
 starts from a clean machine and restores Go, uv, npm, and golangci-lint
 dependencies from GitHub Actions caches keyed on the corresponding lock files.
 A `changes` job classifies each pull request once and gates the other jobs on
@@ -303,7 +311,7 @@ check. "Build and test" runs the Go steps for `go`, the Python steps for
 `python`, and the regeneration checks for `generated`; `frontend` adds the
 stylesheet check.
 
-| Change | Build and test | Go lint and integration | Browser smoke |
+| Change | Build and test | Go lint, vulnerability, and integration | Browser smoke |
 | --- | --- | --- | --- |
 | Documentation (`doc/**`, `*.md`, `CITATION.cff`, `LICENSE`, `SECURITY.md`) | skipped | skipped | skipped |
 | Screenshot project (`e2e/screenshot/**`) | skipped | skipped | skipped |
@@ -473,7 +481,10 @@ one by hand, then regenerate and verify as listed.
   `Dockerfile`, and the `golang` ignore rule's `>= 1.28` bound in
   `dependabot.yml`): raise all three together. CI reads `go.mod`, so it follows
   without a separate edit. Move the `>= 1.28` bound up with the image, so the
-  `docker` ecosystem can propose the next one.
+  `docker` ecosystem can propose the next one. A `make vuln` finding that is
+  fixed only in a newer Go release, in the standard library or toolchain, is
+  cleared the same way; a patch raise (for example 1.27.0 to 1.27.2) leaves both
+  the `>= 1.28` bound and the image's minor line unchanged.
 - **sqlc** (`SQLC_VERSION` in the `Makefile`, `sqlc-version` in the
   `sqlc-dev/setup-sqlc` step of `ci.yml`): change both, then run `make sqlc` and
   review the `gen/sqlc` diff against the query change.
