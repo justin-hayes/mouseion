@@ -321,8 +321,8 @@ func (w *BatchPollWorker) recordTerminalBatchMetrics(batch enrichment.Batch, upd
 	if batch.Status == enrichment.BatchStatusCompleted {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRequests, Phase: "reconciling", State: "completed", Provider: "openai", Value: float64(successes)})
 	}
-	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageInputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.InputTokens)})
-	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageOutputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.OutputTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageInputCount, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.InputTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageOutputCount, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.OutputTokens)})
 }
 
 // batchProviderResultCounts mirrors OpenAI's request_counts semantics: a

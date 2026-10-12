@@ -154,7 +154,7 @@ func pngIsAnimated(raw []byte) (bool, error) {
 			return false, ErrMalformed
 		}
 		chunkLength := binary.BigEndian.Uint32(raw[offset : offset+4])
-		if uint64(chunkLength) > uint64(len(raw)-offset-12) { //nolint:gosec // the slice length is non-negative and bounded by raw.
+		if int64(chunkLength) > int64(len(raw)-offset-12) {
 			return false, ErrMalformed
 		}
 		chunkType := raw[offset+4 : offset+8]

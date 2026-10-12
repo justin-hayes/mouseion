@@ -101,8 +101,8 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	providerLatency := w.now().Sub(started)
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchRequests, Phase: "provider", State: "completed", Provider: "openai", Value: 1})
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderRequestLatency, Phase: "provider", State: "completed", Provider: "openai", Value: seconds(providerLatency)})
-	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageInputTokens, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.PromptTokens)})
-	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageOutputTokens, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.CompletionTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageInputCount, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.PromptTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageOutputCount, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.CompletionTokens)})
 	if callErr != nil {
 		class, code, retryable := classifyStandardProviderError(callErr, ctx)
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderErrors, Phase: "provider", State: "failed", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
