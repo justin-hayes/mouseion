@@ -39,7 +39,7 @@ type Querier interface {
 	ClaimPreparedDeckBatchReconciliation(ctx context.Context, arg ClaimPreparedDeckBatchReconciliationParams) (DeckPreparationBatchChunk, error)
 	ClaimPreparedDeckBatchSubmission(ctx context.Context, arg ClaimPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
 	ClaimPreparedDeckFinalization(ctx context.Context, arg ClaimPreparedDeckFinalizationParams) (ClaimPreparedDeckFinalizationRow, error)
-	ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (ClaimPreparedDeckTranslationOutcomeRow, error)
+	ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	ClearBookCover(ctx context.Context, arg ClearBookCoverParams) error
 	CompleteDeckPreparation(ctx context.Context, arg CompleteDeckPreparationParams) (DeckPreparation, error)
 	CompletePreparedDeckBatchCacheHits(ctx context.Context, arg CompletePreparedDeckBatchCacheHitsParams) (int64, error)
@@ -90,7 +90,7 @@ type Querier interface {
 	FinishPreparedDeckBatchCleanup(ctx context.Context, arg FinishPreparedDeckBatchCleanupParams) (DeckPreparationBatchChunk, error)
 	FinishPreparedDeckBatchReconciliation(ctx context.Context, arg FinishPreparedDeckBatchReconciliationParams) (DeckPreparationBatchChunk, error)
 	FinishPreparedDeckBatchSubmission(ctx context.Context, arg FinishPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
-	FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (FinishPreparedDeckTranslationOutcomeRow, error)
+	FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	GetActiveBookCoverResource(ctx context.Context, arg GetActiveBookCoverResourceParams) (GetActiveBookCoverResourceRow, error)
 	GetActiveCurrentReadingSnapshotForPreparation(ctx context.Context, arg GetActiveCurrentReadingSnapshotForPreparationParams) (GetActiveCurrentReadingSnapshotForPreparationRow, error)
 	GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error)
@@ -330,7 +330,7 @@ type Querier interface {
 	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
 	RecordBookCoverGenerationFailure(ctx context.Context, arg RecordBookCoverGenerationFailureParams) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
-	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (RedispatchPreparedDeckTranslationOutcomeRow, error)
+	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	RefreshBookCoverAdvertisement(ctx context.Context, arg RefreshBookCoverAdvertisementParams) error
 	RegisterBookCoverCandidate(ctx context.Context, arg RegisterBookCoverCandidateParams) (int64, error)
 	ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error
@@ -342,7 +342,7 @@ type Querier interface {
 	RetireDeckPreparationForSnapshot(ctx context.Context, arg RetireDeckPreparationForSnapshotParams) error
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error
 	RetryPreparedDeckBatchSubmission(ctx context.Context, arg RetryPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
-	RetryPreparedDeckTranslationOutcome(ctx context.Context, arg RetryPreparedDeckTranslationOutcomeParams) (RetryPreparedDeckTranslationOutcomeRow, error)
+	RetryPreparedDeckTranslationOutcome(ctx context.Context, arg RetryPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	SaveBookCover(ctx context.Context, arg SaveBookCoverParams) error
 	// Sentence selection and review queries. SelectAcquisitionCandidate is the
 	// static replacement for the runtime string-concatenated acquisition query:

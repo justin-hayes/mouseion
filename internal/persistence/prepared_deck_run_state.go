@@ -22,7 +22,7 @@ func (s *PostgresStore) GetPreparedDeckTranslationOutcome(ctx context.Context, o
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, missing(err)
 	}
-	return preparedDeckOutcomeFromModel(model)
+	return preparedDeckOutcomeFromModel(model), nil
 }
 
 func (s *PostgresStore) ListPreparedDeckTranslationOutcomes(ctx context.Context, owner, preparationID, runID string) ([]domain.PreparedDeckTranslationOutcome, error) {
@@ -34,11 +34,7 @@ func (s *PostgresStore) ListPreparedDeckTranslationOutcomes(ctx context.Context,
 	}
 	var outcomes []domain.PreparedDeckTranslationOutcome
 	for _, model := range models {
-		outcome, convertErr := preparedDeckOutcomeFromModel(model)
-		if convertErr != nil {
-			return nil, convertErr
-		}
-		outcomes = append(outcomes, outcome)
+		outcomes = append(outcomes, preparedDeckOutcomeFromModel(model))
 	}
 	if outcomes == nil {
 		exists, existsErr := s.queries().PreparedDeckRunExists(ctx, sqlcgen.PreparedDeckRunExistsParams{

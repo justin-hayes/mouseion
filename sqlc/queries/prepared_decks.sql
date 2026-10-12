@@ -31,7 +31,7 @@ WHERE o.owner_id = $1
   AND r.id = o.run_id
   AND r.state = 'translating'
   AND r.translation_state IN ('pending', 'running')
-RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.omission_reason, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at;
+RETURNING o.*;
 
 -- name: RetryPreparedDeckTranslationOutcome :one
 UPDATE deck_preparation_translation_outcomes o
@@ -60,7 +60,7 @@ WHERE o.owner_id = $1
   AND r.id = o.run_id
   AND r.state = 'translating'
   AND r.translation_state IN ('pending', 'running')
-RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.omission_reason, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at;
+RETURNING o.*;
 
 -- name: RedispatchPreparedDeckTranslationOutcome :one
 UPDATE deck_preparation_translation_outcomes o
@@ -86,7 +86,7 @@ WHERE o.owner_id = $1
   AND r.preparation_id = o.preparation_id
   AND r.id = o.run_id
   AND r.state = 'translating'
-RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.omission_reason, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at;
+RETURNING o.*;
 
 -- name: FinishPreparedDeckTranslationOutcome :one
 UPDATE deck_preparation_translation_outcomes
@@ -111,7 +111,7 @@ WHERE owner_id = $1
   AND dispatch_generation = $5
   AND claim_token = $6
   AND state = 'running'
-RETURNING owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, omission_reason, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at;
+RETURNING *;
 
 -- name: ClaimPreparedDeckFinalization :one
 UPDATE deck_preparation_runs r
