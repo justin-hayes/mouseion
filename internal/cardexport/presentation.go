@@ -143,21 +143,42 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 	if p == nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, ErrInvalidInput
 	}
+	ordered, err := orderedProjections(owner, deckName, projections)
+	if err != nil {
+		return FrozenDeck{}, FreezeDiagnostics{}, err
+	}
+	entries, err := freezeEntries(ctx, p.lexical, ordered)
+	if err != nil {
+		return FrozenDeck{}, FreezeDiagnostics{}, err
+	}
+	coverage := glossCoverage(entries)
+	frozen, err := bindFrozenCacheKeys(newManifest(owner, deckName, entries), ordered)
+	if err != nil {
+		return FrozenDeck{}, FreezeDiagnostics{}, err
+	}
+	diagnostics := manifestDiagnostics(frozen)
+	diagnostics.GlossCoverage = cloneGlossCoverage(coverage)
+	return FrozenDeck{manifest: frozen.clone()}, diagnostics, nil
+}
+
+// orderedProjections validates the explicit owner and deck name against the
+// candidate projections, then returns them in stable first-encounter order.
+func orderedProjections(owner, deckName string, projections []CandidateProjection) ([]CandidateProjection, error) {
 	ordered := append([]CandidateProjection(nil), projections...)
 	if len(ordered) > 0 {
 		projectionOwner, projectionDeckName, err := projectionHeader(ordered)
 		if err != nil {
-			return FrozenDeck{}, FreezeDiagnostics{}, err
+			return nil, err
 		}
 		if strings.TrimSpace(owner) == "" || owner != projectionOwner {
-			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: explicit owner contradicts candidate projections", ErrInvalidInput)
+			return nil, fmt.Errorf("%w: explicit owner contradicts candidate projections", ErrInvalidInput)
 		}
 		if strings.TrimSpace(deckName) == "" || deckName != projectionDeckName {
-			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: explicit deck name contradicts candidate projections", ErrInvalidInput)
+			return nil, fmt.Errorf("%w: explicit deck name contradicts candidate projections", ErrInvalidInput)
 		}
 	}
 	if strings.TrimSpace(owner) == "" || strings.TrimSpace(deckName) == "" {
-		return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: freeze requires owner and deck name", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: freeze requires owner and deck name", ErrInvalidInput)
 	}
 	sort.SliceStable(ordered, func(i, j int) bool {
 		if ordered[i].Candidate.FirstEncounter != ordered[j].Candidate.FirstEncounter {
@@ -165,48 +186,56 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 		}
 		return candidateKey(ordered[i].Candidate) < candidateKey(ordered[j].Candidate)
 	})
+	return ordered, nil
+}
 
-	resolver := &lexicalResolver{lexical: p.lexical}
+// freezeEntries turns each projection into a render entry: it clones the entry,
+// clears external fields, applies the frozen sentence decision and resolves
+// local lexical facts.
+func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, ordered []CandidateProjection) ([]Entry, error) {
+	resolver := &lexicalResolver{lexical: lexical}
 	entries := make([]Entry, 0, len(ordered))
 	for _, projection := range ordered {
 		entry := cloneEntry(projection.Entry)
 		clearExternalFields(&entry)
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
 		if err := resolver.resolveLexicalEntry(ctx, &entry); err != nil {
-			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: resolve lexical entry %s: %w", ErrInvalidInput, candidateKey(projection.Candidate), err)
+			return nil, fmt.Errorf("%w: resolve lexical entry %s: %w", ErrInvalidInput, candidateKey(projection.Candidate), err)
 		}
 		entries = append(entries, entry)
 	}
-	coverage := glossCoverage(entries)
-	manifest := newManifest(owner, deckName, entries)
-	if provider, version, target, err := projectionProvider(ordered); err != nil {
-		return FrozenDeck{}, FreezeDiagnostics{}, err
-	} else if provider != "" {
-		keys := make([]enrichment.CacheKey, len(manifest.enrichmentCandidatesProjection()))
-		contextualGlossByCandidate := make(map[string]bool, len(ordered))
-		for _, projection := range ordered {
-			contextualGlossByCandidate[candidateKey(projection.Candidate)] = projection.RequireContextualGloss
+	return entries, nil
+}
+
+// bindFrozenCacheKeys gives an externally enriched manifest its exact cache
+// identities. A manifest without a provider keeps no cache keys.
+func bindFrozenCacheKeys(built manifest, ordered []CandidateProjection) (manifest, error) {
+	provider, version, target, err := projectionProvider(ordered)
+	if err != nil {
+		return manifest{}, err
+	}
+	if provider == "" {
+		return built, nil
+	}
+	candidates := built.enrichmentCandidatesProjection()
+	keys := make([]enrichment.CacheKey, len(candidates))
+	contextualGlossByCandidate := make(map[string]bool, len(ordered))
+	for _, projection := range ordered {
+		contextualGlossByCandidate[candidateKey(projection.Candidate)] = projection.RequireContextualGloss
+	}
+	for i, candidate := range candidates {
+		keys[i] = enrichment.CacheKey{
+			Language: candidate.Language, TargetLanguage: target,
+			CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS),
+			Provider: provider, ProviderVersion: version,
+			DictionaryProviderVersion: candidate.DictionaryProviderVersion,
+			SentenceHash:              enrichment.SentenceHash(candidate.ExampleSentence),
 		}
-		for i, candidate := range manifest.enrichmentCandidatesProjection() {
-			keys[i] = enrichment.CacheKey{
-				Language: candidate.Language, TargetLanguage: target,
-				CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS),
-				Provider: provider, ProviderVersion: version,
-				DictionaryProviderVersion: candidate.DictionaryProviderVersion,
-				SentenceHash:              enrichment.SentenceHash(candidate.ExampleSentence),
-			}
-			if contextualGlossByCandidate[candidate.Language+"\x00"+candidate.CanonicalLemma+"\x00"+candidate.UPOS] {
-				keys[i].MeaningEvidenceHash = enrichment.MeaningEvidenceHash(candidate.CandidateSenses)
-			}
-		}
-		manifest, err = manifest.bindCacheKeys(keys)
-		if err != nil {
-			return FrozenDeck{}, FreezeDiagnostics{}, err
+		if contextualGlossByCandidate[candidate.Language+"\x00"+candidate.CanonicalLemma+"\x00"+candidate.UPOS] {
+			keys[i].MeaningEvidenceHash = enrichment.MeaningEvidenceHash(candidate.CandidateSenses)
 		}
 	}
-	diagnostics := manifestDiagnostics(manifest)
-	diagnostics.GlossCoverage = cloneGlossCoverage(coverage)
-	return FrozenDeck{manifest: manifest.clone()}, diagnostics, nil
+	return built.bindCacheKeys(keys)
 }
 
 // Restore validates a durable projection with its historical schema codec and
@@ -250,28 +279,40 @@ func applyRecoveredRenderInputs(manifest *manifest, recovered []RecoveredRenderI
 			return fmt.Errorf("%w: duplicate recovered render input %d", ErrInvalidInput, input.ManifestOrdinal)
 		}
 		seen[input.ManifestOrdinal] = struct{}{}
-		decisionIndex := -1
-		for index, decision := range manifest.decisions {
-			if decision.Ordinal == input.ManifestOrdinal {
-				decisionIndex = index
-				break
-			}
-		}
-		acceptedIndex, accepted := acceptedIndexes[input.ManifestOrdinal]
-		if decisionIndex < 0 || !accepted || manifest.decisions[decisionIndex].Disposition != ManifestAccepted {
-			return fmt.Errorf("%w: recovered render input %d is not accepted", ErrInvalidInput, input.ManifestOrdinal)
-		}
-		decision := manifest.decisions[decisionIndex]
-		if input.Sentence != decision.Entry.Sentence || strings.TrimSpace(input.Sentence) == "" || len(input.SentenceTokens) == 0 {
-			return fmt.Errorf("%w: recovered render input %d does not match the manifest", ErrInvalidInput, input.ManifestOrdinal)
-		}
-		if len(decision.Entry.SentenceTokens) > 0 {
-			return fmt.Errorf("%w: render input %d is already present", ErrInvalidInput, input.ManifestOrdinal)
+		decisionIndex, acceptedIndex, err := matchRecoveredRenderInput(manifest, input, acceptedIndexes)
+		if err != nil {
+			return err
 		}
 		manifest.decisions[decisionIndex].Entry.SentenceTokens = cloneTokens(input.SentenceTokens)
 		manifest.accepted[acceptedIndex].SentenceTokens = cloneTokens(input.SentenceTokens)
 	}
 	return nil
+}
+
+// matchRecoveredRenderInput locates the accepted decision a recovered render
+// input belongs to. It rejects an input whose ordinal is unknown, omitted or
+// duplicated, whose sentence disagrees with the manifest, or that is already
+// present.
+func matchRecoveredRenderInput(manifest *manifest, input RecoveredRenderInput, acceptedIndexes map[int]int) (decisionIndex, acceptedIndex int, err error) {
+	decisionIndex = -1
+	for index, decision := range manifest.decisions {
+		if decision.Ordinal == input.ManifestOrdinal {
+			decisionIndex = index
+			break
+		}
+	}
+	acceptedIndex, accepted := acceptedIndexes[input.ManifestOrdinal]
+	if decisionIndex < 0 || !accepted || manifest.decisions[decisionIndex].Disposition != ManifestAccepted {
+		return -1, -1, fmt.Errorf("%w: recovered render input %d is not accepted", ErrInvalidInput, input.ManifestOrdinal)
+	}
+	decision := manifest.decisions[decisionIndex]
+	if input.Sentence != decision.Entry.Sentence || strings.TrimSpace(input.Sentence) == "" || len(input.SentenceTokens) == 0 {
+		return -1, -1, fmt.Errorf("%w: recovered render input %d does not match the manifest", ErrInvalidInput, input.ManifestOrdinal)
+	}
+	if len(decision.Entry.SentenceTokens) > 0 {
+		return -1, -1, fmt.Errorf("%w: render input %d is already present", ErrInvalidInput, input.ManifestOrdinal)
+	}
+	return decisionIndex, acceptedIndex, nil
 }
 
 func (d FrozenDeck) StorageProjection() StorageProjection {
@@ -447,19 +488,19 @@ func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredR
 		meaningOmissions: make([]MeaningOmission, 0),
 	}
 	for i, key := range keys {
-		stored, found := byKey[key]
-		if !found {
-			if required {
-				return finalizeAlignment{}, fmt.Errorf("%w: required enrichment result is missing", ErrInvalidInput)
+		stored, err := storedResultFor(key, byKey, required)
+		if err != nil {
+			return finalizeAlignment{}, err
+		}
+		if stored.OmissionReason != "" {
+			omission, err := unresolvedOmission(stored, manifest.accepted[i].TargetWord)
+			if err != nil {
+				return finalizeAlignment{}, err
 			}
-			stored = StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key}}
-		} else if stored.OmissionReason != "" {
-			if stored.Record.Translation != "" || stored.Record.SentenceTranslation != "" || stored.Record.FallbackGloss != "" {
-				return finalizeAlignment{}, fmt.Errorf("%w: unresolved result includes translation fields", ErrInvalidInput)
-			}
-			alignment.meaningOmissions = append(alignment.meaningOmissions, MeaningOmission{Target: manifest.accepted[i].TargetWord, Reason: stored.OmissionReason})
+			alignment.meaningOmissions = append(alignment.meaningOmissions, omission)
 			continue
-		} else if required && (!storedRecordHasRequiredFields(stored.Record, manifest.accepted[i]) || (contextualIdentity && strings.TrimSpace(stored.Record.FallbackGloss) == "")) {
+		}
+		if requiredResultIncomplete(stored, manifest.accepted[i], required, contextualIdentity) {
 			return finalizeAlignment{}, fmt.Errorf("%w: required enrichment result is incomplete", ErrInvalidInput)
 		}
 		alignment.enrichments = append(alignment.enrichments, exactEnrichmentFromStoredResult(stored, manifest, i))
@@ -470,6 +511,41 @@ func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredR
 		return finalizeAlignment{}, ErrAllMeaningsUnresolved
 	}
 	return alignment, nil
+}
+
+// storedResultFor resolves the exact stored result for one frozen key. A missing
+// result is an error when the run requires one and an empty placeholder
+// otherwise.
+func storedResultFor(key enrichment.CacheKey, byKey map[enrichment.CacheKey]StoredResult, required bool) (StoredResult, error) {
+	stored, found := byKey[key]
+	if found {
+		return stored, nil
+	}
+	if required {
+		return StoredResult{}, fmt.Errorf("%w: required enrichment result is missing", ErrInvalidInput)
+	}
+	return StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key}}, nil
+}
+
+// unresolvedOmission converts an explicitly unresolved stored result into a
+// meaning omission, rejecting one that still carries translation fields.
+func unresolvedOmission(stored StoredResult, target string) (MeaningOmission, error) {
+	if stored.Record.Translation != "" || stored.Record.SentenceTranslation != "" || stored.Record.FallbackGloss != "" {
+		return MeaningOmission{}, fmt.Errorf("%w: unresolved result includes translation fields", ErrInvalidInput)
+	}
+	return MeaningOmission{Target: target, Reason: stored.OmissionReason}, nil
+}
+
+// requiredResultIncomplete reports whether a stored result lacks fields the run
+// requires, including the contextual Gloss a contextual identity demands.
+func requiredResultIncomplete(stored StoredResult, entry RenderInput, required, contextualIdentity bool) bool {
+	if !required {
+		return false
+	}
+	if !storedRecordHasRequiredFields(stored.Record, entry) {
+		return true
+	}
+	return contextualIdentity && strings.TrimSpace(stored.Record.FallbackGloss) == ""
 }
 
 // externalResultRequirements reports whether a missing stored result is an error
@@ -486,25 +562,10 @@ func externalResultRequirements(keys []enrichment.CacheKey, facts RunFacts) (req
 func projectionHeader(projections []CandidateProjection) (string, string, error) {
 	owner, deckName := "", ""
 	for _, projection := range projections {
-		candidateOwner := projection.OwnerID
-		if candidateOwner == "" {
-			candidateOwner = projection.Candidate.OwnerID
-		}
-		if candidateOwner == "" {
-			candidateOwner = projection.Entry.OwnerID
-		}
-		if owner == "" {
-			owner = candidateOwner
-		} else if candidateOwner != "" && owner != candidateOwner {
+		if !accumulateProjectionField(&owner, projectionOwner(projection)) {
 			return "", "", fmt.Errorf("%w: candidate projections have different owners", ErrInvalidInput)
 		}
-		candidateDeck := strings.TrimSpace(projection.DeckName)
-		if candidateDeck == "" {
-			candidateDeck = strings.TrimSpace(projection.Entry.SourceDocument)
-		}
-		if deckName == "" {
-			deckName = candidateDeck
-		} else if candidateDeck != "" && deckName != candidateDeck {
+		if !accumulateProjectionField(&deckName, projectionDeckName(projection)) {
 			return "", "", fmt.Errorf("%w: candidate projections have different deck names", ErrInvalidInput)
 		}
 	}
@@ -512,6 +573,39 @@ func projectionHeader(projections []CandidateProjection) (string, string, error)
 		return "", "", fmt.Errorf("%w: candidate projections require owner and deck name", ErrInvalidInput)
 	}
 	return owner, deckName, nil
+}
+
+// accumulateProjectionField keeps the first non-empty value and reports false
+// when a later non-empty value disagrees with it.
+func accumulateProjectionField(current *string, candidate string) bool {
+	if candidate == "" || *current == candidate {
+		return true
+	}
+	if *current == "" {
+		*current = candidate
+		return true
+	}
+	return false
+}
+
+// projectionOwner resolves the owner a projection declares, preferring its
+// explicit owner and falling back to the candidate then entry identity.
+func projectionOwner(projection CandidateProjection) string {
+	for _, candidate := range []string{projection.OwnerID, projection.Candidate.OwnerID, projection.Entry.OwnerID} {
+		if candidate != "" {
+			return candidate
+		}
+	}
+	return ""
+}
+
+// projectionDeckName resolves the deck name a projection declares, preferring
+// its explicit name and falling back to its source document.
+func projectionDeckName(projection CandidateProjection) string {
+	if name := strings.TrimSpace(projection.DeckName); name != "" {
+		return name
+	}
+	return strings.TrimSpace(projection.Entry.SourceDocument)
 }
 
 func projectionProvider(projections []CandidateProjection) (string, string, string, error) {

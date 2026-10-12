@@ -3,6 +3,7 @@ package cardexport_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -731,6 +732,182 @@ func TestPresentationLifecycleRejectsIneligibleContextualGloss(t *testing.T) {
 	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house stands there today.", FallbackGloss: "<unsafe>"}
 	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{})
 	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+}
+
+type failingLexicalProvider struct{}
+
+func (failingLexicalProvider) Name() string    { return "failing" }
+func (failingLexicalProvider) Version() string { return "failing-v1" }
+func (failingLexicalProvider) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+	return enrichment.LexicalEntry{}, false, errors.New("lookup failed")
+}
+
+// TestPresentationLifecycleRejectsNilPresentation pins the receiver guard shared
+// by freeze and restore.
+func TestPresentationLifecycleRejectsNilPresentation(t *testing.T) {
+	t.Run("freeze", func(t *testing.T) {
+		var presentation *cardexport.Presentation
+		_, _, err := presentation.Freeze(t.Context(), "owner-1", "Book", nil)
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+	t.Run("restore", func(t *testing.T) {
+		var presentation *cardexport.Presentation
+		_, err := presentation.Restore(cardexport.ManifestSnapshot{})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+}
+
+// TestPresentationLifecycleRejectsInvalidFreezeHeaders pins the header rules
+// that guard freezing: explicit identity must agree with the projections, the
+// projections must agree with each other, and external enrichment must declare
+// a provider version. Splitting freeze into named steps must not change which
+// request is rejected or the message that names the rule.
+func TestPresentationLifecycleRejectsInvalidFreezeHeaders(t *testing.T) {
+	otherOwner := lifecycleProjection()
+	otherOwner.OwnerID = "other-owner"
+	otherDeck := lifecycleProjection()
+	otherDeck.DeckName = "Other Book"
+	otherProviderVersion := lifecycleProjection()
+	otherProviderVersion.ProviderVersion = "prompt-v2"
+	headerless := lifecycleProjection()
+	headerless.OwnerID = ""
+	headerless.Candidate.OwnerID = ""
+	headerless.Entry.OwnerID = ""
+	providerless := lifecycleProjection()
+	providerless.Provider = ""
+	versionless := lifecycleProjection()
+	versionless.ProviderVersion = ""
+
+	tests := []struct {
+		name        string
+		owner, deck string
+		projections []cardexport.CandidateProjection
+		want        string
+	}{
+		{name: "explicit owner contradicts", owner: "other-owner", deck: "Book", projections: []cardexport.CandidateProjection{lifecycleProjection()}, want: "explicit owner contradicts candidate projections"},
+		{name: "explicit deck name contradicts", owner: "owner-1", deck: "Other Book", projections: []cardexport.CandidateProjection{lifecycleProjection()}, want: "explicit deck name contradicts candidate projections"},
+		{name: "missing owner", owner: "", deck: "Book", projections: nil, want: "freeze requires owner and deck name"},
+		{name: "missing deck name", owner: "owner-1", deck: "  ", projections: nil, want: "freeze requires owner and deck name"},
+		{name: "different owners", owner: "owner-1", deck: "Book", projections: []cardexport.CandidateProjection{lifecycleProjection(), otherOwner}, want: "candidate projections have different owners"},
+		{name: "different deck names", owner: "owner-1", deck: "Book", projections: []cardexport.CandidateProjection{lifecycleProjection(), otherDeck}, want: "candidate projections have different deck names"},
+		{name: "missing projection header", owner: "owner-1", deck: "Book", projections: []cardexport.CandidateProjection{headerless}, want: "candidate projections require owner and deck name"},
+		{name: "provider mismatch", owner: "owner-1", deck: "Book", projections: []cardexport.CandidateProjection{lifecycleProjection(), otherProviderVersion}, want: "candidate projections have different enrichment providers"},
+		{name: "provider version without provider", owner: "owner-1", deck: "Book", projections: []cardexport.CandidateProjection{providerless}, want: "enrichment provider version has no provider"},
+		{name: "provider version required", owner: "owner-1", deck: "Book", projections: []cardexport.CandidateProjection{versionless}, want: "enrichment provider version is required"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), test.owner, test.deck, test.projections)
+			require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+			require.ErrorContains(t, err, test.want)
+		})
+	}
+}
+
+// TestPresentationLifecycleProjectsHeaderFromFallbackFields pins the owner and
+// deck fallbacks used when a projection omits its explicit header.
+func TestPresentationLifecycleProjectsHeaderFromFallbackFields(t *testing.T) {
+	tests := []struct {
+		name, owner, deck string
+		mutate            func(*cardexport.CandidateProjection)
+	}{
+		{
+			name: "candidate owner fallback", owner: "candidate-owner", deck: "Fallback Book",
+			mutate: func(projection *cardexport.CandidateProjection) {
+				projection.OwnerID = ""
+				projection.Candidate.OwnerID = "candidate-owner"
+				projection.Entry.OwnerID = "entry-owner"
+				projection.DeckName = ""
+				projection.Entry.SourceDocument = "Fallback Book"
+			},
+		},
+		{
+			name: "entry owner fallback", owner: "entry-owner", deck: "Entry Book",
+			mutate: func(projection *cardexport.CandidateProjection) {
+				projection.OwnerID = ""
+				projection.Candidate.OwnerID = ""
+				projection.Entry.OwnerID = "entry-owner"
+				projection.DeckName = ""
+				projection.Entry.SourceDocument = "Entry Book"
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			projection := lifecycleProjection()
+			test.mutate(&projection)
+			deck, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), test.owner, test.deck, []cardexport.CandidateProjection{projection})
+			require.NoError(t, err)
+			stored := deck.StorageProjection()
+			assert.Equal(t, test.owner, stored.Owner)
+			assert.Equal(t, test.deck, stored.DeckName)
+		})
+	}
+}
+
+// TestPresentationLifecycleReportsLexicalLookupFailure pins the freeze step that
+// resolves local lexical facts: a provider failure names the candidate.
+func TestPresentationLifecycleReportsLexicalLookupFailure(t *testing.T) {
+	_, _, err := cardexport.NewPresentation(failingLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	require.ErrorContains(t, err, "resolve lexical entry")
+}
+
+// TestPresentationLifecycleRejectsInvalidRecoveredRenderInputs pins the rules
+// that match a recovered render input to its accepted decision. Separating
+// matching from applying must not change which input is rejected or the message.
+func TestPresentationLifecycleRejectsInvalidRecoveredRenderInputs(t *testing.T) {
+	sentence := "Das Haus steht heute dort."
+	tokens := []analyzer.Token{{Surface: "Das", Dependency: "det", Head: 2}}
+	valid := cardexport.RecoveredRenderInput{ManifestOrdinal: 0, Sentence: sentence, SentenceTokens: tokens}
+
+	t.Run("nil presentation", func(t *testing.T) {
+		var presentation *cardexport.Presentation
+		_, err := presentation.RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{valid})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	})
+
+	t.Run("duplicate ordinal", func(t *testing.T) {
+		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{valid, valid})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+		require.ErrorContains(t, err, "duplicate recovered render input 0")
+	})
+
+	t.Run("unknown ordinal", func(t *testing.T) {
+		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{{ManifestOrdinal: 7, Sentence: sentence, SentenceTokens: tokens}})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+		require.ErrorContains(t, err, "recovered render input 7 is not accepted")
+	})
+
+	t.Run("omitted ordinal", func(t *testing.T) {
+		snapshot := lifecycleRestoreSnapshot()
+		snapshot.Items[0].Disposition = cardexport.ManifestQualityOmitted
+		snapshot.Items[0].Quality = cardexport.SentenceQuality{Accepted: false, Score: 1, Reasons: []string{"too short or fragmented"}}
+		snapshot.Items[0].CacheKey = nil
+		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(snapshot, []cardexport.RecoveredRenderInput{valid})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+		require.ErrorContains(t, err, "is not accepted")
+	})
+
+	t.Run("sentence mismatch", func(t *testing.T) {
+		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{{ManifestOrdinal: 0, Sentence: "Anders.", SentenceTokens: tokens}})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+		require.ErrorContains(t, err, "does not match the manifest")
+	})
+
+	t.Run("missing tokens", func(t *testing.T) {
+		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{{ManifestOrdinal: 0, Sentence: sentence}})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+		require.ErrorContains(t, err, "does not match the manifest")
+	})
+
+	t.Run("already present", func(t *testing.T) {
+		snapshot := lifecycleRestoreSnapshot()
+		snapshot.Items[0].Entry.SentenceTokens = tokens
+		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(snapshot, []cardexport.RecoveredRenderInput{valid})
+		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+		require.ErrorContains(t, err, "is already present")
+	})
 }
 
 func lifecycleRestoreSnapshot() cardexport.ManifestSnapshot {

@@ -311,41 +311,22 @@ type canonicalCacheKey struct {
 }
 
 func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
-		return canonicalSnapshot{}, fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
+	if err := s.validateHeader(); err != nil {
+		return canonicalSnapshot{}, err
 	}
 	result := canonicalSnapshot{SchemaVersion: s.SchemaVersion, Owner: s.Owner, DeckName: s.DeckName, Filename: s.Filename, Items: make([]canonicalManifestItem, len(s.Items))}
 	seen := make(map[string]struct{}, len(s.Items))
 	acceptedWithKey, acceptedWithoutKey := 0, 0
 	for i, item := range s.Items {
-		if item.Ordinal != i {
-			return canonicalSnapshot{}, fmt.Errorf("%w: manifest ordinal %d is not contiguous", ErrInvalidInput, item.Ordinal)
-		}
-		canonical, err := canonicalizeManifestItem(item, s.SchemaVersion)
-		if err != nil {
-			return canonicalSnapshot{}, fmt.Errorf("manifest item %d: %w", i, err)
-		}
-		if s.SchemaVersion == LegacyManifestSchemaVersion && canonical.CacheKey != nil {
-			canonical.CacheKey.TargetLanguage = ""
-		}
-		// Candidate digests include the ordinal because the persisted identity is
-		// order-sensitive. Duplicate validation must ignore that position so a
-		// candidate cannot be repeated at a different ordinal.
-		identity := item
-		identity.Ordinal = 0
-		digest, err := CandidateDigestVersion(identity, s.SchemaVersion)
+		canonical, cacheKeyPresent, err := canonicalizeSnapshotItem(item, i, s.SchemaVersion, seen)
 		if err != nil {
 			return canonicalSnapshot{}, err
 		}
-		if _, exists := seen[digest]; exists {
-			return canonicalSnapshot{}, fmt.Errorf("%w: duplicate manifest candidate", ErrInvalidInput)
-		}
-		seen[digest] = struct{}{}
 		if item.Disposition == ManifestAccepted {
-			if item.CacheKey == nil {
-				acceptedWithoutKey++
-			} else {
+			if cacheKeyPresent {
 				acceptedWithKey++
+			} else {
+				acceptedWithoutKey++
 			}
 		}
 		result.Items[i] = canonical
@@ -354,6 +335,45 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 		return canonicalSnapshot{}, fmt.Errorf("%w: accepted manifest cache identity is partial", ErrInvalidInput)
 	}
 	return result, nil
+}
+
+// validateHeader rejects a snapshot whose schema version is unknown or whose
+// owner and deck identity are missing or inconsistent with the download name.
+func (s ManifestSnapshot) validateHeader() error {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
+	}
+	return nil
+}
+
+// canonicalizeSnapshotItem validates one ordered decision, records its
+// position-independent identity in seen, and returns its canonical form. The
+// second result reports whether an accepted item carries a cache key.
+func canonicalizeSnapshotItem(item ManifestItem, ordinal, schemaVersion int, seen map[string]struct{}) (canonicalManifestItem, bool, error) {
+	if item.Ordinal != ordinal {
+		return canonicalManifestItem{}, false, fmt.Errorf("%w: manifest ordinal %d is not contiguous", ErrInvalidInput, item.Ordinal)
+	}
+	canonical, err := canonicalizeManifestItem(item, schemaVersion)
+	if err != nil {
+		return canonicalManifestItem{}, false, fmt.Errorf("manifest item %d: %w", ordinal, err)
+	}
+	if schemaVersion == LegacyManifestSchemaVersion && canonical.CacheKey != nil {
+		canonical.CacheKey.TargetLanguage = ""
+	}
+	// Candidate digests include the ordinal because the persisted identity is
+	// order-sensitive. Duplicate validation must ignore that position so a
+	// candidate cannot be repeated at a different ordinal.
+	identity := item
+	identity.Ordinal = 0
+	digest, err := CandidateDigestVersion(identity, schemaVersion)
+	if err != nil {
+		return canonicalManifestItem{}, false, err
+	}
+	if _, exists := seen[digest]; exists {
+		return canonicalManifestItem{}, false, fmt.Errorf("%w: duplicate manifest candidate", ErrInvalidInput)
+	}
+	seen[digest] = struct{}{}
+	return canonical, item.CacheKey != nil, nil
 }
 
 func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalManifestItem, error) {
