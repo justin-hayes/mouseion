@@ -48,10 +48,20 @@ fi
 
 mode="${1:-}"
 if [[ "$mode" != unit && "$mode" != integration ]]; then
-	printf 'Usage: %s {unit|integration} [package ...]\n       %s clean\n' "$0" "$0" >&2
+	printf 'Usage: %s {unit|integration} [-race] [package ...]\n       %s clean\n' "$0" "$0" >&2
 	exit 2
 fi
 shift
+
+# The Makefile's RACE switch passes -race through so a CI race failure can be
+# reproduced locally with the same command. The guard keeps the expansion safe
+# under `set -u` when the array is empty.
+race=()
+if [[ "${1:-}" == -race ]]; then
+	race=(-race)
+	shift
+fi
+
 packages=("$@")
 if [[ ${#packages[@]} -eq 0 ]]; then
 	if [[ "$mode" == integration ]]; then
@@ -70,7 +80,7 @@ cleanup_run() {
 trap cleanup_run EXIT
 
 if [[ "$mode" == integration ]]; then
-	GOTMPDIR="$run_dir" go test -count=1 -tags=integration "${packages[@]}"
+	GOTMPDIR="$run_dir" go test -count=1 -tags=integration ${race[@]+"${race[@]}"} "${packages[@]}"
 else
-	GOTMPDIR="$run_dir" go test "${packages[@]}"
+	GOTMPDIR="$run_dir" go test ${race[@]+"${race[@]}"} "${packages[@]}"
 fi

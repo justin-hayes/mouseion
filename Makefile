@@ -13,6 +13,12 @@ SQLC ?= sqlc
 SQLC_VERSION := v1.31.1
 MOUSEION_TEST_PG_PORT ?= 55432
 MOUSEION_TEST_PACKAGES ?= ./internal/...
+# RACE=1 adds the race detector to the Go test targets (`test`, `test-go`,
+# `test-go-integration`, `test-integration`, and `test-integration-shared`). CI
+# sets it for the unit suite, and the integration-test ticket (#1883) reuses the
+# same switch.
+RACE ?= 0
+RACE_FLAG := $(if $(filter 1 true yes,$(RACE)),-race,)
 DICTIONARY_HOST_DIR ?= dictionary
 DICTIONARY_OUTPUT ?= $(DICTIONARY_HOST_DIR)/dictionary-index.sqlite
 DICTIONARY_DUMP_DATE ?=
@@ -60,27 +66,27 @@ python-test-preflight:
 	}
 
 test: python-test-preflight go-tmp
-	go test ./...
+	go test $(RACE_FLAG) ./...
 	PYTHONPATH=nlp/src:gen/python $(VENV_BIN)/pytest -q nlp/tests
 
 # Targeted Go tests get a per-invocation build temp directory under .tmp, so
 # interrupted runs cannot leave build files in a RAM-backed system temp dir.
 test-go: templ-if-installed
-	tools/go-test.sh unit $(if $(strip $(PACKAGES)),$(PACKAGES),./...)
+	tools/go-test.sh unit $(RACE_FLAG) $(if $(strip $(PACKAGES)),$(PACKAGES),./...)
 
 test-go-integration: templ-if-installed
-	tools/go-test.sh integration $(if $(strip $(PACKAGES)),$(PACKAGES),./internal/...)
+	tools/go-test.sh integration $(RACE_FLAG) $(if $(strip $(PACKAGES)),$(PACKAGES),./internal/...)
 
 go-test-clean:
 	tools/go-test.sh clean
 
 test-integration: go-tmp
-	go test -count=1 -tags=integration ./internal/...
+	go test -count=1 -tags=integration $(RACE_FLAG) ./internal/...
 
 test-integration-shared: go-tmp
 	@set -eu; \
 	if test -n "$${MOUSEION_TEST_DATABASE_URL:-}"; then \
-		go test -count=1 -tags=integration $(MOUSEION_TEST_PACKAGES); \
+		go test -count=1 -tags=integration $(RACE_FLAG) $(MOUSEION_TEST_PACKAGES); \
 		exit; \
 	fi; \
 	container="mouseion-test-postgres-$$$$"; \
@@ -99,7 +105,7 @@ test-integration-shared: go-tmp
 		sleep 1; \
 	done; \
 	if test "$$ready" -ne 1; then docker logs "$$container"; exit 1; fi; \
-	MOUSEION_TEST_DATABASE_URL="$$database_url" go test -count=1 -tags=integration $(MOUSEION_TEST_PACKAGES)
+	MOUSEION_TEST_DATABASE_URL="$$database_url" go test -count=1 -tags=integration $(RACE_FLAG) $(MOUSEION_TEST_PACKAGES)
 
 # Python and Go coverage reports in .tmp/coverage (gitignored). The Python
 # report runs first so it is written before the Go integration run, which needs
