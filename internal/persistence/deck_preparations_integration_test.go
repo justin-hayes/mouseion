@@ -30,19 +30,27 @@ func TestDeckPreparationPersistence(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, created.ID, repeated.ID, "idempotent create")
 	assert.Equal(t, created.Filename, repeated.Filename, "idempotent create")
-	_, err = store.GetDeckPreparation(ctx, bob.ID, created.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner isolation is checked independently from the transition cases below.
-	_, err = store.DownloadDeckPreparation(ctx, alice.ID, created.ID)
-	assert.ErrorIs(t, err, ErrInvalidTransition) //nolint:testifylint // Invalid download and owner-isolation cases are independent.
-	_, err = store.DownloadDeckPreparation(ctx, bob.ID, created.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner isolation is an independent transition boundary check.
+	t.Run("cross-owner detail lookup is rejected", func(t *testing.T) {
+		_, lookupErr := store.GetDeckPreparation(ctx, bob.ID, created.ID)
+		require.ErrorIs(t, lookupErr, ErrNotFound)
+	})
+	t.Run("download of an unready preparation is rejected", func(t *testing.T) {
+		_, downloadErr := store.DownloadDeckPreparation(ctx, alice.ID, created.ID)
+		require.ErrorIs(t, downloadErr, ErrInvalidTransition)
+	})
+	t.Run("cross-owner download is rejected", func(t *testing.T) {
+		_, downloadErr := store.DownloadDeckPreparation(ctx, bob.ID, created.ID)
+		require.ErrorIs(t, downloadErr, ErrNotFound)
+	})
 
 	claimed, err := store.ClaimDeckPreparation(ctx, alice.ID, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationPreparing, claimed.State, "claim")
 	assert.NotNil(t, claimed.StartedAt, "claim")
-	_, err = store.ClaimDeckPreparation(ctx, alice.ID, created.ID)
-	assert.ErrorIs(t, err, ErrInvalidTransition) //nolint:testifylint // Repeated claim is an independent lifecycle rejection case.
+	t.Run("repeated claim is rejected", func(t *testing.T) {
+		_, claimErr := store.ClaimDeckPreparation(ctx, alice.ID, created.ID)
+		require.ErrorIs(t, claimErr, ErrInvalidTransition)
+	})
 	readyInput := domain.DeckPreparation{Artifact: []byte("apkg"), Filename: "book.apkg", DeckName: "Mouseion::de::Book", TotalCards: 4, CardsWithEnglish: 3, CardsWithContextualSentenceTranslations: 2, CardsWithFallbackGloss: 2, QualityOmissions: 1}
 	ready, err := store.CompleteDeckPreparation(ctx, alice.ID, created.ID, readyInput)
 	require.NoError(t, err)
@@ -64,10 +72,14 @@ func TestDeckPreparationPersistence(t *testing.T) {
 	require.NoError(t, err, "idempotent complete")
 	changed := readyInput
 	changed.Artifact = []byte("different")
-	_, err = store.CompleteDeckPreparation(ctx, alice.ID, created.ID, changed)
-	assert.ErrorIs(t, err, ErrImmutable) //nolint:testifylint // Immutable update rejection and invalid retry are independent lifecycle cases.
-	_, err = store.RetryDeckPreparation(ctx, alice.ID, created.ID)
-	assert.ErrorIs(t, err, ErrInvalidTransition) //nolint:testifylint // Immutable update rejection and invalid retry are independent lifecycle cases.
+	t.Run("changed artifact after completion is rejected", func(t *testing.T) {
+		_, changeErr := store.CompleteDeckPreparation(ctx, alice.ID, created.ID, changed)
+		require.ErrorIs(t, changeErr, ErrImmutable)
+	})
+	t.Run("retry after completion is rejected", func(t *testing.T) {
+		_, retryErr := store.RetryDeckPreparation(ctx, alice.ID, created.ID)
+		require.ErrorIs(t, retryErr, ErrInvalidTransition)
+	})
 
 	failed := createPreparation(t, ctx, store, alice.ID, source.ID, "failed-hash")
 	_, err = store.ClaimDeckPreparation(ctx, alice.ID, failed.ID)
@@ -110,15 +122,21 @@ func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.
 	invalid := record("Invalid")
 	invalid.Note.BookTitle = "\x00"
 	bad := cardexport.Artifact{APKG: []byte("bad"), Filename: "bad.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), invalid}, Completeness: cardexport.Completeness{TotalCards: 2}}
-	_, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, bad)
-	assert.Error(t, err, "expected rollback error") //nolint:testifylint // The following queries independently verify rollback completeness.
+	t.Run("invalid artifact completion is rejected", func(t *testing.T) {
+		_, rejectErr := store.CompletePreparedDeck(ctx, owner.ID, p.ID, bad)
+		require.Error(t, rejectErr, "expected rollback error")
+	})
 	var cards, generated int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards)
-	require.NoError(t, err)
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, owner.ID).Scan(&generated)
-	require.NoError(t, err)
-	assert.Zero(t, cards, "partial provenance after failure")
-	assert.Zero(t, generated, "partial provenance after failure")
+	t.Run("rejected completion leaves no partial cards", func(t *testing.T) {
+		err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards)
+		require.NoError(t, err)
+		assert.Zero(t, cards, "partial provenance after failure")
+	})
+	t.Run("rejected completion leaves no partial vocabulary", func(t *testing.T) {
+		err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, owner.ID).Scan(&generated)
+		require.NoError(t, err)
+		assert.Zero(t, generated, "partial provenance after failure")
+	})
 	artifact := cardexport.Artifact{APKG: []byte("apkg"), Filename: "atomic.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), record("Baum")}, Completeness: cardexport.Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 1}}
 	ready, err := store.CompletePreparedDeck(ctx, owner.ID, p.ID, artifact)
 	require.NoError(t, err)
