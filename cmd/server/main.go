@@ -25,7 +25,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -193,7 +192,6 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	batchMetrics := prepareddeck.NewMetricsCollector()
 	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
 	workers := river.NewWorkers()
-	knownvocab.AddWorker(workers, store.Pool())
 	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)

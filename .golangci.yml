@@ -140,12 +140,11 @@ linters:
             - "!**/cmd/server/**"
             - "!**/internal/analysis/**"
             - "!**/internal/cataloguesync/**"
-            - "!**/internal/knownvocab/**"
             - "!**/internal/prepareddeck/**"
             - "!**/internal/testutil/**"
           deny:
             - pkg: github.com/jackc/pgx
-              desc: "ADR 0091 §3: pgx may be imported only by internal/persistence, gen/sqlc, internal/txcleanup, cmd/server, internal/analysis, internal/cataloguesync, internal/knownvocab, internal/prepareddeck and internal/testutil"
+              desc: "ADR 0091 §3: pgx may be imported only by internal/persistence, gen/sqlc, internal/txcleanup, cmd/server, internal/analysis, internal/cataloguesync, internal/prepareddeck and internal/testutil"
         # §5: test-infrastructure packages are for test files only. Files
         # inside the packages themselves are excluded so they may share code
         # with one another; those four paths appear again in the deny list

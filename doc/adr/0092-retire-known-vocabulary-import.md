@@ -1,8 +1,8 @@
 # ADR 0092: Retire known-vocabulary import and delete imported Known vocabulary
 
-Status: **Accepted (implementation pending)** · Date: 2026-10-13 · Author: Justin + OpenCode
+Status: **Accepted** · Date: 2026-10-13 · Author: Justin + OpenCode
 
-Tracked by [issue #2006](https://github.com/justin-hayes/mouseion/issues/2006). Supersedes the known-vocabulary import contract of [ADR 0006](0006-anki-export-import-contracts.md) §3 and the import destination of [ADR 0043](0043-study-languages-derived-settings-removed.md).
+Tracked by [issue #2006](https://github.com/justin-hayes/mouseion/issues/2006); implemented by [#2010](https://github.com/justin-hayes/mouseion/issues/2010). Supersedes the known-vocabulary import contract of [ADR 0006](0006-anki-export-import-contracts.md) §3 and the import destination of [ADR 0043](0043-study-languages-derived-settings-removed.md).
 
 ## Context
 

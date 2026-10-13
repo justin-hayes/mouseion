@@ -205,7 +205,6 @@ queues so a long analysis never blocks catalog sync or deck work.
 | --- | --- | --- |
 | `analysis` | `analyze_corpus`, `rebuild_vocabulary_browse_counts` | Book analysis; cross-book vocabulary count projections |
 | `catalogue_sync` | `catalogue_sync` (periodic per connection), `book_cover` | Metadata-only catalog reconciliation and cover retrieval ([ADR 0041](doc/adr/0041-catalog-sync-metadata-first.md)) |
-| `known_vocabulary` | `import_known_vocabulary` | Lemma-list imports |
 | `prepared_decks` | `prepared_deck`, `prepared_deck_finalize`, `prepared_deck_rerender`, `prepared_deck_reconcile`, `prepared_deck_batch_submit`, `prepared_deck_batch_poll`, `prepared_deck_batch_cleanup` | Deck coordination, finalization, recovery, and Batch lifecycle |
 | `prepared_deck_translation` | `prepared_deck_translation` | Standard per-item translation, with configurable concurrency |
 
@@ -272,7 +271,6 @@ flowchart TB
         analysis[analysis]
         cataloguesync[cataloguesync]
         prepareddeck[prepareddeck]
-        knownvocab[knownvocab]
     end
     subgraph lang[Language and text]
         epub[epub]
@@ -291,7 +289,7 @@ flowchart TB
         persistence[persistence]
         opds[opds]
     end
-    server --> webapp & analysis & cataloguesync & prepareddeck & knownvocab
+    server --> webapp & analysis & cataloguesync & prepareddeck
     fixture --> webapp
     webapp --> webauth --> auth
     webapp --> persistence & lemmarisk
@@ -321,7 +319,6 @@ flowchart TB
 | [`prepareddeck`](internal/prepareddeck) | Durable deck preparation: manifest, translation, finalization |
 | [`cardexport`](internal/cardexport) | Recognition-card rendering and `.apkg` packaging |
 | [`opds`](internal/opds), [`cataloguesync`](internal/cataloguesync), [`bookcover`](internal/bookcover) | OPDS client, metadata sync, and cover retrieval |
-| [`knownvocab`](internal/knownvocab) | Known-vocabulary list imports |
 | [`auth`](internal/auth), [`webauth`](internal/webauth) | Local accounts, Argon2id passwords, sessions |
 | [`webapp`](internal/webapp) | Handlers, templ views, styles, and static assets |
 | [`fixtures`](internal/fixtures) | In-memory data for the browser acceptance suite |
