@@ -740,6 +740,7 @@ def test_pipeline_and_capability_model_version_use_language_configuration() -> N
             "lemma": "gdt_nocharlm",
             "depparse": "gdt_greek-bert",
         },
+        pretrain_dependencies={"lemma": "conll17"},
         model_version="stanza-1.15.0-gdt-accurate",
     )
 
@@ -761,9 +762,40 @@ def test_pipeline_and_capability_model_version_use_language_configuration() -> N
         model_dir=stanza.resources.common.DEFAULT_MODEL_DIR,
         processors=config.processors,
         package=config.package,
+        lemma_pretrain_path=str(
+            Path(stanza.resources.common.DEFAULT_MODEL_DIR) / "el" / "pretrain" / "conll17.pt"
+        ),
         download_method=DownloadMethod.NONE,
         verbose=False,
     )
+
+
+def test_default_languages_build_the_pipeline_without_pretrain_paths() -> None:
+    with patch("mouseion_nlp.producer.stanza.Pipeline") as pipeline:
+        from mouseion_nlp import producer as producer_module
+
+        producer_module._stanza_pipeline.cache_clear()
+        try:
+            Producer().warmup("de")
+            Producer().warmup("it")
+        finally:
+            producer_module._stanza_pipeline.cache_clear()
+
+    (german, italian) = pipeline.call_args_list
+    assert german.kwargs == {
+        "lang": "de",
+        "model_dir": stanza.resources.common.DEFAULT_MODEL_DIR,
+        "processors": "tokenize,pos,lemma,depparse",
+        "download_method": DownloadMethod.NONE,
+        "verbose": False,
+    }
+    assert italian.kwargs == {
+        "lang": "it",
+        "model_dir": stanza.resources.common.DEFAULT_MODEL_DIR,
+        "processors": "tokenize,pos,lemma,depparse",
+        "download_method": DownloadMethod.NONE,
+        "verbose": False,
+    }
 
 
 def test_default_languages_keep_stanza_library_model_version() -> None:

@@ -34,7 +34,7 @@ from huggingface_hub import snapshot_download
 from huggingface_hub.errors import LocalEntryNotFoundError
 from stanza.resources.common import DEFAULT_MODEL_DIR
 
-from .model_config import LanguageModelConfig, model_config_for_language
+from .model_config import LanguageModelConfig, model_config_for_language, stanza_pretrain_path
 from .server import configured_languages
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
@@ -182,6 +182,24 @@ def ensure_external_dependency(dependency: str, external: ExternalModels) -> Non
         external.download(dependency, cache_dir=cache_dir)
 
 
+def ensure_stanza_pretrains(resources_dir: Path, config: LanguageModelConfig) -> None:
+    """Fail if a declared Stanza pretrain is absent after a language download.
+
+    Stanza's ``resources.json`` omits a pretrain dependency for some packages
+    (notably the Greek ``gdt_nocharlm`` lemma), so the file is not guaranteed to
+    be part of the download list. The dependency that does pull it in is the
+    ``pos`` package, so a plain existence check is enough; raising here keeps the
+    marker unwritten and the process non-zero, like a download failure.
+    """
+    for package in (config.pretrain_dependencies or {}).values():
+        pretrain_path = stanza_pretrain_path(resources_dir, config.language, package)
+        if not pretrain_path.exists():
+            raise FileNotFoundError(
+                f"Stanza pretrain '{package}' for language '{config.language}' is missing "
+                f"after download: {pretrain_path}"
+            )
+
+
 def provision(
     resources_dir: Path,
     languages: Iterable[str],
@@ -213,6 +231,7 @@ def provision(
         if config.package is not None:
             kwargs["package"] = config.package
         download(language, **kwargs)
+        ensure_stanza_pretrains(resources_dir, config)
     dependencies = {
         dependency
         for language in plan.provisioned

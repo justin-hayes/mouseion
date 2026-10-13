@@ -19,7 +19,7 @@ from mouseion.v1 import normalized_corpus_pb2
 from stanza.pipeline.core import DownloadMethod
 from stanza.resources.common import DEFAULT_MODEL_DIR
 
-from .model_config import model_config_for_language
+from .model_config import model_config_for_language, stanza_pretrain_path
 
 
 @dataclass(frozen=True)
@@ -125,15 +125,23 @@ GERMAN_SEPARABLE_PREFIXES = frozenset(
 @cache
 def _stanza_pipeline(language: str) -> Any:
     config = model_config_for_language(language)
-    kwargs = {
+    model_dir = os.getenv("STANZA_RESOURCES_DIR", DEFAULT_MODEL_DIR)
+    kwargs: dict[str, Any] = {
         "lang": config.language,
-        "model_dir": os.getenv("STANZA_RESOURCES_DIR", DEFAULT_MODEL_DIR),
+        "model_dir": model_dir,
         "processors": config.processors,
         "download_method": DownloadMethod.NONE,
         "verbose": False,
     }
     if config.package is not None:
         kwargs["package"] = config.package
+    for processor, package in (config.pretrain_dependencies or {}).items():
+        # Stanza declares no pretrain dependency for the Greek lemma package, so
+        # its checkpoint would otherwise fall back to the absolute path from the
+        # training machine. Point the processor at the provisioned copy instead.
+        kwargs[f"{processor}_pretrain_path"] = str(
+            stanza_pretrain_path(model_dir, config.language, package)
+        )
     return stanza.Pipeline(**kwargs)
 
 

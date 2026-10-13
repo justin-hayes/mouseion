@@ -4,10 +4,12 @@ from unittest.mock import patch
 import pytest
 from huggingface_hub.errors import LocalEntryNotFoundError
 
+from mouseion_nlp import provision as provision_module
 from mouseion_nlp.model_config import (
     GREEK_BERT_MODEL,
     LanguageModelConfig,
     model_config_for_language,
+    stanza_pretrain_path,
 )
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
@@ -23,13 +25,27 @@ STANZA_VERSION = "1.15.0"
 
 
 class RecordingDownload:
-    """Stand-in for ``stanza.download`` that records each invocation."""
+    """Stand-in for ``stanza.download`` that records each invocation.
 
-    def __init__(self) -> None:
+    The real download pulls every declared Stanza pretrain as a side effect of
+    the processor dependency graph, so this fake materializes the declared
+    pretrains too (resolving through the provisioner's config hook, so a patched
+    resolver is honored) unless told to omit them.
+    """
+
+    def __init__(self, *, materialize_pretrains: bool = True) -> None:
         self.calls: list[tuple[str, dict]] = []
+        self.materialize_pretrains = materialize_pretrains
 
     def __call__(self, language: str, **kwargs) -> None:
         self.calls.append((language, kwargs))
+        if not self.materialize_pretrains:
+            return
+        config = provision_module.model_config_for_language(language)
+        for package in (config.pretrain_dependencies or {}).values():
+            pretrain_path = stanza_pretrain_path(kwargs["model_dir"], language, package)
+            pretrain_path.parent.mkdir(parents=True, exist_ok=True)
+            pretrain_path.write_text("pretrain", encoding="utf-8")
 
     @property
     def languages(self) -> list[str]:
@@ -71,6 +87,7 @@ def test_empty_directory_provisions_every_configured_language(tmp_path) -> None:
                 "language": "de",
                 "model_version": None,
                 "package": None,
+                "pretrain_dependencies": None,
                 "processors": "tokenize,pos,lemma,depparse",
             },
             {
@@ -78,6 +95,7 @@ def test_empty_directory_provisions_every_configured_language(tmp_path) -> None:
                 "language": "it",
                 "model_version": None,
                 "package": None,
+                "pretrain_dependencies": None,
                 "processors": "tokenize,pos,lemma,depparse",
             },
         ],
@@ -114,6 +132,7 @@ def test_changed_stanza_version_wipes_and_provisions_from_scratch(tmp_path) -> N
     [
         LanguageModelConfig(language="de", processors="tokenize,pos,lemma"),
         LanguageModelConfig(language="de", package="accurate"),
+        LanguageModelConfig(language="de", pretrain_dependencies={"lemma": "conll17"}),
         LanguageModelConfig(language="de", external_model_dependencies=("example/model",)),
     ],
 )
@@ -211,7 +230,27 @@ def test_greek_provisions_stanza_package_and_greekbert(tmp_path) -> None:
     assert external_download.calls == [
         (GREEK_BERT_MODEL, {"cache_dir": str(tmp_path / "huggingface" / "hub")})
     ]
+    assert (tmp_path / "el" / "pretrain" / "conll17.pt").is_file()
     assert read_marker(tmp_path).model_configs == (model_config_for_language("el"),)
+
+
+def test_declared_pretrain_missing_after_download_aborts_without_writing_the_marker(
+    tmp_path,
+) -> None:
+    download = RecordingDownload(materialize_pretrains=False)
+
+    with pytest.raises(FileNotFoundError, match="conll17"):
+        provision(
+            tmp_path,
+            ["el"],
+            stanza_version=STANZA_VERSION,
+            download=download,
+            external=ExternalModels(
+                download=RecordingExternalDownload(), hf_home=tmp_path / "huggingface"
+            ),
+        )
+
+    assert read_marker(tmp_path) is None
 
 
 def test_added_language_downloads_only_the_missing_language(tmp_path) -> None:
@@ -349,6 +388,105 @@ def test_read_marker_ignores_an_invalid_model_package(tmp_path) -> None:
                         "package": 5,
                         "external_model_dependencies": [],
                         "model_version": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert read_marker(tmp_path) is None
+
+
+def test_marker_round_trips_declared_pretrain_dependencies(tmp_path) -> None:
+    config = LanguageModelConfig(language="el", pretrain_dependencies={"lemma": "conll17"})
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps(
+            {
+                "stanza_version": STANZA_VERSION,
+                "languages": ["el"],
+                "model_configs": [config.marker_payload()],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    marker = read_marker(tmp_path)
+
+    assert marker is not None
+    assert marker.model_configs == (config,)
+
+
+def test_read_marker_rejects_a_marker_without_pretrain_dependencies(tmp_path) -> None:
+    # A marker written before the field existed must force re-provisioning.
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps(
+            {
+                "stanza_version": STANZA_VERSION,
+                "languages": ["de"],
+                "model_configs": [
+                    {
+                        "language": "de",
+                        "processors": "tokenize,pos,lemma,depparse",
+                        "package": None,
+                        "external_model_dependencies": [],
+                        "model_version": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert read_marker(tmp_path) is None
+
+
+@pytest.mark.parametrize("invalid_pretrain", [5, {"lemma": 5}, ["lemma"]])
+def test_read_marker_ignores_an_invalid_pretrain_dependency_shape(
+    tmp_path, invalid_pretrain
+) -> None:
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps(
+            {
+                "stanza_version": STANZA_VERSION,
+                "languages": ["de"],
+                "model_configs": [
+                    {
+                        "language": "de",
+                        "processors": "tokenize,pos,lemma,depparse",
+                        "package": None,
+                        "pretrain_dependencies": invalid_pretrain,
+                        "external_model_dependencies": [],
+                        "model_version": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert read_marker(tmp_path) is None
+
+
+@pytest.mark.parametrize(
+    "invalid_identity",
+    [{"language": 5, "processors": "tokenize"}, {"language": "de", "processors": ""}],
+)
+def test_read_marker_ignores_an_invalid_language_or_processor_shape(
+    tmp_path, invalid_identity
+) -> None:
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps(
+            {
+                "stanza_version": STANZA_VERSION,
+                "languages": ["de"],
+                "model_configs": [
+                    {
+                        "package": None,
+                        "pretrain_dependencies": None,
+                        "external_model_dependencies": [],
+                        "model_version": None,
+                        **invalid_identity,
                     }
                 ],
             }
