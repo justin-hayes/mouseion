@@ -112,7 +112,12 @@ func TestSentenceStudyLineLocalFallbackKeepsNeighbours(t *testing.T) {
 			safeText: "acqua",
 		},
 		{
-			name: "greek στην contraction",
+			// A legacy shared-span shape: the two analyzed words keep one span
+			// and one surface, so neither is uniquely attributable. This is the
+			// contract every language's shared spans must degrade under; the
+			// configured Greek `mwt` model happens to split στο/στην instead (see
+			// sentence_study_captured_test.go).
+			name: "shared-span article contraction",
 			text: "στην πόλη",
 			unsafe: []domain.SentenceStudyToken{
 				studyWord(0, 0, 4, "σε", "ADP", nil),
@@ -121,7 +126,7 @@ func TestSentenceStudyLineLocalFallbackKeepsNeighbours(t *testing.T) {
 			safeText: "πόλη",
 		},
 		{
-			name: "greek στο contraction",
+			name: "shared-span article contraction with mismatched surface",
 			text: "στο σπίτι",
 			unsafe: []domain.SentenceStudyToken{
 				studyWord(0, 0, 3, "σε", "ADP", nil),
