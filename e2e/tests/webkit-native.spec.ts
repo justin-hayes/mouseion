@@ -66,7 +66,7 @@ test.describe('native WebKit smoke journey', () => {
     expect(prose.indent).not.toBe('0px');
   });
 
-  test('Vocabulary Browse and import retain native controls and recovery without JavaScript', async ({ browser, baseURL }) => {
+  test('Vocabulary Browse retains native controls and recovery without JavaScript', async ({ browser, baseURL }) => {
     const context = await browser.newContext({
       baseURL,
       javaScriptEnabled: false,
@@ -99,14 +99,6 @@ test.describe('native WebKit smoke journey', () => {
       await prefix.press('Enter');
       await expect(page).toHaveURL(/\/reading\?.*all=1.*q=haus|\/reading\?.*q=haus.*all=1/);
       await expect(page.locator('#vocabulary-results-heading')).toBeFocused();
-
-      await page.goto('/vocabulary/import');
-      const file = page.getByLabel('UTF-8 lemma file');
-      await expect(file).toHaveAttribute('id', 'known-vocabulary-file');
-      await file.setInputFiles({ name: 'empty.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) });
-      await page.getByRole('button', { name: 'Import known vocabulary' }).click();
-      await expect(page.getByRole('alert')).toContainText('Choose a non-empty UTF-8 text file to import.');
-      await expect(file).toBeVisible();
       await expectNoHorizontalOverflow(page);
     } finally {
       await context.close();

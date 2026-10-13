@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"regexp"
 	"testing"
@@ -53,7 +54,7 @@ func TestReconciliation_DeadTemplatesRemoved(t *testing.T) {
 	for _, file := range files {
 		data, readErr := root.ReadFile(file)
 		require.NoError(t, readErr, "read %s", file)
-		for _, dead := range []string{`func Dashboard(`, `func KnownVocabPage(`} {
+		for _, dead := range []string{`func Dashboard(`, `func KnownVocabPage(`, `func VocabularyPageWithResult(`, `func KnownVocabImportStatus(`} {
 			assert.NotContains(t, string(data), dead, "generated %s still contains removed template %q", file, dead)
 		}
 	}
@@ -71,7 +72,31 @@ func TestReconciliation_KnownVocabAliasIsRetiredWithoutRedirect(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
 	for _, path := range []string{"/known-vocab", "/known-vocab?language=de"} {
 		t.Run(path, func(t *testing.T) {
-			response := performReadingRequest(t, h, http.MethodGet, path, nil, cookies, false)
+			response := performReadingRequest(t, h, http.MethodGet, path, nil, cookies)
+			assert.Equal(t, http.StatusNotFound, response.Code)
+			assert.Empty(t, response.Header().Get("Location"))
+		})
+	}
+}
+
+// TestReconciliation_ImportRoutesAreRetiredWithoutRedirect pins ADR 0092: the
+// import page, its submission, and its status endpoint are gone for a signed-in
+// learner and 404 without a redirect, exactly as /known-vocab does.
+func TestReconciliation_ImportRoutesAreRetiredWithoutRedirect(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSession(t)
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		form   url.Values
+	}{
+		{name: "import page", method: http.MethodGet, path: "/vocabulary/import"},
+		{name: "import submission", method: http.MethodPost, path: "/vocabulary/import", form: url.Values{"csrf_token": {csrf}}},
+		{name: "import status", method: http.MethodGet, path: "/vocabulary/imports/7/status"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := performReadingRequest(t, h, test.method, test.path, test.form, cookies)
 			assert.Equal(t, http.StatusNotFound, response.Code)
 			assert.Empty(t, response.Header().Get("Location"))
 		})

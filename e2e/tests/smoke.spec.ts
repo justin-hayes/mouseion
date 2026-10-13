@@ -17,16 +17,6 @@ async function setStudyLanguage(page: Page, language: string) {
   }
 }
 
-async function submitKnownVocabularyImport(page: Page) {
-  const importForm = page.locator('form[hx-post*="/vocabulary/import"]');
-  await importForm.locator('input[type="file"]').setInputFiles({
-    name: 'known-de.txt', mimeType: 'text/plain',
-    buffer: Buffer.from('Haus\nÜberraschung\n'),
-  });
-  await importForm.getByRole('button', { name: /import known vocabulary/i }).click();
-  await expect(page.locator('#vocabulary-results')).toContainText(/queued/i);
-}
-
 async function expectConcordanceScanSpace(page: Page, selector: string) {
   const scan = await page.locator(selector).evaluateAll(rows => {
     const boxes = rows.map(row => row.getBoundingClientRect());
@@ -932,13 +922,10 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.locator('#vocabulary-workflow')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
     await expect(page.getByText('bonjour')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /import known vocabulary/i })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('de');
     await expect(page).toHaveURL(/\/library(?:\?|$)/);
     await page.goto('/reading');
     await expect(page.getByText(/active study language.*de/)).toBeVisible();
-    await page.goto('/vocabulary/import');
-    await submitKnownVocabularyImport(page);
     await page.goto('/library');
     const primaryNavigation = page.locator('nav.site-header__nav');
     await expect(primaryNavigation.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0);
@@ -958,20 +945,11 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.getByText('Analysis cancelled. Retry the EPUB snapshot when you are ready.')).toBeVisible();
   });
 
-  test('asserts initial HTML before HTMX enhancement and observes status', async ({ page }) => {
-    // The import form and its results region are server-rendered only once a
-    // study language is selected on the Vocabulary page.
-    await page.goto('/vocabulary/import');
-    const switcher = page.getByLabel('Study language');
-    if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    const importForm = page.locator('form[hx-post*="/vocabulary/import"]');
-    // Initial (pre-enhancement) HTML already carries the form and swap target.
-    await expect(importForm).toHaveCount(1);
-    await expect(page.locator('#vocabulary-results')).toHaveCount(1);
-    // Attach a small multilingual UTF-8 lemma file, then submit via HTMX.
-    await submitKnownVocabularyImport(page);
-    await expect(page).toHaveURL(/\/vocabulary/);
-    // The HTMX submission replaces the region with a durable status.
-    await expect(page.locator('#vocabulary-results')).toContainText(/queued/i);
+  test('retires the known-vocabulary import surface', async ({ page }) => {
+    for (const path of ['/vocabulary/import', '/vocabulary/imports/7/status']) {
+      const retired = await page.goto(path);
+      expect(retired?.status(), path).toBe(404);
+      expect(retired?.request().redirectedFrom(), path).toBeNull();
+    }
   });
 });

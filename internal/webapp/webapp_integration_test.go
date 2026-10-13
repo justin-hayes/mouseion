@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -25,7 +24,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
-	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
@@ -130,11 +128,6 @@ func createAccount(t *testing.T, ctx context.Context, store *persistence.Postgre
 	return u
 }
 
-type recordingKnownVocab struct {
-	service *knownvocab.Service
-	status  knownvocab.Status
-	owner   string
-}
 type recordingPreparedDeck struct {
 	preparations map[string]domain.DeckPreparation
 	downloads    int
@@ -232,22 +225,6 @@ func (r *recordingPreparedDeck) Download(ctx context.Context, owner, id string) 
 	return p, nil
 }
 
-func (r *recordingKnownVocab) Submit(ctx context.Context, owner, language, input string) (knownvocab.Handle, error) {
-	result, err := r.service.Import(ctx, owner, language, strings.NewReader(input))
-	if err != nil {
-		return knownvocab.Handle{}, err
-	}
-	r.status = knownvocab.Status{ID: 77, Language: language, State: rivertype.JobStateCompleted, Processed: len(result.Entries) + len(result.Rejected), Total: len(result.Entries) + len(result.Rejected), Imported: result.Imported, AlreadyKnown: result.AlreadyKnown, Rejected: result.Rejected}
-	r.owner = owner
-	return knownvocab.Handle{ID: 77}, nil
-}
-func (r *recordingKnownVocab) Get(_ context.Context, owner string, id int64) (knownvocab.Status, error) {
-	if owner != r.owner || id != r.status.ID {
-		return knownvocab.Status{}, knownvocab.ErrJobNotFound
-	}
-	return r.status, nil
-}
-
 func (r *recordingAnalysis) SubmitToReadBookAnalysis(_ context.Context, owner, bookID, source string) (analysis.Handle, error) {
 	r.owner, r.source, r.scope = owner, source, ""
 	r.calls++
@@ -309,36 +286,6 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	login := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{csrfCookieValue})
 	assert.Equal(t, http.StatusSeeOther, login.Code)
 	assert.Equal(t, "/", login.Header().Get("Location"))
-}
-
-func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "known-vocab-derived-language-secret-0123456789")
-	ctx := context.Background()
-	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "alice", "alice-password")
-	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	require.NoError(t, err)
-	known := &recordingKnownVocab{service: knownvocab.NewService(store)}
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), KnownVocab: known, SessionLifetime: time.Hour})
-	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
-
-	browse := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
-	assert.Equal(t, http.StatusOK, browse.Code)
-	assert.Contains(t, browse.Body.String(), "Concordance")
-	assert.Contains(t, browse.Body.String(), `href="/vocabulary/import"`)
-	importPage := perform(t, h, http.MethodGet, "/vocabulary/import", nil, cookies)
-	assert.Equal(t, http.StatusOK, importPage.Code)
-	assert.Contains(t, importPage.Body.String(), `action="/vocabulary/import"`)
-
-	imported := multipartUpload(t, h, "/vocabulary/import?language=it", cookies, map[string]string{"csrf_token": csrf, "language": "it"}, "Haus\n")
-	assert.Equal(t, http.StatusSeeOther, imported.Code)
-	assert.Equal(t, "/vocabulary/imports/77/status", imported.Header().Get("Location"))
-	assert.Equal(t, alice.ID, known.owner)
-	assert.Equal(t, "de", known.status.Language)
 }
 
 func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
@@ -634,32 +581,6 @@ func loginCookies(t *testing.T, h http.Handler, username, password string) ([]*h
 	csrfCookieValue = cookieNamed(t, response.Result().Cookies(), csrfCookie)
 	return []*http.Cookie{csrfCookieValue, cookieNamed(t, response.Result().Cookies(), webauth.CookieName)}, csrfCookieValue.Value
 }
-func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.Cookie, fields map[string]string, content string) *httptest.ResponseRecorder {
-	t.Helper()
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	for key, value := range fields {
-		require.NoError(t, writer.WriteField(key, value))
-	}
-	field, filename := "dataset", "frequency.csv"
-	if strings.HasPrefix(path, "/vocabulary/import") {
-		field, filename = "vocabulary_file", "known.txt"
-	}
-	part, err := writer.CreateFormFile(field, filename)
-	require.NoError(t, err)
-	_, err = io.WriteString(part, content)
-	require.NoError(t, err)
-	require.NoError(t, writer.Close())
-	r := httptest.NewRequestWithContext(t.Context(), "POST", path, &body)
-	r.Header.Set("Content-Type", writer.FormDataContentType())
-	for _, c := range cookies {
-		r.AddCookie(c)
-	}
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, r)
-	return w
-}
-
 func perform(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 	return performWithHeader(t, h, method, path, form, cookies, "", "")

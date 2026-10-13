@@ -1,9 +1,7 @@
 package webapp
 
 import (
-	"bytes"
 	"context"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -86,7 +84,6 @@ func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *tes
 		"/vocabulary?language=de&q=ha&reading=fixture-book&page=2",
 		"/vocabulary/concordance?language=de&mode=effective&term=haus&upos=NOUN",
 		"/vocabulary/concordance/sentence?language=de&book=fixture-book",
-		"/vocabulary/import?language=de",
 		"/reading/books/fixture-book/lemma-review?language=de",
 	} {
 		t.Run(path, func(t *testing.T) {
@@ -149,28 +146,6 @@ func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
 	assert.Equal(t, "it", stored)
-}
-
-func TestStaleLanguageImportRecoversWithoutImporting(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	var body bytes.Buffer
-	form := multipart.NewWriter(&body)
-	require.NoError(t, form.WriteField("csrf_token", csrf+".de"))
-	file, err := form.CreateFormFile("vocabulary_file", "known.txt")
-	require.NoError(t, err)
-	_, err = file.Write([]byte("haus\nwort\n"))
-	require.NoError(t, err)
-	require.NoError(t, form.Close())
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/vocabulary/import", &body)
-	request.Header.Set("Content-Type", form.FormDataContentType())
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
-	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, languageChangedPath(), response.Header().Get("Location"))
 }
 
 func TestSubmissionsWithoutLanguageIdentityKeepWorking(t *testing.T) {

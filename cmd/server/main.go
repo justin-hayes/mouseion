@@ -229,7 +229,6 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err := analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
 	}
-	knownVocabService := knownvocab.NewJobService(store.Pool(), deps.riverClient)
 	var preparedDeckService *prepareddeck.Service
 	if deps.batchProvider != nil {
 		preparedDeckService = prepareddeck.NewServiceWithBatchCanceller(store, deps.riverClient, deps.batchProvider)
@@ -243,7 +242,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
 	if err != nil {
 		return nil, fmt.Errorf("initialize web application: %w", err)
 	}

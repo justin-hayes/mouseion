@@ -23,7 +23,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -152,10 +151,6 @@ type CatalogueSync interface {
 type AnalysisInsights interface {
 	Coverage(context.Context, string, string) (domain.AnalysisCoverage, error)
 }
-type KnownVocabulary interface {
-	Submit(context.Context, string, string, string) (knownvocab.Handle, error)
-	Get(context.Context, string, int64) (knownvocab.Status, error)
-}
 type PreparedDeck interface {
 	PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error)
 	CurrentReadingDeck(ctx context.Context, owner, bookID string) (prepareddeck.CurrentDeck, error)
@@ -175,7 +170,6 @@ type Services struct {
 	OPDS             OPDS
 	Analysis         Analysis
 	AnalysisInsights AnalysisInsights
-	KnownVocab       KnownVocabulary
 	PreparedDeck     PreparedDeck
 	Capabilities     analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
@@ -272,10 +266,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /vocabulary", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
 	h.mux.Handle("GET /vocabulary/concordance", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
 	h.mux.Handle("GET /vocabulary/concordance/sentence", h.user(http.HandlerFunc(h.vocabularySentenceStudyPage)))
-	h.mux.Handle("GET /vocabulary/import", h.user(http.HandlerFunc(h.vocabularyImportPage)))
 	h.mux.Handle("POST /active-study-language", h.user(http.HandlerFunc(h.activeStudyLanguage)))
-	h.mux.Handle("POST /vocabulary/import", h.user(http.HandlerFunc(h.importKnownVocab)))
-	h.mux.Handle("GET /vocabulary/imports/{id}/status", h.user(http.HandlerFunc(h.knownVocabImportStatus)))
 	return h, nil
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

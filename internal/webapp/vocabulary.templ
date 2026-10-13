@@ -1,10 +1,7 @@
 package webapp
 
 import (
-	"fmt"
-
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
 
 func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {
@@ -31,121 +28,10 @@ func vocabularyBookEvidenceState(book domain.VocabularyBrowseBook) string {
 	return "No current completed analysis"
 }
 
-templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLanguages []domain.StudyLanguage, language string, message string) {
-	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@VocabularyPageHeader("import")
-		<section id="known-vocabulary" class="known-vocabulary">
-		if language == "" {
-			if len(languages) == 0 {
-				@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
-					<a href="/catalogs">Connect a catalog</a>
-				}
-			} else {
-				<p>Choose a study language in the shell before importing a lemma file.</p>
-			}
-		} else {
-			if len(languages) == 0 {
-				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book.</p>
-			}
-			<p>Viewing <strong>{ vocabularyLanguageName(languages, knownLanguages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
-			if studyLanguagePresent(languages, language) {
-				<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post={ knownVocabImportAction() } hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML" hx-indicator="#vocabulary-import-pending"><input type="hidden" name="csrf_token" value={ csrf }/><label for="known-vocabulary-file">UTF-8 lemma file</label><input id="known-vocabulary-file" type="file" name="vocabulary_file" accept="text/plain,.txt" required/><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button class="btn btn-primary" type="submit">Import known vocabulary</button><p id="vocabulary-import-pending" class="htmx-indicator" role="status">Importing known vocabulary. Keep this page open while the request completes.</p></form>
-			} else {
-				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>
-			}
-		}
-		</section>
-		<section id="vocabulary-results" aria-live="polite">@KnownVocabResult(message)</section>
-	}
-}
-
-templ KnownVocabResult(message string) {
-	if message != "" {
-		@Feedback(FeedbackError, "Import not completed", message)
-	}
-}
-
-templ KnownVocabImportStatus(status knownvocab.Status) {
-	@AsyncStatus(knownVocabImportAttributes(status), "known-vocab-import-status", knownVocabImportTitle(status), knownVocabImportSummary(status), int(status.Processed), int(status.Total), knownVocabJobBusy(string(status.State)), nil) {
-		@knownVocabImportStatusBody(status)
-	}
-}
-
-templ KnownVocabImportStatusPage(user domain.User, csrf string, status knownvocab.Status) {
-	@ShellLayout("Known vocabulary import", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@VocabularyPageHeader("import")
-		@KnownVocabImportStatus(status)
-		if knownVocabJobBusy(string(status.State)) {
-			<p><a class="vocabulary-action-link" href="/vocabulary/import">Return to Vocabulary</a></p>
-		}
-	}
-}
-
-templ knownVocabImportStatusBody(status knownvocab.Status) {
-		if knownVocabJobBusy(string(status.State)) {
-			<p>Return to Vocabulary to review the result after processing finishes.</p>
-		}
-		if status.State == "completed" {
-			if len(status.Rejected) > 0 {
-				<p><strong>Import completed with partial rejection.</strong> Successful rows remain known; correct the rejected rows and upload another additive import if needed.</p>
-			} else {
-				<p><strong>Import complete.</strong></p>
-			}
-			if len(status.Rejected) > 0 {
-				<h3>Rejected rows</h3>@ResponsiveTable("Rejected vocabulary rows") {
-					<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
-					for _, rejection := range status.Rejected {
-						<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
-					}
-					</tbody>
-				}
-				}
-				<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to import more known vocabulary</a></p>
-		}
-		if status.State == "completed" || status.State == "discarded" || status.State == "cancelled" {
-			<p><strong>{ fmt.Sprintf("%d new", status.Imported) }</strong> · { fmt.Sprintf("%d duplicates", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
-		}
-		if status.Error != "" && status.State != "cancelled" && status.State != "discarded" {
-			<p role="alert"><strong>Import failed:</strong> { status.Error } Upload the original file again after correcting the problem.</p>
-		}
-		if status.State == "cancelled" {
-			<p role="alert"><strong>Import cancelled.</strong> No new result is available from this attempt. Upload the file again when ready.</p>
-			if status.Language != "" {
-				<p>Selected language: <code>{ status.Language }</code></p>
-			}
-			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to retry the import</a></p>
-		}
-		if status.State == "discarded" {
-			<p role="alert"><strong>Import failed.</strong>
-			if status.Error != "" {
-				{ status.Error }
-			}
-			The job was discarded after repeated attempts. Upload the file again after correcting the problem.</p>
-			if status.Language != "" {
-				<p>Selected language: <code>{ status.Language }</code></p>
-			}
-			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to retry the import</a></p>
-		}
-}
-
-templ VocabularyViewsNav(active string) {
-	<nav aria-label="Vocabulary views">
-		if active == "concordance" {
-			<a href="/vocabulary" aria-current="page">Concordance</a>
-		} else {
-			<a href="/vocabulary">Concordance</a>
-		}
-		if active == "import" {
-			<a href="/vocabulary/import" aria-current="page">Import Known words</a>
-		} else {
-			<a href="/vocabulary/import">Import Known words</a>
-		}
-	</nav>
-}
-
-templ VocabularyPageHeader(active string) {
+// VocabularyPageHeader titles the single Vocabulary destination. Concordance is
+// the only view left, so there is no peer-view navigation.
+templ VocabularyPageHeader() {
 	<header class="vocabulary-page-header">
 		<h1>Vocabulary</h1>
-		@VocabularyViewsNav(active)
 	</header>
 }

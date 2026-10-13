@@ -11,7 +11,6 @@ import (
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
 
 type shellStyle uint8
@@ -62,22 +61,6 @@ func studyLanguagePresent(languages []domain.StudyLanguage, language string) boo
 
 func learnerLanguagePresent(studyLanguages, knownLanguages []domain.StudyLanguage, language string) bool {
 	return studyLanguagePresent(studyLanguages, language) || studyLanguagePresent(knownLanguages, language)
-}
-
-func studyLanguageName(languages []domain.StudyLanguage, language string) string {
-	for _, candidate := range languages {
-		if candidate.Language == language {
-			return candidate.DisplayName
-		}
-	}
-	return language
-}
-
-func vocabularyLanguageName(studyLanguages, knownLanguages []domain.StudyLanguage, language string) string {
-	if name := studyLanguageName(studyLanguages, language); name != language {
-		return name
-	}
-	return studyLanguageName(knownLanguages, language)
 }
 
 func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(bookID) }
@@ -614,40 +597,6 @@ func catalogueSyncJobStatusAttributes(id int64, running bool) templ.Attributes {
 
 func catalogueSyncStatusRunning(status cataloguesync.Status) bool {
 	return status.LogicalState == "queued" || status.LogicalState == "running"
-}
-
-func knownVocabImportAttributes(status knownvocab.Status) templ.Attributes {
-	attributes := templ.Attributes{"data-workflow": "known-vocabulary import"}
-	if knownVocabJobBusy(string(status.State)) {
-		attributes["hx-get"] = fmt.Sprintf("/vocabulary/imports/%d/status", status.ID)
-		attributes["hx-trigger"] = "every 2s"
-		attributes["hx-swap"] = "outerHTML"
-	}
-	return attributes
-}
-
-func knownVocabImportTitle(status knownvocab.Status) string {
-	return "Known-vocabulary import: " + knownVocabJobLabel(string(status.State))
-}
-
-func knownVocabImportSummary(status knownvocab.Status) string {
-	if knownVocabJobBusy(string(status.State)) {
-		if status.Total > 0 {
-			return fmt.Sprintf("%d of %d rows processed. You can leave this page; the import will continue.", status.Processed, status.Total)
-		}
-		return "The import is continuing in the background. You can leave this page and return later."
-	}
-	switch status.State {
-	case "completed":
-		return "The import is complete. New rows are now counted as known vocabulary."
-	case "cancelled":
-		return "The import was cancelled before a complete result was available. Upload the file again when ready."
-	case "discarded":
-		return "The import failed after repeated attempts. Correct the file or configuration and upload it again."
-	default:
-		// River's JobState is an open upstream enumeration; unknown states use the generic summary.
-		return "Review the import result and choose the next action below."
-	}
 }
 
 func maxOne(value int) int {

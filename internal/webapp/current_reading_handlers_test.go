@@ -227,7 +227,7 @@ func TestReadingStartLeavesOptionalDeckPreparationUnsubmitted(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.GetDeckPreparationForSnapshot(context.Background(), fixtures.OwnerID, currentReading.SnapshotID)
 	require.ErrorIs(t, err, persistence.ErrNotFound, "starting Reading does not auto-submit optional deck preparation")
-	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
+	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies)
 	assert.Equal(t, http.StatusOK, page.Code)
 	assert.Contains(t, page.Body.String(), `action="/reading/books/fixture-route-match/deck/retry"`, "the current reading offers explicit preparation from its frozen snapshot")
 }
@@ -272,7 +272,7 @@ func TestReadingPageShowsReservedCountWhenCurrentReadingArtifactIsUnavailable(t 
 	handler := requireHandler(t, h)
 	handler.services.PreparedDeck = unavailableCurrentReadingPreparedDeck{Store: store}
 
-	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
+	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.Contains(t, body, "2 lemmas are set aside from vocabulary selection while you read this Book.")
@@ -400,7 +400,7 @@ func TestReadingPageShowsEmptyActiveLanguageReading(t *testing.T) {
 	assert.False(t, strings.Contains(body, `id="journey-book-fixture-empty"`) || strings.Contains(body, `id="journey-book-fixture-edge-content"`), "empty Italian Journey page exposed a member: %s", body)
 }
 
-func performReadingRequest(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie, htmx bool) *httptest.ResponseRecorder {
+func performReadingRequest(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 	var body *strings.Reader
 	if form == nil {
@@ -411,9 +411,6 @@ func performReadingRequest(t *testing.T, h http.Handler, method, path string, fo
 	request := httptest.NewRequestWithContext(t.Context(), method, path, body)
 	if form != nil {
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
-	if htmx {
-		request.Header.Set("Hx-Request-Type", "partial")
 	}
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)

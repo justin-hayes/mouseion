@@ -68,33 +68,23 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('Vocabulary heading and peer navigation keep the compact hierarchy', async ({ page }) => {
+test('Vocabulary heading keeps the compact hierarchy without peer navigation', async ({ page }) => {
   await signIn(page);
   await page.setViewportSize({ width: 1280, height: 800 });
-  // Browse lives in Reading; /vocabulary is the Concordance and its peer views.
+  // Browse lives in Reading; /vocabulary is the single Concordance view.
   await page.goto('/vocabulary');
   const header = page.locator('.vocabulary-page-header');
   const heading = header.getByRole('heading', { name: 'Vocabulary', exact: true });
-  const navigation = header.getByRole('navigation', { name: 'Vocabulary views' });
   await expect(heading).toBeVisible();
-  await expect(navigation.getByRole('link')).toHaveCount(2);
-  await expect(navigation.getByRole('link', { name: 'Concordance', exact: true })).toHaveAttribute('aria-current', 'page');
-  await expect(navigation.getByRole('link', { name: 'Import Known words' })).not.toHaveAttribute('aria-current', 'page');
+  await expect(header.getByRole('navigation')).toHaveCount(0);
   const desktopLayout = await header.evaluate(element => {
     const title = element.querySelector('h1')!.getBoundingClientRect();
-    const tabs = element.querySelector('nav')!.getBoundingClientRect();
-    return { titleTop: title.top, tabsTop: tabs.top, titleSize: getComputedStyle(element.querySelector('h1')!).fontSize };
+    return { titleSize: getComputedStyle(element.querySelector('h1')!).fontSize };
   });
   expect(desktopLayout.titleSize).toBe('25px');
-  expect(Math.abs(desktopLayout.tabsTop - desktopLayout.titleTop)).toBeLessThan(10);
 
   await page.setViewportSize({ width: 375, height: 667 });
-  const compactLayout = await header.evaluate(element => {
-    const title = element.querySelector('h1')!.getBoundingClientRect();
-    const tabs = element.querySelector('nav')!.getBoundingClientRect();
-    return { titleTop: title.top, tabsTop: tabs.top };
-  });
-  expect(compactLayout.tabsTop).toBeGreaterThan(compactLayout.titleTop);
+  await expect(heading).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

@@ -1022,8 +1022,7 @@ progress {
   max-width: var(--mouseion-width-form);
 }
 
-#study-languages,
-#known-vocabulary {
+#study-languages {
   min-width: 0;
   margin-bottom: var(--mouseion-space-7);
 }

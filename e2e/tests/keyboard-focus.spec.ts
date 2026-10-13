@@ -301,33 +301,6 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(region).toBeFocused();
   });
 
-  test('known-vocabulary import works with enhancement disabled and enabled', async ({ page }) => {
-    for (const disabled of [true, false]) {
-      await signIn(page, disabled);
-      await page.goto('/vocabulary/import');
-      const switcher = page.getByLabel('Study language');
-      if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-      const form = page.locator('form[hx-post*="/vocabulary/import"]');
-      await expect(form.locator('input[type="file"]')).toHaveAttribute('id', 'known-vocabulary-file');
-      await expect(form.getByRole('button', { name: /import known vocabulary/i })).toHaveClass(/\bbtn\b/);
-      await form.locator('input[type="file"]').setInputFiles({ name: 'known.txt', mimeType: 'text/plain', buffer: Buffer.from('Haus\nÜberraschung\nbad\tline\n') });
-      await form.getByRole('button', { name: /import known vocabulary/i }).press('Enter');
-      if (disabled) {
-        await expect(page).toHaveURL(/\/vocabulary\/imports\/8\/status/);
-        await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-        await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-        await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
-        await expect(page.getByRole('status')).toContainText(/complete|queued/i);
-      } else {
-        await expect(page).toHaveURL(/\/vocabulary/);
-        await expect(page.locator('#vocabulary-results')).toContainText(/queued|complete/i);
-      }
-      await expect(page.getByRole('region', { name: 'Rejected vocabulary rows' })).toContainText('expected exactly one lemma');
-      if (disabled) await page.unroute('**/static/vendor/htmx-*.js');
-      await page.context().clearCookies();
-    }
-  });
-
   test('failed analysis exposes keyboard-operable recovery and intentional error focus pattern', async ({ page }) => {
     await signIn(page);
     await page.goto('/jobs/43');

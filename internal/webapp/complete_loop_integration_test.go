@@ -125,7 +125,6 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 		OPDS:             opdsService,
 		Analysis:         analysis.NewService(store.Pool(), analysisClient),
 		AnalysisInsights: analysisinsights.NewService(store),
-		KnownVocab:       knownvocab.NewJobService(store.Pool(), analysisClient),
 		PreparedDeck:     prepareddeck.NewService(store, analysisClient),
 		Capabilities:     capabilities,
 		CatalogueSync:    catalogueSyncService,

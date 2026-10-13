@@ -1387,7 +1387,7 @@
   .settings-language-picker {
     max-width: var(--mouseion-width-form);
   }
-  #study-languages, #known-vocabulary {
+  #study-languages {
     min-width: 0;
     margin-bottom: var(--mouseion-space-7);
   }
@@ -3121,21 +3121,6 @@
     font-size: 25px;
     line-height: 1.25;
   }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-page-header > nav[aria-label="Vocabulary views"] {
-    display: flex;
-    min-width: 0;
-    min-height: 40px;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0 var(--mouseion-space-2);
-    margin: 0;
-    color: var(--mouseion-color-text-muted);
-  }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-page-header > nav[aria-label="Vocabulary views"] a {
-    min-width: 44px;
-    min-height: 40px;
-    padding-inline: var(--mouseion-space-2);
-  }
   body:is(.vocabulary-shell, .reading-shell) .vocabulary-scope {
     max-width: var(--mouseion-width-data);
     margin-block: var(--mouseion-space-3);
@@ -3230,44 +3215,6 @@
     flex-wrap: wrap;
     gap: var(--mouseion-space-2);
   }
-  body:is(.vocabulary-shell, .reading-shell) #known-vocabulary, body:is(.vocabulary-shell, .reading-shell) #vocabulary-results {
-    max-width: var(--mouseion-width-data);
-    min-width: 0;
-  }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-import-form {
-    display: grid;
-    justify-items: start;
-    gap: var(--mouseion-space-2);
-    max-width: var(--mouseion-width-form);
-    margin-block: var(--mouseion-space-4) var(--mouseion-space-5);
-    border-block: 1px solid var(--mouseion-color-border);
-    padding-block: var(--mouseion-space-4);
-  }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-import-form > label {
-    margin: 0;
-    font-weight: 650;
-  }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-import-form input[type="file"] {
-    width: min(100%, var(--mouseion-width-form));
-    min-height: 44px;
-    max-width: 100%;
-    border: 1px solid var(--mouseion-color-control-border);
-    border-radius: var(--mouseion-radius);
-    padding: var(--mouseion-space-2);
-    color: var(--mouseion-color-text);
-    background: var(--mouseion-color-surface-raised);
-  }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-import-form input[type="file"]:user-invalid {
-    border-color: var(--mouseion-color-danger);
-  }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-import-form small {
-    max-width: 60ch;
-    color: var(--mouseion-color-text-muted);
-  }
-  body:is(.vocabulary-shell, .reading-shell) #vocabulary-import-pending {
-    margin: 0;
-    color: var(--mouseion-color-text-muted);
-  }
   body:is(.vocabulary-shell, .reading-shell) .vocabulary-callout {
     max-width: var(--mouseion-width-data);
     padding: var(--mouseion-space-3) var(--mouseion-space-4);
@@ -3278,9 +3225,6 @@
       align-items: flex-start;
       gap: var(--mouseion-space-1) var(--mouseion-space-3);
     }
-    body:is(.vocabulary-shell, .reading-shell) .vocabulary-page-header > nav[aria-label="Vocabulary views"] {
-      flex-basis: 100%;
-    }
     body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -3288,15 +3232,12 @@
       grid-column: 1;
       grid-row: auto;
     }
-    body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > .btn, body:is(.vocabulary-shell, .reading-shell) .vocabulary-import-form > .btn {
+    body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > .btn {
       width: 100%;
     }
     body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results > section[aria-label="Vocabulary pages"] {
       align-items: flex-start;
       flex-direction: column;
-    }
-    body:is(.vocabulary-shell, .reading-shell) .vocabulary-import-form {
-      width: 100%;
     }
   }
   body:is(.vocabulary-shell, .reading-shell) .vocabulary-action-link {
@@ -3315,20 +3256,6 @@
     min-width: 44px;
     padding-inline: var(--mouseion-space-2);
     overflow-wrap: anywhere;
-  }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-page-header nav[aria-label="Vocabulary views"] a {
-    display: inline-flex;
-    min-width: 44px;
-    min-height: 44px;
-    align-items: center;
-    padding-inline: var(--mouseion-space-2);
-    color: var(--mouseion-color-accent);
-    text-underline-offset: 0.2em;
-  }
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-page-header nav[aria-label="Vocabulary views"] a[aria-current="page"] {
-    color: var(--mouseion-color-text);
-    font-weight: 650;
-    text-decoration-thickness: 0.15em;
   }
   body.reading-shell .lemma-review {
     width: 100%;
@@ -3399,9 +3326,6 @@
   }
   #main-content:has(form.concordance-query) > .vocabulary-page-header {
     margin-bottom: var(--mouseion-space-2);
-  }
-  #main-content:has(form.concordance-query) > .vocabulary-page-header nav[aria-label="Vocabulary views"] {
-    font-size: var(--mouseion-font-size-metadata);
   }
   body.vocabulary-shell #main-content:has(form.concordance-query) > p {
     overflow-wrap: anywhere;

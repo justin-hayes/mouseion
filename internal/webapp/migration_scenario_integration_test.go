@@ -232,13 +232,15 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, domain.DeckPreparationQueued, requeued.State)
 	assert.Empty(t, requeued.Error)
 
-	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary/import", nil, aliceCookies)
+	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, deVocabulary.Code)
-	body := deVocabulary.Body.String()
-	assert.Contains(t, body, `enctype="multipart/form-data"`, "import form missing: body=%s", body)
-	assert.NotContains(t, body, "Known vocabulary</h2>", "known-vocabulary heading rendered: body=%s", body)
-	assert.NotContains(t, body, "Haus", "known-vocabulary row rendered: body=%s", body)
-	assert.NotContains(t, body, "Explicitly recorded", "known-vocabulary provenance rendered: body=%s", body)
+	assert.Contains(t, deVocabulary.Body.String(), "Concordance", "Vocabulary is the Concordance surface")
+	assert.NotContains(t, deVocabulary.Body.String(), "Known vocabulary</h2>", "known-vocabulary heading rendered: body=%s", deVocabulary.Body.String())
+	assert.NotContains(t, deVocabulary.Body.String(), "Haus", "known-vocabulary row rendered: body=%s", deVocabulary.Body.String())
+	assert.NotContains(t, deVocabulary.Body.String(), "Explicitly recorded", "known-vocabulary provenance rendered: body=%s", deVocabulary.Body.String())
+	for _, retired := range []string{"/vocabulary/import", "Import Known words"} {
+		assert.NotContains(t, deVocabulary.Body.String(), retired, "retired import surface rendered: body=%s", deVocabulary.Body.String())
+	}
 }
 
 func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus, domain.DeckPreparation) {
