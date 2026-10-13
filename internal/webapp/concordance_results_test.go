@@ -291,6 +291,84 @@ func (s concordanceFailStore) ListVocabularyConcordance(ctx context.Context, own
 	return s.Store.ListVocabularyConcordance(ctx, owner, language, lookup)
 }
 
+// TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete holds the
+// Sentence study framing: the retired attributed-token list is replaced by a
+// named native disclosure that is server-rendered, closed by default, and lists
+// every analyzed word with its stored evidence in source order.
+func TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete(t *testing.T) {
+	study := domain.SentenceStudy{
+		BookTitle: "Der lange Weg nach Hause", ChapterTitle: "Kapitel 1",
+		SentenceText: "Das Haus Haus steht.", SentenceOrdinal: 0, TargetOrdinal: 1, TargetSurface: "Haus",
+		Tokens: []domain.SentenceStudyToken{
+			{Surface: "Das", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 1, HeadSurface: "Haus", Ordinal: 0, Morphology: map[string]string{"Case": "Nom", "Number": "Sing"}},
+			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "haus", UPOS: "NOUN", Dependency: "nsubj", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 1},
+			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "heim", UPOS: "NOUN", Dependency: "obj", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 2, Corrected: true, Excluded: true},
+			{Surface: "steht", RawLemma: "stehen", EffectiveLemma: "stehen", UPOS: "VERB", Dependency: "root", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 3, Morphology: map[string]string{"Mood": "Ind", "VerbForm": "Fin"}},
+		},
+	}
+	var rendered bytes.Buffer
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance").Render(t.Context(), &rendered); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+
+	detailsStart := strings.Index(body, `<details id="sentence-study-text-alternative" class="sentence-study-alternative">`)
+	if detailsStart < 0 {
+		t.Fatal("the complete text alternative is not a named native disclosure")
+	}
+	details := body[detailsStart:]
+	open := strings.Index(details, ">")
+	if open < 0 || strings.Contains(details[:open], "open") {
+		t.Fatal("the complete text alternative must be closed by default")
+	}
+	if !strings.Contains(body, `<summary>Complete text alternative</summary>`) {
+		t.Fatal("the complete text alternative disclosure is not named")
+	}
+	for _, want := range []string{
+		`<code>DET</code>`, `analyzer lemma <code>der</code>`, `effective lemma <code>der</code>`,
+		`morphology <code>Case=Nom, Number=Sing</code>`,
+		`morphology <code>none supplied</code>`,
+		`dependency <code>nsubj</code>, head steht (token 4)`,
+		`Corrected for this occurrence.`,
+		`Excluded from effective vocabulary; retained as syntax evidence.`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("sentence study text alternative missing %q", want)
+		}
+	}
+	// Repeated forms and shared-span siblings stay distinguishable by source position.
+	for _, want := range []string{
+		`<strong>Haus — identified target</strong> <span>(token 2)</span>`,
+		`<strong>Haus</strong> <span>(token 3)</span>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("sentence study text alternative does not distinguish %q", want)
+		}
+	}
+	if strings.Contains(body, "Analyzer-attributed tokens") {
+		t.Fatal("the retired attributed-token list is still rendered")
+	}
+
+	noEvidence := domain.SentenceStudy{BookTitle: "Buch", SentenceText: "Nur Text.", TargetSurface: "Wort"}
+	rendered.Reset()
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", noEvidence, "/vocabulary/concordance").Render(t.Context(), &rendered); err != nil {
+		t.Fatal(err)
+	}
+	body = rendered.String()
+	if !strings.Contains(body, `<a href="/vocabulary/concordance">Return to Concordance results</a>`) {
+		t.Fatal("the no-evidence state dropped the return link")
+	}
+	if !strings.Contains(body, "Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.") {
+		t.Fatal("the no-evidence state changed its explanation")
+	}
+	if !strings.Contains(body, "Identified target: <strong>Wort (syntax evidence unavailable)</strong>") {
+		t.Fatal("the missing-target state changed its fallback wording")
+	}
+	if strings.Contains(body, `id="sentence-study-text-alternative"`) {
+		t.Fatal("the no-evidence state must not render an empty text alternative")
+	}
+}
+
 // TestConcordanceHandlerReportsReadFailures covers the current-reading priority
 // and result reads: a plain failure is a server error, a deadline is a gateway
 // timeout, and neither renders a partial result page.

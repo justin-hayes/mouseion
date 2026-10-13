@@ -233,12 +233,15 @@ change cannot make historical, incomplete, or mismatched counts appear current.
   collapsed row; its accessible name and tooltip identify the action. Expanding
   a row reveals only the complete flowing sentence with the observed target
   emphasized. It does not repeat Book/location or technical evidence. The study
-  link opens a focused view with the complete sentence, Book and structural
-  location, analyzer/effective token evidence, correction/exclusion state, and
-  analyzer-attributed dependency relations and heads. A diagram may complement,
-  never replace, structured textual tokens, relations/heads, and relevant
-  dependents. If syntax evidence is missing, keep the valid sentence, explain
-  the gap, and omit the diagram.
+  link opens a focused view named **Study this sentence** with the complete
+  sentence, Book and structural location, the identified target, and a named,
+  closed-by-default **complete text alternative**. The disclosure lists every
+  analyzed word in source order with its surface, UPOS, analyzer and effective
+  lemma, all stored morphology, dependency relation and head, and
+  correction/exclusion state, keeping shared-span siblings and repeated forms
+  distinguishable. A diagram may complement, never replace, that structured
+  textual evidence. If syntax evidence is missing, keep the valid sentence,
+  explain the gap, and omit the disclosure and diagram.
 
 ## Custom decks, preparation, and Anki
 
@@ -349,8 +352,8 @@ change cannot make historical, incomplete, or mismatched counts appear current.
   KWIC columns or scrolling the whole page.
   Visible truncated alignment is not the only way to perceive the full context.
   A diagram, if present, scrolls separately and never traps focus; textual
-  syntax is always present when evidence exists. From sentence study, return
-  to the applied page and originating result when still present, otherwise
+  syntax is present in a named disclosure when evidence exists. From sentence
+  study, return to the applied page and originating result when still present, otherwise
   focus the Current results summary; carry a server-readable return target
   as well as the URL fragment so absent occurrences do not depend on
   client-side focus repair.

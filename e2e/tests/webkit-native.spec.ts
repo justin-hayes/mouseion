@@ -437,10 +437,10 @@ test.describe('native WebKit smoke journey', () => {
     await firstSummary.focus();
     await page.keyboard.press('Tab');
     await expect(studyLink).toBeFocused();
-    await expect(studyLink).toHaveAccessibleName('Study this sentence and its syntax');
+    await expect(studyLink).toHaveAccessibleName('Study this sentence');
     await expect(studyLink).toBeVisible();
     await studyLink.click();
-    await expect(page.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
     await expect(page.locator('.sentence-study-text')).toContainText('Das Haus sieht gut aus.');
     await expect(page.getByText('Identified target: Haus', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Return to Concordance results' }).click();
@@ -482,9 +482,9 @@ test.describe('native WebKit smoke journey', () => {
       await expect(firstRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
       await expect(firstRow.locator('.concordance-observed-target')).toHaveText('Haus');
       const studyLink = firstRow.locator('xpath=following-sibling::a');
-      await expect(studyLink).toHaveAccessibleName('Study this sentence and its syntax');
+      await expect(studyLink).toHaveAccessibleName('Study this sentence');
       await studyLink.click();
-      await expect(page.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
       await expect(page.locator('.sentence-study-text')).toContainText('Das Haus sieht gut aus.');
       await expect(page.getByText('Identified target: Haus', { exact: true })).toBeVisible();
       await page.getByRole('link', { name: 'Return to Concordance results' }).click();

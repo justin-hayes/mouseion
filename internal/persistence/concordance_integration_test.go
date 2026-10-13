@@ -120,6 +120,55 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	assert.Equal(t, bookBob.ID, bobLookup.Occurrences[0].BookID, "owner scoping")
 }
 
+// TestGetVocabularySentenceStudyReadsStoredMorphology holds the Sentence study
+// read path: every analyzed word carries its stored morphology unfiltered, an
+// empty feature map stays empty, and a complete sentence with no persisted
+// parse tokens still returns the sentence and its target surface.
+func TestGetVocabularySentenceStudyReadsStoredMorphology(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "sentence-study-morphology", false)
+	require.NoError(t, err)
+
+	book, source := createConcordanceBook(t, ctx, store, owner.ID, "Morphology Book", "study-morphology", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "chapter", "Das Haus steht.", 0, 15),
+	})
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 0, Text: "Das Haus steht.", Start: 0, End: 15, Tokens: []concordanceToken{
+			{Surface: "Das", Lemma: "das", Upos: "DET", Dependency: "det", Head: 1, Morphology: map[string]string{"Case": "Nom", "Number": "Sing"}, Start: 0, End: 3},
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "nsubj", Head: 2, Morphology: map[string]string{}, Start: 4, End: 8},
+			{Surface: "steht", Lemma: "stehen", Upos: "VERB", Dependency: "root", Head: 2, Morphology: map[string]string{"Mood": "Ind", "VerbForm": "Fin"}, Start: 9, End: 14},
+		}},
+	})
+	corpusID := corpusIDForSource(t, ctx, store, owner.ID, source.ID)
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpusID).Scan(&runID))
+
+	study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, "epub-unit-v1:0:chapter", 0, 1, "Haus")
+	require.NoError(t, err)
+	require.Len(t, study.Tokens, 3)
+	assert.Equal(t, map[string]string{"Case": "Nom", "Number": "Sing"}, study.Tokens[0].Morphology)
+	assert.Empty(t, study.Tokens[1].Morphology, "a word with no stored features keeps empty morphology")
+	assert.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin"}, study.Tokens[2].Morphology)
+
+	// A stored value the string-map model cannot represent contributes no
+	// features rather than failing the whole sentence-study read.
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET morphology='{"VerbForm": 5}'::jsonb WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0 AND token_ordinal=2`, owner.ID, corpusID, runID)
+	require.NoError(t, err)
+	degraded, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, "epub-unit-v1:0:chapter", 0, 1, "Haus")
+	require.NoError(t, err)
+	require.Len(t, degraded.Tokens, 3)
+	assert.Empty(t, degraded.Tokens[2].Morphology, "an undecodable stored value contributes no features")
+
+	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, owner.ID, corpusID, runID)
+	require.NoError(t, err)
+	noTokens, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, "epub-unit-v1:0:chapter", 0, 1, "Haus")
+	require.NoError(t, err)
+	assert.Equal(t, "Das Haus steht.", noTokens.SentenceText)
+	assert.Empty(t, noTokens.Tokens, "a source sentence with no parse tokens has no token evidence")
+	assert.Equal(t, "Haus", noTokens.TargetSurface)
+}
+
 func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))

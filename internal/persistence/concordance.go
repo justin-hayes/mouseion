@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -292,11 +293,20 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 		if row.TokenOrdinal < 0 {
 			continue // A sentence may be valid source text with no syntax tokens.
 		}
+		morphology := make(map[string]string)
+		if len(row.Morphology) > 0 {
+			if err := json.Unmarshal(row.Morphology, &morphology); err != nil {
+				// A stored value the analyzer's string map cannot represent
+				// contributes no features rather than failing the whole
+				// sentence-study read. Missing features are shown honestly.
+				morphology = map[string]string{}
+			}
+		}
 		study.Tokens = append(study.Tokens, domain.SentenceStudyToken{Surface: row.Surface,
 			RawLemma: row.RawLemma, EffectiveLemma: row.EffectiveLemma, UPOS: row.Upos,
 			Dependency: row.Dependency, HeadSurface: row.HeadSurface,
-			Ordinal: row.TokenOrdinal, HeadOrdinal: row.Head, Corrected: row.Corrected,
-			Excluded: row.Excluded})
+			Ordinal: row.TokenOrdinal, HeadOrdinal: row.Head, Morphology: morphology,
+			Corrected: row.Corrected, Excluded: row.Excluded})
 	}
 	return study, nil
 }

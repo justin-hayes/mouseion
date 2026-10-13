@@ -24,6 +24,23 @@ func TestFixtureConcordanceServesHausAndMultiBookOccurrences(t *testing.T) {
 	assert.NotEmpty(t, books.Occurrences)
 }
 
+// TestFixtureSentenceStudyServesStoredMorphology exercises the fixtureserver's
+// Sentence study read path so the browser smoke fixtures carry morphology into
+// the text alternative, in source order and with empty features preserved.
+func TestFixtureSentenceStudyServesStoredMorphology(t *testing.T) {
+	store := NewStore()
+
+	study, err := store.GetVocabularySentenceStudy(t.Context(), OwnerID, BookID, ResultRunID, "fixture-corpus", "fixture-concordance-unit", 2, 1, "Haus")
+	require.NoError(t, err)
+	require.Len(t, study.Tokens, 6)
+	assert.Equal(t, map[string]string{"Case": "Nom", "Gender": "Neut", "Number": "Sing"}, study.Tokens[0].Morphology)
+	assert.Equal(t, "Haus", study.Tokens[1].Surface)
+	assert.True(t, study.Tokens[1].Corrected)
+	assert.Equal(t, map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "VerbForm": "Fin"}, study.Tokens[2].Morphology)
+	assert.Empty(t, study.Tokens[3].Morphology, "a word with no supplied features keeps empty morphology")
+	assert.Equal(t, map[string]string{"PartType": "Sep"}, study.Tokens[4].Morphology)
+}
+
 // TestFixtureConcordanceReportsStaleErrorsPriorityAndEmptyPages holds the
 // Concordance edge responses: a stale revision is flagged without occurrences,
 // the canned server-error and timeout terms surface the same errors the

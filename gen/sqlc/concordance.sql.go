@@ -78,6 +78,7 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.head, 0)::bigint AS head,
        COALESCE(h.surface, '')::text AS head_surface,
        COALESCE(t.token_ordinal, -1)::bigint AS token_ordinal,
+       COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
        COALESCE(d.canonical_lemma, t.canonical_lemma, '')::text AS effective_lemma,
        (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
        COALESCE(d.excluded, false)::boolean AS excluded,
@@ -125,6 +126,7 @@ type GetVocabularySentenceStudyRow struct {
 	Head            int64
 	HeadSurface     string
 	TokenOrdinal    int64
+	Morphology      []byte
 	EffectiveLemma  string
 	Corrected       bool
 	Excluded        bool
@@ -162,6 +164,7 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.Head,
 			&i.HeadSurface,
 			&i.TokenOrdinal,
+			&i.Morphology,
 			&i.EffectiveLemma,
 			&i.Corrected,
 			&i.Excluded,
