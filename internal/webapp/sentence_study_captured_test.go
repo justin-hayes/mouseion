@@ -288,18 +288,19 @@ func TestSentenceStudyCapturedConfiguredModelAlignment(t *testing.T) {
 		{
 			// Uppercase accented Greek is tokenized poorly by the configured
 			// model: the final noun's span includes the sentence-final period,
-			// which the producer strips from the surface. The stored surface then
-			// disagrees with the source slice and the region degrades, while the
-			// original `ΑΥΛΉ.` text is preserved. Filed as a follow-up issue.
-			name:         "greek uppercase sentence degrades the noun spanning its period",
+			// which the producer strips from the surface. The reader still aligns
+			// the noun over the trimmed sub-span and shows the period as plain
+			// source text, so nothing degrades. The model's tagging of ΣΤΗΝ is a
+			// separate quality concern (see the text alternative).
+			name:         "greek uppercase noun spanning its period aligns over the trimmed sub-span",
 			study:        capturedGreekUppercaseStudy(),
-			wantDegraded: true,
-			wantRegions:  []string{"ΑΥΛΉ."},
+			wantDegraded: false,
 			wantWords: []capturedWord{
 				{"ΤΑ", "PL.N.NOM"},
 				{"ΠΑΙΔΙΆ", "PL.N.NOM"},
 				{"ΠΑΊΖΟΥΝ", "3PL.PRS.IPFV.IND.active.finite"},
 				{"ΣΤΗΝ", ""},
+				{"ΑΥΛΉ", ""},
 			},
 		},
 	}
@@ -374,14 +375,23 @@ func TestSentenceStudyCapturedGreekSplitContractionRendersAdjacentUnits(t *testi
 	}
 }
 
-// TestSentenceStudyCapturedGreekUppercaseNamesTheDegradedRegion checks the
-// configured model's poorly tokenized uppercase sentence still degrades
-// honestly: the note names the region and points at the text alternative.
-func TestSentenceStudyCapturedGreekUppercaseNamesTheDegradedRegion(t *testing.T) {
+// TestSentenceStudyCapturedGreekUppercaseAlignsThePeriodAsSourceText checks the
+// configured model's poorly tokenized uppercase sentence still aligns honestly:
+// the noun is a word unit over its trimmed sub-span and the period it spanned is
+// plain source text, so nothing degrades and the source text is preserved.
+func TestSentenceStudyCapturedGreekUppercaseAlignsThePeriodAsSourceText(t *testing.T) {
 	study := capturedGreekUppercaseStudy()
+	line := alignSentenceStudy(study)
+	require.False(t, line.Degraded)
+	require.Equal(t, "ΤΑ ΠΑΙΔΙΆ ΠΑΊΖΟΥΝ ΣΤΗΝ ΑΥΛΉ.", studySource(line),
+		"the sentence source text is preserved exactly, period included")
 	body := renderSentenceStudy(t, study)
-	require.Contains(t, body, `class="sentence-study-note"`)
-	require.Contains(t, body, "Some words could not be aligned safely to their source text (ΑΥΛΉ.)")
-	require.Contains(t, body, `<span class="sentence-study-source"> ΑΥΛΉ.</span>`)
-	require.Contains(t, body, "their analyzer evidence is listed in the complete text alternative")
+	require.NotContains(t, body, "Some words could not be aligned safely to their source text")
+	require.Contains(t, body, `<span class="sentence-study-word">ΑΥΛΉ</span>`,
+		"the noun is rendered as a word unit over its trimmed sub-span")
+	require.Contains(t, body, `<span class="sentence-study-source">.</span>`,
+		"the period the span covered is rendered as plain source text")
+	plain := studyPlainSegments(line)
+	require.NotEmpty(t, plain)
+	require.Equal(t, ".", plain[len(plain)-1], "the period is the trailing plain source run")
 }

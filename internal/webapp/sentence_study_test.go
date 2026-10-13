@@ -23,6 +23,11 @@ func studySentence(text string, end int64, tokens ...domain.SentenceStudyToken) 
 	return domain.SentenceStudy{SentenceText: text, UnitText: text, SentenceStartOffset: 0, SentenceEndOffset: end, Tokens: tokens}
 }
 
+// studyEnd returns the code-point length of a sentence's whole text.
+func studyEnd(text string) int64 {
+	return int64(len([]rune(text)))
+}
+
 // studyWords returns the aligned word units in source order.
 func studyWords(line sentenceStudyLine) []sentenceStudyWord {
 	var words []sentenceStudyWord
@@ -45,6 +50,17 @@ func studySource(line sentenceStudyLine) string {
 		}
 	}
 	return builder.String()
+}
+
+// studyPlainSegments returns the line's plain source runs in order.
+func studyPlainSegments(line sentenceStudyLine) []string {
+	var texts []string
+	for _, segment := range line.Segments {
+		if segment.Word == nil {
+			texts = append(texts, segment.Text)
+		}
+	}
+	return texts
 }
 
 func TestSentenceStudyLineAlignsOneToOne(t *testing.T) {
@@ -466,6 +482,166 @@ func TestSentenceStudyLineIgnoresUnsafePunctuationWhenDecidingDegraded(t *testin
 	line := alignSentenceStudy(study)
 	require.False(t, line.Degraded, "a degraded punctuation span is not a word-level local fallback")
 	require.Equal(t, "Haus .", studySource(line))
+}
+
+// TestSentenceStudyLineAlignsSpansThatCoverStrippedEdgeDecoration pins the
+// reader's tolerance for a stored span that still covers the leading and/or
+// trailing punctuation or symbols the producer strips from the persisted
+// surface. The word unit is narrowed to the trimmed sub-span and the stripped
+// edges are plain source text, so the sentence is preserved character for
+// character.
+func TestSentenceStudyLineAlignsSpansThatCoverStrippedEdgeDecoration(t *testing.T) {
+	tests := []struct {
+		name      string
+		text      string
+		token     domain.SentenceStudyToken
+		wantWord  string
+		wantLabel string
+		wantPlain []string
+	}{
+		{
+			name:      "leading edge decoration",
+			text:      "‹die",
+			token:     studyWord(0, 0, 4, "die", "DET", map[string]string{"Case": "Nom"}),
+			wantWord:  "die",
+			wantLabel: "NOM",
+			wantPlain: []string{"‹"},
+		},
+		{
+			name:      "trailing edge decoration",
+			text:      "Besten›",
+			token:     studyWord(0, 0, 7, "Besten", "ADJ", map[string]string{"Case": "Acc"}),
+			wantWord:  "Besten",
+			wantLabel: "ACC",
+			wantPlain: []string{"›"},
+		},
+		{
+			name:      "both edge decorations",
+			text:      "„Wort“",
+			token:     studyWord(0, 0, 6, "Wort", "NOUN", map[string]string{"Case": "Nom"}),
+			wantWord:  "Wort",
+			wantLabel: "NOM",
+			wantPlain: []string{"„", "“"},
+		},
+		{
+			name:      "symbol edge decorations",
+			text:      "$Haus€",
+			token:     studyWord(0, 0, 6, "Haus", "NOUN", map[string]string{"Case": "Dat"}),
+			wantWord:  "Haus",
+			wantLabel: "DAT",
+			wantPlain: []string{"$", "€"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			study := studySentence(test.text, studyEnd(test.text), test.token)
+			line := alignSentenceStudy(study)
+			require.False(t, line.Degraded)
+			assert.Equal(t, test.text, studySource(line), "the source text is preserved exactly")
+			words := studyWords(line)
+			require.Len(t, words, 1)
+			assert.Equal(t, test.wantWord, words[0].Text)
+			assert.Equal(t, test.wantLabel, sentenceStudyWordLabels(words[0]))
+			assert.Equal(t, test.wantPlain, studyPlainSegments(line))
+		})
+	}
+}
+
+// TestSentenceStudyLineKeepsPunctuationTokensOnExactMatchOnly pins that the edge
+// tolerance is for words: a punctuation token whose slice carries the same
+// stripped decoration is not re-aligned, so it stays one plain source run
+// exactly as before.
+func TestSentenceStudyLineKeepsPunctuationTokensOnExactMatchOnly(t *testing.T) {
+	study := studySentence("„x“", studyEnd("„x“"),
+		studyWord(0, 0, 3, "x", "PUNCT", nil))
+	line := alignSentenceStudy(study)
+	require.False(t, line.Degraded, "a punctuation token never degrades a line")
+	assert.Empty(t, studyWords(line))
+	assert.Equal(t, "„x“", studySource(line))
+	assert.Equal(t, []string{"„x“"}, studyPlainSegments(line),
+		"the punctuation token is not split into a trimmed alignment")
+}
+
+// TestSentenceStudyLineKeepsLexicalApostrophesAtTheEdge pins that the reader's
+// edge rule mirrors the producer's exception for the apostrophes, which are
+// lexical in elided forms: a surface that only matches after dropping an edge
+// apostrophe still degrades.
+func TestSentenceStudyLineKeepsLexicalApostrophesAtTheEdge(t *testing.T) {
+	tests := []struct {
+		name    string
+		text    string
+		surface string
+	}{
+		{name: "ascii apostrophe", text: "dell'", surface: "dell"},
+		{name: "typographic apostrophe", text: "dell’", surface: "dell"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			length := studyEnd(test.text)
+			study := studySentence(test.text, length,
+				studyWord(0, 0, length, test.surface, "DET", map[string]string{"Definite": "Def"}))
+			line := alignSentenceStudy(study)
+			require.True(t, line.Degraded, "a lexical apostrophe at the edge is not stripped decoration")
+			assert.Empty(t, studyWords(line))
+			assert.Equal(t, test.text, studySource(line))
+		})
+	}
+}
+
+// TestSentenceStudyLineStillDegradesMismatchesThatAreNotEdgeDecoration pins the
+// boundary of the tolerance: internal differences, letters at the edges, case
+// differences and a surface longer than the trimmed slice all stay unsafe.
+func TestSentenceStudyLineStillDegradesMismatchesThatAreNotEdgeDecoration(t *testing.T) {
+	tests := []struct {
+		name    string
+		text    string
+		surface string
+	}{
+		{name: "internal difference", text: "Ha.us", surface: "Haus"},
+		{name: "letter at the leading edge", text: "xHaus.", surface: "Haus"},
+		{name: "letter at the trailing edge", text: "Haus.x", surface: "Haus"},
+		{name: "case difference", text: "haus.", surface: "Haus"},
+		{name: "surface longer than the trimmed slice", text: "Haus.", surface: "Hausx"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			length := studyEnd(test.text)
+			study := studySentence(test.text, length,
+				studyWord(0, 0, length, test.surface, "NOUN", map[string]string{"Case": "Nom"}))
+			line := alignSentenceStudy(study)
+			require.True(t, line.Degraded)
+			assert.Empty(t, studyWords(line))
+			assert.Equal(t, test.text, studySource(line))
+		})
+	}
+}
+
+// TestSentenceStudyLineDegradesAnEdgeTrimmedWordWhoseStoredSpanOverlapsASibling
+// pins that overlap safety still judges the stored spans: here the trimmed word
+// sub-span would not overlap the leading decoration, but the stored spans do, so
+// the word degrades conservatively as before.
+func TestSentenceStudyLineDegradesAnEdgeTrimmedWordWhoseStoredSpanOverlapsASibling(t *testing.T) {
+	study := studySentence("„Wort“", 6,
+		studyWord(0, 0, 6, "Wort", "NOUN", map[string]string{"Case": "Nom"}),
+		studyWord(1, 0, 1, "„", "PUNCT", nil),
+	)
+	line := alignSentenceStudy(study)
+	require.True(t, line.Degraded)
+	assert.Empty(t, studyWords(line))
+	assert.Equal(t, "„Wort“", studySource(line))
+}
+
+// TestSentenceStudyLineMarksTheTargetOnTheTrimmedUnit checks that target
+// emphasis attaches to the narrowed word unit, not the stripped edges.
+func TestSentenceStudyLineMarksTheTargetOnTheTrimmedUnit(t *testing.T) {
+	study := studySentence("„Wort“", 6,
+		studyWord(0, 0, 6, "Wort", "NOUN", map[string]string{"Case": "Nom"}))
+	study.TargetOrdinal = 0
+	line := alignSentenceStudy(study)
+	words := studyWords(line)
+	require.Len(t, words, 1)
+	require.True(t, words[0].Target)
+	assert.Equal(t, "Wort", words[0].Text)
 }
 
 func renderSentenceStudy(t *testing.T, study domain.SentenceStudy) string {

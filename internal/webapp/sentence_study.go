@@ -3,6 +3,7 @@ package webapp
 import (
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -94,17 +95,24 @@ func alignSentenceStudy(study domain.SentenceStudy) sentenceStudyLine {
 		return sentenceStudyLine{WholeLineFallback: true}
 	}
 
-	safe := sentenceStudySafeWords(study.Tokens, source)
-	line := sentenceStudyLine{Segments: sentenceStudySegments(study, source, safe)}
-	sentenceStudyFlags(&line, study.Tokens, safe, source)
+	alignments := sentenceStudyAlignments(study.Tokens, source)
+	line := sentenceStudyLine{Segments: sentenceStudySegments(study, source, alignments)}
+	sentenceStudyFlags(&line, study.Tokens, alignments, source)
 	return line
+}
+
+// sentenceStudyAlignment is one token's decided alignment: the source sub-span
+// it may claim as an aligned word unit, and whether it may be aligned at all.
+type sentenceStudyAlignment struct {
+	start, end int64
+	safe       bool
 }
 
 // sentenceStudyFlags records the subtle states the view reacts to: unannotated
 // words, slash alternatives, and which words degraded locally.
-func sentenceStudyFlags(line *sentenceStudyLine, tokens []domain.SentenceStudyToken, safe []bool, source sentenceStudySource) {
+func sentenceStudyFlags(line *sentenceStudyLine, tokens []domain.SentenceStudyToken, alignments []sentenceStudyAlignment, source sentenceStudySource) {
 	sentenceStudyWordFlags(line)
-	sentenceStudyDegraded(line, tokens, safe, source)
+	sentenceStudyDegraded(line, tokens, alignments, source)
 }
 
 func sentenceStudyWordFlags(line *sentenceStudyLine) {
@@ -123,10 +131,10 @@ func sentenceStudyWordFlags(line *sentenceStudyLine) {
 	}
 }
 
-func sentenceStudyDegraded(line *sentenceStudyLine, tokens []domain.SentenceStudyToken, safe []bool, source sentenceStudySource) {
+func sentenceStudyDegraded(line *sentenceStudyLine, tokens []domain.SentenceStudyToken, alignments []sentenceStudyAlignment, source sentenceStudySource) {
 	seen := make(map[string]struct{})
-	for index, isSafe := range safe {
-		if isSafe || !sentenceStudyTokenIsWord(tokens[index]) {
+	for index, alignment := range alignments {
+		if alignment.safe || !sentenceStudyTokenIsWord(tokens[index]) {
 			continue
 		}
 		line.Degraded = true
@@ -139,18 +147,19 @@ func sentenceStudyDegraded(line *sentenceStudyLine, tokens []domain.SentenceStud
 	}
 }
 
-// sentenceStudySafeWords marks each token that may be aligned: a valid in-bounds
-// span whose source slice matches the stored surface and which overlaps no other
-// word span. The overlap test considers every in-bounds sibling, safe or not,
-// so a shared legacy span (a contraction and its words) never lets one word
-// claim the region while the other silently disappears.
-func sentenceStudySafeWords(tokens []domain.SentenceStudyToken, source sentenceStudySource) []bool {
-	safe := make([]bool, len(tokens))
+// sentenceStudyAlignments decides every token's alignment (see
+// sentenceStudyTokenAlignment), then clears any safe token whose stored span
+// overlaps an in-bounds sibling. The overlap test considers every in-bounds
+// sibling, safe or not, on the stored spans, so a shared legacy span (a
+// contraction and its words) never lets one word claim the region while the
+// other silently disappears.
+func sentenceStudyAlignments(tokens []domain.SentenceStudyToken, source sentenceStudySource) []sentenceStudyAlignment {
+	alignments := make([]sentenceStudyAlignment, len(tokens))
 	for index, token := range tokens {
-		safe[index] = sentenceStudyWordSpanIsSafe(token, source)
+		alignments[index] = sentenceStudyTokenAlignment(token, source)
 	}
-	for index := range tokens {
-		if !safe[index] {
+	for index := range alignments {
+		if !alignments[index].safe {
 			continue
 		}
 		for other := range tokens {
@@ -158,40 +167,42 @@ func sentenceStudySafeWords(tokens []domain.SentenceStudyToken, source sentenceS
 				continue
 			}
 			if sentenceStudySpansOverlap(tokens[index], tokens[other]) {
-				safe[index] = false
+				alignments[index].safe = false
 				break
 			}
 		}
 	}
-	return safe
+	return alignments
 }
 
 // sentenceStudySegments walks the trusted source range, emitting an aligned word
 // for every safe span and the exact source text for everything else, so the
-// sentence is never reconstructed from word surfaces.
-func sentenceStudySegments(study domain.SentenceStudy, source sentenceStudySource, safe []bool) []sentenceStudySegment {
-	safeOrder := make([]int, 0, len(study.Tokens))
-	for index := range study.Tokens {
-		if safe[index] {
-			safeOrder = append(safeOrder, index)
+// sentence is never reconstructed from word surfaces. A word whose span covers
+// stripped edge decoration emits the trimmed word unit and the stripped edges as
+// plain source text.
+func sentenceStudySegments(study domain.SentenceStudy, source sentenceStudySource, alignments []sentenceStudyAlignment) []sentenceStudySegment {
+	order := make([]int, 0, len(study.Tokens))
+	for index := range alignments {
+		if alignments[index].safe {
+			order = append(order, index)
 		}
 	}
-	slices.SortStableFunc(safeOrder, func(a, b int) int {
-		return int(study.Tokens[a].StartOffset - study.Tokens[b].StartOffset)
+	slices.SortStableFunc(order, func(a, b int) int {
+		return int(alignments[a].start - alignments[b].start)
 	})
 
-	segments := make([]sentenceStudySegment, 0, 2*len(safeOrder)+1)
+	segments := make([]sentenceStudySegment, 0, 2*len(order)+1)
 	cursor := source.start
-	for _, index := range safeOrder {
-		token := study.Tokens[index]
-		if token.StartOffset < cursor {
+	for _, index := range order {
+		alignment := alignments[index]
+		if alignment.start < cursor {
 			continue // Defensive: a safe span never reorders the source.
 		}
-		if token.StartOffset > cursor {
-			segments = append(segments, sentenceStudySegment{Text: source.slice(cursor, token.StartOffset)})
+		if alignment.start > cursor {
+			segments = append(segments, sentenceStudySegment{Text: source.slice(cursor, alignment.start)})
 		}
-		segments = append(segments, sentenceStudyWordSegment(study, token, source))
-		cursor = token.EndOffset
+		segments = append(segments, sentenceStudyWordSegment(study, study.Tokens[index], alignment, source))
+		cursor = alignment.end
 	}
 	if cursor < source.end {
 		segments = append(segments, sentenceStudySegment{Text: source.slice(cursor, source.end)})
@@ -199,10 +210,11 @@ func sentenceStudySegments(study domain.SentenceStudy, source sentenceStudySourc
 	return segments
 }
 
-// sentenceStudyWordSegment builds one aligned unit. Punctuation and symbols
-// cover source text but carry no grammatical features, so they stay plain.
-func sentenceStudyWordSegment(study domain.SentenceStudy, token domain.SentenceStudyToken, source sentenceStudySource) sentenceStudySegment {
-	text := source.slice(token.StartOffset, token.EndOffset)
+// sentenceStudyWordSegment builds one aligned unit over its decided sub-span.
+// Punctuation and symbols cover source text but carry no grammatical features,
+// so they stay plain.
+func sentenceStudyWordSegment(study domain.SentenceStudy, token domain.SentenceStudyToken, alignment sentenceStudyAlignment, source sentenceStudySource) sentenceStudySegment {
+	text := source.slice(alignment.start, alignment.end)
 	if !sentenceStudyTokenIsWord(token) {
 		return sentenceStudySegment{Text: text}
 	}
@@ -239,11 +251,54 @@ func sentenceStudyDegradedExample(regions []string) string {
 	return strings.Join(regions, ", ")
 }
 
-// sentenceStudyWordSpanIsSafe reports whether a word's stored span is a valid,
-// non-empty, in-bounds code-point range whose source slice exactly matches the
-// stored surface.
-func sentenceStudyWordSpanIsSafe(token domain.SentenceStudyToken, source sentenceStudySource) bool {
-	return source.contains(token.StartOffset, token.EndOffset) && source.slice(token.StartOffset, token.EndOffset) == token.Surface
+// sentenceStudyTokenAlignment decides the source sub-span a token may claim as
+// an aligned unit, and whether it may be aligned at all. A token is safe when
+// its stored span is a valid, non-empty, in-bounds range whose source slice
+// matches the stored surface. A word is also safe when the slice differs from
+// the surface only by leading and/or trailing edge decorations that the
+// producer strips from the persisted surface (see _clean_surface in
+// nlp/src/mouseion_nlp/producer.py); its sub-span is then narrowed to the
+// trimmed slice that equals the surface. Punctuation and symbol tokens keep
+// exact-match only, so their plain source runs are unchanged. Any other
+// disagreement is unsafe.
+func sentenceStudyTokenAlignment(token domain.SentenceStudyToken, source sentenceStudySource) sentenceStudyAlignment {
+	start, end := token.StartOffset, token.EndOffset
+	if !source.contains(start, end) {
+		return sentenceStudyAlignment{}
+	}
+	if source.slice(start, end) != token.Surface {
+		if !sentenceStudyTokenIsWord(token) {
+			return sentenceStudyAlignment{}
+		}
+		start, end = sentenceStudyTrimEdgeDecorations(start, end, source)
+	}
+	if start < end && source.slice(start, end) == token.Surface {
+		return sentenceStudyAlignment{start: start, end: end, safe: true}
+	}
+	return sentenceStudyAlignment{}
+}
+
+// sentenceStudyTrimEdgeDecorations narrows a span past the leading and trailing
+// edge decorations the producer strips from a persisted surface. It mirrors
+// _clean_surface in nlp/src/mouseion_nlp/producer.py: Unicode punctuation (P*)
+// and symbols (S*) are decorations, except the apostrophes ' (U+0027) and
+// ’ (U+2019), which are lexical in elided forms such as Italian dell'.
+func sentenceStudyTrimEdgeDecorations(start, end int64, source sentenceStudySource) (int64, int64) {
+	for start < end && sentenceStudyEdgeDecoration(source.runes[start]) {
+		start++
+	}
+	for end > start && sentenceStudyEdgeDecoration(source.runes[end-1]) {
+		end--
+	}
+	return start, end
+}
+
+// sentenceStudyEdgeDecoration reports whether a rune is stripped from a surface
+// edge by the producer's edge-cleaning rule. Go's unicode.IsPunct and
+// unicode.IsSymbol correspond to the Unicode P and S general categories the
+// producer tests; the apostrophes are the deliberate lexical exception.
+func sentenceStudyEdgeDecoration(r rune) bool {
+	return r != '\'' && r != '\u2019' && (unicode.IsPunct(r) || unicode.IsSymbol(r))
 }
 
 func sentenceStudySpansOverlap(a, b domain.SentenceStudyToken) bool {
