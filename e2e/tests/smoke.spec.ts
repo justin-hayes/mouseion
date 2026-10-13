@@ -234,7 +234,7 @@ test.describe('authenticated learner smoke', () => {
       await expect(noScript.getByRole('heading', { name: 'Forms of haus' })).toBeVisible();
       const rows = noScript.locator('details.concordance-row');
       await expect(rows).toHaveCount(25);
-      const studyLinks = noScript.getByRole('link', { name: 'Study this sentence and its syntax' });
+      const studyLinks = noScript.getByRole('link', { name: 'Study this sentence' });
       await expect(studyLinks).toHaveCount(25);
       await expect(studyLinks.nth(0)).toBeVisible();
       await expect(studyLinks.nth(0)).toHaveText('Study');
@@ -265,9 +265,15 @@ test.describe('authenticated learner smoke', () => {
       await expect(expandedContext).not.toContainText('Analyzer lemma');
       await expect(expandedContext).not.toContainText('Dependency:');
       await studyLinks.nth(0).click();
-      await expect(noScript.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
+      await expect(noScript.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
       await expect(noScript.locator('.sentence-study-text')).toContainText('Das Haus sieht gut aus.');
-      await expect(noScript.locator('.sentence-study-tokens')).toContainText('Corrected for this occurrence');
+      const textAlternative = noScript.locator('#sentence-study-text-alternative');
+      await expect(textAlternative, 'the complete text alternative is closed by default').not.toHaveAttribute('open', '');
+      await expect(textAlternative.locator('summary')).toHaveText('Complete text alternative');
+      await expect(textAlternative).toContainText('Case=Nom, Gender=Neut, Number=Sing');
+      await expect(textAlternative).toContainText('Mood=Ind, Number=Sing, Person=3, Tense=Pres, VerbForm=Fin');
+      await expect(textAlternative).toContainText('morphology none supplied');
+      await expect(textAlternative).toContainText('Corrected for this occurrence');
       await noScript.getByRole('link', { name: 'Return to Concordance results' }).click();
       await expect(noScript).toHaveURL(/\/vocabulary\/concordance\?.*#occurrence-fixture-book-2-1$/);
       await expect(noScript.getByRole('heading', { name: 'Forms of haus' })).toBeVisible();
@@ -302,7 +308,7 @@ test.describe('authenticated learner smoke', () => {
       await expect(noScript).toHaveURL(/page=2/);
       await expect(noScript.locator('details.concordance-row')).toHaveCount(1);
       const secondPageID = await noScript.locator('details.concordance-row').getAttribute('id');
-      await noScript.getByRole('link', { name: 'Study this sentence and its syntax' }).click();
+      await noScript.getByRole('link', { name: 'Study this sentence' }).click();
       await noScript.getByRole('link', { name: 'Return to Concordance results' }).click();
       await expect(noScript).toHaveURL(new RegExp(`page=2.*#${secondPageID}$`));
       await expect.poll(() => noScript.evaluate(() => document.activeElement?.id)).toBe(secondPageID);
@@ -371,7 +377,7 @@ test.describe('authenticated learner smoke', () => {
 
       // Native single-open disclosure; Study stays a visible link whether open or closed.
       const details = list.locator('details.concordance-row');
-      const study = list.getByRole('link', { name: 'Study this sentence and its syntax' });
+      const study = list.getByRole('link', { name: 'Study this sentence' });
       await expect(study).toHaveCount(7);
       await details.nth(0).locator('summary').focus();
       await page.keyboard.press('Enter');
@@ -404,8 +410,8 @@ test.describe('authenticated learner smoke', () => {
 
     // Study provides the destination for a label that only shows a shortened title.
     await page.goto('/vocabulary/concordance?term=fixture-books');
-    await page.getByRole('link', { name: 'Study this sentence and its syntax' }).first().click();
-    await expect(page.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
+    await page.getByRole('link', { name: 'Study this sentence' }).first().click();
+    await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
     await expect(page.locator('#sentence-study-heading')).toBeVisible();
   });
 
@@ -445,7 +451,7 @@ test.describe('authenticated learner smoke', () => {
       // Keyboard order is unchanged: disclosure, then Study; source labels add no tab stop.
       await rows.nth(0).locator('summary').focus();
       await page.keyboard.press('Tab');
-      await expect(list.getByRole('link', { name: 'Study this sentence and its syntax' }).first()).toBeFocused();
+      await expect(list.getByRole('link', { name: 'Study this sentence' }).first()).toBeFocused();
 
       // Reflow at 320 CSS px, the repo's 400% zoom stand-in: no horizontal overflow and no clipped target.
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${where} has no horizontal page overflow`).toBe(true);
@@ -538,7 +544,7 @@ test.describe('authenticated learner smoke', () => {
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
     await expect(secondRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
     await firstRow.locator('.concordance-study-link').click();
-    await expect(page.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
     await page.getByRole('link', { name: 'Return to Concordance results' }).click();
     const returnedOccurrence = page.locator('#occurrence-fixture-book-2-1');
     await expect(returnedOccurrence).toBeVisible();

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -96,7 +97,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Language)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 27, Col: 65}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 28, Col: 65}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 				if templ_7745c5c3_Err != nil {
@@ -117,7 +118,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Term)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 31, Col: 139}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 32, Col: 139}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 				if templ_7745c5c3_Err != nil {
@@ -135,7 +136,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 					var templ_7745c5c3_Var6 string
 					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 37, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 38, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
@@ -153,7 +154,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 						var templ_7745c5c3_Var7 templ.SafeURL
 						templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.Apply(vocabularyConcordanceRestartURL(lookup))))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 39, Col: 116}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 40, Col: 116}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 						if templ_7745c5c3_Err != nil {
@@ -196,7 +197,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceAppliedSummary(lookup, result))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 47, Col: 175}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 48, Col: 175}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -209,7 +210,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceResultsSummary(result))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 48, Col: 80}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 49, Col: 80}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -233,7 +234,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 						var templ_7745c5c3_Var10 string
 						templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(note)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 53, Col: 71}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 54, Col: 71}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 						if templ_7745c5c3_Err != nil {
@@ -252,7 +253,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 						var templ_7745c5c3_Var11 templ.SafeURL
 						templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.Apply(vocabularyConcordanceRestartURL(concordanceAppliedLookup(lookup, result)))))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 58, Col: 120}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 59, Col: 120}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 						if templ_7745c5c3_Err != nil {
@@ -271,7 +272,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 						var templ_7745c5c3_Var12 string
 						templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceMatchNoun(result))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 62, Col: 72}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 63, Col: 72}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 						if templ_7745c5c3_Err != nil {
@@ -284,7 +285,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 						var templ_7745c5c3_Var13 string
 						templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 62, Col: 93}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 63, Col: 93}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 						if templ_7745c5c3_Err != nil {
@@ -303,7 +304,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 						var templ_7745c5c3_Var14 templ.SafeURL
 						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(1, concordanceAppliedLookup(lookup, result)))))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 65, Col: 147}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 66, Col: 147}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 						if templ_7745c5c3_Err != nil {
@@ -332,7 +333,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var15 string
 								templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(occurrence.BookTitle)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 75, Col: 73}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 76, Col: 73}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 								if templ_7745c5c3_Err != nil {
@@ -345,7 +346,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var16 string
 								templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceBookGroupCountText(result.Occurrences, index))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 76, Col: 146}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 77, Col: 146}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 								if templ_7745c5c3_Err != nil {
@@ -358,7 +359,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var17 string
 								templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceBookGroupCompactCount(result.Occurrences, index))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 76, Col: 275}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 77, Col: 275}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 								if templ_7745c5c3_Err != nil {
@@ -376,7 +377,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 							var templ_7745c5c3_Var18 string
 							templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(concordanceOccurrenceID(occurrence))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 79, Col: 114}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 80, Col: 114}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 							if templ_7745c5c3_Err != nil {
@@ -409,7 +410,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var19 string
 								templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceContextText(before))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 84, Col: 84}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 85, Col: 84}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 								if templ_7745c5c3_Err != nil {
@@ -422,7 +423,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var20 string
 								templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(target)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 84, Col: 144}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 85, Col: 144}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 								if templ_7745c5c3_Err != nil {
@@ -435,7 +436,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var21 string
 								templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceContextText(after))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 84, Col: 218}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 85, Col: 218}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 								if templ_7745c5c3_Err != nil {
@@ -453,7 +454,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var22 string
 								templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(occurrence.Surface)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 86, Col: 109}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 87, Col: 109}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 								if templ_7745c5c3_Err != nil {
@@ -466,7 +467,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var23 string
 								templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(" " + occurrence.SentenceText)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 86, Col: 184}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 87, Col: 184}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 								if templ_7745c5c3_Err != nil {
@@ -485,7 +486,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var24 string
 								templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(before)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 92, Col: 22}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 93, Col: 22}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 								if templ_7745c5c3_Err != nil {
@@ -498,7 +499,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var25 string
 								templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(target)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 92, Col: 76}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 93, Col: 76}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 								if templ_7745c5c3_Err != nil {
@@ -511,7 +512,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var26 string
 								templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(after)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 92, Col: 94}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 93, Col: 94}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 								if templ_7745c5c3_Err != nil {
@@ -521,21 +522,21 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 								var templ_7745c5c3_Var27 string
 								templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(occurrence.SentenceText)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 94, Col: 39}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 95, Col: 39}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</p></div></details> <a class=\"concordance-study-link\" aria-label=\"Study this sentence and its syntax\" href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</p></div></details> <a class=\"concordance-study-link\" aria-label=\"Study this sentence\" href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var28 templ.SafeURL
 							templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 99, Col: 202}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 100, Col: 187}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 							if templ_7745c5c3_Err != nil {
@@ -564,7 +565,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 							var templ_7745c5c3_Var29 templ.SafeURL
 							templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(result.Page-1, concordanceAppliedLookup(lookup, result)))))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 107, Col: 164}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 108, Col: 164}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 							if templ_7745c5c3_Err != nil {
@@ -577,7 +578,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 							var templ_7745c5c3_Var30 string
 							templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(result.Page-1, concordanceAppliedLookup(lookup, result)))))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 107, Col: 290}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 108, Col: 290}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 							if templ_7745c5c3_Err != nil {
@@ -596,7 +597,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 							var templ_7745c5c3_Var31 templ.SafeURL
 							templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(result.Page+1, concordanceAppliedLookup(lookup, result)))))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 110, Col: 164}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 111, Col: 164}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 							if templ_7745c5c3_Err != nil {
@@ -609,7 +610,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, look
 							var templ_7745c5c3_Var32 string
 							templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(result.Page+1, concordanceAppliedLookup(lookup, result)))))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 110, Col: 290}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 111, Col: 290}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
 							if templ_7745c5c3_Err != nil {
@@ -678,7 +679,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = PageHeader("Study this sentence and its syntax", "A complete source sentence with syntax attributed to the analyzer.", nil).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageHeader("Study this sentence", "The complete source sentence with analyzer-attributed evidence for each analyzed word.", nil).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -689,7 +690,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			var templ_7745c5c3_Var35 templ.SafeURL
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(back))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 124, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 125, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 			if templ_7745c5c3_Err != nil {
@@ -702,7 +703,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			var templ_7745c5c3_Var36 string
 			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(study.BookTitle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 126, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 127, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 			if templ_7745c5c3_Err != nil {
@@ -715,7 +716,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			var templ_7745c5c3_Var37 string
 			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(study.ChapterTitle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 127, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 128, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 			if templ_7745c5c3_Err != nil {
@@ -728,7 +729,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			var templ_7745c5c3_Var38 string
 			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", study.SentenceOrdinal+1))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 127, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 128, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 			if templ_7745c5c3_Err != nil {
@@ -741,7 +742,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			var templ_7745c5c3_Var39 string
 			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(sentenceStudyTarget(study))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 128, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 129, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 			if templ_7745c5c3_Err != nil {
@@ -754,7 +755,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			var templ_7745c5c3_Var40 string
 			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(study.SentenceText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 130, Col: 24}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 131, Col: 24}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 			if templ_7745c5c3_Err != nil {
@@ -770,7 +771,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<h3>Analyzer-attributed tokens</h3><ol class=\"sentence-study-tokens\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "  <details id=\"sentence-study-text-alternative\" class=\"sentence-study-alternative\"><summary>Complete text alternative</summary><ol class=\"sentence-study-tokens\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -787,7 +788,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						var templ_7745c5c3_Var41 string
 						templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(token.Surface)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 140, Col: 31}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 144, Col: 32}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 						if templ_7745c5c3_Err != nil {
@@ -805,7 +806,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						var templ_7745c5c3_Var42 string
 						templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(token.Surface)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 142, Col: 31}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 146, Col: 32}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 						if templ_7745c5c3_Err != nil {
@@ -816,111 +817,137 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, ": <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<span>(token ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var43 string
-					templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(token.UPOS)
+					templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", token.Ordinal+1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 144, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 148, Col: 57}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</code>, lemma evidence <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, ")</span> : <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var44 string
-					templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(token.RawLemma)
+					templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(token.UPOS)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 144, Col: 75}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 149, Col: 28}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</code>, effective lemma <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</code>, analyzer lemma <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var45 string
-					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(token.EffectiveLemma)
+					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(token.RawLemma)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 144, Col: 130}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 149, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</code>; dependency <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</code>, effective lemma <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var46 string
-					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(token.Dependency)
+					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(token.EffectiveLemma)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 145, Col: 42}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 149, Col: 131}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</code>, head ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</code>; morphology <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var47 string
-					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(token.HeadSurface)
+					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(sentenceStudyMorphology(token.Morphology))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 145, Col: 77}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 150, Col: 68}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, " (token ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</code>; dependency <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var48 string
-					templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", token.HeadOrdinal+1))
+					templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(token.Dependency)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 145, Col: 127}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 150, Col: 114}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "). ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</code>, head ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var49 string
+					templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(token.HeadSurface)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 150, Col: 149}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, " (token ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var50 string
+					templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", token.HeadOrdinal+1))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 150, Col: 199}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "). ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if token.Corrected {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "<span>Corrected for this occurrence.</span> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "<span>Corrected for this occurrence.</span> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
 					if token.Excluded {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "<span>Excluded from effective vocabulary; retained as syntax evidence.</span>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<span>Excluded from effective vocabulary; retained as syntax evidence.</span>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</li>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "</li>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</ol>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</ol></details>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "</section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1099,6 +1126,21 @@ func sentenceStudyTarget(study domain.SentenceStudy) string {
 	return "Target unavailable in syntax evidence"
 }
 
+// sentenceStudyMorphology renders every stored morphology feature unfiltered.
+// Features are sorted by name so the text alternative is deterministic; an
+// empty map means the analyzer supplied no features for the word.
+func sentenceStudyMorphology(morphology map[string]string) string {
+	if len(morphology) == 0 {
+		return "none supplied"
+	}
+	keys := slices.Sorted(maps.Keys(morphology))
+	features := make([]string, 0, len(keys))
+	for _, key := range keys {
+		features = append(features, key+"="+morphology[key])
+	}
+	return strings.Join(features, ", ")
+}
+
 func concordanceDecisionLabelForStudy(token domain.SentenceStudyToken) string {
 	if token.Excluded {
 		return " (excluded from effective vocabulary; retained as syntax evidence)"
@@ -1209,12 +1251,12 @@ func VocabularyConcordanceErrorPageView(user domain.User, csrf, language string,
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var49 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var49 == nil {
-			templ_7745c5c3_Var49 = templ.NopComponent
+		templ_7745c5c3_Var51 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var51 == nil {
+			templ_7745c5c3_Var51 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var50 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var52 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -1230,20 +1272,20 @@ func VocabularyConcordanceErrorPageView(user domain.User, csrf, language string,
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<p>Active study language: <code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "<p>Active study language: <code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var51 string
-			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(language)
+			var templ_7745c5c3_Var53 string
+			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 422, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 443, Col: 44}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</code>.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "</code>.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1257,7 +1299,7 @@ func VocabularyConcordanceErrorPageView(user domain.User, csrf, language string,
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var50), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var52), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1281,12 +1323,12 @@ func VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var52 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var52 == nil {
-			templ_7745c5c3_Var52 = templ.NopComponent
+		templ_7745c5c3_Var54 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var54 == nil {
+			templ_7745c5c3_Var54 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "<div id=\"concordance-recovery\" aria-live=\"polite\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "<div id=\"concordance-recovery\" aria-live=\"polite\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1301,20 +1343,20 @@ func VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<form method=\"get\" action=\"/vocabulary/concordance\"><input type=\"hidden\" name=\"language\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "<form method=\"get\" action=\"/vocabulary/concordance\"><input type=\"hidden\" name=\"language\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var53 string
-		templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Language)
+		var templ_7745c5c3_Var55 string
+		templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Language)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 436, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 457, Col: 63}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var53)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var55)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1322,53 +1364,34 @@ func VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "<input type=\"hidden\" name=\"term\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "<input type=\"hidden\" name=\"term\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var54 string
-		templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Term)
+		var templ_7745c5c3_Var56 string
+		templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Term)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 438, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 459, Col: 55}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var54)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var56)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if lookup.Match != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "<input type=\"hidden\" name=\"as\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<input type=\"hidden\" name=\"as\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var55 string
-			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Match)
+			var templ_7745c5c3_Var57 string
+			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Match)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 440, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 461, Col: 55}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var55)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "\"> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		if lookup.UPOS != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<input type=\"hidden\" name=\"upos\" value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var56 string
-			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.UPOS)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 443, Col: 56}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var56)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var57)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1377,17 +1400,17 @@ func VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout
 				return templ_7745c5c3_Err
 			}
 		}
-		if lookup.Page > 1 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<input type=\"hidden\" name=\"page\" value=\"")
+		if lookup.UPOS != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<input type=\"hidden\" name=\"upos\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var57 string
-			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", lookup.Page))
+			var templ_7745c5c3_Var58 string
+			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.UPOS)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 446, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 464, Col: 56}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var57)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var58)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1396,17 +1419,17 @@ func VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout
 				return templ_7745c5c3_Err
 			}
 		}
-		if lookup.Priority != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "<input type=\"hidden\" name=\"priority\" value=\"")
+		if lookup.Page > 1 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "<input type=\"hidden\" name=\"page\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var58 string
-			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Priority)
+			var templ_7745c5c3_Var59 string
+			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", lookup.Page))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 449, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 467, Col: 75}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var58)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var59)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1415,17 +1438,17 @@ func VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout
 				return templ_7745c5c3_Err
 			}
 		}
-		if lookup.Revision != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "<input type=\"hidden\" name=\"rev\" value=\"")
+		if lookup.Priority != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "<input type=\"hidden\" name=\"priority\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var59 string
-			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Revision)
+			var templ_7745c5c3_Var60 string
+			templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Priority)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 452, Col: 59}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 470, Col: 64}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var59)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var60)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1434,7 +1457,26 @@ func VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "<button class=\"button\" type=\"submit\">Retry</button></form></div>")
+		if lookup.Revision != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "<input type=\"hidden\" name=\"rev\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var61 string
+			templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.ResolveAttributeValue(lookup.Revision)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 473, Col: 59}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var61)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "\"> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "<button class=\"button\" type=\"submit\">Retry</button></form></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1458,12 +1500,12 @@ func VocabularyConcordanceChangedPageView(user domain.User, csrf, language strin
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var60 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var60 == nil {
-			templ_7745c5c3_Var60 = templ.NopComponent
+		templ_7745c5c3_Var62 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var62 == nil {
+			templ_7745c5c3_Var62 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var61 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var63 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -1479,20 +1521,20 @@ func VocabularyConcordanceChangedPageView(user domain.User, csrf, language strin
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "<p>Active study language: <code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<p>Active study language: <code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var62 string
-			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(language)
+			var templ_7745c5c3_Var64 string
+			templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 462, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 483, Col: 44}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "</code>.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "</code>.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1506,7 +1548,7 @@ func VocabularyConcordanceChangedPageView(user domain.User, csrf, language strin
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var61), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var63), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1530,12 +1572,12 @@ func VocabularyConcordanceChangedRecovery(lookup domain.ConcordanceLookup, origi
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var63 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var63 == nil {
-			templ_7745c5c3_Var63 = templ.NopComponent
+		templ_7745c5c3_Var65 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var65 == nil {
+			templ_7745c5c3_Var65 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<div id=\"concordance-recovery\" aria-live=\"polite\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "<div id=\"concordance-recovery\" aria-live=\"polite\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1543,20 +1585,20 @@ func VocabularyConcordanceChangedRecovery(lookup domain.ConcordanceLookup, origi
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "<a class=\"button button--outline\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "<a class=\"button button--outline\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var64 templ.SafeURL
-		templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.Apply(vocabularyConcordanceRestartURL(lookup))))
+		var templ_7745c5c3_Var66 templ.SafeURL
+		templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.Apply(vocabularyConcordanceRestartURL(lookup))))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 471, Col: 111}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 492, Col: 111}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "\">Refresh results</a></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "\">Refresh results</a></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1582,26 +1624,26 @@ func concordanceOriginReturn(origin browseOrigin, language string) templ.Compone
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var65 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var65 == nil {
-			templ_7745c5c3_Var65 = templ.NopComponent
+		templ_7745c5c3_Var67 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var67 == nil {
+			templ_7745c5c3_Var67 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		if origin.Active() {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "<p class=\"concordance-origin\"><a id=\"concordance-origin-return\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "<p class=\"concordance-origin\"><a id=\"concordance-origin-return\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var66 templ.SafeURL
-			templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.ReturnURL(language)))
+			var templ_7745c5c3_Var68 templ.SafeURL
+			templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.ReturnURL(language)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 479, Col: 114}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 500, Col: 114}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "\">Back to book vocabulary</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "\">Back to book vocabulary</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1628,41 +1670,41 @@ func concordanceOriginFields(origin browseOrigin) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var67 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var67 == nil {
-			templ_7745c5c3_Var67 = templ.NopComponent
+		templ_7745c5c3_Var69 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var69 == nil {
+			templ_7745c5c3_Var69 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		if origin.Active() {
 			for _, key := range originKeys {
 				if value := origin.Values().Get(key); value != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "<input type=\"hidden\" name=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "<input type=\"hidden\" name=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var68 string
-					templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.ResolveAttributeValue(key)
+					var templ_7745c5c3_Var70 string
+					templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.ResolveAttributeValue(key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 489, Col: 35}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 510, Col: 35}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var68)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "\" value=\"")
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var70)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var69 string
-					templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.ResolveAttributeValue(value)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 489, Col: 51}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var69)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "\">")
+					var templ_7745c5c3_Var71 string
+					templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.ResolveAttributeValue(value)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 510, Col: 51}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var71)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

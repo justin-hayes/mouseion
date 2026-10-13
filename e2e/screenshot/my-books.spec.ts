@@ -355,7 +355,7 @@ async function assertConcordanceCorpus(page: Page): Promise<void> {
 // Each result is opened in turn and the browser goes back between them.
 async function openSentenceStudy(page: Page): Promise<void> {
   const concordanceSummary = page.locator('#concordance-summary');
-  const links = page.getByRole('link', { name: 'Study this sentence and its syntax' });
+  const links = page.getByRole('link', { name: 'Study this sentence' });
   const candidates = Math.min(await links.count(), STUDY_CANDIDATE_LIMIT);
   expect(candidates, `the Concordance for "${concordance.lemma}" has no results to study`).toBeGreaterThan(0);
 
@@ -363,7 +363,11 @@ async function openSentenceStudy(page: Page): Promise<void> {
   for (let index = 0; index < candidates; index++) {
     await links.nth(index).click();
     await expect(page.locator('#sentence-study-heading'), 'the sentence Study view opened').toBeVisible({ timeout: 30_000 });
-    const target = page.locator('ol.sentence-study-tokens li', { has: page.getByText('identified target') });
+    const alternative = page.locator('#sentence-study-text-alternative');
+    await expect(alternative, 'the complete text alternative is closed by default').not.toHaveAttribute('open', '');
+    await alternative.locator('summary').click();
+    await expect(alternative, 'the complete text alternative opens as a native disclosure').toHaveAttribute('open', '');
+    const target = alternative.locator('ol.sentence-study-tokens li', { has: page.getByText('identified target') });
     await expect(target, 'the sentence Study does not identify the target token').toHaveCount(1);
     const upos = (await target.locator('code').first().innerText()).trim();
     if (upos !== concordance.upos) {
@@ -374,7 +378,7 @@ async function openSentenceStudy(page: Page): Promise<void> {
     }
 
     const evidence = (await target.innerText()).replace(/\s+/g, ' ').trim();
-    expect(evidence, 'the target token lacks lemma evidence').toContain('lemma evidence');
+    expect(evidence, 'the target token lacks analyzer lemma evidence').toContain('analyzer lemma');
     expect(evidence, `the target token does not resolve to the lemma "${concordance.lemma}"`).toContain(
       `effective lemma ${concordance.lemma}`,
     );

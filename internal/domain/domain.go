@@ -456,7 +456,10 @@ type SentenceStudy struct {
 type SentenceStudyToken struct {
 	Surface, RawLemma, EffectiveLemma, UPOS, Dependency, HeadSurface string
 	Ordinal, HeadOrdinal                                             int64
-	Corrected, Excluded                                              bool
+	// Morphology is the stored analyzer morphology for this token, unfiltered.
+	// An empty map means the analyzer supplied no features for the word.
+	Morphology          map[string]string
+	Corrected, Excluded bool
 }
 
 type AnalysisJob struct {

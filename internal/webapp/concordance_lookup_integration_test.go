@@ -340,11 +340,11 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 		study := perform(t, h, http.MethodGet, fmt.Sprintf("/vocabulary/concordance/sentence?language=de&book=%s&run=%s&corpus=%s&unit=%s&sentence=0&target=1&target_surface=gingen", gamma.ID, runID, corpusID, unitID), nil, cookies)
 		require.Equal(t, http.StatusOK, study.Code)
 		assert.Contains(t, study.Body.String(), "Excluded from effective vocabulary; retained as syntax evidence.")
-		assert.Contains(t, study.Body.String(), "lemma evidence <code>gehen</code>")
+		assert.Contains(t, study.Body.String(), "analyzer lemma <code>gehen</code>")
 		corrected := perform(t, h, http.MethodGet, fmt.Sprintf("/vocabulary/concordance/sentence?language=de&book=%s&run=%s&corpus=%s&unit=%s&sentence=1&target=1&target_surface=Gang", gamma.ID, runID, corpusID, unitID), nil, cookies)
 		require.Equal(t, http.StatusOK, corrected.Code)
 		assert.Contains(t, corrected.Body.String(), "Corrected for this occurrence.")
-		assert.Contains(t, corrected.Body.String(), "lemma evidence <code>gang</code>")
+		assert.Contains(t, corrected.Body.String(), "analyzer lemma <code>gang</code>")
 	})
 }
 

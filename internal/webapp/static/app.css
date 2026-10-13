@@ -3434,7 +3434,7 @@
     padding-block: var(--mouseion-space-2);
     line-height: 1.6;
   }
-  body.vocabulary-shell #concordance-recovery, body.vocabulary-shell #concordance-results, body.vocabulary-shell .sentence-study-text {
+  body.vocabulary-shell #concordance-recovery, body.vocabulary-shell #concordance-results, body.vocabulary-shell .sentence-study-text, body.vocabulary-shell .sentence-study-alternative {
     max-width: var(--mouseion-width-reading);
   }
   body.vocabulary-shell #concordance-results {

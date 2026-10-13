@@ -69,7 +69,7 @@ editions, and every author died before 1956. The run is reproducible with
 
 *Concordance: every analyzed occurrence of a lemma's forms across the learner's books, in context.*
 
-![Sentence study of "Vorläufig allerdings muß ich aufstehen, denn mein Zug fährt um fünf.", with each token's part of speech, lemma evidence, and dependency relation.](doc/images/sentence-study.png)
+![Sentence study of "Vorläufig allerdings muß ich aufstehen, denn mein Zug fährt um fünf.", with the complete text alternative open and each analyzed word's part of speech, analyzer and effective lemma, stored morphology, and dependency relation.](doc/images/sentence-study.png)
 
 *Sentence study: one sentence parsed token by token, with its lemma and dependency evidence.*
 

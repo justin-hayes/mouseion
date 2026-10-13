@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -96,7 +97,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 												</p>
 											</div>
 										</details>
-										<a class="concordance-study-link" aria-label="Study this sentence and its syntax" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
+										<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
 									</li>
 								}
 							</ol>
@@ -120,7 +121,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 
 templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domain.SentenceStudy, back string) {
 	@ShellLayout("Sentence study", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Study this sentence and its syntax", "A complete source sentence with syntax attributed to the analyzer.", nil)
+		@PageHeader("Study this sentence", "The complete source sentence with analyzer-attributed evidence for each analyzed word.", nil)
 		<p><a href={ templ.SafeURL(back) }>Return to Concordance results</a></p>
 		<section class="reading-width" aria-labelledby="sentence-study-heading">
 			<h2 id="sentence-study-heading">{ study.BookTitle }</h2>
@@ -132,26 +133,31 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 			if len(study.Tokens) == 0 {
 				<p>Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.</p>
 			} else {
-				<h3>Analyzer-attributed tokens</h3>
-				<ol class="sentence-study-tokens">
-					for _, token := range study.Tokens {
-						<li>
-							if token.Ordinal == study.TargetOrdinal {
-								<strong>{ token.Surface } — identified target</strong>
-							} else {
-								<strong>{ token.Surface }</strong>
-							}
-							: <code>{ token.UPOS }</code>, lemma evidence <code>{ token.RawLemma }</code>, effective lemma <code>{ token.EffectiveLemma }</code>;
-							dependency <code>{ token.Dependency }</code>, head { token.HeadSurface } (token { fmt.Sprintf("%d", token.HeadOrdinal+1) }).
-							if token.Corrected {
-								<span>Corrected for this occurrence.</span>
-							}
-							if token.Excluded {
-								<span>Excluded from effective vocabulary; retained as syntax evidence.</span>
-							}
-						</li>
-					}
-				</ol>
+				// The complete text alternative is always server-rendered and
+				// closed by default; local-fallback notes name this disclosure.
+				<details id="sentence-study-text-alternative" class="sentence-study-alternative">
+					<summary>Complete text alternative</summary>
+					<ol class="sentence-study-tokens">
+						for _, token := range study.Tokens {
+							<li>
+								if token.Ordinal == study.TargetOrdinal {
+									<strong>{ token.Surface } — identified target</strong>
+								} else {
+									<strong>{ token.Surface }</strong>
+								}
+								<span>(token { fmt.Sprintf("%d", token.Ordinal+1) })</span>
+								: <code>{ token.UPOS }</code>, analyzer lemma <code>{ token.RawLemma }</code>, effective lemma <code>{ token.EffectiveLemma }</code>;
+								morphology <code>{ sentenceStudyMorphology(token.Morphology) }</code>; dependency <code>{ token.Dependency }</code>, head { token.HeadSurface } (token { fmt.Sprintf("%d", token.HeadOrdinal+1) }).
+								if token.Corrected {
+									<span>Corrected for this occurrence.</span>
+								}
+								if token.Excluded {
+									<span>Excluded from effective vocabulary; retained as syntax evidence.</span>
+								}
+							</li>
+						}
+					</ol>
+				</details>
 			}
 		</section>
 	}
@@ -320,6 +326,21 @@ func sentenceStudyTarget(study domain.SentenceStudy) string {
 		return study.TargetSurface + " (syntax evidence unavailable)"
 	}
 	return "Target unavailable in syntax evidence"
+}
+
+// sentenceStudyMorphology renders every stored morphology feature unfiltered.
+// Features are sorted by name so the text alternative is deterministic; an
+// empty map means the analyzer supplied no features for the word.
+func sentenceStudyMorphology(morphology map[string]string) string {
+	if len(morphology) == 0 {
+		return "none supplied"
+	}
+	keys := slices.Sorted(maps.Keys(morphology))
+	features := make([]string, 0, len(keys))
+	for _, key := range keys {
+		features = append(features, key+"="+morphology[key])
+	}
+	return strings.Join(features, ", ")
 }
 
 func concordanceDecisionLabelForStudy(token domain.SentenceStudyToken) string {
