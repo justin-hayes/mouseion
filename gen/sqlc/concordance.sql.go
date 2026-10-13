@@ -163,9 +163,10 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
        COALESCE(t.canonical_lemma, '')::text AS canonical_lemma,
        s.sentence_text,
-       s.sentence_ordinal,
        s.start_offset::bigint AS sentence_start_offset,
        s.end_offset::bigint AS sentence_end_offset,
+       u.text AS unit_text,
+       s.sentence_ordinal,
        $1::bigint AS target_ordinal,
        ca.book_id::text AS book_id,
        b.title AS book_title,
@@ -210,9 +211,10 @@ type GetVocabularySentenceStudyRow struct {
 	Morphology          []byte
 	CanonicalLemma      string
 	SentenceText        string
-	SentenceOrdinal     int64
 	SentenceStartOffset int64
 	SentenceEndOffset   int64
+	UnitText            string
+	SentenceOrdinal     int64
 	TargetOrdinal       int64
 	BookID              string
 	BookTitle           string
@@ -253,9 +255,10 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.Morphology,
 			&i.CanonicalLemma,
 			&i.SentenceText,
-			&i.SentenceOrdinal,
 			&i.SentenceStartOffset,
 			&i.SentenceEndOffset,
+			&i.UnitText,
+			&i.SentenceOrdinal,
 			&i.TargetOrdinal,
 			&i.BookID,
 			&i.BookTitle,

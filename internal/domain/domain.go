@@ -450,7 +450,14 @@ type SentenceStudy struct {
 	BookID, BookTitle, ChapterTitle, SentenceText string
 	TargetSurface                                 string
 	SentenceOrdinal, TargetOrdinal                int64
-	Tokens                                        []SentenceStudyToken
+	// UnitText is the immutable extracted source text bound to the analysis's
+	// snapshot (source_material_units.text). SentenceStartOffset and
+	// SentenceEndOffset are half-open Unicode code-point offsets into it, so a
+	// reader validates the sentence against its authoritative source slice
+	// before aligning any word.
+	UnitText                               string
+	SentenceStartOffset, SentenceEndOffset int64
+	Tokens                                 []SentenceStudyToken
 	// UnresolvedDecisions are stored occurrence decisions that address this
 	// sentence but cannot be attributed to exactly one persisted analyzed word.
 	// They are shown separately and are never applied to a word.
@@ -461,7 +468,9 @@ type SentenceStudyToken struct {
 	Surface, RawLemma, EffectiveLemma, UPOS, Dependency, HeadSurface string
 	Ordinal, HeadOrdinal                                             int64
 	// StartOffset and EndOffset are the word's half-open source span within its
-	// source document; they match a decision's span when it addresses this word.
+	// source unit; they match a decision's span when it addresses this word, and
+	// a reader aligns the word only when they are valid, non-overlapping with
+	// siblings, and their source slice exactly matches the stored surface.
 	StartOffset, EndOffset int64
 	// Morphology is the stored analyzer morphology for this token, unfiltered.
 	// An empty map means the analyzer supplied no features for the word.

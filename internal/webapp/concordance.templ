@@ -121,7 +121,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 
 templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domain.SentenceStudy, back string) {
 	@ShellLayout("Sentence study", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Study this sentence", "The complete source sentence with analyzer-attributed evidence for each analyzed word.", nil)
+		@PageHeader("Study this sentence", "The complete source sentence with a source-aligned morphology line and the complete analyzer evidence.", nil)
 		<p><a href={ templ.SafeURL(back) }>Return to Concordance results</a></p>
 		<section class="reading-width" aria-labelledby="sentence-study-heading">
 			<h2 id="sentence-study-heading">{ study.BookTitle }</h2>
@@ -130,12 +130,48 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 			<p class="reading-text sentence-study-text">
 				{ study.SentenceText }
 			</p>
+			{{ line := alignSentenceStudy(study) }}
 			if len(study.Tokens) == 0 {
 				<p>Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.</p>
 			} else {
-				// The complete text alternative is always server-rendered and
-				// closed by default; local-fallback notes name this disclosure.
-				<details id="sentence-study-text-alternative" class="sentence-study-alternative">
+				if line.WholeLineFallback {
+					<p class="sentence-study-fallback">Word-level labels are withheld because the sentence could not be verified against its stored source text. The complete text alternative below is open by default.</p>
+				} else {
+					<p class="sentence-study-line">
+						for _, segment := range line.Segments {
+							if segment.Word != nil {
+								@sentenceStudyWordUnit(*segment.Word)
+							} else {
+								<span class="sentence-study-source">{ segment.Text }</span>
+							}
+						}
+					</p>
+					if line.Degraded {
+						<p class="sentence-study-note">{ sentenceStudyDegradedNote(line) }</p>
+					}
+					if line.HasUnannotated {
+						<p class="sentence-study-note">A word shown without labels had no core grammatical features supplied by the analyzer; that does not mean the word lacks those features.</p>
+					}
+					<details id="sentence-study-notation-key" class="sentence-study-key">
+						<summary>Notation key</summary>
+						{{ entries := sentenceStudyKey(line) }}
+						if len(entries) > 0 {
+							<dl>
+								for _, entry := range entries {
+									<dt>{ entry.Abbreviation }</dt><dd>{ entry.Expansion }</dd>
+								}
+							</dl>
+						}
+						if line.HasAlternatives {
+							<p>A slash separates analyzer-supplied alternatives (for example NOM/ACC); the line does not choose between them.</p>
+						}
+						<p>A word shown without labels has no core feature recorded for it here.</p>
+					</details>
+				}
+				// The complete text alternative is always server-rendered. It is
+				// closed by default and opens by default only under whole-line
+				// fallback, where the line is withheld.
+				<details id="sentence-study-text-alternative" class="sentence-study-alternative" open?={ line.WholeLineFallback }>
 					<summary>Complete text alternative</summary>
 					<ol class="sentence-study-tokens">
 						for _, token := range study.Tokens {
@@ -171,6 +207,23 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 			}
 		</section>
 	}
+}
+
+// sentenceStudyWordUnit stacks one aligned source word with its labels so the
+// pair wraps as a single unit. Words are static: no links, selection or
+// pop-over.
+templ sentenceStudyWordUnit(word sentenceStudyWord) {
+	{{ labels := sentenceStudyWordLabels(word) }}
+	<span class="sentence-study-unit">
+		if word.Target {
+			<strong class="sentence-study-word">{ word.Text }</strong>
+		} else {
+			<span class="sentence-study-word">{ word.Text }</span>
+		}
+		if labels != "" {
+			<span class="sentence-study-labels">{ labels }</span>
+		}
+	</span>
 }
 
 // vocabularyConcordanceURL links a Browse identity to its exact effective

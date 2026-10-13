@@ -267,6 +267,18 @@ test.describe('authenticated learner smoke', () => {
       await studyLinks.nth(0).click();
       await expect(noScript.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
       await expect(noScript.locator('.sentence-study-text')).toContainText('Das Haus sieht gut aus.');
+      // The interlinear morphology line is server-rendered and usable without JavaScript.
+      const morphologyLine = noScript.locator('.sentence-study-line');
+      await expect(morphologyLine).toBeVisible();
+      await expect(morphologyLine.locator('.sentence-study-unit')).toHaveCount(5);
+      await expect(morphologyLine.locator('.sentence-study-word')).toHaveText(['Das', 'Haus', 'sieht', 'gut', 'aus']);
+      await expect(morphologyLine.locator('.sentence-study-labels')).toHaveText(['SG.N.NOM', 'SG.N.NOM', '3SG.PRS.IND.finite']);
+      await expect(morphologyLine.locator('strong.sentence-study-word')).toHaveText('Haus');
+      const notationKey = noScript.locator('#sentence-study-notation-key');
+      await expect(notationKey, 'the notation key is closed by default').not.toHaveAttribute('open', '');
+      await notationKey.locator('summary').click();
+      await expect(notationKey).toContainText('nominative case');
+      await expect(notationKey).toContainText('third person singular');
       const textAlternative = noScript.locator('#sentence-study-text-alternative');
       await expect(textAlternative, 'the complete text alternative is closed by default').not.toHaveAttribute('open', '');
       await expect(textAlternative.locator('summary')).toHaveText('Complete text alternative');
@@ -413,6 +425,55 @@ test.describe('authenticated learner smoke', () => {
     await page.getByRole('link', { name: 'Study this sentence' }).first().click();
     await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
     await expect(page.locator('#sentence-study-heading')).toBeVisible();
+  });
+
+  test('Sentence study morphology line wraps readably and whole-line fallback opens the text alternative', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.getByRole('link', { name: 'Study this sentence' }).first().click();
+    await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
+
+    const line = page.locator('.sentence-study-line');
+    const units = line.locator('.sentence-study-unit');
+    await expect(units).toHaveCount(5);
+    const desktopLabelFont = await line.locator('.sentence-study-labels').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize));
+
+    // The project width stands in for desktop; 390 and 320 are named widths, and
+    // 320 CSS px approximates 400% zoom on a 1280 px desktop.
+    for (const viewport of [page.viewportSize()!, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
+      await page.setViewportSize(viewport);
+      const where = `${viewport.width}px`;
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${where} has no horizontal page overflow`).toBe(true);
+      // No word is dropped when the units wrap.
+      await expect(units).toHaveCount(5);
+      await expect(units.nth(0)).toContainText('Das');
+      await expect(units.nth(4)).toContainText('aus');
+      for (let index = 0; index < 5; index++) {
+        const box = await units.nth(index).boundingBox();
+        expect(box, `${where} unit ${index} is visible`).not.toBeNull();
+        expect(box!.x, `${where} unit ${index} left edge`).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width, `${where} unit ${index} right edge`).toBeLessThanOrEqual(viewport.width + 0.5);
+      }
+      // Text keeps its size instead of being shrunk to fit.
+      const labelFont = await line.locator('.sentence-study-labels').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize));
+      expect(labelFont, `${where} labels keep their readable size`).toBeGreaterThanOrEqual(desktopLabelFont);
+    }
+
+    // 200% text enlargement reflows without clipping or horizontal page scrolling.
+    await page.setViewportSize({ width: 320, height: 812 });
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), 'morphology line at 200% text').toBe(true);
+    await expect(units).toHaveCount(5);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+
+    // Whole-line fallback withholds the line, explains why, and opens the text alternative.
+    await page.goto('/vocabulary/concordance?term=fixture-whole-line');
+    await page.getByRole('link', { name: 'Study this sentence' }).first().click();
+    await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
+    await expect(page.locator('.sentence-study-line')).toHaveCount(0);
+    await expect(page.locator('#sentence-study-notation-key')).toHaveCount(0);
+    await expect(page.locator('.sentence-study-fallback')).toContainText('could not be verified against its stored source text');
+    await expect(page.locator('#sentence-study-text-alternative')).toHaveAttribute('open', '');
   });
 
   test('Concordance source counts are read once and occurrences are named by their sentences at the project width, 390 px, and 320 px', async ({ page }) => {

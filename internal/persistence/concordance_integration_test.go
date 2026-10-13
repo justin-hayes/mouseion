@@ -153,6 +153,16 @@ func TestGetVocabularySentenceStudyReadsStoredMorphology(t *testing.T) {
 	assert.Equal(t, map[string]string{"Case": "Nom", "Number": "Sing"}, study.Tokens[0].Morphology)
 	assert.Empty(t, study.Tokens[1].Morphology, "a word with no stored features keeps empty morphology")
 	assert.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin"}, study.Tokens[2].Morphology)
+	// The reader receives the authoritative source slice and each stored span,
+	// so alignment can validate the sentence against the immutable unit text.
+	assert.Equal(t, "Das Haus steht.", study.UnitText)
+	assert.Equal(t, int64(0), study.SentenceStartOffset)
+	assert.Equal(t, int64(15), study.SentenceEndOffset)
+	assert.Equal(t, [][2]int64{{0, 3}, {4, 8}, {9, 14}}, [][2]int64{
+		{study.Tokens[0].StartOffset, study.Tokens[0].EndOffset},
+		{study.Tokens[1].StartOffset, study.Tokens[1].EndOffset},
+		{study.Tokens[2].StartOffset, study.Tokens[2].EndOffset},
+	})
 
 	// A stored value the string-map model cannot represent contributes no
 	// features rather than failing the whole sentence-study read.
