@@ -38,6 +38,12 @@ func capturedWords(line sentenceStudyLine) []capturedWord {
 	return words
 }
 
+// capturedLabelText renders one morphology map exactly as the morphology line
+// does, without rebuilding a whole word unit by hand.
+func capturedLabelText(morphology map[string]string) string {
+	return sentenceStudyWordLabels(sentenceStudyWord{Labels: sentenceStudyCoreLabels(morphology)})
+}
+
 // capturedGreekStoStudy is the configured gdt model's split of στο/στην into
 // distinct `σ` + article sub-spans, captured from the gdt pipeline. It is shared
 // by the alignment and presentation tests.
@@ -52,6 +58,21 @@ func capturedGreekStoStudy() domain.SentenceStudy {
 		studyWord(6, 23, 26, "την", "DET", map[string]string{"Case": "Acc", "Definite": "Def", "Gender": "Fem", "Number": "Sing", "PronType": "Art"}),
 		studyWord(7, 27, 31, "πόλη", "NOUN", map[string]string{"Case": "Acc", "Gender": "Fem", "Number": "Sing"}),
 		studyWord(8, 31, 32, ".", "PUNCT", nil),
+	)
+}
+
+// capturedGreekUppercaseStudy is the configured model's poorly tokenized
+// uppercase-accented Greek, captured from the gdt pipeline: the final noun's
+// span includes the sentence-final period (which the producer strips from the
+// surface) and ΣΤΗΝ is tagged NOUN. Shared by the alignment and presentation
+// tests.
+func capturedGreekUppercaseStudy() domain.SentenceStudy {
+	return studySentence("ΤΑ ΠΑΙΔΙΆ ΠΑΊΖΟΥΝ ΣΤΗΝ ΑΥΛΉ.", 28,
+		studyWord(0, 0, 2, "ΤΑ", "DET", map[string]string{"Case": "Nom", "Definite": "Def", "Gender": "Neut", "Number": "Plur", "PronType": "Art"}),
+		studyWord(1, 3, 9, "ΠΑΙΔΙΆ", "NOUN", map[string]string{"Case": "Nom", "Gender": "Neut", "Number": "Plur"}),
+		studyWord(2, 10, 17, "ΠΑΊΖΟΥΝ", "VERB", map[string]string{"Aspect": "Imp", "Mood": "Ind", "Number": "Plur", "Person": "3", "Tense": "Pres", "VerbForm": "Fin", "Voice": "Act"}),
+		studyWord(3, 18, 22, "ΣΤΗΝ", "NOUN", map[string]string{"Abbr": "Yes"}),
+		studyWord(4, 23, 28, "ΑΥΛΉ", "NOUN", map[string]string{"Abbr": "Yes"}),
 	)
 }
 
@@ -188,19 +209,90 @@ func TestSentenceStudyCapturedConfiguredModelAlignment(t *testing.T) {
 			},
 		},
 		{
+			// Italian imperfect tense from the configured model: `ero` and
+			// `giocavo` both carry Tense=Imp and render the spelled-out label.
+			name: "italian imperfect tense sentence",
+			study: studySentence("Quando ero bambino, giocavo ogni giorno.", 40,
+				studyWord(0, 0, 6, "Quando", "SCONJ", nil),
+				studyWord(1, 7, 10, "ero", "AUX", map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "1", "Tense": "Imp", "VerbForm": "Fin"}),
+				studyWord(2, 11, 18, "bambino", "NOUN", map[string]string{"Gender": "Masc", "Number": "Sing"}),
+				studyWord(3, 18, 19, ",", "PUNCT", nil),
+				studyWord(4, 20, 27, "giocavo", "VERB", map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "1", "Tense": "Imp", "VerbForm": "Fin"}),
+				studyWord(5, 28, 32, "ogni", "DET", map[string]string{"Number": "Sing", "PronType": "Ind"}),
+				studyWord(6, 33, 39, "giorno", "NOUN", map[string]string{"Gender": "Masc", "Number": "Sing"}),
+				studyWord(7, 39, 40, ".", "PUNCT", nil),
+			),
+			wantWords: []capturedWord{
+				{"Quando", ""},
+				{"ero", "1SG.imperfect.IND.finite"},
+				{"bambino", "SG.M"},
+				{"giocavo", "1SG.imperfect.IND.finite"},
+				{"ogni", "SG"},
+				{"giorno", "SG.M"},
+			},
+		},
+		{
+			// Italian past participle: the configured model supplies
+			// Tense=Past + VerbForm=Part with gender and number.
+			name: "italian past participle sentence",
+			study: studySentence("Ho mangiato la mela.", 20,
+				studyWord(0, 0, 2, "Ho", "AUX", map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "1", "Tense": "Pres", "VerbForm": "Fin"}),
+				studyWord(1, 3, 11, "mangiato", "VERB", map[string]string{"Gender": "Masc", "Number": "Sing", "Tense": "Past", "VerbForm": "Part"}),
+				studyWord(2, 12, 14, "la", "DET", map[string]string{"Definite": "Def", "Gender": "Fem", "Number": "Sing", "PronType": "Art"}),
+				studyWord(3, 15, 19, "mela", "NOUN", map[string]string{"Gender": "Fem", "Number": "Sing"}),
+				studyWord(4, 19, 20, ".", "PUNCT", nil),
+			),
+			wantWords: []capturedWord{
+				{"Ho", "1SG.PRS.IND.finite"},
+				{"mangiato", "SG.M.PST.PTCP"},
+				{"la", "SG.F"},
+				{"mela", "SG.F"},
+			},
+		},
+		{
+			// German infinitive and a preposition with empty morphology.
+			name: "german infinitive and empty morphology sentence",
+			study: studySentence("Er will nach Hause gehen.", 25,
+				studyWord(0, 0, 2, "Er", "PRON", map[string]string{"Case": "Nom", "Gender": "Masc", "Number": "Sing", "Person": "3", "PronType": "Prs"}),
+				studyWord(1, 3, 7, "will", "AUX", map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "VerbForm": "Fin"}),
+				studyWord(2, 8, 12, "nach", "ADP", nil),
+				studyWord(3, 13, 18, "Hause", "NOUN", map[string]string{"Case": "Dat", "Gender": "Neut", "Number": "Sing"}),
+				studyWord(4, 19, 24, "gehen", "VERB", map[string]string{"VerbForm": "Inf"}),
+				studyWord(5, 24, 25, ".", "PUNCT", nil),
+			),
+			wantWords: []capturedWord{
+				{"Er", "3SG.M.NOM"},
+				{"will", "3SG.PRS.IND.finite"},
+				{"nach", ""},
+				{"Hause", "SG.N.DAT"},
+				{"gehen", "INF"},
+			},
+		},
+		{
+			// Greek perfective aspect plus an infinitive form in one sentence.
+			name: "greek perfective infinitive sentence",
+			study: studySentence("Έχω διαβάσει το βιβλίο.", 23,
+				studyWord(0, 0, 3, "Έχω", "AUX", map[string]string{"Aspect": "Imp", "Mood": "Ind", "Number": "Sing", "Person": "1", "Tense": "Pres", "VerbForm": "Fin", "Voice": "Act"}),
+				studyWord(1, 4, 12, "διαβάσει", "VERB", map[string]string{"Aspect": "Perf", "VerbForm": "Inf", "Voice": "Act"}),
+				studyWord(2, 13, 15, "το", "DET", map[string]string{"Case": "Acc", "Definite": "Def", "Gender": "Neut", "Number": "Sing", "PronType": "Art"}),
+				studyWord(3, 16, 22, "βιβλίο", "NOUN", map[string]string{"Case": "Acc", "Gender": "Neut", "Number": "Sing"}),
+				studyWord(4, 22, 23, ".", "PUNCT", nil),
+			),
+			wantWords: []capturedWord{
+				{"Έχω", "1SG.PRS.IPFV.IND.active.finite"},
+				{"διαβάσει", "PFV.active.INF"},
+				{"το", "SG.N.ACC"},
+				{"βιβλίο", "SG.N.ACC"},
+			},
+		},
+		{
 			// Uppercase accented Greek is tokenized poorly by the configured
 			// model: the final noun's span includes the sentence-final period,
 			// which the producer strips from the surface. The stored surface then
 			// disagrees with the source slice and the region degrades, while the
-			// original `ΑΥΛΉ.` text is preserved.
-			name: "greek uppercase sentence degrades the noun spanning its period",
-			study: studySentence("ΤΑ ΠΑΙΔΙΆ ΠΑΊΖΟΥΝ ΣΤΗΝ ΑΥΛΉ.", 28,
-				studyWord(0, 0, 2, "ΤΑ", "DET", map[string]string{"Case": "Nom", "Definite": "Def", "Gender": "Neut", "Number": "Plur", "PronType": "Art"}),
-				studyWord(1, 3, 9, "ΠΑΙΔΙΆ", "NOUN", map[string]string{"Case": "Nom", "Gender": "Neut", "Number": "Plur"}),
-				studyWord(2, 10, 17, "ΠΑΊΖΟΥΝ", "VERB", map[string]string{"Aspect": "Imp", "Mood": "Ind", "Number": "Plur", "Person": "3", "Tense": "Pres", "VerbForm": "Fin", "Voice": "Act"}),
-				studyWord(3, 18, 22, "ΣΤΗΝ", "NOUN", map[string]string{"Abbr": "Yes"}),
-				studyWord(4, 23, 28, "ΑΥΛΉ", "NOUN", map[string]string{"Abbr": "Yes"}),
-			),
+			// original `ΑΥΛΉ.` text is preserved. Filed as a follow-up issue.
+			name:         "greek uppercase sentence degrades the noun spanning its period",
+			study:        capturedGreekUppercaseStudy(),
 			wantDegraded: true,
 			wantRegions:  []string{"ΑΥΛΉ."},
 			wantWords: []capturedWord{
@@ -246,7 +338,7 @@ func TestSentenceStudyCapturedConfiguredModelLabels(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, sentenceStudyWordLabels(sentenceStudyWord{Labels: sentenceStudyCoreLabels(test.morphology)}))
+			assert.Equal(t, test.want, capturedLabelText(test.morphology))
 		})
 	}
 
@@ -276,7 +368,7 @@ func TestSentenceStudyCapturedGreekSplitContractionRendersAdjacentUnits(t *testi
 		`<strong class="sentence-study-word">το</strong>`,
 		`<span class="sentence-study-labels">SG.N.ACC</span>`,
 		`<span class="sentence-study-labels">1SG.PRS.IPFV.IND.active.finite</span>`,
-		`<dt>IPFV</dt><dd>imperfective aspect</dd>`,
+		`<dt>IPFV</dt><dd>imperfective aspect`,
 	} {
 		require.Contains(t, body, want)
 	}
@@ -286,13 +378,7 @@ func TestSentenceStudyCapturedGreekSplitContractionRendersAdjacentUnits(t *testi
 // configured model's poorly tokenized uppercase sentence still degrades
 // honestly: the note names the region and points at the text alternative.
 func TestSentenceStudyCapturedGreekUppercaseNamesTheDegradedRegion(t *testing.T) {
-	study := studySentence("ΤΑ ΠΑΙΔΙΆ ΠΑΊΖΟΥΝ ΣΤΗΝ ΑΥΛΉ.", 28,
-		studyWord(0, 0, 2, "ΤΑ", "DET", map[string]string{"Case": "Nom", "Definite": "Def", "Gender": "Neut", "Number": "Plur", "PronType": "Art"}),
-		studyWord(1, 3, 9, "ΠΑΙΔΙΆ", "NOUN", map[string]string{"Case": "Nom", "Gender": "Neut", "Number": "Plur"}),
-		studyWord(2, 10, 17, "ΠΑΊΖΟΥΝ", "VERB", map[string]string{"Aspect": "Imp", "Mood": "Ind", "Number": "Plur", "Person": "3", "Tense": "Pres", "VerbForm": "Fin", "Voice": "Act"}),
-		studyWord(3, 18, 22, "ΣΤΗΝ", "NOUN", map[string]string{"Abbr": "Yes"}),
-		studyWord(4, 23, 28, "ΑΥΛΉ", "NOUN", map[string]string{"Abbr": "Yes"}),
-	)
+	study := capturedGreekUppercaseStudy()
 	body := renderSentenceStudy(t, study)
 	require.Contains(t, body, `class="sentence-study-note"`)
 	require.Contains(t, body, "Some words could not be aligned safely to their source text (ΑΥΛΉ.)")
