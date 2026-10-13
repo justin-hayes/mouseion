@@ -1,4 +1,4 @@
-<!-- THROWAWAY: compact top-down and side-growing trees on the existing Sentence study route. -->
+<!-- THROWAWAY: bare compact tree, width-aware staggered tree, and the latter with a feature line. -->
 <link rel="stylesheet" href="/prototype-assets/prototype.css">
 <script src="/prototype-assets/prototype.js" defer></script>
 <article class="ss-prototype" data-variant="{{.Variant}}">
@@ -16,6 +16,23 @@
   </header>
   <p class="reading-text source-sentence" lang="{{.Sample.Language}}">{{.Sample.Sentence}}</p>
   <section class="chart-workspace" id="chart" aria-labelledby="chart-heading" tabindex="-1">
+    {{if eq .Variant "gloss"}}
+    <section class="feature-strip" aria-label="Illustrative word-aligned morphology line">
+      <p class="metadata">Word-aligned morphology · hand-supplied labels for this invented example, not a lexical or morpheme-by-morpheme gloss.</p>
+      <ol class="feature-groups">{{range .FeatureGroups}}<li>
+        <span class="feature-source" lang="{{$.Sample.Language}}">{{.Source}}</span>
+        <span class="feature-words">{{range .Words}}<a class="feature-word {{if .Selected}}selected-feature{{end}}" href="{{.URL}}" aria-label="Inspect {{.Surface}}; morphology {{if .Feature}}{{.Feature}}{{else}}not supplied{{end}}{{if .Span}}; expanded from {{.Span}}{{end}}">
+          {{if .Span}}<span class="expansion-name" lang="{{$.Sample.Language}}">{{.Surface}}:</span>{{end}}
+          <span class="feature-label">{{if .Feature}}{{.Feature}}{{else}}<span aria-label="Morphology not supplied">—</span>{{end}}</span>
+        </a>{{end}}</span>
+      </li>{{end}}</ol>
+      <details class="feature-legend"><summary>Abbreviations and evidence</summary>
+        <p>NOM nominative; ACC accusative; DAT dative; F feminine; M masculine; N neuter; SG singular; 3SG third-person singular; IND indicative; PRS present; PST past; PFV perfective; ACT active; DEF definite; REL relative; PTCP participle.</p>
+        <p class="metadata">Only selected features from the illustrative annotations are labeled. A dash means none supplied here, not “no grammatical features”. Select a label or tree word for the full raw evidence. Dots do not claim morpheme boundaries. No lexical meanings, segmentation, or translation are generated.</p>
+        <p class="metadata">Contractions are explicit hand-supplied groups in these fixtures: the source span appears once, with each expanded word’s evidence separately labeled. This is not a production rule for discovering groups.</p>
+      </details>
+    </section>
+    {{end}}
     <div class="chart-toolbar">
       <h3 id="chart-heading">Sentence structure</h3>
       <div class="chart-actions">
@@ -25,14 +42,16 @@
             <input type="hidden" name="example" value="{{.Sample.ID}}"><input type="hidden" name="variant" value="{{.Variant}}">
             {{if .Text}}<input type="hidden" name="text" value="1">{{end}}
             <label><input type="checkbox" name="hide_punct" value="1" {{if .HidePunctuation}}checked{{end}}> Hide punctuation in the tree</label>
+            <label for="layout-width">Width-aware budget (B/C)</label><input class="input" id="layout-width" type="number" name="width" min="240" max="1800" value="{{.Budget}}">
+            <label><input type="checkbox" name="manual_width" value="1" {{if .ManualWidth}}checked{{end}}> Use manual width instead of viewport width</label>
             <button class="button button--outline">Apply</button>
           </form>
-          <p class="metadata">{{.VariantName}}; {{.Width}} × {{.Height}} CSS px. No word folding or automatic shrinking. All tokens remain in the text alternative.</p>
+          <p class="metadata">{{.VariantName}}; diagram {{.Width}} × {{.Height}} CSS px; width budget {{.Budget}}px. B/C pack subtrees into staggered rows, sharing each head’s connector through an empty gutter when necessary. No word folding or text shrinking. All tokens remain in the text alternative.</p>
           <p class="metadata">{{.Sample.Note}}</p>
         </details>
       </div>
     </div>
-    <p class="chart-caption metadata">Analyzer-attributed structure can be wrong. Arrows point from head to dependent. Select a word to inspect it. Word numbers retain source order; expanded words may share a source span.</p>
+    <p class="chart-caption metadata">Analyzer-attributed structure can be wrong. Arrows point from head to dependent; the incoming edge names its role. Select a word to inspect it. Tree placement differs from source order; expanded words may share a source span.</p>
     {{if .Text}}
     <div class="text-alternative" role="region" aria-label="Complete textual sentence structure">
       <ol>{{range .Sample.Tokens}}<li><a href="{{.URL}}" lang="{{$.Sample.Language}}">{{.Surface}}</a> (word {{.Index}}) — {{.Label}} <code>{{.Relation}}</code>; head <span lang="{{$.Sample.Language}}">{{(index $.Sample.Tokens .Head).Surface}}</span> (word {{(index $.Sample.Tokens .Head).Index}}). {{if .Span}}Shares source span “{{.Span}}”.{{end}} <span class="metadata">{{.POS}}; lemma {{.Lemma}}{{if .Morphology}}; {{.Morphology}}{{end}}.</span></li>{{end}}</ol>
@@ -42,15 +61,13 @@
       <div class="chart-canvas" style="width: {{.Width}}px; height: {{.Height}}px;">
         <svg width="{{.Width}}" height="{{.Height}}" viewBox="0 0 {{.Width}} {{.Height}}" aria-hidden="true">
           <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="arrow-tip"/></marker></defs>
-          {{range .Edges}}<path class="edge {{if .Selected}}selected-edge{{end}}" d="{{.Path}}" marker-end="url(#arrow)"/>{{end}}
+          {{range .Edges}}<g class="edge {{if .Selected}}selected-edge{{end}}"><path d="{{.Path}}" marker-end="url(#arrow)"/><text x="{{.X}}" y="{{.Y}}">{{.Label}}</text></g>{{end}}
         </svg>
         <ol class="chart-nodes" aria-label="Tree words in source order">
           {{range .Sample.Tokens}}{{if or (not $.HidePunctuation) (ne .Relation "punct")}}
           <li class="node" style="left: {{.X}}px; top: {{.Y}}px; width: {{.Width}}px;">
             <a class="node-link {{if .Selected}}selected-node{{end}}" href="{{.URL}}" {{if .Selected}}aria-current="true"{{end}} aria-label="Inspect {{.Surface}}, word {{.Index}}, {{.Label}}; head {{(index $.Sample.Tokens .Head).Surface}}, word {{(index $.Sample.Tokens .Head).Index}}{{if .Span}}; shares source span {{.Span}}{{end}}">
-              <span class="node-relation">{{.Label}}</span>
               <span class="node-word" lang="{{$.Sample.Language}}">{{.Surface}}</span>
-              <span class="node-number">{{.Index}}{{if .Span}} · source “{{.Span}}”{{end}}</span>
             </a>
           </li>{{end}}{{end}}
         </ol>
@@ -59,7 +76,7 @@
     {{end}}
     {{if .Inspect}}
     <aside class="node-inspector" id="inspector" aria-labelledby="inspector-heading" tabindex="-1">
-      <header><h3 id="inspector-heading"><span lang="{{.Sample.Language}}">{{.Selected.Surface}}</span> <small>word {{.Selected.Index}}</small></h3><a class="button button--quiet dismiss-inspector" href="{{.Dismiss}}" aria-label="Close word inspector">Close</a></header>
+      <header><h3 id="inspector-heading"><span lang="{{.Sample.Language}}">{{.Selected.Surface}}</span></h3><a class="button button--quiet dismiss-inspector" href="{{.Dismiss}}" aria-label="Close word inspector">Close</a></header>
       {{if eq .Selected.Relation "root"}}<p><strong>Sentence root</strong> in this parse; it is self-headed.</p>
       {{else}}<p><strong>{{.Selected.Label}}</strong> attached to <a href="{{.Head.URL}}" lang="{{.Sample.Language}}">{{.Head.Surface}}</a> (word {{.Head.Index}}).</p>{{end}}
       {{if .Selected.Span}}<p>Expanded from <strong lang="{{.Sample.Language}}">{{.Selected.Span}}</strong>. Another word shares that source span; the source contraction occurs only once.</p>{{end}}

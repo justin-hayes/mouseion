@@ -16,18 +16,30 @@
 .view-options label { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
 .view-options p { max-width: 42rem; }
 .chart-caption { max-width: 60rem; margin: .5rem 0 1rem; }
+.feature-strip { margin: 0 0 1.5rem; }
+.feature-groups { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; list-style: none; padding: 0; margin: 1rem 0 0; }
+.feature-groups > li { display: flex; flex-direction: column; align-items: flex-start; list-style: none; margin: 0; max-width: 100%; }
+.feature-source { font: 17px var(--mouseion-font-reading); }
+.feature-words { display: flex; flex-wrap: wrap; gap: .5rem; }
+.feature-word { display: flex; align-items: center; gap: .25rem; min-height: 44px; max-width: 100%; font-size: 13px; text-decoration: none; }
+.feature-label { overflow-wrap: anywhere; }
+.expansion-name { color: var(--mouseion-color-text-muted); }
+.selected-feature { text-decoration: underline; font-weight: 600; }
+.feature-groups li:has(.selected-feature) .feature-source { color: var(--mouseion-color-accent); text-decoration: underline; }
+.feature-legend { font-size: .875rem; max-width: 60rem; }
+#layout-width { width: 7rem; }
 .diagram-scroll { width: 100%; max-width: 100%; overflow: auto; background: var(--mouseion-color-surface-raised); border: 1px solid var(--mouseion-color-border); }
 .chart-canvas { position: relative; margin: 0 auto; }
-.chart-canvas svg { position: absolute; inset: 0; max-width: none; }
-.edge { fill: none; stroke: var(--mouseion-color-text-muted); stroke-width: 1.5; }
+.chart-canvas svg { position: absolute; inset: 0; max-width: none; pointer-events: none; }
+.edge path { fill: none; stroke: var(--mouseion-color-text-muted); stroke-width: 1.5; }
+.edge text { font-size: 13px; text-anchor: middle; fill: var(--mouseion-color-text-muted); paint-order: stroke; stroke: var(--mouseion-color-surface-raised); stroke-width: 5px; stroke-linejoin: round; }
 .arrow-tip { fill: var(--mouseion-color-text-muted); }
-.selected-edge { stroke: var(--mouseion-color-accent); stroke-width: 2.5; }
+.selected-edge path { stroke: var(--mouseion-color-accent); stroke-width: 2.5; }
+.selected-edge text { fill: var(--mouseion-color-accent); }
 .chart-nodes { list-style: none; margin: 0; padding: 0; }
-.chart-nodes > .node { position: absolute; list-style: none; margin: 0; height: 104px; }
-.node-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .25rem; width: 100%; height: 100%; padding: .5rem; background: var(--mouseion-color-surface-raised); border: 1px solid var(--mouseion-color-control-border); border-radius: 6px; text-decoration: none; color: var(--mouseion-color-text); }
-.node-link:hover { border-color: var(--mouseion-color-accent); }
-.node-link.selected-node { border: 2px solid var(--mouseion-color-accent); background: var(--mouseion-color-surface-quiet); }
-.node-relation, .node-number { color: var(--mouseion-color-text-muted); font-size: 13px; line-height: 1.3; text-align: center; }
+.chart-nodes > .node { position: absolute; list-style: none; margin: 0; height: 44px; }
+.node-link { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; text-decoration: none; color: var(--mouseion-color-text); }
+.node-link:hover { color: var(--mouseion-color-accent); text-decoration: underline; }
 .node-word { font: 18px var(--mouseion-font-reading); }
 .selected-node .node-word { color: var(--mouseion-color-accent); font-weight: 600; text-decoration: underline; }
 .node-inspector { position: fixed; top: 1rem; right: max(1rem, calc((100vw - 76rem)/2)); width: 24rem; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 7rem); overflow: auto; padding: 1rem; background: var(--mouseion-color-surface-raised); border: 1px solid var(--mouseion-color-control-border); border-radius: 6px; box-shadow: 0 4px 16px #0002; z-index: 20; }
@@ -47,4 +59,4 @@
 .ss-prototype :focus-visible, .prototype-switcher a:focus-visible { outline: 2px solid var(--mouseion-color-focus); outline-offset: 3px; }
 .prototype-switcher a:focus-visible { outline-color: currentColor; }
 @media (max-width: 40rem) { .prototype-controls select { max-width: 100%; width: 100%; } .node-inspector { top: auto; bottom: 5rem; right: 1rem; max-height: 55dvh; } }
-@media (forced-colors: active) { .node-link.selected-node { outline: 2px solid Highlight; } .edge { stroke: CanvasText; } .arrow-tip { fill: CanvasText; } }
+@media (forced-colors: active) { .node-link.selected-node { text-decoration: underline; } .edge path { stroke: CanvasText; } .edge text { fill: CanvasText; stroke: Canvas; } .arrow-tip { fill: CanvasText; } }

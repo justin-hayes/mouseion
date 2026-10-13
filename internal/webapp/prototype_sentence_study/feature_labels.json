@@ -1,0 +1,12 @@
+{
+  "de": {"0":"NOM.SG", "1":"IND.PRS.3SG", "2":"ACC.SG", "3":"ACC.SG"},
+  "it": {"0":"F.SG", "1":"3SG", "2":"IND.PRS.3SG", "3":"DEF.M.SG", "4":"M.SG"},
+  "el": {"0":"NOM.F.SG.DEF", "1":"NOM.F.SG", "2":"PFV.IND.PST.3SG.ACT", "4":"ACC.F.SG.DEF", "5":"ACC.F.SG"},
+  "de-long": {
+    "1":"NOM.F.SG", "2":"ACC.N.SG", "3":"ACC.N.SG", "5":"ACC.N.SG.REL",
+    "7":"NOM.M.SG", "8":"DAT.F.3SG", "10":"PTCP", "11":"IND.PST.3SG",
+    "14":"IND.PST.3SG", "16":"IND.PST.3SG", "17":"NOM.F.3SG", "18":"ACC.N.3SG",
+    "20":"DAT.M.SG", "21":"DAT.M.SG", "26":"NOM.F.SG", "28":"NOM.F.SG",
+    "29":"ACC.F.SG", "30":"ACC.F.SG", "32":"IND.PST.3SG"
+  }
+}

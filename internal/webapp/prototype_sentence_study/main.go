@@ -1,4 +1,4 @@
-// Command prototype_sentence_study compares two throwaway Sentence study trees.
+// Command prototype_sentence_study compares throwaway Sentence study trees and a feature line.
 // It reuses the real Mouseion shell, but serves only invented, read-only examples.
 package main
 
@@ -21,7 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webapp"
 )
 
-//go:embed page.html prototype.css prototype.js samples.json
+//go:embed page.html prototype.css prototype.js samples.json feature_labels.json
 var assets embed.FS
 
 type token struct {
@@ -39,6 +39,7 @@ type token struct {
 	Label      string `json:"-"`
 	URL        string `json:"-"`
 	Selected   bool   `json:"-"`
+	Feature    string `json:"-"`
 }
 
 type sample struct {
@@ -56,26 +57,33 @@ type sample struct {
 }
 
 type edge struct {
-	Path     string
-	Selected bool
+	Path, Label string
+	X, Y        int
+	Selected    bool
+}
+
+type featureGroup struct {
+	Source string
+	Words  []token
 }
 
 type page struct {
-	Sample                                     sample
-	Samples                                    []sample
-	Variant, VariantName                       string
-	Selected                                   token
-	Head                                       token
-	Dependents                                 []token
-	Edges                                      []edge
-	Width, Height, WordOrdinal                 int
-	Inspect, Text, HidePunctuation             bool
-	Previous, Next, Dismiss, TextURL, ChartURL string
+	Sample                                      sample
+	Samples                                     []sample
+	Variant, VariantName                        string
+	Selected                                    token
+	Head                                        token
+	Dependents                                  []token
+	Edges                                       []edge
+	FeatureGroups                               []featureGroup
+	Width, Height, WordOrdinal, Budget          int
+	Inspect, Text, HidePunctuation, ManualWidth bool
+	Previous, Next, Dismiss, TextURL, ChartURL  string
 }
 
 var labels = map[string]string{
-	"root": "Sentence root", "nsubj": "Subject", "obj": "Object", "iobj": "Indirect object",
-	"det": "Article / determiner", "case": "Preposition", "obl": "Oblique", "advmod": "Adverbial modifier",
+	"root": "Root", "nsubj": "Subject", "obj": "Object", "iobj": "Indirect object",
+	"det": "Determiner", "case": "Preposition", "obl": "Oblique", "advmod": "Adverbial modifier",
 	"advcl": "Adverbial clause", "acl:relcl": "Relative clause", "mark": "Clause marker",
 	"aux": "Auxiliary", "amod": "Adjective", "compound:prt": "Separable particle", "punct": "Punctuation",
 }
@@ -88,6 +96,19 @@ func main() {
 	var samples []sample
 	if err := json.Unmarshal(data, &samples); err != nil {
 		log.Fatal(err)
+	}
+	featureData, err := assets.ReadFile("feature_labels.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	var features map[string]map[int]string
+	if err := json.Unmarshal(featureData, &features); err != nil {
+		log.Fatal(err)
+	}
+	for i := range samples {
+		for j := range samples[i].Tokens {
+			samples[i].Tokens[j].Feature = features[samples[i].ID][j]
+		}
 	}
 	view := template.Must(template.ParseFS(assets, "page.html"))
 	mux := http.NewServeMux()
@@ -114,7 +135,7 @@ func main() {
 
 //nolint:gocognit // Keep the throwaway comparison's complete state setup in one place; not production code.
 func makePage(q url.Values, samples []sample) page {
-	p := page{Samples: samples, Sample: samples[len(samples)-1], Variant: q.Get("variant"), HidePunctuation: q.Get("hide_punct") == "1", Text: q.Get("text") == "1"}
+	p := page{Samples: samples, Sample: samples[len(samples)-1], Variant: q.Get("variant"), HidePunctuation: q.Get("hide_punct") == "1", Text: q.Get("text") == "1", ManualWidth: q.Get("manual_width") == "1"}
 	for _, old := range []string{"support", "context", "punct", "focus"} {
 		q.Del(old)
 	}
@@ -124,8 +145,15 @@ func makePage(q url.Values, samples []sample) page {
 		}
 	}
 	p.Sample.Tokens = append([]token(nil), p.Sample.Tokens...)
-	variants := []string{"tree", "side"}
-	names := []string{"A · Compact top-down", "B · Side-growing"}
+	budget, err := strconv.Atoi(q.Get("width"))
+	p.Budget = budget
+	if err != nil {
+		p.Budget = 1100
+	}
+	p.Budget = min(1800, max(240, p.Budget))
+	q.Set("width", strconv.Itoa(p.Budget))
+	variants := []string{"tree", "stagger", "gloss"}
+	names := []string{"A · Bare compact tree", "B · Width-aware tree", "C · Tree with feature line"}
 	vi := 0
 	for i, v := range variants {
 		if p.Variant == v {
@@ -140,8 +168,9 @@ func makePage(q url.Values, samples []sample) page {
 	}
 	p.WordOrdinal = selected
 	q.Set("example", p.Sample.ID)
-	q.Set("variant", variants[(vi+1)%2])
+	q.Set("variant", variants[(vi+2)%3])
 	p.Previous = "?" + q.Encode()
+	q.Set("variant", variants[(vi+1)%3])
 	p.Next = "?" + q.Encode()
 	q.Set("variant", p.Variant)
 	q.Del("word")
@@ -160,7 +189,7 @@ func makePage(q url.Values, samples []sample) page {
 		if t.Label == "" {
 			t.Label = t.Relation // Unknown labels stay evidence; do not invent an explanation.
 		}
-		t.Width = max(112, utf8.RuneCountInString(t.Surface)*11+24, utf8.RuneCountInString(t.Label)*7+20)
+		t.Width = max(56, utf8.RuneCountInString(t.Surface)*10+16, utf8.RuneCountInString(t.Label)*7+16)
 		q.Set("word", strconv.Itoa(i))
 		t.URL = "?" + q.Encode() + "#inspector"
 	}
@@ -172,58 +201,69 @@ func makePage(q url.Values, samples []sample) page {
 			p.Dependents = append(p.Dependents, t)
 		}
 	}
+	for _, t := range p.Sample.Tokens {
+		if t.Span != "" && len(p.FeatureGroups) > 0 && p.FeatureGroups[len(p.FeatureGroups)-1].Words[0].Span == t.Span {
+			group := &p.FeatureGroups[len(p.FeatureGroups)-1]
+			group.Words = append(group.Words, t)
+		} else {
+			source := t.Surface
+			if t.Span != "" {
+				source = t.Span
+			}
+			p.FeatureGroups = append(p.FeatureGroups, featureGroup{Source: source, Words: []token{t}})
+		}
+	}
 	return p
 }
 
 //nolint:gocognit // Deliberately inline throwaway geometry; not a production layout abstraction.
 func (p *page) treeLayout() {
-	// Pack subtree contours rather than reserving a full column for each leaf.
-	// Side-growing rotates the breadth axis, not the text or the source sentence.
+	// Both experiments keep heads above dependents. Equal depth need not mean equal height.
 	root := 0
 	for i, t := range p.Sample.Tokens {
 		if t.Head == i {
 			root = i
 		}
 	}
-	layout := p.packSubtree(root)
-	minBreadth, maxBreadth := 0, 0
-	levelWidths := make([]int, len(layout.left))
-	for i, b := range layout.left {
-		minBreadth = min(minBreadth, b)
-		maxBreadth = max(maxBreadth, layout.right[i])
-	}
-	for i, point := range layout.nodes {
-		levelWidths[point.depth] = max(levelWidths[point.depth], p.Sample.Tokens[i].Width)
-	}
-	columns := make([]int, len(levelWidths))
-	x := 20
-	for depth, width := range levelWidths {
-		columns[depth] = x
-		x += width + 40
-	}
-	p.Width, p.Height = maxBreadth-minBreadth+40, len(levelWidths)*144-40+40
-	if p.Variant == "side" {
-		p.Width, p.Height = x-40+20, maxBreadth-minBreadth+40
-	}
-	for i, point := range layout.nodes {
-		t := &p.Sample.Tokens[i]
-		t.X, t.Y = point.breadth-minBreadth+20-t.Width/2, point.depth*144+20
-		if p.Variant == "side" {
-			t.X, t.Y = columns[point.depth], point.breadth-minBreadth+20-52
+	var buses map[int]int
+	if p.Variant != "tree" {
+		layout := p.packBounded(root, p.Budget-32)
+		p.Width, p.Height = layout.width+32, layout.height+64
+		buses = map[int]int{}
+		for i, point := range layout.nodes {
+			t := &p.Sample.Tokens[i]
+			t.X, t.Y = point.x+16, point.y+48
+			if point.bus >= 0 {
+				buses[i] = point.bus + 16
+			}
+		}
+	} else {
+		layout := p.packSubtree(root)
+		minBreadth, maxBreadth := 0, 0
+		for i, b := range layout.left {
+			minBreadth = min(minBreadth, b)
+			maxBreadth = max(maxBreadth, layout.right[i])
+		}
+		p.Width, p.Height = maxBreadth-minBreadth+32, len(layout.left)*112+16
+		for i, point := range layout.nodes {
+			t := &p.Sample.Tokens[i]
+			t.X, t.Y = point.breadth-minBreadth+16-t.Width/2, point.depth*112+48
 		}
 	}
+	r := p.Sample.Tokens[root]
+	p.Edges = append(p.Edges, edge{Path: fmt.Sprintf("M %d 8 L %d %d", r.X+r.Width/2, r.X+r.Width/2, r.Y+6), Label: "Root", X: r.X + r.Width/2, Y: r.Y - 18, Selected: r.Selected})
 	for i, t := range p.Sample.Tokens {
 		if t.Head == i || (p.HidePunctuation && t.Relation == "punct") {
 			continue
 		}
 		h := p.Sample.Tokens[t.Head]
-		sx, sy, dx, dy := h.X+h.Width/2, h.Y+104, t.X+t.Width/2, t.Y
-		cx1, cy1, cx2, cy2 := sx, (sy+dy)/2, dx, (sy+dy)/2
-		if p.Variant == "side" {
-			sx, sy, dx, dy = h.X+h.Width, h.Y+52, t.X, t.Y+52
-			cx1, cy1, cx2, cy2 = (sx+dx)/2, sy, (sx+dx)/2, dy
+		sx, sy, dx, dy := h.X+h.Width/2, h.Y+38, t.X+t.Width/2, t.Y+6
+		path := fmt.Sprintf("M %d %d C %d %d %d %d %d %d", sx, sy, sx, (sy+dy)/2, dx, (sy+dy)/2, dx, dy)
+		if bus, ok := buses[t.Head]; ok {
+			// A shared head's branches use its own empty gutter to reach staggered rows.
+			path = fmt.Sprintf("M %d %d L %d %d L %d %d L %d %d L %d %d L %d %d", sx, sy, sx, sy+12, bus, sy+12, bus, t.Y-38, dx, t.Y-38, dx, dy)
 		}
-		p.Edges = append(p.Edges, edge{Path: fmt.Sprintf("M %d %d C %d %d %d %d %d %d", sx, sy, cx1, cy1, cx2, cy2, dx, dy), Selected: t.Selected || h.Selected})
+		p.Edges = append(p.Edges, edge{Path: path, Label: t.Label, X: dx, Y: t.Y - 18, Selected: t.Selected || h.Selected})
 	}
 }
 
@@ -236,9 +276,6 @@ type subtree struct {
 //nolint:gocognit // Small throwaway contour-packing experiment, not a production tree-layout API.
 func (p *page) packSubtree(i int) subtree {
 	half := p.Sample.Tokens[i].Width / 2
-	if p.Variant == "side" {
-		half = 52
-	}
 	result := subtree{nodes: map[int]position{i: {}}, left: []int{-half}, right: []int{half}}
 	var left, right []int
 	first, last, count := 0, 0, 0
@@ -278,5 +315,63 @@ func (p *page) packSubtree(i int) subtree {
 		result.left = append(result.left, l-center)
 		result.right = append(result.right, right[depth]-center)
 	}
+	return result
+}
+
+type packedPoint struct{ x, y, bus int }
+type packedTile struct {
+	nodes         map[int]packedPoint
+	width, height int
+}
+
+//nolint:gocognit // Experimental width-budget packing and gutter routing, not production layout code.
+func (p *page) packBounded(i, budget int) packedTile {
+	var children []int
+	for j, t := range p.Sample.Tokens {
+		if j != i && t.Head == i && (!p.HidePunctuation || t.Relation != "punct") {
+			children = append(children, j)
+		}
+	}
+	childBudget, available := budget, budget
+	if len(children) > 1 {
+		available = budget - 24
+		childBudget = max(160, available)
+	}
+	result := packedTile{nodes: map[int]packedPoint{}, width: p.Sample.Tokens[i].Width, height: 44}
+	rowX, rowY, rowHeight, maxRowWidth, row := 0, 112, 0, 0, 0
+	for _, child := range children {
+		tile := p.packBounded(child, childBudget)
+		if rowX > 0 && rowX+tile.width > available {
+			rowY += rowHeight + 72
+			rowX, rowHeight, row = 0, 0, row+1
+		}
+		for j, point := range tile.nodes {
+			point.x += rowX
+			point.y += rowY
+			if point.bus >= 0 {
+				point.bus += rowX
+			}
+			result.nodes[j] = point
+		}
+		rowX += tile.width + 24
+		rowHeight = max(rowHeight, tile.height)
+		maxRowWidth = max(maxRowWidth, rowX-24)
+	}
+	gutter, bus := 0, -1
+	if row > 0 {
+		gutter, bus = 24, 8
+		for j, point := range result.nodes {
+			point.x += gutter
+			if point.bus >= 0 {
+				point.bus += gutter
+			}
+			result.nodes[j] = point
+		}
+	}
+	result.width = max(result.width, maxRowWidth+gutter)
+	if len(children) > 0 {
+		result.height = rowY + rowHeight
+	}
+	result.nodes[i] = packedPoint{x: result.width/2 - p.Sample.Tokens[i].Width/2, bus: bus}
 	return result
 }
