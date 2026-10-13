@@ -57,6 +57,13 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, 1, historyCount)
 	assert.True(t, completedAt.Equal(migratedAt), "completion timestamp changed: got %s want %s", migratedAt, completedAt)
+	// The legacy Known row has no Reading-completion provenance, so the history
+	// backfill must leave it alone. The later cleanup migration (34) is what
+	// deletes it, so assert that the backfill preserved it here, before the
+	// current schema is restored.
+	var legacyKnownCount int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&legacyKnownCount))
+	assert.Equal(t, 1, legacyKnownCount, "backfill changed Known vocabulary")
 	// The historical assertions above stop at version 10. Restore the current
 	// schema before exercising the current persistence methods below.
 	// Set Aside is retired and migration 33 refuses legacy rows rather than
@@ -79,7 +86,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	assert.Equal(t, domain.BookDispositionInbox, finishedDisposition, "finished Book disposition changed during history backfill")
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, known, 1, "backfill changed Known vocabulary")
+	assert.Empty(t, known, "migration 34 must delete the provenance-less legacy Known row")
 }
 
 // insertLegacyBook seeds the pre-author schema used by migration backfill

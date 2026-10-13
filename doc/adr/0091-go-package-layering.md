@@ -2,6 +2,8 @@
 
 Status: **Accepted** · Date: 2026-10-12 · Author: Justin + opencode
 
+Amended 2026-10-13 by [ADR 0092](0092-retire-known-vocabulary-import.md): `internal/knownvocab` was retired, so it no longer appears in the pgx owner list or the web-app composition list ([#2010](https://github.com/justin-hayes/mouseion/issues/2010)).
+
 Tracked by [issue #1973](https://github.com/justin-hayes/mouseion/issues/1973), under parent [#1811](https://github.com/justin-hayes/mouseion/issues/1811). Enforcement with golangci-lint's `depguard` follows in [#1974](https://github.com/justin-hayes/mouseion/issues/1974) (test infrastructure and fixtures) and [#1975](https://github.com/justin-hayes/mouseion/issues/1975) (persistence layering).
 
 ## Context
@@ -12,7 +14,7 @@ The Go code has a layering that earlier decisions rely on, but no gate checks it
 
 - **Domain.** `internal/domain` imports the standard library and `internal/canonicalization`. Its tests add testify.
 - **Generated sqlc code.** `gen/sqlc` is imported only by `internal/persistence`. At `21e0a090` two files in `internal/prepareddeck` (`current_reading_admission.go`, `jobs.go`) also imported it and called three generated queries, `GetBookForUpdate`, `GetSourceMaterialBookForUpdate` and `RetireDeckPreparationsForBook`; [#1976](https://github.com/justin-hayes/mouseion/issues/1976) moved those calls behind transaction-scoped persistence methods. Persistence calls all three for the same purposes.
-- **pgx.** Non-test files in `internal/persistence`, `internal/txcleanup`, `cmd/server`, the job packages `internal/analysis`, `internal/cataloguesync`, `internal/knownvocab` and `internal/prepareddeck`, generated `gen/sqlc`, and `internal/testutil` import `github.com/jackc/pgx/v5`. The only other importers are three `internal/webapp` integration tests, which build River clients and inspect database state.
+- **pgx.** Non-test files in `internal/persistence`, `internal/txcleanup`, `cmd/server`, the job packages `internal/analysis`, `internal/cataloguesync` and `internal/prepareddeck`, generated `gen/sqlc`, and `internal/testutil` import `github.com/jackc/pgx/v5`. The only other importers are three `internal/webapp` integration tests, which build River clients and inspect database state.
 - **Fixtures store.** `internal/fixtures` is imported by `cmd/fixtureserver` and by `internal/webapp` tests. `cmd/fixtureserver` also imports `internal/persistence`, for the `persistence.MyBooksBrowseResult` type in a store wrapper. `internal/fixtures` itself imports neither persistence, pgx nor sqlc.
 - **Test infrastructure.** `internal/storecontract`, `internal/testutil`, `internal/testwrite` and `internal/analyzer/analyzertest` are imported only by test files. `testwrite` is used by tests in `cataloguesync`, `enrichment`, `opds` and `webapp`.
 - **Web app.** Non-test `internal/webapp` files import the domain, canonicalization, service and job packages, `auth`/`webauth`, and `internal/persistence`, but not pgx, sqlc, fixtures or test infrastructure. Their persistence uses are sentinel errors (`ErrNotFound`, `ErrCurrentReadingStale`, `ErrCurrentReadingExists` and seven others) and value types in store interface signatures (`MyBooksBrowseResult`, `StartResult`, `LanguageCount`, `CurrentReadingIneligibleError`). No web app file names `persistence.PostgresStore`, and none calls a persistence function: [#1977](https://github.com/justin-hayes/mouseion/issues/1977) moved the `MOUSEION_SECRET` check to the `internal/deploysecret` leaf package.
@@ -53,7 +55,6 @@ Non-test files may import `github.com/jackc/pgx/v5` and its subpackages only in 
 | `cmd/server` | Server wiring: opens the pool and builds the River client over it. |
 | `internal/analysis` | Job package: enqueues River jobs in the same transaction as the run state it writes ([ADR 0010](0010-river-job-queue.md)). |
 | `internal/cataloguesync` | Job package: same reason as `analysis`. |
-| `internal/knownvocab` | Job package: same reason as `analysis`. |
 | `internal/prepareddeck` | Job package: same reason as `analysis` ([ADR 0030](0030-durable-prepared-deck-translation.md)). |
 | `internal/testutil` | Test infrastructure: provisions the per-test PostgreSQL database. |
 
@@ -84,7 +85,7 @@ The test-infrastructure packages are `internal/storecontract`, `internal/testuti
 
 ### 6. Web app: domain, services and store interfaces
 
-- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `knownvocab`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`), `internal/auth` and `internal/webauth`. It may import `internal/persistence` **only** for sentinel errors and value types that appear in its store interfaces.
+- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`), `internal/auth` and `internal/webauth`. It may import `internal/persistence` **only** for sentinel errors and value types that appear in its store interfaces.
 - **Enforcement:** the allow list states intent. Lint enforces the deny entries below. A new internal dependency outside the allow list needs this ADR amended, and review checks for one.
 - **Deny (non-test files):** pgx, `gen/sqlc`, `internal/fixtures` and every test-infrastructure package.
 - **Deny (test files):** `gen/sqlc`. Web app tests may import fixtures, test infrastructure and pgx.

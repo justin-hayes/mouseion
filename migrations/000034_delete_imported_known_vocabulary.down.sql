@@ -1,0 +1,4 @@
+-- The down migration deliberately restores nothing. The rows deleted here were
+-- imported Known vocabulary with no Reading-completion provenance, and the
+-- retired import path cannot reproduce them. Discarded queue rows are likewise
+-- not recreated. Recovery is restoring the pre-migration backup.

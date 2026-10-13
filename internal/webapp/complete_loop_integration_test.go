@@ -22,7 +22,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
@@ -94,7 +93,6 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	batchConfig := prepareddeck.BatchConfig{MaxRequests: 1, PollInterval: time.Millisecond}
 
 	workers := river.NewWorkers()
-	knownvocab.AddWorker(workers, store.Pool())
 	epPubService := epub.NewService(store)
 	opdsService := opds.NewService(store, epPubService, nil)
 	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
