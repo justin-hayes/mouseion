@@ -337,9 +337,11 @@ func sentenceStudyMapFeatureValue(feature, value string) sentenceStudyLabelPart 
 
 // sentenceStudyAbbreviationTable records the curated core abbreviation data, one
 // entry per line as "<Feature> <UD value> <abbreviation> <plain-English
-// expansion>". A value with no Leipzig abbreviation keeps its spelled-out word
-// as the abbreviation. Italian Tense=Imp (imperfect) and Greek Aspect=Imp
-// (imperfective) are deliberately distinct.
+// explanation>". The explanation says what the term means, not just its
+// expanded name, because the notation key is where an unfamiliar term stops
+// being the entry price. A value with no Leipzig abbreviation keeps its
+// spelled-out word as the abbreviation. Italian Tense=Imp (imperfect) and Greek
+// Aspect=Imp (imperfective) are deliberately distinct.
 const sentenceStudyAbbreviationTable = `
 Person 1 1 first person
 Person 2 2 second person
@@ -349,29 +351,29 @@ Number Plur PL plural
 Gender Masc M masculine
 Gender Fem F feminine
 Gender Neut N neuter
-Case Nom NOM nominative case
-Case Acc ACC accusative case
-Case Dat DAT dative case
-Case Gen GEN genitive case
-Case Voc VOC vocative case
-Tense Pres PRS present tense
-Tense Past PST past tense
-Tense Fut FUT future tense
-Tense Imp imperfect imperfect tense
-Tense Pqp pluperfect pluperfect tense
-Aspect Imp IPFV imperfective aspect
-Aspect Perf PFV perfective aspect
-Mood Ind IND indicative mood
-Mood Sub SBJV subjunctive mood
-Mood Imp IMP imperative mood
-Mood Cnd COND conditional mood
-Voice Act active active voice
-Voice Pass PASS passive voice
-VerbForm Fin finite finite verb form
-VerbForm Inf INF infinitive
-VerbForm Part PTCP participle
-VerbForm Ger gerund gerund
-VerbForm Conv CVB converb
+Case Nom NOM nominative case, the case of the subject
+Case Acc ACC accusative case, the case of the direct object
+Case Dat DAT dative case, the case of the indirect object or recipient
+Case Gen GEN genitive case, the case of possession or belonging
+Case Voc VOC vocative case, the case used when addressing someone
+Tense Pres PRS present tense, for what happens now or is generally true
+Tense Past PST past tense, for what happened before now
+Tense Fut FUT future tense, for what has not happened yet
+Tense Imp imperfect imperfect tense, an ongoing or repeated past situation
+Tense Pqp pluperfect pluperfect tense, a past situation before another past situation
+Aspect Imp IPFV imperfective aspect, an ongoing or repeated situation without a stated endpoint
+Aspect Perf PFV perfective aspect, a situation viewed as a complete whole
+Mood Ind IND indicative mood, stating what is the case
+Mood Sub SBJV subjunctive mood, for possibility, wish or doubt
+Mood Imp IMP imperative mood, giving a command or request
+Mood Cnd COND conditional mood, for what depends on a condition
+Voice Act active active voice, where the subject performs the action
+Voice Pass PASS passive voice, where the subject is acted on
+VerbForm Fin finite finite verb form, carrying tense and agreeing with the subject
+VerbForm Inf INF infinitive, the verb's dictionary form
+VerbForm Part PTCP participle, a verb form used like an adjective or in compound tenses
+VerbForm Ger gerund gerund, a verb form used like a noun
+VerbForm Conv CVB converb, a verb form that links clauses
 `
 
 var sentenceStudyAbbreviations = sentenceStudyParseAbbreviations(sentenceStudyAbbreviationTable)
@@ -408,8 +410,9 @@ func sentenceStudyWordLabels(word sentenceStudyWord) string {
 	return strings.Join(rendered, ".")
 }
 
-// sentenceStudyKey lists only the abbreviations used in this line, sorted
-// deterministically, each with a plain-English expansion.
+// sentenceStudyKey lists only the abbreviations and spelled-out labels used in
+// this line, sorted deterministically, each with a plain-English explanation of
+// the term rather than just its expanded name.
 func sentenceStudyKey(line sentenceStudyLine) []sentenceStudyLabelPart {
 	seen := map[sentenceStudyLabelPart]struct{}{}
 	entries := make([]sentenceStudyLabelPart, 0)
