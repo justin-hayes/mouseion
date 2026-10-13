@@ -69,6 +69,86 @@ func (q *Queries) GetConcordancePriorityBook(ctx context.Context, arg GetConcord
 	return i, err
 }
 
+const getSentenceStudyDecisions = `-- name: GetSentenceStudyDecisions :many
+SELECT d.start_offset::bigint AS start_offset,
+       d.end_offset::bigint AS end_offset,
+       COALESCE(d.canonical_lemma, '')::text AS canonical_lemma,
+       d.excluded::boolean AS excluded,
+       (SELECT count(*)
+          FROM corpus_tokens w
+          JOIN corpus_sentences ws ON ws.owner_id=w.owner_id
+            AND ws.analysis_run_id=w.analysis_run_id AND ws.corpus_id=w.corpus_id
+            AND ws.sentence_ordinal=w.sentence_ordinal
+         WHERE w.owner_id=d.owner_id AND w.analysis_run_id=d.analysis_run_id
+           AND w.corpus_id=d.corpus_id AND ws.unit_id=d.source_document_id
+           AND w.start_offset=d.start_offset AND w.end_offset=d.end_offset)::bigint AS addressed_words
+  FROM occurrence_lemma_corrections d
+ WHERE d.owner_id=$1 AND d.book_id=$2
+   AND d.analysis_run_id=$3 AND d.corpus_id=$4
+   AND d.source_document_id=$5
+   AND d.start_offset >= $6::bigint
+   AND d.end_offset <= $7::bigint
+ ORDER BY d.start_offset, d.end_offset
+`
+
+type GetSentenceStudyDecisionsParams struct {
+	Owner         string
+	Book          string
+	AnalysisRun   string
+	Corpus        string
+	UnitID        string
+	SentenceStart int64
+	SentenceEnd   int64
+}
+
+type GetSentenceStudyDecisionsRow struct {
+	StartOffset    int64
+	EndOffset      int64
+	CanonicalLemma string
+	Excluded       bool
+	AddressedWords int64
+}
+
+// Stored occurrence decisions addressing the selected sentence, each with the
+// number of persisted analyzed words its exact owner/Book/analysis/
+// source-document/span addresses. The count spans the whole addressed scope,
+// not just the selected sentence, so a filtered-away sibling still proves the
+// decision is not unique. The decision is attributed only when this count is
+// exactly one and the addressed word is in the selected sentence.
+func (q *Queries) GetSentenceStudyDecisions(ctx context.Context, arg GetSentenceStudyDecisionsParams) ([]GetSentenceStudyDecisionsRow, error) {
+	rows, err := q.db.Query(ctx, getSentenceStudyDecisions,
+		arg.Owner,
+		arg.Book,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.UnitID,
+		arg.SentenceStart,
+		arg.SentenceEnd,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetSentenceStudyDecisionsRow{}
+	for rows.Next() {
+		var i GetSentenceStudyDecisionsRow
+		if err := rows.Scan(
+			&i.StartOffset,
+			&i.EndOffset,
+			&i.CanonicalLemma,
+			&i.Excluded,
+			&i.AddressedWords,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getVocabularySentenceStudy = `-- name: GetVocabularySentenceStudy :many
 
 SELECT COALESCE(t.surface, '')::text AS surface,
@@ -78,12 +158,14 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.head, 0)::bigint AS head,
        COALESCE(h.surface, '')::text AS head_surface,
        COALESCE(t.token_ordinal, -1)::bigint AS token_ordinal,
+       COALESCE(t.start_offset, -1)::bigint AS start_offset,
+       COALESCE(t.end_offset, -1)::bigint AS end_offset,
        COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
-       COALESCE(d.canonical_lemma, t.canonical_lemma, '')::text AS effective_lemma,
-       (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
-       COALESCE(d.excluded, false)::boolean AS excluded,
+       COALESCE(t.canonical_lemma, '')::text AS canonical_lemma,
        s.sentence_text,
        s.sentence_ordinal,
+       s.start_offset::bigint AS sentence_start_offset,
+       s.end_offset::bigint AS sentence_end_offset,
        $1::bigint AS target_ordinal,
        ca.book_id::text AS book_id,
        b.title AS book_title,
@@ -99,9 +181,6 @@ SELECT COALESCE(t.surface, '')::text AS surface,
   LEFT JOIN corpus_tokens h ON h.owner_id=t.owner_id AND h.language=t.language
        AND h.analysis_run_id=t.analysis_run_id AND h.corpus_id=t.corpus_id
        AND h.sentence_ordinal=t.sentence_ordinal AND h.token_ordinal=t.head
-  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=ca.owner_id AND d.book_id=ca.book_id
-       AND d.corpus_id=ca.corpus_id AND d.analysis_run_id=ca.analysis_run_id
-       AND d.source_document_id=s.unit_id AND d.start_offset=t.start_offset AND d.end_offset=t.end_offset
  WHERE ca.owner_id=$3 AND ca.book_id=$4
    AND ca.analysis_run_id=$5 AND ca.corpus_id=$6
    AND s.sentence_ordinal=$7
@@ -119,26 +198,31 @@ type GetVocabularySentenceStudyParams struct {
 }
 
 type GetVocabularySentenceStudyRow struct {
-	Surface         string
-	RawLemma        string
-	Upos            string
-	Dependency      string
-	Head            int64
-	HeadSurface     string
-	TokenOrdinal    int64
-	Morphology      []byte
-	EffectiveLemma  string
-	Corrected       bool
-	Excluded        bool
-	SentenceText    string
-	SentenceOrdinal int64
-	TargetOrdinal   int64
-	BookID          string
-	BookTitle       string
-	ChapterTitle    string
+	Surface             string
+	RawLemma            string
+	Upos                string
+	Dependency          string
+	Head                int64
+	HeadSurface         string
+	TokenOrdinal        int64
+	StartOffset         int64
+	EndOffset           int64
+	Morphology          []byte
+	CanonicalLemma      string
+	SentenceText        string
+	SentenceOrdinal     int64
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	TargetOrdinal       int64
+	BookID              string
+	BookTitle           string
+	ChapterTitle        string
 }
 
 // Concordance occurrence queries read from the shared occurrence model.
+// Raw analyzer token evidence for one sentence. Occurrence decisions are not
+// joined here: the caller attributes them only after proving uniqueness over
+// every persisted word the decision addresses (GetSentenceStudyDecisions).
 func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabularySentenceStudyParams) ([]GetVocabularySentenceStudyRow, error) {
 	rows, err := q.db.Query(ctx, getVocabularySentenceStudy,
 		arg.TargetOrdinal,
@@ -164,12 +248,14 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.Head,
 			&i.HeadSurface,
 			&i.TokenOrdinal,
+			&i.StartOffset,
+			&i.EndOffset,
 			&i.Morphology,
-			&i.EffectiveLemma,
-			&i.Corrected,
-			&i.Excluded,
+			&i.CanonicalLemma,
 			&i.SentenceText,
 			&i.SentenceOrdinal,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
 			&i.TargetOrdinal,
 			&i.BookID,
 			&i.BookTitle,

@@ -157,6 +157,16 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 							</li>
 						}
 					</ol>
+					if len(study.UnresolvedDecisions) > 0 {
+						<div class="sentence-study-unresolved">
+							<p>These occurrence decisions could not be attributed to a single analyzed word, so they are shown separately and applied to none:</p>
+							<ul>
+								for _, decision := range study.UnresolvedDecisions {
+									<li>{ sentenceStudyDecisionDescription(decision) }</li>
+								}
+							</ul>
+						</div>
+					}
 				</details>
 			}
 		</section>
@@ -351,6 +361,31 @@ func concordanceDecisionLabelForStudy(token domain.SentenceStudyToken) string {
 		return " (corrected for this occurrence)"
 	}
 	return ""
+}
+
+// sentenceStudyDecisionDescription names an unresolved occurrence decision and
+// why it was not attributed to a word. It shows the decision separately and
+// never presents its proposed lemma as a confirmed effective outcome.
+func sentenceStudyDecisionDescription(decision domain.SentenceStudyDecision) string {
+	subject := "Unresolved lemma correction to " + decision.CanonicalLemma
+	if decision.Excluded {
+		subject = "Unresolved exclusion"
+	}
+	return subject + " at source offsets " + fmt.Sprintf("%d–%d", decision.StartOffset, decision.EndOffset) + ": " + sentenceStudyDecisionReason(decision.AddressedWords)
+}
+
+// sentenceStudyDecisionReason explains why a decision is unresolved. Uniqueness
+// is measured over the whole addressed scope, so a shared span names the number
+// of analyzed words it addresses rather than any one of them.
+func sentenceStudyDecisionReason(addressedWords int64) string {
+	switch {
+	case addressedWords == 0:
+		return "no persisted analyzed word matches this span, so it is not applied to any word."
+	case addressedWords == 1:
+		return "the matching analyzed word is not in this sentence, so it is not applied to any word."
+	default:
+		return fmt.Sprintf("%d analyzed words share this span, so it is not applied to any of them.", addressedWords)
+	}
 }
 
 func concordanceResultRange(result domain.ConcordanceResult) string {
