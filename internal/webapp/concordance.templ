@@ -165,7 +165,7 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 						if line.HasAlternatives {
 							<p>A slash separates analyzer-supplied alternatives (for example NOM/ACC); the line does not choose between them.</p>
 						}
-						<p>A word shown without labels has no core feature recorded for it here.</p>
+						<p>An unannotated word had no core features supplied for it here; that does not mean the word lacks those features.</p>
 					</details>
 				}
 				// The complete text alternative is always server-rendered. It is

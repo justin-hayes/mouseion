@@ -274,14 +274,14 @@ func studyLabelText(label sentenceStudyLabel) string {
 
 func TestSentenceStudyLabelsApplyTheAbbreviationTable(t *testing.T) {
 	tests := map[string]sentenceStudyLabelPart{
-		"Case\x00Gen":      {Abbreviation: "GEN", Expansion: "genitive case"},
+		"Case\x00Gen":      {Abbreviation: "GEN", Expansion: "genitive case, the case of possession or belonging"},
 		"Number\x00Plur":   {Abbreviation: "PL", Expansion: "plural"},
 		"Gender\x00Masc":   {Abbreviation: "M", Expansion: "masculine"},
-		"Tense\x00Pqp":     {Abbreviation: "pluperfect", Expansion: "pluperfect tense"},
-		"Mood\x00Sub":      {Abbreviation: "SBJV", Expansion: "subjunctive mood"},
-		"Voice\x00Pass":    {Abbreviation: "PASS", Expansion: "passive voice"},
-		"VerbForm\x00Conv": {Abbreviation: "CVB", Expansion: "converb"},
-		"VerbForm\x00Ger":  {Abbreviation: "gerund", Expansion: "gerund"},
+		"Tense\x00Pqp":     {Abbreviation: "pluperfect", Expansion: "pluperfect tense, a past situation before another past situation"},
+		"Mood\x00Sub":      {Abbreviation: "SBJV", Expansion: "subjunctive mood, for possibility, wish or doubt"},
+		"Voice\x00Pass":    {Abbreviation: "PASS", Expansion: "passive voice, where the subject is acted on"},
+		"VerbForm\x00Conv": {Abbreviation: "CVB", Expansion: "converb, a verb form that links clauses"},
+		"VerbForm\x00Ger":  {Abbreviation: "gerund", Expansion: "gerund, a verb form used like a noun"},
 		"Case\x00Xyz":      {Abbreviation: "Xyz", Expansion: "no standard abbreviation; shown as the analyzer's raw case value"},
 		"Tense\x00Pqp2":    {Abbreviation: "Pqp2", Expansion: "no standard abbreviation; shown as the analyzer's raw tense value"},
 	}
@@ -315,6 +315,125 @@ func TestSentenceStudyKeyListsOnlyUsedAbbreviationsSorted(t *testing.T) {
 		abbreviations = append(abbreviations, entry.Abbreviation)
 	}
 	assert.Equal(t, []string{"3SG", "NOM", "SG"}, abbreviations)
+}
+
+// studyNotationKey returns the rendered notation key disclosure, or "" when the
+// page does not show one.
+func studyNotationKey(body string) string {
+	const marker = `<details id="sentence-study-notation-key"`
+	start := strings.Index(body, marker)
+	if start < 0 {
+		return ""
+	}
+	end := strings.Index(body[start:], "</details>")
+	if end < 0 {
+		return body[start:]
+	}
+	return body[start : start+end]
+}
+
+func TestSentenceStudyNotationKeyExplainsTermsForGermanItalianAndGreek(t *testing.T) {
+	t.Run("german explains each case term it uses", func(t *testing.T) {
+		study := studySentence("Ich helfe dem Mann.", 19,
+			studyWord(0, 0, 3, "Ich", "PRON", map[string]string{"Person": "1", "Number": "Sing", "Case": "Nom"}),
+			studyWord(1, 4, 9, "helfe", "VERB", map[string]string{"Person": "1", "Number": "Sing", "Tense": "Pres", "Mood": "Ind", "VerbForm": "Fin"}),
+			studyWord(2, 10, 13, "dem", "DET", map[string]string{"Case": "Dat", "Gender": "Masc", "Number": "Sing"}),
+			studyWord(3, 14, 18, "Mann", "NOUN", map[string]string{"Case": "Dat", "Gender": "Masc", "Number": "Sing"}),
+			studyWord(4, 18, 19, ".", "PUNCT", nil))
+		key := studyNotationKey(renderSentenceStudy(t, study))
+		require.NotEmpty(t, key, "a shown morphology line is accompanied by the key")
+		for _, want := range []string{
+			`<dt>1SG</dt><dd>first person singular</dd>`,
+			`<dt>M</dt><dd>masculine</dd>`,
+			`<dt>NOM</dt><dd>nominative case, the case of the subject</dd>`,
+			`<dt>DAT</dt><dd>dative case, the case of the indirect object or recipient</dd>`,
+			`<dt>PRS</dt><dd>present tense, for what happens now or is generally true</dd>`,
+			`<dt>IND</dt><dd>indicative mood, stating what is the case</dd>`,
+			`<dt>finite</dt><dd>finite verb form, carrying tense and agreeing with the subject</dd>`,
+		} {
+			require.Contains(t, key, want)
+		}
+		// Exactly the used labels; unused case values stay out.
+		require.NotContains(t, key, `<dt>ACC</dt>`)
+		require.NotContains(t, key, `<dt>GEN</dt>`)
+	})
+
+	t.Run("italian imperfect tense is explained as a tense", func(t *testing.T) {
+		study := studySentence("Parlavamo.", 10,
+			studyWord(0, 0, 9, "Parlavamo", "VERB", map[string]string{"Person": "1", "Number": "Plur", "Tense": "Imp", "Mood": "Ind", "VerbForm": "Fin"}),
+			studyWord(1, 9, 10, ".", "PUNCT", nil))
+		key := studyNotationKey(renderSentenceStudy(t, study))
+		require.Contains(t, key, `<dt>imperfect</dt><dd>imperfect tense, an ongoing or repeated past situation</dd>`)
+		require.Contains(t, key, `<dt>1PL</dt><dd>first person plural</dd>`)
+		require.NotContains(t, key, "IPFV")
+		require.NotContains(t, key, "imperfective")
+	})
+
+	t.Run("greek imperfective aspect is explained as an aspect", func(t *testing.T) {
+		study := studySentence("Έγραφε.", 7,
+			studyWord(0, 0, 6, "Έγραφε", "VERB", map[string]string{"Person": "3", "Number": "Sing", "Aspect": "Imp", "Mood": "Ind", "VerbForm": "Fin"}),
+			studyWord(1, 6, 7, ".", "PUNCT", nil))
+		key := studyNotationKey(renderSentenceStudy(t, study))
+		require.Contains(t, key, `<dt>IPFV</dt><dd>imperfective aspect, an ongoing or repeated situation without a stated endpoint</dd>`)
+		require.Contains(t, key, `<dt>3SG</dt><dd>third person singular</dd>`)
+		require.NotContains(t, key, "imperfect tense")
+	})
+}
+
+func TestSentenceStudyNotationKeyExplainsTheSlashOnlyWhenAlternativesAppear(t *testing.T) {
+	const slashNote = "A slash separates analyzer-supplied alternatives"
+
+	withAlternatives := studySentence("Haus", 4,
+		studyWord(0, 0, 4, "Haus", "NOUN", map[string]string{"Case": "Nom,Acc", "Number": "Sing"}))
+	key := studyNotationKey(renderSentenceStudy(t, withAlternatives))
+	require.Contains(t, key, slashNote)
+	require.Contains(t, key, `<dt>NOM</dt>`)
+	require.Contains(t, key, `<dt>ACC</dt>`)
+
+	withoutAlternatives := studySentence("Haus", 4,
+		studyWord(0, 0, 4, "Haus", "NOUN", map[string]string{"Case": "Nom", "Number": "Sing"}))
+	key = studyNotationKey(renderSentenceStudy(t, withoutAlternatives))
+	require.NotContains(t, key, slashNote)
+}
+
+func TestSentenceStudyNotationKeyAlwaysExplainsUnannotatedWords(t *testing.T) {
+	const unannotated = "that does not mean the word lacks those features"
+
+	annotated := studySentence("Haus", 4, studyWord(0, 0, 4, "Haus", "NOUN", map[string]string{"Case": "Nom"}))
+	key := studyNotationKey(renderSentenceStudy(t, annotated))
+	require.Contains(t, key, unannotated, "the key explains unannotated words even when none appear")
+
+	emptyMorphology := studySentence("gut", 3, studyWord(0, 0, 3, "gut", "ADV", map[string]string{}))
+	key = studyNotationKey(renderSentenceStudy(t, emptyMorphology))
+	require.Contains(t, key, unannotated)
+}
+
+func TestSentenceStudyNotationKeyMakesNoSentenceSpecificClaims(t *testing.T) {
+	study := studySentence("Ich helfe dem Mann.", 19,
+		studyWord(0, 0, 3, "Ich", "PRON", map[string]string{"Person": "1", "Number": "Sing", "Case": "Nom"}),
+		studyWord(1, 4, 9, "helfe", "VERB", map[string]string{"Person": "1", "Number": "Sing", "Tense": "Pres", "Mood": "Ind", "VerbForm": "Fin"}),
+		studyWord(2, 10, 13, "dem", "DET", map[string]string{"Case": "Dat", "Gender": "Masc", "Number": "Sing"}),
+		studyWord(3, 14, 18, "Mann", "NOUN", map[string]string{"Case": "Dat", "Gender": "Masc", "Number": "Sing"}))
+	key := studyNotationKey(renderSentenceStudy(t, study))
+	require.NotEmpty(t, key)
+	require.NotContains(t, key, "because")
+	for _, surface := range []string{"Ich", "helfe", "dem", "Mann"} {
+		require.NotContains(t, key, surface, "the key explains terms in general, never this sentence's words")
+	}
+}
+
+func TestSentenceStudyNotationKeyIsAbsentWithoutAMorphologyLine(t *testing.T) {
+	t.Run("no analyzer evidence", func(t *testing.T) {
+		study := domain.SentenceStudy{BookTitle: "Buch", SentenceText: "Das Haus.", UnitText: "Das Haus.",
+			SentenceStartOffset: 0, SentenceEndOffset: 9, TargetSurface: "Haus"}
+		require.Empty(t, studyNotationKey(renderSentenceStudy(t, study)))
+	})
+	t.Run("whole-line fallback", func(t *testing.T) {
+		study := domain.SentenceStudy{BookTitle: "Buch", SentenceText: "Das Haus.", UnitText: "Anderer Text.",
+			SentenceStartOffset: 0, SentenceEndOffset: 11, TargetSurface: "Haus",
+			Tokens: []domain.SentenceStudyToken{studyWord(0, 0, 3, "Das", "DET", nil)}}
+		require.Empty(t, studyNotationKey(renderSentenceStudy(t, study)))
+	})
 }
 
 func TestSentenceStudyLineDegradesASharedSpanSiblingEvenWhenOneSurfaceMatches(t *testing.T) {
@@ -372,16 +491,19 @@ func TestSentenceStudyPageRendersTheMorphologyLineAndKey(t *testing.T) {
 			require.Contains(t, body, want)
 		}
 	})
-	t.Run("names the notation key and expands the used abbreviations", func(t *testing.T) {
+	t.Run("names the notation key and explains the used labels in plain English", func(t *testing.T) {
 		for _, want := range []string{
 			`id="sentence-study-notation-key"`,
 			`<summary>Notation key</summary>`,
 			`<dt>SG</dt><dd>singular</dd>`,
-			`<dt>NOM</dt><dd>nominative case</dd>`,
+			`<dt>NOM</dt><dd>nominative case, the case of the subject</dd>`,
 			`<dt>3SG</dt><dd>third person singular</dd>`,
 		} {
 			require.Contains(t, body, want)
 		}
+		// Unused labels stay out of the key.
+		require.NotContains(t, body, `<dt>DAT</dt>`)
+		require.NotContains(t, body, `<dt>ACC</dt>`)
 	})
 	t.Run("keeps unannotated words as unlabelled source words with one note", func(t *testing.T) {
 		require.Contains(t, body, `<span class="sentence-study-word">gut</span>`)

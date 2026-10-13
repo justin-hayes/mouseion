@@ -250,8 +250,13 @@ change cannot make historical, incomplete, or mismatched counts appear current.
   were supplied, not that the word lacks them. Shared spans, overlaps and
   mismatches degrade locally while safe neighbours stay annotated; untrustworthy
   sentence bounds withhold the line and open the text alternative. The
-  **notation key** is a native disclosure listing only the abbreviations used in
-  the sentence.
+  **notation key** is a closed-by-default native disclosure listing only the
+  abbreviations and spelled-out labels used in the sentence, each with a
+  plain-English explanation of the term rather than just its expanded name. It
+  also explains the slash joining analyzer-supplied alternatives (only when the
+  line shows one) and what an unannotated word means: no features were supplied,
+  which does not mean the word lacks them. It makes no sentence-specific causal
+  claims, and it is absent when no morphology line is shown.
 - The **complete text alternative** is a native disclosure, server-rendered and
   closed by default, opening by default only under whole-line fallback. The
   disclosure lists every analyzed word in source order with its surface, UPOS,

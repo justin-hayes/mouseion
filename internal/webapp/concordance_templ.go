@@ -894,7 +894,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<p>A word shown without labels has no core feature recorded for it here.</p></details>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<p>An unannotated word had no core features supplied for it here; that does not mean the word lacks those features.</p></details>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
