@@ -298,12 +298,14 @@ func (s concordanceFailStore) ListVocabularyConcordance(ctx context.Context, own
 func TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete(t *testing.T) {
 	study := domain.SentenceStudy{
 		BookTitle: "Der lange Weg nach Hause", ChapterTitle: "Kapitel 1",
-		SentenceText: "Das Haus Haus steht.", SentenceOrdinal: 0, TargetOrdinal: 1, TargetSurface: "Haus",
+		SentenceText: "Das Haus Haus steht.", UnitText: "Das Haus Haus steht.",
+		SentenceStartOffset: 0, SentenceEndOffset: 20,
+		SentenceOrdinal: 0, TargetOrdinal: 1, TargetSurface: "Haus",
 		Tokens: []domain.SentenceStudyToken{
-			{Surface: "Das", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 1, HeadSurface: "Haus", Ordinal: 0, Morphology: map[string]string{"Case": "Nom", "Number": "Sing"}},
-			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "haus", UPOS: "NOUN", Dependency: "nsubj", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 1},
-			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "heim", UPOS: "NOUN", Dependency: "obj", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 2, Corrected: true, Excluded: true},
-			{Surface: "steht", RawLemma: "stehen", EffectiveLemma: "stehen", UPOS: "VERB", Dependency: "root", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 3, Morphology: map[string]string{"Mood": "Ind", "VerbForm": "Fin"}},
+			{Surface: "Das", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 1, HeadSurface: "Haus", Ordinal: 0, StartOffset: 0, EndOffset: 3, Morphology: map[string]string{"Case": "Nom", "Number": "Sing"}},
+			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "haus", UPOS: "NOUN", Dependency: "nsubj", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 1, StartOffset: 4, EndOffset: 8},
+			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "heim", UPOS: "NOUN", Dependency: "obj", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 2, StartOffset: 9, EndOffset: 13, Corrected: true, Excluded: true},
+			{Surface: "steht", RawLemma: "stehen", EffectiveLemma: "stehen", UPOS: "VERB", Dependency: "root", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 3, StartOffset: 14, EndOffset: 19, Morphology: map[string]string{"Mood": "Ind", "VerbForm": "Fin"}},
 		},
 	}
 	var rendered bytes.Buffer

@@ -234,14 +234,32 @@ change cannot make historical, incomplete, or mismatched counts appear current.
   a row reveals only the complete flowing sentence with the observed target
   emphasized. It does not repeat Book/location or technical evidence. The study
   link opens a focused view named **Study this sentence** with the complete
-  sentence, Book and structural location, the identified target, and a named,
-  closed-by-default **complete text alternative**. The disclosure lists every
-  analyzed word in source order with its surface, UPOS, analyzer and effective
-  lemma, all stored morphology, dependency relation and head, and
-  correction/exclusion state, keeping shared-span siblings and repeated forms
-  distinguishable. A diagram may complement, never replace, that structured
-  textual evidence. If syntax evidence is missing, keep the valid sentence,
-  explain the gap, and omit the disclosure and diagram.
+  sentence, Book and structural location, the identified target, a
+  **source-word-aligned morphology line**, a **notation key**, and a named,
+  closed-by-default **complete text alternative**.
+- The morphology line validates the sentence against its authoritative source
+  slice and aligns a word only when its stored span is valid, uniquely
+  attributable, non-overlapping and its surface exactly matches the source
+  slice. Each aligned word stacks its curated core labels (Case, Number, Gender,
+  Person, Tense, Aspect, Mood, Voice, VerbForm) beneath it and wraps as one
+  unit; the target is emphasized and the words are static. Labels use one
+  consistent order, the Leipzig abbreviation table, analyzer-supplied
+  alternatives joined by a slash, and the raw analyzer value where no
+  abbreviation exists. These are word-level grammatical features, never glosses,
+  translations or whole-sentence claims; an unannotated word means no features
+  were supplied, not that the word lacks them. Shared spans, overlaps and
+  mismatches degrade locally while safe neighbours stay annotated; untrustworthy
+  sentence bounds withhold the line and open the text alternative. The
+  **notation key** is a native disclosure listing only the abbreviations used in
+  the sentence.
+- The **complete text alternative** is a native disclosure, server-rendered and
+  closed by default, opening by default only under whole-line fallback. The
+  disclosure lists every analyzed word in source order with its surface, UPOS,
+  analyzer and effective lemma, all stored morphology, dependency relation and
+  head, and correction/exclusion state, keeping shared-span siblings and
+  repeated forms distinguishable. A diagram may complement, never replace, that
+  structured textual evidence. If syntax evidence is missing, keep the valid
+  sentence, explain the gap, and omit the morphology line, key and disclosure.
 
 ## Custom decks, preparation, and Anki
 

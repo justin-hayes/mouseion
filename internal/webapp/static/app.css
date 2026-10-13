@@ -3434,6 +3434,42 @@
     padding-block: var(--mouseion-space-2);
     line-height: 1.6;
   }
+  body.vocabulary-shell .sentence-study-line {
+    margin-block: var(--mouseion-space-4);
+    line-height: 1.35;
+  }
+  body.vocabulary-shell .sentence-study-source {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+  body.vocabulary-shell .sentence-study-unit {
+    display: inline-block;
+    max-width: 100%;
+    padding-inline: 0.08em;
+    vertical-align: top;
+    text-align: center;
+  }
+  body.vocabulary-shell .sentence-study-word {
+    display: block;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  body.vocabulary-shell .sentence-study-labels {
+    display: block;
+    font-size: var(--mouseion-font-size-metadata);
+    letter-spacing: 0.01em;
+    overflow-wrap: anywhere;
+  }
+  body.vocabulary-shell .sentence-study-note, body.vocabulary-shell .sentence-study-fallback {
+    max-width: var(--mouseion-width-reading);
+    font-size: var(--mouseion-font-size-metadata);
+  }
+  body.vocabulary-shell .sentence-study-key dl {
+    margin-block: var(--mouseion-space-2);
+  }
+  body.vocabulary-shell .sentence-study-key dt {
+    font-weight: 600;
+  }
   body.vocabulary-shell #concordance-recovery, body.vocabulary-shell #concordance-results, body.vocabulary-shell .sentence-study-text, body.vocabulary-shell .sentence-study-alternative {
     max-width: var(--mouseion-width-reading);
   }

@@ -286,7 +286,10 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 	first := rows[0]
 	study := domain.SentenceStudy{BookID: first.BookID, BookTitle: first.BookTitle,
 		ChapterTitle: first.ChapterTitle, SentenceText: first.SentenceText,
-		SentenceOrdinal: first.SentenceOrdinal, TargetOrdinal: first.TargetOrdinal,
+		UnitText:            first.UnitText,
+		SentenceStartOffset: first.SentenceStartOffset,
+		SentenceEndOffset:   first.SentenceEndOffset,
+		SentenceOrdinal:     first.SentenceOrdinal, TargetOrdinal: first.TargetOrdinal,
 		TargetSurface: targetSurface,
 		Tokens:        make([]domain.SentenceStudyToken, 0, len(rows))}
 	for _, row := range rows {

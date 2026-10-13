@@ -176,6 +176,9 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-books") {
 		return fixtureMultiBookConcordance(result), nil
 	}
+	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-whole-line") {
+		return fixtureWholeLineConcordance(result), nil
+	}
 	lemma := strings.ToLower(strings.TrimSpace(query.Term))
 	// Mirror the persisted lookup: an evidenced effective lemma wins and
 	// expands its forms; any other term matches only that source form.
@@ -252,19 +255,50 @@ func fixtureConcordancePage(result *domain.ConcordanceResult, matches []domain.C
 }
 
 func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, unit string, sentence, target int64, targetSurface string) (domain.SentenceStudy, error) {
-	if (book != BookID && !strings.HasPrefix(book, "fixture-kwic-")) || unit != "fixture-concordance-unit" || sentence < 0 || sentence > 27 {
+	if (book != BookID && !strings.HasPrefix(book, "fixture-kwic-")) || sentence < 0 || sentence > 27 {
 		return domain.SentenceStudy{}, errors.New("sentence study not found")
 	}
+	switch unit {
+	case "fixture-concordance-unit", "fixture-concordance-whole-line-unit":
+	default:
+		return domain.SentenceStudy{}, errors.New("sentence study not found")
+	}
+	study := fixtureSentenceStudy(book, sentence, target, targetSurface)
+	if unit == "fixture-concordance-whole-line-unit" {
+		// The stored sentence bounds disagree with the immutable unit text, so
+		// the reader withholds the morphology line and opens the text
+		// alternative by default.
+		study.UnitText = "Ganz anderer gespeicherter Text."
+		study.SentenceEndOffset = 4
+	}
+	return study, nil
+}
+
+// fixtureSentenceStudy builds the default, fully aligned fixture sentence so
+// every sentence-study scenario starts from the same evidence.
+func fixtureSentenceStudy(book string, sentence, target int64, targetSurface string) domain.SentenceStudy {
 	return domain.SentenceStudy{BookID: book, BookTitle: "Der lange Weg nach Hause", ChapterTitle: "Kapitel 1", TargetSurface: targetSurface,
-		SentenceText: "Das Haus sieht gut aus.", SentenceOrdinal: sentence, TargetOrdinal: target,
+		SentenceText: "Das Haus sieht gut aus.", UnitText: "Das Haus sieht gut aus.",
+		SentenceStartOffset: 0, SentenceEndOffset: 23, SentenceOrdinal: sentence, TargetOrdinal: target,
 		Tokens: []domain.SentenceStudyToken{
-			{Surface: "Das", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 1, HeadSurface: "Haus", Ordinal: 0, Morphology: map[string]string{"Case": "Nom", "Gender": "Neut", "Number": "Sing"}},
-			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "heim", UPOS: "NOUN", Dependency: "obj", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 1, Corrected: true, Morphology: map[string]string{"Case": "Nom", "Gender": "Neut", "Number": "Sing"}},
-			{Surface: "sieht", RawLemma: "sehen", EffectiveLemma: "sehen", UPOS: "VERB", Dependency: "root", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 2, Morphology: map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "VerbForm": "Fin"}},
-			{Surface: "gut", RawLemma: "gut", EffectiveLemma: "gut", UPOS: "ADV", Dependency: "advmod", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 3},
-			{Surface: "aus", RawLemma: "aus", EffectiveLemma: "aus", UPOS: "PART", Dependency: "compound:prt", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 4, Morphology: map[string]string{"PartType": "Sep"}},
-			{Surface: ".", RawLemma: ".", EffectiveLemma: ".", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 5},
-		}}, nil
+			{Surface: "Das", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 0, StartOffset: 0, EndOffset: 3, Morphology: map[string]string{"Case": "Nom", "Gender": "Neut", "Number": "Sing"}},
+			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "heim", UPOS: "NOUN", Dependency: "obj", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 1, Corrected: true, StartOffset: 4, EndOffset: 8, Morphology: map[string]string{"Case": "Nom", "Gender": "Neut", "Number": "Sing"}},
+			{Surface: "sieht", RawLemma: "sehen", EffectiveLemma: "sehen", UPOS: "VERB", Dependency: "root", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 2, StartOffset: 9, EndOffset: 14, Morphology: map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "VerbForm": "Fin"}},
+			{Surface: "gut", RawLemma: "gut", EffectiveLemma: "gut", UPOS: "ADV", Dependency: "advmod", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 3, StartOffset: 15, EndOffset: 18},
+			{Surface: "aus", RawLemma: "aus", EffectiveLemma: "aus", UPOS: "PART", Dependency: "compound:prt", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 4, StartOffset: 19, EndOffset: 22, Morphology: map[string]string{"PartType": "Sep"}},
+			{Surface: ".", RawLemma: ".", EffectiveLemma: ".", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 5, StartOffset: 22, EndOffset: 23},
+		}}
+}
+
+// fixtureWholeLineConcordance points Study at the fixture sentence whose stored
+// bounds disagree with its immutable source text, exercising whole-line
+// fallback through the browser journey.
+func fixtureWholeLineConcordance(result domain.ConcordanceResult) domain.ConcordanceResult {
+	result.Match, result.Term = domain.ConcordanceMatchForm, "fixture-whole-line"
+	occurrence := fixtureConcordanceOccurrence("haus", false, false)
+	occurrence.UnitID = "fixture-concordance-whole-line-unit"
+	result.Occurrences = []domain.ConcordanceResultOccurrence{occurrence}
+	return result
 }
 
 // fixtureMultiBookConcordance returns one page spanning several Books: a
