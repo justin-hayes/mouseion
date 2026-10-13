@@ -239,8 +239,14 @@ change cannot make historical, incomplete, or mismatched counts appear current.
   closed-by-default **complete text alternative**.
 - The morphology line validates the sentence against its authoritative source
   slice and aligns a word only when its stored span is valid, uniquely
-  attributable, non-overlapping and its surface exactly matches the source
-  slice. Each aligned word stacks its curated core labels (Case, Number, Gender,
+  attributable, non-overlapping and its surface matches the source slice. A
+  stored span that also covers leading or trailing Unicode punctuation or
+  symbols the producer strips from the persisted surface is still aligned: the
+  word unit narrows to the trimmed sub-span that equals the surface and the
+  stripped edges render as plain source text, so the sentence is preserved
+  character for character. The apostrophes `'` and `’` are lexical and are never
+  stripped, so a surface that matches only after dropping one still degrades.
+  Each aligned word stacks its curated core labels (Case, Number, Gender,
   Person, Tense, Aspect, Mood, Voice, VerbForm) beneath it and wraps as one
   unit; the target is emphasized and the words are static. Labels use one
   consistent order, the Leipzig abbreviation table, analyzer-supplied
