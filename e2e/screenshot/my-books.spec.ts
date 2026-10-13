@@ -1,14 +1,14 @@
 // Learner workflow for the documentation screenshots. It creates the first
 // account, adds the static catalog, waits for catalog sync and covers, moves the
-// scenario Books to To Read and waits for each analysis, imports a Known
-// vocabulary baseline derived from the other Books (known-vocabulary.ts), reads
-// one Book to completion, starts the target Book, and then captures the Reading
-// view and My Books in light and dark schemes, then looks up the configured
-// lemma and captures the Concordance and one sentence Study. Every input comes from the environment set by run.mjs, and
-// every wait is bounded and reports the Book or step that stalled.
+// scenario Books to To Read and waits for each analysis, seeds the Known
+// vocabulary baseline by finishing a reading of every baseline Book (ADR 0092's
+// only source of Known vocabulary), starts the target Book, and then captures
+// the Reading view and My Books in light and dark schemes, then looks up the
+// configured lemma and captures the Concordance and one sentence Study. Every
+// input comes from the environment set by run.mjs, and every wait is bounded and
+// reports the Book or step that stalled.
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { COVERAGE_MAX_PERCENT, COVERAGE_MIN_PERCENT, deriveBaseline, type Baseline } from './known-vocabulary';
 
 type Journey = 'inbox' | 'to-read' | 'read' | 'current';
 
@@ -41,13 +41,22 @@ const myBooksDarkOutputPath = requiredEnv('MOUSEION_SCREENSHOT_DARK_OUTPUT');
 const readingOutputPath = requiredEnv('MOUSEION_SCREENSHOT_READING_OUTPUT');
 const concordanceOutputPath = requiredEnv('MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT');
 const studyOutputPath = requiredEnv('MOUSEION_SCREENSHOT_STUDY_OUTPUT');
-// The docker compose arguments that address the isolated stack, as a JSON array.
-const composeArgs = JSON.parse(requiredEnv('MOUSEION_SCREENSHOT_COMPOSE_ARGS')) as string[];
 const manifest = JSON.parse(readFileSync(requiredEnv('MOUSEION_SCREENSHOT_MANIFEST'), 'utf8')) as {
   books: ManifestBook[];
   concordance: ManifestConcordance;
 };
 const { concordance } = manifest;
+
+// Known vocabulary comes only from Reading completion (ADR 0092). The scenario
+// finishes every baseline Book (every analyzed Book except the target) and
+// returns the finished To Read Books to To Read with Read again. Known
+// identities from completion are exact (canonical lemma plus analyzed part of
+// speech), unlike the retired lemma-wide import, so the pinned corpus covers
+// about 84.5% of the target's running content words (deterministic: the books
+// and the Stanza analysis are pinned). The band is a regression guard around
+// that value; it no longer assumes the 94–98% the lemma-wide import produced.
+const COVERAGE_MIN_PERCENT = 82;
+const COVERAGE_MAX_PERCENT = 88;
 
 const SYNC_TIMEOUT_MS = 5 * 60_000;
 const COVER_TIMEOUT_MS = 6 * 60_000;
@@ -55,7 +64,6 @@ const COVER_TIMEOUT_MS = 6 * 60_000;
 // in parallel, so this bounds the whole To Read analysis set.
 const ANALYSIS_TIMEOUT_MS = 30 * 60_000;
 const COUNTS_TIMEOUT_MS = 5 * 60_000;
-const IMPORT_TIMEOUT_MS = 5 * 60_000;
 const MOVE_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 5_000;
 const MAX_SCREENSHOT_HEIGHT = 1600;
@@ -214,22 +222,6 @@ async function waitForAnalyses(page: Page, books: ManifestBook[]): Promise<void>
   expect(stalled, 'To Read scenario books whose analysis did not complete').toEqual([]);
 }
 
-// Imports the lemma list through the vocabulary interface and waits for the
-// River job to report its result on the page.
-async function importKnownVocabulary(page: Page, text: string): Promise<void> {
-  await page.goto('/vocabulary/import');
-  await page.locator('#known-vocabulary-file').setInputFiles({
-    name: 'known-vocabulary.txt',
-    mimeType: 'text/plain',
-    buffer: Buffer.from(text, 'utf8'),
-  });
-  await page.getByRole('button', { name: 'Import known vocabulary' }).click();
-  await expect(page.locator('#vocabulary-results'), 'the Known-vocabulary import completes').toContainText(
-    /Import complete\.|partial rejection/,
-    { timeout: IMPORT_TIMEOUT_MS },
-  );
-}
-
 // The chooser shows each To Read Book's Known coverage. The Current reading is
 // measured here, before it is started, because the app stops showing coverage
 // for the Book once it is the Current reading.
@@ -253,15 +245,44 @@ async function measureCoverage(page: Page, book: ManifestBook): Promise<number> 
   return percent;
 }
 
-// Derives the baseline from the other analyzed Books, imports it, and fails the
-// run unless the target's measured coverage is inside the 94–98% band.
-async function establishKnownVocabulary(page: Page, target: ManifestBook): Promise<void> {
-  const baseline: Baseline = await deriveBaseline(composeArgs, target.title);
-  await importKnownVocabulary(page, baseline.text);
+// Read again returns a finished Book to To Read without starting it, so a
+// baseline Book that the manifest keeps in To Read stays there. Its completion
+// history and the Known vocabulary it accepted are unchanged.
+async function readAgain(page: Page, book: ManifestBook): Promise<void> {
+  await page.goto('/library');
+  const item = myBookItem(page, book);
+  await item.locator('details.more-actions > summary').click();
+  await item.getByRole('button', { name: 'Read again' }).click();
+  await pollUntil(
+    async () => (await workflowLabel(page, book)) === WORKFLOW_LABEL['to-read'],
+    MOVE_TIMEOUT_MS,
+    `${book.title} to return to To Read after finishing`,
+  );
+}
+
+// Seeds Known vocabulary the only way ADR 0092 allows: by finishing readings.
+// Every baseline Book (every analyzed Book except the target) is finished in
+// manifest order, so My Books still shows the `read` Books as Read; each
+// finished `to-read` Book is returned to To Read with Read again. The target's
+// coverage is measured once, before it is started, and must land inside
+// COVERAGE_MIN_PERCENT–COVERAGE_MAX_PERCENT, or the run fails with the finished
+// readings and the measured value.
+async function seedKnownVocabulary(page: Page, target: ManifestBook): Promise<void> {
+  const finished: string[] = [];
+
+  // Every Book the scenario analyzes (everything but Inbox) except the target.
+  const baseline = manifest.books.filter(book => book.journey !== 'inbox' && book.title !== target.title);
+  for (const book of baseline) {
+    await startReading(page, book);
+    await finishReading(page, book);
+    if (book.journey === 'to-read') await readAgain(page, book);
+    finished.push(book.title);
+  }
+
   const measured = await measureCoverage(page, target);
   const summary =
-    `cut-off: ${baseline.lemmas.length} lemmas (rank ${baseline.rank}, frequency ≥ ${baseline.frequency}); ` +
-    `${target.title} Known coverage ${measured.toFixed(1)}% (estimated ${baseline.estimatedCoverage.toFixed(1)}%)`;
+    `${finished.length} reading(s) finished (${finished.join(', ')}); ` +
+    `${target.title} Known coverage ${measured.toFixed(1)}%`;
   console.log(`Known vocabulary baseline: ${summary}`);
   if (measured < COVERAGE_MIN_PERCENT || measured > COVERAGE_MAX_PERCENT) {
     throw new Error(`Known coverage of ${target.title} is outside ${COVERAGE_MIN_PERCENT}–${COVERAGE_MAX_PERCENT}%: ${summary}`);
@@ -437,8 +458,7 @@ async function captureMyBooks(page: Page, colorScheme: ColorScheme, outputPath: 
   await settleAndCapture(page, outputPath, colorScheme);
 }
 
-test('the scenario Books are analyzed, one is read to completion, and Reading, My Books, Concordance, and Study are captured', async ({ page }) => {
-  const [readBook] = booksWithJourney('read');
+test('the scenario Books are analyzed, readings seed Known vocabulary, and Reading, My Books, Concordance, and Study are captured', async ({ page }) => {
   const [currentBook] = booksWithJourney('current');
   expect(booksWithJourney('read'), 'manifest has exactly one read Book').toHaveLength(1);
   expect(booksWithJourney('current'), 'manifest has exactly one current Book').toHaveLength(1);
@@ -455,10 +475,8 @@ test('the scenario Books are analyzed, one is read to completion, and Reading, M
   }
   await waitForAnalyses(page, toRead);
 
-  await establishKnownVocabulary(page, currentBook);
+  await seedKnownVocabulary(page, currentBook);
 
-  await startReading(page, readBook);
-  await finishReading(page, readBook);
   await startReading(page, currentBook);
   await assertBookVocabulary(page, currentBook);
   await expect(page.locator('#primary-goal-section').getByRole('heading', { level: 1 })).toContainText(currentBook.title);

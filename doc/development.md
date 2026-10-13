@@ -233,8 +233,9 @@ Run it from the repository root:
 make screenshot-my-books
 ```
 
-The run prints the Known-vocabulary cut-off and the coverage it measured. Record
-that output in any pull request that changes the committed images.
+The run prints the readings it finished to seed Known vocabulary and the
+coverage it measured. Record that output in any pull request that changes the
+committed images.
 
 Duration, measured on the maintainer's workstation (16 cores, 31 GB RAM):
 
