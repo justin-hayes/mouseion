@@ -2,168 +2,224 @@
 
 Research for [#1993](https://github.com/justin-hayes/mouseion/issues/1993) under the Sentence Study map [#1983](https://github.com/justin-hayes/mouseion/issues/1983). Throwaway research branch; no production code changed.
 
-Related research, not repeated here:
-- Sentence grammar and dependency views: `doc/research/sentence-study-grammar.md` on branch `research/sentence-study-grammar` ([#1987](https://github.com/justin-hayes/mouseion/issues/1987)).
-- Visualization options: `doc/research/sentence-study-visualization.md` on branch `research/sentence-study-visualization` ([#1985](https://github.com/justin-hayes/mouseion/issues/1985)).
+**Revision 2.** This revision corrects revision 1 (commit `9af7acdf`). §0 lists each correction. Where revision 1 and this document disagree, this document governs.
+
+Related research, not repeated here (on their own branches):
+- Sentence grammar and dependency views: `doc/research/sentence-study-grammar.md`, branch `research/sentence-study-grammar` ([#1987](https://github.com/justin-hayes/mouseion/issues/1987)).
+- Visualization options: `doc/research/sentence-study-visualization.md`, branch `research/sentence-study-visualization` ([#1985](https://github.com/justin-hayes/mouseion/issues/1985)).
 
 ## Evidence labels
 
-- **[V]** verified in source, schema, or code read during this research (file and line cited).
-- **[R]** stated in an external spec (Leipzig Glossing Rules, UD CoNLL-U, Stanza source).
-- **[I]** inference from [V]/[R] facts; not separately checked.
-- **[U]** unknown; needs a check against live Stanza output or a decision.
+- **[V]** verified in a primary source or in code, with the location cited.
+- **[R]** a statement made by an external specification, quoted and cited.
+- **[I]** an inference from the cited facts. Not separately tested.
+- **[U]** unknown. Settling it needs a decision, a test, or a model run, which this research did not do.
 
-All German, Italian, and Greek sentences below are **fabricated** for illustration. They are not drawn from learner text or any corpus.
+All German, Italian, and Greek sentences are **fabricated** for illustration. Feature sets in §3 are illustrative and are not Stanza output.
 
-## Summary
+Retrieval date for every external source: **2026-10-13**.
 
-1. **Two different things are called "Leipzig-style".** A *word-aligned grammatical-feature line* labels each surface word with its features (for example `im` → `in.DEF.DAT.SG`). A *true interlinear morphemic gloss* splits each word into morphemes and glosses each morpheme. The Leipzig rules define the second. The persisted data supports only the first, and only partly (see §4).
-2. **The Leipzig rules are a presentation convention, not a validator.** They say glossing "is rarely a complete morphological description" and "its purpose is not to state an analysis" [R]. They also say "glosses are part of the analysis, not part of the data" [R]. A Leipzig line therefore shows what the parser claims. It does not prove the claim.
-3. **The local data cannot produce a faithful morphemic gloss today.** Stanza's contraction handling does not give per-morpheme spans for `zum`, `dell'`, or `στο`. The persisted surface is punctuation-cleaned, so the source form is lost unless it is rebuilt from `sentence.text` plus offsets [V §4].
-4. **A word-aligned feature line is feasible with a small schema addition.** The morphology JSON is already stored per token [V]. Shared-span contractions need an explicit group key, because grouping by identical offsets is fragile [V §4.3].
-5. **The Leipzig rules have no notation for ambiguous features.** Rule 4B's semicolon marks two distinguishable meanings in one word; it does not mark ambiguity. German `dem` (dative masculine or neuter) needs a local decision (§3.2).
+## 0. Corrections from revision 1
+
+| # | Revision 1 claim | Status | Correction and evidence |
+|---|---|---|---|
+| C1 | Stanza `morphemes` emission is unknown and needs a live probe. | Corrected | Stanza's public Word fields do not include morphemes [V, §5]. In v1.15.0 `doc.py`, `MORPHEMES = 'morphemes'` appears only as an output-field name [V]. The local protobuf `Token` has no morpheme field [V]. The local contract therefore cannot carry per-morpheme alignments, whatever Stanza does. No probe is needed for the decision. |
+| C2 | A word-aligned feature line needs a schema addition. | Wrong | Morphology is already persisted per token in `corpus_tokens.morphology` [V]. Showing it needs query, domain, and template changes only [V, §4.2]. No schema change is required for the feature line. |
+| C3 | An explicit group key is required for shared-span contractions. | Overstated | A group key is one possible design, not a verified prerequisite (§4.3). |
+| C4 | Grouping by identical span fails "after re-analysis" because revisions could mix. | Wrong | The study query selects a single analysis run [V: `sqlc/queries/concordance.sql`, `current_analysis_identity` and `analysis_run` filter]. Mixing revisions is not a case the query produces. The real within-run hazard is the offset-keyed correction join (§4.5). |
+| C5 | Apostrophes are dropped from MWT sub-words; `dell'` becomes `di`. | Wrong | `_clean_surface` removes only edge punctuation and symbols and explicitly keeps apostrophes [V: `nlp/src/mouseion_nlp/producer.py` lines 150–~160, comment "Apostrophes are lexical in elided forms"]. A mirror of that function gives `dell'` → `dell'` [V, run with `python3 -I`]. |
+| C6 | Stanza's regex fails only for `zum`, `dell'`, and `στο`. | Overstated | The regex cannot match any fused contraction whose surface is not its components joined by optional whitespace [V, mirror run, §4.3]. This is a general property, not a three-case list. |
+| C7 | The span fallback is part of Stanza. | Corrected | Stanza sets no word offsets when the match fails [V: `doc.py` v1.15.0 lines 728–737]. The fallback to the token span is in our producer [V: `producer.py` lines 249–254]. |
+| C8 | Rule 5 concerns tense followed by person-number, so `PRS.1SG` has no period. | Wrong | Rule 5 says "Person and number are not separated by a period when they occur in this order" [R]. It says nothing about tense. Its own example is `go-PRS.1PL`, which has a period between tense and person-number [R]. |
+| C9 | A bracketed `[1SG]` is justified for Italian `vado` because the subject is not written. | Unsupported | Rule 6 applies when the gloss contains an element that "does not correspond to an overt element in the example" [R]. Whether a verb ending expresses person is an analysis claim. A missing subject pronoun is not evidence of a zero exponent. Removed. |
+| C10 | `go-PRS.[1SG]` is a features-only line. | Wrong | It adds segmentation and a lexical meaning (`go`). All examples are now features-only (§3). |
+| C11 | Leipzig-compatible for word-level labels is forbidden, or the labels are "Leipzig rules 1, 3–7". | Overstated | Leipzig's rules cover morphemes; a word-level label is outside that stated scope [R]. But the rules include conventions for unsegmented elements (4A, 4B) [R]. A word-level feature line is therefore allowed as a labeled convention, not a Leipzig morphemic gloss (§7). |
+| C12 | Rule 7 applies to nouns but not determiners. | Unsupported | Rule 7 says "Inherent, non-overt categories such as gender may be indicated in the gloss" [R]. The noun/determiner distinction is my inference, not the rules'. Removed. |
+| C13 | `SBJ`/`OBJ` collide with dependency role names. | Overstated | The Leipzig list contains `SBJ` and `OBJ` [R]. UD relations are `nsubj` and `obj` [R]. The overlap is conceptual [I], not a literal collision. |
+| C14 | `θα` carries a Tense question in the Greek GDT treebank. | Removed | Unsupported as written. Not carried forward. |
+| C15 | UD MWT range lines carry only FORM and MISC. | Corrected | UD: range tokens "have an underscore in all the remaining fields except MISC" [R], with one exception for `Typo=Yes` in FEATS [R]. |
 
 ## 1. Sources
 
-| Source | What it settles | Label |
-|---|---|---|
-| Leipzig Glossing Rules, revised 2008 (eva.mpg.de, last change 2015) | Alignment, hyphen correspondence, uppercase labels, one-to-many periods, non-overt brackets, inherent-category parentheses, abbreviation list | [R] |
-| UD CoNLL-U format spec | Feature values are comma-joined (`Case=Acc,Dat`); MWT range lines carry only FORM and MISC; MISC `MSeg`/`MGloss` are optional, treebank-specific morphemic glosses | [R] |
-| Stanza v1.15.0 source (`doc.py` `set_mwt_expansions`, `mwt_processor.py`, `core.py`) | How sub-word `Word` objects get offsets | [V] (read from source) |
-| Local: `nlp/src/mouseion_nlp/producer.py` | `_morphology`, `_clean_surface`, `_map_sentence` span fallback | [V] |
-| Local: `migrations/000001_initialize.up.sql` | `corpus_tokens` columns | [V] |
-| Local: `sqlc/queries/concordance.sql`, `internal/domain/domain.go`, `internal/webapp/concordance.templ` | What the sentence-study view reads and shows | [V] |
-| Local: ADRs 0060, 0067, 0068, 0079, 0080; dictionary-gloss and dependency-parse feature docs | Persistence, card morphology, contextual gloss, LLM alignment | [V] |
+### 1.1 Leipzig Glossing Rules
 
-### 1.1 Leipzig rules, as they bear on this design
+- URL: https://www.eva.mpg.de/lingua/resources/glossing-rules.php
+- Version on the page: "revised version of February 2008"; "Leipzig, last change: May 31, 2015" [R].
+- Authors and institutions as given on the page: Comrie and Haspelmath (MPI-EVA), Bickel (Leipzig) [R].
 
-- **Rule 1 (word alignment).** Gloss lines align left, word by word, with the example [R]. This is the rule the feature line already satisfies.
-- **Rule 2 (morpheme correspondence).** Hyphens in the example and gloss must match exactly; `=` marks clitics [R]. A feature line has no morpheme segmentation, so Rule 2 cannot be met by it. It is a feature line, not a morphemic gloss.
-- **Rule 3 (labels).** Grammatical morphemes take uppercase abbreviations from the standard list [R]. The list includes `SBJ` and `OBJ`, which collide with dependency role names. A rendering that puts `SBJ` on a morpheme and `nsubj` on the same token would confuse learners. [I]
-- **Rule 4 (one-to-many).** Several glosses for one element are separated by periods: `aux` → `to.ART.PL` [R]. Optional variants: underscore for an unsegmentable element with no one-word equivalent (4A); semicolon for two distinguishable meanings in an unsegmentable element (4B); colon for a segmentable element whose segmentation is hidden (4C); backslash for morphophonological change (4D); `>` for agent-to-patient person-number (4E) [R].
-- **Rule 5 (person and number).** Person and number are not separated by a period: `PRS.1PL`, not `PRS.1.PL` [R].
-- **Rule 6 (non-overt).** A gloss element with no overt counterpart goes in square brackets, e.g. `[1SG]`, or is shown with an overt `Ø` [R].
-- **Rule 7 (inherent categories).** Inherent, non-overt categories such as gender go in parentheses [R]. A noun's gender is inherent; an article's gender agreement is not, so Rule 7 applies to nouns, not to determiners [I].
-- **Rule 8–10 (bipartite, infixes, reduplication).** Not applicable to de/it/el contractions. Not analyzed further.
-- **Scope.** The rules "only allow for information about morphemes"; a corpus tagger "may want to add information about larger units such as words or phrases" [R]. A feature line is one of those larger-unit additions.
+Quotations used (exact):
+
+- Scope: "the rules here only allow for information about morphemes" [R, Preamble]. Corpus tagging "may want to add information about larger units such as words or phrases" [R, Preamble].
+- Analysis: "its purpose is not to state an analysis, but to give some further possibly relevant information on the structure of a text or an example, beyond the idiomatic translation" [R, Preamble].
+- Data: "Glosses are part of the analysis, not part of the data." [R, Preamble]
+- Rule 1: "Interlinear glosses are left-aligned vertically, word by word, with the example." [R]
+- Rule 4: "When a single object-language element is rendered by several metalanguage elements (words or abbreviations), these are separated by periods." [R]
+- Rule 4A: "If an object-language element is neither formally nor semantically segmentable and only the metalanguage happens to lack a single-word equivalent, the underscore may be used instead of the period." [R]
+- Rule 4B: "If an object-language element is formally unsegmentable but has two clearly distinguishable meanings or grammatical properties, the semi-colon may be used." [R]
+- Rule 5: "Person and number are not separated by a period when they occur in this order. E.g. go-PRS.1PL (not: go-PRS.1.PL)" [R]
+- Rule 6: "If the morpheme-by-morpheme gloss contains an element that does not correspond to an overt element in the example, it can be enclosed in square brackets." [R]
+- Rule 7: "Inherent, non-overt categories such as gender may be indicated in the gloss, but a special boundary symbol, the round parenthesis, is used." [R]
+
+### 1.2 Universal Dependencies CoNLL-U format
+
+- URL: https://universaldependencies.org/format.html. The page states it "pertains to UD version 2" [R].
+
+Quotations used (exact):
+
+- "Morphological annotation is only provided for words." [R, Morphological Annotation]
+- Feature values: "It is possible to declare that a feature has two or more values for a given word: Case=Acc,Dat." [R]
+- Multiword token lines: they "have an underscore in all the remaining fields except MISC (because the token represents multiple words, each with its own lemma, part-of-speech tag, syntactic head, and so on)" [R].
+- MSeg: "morphemic segmentation as commonly used in interlinear glossed text in linguistic literature" [R, Other Miscellaneous Attributes].
+- MGloss: "A gloss is either a lexical meaning in English, or a grammatical tag; ... There are no guidelines for the tags" [R].
+
+### 1.3 Stanza v1.15.0
+
+- Source: https://raw.githubusercontent.com/stanfordnlp/stanza/v1.15.0/stanza/models/common/doc.py (tag `v1.15.0`).
+  - Line 50: `MORPHEMES = 'morphemes'` [V].
+  - Lines 62–63: `morphemes` listed in `DEFAULT_OUTPUT_FIELDS` and `NO_OFFSETS_OUTPUT_FIELDS` [V].
+  - Lines 651–737: `set_mwt_expansions`. Word objects for expansions are created as `Word(sentence, {ID: ..., TEXT: e_word})` [V]. Word offsets are set only in the multi-word branch when the regex matches (line 732: `re.compile(search_string).match(token.text)`; lines 735–736) [V]. For single-word tokens, `word.start_char = token.start_char` (line 728) [V].
+  - I did not inspect other modules in the package. Whether any of them populates a `morphemes` value is [U], and the decision does not depend on it (C1).
+- Public documentation: https://stanfordnlp.github.io/stanza/data_objects.html. The Word properties listed are: `id`, `text`, `lemma`, `upos` (`pos`), `xpos`, `feats`, `head`, `deprel`, `deps`, `misc`, and `parent` [R]. Token properties include `start_char` and `end_char` [R]. `morphemes` is not listed [R].
+
+### 1.4 Local code and schema (read at branch base `e6f59628`)
+
+- `nlp/src/mouseion_nlp/producer.py`: `_morphology` (line 144), `_clean_surface` (line 150), `_map_sentence` (line 245; per-word `Token` construction, offset fallback at lines 249–254, `morphology=_morphology(word.feats)` at line 289). The module does not read Stanza's `misc` [V: no `misc` reference in `nlp/src/mouseion_nlp`].
+- `proto/mouseion/v1/normalized_corpus.proto`: `message Token` (line 61) carries `surface`, `raw_lemma`, `pos`, `canonical_lemma`, `morphology` (map), `named_entity`, `location`, `dependency`, `head`. No morpheme, group, or misc field [V].
+- `migrations/000001_initialize.up.sql` lines 380–405: `corpus_tokens` has `morphology jsonb` with an object check, `start_offset`, `end_offset`, `dependency`, `head`, and no misc or group column [V].
+- `internal/analysis/jobs.go` line 1809: `INSERT INTO corpus_tokens(...)`, one row per normalized token [V].
+- `sqlc/queries/concordance.sql` `GetVocabularySentenceStudy` (lines 3–40): filters `ca.analysis_run_id = sqlc.arg('analysis_run')`; joins `occurrence_lemma_corrections` on `source_document_id`, `start_offset`, and `end_offset` [V]. Does not select `t.morphology` [V].
+- `internal/domain/domain.go` lines 456–460: `SentenceStudyToken` has `Surface`, `RawLemma`, `EffectiveLemma`, `UPOS`, `Dependency`, `HeadSurface`, `Ordinal`, `HeadOrdinal`, `Corrected`, `Excluded`. No morphology, offsets, or group [V].
+- `internal/webapp/concordance.templ` sentence-study token list (around lines 135–151): renders surface, UPOS, lemma evidence, effective lemma, dependency, and head [V].
+- `internal/enrichment/local.go` lines 27–40: `StanzaMorphology.Morphology` copies the candidate's morphology map unchanged [V].
+- `internal/cardexport/cardexport.go` lines 1165–1186: dictionary-derived `Gender`, `Article`, and `Plural` are merged into the same morphology map [V].
+- `AGENTS.md` ("Schema changes"): "Settle consequential shape (new tables/columns, constraints, destructive changes, durable state machines) in an accepted issue/feature doc/ADR before writing SQL" [R, repo].
+
+### 1.5 Repo decision records
+
+- ADR 0079 (`doc/adr/0079-*.md`, dated 2026-09-27, scope revised 2026-09-28): contextual gloss for the target, "the target's meaning in its representative sentence" [V].
+- ADR 0080 (`doc/adr/0080-*.md`, dated 2026-09-28): LLM alignment for "a contiguous target phrase", treated as "a proposal, never as markup" [V]. It does not provide per-token sentence alignment [I].
 
 ## 2. Representations and what each explains
 
-| | Word-aligned feature line | True interlinear morphemic gloss | Dependency tree (existing) | Contextual gloss (ADR 0079) |
+| | Word-level feature line | Interlinear morphemic gloss | Dependency tree (existing) | Contextual gloss (ADR 0079) |
 |---|---|---|---|---|
-| Unit | Surface word | Morpheme | Token and head | One target |
-| Explains | Grammatical features of each word | Segmentation plus meaning of each part | Syntactic relations | Meaning in this sentence |
-| Source today | `morphology` jsonb per token [V] | Not produced (Stanza `morphemes` emission is [U]) | `dependency`, `head` per token [V] | Per-target LLM text [V] |
-| Leipzig-compatible | Rules 1, 3, 4, 5, 6, 7 | Rules 1–10 | Not Leipzig | Not Leipzig |
-| Sentence-study view today | Not shown; `GetVocabularySentenceStudy` omits `t.morphology` [V] | — | Shown: surface, UPOS, lemma, dependency, head [V] | Card-level |
+| Unit | Surface word or word-level range | Morpheme | Token and head | Target |
+| Explains | Which features the analyzer attributes to a word | How a word is segmented and what each part means | Which token governs which | Meaning of the target in this sentence |
+| Source today | `morphology` per token [V] | Not in the local contract [V, §1.4] | `dependency`, `head` per token [V] | Per-target LLM text [V] |
+| Leipzig status | Labeled word-level convention; LGR's morpheme scope does not cover it [R], §7 | The Leipzig morphemic form; not produced locally [V] | Not a Leipzig form | Not a Leipzig form |
+| Shown in sentence study today | No, although persisted [V] | — | Yes [V] | Card-level [V] |
 
-The learner's "replace or companion" question is undecided and out of scope here. What the table shows is that the feature line and the tree explain different things: the feature line explains the word's form; the tree explains its role.
+The feature line and the tree answer different questions: the feature line describes a word's form; the tree describes its syntactic role. Whether they should be shown together or as alternatives is an open product decision (U6) and is not decided here.
 
-## 3. Examples (fabricated)
+## 3. Examples (fabricated, features-only)
 
-### 3.1 Italian contraction `al` (a + il)
+Each example lists the features an analyzer could attribute to a word, using UD feature names. A feature line reports features. It does not claim which part of the word expresses which feature, and it does not add lexical meanings. Labels use Leipzig-style abbreviations from the standard list [R] as a display choice. These are not observed Stanza outputs.
 
-Sentence (fabricated): *Vado al mercato.* "I go to the market."
+### 3.1 Italian `Vado al mercato.` ("I go to the market.")
 
-- Non-overt subject: `vado` carries `Person=1, Number=Sing` but the subject pronoun is not written. Leipzig Rule 6 renders this `[1SG]` [R].
-- `al` is one surface token. Stanza splits it into `a` (ADP) and `il` (DET: `Definite=Def, Gender=Masc, Number=Sing`) [I, pending the Stanza check in §5].
-- Word-aligned feature line: `vado` → `go-PRS.[1SG]`; `al` → `to.DEF.M.SG`.
-  - Rule 5 means no period between tense and person-number inside the verb: `PRS.1SG` is correct, `PRS.1.SG` is not [R]. The non-overt person is bracketed as a whole, so `[1SG]` stays together.
-  - Rule 4 periods separate the two glosses for `al` [R].
-  - `[1SG]` is bracketed because the element is non-overt [R].
-  - `M`, `SG`, `DEF` are abbreviations from the standard list [R].
+| Surface | Kind | Illustrative features | Notes |
+|---|---|---|---|
+| `Vado` | Word | `Mood=Ind`, `Number=Sing`, `Person=1`, `Tense=Pres`, `VerbForm=Fin` | Person is a feature of the verb; no subject pronoun is written. No bracket is used, because the rules bracket only elements with no overt correspondent, and whether `-o` expresses person is an analysis question (C9) [R]. |
+| `al` | Multiword range | (none on the range line) | UD gives range lines no features [R]. Features must come from the sub-words (`a`, `il`), which is an attribution decision (U5). |
 
-### 3.2 German contraction `im` (in + dem)
+Feature-line display for `al`, if the features of the sub-word `il` are attributed to the whole range: `DEF.M.SG`. This display is a choice that depends on U5. It is not a morpheme alignment.
 
-Sentence (fabricated): *Sie wohnt im Haus.* "She lives in the house."
+### 3.2 German `Sie wohnt im Haus.` ("She lives in the house.")
 
-- `im` → `in` (ADP) + `dem` (DET: `Case=Dat, Number=Sing, Gender=Masc,Neut, Definite=Def`).
-- Feature line: `im` → `in.DEF.DAT.SG`. Gender is omitted because the Leipzig rules have no notation for ambiguous gender.
-  - Writing `DAT.SG.M/N` would be a local convention. Leipzig Rule 4B's semicolon means two distinguishable meanings, not ambiguity [R].
-  - **Decision needed:** how to show ambiguous features (omit, use a local `/` form, or show both in the card detail).
-- Compare `unser-n` in Rule 4's example: `-n` is `DAT.PL` with no gender in the Leipzig gloss.
+- `im` is a range that expands to `in` and `dem` [I; fabricated].
+- Illustrative features on `dem`: `Case=Dat`, `Definite=Def`, `Gender=Masc,Neut`, `Number=Sing`, `PronType=Art` [I]. The UD comma list means "masculine or neuter", not one gender [R].
+- A feature line can show `DAT.SG` and must decide how to show `Gender=Masc,Neut`. Leipzig Rule 4B's semicolon means two distinguishable meanings in one element, not ambiguity [R]. No Leipzig notation for ambiguity is given, so the choice is local (U4).
 
-### 3.3 Greek contraction `στο` (σε + το)
+### 3.3 Greek `Είμαι στο σπίτι.` ("I am at the house.")
 
-Sentence (fabricated): *Είμαι στο σπίτι.* "I am at the house."
+- `στο` is a range that expands to `σε` and `το` [I; fabricated].
+- Illustrative features on `το`: `Case=Acc`, `Definite=Def`, `Gender=Neut`, `Number=Sing` [I].
+- A feature line can show `DEF.ACC.SG.N`. The preposition `σε` has no features in this illustration. The lexical meaning "at" is not part of a feature line; it belongs to a gloss or translation.
 
-- `στο` → `σε` (ADP) + `το` (DET: `Case=Acc, Gender=Neut, Number=Sing, Definite=Def`) [I].
-- Feature line: `στο` → `at.DEF.ACC.SG.N`.
-  - Shown under Rule 4's period separation.
-  - The preposition `σε` governs the accusative here; treating `στο` as "at" with an accusative article is a Leipzig-style choice, not a parser fact.
-- **[U]** The Greek GDT treebank's Tense on the particle `θα` (future) was not checked. Do not assume a `Tense` value without looking at the treebank.
+### 3.4 Italian `Bevo dell'acqua.` ("I drink (some) water.")
 
-### 3.4 Italian `dell'` (di + la, elided)
-
-Sentence (fabricated): *Bevo dell'acqua.* "I drink (some) water."
-
-- Surface `dell'` has an apostrophe. Stanza's regex for sub-word offsets does not match it, so both sub-words share the token span (§4.3) [V].
-- The `_clean_surface` step removes the apostrophe from sub-word surfaces, so the persisted sub-word surface is `di` or `il` without the elision [V].
-- **[U]** The exact tokenization of `dell'` in the Italian Stanza model was not confirmed live.
+- The surface `dell'` keeps its apostrophe at the token level [V: `_clean_surface`, C5].
+- The sub-word forms, and whether Stanza splits `dell'` into `di` and a second word, are [U]. Settling this needs a model run, which is out of scope for this research.
 
 ## 4. Local contract
 
 ### 4.1 What is persisted
 
-- `corpus_tokens` has `surface`, `raw_lemma`, `canonical_lemma`, `upos`, `dependency`, `head`, `morphology jsonb`, `start_offset`, `end_offset`. There is no misc column and no group column [V, `migrations/000001_initialize.up.sql`].
-- Offsets are rune-based, and jobs relocate them per chunk [V, `internal/analysis/jobs.go`].
-- Morphology is stored as a JSON map of UD feature names to values, copied from the analyzer token [V, `internal/analysis/jobs.go:1634`].
+- One `corpus_tokens` row per normalized token, with its own `token_ordinal` [V: `jobs.go` line 1809; `producer.py` builds one `Token` per Word]. Each row has `surface`, `raw_lemma`, `canonical_lemma`, `upos`, `morphology`, offsets, `dependency`, and `head` [V].
+- `morphology` is a JSON object of feature names to values, from `_morphology(word.feats)`, which splits on `|` and then on the first `=` [V, `producer.py` lines 144–147].
+- Feature values with multiple values keep the analyzer's string form (`Masc,Neut`) [V, UD multi-value rule, R].
 
-### 4.2 What the sentence-study view reads and shows
+### 4.2 Projection: what it would take to show features
 
-- `GetVocabularySentenceStudy` (`sqlc/queries/concordance.sql`) does not select `t.morphology` [V].
-- `domain.SentenceStudyToken` has no morphology or offset fields [V, `internal/domain/domain.go`].
-- `concordance.templ` (lines ~135–151) renders surface, UPOS, lemma, dependency, and head only [V].
+- The study query does not select `t.morphology` [V]. The domain struct and the template do not carry it [V].
+- Showing word-level features needs changes to the query, `SentenceStudyToken`, and the template, plus a regeneration of `gen/sqlc` for the query change [R, AGENTS.md "Generated artifacts"].
+- No schema change is needed for this projection [V].
 
-So morphology is persisted but not shown in the sentence study. Adding it needs a query change, a domain field, and a template change; none is a schema change.
+### 4.3 Shared-span contractions: what is known and what is a design option
 
-### 4.3 Shared-span contractions
+Known [V]:
 
-- Stanza creates MWT sub-words as `Word(sentence, {ID, TEXT})` with **no offsets** [V, `doc.py` `set_mwt_expansions`].
-- Sub-word spans are set only when the component words, joined by `\s*`, match the token text by regex `^(w1)\s*(w2)$` [V, `doc.py`].
-- For `zum` (zu + dem), `dell'`, and `στο`, the regex fails, so the producer falls back to the shared token span [V, `producer.py` `_map_sentence`; checked against a Python mirror of the regex].
-- Consequence: two sub-words with the same span cannot be told apart by span alone. Grouping by identical span is fragile, because an unrelated pair of tokens could share a span after re-analysis.
-- **Recommendation for a future design (not decided):** store an explicit group key (token ordinal of the MWT range plus a sub-word index) in `corpus_tokens.morphology` or a new column. Store that key rather than inferring grouping from spans.
-- The parent MWT range line has FORM and MISC only in UD [R]. Any group key must therefore be the producer's own, not a UD field.
+- Stanza gives MWT sub-words no offsets unless the regex matches. The regex joins the component words with `\s*` and matches the token text. For a fused contraction the token text is not its components with optional whitespace, so it does not match [V, `doc.py` line 732; mirror run]. Sub-words therefore get no offsets [V].
+- Our producer then copies the parent token's offsets to each sub-word [V: `producer.py` lines 249–254]. Each sub-word becomes its own `corpus_tokens` row with its own `token_ordinal` [V].
+- Within one analysis run, sibling rows share `start_offset` and `end_offset` [I from the above].
+- Corrections join on the same offsets (§4.5), which makes this important.
+
+Design options (none decided, none verified as required):
+
+- **Option A: infer groups from data.** Treat consecutive rows in one sentence with identical offsets as one range. This depends on the invariant that only MWT siblings share spans in a run. That invariant is not verified across all data, so it would need tests first.
+- **Option B: store an explicit group key.** A new column or table. Under AGENTS.md this is a consequential schema shape, so it needs an accepted issue or ADR before any SQL [R, AGENTS.md "Schema changes"].
+- **Not an option:** putting the group identity inside `morphology`. That map holds analyzer grammatical features [V]. A group key there would mix grouping with grammatical evidence and with the dictionary merge in `cardexport.go` (§6).
 
 ### 4.4 Surface cleaning
 
-- `_clean_surface` strips punctuation, and sub-word surfaces lose apostrophes [V].
-- Recovering the source form needs `sentence.text` plus the token offsets. That is possible for the parent token; for sub-words it is only an inference from the shared span [I].
+- `_clean_surface` strips leading and trailing characters whose Unicode category starts with `P` or `S`, but not apostrophes [V, `producer.py` ~lines 150–160]. Internal characters are kept.
+- Sub-word surfaces come from Stanza's expansion of the token [V: `set_mwt_expansions` uses `expansions`]. Our code does not recompute them from the source text.
+- The source form of a parent token is recoverable from `sentence.text` plus its offsets. For sub-words, that recovery is only as reliable as the shared span (§4.3).
 
-## 5. Unknowns and checks needed before a design decision
+### 4.5 Offset-keyed corrections (within-run hazard)
 
-| # | Unknown | Why it matters | How to settle it |
+- `GetVocabularySentenceStudy` joins `occurrence_lemma_corrections` on `source_document_id`, `start_offset`, and `end_offset` [V, `concordance.sql`].
+- Sibling rows of a shared-span contraction have the same offsets [V+I]. A correction keyed to one sibling's span can therefore match every sibling row.
+- Effect in production: [U], not tested here. This is a concrete risk for any design that uses the same offsets for siblings.
+
+## 5. Stanza fields and the morphemes question
+
+- Public Word fields: `id`, `text`, `lemma`, `upos`, `xpos`, `feats`, `head`, `deprel`, `deps`, `misc`, `parent` [R]. No morpheme field [R].
+- v1.15.0 `doc.py` names `morphemes` in output-field lists (lines 62–63) and defines `MORPHEMES` (line 50) [V]. It does not assign a value in that file [V]. Package-wide population is [U] (§1.3).
+- Our protobuf `Token` has no morpheme field [V], and the producer does not read `misc` [V]. So even UD `MSeg`/`MGloss` in `misc`, which are optional and treebank-specific [R], would be dropped on the way to `corpus_tokens`.
+- Conclusion: the local contract carries no per-morpheme alignment, regardless of what Stanza's library can emit [V].
+
+## 6. Terminology hazard in the code
+
+"Morphology" refers to two sources:
+
+- **Analyzer features:** UD FEATS per word, stored in `corpus_tokens.morphology` [V] and copied into the candidate by `StanzaMorphology` [V].
+- **Dictionary-derived values:** `Gender`, `Article`, and `Plural` merged into the same map by `cardexport.go` [V]. The merge overwrites any analyzer value with the same key (`morphology["Gender"] = result.Gender` when non-empty) [V].
+
+A feature line should label the source of each value, or the card and the sentence view will disagree without notice.
+
+## 7. LGR limits, stated without an absolute rule
+
+- LGR states that its rules "only allow for information about morphemes" [R]. A word-level feature line is therefore outside the rules' stated scope, not forbidden by them.
+- LGR's own conventions include unsegmented elements. Rule 4A allows an underscore for an element that is "neither formally nor semantically segmentable" [R]. Rule 4B allows a semicolon for an element that "is formally unsegmentable but has two clearly distinguishable meanings or grammatical properties" [R].
+- So a word-level feature line may use standard abbreviations, as a labeled convention. It should not be called an interlinear morphemic gloss, and it must not imply morpheme-to-feature alignments the data does not support.
+
+## 8. Unknowns and decisions
+
+| # | Item | Kind | Why it matters |
 |---|---|---|---|
-| U1 | Does Stanza emit `morphemes` or MSeg/MGloss for these models? | Decides whether a true morphemic gloss is possible without new analysis | Run a short fabricated sentence through the de/it/el models in a scratch venv |
-| U2 | Italian `dell'` tokenization in the Stanza model | Determines sub-word text and group key | Same probe as U1 |
-| U3 | Greek GDT `θα` Tense value | Affects whether Tense is shown on the particle | Check the treebank, not the parser |
-| U4 | Ambiguous features (`dem` gender) | No Leipzig notation | Product decision (see §3.2) |
-| U5 | Whether `SBJ`/`OBJ` abbreviations should be used when dependency roles are shown | Label collision | Product/UI decision |
-| U6 | Whether to keep the feature line and the tree separate or merge them | The learner's "replace or companion" question | Out of scope; not decided here |
+| U1 | Whether any Stanza module populates `morphemes` | Unknown; not needed for the decision | Doesn't change the local contract (C1) |
+| U2 | How the Italian model splits `dell'` | Unknown; needs a model run, out of scope here | Determines sub-word text and any grouping |
+| U3 | Whether to show `Gender=Masc,Neut` as a set or omit it | Product decision | Ambiguous features have no Leipzig notation (§3.2) |
+| U4 | Whether a range's features are attributed to its sub-words, and how | Design decision | UD range lines carry no features (§3.1) |
+| U5 | Group identity: infer (Option A) or store (Option B) | Design decision; Option B needs an ADR | §4.3 |
+| U6 | Feature line vs tree: companion or replacement | Product decision, out of scope | The learner's question |
+| U7 | Effect of offset-keyed corrections on sibling rows | Unknown; needs a test | §4.5 |
 
-## 6. Terminology hazard in the codebase
+## 9. Findings (summary)
 
-"Morphology" means two things here:
-
-- **Analyzer features** (UD feature map): stored per token in `corpus_tokens.morphology` [V]. Copied into the candidate map through `enrichment/local.go` `StanzaMorphology` [V] and `analysis/jobs.go` [V].
-- **Dictionary-derived** gender, article, plural, IPA, and principal parts: merged into the same JSON by `internal/cardexport/cardexport.go` (around line 1170) [V].
-
-These are different provenance sources. A feature line for sentence study should label which source each feature comes from, or the card and the sentence view will disagree silently.
-
-## 7. Provenance
-
-Each feature in a glossing line should carry its source: analyzer (Stanza), dictionary, or LLM. The current design already separates these for cards [V, ADR 0067]. The sentence view has no provenance today. Contextual gloss is per target, one per card (ADR 0079); sentence translation has no per-token alignment (ADR 0080 gives LLM alignment for the target only) [V]. A glossing line for an entire sentence therefore has no LLM-sourced gloss to draw on.
-
-## 8. Recommendation (findings only)
-
-- Do not claim Leipzig compliance for a feature line. Call it a **word-aligned feature line** and state which Leipzig rules it follows (1, 3, 4, 5, 6, 7).
-- Treat a true morphemic gloss as a separate, later option that depends on U1 and U2.
-- Add an explicit group key before any shared-span rendering. Do not infer groups from identical offsets.
-- Decide ambiguous-feature rendering (U4) and label collisions (U5) before implementation.
-
-## Appendix: Verification notes
-
-- Stanza v1.15.0 source copies are in `~/.cache/scratch/sentence-study-leipzig/stanza-src/` (scratch, to be deleted at the end of the task).
-- The Leipzig rules page was re-fetched during this write-up; quotations above are from that fetch.
-- No Stanza models were run and no provider or API calls were made.
+1. The Leipzig rules define morphemic glosses. Word-level feature labels are outside their stated scope, not forbidden by it (§7).
+2. Feature display needs no schema change. It needs query, domain, and template work (§4.2).
+3. Fused contractions get no sub-word offsets from Stanza, by the shape of its regex. Our producer copies the parent span (§4.3).
+4. Sibling rows share offsets, so grouping and offset-keyed corrections both need care (§4.3, §4.5). A group key is one option, not a verified requirement.
+5. The local contract has no per-morpheme alignments, and the producer does not read Stanza's `misc` (§5).
