@@ -177,15 +177,14 @@ from the My Books disposition, and Read again preserves earlier completions.
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
 | Vocabulary Browse (shipped, working desk) | Embedded in `GET /reading` for the current Book | Discover effective lemma + POS identities in the Current reading Book, most frequent first. | Canonical-lemma prefix search; server-rendered 25-result pages | No study language, no Current reading, no current analysis, empty eligible inventory, prefix zero, recoverable query error, truthful Known/Reserved state |
-| Vocabulary import (shipped) | `GET /vocabulary/import`, `POST /vocabulary/import`, and import status endpoint | Import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Import result summary | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to active language with no per-page picker and no known-vocabulary list |
-| Retired known-vocabulary page | `GET /known-vocab` | None; the route returns 404 without a redirect. | Vocabulary (`/vocabulary`, `/vocabulary/import`) | 404 only; not a learner-facing screen |
+| Retired known-vocabulary pages | `GET /known-vocab`, `GET`/`POST /vocabulary/import`, and `/vocabulary/imports/{id}/status` | None; the routes return 404 without a redirect (ADR 0092). | Vocabulary (`/vocabulary`) | 404 only; not a learner-facing screen |
 
-Vocabulary is the canonical destination for Concordance and known-vocabulary import,
+Vocabulary is the canonical destination for Concordance,
 scoped to the active study language; Browse is the working desk on Reading for the
 current Book; its per-page language picker is removed in
 favour of the shell-level switcher. Known-vocabulary-only languages (no current
-chosen-language Book) remain selectable there as read-only "no books" entries;
-import stays limited to the derived study-language set. Browse does not display
+chosen-language Book) remain selectable there as read-only "no books" entries.
+Browse does not display
 Known-only identities without current evidence. Changing a Book's language state does
 not remove books, analyses, prepared artifacts, or historical vocabulary
 provenance,
@@ -200,7 +199,7 @@ current analyses. It retains canonical-lemma prefix search and a single include-
 control for Known, Reserved, and already-in-this-Book-deck identities. No Current
 reading or stale analysis leads to a Reading recovery state; opening an identity
 starts Concordance in that Book. Concordance is the Vocabulary landing at
-`/vocabulary`; import remains its peer at `/vocabulary/import`.
+`/vocabulary`, with no peer views.
 Concordance supports cross-Book lookup, grammar exploration, KWIC, and focused
 sentence study. The accepted, not-yet-implemented retirement removes Browse
 selection and all saved Custom deck UI and HTTP access. See the [current Browse

@@ -33,7 +33,7 @@ The product supports these top-level goals:
 4. choose, end, or switch the one current Book for the active language;
 5. review current evidence bands for To Read Books without a suggested order;
 6. finish a Book and retain its Read history independently from disposition;
-7. understand derived study languages and import known vocabulary;
+7. understand derived study languages and investigate vocabulary;
 8. maintain the learner-owned catalog connections that feed My Books.
 
 **Accepted target (partially shipped):** on Reading, the current Book's
@@ -131,8 +131,8 @@ These objects remain important, but they do not define principal navigation:
   frozen when current reading starts, with its selection and analysis provenance.
 - **Reserved vocabulary** — the current-reading snapshot projected into selection
   state for that study language; it is not a separate study workflow.
-- **Known vocabulary** — owner-scoped vocabulary explicitly imported or
-  graduated through an accepted transition.
+- **Known vocabulary** — owner-scoped vocabulary accepted when a current
+  reading is finished (ADR 0092 retired import).
 - **Catalog connection** — learner-owned OPDS endpoint and credentials.
 - **Catalog sync** — periodic metadata reconciliation for one learner-owned
   connection. It is upsert-only and never destructive; content is trusted
@@ -165,8 +165,8 @@ The authenticated shell exposes four principal destinations:
 - **Reading** — the current Book with its vocabulary Browse, or the To Read
   candidate chooser between Books. Older Reading Journey and Primary Goal terms
   are not used on active screens;
-- **Vocabulary** — Concordance (landing) and known-vocabulary import; the accepted
-  target removes saved selection and Custom deck UI beneath this destination.
+- **Vocabulary** — Concordance; the accepted target removes saved selection
+  and Custom deck UI beneath this destination.
 - **Catalogs** — learner-owned catalogue connections and metadata sync.
 
 Catalogs is a configuration and sync destination, not a book-browse surface.
@@ -225,7 +225,6 @@ Catalogs
 Vocabulary (partially shipped)
     Concordance exact lookup and KWIC context (shipped landing slice)
     focused sentence study and grammar exploration (target)
-    Import known vocabulary (shipped peer view)
 
 Secondary history
     operational analysis history
@@ -266,7 +265,7 @@ surface:
 /catalogs
 /connections (compatibility redirect to `/catalogs`)
 /settings (compatibility redirect to `/library`)
-/vocabulary (Concordance landing) and /vocabulary/import support routes
+/vocabulary (Concordance)
 ```
 
 Mutation, fragment, and JSON status endpoints support a parent screen; they are
@@ -386,13 +385,12 @@ the stored mode is never switched back. A newly arrived study
 language appears passively
 in the switcher (marked "new") without changing the mode.
 
-Vocabulary owns Concordance and the additive known-vocabulary import workflow,
-scoped to the active language; import remains an accessible peer view. Browse
+Vocabulary owns Concordance, scoped to the active language; known-vocabulary
+import is retired (ADR 0092). Browse
 lives on Reading for the current Book; it lists current, owner-specific effective
 vocabulary evidence and distinguishes analysis coverage from an empty or filtered
-inventory. It does not display Known-only identities without current occurrences. Import remains eligible only
-for the derived study-language set and retains its existing additive behavior;
-known-vocabulary-only languages stay selectable in the switcher as read-only
+inventory. It does not display Known-only identities without current occurrences.
+Known-vocabulary-only languages stay selectable in the switcher as read-only
 "no books" entries. Catalog metadata changes do not delete known-vocabulary
 rows, books, analyses, decks, or artifact provenance. Reading and Book Prepared
 deck behavior remains independent of Browse.
@@ -402,10 +400,10 @@ deck behavior remains independent of Browse.
 The [Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
 and [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md) define the
 accepted target. Keep exactly the existing four primary destinations;
-within Vocabulary, **Concordance** (landing at `/vocabulary`) and **Import known
-vocabulary** are separate, connected peer views. Browse is hosted on Reading
+Vocabulary is **Concordance** at `/vocabulary`, with no peer-view navigation.
+Browse is hosted on Reading
 (`/reading`) as the working desk for the active study language's Current reading
-Book; import is shipped at `/vocabulary/import`. Browse covers effective
+Book. Browse covers effective
 vocabulary identities in that Book, not the Book catalog or only its
 prepared-deck candidates. Old Browse query state on `/vocabulary` is not
 reinterpreted as lookup. Browse identity links
@@ -475,7 +473,8 @@ needed.
 10. **Derived study languages and Vocabulary** are resolved by
     [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
     chosen-language Books define the language set, Vocabulary owns
-    known-vocabulary import, and Settings is removed from primary navigation.
+    Concordance (ADR 0092 retired known-vocabulary import), and Settings is
+    removed from primary navigation.
     Any future change to the derived-language source or Vocabulary's destination
     must return to this checkpoint.
 11. **Active study language mode** is resolved by

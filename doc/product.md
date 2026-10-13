@@ -32,15 +32,12 @@ learner's active chosen-language Books; there is no study-language preference or
 Settings destination. The learner's **active study language** is a stored context
 pointing into that derived set: it scopes My Books browse and search, Reading,
 and Vocabulary through a shell-level switcher; current reading is one Book per
-study language (ADR 0050/0051). Vocabulary owns
-owner-scoped, language-scoped known vocabulary. Known-vocabulary import is
-explicit and additive and targets the active study language: the learner
-uploads a UTF-8 lemma file, with new,
-duplicate, and rejected rows reported separately. The direct `/known-vocab` route
-remains a compatibility redirect to Vocabulary, and `/settings` redirects to My
-Books. When NLP capability discovery is degraded, Vocabulary keeps derived
-languages legible from stored display names and does not offer an unrelated
-language for import.
+study language (ADR 0050/0051). Known vocabulary is owner-scoped and
+language-scoped, and comes only from Reading completion; there is no
+known-vocabulary import (ADR 0092). The retired `/known-vocab` and
+`/vocabulary/import` routes return 404, and `/settings` redirects to My Books.
+When NLP capability discovery is degraded, the shell keeps derived languages
+legible from stored display names.
 
 ## Feature specifications
 
@@ -77,7 +74,7 @@ Retired feature records are preserved under [`doc/archive/features/`](archive/fe
 2. **Reading intent** — move a Book from Inbox to To Read when it is a candidate to read. This is the learner-initiated exception to metadata-only sync: it records the disposition, acquires the current EPUB when needed, and ensures one analysis for the current content revision, selecting declared main text when safe and otherwise using the complete snapshot.
 3. **Analysis and evidence** — observe asynchronous analysis producing an immutable completed corpus, then inspect current evidence from the Reading surface. Start, end, switch, and finish actions change current-reading state explicitly. Open the focused preparation task separately when deck work is wanted. Prior runs remain operational history.
 4. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-5. **Vocabulary selection** — classify imported and completed-reading vocabulary as modeled Known, exclude the current reading's language-scoped Reserved snapshot without counting it as Known, and treat generated deck history as provenance rather than learner state. Starting Reading freezes every eligible unknown lemma appearing at least three times in the analyzed EPUB, plus [identities seen once or twice there](features/reading-owned-book-vocabulary.md) with at least fifteen owner-local, same-language occurrences across analyzed Books at that moment (provisional threshold, measured on the author's library; ADR 0090).
+5. **Vocabulary selection** — classify completed-reading vocabulary as modeled Known, exclude the current reading's language-scoped Reserved snapshot without counting it as Known, and treat generated deck history as provenance rather than learner state. Starting Reading freezes every eligible unknown lemma appearing at least three times in the analyzed EPUB, plus [identities seen once or twice there](features/reading-owned-book-vocabulary.md) with at least fifteen owner-local, same-language occurrences across analyzed Books at that moment (provisional threshold, measured on the author's library; ADR 0090).
 6. **Sentence selection** — use an example from the completed analysis for each selected lemma.
 7. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
    named `Mouseion::<language>::<book title>`. Each Book has one current deck; the ready deck is available from the book and operational history. Cards remain ordered by each lemma's first
@@ -113,7 +110,7 @@ amendments.
 3. [ADR 0003: PostgreSQL as the initial persistence backend](adr/0003-postgresql-persistence.md) — uses PostgreSQL for concurrent multi-user persistence and job infrastructure.
 4. [ADR 0004: Web application as the sole v1 client](adr/0004-web-only-v1-client.md) — makes the web app the v1 interface while preserving shared core boundaries.
 5. [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md) — defines vocabulary identity and German normalization; current eligibility follows ADR 0072 and the frequency floor in ADR 0048.
-6. [ADR 0006: Anki export and known-vocabulary import contracts](adr/0006-anki-export-import-contracts.md) — specifies TSV export, note identity, and lemma-list import.
+6. [ADR 0006: Anki export and known-vocabulary import contracts](adr/0006-anki-export-import-contracts.md) — specifies TSV export, note identity, and lemma-list import (import superseded by ADR 0092).
 7. [ADR 0007: Enrichment providers, caching, and privacy policy](adr/0007-enrichment-providers-caching-privacy.md) — keeps most enrichment local and bounds external translation data.
 9. [ADR 0009: Home-lab authentication and corpus-artifact isolation](adr/0009-home-lab-auth-corpus-isolation.md) — defines local accounts, private source artifacts, and Tailscale-only v1 access.
 10. [ADR 0010: Adopt River as the background-job queue](adr/0010-river-job-queue.md) — runs durable background work in PostgreSQL without another broker.
@@ -140,7 +137,7 @@ amendments.
 39. [ADR 0039: Drop retired EPUB classifier schema](adr/0039-drop-retired-epub-classifier-schema.md) — removes dormant classifier tables and scope metadata while preserving reviewed-scope structure and history.
 40. [ADR 0040: One current analysis per book](adr/0040-one-current-analysis-per-book.md) — defines one book-centered learner analysis surface while retaining prior immutable runs as operational audit history; its retired route wording is superseded by ADR 0055.
 41. [ADR 0041: Catalogue sync is metadata-first and non-destructive](adr/0041-catalog-sync-metadata-first.md) — defines per-connection ready-language metadata reconciliation, lazy content acquisition, and non-destructive sync.
-43. [ADR 0043: Study languages are derived from the library and Settings is removed](adr/0043-study-languages-derived-settings-removed.md) — flips catalogue-sync scope to the library and removes the Settings destination.
+43. [ADR 0043: Study languages are derived from the library and Settings is removed](adr/0043-study-languages-derived-settings-removed.md) — flips catalogue-sync scope to the library and removes the Settings destination (Vocabulary import amended by ADR 0092).
 44. [ADR 0044: Catalogue-entry alias identity retains the catalogue connection](adr/0044-catalogue-entry-connection-scoped-identity.md) — scopes the catalogue-entry alias to owner plus connection plus entry, threads the connection through sync/refresh/acquisition, and defers multi-connection conflict rules under a soft single-catalogue posture.
 46. [ADR 0046: Book language has one canonical base form enforced at the domain](adr/0046-book-language-canonical-base-form.md) — collapses a chosen Book language to its base tag (`de_DE`/`de-de`/`de` all canonicalize to `de`), enforces the form at the domain, converges legacy rows, and simplifies the tolerant SQL.
 47. [ADR 0047: Content acquisition is folded into analysis, and the library is catalogue-derived](adr/0047-acquisition-folded-into-analysis.md) — makes the catalog the source of Book metadata and folds acquisition into intent-driven analysis; main-text selection is defined by ADR 0066.
@@ -186,6 +183,7 @@ amendments.
 89. [ADR 0089: Lock and install NLP Python dependencies with uv](adr/0089-nlp-python-dependency-locking.md) — **accepted; implemented**: makes `nlp/uv.lock` the hash-recorded source of truth, retires `requirements-dev.txt`, locks CPU-only torch through an explicit index source, stops building the NLP project (`package = false`) so every install is `--no-build`, moves Dependabot to the `uv` ecosystem, and enforces staleness with `uv lock --check`.
 90. [ADR 0090: Select rarer Book vocabulary by library total](adr/0090-library-total-book-vocabulary-selection.md) — **accepted; implemented**: amends ADR 0085 so an identity seen once or twice in the Book qualifies with at least fifteen occurrences across the learner's analyzed same-language Books, replacing the exactly-twice-with-ten exception after measuring it against a document-frequency alternative.
 91. [ADR 0091: Go package layering](adr/0091-go-package-layering.md) — **accepted; depguard enforcement pending (#1974, #1975)**: confines the domain to the standard library and canonicalization, generated sqlc code to persistence (prepared-deck's direct use is a temporary exception until #1976), and pgx to persistence, transaction cleanup, server wiring, the job packages and test utilities. It also keeps the fixtures store and test infrastructure out of production code, limits the web app's persistence use to errors and value types (the web app's `MOUSEION_SECRET` check moved to the `internal/deploysecret` leaf package in #1977), and requires depguard suppressions to cite the ADR.
+92. [ADR 0092: Retire known-vocabulary import and delete imported Known vocabulary](adr/0092-retire-known-vocabulary-import.md) — **accepted; implementation pending (#2006)**: makes Reading completion the only source of Known vocabulary, retires the `/vocabulary/import` surface and its River worker, and deletes Known rows without Reading-completion provenance in a data-only migration so the released words can enter later current-reading snapshots and Prepared decks; active snapshots and history are not rewritten.
 
 ### Superseded or historical decisions
 
