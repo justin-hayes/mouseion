@@ -126,15 +126,17 @@ and vocabulary knowledge remain independent facts.
 | Term | Meaning | Avoid |
 |---|---|---|
 | **Browse** | Working-desk view on Reading of owner-specific effective lemma + POS identities with current analyzed evidence in the active language's Current reading Book, including singletons; frequency-ranked and excluding Known, Reserved, and already prepared-for-this-Book identities by default. | Book prepared-deck candidates, Known-vocabulary list, cross-Book inventory |
-| **Concordance** | Occurrence exploration with both sentence/KWIC context and analyzer-attributed syntax; effective lookup remains distinct from observed surface and analyzer-evidence lookup. | KWIC as the whole feature, global correction |
+| **Concordance** | Occurrence exploration with both sentence/KWIC context and a focused, morphology-first sentence study view backed by analyzer-attributed evidence; effective lookup remains distinct from observed surface and analyzer-evidence lookup. | KWIC as the whole feature, global correction |
+| **Sentence study** | The focused **Study this sentence** view reached from a Concordance occurrence: the complete sentence, a source-word-aligned morphology line with a notation key, and a named complete text alternative. | Analyzer-attributed token list, dependency chart, Gloss |
 
 These terms follow the [current Vocabulary specification](../features/vocabulary-browse-and-concordance.md)
 and [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md).
 Browse selection and Custom decks exist in the shipped implementation but are
 retired in the accepted target; do not use them for new learner-facing copy.
 Exact surface/effective/analyzer lookup, scoped grammar exploration, KWIC
-context, and focused sentence study are available in Concordance. Browse's
-table labels each identity Unknown, Known, or Reserved (both if applicable);
+context, and focused, morphology-first sentence study are available in
+Concordance. Browse's table labels each identity Unknown, Known, or Reserved
+(both if applicable);
 when include-all reveals an identity prepared for this Book, **In a Book deck**
 appears as a separate note, not a learner-knowledge state. Generation never
 makes vocabulary Known.

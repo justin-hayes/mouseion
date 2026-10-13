@@ -415,8 +415,9 @@ overflow.
   retires selection and saved Custom deck UI. Browse's default accounted-for exclusions and include-all
   control are shipped; other remaining accepted Browse behavior remains target
   behavior. Exact-lookup Concordance, applied Book/grammar filters, KWIC
-  disclosures, and focused textual sentence study are shipped. These views do
-  not duplicate the My Books bibliographic browser or Reading chooser.
+  disclosures, and focused, morphology-first sentence study are shipped.
+  These views do not duplicate the My Books bibliographic browser or Reading
+  chooser.
   A KWIC row splits its sentence at the occurrence's corpus offsets, which
   count Unicode code points, never bytes. The left context is the whole
   sentence before the observed target, set flush against it and cut with an

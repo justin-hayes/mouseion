@@ -224,7 +224,7 @@ Catalogs
 
 Vocabulary (partially shipped)
     Concordance exact lookup and KWIC context (shipped landing slice)
-    focused sentence study and grammar exploration (target)
+    focused sentence study and grammar exploration (shipped)
 
 Secondary history
     operational analysis history
@@ -408,8 +408,8 @@ vocabulary identities in that Book, not the Book catalog or only its
 prepared-deck candidates. Old Browse query state on `/vocabulary` is not
 reinterpreted as lookup. Browse identity links
 and exact surface/effective/analyzer lookup with paged KWIC context are shipped.
-Applied multi-Book and grammar filters plus focused textual sentence study are
-also shipped. Saved Browse selection and Custom decks are shipped but are
+Applied multi-Book and grammar filters plus focused, morphology-first sentence
+study are shipped. Saved Browse selection and Custom decks are shipped but are
 retired by the accepted Reading-centered target. Concordance exposes sentence
 context without altering analyzer evidence. Return paths among the Vocabulary
 views and from focused sentence study preserve context. Reading's only Vocabulary surface is the
