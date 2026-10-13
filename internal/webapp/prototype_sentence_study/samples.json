@@ -1,0 +1,87 @@
+[
+  {
+    "ID": "de", "Name": "Deutsch: separable verb", "Language": "de", "Book": "Ein Morgen am Fluss (invented)", "Location": "Chapter 2, sentence 7", "Target": 5,
+    "Sentence": "Anna steht jeden Morgen früh auf.", "Before": "Draußen ist es noch dunkel.", "After": "Sie öffnet das Fenster und hört den Fluss.",
+    "Note": "Notice the link between separated auf and steht. These are illustrative annotations, not a Stanza result.",
+    "Tokens": [
+      {"Surface":"Anna","Lemma":"Anna","POS":"PROPN","Head":1,"Relation":"nsubj","Morphology":"Case=Nom|Gender=Fem|Number=Sing"},
+      {"Surface":"steht","Lemma":"stehen","POS":"VERB","Head":1,"Relation":"root","Morphology":"Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin"},
+      {"Surface":"jeden","Lemma":"jeder","POS":"DET","Head":3,"Relation":"det","Morphology":"Case=Acc|Gender=Masc|Number=Sing"},
+      {"Surface":"Morgen","Lemma":"Morgen","POS":"NOUN","Head":1,"Relation":"obl","Morphology":"Case=Acc|Gender=Masc|Number=Sing"},
+      {"Surface":"früh","Lemma":"früh","POS":"ADV","Head":1,"Relation":"advmod","Morphology":""},
+      {"Surface":"auf","Lemma":"auf","POS":"PART","Head":1,"Relation":"compound:prt","Morphology":""},
+      {"Surface":".","Lemma":".","POS":"PUNCT","Head":1,"Relation":"punct","Morphology":""}
+    ]
+  },
+  {
+    "ID": "it", "Name": "Italiano: clitic and article", "Language": "it", "Book": "Il libro prestato (invented)", "Location": "Chapter 1, sentence 12", "Target": 1,
+    "Sentence": "Maria gli porta il libro domani.", "Before": "Luca aspetta notizie da sua sorella.", "After": "Vuole leggerlo prima di partire.",
+    "Note": "Selecting gli shows its relation to porta, without claiming the isolated sentence establishes its referent.",
+    "Tokens": [
+      {"Surface":"Maria","Lemma":"Maria","POS":"PROPN","Head":2,"Relation":"nsubj","Morphology":"Gender=Fem|Number=Sing"},
+      {"Surface":"gli","Lemma":"lui","POS":"PRON","Head":2,"Relation":"iobj","Morphology":"Clitic=Yes|Gender=Masc|Number=Sing|Person=3|PronType=Prs"},
+      {"Surface":"porta","Lemma":"portare","POS":"VERB","Head":2,"Relation":"root","Morphology":"Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin"},
+      {"Surface":"il","Lemma":"il","POS":"DET","Head":4,"Relation":"det","Morphology":"Definite=Def|Gender=Masc|Number=Sing|PronType=Art"},
+      {"Surface":"libro","Lemma":"libro","POS":"NOUN","Head":2,"Relation":"obj","Morphology":"Gender=Masc|Number=Sing"},
+      {"Surface":"domani","Lemma":"domani","POS":"ADV","Head":2,"Relation":"advmod","Morphology":""},
+      {"Surface":".","Lemma":".","POS":"PUNCT","Head":2,"Relation":"punct","Morphology":""}
+    ]
+  },
+  {
+    "ID": "el", "Name": "Ελληνικά: shared source span", "Language": "el", "Book": "Μια βόλτα στην πόλη (invented)", "Location": "Chapter 3, sentence 4", "Target": 2,
+    "Sentence": "Η Άννα πήγε στην πόλη χθες.", "Before": "Ο αδελφός της είχε ήδη φύγει.", "After": "Εκεί συνάντησε μια παλιά φίλη.",
+    "Note": "Source στην appears once above. The illustrated parse expands it into σε and την, sharing one source span, with separate case and det relations to πόλη. Expanded words are not a reconstruction of the source sentence.",
+    "Tokens": [
+      {"Surface":"Η","Lemma":"ο","POS":"DET","Head":1,"Relation":"det","Morphology":"Case=Nom|Definite=Def|Gender=Fem|Number=Sing|PronType=Art"},
+      {"Surface":"Άννα","Lemma":"Άννα","POS":"PROPN","Head":2,"Relation":"nsubj","Morphology":"Case=Nom|Gender=Fem|Number=Sing"},
+      {"Surface":"πήγε","Lemma":"πηγαίνω","POS":"VERB","Head":2,"Relation":"root","Morphology":"Aspect=Perf|Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin|Voice=Act"},
+      {"Surface":"σε","Lemma":"σε","POS":"ADP","Head":5,"Relation":"case","Morphology":"","Span":"στην"},
+      {"Surface":"την","Lemma":"ο","POS":"DET","Head":5,"Relation":"det","Morphology":"Case=Acc|Definite=Def|Gender=Fem|Number=Sing|PronType=Art","Span":"στην"},
+      {"Surface":"πόλη","Lemma":"πόλη","POS":"NOUN","Head":2,"Relation":"obl","Morphology":"Case=Acc|Gender=Fem|Number=Sing"},
+      {"Surface":"χθες","Lemma":"χθες","POS":"ADV","Head":2,"Relation":"advmod","Morphology":""},
+      {"Surface":".","Lemma":".","POS":"PUNCT","Head":2,"Relation":"punct","Morphology":""}
+    ]
+  },
+  {
+    "ID": "de-long", "Name": "Deutsch: long sentence", "Language": "de", "Book": "Eine Frage am Abend (invented)", "Location": "Chapter 5, sentence 18", "Target": 10,
+    "Sentence": "Obwohl Anna das Buch, das ihr Bruder ihr gestern empfohlen hatte, schon kannte, las sie es am Abend noch einmal, weil die letzte Seite eine Frage offen ließ.",
+    "Before": "Das Buch lag seit Wochen auf ihrem Tisch.", "After": "Sie beschloss, ihrem Bruder am nächsten Tag zu schreiben.",
+    "Note": "A 34-token stress case: nested relative and adverbial clauses, auxiliaries, and long links. Scroll the diagram itself or use the reflowing relationship view; no threshold is selected by this prototype. The am expansion is a manual fixture, not verified German tokenizer behavior.",
+    "Tokens": [
+      {"Surface":"Obwohl","Lemma":"obwohl","POS":"SCONJ","Head":14,"Relation":"mark"},
+      {"Surface":"Anna","Lemma":"Anna","POS":"PROPN","Head":14,"Relation":"nsubj","Morphology":"Case=Nom|Gender=Fem|Number=Sing"},
+      {"Surface":"das","Lemma":"der","POS":"DET","Head":3,"Relation":"det","Morphology":"Case=Acc|Gender=Neut|Number=Sing"},
+      {"Surface":"Buch","Lemma":"Buch","POS":"NOUN","Head":14,"Relation":"obj","Morphology":"Case=Acc|Gender=Neut|Number=Sing"},
+      {"Surface":",","Lemma":",","POS":"PUNCT","Head":10,"Relation":"punct"},
+      {"Surface":"das","Lemma":"der","POS":"PRON","Head":10,"Relation":"obj","Morphology":"Case=Acc|Gender=Neut|Number=Sing|PronType=Rel"},
+      {"Surface":"ihr","Lemma":"ihr","POS":"DET","Head":7,"Relation":"det"},
+      {"Surface":"Bruder","Lemma":"Bruder","POS":"NOUN","Head":10,"Relation":"nsubj","Morphology":"Case=Nom|Gender=Masc|Number=Sing"},
+      {"Surface":"ihr","Lemma":"sie","POS":"PRON","Head":10,"Relation":"iobj","Morphology":"Case=Dat|Gender=Fem|Number=Sing|Person=3"},
+      {"Surface":"gestern","Lemma":"gestern","POS":"ADV","Head":10,"Relation":"advmod"},
+      {"Surface":"empfohlen","Lemma":"empfehlen","POS":"VERB","Head":3,"Relation":"acl:relcl","Morphology":"VerbForm=Part"},
+      {"Surface":"hatte","Lemma":"haben","POS":"AUX","Head":10,"Relation":"aux","Morphology":"Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin"},
+      {"Surface":",","Lemma":",","POS":"PUNCT","Head":10,"Relation":"punct"},
+      {"Surface":"schon","Lemma":"schon","POS":"ADV","Head":14,"Relation":"advmod"},
+      {"Surface":"kannte","Lemma":"kennen","POS":"VERB","Head":16,"Relation":"advcl","Morphology":"Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin"},
+      {"Surface":",","Lemma":",","POS":"PUNCT","Head":14,"Relation":"punct"},
+      {"Surface":"las","Lemma":"lesen","POS":"VERB","Head":16,"Relation":"root","Morphology":"Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin"},
+      {"Surface":"sie","Lemma":"sie","POS":"PRON","Head":16,"Relation":"nsubj","Morphology":"Case=Nom|Gender=Fem|Number=Sing|Person=3"},
+      {"Surface":"es","Lemma":"es","POS":"PRON","Head":16,"Relation":"obj","Morphology":"Case=Acc|Gender=Neut|Number=Sing|Person=3"},
+      {"Surface":"an","Lemma":"an","POS":"ADP","Head":21,"Relation":"case","Span":"am"},
+      {"Surface":"dem","Lemma":"der","POS":"DET","Head":21,"Relation":"det","Span":"am","Morphology":"Case=Dat|Gender=Masc|Number=Sing"},
+      {"Surface":"Abend","Lemma":"Abend","POS":"NOUN","Head":16,"Relation":"obl","Morphology":"Case=Dat|Gender=Masc|Number=Sing"},
+      {"Surface":"noch","Lemma":"noch","POS":"ADV","Head":16,"Relation":"advmod"},
+      {"Surface":"einmal","Lemma":"einmal","POS":"ADV","Head":16,"Relation":"advmod"},
+      {"Surface":",","Lemma":",","POS":"PUNCT","Head":32,"Relation":"punct"},
+      {"Surface":"weil","Lemma":"weil","POS":"SCONJ","Head":32,"Relation":"mark"},
+      {"Surface":"die","Lemma":"der","POS":"DET","Head":28,"Relation":"det","Morphology":"Case=Nom|Gender=Fem|Number=Sing"},
+      {"Surface":"letzte","Lemma":"letzt","POS":"ADJ","Head":28,"Relation":"amod"},
+      {"Surface":"Seite","Lemma":"Seite","POS":"NOUN","Head":32,"Relation":"nsubj","Morphology":"Case=Nom|Gender=Fem|Number=Sing"},
+      {"Surface":"eine","Lemma":"ein","POS":"DET","Head":30,"Relation":"det","Morphology":"Case=Acc|Gender=Fem|Number=Sing"},
+      {"Surface":"Frage","Lemma":"Frage","POS":"NOUN","Head":32,"Relation":"obj","Morphology":"Case=Acc|Gender=Fem|Number=Sing"},
+      {"Surface":"offen","Lemma":"offen","POS":"ADJ","Head":32,"Relation":"advmod"},
+      {"Surface":"ließ","Lemma":"lassen","POS":"VERB","Head":16,"Relation":"advcl","Morphology":"Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin"},
+      {"Surface":".","Lemma":".","POS":"PUNCT","Head":16,"Relation":"punct"}
+    ]
+  }
+]

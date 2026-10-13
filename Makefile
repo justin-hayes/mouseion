@@ -1,4 +1,9 @@
 UV ?= uv
+.PHONY: prototype-sentence-study
+# Throwaway human-feedback artifact; never a production route or build.
+prototype-sentence-study: go-tmp
+	go run ./internal/webapp/prototype_sentence_study
+
 VENV := .venv
 VENV_BIN := $(VENV)/bin
 PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
