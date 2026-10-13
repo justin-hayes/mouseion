@@ -182,6 +182,13 @@ type Querier interface {
 	GetPreparedDeckTranslationOutcomeForUpdate(ctx context.Context, arg GetPreparedDeckTranslationOutcomeForUpdateParams) (DeckPreparationTranslationOutcome, error)
 	GetPreviouslyReadImport(ctx context.Context, arg GetPreviouslyReadImportParams) (GetPreviouslyReadImportRow, error)
 	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
+	// Stored occurrence decisions addressing the selected sentence, each with the
+	// number of persisted analyzed words its exact owner/Book/analysis/
+	// source-document/span addresses. The count spans the whole addressed scope,
+	// not just the selected sentence, so a filtered-away sibling still proves the
+	// decision is not unique. The decision is attributed only when this count is
+	// exactly one and the addressed word is in the selected sentence.
+	GetSentenceStudyDecisions(ctx context.Context, arg GetSentenceStudyDecisionsParams) ([]GetSentenceStudyDecisionsRow, error)
 	GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error)
 	GetSourceContentRevisionByDigest(ctx context.Context, arg GetSourceContentRevisionByDigestParams) (string, error)
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
@@ -194,6 +201,9 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
 	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
 	// Concordance occurrence queries read from the shared occurrence model.
+	// Raw analyzer token evidence for one sentence. Occurrence decisions are not
+	// joined here: the caller attributes them only after proving uniqueness over
+	// every persisted word the decision addresses (GetSentenceStudyDecisions).
 	GetVocabularySentenceStudy(ctx context.Context, arg GetVocabularySentenceStudyParams) ([]GetVocabularySentenceStudyRow, error)
 	HasCurrentLemmaCorrections(ctx context.Context, arg HasCurrentLemmaCorrectionsParams) (bool, error)
 	HasCurrentLemmaCorrectionsForAnalysis(ctx context.Context, arg HasCurrentLemmaCorrectionsForAnalysisParams) (bool, error)

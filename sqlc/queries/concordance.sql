@@ -1,6 +1,9 @@
 -- Concordance occurrence queries read from the shared occurrence model.
 
 -- name: GetVocabularySentenceStudy :many
+-- Raw analyzer token evidence for one sentence. Occurrence decisions are not
+-- joined here: the caller attributes them only after proving uniqueness over
+-- every persisted word the decision addresses (GetSentenceStudyDecisions).
 SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.raw_lemma, '')::text AS raw_lemma,
        COALESCE(t.upos, '')::text AS upos,
@@ -8,12 +11,14 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.head, 0)::bigint AS head,
        COALESCE(h.surface, '')::text AS head_surface,
        COALESCE(t.token_ordinal, -1)::bigint AS token_ordinal,
+       COALESCE(t.start_offset, -1)::bigint AS start_offset,
+       COALESCE(t.end_offset, -1)::bigint AS end_offset,
        COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
-       COALESCE(d.canonical_lemma, t.canonical_lemma, '')::text AS effective_lemma,
-       (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
-       COALESCE(d.excluded, false)::boolean AS excluded,
+       COALESCE(t.canonical_lemma, '')::text AS canonical_lemma,
        s.sentence_text,
        s.sentence_ordinal,
+       s.start_offset::bigint AS sentence_start_offset,
+       s.end_offset::bigint AS sentence_end_offset,
        sqlc.arg('target_ordinal')::bigint AS target_ordinal,
        ca.book_id::text AS book_id,
        b.title AS book_title,
@@ -29,13 +34,37 @@ SELECT COALESCE(t.surface, '')::text AS surface,
   LEFT JOIN corpus_tokens h ON h.owner_id=t.owner_id AND h.language=t.language
        AND h.analysis_run_id=t.analysis_run_id AND h.corpus_id=t.corpus_id
        AND h.sentence_ordinal=t.sentence_ordinal AND h.token_ordinal=t.head
-  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=ca.owner_id AND d.book_id=ca.book_id
-       AND d.corpus_id=ca.corpus_id AND d.analysis_run_id=ca.analysis_run_id
-       AND d.source_document_id=s.unit_id AND d.start_offset=t.start_offset AND d.end_offset=t.end_offset
  WHERE ca.owner_id=sqlc.arg('owner') AND ca.book_id=sqlc.arg('book')
    AND ca.analysis_run_id=sqlc.arg('analysis_run') AND ca.corpus_id=sqlc.arg('corpus')
    AND s.sentence_ordinal=sqlc.arg('sentence_ordinal')
  ORDER BY t.token_ordinal;
+
+-- name: GetSentenceStudyDecisions :many
+-- Stored occurrence decisions addressing the selected sentence, each with the
+-- number of persisted analyzed words its exact owner/Book/analysis/
+-- source-document/span addresses. The count spans the whole addressed scope,
+-- not just the selected sentence, so a filtered-away sibling still proves the
+-- decision is not unique. The decision is attributed only when this count is
+-- exactly one and the addressed word is in the selected sentence.
+SELECT d.start_offset::bigint AS start_offset,
+       d.end_offset::bigint AS end_offset,
+       COALESCE(d.canonical_lemma, '')::text AS canonical_lemma,
+       d.excluded::boolean AS excluded,
+       (SELECT count(*)
+          FROM corpus_tokens w
+          JOIN corpus_sentences ws ON ws.owner_id=w.owner_id
+            AND ws.analysis_run_id=w.analysis_run_id AND ws.corpus_id=w.corpus_id
+            AND ws.sentence_ordinal=w.sentence_ordinal
+         WHERE w.owner_id=d.owner_id AND w.analysis_run_id=d.analysis_run_id
+           AND w.corpus_id=d.corpus_id AND ws.unit_id=d.source_document_id
+           AND w.start_offset=d.start_offset AND w.end_offset=d.end_offset)::bigint AS addressed_words
+  FROM occurrence_lemma_corrections d
+ WHERE d.owner_id=sqlc.arg('owner') AND d.book_id=sqlc.arg('book')
+   AND d.analysis_run_id=sqlc.arg('analysis_run') AND d.corpus_id=sqlc.arg('corpus')
+   AND d.source_document_id=sqlc.arg('unit_id')
+   AND d.start_offset >= sqlc.arg('sentence_start')::bigint
+   AND d.end_offset <= sqlc.arg('sentence_end')::bigint
+ ORDER BY d.start_offset, d.end_offset;
 
 -- name: ListVocabularyConcordance :many
 SELECT o.surface,

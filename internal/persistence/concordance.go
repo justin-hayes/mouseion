@@ -303,12 +303,54 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 			}
 		}
 		study.Tokens = append(study.Tokens, domain.SentenceStudyToken{Surface: row.Surface,
-			RawLemma: row.RawLemma, EffectiveLemma: row.EffectiveLemma, UPOS: row.Upos,
+			RawLemma: row.RawLemma, EffectiveLemma: row.CanonicalLemma, UPOS: row.Upos,
 			Dependency: row.Dependency, HeadSurface: row.HeadSurface,
-			Ordinal: row.TokenOrdinal, HeadOrdinal: row.Head, Morphology: morphology,
-			Corrected: row.Corrected, Excluded: row.Excluded})
+			Ordinal: row.TokenOrdinal, HeadOrdinal: row.Head,
+			StartOffset: row.StartOffset, EndOffset: row.EndOffset,
+			Morphology: morphology})
 	}
+	decisions, err := s.queries().GetSentenceStudyDecisions(ctx, sqlcgen.GetSentenceStudyDecisionsParams{
+		Owner: owner, Book: book, AnalysisRun: run, Corpus: corpus, UnitID: unit,
+		SentenceStart: first.SentenceStartOffset, SentenceEnd: first.SentenceEndOffset,
+	})
+	if err != nil {
+		return domain.SentenceStudy{}, err
+	}
+	attributeSentenceStudyDecisions(&study, decisions)
 	return study, nil
+}
+
+// attributeSentenceStudyDecisions applies each decision only to the single
+// persisted analyzed word its exact owner/Book/analysis/source-document/span
+// addresses. A decision that addresses no word, more than one, or a word the
+// selected sentence does not present is recorded as unresolved and applied to
+// no word: a narrowed presentation subset never proves uniqueness, and no
+// sibling is chosen by lemma, part of speech or surface.
+func attributeSentenceStudyDecisions(study *domain.SentenceStudy, decisions []sqlcgen.GetSentenceStudyDecisionsRow) {
+	wordBySpan := make(map[[2]int64]int, len(study.Tokens))
+	for index, token := range study.Tokens {
+		wordBySpan[[2]int64{token.StartOffset, token.EndOffset}] = index
+	}
+	for _, decision := range decisions {
+		index, matched := wordBySpan[[2]int64{decision.StartOffset, decision.EndOffset}]
+		// A decision with no addressed word, more than one, or a correction
+		// with no proposed lemma (missing evidence) cannot be attributed.
+		if !matched || decision.AddressedWords != 1 || (!decision.Excluded && decision.CanonicalLemma == "") {
+			study.UnresolvedDecisions = append(study.UnresolvedDecisions, domain.SentenceStudyDecision{
+				StartOffset: decision.StartOffset, EndOffset: decision.EndOffset,
+				CanonicalLemma: decision.CanonicalLemma, Excluded: decision.Excluded,
+				AddressedWords: decision.AddressedWords,
+			})
+			continue
+		}
+		token := &study.Tokens[index]
+		if decision.Excluded {
+			token.Excluded = true
+			continue
+		}
+		token.Corrected = true
+		token.EffectiveLemma = decision.CanonicalLemma
+	}
 }
 
 func concordanceOccurrenceFromFields(

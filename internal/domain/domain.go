@@ -451,15 +451,38 @@ type SentenceStudy struct {
 	TargetSurface                                 string
 	SentenceOrdinal, TargetOrdinal                int64
 	Tokens                                        []SentenceStudyToken
+	// UnresolvedDecisions are stored occurrence decisions that address this
+	// sentence but cannot be attributed to exactly one persisted analyzed word.
+	// They are shown separately and are never applied to a word.
+	UnresolvedDecisions []SentenceStudyDecision
 }
 
 type SentenceStudyToken struct {
 	Surface, RawLemma, EffectiveLemma, UPOS, Dependency, HeadSurface string
 	Ordinal, HeadOrdinal                                             int64
+	// StartOffset and EndOffset are the word's half-open source span within its
+	// source document; they match a decision's span when it addresses this word.
+	StartOffset, EndOffset int64
 	// Morphology is the stored analyzer morphology for this token, unfiltered.
 	// An empty map means the analyzer supplied no features for the word.
-	Morphology          map[string]string
+	Morphology map[string]string
+	// Corrected and Excluded report an occurrence decision attributed to this
+	// word because the decision addresses exactly this persisted word.
 	Corrected, Excluded bool
+}
+
+// SentenceStudyDecision is one stored occurrence decision addressing a sentence
+// that Sentence study could not attribute to a single analyzed word.
+type SentenceStudyDecision struct {
+	StartOffset, EndOffset int64
+	// CanonicalLemma is the correction's proposed lemma; it is empty for an
+	// exclusion and is never presented as a confirmed effective lemma.
+	CanonicalLemma string
+	Excluded       bool
+	// AddressedWords counts every persisted analyzed word the decision addresses
+	// by its exact owner/Book/analysis/source-document/span. Exactly one permits
+	// attribution; zero or more than one leaves it unresolved.
+	AddressedWords int64
 }
 
 type AnalysisJob struct {

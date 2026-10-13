@@ -369,6 +369,63 @@ func TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete(t *testing.T) 
 	}
 }
 
+// TestSentenceStudyTextAlternativeShowsUnresolvedDecisionsSeparately holds the
+// correction/exclusion attribution gate in the text alternative: an unresolved
+// decision is shown separately and applied to no sibling, while an attributed
+// decision leaves the word's grammar evidence intact.
+func TestSentenceStudyTextAlternativeShowsUnresolvedDecisionsSeparately(t *testing.T) {
+	study := domain.SentenceStudy{
+		BookTitle: "Buch", SentenceText: "zum Haus steht", SentenceOrdinal: 0, TargetOrdinal: 2, TargetSurface: "Haus",
+		Tokens: []domain.SentenceStudyToken{
+			{Surface: "zu", RawLemma: "zu", EffectiveLemma: "zu", UPOS: "ADP", Dependency: "case", HeadOrdinal: 2, HeadSurface: "Haus", Ordinal: 0, StartOffset: 0, EndOffset: 3, Morphology: map[string]string{"Case": "Dat"}},
+			{Surface: "dem", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 2, HeadSurface: "Haus", Ordinal: 1, StartOffset: 0, EndOffset: 3, Morphology: map[string]string{"Case": "Dat", "Gender": "Neut"}},
+			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "heim", UPOS: "NOUN", Dependency: "root", HeadOrdinal: 2, HeadSurface: "steht", Ordinal: 2, StartOffset: 4, EndOffset: 8, Corrected: true, Morphology: map[string]string{"Case": "Dat", "Number": "Sing"}},
+			{Surface: "steht", RawLemma: "stehen", EffectiveLemma: "stehen", UPOS: "VERB", Dependency: "root", HeadOrdinal: 3, HeadSurface: "steht", Ordinal: 3, StartOffset: 9, EndOffset: 14, Excluded: true, Morphology: map[string]string{"Mood": "Ind", "VerbForm": "Fin"}},
+		},
+		UnresolvedDecisions: []domain.SentenceStudyDecision{
+			{StartOffset: 0, EndOffset: 3, CanonicalLemma: "zu", AddressedWords: 2},
+			{StartOffset: 10, EndOffset: 11, Excluded: true, AddressedWords: 0},
+		},
+	}
+	var rendered bytes.Buffer
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance").Render(t.Context(), &rendered); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+
+	for _, want := range []string{
+		`These occurrence decisions could not be attributed to a single analyzed word, so they are shown separately and applied to none:`,
+		`Unresolved lemma correction to zu at source offsets 0–3: 2 analyzed words share this span, so it is not applied to any of them.`,
+		`Unresolved exclusion at source offsets 10–11: no persisted analyzed word matches this span, so it is not applied to any word.`,
+		`Corrected for this occurrence.`,
+		`Excluded from effective vocabulary; retained as syntax evidence.`,
+		`morphology <code>Case=Dat, Number=Sing</code>`,
+		`dependency <code>root</code>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("sentence study text alternative missing %q", want)
+		}
+	}
+	if got := strings.Count(body, "Corrected for this occurrence."); got != 1 {
+		t.Errorf("a decision was applied to %d words, want exactly the uniquely addressed word", got)
+	}
+	if got := strings.Count(body, "Excluded from effective vocabulary; retained as syntax evidence."); got != 1 {
+		t.Errorf("an exclusion was applied to %d words, want exactly the uniquely addressed word", got)
+	}
+	// The shared-span siblings carry no decision of their own.
+	for _, sibling := range []string{"<strong>zu</strong>", "<strong>dem</strong>"} {
+		start := strings.Index(body, sibling)
+		if start < 0 {
+			t.Fatalf("sibling %q missing from the text alternative", sibling)
+		}
+		if end := strings.Index(body[start:], "</li>"); end < 0 {
+			t.Fatalf("sibling %q has no list item end", sibling)
+		} else if item := body[start : start+end]; strings.Contains(item, "Corrected for this occurrence") || strings.Contains(item, "Excluded from effective vocabulary") {
+			t.Errorf("the unresolved decision was applied to sibling %q", sibling)
+		}
+	}
+}
+
 // TestConcordanceHandlerReportsReadFailures covers the current-reading priority
 // and result reads: a plain failure is a server error, a deadline is a gateway
 // timeout, and neither renders a partial result page.

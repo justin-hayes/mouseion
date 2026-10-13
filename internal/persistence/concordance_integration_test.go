@@ -113,6 +113,9 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	assert.Equal(t, "Das Haus", parseGap.SentenceText)
 	assert.Empty(t, parseGap.Tokens)
 	assert.Equal(t, "Haus", parseGap.TargetSurface)
+	require.Len(t, parseGap.UnresolvedDecisions, 1, "a decision with no matching analyzed word is unresolved")
+	assert.Equal(t, int64(0), parseGap.UnresolvedDecisions[0].AddressedWords)
+	assert.Equal(t, "der", parseGap.UnresolvedDecisions[0].CanonicalLemma)
 
 	bobLookup, err := store.ListVocabularyConcordance(ctx, bob.ID, "de", domain.ConcordanceLookup{Term: "Haus", Page: 1})
 	require.NoError(t, err)
@@ -167,6 +170,189 @@ func TestGetVocabularySentenceStudyReadsStoredMorphology(t *testing.T) {
 	assert.Equal(t, "Das Haus steht.", noTokens.SentenceText)
 	assert.Empty(t, noTokens.Tokens, "a source sentence with no parse tokens has no token evidence")
 	assert.Equal(t, "Haus", noTokens.TargetSurface)
+}
+
+// TestGetVocabularySentenceStudyAttributesOnlyUniqueDecisions holds the
+// correction/exclusion gate: a decision is attributed only when its exact
+// owner/Book/analysis/source-document/span addresses exactly one persisted
+// analyzed word. A span shared by siblings stays unresolved and is applied to
+// no word, while an attributed exclusion keeps every grammar feature.
+func TestGetVocabularySentenceStudyAttributesOnlyUniqueDecisions(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "sentence-study-decisions", false)
+	require.NoError(t, err)
+
+	book, source := createConcordanceBook(t, ctx, store, owner.ID, "Decisions Book", "study-decisions", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "chapter", "zum Haus steht", 0, 14),
+	})
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 0, Text: "zum Haus steht", Start: 0, End: 14, Tokens: []concordanceToken{
+			{Surface: "zu", Lemma: "zu", Upos: "ADP", Dependency: "case", Head: 2, Morphology: map[string]string{"Case": "Dat"}, Start: 0, End: 3},
+			{Surface: "dem", Lemma: "der", Upos: "DET", Dependency: "det", Head: 2, Morphology: map[string]string{"Case": "Dat", "Gender": "Neut"}, Start: 0, End: 3},
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "root", Head: 2, Morphology: map[string]string{"Case": "Dat", "Number": "Sing"}, Start: 4, End: 8},
+			{Surface: "steht", Lemma: "stehen", Upos: "VERB", Dependency: "root", Head: 3, Morphology: map[string]string{"Mood": "Ind", "VerbForm": "Fin"}, Start: 9, End: 14},
+		}},
+	})
+	corpus, run := currentSentenceStudyAnalysis(t, ctx, store, owner.ID, book.ID)
+
+	// A decision whose span is shared by the two words of the contraction
+	// addresses two analyzed words, so it is unresolved and applied to neither.
+	insertOccurrenceDecision(t, ctx, store, owner.ID, book.ID, corpus, run, "epub-unit-v1:0:chapter", 0, 3, "zu", false)
+	// A decision whose span addresses exactly one word is attributed to it.
+	insertOccurrenceDecision(t, ctx, store, owner.ID, book.ID, corpus, run, "epub-unit-v1:0:chapter", 4, 8, "heim", false)
+	// An exclusion that addresses exactly one word is attributed to it.
+	insertOccurrenceDecision(t, ctx, store, owner.ID, book.ID, corpus, run, "epub-unit-v1:0:chapter", 9, 14, "", true)
+
+	study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, run, corpus, "epub-unit-v1:0:chapter", 0, 2, "Haus")
+	require.NoError(t, err)
+	require.Len(t, study.Tokens, 4)
+
+	t.Run("shared-span siblings carry no decision", func(t *testing.T) {
+		require.False(t, study.Tokens[0].Corrected, "a shared-span sibling is never corrected")
+		require.Equal(t, "zu", study.Tokens[0].EffectiveLemma)
+		require.False(t, study.Tokens[1].Corrected, "the other shared-span sibling is never corrected")
+		require.Equal(t, "der", study.Tokens[1].EffectiveLemma)
+	})
+
+	t.Run("a unique correction is attributed without changing grammar evidence", func(t *testing.T) {
+		require.True(t, study.Tokens[2].Corrected)
+		require.Equal(t, "heim", study.Tokens[2].EffectiveLemma)
+		require.Equal(t, map[string]string{"Case": "Dat", "Number": "Sing"}, study.Tokens[2].Morphology,
+			"a lemma correction changes no morphology")
+		require.Equal(t, "root", study.Tokens[2].Dependency, "a lemma correction changes no dependency")
+	})
+
+	t.Run("a unique exclusion keeps every grammar feature", func(t *testing.T) {
+		require.True(t, study.Tokens[3].Excluded)
+		require.False(t, study.Tokens[3].Corrected)
+		require.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin"}, study.Tokens[3].Morphology,
+			"an exclusion keeps every grammar feature")
+		require.Equal(t, "root", study.Tokens[3].Dependency, "an exclusion keeps its dependency")
+	})
+
+	t.Run("the shared-span decision is unresolved", func(t *testing.T) {
+		require.Len(t, study.UnresolvedDecisions, 1)
+		require.Equal(t, int64(0), study.UnresolvedDecisions[0].StartOffset)
+		require.Equal(t, int64(3), study.UnresolvedDecisions[0].EndOffset)
+		require.Equal(t, "zu", study.UnresolvedDecisions[0].CanonicalLemma)
+		require.Equal(t, int64(2), study.UnresolvedDecisions[0].AddressedWords)
+	})
+}
+
+// TestGetVocabularySentenceStudyResolvesUniquenessBeforeSentenceFiltering holds
+// that uniqueness is measured over every persisted word the decision addresses,
+// not just the selected sentence: a sibling the sentence subset filters away
+// still makes the decision unresolved.
+func TestGetVocabularySentenceStudyResolvesUniquenessBeforeSentenceFiltering(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "sentence-study-filtered-sibling", false)
+	require.NoError(t, err)
+
+	book, source := createConcordanceBook(t, ctx, store, owner.ID, "Filtered Sibling Book", "study-filtered-sibling", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "chapter", "Haus Weg", 0, 8),
+	})
+	// Two persisted words share the decision's span, but only the first is part
+	// of the selected sentence. The decision still addresses two words.
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 0, Text: "Haus", Start: 0, End: 4, Tokens: []concordanceToken{
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "root", Head: 0, Start: 0, End: 4},
+		}},
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 1, Text: "Weg", Start: 5, End: 8, Tokens: []concordanceToken{
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "root", Head: 0, Start: 0, End: 4},
+		}},
+	})
+	corpus, run := currentSentenceStudyAnalysis(t, ctx, store, owner.ID, book.ID)
+	insertOccurrenceDecision(t, ctx, store, owner.ID, book.ID, corpus, run, "epub-unit-v1:0:chapter", 0, 4, "heim", false)
+
+	study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, run, corpus, "epub-unit-v1:0:chapter", 0, 0, "Haus")
+	require.NoError(t, err)
+	require.Len(t, study.Tokens, 1)
+	assert.False(t, study.Tokens[0].Corrected, "a filtered-away sibling makes the decision unresolved")
+	assert.Equal(t, "haus", study.Tokens[0].EffectiveLemma)
+	require.Len(t, study.UnresolvedDecisions, 1)
+	assert.Equal(t, int64(2), study.UnresolvedDecisions[0].AddressedWords)
+}
+
+// TestGetVocabularySentenceStudyIsolatesDecisionsBySourceAndAnalysis holds that
+// a decision bound to another source document or another analysis run never
+// attaches to this sentence's words.
+func TestGetVocabularySentenceStudyIsolatesDecisionsBySourceAndAnalysis(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "sentence-study-isolation", false)
+	require.NoError(t, err)
+
+	book, source := createConcordanceBook(t, ctx, store, owner.ID, "Isolation Book", "study-isolation", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "chapter", "Haus", 0, 4),
+	})
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 0, Text: "Haus", Start: 0, End: 4, Tokens: []concordanceToken{
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "root", Head: 0, Start: 0, End: 4},
+		}},
+	})
+	corpus, run := currentSentenceStudyAnalysis(t, ctx, store, owner.ID, book.ID)
+
+	// A decision for the same span in another source document does not attach.
+	insertOccurrenceDecision(t, ctx, store, owner.ID, book.ID, corpus, run, "epub-unit-v1:9:elsewhere", 0, 4, "heim", false)
+	isolated, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, run, corpus, "epub-unit-v1:0:chapter", 0, 0, "Haus")
+	require.NoError(t, err)
+	require.Len(t, isolated.Tokens, 1)
+	assert.False(t, isolated.Tokens[0].Corrected)
+	assert.Empty(t, isolated.UnresolvedDecisions)
+
+	// A decision for the same source document in another analysis run does not
+	// attach to the current run either.
+	_, otherSource := createConcordanceBook(t, ctx, store, owner.ID, "Isolation Other", "study-isolation-other", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "chapter", "Haus", 0, 4),
+	})
+	insertConcordanceAnalysis(t, ctx, store, otherSource, false, []concordanceSentence{
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 0, Text: "Haus", Start: 0, End: 4, Tokens: []concordanceToken{
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "root", Head: 0, Start: 0, End: 4},
+		}},
+	})
+	otherCorpus, otherRun := sourceAnalysis(t, ctx, store, owner.ID, otherSource.ID)
+	insertOccurrenceDecision(t, ctx, store, owner.ID, book.ID, otherCorpus, otherRun, "epub-unit-v1:0:chapter", 0, 4, "heim", false)
+	isolated, err = store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, run, corpus, "epub-unit-v1:0:chapter", 0, 0, "Haus")
+	require.NoError(t, err)
+	assert.False(t, isolated.Tokens[0].Corrected, "a decision from another analysis run never attaches")
+	assert.Empty(t, isolated.UnresolvedDecisions)
+
+	// The decision bound to this exact analysis and source document attaches.
+	insertOccurrenceDecision(t, ctx, store, owner.ID, book.ID, corpus, run, "epub-unit-v1:0:chapter", 0, 4, "heim", false)
+	attributed, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, run, corpus, "epub-unit-v1:0:chapter", 0, 0, "Haus")
+	require.NoError(t, err)
+	assert.True(t, attributed.Tokens[0].Corrected)
+	assert.Equal(t, "heim", attributed.Tokens[0].EffectiveLemma)
+	assert.Empty(t, attributed.UnresolvedDecisions)
+}
+
+func currentSentenceStudyAnalysis(t *testing.T, ctx context.Context, store *PostgresStore, owner, book string) (corpus, run string) {
+	t.Helper()
+	err := store.Pool().QueryRow(ctx, `SELECT corpus_id::text, analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner, book).Scan(&corpus, &run)
+	require.NoError(t, err)
+	return corpus, run
+}
+
+func sourceAnalysis(t *testing.T, ctx context.Context, store *PostgresStore, owner, sourceID string) (corpus, run string) {
+	t.Helper()
+	err := store.Pool().QueryRow(ctx, `SELECT id::text, analysis_run_id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2`, owner, sourceID).Scan(&corpus, &run)
+	require.NoError(t, err)
+	return corpus, run
+}
+
+func insertOccurrenceDecision(t *testing.T, ctx context.Context, store *PostgresStore, owner, book, corpus, run, unit string, start, end int64, lemma string, excluded bool) {
+	t.Helper()
+	var canonical, profile, version any
+	if !excluded {
+		canonical, profile, version = lemma, "de", "1"
+	}
+	_, err := store.Pool().Exec(ctx, `
+		INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		owner, book, corpus, run, unit, start, end, canonical, profile, version, excluded)
+	require.NoError(t, err)
 }
 
 func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
