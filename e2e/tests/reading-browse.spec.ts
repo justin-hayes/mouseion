@@ -155,22 +155,20 @@ test('Reading Browse works without JavaScript for prefix, paging, and page recov
   }
 });
 
-test('/vocabulary is the Concordance and /known-vocab is not found without redirect', async ({ page }) => {
+test('/vocabulary is the Concordance and the retired vocabulary pages are not found without redirect', async ({ page }) => {
   await signIn(page);
   const vocabulary = await page.goto('/vocabulary');
   expect(vocabulary?.status()).toBe(200);
   expect(new URL(page.url()).pathname).toBe('/vocabulary');
   const header = page.locator('.vocabulary-page-header');
   await expect(header.getByRole('heading', { level: 1, name: 'Vocabulary', exact: true })).toBeVisible();
-  const views = header.getByRole('navigation', { name: 'Vocabulary views' });
-  await expect(views.getByRole('link')).toHaveCount(2);
-  await expect(views.getByRole('link', { name: 'Concordance', exact: true })).toHaveAttribute('aria-current', 'page');
-  await expect(views.getByRole('link', { name: 'Import Known words', exact: true })).toHaveAttribute('href', '/vocabulary/import');
+  await expect(header.getByRole('navigation', { name: 'Vocabulary views' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Browse', exact: true })).toHaveCount(0);
 
-  const retired = await page.goto('/known-vocab');
-  expect(retired?.status()).toBe(404);
-  expect(retired?.request().redirectedFrom()).toBeNull();
-  expect(new URL(page.url()).pathname).toBe('/known-vocab');
-  await expect(page.locator('.vocabulary-page-header')).toHaveCount(0);
+  for (const path of ['/known-vocab', '/vocabulary/import', '/vocabulary/imports/7/status']) {
+    const retired = await page.goto(path);
+    expect(retired?.status(), path).toBe(404);
+    expect(retired?.request().redirectedFrom(), path).toBeNull();
+    await expect(page.locator('.vocabulary-page-header'), path).toHaveCount(0);
+  }
 });

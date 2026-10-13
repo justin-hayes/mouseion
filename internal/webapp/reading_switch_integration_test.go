@@ -133,7 +133,8 @@ func TestCurrentReadingSwitchIsAtomicAndReturnFreezesFreshSnapshot(t *testing.T)
 	assert.Contains(t, replay, "reading")
 	assert.Equal(t, second, current())
 
-	// Known import between releases and the return: the return is a fresh freeze.
+	// Known vocabulary gained between releases (for example by finishing another
+	// Book) and the return: the return is a fresh freeze.
 	_, err = store.Pool().Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,'de','haus','NOUN')`, owner.ID)
 	require.NoError(t, err)
 	returned := switchTo(bookA, second)

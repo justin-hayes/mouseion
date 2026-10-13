@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/knownvocab"
-	"github.com/riverqueue/river/rivertype"
 )
 
 // Vocabulary Browse scenarios put the Working desk into the degraded and
@@ -422,23 +420,4 @@ func (s *Store) knownForOwnerLocked(owner, language string) []domain.KnownVocabu
 		}
 	}
 	return result
-}
-
-type KnownVocab struct{}
-
-func (KnownVocab) Submit(_ context.Context, _, _, input string) (knownvocab.Handle, error) {
-	if strings.Contains(input, "\t") {
-		return knownvocab.Handle{ID: 8}, nil
-	}
-	return knownvocab.Handle{ID: 7}, nil
-}
-
-func (KnownVocab) Get(_ context.Context, _ string, id int64) (knownvocab.Status, error) {
-	if id == 8 {
-		return knownvocab.Status{
-			ID: 8, State: rivertype.JobStateCompleted, Language: "de", Imported: 1,
-			Rejected: []knownvocab.Rejection{{Row: 2, Original: "bad\tline", Error: "expected exactly one lemma with no tab-separated columns"}},
-		}, nil
-	}
-	return knownvocab.Status{ID: 7, State: rivertype.JobStateCompleted}, nil
 }

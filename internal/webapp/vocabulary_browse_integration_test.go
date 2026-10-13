@@ -223,7 +223,6 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.NotContains(t, response.Body.String(), "Correction")
 	assert.NotContains(t, response.Body.String(), "Bob German")
 	assert.NotContains(t, response.Body.String(), "Alice German Other")
-	assert.NotContains(t, response.Body.String(), `action="/vocabulary/import"`)
 	handoff := perform(t, h, http.MethodGet, "/vocabulary/concordance?"+url.Values{
 		"as": {"lemma"}, "term": {"haus"}, "upos": {"NOUN"},
 	}.Encode(), nil, cookies)

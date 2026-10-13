@@ -14,7 +14,7 @@ import (
 
 templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied, readingChanged bool, message, focusTarget string, origin browseOrigin) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@VocabularyPageHeader("concordance")
+		@VocabularyPageHeader()
 		<p id="concordance-pending" class="htmx-indicator" role="status">Searching. The previous results remain under their previously applied lookup.</p>
 		<div id="concordance-workflow" hx-on:htmx:error="window.showConcordanceNetworkRecovery(ctx)">
 			if language == "" {
@@ -527,7 +527,7 @@ func codePointByteOffset(text string, offset int64) (int, bool) {
 
 templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, timeout bool, origin browseOrigin) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@VocabularyPageHeader("concordance")
+		@VocabularyPageHeader()
 		<p>Active study language: <code>{ language }</code>.</p>
 		@concordanceOriginReturn(origin, language)
 		@VocabularyConcordanceErrorRecovery(lookup, timeout, origin)
@@ -567,7 +567,7 @@ templ VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeou
 
 templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, origin browseOrigin) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@VocabularyPageHeader("concordance")
+		@VocabularyPageHeader()
 		<p>Active study language: <code>{ language }</code>.</p>
 		@concordanceOriginReturn(origin, language)
 		@VocabularyConcordanceChangedRecovery(lookup, origin)

@@ -834,7 +834,7 @@ test.describe('responsive and theme regression coverage', () => {
     }
   });
 
-  test('dense analysis, deck provenance, errors, and import surfaces expose realistic content', async ({ page }) => {
+  test('dense analysis, deck provenance, and error surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
     await page.goto('/reading#journey-book-fixture-book');
     await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
@@ -847,32 +847,13 @@ test.describe('responsive and theme regression coverage', () => {
     await page.goto('/jobs/43');
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
-    await page.goto('/vocabulary/import');
+
+    await page.goto('/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    await expect(page.getByLabel('UTF-8 lemma file')).toBeVisible();
-    const importControls = page.locator('nav[aria-label="Vocabulary views"] a, form[action="/vocabulary/import"] input[type="file"], form[action="/vocabulary/import"] button');
-    await expect44pxTouchTargets(importControls);
-    await expectNoPageOverflow(page);
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
-
-    const importForm = page.locator('form[action="/vocabulary/import"]');
-    await importForm.locator('input[type="file"]').setInputFiles({ name: 'empty.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) });
-    await importForm.getByRole('button', { name: 'Import known vocabulary' }).click();
-    await expect(page.getByRole('alert')).toContainText('Choose a non-empty UTF-8 text file to import.');
-    await expect(page.getByLabel('UTF-8 lemma file')).toBeVisible();
-
-    await page.getByLabel('UTF-8 lemma file').setInputFiles({ name: 'known.txt', mimeType: 'text/plain', buffer: Buffer.from('selten\n') });
-    await page.getByRole('button', { name: 'Import known vocabulary' }).click();
-    await expect(page.locator('#vocabulary-results').getByRole('status')).toContainText(/continuing in the background|import is complete/i);
-
-    await page.getByLabel('UTF-8 lemma file').setInputFiles({ name: 'mixed.txt', mimeType: 'text/plain', buffer: Buffer.from('Haus\nbad\tline\n') });
-    await page.getByRole('button', { name: 'Import known vocabulary' }).click();
-    const rejectedRows = page.locator('#vocabulary-results').getByRole('region', { name: 'Rejected vocabulary rows' });
-    await expect(rejectedRows).toContainText('bad\tline');
-    await expect(rejectedRows).toContainText('expected exactly one lemma');
     await expectNoPageOverflow(page);
   });
 
