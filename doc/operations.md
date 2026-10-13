@@ -123,8 +123,11 @@ Greek dependency parser, is provisioned into the `huggingface-data` volume at
 `HF_HOME=/opt/huggingface` ([ADR 0073](adr/0073-modern-greek-language-support.md)).
 The Stanza marker makes unchanged restarts a no-op, downloads only a newly
 added language, and re-provisions everything when the Stanza version or an
-effective language model configuration changes. The Hugging Face cache is
-checked on each run and repaired if a model is missing. Serving loads only
+effective language model configuration changes. The provisioner also verifies
+each language's declared Stanza pretrain (the `conll17` word vectors behind the
+Greek lemma classifier) is present, and the serving pipeline points each
+processor at the provisioned copy so Greek loads offline. The Hugging Face cache
+is checked on each run and repaired if a model is missing. Serving loads only
 local artifacts and never downloads models.
 
 To add a language, set `MOUSEION_NLP_WARM_LANGUAGES` in `.env` and run
