@@ -1,95 +1,125 @@
-# Sentence study visualization prototype — THROWAWAY, NOT FOR MERGE
+# Sentence study tree prototype — THROWAWAY, NOT FOR MERGE
 
-Question: which presentation best supports noticing the structure of a sentence
-from reading: a branching tree, word-order arcs, or selected-word relationships?
+Question: can a complete, legible dependency tree explain a long sentence without
+the excessive width of the first top-down prototype? Compare compact top-down
+and side-growing layouts before hiding words or folding clauses.
 
 Decision ticket: [Choose a dependency visualization through a sentence study prototype](https://github.com/justin-hayes/mouseion/issues/1986).
 Map: [Find the way to pedagogically useful sentence study](https://github.com/justin-hayes/mouseion/issues/1983).
 
-Run from this branch's repository root:
+## Run
 
 ```sh
 make prototype-sentence-study
 ```
 
-Open <http://127.0.0.1:8106/vocabulary/concordance/sentence?variant=tree>.
-Variants are `tree`, `arcs`, and `focus`. The bottom bar cycles them; left/right
-keys do so outside controls and the scrollable graphic. `example=de`, `it`, `el`,
-or `de-long` selects the invented example. `support=1` opens analysis immediately.
+Open <http://127.0.0.1:8106/vocabulary/concordance/sentence?variant=tree&example=de-long>.
+The bottom bar compares `tree` (compact top-down) and `side` (side-growing).
+Both arrows switch between these two layouts; arrow shortcuts avoid controls,
+the diagram, and the word inspector. `example=de`, `it`, `el`, or `de-long`
+selects an invented fixture. The long sentence is now the default.
 
-This standalone process uses the real Mouseion shell, compiled CSS, and local
-fonts, on the existing Sentence study route. The shell learner is fictional;
-other shell destinations are deliberately not wired. No production handlers,
-stores, database, NLP calls, schema, or auth contracts change. This command is
-not referenced by the production server/image. Do not merge this branch.
+Select a word **in the tree** to inspect its relation and expandable raw labels
+and morphology. Close the inspector using Close; Escape also works with JS.
+The Text alternative control replaces the graphic with the full relationship
+list. View options exposes diagram dimensions and an optional punctuation filter.
+All tokens, including punctuation, are included by default. There is no automatic
+word folding, diagram cutoff, text shrinking, prompt, reveal, or nearby-context
+control, and no permanent content beneath the tree.
 
-## Design plan
+## Live feedback and earlier evidence
 
-- Reuse the accepted Margin notes identity: porcelain `#f3f6f7`, raised leaf
-  `#fcfdfb`, quiet blue-grey `#e3ebf0`, carbon `#17232d`, pencil `#586873`,
-  annotation blue `#2457b2`; all CSS uses the existing semantic tokens.
-- Commissioner for interface text; Literata for complete source and words.
-- Keep source Book/location, sentence, nearby context, optional reveal and
-  return-to-reading intent fixed. Change the visual relationship model only:
+The [first comparison, captured at its original commit](https://github.com/justin-hayes/mouseion/tree/7c9dc172/internal/webapp/prototype_sentence_study),
+compared tree, arcs, and selected-word-led layouts. Justin chose the tree, agreed
+to tucked-away raw labels/morphology, and rejected the prompting/reveal and nearby
+context controls after trying them. He asked to concentrate on the visualization,
+with long-sentence width treated as a common-use problem rather than accepted
+because a horizontal scroll region exists.
+
+[Live feedback and confirmed next pass](https://github.com/justin-hayes/mouseion/issues/1986#issuecomment-6145928770)
+records that this revises the prompt/reveal and context preferences in
+[Define the sentence study learning and review experience](https://github.com/justin-hayes/mouseion/issues/1984#issuecomment-6144870770).
+The final ticket resolution/map must explicitly supersede those preferences.
+Comprehension remains the learning job; fallible evidence is not automatic grading.
+No final layout winner or production acceptance boundary is chosen yet.
+
+## Layout experiments
+
+Reuse the accepted Margin notes typography, semantic palette and real app shell:
+Commissioner for controls/annotations; Literata for complete source and words.
+Keep the sentence as the reading anchor; let the tree dominate the working area.
+Node borders mark actual selectable graph objects, not a generic card layout.
 
 ```text
-A: source → reveal → root / branching hierarchy → words + relationship margin
-B: source → reveal → arcs / linear word sequence → words + relationship margin
-C: source → reveal → flowing word links | selected head / dependents in margin
+A: original sentence → root at top → tightly packed dependent subtrees
+B: original sentence → head at left → dependent subtrees extend to the right
 ```
 
-- Left-align content; retain a readable source measure. Spend visual emphasis
-  on the sentence and its selected relation, not dashboards or grammar colors.
-- Reviewed against the brief: vary hierarchy and reading-order model, not
-  palette. No new general-purpose UI component, client library or persistence.
+The packing algorithm measures the contour occupied at each depth, then places
+the next sibling subtree just beyond that contour. Unlike a column per leaf,
+this permits neighboring subtrees to use each other's empty space. Neither
+layout claims to keep linear word order; numbers preserve source positions.
 
-## What to try
+Side-growing uses the same packing principle on the vertical axis. Its width
+depends primarily on dependency depth and word/label widths, not leaf count.
+It trades width for ordinary page-height/vertical scrolling. It can still be
+too wide for a deep parse or a narrow viewport; this experiment does **not**
+claim all sentences now fit all screens.
 
-1. Before revealing, read the source and optionally open nearby context.
-2. Reveal, then compare all three variants on the same sentence. Does the
-   separable particle's relation help explain `steht … auf`?
-3. Select `gli` in Italian; inspect its head and raw morphology. Context, not
-   the parse alone, is evidence for the pronoun's referent.
-4. Compare `στην` in the original Greek source with the separately selectable
-   illustrated syntactic words `σε` and `την`; never duplicate the source.
-5. Try the long sentence. Compare diagram scrolling with flowing relationships,
-   and selected-edge emphasis with the full set of connections.
-6. At 320px, with keyboard only, and with JavaScript disabled, try Reveal,
-   selecting a word, and the all-token text alternative.
+Nodes are ordinary HTML links positioned over a decorative server-rendered SVG.
+Every label is text; color is supplemental. Links remain in source order in
+the DOM. Selecting a node exposes a dismissible inspector rather than a separate
+under-chart word strip. With JS, selection preserves diagram/page scrolling and
+positions the inspector beside the selected node where space permits. Without
+JS, native node/evidence/Close links and the text alternative still work; there
+is no promise of retaining the diagram's scroll offset across full-page requests.
 
-## Evidence limits / unresolved decisions
+## What to judge
 
-All sentences, bibliographic labels, and parses are invented. The German `am`
-split is a hand-supplied stress fixture, not a claim about the deployed German
-tokenizer. There is no real model accuracy evidence, no linguistic correction
-workflow, and no generated translation or explanation. The relation glosses
-are cautious display labels, not a grammar ontology or semantic-role inference.
+1. On the long sentence, compare the whole hierarchy in both layouts. Does the
+   narrower side-growing tree remain easy to follow across vertical scrolling?
+2. Compare shorter German/Italian examples. Is one orientation better universally,
+   or is an explicit orientation control useful?
+3. Select a node and inspect morphology without losing your place. Raw versus
+   effective lemma evidence must remain distinct in a real implementation.
+4. Compare Greek source `στην` with the two separate illustrated nodes `σε` and
+   `την`, both labeled with the shared source span. Source text is not reconstructed
+   from expanded words.
+5. At 320 CSS px, use the diagram's own scroll region or Text alternative. The
+   experiment leaves the final narrow-screen tree behavior open for human review.
 
-Both diagrams render on the server, with their full text alternative. Geometry
-is deliberately simple: ordered leaves for the tree, greedy interval lanes for
-arcs. Their actual pixel costs are exposed in Prototype state. This demonstrates
-layout pressure, not a production layout limit or a finalized algorithm.
+## Boundaries
 
-The focused view can be used without either diagram. No diagram cutoff or
-automatic narrow-screen switch is chosen yet. The full token list is available
-under a native disclosure, not deleted. Human feedback must decide which view
-leads, whether graphics complement the list, evidence depth, punctuation defaults,
-shared-span presentation, and accessible/narrow-screen behavior.
+This standalone process serves only invented data, using the real compiled CSS,
+local fonts, and shell at the existing Sentence study route. Its shell learner
+is fictional; other shell destinations are not wired. It has no database, NLP,
+provider calls, persistence, grading, or real auth behavior. Production handlers,
+stores, schema, dependencies, and durable product docs are untouched. Do not merge.
 
-No decision is resolved until live human feedback and explicit confirmation.
-Capture the verdict in the decision ticket, not by promoting this code.
+Parses, morphology and Book/location labels are manually supplied illustrations,
+not evidence of model accuracy. The German `am` expansion is a synthetic stress
+fixture, not a claim about the deployed tokenizer. Geometry is disposable design
+evidence, not a production renderer or validated grammar ontology. Source context
+is absent from this proposed UI, not declared irrelevant to pronoun interpretation.
 
-## Checks during creation
+No formal prototype test suite is added. Creation checks use compilation, repo
+lint/tests and browser probes; no merge-readiness or complete accessibility-audit
+claim follows. The earlier checks are recorded in the first commit's README.
 
-- Go lint and `go test ./...` passed, including compilation of this command.
-- Chromium probes covered all three variants and four examples at 320 CSS px,
-  with JavaScript on and off: no horizontal page overflow; word selection and
-  raw-evidence disclosures worked. Arrow shortcuts do not hijack diagram scrolling.
-- Desktop and narrow-screen screenshots were inspected. This is not a complete
-  screen-reader or production accessibility audit.
-- Whole-project `make lint` stopped at an unchanged Python `S310` warning in
-  `nlp/scripts/derive_dictionary_index.py`; no unrelated source was changed.
-- `make coverage-new` could not run because the existing shared Python environment
-  lacks the `pytest-cov` plugin. No coverage or merge-readiness claim is made.
-- No formal prototype test suite was added; this is disposable decision evidence,
-  not an implementation handoff or production patch.
+Second-pass checks: Go lint and `go test ./...` passed. Chromium probes covered
+both layouts and all four fixtures at 320 CSS px with JavaScript on and off:
+no horizontal page overflow or node-box overlaps, working native selection,
+raw-evidence access, Close and complete text alternatives. Keyboard node
+selection/Escape dismissal, inspector placement, and selected-word continuity
+between variants were checked. Screenshots were inspected. The 34-token fixture
+measured 1,944 × 864px top-down and 1,124 × 1,680px side-growing; the desktop
+chart had 1,166px available width. Those measurements describe one synthetic
+fixture, not a general sentence-length threshold or all-language guarantee.
+
+Whole-project lint again stopped at the unchanged Python S310 warning in
+`nlp/scripts/derive_dictionary_index.py`; coverage remained blocked because the
+shared Python environment lacks `pytest-cov`. Neither unrelated code nor the
+environment was modified to work around these blockers.
+
+No ticket is closed until live human feedback settles the remaining questions
+and the final direction is explicitly confirmed.

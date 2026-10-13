@@ -1,8 +1,8 @@
-<!-- THROWAWAY: three Sentence study renderings on the existing route, ?variant=tree|arcs|focus. -->
+<!-- THROWAWAY: compact top-down and side-growing trees on the existing Sentence study route. -->
 <link rel="stylesheet" href="/prototype-assets/prototype.css">
 <script src="/prototype-assets/prototype.js" defer></script>
 <article class="ss-prototype" data-variant="{{.Variant}}">
-  <p class="prototype-notice"><strong>Throwaway comparison.</strong> Invented sentences and manually supplied illustrative parses. No database, grading, translation service, or saved learner state. Other shell destinations are not wired in this standalone demo.</p>
+  <p class="prototype-notice"><strong>Throwaway comparison.</strong> Invented sentences and manually supplied parses; not verified analyzer output. Other shell destinations are not wired.</p>
   <form class="prototype-controls" method="get">
     <input type="hidden" name="variant" value="{{.Variant}}">
     <label for="example">Example</label>
@@ -15,71 +15,65 @@
     <p class="metadata">{{.Sample.Location}}</p>
   </header>
   <p class="reading-text source-sentence" lang="{{.Sample.Language}}">{{.Sample.Sentence}}</p>
-  <details class="reading-width context" {{if .Context}}open{{end}}><summary>Nearby source context</summary>
-    <p class="reading-text" lang="{{.Sample.Language}}">{{.Sample.Before}} <strong>{{.Sample.Sentence}}</strong> {{.Sample.After}}</p>
-  </details>
-  <p class="reading-width">What does this mean, and what in the sentence tells you that? You can think it through first or inspect the support immediately.</p>
-  <details class="support" {{if .Support}}open{{end}}>
-    <summary>Reveal structure support</summary>
-    <p class="metadata reading-width">A view of fallible analyzer evidence, not a verdict on your interpretation. In this prototype, the evidence is manually invented.</p>
-    <p class="prototype-example-note reading-width">{{.Sample.Note}}</p>
-    {{if ne .Variant "focus"}}
-    <form class="diagram-options" method="get">
-      <input type="hidden" name="variant" value="{{.Variant}}"><input type="hidden" name="example" value="{{.Sample.ID}}">
-      <input type="hidden" name="word" value="{{.WordOrdinal}}"><input type="hidden" name="support" value="1">
-      <label><input type="checkbox" name="punct" value="1" {{if .ShowPunctuation}}checked{{end}}> Show punctuation connections</label>
-      <label><input type="checkbox" name="focus" value="1" {{if .OnlyFocus}}checked{{end}}> Emphasize selected word’s connections</label>
-      <button class="button button--outline">Apply diagram options</button>
-    </form>
-    <p class="metadata">{{if eq .Variant "tree"}}Hierarchy first: the sentence root sits above its dependents. Words move away from reading order.{{else}}Reading order first: expanded syntactic words stay in sequence.{{end}} Arrows point from Head to Dependent. Choose a word below for relationship details.</p>
-    <div class="diagram-scroll {{if .OnlyFocus}}only-focus{{end}}" role="region" aria-label="{{.VariantName}} diagram; horizontally scrollable" tabindex="0">
-      <svg width="{{.Width}}" height="{{.Height}}" viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-labelledby="diagram-title diagram-desc">
-        <title id="diagram-title">{{.VariantName}} of the invented sentence</title>
-        <desc id="diagram-desc">Arrows connect each head to its dependent. The selected word is {{.Selected.Surface}}. The complete equivalent relationship list follows this diagram. This graphic is not interactive; use the word links below.</desc>
-        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="arrow-tip"/></marker></defs>
-        {{range .Edges}}<g class="edge {{if .Selected}}selected-edge{{end}}"><path d="{{.Path}}" marker-end="url(#arrow)"/><text x="{{.X}}" y="{{.Y}}">{{.Label}}</text></g>{{end}}
-        {{range .Sample.Tokens}}{{if or $.ShowPunctuation (ne .Relation "punct")}}
-        <g class="node {{if .Selected}}selected-node{{end}}" transform="translate({{.X}},{{.Y}})">
-          <text y="0" class="word" lang="{{$.Sample.Language}}">{{.Surface}}</text><text y="21" class="ordinal">{{.Index}}{{if eq .Relation "root"}} · sentence root{{end}}</text>
-          {{if .Span}}<text y="43" class="span-note">from “{{.Span}}”</text>{{end}}
-        </g>{{end}}{{end}}
-      </svg>
+  <section class="chart-workspace" id="chart" aria-labelledby="chart-heading" tabindex="-1">
+    <div class="chart-toolbar">
+      <h3 id="chart-heading">Sentence structure</h3>
+      <div class="chart-actions">
+        {{if .Text}}<a class="button button--quiet" href="{{.ChartURL}}">Show tree</a>{{else}}<a class="button button--quiet" href="{{.TextURL}}">Text alternative</a>{{end}}
+        <details class="view-options"><summary>View options</summary>
+          <form method="get">
+            <input type="hidden" name="example" value="{{.Sample.ID}}"><input type="hidden" name="variant" value="{{.Variant}}">
+            {{if .Text}}<input type="hidden" name="text" value="1">{{end}}
+            <label><input type="checkbox" name="hide_punct" value="1" {{if .HidePunctuation}}checked{{end}}> Hide punctuation in the tree</label>
+            <button class="button button--outline">Apply</button>
+          </form>
+          <p class="metadata">{{.VariantName}}; {{.Width}} × {{.Height}} CSS px. No word folding or automatic shrinking. All tokens remain in the text alternative.</p>
+          <p class="metadata">{{.Sample.Note}}</p>
+        </details>
+      </div>
+    </div>
+    <p class="chart-caption metadata">Analyzer-attributed structure can be wrong. Arrows point from head to dependent. Select a word to inspect it. Word numbers retain source order; expanded words may share a source span.</p>
+    {{if .Text}}
+    <div class="text-alternative" role="region" aria-label="Complete textual sentence structure">
+      <ol>{{range .Sample.Tokens}}<li><a href="{{.URL}}" lang="{{$.Sample.Language}}">{{.Surface}}</a> (word {{.Index}}) — {{.Label}} <code>{{.Relation}}</code>; head <span lang="{{$.Sample.Language}}">{{(index $.Sample.Tokens .Head).Surface}}</span> (word {{(index $.Sample.Tokens .Head).Index}}). {{if .Span}}Shares source span “{{.Span}}”.{{end}} <span class="metadata">{{.POS}}; lemma {{.Lemma}}{{if .Morphology}}; {{.Morphology}}{{end}}.</span></li>{{end}}</ol>
+    </div>
+    {{else}}
+    <div class="diagram-scroll" role="region" aria-label="{{.VariantName}} dependency tree; scroll within the diagram if necessary" tabindex="0">
+      <div class="chart-canvas" style="width: {{.Width}}px; height: {{.Height}}px;">
+        <svg width="{{.Width}}" height="{{.Height}}" viewBox="0 0 {{.Width}} {{.Height}}" aria-hidden="true">
+          <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="arrow-tip"/></marker></defs>
+          {{range .Edges}}<path class="edge {{if .Selected}}selected-edge{{end}}" d="{{.Path}}" marker-end="url(#arrow)"/>{{end}}
+        </svg>
+        <ol class="chart-nodes" aria-label="Tree words in source order">
+          {{range .Sample.Tokens}}{{if or (not $.HidePunctuation) (ne .Relation "punct")}}
+          <li class="node" style="left: {{.X}}px; top: {{.Y}}px; width: {{.Width}}px;">
+            <a class="node-link {{if .Selected}}selected-node{{end}}" href="{{.URL}}" {{if .Selected}}aria-current="true"{{end}} aria-label="Inspect {{.Surface}}, word {{.Index}}, {{.Label}}; head {{(index $.Sample.Tokens .Head).Surface}}, word {{(index $.Sample.Tokens .Head).Index}}{{if .Span}}; shares source span {{.Span}}{{end}}">
+              <span class="node-relation">{{.Label}}</span>
+              <span class="node-word" lang="{{$.Sample.Language}}">{{.Surface}}</span>
+              <span class="node-number">{{.Index}}{{if .Span}} · source “{{.Span}}”{{end}}</span>
+            </a>
+          </li>{{end}}{{end}}
+        </ol>
+      </div>
     </div>
     {{end}}
-    <div class="inspection-layout {{if eq .Variant "focus"}}focused-layout{{end}}">
-      <section class="word-selection" aria-labelledby="words-heading">
-        <h3 id="words-heading">{{if eq .Variant "focus"}}Choose a word to inspect{{else}}Words in reading order{{end}}</h3>
-        <p class="metadata">These are syntactic words, not a re-rendering of the source. Shared-span expansions have separate links.</p>
-        <ol class="word-strip">{{range .Sample.Tokens}}<li><a href="{{.URL}}" {{if .Selected}}aria-current="true"{{end}}><span lang="{{$.Sample.Language}}">{{.Surface}}</span> <small>{{.Index}}</small>{{if .Span}}<small class="span-tag">source “{{.Span}}”</small>{{end}}</a></li>{{end}}</ol>
-      </section>
-      <section class="relationship-panel" id="relationships" tabindex="-1" aria-labelledby="relationships-heading">
-        <h3 id="relationships-heading"><span lang="{{.Sample.Language}}">{{.Selected.Surface}}</span> <small>word {{.Selected.Index}}</small></h3>
-        {{if eq .Selected.Relation "root"}}<p>This is the <strong>sentence root</strong> in this parse. It is self-headed.</p>
-        {{else}}<p><strong>{{.Selected.Label}}</strong> attached to <a href="{{.Head.URL}}" lang="{{.Sample.Language}}">{{.Head.Surface}}</a> (word {{.Head.Index}}).</p>{{end}}
-        {{if .Selected.Span}}<p>Expanded from source <strong lang="{{.Sample.Language}}">{{.Selected.Span}}</strong>. Another syntactic word shares that source span; neither is a separate occurrence of the full contraction.</p>{{end}}
-        <h4>Dependents of this word</h4>
-        {{if .Dependents}}<ul>{{range .Dependents}}<li><a href="{{.URL}}" lang="{{$.Sample.Language}}">{{.Surface}}</a> (word {{.Index}}): {{.Label}}</li>{{end}}</ul>{{else}}<p>No dependents in this parse.</p>{{end}}
-        <details class="raw-evidence"><summary>Raw labels and morphology</summary><dl>
-          <dt>Dependency relation</dt><dd><code>{{.Selected.Relation}}</code></dd>
-          <dt>Head</dt><dd>{{.Head.Surface}} (word {{.Head.Index}}; stored ordinal is zero-based)</dd>
-          <dt>Part of speech</dt><dd><code>{{.Selected.POS}}</code></dd>
-          <dt>Lemma evidence</dt><dd lang="{{.Sample.Language}}">{{.Selected.Lemma}}</dd>
-          <dt>Morphology</dt><dd>{{if .Selected.Morphology}}<code>{{.Selected.Morphology}}</code>{{else}}No morphology supplied for this illustrative word. Absence is not a grammatical conclusion.{{end}}</dd>
-        </dl><p class="metadata">No learner corrections are simulated. The real page must preserve raw and effective lemma evidence separately.</p></details>
-      </section>
-    </div>
-    <details class="all-evidence reading-width"><summary>All token relationships (text alternative)</summary>
-      <ol>{{range .Sample.Tokens}}<li><strong lang="{{$.Sample.Language}}">{{.Surface}}</strong> (word {{.Index}}) — {{.Label}} <code>{{.Relation}}</code>; head <span lang="{{$.Sample.Language}}">{{(index $.Sample.Tokens .Head).Surface}}</span> (stored ordinal {{.Head}}). {{if .Span}}Shares source span “{{.Span}}”.{{end}} <span class="metadata">{{.POS}}; lemma {{.Lemma}}{{if .Morphology}}; {{.Morphology}}{{end}}.</span></li>{{end}}</ol>
-    </details>
-    <p class="reading-width closing-prompt">Reread the source sentence. Does the evidence resolve your uncertainty? If not, inspect further or move on; disagreement with a parse is not proof that you are wrong.</p>
-  </details>
-  <details class="prototype-state"><summary>Prototype state and boundaries</summary><dl>
-    <dt>View</dt><dd>{{.VariantName}}</dd><dt>Example</dt><dd>{{.Sample.ID}}; {{len .Sample.Tokens}} syntactic words</dd><dt>Selected word</dt><dd>{{.Selected.Index}}: {{.Selected.Surface}}</dd>
-    <dt>Diagram</dt><dd>{{.Width}} × {{.Height}} SVG units; no scaling down to unreadable text</dd>
-    <dt>Punctuation connections</dt><dd>{{if .ShowPunctuation}}Shown{{else}}Hidden, but retained in the complete list{{end}}</dd>
-    <dt>No JavaScript</dt><dd>Example forms, Reveal disclosure, relationship links, raw evidence, all-token text alternative, and variant links work. JavaScript only preserves disclosure state across comparison links and adds arrow shortcuts.</dd>
-    <dt>Narrow screens</dt><dd>Source and text relationships reflow. The optional graphic has its own labeled scrolling region. No automatic diagram cutoff is assumed.</dd>
-  </dl></details>
+    {{if .Inspect}}
+    <aside class="node-inspector" id="inspector" aria-labelledby="inspector-heading" tabindex="-1">
+      <header><h3 id="inspector-heading"><span lang="{{.Sample.Language}}">{{.Selected.Surface}}</span> <small>word {{.Selected.Index}}</small></h3><a class="button button--quiet dismiss-inspector" href="{{.Dismiss}}" aria-label="Close word inspector">Close</a></header>
+      {{if eq .Selected.Relation "root"}}<p><strong>Sentence root</strong> in this parse; it is self-headed.</p>
+      {{else}}<p><strong>{{.Selected.Label}}</strong> attached to <a href="{{.Head.URL}}" lang="{{.Sample.Language}}">{{.Head.Surface}}</a> (word {{.Head.Index}}).</p>{{end}}
+      {{if .Selected.Span}}<p>Expanded from <strong lang="{{.Sample.Language}}">{{.Selected.Span}}</strong>. Another word shares that source span; the source contraction occurs only once.</p>{{end}}
+      {{if .Dependents}}<details class="dependent-evidence"><summary>Dependents ({{len .Dependents}})</summary><ul>{{range .Dependents}}<li><a href="{{.URL}}" lang="{{$.Sample.Language}}">{{.Surface}}</a> (word {{.Index}}): {{.Label}}</li>{{end}}</ul></details>{{end}}
+      <details class="raw-evidence"><summary>Raw labels and morphology</summary><dl>
+        <dt>Dependency relation</dt><dd><code>{{.Selected.Relation}}</code></dd>
+        <dt>Head</dt><dd>{{.Head.Surface}} (word {{.Head.Index}}; stored ordinal {{.Selected.Head}})</dd>
+        <dt>Part of speech</dt><dd><code>{{.Selected.POS}}</code></dd>
+        <dt>Lemma evidence</dt><dd lang="{{.Sample.Language}}">{{.Selected.Lemma}}</dd>
+        <dt>Morphology</dt><dd>{{if .Selected.Morphology}}<code>{{.Selected.Morphology}}</code>{{else}}Not supplied for this illustrative word; absence is not a grammatical conclusion.{{end}}</dd>
+      </dl><p class="metadata">No corrections are simulated. Production must preserve raw and effective lemma evidence separately.</p></details>
+    </aside>
+    {{end}}
+  </section>
 </article>
 <nav class="prototype-switcher" aria-label="Prototype variants">
   <a href="{{.Previous}}" class="variant-previous" aria-label="Previous prototype variant">←</a>
