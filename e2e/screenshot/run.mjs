@@ -6,8 +6,9 @@
 // 3. Starts the existing Compose definition under its own project name with a
 //    localhost-only port, generated secrets, German only, and the LLM disabled.
 // 4. Runs the learner workflow in Playwright (e2e/screenshot/my-books.spec.ts),
-//    which analyzes the scenario Books, reads one to completion, and looks up
-//    the configured Concordance lemma and one sentence Study.
+//    which analyzes the scenario Books, seeds Known vocabulary by finishing
+//    readings, and looks up the configured Concordance lemma and one sentence
+//    Study.
 // 5. Writes the optimized screenshots to doc/images (my-books, my-books-dark,
 //    reading, concordance, sentence-study) and stops the stack, keeping the
 //    Stanza model volume.
@@ -205,9 +206,6 @@ async function runWorkflow({ baseURL, password }) {
     MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT: join(paths.out, 'concordance.raw.png'),
     MOUSEION_SCREENSHOT_STUDY_OUTPUT: join(paths.out, 'sentence-study.raw.png'),
     MOUSEION_SCREENSHOT_RESULTS: paths.results,
-    // The workflow reads the other Books' lemmas from the stack's database
-    // through the same Compose project, so it needs the arguments that address it.
-    MOUSEION_SCREENSHOT_COMPOSE_ARGS: JSON.stringify(composeBaseArgs()),
   };
   const result = await run('npx', ['playwright', 'test', '-c', 'screenshot/playwright.config.ts'], { cwd: e2eDir, env });
   if (result.code !== 0) {

@@ -173,24 +173,29 @@ The procedure, durations, and clean-up are in the
 [development guide](../doc/development.md#regenerating-screenshots).
 
 - The learner workflow moves every scenario Book except the one marked `inbox`
-  to To Read, waits for each analysis through Reading's chooser, starts and
-  finishes the `read` Book, starts the `current` Book, and asserts its title and
-  a non-empty Book vocabulary table before capturing Reading. My Books is then
-  captured twice, in the light and dark color schemes, and each capture asserts
-  the Inbox, To Read, Currently reading, and Read buckets first.
+  to To Read, waits for each analysis through Reading's chooser, then seeds Known
+  vocabulary the only way [ADR 0092](../doc/adr/0092-retire-known-vocabulary-import.md)
+  allows: by finishing readings. It finishes every baseline Book (every analyzed
+  Book except the `current` one) in manifest order, returning each finished To
+  Read Book to To Read with **Read again**. It then starts the `current` Book and
+  asserts its title and a non-empty Book vocabulary table before capturing
+  Reading. My Books is then captured twice, in the light and dark color schemes,
+  and each capture asserts the Inbox, To Read, Currently reading, and Read
+  buckets first.
 - The Concordance lookup types the lemma configured in the `concordance` block of
   `screenshot/manifest.json` into the Concordance form. The capture fails unless
   the analyzed corpus yields at least `minimumOccurrences` lines from at least
   `minimumBooks` Books. The sentence Study opens the first result, within the
   first page, whose identified token has the configured part of speech, and
   checks its lemma and dependency evidence.
-- Before the `current` Book starts, the workflow derives a Known-vocabulary
-  baseline from the analyzed Books other than it: their lemmas ranked by
-  frequency, read-only from the stack's database, cut at the rank where the
-  `current` Book's Known coverage reaches about 96%. If no rank reaches 96%, all
-  of them are used. The list is imported through Vocabulary, and the run fails
-  unless the measured coverage is within 94–98%. The cut-off and measured
-  coverage are printed.
+- The run fails unless the `current` Book's measured Known coverage is within
+  82–88%. Finishing every baseline Book covers about 84.5% of its running content
+  words (the books and the Stanza analysis are pinned, so this is deterministic):
+  Known identities from Reading completion are exact (canonical lemma plus
+  analyzed part of speech), unlike the retired lemma-wide import, so the band was
+  retuned from the import's 94–98%. The finished readings and the measured
+  coverage are printed. No lemma file is uploaded and no Known-vocabulary row is
+  written directly: finishing a reading is the only source of Known vocabulary.
 - Each wait is bounded and names the Book or step that stalled. Analysis of the
   full set is bounded at 30 minutes; the Playwright test budget is 75 minutes.
 - Source books are pinned Project Gutenberg editions in
