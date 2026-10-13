@@ -24,8 +24,7 @@ definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-bo
 **Study language**:
 A language the learner studies. The set is inferred from the languages present
 in the learner's library (books with a chosen language), never configured by
-the learner; it defines the languages for which the learner can import known
-vocabulary.
+the learner.
 _Avoid_: configured language, preferred language, library language (as a stored
 selection defining the set).
 
@@ -49,8 +48,8 @@ _Avoid_: study-language scope, synced languages.
 
 **Known vocabulary**:
 Words the learner already knows in a language, owned per learner and language,
-populated by explicit lemma import or acceptance of a completed current reading's
-frozen vocabulary snapshot. This is modeled learner knowledge, not a claim of
+populated only by acceptance of a completed current reading's frozen vocabulary
+snapshot. This is modeled learner knowledge, not a claim of
 verified mastery; card generation never marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 

@@ -40,8 +40,9 @@ known analyzable token occurrences / total analyzable token occurrences
 An analyzable token occurrence is an occurrence retained by the existing NLP and
 selection filters: punctuation, proper names, and stop words are outside the
 metric. The denominator is the sum of retained occurrence counts before learner
-vocabulary state is applied. Explicitly imported occurrences and vocabulary
-accepted by completed Primary Goals contribute to the numerator. Reserved
+vocabulary state is applied. Vocabulary accepted by completed Primary Goals
+contributes to the numerator; known-vocabulary import is retired
+([ADR 0092](../adr/0092-retire-known-vocabulary-import.md)). Reserved
 vocabulary remains a separate projection and is not counted as Known. Generated
 vocabulary is provenance, not an exclusion or knowledge claim. The transition
 follows [ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md):

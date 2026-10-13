@@ -108,7 +108,7 @@ Never use coverage as a warning, readiness judgment, or literary evaluation.
 | **Reading finished** | The learner has recorded finishing the book. This does not imply vocabulary knowledge. | Completed when the completed fact is unclear |
 | **Vocabulary work in progress** | Preparation or review activity remains incomplete. | Nearly mastered |
 | **Vocabulary work complete** | Eligible identities from the current-reading snapshot have entered modeled Known vocabulary. This does not claim verified mastery. | Mastered, deck reviewed |
-| **Known vocabulary** | Modeled learner knowledge: lemmas explicitly imported or accepted when current reading is finished. It does not claim verified mastery. | Generated vocabulary, mastered vocabulary |
+| **Known vocabulary** | Modeled learner knowledge: identities accepted when a current reading is finished. It does not claim verified mastery. | Generated vocabulary, mastered vocabulary |
 | **Reserved vocabulary** | Lemmas in the current Book's frozen snapshot, excluded from selection in that study language but not counted as Known. | Known, learned, studied vocabulary |
 | **Reading vocabulary snapshot** | The exact Book vocabulary candidate set frozen when Current reading starts, with analysis, source, cross-Book selection, and learner-state provenance. | Deck contents, generated vocabulary |
 | **Generated vocabulary** | Immutable provenance that an identity was assigned to a prepared deck; it is neither Known nor Reserved and is not a later selection exclusion. | Known vocabulary, reserved vocabulary |

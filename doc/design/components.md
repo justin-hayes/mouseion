@@ -55,25 +55,19 @@ markup.
 | `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Goal completion and catalog connections                  |
 | Active language switcher | Change the learner's stored active study language from the authenticated shell | Active, no active language, newly arrived, no books/read-only | Every authenticated screen |
 
-### Vocabulary Browse and import controls
+### Vocabulary Browse controls
 
-Vocabulary's peer views share one compact destination header: a 25px
-“Vocabulary” heading followed by native links to Concordance and Import Known
-words. The links sit beside the heading when space permits and
-wrap below it on compact screens. Mark the actual destination with
-`aria-current="page"`; do not repeat a larger view title above its primary
-task.
+Vocabulary has one view, Concordance, under a compact 25px “Vocabulary”
+heading with no peer-view links; do not repeat a larger view title above its
+primary task.
 
 Browse, on Reading's working desk for the current Book, uses the shared `.input` search field and `.btn` actions for
 search and paging. The include-all checkbox remains native; its glyph stays
 compact while its associated label provides a 44px-or-larger click target. The
 default Known, Reserved, and prepared-Book-deck exclusions remain visible next
 to the include-all control, and applied search context stays with the results.
-The known-vocabulary upload also remains a native file control and multipart POST,
-with an explicit label, platform picker, visible in-flight status when enhanced,
-and server-rendered validation/recovery when enhancement is unavailable. Do not
-add select, radio, or textarea component styles to these workflows: they are not
-used here.
+Do not add select, radio, or textarea component styles to this workflow: they
+are not used here.
 
 The application shell is one top bar at every width. Its document and keyboard
 order is wordmark, four destinations, study language, then account. Wide screens

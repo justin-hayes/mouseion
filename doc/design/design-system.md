@@ -115,9 +115,7 @@ Route-owned stylesheets own layout and composition; the shared foundation owns
 typography, native controls, focus, disabled/busy states, theme, and reduced
 motion. Keep route rules from overriding sign-in's shared controls. Vocabulary
 Browse uses the shared input/button contracts and a native checkbox whose label
-provides the 44px target. Known-vocabulary import deliberately keeps the native
-file input and multipart form so the platform picker and ordinary submission
-behavior remain intact.
+provides the 44px target.
 
 The app-wide [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
 ships one Templ-owned result list with native disclosures and HTMX 4.0.0 for
@@ -406,8 +404,9 @@ overflow.
 - Starting, switching, ending, and finishing current reading
   retain distinct consequential confirmations; snapshot and completion behavior
   remains governed by the applicable ADRs.
-- Vocabulary is canonical for importing known vocabulary; study languages are
-  derived from chosen-language Books rather than maintained on a Settings route.
+- Known vocabulary comes only from finishing a current reading (ADR 0092);
+  study languages are derived from chosen-language Books rather than maintained
+  on a Settings route.
 - The [accepted Vocabulary target](../features/vocabulary-browse-and-concordance.md)
   adds a vocabulary-identity Browse, hosted on Reading as the working desk for the
   Current reading Book, and a learner-facing Concordance beneath the existing
@@ -449,7 +448,7 @@ current My Books / Reading architecture.
 Current implementation adoption covers My Books (`/library`), Reading (`/reading`),
 Catalogs (`/catalogs`), analysis/catalog-sync jobs, enrichment progress, focused
 deck preparation,
-known-vocabulary import, Vocabulary Browse/selection/Concordance/sentence study,
+Vocabulary Browse/selection/Concordance/sentence study,
 occurrence-level lemma review, and Custom decks. `/journey` is
 only a compatibility redirect and is not an adopted screen. Reading presents
 the current Book as a title-page identity with its “Reading since” date and

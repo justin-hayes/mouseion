@@ -4,6 +4,8 @@ Status: **Accepted; Vocabulary presentation amended by issue #1183** · Date: 20
 
 Reconciled by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §8: the Vocabulary landing means Concordance, and the retired known-vocabulary alias has no redirect.
 
+Amended by [ADR 0092](0092-retire-known-vocabulary-import.md): known-vocabulary import is retired, its routes return 404, and Vocabulary is Concordance only.
+
 ## Context
 
 Settings is the only home of two things: saved study-language preferences and

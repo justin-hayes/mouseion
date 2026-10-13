@@ -62,7 +62,7 @@ and surface a material conflict rather than silently choosing one.
   record of the retired Reading Journey / Primary Goal model; not current product
   behavior.
 - [`workflows/study-languages-and-known-vocabulary.md`](workflows/study-languages-and-known-vocabulary.md)
-  — study-language ownership, capability degradation, and vocabulary import.
+  — study-language ownership, capability degradation, and Known vocabulary provenance.
 
 Additional workflow documents should be added only when a cross-screen journey
 has durable rules that cannot be understood from the screen inventory and its

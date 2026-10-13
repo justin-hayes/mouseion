@@ -1,6 +1,10 @@
 # ADR 0006: Anki export and known-vocabulary import contracts
 
-Status: **Accepted** · Date: 2026-08-21 · Author: Justin + Hermes
+Status: **Accepted; §3 superseded by ADR 0092** · Date: 2026-08-21 · Author: Justin + Hermes
+
+> **Import retirement (2026-10-13):** [ADR 0092](0092-retire-known-vocabulary-import.md)
+> retires known-vocabulary import and deletes imported Known vocabulary. §3 is
+> historical; Known vocabulary comes only from Reading completion.
 
 > **Card-output amendment (2026-08-27):** New APKG and TSV notes use a
 > recognition presentation with the complete source sentence and a visibly
