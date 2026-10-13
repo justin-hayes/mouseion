@@ -335,60 +335,63 @@ func sentenceStudyMapFeatureValue(feature, value string) sentenceStudyLabelPart 
 	return sentenceStudyLabelPart{Abbreviation: value, Expansion: "no standard abbreviation; shown as the analyzer's raw " + strings.ToLower(feature) + " value"}
 }
 
-// sentenceStudyAbbreviations maps curated core UD feature values to the Leipzig
-// standard abbreviation where one exists, and to plain words where one does
-// not. Italian Tense=Imp (imperfect) and Greek Aspect=Imp (imperfective) are
-// deliberately distinct labels.
-var sentenceStudyAbbreviations = map[string]map[string]sentenceStudyLabelPart{
-	"Person": {
-		"1": {Abbreviation: "1", Expansion: "first person"},
-		"2": {Abbreviation: "2", Expansion: "second person"},
-		"3": {Abbreviation: "3", Expansion: "third person"},
-	},
-	"Number": {
-		"Sing": {Abbreviation: "SG", Expansion: "singular"},
-		"Plur": {Abbreviation: "PL", Expansion: "plural"},
-	},
-	"Gender": {
-		"Masc": {Abbreviation: "M", Expansion: "masculine"},
-		"Fem":  {Abbreviation: "F", Expansion: "feminine"},
-		"Neut": {Abbreviation: "N", Expansion: "neuter"},
-	},
-	"Case": {
-		"Nom": {Abbreviation: "NOM", Expansion: "nominative case"},
-		"Acc": {Abbreviation: "ACC", Expansion: "accusative case"},
-		"Dat": {Abbreviation: "DAT", Expansion: "dative case"},
-		"Gen": {Abbreviation: "GEN", Expansion: "genitive case"},
-		"Voc": {Abbreviation: "VOC", Expansion: "vocative case"},
-	},
-	"Tense": {
-		"Pres": {Abbreviation: "PRS", Expansion: "present tense"},
-		"Past": {Abbreviation: "PST", Expansion: "past tense"},
-		"Fut":  {Abbreviation: "FUT", Expansion: "future tense"},
-		"Imp":  {Abbreviation: "imperfect", Expansion: "imperfect tense"},
-		"Pqp":  {Abbreviation: "pluperfect", Expansion: "pluperfect tense"},
-	},
-	"Aspect": {
-		"Imp":  {Abbreviation: "IPFV", Expansion: "imperfective aspect"},
-		"Perf": {Abbreviation: "PFV", Expansion: "perfective aspect"},
-	},
-	"Mood": {
-		"Ind": {Abbreviation: "IND", Expansion: "indicative mood"},
-		"Sub": {Abbreviation: "SBJV", Expansion: "subjunctive mood"},
-		"Imp": {Abbreviation: "IMP", Expansion: "imperative mood"},
-		"Cnd": {Abbreviation: "COND", Expansion: "conditional mood"},
-	},
-	"Voice": {
-		"Act":  {Abbreviation: "active", Expansion: "active voice"},
-		"Pass": {Abbreviation: "PASS", Expansion: "passive voice"},
-	},
-	"VerbForm": {
-		"Fin":  {Abbreviation: "finite", Expansion: "finite verb form"},
-		"Inf":  {Abbreviation: "INF", Expansion: "infinitive"},
-		"Part": {Abbreviation: "PTCP", Expansion: "participle"},
-		"Ger":  {Abbreviation: "gerund", Expansion: "gerund"},
-		"Conv": {Abbreviation: "CVB", Expansion: "converb"},
-	},
+// sentenceStudyAbbreviationTable records the curated core abbreviation data, one
+// entry per line as "<Feature> <UD value> <abbreviation> <plain-English
+// expansion>". A value with no Leipzig abbreviation keeps its spelled-out word
+// as the abbreviation. Italian Tense=Imp (imperfect) and Greek Aspect=Imp
+// (imperfective) are deliberately distinct.
+const sentenceStudyAbbreviationTable = `
+Person 1 1 first person
+Person 2 2 second person
+Person 3 3 third person
+Number Sing SG singular
+Number Plur PL plural
+Gender Masc M masculine
+Gender Fem F feminine
+Gender Neut N neuter
+Case Nom NOM nominative case
+Case Acc ACC accusative case
+Case Dat DAT dative case
+Case Gen GEN genitive case
+Case Voc VOC vocative case
+Tense Pres PRS present tense
+Tense Past PST past tense
+Tense Fut FUT future tense
+Tense Imp imperfect imperfect tense
+Tense Pqp pluperfect pluperfect tense
+Aspect Imp IPFV imperfective aspect
+Aspect Perf PFV perfective aspect
+Mood Ind IND indicative mood
+Mood Sub SBJV subjunctive mood
+Mood Imp IMP imperative mood
+Mood Cnd COND conditional mood
+Voice Act active active voice
+Voice Pass PASS passive voice
+VerbForm Fin finite finite verb form
+VerbForm Inf INF infinitive
+VerbForm Part PTCP participle
+VerbForm Ger gerund gerund
+VerbForm Conv CVB converb
+`
+
+var sentenceStudyAbbreviations = sentenceStudyParseAbbreviations(sentenceStudyAbbreviationTable)
+
+func sentenceStudyParseAbbreviations(data string) map[string]map[string]sentenceStudyLabelPart {
+	table := make(map[string]map[string]sentenceStudyLabelPart)
+	for line := range strings.SplitSeq(data, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		if table[fields[0]] == nil {
+			table[fields[0]] = make(map[string]sentenceStudyLabelPart)
+		}
+		table[fields[0]][fields[1]] = sentenceStudyLabelPart{
+			Abbreviation: fields[2],
+			Expansion:    strings.Join(fields[3:], " "),
+		}
+	}
+	return table
 }
 
 // sentenceStudyWordLabels renders one word's stacked labels, one consistent
