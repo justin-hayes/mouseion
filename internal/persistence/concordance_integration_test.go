@@ -207,26 +207,37 @@ func TestGetVocabularySentenceStudyAttributesOnlyUniqueDecisions(t *testing.T) {
 	study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, run, corpus, "epub-unit-v1:0:chapter", 0, 2, "Haus")
 	require.NoError(t, err)
 	require.Len(t, study.Tokens, 4)
-	assert.False(t, study.Tokens[0].Corrected, "a shared-span sibling is never corrected")
-	assert.Equal(t, "zu", study.Tokens[0].EffectiveLemma)
-	assert.False(t, study.Tokens[1].Corrected, "the other shared-span sibling is never corrected")
-	assert.Equal(t, "der", study.Tokens[1].EffectiveLemma)
-	assert.True(t, study.Tokens[2].Corrected)
-	assert.Equal(t, "heim", study.Tokens[2].EffectiveLemma)
-	assert.Equal(t, map[string]string{"Case": "Dat", "Number": "Sing"}, study.Tokens[2].Morphology,
-		"a lemma correction changes no morphology")
-	assert.Equal(t, "root", study.Tokens[2].Dependency, "a lemma correction changes no dependency")
-	assert.True(t, study.Tokens[3].Excluded)
-	assert.False(t, study.Tokens[3].Corrected)
-	assert.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin"}, study.Tokens[3].Morphology,
-		"an exclusion keeps every grammar feature")
-	assert.Equal(t, "root", study.Tokens[3].Dependency, "an exclusion keeps its dependency")
 
-	require.Len(t, study.UnresolvedDecisions, 1)
-	assert.Equal(t, int64(0), study.UnresolvedDecisions[0].StartOffset)
-	assert.Equal(t, int64(3), study.UnresolvedDecisions[0].EndOffset)
-	assert.Equal(t, "zu", study.UnresolvedDecisions[0].CanonicalLemma)
-	assert.Equal(t, int64(2), study.UnresolvedDecisions[0].AddressedWords)
+	t.Run("shared-span siblings carry no decision", func(t *testing.T) {
+		require.False(t, study.Tokens[0].Corrected, "a shared-span sibling is never corrected")
+		require.Equal(t, "zu", study.Tokens[0].EffectiveLemma)
+		require.False(t, study.Tokens[1].Corrected, "the other shared-span sibling is never corrected")
+		require.Equal(t, "der", study.Tokens[1].EffectiveLemma)
+	})
+
+	t.Run("a unique correction is attributed without changing grammar evidence", func(t *testing.T) {
+		require.True(t, study.Tokens[2].Corrected)
+		require.Equal(t, "heim", study.Tokens[2].EffectiveLemma)
+		require.Equal(t, map[string]string{"Case": "Dat", "Number": "Sing"}, study.Tokens[2].Morphology,
+			"a lemma correction changes no morphology")
+		require.Equal(t, "root", study.Tokens[2].Dependency, "a lemma correction changes no dependency")
+	})
+
+	t.Run("a unique exclusion keeps every grammar feature", func(t *testing.T) {
+		require.True(t, study.Tokens[3].Excluded)
+		require.False(t, study.Tokens[3].Corrected)
+		require.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin"}, study.Tokens[3].Morphology,
+			"an exclusion keeps every grammar feature")
+		require.Equal(t, "root", study.Tokens[3].Dependency, "an exclusion keeps its dependency")
+	})
+
+	t.Run("the shared-span decision is unresolved", func(t *testing.T) {
+		require.Len(t, study.UnresolvedDecisions, 1)
+		require.Equal(t, int64(0), study.UnresolvedDecisions[0].StartOffset)
+		require.Equal(t, int64(3), study.UnresolvedDecisions[0].EndOffset)
+		require.Equal(t, "zu", study.UnresolvedDecisions[0].CanonicalLemma)
+		require.Equal(t, int64(2), study.UnresolvedDecisions[0].AddressedWords)
+	})
 }
 
 // TestGetVocabularySentenceStudyResolvesUniquenessBeforeSentenceFiltering holds

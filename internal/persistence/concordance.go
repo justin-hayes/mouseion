@@ -333,7 +333,9 @@ func attributeSentenceStudyDecisions(study *domain.SentenceStudy, decisions []sq
 	}
 	for _, decision := range decisions {
 		index, matched := wordBySpan[[2]int64{decision.StartOffset, decision.EndOffset}]
-		if !matched || decision.AddressedWords != 1 {
+		// A decision with no addressed word, more than one, or a correction
+		// with no proposed lemma (missing evidence) cannot be attributed.
+		if !matched || decision.AddressedWords != 1 || (!decision.Excluded && decision.CanonicalLemma == "") {
 			study.UnresolvedDecisions = append(study.UnresolvedDecisions, domain.SentenceStudyDecision{
 				StartOffset: decision.StartOffset, EndOffset: decision.EndOffset,
 				CanonicalLemma: decision.CanonicalLemma, Excluded: decision.Excluded,

@@ -947,7 +947,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					return templ_7745c5c3_Err
 				}
 				if len(study.UnresolvedDecisions) > 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<div class=\"sentence-study-unresolved\"><p>These occurrence decisions could not be attributed to a single analyzed word, so they are shown separately and applied to none:</p><ul>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<div class=\"sentence-study-unresolved\" role=\"note\"><p>These occurrence decisions could not be attributed to a single analyzed word, so they are shown separately and applied to none:</p><ul>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

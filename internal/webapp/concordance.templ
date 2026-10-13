@@ -158,7 +158,7 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 						}
 					</ol>
 					if len(study.UnresolvedDecisions) > 0 {
-						<div class="sentence-study-unresolved">
+						<div class="sentence-study-unresolved" role="note">
 							<p>These occurrence decisions could not be attributed to a single analyzed word, so they are shown separately and applied to none:</p>
 							<ul>
 								for _, decision := range study.UnresolvedDecisions {
