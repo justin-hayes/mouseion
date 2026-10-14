@@ -18,6 +18,11 @@ records the historical Goal and ordered-Journey model.
 implemented contextual Gloss vocabulary below.
 The Book-scoped Vocabulary Browse inventory and Reading-owned Book vocabulary
 definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md).
+The Work, Edition, Reading unit, Text Source, Annotation Source, and
+Text–annotation binding terms record the accepted classical identity direction
+in [ADR 0093](doc/adr/0093-classical-identity-and-reading-units.md), not a shipped
+classical acquisition model. Existing EPUB Books retain their IDs and analysis
+scope; no Work/Edition backfill is implied.
 
 ## Language
 
@@ -235,14 +240,51 @@ catalog-entry alias per connection; two connections may each offer the same
 entry identifier without being the same book.
 _Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
 
+**Work**:
+The intellectual composition that groups its particular textual versions,
+independent of a learner's Books or the sources offering it. Titles and authors
+are descriptive metadata, not proof that two descriptions identify the same Work.
+_Avoid_: Book (the learner-owned identity), Edition (a particular version).
+
+**Edition**:
+A particular textual version of a Work, distinct from the repository or producer
+that supplies its text or annotations. Different Editions remain distinct even
+when their text overlaps or their identifiers appear to agree.
+_Avoid_: Work, Text Source, annotation release.
+
+**Reading unit**:
+The defined extent of one Edition that a Book represents: a whole work, a
+constituent book, or a bounded passage. Its extent is stable across source
+revisions and is not defined by whichever annotation fragments are available.
+_Avoid_: readable unit (an extracted structural unit), annotation coverage.
+
+**Text Source**:
+Acquired text evidence from a particular origin, with its own immutable
+revisions, distinct from the Edition it witnesses. One Text Source can support
+several Reading units.
+_Avoid_: repository, producer, Edition.
+
+**Annotation Source**:
+Independently acquired linguistic evidence with its own origin, passage
+coverage, and immutable revisions. It applies to text only through a verified
+Text–annotation binding.
+_Avoid_: producer, current analysis, text identity.
+
+**Text–annotation binding**:
+The verified correspondence between an Annotation Source revision and an exact
+Text Source revision over declared passage bounds, retaining its transformation
+provenance. Bibliographic or CTS identifier agreement alone does not establish
+this correspondence.
+_Avoid_: work match, CTS match (candidate identity, not verified correspondence).
+
 **Book**:
-A learner's bibliographic identity for a work, owned per learner and stable
-across acquisition, analysis, and content revisions. A Book is addressed by its
-owner-scoped Book ID; its current acquired source and analysis evidence are
-resolved underneath that identity. Books are catalog-derived: they enter the
-library only through a connected catalog, never by manual entry. A Book is
-always in My Books once discovered; analysis is Book-level evidence, not
-membership state.
+A learner's bibliographic identity for a defined Reading unit, owned per learner
+and stable across acquisition, analysis, and content revisions. A Book is
+addressed by its owner-scoped Book ID; its current acquired source and analysis
+evidence are resolved underneath that identity. Books are catalog-derived: they
+enter the library only through a connected catalog, never by manual entry. A
+Book is always in My Books once discovered; analysis is Book-level evidence,
+not membership state.
 _Avoid_: source material (the acquired evidence, not the identity), acquired
 book.
 
