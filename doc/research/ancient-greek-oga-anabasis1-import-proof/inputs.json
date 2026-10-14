@@ -1,0 +1,94 @@
+{
+  "anab_listing.json": {
+    "bytes": 3558,
+    "json_sha256": "bb4d0e24505da23368b963358c09f6d20a1f85f78a6b09a7d535c12f81390bd5",
+    "request_headers": {
+      "Accept": "application/vnd.github+json"
+    },
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "eff90a0cee5772be1fc69ce33d0570b4d6b7ad5ba8ee129177911d17d6bca720",
+    "url": "https://api.github.com/repos/PerseusDL/canonical-greekLit/contents/data/tlg0032/tlg006?ref=0.0.11376425141"
+  },
+  "oga_README.md": {
+    "bytes": 7264,
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "19ee635fc9f0b9ddbcc43e712626c9e8ae60d152d4f79a1123b545af5c29bd82",
+    "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/README.md"
+  },
+  "oga_annis.html": {
+    "bytes": 10827,
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "057e15a64a322086ae514a18fb9a354318373201cbf48c4d83564f4998237d08",
+    "url": "https://varro.informatik.uni-leipzig.de/oga/en/annis.html"
+  },
+  "oga_example_README.md": {
+    "bytes": 113,
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "18ece3659337c436a648e4a37d6a3eb3db8c0a7ef1be29a7cf87be8a0830f1a2",
+    "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/README.md"
+  },
+  "oga_index.html": {
+    "bytes": 7595,
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "e4f0b3c7f7370b71d25b2acacf5e7bd2e7e0a34addc8d1e27d408257c1c951c6",
+    "url": "https://varro.informatik.uni-leipzig.de/oga/en/index.html"
+  },
+  "tagref.json": {
+    "bytes": 428,
+    "json_sha256": "418795cbf7bdea9c75aafc3c7ff2dd21f044db3606e870cf37b5b6e5f2f118b4",
+    "request_headers": {
+      "Accept": "application/vnd.github+json"
+    },
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "88671c5ea2573b9212bac53c421fbb8b263989c06200c37fad192922fcd5b332",
+    "url": "https://api.github.com/repos/PerseusDL/canonical-greekLit/git/refs/tags/0.0.11376425141"
+  },
+  "tree.json": {
+    "bytes": 16983,
+    "json_sha256": "c823df041b786d9b4c3e243920cf2aa68d071c116ae4c5ebe2b48d712c1a4e5e",
+    "request_headers": {
+      "Accept": "application/vnd.github+json"
+    },
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "0f47b1850b6b2525131134cabe3b676f30af17140712e6b728896996f1b3318b",
+    "url": "https://api.github.com/repos/OperaGraecaAdnotata/OGA/git/trees/a69d917dbe117a307829977dd556e22f05ce0715?recursive=1"
+  },
+  "up_README.md": {
+    "bytes": 2356,
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "9733e53be0cb9adf77c1e3359fffc81911bbf0dc17b9095b3912768b1a663275",
+    "url": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0.0.11376425141/README.md"
+  },
+  "up_data_tlg0032_tlg006___cts__.xml": {
+    "bytes": 1127,
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "7d505da603a11f7fd577a0a6e0e10ff66a87e9b8f9ef592578d2ba01e7dad3e0",
+    "url": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0.0.11376425141/data/tlg0032/tlg006/__cts__.xml"
+  },
+  "up_license.md": {
+    "bytes": 18625,
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "ccf0e8ce183761bf82700126cc45a4e907b2cede024e65e3fef5c2338b9b7063",
+    "url": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0.0.11376425141/license.md"
+  },
+  "up_tag.json": {
+    "bytes": 113739,
+    "json_sha256": "180672dd4f276766dd2525f91cbc197de0541bec8226c7e96f59c3c3a47294f5",
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "bc509d6d3ef8afc8002533e6ae4c77204745e25b5262968ecd8b266c073656f6",
+    "url": "https://api.github.com/repos/PerseusDL/canonical-greekLit/git/tags/90ac67b935af3b46d6f910c1e173ffd99c657d78"
+  },
+  "urn_cts_plus_date_label.xml": {
+    "bytes": 1028899,
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "560220c867edc5bf1473fe2960b748002117e532a01e0a537b4bffbc8367d31b",
+    "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/urn_cts/texts/urn_cts_plus_date_label.xml"
+  },
+  "zenodo_record.json": {
+    "bytes": 3959,
+    "json_sha256": "7505b6ae3314b0bac22ca80c4f31f848fc9964199b833eb0a5bcdd3c9235d7cd",
+    "role": "documentation_or_inventory_only; no full-unit text/annotation",
+    "sha256": "41a0f265e22a7dbe04c09c6456e242a854de70189cd6f6224a4e3f94828a4812",
+    "url": "https://zenodo.org/api/records/14206061"
+  }
+}

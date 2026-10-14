@@ -1,0 +1,26 @@
+{
+  "acquisition": "blocked_under_issue_scope; archive_not_requested",
+  "binding_and_reading_text": "not_performed",
+  "book1_counts_selection_inputs_and_omissions": null,
+  "complete_sentences": "not_performed",
+  "complete_unit_and_edition": "unverified_bibliographic_lead_only",
+  "corpus_archive": {
+    "checksum": "md5:d4117ae52f1cc6319c6ba20af0c1cf3b",
+    "id": "96c1ae43-3193-4386-94ec-4f62263b1cae",
+    "key": "opera_graeca_adnotata_v0.2.0.zip",
+    "size": 8629032478
+  },
+  "deterministic_card_inputs": "not_measured",
+  "optional_capabilities": "not_assessed",
+  "practical_quality": "not_assessed",
+  "real_go_selection_and_known_comparison": "not_run",
+  "required_lexical_identities": "not_performed",
+  "result": "stopped_at_gate_1_no_demonstrated_in_scope_package",
+  "rights": "explicit_BY-SA_declarations_retained; exact_unacquired_components_unassessed",
+  "see_operation_specific_rights": "NOTICE.md",
+  "semantic_and_artifact_checks": "not_performed",
+  "source_or_mvp_accepted": false,
+  "unicode_version": "15.1.0",
+  "version": "oga-anabasis1-acquisition-gate/1",
+  "vocabulary_ready_publication": false
+}

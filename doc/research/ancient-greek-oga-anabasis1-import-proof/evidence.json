@@ -1,0 +1,95 @@
+{
+  "anabasis_payload_paths_in_repository": [],
+  "bibliographic_lead_not_coverage": {
+    "author": "Xenophon",
+    "date_label": "m4_1",
+    "formatted_work_date": "—0379-01/—0359-12",
+    "printed_edition": "Xenophon, creator; Xenophontis Opera omnia Volume III Expeditio Cyri; Marchant, E. C. (Edgar Cardew), 1864-1960, editor",
+    "title_from_print_edition": "Anabasis",
+    "title_labels": "Anabasis",
+    "urn_cts": "tlg0032.tlg006.perseus-grc2"
+  },
+  "documentary_input_hashes": {
+    "anab_listing.json": {
+      "semantics": "canonical_JSON_all_fields",
+      "sha256": "bb4d0e24505da23368b963358c09f6d20a1f85f78a6b09a7d535c12f81390bd5"
+    },
+    "oga_README.md": {
+      "semantics": "original_bytes",
+      "sha256": "19ee635fc9f0b9ddbcc43e712626c9e8ae60d152d4f79a1123b545af5c29bd82"
+    },
+    "oga_annis.html": {
+      "semantics": "original_bytes",
+      "sha256": "057e15a64a322086ae514a18fb9a354318373201cbf48c4d83564f4998237d08"
+    },
+    "oga_example_README.md": {
+      "semantics": "original_bytes",
+      "sha256": "18ece3659337c436a648e4a37d6a3eb3db8c0a7ef1be29a7cf87be8a0830f1a2"
+    },
+    "oga_index.html": {
+      "semantics": "original_bytes",
+      "sha256": "e4f0b3c7f7370b71d25b2acacf5e7bd2e7e0a34addc8d1e27d408257c1c951c6"
+    },
+    "tagref.json": {
+      "semantics": "canonical_JSON_all_fields",
+      "sha256": "418795cbf7bdea9c75aafc3c7ff2dd21f044db3606e870cf37b5b6e5f2f118b4"
+    },
+    "tree.json": {
+      "semantics": "canonical_JSON_all_fields",
+      "sha256": "c823df041b786d9b4c3e243920cf2aa68d071c116ae4c5ebe2b48d712c1a4e5e"
+    },
+    "up_README.md": {
+      "semantics": "original_bytes",
+      "sha256": "9733e53be0cb9adf77c1e3359fffc81911bbf0dc17b9095b3912768b1a663275"
+    },
+    "up_data_tlg0032_tlg006___cts__.xml": {
+      "semantics": "original_bytes",
+      "sha256": "7d505da603a11f7fd577a0a6e0e10ff66a87e9b8f9ef592578d2ba01e7dad3e0"
+    },
+    "up_license.md": {
+      "semantics": "original_bytes",
+      "sha256": "ccf0e8ce183761bf82700126cc45a4e907b2cede024e65e3fef5c2338b9b7063"
+    },
+    "up_tag.json": {
+      "semantics": "canonical_JSON_all_fields",
+      "sha256": "180672dd4f276766dd2525f91cbc197de0541bec8226c7e96f59c3c3a47294f5"
+    },
+    "urn_cts_plus_date_label.xml": {
+      "semantics": "original_bytes",
+      "sha256": "560220c867edc5bf1473fe2960b748002117e532a01e0a537b4bffbc8367d31b"
+    },
+    "zenodo_record.json": {
+      "semantics": "canonical_JSON_all_fields",
+      "sha256": "7505b6ae3314b0bac22ca80c4f31f848fc9964199b833eb0a5bcdd3c9235d7cd"
+    }
+  },
+  "example_packages": [
+    "ggm0001.ggm001.1st1K-grc1"
+  ],
+  "oga_documentation_pin": "a69d917dbe117a307829977dd556e22f05ce0715",
+  "release": {
+    "doi": "10.5281/zenodo.14206061",
+    "files": [
+      {
+        "checksum": "md5:d4117ae52f1cc6319c6ba20af0c1cf3b",
+        "id": "96c1ae43-3193-4386-94ec-4f62263b1cae",
+        "key": "opera_graeca_adnotata_v0.2.0.zip",
+        "size": 8629032478
+      }
+    ],
+    "id": 14206061,
+    "metadata_license_id": "other-at",
+    "version": "0.2.0"
+  },
+  "repository_inventory_complete": true,
+  "upstream_text_lead_not_acquired": {
+    "bytes": 886347,
+    "commit": "476fb6133498e5710de7eec0b492791da86be4b4",
+    "edition_binding": "unverified",
+    "git_blob": "a220f4b8accd1448a0189a595493a78aa09c707b",
+    "path": "data/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml",
+    "release_tag": "0.0.11376425141",
+    "sha256": null,
+    "tag_object": "90ac67b935af3b46d6f910c1e173ffd99c657d78"
+  }
+}
