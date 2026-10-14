@@ -1,0 +1,77 @@
+node_key	binding_join_key	convention_id	group_id	role	form	form_marks	v16_form	v16_marks	nfc_changes_form	native_lemma	vocab_effect	status	evidence_ids
+9:17	s009w017	C-CRASIS	G01	fragment	τ-	U+002D	τ-	U+002D	False	τά	non_vocab:DET	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+9:18	s009w018	C-CRASIS	G01	host	ἀληθῆ		ἀληθῆ		False	ἀληθής	eligible:ἀληθήσ|ADJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+30:1	s030w001	C-CRASIS	G04	fragment	κ-	U+002D	κ-	U+002D	False	καί	conditional:ADV|CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+30:2	s030w002	C-CRASIS	G04	host	ἀγὼ		ἀγὼ		False	ἐγὼ	non_vocab:PRON	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+31:1	s031w001	C-CRASIS	G05	fragment	κ-	U+002D	κ-	U+002D	False	καί	conditional:ADV|CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+31:2	s031w002	C-CRASIS	G05	host	ἀγὼ		ἀγὼ		False	ἐγὼ	non_vocab:PRON	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+47:25	s047w025	C-CRASIS	G06	fragment	τ-	U+002D	τ-	U+002D	False	τέ	non_vocab:CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+47:26	s047w026	C-CRASIS	G06	host	ἀληθῆ		ἀληθῆ		False	ἀληθής	eligible:ἀληθήσ|ADJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+48:7	s048w007	C-CRASIS	G07	fragment	τ-	U+002D	τ-	U+002D	False	τε	non_vocab:CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+48:8	s048w008	C-CRASIS	G07	host	ἀληθῆ		ἀληθῆ		False	ἀληθής	eligible:ἀληθήσ|ADJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+49:1	s049w001	C-CRASIS	G08	fragment	κ-	U+002D	κ-	U+002D	False	καί	non_vocab:CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+49:2	s049w002	C-CRASIS	G08	host	ἀκείνη		ἀκείνη		False	ἐκεῖνος	non_vocab:PRON	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+53:2	s053w002	C-CRASIS	G09	fragment	τ-	U+002D	τ-	U+002D	False	τε	conditional:ADV|CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+53:3	s053w003	C-CRASIS	G09	host	ἆλλα		ἆλλα		False	ἄλλος	eligible:ἄλλοσ|ADJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+67:1	s067w001	C-CRASIS	G10	fragment	κ-	U+002D	κ-	U+002D	False	καί	non_vocab:CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+67:2	s067w002	C-CRASIS	G10	host	ἀγὼ		ἀγὼ		False	ἐγὼ	non_vocab:PRON	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+71:16	s071w016	C-CRASIS	G11	fragment	τ-	U+002D	τ-	U+002D	False	τε	conditional:ADV|CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+71:17	s071w017	C-CRASIS	G11	host	οὔπισθεν		οὔπισθεν		False	ὄπισθεν	eligible:ὄπισθεν|ADV	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+72:1	s072w001	C-CRASIS	G12	fragment	κ-	U+002D	κ-	U+002D	False	καί	conditional:ADV|CCONJ	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+72:2	s072w002	C-CRASIS	G12	host	ἀκεῖνος		ἀκεῖνος		False	ἐκεῖνος	non_vocab:PRON	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+118:29	s118w029	C-CRASIS	G13	fragment	κ-	U+002D	κ-	U+002D	False	καί	eligible:καί|ADV	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+118:30	s118w030	C-CRASIS	G13	host	ἀκεῖνος		ἀκεῖνος		False	ἐκεῖνος	non_vocab:PRON	attested_practice_undocumented	CORPUS-ATTEST AGDT-V16-LYS
+2:3	s002w003	C-ELISION		elided_word	οἶδ̓	U+0313	οἶδʼ	U+02BC	False	οἶδα	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+4:7	s004w007	C-ELISION		elided_word	παῤ	U+0313	παρʼ	U+02BC	True	παρά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+4:12	s004w012	C-ELISION		elided_word	ἀλλ̓	U+0313	ἀλλʼ	U+02BC	False	ἀλλά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+11:31	s011w031	C-ELISION		elided_word	ἐπ̓	U+0313	ἐπʼ	U+02BC	False	ἐπί	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+16:1	s016w001	C-ELISION		elided_word	ἐπ̓	U+0313	ἐπʼ	U+02BC	False	ἐπί	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+18:12	s018w012	C-ELISION		elided_word	ταῦθ̓	U+0313	ταῦθʼ	U+02BC	False	οὗτος	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+22:13	s022w013	C-ELISION		elided_word	ἀλλ̓	U+0313	ἀλλʼ	U+02BC	False	ἀλλά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+31:6	s031w006	C-ELISION		elided_word	οὐδ̓	U+0313	οὐδʼ	U+02BC	False	οὐδέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+35:16	s035w016	C-ELISION		elided_word	τριάκονθ̓	U+0313	τριάκονθʼ	U+02BC	False	τριάκοντα	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+36:2	s036w002	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+36:3	s036w003	C-ELISION		elided_word	οὐδ̓	U+0313	οὐδʼ	U+02BC	False	οὐδέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+38:12	s038w012	C-ELISION		elided_word	παῤ	U+0313	παρʼ	U+02BC	True	παρά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+42:2	s042w002	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+44:12	s044w012	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+46:14	s046w014	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+47:33	s047w033	C-ELISION		elided_word	παῤ	U+0313	παρʼ	U+02BC	True	παρά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+52:12	s052w012	C-ELISION		elided_word	παῤ	U+0313	παρʼ	U+02BC	True	παρά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+55:11	s055w011	C-ELISION		elided_word	ἔμ̓	U+0313	ἔμʼ	U+02BC	False	ἐγώ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+56:4	s056w004	C-ELISION		elided_word	ἐπ̓	U+0313	ἐπʼ	U+02BC	False	ἐπί	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+63:2	s063w002	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+65:13	s065w013	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+66:2	s066w002	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+68:2	s068w002	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+70:20	s070w020	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+71:2	s071w002	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+72:13	s072w013	C-ELISION		elided_word	ἀλλ̓	U+0313	ἀλλʼ	U+02BC	False	ἀλλά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+73:2	s073w002	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+73:10	s073w010	C-ELISION		elided_word	ἀλλ̓	U+0313	ἀλλʼ	U+02BC	False	ἀλλά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+74:24	s074w024	C-ELISION		elided_word	οὐδ̓	U+0313	οὐδʼ	U+02BC	False	οὐδέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+75:14	s075w014	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+76:1	s076w001	C-ELISION		elided_word	ἀλλ̓	U+0313	ἀλλʼ	U+02BC	False	ἀλλά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+76:23	s076w023	C-ELISION		elided_word	ἀλλ̓	U+0313	ἀλλʼ	U+02BC	False	ἀλλά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+79:7	s079w007	C-ELISION		elided_word	ἀλλ̓	U+0313	ἀλλʼ	U+02BC	False	ἀλλά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+79:21	s079w021	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+85:20	s085w020	C-ELISION		elided_word	ἐφ̓	U+0313	ἐφʼ	U+02BC	False	ἐπί	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+88:9	s088w009	C-ELISION		elided_word	ἐπ̓	U+0313	ἐπʼ	U+02BC	False	ἐπί	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+92:5	s092w005	C-ELISION		elided_word	ἐφ̓	U+0313	ἐφʼ	U+02BC	False	ἐπί	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+94:33	s094w033	C-ELISION		elided_word	ὥστ̓	U+0313	ὥστʼ	U+02BC	False	ὥστε	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+94:46	s094w046	C-ELISION		elided_word	ἐπ̓	U+0313	ἐπʼ	U+02BC	False	ἐπί	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+95:1	s095w001	C-ELISION		elided_word	ἀνθ̓	U+0313	ἀνθʼ	U+02BC	False	ἀντί	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+97:3	s097w003	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+115:20	s115w020	C-ELISION		elided_word	μετ̓	U+0313	μετʼ	U+02BC	False	μετά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+116:12	s116w012	C-ELISION		elided_word	μεθ̓	U+0313	μεθʼ	U+02BC	False	μετά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+117:25	s117w025	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+118:17	s118w017	C-ELISION		elided_word	ἵν̓	U+0313	ἵνʼ	U+02BC	False	ἵνα	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+119:2	s119w002	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+123:3	s123w003	C-ELISION		elided_word	παῤ	U+0313	παρʼ	U+02BC	True	παρά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+128:17	s128w017	C-ELISION		elided_word	ὑπ̓	U+0313	ὑπʼ	U+02BC	False	ὑπό	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+130:18	s130w018	C-ELISION		elided_word	ἀλλ̓	U+0313	ἀλλʼ	U+02BC	False	ἀλλά	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+133:30	s133w030	C-ELISION		elided_word	δ̓	U+0313	δʼ	U+02BC	False	δέ	none: lemma is the full citation form	release_mark_mapping_supported	AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS
+11:25	s011w025	C-ENCLITIC	G02	fragment	-τε	U+002D	-τε	U+002D	False	τε	non_vocab:CCONJ	unsupported_order_exception	CORPUS-ATTEST AGDT-V16-LYS
+11:26	s011w026	C-ENCLITIC	G02	host	μή		μή		False	μή	conditional:ADV|PART	unsupported_order_exception	CORPUS-ATTEST AGDT-V16-LYS
+11:28	s011w028	C-ENCLITIC	G03	fragment	-τε	U+002D	-τε	U+002D	False	τε	non_vocab:CCONJ	unsupported_order_exception	CORPUS-ATTEST AGDT-V16-LYS
+11:29	s011w029	C-ENCLITIC	G03	host	μή		μή		False	μή	conditional:ADV|PART	unsupported_order_exception	CORPUS-ATTEST AGDT-V16-LYS

@@ -1,19 +1,43 @@
-rule_id	letter	relation	upos	upos_status	vocab_class	evidence
-R00	-	elliptic		n/a	unprinted	structural: elided node, not printed
-R01	n	*	NOUN	resolved	eligible	"UD v2.1 cross-corpus n: 41252/41252 NOUN; {""NOUN"": 41252}"
-R02	a	*	ADJ	resolved	eligible	"UD v2.1 cross-corpus a: 21625/21625 ADJ; {""ADJ"": 21625}"
-R03	d	*	ADV	resolved	eligible	"UD v2.1 cross-corpus d_other: 7682/7682 ADV; {""ADV"": 7682}"
-R03P	d	AuxY|AuxZ	ADV	resolved_conditional	eligible	"native tag d on Lysias I AuxY/AuxZ particles: 259 d, 0 g. Corpus practice differs by file: 15 of 33 files with particles use no g; 18 use g. UD v2.1 cross-corpus d_particle: 11324/11324 ADV; {""ADV"": 11324}"
-R04	v	AuxV	AUX	resolved	non_vocab	"UD v2.1 cross-corpus v_auxv: 11/11 AUX; {""AUX"": 11}"
-R05	v	copula-candidate	VERB|AUX	unresolved	unresolved	"UD v2.1 cross-corpus v_copula: 1593/1595 AUX; {""AUX"": 1593, ""VERB"": 2}"
-R06	v	*	VERB	resolved	eligible	"UD v2.1 cross-corpus v: 35836/37711 VERB; {""AUX"": 1875, ""VERB"": 35836}"
-R07	c	COORD	CCONJ	resolved	non_vocab	"UD v2.1 cross-corpus c_coord: 5316/5332 CCONJ; {""CCONJ"": 5316, ""SCONJ"": 16}"
-R08	c	AuxC	SCONJ	resolved_conditional	non_vocab	"UD v2.1 cross-corpus c_auxc: 2191/2644 SCONJ; {""CCONJ"": 453, ""SCONJ"": 2191}"
-R09	c	*	CCONJ|SCONJ	class_resolved_upos_unresolved	non_vocab	"UD v2.1 cross-corpus c: 6695/8994 CCONJ; {""CCONJ"": 6695, ""SCONJ"": 2299}"
-R10	r	*	ADP	resolved	non_vocab	"UD v2.1 cross-corpus r: 10649/10649 ADP; {""ADP"": 10649}"
-R11	l	*	DET	resolved	non_vocab	"UD v2.1 cross-corpus l: 11831/11832 DET; {""ADJ"": 1, ""DET"": 11831}"
-R12	p	*	PRON	resolved	non_vocab	"UD v2.1 cross-corpus p: 12633/12634 PRON; {""PRON"": 12633, ""X"": 1}"
-R13	i	*	INTJ	resolved	non_vocab	"UD v2.1 cross-corpus i: 424/424 INTJ; {""INTJ"": 424}"
-R14	u	*	PUNCT	resolved	non_vocab	"UD v2.1 cross-corpus u: 24963/24963 PUNCT; {""PUNCT"": 24963}"
-R15	m	*	NUM	resolved	non_vocab	"UD v2.1 cross-corpus m: 230/230 NUM; {""NUM"": 230}"
-R16	g	*	PART	resolved	non_vocab	"UD v2.1 cross-corpus g: 13627/13629 PART; {""ADV"": 2, ""PART"": 13627}"
+rule_id	layer	applies_to	result	status	eligibility	printed_nodes	evidence_ids	note
+R00	upos	artificial=elliptic	-	n/a	unprinted	32	ADR0094	unprinted node; no surface, not vocabulary
+R01	upos	n, lowercase lemma, not a name component or rubric	NOUN	resolved	eligible	306	AGDT-TAGSETS-21 AGDT-README-17 UD-GRC-NOUN	native noun letter
+R01R	upos	n, sole lexical word of an ExD rubric sentence	NOUN	resolved	eligible	5	AGDT20-EXD UD-PROPN-TITLES	rubric heading noun keeps its common-noun tag; lemma case is normalized by #2033
+R01P	upos	n, lemma is a :le: entry in Morpheus nom.proper	PROPN	resolved	non_vocab	9	MORPH-NOMPROPER UD-PROPN UD-GRC-PROPN REPO-ELIG	proper-name stem lexicon of the producer's morphology tool; PROPN is outside AllowedPOS
+R01C	upos	n, capitalized lemma not in Morpheus nom.proper	NOUN|PROPN	conditional	conditional	4	UD-PROPN UD-GRC-PROPN HAMLEDT-PROPN UD-PERSEUS-CAPS	no producer proper-name evidence; capitalization alone is not PROPN
+R01A	upos	n, lemma named by UD grc as a substantivized adjective	ADJ|NOUN|PROPN	conditional	conditional	2	UD-GRC-NOUN AGDT20-SUBSTADJ UD-PROPN	native n conflicts with target-scheme guidance on this lemma
+R01M	upos	n, lowercase lemma syntactically joined to an adjacent R01C name word	NOUN|PROPN	conditional	conditional	2	UD-PROPN	possible component of a multiword name
+R02	upos	a	ADJ	resolved	eligible	243	AGDT-TAGSETS-21 AGDT-README-17	native adjective letter
+R03	upos	d, relation not AuxY/AuxZ	ADV	resolved	eligible	82	AGDT-TAGSETS-21 AGDT-README-17 AGDT20-ADVLEM UD-GRC-ADV INTERSET-GRC	native adverb letter
+R03K	upos	d, lemma καί, AuxZ	ADV	resolved	eligible	10	AGDT20-AUXZ AGDT11-AUXZ UD-GRC-PART SMYTH-2769	AuxZ marks 'even/also'; UD grc PART excludes 'adverbs such as καί even'
+R03Y	upos	d or c, lemma in AGDT conjunction-particle list, AuxY, head is a later COORD with the same lemma	CCONJ	resolved	non_vocab	27	AGDT11-AUXY AGDT20-COORD AGDT20-PARTICLE UD-GRC-CCONJ	non-head correlative coordinator attached to the final coordinator
+R03N	upos	d, negator οὐ/μή, AuxY/AuxZ	ADV|PART	conditional	conditional	32	AGDT11-AUXZ UD-PART UD-GRC-PART INTERSET-GRC	UD lists negation as a PART example; grc docs give no negation rule
+R03C	upos	d, lemma in AGDT conjunction-particle list, AuxY/AuxZ, not under COORD	ADV|CCONJ	conditional	conditional	70	AGDT20-PARTICLE SMYTH-2769 UD-GRC-CCONJ	AGDT says these are adverbs unless they function as conjunctions; UD CCONJ is lexical
+R03A	upos	d, γάρ/οὖν/τοίνυν, AuxY/AuxZ	ADV|CCONJ|PART	conditional	conditional	46	AGDT20-CONJ AGDT20-COORD SMYTH-2769 UD-GRC-PART	AGDT treats causal/inferential conjunctions as sentence adverbs; UD grc gives no mapping
+R03S	upos	d, ὡς, AuxY/AuxZ	ADV|PART|SCONJ	conditional	conditional	2	AGDT20-PARTICIPLE-AUXZ UD-GRC-SCONJ	ὡς with a participle is AuxZ in AGDT
+R03P	upos	d, any other AuxY/AuxZ particle	ADV|PART	conditional	conditional	72	AGDT11-PART AGDT20-PARTICLE UD-GRC-PART SMYTH-2769 AGDT-README-20	AGDT morphology is adverb; UD grc PART is a Smyth list not mapped to native evidence
+R04	upos	v, relation AuxV	AUX	resolved	non_vocab	1	UD-GRC-AUX UD-AUX UDTOOLS-GRC-AUX	periphrastic auxiliary
+R05C	upos	v, lemma εἰμί, an effective PNOM dependent	AUX	resolved	non_vocab	49	AGDT20-PNOM AGDT11-PNOM UD-COP UD-AUX UDTOOLS-GRC-AUX HAMLEDT-COP	copula with a predicate nominal; effective dependents traverse COORD/APOS members and AuxP/AuxC
+R05X	upos	v, lemma εἰμί, no effective PNOM, not AuxV	VERB|AUX	conditional	conditional	2	UD-COP UD-AUX UD-PERSEUS-EIMI	UD allows existential 'be' as copula only if it is the same verb; UD Perseus tags εἰμί AUX
+R06	upos	v, other	VERB	resolved	eligible	517	AGDT-TAGSETS-21 UD-GRC-VERB UD-COP	includes PNOM-taking γίγνομαι etc.: UD says 'become' verbs are not copulas
+R07	upos	c, COORD	CCONJ	resolved	non_vocab	121	AGDT20-COORD AGDT20-CONJ UD-GRC-CCONJ	
+R08	upos	c, AuxC with an effective verbal dependent	SCONJ	resolved	non_vocab	80	AGDT20-CONJ AGDT11-AUXC UD-GRC-SCONJ	introduces a clause
+R08X	upos	c, AuxC without an effective verbal dependent	SCONJ|CCONJ|ADP	conditional	non_vocab	11	AGDT20-CONJ UD-GRC-SCONJ	comparison/phrase-level AuxC (e.g. 'than', 'as')
+R09	upos	c, other relation	CCONJ|SCONJ	unresolved	non_vocab	3	AGDT20-CONJ	no documented rule for this relation
+R10	upos	r	ADP	resolved	non_vocab	136	AGDT-TAGSETS-21 INTERSET-GRC	
+R11	upos	l	DET	resolved	non_vocab	284	AGDT-TAGSETS-21 INTERSET-GRC	
+R12	upos	p	PRON	resolved	non_vocab	287	AGDT-TAGSETS-21 INTERSET-GRC	
+R13	upos	i	INTJ	resolved	non_vocab	25	AGDT-TAGSETS-21	
+R14	upos	u	PUNCT	resolved	non_vocab	374	AGDT-TAGSETS-21 AGDT-README-20	
+R15	upos	m	NUM	resolved	non_vocab	0	AGDT-TAGSETS-21	
+R16	upos	g	PART	resolved	non_vocab	0	AGDT-TAGSETS-21 INTERSET-GRC	
+H0	headword	plain lemma	citation headword = NFC native lemma	source_plain		2795	AGDT-README-17	accent, case and breathing kept; no repair
+H1	headword	Morpheus 'P-L' where L's stemlib :le: entry carries rpb:/pb: P	headword = L	decoded		4	MORPH-PRINT MORPH-RPB MORPH-STEMLIB	preverb is internal to L's own entry
+H2	headword	Morpheus 'P-L' with a vbs.cmp row for P-L (same homograph number)	headword = compound	decoded		0	MORPH-PRINT MORPH-CMP MORPH-BUILDLEMMA	Morpheus' own compound table
+H3	headword	Morpheus 'P-L' matching exactly one :le: entry whose stem is pb:P + L's stem	headword = that entry	conditional		2	MORPH-PRINT MORPH-STEMLIB MORPH-BUILDLEMMA	decomposition match, not a printed or tabled decoding
+H4	headword	Morpheus 'P-L' with no documented decoding	unresolved (candidates recorded)	unresolved		1	MORPH-PRINT MORPH-BUILDLEMMA	raw lemma kept; no hyphen deletion
+D0	discriminator	v1.6 witness lemma has no Morpheus number	absent	absent_in_source		2345	AGDT-V16-LYS AGDT-HDR-LYS	
+D1	discriminator	v1.6 witness lemma ends in a Morpheus number N	morpheus-homograph:N	stripped_in_v2.1_witness_v1.6		68	AGDT-V16-LYS AGDT20-LEMNUM HAMLEDT-LID AGDT-HDR-LYS	v2.0 normalization deleted the number; v1.6 is the documented pre-normalization file
+D2	discriminator	one key|UPOS spans different v1.6 numbers	identity conditional	conflated		15	AGDT-V16-LYS AGDT20-LEMNUM	plain or merged identity would erase a source-declared distinction
+C-ELISION	component	v2.x form carries U+0313 where the v1.6 witness has U+02BC at the same node		release_mark_mapping_supported			AGDT-README-20 AGDT-V16-LYS AGDT-HDR-LYS	
+C-CRASIS	component	form 'X-' followed by host remainder (e.g. κ- + ἀγὼ)		attested_practice_undocumented			CORPUS-ATTEST AGDT-V16-LYS	
+C-ENCLITIC	component	form '-X' (split enclitic); elsewhere it follows its host, in Lysias I it precedes μή		unsupported_order_exception			CORPUS-ATTEST AGDT-V16-LYS	

@@ -1,92 +1,151 @@
-# Lysias I: AGDT → canonical vocabulary mapping (#2049)
+# Lysias I: AGDT → canonical vocabulary mapping (#2049), completion pass
 
-Scope: canonical vocabulary interpretation for Lysias I (`tlg0540.tlg001.perseus-grc1`, AGDT v2.1). Owned here: UPOS mapping, lemma/headword decoding, canonical keys, node accounting. Not covered: authority, source coordinates, rubric scope, and variant bindings (#2048). No cards, no annotation, no provider calls.
+Scope: interpreting the vocabulary of AGDT v2.1 Lysias I (`tlg0540.tlg001.perseus-grc1`, `treebank_data@bf4334f0`, sha256 `44ecf3a2…a568`). This covers producer component representation, UPOS, citation headwords, canonical keys, discriminators and lemma/POS review lineage.
+
+Not covered here: text authority, independent witnesses, source variants and occurrence binding. Those belong to #2048. The component appendix below reports producer conventions only. It does not assign source coordinates.
+
+This pass supersedes the conditional figures at [9531fc98](https://github.com/justin-hayes/mouseion/commit/9531fc98c1d7a301ef2128115717e0f471259ea0), including the 498-resolved-identity and 1,432-resolved-occurrence aggregates.
+
+- Rule set: `mapping-spec.md`.
+- Per-node manifest: `manifest/lysias1-nodes.tsv`.
+- Evidence registry: `manifest/lysias1-evidence.tsv`, with pinned revision, path, line and sha256 for each item.
 
 ## Result
 
-The mapping is established for 2,802 printed nodes. It is complete at the node level: every printed node has a rule, a UPOS status, and a vocabulary class. It is **not** complete at the identity level. The blockers are listed below.
+Every one of the 2,834 nodes has a rule. That is 2,802 printed nodes plus 32 `artificial="elliptic"` nodes. Full node classification is **not** the same as identity readiness. Statuses propagate across UPOS, headword, eligibility and discriminator together. A node's identity is `resolved` only when all four are resolved.
 
-- **Eligible (1,439 occurrences):** NOUN 328, ADJ 243, ADV 341, VERB 527.
-  - 1,173 resolved with no conditions.
-  - 259 resolved-conditional: `d` on AuxY/AuxZ particles → ADV (rule R03P).
-  - 7 hyphenated compound-verb lemmas: the UPOS is resolved (VERB) but the headword is undecoded.
-- **Non-vocabulary (1,322):** the UPOS is resolved for most classes. R08 (91 AuxC → SCONJ) is conditional on the relation-based split. R09 (3 conjunctions with a relation-only class) has its CCONJ/SCONJ split unresolved. Neither affects vocabulary eligibility.
-- **Unresolved (41):** the copula εἰμί with a predicate-nominal dependent. VERB vs AUX is not established by the native scheme.
-- Total: 1,439 + 1,322 + 41 = 2,802. Plus 32 `artificial="elliptic"` nodes, excluded as unprinted per ADR 0094. Node count 2,834.
+| Printed nodes (2,802) | Count |
+| --- | --- |
+| Eligible: every UPOS candidate is in `AllowedPOS` | 1,163 (NOUN 311, ADJ 243, ADV 92, VERB 517) |
+| Eligibility conditional: candidates span vocabulary and non-vocabulary UPOS | 232 |
+| Non-vocabulary: no candidate is in `AllowedPOS` | 1,407 |
 
-### Node accounting by letter (printed)
+Vocabulary nodes by identity status (eligible + conditional = 1,395):
 
-v 569, u 374, d 341, n 328, p 287, l 284, a 243, c 215, r 136, i 25. No g, m, x, b, or k occur in Lysias I.
+- **1,145 resolved.**
+- **249 conditional:**
+  - 232 with conditional eligibility.
+  - 15 nodes from homographs that v2.1 merged under one key.
+  - 2 with a conditional headword.
+- **1 unresolved.**
 
-### Identities
+Identities: **465 resolved** (each has at least one resolved occurrence), **33 conditional-only** and **1 unresolved**. Two resolved identities also have conditional occurrences: `καί|ADV` (10 resolved, 13 conditional) and `νῦν|ADV` (2 resolved, 1 conditional). Their conditional rows are counted separately in `lysias1-identities.tsv`.
 
-- Eligible identities: 503 = 498 resolved + 5 unresolved-headword (7 nodes).
-- Copula candidates: `candidate:εἰμί|VERB` (41) and `candidate:εἰμί|AUX` (41). These are separate from the 10 resolved non-copula `εἰμί|VERB` tokens.
-- Identity key = canonical key + `|` + UPOS.
+Source scope: the 5 rubric label words (sentences 78, 82, 84, 90, 121: Νόμος ×3, Μάρτυρες ×2) are kept and labelled `rubric_label` (rule R01R). They are not excluded. Whether rubric text is authoritative is #2048's question.
 
-**Full identities are not established.** Blockers, with the number of affected nodes:
+## 1. Producer representation of components (appendix: `manifest/lysias1-components.tsv`)
 
-1. Copula εἰμί: 41 nodes. If VERB, eligible occurrences rise to 1,480 and `εἰμί|VERB` goes from 10 to 51. If AUX, they are non-vocabulary and the eligible count stays at 1,439. The native scheme has no copula label, so this cannot be resolved from Lysias evidence.
-2. Hyphenated compound-verb headwords: 7 nodes, 5 identities. `κατά-καθεύδω` (2), `ἀντί-βολέω` (2), `διά-διαιτάω` (1), `ἀμφί-ἀμφισβητέω` (1), `σύν-λέγω` (1). The guidelines I checked do not define this notation. Raw lemmas are kept and the canonical key is not decoded.
-3. Particle letter (`d` vs `g`): 259 nodes. See "Particle evidence" below.
+| Convention | Nodes | Finding | Status |
+| --- | --- | --- | --- |
+| C-ELISION | 50 | At each of these node ids, the v1.6 file has U+02BC and v2.0/v2.1 have U+0313. No other character changes. The v2.0 README records a "checked/normalized" pass on Greek characters, and the v2.1 header names v1.6 as the pre-normalization text. NFC composes U+0313 with the preceding letter in 5 forms (e.g. `παῤ`), so after NFC the elision mark can no longer be told apart from a breathing. All 50 lemmas are full citation forms. | Mark mapping supported; no vocabulary effect |
+| C-CRASIS | 22 = 11 pairs | Consonant fragment + `-` (κ-, τ-), then a host carrying the remainder (ἀγὼ, ἀληθῆ, ἆλλα, ἀκεῖνος, οὔπισθεν). The pinned v2.1 corpus has 91 such fragments in 11 files, and the v1.6 forms are identical. Neither the 1.1 guidelines (English text), the 2.0 nor the 2.5 guidelines mention crasis. Five host nodes are eligible vocabulary (ἀληθής ×3, ἄλλος, ὄπισθεν), and their identities do not depend on the split. | Attested practice, undocumented |
+| C-ENCLITIC | 4 (s011 w025/26, w028/29) | `-τε` then `μή` for μήτε. Elsewhere in the pinned corpus, hyphen-initial enclitics come *after* their host (6 cases in 2 files, e.g. οὔ + -τ̓). Lysias I is the only file where the enclitic comes first. | Unsupported order exception; no documented rule |
 
-## Headword cases (raw, not folded)
+String concatenation is not used as proof of component spans anywhere here.
 
-- **Grave accent:** 10 nodes (`καὶ` ×8, `μὴ` ×2) keep their grave. No acute/grave fold is applied (ADR 0094). These are separate identities from `καί` (99) and `μή` (12).
-- **Accent-variant splits within one UPOS (not merged):**
-  - `καί`/`καὶ` (ADV)
-  - `μή`/`μὴ` (ADV)
-  - `πάγος`/`πᾶγος` (NOUN, 1 each)
-  - `παίδιον`/`παιδίον` (NOUN, 2 and 4)
-  - Accent folding would also merge `εἰμί` ("be") and `εἶμι` ("go"), which is why it is not applied.
-- **Capitalized lemmas:** 17 nodes, all NOUN: `Ἐρατοσθένης` ×6, `Ἀθηναῖος` ×2, `Σώστρατος` ×2, `Ἄρειας` ×2, `Ἑλλάς`, `Ὀῆθεν`, `Θεσμοφόρια`, `Νόμος`, `Ἁρμόδιος`. The key is lowercased per #2033. The native tagset has no PROPN, and UD v2.1 emits no PROPN for capitalized NOUN lemmas (11,323/11,323 NOUN). Whether names enter vocabulary is a policy question for the parent, not a mapping question.
-- **Adjective/adverb lemma sharing:** `καλόσ` (ADJ 1, ADV 2) and `οἰκεῖοσ` (ADJ 1, ADV 1). The adverbs carry the adjective lemma. Two identities per key, one per UPOS.
-- **Lemma examples checked in Lysias I:** `δέ` 65 and `δὲ` 4 (separate, accent-variant); `εἴσειμι` 6; `συνδειπνέω` 4. These are usable as raw headwords. I did not verify them against Kaikki or LSJ. They are attributed to the source lemma field only.
+## 2. Compound lemmas (7 nodes, 5 identities)
 
-## Mapping rules (versioned)
+Morpheus prints a lexicon analysis as `preverb-lemma_of` (`prntanal.c`). Its compound-lemma builder is disabled ("no longer called as of 6/7/88", `checkpreverb.c`). A `rpb:` key marks a preverb inside the lexeme's own stem (`morphkeys.c`). Decoding uses Morpheus's own stemlib, and the raw lemma is kept in every case.
 
-Full table: `manifest/lysias1-rules.tsv`, rules version `lysias1-upos-rules/2026-10-14.1`.
+| Raw lemma (nodes) | Headword | Rule | Status | Evidence |
+| --- | --- | --- | --- | --- |
+| κατά-καθεύδω (2) | καθεύδω | H1 | decoded | `vbs.simp.ml:9786` `:vs:kaqeud … rpb:kata/` under `:le:kaqeu/dw` |
+| διά-διαιτάω (1) | διαιτάω | H1 | decoded | `vbs.simp.ml:5240` `rpb:dia/` under `:le:diaita/w` |
+| ἀμφί-ἀμφισβητέω (1) | ἀμφισβητέω | H1 | decoded | `vbs.simp.ml:1660` `pb:a)mfi/` under `:le:a)mfisbhte/w` |
+| ἀντί-βολέω (2) | ἀντιβολέω | H3 | conditional | `βολέω` has no preverb. The only entry with `pb:a)nti/` + stem `bol ew_denom` is `:le:a)ntibole/w` (`vbs.simp.ml:1966`). This is a decomposition match, not a printed or tabled decoding. |
+| σύν-λέγω (1) | none | H4 | unresolved | The v1.6 lemma is `σύν-λέγω1`. Morpheus's compound table has only `su/n-le/gw2 sulle/gw` (`vbs.cmp.ml:6459`). The homograph numbers disagree, so συλλέγω is recorded as a candidate, not decoded. |
 
-- Letter rules: n→NOUN, a→ADJ, d→ADV, v→VERB, c→CCONJ/SCONJ, r→ADP, l→DET, p→PRON, i→INTJ, u→PUNCT, m→NUM, g→PART.
-- Relation-specific rules:
-  - v + AuxV → AUX (R04, 1 node).
-  - v + copula candidate → VERB|AUX, unresolved (R05, 41 nodes).
-  - c + COORD → CCONJ (R07, 121 nodes).
-  - c + AuxC → SCONJ, conditional (R08, 91 nodes).
-  - d + AuxY/AuxZ → ADV, conditional (R03P, 259 nodes).
-- Copula candidate: εἰμί with a dependent whose relation starts with PNOM. This is a structural test on the native tree only.
-- Eligibility (mirrors repo): UPOS ∈ {NOUN, VERB, ADJ, ADV}, lemma contains a letter, relation ≠ `compound:prt`. Source: `internal/selection/selection.go` `AllowedPOS` (lines 69–72); `internal/lexical/lemma.go` `IsLemma`. `internal/lexical` contentPOS is a context helper, not vocabulary selection. ADR 0073 Greek function words are a context stopword set, separate from eligibility.
+## 3. UPOS
 
-## Particle evidence (d vs g)
+- **Native letters.** AGDT 1.7's README and the v2.1 TAGSETS both define `d` = adverb and `g` = particle as separate letters. This closes the earlier "1.1 letter table unverified" gap. Lysias I uses `d` on all 259 AuxY/AuxZ particles.
+- **Copula (εἰμί, 52 printed nodes).** The rule applies when εἰμί has an *effective* PNOM dependent. "Effective" means looking through COORD/APOS members and AuxP/AuxC, as HamleDT's `detect_prague_copula` does.
+  - The rule rests on AGDT 1.1/2.0 PNOM ("dependent on a copulative verb"), UD `cop`/`AUX` ("verbal copulas are tagged AUX") and the validator data (`grc` εἰμί `cop.AUX`, status documented).
+  - 49 nodes → **AUX, resolved, non-vocabulary**. The old heuristic found 41; the traversal adds 8.
+  - 1 AuxV → AUX.
+  - 2 have no PNOM (2:22, 119:6) → **VERB|AUX conditional**. UD allows existential "be" to be a copula, and UD Perseus tags εἰμί AUX in almost every use. That is cross-corpus practice.
+  - Other verbs with a PNOM (γίγνομαι, ἡγέομαι, τυγχάνω) stay VERB, because UD says "become" verbs are not copulas and the `grc` aux list contains only εἰμί and ἔχω.
+- **Particles (259).**
+  - 10 καί + AuxZ → ADV, resolved. AGDT AuxZ means "even/also", and UD grc PART excludes "adverbs such as καί 'even'".
+  - 27 repeated-coordinator correlatives → CCONJ, resolved: καί…καί, οὔτε…οὔτε, ἤ…ἤ, τε…τε, and the first `-τε` of μήτε…μήτε. Basis: AGDT 1.1 §3.11, under which non-head coordinators take AuxY under the final coordinator.
+  - The remaining 222 are conditional, with candidates recorded per group:
+    - R03N negators (32): ADV|PART.
+    - R03C AGDT conjunction particles not used as correlatives (70): ADV|CCONJ.
+    - R03A γάρ/οὖν/τοίνυν (46): ADV|CCONJ|PART. AGDT 2.0 §2.8/§3.9 treats these as sentence adverbs.
+    - R03S ὡς (2): ADV|PART|SCONJ.
+    - R03P others (72): ADV|PART.
+  - Why they stay conditional: UD grc defines PART lexically, from Smyth's list. Smyth §2769 says particles "fluctuated in function, being now adverbial, now conjunctional". AGDT annotates them as adverbs. Existing converters (Interset, UD Perseus) map `d` → ADV tag-literally. No documented rule maps these native records to a UD class.
+  - Grave lemmas (καὶ, μὴ) do not match lists that spell the lemma with an acute, and get no acute/grave folding.
+- **Conjunctions.**
+  - COORD → CCONJ (121).
+  - AuxC with an effective verbal dependent → SCONJ (80).
+  - 11 AuxC without one → SCONJ|CCONJ|ADP conditional. Most of these head an unprinted elliptic clause node that has no POS.
+  - 3 other relations (ATR, AuxP) → CCONJ|SCONJ unresolved.
+  - None of these affect vocabulary eligibility.
+- **Names (n with a capitalized lemma).**
+  - 9 nodes (Ἐρατοσθένης ×6, Σώστρατος ×2, Ἁρμόδιος) are `:le:` entries in Morpheus's proper-name stem file `nom.proper`. They map to **PROPN, resolved, non-vocabulary**: PROPN is not in `AllowedPOS`, which is a fact about the repo, not a policy choice.
+  - Ἑλλάς, Θεσμοφόρια and Ἄρειας ×2 are not in `nom.proper`: NOUN|PROPN conditional. Πάγος/πᾶγος in Ἀρείου πάγου is a possible part of a multiword name: NOUN|PROPN conditional.
+  - Ἀθηναῖος ×2: UD grc NOUN names it as a substantivized adjective, and AGDT 2.0 §4.1.2 says the same of an adjective lemma used as a noun. That gives ADJ|NOUN|PROPN, conditional.
+  - The 5 rubric nouns are NOUN. UD: words in phrases used as names keep their original tags.
+  - Ὀῆθεν is native `d` → ADV. Its Morpheus `nom.proper` entry is a `:wd: adverb`.
+  - HamleDT's capitalization heuristic (capitalized noun lemma → PROPN) is recorded as converter practice and **not adopted**. Morpheus's entity list classes Νόμος as a person, which shows that lexicon membership alone does not classify a token.
 
-- The release tagset `v2.1/Greek/TAGSETS.xml` defines `d` = adverb and `g` = particle.
-- AGDT 2.5 guideline §4.1.12.1 defines particles as "those adverbs, typically sentence adverbs". Its morphology section (line ~464) says sentence adverbs are "annotated as adverbs at the morphological level". The 2.0 guideline §2.6 makes the same point.
-- AGDT 1.1 §4.3 (pinned PDF) defines a particle as "a morphological category for uninflected function words", with no letter given.
-- Lysias I header declares GSAAGDT 1.1. All 259 AuxY/AuxZ particles are `d`; none are `g`.
-- Corpus (33 texts, native fields only): 15 files use no `g` on particles, 18 use `g`. Declared scheme does not predict the letter. Two 2.0 files use `d` only.
-- UD v2.1 cross-corpus: `d` on AuxY/AuxZ → ADV 11,324/11,324.
+## 4. Identity fields
 
-Result: ADV is the tag-literal mapping and is recorded as conditional. I did not reclassify to PART. Choosing PART would move 259 nodes out of vocabulary, and the evidence does not show the source meant that. The 1.1 letter table is also unverified (see blockers).
+Each node carries these fields separately:
 
-## Review scope and evidence
+- native lemma
+- citation headword and its status and rule
+- canonical key (#2033 profile: NFC → lowercase → σ → NFC; diacritics kept; Python unicodedata version in the summary)
+- native letter and POS name
+- UPOS candidates and status
+- discriminator scheme, value and status
+- rule and evidence IDs
 
-- Native fields for all 2,834 Lysias I nodes: form, lemma, postag, relation, head, artificial.
-- Native tagset and guidelines: TAGSETS.xml; 2.0 and 2.5 guideline markdown; 1.1 PDF §3.11–3.12 and §4.3 (extracted with `scripts/extract_pdf_text.py`). The PDF extractor recovers the English text. Greek in the PDF is not recoverable this way.
-- Cross-corpus UD evidence: 13,919 sentences and 202,989 tokens joined to AGDT v2.1 by sentence id and exact form sequence. Aggregate counts only.
-- Provenance: release-level human annotation with Morpheus assistance; annotator Vanessa Gorman; normalization Celano; annotation date 2014. The release README notes the adverb/particle distinction is unsettled and that noun POS errors remain for missing values.
-- Not done: I did not review every lemma or POS against LSJ or a second annotator. The syntax-level review does not establish lemma or POS correctness. The UD release does not contain Lysias I (no tlg0540 sent ids). UD is cross-corpus evidence only.
+**Discriminator.**
 
-## Remaining blockers
+- v2.1 lemmas carry no discriminator. The v1.6 file named in the v2.1 header as the pre-normalization text has Morpheus homograph numbers on 83 lexical lemmas, and the v2.0 normalization stripped them, following AGDT 2.0's own instruction ("they should be deleted").
+- Statuses: `absent_in_source` (2,345), `stripped_in_v2.1_witness_v1.6` (68) and `conflated` (15).
+- `conflated` means the v2.1 key|UPOS merges different v1.6 entries:
+  - δέω|VERB: δέω1 ×1, δέω2 ×2
+  - λέγω|VERB: λέγω2 ×5, λέγω3 ×1
+  - ἄπειμι|VERB: ἄπειμι1 ×1, ἄπειμι2 ×5, i.e. "be away" versus "go away"
+- These 15 nodes are conditional, not resolved. A numbered value is recorded as witness evidence and is not written into the key automatically.
 
-1. Copula εἰμί VERB vs AUX: 41 nodes. Needs a decision on whether copula is VERB or AUX under the Greek scheme.
-2. Hyphenated compound-verb headwords: 7 nodes, 5 identities. Needs a headword-decoding rule or an explicit "raw headword" policy.
-3. Particle `d` vs `g` (259 nodes): needs the 1.1 morphology letter table, which is not verified here, or an accepted repo policy.
-4. Accent-variant splits (4 groups) and grave-accent keys (10 nodes): needs a policy on identity folding. ADR 0094 currently keeps them distinct.
-5. Capitalized lemmas as vocabulary (17 nodes): a policy question about proper names.
-6. R08/R09 conjunction UPOS (94 nodes): affects UPOS identity only, not vocabulary eligibility.
+Headword cases:
+
+- `εἴσειμι` (6) and `συνδειπνέω` (4) are source-plain headwords. A missing dictionary page is not a blocker.
+- Adverbs lemmatized under their adjective (καλός, οἰκεῖος) follow AGDT 2.0 §2.6 ("the lemma for an adverb should be the corresponding adjective lemma").
+
+## 5. Review lineage of the consumed lemma/POS layers (`manifest/lysias1-lineage.json`)
+
+- **File-level claims.** "Vanessa Gorman: annotator of the text" (annotation date 2014-08-21). "Celano: release editor: post-annotation normalization and harmonization." The v2.0 release describes the annotation as semi-automatic, with Morpheus assisting lemmas and morphology.
+- **v1.6 → v2.1 changes.**
+  - POS letters: none changed.
+  - Lexical lemmas: 83 homograph numbers stripped, no other lexical lemma changes.
+  - Punctuation lemmas: 375 levelled.
+  - Postag features: 138 position changes, 126 of them in position 9.
+  - Forms: 50 elision-mark changes and 9 NFC-only changes.
+- **What this shows.** The consumed POS letters and lemma strings are the annotator's, apart from documented normalization.
+- **What it does not show.** No source statement says every lemma/POS was human-verified per token. Lysias I is not among the double-annotated AGDT2 texts (only Aesop and Pseudo-Apollodorus are). Syntax review is not lemma/POS review.
+- **UD.** UD Perseus's "converted from manual" applies only to its own subset. That subset contains no Lysias I sentence (verified by sent_id), even though its README lists the speech.
+- **Bottom line.** Lineage is human annotation, Morpheus-assisted, at file scope. Whether that meets the MVP's human-reviewed bar is the parent's call (#2030). This pass does not certify it.
+
+## Remaining gaps (exact)
+
+1. **222 particles, conditional.**
+   - Eligibility depends on whether ADV or PART/CCONJ/SCONJ applies.
+   - There is no documented native→UD rule. UD grc PART is defined against Smyth's list, and the pass inspected only §2769.
+   - Full Smyth §2769–3003 membership was not checked.
+2. **Copula εἰμί without PNOM: 2 nodes,** VERB|AUX.
+3. **Names: 10 nodes.** Ἑλλάς, Θεσμοφόρια, Ἄρειας ×2, πάγος/πᾶγος, Ἀθηναῖος ×2; no producer name evidence. Not in Morpheus `nom.proper`. Other Morpheus noun files were not checked.
+4. **Headwords.** ἀντί-βολέω ×2 is conditional, decoded by decomposition only. σύν-λέγω ×1 is unresolved: the homograph number does not match the compound table.
+5. **Discriminator conflation: 15 nodes / 3 identities** (δέω, λέγω, ἄπειμι). Applying v1.6 numbers would combine two releases, and needs an explicit selection rule (ADR 0094 #12).
+6. **Components.** No documented crasis convention (22 nodes). The s011 enclitic order contradicts the attested practice (4 nodes).
+7. **Conjunction UPOS: 14 non-vocabulary nodes** (11 conditional, 3 unresolved). No effect on eligibility.
 
 ## Reproducibility
 
-- `scripts/reproduce.sh <scratch-dir>` fetches the pinned inputs, verifies hashes and commits, and runs `scripts/test_mapping.py`.
-- `scripts/derive_evidence.py` regenerates `manifest/` from pinned inputs. `test_mapping.py` checks byte-identical regeneration against the committed manifest.
-- Results: see the test output recorded in the issue comment.
+- **Run:** `scripts/reproduce.sh <new-dir>` fetches every input at its pinned commit and checks it against a sha256 list. That covers the AGDT v1.6/v2.0/v2.1 Lysias files and 32 Morpheus/UD/HamleDT/Interset files.
+- **Regenerate:** `scripts/derive_evidence.py` rebuilds `manifest/`.
+- **Tests:** `scripts/test_mapping.py` runs 23 tests: unit tests, source-backed fixtures in `fixtures/lysias1-expected.tsv`, status-propagation invariants, and byte-identical regeneration.
+- **Smyth §2769:** cited from the Perseus website (fetched 2026-10-14, not pinned). No code uses it.

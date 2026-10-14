@@ -1,0 +1,23 @@
+node_key	rule_id	upos_candidates	eligibility	citation_headword	headword_status	discriminator_value	discriminator_status	identity	identity_status	evidence_ids_include	why
+1:3	R03P	ADV|PART	conditional	ἄν	source_plain	1	stripped_in_v2.1_witness_v1.6		conditional	AGDT-V16-LYS AGDT20-LEMNUM	particle on AuxY: AGDT adverb vs UD grc PART; v1.6 lemma ἄν1
+2:22	R05X	VERB|AUX	conditional	εἰμί	source_plain		absent_in_source		conditional	UD-COP	εἰμί without an effective PNOM
+4:16	R01C	NOUN|PROPN	conditional	Ἑλλάς	source_plain		absent_in_source		conditional	UD-PROPN	capitalized lemma not in Morpheus nom.proper
+11:5	R01A	ADJ|NOUN|PROPN	conditional	Ἀθηναῖος	source_plain		absent_in_source		conditional	UD-GRC-NOUN	UD grc names Ἀθηναῖος a substantivized adjective
+11:25	R03Y	CCONJ	non_vocab	τε	source_plain		absent_in_source		n/a	AGDT11-AUXY	-τε AuxY under the later -τε COORD (μήτε ... μήτε)
+11:28	R07	CCONJ	non_vocab	τε	source_plain		absent_in_source		n/a	AGDT20-COORD	final correlative coordinator
+11:33	R05C	AUX	non_vocab	εἰμί	source_plain		absent_in_source		n/a	HAMLEDT-COP	PNOM reached through AuxP
+61:2	R05C	AUX	non_vocab	εἰμί	source_plain		absent_in_source		n/a	UD-COP	PNOM_CO members under COORD
+98:29	R04	AUX	non_vocab	εἰμί	source_plain		absent_in_source		n/a	UD-GRC-AUX	AuxV periphrasis
+18:9	R06	VERB	eligible	δέω	source_plain	2	conflated	δέω|VERB	conditional	AGDT-V16-LYS	v1.6 has δέω1 and δέω2 in one v2.1 key
+9:16	R06	VERB	eligible	λέγω	source_plain	2	conflated	λέγω|VERB	conditional	AGDT-V16-LYS	v1.6 has λέγω2 and λέγω3
+20:18	R06	VERB	eligible	διαιτάω	decoded		absent_in_source	διαιτάω|VERB	resolved	MORPH:vbs.simp.ml:5240:le=diaita/w:rpb=dia/	διά-διαιτάω: rpb preverb inside διαιτάω entry
+31:8	R06	VERB	eligible	καθεύδω	decoded		absent_in_source	καθεύδω|VERB	resolved	MORPH:vbs.simp.ml:9786:le=kaqeu/dw:rpb=kata/	κατά-καθεύδω
+79:2	R06	VERB	eligible	ἀμφισβητέω	decoded		absent_in_source	ἀμφισβητέω|VERB	resolved	MORPH:vbs.simp.ml:1660:le=a)mfisbhte/w:pb=a)mfi/	ἀμφί-ἀμφισβητέω
+72:7	R06	VERB	eligible	ἀντιβολέω	conditional		absent_in_source	ἀντιβολέω|VERB	conditional	MORPH:vbs.simp.ml:1966:le=a)ntibole/w:pb=a)nti/+stem-of-bole/w	ἀντί-βολέω: decomposition match only
+116:19	R06	VERB	eligible		unresolved	1	stripped_in_v2.1_witness_v1.6		unresolved	MORPH:vbs.cmp.ml:6459:su/n-le/gw2=sulle/gw:witness-number=1	σύν-λέγω1 vs table row σύν-λέγω2
+61:1	R01P	PROPN	non_vocab	Σώστρατος	source_plain		absent_in_source		n/a	MORPH-NOMPROPER	Morpheus proper-name stem
+84:1	R01R	NOUN	eligible	Νόμος	source_plain		absent_in_source	νόμοσ|NOUN	resolved	AGDT20-EXD	rubric label with capitalized lemma
+78:1	R01R	NOUN	eligible	νόμος	source_plain		absent_in_source	νόμοσ|NOUN	resolved	AGDT20-EXD	same rubric with lowercase lemma
+30:1	R03C	ADV|CCONJ	conditional	καί	source_plain		absent_in_source		conditional	CORPUS-ATTEST	crasis fragment κ-
+14:1	R03K	ADV	eligible	καί	source_plain		absent_in_source	καί|ADV	resolved	UD-GRC-PART	καί AuxZ 'even/also'
+2:3	R06	VERB	eligible	οἶδα	source_plain		absent_in_source	οἶδα|VERB	resolved	AGDT-TAGSETS-21	elided surface, full lemma

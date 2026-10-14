@@ -1,0 +1,63 @@
+{
+  "agdt2_double_annotated_texts": [
+    "Aesop",
+    "P-Apollodorus"
+  ],
+  "component_practice": {
+    "crasis_files": 11,
+    "crasis_fragment_definition": "form = consonant letters + '-' (e.g. κ-, τ-)",
+    "crasis_fragment_nodes": 91,
+    "enclitic_after_host_files": [
+      "tlg0007.tlg015.perseus-grc1.tb.xml",
+      "tlg0013.tlg002.perseus-grc1.tb.xml"
+    ],
+    "enclitic_fragment_after_host_outside_lysias1": 6,
+    "enclitic_fragment_lysias1": 2,
+    "enclitic_fragment_other_outside_lysias1": 3,
+    "enclitic_other_files": [
+      "tlg0008.tlg001.perseus-grc1.12.tb.xml",
+      "tlg0008.tlg001.perseus-grc1.13.tb.xml",
+      "tlg0543.tlg001.perseus-grc1.tb.xml"
+    ],
+    "other_trailing_hyphen_nodes": 9,
+    "scope": "all pinned AGDT v2.1 Greek files, printed nodes; hyphen-marked forms containing a letter"
+  },
+  "file_header": {
+    "annotation_date": "Thu Aug 21 19:31:06 +0000 2014",
+    "annotation_scheme": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+    "evidence": "AGDT-HDR-LYS",
+    "release_date": "25 September 2015",
+    "responsibilities": [
+      "Giuseppe G. A. Celano: release editor: post-annotation normalization and harmonization",
+      "Gregory R. Crane: supervisor",
+      "Bridget Almas: responsible for the annotation environment and cts:urn technology",
+      "Vanessa Gorman: annotator of the text"
+    ]
+  },
+  "layer_status": {
+    "lemma": "human annotation with Morpheus-proposed lemmas (file-level claim); release normalization stripped homograph numbers and levelled punctuation lemmas; no per-token review statement",
+    "morphological_features": "annotator values plus release-editor corrections (postag feature changes counted above)",
+    "pos_letter": "human annotation, Morpheus-assisted (file-level claim); unchanged from v1.6 to v2.1",
+    "second_annotation": "none for Lysias I",
+    "syntax": "manual (file-level claim); not evidence for lemma/POS review"
+  },
+  "lysias1_double_annotated": false,
+  "release_claims": {
+    "ud_perseus": "Lemmas/UPOS 'converted from manual', XPOS 'manual native' (UD-PERSEUS-README); scope is the UD subset, which contains no Lysias I sentence",
+    "v2.0": "semi-automatically annotated; Greek characters and punctuation normalized; postag errors for nouns corrected; adverb/particle distinction still needs work (AGDT-README-20)",
+    "v2.1": "no change to texts already in v2.0 (AGDT-README-21)"
+  },
+  "scope": "lemma and part-of-speech layers consumed for Lysias I vocabulary identity",
+  "v1.6_to_v2.1_node_diff": {
+    "form_elision_mark_only": 50,
+    "form_nfc_only": 9,
+    "lemma_changed_punctuation_or_unprinted": 375,
+    "lemma_lexical_number_stripped": 83
+  },
+  "v1.6_to_v2.1_postag_positions_changed": {
+    "2": 1,
+    "3": 1,
+    "6": 10,
+    "9": 126
+  }
+}

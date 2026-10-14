@@ -1,506 +1,500 @@
-identity	canonical_key	upos	vocab_class	identity_status	occurrences	raw_headword_variants	scheme_declared	flags
-πολύσ|ADJ	πολύσ	ADJ	eligible	resolved	7	πολύς×7	GSAAGDT 1.1	
-ἄν|ADV	ἄν	ADV	eligible	resolved	21	ἄν×21	GSAAGDT 1.1	particle-adverb-lineage
-ποιέω|VERB	ποιέω	VERB	eligible	resolved	14	ποιέω×14	GSAAGDT 1.1	
-ἀνήρ|NOUN	ἀνήρ	NOUN	eligible	resolved	27	ἀνήρ×27	GSAAGDT 1.1	
-τοιοῦτοσ|ADJ	τοιοῦτοσ	ADJ	eligible	resolved	9	τοιοῦτος×9	GSAAGDT 1.1	
-δικαστήσ|NOUN	δικαστήσ	NOUN	eligible	resolved	1	δικαστής×1	GSAAGDT 1.1	
-οὗτοσ|ADJ	οὗτοσ	ADJ	eligible	resolved	14	οὗτος×14	GSAAGDT 1.1	
-πρᾶγμα|NOUN	πρᾶγμα	NOUN	eligible	resolved	6	πρᾶγμα×6	GSAAGDT 1.1	
-γίγνομαι|VERB	γίγνομαι	VERB	eligible	resolved	18	γίγνομαι×18	GSAAGDT 1.1	
-οἷοσ|ADJ	οἷοσ	ADJ	eligible	resolved	7	οἷος×7	GSAAGDT 1.1	
-αὐτόσ|ADJ	αὐτόσ	ADJ	eligible	resolved	12	αὐτός×12	GSAAGDT 1.1	
-candidate:εἰμί|VERB	εἰμί	VERB	candidate	unresolved_upos	41	εἰμί×41	GSAAGDT 1.1	copula-unresolved
-candidate:εἰμί|AUX	εἰμί	AUX	candidate	unresolved_upos	41	εἰμί×41	GSAAGDT 1.1	copula-unresolved
-πάσχω|VERB	πάσχω	VERB	eligible	resolved	3	πάσχω×3	GSAAGDT 1.1	
-εὖ|ADV	εὖ	ADV	eligible	resolved	2	εὖ×2	GSAAGDT 1.1	
-γάρ|ADV	γάρ	ADV	eligible	resolved	31	γάρ×31	GSAAGDT 1.1	particle-adverb-lineage
-οἶδα|VERB	οἶδα	VERB	eligible	resolved	9	οἶδα×9	GSAAGDT 1.1	
-γνώμη|NOUN	γνώμη	NOUN	eligible	resolved	5	γνώμη×5	GSAAGDT 1.1	
-ἔχω|VERB	ἔχω	VERB	eligible	resolved	13	ἔχω×13	GSAAGDT 1.1	
-οὐ|ADV	οὐ	ADV	eligible	resolved	21	οὐ×21	GSAAGDT 1.1	particle-adverb-lineage
-εἰμί|VERB	εἰμί	VERB	eligible	resolved	10	εἰμί×10	GSAAGDT 1.1	
-ἀγανακτέω|VERB	ἀγανακτέω	VERB	eligible	resolved	1	ἀγανακτέω×1	GSAAGDT 1.1	
-πᾶσ|ADJ	πᾶσ	ADJ	eligible	resolved	18	πᾶς×18	GSAAGDT 1.1	
-ἐπιτηδεύω|VERB	ἐπιτηδεύω	VERB	eligible	resolved	2	ἐπιτηδεύω×2	GSAAGDT 1.1	
-ζημία|NOUN	ζημία	NOUN	eligible	resolved	6	ζημία×6	GSAAGDT 1.1	
-σμικρόσ|ADJ	σμικρόσ	ADJ	eligible	resolved	1	σμικρός×1	GSAAGDT 1.1	
-ἡγέομαι|VERB	ἡγέομαι	VERB	eligible	resolved	13	ἡγέομαι×13	GSAAGDT 1.1	
-καί|ADV	καί	ADV	eligible	resolved	34	καί×34	GSAAGDT 1.1	particle-adverb-lineage
-μόνοσ|ADJ	μόνοσ	ADJ	eligible	resolved	6	μόνος×6	GSAAGDT 1.1	
-οὕτωσ|ADV	οὕτωσ	ADV	eligible	resolved	17	οὕτως×17	GSAAGDT 1.1	
-γιγνώσκω|VERB	γιγνώσκω	VERB	eligible	resolved	3	γιγνώσκω×3	GSAAGDT 1.1	
-ἅπασ|ADJ	ἅπασ	ADJ	eligible	resolved	10	ἅπας×10	GSAAGDT 1.1	
-ἑλλάσ|NOUN	ἑλλάσ	NOUN	eligible	resolved	1	Ἑλλάς×1	GSAAGDT 1.1	headword-capitalized
-ἀδίκημα|NOUN	ἀδίκημα	NOUN	eligible	resolved	2	ἀδίκημα×2	GSAAGDT 1.1	
-δημοκρατία|NOUN	δημοκρατία	NOUN	eligible	resolved	1	δημοκρατία×1	GSAAGDT 1.1	
-ὀλιγαρχία|NOUN	ὀλιγαρχία	NOUN	eligible	resolved	1	ὀλιγαρχία×1	GSAAGDT 1.1	
-τιμωρία|NOUN	τιμωρία	NOUN	eligible	resolved	6	τιμωρία×6	GSAAGDT 1.1	
-ἀσθενήσ|ADJ	ἀσθενήσ	ADJ	eligible	resolved	1	ἀσθενής×1	GSAAGDT 1.1	
-μέγασ|ADJ	μέγασ	ADJ	eligible	resolved	5	μέγας×5	GSAAGDT 1.1	
-δύναμαι|VERB	δύναμαι	VERB	eligible	resolved	3	δύναμαι×3	GSAAGDT 1.1	
-ἀποδίδωμι|VERB	ἀποδίδωμι	VERB	eligible	resolved	2	ἀποδίδωμι×2	GSAAGDT 1.1	
-χείρων|ADJ	χείρων	ADJ	eligible	resolved	1	χείρων×1	GSAAGDT 1.1	
-τυγχάνω|VERB	τυγχάνω	VERB	eligible	resolved	6	τυγχάνω×6	GSAAGDT 1.1	
-βέλτιστοσ|ADJ	βέλτιστοσ	ADJ	eligible	resolved	2	βέλτιστος×2	GSAAGDT 1.1	
-ὕβρισ|NOUN	ὕβρισ	NOUN	eligible	resolved	1	ὕβρις×1	GSAAGDT 1.1	
-ἄνθρωποσ|NOUN	ἄνθρωποσ	NOUN	eligible	resolved	10	ἄνθρωπος×10	GSAAGDT 1.1	
-δεινόσ|ADJ	δεινόσ	ADJ	eligible	resolved	3	δεινός×3	GSAAGDT 1.1	
-μέν|ADV	μέν	ADV	eligible	resolved	34	μέν×34	GSAAGDT 1.1	particle-adverb-lineage
-οὖν|ADV	οὖν	ADV	eligible	resolved	10	οὖν×10	GSAAGDT 1.1	particle-adverb-lineage
-μέγεθοσ|NOUN	μέγεθοσ	NOUN	eligible	resolved	1	μέγεθος×1	GSAAGDT 1.1	
-νομίζω|VERB	νομίζω	VERB	eligible	resolved	4	νομίζω×4	GSAAGDT 1.1	
-διάνοια|NOUN	διάνοια	NOUN	eligible	resolved	1	διάνοια×1	GSAAGDT 1.1	
-ὀλίγωροσ|ADV	ὀλίγωροσ	ADV	eligible	resolved	1	ὀλίγωρος×1	GSAAGDT 1.1	
-διακέομαι|VERB	διακέομαι	VERB	eligible	resolved	1	διακέομαι×1	GSAAGDT 1.1	
-οἴομαι|VERB	οἴομαι	VERB	eligible	resolved	4	οἴομαι×4	GSAAGDT 1.1	
-δεῖ|VERB	δεῖ	VERB	eligible	resolved	5	δεῖ×5	GSAAGDT 1.1	
-συγγνώμη|NOUN	συγγνώμη	NOUN	eligible	resolved	2	συγγνώμη×2	GSAAGDT 1.1	
-μικρόσ|ADJ	μικρόσ	ADJ	eligible	resolved	1	μικρός×1	GSAAGDT 1.1	
-ἄξιοσ|ADJ	ἄξιοσ	ADJ	eligible	resolved	4	ἄξιος×4	GSAAGDT 1.1	
-ἔργον|NOUN	ἔργον	NOUN	eligible	resolved	3	ἔργον×3	GSAAGDT 1.1	
-αἴτιοσ|ADJ	αἴτιοσ	ADJ	eligible	resolved	2	αἴτιος×2	GSAAGDT 1.1	
-δέ|ADV	δέ	ADV	eligible	resolved	46	δέ×46	GSAAGDT 1.1	particle-adverb-lineage
-ἐπιδείκνυμι|VERB	ἐπιδείκνυμι	VERB	eligible	resolved	4	ἐπιδείκνυμι×4	GSAAGDT 1.1	
-μοιχεύω|VERB	μοιχεύω	VERB	eligible	resolved	2	μοιχεύω×2	GSAAGDT 1.1	
-ἐρατοσθένησ|NOUN	ἐρατοσθένησ	NOUN	eligible	resolved	6	Ἐρατοσθένης×6	GSAAGDT 1.1	headword-capitalized
-γυνή|NOUN	γυνή	NOUN	eligible	resolved	20	γυνή×20	GSAAGDT 1.1	
-ἐμόσ|ADJ	ἐμόσ	ADJ	eligible	resolved	10	ἐμός×10	GSAAGDT 1.1	
-τε|ADV	τε	ADV	eligible	resolved	9	τε×9	GSAAGDT 1.1	particle-adverb-lineage
-διαφθείρω|VERB	διαφθείρω	VERB	eligible	resolved	5	διαφθείρω×5	GSAAGDT 1.1	
-παῖσ|NOUN	παῖσ	NOUN	eligible	resolved	4	παῖς×4	GSAAGDT 1.1	
-αἰσχύνω|VERB	αἰσχύνω	VERB	eligible	resolved	1	αἰσχύνω×1	GSAAGDT 1.1	
-ὑβρίζω|VERB	ὑβρίζω	VERB	eligible	resolved	3	ὑβρίζω×3	GSAAGDT 1.1	
-οἰκία|NOUN	οἰκία	NOUN	eligible	resolved	10	οἰκία×10	GSAAGDT 1.1	
-εἴσειμι|VERB	εἴσειμι	VERB	eligible	resolved	6	εἴσειμι×6	GSAAGDT 1.1	
-οὔτε|ADV	οὔτε	ADV	eligible	resolved	9	οὔτε×9	GSAAGDT 1.1	particle-adverb-lineage
-ἔχθρη|NOUN	ἔχθρη	NOUN	eligible	resolved	2	ἔχθρη×2	GSAAGDT 1.1	
-χρῆμα|NOUN	χρῆμα	NOUN	eligible	resolved	4	χρῆμα×4	GSAAGDT 1.1	
-πράσσω|VERB	πράσσω	VERB	eligible	resolved	9	πράσσω×9	GSAAGDT 1.1	
-πλούσιοσ|ADJ	πλούσιοσ	ADJ	eligible	resolved	1	πλούσιος×1	GSAAGDT 1.1	
-πένησ|NOUN	πένησ	NOUN	eligible	resolved	1	πένης×1	GSAAGDT 1.1	
-ἄλλοσ|ADJ	ἄλλοσ	ADJ	eligible	resolved	5	ἄλλος×5	GSAAGDT 1.1	
-κέρδοσ|NOUN	κέρδοσ	NOUN	eligible	resolved	1	κέρδος×1	GSAAGDT 1.1	
-οὐδείσ|ADJ	οὐδείσ	ADJ	eligible	resolved	1	οὐδείς×1	GSAAGDT 1.1	
-νόμοσ|NOUN	νόμοσ	NOUN	eligible	resolved	19	Νόμος×1;νόμος×18	GSAAGDT 1.1	headword-capitalized
-τοίνυν|ADV	τοίνυν	ADV	eligible	resolved	5	τοίνυν×5	GSAAGDT 1.1	particle-adverb-lineage
-ἀρχή|NOUN	ἀρχή	NOUN	eligible	resolved	1	ἀρχή×1	GSAAGDT 1.1	
-παραλείπω|VERB	παραλείπω	VERB	eligible	resolved	1	παραλείπω×1	GSAAGDT 1.1	
-λέγω|VERB	λέγω	VERB	eligible	resolved	6	λέγω×6	GSAAGDT 1.1	
-ἀληθήσ|ADJ	ἀληθήσ	ADJ	eligible	resolved	4	ἀληθής×4	GSAAGDT 1.1	
-σωτηρία|NOUN	σωτηρία	NOUN	eligible	resolved	1	σωτηρία×1	GSAAGDT 1.1	
-εἶπον|VERB	εἶπον	VERB	eligible	resolved	8	εἶπον×8	GSAAGDT 1.1	
-ἀθηναῖοσ|NOUN	ἀθηναῖοσ	NOUN	eligible	resolved	2	Ἀθηναῖος×2	GSAAGDT 1.1	headword-capitalized
-δοκέω|VERB	δοκέω	VERB	eligible	resolved	5	δοκέω×5	GSAAGDT 1.1	
-γαμέω|VERB	γαμέω	VERB	eligible	resolved	1	γαμέω×1	GSAAGDT 1.1	
-ἄγω|VERB	ἄγω	VERB	eligible	resolved	2	ἄγω×2	GSAAGDT 1.1	
-χρόνοσ|NOUN	χρόνοσ	NOUN	eligible	resolved	8	χρόνος×8	GSAAGDT 1.1	
-διάκειμαι|VERB	διάκειμαι	VERB	eligible	resolved	3	διάκειμαι×3	GSAAGDT 1.1	
-μή|ADV	μή	ADV	eligible	resolved	11	μή×11	GSAAGDT 1.1	particle-adverb-lineage
-λυπέω|VERB	λυπέω	VERB	eligible	resolved	2	λυπέω×2	GSAAGDT 1.1	
-λίαν|ADV	λίαν	ADV	eligible	resolved	1	λίαν×1	GSAAGDT 1.1	
-ἐθέλω|VERB	ἐθέλω	VERB	eligible	resolved	2	ἐθέλω×2	GSAAGDT 1.1	
-φυλάσσω|VERB	φυλάσσω	VERB	eligible	resolved	3	φυλάσσω×3	GSAAGDT 1.1	
-προσέχω|VERB	προσέχω	VERB	eligible	resolved	1	προσέχω×1	GSAAGDT 1.1	
-νόοσ|NOUN	νόοσ	NOUN	eligible	resolved	1	νόος×1	GSAAGDT 1.1	
-ἔοικα|VERB	ἔοικα	VERB	eligible	resolved	1	ἔοικα×1	GSAAGDT 1.1	
-παιδίον|NOUN	παιδίον	NOUN	eligible	resolved	4	παιδίον×4	GSAAGDT 1.1	
-πιστεύω|VERB	πιστεύω	VERB	eligible	resolved	1	πιστεύω×1	GSAAGDT 1.1	
-ἤδη|ADV	ἤδη	ADV	eligible	resolved	4	ἤδη×4	GSAAGDT 1.1	
-παραδίδωμι|VERB	παραδίδωμι	VERB	eligible	resolved	1	παραδίδωμι×1	GSAAGDT 1.1	
-οἰκειότησ|NOUN	οἰκειότησ	NOUN	eligible	resolved	1	οἰκειότης×1	GSAAGDT 1.1	
-πρῶτοσ|ADJ	πρῶτοσ	ADJ	eligible	resolved	8	πρῶτος×8	GSAAGDT 1.1	
-οἰκονόμοσ|NOUN	οἰκονόμοσ	NOUN	eligible	resolved	1	οἰκονόμος×1	GSAAGDT 1.1	
-φειδωλόσ|ADJ	φειδωλόσ	ADJ	eligible	resolved	1	φειδωλός×1	GSAAGDT 1.1	
-ἀγαθόσ|ADJ	ἀγαθόσ	ADJ	eligible	resolved	1	ἀγαθός×1	GSAAGDT 1.1	
-ἀκριβῶσ|ADV	ἀκριβῶσ	ADV	eligible	resolved	3	ἀκριβῶς×3	GSAAGDT 1.1	
-διοικέω|VERB	διοικέω	VERB	eligible	resolved	1	διοικέω×1	GSAAGDT 1.1	
-μήτηρ|NOUN	μήτηρ	NOUN	eligible	resolved	3	μήτηρ×3	GSAAGDT 1.1	
-τελευτάω|VERB	τελευτάω	VERB	eligible	resolved	2	τελευτάω×2	GSAAGDT 1.1	
-κακόσ|ADJ	κακόσ	ADJ	eligible	resolved	5	κακός×5	GSAAGDT 1.1	
-ἀποθνήσκω|VERB	ἀποθνήσκω	VERB	eligible	resolved	2	ἀποθνήσκω×2	GSAAGDT 1.1	
-αἰτία|NOUN	αἰτία	NOUN	eligible	resolved	2	αἰτία×2	GSAAGDT 1.1	
-ἐκφορά|NOUN	ἐκφορά	NOUN	eligible	resolved	2	ἐκφορά×2	GSAAGDT 1.1	
-ἀκολουθέω|VERB	ἀκολουθέω	VERB	eligible	resolved	2	ἀκολουθέω×2	GSAAGDT 1.1	
-ὁράω|VERB	ὁράω	VERB	eligible	resolved	5	ὁράω×5	GSAAGDT 1.1	
-ἐπιτηρέω|VERB	ἐπιτηρέω	VERB	eligible	resolved	2	ἐπιτηρέω×2	GSAAGDT 1.1	
-θεράπαινα|NOUN	θεράπαινα	NOUN	eligible	resolved	6	θεράπαινα×6	GSAAGDT 1.1	
-ἀγορά|NOUN	ἀγορά	NOUN	eligible	resolved	3	ἀγορά×3	GSAAGDT 1.1	
-βαδίζω|VERB	βαδίζω	VERB	eligible	resolved	4	βαδίζω×4	GSAAGDT 1.1	
-λόγοσ|NOUN	λόγοσ	NOUN	eligible	resolved	3	λόγος×3	GSAAGDT 1.1	
-προσφέρω|VERB	προσφέρω	VERB	eligible	resolved	1	προσφέρω×1	GSAAGDT 1.1	
-ἀπόλλυμι|VERB	ἀπόλλυμι	VERB	eligible	resolved	3	ἀπόλλυμι×3	GSAAGDT 1.1	
-δέω|VERB	δέω	VERB	eligible	resolved	3	δέω×3	GSAAGDT 1.1	
-διηγέομαι|VERB	διηγέομαι	VERB	eligible	resolved	3	διηγέομαι×3	GSAAGDT 1.1	
-οἰκίδιον|NOUN	οἰκίδιον	NOUN	eligible	resolved	1	οἰκίδιον×1	GSAAGDT 1.1	
-διπλόοσ|ADJ	διπλόοσ	ADJ	eligible	resolved	3	διπλόος×3	GSAAGDT 1.1	
-ἴσοσ|ADJ	ἴσοσ	ADJ	eligible	resolved	1	ἴσος×1	GSAAGDT 1.1	
-ἄνω|ADV	ἄνω	ADV	eligible	resolved	2	ἄνω×2	GSAAGDT 1.1	
-κάτω|ADV	κάτω	ADV	eligible	resolved	3	κάτω×3	GSAAGDT 1.1	
-γυναικωνῖτισ|NOUN	γυναικωνῖτισ	NOUN	eligible	resolved	1	γυναικωνῖτις×1	GSAAGDT 1.1	
-ἀνδρωνῖτισ|NOUN	ἀνδρωνῖτισ	NOUN	eligible	resolved	1	ἀνδρωνῖτις×1	GSAAGDT 1.1	
-θηλάζω|VERB	θηλάζω	VERB	eligible	resolved	1	θηλάζω×1	GSAAGDT 1.1	
-λούω|VERB	λούω	VERB	eligible	resolved	1	λούω×1	GSAAGDT 1.1	
-κινδυνεύω|VERB	κινδυνεύω	VERB	eligible	resolved	3	κινδυνεύω×3	GSAAGDT 1.1	
-κλῖμαξ|NOUN	κλῖμαξ	NOUN	eligible	resolved	1	κλῖμαξ×1	GSAAGDT 1.1	
-καταβαίνω|VERB	καταβαίνω	VERB	eligible	resolved	2	καταβαίνω×2	GSAAGDT 1.1	
-διά-διαιτάω|VERB	διά-διαιτάω	VERB	eligible	unresolved_headword	1	διά-διαιτάω×1	GSAAGDT 1.1	headword-hyphen-compound-undecoded
-συνεθίζω|VERB	συνεθίζω	VERB	eligible	resolved	1	συνεθίζω×1	GSAAGDT 1.1	
-πολλάκισ|ADV	πολλάκισ	ADV	eligible	resolved	2	πολλάκις×2	GSAAGDT 1.1	
-ἄπειμι|VERB	ἄπειμι	VERB	eligible	resolved	6	ἄπειμι×6	GSAAGDT 1.1	
-καθεύδω|VERB	καθεύδω	VERB	eligible	resolved	1	καθεύδω×1	GSAAGDT 1.1	
-τιτθόσ|NOUN	τιτθόσ	NOUN	eligible	resolved	2	τιτθός×2	GSAAGDT 1.1	
-δίδωμι|VERB	δίδωμι	VERB	eligible	resolved	2	δίδωμι×2	GSAAGDT 1.1	
-βοάω|VERB	βοάω	VERB	eligible	resolved	2	βοάω×2	GSAAGDT 1.1	
-οὐδέποτε|ADV	οὐδέποτε	ADV	eligible	resolved	2	οὐδέποτε×2	GSAAGDT 1.1	
-ὑποπτεύω|VERB	ὑποπτεύω	VERB	eligible	resolved	1	ὑποπτεύω×1	GSAAGDT 1.1	
-ἠλίθιοσ|ADV	ἠλίθιοσ	ADV	eligible	resolved	1	ἠλίθιος×1	GSAAGDT 1.1	
-σώφρων|ADJ	σώφρων	ADJ	eligible	resolved	1	σώφρων×1	GSAAGDT 1.1	
-πόλισ|NOUN	πόλισ	NOUN	eligible	resolved	8	πόλις×8	GSAAGDT 1.1	
-πρόειμι|VERB	πρόειμι	VERB	eligible	resolved	1	πρόειμι×1	GSAAGDT 1.1	
-ἥκω|VERB	ἥκω	VERB	eligible	resolved	3	ἥκω×3	GSAAGDT 1.1	
-ἀπροσδόκητοσ|ADV	ἀπροσδόκητοσ	ADV	eligible	resolved	1	ἀπροσδόκητος×1	GSAAGDT 1.1	
-ἀγρόσ|NOUN	ἀγρόσ	NOUN	eligible	resolved	5	ἀγρός×5	GSAAGDT 1.1	
-δεῖπνον|NOUN	δεῖπνον	NOUN	eligible	resolved	1	δεῖπνον×1	GSAAGDT 1.1	
-δυσκολαίνω|VERB	δυσκολαίνω	VERB	eligible	resolved	1	δυσκολαίνω×1	GSAAGDT 1.1	
-ἐπίτηδεσ|ADV	ἐπίτηδεσ	ADV	eligible	resolved	1	ἐπίτηδες×1	GSAAGDT 1.1	
-ἔνδον|ADV	ἔνδον	ADV	eligible	resolved	5	ἔνδον×5	GSAAGDT 1.1	
-ὕστεροσ|ADJ	ὕστεροσ	ADJ	eligible	resolved	2	ὕστερος×2	GSAAGDT 1.1	
-πυνθάνομαι|VERB	πυνθάνομαι	VERB	eligible	resolved	5	πυνθάνομαι×5	GSAAGDT 1.1	
-κελεύω|VERB	κελεύω	VERB	eligible	resolved	13	κελεύω×13	GSAAGDT 1.1	
-παίδιον|NOUN	παίδιον	NOUN	eligible	resolved	2	παίδιον×2	GSAAGDT 1.1	
-παύω|VERB	παύω	VERB	eligible	resolved	2	παύω×2	GSAAGDT 1.1	
-κλαίω|VERB	κλαίω	VERB	eligible	resolved	1	κλαίω×1	GSAAGDT 1.1	
-ἄσμενοσ|ADJ	ἄσμενοσ	ADJ	eligible	resolved	2	ἄσμενος×2	GSAAGDT 1.1	
-ὀργίζω|VERB	ὀργίζω	VERB	eligible	resolved	2	ὀργίζω×2	GSAAGDT 1.1	
-γε|ADV	γε	ADV	eligible	resolved	1	γε×1	GSAAGDT 1.1	particle-adverb-lineage
-φημί|VERB	φημί	VERB	eligible	resolved	4	φημί×4	GSAAGDT 1.1	
-πειράω|VERB	πειράω	VERB	eligible	resolved	1	πειράω×1	GSAAGDT 1.1	
-ἐνταῦθα|ADV	ἐνταῦθα	ADV	eligible	resolved	1	ἐνταῦθα×1	GSAAGDT 1.1	
-παιδίσκη|NOUN	παιδίσκη	NOUN	eligible	resolved	1	παιδίσκη×1	GSAAGDT 1.1	
-πρότεροσ|ADJ	πρότεροσ	ADJ	eligible	resolved	3	πρότερος×3	GSAAGDT 1.1	
-μεθύω|VERB	μεθύω	VERB	eligible	resolved	1	μεθύω×1	GSAAGDT 1.1	
-ἕλκω|VERB	ἕλκω	VERB	eligible	resolved	1	ἕλκω×1	GSAAGDT 1.1	
-γελάω|VERB	γελάω	VERB	eligible	resolved	1	γελάω×1	GSAAGDT 1.1	
-ἀνίστημι|VERB	ἀνίστημι	VERB	eligible	resolved	1	ἀνίστημι×1	GSAAGDT 1.1	
-προστίθημι|VERB	προστίθημι	VERB	eligible	resolved	1	προστίθημι×1	GSAAGDT 1.1	
-θύρα|NOUN	θύρα	NOUN	eligible	resolved	7	θύρα×7	GSAAGDT 1.1	
-προσποιέω|VERB	προσποιέω	VERB	eligible	resolved	1	προσποιέω×1	GSAAGDT 1.1	
-παίζω|VERB	παίζω	VERB	eligible	resolved	1	παίζω×1	GSAAGDT 1.1	
-κλείσ|NOUN	κλείσ	NOUN	eligible	resolved	1	κλείς×1	GSAAGDT 1.1	
-ἐφέλκω|VERB	ἐφέλκω	VERB	eligible	resolved	1	ἐφέλκω×1	GSAAGDT 1.1	
-ἐνθυμέομαι|VERB	ἐνθυμέομαι	VERB	eligible	resolved	3	ἐνθυμέομαι×3	GSAAGDT 1.1	
-ὑπονοέω|VERB	ὑπονοέω	VERB	eligible	resolved	1	ὑπονοέω×1	GSAAGDT 1.1	
-κατά-καθεύδω|VERB	κατά-καθεύδω	VERB	eligible	unresolved_headword	2	κατά-καθεύδω×2	GSAAGDT 1.1	headword-hyphen-compound-undecoded
-ἡμέρα|NOUN	ἡμέρα	NOUN	eligible	resolved	5	ἡμέρα×5	GSAAGDT 1.1	
-ἵημι|VERB	ἵημι	VERB	eligible	resolved	1	ἵημι×1	GSAAGDT 1.1	
-ἀνοίγνυμι|VERB	ἀνοίγνυμι	VERB	eligible	resolved	2	ἀνοίγνυμι×2	GSAAGDT 1.1	
-ἔρομαι|VERB	ἔρομαι	VERB	eligible	resolved	1	ἔρομαι×1	GSAAGDT 1.1	
-νύκτωρ|ADV	νύκτωρ	ADV	eligible	resolved	1	νύκτωρ×1	GSAAGDT 1.1	
-ψοφέω|VERB	ψοφέω	VERB	eligible	resolved	2	ψοφέω×2	GSAAGDT 1.1	
-φάσκω|VERB	φάσκω	VERB	eligible	resolved	3	φάσκω×3	GSAAGDT 1.1	
-λύχνοσ|NOUN	λύχνοσ	NOUN	eligible	resolved	1	λύχνος×1	GSAAGDT 1.1	
-ἀποσβέννυμι|VERB	ἀποσβέννυμι	VERB	eligible	resolved	1	ἀποσβέννυμι×1	GSAAGDT 1.1	
-γείτων|NOUN	γείτων	NOUN	eligible	resolved	1	γείτων×1	GSAAGDT 1.1	
-ἐνάπτω|VERB	ἐνάπτω	VERB	eligible	resolved	1	ἐνάπτω×1	GSAAGDT 1.1	
-σιωπάω|VERB	σιωπάω	VERB	eligible	resolved	1	σιωπάω×1	GSAAGDT 1.1	
-πρόσωπον|NOUN	πρόσωπον	NOUN	eligible	resolved	1	πρόσωπον×1	GSAAGDT 1.1	
-ψιμυθιόω|VERB	ψιμυθιόω	VERB	eligible	resolved	2	ψιμυθιόω×2	GSAAGDT 1.1	
-ἀδελφόσ|NOUN	ἀδελφόσ	NOUN	eligible	resolved	1	ἀδελφός×1	GSAAGDT 1.1	
-θνήσκω|VERB	θνήσκω	VERB	eligible	resolved	1	θνήσκω×1	GSAAGDT 1.1	
-οὔπω|ADV	οὔπω	ADV	eligible	resolved	1	οὔπω×1	GSAAGDT 1.1	
-τριάκοντα|ADJ	τριάκοντα	ADJ	eligible	resolved	1	τριάκοντα×1	GSAAGDT 1.1	
-ἥμεροσ|ADJ	ἥμεροσ	ADJ	eligible	resolved	1	ἥμερος×1	GSAAGDT 1.1	
-ὅμωσ|ADV	ὅμωσ	ADV	eligible	resolved	1	ὅμως×1	GSAAGDT 1.1	particle-adverb-lineage
-οὐδέ|ADV	οὐδέ	ADV	eligible	resolved	2	οὐδέ×2	GSAAGDT 1.1	particle-adverb-lineage
-ἐξέρχομαι|VERB	ἐξέρχομαι	VERB	eligible	resolved	2	ἐξέρχομαι×2	GSAAGDT 1.1	
-οἴχομαι|VERB	οἴχομαι	VERB	eligible	resolved	4	οἴχομαι×4	GSAAGDT 1.1	
-ἔξω|ADV	ἔξω	ADV	eligible	resolved	2	ἔξω×2	GSAAGDT 1.1	
-σιωπή|NOUN	σιωπή	NOUN	eligible	resolved	2	σιωπή×2	GSAAGDT 1.1	
-μεταξύ|ADV	μεταξύ	ADV	eligible	resolved	1	μεταξύ×1	GSAAGDT 1.1	
-διαγίγνομαι|VERB	διαγίγνομαι	VERB	eligible	resolved	2	διαγίγνομαι×2	GSAAGDT 1.1	
-ἀπολιμπάνω|VERB	ἀπολιμπάνω	VERB	eligible	resolved	1	ἀπολιμπάνω×1	GSAAGDT 1.1	
-κάκη|NOUN	κάκη	NOUN	eligible	resolved	1	κάκη×1	GSAAGDT 1.1	
-προσέρχομαι|VERB	προσέρχομαι	VERB	eligible	resolved	3	προσέρχομαι×3	GSAAGDT 1.1	
-πρεσβῦτισ|NOUN	πρεσβῦτισ	NOUN	eligible	resolved	1	πρεσβῦτις×1	GSAAGDT 1.1	
-ὑποπέμπω|VERB	ὑποπέμπω	VERB	eligible	resolved	1	ὑποπέμπω×1	GSAAGDT 1.1	
-ἀκούω|VERB	ἀκούω	VERB	eligible	resolved	5	ἀκούω×5	GSAAGDT 1.1	
-ἀδικέω|VERB	ἀδικέω	VERB	eligible	resolved	8	ἀδικέω×8	GSAAGDT 1.1	
-οὐκέτι|ADV	οὐκέτι	ADV	eligible	resolved	1	οὐκέτι×1	GSAAGDT 1.1	
-ὁμοῖοσ|ADV	ὁμοῖοσ	ADV	eligible	resolved	1	ὁμοῖος×1	GSAAGDT 1.1	
-φοιτάω|VERB	φοιτάω	VERB	eligible	resolved	2	φοιτάω×2	GSAAGDT 1.1	
-ἐξευρίσκω|VERB	ἐξευρίσκω	VERB	eligible	resolved	2	ἐξευρίσκω×2	GSAAGDT 1.1	
-τισ|ADJ	τισ	ADJ	eligible	resolved	7	τις×7	GSAAGDT 1.1	
-ἐγγύσ|ADV	ἐγγύσ	ADV	eligible	resolved	1	ἐγγύς×1	GSAAGDT 1.1	
-εὐφίλητοσ|ADJ	εὐφίλητοσ	ADJ	eligible	resolved	1	εὐφίλητος×1	GSAAGDT 1.1	
-μηδείσ|ADJ	μηδείσ	ADJ	eligible	resolved	2	μηδείς×2	GSAAGDT 1.1	
-πολυπραγμοσύνη|NOUN	πολυπραγμοσύνη	NOUN	eligible	resolved	1	πολυπραγμοσύνη×1	GSAAGDT 1.1	
-σόσ|ADJ	σόσ	ADJ	eligible	resolved	2	σός×2	GSAAGDT 1.1	
-ἐχθρόσ|ADJ	ἐχθρόσ	ADJ	eligible	resolved	2	ἐχθρός×2	GSAAGDT 1.1	
-λαμβάνω|VERB	λαμβάνω	VERB	eligible	resolved	12	λαμβάνω×12	GSAAGDT 1.1	
-διακονέω|VERB	διακονέω	VERB	eligible	resolved	1	διακονέω×1	GSAAGDT 1.1	
-βασανίζω|VERB	βασανίζω	VERB	eligible	resolved	1	βασανίζω×1	GSAAGDT 1.1	
-ὀῆθεν|ADV	ὀῆθεν	ADV	eligible	resolved	1	Ὀῆθεν×1	GSAAGDT 1.1	headword-capitalized
-τέχνη|NOUN	τέχνη	NOUN	eligible	resolved	1	τέχνη×1	GSAAGDT 1.1	
-ἀπαλλαξείω|VERB	ἀπαλλαξείω	VERB	eligible	resolved	1	ἀπαλλαξείω×1	GSAAGDT 1.1	
-εὐθέωσ|ADV	εὐθέωσ	ADV	eligible	resolved	1	εὐθέως×1	GSAAGDT 1.1	
-ταράσσω|VERB	ταράσσω	VERB	eligible	resolved	1	ταράσσω×1	GSAAGDT 1.1	
-μεστόσ|ADJ	μεστόσ	ADJ	eligible	resolved	2	μεστός×2	GSAAGDT 1.1	
-ὑποψία|NOUN	ὑποψία	NOUN	eligible	resolved	2	ὑποψία×2	GSAAGDT 1.1	
-ἀποκλείω|VERB	ἀποκλείω	VERB	eligible	resolved	1	ἀποκλείω×1	GSAAGDT 1.1	
-δωμάτιον|NOUN	δωμάτιον	NOUN	eligible	resolved	3	δωμάτιον×3	GSAAGDT 1.1	
-ἀναμιμνήσκω|VERB	ἀναμιμνήσκω	VERB	eligible	resolved	1	ἀναμιμνήσκω×1	GSAAGDT 1.1	
-ἐκεῖνοσ|ADJ	ἐκεῖνοσ	ADJ	eligible	resolved	5	ἐκεῖνος×5	GSAAGDT 1.1	
-νύξ|NOUN	νύξ	NOUN	eligible	resolved	5	νύξ×5	GSAAGDT 1.1	
-μέταυλοσ|ADJ	μέταυλοσ	ADJ	eligible	resolved	1	μέταυλος×1	GSAAGDT 1.1	
-αὔλειοσ|ADJ	αὔλειοσ	ADJ	eligible	resolved	1	αὔλειος×1	GSAAGDT 1.1	
-ἔρχομαι|VERB	ἔρχομαι	VERB	eligible	resolved	4	ἔρχομαι×4	GSAAGDT 1.1	
-οἴκαδε|ADV	οἴκαδε	ADV	eligible	resolved	2	οἴκαδε×2	GSAAGDT 1.1	
-ἐπιτήδειοσ|ADJ	ἐπιτήδειοσ	ADJ	eligible	resolved	4	ἐπιτήδειος×4	GSAAGDT 1.1	
-ἔξεστι|VERB	ἔξεστι	VERB	eligible	resolved	3	ἔξεστι×3	GSAAGDT 1.1	
-δύο|ADJ	δύο	ADJ	eligible	resolved	1	δύο×1	GSAAGDT 1.1	
-ὁπότεροσ|ADJ	ὁπότεροσ	ADJ	eligible	resolved	2	ὁπότερος×2	GSAAGDT 1.1	
-βούλομαι|VERB	βούλομαι	VERB	eligible	resolved	6	βούλομαι×6	GSAAGDT 1.1	
-αἱρέω|VERB	αἱρέω	VERB	eligible	resolved	2	αἱρέω×2	GSAAGDT 1.1	
-ἤ|ADV	ἤ	ADV	eligible	resolved	3	ἤ×3	GSAAGDT 1.1	particle-adverb-lineage
-μαστιγόω|VERB	μαστιγόω	VERB	eligible	resolved	1	μαστιγόω×1	GSAAGDT 1.1	
-μυλών|NOUN	μυλών	NOUN	eligible	resolved	1	μυλών×1	GSAAGDT 1.1	
-ἐμπίτνω|VERB	ἐμπίτνω	VERB	eligible	resolved	1	ἐμπίτνω×1	GSAAGDT 1.1	
-μηδέποτε|ADV	μηδέποτε	ADV	eligible	resolved	1	μηδέποτε×1	GSAAGDT 1.1	
-συνέχω|VERB	συνέχω	VERB	eligible	resolved	1	συνέχω×1	GSAAGDT 1.1	
-κατεῖπον|VERB	κατεῖπον	VERB	eligible	resolved	1	κατεῖπον×1	GSAAGDT 1.1	
-ἁμαρτάνω|VERB	ἁμαρτάνω	VERB	eligible	resolved	2	ἁμαρτάνω×2	GSAAGDT 1.1	
-ψεύδω|VERB	ψεύδω	VERB	eligible	resolved	3	ψεύδω×3	GSAAGDT 1.1	
-ἔξαρνοσ|ADJ	ἔξαρνοσ	ADJ	eligible	resolved	1	ἔξαρνος×1	GSAAGDT 1.1	
-μιμνήσκω|VERB	μιμνήσκω	VERB	eligible	resolved	1	μιμνήσκω×1	GSAAGDT 1.1	
-ἐκπλήσσω|VERB	ἐκπλήσσω	VERB	eligible	resolved	1	ἐκπλήσσω×1	GSAAGDT 1.1	
-τότε|ADV	τότε	ADV	eligible	resolved	1	τότε×1	GSAAGDT 1.1	
-γόνυ|NOUN	γόνυ	NOUN	eligible	resolved	1	γόνυ×1	GSAAGDT 1.1	
-πίπτω|VERB	πίπτω	VERB	eligible	resolved	1	πίπτω×1	GSAAGDT 1.1	
-πίστισ|NOUN	πίστισ	NOUN	eligible	resolved	1	πίστις×1	GSAAGDT 1.1	
-κατηγορέω|VERB	κατηγορέω	VERB	eligible	resolved	2	κατηγορέω×2	GSAAGDT 1.1	
-πρόσειμι|VERB	πρόσειμι	VERB	eligible	resolved	1	πρόσειμι×1	GSAAGDT 1.1	
-εἰσαγγέλλω|VERB	εἰσαγγέλλω	VERB	eligible	resolved	1	εἰσαγγέλλω×1	GSAAGDT 1.1	
-πείθω|VERB	πείθω	VERB	eligible	resolved	5	πείθω×5	GSAAGDT 1.1	
-εἴσοδοσ|NOUN	εἴσοδοσ	NOUN	eligible	resolved	1	εἴσοδος×1	GSAAGDT 1.1	
-ὅσ|ADJ	ὅσ	ADJ	eligible	resolved	2	ὅς×2	GSAAGDT 1.1	
-τρόποσ|NOUN	τρόποσ	NOUN	eligible	resolved	3	τρόπος×3	GSAAGDT 1.1	
-προσίημι|VERB	προσίημι	VERB	eligible	resolved	1	προσίημι×1	GSAAGDT 1.1	
-θεσμοφόρια|NOUN	θεσμοφόρια	NOUN	eligible	resolved	1	Θεσμοφόρια×1	GSAAGDT 1.1	headword-capitalized
-ἱερόσ|ADJ	ἱερόσ	ADJ	eligible	resolved	1	ἱερός×1	GSAAGDT 1.1	
-ἐρῶ|VERB	ἐρῶ	VERB	eligible	resolved	3	ἐρῶ×3	GSAAGDT 1.1	
-κύριοσ|ADJ	κύριοσ	ADJ	eligible	resolved	3	κύριος×3	GSAAGDT 1.1	
-ὁμολογέω|VERB	ὁμολογέω	VERB	eligible	resolved	5	ὁμολογέω×5	GSAAGDT 1.1	
-ἀξιόω|VERB	ἀξιόω	VERB	eligible	resolved	4	ἀξιόω×4	GSAAGDT 1.1	
-αὐτόφωροσ|ADJ	αὐτόφωροσ	ADJ	eligible	resolved	1	αὐτόφωρος×1	GSAAGDT 1.1	
-φανερόσ|ADJ	φανερόσ	ADJ	eligible	resolved	1	φανερός×1	GSAAGDT 1.1	
-τέσσαρεσ|NOUN	τέσσαρεσ	NOUN	eligible	resolved	1	τέσσαρες×1	GSAAGDT 1.1	
-πέντε|ADJ	πέντε	ADJ	eligible	resolved	1	πέντε×1	GSAAGDT 1.1	
-τεκμήριον|NOUN	τεκμήριον	NOUN	eligible	resolved	1	τεκμήριον×1	GSAAGDT 1.1	
-τελευταῖοσ|ADJ	τελευταῖοσ	ADJ	eligible	resolved	1	τελευταῖος×1	GSAAGDT 1.1	
-σώστρατοσ|NOUN	σώστρατοσ	NOUN	eligible	resolved	2	Σώστρατος×2	GSAAGDT 1.1	headword-capitalized
-φίλοσ|ADJ	φίλοσ	ADJ	eligible	resolved	4	φίλος×4	GSAAGDT 1.1	
-ἥλιοσ|NOUN	ἥλιοσ	NOUN	eligible	resolved	2	ἥλιος×2	GSAAGDT 1.1	
-δύω|VERB	δύω	VERB	eligible	resolved	1	δύω×1	GSAAGDT 1.1	
-εἶμι|VERB	εἶμι	VERB	eligible	resolved	1	εἶμι×1	GSAAGDT 1.1	
-ἀπαντάω|VERB	ἀπαντάω	VERB	eligible	resolved	2	ἀπαντάω×2	GSAAGDT 1.1	
-τηνικαῦτα|ADV	τηνικαῦτα	ADV	eligible	resolved	1	τηνικαῦτα×1	GSAAGDT 1.1	
-ἀφικνέομαι|VERB	ἀφικνέομαι	VERB	eligible	resolved	2	ἀφικνέομαι×2	GSAAGDT 1.1	
-καταλαμβάνω|VERB	καταλαμβάνω	VERB	eligible	resolved	4	καταλαμβάνω×4	GSAAGDT 1.1	
-οἴκοι|ADV	οἴκοι	ADV	eligible	resolved	2	οἴκοι×2	GSAAGDT 1.1	
-συνδειπνέω|VERB	συνδειπνέω	VERB	eligible	resolved	4	συνδειπνέω×4	GSAAGDT 1.1	
-ἀναβαίνω|VERB	ἀναβαίνω	VERB	eligible	resolved	3	ἀναβαίνω×3	GSAAGDT 1.1	
-ὑπερῷον|NOUN	ὑπερῷον	NOUN	eligible	resolved	1	ὑπερῷον×1	GSAAGDT 1.1	
-δειπνέω|VERB	δειπνέω	VERB	eligible	resolved	2	δειπνέω×2	GSAAGDT 1.1	
-καλόσ|ADV	καλόσ	ADV	eligible	resolved	2	καλός×2	GSAAGDT 1.1	
-εἰσέρχομαι|VERB	εἰσέρχομαι	VERB	eligible	resolved	5	εἰσέρχομαι×5	GSAAGDT 1.1	
-ἐπεγείρω|VERB	ἐπεγείρω	VERB	eligible	resolved	1	ἐπεγείρω×1	GSAAGDT 1.1	
-εὐθύσ|ADV	εὐθύσ	ADV	eligible	resolved	2	εὐθύς×2	GSAAGDT 1.1	
-φράζω|VERB	φράζω	VERB	eligible	resolved	1	φράζω×1	GSAAGDT 1.1	
-ἐπιμελέομαι|VERB	ἐπιμελέομαι	VERB	eligible	resolved	1	ἐπιμελέομαι×1	GSAAGDT 1.1	
-ἐπιδημέω|VERB	ἐπιδημέω	VERB	eligible	resolved	2	ἐπιδημέω×2	GSAAGDT 1.1	
-εὑρίσκω|VERB	εὑρίσκω	VERB	eligible	resolved	2	εὑρίσκω×2	GSAAGDT 1.1	
-παραλαμβάνω|VERB	παραλαμβάνω	VERB	eligible	resolved	2	παραλαμβάνω×2	GSAAGDT 1.1	
-πλεῖστοσ|ADJ	πλεῖστοσ	ADJ	eligible	resolved	2	πλεῖστος×2	GSAAGDT 1.1	
-πάρειμι|VERB	πάρειμι	VERB	eligible	resolved	2	πάρειμι×2	GSAAGDT 1.1	
-δαίσ|NOUN	δαίσ	NOUN	eligible	resolved	1	δαίς×1	GSAAGDT 1.1	
-ἐγγύτεροσ|ADJ	ἐγγύτεροσ	ADJ	eligible	resolved	1	ἐγγύτερος×1	GSAAGDT 1.1	
-καπηλεῖον|NOUN	καπηλεῖον	NOUN	eligible	resolved	1	καπηλεῖον×1	GSAAGDT 1.1	
-παρασκευάζω|VERB	παρασκευάζω	VERB	eligible	resolved	3	παρασκευάζω×3	GSAAGDT 1.1	
-ὠθέω|VERB	ὠθέω	VERB	eligible	resolved	1	ὠθέω×1	GSAAGDT 1.1	
-ἔτι|ADV	ἔτι	ADV	eligible	resolved	1	ἔτι×1	GSAAGDT 1.1	
-εἶδον|VERB	εἶδον	VERB	eligible	resolved	1	εἶδον×1	GSAAGDT 1.1	
-κατάκειμαι|VERB	κατάκειμαι	VERB	eligible	resolved	1	κατάκειμαι×1	GSAAGDT 1.1	
-ὕστερον|NOUN	ὕστερον	NOUN	eligible	resolved	1	ὕστερον×1	GSAAGDT 1.1	
-κλίνη|NOUN	κλίνη	NOUN	eligible	resolved	1	κλίνη×1	GSAAGDT 1.1	
-γυμνόσ|ADJ	γυμνόσ	ADJ	eligible	resolved	1	γυμνός×1	GSAAGDT 1.1	
-ἵστημι|VERB	ἵστημι	VERB	eligible	resolved	1	ἵστημι×1	GSAAGDT 1.1	
-πατάσσω|VERB	πατάσσω	VERB	eligible	resolved	1	πατάσσω×1	GSAAGDT 1.1	
-καταβάλλω|VERB	καταβάλλω	VERB	eligible	resolved	1	καταβάλλω×1	GSAAGDT 1.1	
-χείρ|NOUN	χείρ	NOUN	eligible	resolved	2	χείρ×2	GSAAGDT 1.1	
-περιάγω|VERB	περιάγω	VERB	eligible	resolved	1	περιάγω×1	GSAAGDT 1.1	
-ὄπισθεν|ADV	ὄπισθεν	ADV	eligible	resolved	1	ὄπισθεν×1	GSAAGDT 1.1	
-ἐρωτάω|VERB	ἐρωτάω	VERB	eligible	resolved	1	ἐρωτάω×1	GSAAGDT 1.1	
-ἀντί-βολέω|VERB	ἀντί-βολέω	VERB	eligible	unresolved_headword	2	ἀντί-βολέω×2	GSAAGDT 1.1	headword-hyphen-compound-undecoded
-ἱκετεύω|VERB	ἱκετεύω	VERB	eligible	resolved	2	ἱκετεύω×2	GSAAGDT 1.1	
-ἀποκτείνω|VERB	ἀποκτείνω	VERB	eligible	resolved	3	ἀποκτείνω×3	GSAAGDT 1.1	
-ἀργύριον|NOUN	ἀργύριον	NOUN	eligible	resolved	1	ἀργύριον×1	GSAAGDT 1.1	
-παραβαίνω|VERB	παραβαίνω	VERB	eligible	resolved	1	παραβαίνω×1	GSAAGDT 1.1	
-ἐλάσσων|ADJ	ἐλάσσων	ADJ	eligible	resolved	3	ἐλάσσων×3	GSAAGDT 1.1	
-ἡδονά|NOUN	ἡδονά	NOUN	eligible	resolved	1	ἡδονά×1	GSAAGDT 1.1	
-μᾶλλον|ADV	μᾶλλον	ADV	eligible	resolved	2	μᾶλλον×2	GSAAGDT 1.1	
-ἁμάρτημα|NOUN	ἁμάρτημα	NOUN	eligible	resolved	2	ἁμάρτημα×2	GSAAGDT 1.1	
-ἐξαμαρτάνω|VERB	ἐξαμαρτάνω	VERB	eligible	resolved	2	ἐξαμαρτάνω×2	GSAAGDT 1.1	
-κόσμιοσ|ADJ	κόσμιοσ	ADJ	eligible	resolved	1	κόσμιος×1	GSAAGDT 1.1	
-εἰσαρπάζω|VERB	εἰσαρπάζω	VERB	eligible	resolved	1	εἰσαρπάζω×1	GSAAGDT 1.1	
-ὁδόσ|NOUN	ὁδόσ	NOUN	eligible	resolved	1	ὁδός×1	GSAAGDT 1.1	
-ἑστία|NOUN	ἑστία	NOUN	eligible	resolved	1	ἑστία×1	GSAAGDT 1.1	
-καταφεύγω|VERB	καταφεύγω	VERB	eligible	resolved	1	καταφεύγω×1	GSAAGDT 1.1	
-πωσ|ADV	πωσ	ADV	eligible	resolved	1	πως×1	GSAAGDT 1.1	
-πλήσσω|VERB	πλήσσω	VERB	eligible	resolved	1	πλήσσω×1	GSAAGDT 1.1	
-καταπίπτω|VERB	καταπίπτω	VERB	eligible	resolved	1	καταπίπτω×1	GSAAGDT 1.1	
-περιστρέφω|VERB	περιστρέφω	VERB	eligible	resolved	1	περιστρέφω×1	GSAAGDT 1.1	
-τοσοῦτοσ|ADJ	τοσοῦτοσ	ADJ	eligible	resolved	1	τοσοῦτος×1	GSAAGDT 1.1	
-διαφεύγω|VERB	διαφεύγω	VERB	eligible	resolved	1	διαφεύγω×1	GSAAGDT 1.1	
-σίδηρον|NOUN	σίδηρον	NOUN	eligible	resolved	1	σίδηρον×1	GSAAGDT 1.1	
-ξύλον|NOUN	ξύλον	NOUN	eligible	resolved	1	ξύλον×1	GSAAGDT 1.1	
-ἀμύνω|VERB	ἀμύνω	VERB	eligible	resolved	1	ἀμύνω×1	GSAAGDT 1.1	
-ἀλλά|ADV	ἀλλά	ADV	eligible	resolved	1	ἀλλά×1	GSAAGDT 1.1	particle-adverb-lineage
-δίκαιοσ|ADJ	δίκαιοσ	ADJ	eligible	resolved	6	δίκαιος×6	GSAAGDT 1.1	
-μηχανάομαι|VERB	μηχανάομαι	VERB	eligible	resolved	1	μηχανάομαι×1	GSAAGDT 1.1	
-ὀργή|NOUN	ὀργή	NOUN	eligible	resolved	1	ὀργή×1	GSAAGDT 1.1	
-ἀναγιγνώσκω|VERB	ἀναγιγνώσκω	VERB	eligible	resolved	3	ἀναγιγνώσκω×3	GSAAGDT 1.1	
-ἀμφί-ἀμφισβητέω|VERB	ἀμφί-ἀμφισβητέω	VERB	eligible	unresolved_headword	1	ἀμφί-ἀμφισβητέω×1	GSAAGDT 1.1	headword-hyphen-compound-undecoded
-ἀποτίνω|VERB	ἀποτίνω	VERB	eligible	resolved	1	ἀποτίνω×1	GSAAGDT 1.1	
-ἑτοῖμοσ|ADJ	ἑτοῖμοσ	ADJ	eligible	resolved	1	ἑτοῖμος×1	GSAAGDT 1.1	
-τίμημα|NOUN	τίμημα	NOUN	eligible	resolved	1	τίμημα×1	GSAAGDT 1.1	
-συγχωρέω|VERB	συγχωρέω	VERB	eligible	resolved	1	συγχωρέω×1	GSAAGDT 1.1	
-δίκη|NOUN	δίκη	NOUN	eligible	resolved	6	δίκη×6	GSAAGDT 1.1	
-τάσσω|VERB	τάσσω	VERB	eligible	resolved	1	τάσσω×1	GSAAGDT 1.1	
-μάρτυσ|NOUN	μάρτυσ	NOUN	eligible	resolved	6	μάρτυς×6	GSAAGDT 1.1	
-καὶ|ADV	καὶ	ADV	eligible	resolved	8	καὶ×8	GSAAGDT 1.1	headword-grave-not-folded;particle-adverb-lineage
-στήλη|NOUN	στήλη	NOUN	eligible	resolved	1	στήλη×1	GSAAGDT 1.1	
-ἄρειασ|NOUN	ἄρειασ	NOUN	eligible	resolved	2	Ἄρειας×2	GSAAGDT 1.1	headword-capitalized
-πᾶγοσ|NOUN	πᾶγοσ	NOUN	eligible	resolved	1	πᾶγος×1	GSAAGDT 1.1	
-δικαστήριον|NOUN	δικαστήριον	NOUN	eligible	resolved	1	δικαστήριον×1	GSAAGDT 1.1	
-πάγοσ|NOUN	πάγοσ	NOUN	eligible	resolved	1	πάγος×1	GSAAGDT 1.1	
-πάτριοσ|ADJ	πάτριοσ	ADJ	eligible	resolved	1	πάτριος×1	GSAAGDT 1.1	
-φόνοσ|NOUN	φόνοσ	NOUN	eligible	resolved	2	φόνος×2	GSAAGDT 1.1	
-δικάζω|VERB	δικάζω	VERB	eligible	resolved	2	δικάζω×2	GSAAGDT 1.1	
-διαρρήδην|ADV	διαρρήδην	ADV	eligible	resolved	1	διαρρήδην×1	GSAAGDT 1.1	
-μὴ|ADV	μὴ	ADV	eligible	resolved	2	μὴ×2	GSAAGDT 1.1	headword-grave-not-folded;particle-adverb-lineage
-καταγιγνώσκω|VERB	καταγιγνώσκω	VERB	eligible	resolved	2	καταγιγνώσκω×2	GSAAGDT 1.1	
-δάμαρ|NOUN	δάμαρ	NOUN	eligible	resolved	1	δάμαρ×1	GSAAGDT 1.1	
-μοιχόσ|NOUN	μοιχόσ	NOUN	eligible	resolved	6	μοιχός×6	GSAAGDT 1.1	
-σφόδρα|ADV	σφόδρα	ADV	eligible	resolved	1	σφόδρα×1	GSAAGDT 1.1	particle-adverb-lineage
-νομοθέτησ|NOUN	νομοθέτησ	NOUN	eligible	resolved	1	νομοθέτης×1	GSAAGDT 1.1	
-γαμετή|NOUN	γαμετή	NOUN	eligible	resolved	2	γαμετή×2	GSAAGDT 1.1	
-παλλακή|NOUN	παλλακή	NOUN	eligible	resolved	2	παλλακή×2	GSAAGDT 1.1	
-ἐπιτίθημι|VERB	ἐπιτίθημι	VERB	eligible	resolved	1	ἐπιτίθημι×1	GSAAGDT 1.1	
-καίτοι|ADV	καίτοι	ADV	eligible	resolved	3	καίτοι×3	GSAAGDT 1.1	particle-adverb-lineage
-δῆλοσ|ADJ	δῆλοσ	ADJ	eligible	resolved	1	δῆλος×1	GSAAGDT 1.1	
-νῦν|ADV	νῦν	ADV	eligible	resolved	3	νῦν×3	GSAAGDT 1.1	particle-adverb-lineage
-ἰσχυρόσ|ADJ	ἰσχυρόσ	ADJ	eligible	resolved	2	ἰσχυρός×2	GSAAGDT 1.1	
-ἐλεύθεροσ|ADJ	ἐλεύθεροσ	ADJ	eligible	resolved	1	ἐλεύθερος×1	GSAAGDT 1.1	
-αἰσχύνη|NOUN	αἰσχύνη	NOUN	eligible	resolved	1	αἰσχύνη×1	GSAAGDT 1.1	
-βία|NOUN	βία	NOUN	eligible	resolved	2	βία×2	GSAAGDT 1.1	
-βλάβη|NOUN	βλάβη	NOUN	eligible	resolved	2	βλάβη×2	GSAAGDT 1.1	
-ὀφείλω|VERB	ὀφείλω	VERB	eligible	resolved	1	ὀφείλω×1	GSAAGDT 1.1	
-ἐνέχω|VERB	ἐνέχω	VERB	eligible	resolved	1	ἐνέχω×1	GSAAGDT 1.1	
-βιάζω|VERB	βιάζω	VERB	eligible	resolved	2	βιάζω×2	GSAAGDT 1.1	
-ἁγέομαι|VERB	ἁγέομαι	VERB	eligible	resolved	1	ἁγέομαι×1	GSAAGDT 1.1	
-θάνατοσ|NOUN	θάνατοσ	NOUN	eligible	resolved	3	θάνατος×3	GSAAGDT 1.1	
-διαπράσσω|VERB	διαπράσσω	VERB	eligible	resolved	3	διαπράσσω×3	GSAAGDT 1.1	
-μισέω|VERB	μισέω	VERB	eligible	resolved	1	μισέω×1	GSAAGDT 1.1	
-ψυχή|NOUN	ψυχή	NOUN	eligible	resolved	1	ψυχή×1	GSAAGDT 1.1	
-οἰκεῖοσ|ADJ	οἰκεῖοσ	ADJ	eligible	resolved	1	οἰκεῖος×1	GSAAGDT 1.1	
-ἀλλότριοσ|ADJ	ἀλλότριοσ	ADJ	eligible	resolved	3	ἀλλότριος×3	GSAAGDT 1.1	
-ἄδηλοσ|ADJ	ἄδηλοσ	ADJ	eligible	resolved	1	ἄδηλος×1	GSAAGDT 1.1	
-τίθημι|VERB	τίθημι	VERB	eligible	resolved	3	τίθημι×3	GSAAGDT 1.1	
-ἀπογιγνώσκω|VERB	ἀπογιγνώσκω	VERB	eligible	resolved	1	ἀπογιγνώσκω×1	GSAAGDT 1.1	
-πότεροσ|ADJ	πότεροσ	ADJ	eligible	resolved	2	πότερος×2	GSAAGDT 1.1	
-χρή|VERB	χρή	VERB	eligible	resolved	1	χρή×1	GSAAGDT 1.1	
-ἀφοράω|VERB	ἀφοράω	VERB	eligible	resolved	1	ἀφοράω×1	GSAAGDT 1.1	
-σκέπτομαι|VERB	σκέπτομαι	VERB	eligible	resolved	4	σκέπτομαι×4	GSAAGDT 1.1	
-ποιητέοσ|ADJ	ποιητέοσ	ADJ	eligible	resolved	1	ποιητέος×1	GSAAGDT 1.1	
-παρακελεύομαι|VERB	παρακελεύομαι	VERB	eligible	resolved	1	παρακελεύομαι×1	GSAAGDT 1.1	
-ἄδεια|NOUN	ἄδεια	NOUN	eligible	resolved	2	ἄδεια×2	GSAAGDT 1.1	
-κλέπτησ|NOUN	κλέπτησ	NOUN	eligible	resolved	1	κλέπτης×1	GSAAGDT 1.1	
-εἰσίημι|VERB	εἰσίημι	VERB	eligible	resolved	1	εἰσίημι×1	GSAAGDT 1.1	
-ἅπτω|VERB	ἅπτω	VERB	eligible	resolved	1	ἅπτω×1	GSAAGDT 1.1	
-μοιχεία|NOUN	μοιχεία	NOUN	eligible	resolved	1	μοιχεία×1	GSAAGDT 1.1	
-χαίρω|VERB	χαίρω	VERB	eligible	resolved	1	χαίρω×1	GSAAGDT 1.1	
-ἐάω|VERB	ἐάω	VERB	eligible	resolved	1	ἐάω×1	GSAAGDT 1.1	
-ψῆφοσ|NOUN	ψῆφοσ	NOUN	eligible	resolved	1	ψῆφος×1	GSAAGDT 1.1	
-ὑμέτεροσ|ADJ	ὑμέτεροσ	ADJ	eligible	resolved	1	ὑμέτερος×1	GSAAGDT 1.1	
-δείδω|VERB	δείδω	VERB	eligible	resolved	2	δείδω×2	GSAAGDT 1.1	
-μετέρχομαι|VERB	μετέρχομαι	VERB	eligible	resolved	2	μετέρχομαι×2	GSAAGDT 1.1	
-νεανίσκοσ|NOUN	νεανίσκοσ	NOUN	eligible	resolved	1	νεανίσκος×1	GSAAGDT 1.1	
-ὅστισ|ADJ	ὅστισ	ADJ	eligible	resolved	2	ὅστις×2	GSAAGDT 1.1	
-σωφρονέω|VERB	σωφρονέω	VERB	eligible	resolved	1	σωφρονέω×1	GSAAGDT 1.1	
-ῥᾴδιοσ|ADV	ῥᾴδιοσ	ADV	eligible	resolved	1	ῥᾴδιος×1	GSAAGDT 1.1	
-οἰκεῖοσ|ADV	οἰκεῖοσ	ADV	eligible	resolved	1	οἰκεῖος×1	GSAAGDT 1.1	
-δυσμή|NOUN	δυσμή	NOUN	eligible	resolved	1	δυσμή×1	GSAAGDT 1.1	
-ἐπιβουλεύω|VERB	ἐπιβουλεύω	VERB	eligible	resolved	2	ἐπιβουλεύω×2	GSAAGDT 1.1	
-κρείσσων|ADJ	κρείσσων	ADJ	eligible	resolved	1	κρείσσων×1	GSAAGDT 1.1	
-ἑτέρωθι|ADV	ἑτέρωθι	ADV	eligible	resolved	1	ἑτέρωθι×1	GSAAGDT 1.1	
-εἰσάγω|VERB	εἰσάγω	VERB	eligible	resolved	1	εἰσάγω×1	GSAAGDT 1.1	
-ἥσσων|ADJ	ἥσσων	ADJ	eligible	resolved	2	ἥσσων×2	GSAAGDT 1.1	
-τολμάω|VERB	τολμάω	VERB	eligible	resolved	1	τολμάω×1	GSAAGDT 1.1	
-εἶτα|ADV	εἶτα	ADV	eligible	resolved	1	εἶτα×1	GSAAGDT 1.1	particle-adverb-lineage
-δοκόω|VERB	δοκόω	VERB	eligible	resolved	1	δοκόω×1	GSAAGDT 1.1	
-ἀφίημι|VERB	ἀφίημι	VERB	eligible	resolved	1	ἀφίημι×1	GSAAGDT 1.1	
-καταλιμπάνω|VERB	καταλιμπάνω	VERB	eligible	resolved	1	καταλιμπάνω×1	GSAAGDT 1.1	
-ἐρῆμοσ|ADJ	ἐρῆμοσ	ADJ	eligible	resolved	1	ἐρῆμος×1	GSAAGDT 1.1	
-μένω|VERB	μένω	VERB	eligible	resolved	1	μένω×1	GSAAGDT 1.1	
-τιμωρέω|VERB	τιμωρέω	VERB	eligible	resolved	1	τιμωρέω×1	GSAAGDT 1.1	
-ἔπειτα|ADV	ἔπειτα	ADV	eligible	resolved	2	ἔπειτα×2	GSAAGDT 1.1	particle-adverb-lineage
-παραγγέλλω|VERB	παραγγέλλω	VERB	eligible	resolved	2	παραγγέλλω×2	GSAAGDT 1.1	
-σύν-λέγω|VERB	σύν-λέγω	VERB	eligible	unresolved_headword	1	σύν-λέγω×1	GSAAGDT 1.1	headword-hyphen-compound-undecoded
-ἐγγύτατοσ|ADJ	ἐγγύτατοσ	ADJ	eligible	resolved	1	ἐγγύτατος×1	GSAAGDT 1.1	
-τάχιστοσ|ADJ	τάχιστοσ	ADJ	eligible	resolved	1	τάχιστος×1	GSAAGDT 1.1	
-αἰσθάνομαι|VERB	αἰσθάνομαι	VERB	eligible	resolved	1	αἰσθάνομαι×1	GSAAGDT 1.1	
-περιτρέχω|VERB	περιτρέχω	VERB	eligible	resolved	1	περιτρέχω×1	GSAAGDT 1.1	
-ἁρμόδιοσ|NOUN	ἁρμόδιοσ	NOUN	eligible	resolved	1	Ἁρμόδιος×1	GSAAGDT 1.1	headword-capitalized
-ἕτεροσ|ADJ	ἕτεροσ	ADJ	eligible	resolved	2	ἕτερος×2	GSAAGDT 1.1	
-πρόοιδα|VERB	πρόοιδα	VERB	eligible	resolved	1	πρόοιδα×1	GSAAGDT 1.1	
-θεράπων|NOUN	θεράπων	NOUN	eligible	resolved	1	θεράπων×1	GSAAGDT 1.1	
-ὡσ|ADV	ὡσ	ADV	eligible	resolved	2	ὡς×2	GSAAGDT 1.1	particle-adverb-lineage
-ἀσφαλήσ|ADJ	ἀσφαλήσ	ADJ	eligible	resolved	1	ἀσφαλής×1	GSAAGDT 1.1	
-σιδήριον|NOUN	σιδήριον	NOUN	eligible	resolved	1	σιδήριον×1	GSAAGDT 1.1	
-μάρτυροσ|NOUN	μάρτυροσ	NOUN	eligible	resolved	1	μάρτυρος×1	GSAAGDT 1.1	
-ποιόω|VERB	ποιόω	VERB	eligible	resolved	1	ποιόω×1	GSAAGDT 1.1	
-εἰδοί|NOUN	εἰδοί	NOUN	eligible	resolved	1	εἰδοί×1	GSAAGDT 1.1	
-ζητέω|VERB	ζητέω	VERB	eligible	resolved	1	ζητέω×1	GSAAGDT 1.1	
-πώποτε|ADV	πώποτε	ADV	eligible	resolved	2	πώποτε×2	GSAAGDT 1.1	
-συκοφαντέω|VERB	συκοφαντέω	VERB	eligible	resolved	1	συκοφαντέω×1	GSAAGDT 1.1	
-γραφή|NOUN	γραφή	NOUN	eligible	resolved	1	γραφή×1	GSAAGDT 1.1	
-γράφω|VERB	γράφω	VERB	eligible	resolved	1	γράφω×1	GSAAGDT 1.1	
-ἐκβάλλω|VERB	ἐκβάλλω	VERB	eligible	resolved	1	ἐκβάλλω×1	GSAAGDT 1.1	
-ἐπιχειρέω|VERB	ἐπιχειρέω	VERB	eligible	resolved	1	ἐπιχειρέω×1	GSAAGDT 1.1	
-ἴδιοσ|ADJ	ἴδιοσ	ADJ	eligible	resolved	2	ἴδιος×2	GSAAGDT 1.1	
-σύνοιδα|VERB	σύνοιδα	VERB	eligible	resolved	2	σύνοιδα×2	GSAAGDT 1.1	
-ἐπιθυμέω|VERB	ἐπιθυμέω	VERB	eligible	resolved	2	ἐπιθυμέω×2	GSAAGDT 1.1	
-ἐλπίζω|VERB	ἐλπίζω	VERB	eligible	resolved	1	ἐλπίζω×1	GSAAGDT 1.1	
-ποθεν|ADV	ποθεν	ADV	eligible	resolved	1	ποθεν×1	GSAAGDT 1.1	
-ἔνιοι|ADJ	ἔνιοι	ADJ	eligible	resolved	1	ἔνιοι×1	GSAAGDT 1.1	
-λοιδορία|NOUN	λοιδορία	NOUN	eligible	resolved	1	λοιδορία×1	GSAAGDT 1.1	
-παροινία|NOUN	παροινία	NOUN	eligible	resolved	1	παροινία×1	GSAAGDT 1.1	
-διαφορά|NOUN	διαφορά	NOUN	eligible	resolved	1	διαφορά×1	GSAAGDT 1.1	
-κίνδυνοσ|NOUN	κίνδυνοσ	NOUN	eligible	resolved	1	κίνδυνος×1	GSAAGDT 1.1	
-παρακαλέω|VERB	παρακαλέω	VERB	eligible	resolved	1	παρακαλέω×1	GSAAGDT 1.1	
-ἀσεβέω|VERB	ἀσεβέω	VERB	eligible	resolved	1	ἀσεβέω×1	GSAAGDT 1.1	
-ἄδικοσ|ADV	ἄδικοσ	ADV	eligible	resolved	1	ἄδικος×1	GSAAGDT 1.1	
-ἆθλον|NOUN	ἆθλον	NOUN	eligible	resolved	1	ἆθλον×1	GSAAGDT 1.1	
-πρόκειμαι|VERB	πρόκειμαι	VERB	eligible	resolved	1	πρόκειμαι×1	GSAAGDT 1.1	
-καλόσ|ADJ	καλόσ	ADJ	eligible	resolved	1	καλός×1	GSAAGDT 1.1	
-κεῖμαι|VERB	κεῖμαι	VERB	eligible	resolved	1	κεῖμαι×1	GSAAGDT 1.1	
-ἐξαλείφω|VERB	ἐξαλείφω	VERB	eligible	resolved	1	ἐξαλείφω×1	GSAAGDT 1.1	
-ζημιόω|VERB	ζημιόω	VERB	eligible	resolved	1	ζημιόω×1	GSAAGDT 1.1	
-πολίτησ|NOUN	πολίτησ	NOUN	eligible	resolved	1	πολίτης×1	GSAAGDT 1.1	
-ἐνεδρεύω|VERB	ἐνεδρεύω	VERB	eligible	resolved	1	ἐνεδρεύω×1	GSAAGDT 1.1	
-χράομαι|VERB	χράομαι	VERB	eligible	resolved	1	χράομαι×1	GSAAGDT 1.1	
-ἀγών|NOUN	ἀγών	NOUN	eligible	resolved	1	ἀγών×1	GSAAGDT 1.1	
-καθίστημι|VERB	καθίστημι	VERB	eligible	resolved	1	καθίστημι×1	GSAAGDT 1.1	
-καταισχύνω|VERB	καταισχύνω	VERB	eligible	resolved	1	καταισχύνω×1	GSAAGDT 1.1	
-σῶμα|NOUN	σῶμα	NOUN	eligible	resolved	1	σῶμα×1	GSAAGDT 1.1	
+identity	canonical_key	upos	citation_headwords	identity_status	occurrences_resolved	occurrences_conditional	occurrences_unresolved	discriminator_witness_values	rule_ids	flags
+γάρ|ADV	γάρ	ADV	γάρ×31	conditional	0	31	0	-×31	H0 R03A	
+γε|ADV	γε	ADV	γε×1	conditional	0	1	0	-×1	H0 R03P	
+δέ|ADV	δέ	ADV	δέ×40	conditional	0	40	0	-×40	H0 R03C	
+δέω|VERB	δέω	VERB	δέω×3	conditional	0	3	0	1×1;2×2	H0 R06	discriminator-conflated-in-v2.1
+εἰμί|VERB	εἰμί	VERB	εἰμί×2	conditional	0	2	0	-×2	H0 R05X	
+εἶτα|ADV	εἶτα	ADV	εἶτα×1	conditional	0	1	0	-×1	H0 R03P	
+θεσμοφόρια|NOUN	θεσμοφόρια	NOUN	Θεσμοφόρια×1	conditional	0	1	0	-×1	H0 R01C	lemma-capitalized
+καίτοι|ADV	καίτοι	ADV	καίτοι×3	conditional	0	3	0	-×3	H0 R03C	
+καὶ|ADV	καὶ	ADV	καὶ×8	conditional	0	8	0	-×8	H0 R03P	lemma-grave-list-lookup-not-applied;lemma-has-grave
+λέγω|VERB	λέγω	VERB	λέγω×6	conditional	0	6	0	2×5;3×1	H0 R06	discriminator-conflated-in-v2.1
+μέν|ADV	μέν	ADV	μέν×34	conditional	0	34	0	-×34	H0 R03P	
+μή|ADV	μή	ADV	μή×11	conditional	0	11	0	-×11	H0 R03N	
+μὴ|ADV	μὴ	ADV	μὴ×2	conditional	0	2	0	-×2	H0 R03P	lemma-grave-list-lookup-not-applied;lemma-has-grave
+οὐ|ADV	οὐ	ADV	οὐ×21	conditional	0	21	0	-×21	H0 R03N	
+οὐδέ|ADV	οὐδέ	ADV	οὐδέ×2	conditional	0	2	0	-×2	H0 R03C	
+οὔτε|ADV	οὔτε	ADV	οὔτε×3	conditional	0	3	0	-×3	H0 R03C	
+οὖν|ADV	οὖν	ADV	οὖν×10	conditional	0	10	0	-×10	H0 R03A	
+πάγοσ|NOUN	πάγοσ	NOUN	πάγος×1	conditional	0	1	0	-×1	H0 R01M	
+πᾶγοσ|NOUN	πᾶγοσ	NOUN	πᾶγος×1	conditional	0	1	0	-×1	H0 R01M	
+σφόδρα|ADV	σφόδρα	ADV	σφόδρα×1	conditional	0	1	0	-×1	H0 R03P	
+τε|ADV	τε	ADV	τε×8	conditional	0	8	0	-×8	H0 R03C	
+τοίνυν|ADV	τοίνυν	ADV	τοίνυν×5	conditional	0	5	0	-×5	H0 R03A	
+ἀθηναῖοσ|ADJ	ἀθηναῖοσ	ADJ	Ἀθηναῖος×2	conditional	0	2	0	-×2	H0 R01A	lemma-capitalized
+ἀθηναῖοσ|NOUN	ἀθηναῖοσ	NOUN	Ἀθηναῖος×2	conditional	0	2	0	-×2	H0 R01A	lemma-capitalized
+ἀλλά|ADV	ἀλλά	ADV	ἀλλά×1	conditional	0	1	0	-×1	H0 R03C	
+ἀντιβολέω|VERB	ἀντιβολέω	VERB	ἀντιβολέω×2	conditional	0	2	0	-×2	H3 R06	
+ἄν|ADV	ἄν	ADV	ἄν×21	conditional	0	21	0	1×21	H0 R03P	
+ἄπειμι|VERB	ἄπειμι	VERB	ἄπειμι×6	conditional	0	6	0	1×1;2×5	H0 R06	discriminator-conflated-in-v2.1
+ἄρειασ|NOUN	ἄρειασ	NOUN	Ἄρειας×2	conditional	0	2	0	-×2	H0 R01C	lemma-capitalized
+ἑλλάσ|NOUN	ἑλλάσ	NOUN	Ἑλλάς×1	conditional	0	1	0	-×1	H0 R01C	lemma-capitalized
+ἔπειτα|ADV	ἔπειτα	ADV	ἔπειτα×2	conditional	0	2	0	-×2	H0 R03P	
+ὅμωσ|ADV	ὅμωσ	ADV	ὅμως×1	conditional	0	1	0	-×1	H0 R03P	
+ὡσ|ADV	ὡσ	ADV	ὡς×2	conditional	0	2	0	-×2	H0 R03S	
+αἰσθάνομαι|VERB	αἰσθάνομαι	VERB	αἰσθάνομαι×1	resolved	1	0	0	-×1	H0 R06	
+αἰσχύνη|NOUN	αἰσχύνη	NOUN	αἰσχύνη×1	resolved	1	0	0	-×1	H0 R01	
+αἰσχύνω|VERB	αἰσχύνω	VERB	αἰσχύνω×1	resolved	1	0	0	-×1	H0 R06	
+αἰτία|NOUN	αἰτία	NOUN	αἰτία×2	resolved	2	0	0	-×2	H0 R01	
+αἱρέω|VERB	αἱρέω	VERB	αἱρέω×2	resolved	2	0	0	-×2	H0 R06	
+αἴτιοσ|ADJ	αἴτιοσ	ADJ	αἴτιος×2	resolved	2	0	0	-×2	H0 R02	
+αὐτόσ|ADJ	αὐτόσ	ADJ	αὐτός×12	resolved	12	0	0	-×12	H0 R02	
+αὐτόφωροσ|ADJ	αὐτόφωροσ	ADJ	αὐτόφωρος×1	resolved	1	0	0	-×1	H0 R02	
+αὔλειοσ|ADJ	αὔλειοσ	ADJ	αὔλειος×1	resolved	1	0	0	-×1	H0 R02	
+βέλτιστοσ|ADJ	βέλτιστοσ	ADJ	βέλτιστος×2	resolved	2	0	0	-×2	H0 R02	
+βία|NOUN	βία	NOUN	βία×2	resolved	2	0	0	-×2	H0 R01	
+βαδίζω|VERB	βαδίζω	VERB	βαδίζω×4	resolved	4	0	0	-×4	H0 R06	
+βασανίζω|VERB	βασανίζω	VERB	βασανίζω×1	resolved	1	0	0	-×1	H0 R06	
+βιάζω|VERB	βιάζω	VERB	βιάζω×2	resolved	2	0	0	-×2	H0 R06	
+βλάβη|NOUN	βλάβη	NOUN	βλάβη×2	resolved	2	0	0	-×2	H0 R01	
+βοάω|VERB	βοάω	VERB	βοάω×2	resolved	2	0	0	-×2	H0 R06	
+βούλομαι|VERB	βούλομαι	VERB	βούλομαι×6	resolved	6	0	0	-×6	H0 R06	
+γίγνομαι|VERB	γίγνομαι	VERB	γίγνομαι×18	resolved	18	0	0	-×18	H0 R06	
+γαμέω|VERB	γαμέω	VERB	γαμέω×1	resolved	1	0	0	-×1	H0 R06	
+γαμετή|NOUN	γαμετή	NOUN	γαμετή×2	resolved	2	0	0	-×2	H0 R01	
+γείτων|NOUN	γείτων	NOUN	γείτων×1	resolved	1	0	0	-×1	H0 R01	
+γελάω|VERB	γελάω	VERB	γελάω×1	resolved	1	0	0	-×1	H0 R06	
+γιγνώσκω|VERB	γιγνώσκω	VERB	γιγνώσκω×3	resolved	3	0	0	-×3	H0 R06	
+γνώμη|NOUN	γνώμη	NOUN	γνώμη×5	resolved	5	0	0	-×5	H0 R01	
+γράφω|VERB	γράφω	VERB	γράφω×1	resolved	1	0	0	-×1	H0 R06	
+γραφή|NOUN	γραφή	NOUN	γραφή×1	resolved	1	0	0	-×1	H0 R01	
+γυμνόσ|ADJ	γυμνόσ	ADJ	γυμνός×1	resolved	1	0	0	-×1	H0 R02	
+γυνή|NOUN	γυνή	NOUN	γυνή×20	resolved	20	0	0	-×20	H0 R01	
+γυναικωνῖτισ|NOUN	γυναικωνῖτισ	NOUN	γυναικωνῖτις×1	resolved	1	0	0	-×1	H0 R01	
+γόνυ|NOUN	γόνυ	NOUN	γόνυ×1	resolved	1	0	0	-×1	H0 R01	
+δάμαρ|NOUN	δάμαρ	NOUN	δάμαρ×1	resolved	1	0	0	-×1	H0 R01	
+δίδωμι|VERB	δίδωμι	VERB	δίδωμι×2	resolved	2	0	0	-×2	H0 R06	
+δίκαιοσ|ADJ	δίκαιοσ	ADJ	δίκαιος×6	resolved	6	0	0	-×6	H0 R02	
+δίκη|NOUN	δίκη	NOUN	δίκη×6	resolved	6	0	0	-×6	H0 R01	
+δαίσ|NOUN	δαίσ	NOUN	δαίς×1	resolved	1	0	0	1×1	H0 R01	
+δείδω|VERB	δείδω	VERB	δείδω×2	resolved	2	0	0	-×2	H0 R06	
+δεινόσ|ADJ	δεινόσ	ADJ	δεινός×3	resolved	3	0	0	-×3	H0 R02	
+δειπνέω|VERB	δειπνέω	VERB	δειπνέω×2	resolved	2	0	0	-×2	H0 R06	
+δεῖ|VERB	δεῖ	VERB	δεῖ×5	resolved	5	0	0	-×5	H0 R06	
+δεῖπνον|NOUN	δεῖπνον	NOUN	δεῖπνον×1	resolved	1	0	0	-×1	H0 R01	
+δημοκρατία|NOUN	δημοκρατία	NOUN	δημοκρατία×1	resolved	1	0	0	-×1	H0 R01	
+διάκειμαι|VERB	διάκειμαι	VERB	διάκειμαι×3	resolved	3	0	0	-×3	H0 R06	
+διάνοια|NOUN	διάνοια	NOUN	διάνοια×1	resolved	1	0	0	-×1	H0 R01	
+διαγίγνομαι|VERB	διαγίγνομαι	VERB	διαγίγνομαι×2	resolved	2	0	0	-×2	H0 R06	
+διαιτάω|VERB	διαιτάω	VERB	διαιτάω×1	resolved	1	0	0	-×1	H1 R06	
+διακέομαι|VERB	διακέομαι	VERB	διακέομαι×1	resolved	1	0	0	-×1	H0 R06	
+διακονέω|VERB	διακονέω	VERB	διακονέω×1	resolved	1	0	0	-×1	H0 R06	
+διαπράσσω|VERB	διαπράσσω	VERB	διαπράσσω×3	resolved	3	0	0	-×3	H0 R06	
+διαρρήδην|ADV	διαρρήδην	ADV	διαρρήδην×1	resolved	1	0	0	-×1	H0 R03	
+διαφεύγω|VERB	διαφεύγω	VERB	διαφεύγω×1	resolved	1	0	0	-×1	H0 R06	
+διαφθείρω|VERB	διαφθείρω	VERB	διαφθείρω×5	resolved	5	0	0	-×5	H0 R06	
+διαφορά|NOUN	διαφορά	NOUN	διαφορά×1	resolved	1	0	0	-×1	H0 R01	
+διηγέομαι|VERB	διηγέομαι	VERB	διηγέομαι×3	resolved	3	0	0	-×3	H0 R06	
+δικάζω|VERB	δικάζω	VERB	δικάζω×2	resolved	2	0	0	-×2	H0 R06	
+δικαστήριον|NOUN	δικαστήριον	NOUN	δικαστήριον×1	resolved	1	0	0	-×1	H0 R01	
+δικαστήσ|NOUN	δικαστήσ	NOUN	δικαστής×1	resolved	1	0	0	-×1	H0 R01	
+διοικέω|VERB	διοικέω	VERB	διοικέω×1	resolved	1	0	0	-×1	H0 R06	
+διπλόοσ|ADJ	διπλόοσ	ADJ	διπλόος×3	resolved	3	0	0	-×3	H0 R02	
+δοκέω|VERB	δοκέω	VERB	δοκέω×5	resolved	5	0	0	-×5	H0 R06	
+δοκόω|VERB	δοκόω	VERB	δοκόω×1	resolved	1	0	0	-×1	H0 R06	
+δυσκολαίνω|VERB	δυσκολαίνω	VERB	δυσκολαίνω×1	resolved	1	0	0	-×1	H0 R06	
+δυσμή|NOUN	δυσμή	NOUN	δυσμή×1	resolved	1	0	0	-×1	H0 R01	
+δωμάτιον|NOUN	δωμάτιον	NOUN	δωμάτιον×3	resolved	3	0	0	-×3	H0 R01	
+δύναμαι|VERB	δύναμαι	VERB	δύναμαι×3	resolved	3	0	0	-×3	H0 R06	
+δύο|ADJ	δύο	ADJ	δύο×1	resolved	1	0	0	-×1	H0 R02	
+δύω|VERB	δύω	VERB	δύω×1	resolved	1	0	0	2×1	H0 R06	
+δῆλοσ|ADJ	δῆλοσ	ADJ	δῆλος×1	resolved	1	0	0	-×1	H0 R02	
+εἰδοί|NOUN	εἰδοί	NOUN	εἰδοί×1	resolved	1	0	0	-×1	H0 R01	
+εἰσάγω|VERB	εἰσάγω	VERB	εἰσάγω×1	resolved	1	0	0	-×1	H0 R06	
+εἰσέρχομαι|VERB	εἰσέρχομαι	VERB	εἰσέρχομαι×5	resolved	5	0	0	-×5	H0 R06	
+εἰσίημι|VERB	εἰσίημι	VERB	εἰσίημι×1	resolved	1	0	0	-×1	H0 R06	
+εἰσαγγέλλω|VERB	εἰσαγγέλλω	VERB	εἰσαγγέλλω×1	resolved	1	0	0	-×1	H0 R06	
+εἰσαρπάζω|VERB	εἰσαρπάζω	VERB	εἰσαρπάζω×1	resolved	1	0	0	-×1	H0 R06	
+εἴσειμι|VERB	εἴσειμι	VERB	εἴσειμι×6	resolved	6	0	0	-×6	H0 R06	
+εἴσοδοσ|NOUN	εἴσοδοσ	NOUN	εἴσοδος×1	resolved	1	0	0	-×1	H0 R01	
+εἶδον|VERB	εἶδον	VERB	εἶδον×1	resolved	1	0	0	-×1	H0 R06	
+εἶμι|VERB	εἶμι	VERB	εἶμι×1	resolved	1	0	0	-×1	H0 R06	
+εἶπον|VERB	εἶπον	VERB	εἶπον×8	resolved	8	0	0	-×8	H0 R06	
+εὐθέωσ|ADV	εὐθέωσ	ADV	εὐθέως×1	resolved	1	0	0	-×1	H0 R03	
+εὐθύσ|ADV	εὐθύσ	ADV	εὐθύς×2	resolved	2	0	0	2×2	H0 R03	
+εὐφίλητοσ|ADJ	εὐφίλητοσ	ADJ	εὐφίλητος×1	resolved	1	0	0	-×1	H0 R02	
+εὑρίσκω|VERB	εὑρίσκω	VERB	εὑρίσκω×2	resolved	2	0	0	-×2	H0 R06	
+εὖ|ADV	εὖ	ADV	εὖ×2	resolved	2	0	0	-×2	H0 R03	
+ζημία|NOUN	ζημία	NOUN	ζημία×6	resolved	6	0	0	-×6	H0 R01	
+ζημιόω|VERB	ζημιόω	VERB	ζημιόω×1	resolved	1	0	0	-×1	H0 R06	
+ζητέω|VERB	ζητέω	VERB	ζητέω×1	resolved	1	0	0	-×1	H0 R06	
+θάνατοσ|NOUN	θάνατοσ	NOUN	θάνατος×3	resolved	3	0	0	-×3	H0 R01	
+θεράπαινα|NOUN	θεράπαινα	NOUN	θεράπαινα×6	resolved	6	0	0	-×6	H0 R01	
+θεράπων|NOUN	θεράπων	NOUN	θεράπων×1	resolved	1	0	0	-×1	H0 R01	
+θηλάζω|VERB	θηλάζω	VERB	θηλάζω×1	resolved	1	0	0	-×1	H0 R06	
+θνήσκω|VERB	θνήσκω	VERB	θνήσκω×1	resolved	1	0	0	-×1	H0 R06	
+θύρα|NOUN	θύρα	NOUN	θύρα×7	resolved	7	0	0	-×7	H0 R01	
+κάκη|NOUN	κάκη	NOUN	κάκη×1	resolved	1	0	0	-×1	H0 R01	
+κάτω|ADV	κάτω	ADV	κάτω×3	resolved	3	0	0	-×3	H0 R03	
+κέρδοσ|NOUN	κέρδοσ	NOUN	κέρδος×1	resolved	1	0	0	-×1	H0 R01	
+κίνδυνοσ|NOUN	κίνδυνοσ	NOUN	κίνδυνος×1	resolved	1	0	0	-×1	H0 R01	
+καί|ADV	καί	ADV	καί×23	resolved	10	13	0	-×23	H0 R03C R03K	
+καθίστημι|VERB	καθίστημι	VERB	καθίστημι×1	resolved	1	0	0	-×1	H0 R06	
+καθεύδω|VERB	καθεύδω	VERB	καθεύδω×3	resolved	3	0	0	-×3	H0 H1 R06	
+κακόσ|ADJ	κακόσ	ADJ	κακός×5	resolved	5	0	0	-×5	H0 R02	
+καλόσ|ADJ	καλόσ	ADJ	καλός×1	resolved	1	0	0	-×1	H0 R02	
+καλόσ|ADV	καλόσ	ADV	καλός×2	resolved	2	0	0	-×2	H0 R03	
+καπηλεῖον|NOUN	καπηλεῖον	NOUN	καπηλεῖον×1	resolved	1	0	0	-×1	H0 R01	
+κατάκειμαι|VERB	κατάκειμαι	VERB	κατάκειμαι×1	resolved	1	0	0	-×1	H0 R06	
+καταβάλλω|VERB	καταβάλλω	VERB	καταβάλλω×1	resolved	1	0	0	-×1	H0 R06	
+καταβαίνω|VERB	καταβαίνω	VERB	καταβαίνω×2	resolved	2	0	0	-×2	H0 R06	
+καταγιγνώσκω|VERB	καταγιγνώσκω	VERB	καταγιγνώσκω×2	resolved	2	0	0	-×2	H0 R06	
+καταισχύνω|VERB	καταισχύνω	VERB	καταισχύνω×1	resolved	1	0	0	-×1	H0 R06	
+καταλαμβάνω|VERB	καταλαμβάνω	VERB	καταλαμβάνω×4	resolved	4	0	0	-×4	H0 R06	
+καταλιμπάνω|VERB	καταλιμπάνω	VERB	καταλιμπάνω×1	resolved	1	0	0	-×1	H0 R06	
+καταπίπτω|VERB	καταπίπτω	VERB	καταπίπτω×1	resolved	1	0	0	-×1	H0 R06	
+καταφεύγω|VERB	καταφεύγω	VERB	καταφεύγω×1	resolved	1	0	0	-×1	H0 R06	
+κατεῖπον|VERB	κατεῖπον	VERB	κατεῖπον×1	resolved	1	0	0	-×1	H0 R06	
+κατηγορέω|VERB	κατηγορέω	VERB	κατηγορέω×2	resolved	2	0	0	-×2	H0 R06	
+κελεύω|VERB	κελεύω	VERB	κελεύω×13	resolved	13	0	0	-×13	H0 R06	
+κεῖμαι|VERB	κεῖμαι	VERB	κεῖμαι×1	resolved	1	0	0	-×1	H0 R06	
+κινδυνεύω|VERB	κινδυνεύω	VERB	κινδυνεύω×3	resolved	3	0	0	-×3	H0 R06	
+κλέπτησ|NOUN	κλέπτησ	NOUN	κλέπτης×1	resolved	1	0	0	-×1	H0 R01	
+κλίνη|NOUN	κλίνη	NOUN	κλίνη×1	resolved	1	0	0	-×1	H0 R01	
+κλαίω|VERB	κλαίω	VERB	κλαίω×1	resolved	1	0	0	-×1	H0 R06	
+κλείσ|NOUN	κλείσ	NOUN	κλείς×1	resolved	1	0	0	-×1	H0 R01	
+κλῖμαξ|NOUN	κλῖμαξ	NOUN	κλῖμαξ×1	resolved	1	0	0	-×1	H0 R01	
+κρείσσων|ADJ	κρείσσων	ADJ	κρείσσων×1	resolved	1	0	0	-×1	H0 R02	
+κόσμιοσ|ADJ	κόσμιοσ	ADJ	κόσμιος×1	resolved	1	0	0	-×1	H0 R02	
+κύριοσ|ADJ	κύριοσ	ADJ	κύριος×3	resolved	3	0	0	-×3	H0 R02	
+λίαν|ADV	λίαν	ADV	λίαν×1	resolved	1	0	0	-×1	H0 R03	
+λαμβάνω|VERB	λαμβάνω	VERB	λαμβάνω×12	resolved	12	0	0	-×12	H0 R06	
+λοιδορία|NOUN	λοιδορία	NOUN	λοιδορία×1	resolved	1	0	0	-×1	H0 R01	
+λούω|VERB	λούω	VERB	λούω×1	resolved	1	0	0	-×1	H0 R06	
+λυπέω|VERB	λυπέω	VERB	λυπέω×2	resolved	2	0	0	-×2	H0 R06	
+λόγοσ|NOUN	λόγοσ	NOUN	λόγος×3	resolved	3	0	0	-×3	H0 R01	
+λύχνοσ|NOUN	λύχνοσ	NOUN	λύχνος×1	resolved	1	0	0	-×1	H0 R01	
+μάρτυροσ|NOUN	μάρτυροσ	NOUN	μάρτυρος×1	resolved	1	0	0	-×1	H0 R01	
+μάρτυσ|NOUN	μάρτυσ	NOUN	μάρτυς×6	resolved	6	0	0	-×6	H0 R01 R01R	rubric-label
+μέγασ|ADJ	μέγασ	ADJ	μέγας×5	resolved	5	0	0	-×5	H0 R02	
+μέγεθοσ|NOUN	μέγεθοσ	NOUN	μέγεθος×1	resolved	1	0	0	-×1	H0 R01	
+μένω|VERB	μένω	VERB	μένω×1	resolved	1	0	0	-×1	H0 R06	
+μέταυλοσ|ADJ	μέταυλοσ	ADJ	μέταυλος×1	resolved	1	0	0	-×1	H0 R02	
+μήτηρ|NOUN	μήτηρ	NOUN	μήτηρ×3	resolved	3	0	0	-×3	H0 R01	
+μαστιγόω|VERB	μαστιγόω	VERB	μαστιγόω×1	resolved	1	0	0	-×1	H0 R06	
+μεθύω|VERB	μεθύω	VERB	μεθύω×1	resolved	1	0	0	-×1	H0 R06	
+μεστόσ|ADJ	μεστόσ	ADJ	μεστός×2	resolved	2	0	0	-×2	H0 R02	
+μετέρχομαι|VERB	μετέρχομαι	VERB	μετέρχομαι×2	resolved	2	0	0	-×2	H0 R06	
+μεταξύ|ADV	μεταξύ	ADV	μεταξύ×1	resolved	1	0	0	-×1	H0 R03	
+μηδέποτε|ADV	μηδέποτε	ADV	μηδέποτε×1	resolved	1	0	0	-×1	H0 R03	
+μηδείσ|ADJ	μηδείσ	ADJ	μηδείς×2	resolved	2	0	0	-×2	H0 R02	
+μηχανάομαι|VERB	μηχανάομαι	VERB	μηχανάομαι×1	resolved	1	0	0	-×1	H0 R06	
+μικρόσ|ADJ	μικρόσ	ADJ	μικρός×1	resolved	1	0	0	-×1	H0 R02	
+μιμνήσκω|VERB	μιμνήσκω	VERB	μιμνήσκω×1	resolved	1	0	0	-×1	H0 R06	
+μισέω|VERB	μισέω	VERB	μισέω×1	resolved	1	0	0	-×1	H0 R06	
+μοιχεία|NOUN	μοιχεία	NOUN	μοιχεία×1	resolved	1	0	0	-×1	H0 R01	
+μοιχεύω|VERB	μοιχεύω	VERB	μοιχεύω×2	resolved	2	0	0	-×2	H0 R06	
+μοιχόσ|NOUN	μοιχόσ	NOUN	μοιχός×6	resolved	6	0	0	-×6	H0 R01	
+μυλών|NOUN	μυλών	NOUN	μυλών×1	resolved	1	0	0	-×1	H0 R01	
+μόνοσ|ADJ	μόνοσ	ADJ	μόνος×6	resolved	6	0	0	-×6	H0 R02	
+μᾶλλον|ADV	μᾶλλον	ADV	μᾶλλον×2	resolved	2	0	0	-×2	H0 R03	
+νεανίσκοσ|NOUN	νεανίσκοσ	NOUN	νεανίσκος×1	resolved	1	0	0	-×1	H0 R01	
+νομίζω|VERB	νομίζω	VERB	νομίζω×4	resolved	4	0	0	-×4	H0 R06	
+νομοθέτησ|NOUN	νομοθέτησ	NOUN	νομοθέτης×1	resolved	1	0	0	-×1	H0 R01	
+νόμοσ|NOUN	νόμοσ	NOUN	Νόμος×1;νόμος×18	resolved	19	0	0	-×19	H0 R01 R01R	lemma-capitalized;rubric-label
+νόοσ|NOUN	νόοσ	NOUN	νόος×1	resolved	1	0	0	-×1	H0 R01	
+νύκτωρ|ADV	νύκτωρ	ADV	νύκτωρ×1	resolved	1	0	0	-×1	H0 R03	
+νύξ|NOUN	νύξ	NOUN	νύξ×5	resolved	5	0	0	-×5	H0 R01	
+νῦν|ADV	νῦν	ADV	νῦν×3	resolved	2	1	0	-×3	H0 R03 R03P	
+ξύλον|NOUN	ξύλον	NOUN	ξύλον×1	resolved	1	0	0	-×1	H0 R01	
+οἰκία|NOUN	οἰκία	NOUN	οἰκία×10	resolved	10	0	0	-×10	H0 R01	
+οἰκίδιον|NOUN	οἰκίδιον	NOUN	οἰκίδιον×1	resolved	1	0	0	-×1	H0 R01	
+οἰκειότησ|NOUN	οἰκειότησ	NOUN	οἰκειότης×1	resolved	1	0	0	-×1	H0 R01	
+οἰκεῖοσ|ADJ	οἰκεῖοσ	ADJ	οἰκεῖος×1	resolved	1	0	0	-×1	H0 R02	
+οἰκεῖοσ|ADV	οἰκεῖοσ	ADV	οἰκεῖος×1	resolved	1	0	0	-×1	H0 R03	
+οἰκονόμοσ|NOUN	οἰκονόμοσ	NOUN	οἰκονόμος×1	resolved	1	0	0	-×1	H0 R01	
+οἴκαδε|ADV	οἴκαδε	ADV	οἴκαδε×2	resolved	2	0	0	-×2	H0 R03	
+οἴκοι|ADV	οἴκοι	ADV	οἴκοι×2	resolved	2	0	0	-×2	H0 R03	
+οἴομαι|VERB	οἴομαι	VERB	οἴομαι×4	resolved	4	0	0	-×4	H0 R06	
+οἴχομαι|VERB	οἴχομαι	VERB	οἴχομαι×4	resolved	4	0	0	-×4	H0 R06	
+οἶδα|VERB	οἶδα	VERB	οἶδα×9	resolved	9	0	0	-×9	H0 R06	
+οἷοσ|ADJ	οἷοσ	ADJ	οἷος×7	resolved	7	0	0	-×7	H0 R02	
+οὐδέποτε|ADV	οὐδέποτε	ADV	οὐδέποτε×2	resolved	2	0	0	-×2	H0 R03	
+οὐδείσ|ADJ	οὐδείσ	ADJ	οὐδείς×1	resolved	1	0	0	-×1	H0 R02	
+οὐκέτι|ADV	οὐκέτι	ADV	οὐκέτι×1	resolved	1	0	0	-×1	H0 R03	
+οὔπω|ADV	οὔπω	ADV	οὔπω×1	resolved	1	0	0	-×1	H0 R03	
+οὕτωσ|ADV	οὕτωσ	ADV	οὕτως×17	resolved	17	0	0	-×17	H0 R03	
+οὗτοσ|ADJ	οὗτοσ	ADJ	οὗτος×14	resolved	14	0	0	-×14	H0 R02	
+πάρειμι|VERB	πάρειμι	VERB	πάρειμι×2	resolved	2	0	0	1×2	H0 R06	
+πάσχω|VERB	πάσχω	VERB	πάσχω×3	resolved	3	0	0	-×3	H0 R06	
+πάτριοσ|ADJ	πάτριοσ	ADJ	πάτριος×1	resolved	1	0	0	-×1	H0 R02	
+πένησ|NOUN	πένησ	NOUN	πένης×1	resolved	1	0	0	-×1	H0 R01	
+πέντε|ADJ	πέντε	ADJ	πέντε×1	resolved	1	0	0	-×1	H0 R02	
+πίπτω|VERB	πίπτω	VERB	πίπτω×1	resolved	1	0	0	-×1	H0 R06	
+πίστισ|NOUN	πίστισ	NOUN	πίστις×1	resolved	1	0	0	-×1	H0 R01	
+παίδιον|NOUN	παίδιον	NOUN	παίδιον×2	resolved	2	0	0	-×2	H0 R01	
+παίζω|VERB	παίζω	VERB	παίζω×1	resolved	1	0	0	-×1	H0 R06	
+παιδίον|NOUN	παιδίον	NOUN	παιδίον×4	resolved	4	0	0	-×4	H0 R01	
+παιδίσκη|NOUN	παιδίσκη	NOUN	παιδίσκη×1	resolved	1	0	0	-×1	H0 R01	
+παλλακή|NOUN	παλλακή	NOUN	παλλακή×2	resolved	2	0	0	-×2	H0 R01	
+παραβαίνω|VERB	παραβαίνω	VERB	παραβαίνω×1	resolved	1	0	0	-×1	H0 R06	
+παραγγέλλω|VERB	παραγγέλλω	VERB	παραγγέλλω×2	resolved	2	0	0	-×2	H0 R06	
+παραδίδωμι|VERB	παραδίδωμι	VERB	παραδίδωμι×1	resolved	1	0	0	-×1	H0 R06	
+παρακαλέω|VERB	παρακαλέω	VERB	παρακαλέω×1	resolved	1	0	0	-×1	H0 R06	
+παρακελεύομαι|VERB	παρακελεύομαι	VERB	παρακελεύομαι×1	resolved	1	0	0	-×1	H0 R06	
+παραλαμβάνω|VERB	παραλαμβάνω	VERB	παραλαμβάνω×2	resolved	2	0	0	-×2	H0 R06	
+παραλείπω|VERB	παραλείπω	VERB	παραλείπω×1	resolved	1	0	0	-×1	H0 R06	
+παρασκευάζω|VERB	παρασκευάζω	VERB	παρασκευάζω×3	resolved	3	0	0	-×3	H0 R06	
+παροινία|NOUN	παροινία	NOUN	παροινία×1	resolved	1	0	0	-×1	H0 R01	
+πατάσσω|VERB	πατάσσω	VERB	πατάσσω×1	resolved	1	0	0	-×1	H0 R06	
+παύω|VERB	παύω	VERB	παύω×2	resolved	2	0	0	-×2	H0 R06	
+παῖσ|NOUN	παῖσ	NOUN	παῖς×4	resolved	4	0	0	-×4	H0 R01	
+πείθω|VERB	πείθω	VERB	πείθω×5	resolved	5	0	0	-×5	H0 R06	
+πειράω|VERB	πειράω	VERB	πειράω×1	resolved	1	0	0	-×1	H0 R06	
+περιάγω|VERB	περιάγω	VERB	περιάγω×1	resolved	1	0	0	-×1	H0 R06	
+περιστρέφω|VERB	περιστρέφω	VERB	περιστρέφω×1	resolved	1	0	0	-×1	H0 R06	
+περιτρέχω|VERB	περιτρέχω	VERB	περιτρέχω×1	resolved	1	0	0	-×1	H0 R06	
+πιστεύω|VERB	πιστεύω	VERB	πιστεύω×1	resolved	1	0	0	-×1	H0 R06	
+πλήσσω|VERB	πλήσσω	VERB	πλήσσω×1	resolved	1	0	0	-×1	H0 R06	
+πλεῖστοσ|ADJ	πλεῖστοσ	ADJ	πλεῖστος×2	resolved	2	0	0	-×2	H0 R02	
+πλούσιοσ|ADJ	πλούσιοσ	ADJ	πλούσιος×1	resolved	1	0	0	-×1	H0 R02	
+ποθεν|ADV	ποθεν	ADV	ποθεν×1	resolved	1	0	0	-×1	H0 R03	
+ποιέω|VERB	ποιέω	VERB	ποιέω×14	resolved	14	0	0	-×14	H0 R06	
+ποιητέοσ|ADJ	ποιητέοσ	ADJ	ποιητέος×1	resolved	1	0	0	-×1	H0 R02	
+ποιόω|VERB	ποιόω	VERB	ποιόω×1	resolved	1	0	0	-×1	H0 R06	
+πολίτησ|NOUN	πολίτησ	NOUN	πολίτης×1	resolved	1	0	0	-×1	H0 R01	
+πολλάκισ|ADV	πολλάκισ	ADV	πολλάκις×2	resolved	2	0	0	-×2	H0 R03	
+πολυπραγμοσύνη|NOUN	πολυπραγμοσύνη	NOUN	πολυπραγμοσύνη×1	resolved	1	0	0	-×1	H0 R01	
+πολύσ|ADJ	πολύσ	ADJ	πολύς×7	resolved	7	0	0	-×7	H0 R02	
+πράσσω|VERB	πράσσω	VERB	πράσσω×9	resolved	9	0	0	-×9	H0 R06	
+πρεσβῦτισ|NOUN	πρεσβῦτισ	NOUN	πρεσβῦτις×1	resolved	1	0	0	-×1	H0 R01	
+προσέρχομαι|VERB	προσέρχομαι	VERB	προσέρχομαι×3	resolved	3	0	0	-×3	H0 R06	
+προσέχω|VERB	προσέχω	VERB	προσέχω×1	resolved	1	0	0	-×1	H0 R06	
+προσίημι|VERB	προσίημι	VERB	προσίημι×1	resolved	1	0	0	-×1	H0 R06	
+προσποιέω|VERB	προσποιέω	VERB	προσποιέω×1	resolved	1	0	0	-×1	H0 R06	
+προστίθημι|VERB	προστίθημι	VERB	προστίθημι×1	resolved	1	0	0	-×1	H0 R06	
+προσφέρω|VERB	προσφέρω	VERB	προσφέρω×1	resolved	1	0	0	-×1	H0 R06	
+πρόειμι|VERB	πρόειμι	VERB	πρόειμι×1	resolved	1	0	0	1×1	H0 R06	
+πρόκειμαι|VERB	πρόκειμαι	VERB	πρόκειμαι×1	resolved	1	0	0	-×1	H0 R06	
+πρόοιδα|VERB	πρόοιδα	VERB	πρόοιδα×1	resolved	1	0	0	-×1	H0 R06	
+πρόσειμι|VERB	πρόσειμι	VERB	πρόσειμι×1	resolved	1	0	0	1×1	H0 R06	
+πρόσωπον|NOUN	πρόσωπον	NOUN	πρόσωπον×1	resolved	1	0	0	-×1	H0 R01	
+πρότεροσ|ADJ	πρότεροσ	ADJ	πρότερος×3	resolved	3	0	0	-×3	H0 R02	
+πρᾶγμα|NOUN	πρᾶγμα	NOUN	πρᾶγμα×6	resolved	6	0	0	-×6	H0 R01	
+πρῶτοσ|ADJ	πρῶτοσ	ADJ	πρῶτος×8	resolved	8	0	0	-×8	H0 R02	
+πυνθάνομαι|VERB	πυνθάνομαι	VERB	πυνθάνομαι×5	resolved	5	0	0	-×5	H0 R06	
+πωσ|ADV	πωσ	ADV	πως×1	resolved	1	0	0	-×1	H0 R03	
+πόλισ|NOUN	πόλισ	NOUN	πόλις×8	resolved	8	0	0	-×8	H0 R01	
+πότεροσ|ADJ	πότεροσ	ADJ	πότερος×2	resolved	2	0	0	-×2	H0 R02	
+πώποτε|ADV	πώποτε	ADV	πώποτε×2	resolved	2	0	0	-×2	H0 R03	
+πᾶσ|ADJ	πᾶσ	ADJ	πᾶς×18	resolved	18	0	0	-×18	H0 R02	
+σίδηρον|NOUN	σίδηρον	NOUN	σίδηρον×1	resolved	1	0	0	-×1	H0 R01	
+σιδήριον|NOUN	σιδήριον	NOUN	σιδήριον×1	resolved	1	0	0	-×1	H0 R01	
+σιωπάω|VERB	σιωπάω	VERB	σιωπάω×1	resolved	1	0	0	-×1	H0 R06	
+σιωπή|NOUN	σιωπή	NOUN	σιωπή×2	resolved	2	0	0	-×2	H0 R01	
+σκέπτομαι|VERB	σκέπτομαι	VERB	σκέπτομαι×4	resolved	4	0	0	-×4	H0 R06	
+σμικρόσ|ADJ	σμικρόσ	ADJ	σμικρός×1	resolved	1	0	0	-×1	H0 R02	
+στήλη|NOUN	στήλη	NOUN	στήλη×1	resolved	1	0	0	-×1	H0 R01	
+συγγνώμη|NOUN	συγγνώμη	NOUN	συγγνώμη×2	resolved	2	0	0	-×2	H0 R01	
+συγχωρέω|VERB	συγχωρέω	VERB	συγχωρέω×1	resolved	1	0	0	-×1	H0 R06	
+συκοφαντέω|VERB	συκοφαντέω	VERB	συκοφαντέω×1	resolved	1	0	0	-×1	H0 R06	
+συνέχω|VERB	συνέχω	VERB	συνέχω×1	resolved	1	0	0	-×1	H0 R06	
+συνδειπνέω|VERB	συνδειπνέω	VERB	συνδειπνέω×4	resolved	4	0	0	-×4	H0 R06	
+συνεθίζω|VERB	συνεθίζω	VERB	συνεθίζω×1	resolved	1	0	0	-×1	H0 R06	
+σωτηρία|NOUN	σωτηρία	NOUN	σωτηρία×1	resolved	1	0	0	-×1	H0 R01	
+σωφρονέω|VERB	σωφρονέω	VERB	σωφρονέω×1	resolved	1	0	0	-×1	H0 R06	
+σόσ|ADJ	σόσ	ADJ	σός×2	resolved	2	0	0	-×2	H0 R02	
+σύνοιδα|VERB	σύνοιδα	VERB	σύνοιδα×2	resolved	2	0	0	-×2	H0 R06	
+σώφρων|ADJ	σώφρων	ADJ	σώφρων×1	resolved	1	0	0	-×1	H0 R02	
+σῶμα|NOUN	σῶμα	NOUN	σῶμα×1	resolved	1	0	0	-×1	H0 R01	
+τάσσω|VERB	τάσσω	VERB	τάσσω×1	resolved	1	0	0	-×1	H0 R06	
+τάχιστοσ|ADJ	τάχιστοσ	ADJ	τάχιστος×1	resolved	1	0	0	-×1	H0 R02	
+τέσσαρεσ|NOUN	τέσσαρεσ	NOUN	τέσσαρες×1	resolved	1	0	0	-×1	H0 R01	
+τέχνη|NOUN	τέχνη	NOUN	τέχνη×1	resolved	1	0	0	-×1	H0 R01	
+τίθημι|VERB	τίθημι	VERB	τίθημι×3	resolved	3	0	0	-×3	H0 R06	
+τίμημα|NOUN	τίμημα	NOUN	τίμημα×1	resolved	1	0	0	-×1	H0 R01	
+ταράσσω|VERB	ταράσσω	VERB	ταράσσω×1	resolved	1	0	0	-×1	H0 R06	
+τεκμήριον|NOUN	τεκμήριον	NOUN	τεκμήριον×1	resolved	1	0	0	-×1	H0 R01	
+τελευτάω|VERB	τελευτάω	VERB	τελευτάω×2	resolved	2	0	0	-×2	H0 R06	
+τελευταῖοσ|ADJ	τελευταῖοσ	ADJ	τελευταῖος×1	resolved	1	0	0	-×1	H0 R02	
+τηνικαῦτα|ADV	τηνικαῦτα	ADV	τηνικαῦτα×1	resolved	1	0	0	-×1	H0 R03	
+τιμωρέω|VERB	τιμωρέω	VERB	τιμωρέω×1	resolved	1	0	0	-×1	H0 R06	
+τιμωρία|NOUN	τιμωρία	NOUN	τιμωρία×6	resolved	6	0	0	-×6	H0 R01	
+τισ|ADJ	τισ	ADJ	τις×7	resolved	7	0	0	-×7	H0 R02	
+τιτθόσ|NOUN	τιτθόσ	NOUN	τιτθός×2	resolved	2	0	0	-×2	H0 R01	
+τοιοῦτοσ|ADJ	τοιοῦτοσ	ADJ	τοιοῦτος×9	resolved	9	0	0	-×9	H0 R02	
+τολμάω|VERB	τολμάω	VERB	τολμάω×1	resolved	1	0	0	-×1	H0 R06	
+τοσοῦτοσ|ADJ	τοσοῦτοσ	ADJ	τοσοῦτος×1	resolved	1	0	0	-×1	H0 R02	
+τριάκοντα|ADJ	τριάκοντα	ADJ	τριάκοντα×1	resolved	1	0	0	-×1	H0 R02	
+τρόποσ|NOUN	τρόποσ	NOUN	τρόπος×3	resolved	3	0	0	-×3	H0 R01	
+τυγχάνω|VERB	τυγχάνω	VERB	τυγχάνω×6	resolved	6	0	0	-×6	H0 R06	
+τότε|ADV	τότε	ADV	τότε×1	resolved	1	0	0	-×1	H0 R03	
+φάσκω|VERB	φάσκω	VERB	φάσκω×3	resolved	3	0	0	-×3	H0 R06	
+φίλοσ|ADJ	φίλοσ	ADJ	φίλος×4	resolved	4	0	0	-×4	H0 R02	
+φανερόσ|ADJ	φανερόσ	ADJ	φανερός×1	resolved	1	0	0	-×1	H0 R02	
+φειδωλόσ|ADJ	φειδωλόσ	ADJ	φειδωλός×1	resolved	1	0	0	-×1	H0 R02	
+φημί|VERB	φημί	VERB	φημί×4	resolved	4	0	0	-×4	H0 R06	
+φοιτάω|VERB	φοιτάω	VERB	φοιτάω×2	resolved	2	0	0	-×2	H0 R06	
+φράζω|VERB	φράζω	VERB	φράζω×1	resolved	1	0	0	-×1	H0 R06	
+φυλάσσω|VERB	φυλάσσω	VERB	φυλάσσω×3	resolved	3	0	0	-×3	H0 R06	
+φόνοσ|NOUN	φόνοσ	NOUN	φόνος×2	resolved	2	0	0	-×2	H0 R01	
+χαίρω|VERB	χαίρω	VERB	χαίρω×1	resolved	1	0	0	-×1	H0 R06	
+χείρ|NOUN	χείρ	NOUN	χείρ×2	resolved	2	0	0	-×2	H0 R01	
+χείρων|ADJ	χείρων	ADJ	χείρων×1	resolved	1	0	0	-×1	H0 R02	
+χράομαι|VERB	χράομαι	VERB	χράομαι×1	resolved	1	0	0	-×1	H0 R06	
+χρή|VERB	χρή	VERB	χρή×1	resolved	1	0	0	-×1	H0 R06	
+χρόνοσ|NOUN	χρόνοσ	NOUN	χρόνος×8	resolved	8	0	0	-×8	H0 R01	
+χρῆμα|NOUN	χρῆμα	NOUN	χρῆμα×4	resolved	4	0	0	-×4	H0 R01	
+ψεύδω|VERB	ψεύδω	VERB	ψεύδω×3	resolved	3	0	0	-×3	H0 R06	
+ψιμυθιόω|VERB	ψιμυθιόω	VERB	ψιμυθιόω×2	resolved	2	0	0	-×2	H0 R06	
+ψοφέω|VERB	ψοφέω	VERB	ψοφέω×2	resolved	2	0	0	-×2	H0 R06	
+ψυχή|NOUN	ψυχή	NOUN	ψυχή×1	resolved	1	0	0	-×1	H0 R01	
+ψῆφοσ|NOUN	ψῆφοσ	NOUN	ψῆφος×1	resolved	1	0	0	-×1	H0 R01	
+ἀγαθόσ|ADJ	ἀγαθόσ	ADJ	ἀγαθός×1	resolved	1	0	0	-×1	H0 R02	
+ἀγανακτέω|VERB	ἀγανακτέω	VERB	ἀγανακτέω×1	resolved	1	0	0	-×1	H0 R06	
+ἀγορά|NOUN	ἀγορά	NOUN	ἀγορά×3	resolved	3	0	0	-×3	H0 R01	
+ἀγρόσ|NOUN	ἀγρόσ	NOUN	ἀγρός×5	resolved	5	0	0	-×5	H0 R01	
+ἀγών|NOUN	ἀγών	NOUN	ἀγών×1	resolved	1	0	0	-×1	H0 R01	
+ἀδίκημα|NOUN	ἀδίκημα	NOUN	ἀδίκημα×2	resolved	2	0	0	-×2	H0 R01	
+ἀδελφόσ|NOUN	ἀδελφόσ	NOUN	ἀδελφός×1	resolved	1	0	0	-×1	H0 R01	
+ἀδικέω|VERB	ἀδικέω	VERB	ἀδικέω×8	resolved	8	0	0	-×8	H0 R06	
+ἀκολουθέω|VERB	ἀκολουθέω	VERB	ἀκολουθέω×2	resolved	2	0	0	-×2	H0 R06	
+ἀκούω|VERB	ἀκούω	VERB	ἀκούω×5	resolved	5	0	0	-×5	H0 R06	
+ἀκριβῶσ|ADV	ἀκριβῶσ	ADV	ἀκριβῶς×3	resolved	3	0	0	-×3	H0 R03	
+ἀληθήσ|ADJ	ἀληθήσ	ADJ	ἀληθής×4	resolved	4	0	0	-×4	H0 R02	
+ἀλλότριοσ|ADJ	ἀλλότριοσ	ADJ	ἀλλότριος×3	resolved	3	0	0	-×3	H0 R02	
+ἀμφισβητέω|VERB	ἀμφισβητέω	VERB	ἀμφισβητέω×1	resolved	1	0	0	-×1	H1 R06	
+ἀμύνω|VERB	ἀμύνω	VERB	ἀμύνω×1	resolved	1	0	0	-×1	H0 R06	
+ἀνήρ|NOUN	ἀνήρ	NOUN	ἀνήρ×27	resolved	27	0	0	-×27	H0 R01	
+ἀνίστημι|VERB	ἀνίστημι	VERB	ἀνίστημι×1	resolved	1	0	0	-×1	H0 R06	
+ἀναβαίνω|VERB	ἀναβαίνω	VERB	ἀναβαίνω×3	resolved	3	0	0	-×3	H0 R06	
+ἀναγιγνώσκω|VERB	ἀναγιγνώσκω	VERB	ἀναγιγνώσκω×3	resolved	3	0	0	-×3	H0 R06	
+ἀναμιμνήσκω|VERB	ἀναμιμνήσκω	VERB	ἀναμιμνήσκω×1	resolved	1	0	0	-×1	H0 R06	
+ἀνδρωνῖτισ|NOUN	ἀνδρωνῖτισ	NOUN	ἀνδρωνῖτις×1	resolved	1	0	0	-×1	H0 R01	
+ἀνοίγνυμι|VERB	ἀνοίγνυμι	VERB	ἀνοίγνυμι×2	resolved	2	0	0	-×2	H0 R06	
+ἀξιόω|VERB	ἀξιόω	VERB	ἀξιόω×4	resolved	4	0	0	-×4	H0 R06	
+ἀπαλλαξείω|VERB	ἀπαλλαξείω	VERB	ἀπαλλαξείω×1	resolved	1	0	0	-×1	H0 R06	
+ἀπαντάω|VERB	ἀπαντάω	VERB	ἀπαντάω×2	resolved	2	0	0	-×2	H0 R06	
+ἀπογιγνώσκω|VERB	ἀπογιγνώσκω	VERB	ἀπογιγνώσκω×1	resolved	1	0	0	-×1	H0 R06	
+ἀποδίδωμι|VERB	ἀποδίδωμι	VERB	ἀποδίδωμι×2	resolved	2	0	0	-×2	H0 R06	
+ἀποθνήσκω|VERB	ἀποθνήσκω	VERB	ἀποθνήσκω×2	resolved	2	0	0	-×2	H0 R06	
+ἀποκλείω|VERB	ἀποκλείω	VERB	ἀποκλείω×1	resolved	1	0	0	-×1	H0 R06	
+ἀποκτείνω|VERB	ἀποκτείνω	VERB	ἀποκτείνω×3	resolved	3	0	0	-×3	H0 R06	
+ἀπολιμπάνω|VERB	ἀπολιμπάνω	VERB	ἀπολιμπάνω×1	resolved	1	0	0	-×1	H0 R06	
+ἀποσβέννυμι|VERB	ἀποσβέννυμι	VERB	ἀποσβέννυμι×1	resolved	1	0	0	-×1	H0 R06	
+ἀποτίνω|VERB	ἀποτίνω	VERB	ἀποτίνω×1	resolved	1	0	0	-×1	H0 R06	
+ἀπροσδόκητοσ|ADV	ἀπροσδόκητοσ	ADV	ἀπροσδόκητος×1	resolved	1	0	0	-×1	H0 R03	
+ἀπόλλυμι|VERB	ἀπόλλυμι	VERB	ἀπόλλυμι×3	resolved	3	0	0	-×3	H0 R06	
+ἀργύριον|NOUN	ἀργύριον	NOUN	ἀργύριον×1	resolved	1	0	0	-×1	H0 R01	
+ἀρχή|NOUN	ἀρχή	NOUN	ἀρχή×1	resolved	1	0	0	-×1	H0 R01	
+ἀσεβέω|VERB	ἀσεβέω	VERB	ἀσεβέω×1	resolved	1	0	0	-×1	H0 R06	
+ἀσθενήσ|ADJ	ἀσθενήσ	ADJ	ἀσθενής×1	resolved	1	0	0	-×1	H0 R02	
+ἀσφαλήσ|ADJ	ἀσφαλήσ	ADJ	ἀσφαλής×1	resolved	1	0	0	-×1	H0 R02	
+ἀφίημι|VERB	ἀφίημι	VERB	ἀφίημι×1	resolved	1	0	0	-×1	H0 R06	
+ἀφικνέομαι|VERB	ἀφικνέομαι	VERB	ἀφικνέομαι×2	resolved	2	0	0	-×2	H0 R06	
+ἀφοράω|VERB	ἀφοράω	VERB	ἀφοράω×1	resolved	1	0	0	-×1	H0 R06	
+ἁγέομαι|VERB	ἁγέομαι	VERB	ἁγέομαι×1	resolved	1	0	0	-×1	H0 R06	
+ἁμάρτημα|NOUN	ἁμάρτημα	NOUN	ἁμάρτημα×2	resolved	2	0	0	-×2	H0 R01	
+ἁμαρτάνω|VERB	ἁμαρτάνω	VERB	ἁμαρτάνω×2	resolved	2	0	0	-×2	H0 R06	
+ἄγω|VERB	ἄγω	VERB	ἄγω×2	resolved	2	0	0	-×2	H0 R06	
+ἄδεια|NOUN	ἄδεια	NOUN	ἄδεια×2	resolved	2	0	0	-×2	H0 R01	
+ἄδηλοσ|ADJ	ἄδηλοσ	ADJ	ἄδηλος×1	resolved	1	0	0	-×1	H0 R02	
+ἄδικοσ|ADV	ἄδικοσ	ADV	ἄδικος×1	resolved	1	0	0	-×1	H0 R03	
+ἄλλοσ|ADJ	ἄλλοσ	ADJ	ἄλλος×5	resolved	5	0	0	-×5	H0 R02	
+ἄνθρωποσ|NOUN	ἄνθρωποσ	NOUN	ἄνθρωπος×10	resolved	10	0	0	-×10	H0 R01	
+ἄνω|ADV	ἄνω	ADV	ἄνω×2	resolved	2	0	0	2×2	H0 R03	
+ἄξιοσ|ADJ	ἄξιοσ	ADJ	ἄξιος×4	resolved	4	0	0	-×4	H0 R02	
+ἄσμενοσ|ADJ	ἄσμενοσ	ADJ	ἄσμενος×2	resolved	2	0	0	-×2	H0 R02	
+ἅπασ|ADJ	ἅπασ	ADJ	ἅπας×10	resolved	10	0	0	-×10	H0 R02	
+ἅπτω|VERB	ἅπτω	VERB	ἅπτω×1	resolved	1	0	0	-×1	H0 R06	
+ἆθλον|NOUN	ἆθλον	NOUN	ἆθλον×1	resolved	1	0	0	-×1	H0 R01	
+ἐάω|VERB	ἐάω	VERB	ἐάω×1	resolved	1	0	0	-×1	H0 R06	
+ἐγγύσ|ADV	ἐγγύσ	ADV	ἐγγύς×1	resolved	1	0	0	-×1	H0 R03	
+ἐγγύτατοσ|ADJ	ἐγγύτατοσ	ADJ	ἐγγύτατος×1	resolved	1	0	0	-×1	H0 R02	
+ἐγγύτεροσ|ADJ	ἐγγύτεροσ	ADJ	ἐγγύτερος×1	resolved	1	0	0	-×1	H0 R02	
+ἐθέλω|VERB	ἐθέλω	VERB	ἐθέλω×2	resolved	2	0	0	-×2	H0 R06	
+ἐκβάλλω|VERB	ἐκβάλλω	VERB	ἐκβάλλω×1	resolved	1	0	0	-×1	H0 R06	
+ἐκεῖνοσ|ADJ	ἐκεῖνοσ	ADJ	ἐκεῖνος×5	resolved	5	0	0	-×5	H0 R02	
+ἐκπλήσσω|VERB	ἐκπλήσσω	VERB	ἐκπλήσσω×1	resolved	1	0	0	-×1	H0 R06	
+ἐκφορά|NOUN	ἐκφορά	NOUN	ἐκφορά×2	resolved	2	0	0	-×2	H0 R01	
+ἐλάσσων|ADJ	ἐλάσσων	ADJ	ἐλάσσων×3	resolved	3	0	0	-×3	H0 R02	
+ἐλεύθεροσ|ADJ	ἐλεύθεροσ	ADJ	ἐλεύθερος×1	resolved	1	0	0	-×1	H0 R02	
+ἐλπίζω|VERB	ἐλπίζω	VERB	ἐλπίζω×1	resolved	1	0	0	-×1	H0 R06	
+ἐμπίτνω|VERB	ἐμπίτνω	VERB	ἐμπίτνω×1	resolved	1	0	0	-×1	H0 R06	
+ἐμόσ|ADJ	ἐμόσ	ADJ	ἐμός×10	resolved	10	0	0	-×10	H0 R02	
+ἐνάπτω|VERB	ἐνάπτω	VERB	ἐνάπτω×1	resolved	1	0	0	-×1	H0 R06	
+ἐνέχω|VERB	ἐνέχω	VERB	ἐνέχω×1	resolved	1	0	0	-×1	H0 R06	
+ἐνεδρεύω|VERB	ἐνεδρεύω	VERB	ἐνεδρεύω×1	resolved	1	0	0	-×1	H0 R06	
+ἐνθυμέομαι|VERB	ἐνθυμέομαι	VERB	ἐνθυμέομαι×3	resolved	3	0	0	-×3	H0 R06	
+ἐνταῦθα|ADV	ἐνταῦθα	ADV	ἐνταῦθα×1	resolved	1	0	0	-×1	H0 R03	
+ἐξέρχομαι|VERB	ἐξέρχομαι	VERB	ἐξέρχομαι×2	resolved	2	0	0	-×2	H0 R06	
+ἐξαλείφω|VERB	ἐξαλείφω	VERB	ἐξαλείφω×1	resolved	1	0	0	-×1	H0 R06	
+ἐξαμαρτάνω|VERB	ἐξαμαρτάνω	VERB	ἐξαμαρτάνω×2	resolved	2	0	0	-×2	H0 R06	
+ἐξευρίσκω|VERB	ἐξευρίσκω	VERB	ἐξευρίσκω×2	resolved	2	0	0	-×2	H0 R06	
+ἐπίτηδεσ|ADV	ἐπίτηδεσ	ADV	ἐπίτηδες×1	resolved	1	0	0	-×1	H0 R03	
+ἐπεγείρω|VERB	ἐπεγείρω	VERB	ἐπεγείρω×1	resolved	1	0	0	-×1	H0 R06	
+ἐπιβουλεύω|VERB	ἐπιβουλεύω	VERB	ἐπιβουλεύω×2	resolved	2	0	0	-×2	H0 R06	
+ἐπιδείκνυμι|VERB	ἐπιδείκνυμι	VERB	ἐπιδείκνυμι×4	resolved	4	0	0	-×4	H0 R06	
+ἐπιδημέω|VERB	ἐπιδημέω	VERB	ἐπιδημέω×2	resolved	2	0	0	-×2	H0 R06	
+ἐπιθυμέω|VERB	ἐπιθυμέω	VERB	ἐπιθυμέω×2	resolved	2	0	0	-×2	H0 R06	
+ἐπιμελέομαι|VERB	ἐπιμελέομαι	VERB	ἐπιμελέομαι×1	resolved	1	0	0	-×1	H0 R06	
+ἐπιτήδειοσ|ADJ	ἐπιτήδειοσ	ADJ	ἐπιτήδειος×4	resolved	4	0	0	-×4	H0 R02	
+ἐπιτίθημι|VERB	ἐπιτίθημι	VERB	ἐπιτίθημι×1	resolved	1	0	0	-×1	H0 R06	
+ἐπιτηδεύω|VERB	ἐπιτηδεύω	VERB	ἐπιτηδεύω×2	resolved	2	0	0	-×2	H0 R06	
+ἐπιτηρέω|VERB	ἐπιτηρέω	VERB	ἐπιτηρέω×2	resolved	2	0	0	-×2	H0 R06	
+ἐπιχειρέω|VERB	ἐπιχειρέω	VERB	ἐπιχειρέω×1	resolved	1	0	0	-×1	H0 R06	
+ἐρωτάω|VERB	ἐρωτάω	VERB	ἐρωτάω×1	resolved	1	0	0	-×1	H0 R06	
+ἐρῆμοσ|ADJ	ἐρῆμοσ	ADJ	ἐρῆμος×1	resolved	1	0	0	-×1	H0 R02	
+ἐρῶ|VERB	ἐρῶ	VERB	ἐρῶ×3	resolved	3	0	0	-×3	H0 R06	
+ἐφέλκω|VERB	ἐφέλκω	VERB	ἐφέλκω×1	resolved	1	0	0	-×1	H0 R06	
+ἐχθρόσ|ADJ	ἐχθρόσ	ADJ	ἐχθρός×2	resolved	2	0	0	-×2	H0 R02	
+ἑστία|NOUN	ἑστία	NOUN	ἑστία×1	resolved	1	0	0	-×1	H0 R01	
+ἑτέρωθι|ADV	ἑτέρωθι	ADV	ἑτέρωθι×1	resolved	1	0	0	-×1	H0 R03	
+ἑτοῖμοσ|ADJ	ἑτοῖμοσ	ADJ	ἑτοῖμος×1	resolved	1	0	0	-×1	H0 R02	
+ἔνδον|ADV	ἔνδον	ADV	ἔνδον×5	resolved	5	0	0	-×5	H0 R03	
+ἔνιοι|ADJ	ἔνιοι	ADJ	ἔνιοι×1	resolved	1	0	0	-×1	H0 R02	
+ἔξαρνοσ|ADJ	ἔξαρνοσ	ADJ	ἔξαρνος×1	resolved	1	0	0	-×1	H0 R02	
+ἔξεστι|VERB	ἔξεστι	VERB	ἔξεστι×3	resolved	3	0	0	-×3	H0 R06	
+ἔξω|ADV	ἔξω	ADV	ἔξω×2	resolved	2	0	0	-×2	H0 R03	
+ἔοικα|VERB	ἔοικα	VERB	ἔοικα×1	resolved	1	0	0	-×1	H0 R06	
+ἔργον|NOUN	ἔργον	NOUN	ἔργον×3	resolved	3	0	0	-×3	H0 R01	
+ἔρομαι|VERB	ἔρομαι	VERB	ἔρομαι×1	resolved	1	0	0	-×1	H0 R06	
+ἔρχομαι|VERB	ἔρχομαι	VERB	ἔρχομαι×4	resolved	4	0	0	-×4	H0 R06	
+ἔτι|ADV	ἔτι	ADV	ἔτι×1	resolved	1	0	0	-×1	H0 R03	
+ἔχθρη|NOUN	ἔχθρη	NOUN	ἔχθρη×2	resolved	2	0	0	-×2	H0 R01	
+ἔχω|VERB	ἔχω	VERB	ἔχω×13	resolved	13	0	0	-×13	H0 R06	
+ἕλκω|VERB	ἕλκω	VERB	ἕλκω×1	resolved	1	0	0	-×1	H0 R06	
+ἕτεροσ|ADJ	ἕτεροσ	ADJ	ἕτερος×2	resolved	2	0	0	-×2	H0 R02	
+ἠλίθιοσ|ADV	ἠλίθιοσ	ADV	ἠλίθιος×1	resolved	1	0	0	-×1	H0 R03	
+ἡγέομαι|VERB	ἡγέομαι	VERB	ἡγέομαι×13	resolved	13	0	0	-×13	H0 R06	
+ἡδονά|NOUN	ἡδονά	NOUN	ἡδονά×1	resolved	1	0	0	-×1	H0 R01	
+ἡμέρα|NOUN	ἡμέρα	NOUN	ἡμέρα×5	resolved	5	0	0	-×5	H0 R01	
+ἤδη|ADV	ἤδη	ADV	ἤδη×4	resolved	4	0	0	-×4	H0 R03	
+ἥκω|VERB	ἥκω	VERB	ἥκω×3	resolved	3	0	0	-×3	H0 R06	
+ἥλιοσ|NOUN	ἥλιοσ	NOUN	ἥλιος×2	resolved	2	0	0	-×2	H0 R01	
+ἥμεροσ|ADJ	ἥμεροσ	ADJ	ἥμερος×1	resolved	1	0	0	-×1	H0 R02	
+ἥσσων|ADJ	ἥσσων	ADJ	ἥσσων×2	resolved	2	0	0	-×2	H0 R02	
+ἰσχυρόσ|ADJ	ἰσχυρόσ	ADJ	ἰσχυρός×2	resolved	2	0	0	-×2	H0 R02	
+ἱερόσ|ADJ	ἱερόσ	ADJ	ἱερός×1	resolved	1	0	0	-×1	H0 R02	
+ἱκετεύω|VERB	ἱκετεύω	VERB	ἱκετεύω×2	resolved	2	0	0	-×2	H0 R06	
+ἴδιοσ|ADJ	ἴδιοσ	ADJ	ἴδιος×2	resolved	2	0	0	-×2	H0 R02	
+ἴσοσ|ADJ	ἴσοσ	ADJ	ἴσος×1	resolved	1	0	0	-×1	H0 R02	
+ἵημι|VERB	ἵημι	VERB	ἵημι×1	resolved	1	0	0	-×1	H0 R06	
+ἵστημι|VERB	ἵστημι	VERB	ἵστημι×1	resolved	1	0	0	-×1	H0 R06	
+ὀλίγωροσ|ADV	ὀλίγωροσ	ADV	ὀλίγωρος×1	resolved	1	0	0	-×1	H0 R03	
+ὀλιγαρχία|NOUN	ὀλιγαρχία	NOUN	ὀλιγαρχία×1	resolved	1	0	0	-×1	H0 R01	
+ὀργή|NOUN	ὀργή	NOUN	ὀργή×1	resolved	1	0	0	-×1	H0 R01	
+ὀργίζω|VERB	ὀργίζω	VERB	ὀργίζω×2	resolved	2	0	0	-×2	H0 R06	
+ὀφείλω|VERB	ὀφείλω	VERB	ὀφείλω×1	resolved	1	0	0	-×1	H0 R06	
+ὀῆθεν|ADV	ὀῆθεν	ADV	Ὀῆθεν×1	resolved	1	0	0	-×1	H0 R03	lemma-capitalized
+ὁδόσ|NOUN	ὁδόσ	NOUN	ὁδός×1	resolved	1	0	0	2×1	H0 R01	
+ὁμολογέω|VERB	ὁμολογέω	VERB	ὁμολογέω×5	resolved	5	0	0	-×5	H0 R06	
+ὁμοῖοσ|ADV	ὁμοῖοσ	ADV	ὁμοῖος×1	resolved	1	0	0	-×1	H0 R03	
+ὁπότεροσ|ADJ	ὁπότεροσ	ADJ	ὁπότερος×2	resolved	2	0	0	-×2	H0 R02	
+ὁράω|VERB	ὁράω	VERB	ὁράω×5	resolved	5	0	0	-×5	H0 R06	
+ὄπισθεν|ADV	ὄπισθεν	ADV	ὄπισθεν×1	resolved	1	0	0	-×1	H0 R03	
+ὅσ|ADJ	ὅσ	ADJ	ὅς×2	resolved	2	0	0	-×2	H0 R02	
+ὅστισ|ADJ	ὅστισ	ADJ	ὅστις×2	resolved	2	0	0	-×2	H0 R02	
+ὑβρίζω|VERB	ὑβρίζω	VERB	ὑβρίζω×3	resolved	3	0	0	-×3	H0 R06	
+ὑμέτεροσ|ADJ	ὑμέτεροσ	ADJ	ὑμέτερος×1	resolved	1	0	0	-×1	H0 R02	
+ὑπερῷον|NOUN	ὑπερῷον	NOUN	ὑπερῷον×1	resolved	1	0	0	-×1	H0 R01	
+ὑπονοέω|VERB	ὑπονοέω	VERB	ὑπονοέω×1	resolved	1	0	0	-×1	H0 R06	
+ὑποπέμπω|VERB	ὑποπέμπω	VERB	ὑποπέμπω×1	resolved	1	0	0	-×1	H0 R06	
+ὑποπτεύω|VERB	ὑποπτεύω	VERB	ὑποπτεύω×1	resolved	1	0	0	-×1	H0 R06	
+ὑποψία|NOUN	ὑποψία	NOUN	ὑποψία×2	resolved	2	0	0	-×2	H0 R01	
+ὕβρισ|NOUN	ὕβρισ	NOUN	ὕβρις×1	resolved	1	0	0	-×1	H0 R01	
+ὕστερον|NOUN	ὕστερον	NOUN	ὕστερον×1	resolved	1	0	0	-×1	H0 R01	
+ὕστεροσ|ADJ	ὕστεροσ	ADJ	ὕστερος×2	resolved	2	0	0	-×2	H0 R02	
+ὠθέω|VERB	ὠθέω	VERB	ὠθέω×1	resolved	1	0	0	-×1	H0 R06	
+ῥᾴδιοσ|ADV	ῥᾴδιοσ	ADV	ῥᾴδιος×1	resolved	1	0	0	-×1	H0 R03	
+unresolved-headword:σύν-λέγω|VERB		VERB	σύν-λέγω×1	unresolved	0	0	1	1×1	H4 R06	

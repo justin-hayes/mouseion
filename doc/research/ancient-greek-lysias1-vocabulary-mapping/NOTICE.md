@@ -6,23 +6,21 @@ Research for justin-hayes/mouseion#2049. Mapping rules for Lysias I (AGDT `tlg05
 
 | Path | Derived from | Licence / handling |
 | --- | --- | --- |
-| `manifest/lysias1-nodes.tsv` | AGDT Lysias I node fields (form, lemma, postag, relation, head, artificial) plus derived columns | AGDT data is CC BY-SA 3.0 US (`PerseusDL/treebank_data` README). This file is a derivative; keep attribution and share-alike. |
-| `manifest/lysias1-identities.tsv` | Aggregated from the node table | Same as above |
-| `manifest/annotation-practice.json` | Native AGDT v2.1 fields for all 33 Greek texts (counts only) | CC BY-SA 3.0 US; counts only |
-| `manifest/lysias1-rules.tsv`, `lysias1-summary.json` | Derived | Repo |
-| `manifest/ud-crosscheck.json` | Aggregate UPOS counts from UD_Ancient_Greek-Perseus, joined to AGDT v2.1 (counts only) | UD Perseus is CC BY-NC-SA 2.5. Only counts are committed; no UD text, token lines, or per-token UD fields. |
-| `scripts/` | Written for this research | Repo |
+| `manifest/lysias1-nodes.tsv`, `lysias1-identities.tsv`, `lysias1-components.tsv`, `fixtures/lysias1-expected.tsv` | AGDT Lysias I fields at `treebank_data@bf4334f0`: v2.1 file plus the v1.6 file at the same commit. Derived columns added. | Root `treebank_data` README declares CC BY-SA 3.0 US. These files are derivatives: keep attribution and share-alike. The v1 docs README (AGDT 1.7, CC BY-NC-SA 2.5) is cited only for its tagset table. Whether that licence applies to the v1.6 Lysias file is not settled here; see #2048. |
+| `manifest/lysias1-lineage.json`, `annotation-practice.json` | Header fields and counts from the AGDT files | Same as above. Counts and names only. |
+| `manifest/lysias1-rules.tsv`, `lysias1-evidence.tsv`, `lysias1-summary.json` | Derived | Repo. The evidence table quotes short locator strings from the sources below. |
+| `manifest/ud-crosscheck.json` | Aggregate UPOS counts from UD_Ancient_Greek-Perseus `331ddef9`, joined to AGDT v2.1 | UD Perseus is CC BY-NC-SA 2.5. Only counts are committed: no UD text, token lines or per-token fields. |
+| `scripts/`, `mapping-spec.md`, `report.md` | Written for this research | Repo |
 
-## Not committed
+## Read as evidence, not committed
 
-- Raw AGDT texts, the canonical-greekLit TEI, the UD `.conllu` files, and the guideline PDFs. `scripts/fetch_inputs.sh` fetches them at pinned commits and verifies them.
+These sources are fetched by `scripts/fetch_inputs.sh` at pinned commits and verified by sha256. They are cited by line. None is redistributed or executed.
 
-## Pinned inputs
+- **Morpheus** (`perseids-tools/morpheus@ab6898ff`, MPL-2.0): stemlib `vbs.simp.ml`, `lsj.vbs`, `vbs.irreg`, `vbs.cmp.ml`, `vbs.cmp.lsj`, `nom.proper`, `lemlist`, `entitylist.txt`, and the C sources `prntanal.c`, `checkpreverb.c`, `lemma_voice.c`, `morphkeys.c`, `indexstems.c`. The analyzer was not built or run.
+- **UD documentation** (`UniversalDependencies/docs@24add7d0`) and **UD validator data** (`UniversalDependencies/tools@77751a63`, `data/data.json`).
+- **HamleDT/Treex** (`ufal/treex@df815f19`, GPL as declared in the files) and **Interset** (`dan-zeman/interset@f3568ffb`). Converter code was read, not imported or run.
+- **AGDT** (`PerseusDL/treebank_data@bf4334f0`): AGDT guidelines (1.1 PDF, 2.0 and 2.5 markdown), READMEs, TAGSETS, and the Lysias I v1.6 and v2.0 files.
+- **Canonical TEI and UD treebank:** `PerseusDL/canonical-greekLit@01b725d8` and `UD_Ancient_Greek-Perseus@331ddef9`.
+- **Smyth, Greek Grammar §2769:** read once on the Perseus website on 2026-10-14. Not pinned and not used by code.
 
-- `PerseusDL/treebank_data` commit `bf4334f0af5e13d16b04c1cccd6237e683ac6f5f`
-  - Lysias I `v2.1/Greek/texts/tlg0540.tlg001.perseus-grc1.tb.xml`, sha256 `44ecf3a2…a568`
-  - AGDT 1.1 guideline PDF `v1/greek/docs/guidelines.pdf`, git blob `49972e555853abaf98d7ca61f049875b0c0a4779`
-- `PerseusDL/canonical-greekLit` commit `01b725d835e6e733062ffd79e0efdbae1ba06e5c`, `tlg0540.tlg001.perseus-grc2.xml`, sha256 `21dbae42…d6a`
-- `UniversalDependencies/UD_Ancient_Greek-Perseus` commit `331ddef91411d0e6549744ee889e05549e6da77d`
-
-No provider, LLM, NLP, or paid service was used. No person was contacted.
+No provider, LLM, NLP service, paid or gated source, or account was used. No person was contacted. No restricted or interrupted access was retried.

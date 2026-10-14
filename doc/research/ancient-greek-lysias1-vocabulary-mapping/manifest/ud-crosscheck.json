@@ -16,11 +16,11 @@
       "SCONJ": 2191
     },
     "c_coord": {
-      "CCONJ": 5316,
+      "CCONJ": 5319,
       "SCONJ": 16
     },
     "c_other": {
-      "CCONJ": 926,
+      "CCONJ": 923,
       "SCONJ": 92
     },
     "d": {
@@ -32,9 +32,12 @@
     "d_particle": {
       "ADV": 11324
     },
-    "eimi_all": {
-      "AUX": 1864,
+    "eimi_effective_copula": {
+      "AUX": 1856,
       "VERB": 2
+    },
+    "eimi_no_effective_pnom": {
+      "AUX": 8
     },
     "g": {
       "ADV": 2,
@@ -73,10 +76,6 @@
     "v_auxv": {
       "AUX": 11
     },
-    "v_copula": {
-      "AUX": 1593,
-      "VERB": 2
-    },
     "x": {
       "ADV": 8,
       "X": 18
@@ -86,6 +85,7 @@
     "sentence_joined": 13919,
     "tokens_joined": 202989
   },
-  "scope": "all AGDT v2.1 Greek texts joined to UD_Ancient_Greek-Perseus; Lysias I is not in UD",
+  "lysias1_sentences_in_ud": 0,
+  "scope": "all AGDT v2.1 Greek texts joined to UD_Ancient_Greek-Perseus; cross-corpus evidence only",
   "ud_commit": "331ddef91411d0e6549744ee889e05549e6da77d"
 }

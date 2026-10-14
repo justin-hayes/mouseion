@@ -1,61 +1,67 @@
 {
-  "copula_identity_candidates": 2,
-  "diagnostics": {
-    "accent_variant_splits_same_upos": {
-      "ειμι|VERB": [
-        "εἰμί",
-        "εἶμι"
-      ],
-      "και|ADV": [
-        "καί",
-        "καὶ"
-      ],
-      "μη|ADV": [
-        "μή",
-        "μὴ"
-      ],
-      "παγοσ|NOUN": [
-        "πάγοσ",
-        "πᾶγοσ"
-      ],
-      "παιδιον|NOUN": [
-        "παίδιον",
-        "παιδίον"
-      ]
-    },
-    "keys_with_multiple_upos_identities": {
-      "καλόσ": [
-        "ADJ",
-        "ADV"
-      ],
-      "οἰκεῖοσ": [
-        "ADJ",
-        "ADV"
-      ]
-    }
+  "component_corpus_practice": {
+    "crasis_files": 11,
+    "crasis_fragment_definition": "form = consonant letters + '-' (e.g. κ-, τ-)",
+    "crasis_fragment_nodes": 91,
+    "enclitic_after_host_files": [
+      "tlg0007.tlg015.perseus-grc1.tb.xml",
+      "tlg0013.tlg002.perseus-grc1.tb.xml"
+    ],
+    "enclitic_fragment_after_host_outside_lysias1": 6,
+    "enclitic_fragment_lysias1": 2,
+    "enclitic_fragment_other_outside_lysias1": 3,
+    "enclitic_other_files": [
+      "tlg0008.tlg001.perseus-grc1.12.tb.xml",
+      "tlg0008.tlg001.perseus-grc1.13.tb.xml",
+      "tlg0543.tlg001.perseus-grc1.tb.xml"
+    ],
+    "other_trailing_hyphen_nodes": 9,
+    "scope": "all pinned AGDT v2.1 Greek files, printed nodes; hyphen-marked forms containing a letter"
   },
-  "eligible_identities": 503,
-  "eligible_occurrences": 1439,
-  "eligible_resolved_occurrences": 1432,
-  "eligible_unresolved_headword_occurrences": 7,
-  "flags": {
-    "conjunction-upos-split-unresolved": 3,
-    "copula-unresolved": 41,
-    "elliptic": 32,
-    "headword-capitalized": 17,
-    "headword-grave-not-folded": 10,
-    "headword-hyphen-compound-undecoded": 7,
-    "identity-candidates:VERB,AUX": 41,
-    "particle-adverb-lineage": 259
+  "components_by_convention_status": {
+    "C-CRASIS:attested_practice_undocumented": 22,
+    "C-ELISION:release_mark_mapping_supported": 50,
+    "C-ENCLITIC:unsupported_order_exception": 4
   },
+  "discriminator_status": {
+    "absent_in_source": 2345,
+    "conflated": 15,
+    "n/a": 374,
+    "stripped_in_v2.1_witness_v1.6": 68
+  },
+  "eligible_and_identity_resolved_occurrences": 1145,
+  "headword_status": {
+    "conditional": 2,
+    "decoded": 4,
+    "source_plain": 1388,
+    "unresolved": 1
+  },
+  "identities_by_status": {
+    "conditional": 33,
+    "resolved": 465,
+    "unresolved": 1
+  },
+  "identities_resolved": 465,
+  "identities_resolved_with_conditional_occurrences": 2,
   "inputs": {
+    "interset_commit": "f3568ffb0c3d73330df750fb57dd78d03ff1c0da",
     "lysias_sha256": "44ecf3a29e33fe8a173ef1d08b43dc9e52c9e066cacbd642050d95af83d7a568",
+    "morpheus_commit": "ab6898ffed335fc6169fa02c9940657a9b5a78e0",
     "treebank_commit": "bf4334f0af5e13d16b04c1cccd6237e683ac6f5f",
-    "ud_commit": "331ddef91411d0e6549744ee889e05549e6da77d"
+    "treex_commit": "df815f19c4d8251f13d99b396bdf32fc4f188762",
+    "ud_commit": "331ddef91411d0e6549744ee889e05549e6da77d",
+    "ud_docs_commit": "24add7d0b041d11432f6694424111f1b7f50aa86",
+    "ud_tools_commit": "77751a634188d0f9e2cfe104a24a65978f5bb1c4"
   },
+  "node_classification_complete": true,
   "nodes_printed": 2802,
   "nodes_total": 2834,
   "nodes_unprinted_elliptic": 32,
+  "printed_by_eligibility": {
+    "conditional": 232,
+    "eligible": 1163,
+    "non_vocab": 1407
+  },
   "printed_by_letter": {
     "a": 243,
     "c": 215,
@@ -69,15 +75,28 @@
     "v": 569
   },
   "printed_by_rule": {
-    "R01": 328,
+    "R01": 306,
+    "R01A": 2,
+    "R01C": 4,
+    "R01M": 2,
+    "R01P": 9,
+    "R01R": 5,
     "R02": 243,
     "R03": 82,
-    "R03P": 259,
+    "R03A": 46,
+    "R03C": 70,
+    "R03K": 10,
+    "R03N": 32,
+    "R03P": 72,
+    "R03S": 2,
+    "R03Y": 27,
     "R04": 1,
-    "R05": 41,
-    "R06": 527,
+    "R05C": 49,
+    "R05X": 2,
+    "R06": 517,
     "R07": 121,
-    "R08": 91,
+    "R08": 80,
+    "R08X": 11,
     "R09": 3,
     "R10": 136,
     "R11": 284,
@@ -85,28 +104,37 @@
     "R13": 25,
     "R14": 374
   },
-  "printed_by_upos_status": {
-    "class_resolved_upos_unresolved": 3,
-    "resolved": 2408,
-    "resolved_conditional": 350,
-    "unresolved": 41
+  "printed_by_source_scope": {
+    "rubric_label": 5,
+    "rubric_punctuation": 5,
+    "running_text": 2792
   },
-  "printed_by_vocab_class": {
-    "eligible": 1439,
-    "non_vocab": 1322,
-    "unresolved": 41
+  "printed_by_upos_status": {
+    "conditional": 243,
+    "resolved": 2556,
+    "unresolved": 3
   },
   "reconciliation": {
-    "class_counts_sum_to_printed": true,
+    "eligibility_counts_sum_to_printed": true,
+    "identity_occurrences_cover_vocab_nodes": true,
     "printed_plus_unprinted_equals_nodes": true
   },
-  "resolved_identities": 498,
-  "rules_version": "lysias1-upos-rules/2026-10-14.1",
   "scheme_declared": "GSAAGDT 1.1",
   "ud_join": {
     "sentence_joined": 13919,
     "tokens_joined": 202989
   },
-  "unresolved_copula_nodes": 41,
-  "unresolved_headword_identities": 5
+  "ud_lysias1_sentences": 0,
+  "versions": {
+    "component_conventions": "lysias1-component-conventions/2026-10-14.1",
+    "headword_rules": "lysias1-headword-rules/2026-10-14.1",
+    "normalization_profile": "mouseion ancient-greek v1: NFC, Unicode lowercase, final sigma to sigma, NFC (#2033)",
+    "python_unicodedata": "15.1.0",
+    "upos_rules": "lysias1-upos-rules/2026-10-14.2"
+  },
+  "vocabulary_nodes_by_identity_status": {
+    "conditional": 249,
+    "resolved": 1145,
+    "unresolved": 1
+  }
 }
