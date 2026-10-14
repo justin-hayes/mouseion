@@ -1,0 +1,7352 @@
+{
+  "capabilities": {
+    "book1_coverage": "untested",
+    "canonical_complete_syntax": false,
+    "complete_reading_sentences": false,
+    "empty_marker_original_edition_status": "unresolved",
+    "linked_native_layers": true,
+    "original_text_spans": true,
+    "prediction_accuracy": "unassessed",
+    "reading_text_transformation": "none",
+    "rights": "see RIGHTS.md; no source data redistribution in this branch",
+    "vocabulary_ready": false
+  },
+  "counts": {
+    "classifications": {
+      "lexical_candidate_not_vocabulary_approval": 376,
+      "native_empty_marker; upstream insertion history unresolved": 16,
+      "native_u_nonpunctuation_unresolved": 6,
+      "source_punctuation": 56
+    },
+    "edges": 423,
+    "metadata_fields": 7,
+    "narrow_pos_mapped": 221,
+    "nodes": 454,
+    "plain_lemma_normalized": 373
+  },
+  "cross_cts_group_edges": [
+    "r_218",
+    "r_219",
+    "r_388",
+    "r_389",
+    "r_405",
+    "r_406"
+  ],
+  "diagnostics": [],
+  "graph": {
+    "acyclic": true,
+    "multiple_incoming_nodes": [],
+    "orientation": "native source href -> target; no canonical dependency mapping",
+    "weak_components": [
+      [
+        "e_1",
+        "t_10",
+        "t_11",
+        "t_3",
+        "t_4",
+        "t_5",
+        "t_6",
+        "t_7",
+        "t_8",
+        "t_9"
+      ],
+      [
+        "e_10",
+        "t_223",
+        "t_224"
+      ],
+      [
+        "e_11",
+        "t_225",
+        "t_226",
+        "t_227",
+        "t_228",
+        "t_229",
+        "t_230",
+        "t_231",
+        "t_232",
+        "t_233",
+        "t_234",
+        "t_235",
+        "t_236",
+        "t_237",
+        "t_238",
+        "t_239",
+        "t_240",
+        "t_241",
+        "t_242"
+      ],
+      [
+        "e_12",
+        "t_243",
+        "t_244",
+        "t_245",
+        "t_246",
+        "t_247",
+        "t_248",
+        "t_249",
+        "t_250",
+        "t_251",
+        "t_252",
+        "t_253",
+        "t_254",
+        "t_255",
+        "t_256",
+        "t_257",
+        "t_258"
+      ],
+      [
+        "e_13",
+        "t_259",
+        "t_260",
+        "t_261",
+        "t_262",
+        "t_263",
+        "t_264",
+        "t_265",
+        "t_266",
+        "t_267",
+        "t_268",
+        "t_269",
+        "t_270",
+        "t_271",
+        "t_272",
+        "t_273",
+        "t_274",
+        "t_275",
+        "t_276",
+        "t_277",
+        "t_278",
+        "t_279",
+        "t_280",
+        "t_281",
+        "t_282",
+        "t_283",
+        "t_284",
+        "t_285",
+        "t_286",
+        "t_287",
+        "t_288",
+        "t_289",
+        "t_290",
+        "t_291",
+        "t_292",
+        "t_293",
+        "t_294",
+        "t_295",
+        "t_296",
+        "t_297",
+        "t_298",
+        "t_299",
+        "t_300",
+        "t_301",
+        "t_302",
+        "t_303",
+        "t_304",
+        "t_305",
+        "t_306",
+        "t_307",
+        "t_308",
+        "t_309",
+        "t_310",
+        "t_311",
+        "t_312"
+      ],
+      [
+        "e_14",
+        "t_374",
+        "t_375",
+        "t_376",
+        "t_377"
+      ],
+      [
+        "e_15",
+        "t_399",
+        "t_400"
+      ],
+      [
+        "e_16",
+        "t_418",
+        "t_419"
+      ],
+      [
+        "e_2",
+        "t_20",
+        "t_21",
+        "t_22",
+        "t_23",
+        "t_24",
+        "t_25",
+        "t_26",
+        "t_27",
+        "t_28",
+        "t_29",
+        "t_30",
+        "t_31",
+        "t_32",
+        "t_33",
+        "t_34",
+        "t_35"
+      ],
+      [
+        "e_3",
+        "t_36",
+        "t_37",
+        "t_38",
+        "t_39",
+        "t_40",
+        "t_41",
+        "t_42",
+        "t_43",
+        "t_44",
+        "t_45",
+        "t_46",
+        "t_47",
+        "t_48",
+        "t_49",
+        "t_50",
+        "t_51",
+        "t_52",
+        "t_53",
+        "t_54",
+        "t_55",
+        "t_56",
+        "t_57",
+        "t_58",
+        "t_59",
+        "t_60",
+        "t_61",
+        "t_62",
+        "t_63",
+        "t_64",
+        "t_65",
+        "t_66",
+        "t_67",
+        "t_68",
+        "t_69",
+        "t_70",
+        "t_71",
+        "t_72",
+        "t_73",
+        "t_74",
+        "t_75",
+        "t_76"
+      ],
+      [
+        "e_4",
+        "t_79",
+        "t_80",
+        "t_81",
+        "t_82",
+        "t_83",
+        "t_84",
+        "t_85",
+        "t_86",
+        "t_87",
+        "t_88",
+        "t_89",
+        "t_90",
+        "t_91",
+        "t_92"
+      ],
+      [
+        "e_5",
+        "t_100",
+        "t_101",
+        "t_102",
+        "t_103",
+        "t_104",
+        "t_105",
+        "t_106",
+        "t_93",
+        "t_94",
+        "t_95",
+        "t_96",
+        "t_97",
+        "t_98",
+        "t_99"
+      ],
+      [
+        "e_6",
+        "t_107",
+        "t_108",
+        "t_109",
+        "t_110",
+        "t_111"
+      ],
+      [
+        "e_7",
+        "t_112",
+        "t_113",
+        "t_114",
+        "t_115",
+        "t_116",
+        "t_117",
+        "t_118",
+        "t_119",
+        "t_120",
+        "t_121",
+        "t_122",
+        "t_123",
+        "t_124",
+        "t_125",
+        "t_126",
+        "t_127",
+        "t_128",
+        "t_129",
+        "t_130",
+        "t_131",
+        "t_132",
+        "t_133",
+        "t_134",
+        "t_135",
+        "t_136",
+        "t_137",
+        "t_138",
+        "t_139"
+      ],
+      [
+        "e_8",
+        "t_142",
+        "t_143",
+        "t_144",
+        "t_145",
+        "t_146",
+        "t_147",
+        "t_148",
+        "t_149",
+        "t_150",
+        "t_151",
+        "t_152",
+        "t_153",
+        "t_154",
+        "t_155",
+        "t_156",
+        "t_157",
+        "t_158",
+        "t_159",
+        "t_160",
+        "t_161",
+        "t_162",
+        "t_163"
+      ],
+      [
+        "e_9",
+        "t_164",
+        "t_165",
+        "t_166",
+        "t_167",
+        "t_168",
+        "t_169",
+        "t_170",
+        "t_171",
+        "t_172",
+        "t_173",
+        "t_174",
+        "t_175",
+        "t_176",
+        "t_177",
+        "t_178",
+        "t_179",
+        "t_180",
+        "t_181",
+        "t_182",
+        "t_183",
+        "t_184",
+        "t_185",
+        "t_186",
+        "t_187",
+        "t_188",
+        "t_189",
+        "t_190",
+        "t_191",
+        "t_192",
+        "t_193",
+        "t_194",
+        "t_195",
+        "t_196",
+        "t_197",
+        "t_198",
+        "t_199",
+        "t_200",
+        "t_201",
+        "t_202",
+        "t_203",
+        "t_204",
+        "t_205"
+      ],
+      [
+        "t_1",
+        "t_2"
+      ],
+      [
+        "t_12",
+        "t_13",
+        "t_14",
+        "t_15",
+        "t_16",
+        "t_17",
+        "t_18",
+        "t_19"
+      ],
+      [
+        "t_140",
+        "t_141"
+      ],
+      [
+        "t_206",
+        "t_207",
+        "t_208",
+        "t_209",
+        "t_210",
+        "t_211",
+        "t_212",
+        "t_213",
+        "t_214",
+        "t_215",
+        "t_216",
+        "t_217",
+        "t_218",
+        "t_219",
+        "t_220",
+        "t_221",
+        "t_222"
+      ],
+      [
+        "t_313",
+        "t_314"
+      ],
+      [
+        "t_315",
+        "t_316",
+        "t_317",
+        "t_318",
+        "t_319",
+        "t_320",
+        "t_321",
+        "t_322",
+        "t_323",
+        "t_324",
+        "t_325",
+        "t_326",
+        "t_327",
+        "t_328",
+        "t_329",
+        "t_330",
+        "t_331",
+        "t_332",
+        "t_333",
+        "t_334",
+        "t_335",
+        "t_336",
+        "t_337",
+        "t_338",
+        "t_339",
+        "t_340",
+        "t_341",
+        "t_342",
+        "t_343",
+        "t_344",
+        "t_345",
+        "t_346",
+        "t_347",
+        "t_348",
+        "t_349",
+        "t_350",
+        "t_351",
+        "t_352",
+        "t_353",
+        "t_354",
+        "t_355",
+        "t_356",
+        "t_357",
+        "t_358",
+        "t_359",
+        "t_360",
+        "t_361",
+        "t_362"
+      ],
+      [
+        "t_363",
+        "t_364",
+        "t_365",
+        "t_366",
+        "t_367",
+        "t_368",
+        "t_369",
+        "t_370",
+        "t_371",
+        "t_372",
+        "t_373"
+      ],
+      [
+        "t_378",
+        "t_379"
+      ],
+      [
+        "t_380",
+        "t_381",
+        "t_382",
+        "t_383"
+      ],
+      [
+        "t_384",
+        "t_385",
+        "t_386",
+        "t_387",
+        "t_388",
+        "t_389",
+        "t_390",
+        "t_391",
+        "t_392",
+        "t_393",
+        "t_394",
+        "t_395",
+        "t_396",
+        "t_397",
+        "t_398"
+      ],
+      [
+        "t_401",
+        "t_402",
+        "t_403",
+        "t_404"
+      ],
+      [
+        "t_405",
+        "t_406",
+        "t_407",
+        "t_408",
+        "t_409",
+        "t_410",
+        "t_411",
+        "t_412",
+        "t_413",
+        "t_414",
+        "t_415",
+        "t_416",
+        "t_417"
+      ],
+      [
+        "t_420",
+        "t_421",
+        "t_422",
+        "t_423"
+      ],
+      [
+        "t_424",
+        "t_425",
+        "t_426",
+        "t_427",
+        "t_428",
+        "t_429",
+        "t_430",
+        "t_431",
+        "t_432",
+        "t_433",
+        "t_434",
+        "t_435",
+        "t_436",
+        "t_437",
+        "t_438"
+      ],
+      [
+        "t_77",
+        "t_78"
+      ]
+    ],
+    "zero_incoming_nodes": [
+      "e_1",
+      "e_10",
+      "e_11",
+      "e_12",
+      "e_13",
+      "e_14",
+      "e_15",
+      "e_16",
+      "e_2",
+      "e_4",
+      "e_5",
+      "e_6",
+      "e_7",
+      "e_8",
+      "e_9",
+      "t_1",
+      "t_13",
+      "t_140",
+      "t_206",
+      "t_313",
+      "t_316",
+      "t_363",
+      "t_378",
+      "t_380",
+      "t_387",
+      "t_401",
+      "t_407",
+      "t_420",
+      "t_425",
+      "t_57",
+      "t_77"
+    ]
+  },
+  "input_hashes": {
+    "README.md": "19ee635fc9f0b9ddbcc43e712626c9e8ae60d152d4f79a1123b545af5c29bd82",
+    "annotation_example/README.md": "18ece3659337c436a648e4a37d6a3eb3db8c0a7ef1be29a7cf87be8a0830f1a2",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml": "27d3db0b4cd230ce5a1e0e2576cd5fd331aed71e1f9ee344a69cc3f581846826",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_author.xml": "5693421f46e5082bd31f61ab8c8ecf622ba875203d2025960657761d4d1403ae",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_title.xml": "c30003999d06e8436e3b07f4a01068f7e48bf282756c32ea8a6407f2b51e7f10",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts.xml": "4da87819fa34a28625ccfc1d43dd433133f8c7019776bf7de24d7566b461e359",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_author.xml": "d68aebecf5900b33dffedfaf66e4908b8a7e1d69c0e4aedb0e69b5e8e7781bc4",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_edition.xml": "7fa966ca2990c953dc6dc7668d40b329ef7066b1a000ae7193f21580115f94c5",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_work.xml": "82e0e23f65e7ab870c375d1635b9e81a2c2306015299d47d726ff90f6d12e95b",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_work_date.xml": "db193c5754b85df4cd04bf96148497f54aa72751ceec3ef8f8405e883cf5d22a",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01.xml": "66b7600cfb37941407c558ff4d5bbc9dbe31b18db85d614495348d8613f75f56",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01_dep-fnc01.xml": "8acd40cda89db764f38a5611f97cdf427faf630529921bcd302208502575469d",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01.xml": "df7abab4befa74c0f4b3ef212b7440ea5b1256b26075acf858163a357ac753de",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_cts01.xml": "1a8304c08a1d20a30f6c56d37faf5ba97703b91b6f5cb2f0788e03a971f0dd28",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_ipa01.xml": "6f26257ee1ffc3cc055d331af43cfaf5e3948f95b1287ebc1f15c9a40666b955",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_lemma01.xml": "111f800405228ff6b98daa1eecc9fd6e77e549b36b1b0227f2d3bbb53369a3fe",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.xml": "991d4b35b2aede305166174f1d4a1b6eb25c2907aaf6f33f6c1b694c29160002",
+    "annotation_example/ggm0001.ggm001.1st1K-grc1/postag.ggm0001.ggm001.1st1K-grc1.tok01_postag01.xml": "d3b5bd40fa58c087ff42208245061fd262652b294cce09004fca676ddd4eb6b4",
+    "elision/README.md": "4c25ce5c442611c85d77f57d7b814ca0b65b425ad5f25154a1d55d2f7ae2110c",
+    "query/README.md": "c4575bf93e1a7d42d2f91e106775af30b1d0cb8e0e604918d08b18c5f0311fd6",
+    "query/cts_work_date.md": "5bcfedfbcf07ce7b59d3ec9d35d03745c8e6c8be009c3568e50b696d9888e7a2",
+    "query/morphology.md": "84964bb49641991380e3ca7845f0daa0da9f209bd240ee0601e6782ea85b2586",
+    "query/syntax.md": "fce2386a126dc2b068115ae91eb9e136e31a87092b1858c3e7dca9b2c550a1d3",
+    "tokenize/README.md": "11d7736a98e10aa6cd3f39709e070a0716097aedf80d16943062861dfc387be1",
+    "urn_cts/README.md": "fb3821f65b0efcc72a7581163a0b2a7a732f150dac814a2a6790fdda6571ecf1",
+    "urn_cts/texts/urn_cts_plus_date_label.xml": "560220c867edc5bf1473fe2960b748002117e532a01e0a537b4bffbc8367d31b"
+  },
+  "input_pin": "a69d917dbe117a307829977dd556e22f05ce0715",
+  "native_cts_groups": {
+    "1_1": [
+      "t_1",
+      "t_2",
+      "t_3",
+      "t_4",
+      "t_5",
+      "t_6",
+      "t_7",
+      "t_8",
+      "t_9",
+      "t_10",
+      "e_1",
+      "t_11",
+      "t_12",
+      "t_13",
+      "t_14",
+      "t_15",
+      "t_16",
+      "t_17",
+      "t_18",
+      "t_19",
+      "t_20",
+      "t_21",
+      "t_22",
+      "t_23",
+      "t_24",
+      "t_25",
+      "t_26",
+      "t_27",
+      "t_28",
+      "t_29",
+      "t_30",
+      "t_31",
+      "t_32",
+      "t_33",
+      "t_34",
+      "e_2",
+      "t_35",
+      "t_36",
+      "t_37",
+      "t_38",
+      "t_39",
+      "t_40",
+      "t_41",
+      "t_42",
+      "t_43",
+      "t_44",
+      "t_45",
+      "t_46",
+      "t_47",
+      "t_48",
+      "t_49",
+      "t_50",
+      "t_51",
+      "t_52",
+      "t_53",
+      "t_54",
+      "t_55",
+      "t_56",
+      "t_57",
+      "t_58",
+      "t_59",
+      "t_60",
+      "t_61",
+      "t_62",
+      "t_63",
+      "t_64",
+      "t_65",
+      "t_66",
+      "t_67",
+      "t_68",
+      "t_69",
+      "t_70",
+      "t_71",
+      "t_72",
+      "t_73",
+      "t_74",
+      "t_75",
+      "e_3",
+      "t_76"
+    ],
+    "2_2": [
+      "t_77",
+      "t_78",
+      "t_79",
+      "t_80",
+      "t_81",
+      "t_82",
+      "t_83",
+      "t_84",
+      "t_85",
+      "t_86",
+      "t_87",
+      "t_88",
+      "t_89",
+      "t_90",
+      "t_91",
+      "e_4",
+      "t_92",
+      "t_93",
+      "t_94",
+      "t_95",
+      "t_96",
+      "t_97",
+      "t_98",
+      "t_99",
+      "t_100",
+      "t_101",
+      "t_102",
+      "t_103",
+      "t_104",
+      "t_105",
+      "e_5",
+      "t_106",
+      "t_107",
+      "t_108",
+      "t_109",
+      "t_110",
+      "e_6",
+      "t_111",
+      "t_112",
+      "t_113",
+      "t_114",
+      "t_115",
+      "t_116",
+      "t_117",
+      "t_118",
+      "t_119",
+      "t_120",
+      "t_121",
+      "t_122",
+      "t_123",
+      "t_124",
+      "t_125",
+      "t_126",
+      "t_127",
+      "t_128",
+      "t_129",
+      "t_130",
+      "t_131",
+      "t_132",
+      "t_133",
+      "t_134",
+      "t_135",
+      "t_136",
+      "t_137",
+      "t_138",
+      "e_7",
+      "t_139"
+    ],
+    "2_3": [
+      "t_140",
+      "t_141",
+      "t_142",
+      "t_143",
+      "t_144",
+      "t_145",
+      "t_146",
+      "t_147",
+      "t_148",
+      "t_149",
+      "t_150",
+      "t_151",
+      "t_152",
+      "t_153",
+      "t_154",
+      "t_155",
+      "t_156",
+      "t_157",
+      "t_158",
+      "t_159",
+      "t_160",
+      "t_161",
+      "t_162",
+      "e_8",
+      "t_163",
+      "t_164",
+      "t_165",
+      "t_166",
+      "t_167",
+      "t_168",
+      "t_169",
+      "t_170",
+      "t_171",
+      "t_172",
+      "t_173",
+      "t_174",
+      "t_175",
+      "t_176",
+      "t_177",
+      "t_178",
+      "t_179",
+      "t_180",
+      "t_181",
+      "t_182",
+      "t_183",
+      "t_184",
+      "t_185",
+      "t_186",
+      "t_187",
+      "t_188",
+      "t_189",
+      "t_190",
+      "t_191",
+      "t_192",
+      "t_193",
+      "t_194",
+      "t_195",
+      "t_196",
+      "t_197",
+      "t_198",
+      "t_199",
+      "t_200",
+      "t_201",
+      "t_202",
+      "t_203",
+      "t_204",
+      "e_9",
+      "t_205",
+      "t_206",
+      "t_207",
+      "t_208",
+      "t_209",
+      "t_210",
+      "t_211",
+      "t_212",
+      "t_213",
+      "t_214",
+      "t_215",
+      "t_216",
+      "t_217",
+      "t_218",
+      "t_219",
+      "t_220",
+      "t_221",
+      "t_222",
+      "e_10"
+    ],
+    "2_4": [
+      "t_223",
+      "t_224",
+      "t_225",
+      "t_226",
+      "t_227",
+      "t_228",
+      "t_229",
+      "t_230",
+      "t_231",
+      "t_232",
+      "t_233",
+      "t_234",
+      "t_235",
+      "t_236",
+      "t_237",
+      "t_238",
+      "t_239",
+      "t_240",
+      "t_241",
+      "e_11",
+      "t_242",
+      "t_243",
+      "t_244",
+      "t_245",
+      "t_246",
+      "t_247",
+      "t_248",
+      "t_249",
+      "t_250",
+      "t_251",
+      "t_252",
+      "t_253",
+      "t_254",
+      "t_255",
+      "t_256",
+      "t_257",
+      "e_12",
+      "t_258",
+      "t_259",
+      "t_260",
+      "t_261",
+      "t_262",
+      "t_263",
+      "t_264",
+      "t_265",
+      "t_266",
+      "t_267",
+      "t_268",
+      "t_269",
+      "t_270",
+      "t_271",
+      "t_272",
+      "t_273",
+      "t_274",
+      "t_275",
+      "t_276",
+      "t_277",
+      "t_278",
+      "t_279",
+      "t_280",
+      "t_281",
+      "t_282",
+      "t_283",
+      "t_284",
+      "t_285",
+      "t_286",
+      "t_287",
+      "t_288",
+      "t_289",
+      "t_290",
+      "t_291",
+      "t_292",
+      "t_293",
+      "t_294",
+      "t_295",
+      "t_296",
+      "t_297",
+      "t_298",
+      "t_299",
+      "t_300",
+      "t_301",
+      "t_302",
+      "t_303",
+      "t_304",
+      "t_305",
+      "t_306",
+      "t_307",
+      "t_308",
+      "t_309",
+      "t_310",
+      "t_311",
+      "e_13",
+      "t_312"
+    ],
+    "2_5": [
+      "t_313",
+      "t_314",
+      "t_315",
+      "t_316",
+      "t_317",
+      "t_318",
+      "t_319",
+      "t_320",
+      "t_321",
+      "t_322",
+      "t_323",
+      "t_324",
+      "t_325",
+      "t_326",
+      "t_327",
+      "t_328",
+      "t_329",
+      "t_330",
+      "t_331",
+      "t_332",
+      "t_333",
+      "t_334",
+      "t_335",
+      "t_336",
+      "t_337",
+      "t_338",
+      "t_339",
+      "t_340",
+      "t_341",
+      "t_342",
+      "t_343",
+      "t_344",
+      "t_345",
+      "t_346",
+      "t_347",
+      "t_348",
+      "t_349",
+      "t_350",
+      "t_351",
+      "t_352",
+      "t_353",
+      "t_354",
+      "t_355",
+      "t_356",
+      "t_357",
+      "t_358",
+      "t_359",
+      "t_360",
+      "t_361",
+      "t_362",
+      "t_363",
+      "t_364",
+      "t_365",
+      "t_366",
+      "t_367",
+      "t_368",
+      "t_369",
+      "t_370",
+      "t_371",
+      "t_372",
+      "t_373",
+      "t_374",
+      "t_375",
+      "t_376",
+      "e_14",
+      "t_377"
+    ],
+    "2_6": [
+      "t_378",
+      "t_379",
+      "t_380",
+      "t_381",
+      "t_382",
+      "t_383",
+      "t_384",
+      "t_385",
+      "t_386",
+      "t_387",
+      "t_388",
+      "t_389",
+      "t_390",
+      "t_391",
+      "t_392",
+      "t_393",
+      "t_394",
+      "t_395",
+      "t_396",
+      "t_397",
+      "t_398",
+      "e_15"
+    ],
+    "2_7": [
+      "t_399",
+      "t_400",
+      "t_401",
+      "t_402",
+      "t_403",
+      "t_404",
+      "t_405",
+      "t_406",
+      "t_407",
+      "t_408",
+      "t_409",
+      "t_410",
+      "t_411",
+      "t_412",
+      "t_413",
+      "t_414",
+      "t_415",
+      "t_416",
+      "t_417",
+      "e_16"
+    ],
+    "2_8": [
+      "t_418",
+      "t_419",
+      "t_420",
+      "t_421",
+      "t_422",
+      "t_423",
+      "t_424",
+      "t_425",
+      "t_426",
+      "t_427",
+      "t_428",
+      "t_429",
+      "t_430",
+      "t_431",
+      "t_432",
+      "t_433",
+      "t_434",
+      "t_435",
+      "t_436",
+      "t_437",
+      "t_438"
+    ]
+  },
+  "nodes": [
+    {
+      "classification": "native_u_nonpunctuation_unresolved",
+      "id": "t_1",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        0,
+        1
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        0,
+        1
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_2",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2,
+        3
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_3",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        4,
+        7
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        4,
+        7
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_4",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        8,
+        17
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        8,
+        17
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_5",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        18,
+        21
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        18,
+        21
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_6",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        22,
+        27
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        22,
+        27
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_7",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        28,
+        31
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        28,
+        31
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_8",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        32,
+        35
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        32,
+        35
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_9",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        36,
+        37
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        36,
+        37
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_10",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        38,
+        48
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        38,
+        48
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_1",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        49,
+        52
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_11",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        53,
+        54
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_12",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        55,
+        61
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        55,
+        61
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_13",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        62,
+        66
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        62,
+        66
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_14",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        67,
+        75
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        67,
+        75
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_15",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        76,
+        79
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        76,
+        79
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_16",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        80,
+        88
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        80,
+        88
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_17",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        89,
+        95
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        89,
+        95
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_18",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        96,
+        101
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        96,
+        101
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_19",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        102,
+        103
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_20",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        104,
+        109
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        104,
+        109
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_21",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        110,
+        112
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        110,
+        112
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_22",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        113,
+        116
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        113,
+        116
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_23",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        117,
+        125
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        117,
+        125
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_24",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        126,
+        136
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        126,
+        136
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_25",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        137,
+        140
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        137,
+        140
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_26",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        141,
+        149
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        141,
+        149
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_27",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        150,
+        156
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        150,
+        156
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_28",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        157,
+        160
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        157,
+        160
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_29",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        161,
+        169
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        161,
+        169
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_30",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        170,
+        176
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        170,
+        176
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_31",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        177,
+        189
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        177,
+        189
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_32",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        190,
+        199
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        190,
+        199
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_33",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        200,
+        202
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        200,
+        202
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_34",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        203,
+        210
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        203,
+        210
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_2",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        211,
+        214
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_35",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        215,
+        216
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_36",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        217,
+        219
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        217,
+        219
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_37",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        220,
+        222
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        220,
+        222
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_38",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        223,
+        229
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        223,
+        229
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_39",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        230,
+        233
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        230,
+        233
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_40",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        234,
+        237
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        234,
+        237
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_41",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        238,
+        248
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        238,
+        248
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_42",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        249,
+        257
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        249,
+        257
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_43",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        258,
+        261
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        258,
+        261
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_44",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        262,
+        265
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        262,
+        265
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_45",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        266,
+        274
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        266,
+        274
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_46",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        275,
+        282
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        275,
+        282
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_47",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        283,
+        289
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        283,
+        289
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_48",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        290,
+        299
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        290,
+        299
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_49",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        300,
+        313
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        300,
+        313
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_50",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        314,
+        316
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        314,
+        316
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_51",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        317,
+        319
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        317,
+        319
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_52",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        320,
+        326
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        320,
+        326
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_53",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        327,
+        335
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        327,
+        335
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_54",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        336,
+        339
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        336,
+        339
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_55",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        340,
+        348
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        340,
+        348
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_56",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        349,
+        356
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        349,
+        356
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_57",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        357,
+        358
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_58",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        359,
+        360
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        359,
+        360
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_59",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        361,
+        369
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        361,
+        369
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_60",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        370,
+        382
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        370,
+        382
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_61",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        383,
+        384
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_62",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        385,
+        393
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        385,
+        393
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_63",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        394,
+        398
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        394,
+        398
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_64",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        399,
+        406
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        399,
+        406
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_65",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        407,
+        417
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        407,
+        417
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_66",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        418,
+        419
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_67",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        420,
+        426
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        420,
+        426
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_68",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        427,
+        430
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        427,
+        430
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_69",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        431,
+        442
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        431,
+        442
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_70",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        443,
+        452
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        443,
+        452
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_71",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        453,
+        464
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        453,
+        464
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_72",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        465,
+        466
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        465,
+        466
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_73",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        467,
+        470
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        467,
+        470
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_74",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        471,
+        478
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        471,
+        478
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_75",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        479,
+        492
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        479,
+        492
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_3",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        493,
+        496
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_76",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        497,
+        498
+      ]
+    },
+    {
+      "classification": "native_u_nonpunctuation_unresolved",
+      "id": "t_77",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        499,
+        500
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        499,
+        500
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_78",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        501,
+        502
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_79",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        503,
+        506
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        503,
+        506
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_80",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        507,
+        510
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        507,
+        510
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_81",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        511,
+        520
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        511,
+        520
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_82",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        521,
+        524
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        521,
+        524
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_83",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        525,
+        527
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        525,
+        527
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_84",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        528,
+        537
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        528,
+        537
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_85",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        538,
+        544
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        538,
+        544
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_86",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        545,
+        555
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        545,
+        555
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_87",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        556,
+        557
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_88",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        558,
+        563
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        558,
+        563
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_89",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        564,
+        568
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        564,
+        568
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_90",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        569,
+        572
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        569,
+        572
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_91",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        573,
+        578
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        573,
+        578
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_4",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        579,
+        582
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_92",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        583,
+        584
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_93",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        585,
+        588
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        585,
+        588
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_94",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        589,
+        591
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        589,
+        591
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_95",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        592,
+        595
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        592,
+        595
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_96",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        596,
+        605
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        596,
+        605
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_97",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        606,
+        609
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        606,
+        609
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_98",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        610,
+        612
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        610,
+        612
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_99",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        613,
+        618
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        613,
+        618
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_100",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        619,
+        625
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        619,
+        625
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_101",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        626,
+        638
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        626,
+        638
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_102",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        639,
+        640
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_103",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        641,
+        646
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        641,
+        646
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_104",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        647,
+        652
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        647,
+        652
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_105",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        653,
+        658
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        653,
+        658
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_5",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        659,
+        662
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_106",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        663,
+        664
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_107",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        665,
+        667
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        665,
+        667
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_108",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        668,
+        671
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        668,
+        671
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_109",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        672,
+        677
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        672,
+        677
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_110",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        678,
+        684
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        678,
+        684
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_6",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        685,
+        688
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_111",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        689,
+        690
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_112",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        691,
+        694
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        691,
+        694
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_113",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        695,
+        697
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        695,
+        697
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_114",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        698,
+        701
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        698,
+        701
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_115",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        702,
+        707
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        702,
+        707
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_116",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        708,
+        712
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        708,
+        712
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_117",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        713,
+        719
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        713,
+        719
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_118",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        720,
+        724
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        720,
+        724
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_119",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        725,
+        733
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        725,
+        733
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_120",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        734,
+        737
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        734,
+        737
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_121",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        738,
+        744
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        738,
+        744
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_122",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        745,
+        748
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        745,
+        748
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_123",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        749,
+        752
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        749,
+        752
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_124",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        753,
+        758
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        753,
+        758
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_125",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        759,
+        767
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        759,
+        767
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_126",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        768,
+        771
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        768,
+        771
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_127",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        772,
+        778
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        772,
+        778
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_128",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        779,
+        786
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        779,
+        786
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_129",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        787,
+        793
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        787,
+        793
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_130",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        794,
+        803
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        794,
+        803
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_131",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        804,
+        812
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        804,
+        812
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_132",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        813,
+        825
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        813,
+        825
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_133",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        826,
+        827
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_134",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        828,
+        833
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        828,
+        833
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_135",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        834,
+        844
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        834,
+        844
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_136",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        845,
+        855
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        845,
+        855
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_137",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        856,
+        861
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        856,
+        861
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_138",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        862,
+        867
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        862,
+        867
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_7",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        868,
+        871
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_139",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        872,
+        873
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_140",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        874,
+        875
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        874,
+        875
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_141",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        876,
+        877
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_142",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        878,
+        881
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        878,
+        881
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_143",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        882,
+        884
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        882,
+        884
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_144",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        885,
+        888
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        885,
+        888
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_145",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        889,
+        894
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        889,
+        894
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_146",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        895,
+        899
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        895,
+        899
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_147",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        900,
+        906
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        900,
+        906
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_148",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        907,
+        910
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        907,
+        910
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_149",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        911,
+        922
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        911,
+        922
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_150",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        923,
+        930
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        923,
+        930
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_151",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        931,
+        934
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        931,
+        934
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_152",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        935,
+        938
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        935,
+        938
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_153",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        939,
+        948
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        939,
+        948
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_154",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        949,
+        959
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        949,
+        959
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_155",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        960,
+        966
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        960,
+        966
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_156",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        967,
+        980
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        967,
+        980
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_157",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        981,
+        989
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        981,
+        989
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_158",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        990,
+        991
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_159",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        992,
+        997
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        992,
+        997
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_160",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        998,
+        1007
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        998,
+        1007
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_161",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1008,
+        1022
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1008,
+        1022
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_162",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1023,
+        1028
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1023,
+        1028
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_8",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1029,
+        1032
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_163",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1033,
+        1034
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_164",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1035,
+        1038
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1035,
+        1038
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_165",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1039,
+        1041
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1039,
+        1041
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_166",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1042,
+        1045
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1042,
+        1045
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_167",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1046,
+        1051
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1046,
+        1051
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_168",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1052,
+        1056
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1052,
+        1056
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_169",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1057,
+        1063
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1057,
+        1063
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_170",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1064,
+        1067
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1064,
+        1067
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_171",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1068,
+        1076
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1068,
+        1076
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_172",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1077,
+        1083
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1077,
+        1083
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_173",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1084,
+        1085
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_174",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1086,
+        1089
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1086,
+        1089
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_175",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1090,
+        1092
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1090,
+        1092
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_176",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1093,
+        1098
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1093,
+        1098
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_177",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1099,
+        1102
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1099,
+        1102
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_178",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1103,
+        1110
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1103,
+        1110
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_179",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1111,
+        1114
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1111,
+        1114
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_180",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1115,
+        1118
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1115,
+        1118
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_181",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1119,
+        1125
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1119,
+        1125
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_182",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1126,
+        1131
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1126,
+        1131
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_183",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1132,
+        1135
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1132,
+        1135
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_184",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1136,
+        1138
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1136,
+        1138
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_185",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1139,
+        1141
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1139,
+        1141
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_186",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1142,
+        1148
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1142,
+        1148
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_187",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1149,
+        1152
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1149,
+        1152
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_188",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1153,
+        1162
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1153,
+        1162
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_189",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1163,
+        1169
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1163,
+        1169
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_190",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1170,
+        1174
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1170,
+        1174
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_191",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1175,
+        1183
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1175,
+        1183
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_192",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1184,
+        1187
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1184,
+        1187
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_193",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1188,
+        1197
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1188,
+        1197
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_194",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1198,
+        1208
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1198,
+        1208
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_195",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1209,
+        1210
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_196",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1211,
+        1217
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1211,
+        1217
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_197",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1218,
+        1223
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1218,
+        1223
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_198",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1224,
+        1229
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1224,
+        1229
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_199",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1230,
+        1236
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1230,
+        1236
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_200",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1237,
+        1238
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_201",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1239,
+        1244
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1239,
+        1244
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_202",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1245,
+        1250
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1245,
+        1250
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_203",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1251,
+        1261
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1251,
+        1261
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_204",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1262,
+        1272
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1262,
+        1272
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_9",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1273,
+        1276
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_205",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1277,
+        1278
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_206",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        1279,
+        1286
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1279,
+        1286
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_207",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1287,
+        1289
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1287,
+        1289
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_208",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1290,
+        1293
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1290,
+        1293
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_209",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1294,
+        1301
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1294,
+        1301
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_210",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1302,
+        1305
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1302,
+        1305
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_211",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1306,
+        1314
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1306,
+        1314
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_212",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1315,
+        1316
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1315,
+        1316
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_213",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1317,
+        1326
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1317,
+        1326
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_214",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1327,
+        1331
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1327,
+        1331
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_215",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1332,
+        1337
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1332,
+        1337
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_216",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1338,
+        1340
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1338,
+        1340
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_217",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1341,
+        1348
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1341,
+        1348
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_218",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1349,
+        1352
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1349,
+        1352
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_219",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1353,
+        1356
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1353,
+        1356
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_220",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1357,
+        1362
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1357,
+        1362
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_221",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1363,
+        1368
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1363,
+        1368
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_222",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1369,
+        1370
+      ]
+    },
+    {
+      "classification": "native_u_nonpunctuation_unresolved",
+      "id": "t_223",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        1371,
+        1372
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1371,
+        1372
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_10",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1373,
+        1376
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_224",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1377,
+        1378
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_225",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1379,
+        1382
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1379,
+        1382
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_226",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1383,
+        1385
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1383,
+        1385
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_227",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1386,
+        1389
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1386,
+        1389
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_228",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1390,
+        1395
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1390,
+        1395
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_229",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1396,
+        1400
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1396,
+        1400
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_230",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1401,
+        1407
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1401,
+        1407
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_231",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1408,
+        1411
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1408,
+        1411
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_232",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1412,
+        1418
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1412,
+        1418
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_233",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1419,
+        1425
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1419,
+        1425
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_234",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1426,
+        1439
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1426,
+        1439
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_235",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1440,
+        1448
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1440,
+        1448
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_236",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1449,
+        1457
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1449,
+        1457
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_237",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1458,
+        1459
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_238",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1460,
+        1465
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1460,
+        1465
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_239",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1466,
+        1474
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1466,
+        1474
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_240",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1475,
+        1483
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1475,
+        1483
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_241",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1484,
+        1489
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1484,
+        1489
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_11",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1490,
+        1493
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_242",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1494,
+        1495
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_243",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1496,
+        1499
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1496,
+        1499
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_244",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1500,
+        1502
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1500,
+        1502
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_245",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1503,
+        1509
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1503,
+        1509
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_246",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1510,
+        1513
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1510,
+        1513
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_247",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1514,
+        1517
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1514,
+        1517
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_248",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1518,
+        1524
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1518,
+        1524
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_249",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1525,
+        1532
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1525,
+        1532
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_250",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1533,
+        1539
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1533,
+        1539
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_251",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1540,
+        1549
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1540,
+        1549
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_252",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1550,
+        1559
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1550,
+        1559
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_253",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1560,
+        1563
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1560,
+        1563
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_254",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1564,
+        1565
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_255",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1566,
+        1571
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1566,
+        1571
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_256",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1572,
+        1582
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1572,
+        1582
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_257",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1583,
+        1587
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1583,
+        1587
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_12",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1588,
+        1591
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_258",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1592,
+        1593
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_259",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1594,
+        1597
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1594,
+        1597
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_260",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1598,
+        1600
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1598,
+        1600
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_261",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1601,
+        1604
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1601,
+        1604
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_262",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1605,
+        1611
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1605,
+        1611
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_263",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1612,
+        1619
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1612,
+        1619
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_264",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1620,
+        1623
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1620,
+        1623
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_265",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1624,
+        1627
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1624,
+        1627
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_266",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1628,
+        1636
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1628,
+        1636
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_267",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1637,
+        1640
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1637,
+        1640
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_268",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1641,
+        1650
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1641,
+        1650
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_269",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1651,
+        1657
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1651,
+        1657
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_270",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1658,
+        1662
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1658,
+        1662
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_271",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1663,
+        1666
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1663,
+        1666
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_272",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1667,
+        1670
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1667,
+        1670
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_273",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1671,
+        1680
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1671,
+        1680
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_274",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1681,
+        1686
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1681,
+        1686
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_275",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1687,
+        1693
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1687,
+        1693
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_276",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1694,
+        1707
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1694,
+        1707
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_277",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1708,
+        1714
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1708,
+        1714
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_278",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1715,
+        1720
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1715,
+        1720
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_279",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1721,
+        1722
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_280",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1723,
+        1728
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1723,
+        1728
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_281",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1729,
+        1739
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1729,
+        1739
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_282",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1740,
+        1751
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1740,
+        1751
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_283",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1752,
+        1757
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1752,
+        1757
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_284",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1758,
+        1759
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_285",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1760,
+        1762
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1760,
+        1762
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_286",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1763,
+        1771
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1763,
+        1771
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_287",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1772,
+        1775
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1772,
+        1775
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_288",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1776,
+        1779
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1776,
+        1779
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_289",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1780,
+        1785
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1780,
+        1785
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_290",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1786,
+        1790
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1786,
+        1790
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_291",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1791,
+        1797
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1791,
+        1797
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_292",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1798,
+        1801
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1798,
+        1801
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_293",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1802,
+        1805
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1802,
+        1805
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_294",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1806,
+        1814
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1806,
+        1814
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_295",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1815,
+        1818
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1815,
+        1818
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_296",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1819,
+        1828
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1819,
+        1828
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_297",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1829,
+        1835
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1829,
+        1835
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_298",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1836,
+        1842
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1836,
+        1842
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_299",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1843,
+        1848
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1843,
+        1848
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_300",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1849,
+        1852
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1849,
+        1852
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_301",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1853,
+        1858
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1853,
+        1858
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_302",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1859,
+        1869
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1859,
+        1869
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_303",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1870,
+        1880
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1870,
+        1880
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_304",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1881,
+        1885
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1881,
+        1885
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_305",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1886,
+        1887
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_306",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1888,
+        1893
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1888,
+        1893
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_307",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1894,
+        1899
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1894,
+        1899
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_308",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1900,
+        1908
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1900,
+        1908
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_309",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1909,
+        1917
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1909,
+        1917
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_310",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1918,
+        1923
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1918,
+        1923
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_311",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1924,
+        1929
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1924,
+        1929
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_13",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1930,
+        1933
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_312",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1934,
+        1935
+      ]
+    },
+    {
+      "classification": "native_u_nonpunctuation_unresolved",
+      "id": "t_313",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        1936,
+        1937
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1936,
+        1937
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_314",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1938,
+        1939
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_315",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1940,
+        1944
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1940,
+        1944
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_316",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1945,
+        1952
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1945,
+        1952
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_317",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1953,
+        1954
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1953,
+        1954
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_318",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1955,
+        1964
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1955,
+        1964
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_319",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1965,
+        1968
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1965,
+        1968
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_320",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1969,
+        1977
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1969,
+        1977
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_321",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1978,
+        1984
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1978,
+        1984
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_322",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1985,
+        1986
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_323",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1987,
+        1990
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1987,
+        1990
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_324",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1991,
+        1993
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        1991,
+        1993
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_325",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        1994,
+        2000
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        1994,
+        2000
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_326",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2001,
+        2004
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2001,
+        2004
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_327",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2005,
+        2009
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2005,
+        2009
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_328",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2010,
+        2013
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2010,
+        2013
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_329",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2014,
+        2019
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2014,
+        2019
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_330",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2020,
+        2025
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2020,
+        2025
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_331",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2026,
+        2029
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2026,
+        2029
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_332",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2030,
+        2036
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2030,
+        2036
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_333",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2037,
+        2038
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_334",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2039,
+        2048
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2039,
+        2048
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_335",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2049,
+        2051
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2049,
+        2051
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_336",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2052,
+        2055
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2052,
+        2055
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_337",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2056,
+        2060
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2056,
+        2060
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_338",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2061,
+        2064
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2061,
+        2064
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_339",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2065,
+        2072
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2065,
+        2072
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_340",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2073,
+        2078
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2073,
+        2078
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_341",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2079,
+        2082
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2079,
+        2082
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_342",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2083,
+        2089
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2083,
+        2089
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_343",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2090,
+        2091
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_344",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2092,
+        2095
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2092,
+        2095
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_345",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2096,
+        2099
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2096,
+        2099
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_346",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2100,
+        2105
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2100,
+        2105
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_347",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2106,
+        2110
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2106,
+        2110
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_348",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2111,
+        2117
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2111,
+        2117
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_349",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2118,
+        2119
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_350",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2120,
+        2126
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2120,
+        2126
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_351",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2127,
+        2135
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2127,
+        2135
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_352",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2136,
+        2145
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2136,
+        2145
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_353",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2146,
+        2156
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2146,
+        2156
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_354",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2157,
+        2167
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2157,
+        2167
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_355",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2168,
+        2172
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2168,
+        2172
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_356",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2173,
+        2174
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_357",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2175,
+        2180
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2175,
+        2180
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_358",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2181,
+        2190
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2181,
+        2190
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_359",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2191,
+        2197
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2191,
+        2197
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_360",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2198,
+        2210
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2198,
+        2210
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_361",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2211,
+        2216
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2211,
+        2216
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_362",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2217,
+        2218
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_363",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2219,
+        2223
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2219,
+        2223
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_364",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2224,
+        2226
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2224,
+        2226
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_365",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2227,
+        2230
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2227,
+        2230
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_366",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2231,
+        2232
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2231,
+        2232
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_367",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2233,
+        2242
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2233,
+        2242
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_368",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2243,
+        2246
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2243,
+        2246
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_369",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2247,
+        2256
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2247,
+        2256
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_370",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2257,
+        2263
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2257,
+        2263
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_371",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2264,
+        2270
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2264,
+        2270
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_372",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2271,
+        2283
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2271,
+        2283
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_373",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2284,
+        2285
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_374",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2286,
+        2291
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2286,
+        2291
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_375",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2292,
+        2297
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2292,
+        2297
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_376",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2298,
+        2306
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2298,
+        2306
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_14",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2307,
+        2310
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_377",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2311,
+        2312
+      ]
+    },
+    {
+      "classification": "native_u_nonpunctuation_unresolved",
+      "id": "t_378",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        2313,
+        2314
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2313,
+        2314
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_379",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2315,
+        2316
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_380",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2317,
+        2321
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2317,
+        2321
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_381",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2322,
+        2325
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2322,
+        2325
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_382",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2326,
+        2333
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2326,
+        2333
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_383",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2334,
+        2335
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_384",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2336,
+        2338
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2336,
+        2338
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_385",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2339,
+        2346
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2339,
+        2346
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_386",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2347,
+        2353
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2347,
+        2353
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_387",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2354,
+        2358
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2354,
+        2358
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_388",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2359,
+        2371
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2359,
+        2371
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_389",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2372,
+        2373
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_390",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2374,
+        2379
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2374,
+        2379
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_391",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2380,
+        2391
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2380,
+        2391
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_392",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2392,
+        2393
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_393",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2394,
+        2401
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2394,
+        2401
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_394",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2402,
+        2408
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2402,
+        2408
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_395",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2409,
+        2418
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2409,
+        2418
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_396",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2419,
+        2424
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2419,
+        2424
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_397",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2425,
+        2430
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2425,
+        2430
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_398",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2431,
+        2432
+      ]
+    },
+    {
+      "classification": "native_u_nonpunctuation_unresolved",
+      "id": "t_399",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        2433,
+        2434
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2433,
+        2434
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_15",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2435,
+        2438
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_400",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2439,
+        2440
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_401",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2441,
+        2445
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2441,
+        2445
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_402",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2446,
+        2449
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2446,
+        2449
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_403",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2450,
+        2456
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2450,
+        2456
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_404",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2457,
+        2458
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_405",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2459,
+        2461
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2459,
+        2461
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_406",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2462,
+        2468
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2462,
+        2468
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_407",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2469,
+        2473
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2469,
+        2473
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_408",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2474,
+        2480
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2474,
+        2480
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_409",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2481,
+        2485
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2481,
+        2485
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_410",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2486,
+        2491
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2486,
+        2491
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_411",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2492,
+        2493
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_412",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2494,
+        2500
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2494,
+        2500
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_413",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2501,
+        2512
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2501,
+        2512
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_414",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2513,
+        2514
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_415",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2515,
+        2520
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2515,
+        2520
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_416",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2521,
+        2534
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2521,
+        2534
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_417",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2535,
+        2536
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_418",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": [
+        2537,
+        2538
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2537,
+        2538
+      ]
+    },
+    {
+      "classification": "native_empty_marker; upstream insertion history unresolved",
+      "id": "e_16",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2539,
+        2542
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_419",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2543,
+        2544
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_420",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2545,
+        2549
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2545,
+        2549
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_421",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2550,
+        2553
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2550,
+        2553
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_422",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2554,
+        2562
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2554,
+        2562
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_423",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2563,
+        2564
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_424",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2565,
+        2569
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2565,
+        2569
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_425",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2570,
+        2574
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2570,
+        2574
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_426",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2575,
+        2579
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2575,
+        2579
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_427",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2580,
+        2593
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2580,
+        2593
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_428",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2594,
+        2604
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2594,
+        2604
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_429",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2605,
+        2613
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2605,
+        2613
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_430",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2614,
+        2616
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2614,
+        2616
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_431",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2617,
+        2618
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_432",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2619,
+        2625
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2619,
+        2625
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_433",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2626,
+        2636
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2626,
+        2636
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_434",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2637,
+        2645
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2637,
+        2645
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_435",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2646,
+        2651
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2646,
+        2651
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_436",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2652,
+        2655
+      ],
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2652,
+        2655
+      ]
+    },
+    {
+      "classification": "lexical_candidate_not_vocabulary_approval",
+      "id": "t_437",
+      "lemma_status": "plain_unicode_profile_only",
+      "lexical_span": [
+        2656,
+        2664
+      ],
+      "pos_status": "narrow_category_mapping",
+      "source_span": [
+        2656,
+        2664
+      ]
+    },
+    {
+      "classification": "source_punctuation",
+      "id": "t_438",
+      "lemma_status": "unresolved_or_nonlexical",
+      "lexical_span": null,
+      "pos_status": "unresolved_or_nonlexical",
+      "source_span": [
+        2665,
+        2666
+      ]
+    }
+  ],
+  "optional_metadata_ids_absent": [
+    {
+      "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_author.xml",
+      "href": "#anno"
+    },
+    {
+      "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_title.xml",
+      "href": "#anno"
+    },
+    {
+      "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts.xml",
+      "href": "#anno"
+    },
+    {
+      "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_author.xml",
+      "href": "#anno"
+    },
+    {
+      "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_edition.xml",
+      "href": "#anno"
+    },
+    {
+      "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_work.xml",
+      "href": "#anno"
+    },
+    {
+      "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_work_date.xml",
+      "href": "#anno"
+    }
+  ],
+  "reader_version": "oga-public-example-v1",
+  "reference_resolution": {
+    "by_document_pair": [
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_author.xml",
+        "resolved": 1,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_title.xml",
+        "resolved": 1,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts.xml",
+        "resolved": 1,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_author.xml",
+        "resolved": 1,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_edition.xml",
+        "resolved": 1,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_work.xml",
+        "resolved": 1,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_work_date.xml",
+        "resolved": 1,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01.xml",
+        "resolved": 846,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01_dep-fnc01.xml",
+        "resolved": 423,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_cts01.xml",
+        "resolved": 454,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_ipa01.xml",
+        "resolved": 454,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_lemma01.xml",
+        "resolved": 454,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01.xml"
+      },
+      {
+        "file": "annotation_example/ggm0001.ggm001.1st1K-grc1/postag.ggm0001.ggm001.1st1K-grc1.tok01_postag01.xml",
+        "resolved": 454,
+        "target_file": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01.xml"
+      }
+    ],
+    "resolved": 3092
+  },
+  "result": "conditional_format_consumption_not_reading_or_vocabulary_readiness",
+  "span_checks": {
+    "comment_witnesses": 454,
+    "comments_are_independent_witness": false,
+    "overlap_positions": [],
+    "uncovered_nonwhitespace": []
+  },
+  "text": {
+    "codepoints": 2666,
+    "extraction": "XML body string-value, no trim/Unicode/spacing changes",
+    "is_nfc": true,
+    "nfd_codepoints": 3157,
+    "uncovered_whitespace_codepoints": 453,
+    "utf8_sha256": "25a887cc80701debc6752fda1d1e8037f39ffd11667a6fa02b9404faac0d5718"
+  },
+  "unicode_version": "15.1.0"
+}

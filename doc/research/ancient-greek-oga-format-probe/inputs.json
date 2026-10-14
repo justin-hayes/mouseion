@@ -1,0 +1,200 @@
+{
+  "repository": "https://github.com/OperaGraecaAdnotata/OGA",
+  "commit": "a69d917dbe117a307829977dd556e22f05ce0715",
+  "files": [
+    {
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/README.md",
+      "size": 7264,
+      "sha256": "19ee635fc9f0b9ddbcc43e712626c9e8ae60d152d4f79a1123b545af5c29bd82"
+    },
+    {
+      "path": "annotation_example/README.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/README.md",
+      "size": 113,
+      "sha256": "18ece3659337c436a648e4a37d6a3eb3db8c0a7ef1be29a7cf87be8a0830f1a2"
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/anno.xml",
+      "sha256": "27d3db0b4cd230ce5a1e0e2576cd5fd331aed71e1f9ee344a69cc3f581846826",
+      "size": 303
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_author.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/anno_author.xml",
+      "sha256": "5693421f46e5082bd31f61ab8c8ecf622ba875203d2025960657761d4d1403ae",
+      "size": 330
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_title.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/anno_title.xml",
+      "sha256": "c30003999d06e8436e3b07f4a01068f7e48bf282756c32ea8a6407f2b51e7f10",
+      "size": 337
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts.xml",
+      "sha256": "4da87819fa34a28625ccfc1d43dd433133f8c7019776bf7de24d7566b461e359",
+      "size": 348
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_author.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_author.xml",
+      "sha256": "d68aebecf5900b33dffedfaf66e4908b8a7e1d69c0e4aedb0e69b5e8e7781bc4",
+      "size": 344
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_edition.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_edition.xml",
+      "sha256": "7fa966ca2990c953dc6dc7668d40b329ef7066b1a000ae7193f21580115f94c5",
+      "size": 349
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_work.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/anno_urn_cts_work.xml",
+      "sha256": "82e0e23f65e7ab870c375d1635b9e81a2c2306015299d47d726ff90f6d12e95b",
+      "size": 339
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/anno_work_date.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/anno_work_date.xml",
+      "sha256": "db193c5754b85df4cd04bf96148497f54aa72751ceec3ef8f8405e883cf5d22a",
+      "size": 361
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01.xml",
+      "sha256": "66b7600cfb37941407c558ff4d5bbc9dbe31b18db85d614495348d8613f75f56",
+      "size": 42643
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01_dep-fnc01.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/dep.ggm0001.ggm001.1st1K-grc1.tok01_dep01_dep-fnc01.xml",
+      "sha256": "8acd40cda89db764f38a5611f97cdf427faf630529921bcd302208502575469d",
+      "size": 23563
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01.xml",
+      "sha256": "df7abab4befa74c0f4b3ef212b7440ea5b1256b26075acf858163a357ac753de",
+      "size": 41855
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_cts01.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_cts01.xml",
+      "sha256": "1a8304c08a1d20a30f6c56d37faf5ba97703b91b6f5cb2f0788e03a971f0dd28",
+      "size": 25060
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_ipa01.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_ipa01.xml",
+      "sha256": "6f26257ee1ffc3cc055d331af43cfaf5e3948f95b1287ebc1f15c9a40666b955",
+      "size": 28578
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_lemma01.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.tok01_lemma01.xml",
+      "sha256": "111f800405228ff6b98daa1eecc9fd6e77e549b36b1b0227f2d3bbb53369a3fe",
+      "size": 25684
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/ggm0001.ggm001.1st1K-grc1.xml",
+      "sha256": "991d4b35b2aede305166174f1d4a1b6eb25c2907aaf6f33f6c1b694c29160002",
+      "size": 5261
+    },
+    {
+      "path": "annotation_example/ggm0001.ggm001.1st1K-grc1/postag.ggm0001.ggm001.1st1K-grc1.tok01_postag01.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/annotation_example/ggm0001.ggm001.1st1K-grc1/postag.ggm0001.ggm001.1st1K-grc1.tok01_postag01.xml",
+      "sha256": "d3b5bd40fa58c087ff42208245061fd262652b294cce09004fca676ddd4eb6b4",
+      "size": 77196
+    },
+    {
+      "path": "elision/README.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/elision/README.md",
+      "size": 694,
+      "sha256": "4c25ce5c442611c85d77f57d7b814ca0b65b425ad5f25154a1d55d2f7ae2110c"
+    },
+    {
+      "path": "query/README.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/query/README.md",
+      "size": 8654,
+      "sha256": "c4575bf93e1a7d42d2f91e106775af30b1d0cb8e0e604918d08b18c5f0311fd6"
+    },
+    {
+      "path": "query/cts_work_date.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/query/cts_work_date.md",
+      "size": 3280,
+      "sha256": "5bcfedfbcf07ce7b59d3ec9d35d03745c8e6c8be009c3568e50b696d9888e7a2"
+    },
+    {
+      "path": "query/morphology.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/query/morphology.md",
+      "size": 3344,
+      "sha256": "84964bb49641991380e3ca7845f0daa0da9f209bd240ee0601e6782ea85b2586"
+    },
+    {
+      "path": "query/syntax.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/query/syntax.md",
+      "size": 862,
+      "sha256": "fce2386a126dc2b068115ae91eb9e136e31a87092b1858c3e7dca9b2c550a1d3"
+    },
+    {
+      "path": "tokenize/README.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/tokenize/README.md",
+      "size": 1624,
+      "sha256": "11d7736a98e10aa6cd3f39709e070a0716097aedf80d16943062861dfc387be1"
+    },
+    {
+      "path": "urn_cts/README.md",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/urn_cts/README.md",
+      "size": 643,
+      "sha256": "fb3821f65b0efcc72a7581163a0b2a7a732f150dac814a2a6790fdda6571ecf1"
+    },
+    {
+      "path": "urn_cts/texts/urn_cts_plus_date_label.xml",
+      "url": "https://raw.githubusercontent.com/OperaGraecaAdnotata/OGA/a69d917dbe117a307829977dd556e22f05ce0715/urn_cts/texts/urn_cts_plus_date_label.xml",
+      "size": 1028899,
+      "sha256": "560220c867edc5bf1473fe2960b748002117e532a01e0a537b4bffbc8367d31b"
+    }
+  ],
+  "references": [
+    {
+      "path": "specifications/cc-by-sa-4.0-legalcode.txt",
+      "url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt",
+      "size": 20138,
+      "sha256": "28a9529c7d0bb4dc51f4bf5c116a3d16ef247a052f7591466768ddf563fd1cf5",
+      "retrieval_command": "curl --fail --output specifications/cc-by-sa-4.0-legalcode.txt https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt",
+      "availability": "initial review copy retained; fresh verification returned HTTP 403; do not retry or bypass"
+    },
+    {
+      "path": "specifications/paula/src/pointing-relations.md",
+      "url": "https://raw.githubusercontent.com/korpling/paula-xml/316e01d43b43f99f683d5d0ebe631bb5ffe4973f/src/pointing-relations.md",
+      "size": 3084,
+      "sha256": "7a367fb1a6cf2c9144dce02b7fe0215054bd5a3f4edf0d8e92cee1bee17f2838",
+      "retrieval_command": "curl --fail --output specifications/paula/src/pointing-relations.md https://raw.githubusercontent.com/korpling/paula-xml/316e01d43b43f99f683d5d0ebe631bb5ffe4973f/src/pointing-relations.md"
+    },
+    {
+      "path": "specifications/paula/src/preamble.md",
+      "url": "https://raw.githubusercontent.com/korpling/paula-xml/316e01d43b43f99f683d5d0ebe631bb5ffe4973f/src/preamble.md",
+      "size": 3835,
+      "sha256": "0f6df9860011a42882db4539c3a570be6f08f137fccbf3372ec51d63ce3a557e",
+      "retrieval_command": "curl --fail --output specifications/paula/src/preamble.md https://raw.githubusercontent.com/korpling/paula-xml/316e01d43b43f99f683d5d0ebe631bb5ffe4973f/src/preamble.md"
+    },
+    {
+      "path": "specifications/paula/src/primary-text-data.md",
+      "url": "https://raw.githubusercontent.com/korpling/paula-xml/316e01d43b43f99f683d5d0ebe631bb5ffe4973f/src/primary-text-data.md",
+      "size": 2033,
+      "sha256": "eabd13af994afb14a7849710848ecee972db0c792ff462494ad08a55533d32b1",
+      "retrieval_command": "curl --fail --output specifications/paula/src/primary-text-data.md https://raw.githubusercontent.com/korpling/paula-xml/316e01d43b43f99f683d5d0ebe631bb5ffe4973f/src/primary-text-data.md"
+    },
+    {
+      "path": "specifications/paula/src/spans-and-markables.md",
+      "url": "https://raw.githubusercontent.com/korpling/paula-xml/316e01d43b43f99f683d5d0ebe631bb5ffe4973f/src/spans-and-markables.md",
+      "size": 12941,
+      "sha256": "cd50c1fbf45d239a1f4054a273355ca925dea3dfd216d18f0950f3618d88ddf5",
+      "retrieval_command": "curl --fail --output specifications/paula/src/spans-and-markables.md https://raw.githubusercontent.com/korpling/paula-xml/316e01d43b43f99f683d5d0ebe631bb5ffe4973f/src/spans-and-markables.md"
+    }
+  ]
+}
