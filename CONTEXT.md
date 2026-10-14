@@ -34,6 +34,9 @@ That accepted Greek MVP direction does not deliver Ancient Greek support.
 Classical Catalog entry and Catalog sync scope qualifications below follow
 [ADR 0096](doc/adr/0096-classical-catalogue-discovery-and-acquisition.md), an
 accepted discovery/acquisition direction whose implementation is pending.
+Evidence adoption records the accepted operational direction in
+[ADR 0097](doc/adr/0097-classical-evidence-refresh-adoption-and-retention.md),
+not a shipped classical refresh workflow.
 
 ## Language
 
@@ -217,6 +220,9 @@ content), analyzed, or acquired-but-unassessed (current content present,
 analysis not yet complete). It reflects the Book's published analysis: a newer
 analysis run that is still in progress, failed, or was cancelled does not
 change it while the published analysis still matches the current content.
+In the accepted classical direction, it concerns the owner's adopted evidence
+and usable capabilities; upstream freshness or disappearance alone does not
+invalidate a retained, permitted and valid copy.
 _Avoid_: book status, analysis state (the raw signal the classification reads,
 not the classification itself), deck readiness, evidence status.
 
@@ -312,6 +318,12 @@ The source-independent linguistic meaning derived from exact annotation evidence
 through documented mappings, distinct from the preserved native evidence. It
 explicitly distinguishes usable information from missing or unresolved information.
 _Avoid_: original annotation, complete parse (not implied by interpretation).
+
+**Evidence adoption**:
+An owner's explicit selection of exact text and analysis evidence as current for
+their Book, distinct from discovery of an upstream revision or another owner's
+selection. It does not change a Reading's frozen evidence.
+_Avoid_: catalog sync, global source replacement, Reading refresh.
 
 **Vocabulary-ready analysis**:
 An analysis with verified text correspondence and full declared-scope coverage,
