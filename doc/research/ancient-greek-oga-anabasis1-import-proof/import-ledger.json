@@ -1,0 +1,6660 @@
+{
+  "acquisition": "verified_official_archive_after_explicit_human_authorization",
+  "binding": {
+    "authority": "annotation_carried_PAULA_text; upstream_TEI_character_correspondence_verified",
+    "empty_nodes": 110,
+    "empty_placeholder_literals": {
+      "[0]": 95,
+      "[1]": 15
+    },
+    "native_nodes": 10572,
+    "node_to_tei_coordinate_sha256": "1f9016a011f9f62ef87931a9e58d655c5152d0feae3e69b85f0eaa0885b7b631",
+    "nonwhitespace_code_points": 48892,
+    "printed_nodes": 10462,
+    "reading_code_points": 59353,
+    "reading_to_paula_coordinate_sha256": "e4739c29c869ef6b76aee43429f6134e3b447e6b8580a71cd69ebcf36e8a8cd3",
+    "reading_utf8_sha256": "0f18cae963899218fda6c62726d6a0b0429763f390597c1781a93d80c2ddd907",
+    "rules": "typed_e_node_and_following_single_space_removed; printed_chars_and_other_spacing_unchanged; TEI_del_omitted_choice_corr_selected_add_and_standalone_sic_retained",
+    "source_span": [
+      0,
+      59793
+    ],
+    "verdict": "verified_native_spans_and_explicit_marker_free_projection"
+  },
+  "deterministic_card_inputs": null,
+  "empty_node_citation_disagreements_with_preceding_printed_node": [
+    {
+      "id": "e_35",
+      "native_cts": "1_3_17",
+      "preceding_printed_cts": "1_3_18"
+    },
+    {
+      "id": "e_37",
+      "native_cts": "1_3_18",
+      "preceding_printed_cts": "1_3_19"
+    },
+    {
+      "id": "e_38",
+      "native_cts": "1_4_1",
+      "preceding_printed_cts": "1_4_2"
+    },
+    {
+      "id": "e_42",
+      "native_cts": "1_4_9",
+      "preceding_printed_cts": "1_4_10"
+    },
+    {
+      "id": "e_44",
+      "native_cts": "1_4_12",
+      "preceding_printed_cts": "1_4_13"
+    },
+    {
+      "id": "e_45",
+      "native_cts": "1_4_14",
+      "preceding_printed_cts": "1_4_15"
+    },
+    {
+      "id": "e_47",
+      "native_cts": "1_4_17",
+      "preceding_printed_cts": "1_4_18"
+    },
+    {
+      "id": "e_51",
+      "native_cts": "1_5_1",
+      "preceding_printed_cts": "1_5_2"
+    },
+    {
+      "id": "e_52",
+      "native_cts": "1_5_2",
+      "preceding_printed_cts": "1_5_3"
+    },
+    {
+      "id": "e_53",
+      "native_cts": "1_5_3",
+      "preceding_printed_cts": "1_5_4"
+    },
+    {
+      "id": "e_54",
+      "native_cts": "1_5_3",
+      "preceding_printed_cts": "1_5_4"
+    },
+    {
+      "id": "e_55",
+      "native_cts": "1_5_5",
+      "preceding_printed_cts": "1_5_6"
+    },
+    {
+      "id": "e_64",
+      "native_cts": "1_5_13",
+      "preceding_printed_cts": "1_5_14"
+    },
+    {
+      "id": "e_65",
+      "native_cts": "1_5_15",
+      "preceding_printed_cts": "1_5_16"
+    },
+    {
+      "id": "e_66",
+      "native_cts": "1_6_2",
+      "preceding_printed_cts": "1_6_3"
+    },
+    {
+      "id": "e_67",
+      "native_cts": "1_6_6",
+      "preceding_printed_cts": "1_6_7"
+    },
+    {
+      "id": "e_68",
+      "native_cts": "1_6_7",
+      "preceding_printed_cts": "1_6_8"
+    },
+    {
+      "id": "e_69",
+      "native_cts": "1_6_7",
+      "preceding_printed_cts": "1_6_8"
+    },
+    {
+      "id": "e_70",
+      "native_cts": "1_6_7",
+      "preceding_printed_cts": "1_6_8"
+    },
+    {
+      "id": "e_71",
+      "native_cts": "1_6_8",
+      "preceding_printed_cts": "1_6_9"
+    },
+    {
+      "id": "e_72",
+      "native_cts": "1_6_11",
+      "preceding_printed_cts": "1_7_1"
+    },
+    {
+      "id": "e_73",
+      "native_cts": "1_7_3",
+      "preceding_printed_cts": "1_7_4"
+    },
+    {
+      "id": "e_78",
+      "native_cts": "1_7_12",
+      "preceding_printed_cts": "1_7_14"
+    },
+    {
+      "id": "e_79",
+      "native_cts": "1_8_2",
+      "preceding_printed_cts": "1_8_4"
+    },
+    {
+      "id": "e_86",
+      "native_cts": "1_8_8",
+      "preceding_printed_cts": "1_8_9"
+    },
+    {
+      "id": "e_87",
+      "native_cts": "1_8_8",
+      "preceding_printed_cts": "1_8_10"
+    },
+    {
+      "id": "e_88",
+      "native_cts": "1_8_9",
+      "preceding_printed_cts": "1_8_10"
+    },
+    {
+      "id": "e_89",
+      "native_cts": "1_8_9",
+      "preceding_printed_cts": "1_8_11"
+    },
+    {
+      "id": "e_90",
+      "native_cts": "1_8_13",
+      "preceding_printed_cts": "1_8_15"
+    },
+    {
+      "id": "e_91",
+      "native_cts": "1_8_14",
+      "preceding_printed_cts": "1_8_16"
+    },
+    {
+      "id": "e_92",
+      "native_cts": "1_8_18",
+      "preceding_printed_cts": "1_8_20"
+    },
+    {
+      "id": "e_93",
+      "native_cts": "1_8_18",
+      "preceding_printed_cts": "1_8_20"
+    },
+    {
+      "id": "e_94",
+      "native_cts": "1_8_20",
+      "preceding_printed_cts": "1_8_21"
+    },
+    {
+      "id": "e_95",
+      "native_cts": "1_8_21",
+      "preceding_printed_cts": "1_8_23"
+    },
+    {
+      "id": "e_96",
+      "native_cts": "1_8_26",
+      "preceding_printed_cts": "1_8_29"
+    },
+    {
+      "id": "e_97",
+      "native_cts": "1_8_27",
+      "preceding_printed_cts": "1_8_29"
+    },
+    {
+      "id": "e_98",
+      "native_cts": "1_9_2",
+      "preceding_printed_cts": "1_9_5"
+    },
+    {
+      "id": "e_99",
+      "native_cts": "1_9_14",
+      "preceding_printed_cts": "1_9_17"
+    },
+    {
+      "id": "e_100",
+      "native_cts": "1_9_21",
+      "preceding_printed_cts": "1_9_23"
+    },
+    {
+      "id": "e_101",
+      "native_cts": "1_9_21",
+      "preceding_printed_cts": "1_9_24"
+    },
+    {
+      "id": "e_102",
+      "native_cts": "1_9_26",
+      "preceding_printed_cts": "1_9_29"
+    },
+    {
+      "id": "e_103",
+      "native_cts": "1_9_27",
+      "preceding_printed_cts": "1_9_29"
+    },
+    {
+      "id": "e_104",
+      "native_cts": "1_9_28",
+      "preceding_printed_cts": "1_9_29"
+    },
+    {
+      "id": "e_105",
+      "native_cts": "1_9_28",
+      "preceding_printed_cts": "1_9_30"
+    },
+    {
+      "id": "e_108",
+      "native_cts": "1_10_8",
+      "preceding_printed_cts": "1_10_10"
+    },
+    {
+      "id": "e_109",
+      "native_cts": "1_10_8",
+      "preceding_printed_cts": "1_10_11"
+    },
+    {
+      "id": "e_110",
+      "native_cts": "1_10_10",
+      "preceding_printed_cts": "1_10_13"
+    }
+  ],
+  "gloss_translation_dictionary_anki_client_semantics": "unperformed",
+  "language": "grc",
+  "native_pos_printed_counts": {
+    "a": 928,
+    "c": 756,
+    "d": 1491,
+    "i": 7,
+    "l": 1047,
+    "n": 1810,
+    "p": 721,
+    "r": 579,
+    "u": 1157,
+    "v": 1966
+  },
+  "omissions": null,
+  "optional_laula_pointer_diagnostic": {
+    "affected_nodes": 486,
+    "affected_sections": {
+      "1_10_1": 35,
+      "1_10_12": 4,
+      "1_10_5": 8,
+      "1_2_12": 14,
+      "1_2_5": 37,
+      "1_3_20": 10,
+      "1_4_4": 76,
+      "1_4_7": 73,
+      "1_4_9": 52,
+      "1_7_13": 20,
+      "1_7_15": 19,
+      "1_8_16": 29,
+      "1_8_4": 10,
+      "1_8_6": 27,
+      "1_8_7": 14,
+      "1_9_15": 18,
+      "1_9_16": 8,
+      "1_9_17": 8,
+      "1_9_19": 24
+    },
+    "fatal_to_verified_primary_binding": false,
+    "interpretation": "literal_resolved_element_string_value_with_whitespace_folded",
+    "nodes": [
+      {
+        "cts": "1_2_5",
+        "id": "t_876",
+        "length": 5,
+        "start": 0
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_877",
+        "length": 2,
+        "start": 6
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_878",
+        "length": 4,
+        "start": 9
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_879",
+        "length": 3,
+        "start": 14
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_880",
+        "length": 6,
+        "start": 18
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_881",
+        "length": 6,
+        "start": 25
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_882",
+        "length": 3,
+        "start": 32
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_883",
+        "length": 7,
+        "start": 36
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_884",
+        "length": 1,
+        "start": 43
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_885",
+        "length": 3,
+        "start": 45
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_886",
+        "length": 9,
+        "start": 49
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_887",
+        "length": 3,
+        "start": 59
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_888",
+        "length": 3,
+        "start": 63
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_889",
+        "length": 6,
+        "start": 67
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_890",
+        "length": 8,
+        "start": 74
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_891",
+        "length": 5,
+        "start": 83
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_892",
+        "length": 10,
+        "start": 89
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_893",
+        "length": 6,
+        "start": 100
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_894",
+        "length": 3,
+        "start": 107
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_895",
+        "length": 3,
+        "start": 111
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_896",
+        "length": 3,
+        "start": 115
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_897",
+        "length": 3,
+        "start": 119
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_898",
+        "length": 9,
+        "start": 123
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_899",
+        "length": 7,
+        "start": 133
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_900",
+        "length": 1,
+        "start": 140
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_901",
+        "length": 6,
+        "start": 142
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_902",
+        "length": 2,
+        "start": 149
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_903",
+        "length": 5,
+        "start": 152
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_904",
+        "length": 3,
+        "start": 158
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_905",
+        "length": 6,
+        "start": 162
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_906",
+        "length": 1,
+        "start": 168
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_907",
+        "length": 6,
+        "start": 170
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_908",
+        "length": 2,
+        "start": 177
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_909",
+        "length": 4,
+        "start": 180
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_910",
+        "length": 9,
+        "start": 185
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_911",
+        "length": 7,
+        "start": 195
+      },
+      {
+        "cts": "1_2_5",
+        "id": "t_912",
+        "length": 1,
+        "start": 202
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1346",
+        "length": 4,
+        "start": 1
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1347",
+        "length": 5,
+        "start": 6
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1348",
+        "length": 7,
+        "start": 12
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1349",
+        "length": 3,
+        "start": 20
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1350",
+        "length": 10,
+        "start": 24
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1351",
+        "length": 1,
+        "start": 34
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1352",
+        "length": 7,
+        "start": 36
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1353",
+        "length": 2,
+        "start": 44
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1354",
+        "length": 3,
+        "start": 47
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1355",
+        "length": 11,
+        "start": 51
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1356",
+        "length": 5,
+        "start": 63
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1357",
+        "length": 2,
+        "start": 69
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1358",
+        "length": 7,
+        "start": 72
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1359",
+        "length": 1,
+        "start": 79
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3328",
+        "length": 2,
+        "start": 0
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3329",
+        "length": 2,
+        "start": 1
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3330",
+        "length": 4,
+        "start": 4
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3331",
+        "length": 1,
+        "start": 8
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3332",
+        "length": 5,
+        "start": 10
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3333",
+        "length": 4,
+        "start": 16
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3334",
+        "length": 4,
+        "start": 21
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3335",
+        "length": 5,
+        "start": 26
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3336",
+        "length": 12,
+        "start": 32
+      },
+      {
+        "cts": "1_3_20",
+        "id": "t_3337",
+        "length": 1,
+        "start": 44
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3584",
+        "length": 2,
+        "start": 0
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3585",
+        "length": 3,
+        "start": 1
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3586",
+        "length": 3,
+        "start": 5
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3587",
+        "length": 8,
+        "start": 9
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3588",
+        "length": 9,
+        "start": 18
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3589",
+        "length": 4,
+        "start": 28
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3590",
+        "length": 3,
+        "start": 33
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3591",
+        "length": 7,
+        "start": 37
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3592",
+        "length": 6,
+        "start": 45
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3593",
+        "length": 1,
+        "start": 51
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3594",
+        "length": 2,
+        "start": 53
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3595",
+        "length": 2,
+        "start": 56
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3596",
+        "length": 3,
+        "start": 59
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3597",
+        "length": 2,
+        "start": 63
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3598",
+        "length": 3,
+        "start": 66
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3599",
+        "length": 3,
+        "start": 70
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3600",
+        "length": 6,
+        "start": 74
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3601",
+        "length": 8,
+        "start": 81
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3602",
+        "length": 7,
+        "start": 90
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3603",
+        "length": 6,
+        "start": 98
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3604",
+        "length": 9,
+        "start": 105
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3605",
+        "length": 1,
+        "start": 114
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3606",
+        "length": 3,
+        "start": 116
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3607",
+        "length": 5,
+        "start": 120
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3608",
+        "length": 2,
+        "start": 126
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3609",
+        "length": 3,
+        "start": 129
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3610",
+        "length": 6,
+        "start": 133
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3611",
+        "length": 7,
+        "start": 140
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3612",
+        "length": 6,
+        "start": 148
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3613",
+        "length": 5,
+        "start": 155
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3614",
+        "length": 1,
+        "start": 160
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3615",
+        "length": 5,
+        "start": 162
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3616",
+        "length": 7,
+        "start": 168
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3617",
+        "length": 1,
+        "start": 175
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3618",
+        "length": 4,
+        "start": 177
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3619",
+        "length": 2,
+        "start": 182
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3621",
+        "length": 5,
+        "start": 188
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3622",
+        "length": 3,
+        "start": 194
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3623",
+        "length": 6,
+        "start": 198
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3624",
+        "length": 4,
+        "start": 205
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3625",
+        "length": 7,
+        "start": 210
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3626",
+        "length": 5,
+        "start": 218
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3627",
+        "length": 1,
+        "start": 223
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3628",
+        "length": 3,
+        "start": 225
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3629",
+        "length": 9,
+        "start": 229
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3630",
+        "length": 3,
+        "start": 239
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3631",
+        "length": 2,
+        "start": 243
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3632",
+        "length": 3,
+        "start": 246
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3633",
+        "length": 1,
+        "start": 249
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3634",
+        "length": 2,
+        "start": 251
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3635",
+        "length": 3,
+        "start": 254
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3636",
+        "length": 1,
+        "start": 258
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3637",
+        "length": 7,
+        "start": 260
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3638",
+        "length": 5,
+        "start": 268
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3639",
+        "length": 3,
+        "start": 274
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3640",
+        "length": 2,
+        "start": 278
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3641",
+        "length": 5,
+        "start": 281
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3642",
+        "length": 3,
+        "start": 287
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3643",
+        "length": 3,
+        "start": 291
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3644",
+        "length": 8,
+        "start": 295
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3645",
+        "length": 9,
+        "start": 304
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3646",
+        "length": 1,
+        "start": 313
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3647",
+        "length": 7,
+        "start": 315
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3648",
+        "length": 2,
+        "start": 323
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3649",
+        "length": 4,
+        "start": 326
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3650",
+        "length": 6,
+        "start": 331
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3651",
+        "length": 8,
+        "start": 338
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3652",
+        "length": 1,
+        "start": 346
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3653",
+        "length": 3,
+        "start": 348
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3654",
+        "length": 2,
+        "start": 352
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3655",
+        "length": 4,
+        "start": 355
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3656",
+        "length": 8,
+        "start": 360
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3657",
+        "length": 10,
+        "start": 369
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3658",
+        "length": 12,
+        "start": 380
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3659",
+        "length": 5,
+        "start": 393
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3660",
+        "length": 1,
+        "start": 398
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3771",
+        "length": 3,
+        "start": 1
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3772",
+        "length": 6,
+        "start": 5
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3773",
+        "length": 1,
+        "start": 12
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3774",
+        "length": 8,
+        "start": 14
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3775",
+        "length": 8,
+        "start": 23
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3776",
+        "length": 3,
+        "start": 32
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3777",
+        "length": 6,
+        "start": 36
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3778",
+        "length": 3,
+        "start": 43
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3779",
+        "length": 2,
+        "start": 47
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3780",
+        "length": 8,
+        "start": 50
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3781",
+        "length": 4,
+        "start": 59
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3782",
+        "length": 9,
+        "start": 64
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3783",
+        "length": 10,
+        "start": 74
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3784",
+        "length": 1,
+        "start": 84
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3785",
+        "length": 2,
+        "start": 86
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3786",
+        "length": 3,
+        "start": 89
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3787",
+        "length": 4,
+        "start": 93
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3788",
+        "length": 9,
+        "start": 98
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3789",
+        "length": 7,
+        "start": 108
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3790",
+        "length": 14,
+        "start": 116
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3791",
+        "length": 3,
+        "start": 131
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3792",
+        "length": 4,
+        "start": 135
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3793",
+        "length": 10,
+        "start": 140
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3794",
+        "length": 5,
+        "start": 151
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3795",
+        "length": 4,
+        "start": 157
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3796",
+        "length": 4,
+        "start": 162
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3797",
+        "length": 8,
+        "start": 167
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3798",
+        "length": 10,
+        "start": 176
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3799",
+        "length": 2,
+        "start": 187
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3800",
+        "length": 8,
+        "start": 190
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3801",
+        "length": 3,
+        "start": 199
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3802",
+        "length": 3,
+        "start": 203
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3803",
+        "length": 6,
+        "start": 207
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3804",
+        "length": 5,
+        "start": 214
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3805",
+        "length": 3,
+        "start": 220
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3806",
+        "length": 2,
+        "start": 224
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3807",
+        "length": 4,
+        "start": 227
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3808",
+        "length": 7,
+        "start": 232
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3809",
+        "length": 3,
+        "start": 240
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3810",
+        "length": 5,
+        "start": 244
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3811",
+        "length": 3,
+        "start": 250
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3812",
+        "length": 8,
+        "start": 254
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3813",
+        "length": 5,
+        "start": 263
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3814",
+        "length": 1,
+        "start": 268
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3815",
+        "length": 4,
+        "start": 270
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3816",
+        "length": 2,
+        "start": 275
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3817",
+        "length": 4,
+        "start": 278
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3818",
+        "length": 7,
+        "start": 283
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3819",
+        "length": 1,
+        "start": 290
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3820",
+        "length": 6,
+        "start": 292
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3821",
+        "length": 5,
+        "start": 299
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3822",
+        "length": 3,
+        "start": 305
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3823",
+        "length": 6,
+        "start": 309
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3824",
+        "length": 6,
+        "start": 316
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3825",
+        "length": 5,
+        "start": 323
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3826",
+        "length": 8,
+        "start": 329
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3827",
+        "length": 1,
+        "start": 337
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3828",
+        "length": 3,
+        "start": 339
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3829",
+        "length": 2,
+        "start": 343
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3830",
+        "length": 3,
+        "start": 346
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3831",
+        "length": 7,
+        "start": 350
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3832",
+        "length": 2,
+        "start": 358
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3833",
+        "length": 7,
+        "start": 361
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3834",
+        "length": 5,
+        "start": 369
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3835",
+        "length": 6,
+        "start": 375
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3836",
+        "length": 8,
+        "start": 382
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3837",
+        "length": 1,
+        "start": 390
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3838",
+        "length": 2,
+        "start": 392
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3839",
+        "length": 2,
+        "start": 395
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3840",
+        "length": 7,
+        "start": 398
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3841",
+        "length": 2,
+        "start": 406
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3842",
+        "length": 9,
+        "start": 409
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3843",
+        "length": 1,
+        "start": 418
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3991",
+        "length": 4,
+        "start": 0
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3992",
+        "length": 5,
+        "start": 5
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3993",
+        "length": 5,
+        "start": 11
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3994",
+        "length": 9,
+        "start": 17
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3995",
+        "length": 8,
+        "start": 27
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3996",
+        "length": 8,
+        "start": 36
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3997",
+        "length": 10,
+        "start": 45
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3998",
+        "length": 7,
+        "start": 56
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_3999",
+        "length": 3,
+        "start": 64
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4000",
+        "length": 3,
+        "start": 68
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4001",
+        "length": 5,
+        "start": 72
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4002",
+        "length": 7,
+        "start": 78
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4003",
+        "length": 1,
+        "start": 85
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4004",
+        "length": 4,
+        "start": 87
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4005",
+        "length": 2,
+        "start": 92
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4006",
+        "length": 5,
+        "start": 95
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4007",
+        "length": 7,
+        "start": 101
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4008",
+        "length": 1,
+        "start": 108
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4009",
+        "length": 5,
+        "start": 110
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4010",
+        "length": 2,
+        "start": 116
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4011",
+        "length": 6,
+        "start": 119
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4012",
+        "length": 7,
+        "start": 126
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4013",
+        "length": 3,
+        "start": 134
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4014",
+        "length": 6,
+        "start": 138
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4015",
+        "length": 1,
+        "start": 144
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4016",
+        "length": 3,
+        "start": 146
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4017",
+        "length": 2,
+        "start": 150
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4018",
+        "length": 5,
+        "start": 153
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4019",
+        "length": 5,
+        "start": 159
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4020",
+        "length": 8,
+        "start": 165
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4021",
+        "length": 3,
+        "start": 174
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4022",
+        "length": 7,
+        "start": 178
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4023",
+        "length": 3,
+        "start": 186
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4024",
+        "length": 4,
+        "start": 190
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4025",
+        "length": 1,
+        "start": 194
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4026",
+        "length": 2,
+        "start": 196
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4027",
+        "length": 2,
+        "start": 198
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4028",
+        "length": 3,
+        "start": 201
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4029",
+        "length": 10,
+        "start": 205
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4030",
+        "length": 1,
+        "start": 215
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4031",
+        "length": 2,
+        "start": 217
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4032",
+        "length": 2,
+        "start": 220
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4033",
+        "length": 5,
+        "start": 223
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4034",
+        "length": 2,
+        "start": 229
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4035",
+        "length": 3,
+        "start": 232
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4036",
+        "length": 8,
+        "start": 236
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4037",
+        "length": 11,
+        "start": 245
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4038",
+        "length": 4,
+        "start": 257
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4039",
+        "length": 3,
+        "start": 262
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4040",
+        "length": 5,
+        "start": 266
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4041",
+        "length": 9,
+        "start": 272
+      },
+      {
+        "cts": "1_4_9",
+        "id": "t_4042",
+        "length": 1,
+        "start": 281
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6965",
+        "length": 4,
+        "start": 1
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6966",
+        "length": 7,
+        "start": 6
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6967",
+        "length": 8,
+        "start": 14
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6968",
+        "length": 3,
+        "start": 23
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6969",
+        "length": 3,
+        "start": 27
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6970",
+        "length": 5,
+        "start": 31
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6971",
+        "length": 1,
+        "start": 36
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6972",
+        "length": 3,
+        "start": 38
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6973",
+        "length": 4,
+        "start": 42
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6974",
+        "length": 3,
+        "start": 47
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6975",
+        "length": 5,
+        "start": 51
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6976",
+        "length": 2,
+        "start": 57
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6977",
+        "length": 7,
+        "start": 60
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6978",
+        "length": 9,
+        "start": 68
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6979",
+        "length": 3,
+        "start": 78
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6980",
+        "length": 8,
+        "start": 82
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6981",
+        "length": 1,
+        "start": 91
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6982",
+        "length": 4,
+        "start": 92
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6983",
+        "length": 8,
+        "start": 97
+      },
+      {
+        "cts": "1_7_13",
+        "id": "t_6984",
+        "length": 1,
+        "start": 105
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7051",
+        "length": 2,
+        "start": 1
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7052",
+        "length": 2,
+        "start": 4
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7053",
+        "length": 4,
+        "start": 7
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7054",
+        "length": 3,
+        "start": 12
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7055",
+        "length": 8,
+        "start": 16
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7056",
+        "length": 7,
+        "start": 25
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7057",
+        "length": 5,
+        "start": 33
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7058",
+        "length": 6,
+        "start": 39
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7059",
+        "length": 3,
+        "start": 46
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7060",
+        "length": 7,
+        "start": 50
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7061",
+        "length": 3,
+        "start": 58
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7062",
+        "length": 3,
+        "start": 62
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7063",
+        "length": 6,
+        "start": 66
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7064",
+        "length": 2,
+        "start": 73
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7065",
+        "length": 6,
+        "start": 76
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7066",
+        "length": 5,
+        "start": 83
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7067",
+        "length": 2,
+        "start": 89
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7068",
+        "length": 5,
+        "start": 92
+      },
+      {
+        "cts": "1_7_15",
+        "id": "t_7069",
+        "length": 1,
+        "start": 97
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7395",
+        "length": 3,
+        "start": 0
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7396",
+        "length": 2,
+        "start": 4
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7397",
+        "length": 9,
+        "start": 7
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7398",
+        "length": 2,
+        "start": 1
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7399",
+        "length": 8,
+        "start": 4
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7400",
+        "length": 5,
+        "start": 13
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7401",
+        "length": 4,
+        "start": 19
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7402",
+        "length": 3,
+        "start": 24
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7403",
+        "length": 9,
+        "start": 28
+      },
+      {
+        "cts": "1_8_4",
+        "id": "t_7404",
+        "length": 1,
+        "start": 37
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7445",
+        "length": 4,
+        "start": 0
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7446",
+        "length": 2,
+        "start": 5
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7447",
+        "length": 5,
+        "start": 8
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7448",
+        "length": 1,
+        "start": 0
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7449",
+        "length": 10,
+        "start": 2
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7450",
+        "length": 6,
+        "start": 13
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7451",
+        "length": 3,
+        "start": 20
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7452",
+        "length": 5,
+        "start": 24
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7453",
+        "length": 3,
+        "start": 30
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7454",
+        "length": 13,
+        "start": 34
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7455",
+        "length": 3,
+        "start": 48
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7456",
+        "length": 7,
+        "start": 52
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7457",
+        "length": 6,
+        "start": 60
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7458",
+        "length": 4,
+        "start": 67
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7459",
+        "length": 5,
+        "start": 72
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7460",
+        "length": 1,
+        "start": 77
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7461",
+        "length": 5,
+        "start": 79
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7462",
+        "length": 2,
+        "start": 85
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7463",
+        "length": 5,
+        "start": 88
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7464",
+        "length": 4,
+        "start": 94
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7465",
+        "length": 3,
+        "start": 99
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7466",
+        "length": 7,
+        "start": 103
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7467",
+        "length": 3,
+        "start": 111
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7468",
+        "length": 3,
+        "start": 115
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7469",
+        "length": 5,
+        "start": 119
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7470",
+        "length": 9,
+        "start": 125
+      },
+      {
+        "cts": "1_8_6",
+        "id": "t_7471",
+        "length": 1,
+        "start": 0
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7476",
+        "length": 5,
+        "start": 1
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7477",
+        "length": 3,
+        "start": 7
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7478",
+        "length": 12,
+        "start": 11
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7479",
+        "length": 3,
+        "start": 24
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7480",
+        "length": 12,
+        "start": 28
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7481",
+        "length": 1,
+        "start": 40
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7482",
+        "length": 5,
+        "start": 42
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7483",
+        "length": 2,
+        "start": 48
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7484",
+        "length": 3,
+        "start": 51
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7485",
+        "length": 8,
+        "start": 55
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7486",
+        "length": 2,
+        "start": 64
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7487",
+        "length": 6,
+        "start": 67
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7488",
+        "length": 9,
+        "start": 74
+      },
+      {
+        "cts": "1_8_7",
+        "id": "t_7489",
+        "length": 1,
+        "start": 83
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7891",
+        "length": 5,
+        "start": 1
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7892",
+        "length": 3,
+        "start": 7
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7893",
+        "length": 7,
+        "start": 11
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7894",
+        "length": 10,
+        "start": 19
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7895",
+        "length": 8,
+        "start": 30
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7896",
+        "length": 3,
+        "start": 39
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7897",
+        "length": 1,
+        "start": 42
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7898",
+        "length": 3,
+        "start": 44
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7899",
+        "length": 2,
+        "start": 48
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7900",
+        "length": 8,
+        "start": 51
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7901",
+        "length": 3,
+        "start": 60
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7902",
+        "length": 11,
+        "start": 64
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7903",
+        "length": 3,
+        "start": 76
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7904",
+        "length": 5,
+        "start": 80
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7905",
+        "length": 1,
+        "start": 86
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7906",
+        "length": 2,
+        "start": 88
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7907",
+        "length": 3,
+        "start": 91
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7908",
+        "length": 2,
+        "start": 95
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7909",
+        "length": 7,
+        "start": 98
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7910",
+        "length": 1,
+        "start": 105
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7911",
+        "length": 1,
+        "start": 107
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7912",
+        "length": 2,
+        "start": 109
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7913",
+        "length": 10,
+        "start": 112
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7914",
+        "length": 1,
+        "start": 122
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7915",
+        "length": 4,
+        "start": 124
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7916",
+        "length": 5,
+        "start": 129
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7917",
+        "length": 3,
+        "start": 135
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7918",
+        "length": 4,
+        "start": 139
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7919",
+        "length": 1,
+        "start": 143
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9031",
+        "length": 9,
+        "start": 0
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9032",
+        "length": 5,
+        "start": 1
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9033",
+        "length": 1,
+        "start": 6
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9034",
+        "length": 9,
+        "start": 8
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9035",
+        "length": 5,
+        "start": 18
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9036",
+        "length": 2,
+        "start": 24
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9037",
+        "length": 7,
+        "start": 27
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9038",
+        "length": 4,
+        "start": 35
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9039",
+        "length": 3,
+        "start": 40
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9040",
+        "length": 9,
+        "start": 44
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9041",
+        "length": 11,
+        "start": 54
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9042",
+        "length": 1,
+        "start": 65
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9043",
+        "length": 4,
+        "start": 67
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9044",
+        "length": 3,
+        "start": 72
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9045",
+        "length": 6,
+        "start": 76
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9046",
+        "length": 5,
+        "start": 83
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9047",
+        "length": 11,
+        "start": 89
+      },
+      {
+        "cts": "1_9_15",
+        "id": "t_9048",
+        "length": 1,
+        "start": 100
+      },
+      {
+        "cts": "1_9_16",
+        "id": "t_9064",
+        "length": 13,
+        "start": 0
+      },
+      {
+        "cts": "1_9_16",
+        "id": "t_9065",
+        "length": 6,
+        "start": 1
+      },
+      {
+        "cts": "1_9_16",
+        "id": "t_9066",
+        "length": 3,
+        "start": 8
+      },
+      {
+        "cts": "1_9_16",
+        "id": "t_9067",
+        "length": 2,
+        "start": 12
+      },
+      {
+        "cts": "1_9_16",
+        "id": "t_9068",
+        "length": 3,
+        "start": 15
+      },
+      {
+        "cts": "1_9_16",
+        "id": "t_9069",
+        "length": 6,
+        "start": 19
+      },
+      {
+        "cts": "1_9_16",
+        "id": "t_9070",
+        "length": 14,
+        "start": 26
+      },
+      {
+        "cts": "1_9_16",
+        "id": "t_9071",
+        "length": 1,
+        "start": 40
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9103",
+        "length": 5,
+        "start": 0
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9104",
+        "length": 10,
+        "start": 6
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9105",
+        "length": 1,
+        "start": 1
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9106",
+        "length": 2,
+        "start": 3
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9107",
+        "length": 4,
+        "start": 6
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9108",
+        "length": 4,
+        "start": 11
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9109",
+        "length": 6,
+        "start": 16
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9110",
+        "length": 1,
+        "start": 22
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9177",
+        "length": 1,
+        "start": 0
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9178",
+        "length": 7,
+        "start": 2
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9179",
+        "length": 2,
+        "start": 10
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9180",
+        "length": 3,
+        "start": 1
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9181",
+        "length": 6,
+        "start": 5
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9182",
+        "length": 5,
+        "start": 12
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9183",
+        "length": 8,
+        "start": 18
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9184",
+        "length": 1,
+        "start": 26
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9185",
+        "length": 2,
+        "start": 28
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9186",
+        "length": 3,
+        "start": 31
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9187",
+        "length": 6,
+        "start": 35
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9188",
+        "length": 4,
+        "start": 42
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9189",
+        "length": 7,
+        "start": 47
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9190",
+        "length": 10,
+        "start": 55
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9191",
+        "length": 8,
+        "start": 66
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9192",
+        "length": 1,
+        "start": 74
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9193",
+        "length": 4,
+        "start": 76
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9194",
+        "length": 10,
+        "start": 81
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9195",
+        "length": 7,
+        "start": 92
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9196",
+        "length": 4,
+        "start": 100
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9197",
+        "length": 3,
+        "start": 105
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9198",
+        "length": 14,
+        "start": 109
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9199",
+        "length": 7,
+        "start": 124
+      },
+      {
+        "cts": "1_9_19",
+        "id": "t_9200",
+        "length": 1,
+        "start": 131
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9680",
+        "length": 6,
+        "start": 1
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9681",
+        "length": 9,
+        "start": 8
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9682",
+        "length": 3,
+        "start": 18
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9683",
+        "length": 2,
+        "start": 22
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9684",
+        "length": 7,
+        "start": 25
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9685",
+        "length": 11,
+        "start": 33
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9686",
+        "length": 1,
+        "start": 44
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9687",
+        "length": 3,
+        "start": 46
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9688",
+        "length": 2,
+        "start": 50
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9689",
+        "length": 3,
+        "start": 53
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9690",
+        "length": 4,
+        "start": 57
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9691",
+        "length": 7,
+        "start": 62
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9692",
+        "length": 6,
+        "start": 70
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9693",
+        "length": 8,
+        "start": 77
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9694",
+        "length": 1,
+        "start": 85
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9695",
+        "length": 4,
+        "start": 87
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9696",
+        "length": 8,
+        "start": 92
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9697",
+        "length": 3,
+        "start": 101
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9698",
+        "length": 3,
+        "start": 105
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9699",
+        "length": 5,
+        "start": 109
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9700",
+        "length": 11,
+        "start": 115
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9701",
+        "length": 3,
+        "start": 127
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9702",
+        "length": 3,
+        "start": 131
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9703",
+        "length": 7,
+        "start": 135
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9704",
+        "length": 5,
+        "start": 143
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9705",
+        "length": 7,
+        "start": 149
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9706",
+        "length": 1,
+        "start": 156
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9707",
+        "length": 8,
+        "start": 158
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9708",
+        "length": 2,
+        "start": 167
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9709",
+        "length": 8,
+        "start": 170
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9710",
+        "length": 10,
+        "start": 179
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9711",
+        "length": 5,
+        "start": 190
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9712",
+        "length": 3,
+        "start": 196
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9713",
+        "length": 4,
+        "start": 200
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9714",
+        "length": 1,
+        "start": 204
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9892",
+        "length": 1,
+        "start": 0
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9893",
+        "length": 6,
+        "start": 2
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9894",
+        "length": 5,
+        "start": 9
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9895",
+        "length": 3,
+        "start": 15
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9896",
+        "length": 2,
+        "start": 19
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9897",
+        "length": 11,
+        "start": 22
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9898",
+        "length": 9,
+        "start": 34
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9899",
+        "length": 1,
+        "start": 0
+      },
+      {
+        "cts": "1_10_12",
+        "id": "t_10192",
+        "length": 3,
+        "start": 0
+      },
+      {
+        "cts": "1_10_12",
+        "id": "t_10193",
+        "length": 5,
+        "start": 4
+      },
+      {
+        "cts": "1_10_12",
+        "id": "t_10194",
+        "length": 12,
+        "start": 1
+      },
+      {
+        "cts": "1_10_12",
+        "id": "t_10195",
+        "length": 1,
+        "start": 13
+      }
+    ]
+  },
+  "optional_morphology_syntax": "native_files_retained; canonical_capabilities_not_assessed",
+  "practical_quality": "no_scholarly_or_sentence_input_assessment; raw_numbered_predictions_not_certified",
+  "python": "3.13",
+  "required_lexical_identities": {
+    "all_other_canonical_mappings": "not_established_or_published",
+    "blockers": [
+      {
+        "cts": "1_1_4",
+        "id": "t_165",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_1_5",
+        "id": "t_187",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_1_7",
+        "id": "t_302",
+        "native_pos": "v",
+        "raw_lemma": "σύνλέγω2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_1_8",
+        "id": "t_343",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_1_10",
+        "id": "t_507",
+        "native_pos": "n",
+        "raw_lemma": "ξένος1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_1_11",
+        "id": "t_561",
+        "native_pos": "n",
+        "raw_lemma": "ξένος1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_1_11",
+        "id": "t_594",
+        "native_pos": "n",
+        "raw_lemma": "ξένος1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_2",
+        "id": "t_752",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_3",
+        "id": "t_773",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_4",
+        "id": "t_845",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_8",
+        "id": "t_1070",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_9",
+        "id": "t_1111",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_9",
+        "id": "t_1150",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_11",
+        "id": "t_1278",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_11",
+        "id": "t_1293",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1324",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_12",
+        "id": "t_1352",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_13",
+        "id": "t_1388",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_14",
+        "id": "t_1415",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_14",
+        "id": "t_1416",
+        "native_pos": "v",
+        "raw_lemma": "δέω2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_17",
+        "id": "t_1584",
+        "native_pos": "v",
+        "raw_lemma": "ἔπειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_17",
+        "id": "t_1590",
+        "native_pos": "v",
+        "raw_lemma": "πρόειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_21",
+        "id": "t_1801",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_2_21",
+        "id": "t_1825",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_2",
+        "id": "t_2299",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_3",
+        "id": "t_2311",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_4",
+        "id": "t_2393",
+        "native_pos": "v",
+        "raw_lemma": "δέω2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_5",
+        "id": "t_2413",
+        "native_pos": "d",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_5",
+        "id": "t_2420",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_7",
+        "id": "t_2575",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_8",
+        "id": "t_2612",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_9",
+        "id": "t_2650",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_11",
+        "id": "t_2778",
+        "native_pos": "v",
+        "raw_lemma": "ἄπειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_12",
+        "id": "t_2846",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_13",
+        "id": "t_2868",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_15",
+        "id": "t_3019",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_17",
+        "id": "t_3153",
+        "native_pos": "v",
+        "raw_lemma": "ἄπειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_18",
+        "id": "t_3202",
+        "native_pos": "n",
+        "raw_lemma": "ξένος1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_19",
+        "id": "t_3230",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_19",
+        "id": "t_3234",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_19",
+        "id": "t_3251",
+        "native_pos": "v",
+        "raw_lemma": "ἄπειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_3_19",
+        "id": "t_3262",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_2",
+        "id": "t_3465",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_3",
+        "id": "t_3511",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_4",
+        "id": "t_3602",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_5",
+        "id": "t_3726",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_7",
+        "id": "t_3800",
+        "native_pos": "v",
+        "raw_lemma": "ἄπειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_8",
+        "id": "t_3931",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_11",
+        "id": "t_4131",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_11",
+        "id": "t_4145",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_13",
+        "id": "t_4269",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_13",
+        "id": "t_4280",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_15",
+        "id": "t_4375",
+        "native_pos": "v",
+        "raw_lemma": "ἄπειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_15",
+        "id": "t_4387",
+        "native_pos": "v",
+        "raw_lemma": "χράω2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_16",
+        "id": "t_4451",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_17",
+        "id": "t_4473",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_18",
+        "id": "t_4508",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_4_18",
+        "id": "t_4537",
+        "native_pos": "a",
+        "raw_lemma": "θεῖος1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_1",
+        "id": "t_4626",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_1",
+        "id": "t_4633",
+        "native_pos": "n",
+        "raw_lemma": "ἄρωμα1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_6",
+        "id": "t_4921",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_7",
+        "id": "t_4962",
+        "native_pos": "d",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_7",
+        "id": "t_4967",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_8",
+        "id": "t_5080",
+        "native_pos": "d",
+        "raw_lemma": "εὐθύς2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_8",
+        "id": "t_5089",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_11",
+        "id": "t_5295",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_13",
+        "id": "t_5391",
+        "native_pos": "d",
+        "raw_lemma": "εὐθύς2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_13",
+        "id": "t_5426",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_14",
+        "id": "t_5468",
+        "native_pos": "v",
+        "raw_lemma": "πρόσειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_14",
+        "id": "t_5476",
+        "native_pos": "d",
+        "raw_lemma": "εὐθύς2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_14",
+        "id": "t_5487",
+        "native_pos": "v",
+        "raw_lemma": "δέω2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_14",
+        "id": "t_5500",
+        "native_pos": "v",
+        "raw_lemma": "δέω2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_14",
+        "id": "t_5503",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_15",
+        "id": "t_5519",
+        "native_pos": "v",
+        "raw_lemma": "ἔπειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_15",
+        "id": "t_5527",
+        "native_pos": "d",
+        "raw_lemma": "εὐθύς2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_15",
+        "id": "t_5538",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_15",
+        "id": "t_5548",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_5_16",
+        "id": "t_5558",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_1",
+        "id": "t_5625",
+        "native_pos": "v",
+        "raw_lemma": "πρόειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_1",
+        "id": "t_5642",
+        "native_pos": "v",
+        "raw_lemma": "πρόειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_1",
+        "id": "t_5666",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_2",
+        "id": "t_5694",
+        "native_pos": "d",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_2",
+        "id": "t_5698",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_2",
+        "id": "t_5708",
+        "native_pos": "v",
+        "raw_lemma": "ἔπειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_9",
+        "id": "t_6163",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_9",
+        "id": "t_6174",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_6_11",
+        "id": "t_6317",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_7_1",
+        "id": "t_6365",
+        "native_pos": "v",
+        "raw_lemma": "ἔπειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_7_4",
+        "id": "t_6516",
+        "native_pos": "v",
+        "raw_lemma": "ἔπειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_7_5",
+        "id": "t_6593",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_7_5",
+        "id": "t_6606",
+        "native_pos": "v",
+        "raw_lemma": "πρόσειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_7_6",
+        "id": "t_6636",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_7_11",
+        "id": "t_6877",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_1",
+        "id": "t_7291",
+        "native_pos": "d",
+        "raw_lemma": "εὐθύς2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_9",
+        "id": "t_7558",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_9",
+        "id": "t_7577",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_11",
+        "id": "t_7682",
+        "native_pos": "v",
+        "raw_lemma": "πρόσειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_12",
+        "id": "t_7697",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_13",
+        "id": "t_7748",
+        "native_pos": "v",
+        "raw_lemma": "περίειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_14",
+        "id": "t_7801",
+        "native_pos": "v",
+        "raw_lemma": "πρόειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_14",
+        "id": "t_7815",
+        "native_pos": "v",
+        "raw_lemma": "πρόσειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_15",
+        "id": "t_7859",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_16",
+        "id": "t_7874",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_17",
+        "id": "t_7947",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_18",
+        "id": "t_7995",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_20",
+        "id": "t_8109",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_24",
+        "id": "t_8276",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_26",
+        "id": "t_8327",
+        "native_pos": "d",
+        "raw_lemma": "εὐθύς2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_27",
+        "id": "t_8395",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_28",
+        "id": "t_8421",
+        "native_pos": "a",
+        "raw_lemma": "πιστός2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_8_28",
+        "id": "t_8426",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_4",
+        "id": "t_8591",
+        "native_pos": "d",
+        "raw_lemma": "εὐθύς2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_10",
+        "id": "t_8820",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_11",
+        "id": "t_8854",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9084",
+        "native_pos": "v",
+        "raw_lemma": "χράω2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_17",
+        "id": "t_9105",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_18",
+        "id": "t_9136",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_21",
+        "id": "t_9239",
+        "native_pos": "v",
+        "raw_lemma": "δέω2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_23",
+        "id": "t_9299",
+        "native_pos": "d",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_23",
+        "id": "t_9303",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_23",
+        "id": "t_9311",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_24",
+        "id": "t_9358",
+        "native_pos": "v",
+        "raw_lemma": "περίειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_25",
+        "id": "t_9385",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_29",
+        "id": "t_9536",
+        "native_pos": "v",
+        "raw_lemma": "ἄπειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_29",
+        "id": "t_9557",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_9_29",
+        "id": "t_9591",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_1",
+        "id": "t_9709",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_2",
+        "id": "t_9736",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_5",
+        "id": "t_9892",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_6",
+        "id": "t_9906",
+        "native_pos": "v",
+        "raw_lemma": "πρόσειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_6",
+        "id": "t_9922",
+        "native_pos": "v",
+        "raw_lemma": "πρόσειμι1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_7",
+        "id": "t_10004",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_10",
+        "id": "t_10099",
+        "native_pos": "v",
+        "raw_lemma": "σύνειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_10",
+        "id": "t_10114",
+        "native_pos": "v",
+        "raw_lemma": "ἔπειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_10",
+        "id": "t_10118",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_11",
+        "id": "t_10132",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_16",
+        "id": "t_10315",
+        "native_pos": "v",
+        "raw_lemma": "πάρειμι2",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_16",
+        "id": "t_10325",
+        "native_pos": "d",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_16",
+        "id": "t_10328",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_17",
+        "id": "t_10343",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_18",
+        "id": "t_10383",
+        "native_pos": "c",
+        "raw_lemma": "ἤ1",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      },
+      {
+        "cts": "1_10_18",
+        "id": "t_10418",
+        "native_pos": "v",
+        "raw_lemma": "λέγω3",
+        "reason": "citation_decoding_and_lexical_discriminator_namespace_unestablished"
+      }
+    ],
+    "canonical_identity_count": null,
+    "distinct_numbered_raw_lemmas": 21,
+    "numbered_lemma_occurrences": 142,
+    "verdict": "stopped_unresolved_producer_decoding"
+  },
+  "rights": "private_inspection_and_attributed_bounded_diagnostics; not_export_or_provider_approval",
+  "sections": [
+    {
+      "cts": "1_1_1",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_1",
+      "last_id": "t_31",
+      "native_nodes": 33,
+      "nonwhitespace_code_points": 160,
+      "printed_nodes": 31,
+      "tei_string_sha256": "eb5c3b54c799ceae3c6f1c243626b01b0b220650addeb2dfe83f1b9bcb0afc1d"
+    },
+    {
+      "cts": "1_1_2",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_32",
+      "last_id": "t_84",
+      "native_nodes": 54,
+      "nonwhitespace_code_points": 263,
+      "printed_nodes": 53,
+      "tei_string_sha256": "ab698e4d5aa5967bd47be1a14fca4c7f7fd1d696d08cde31c02c6feec921cd92"
+    },
+    {
+      "cts": "1_1_3",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_85",
+      "last_id": "t_126",
+      "native_nodes": 42,
+      "nonwhitespace_code_points": 212,
+      "printed_nodes": 42,
+      "tei_string_sha256": "8dbed16747695c92e065a48cf6ae168d7528cbcbbbfcae943a2fbb7a632ef2a4"
+    },
+    {
+      "cts": "1_1_4",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_127",
+      "last_id": "t_169",
+      "native_nodes": 44,
+      "nonwhitespace_code_points": 190,
+      "printed_nodes": 43,
+      "tei_string_sha256": "b9b336b99fc47e571337cfc23e972a416adc045bd5683eb24f619fb7e7939cf3"
+    },
+    {
+      "cts": "1_1_5",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_170",
+      "last_id": "t_206",
+      "native_nodes": 38,
+      "nonwhitespace_code_points": 184,
+      "printed_nodes": 37,
+      "tei_string_sha256": "79ab9ec81866233b9cbead92d114df2b6348e31299214421829785b415559e5a"
+    },
+    {
+      "cts": "1_1_6",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_207",
+      "last_id": "t_274",
+      "native_nodes": 68,
+      "nonwhitespace_code_points": 387,
+      "printed_nodes": 68,
+      "tei_string_sha256": "01c67a95b65f387837cdfea250e787964f1ff6e648ea4c873f097ae9dfab53e1"
+    },
+    {
+      "cts": "1_1_7",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_275",
+      "last_id": "t_328",
+      "native_nodes": 54,
+      "nonwhitespace_code_points": 286,
+      "printed_nodes": 54,
+      "tei_string_sha256": "7a0c8adec1f2fd60c74aeb0ccba8cb276f31d6bb036389ceacc4bd6c1e1f9289"
+    },
+    {
+      "cts": "1_1_8",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_329",
+      "last_id": "t_397",
+      "native_nodes": 70,
+      "nonwhitespace_code_points": 351,
+      "printed_nodes": 69,
+      "tei_string_sha256": "817197bfd4ebd97ef93f26e2513bbff5653a1c49686cfd230e67fda12fd16c7a"
+    },
+    {
+      "cts": "1_1_9",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_398",
+      "last_id": "t_482",
+      "native_nodes": 85,
+      "nonwhitespace_code_points": 448,
+      "printed_nodes": 85,
+      "tei_string_sha256": "def1ffb37fa0fad43515eb1e6e663a68f1c48676d518e97834412a3658cabc1c"
+    },
+    {
+      "cts": "1_1_10",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_483",
+      "last_id": "t_556",
+      "native_nodes": 74,
+      "nonwhitespace_code_points": 374,
+      "printed_nodes": 74,
+      "tei_string_sha256": "e74261b937a28754737ac7debcdb4fda0135de4aa75d2439ac95eab98fc097f2"
+    },
+    {
+      "cts": "1_1_11",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_557",
+      "last_id": "t_619",
+      "native_nodes": 63,
+      "nonwhitespace_code_points": 332,
+      "printed_nodes": 63,
+      "tei_string_sha256": "c13b5b4d5ad0263ee64bcb8df7cf1097588d0e020afb71777c84ab03b8b7c085"
+    },
+    {
+      "cts": "1_2_1",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_620",
+      "last_id": "t_705",
+      "native_nodes": 86,
+      "nonwhitespace_code_points": 424,
+      "printed_nodes": 86,
+      "tei_string_sha256": "4240202979cb2e4af073e71cf43e13a25033f7265df62e452456b42dac04d410"
+    },
+    {
+      "cts": "1_2_2",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_706",
+      "last_id": "t_755",
+      "native_nodes": 50,
+      "nonwhitespace_code_points": 247,
+      "printed_nodes": 50,
+      "tei_string_sha256": "fcf9d96777823b09f42589a99657fb9f4c17f9aa7cf6b41901357362d3d70281"
+    },
+    {
+      "cts": "1_2_3",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_756",
+      "last_id": "t_828",
+      "native_nodes": 75,
+      "nonwhitespace_code_points": 368,
+      "printed_nodes": 73,
+      "tei_string_sha256": "7ece3e9d2ea4e69a6cefc7c13718d2637413d3322525bd1e8a3e4e7332a69b89"
+    },
+    {
+      "cts": "1_2_4",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_829",
+      "last_id": "t_862",
+      "native_nodes": 36,
+      "nonwhitespace_code_points": 170,
+      "printed_nodes": 34,
+      "tei_string_sha256": "4f28aa867cbac1fa61798643eafceda566bde8e5384ea79e9a59d9b708d2998d"
+    },
+    {
+      "cts": "1_2_5",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_863",
+      "last_id": "t_912",
+      "native_nodes": 51,
+      "nonwhitespace_code_points": 242,
+      "printed_nodes": 50,
+      "tei_string_sha256": "7e6ec33cd0d1eb766dd295a19e3fe68bb1bba0ff3548fffea1993c8e8a6ca81b"
+    },
+    {
+      "cts": "1_2_6",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_913",
+      "last_id": "t_954",
+      "native_nodes": 42,
+      "nonwhitespace_code_points": 224,
+      "printed_nodes": 42,
+      "tei_string_sha256": "28ed010586749af7f181c287ce5ebe8b3aee6f0d3fcb86e779e2a2ef6a6dc498"
+    },
+    {
+      "cts": "1_2_7",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_955",
+      "last_id": "t_1025",
+      "native_nodes": 71,
+      "nonwhitespace_code_points": 338,
+      "printed_nodes": 71,
+      "tei_string_sha256": "12589c69bd81c9bd2ee6486c4e31dd27de109fb4efbb506d2746c656081d0340"
+    },
+    {
+      "cts": "1_2_8",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_1026",
+      "last_id": "t_1098",
+      "native_nodes": 74,
+      "nonwhitespace_code_points": 327,
+      "printed_nodes": 73,
+      "tei_string_sha256": "8780fa244dea463c93f43fa75dfec54c44620068cdd827d0c7b64c96691638fd"
+    },
+    {
+      "cts": "1_2_9",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_1099",
+      "last_id": "t_1191",
+      "native_nodes": 94,
+      "nonwhitespace_code_points": 483,
+      "printed_nodes": 93,
+      "tei_string_sha256": "faa8990ced0e56effc60a9ea4e855f8b0f1e8cddd98a4968d5cd5a0515146dfb"
+    },
+    {
+      "cts": "1_2_10",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1192",
+      "last_id": "t_1234",
+      "native_nodes": 43,
+      "nonwhitespace_code_points": 193,
+      "printed_nodes": 43,
+      "tei_string_sha256": "5d1be0f225ae595f03544a38f4490ef23f5eb35b65336786f68f85d5c619c5c1"
+    },
+    {
+      "cts": "1_2_11",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_1235",
+      "last_id": "t_1310",
+      "native_nodes": 77,
+      "nonwhitespace_code_points": 377,
+      "printed_nodes": 76,
+      "tei_string_sha256": "b676f960154be384adb2008e5dcf5c3afeabf1e6a74e8b59bdfce164eea7a2a4"
+    },
+    {
+      "cts": "1_2_12",
+      "editorial_elements": [
+        {
+          "element": "del",
+          "xml_string_span": [
+            221,
+            232
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_1311",
+      "last_id": "t_1359",
+      "native_nodes": 49,
+      "nonwhitespace_code_points": 238,
+      "printed_nodes": 49,
+      "tei_string_sha256": "aed7e430d34b3a3f26460a9e6dc1a577223eda39e54bd102c630f83cc936597f"
+    },
+    {
+      "cts": "1_2_13",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1360",
+      "last_id": "t_1396",
+      "native_nodes": 37,
+      "nonwhitespace_code_points": 179,
+      "printed_nodes": 37,
+      "tei_string_sha256": "adc87763374a3ddb188d3652534b21d102bb12dbeb5578d43a8fcabd895ed821"
+    },
+    {
+      "cts": "1_2_14",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1397",
+      "last_id": "t_1438",
+      "native_nodes": 42,
+      "nonwhitespace_code_points": 225,
+      "printed_nodes": 42,
+      "tei_string_sha256": "ac64580ecd613757bb785c31d4c1ce61869418b9f701f904185a5951fc1a8a1f"
+    },
+    {
+      "cts": "1_2_15",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_1439",
+      "last_id": "t_1489",
+      "native_nodes": 53,
+      "nonwhitespace_code_points": 210,
+      "printed_nodes": 51,
+      "tei_string_sha256": "e1b7e65d16dc1838af07b80913ecb051345f25743da2fb572b5cb99269307705"
+    },
+    {
+      "cts": "1_2_16",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_1490",
+      "last_id": "t_1537",
+      "native_nodes": 49,
+      "nonwhitespace_code_points": 228,
+      "printed_nodes": 48,
+      "tei_string_sha256": "665bbdf057a58376c70de9d692d791e086016e6c0f8cf2219ee2ac6ea08f14d0"
+    },
+    {
+      "cts": "1_2_17",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1538",
+      "last_id": "t_1603",
+      "native_nodes": 66,
+      "nonwhitespace_code_points": 324,
+      "printed_nodes": 66,
+      "tei_string_sha256": "0dcc8fd9705fdb65f728aa0ee1e73cbfff72cbff554212e62b4e80ad9aec82cf"
+    },
+    {
+      "cts": "1_2_18",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_1604",
+      "last_id": "t_1663",
+      "native_nodes": 61,
+      "nonwhitespace_code_points": 253,
+      "printed_nodes": 60,
+      "tei_string_sha256": "929e76ccf8126dc60c6b2465d7fec0d542737242a0c8d190ea7d638902807cdc"
+    },
+    {
+      "cts": "1_2_19",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1664",
+      "last_id": "t_1703",
+      "native_nodes": 40,
+      "nonwhitespace_code_points": 229,
+      "printed_nodes": 40,
+      "tei_string_sha256": "3a63138eb51692c6b8c298f704a6ca6ca86d474b6f4ffabec210e74e443289a0"
+    },
+    {
+      "cts": "1_2_20",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1704",
+      "last_id": "t_1776",
+      "native_nodes": 73,
+      "nonwhitespace_code_points": 387,
+      "printed_nodes": 73,
+      "tei_string_sha256": "3466b3fdd1b54cb68803e0c4a3f38674819621f7198dfd7c04587cdc5f2a5170"
+    },
+    {
+      "cts": "1_2_21",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1777",
+      "last_id": "t_1863",
+      "native_nodes": 87,
+      "nonwhitespace_code_points": 414,
+      "printed_nodes": 87,
+      "tei_string_sha256": "b61b76eb800a674995fa10e0764e852b44074df1891507727a30e1e2de48ac0d"
+    },
+    {
+      "cts": "1_2_22",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1864",
+      "last_id": "t_1927",
+      "native_nodes": 64,
+      "nonwhitespace_code_points": 289,
+      "printed_nodes": 64,
+      "tei_string_sha256": "a23fbecf2254c8ab04e2cd88cdb5fadf3b7d8b2e5301e5c432dbf366236ce442"
+    },
+    {
+      "cts": "1_2_23",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1928",
+      "last_id": "t_1973",
+      "native_nodes": 46,
+      "nonwhitespace_code_points": 220,
+      "printed_nodes": 46,
+      "tei_string_sha256": "8d693349b68cbdceda9b3ed1b27d574130c92cf2a34c56dda386c1facce15311"
+    },
+    {
+      "cts": "1_2_24",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_1974",
+      "last_id": "t_2007",
+      "native_nodes": 34,
+      "nonwhitespace_code_points": 154,
+      "printed_nodes": 34,
+      "tei_string_sha256": "2cbb8bdf5d17e1f7a78556fd2c3d965e70a11794a51fa876fdb031b767cfa705"
+    },
+    {
+      "cts": "1_2_25",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_2008",
+      "last_id": "t_2072",
+      "native_nodes": 66,
+      "nonwhitespace_code_points": 305,
+      "printed_nodes": 65,
+      "tei_string_sha256": "917526bcd5243dfe4e188b96003b3adeedfc73873f229eb286b41552ac478e3e"
+    },
+    {
+      "cts": "1_2_26",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2073",
+      "last_id": "t_2142",
+      "native_nodes": 70,
+      "nonwhitespace_code_points": 292,
+      "printed_nodes": 70,
+      "tei_string_sha256": "6cfbabf24f6a325bca98aa729948faabf5000fe487ca0d7000f75ff64f27f14f"
+    },
+    {
+      "cts": "1_2_27",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_2143",
+      "last_id": "t_2200",
+      "native_nodes": 60,
+      "nonwhitespace_code_points": 290,
+      "printed_nodes": 58,
+      "tei_string_sha256": "c897b345491a4c06b50362d9f594f67a305de144d6cc7072b58254240b346fa6"
+    },
+    {
+      "cts": "1_3_1",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2201",
+      "last_id": "t_2257",
+      "native_nodes": 57,
+      "nonwhitespace_code_points": 255,
+      "printed_nodes": 57,
+      "tei_string_sha256": "cb8bc0811a10a1da998b20055b617abc4e102f811d133c48bbe950a61e29351b"
+    },
+    {
+      "cts": "1_3_2",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2258",
+      "last_id": "t_2301",
+      "native_nodes": 44,
+      "nonwhitespace_code_points": 210,
+      "printed_nodes": 44,
+      "tei_string_sha256": "09ee6463ccd68c60d865c3b9f84f8684af975927a3b2c0035acf3f0f1e0a9141"
+    },
+    {
+      "cts": "1_3_3",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2302",
+      "last_id": "t_2351",
+      "native_nodes": 50,
+      "nonwhitespace_code_points": 227,
+      "printed_nodes": 50,
+      "tei_string_sha256": "1df7c79faf6d1063acd77df9bb31f7d585a2034eac68c51146511ed683819e76"
+    },
+    {
+      "cts": "1_3_4",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2352",
+      "last_id": "t_2402",
+      "native_nodes": 51,
+      "nonwhitespace_code_points": 245,
+      "printed_nodes": 51,
+      "tei_string_sha256": "f456392e0f55d1f915158471b666956708f5b1d86f1e85df0cfd28ced71929c7"
+    },
+    {
+      "cts": "1_3_5",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_2403",
+      "last_id": "t_2469",
+      "native_nodes": 68,
+      "nonwhitespace_code_points": 286,
+      "printed_nodes": 67,
+      "tei_string_sha256": "207759dcdb67ab67e3b1edae63d992af412944ee91ade7622531da8b07960062"
+    },
+    {
+      "cts": "1_3_6",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2470",
+      "last_id": "t_2545",
+      "native_nodes": 76,
+      "nonwhitespace_code_points": 287,
+      "printed_nodes": 76,
+      "tei_string_sha256": "5382591abceb99f4f99a3347f6e207231e6e1a9cf013e084bcc4cacc90f0857e"
+    },
+    {
+      "cts": "1_3_7",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_2546",
+      "last_id": "t_2586",
+      "native_nodes": 42,
+      "nonwhitespace_code_points": 202,
+      "printed_nodes": 41,
+      "tei_string_sha256": "e99123e046a0f4eebb96f450bead52f6e4c5ac1686d9963f2f87e3ee36beb897"
+    },
+    {
+      "cts": "1_3_8",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2587",
+      "last_id": "t_2631",
+      "native_nodes": 45,
+      "nonwhitespace_code_points": 207,
+      "printed_nodes": 45,
+      "tei_string_sha256": "ef7d372c789d9522d88e0229fd5d8e705afc03b3a29077afacc6c38341adef95"
+    },
+    {
+      "cts": "1_3_9",
+      "editorial_elements": [],
+      "empty_nodes": 4,
+      "first_id": "t_2632",
+      "last_id": "t_2692",
+      "native_nodes": 65,
+      "nonwhitespace_code_points": 267,
+      "printed_nodes": 61,
+      "tei_string_sha256": "8ac448324bced5715d1a11bb70363d2a46c3b183d94f2f09140010e2c2dcba94"
+    },
+    {
+      "cts": "1_3_10",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2693",
+      "last_id": "t_2733",
+      "native_nodes": 41,
+      "nonwhitespace_code_points": 201,
+      "printed_nodes": 41,
+      "tei_string_sha256": "710384e7b25459d76b59e69290ecb126810d5bcf71b5545d681df0c3b3bb54f7"
+    },
+    {
+      "cts": "1_3_11",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_2734",
+      "last_id": "t_2797",
+      "native_nodes": 65,
+      "nonwhitespace_code_points": 274,
+      "printed_nodes": 64,
+      "tei_string_sha256": "d7cde57ee38e7015eaf668149606480c97b3859558d39ba96d8909522e75be0f"
+    },
+    {
+      "cts": "1_3_12",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_2798",
+      "last_id": "t_2857",
+      "native_nodes": 62,
+      "nonwhitespace_code_points": 241,
+      "printed_nodes": 60,
+      "tei_string_sha256": "b6d97a42aa1b65e89fb7828846f1e74c07dcaf24619390f9d7a475b102552252"
+    },
+    {
+      "cts": "1_3_13",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_2858",
+      "last_id": "t_2892",
+      "native_nodes": 36,
+      "nonwhitespace_code_points": 152,
+      "printed_nodes": 35,
+      "tei_string_sha256": "f8864b80fd6ff32dce756c129e9351413e9beb2a1da429f9bc73e67204efd179"
+    },
+    {
+      "cts": "1_3_14",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_2893",
+      "last_id": "t_3009",
+      "native_nodes": 117,
+      "nonwhitespace_code_points": 532,
+      "printed_nodes": 117,
+      "tei_string_sha256": "127dee39904292caff09b71add6243cfc15d2391a09a5b9fffa59dfaccbcbfe2"
+    },
+    {
+      "cts": "1_3_15",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_3010",
+      "last_id": "t_3055",
+      "native_nodes": 48,
+      "nonwhitespace_code_points": 200,
+      "printed_nodes": 46,
+      "tei_string_sha256": "831b23835884cc605c9e8199265a8af52b0cd42222588caa7e7a5414cf4ca647"
+    },
+    {
+      "cts": "1_3_16",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_3056",
+      "last_id": "t_3112",
+      "native_nodes": 58,
+      "nonwhitespace_code_points": 265,
+      "printed_nodes": 57,
+      "tei_string_sha256": "b5035e5128781a0790f9a4509a453f8aa13842bcbf90454a997538efe0b90ff4"
+    },
+    {
+      "cts": "1_3_17",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_3113",
+      "last_id": "e_35",
+      "native_nodes": 52,
+      "nonwhitespace_code_points": 206,
+      "printed_nodes": 51,
+      "tei_string_sha256": "38493bbeb13c6a664547bbfe2982af417d44b67a8d605dfb34e37afab0898685"
+    },
+    {
+      "cts": "1_3_18",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_3164",
+      "last_id": "e_37",
+      "native_nodes": 54,
+      "nonwhitespace_code_points": 247,
+      "printed_nodes": 52,
+      "tei_string_sha256": "6f9e625e026b09c06c5fb816404501244839fcd9a852fa3371b966aeab1e4236"
+    },
+    {
+      "cts": "1_3_19",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_3216",
+      "last_id": "t_3272",
+      "native_nodes": 57,
+      "nonwhitespace_code_points": 270,
+      "printed_nodes": 57,
+      "tei_string_sha256": "a923fcffae954f59342ae8e0abc9a7bd926c70999a0ea46e0392f75858070cb1"
+    },
+    {
+      "cts": "1_3_20",
+      "editorial_elements": [
+        {
+          "element": "sic",
+          "xml_string_span": [
+            310,
+            312
+          ]
+        },
+        {
+          "element": "corr",
+          "xml_string_span": [
+            313,
+            315
+          ]
+        },
+        {
+          "element": "choice",
+          "xml_string_span": [
+            310,
+            315
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_3273",
+      "last_id": "t_3337",
+      "native_nodes": 65,
+      "nonwhitespace_code_points": 284,
+      "printed_nodes": 65,
+      "tei_string_sha256": "ad904379cc4c171f06811237b5a88c6e41d41d6e90891d67e432ca913ff9a4b6"
+    },
+    {
+      "cts": "1_3_21",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_3338",
+      "last_id": "t_3400",
+      "native_nodes": 63,
+      "nonwhitespace_code_points": 284,
+      "printed_nodes": 63,
+      "tei_string_sha256": "d7dd7626ae4cfe977477dd4984e1d5a9633340275c91d9a556369279dc5b92ae"
+    },
+    {
+      "cts": "1_4_1",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_3401",
+      "last_id": "e_38",
+      "native_nodes": 58,
+      "nonwhitespace_code_points": 291,
+      "printed_nodes": 57,
+      "tei_string_sha256": "f9ff98f26e1f2f07962debe3d2ab3ac4de5c1c6f948f8170cadd7adbb238d0f8"
+    },
+    {
+      "cts": "1_4_2",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_3458",
+      "last_id": "t_3510",
+      "native_nodes": 53,
+      "nonwhitespace_code_points": 262,
+      "printed_nodes": 53,
+      "tei_string_sha256": "4f7031d7203f66306358aaf9c3be60a94282102c29bb0a7b8ff8064e3a9780dc"
+    },
+    {
+      "cts": "1_4_3",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_3511",
+      "last_id": "t_3559",
+      "native_nodes": 49,
+      "nonwhitespace_code_points": 253,
+      "printed_nodes": 49,
+      "tei_string_sha256": "0816182d5418016559dfb93de1ef8e9fb29e6699e88dac2ebac2b0caca38f1da"
+    },
+    {
+      "cts": "1_4_4",
+      "editorial_elements": [
+        {
+          "element": "add",
+          "xml_string_span": [
+            149,
+            151
+          ]
+        }
+      ],
+      "empty_nodes": 1,
+      "first_id": "t_3560",
+      "last_id": "t_3660",
+      "native_nodes": 102,
+      "nonwhitespace_code_points": 442,
+      "printed_nodes": 101,
+      "tei_string_sha256": "b90b31ec865f0e44271653637adc84b02736ef64904e656818865e656e4ba740"
+    },
+    {
+      "cts": "1_4_5",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_3661",
+      "last_id": "t_3731",
+      "native_nodes": 71,
+      "nonwhitespace_code_points": 343,
+      "printed_nodes": 71,
+      "tei_string_sha256": "cc1a0b9f4921132d81e7388f6f539370a30af4d1c4d24b2c02c13ac2270d3cef"
+    },
+    {
+      "cts": "1_4_6",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_3732",
+      "last_id": "t_3766",
+      "native_nodes": 35,
+      "nonwhitespace_code_points": 177,
+      "printed_nodes": 35,
+      "tei_string_sha256": "b4f7ab4d7ea1623398aa7f2265a3e9db3fc55372fd54e4086e532382455ef411"
+    },
+    {
+      "cts": "1_4_7",
+      "editorial_elements": [
+        {
+          "element": "del",
+          "xml_string_span": [
+            38,
+            47
+          ]
+        }
+      ],
+      "empty_nodes": 1,
+      "first_id": "t_3767",
+      "last_id": "t_3843",
+      "native_nodes": 78,
+      "nonwhitespace_code_points": 367,
+      "printed_nodes": 77,
+      "tei_string_sha256": "65b76413a438249047ca18617169da1d7b2f3c0ecd647f6cf9f2504d9dd1b89c"
+    },
+    {
+      "cts": "1_4_8",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_3844",
+      "last_id": "t_3962",
+      "native_nodes": 120,
+      "nonwhitespace_code_points": 524,
+      "printed_nodes": 119,
+      "tei_string_sha256": "8d514084041d54e621fdc9bcf62bf0ff9377031f29e2bfe5070e461d56dd841f"
+    },
+    {
+      "cts": "1_4_9",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_3963",
+      "last_id": "e_42",
+      "native_nodes": 81,
+      "nonwhitespace_code_points": 361,
+      "printed_nodes": 80,
+      "tei_string_sha256": "4122c45c41c8be27ab3b4820d7087dd4f806b969ee08c2d36044ad56fb68b293"
+    },
+    {
+      "cts": "1_4_10",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4043",
+      "last_id": "t_4091",
+      "native_nodes": 49,
+      "nonwhitespace_code_points": 240,
+      "printed_nodes": 49,
+      "tei_string_sha256": "f9e13fd838da5cba04f6aea4d651adec99f02e0d2f0bf1a0e30a88c004700c2b"
+    },
+    {
+      "cts": "1_4_11",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4092",
+      "last_id": "t_4152",
+      "native_nodes": 61,
+      "nonwhitespace_code_points": 334,
+      "printed_nodes": 61,
+      "tei_string_sha256": "16ec16ea0e0a7e10f071489aea7296a119c5ecd82db21a646a782376b432f47e"
+    },
+    {
+      "cts": "1_4_12",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_4153",
+      "last_id": "e_44",
+      "native_nodes": 61,
+      "nonwhitespace_code_points": 274,
+      "printed_nodes": 59,
+      "tei_string_sha256": "ae2935fe65892d42c74b4aba073c6eff5b8eec4caaa8796e6fea35d0510eeaf9"
+    },
+    {
+      "cts": "1_4_13",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4212",
+      "last_id": "t_4282",
+      "native_nodes": 71,
+      "nonwhitespace_code_points": 317,
+      "printed_nodes": 71,
+      "tei_string_sha256": "9ddc31e29eaff742bfb4cfb500f5565d7c0573666e2fd76008e8e99cd5a8de89"
+    },
+    {
+      "cts": "1_4_14",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_4283",
+      "last_id": "e_45",
+      "native_nodes": 55,
+      "nonwhitespace_code_points": 255,
+      "printed_nodes": 54,
+      "tei_string_sha256": "ac8ea1dda18f3853aadd3a36acb27739c45ab514dbd844b1c9080ade158c5845"
+    },
+    {
+      "cts": "1_4_15",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_4337",
+      "last_id": "t_4406",
+      "native_nodes": 71,
+      "nonwhitespace_code_points": 325,
+      "printed_nodes": 70,
+      "tei_string_sha256": "22d51936318078ca0e02365911e8d00fa2c2bc1d28699c179c165bc0e00a4dd9"
+    },
+    {
+      "cts": "1_4_16",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4407",
+      "last_id": "t_4456",
+      "native_nodes": 50,
+      "nonwhitespace_code_points": 222,
+      "printed_nodes": 50,
+      "tei_string_sha256": "d0c36251465e5513e2857b5fdc61c00eaf6547d5e06cf89204e172b3ea8b9f3a"
+    },
+    {
+      "cts": "1_4_17",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_4457",
+      "last_id": "e_47",
+      "native_nodes": 49,
+      "nonwhitespace_code_points": 233,
+      "printed_nodes": 48,
+      "tei_string_sha256": "5af0338220c4a29c4fe545e04fc1c95d2a292aca81b8ff82ae07b2fea25f1a5c"
+    },
+    {
+      "cts": "1_4_18",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4505",
+      "last_id": "t_4547",
+      "native_nodes": 43,
+      "nonwhitespace_code_points": 195,
+      "printed_nodes": 43,
+      "tei_string_sha256": "7e2cc5328de04bd24bf75a081435ac3df8d05af3b01ad21a63f289727f6c0461"
+    },
+    {
+      "cts": "1_4_19",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4548",
+      "last_id": "t_4580",
+      "native_nodes": 33,
+      "nonwhitespace_code_points": 181,
+      "printed_nodes": 33,
+      "tei_string_sha256": "c9acae39c05b059018423552d7d7dab9d3499e3a75e11cdc2faf05ef4426259c"
+    },
+    {
+      "cts": "1_5_1",
+      "editorial_elements": [],
+      "empty_nodes": 4,
+      "first_id": "t_4581",
+      "last_id": "e_51",
+      "native_nodes": 58,
+      "nonwhitespace_code_points": 234,
+      "printed_nodes": 54,
+      "tei_string_sha256": "aae5818b37047c3a4d0065f2b108b6a0d1423fc31ef2ffbeacdee14c5739c0cf"
+    },
+    {
+      "cts": "1_5_2",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_4635",
+      "last_id": "e_52",
+      "native_nodes": 93,
+      "nonwhitespace_code_points": 382,
+      "printed_nodes": 92,
+      "tei_string_sha256": "3128aed5ab37bb2e854ba6e42842e6dc38711d23a60fb0a1f8b6cbd9e3c3489a"
+    },
+    {
+      "cts": "1_5_3",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_4727",
+      "last_id": "e_54",
+      "native_nodes": 60,
+      "nonwhitespace_code_points": 248,
+      "printed_nodes": 58,
+      "tei_string_sha256": "e9c9363de9d82d8bf6760b57a28211514aeea7876c38a445ee4868db0d031683"
+    },
+    {
+      "cts": "1_5_4",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4785",
+      "last_id": "t_4820",
+      "native_nodes": 36,
+      "nonwhitespace_code_points": 159,
+      "printed_nodes": 36,
+      "tei_string_sha256": "0a9dd68530a22b2a6d0dedcb26babafcee17741dd7b2d9cd922ea76a13975117"
+    },
+    {
+      "cts": "1_5_5",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_4821",
+      "last_id": "e_55",
+      "native_nodes": 76,
+      "nonwhitespace_code_points": 379,
+      "printed_nodes": 75,
+      "tei_string_sha256": "fd02d0a6675886a0c10296813b4ec8fc3da8b99ccb4698ff911a4fcf088dd406"
+    },
+    {
+      "cts": "1_5_6",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4896",
+      "last_id": "t_4950",
+      "native_nodes": 55,
+      "nonwhitespace_code_points": 243,
+      "printed_nodes": 55,
+      "tei_string_sha256": "80b8d36d49908feeee7a09114fc67d7c927685576cfce81010011d28cc74adcb"
+    },
+    {
+      "cts": "1_5_7",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_4951",
+      "last_id": "t_5003",
+      "native_nodes": 53,
+      "nonwhitespace_code_points": 272,
+      "printed_nodes": 53,
+      "tei_string_sha256": "abc34498ed8a2f55de978df663b8f65e9ed4351bf3804841582788ec7ea1e4fe"
+    },
+    {
+      "cts": "1_5_8",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_5004",
+      "last_id": "t_5098",
+      "native_nodes": 97,
+      "nonwhitespace_code_points": 459,
+      "printed_nodes": 95,
+      "tei_string_sha256": "8881dc99bf3456186521447c502d42aa2e4cbdecc6b278ae1a5485544b993241"
+    },
+    {
+      "cts": "1_5_9",
+      "editorial_elements": [],
+      "empty_nodes": 3,
+      "first_id": "t_5099",
+      "last_id": "t_5182",
+      "native_nodes": 87,
+      "nonwhitespace_code_points": 401,
+      "printed_nodes": 84,
+      "tei_string_sha256": "c7ee8d16584b4e6abe758a7b234f5a139424babc536f99716a47e22f49063663"
+    },
+    {
+      "cts": "1_5_10",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5183",
+      "last_id": "t_5264",
+      "native_nodes": 82,
+      "nonwhitespace_code_points": 384,
+      "printed_nodes": 82,
+      "tei_string_sha256": "06e4d2163b9f4a16bc0a13d56b8e7e50216f07283722d3f244c17e6953c0c20a"
+    },
+    {
+      "cts": "1_5_11",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5265",
+      "last_id": "t_5307",
+      "native_nodes": 43,
+      "nonwhitespace_code_points": 215,
+      "printed_nodes": 43,
+      "tei_string_sha256": "2243e5b385052d8109cd11af2b19f29685d62c68fcd3b18ab29ca08091ff9045"
+    },
+    {
+      "cts": "1_5_12",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_5308",
+      "last_id": "t_5381",
+      "native_nodes": 76,
+      "nonwhitespace_code_points": 335,
+      "printed_nodes": 74,
+      "tei_string_sha256": "4e03aaf3a44ba5242d9100a573356f5ef6730dff15b46f2a923f4e628168a778"
+    },
+    {
+      "cts": "1_5_13",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_5382",
+      "last_id": "e_64",
+      "native_nodes": 81,
+      "nonwhitespace_code_points": 349,
+      "printed_nodes": 79,
+      "tei_string_sha256": "fa380d7475d66297d4027d87d4aa0c6460fc529ec7adaff249df63c111af186f"
+    },
+    {
+      "cts": "1_5_14",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5461",
+      "last_id": "t_5515",
+      "native_nodes": 55,
+      "nonwhitespace_code_points": 249,
+      "printed_nodes": 55,
+      "tei_string_sha256": "ae6a185e71cf51938c14e93cee0b1f34a235048e9b6f9bad25b38dd24ccb87be"
+    },
+    {
+      "cts": "1_5_15",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_5516",
+      "last_id": "e_65",
+      "native_nodes": 36,
+      "nonwhitespace_code_points": 133,
+      "printed_nodes": 35,
+      "tei_string_sha256": "69461e20d6e9210cf8db65b86c33003faeab75e72069edf5655495b846e65777"
+    },
+    {
+      "cts": "1_5_16",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5551",
+      "last_id": "t_5606",
+      "native_nodes": 56,
+      "nonwhitespace_code_points": 255,
+      "printed_nodes": 56,
+      "tei_string_sha256": "f43c556b950799c2de68aa604ae4db526a8a9177514c9617b0e72bc3363b387a"
+    },
+    {
+      "cts": "1_5_17",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5607",
+      "last_id": "t_5623",
+      "native_nodes": 17,
+      "nonwhitespace_code_points": 80,
+      "printed_nodes": 17,
+      "tei_string_sha256": "29870979964696239e15f1466ae08c12926ad231a10ac1c3f8f1ea19edff77f6"
+    },
+    {
+      "cts": "1_6_1",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5624",
+      "last_id": "t_5679",
+      "native_nodes": 56,
+      "nonwhitespace_code_points": 267,
+      "printed_nodes": 56,
+      "tei_string_sha256": "6bff24f05b124736818cd4811ec7153ea1d6a4335f593b04af8d21634f2bc93c"
+    },
+    {
+      "cts": "1_6_2",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_5680",
+      "last_id": "e_66",
+      "native_nodes": 63,
+      "nonwhitespace_code_points": 315,
+      "printed_nodes": 62,
+      "tei_string_sha256": "0b730a474f0eedc8a837ab1fbd0149ad9cb632c2c02f96ed077b57073e45760e"
+    },
+    {
+      "cts": "1_6_3",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5742",
+      "last_id": "t_5803",
+      "native_nodes": 62,
+      "nonwhitespace_code_points": 288,
+      "printed_nodes": 62,
+      "tei_string_sha256": "0a4772ec8beb8bfe0a750dd2ff8d6b8e168f77ffc1e5827aadd4dc546fd475c2"
+    },
+    {
+      "cts": "1_6_4",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5804",
+      "last_id": "t_5854",
+      "native_nodes": 51,
+      "nonwhitespace_code_points": 243,
+      "printed_nodes": 51,
+      "tei_string_sha256": "88f66deebf3ab0b444a9ff79eaed9f63c7748c6e6cb621bd45a6733ea8df84b2"
+    },
+    {
+      "cts": "1_6_5",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_5855",
+      "last_id": "t_5893",
+      "native_nodes": 39,
+      "nonwhitespace_code_points": 175,
+      "printed_nodes": 39,
+      "tei_string_sha256": "fdae00f4c322b861bd5a707bdfa1ce765a3d9b0cf3e280efa528a1b09e1c1491"
+    },
+    {
+      "cts": "1_6_6",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_5894",
+      "last_id": "e_67",
+      "native_nodes": 102,
+      "nonwhitespace_code_points": 419,
+      "printed_nodes": 101,
+      "tei_string_sha256": "7add77e4f627844e26207df10fb0dfee2e05eba9b03afe27f4c3fb98c3f3044b"
+    },
+    {
+      "cts": "1_6_7",
+      "editorial_elements": [],
+      "empty_nodes": 3,
+      "first_id": "t_5995",
+      "last_id": "e_70",
+      "native_nodes": 80,
+      "nonwhitespace_code_points": 319,
+      "printed_nodes": 77,
+      "tei_string_sha256": "d9e31842ac6498653503ddcdc3a013ceec3f8027dad8ee4241f8af45c6b860f0"
+    },
+    {
+      "cts": "1_6_8",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_6072",
+      "last_id": "e_71",
+      "native_nodes": 87,
+      "nonwhitespace_code_points": 329,
+      "printed_nodes": 86,
+      "tei_string_sha256": "8d63d966b1fc79680c93c4ead0d9b469382d594bb2e6e018f2640abf4d2ec4eb"
+    },
+    {
+      "cts": "1_6_9",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6158",
+      "last_id": "t_6227",
+      "native_nodes": 70,
+      "nonwhitespace_code_points": 286,
+      "printed_nodes": 70,
+      "tei_string_sha256": "d60bba96f32ecd9ecd67cc1d555df36dd2d8bff7e2f70047a07b836ff5a5295f"
+    },
+    {
+      "cts": "1_6_10",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6228",
+      "last_id": "t_6283",
+      "native_nodes": 56,
+      "nonwhitespace_code_points": 259,
+      "printed_nodes": 56,
+      "tei_string_sha256": "a538e3706f430eb80a3b5dc537ee71cfb1ac2b15d92ba5697bfb7f1edcbb0214"
+    },
+    {
+      "cts": "1_6_11",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_6284",
+      "last_id": "e_72",
+      "native_nodes": 48,
+      "nonwhitespace_code_points": 206,
+      "printed_nodes": 47,
+      "tei_string_sha256": "ba45962f85390bf23776d568279a2f2c46d2e5a7b0429c0bbf949f4d83b06fa5"
+    },
+    {
+      "cts": "1_7_1",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6331",
+      "last_id": "t_6395",
+      "native_nodes": 65,
+      "nonwhitespace_code_points": 314,
+      "printed_nodes": 65,
+      "tei_string_sha256": "0f208893a8931f5e1668e1a642677f33e9a8ff179d41ee3dc8fda5fd492e81cc"
+    },
+    {
+      "cts": "1_7_2",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6396",
+      "last_id": "t_6437",
+      "native_nodes": 42,
+      "nonwhitespace_code_points": 224,
+      "printed_nodes": 42,
+      "tei_string_sha256": "1175bb53e5d734fdc442b3e443e38c1b35740d63308faeadabfc6cd9bd818da7"
+    },
+    {
+      "cts": "1_7_3",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_6438",
+      "last_id": "e_73",
+      "native_nodes": 58,
+      "nonwhitespace_code_points": 273,
+      "printed_nodes": 57,
+      "tei_string_sha256": "8d7f47a97f7a36ff04c8b79c896b8a5b0e557688a158eaee72dc2a5131a48178"
+    },
+    {
+      "cts": "1_7_4",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6495",
+      "last_id": "t_6573",
+      "native_nodes": 79,
+      "nonwhitespace_code_points": 339,
+      "printed_nodes": 79,
+      "tei_string_sha256": "556ffd70acfcecd48c43698dde090d164845d4c0e613c5cf16f1e67ab9cf5cbe"
+    },
+    {
+      "cts": "1_7_5",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6574",
+      "last_id": "t_6633",
+      "native_nodes": 60,
+      "nonwhitespace_code_points": 234,
+      "printed_nodes": 60,
+      "tei_string_sha256": "c70703247f50f516fe056eec94d349a31369196da6191b1763ad1c37f3892271"
+    },
+    {
+      "cts": "1_7_6",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_6634",
+      "last_id": "t_6682",
+      "native_nodes": 51,
+      "nonwhitespace_code_points": 202,
+      "printed_nodes": 49,
+      "tei_string_sha256": "d3ee3449f027f79ea7003bce8b22d010e1337050905570e6ffd79940270afcfb"
+    },
+    {
+      "cts": "1_7_7",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6683",
+      "last_id": "t_6733",
+      "native_nodes": 51,
+      "nonwhitespace_code_points": 197,
+      "printed_nodes": 51,
+      "tei_string_sha256": "d51bc4d5354b3818e4894d47424e4a4f21a51a96ad9721d51aac1c74552aae1d"
+    },
+    {
+      "cts": "1_7_8",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6734",
+      "last_id": "t_6776",
+      "native_nodes": 43,
+      "nonwhitespace_code_points": 205,
+      "printed_nodes": 43,
+      "tei_string_sha256": "023ea02ec2219fdd508c155ad9c504db8ccc1495dd7b351881db39dfec030741"
+    },
+    {
+      "cts": "1_7_9",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6777",
+      "last_id": "t_6838",
+      "native_nodes": 62,
+      "nonwhitespace_code_points": 253,
+      "printed_nodes": 62,
+      "tei_string_sha256": "be3036dc061a4b34c2c3f915c4b72ca4f311d1a772f6ff80904dd486e0dcdac5"
+    },
+    {
+      "cts": "1_7_10",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_6839",
+      "last_id": "t_6873",
+      "native_nodes": 37,
+      "nonwhitespace_code_points": 175,
+      "printed_nodes": 35,
+      "tei_string_sha256": "4705946a7456e80d92b6ea8517b81b1d6ee26a2f2b2256c67dbe830b955d9c4b"
+    },
+    {
+      "cts": "1_7_11",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6874",
+      "last_id": "t_6906",
+      "native_nodes": 33,
+      "nonwhitespace_code_points": 166,
+      "printed_nodes": 33,
+      "tei_string_sha256": "8bd4056246837f0887872cc96b910f138e671cc53fe520051a99c70568dc00f4"
+    },
+    {
+      "cts": "1_7_12",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_6907",
+      "last_id": "e_78",
+      "native_nodes": 52,
+      "nonwhitespace_code_points": 275,
+      "printed_nodes": 51,
+      "tei_string_sha256": "6d68e399416bab440a53aef3dc159aedebede3b0e99a6d82de4dce10551f5631"
+    },
+    {
+      "cts": "1_7_13",
+      "editorial_elements": [
+        {
+          "element": "del",
+          "xml_string_span": [
+            66,
+            81
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_6958",
+      "last_id": "t_6984",
+      "native_nodes": 27,
+      "nonwhitespace_code_points": 129,
+      "printed_nodes": 27,
+      "tei_string_sha256": "c2219e78b3e9c31aae6bbdb491595e21352708c05d1b36ad9b4ecf2b3adecd96"
+    },
+    {
+      "cts": "1_7_14",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_6985",
+      "last_id": "t_7034",
+      "native_nodes": 50,
+      "nonwhitespace_code_points": 237,
+      "printed_nodes": 50,
+      "tei_string_sha256": "795d610732670f95782b8886e994fa26f67e1d54e9e280d1299fca63d187aca3"
+    },
+    {
+      "cts": "1_7_15",
+      "editorial_elements": [
+        {
+          "element": "del",
+          "xml_string_span": [
+            109,
+            346
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_7035",
+      "last_id": "t_7069",
+      "native_nodes": 35,
+      "nonwhitespace_code_points": 155,
+      "printed_nodes": 35,
+      "tei_string_sha256": "7c61e67b6d7f32ce7ef2de10c8730533937e2d0cf8ef386ec6f8077bc0d35405"
+    },
+    {
+      "cts": "1_7_16",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7070",
+      "last_id": "t_7100",
+      "native_nodes": 31,
+      "nonwhitespace_code_points": 151,
+      "printed_nodes": 31,
+      "tei_string_sha256": "07a6d6389fbd8c23d7255b6e920010a5f2ba51448229efb389b79d08b37a4d04"
+    },
+    {
+      "cts": "1_7_17",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7101",
+      "last_id": "t_7120",
+      "native_nodes": 20,
+      "nonwhitespace_code_points": 94,
+      "printed_nodes": 20,
+      "tei_string_sha256": "227515f8c7d06cbbbcbc93050c2dc646e54fea18009249306a133bcef12f9a35"
+    },
+    {
+      "cts": "1_7_18",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7121",
+      "last_id": "t_7187",
+      "native_nodes": 67,
+      "nonwhitespace_code_points": 319,
+      "printed_nodes": 67,
+      "tei_string_sha256": "044bc041036c2233adfe675a6a8435e83b5453f64a80b661877ab856c2e560f1"
+    },
+    {
+      "cts": "1_7_19",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7188",
+      "last_id": "t_7218",
+      "native_nodes": 31,
+      "nonwhitespace_code_points": 153,
+      "printed_nodes": 31,
+      "tei_string_sha256": "0a706ba83a780b8a0097178a837dabe176a970a29d273bfe947fa0e077d3e856"
+    },
+    {
+      "cts": "1_7_20",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7219",
+      "last_id": "t_7255",
+      "native_nodes": 37,
+      "nonwhitespace_code_points": 176,
+      "printed_nodes": 37,
+      "tei_string_sha256": "e7a9f37dcbf034fac5a9a0bb36323fd7ff1e61eaa30c63a1dc341eef67dbc2c0"
+    },
+    {
+      "cts": "1_8_1",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7256",
+      "last_id": "t_7310",
+      "native_nodes": 55,
+      "nonwhitespace_code_points": 278,
+      "printed_nodes": 55,
+      "tei_string_sha256": "8f67958aa9d13ee210bbd017f5f646556de95e0987542c5dcfaab3c1275c0bfc"
+    },
+    {
+      "cts": "1_8_2",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_7311",
+      "last_id": "e_79",
+      "native_nodes": 19,
+      "nonwhitespace_code_points": 89,
+      "printed_nodes": 18,
+      "tei_string_sha256": "be227bdad5ece9ef37a9f4241721531bf5d978dab324b477b58e831d151dd02e"
+    },
+    {
+      "cts": "1_8_3",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7329",
+      "last_id": "t_7363",
+      "native_nodes": 35,
+      "nonwhitespace_code_points": 171,
+      "printed_nodes": 35,
+      "tei_string_sha256": "6cce39d4a7fb758d90f7128c340a916a594b33050dd8262678744852d8b36d44"
+    },
+    {
+      "cts": "1_8_4",
+      "editorial_elements": [
+        {
+          "element": "sic",
+          "xml_string_span": [
+            175,
+            191
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_7364",
+      "last_id": "t_7404",
+      "native_nodes": 41,
+      "nonwhitespace_code_points": 175,
+      "printed_nodes": 41,
+      "tei_string_sha256": "7f66902c4ea85f6e46d44b74cb69eb17bf1703ef190922e4f29311893962f06f"
+    },
+    {
+      "cts": "1_8_5",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7405",
+      "last_id": "t_7437",
+      "native_nodes": 33,
+      "nonwhitespace_code_points": 153,
+      "printed_nodes": 33,
+      "tei_string_sha256": "fd03c7978ecf08b12881d7f2ee189fa8c7b5afbfff00a05c89778892ef1e8a55"
+    },
+    {
+      "cts": "1_8_6",
+      "editorial_elements": [
+        {
+          "element": "add",
+          "xml_string_span": [
+            61,
+            74
+          ]
+        },
+        {
+          "element": "del",
+          "xml_string_span": [
+            209,
+            291
+          ]
+        }
+      ],
+      "empty_nodes": 2,
+      "first_id": "t_7438",
+      "last_id": "t_7471",
+      "native_nodes": 36,
+      "nonwhitespace_code_points": 160,
+      "printed_nodes": 34,
+      "tei_string_sha256": "184c3866c8cd6644b8c9c47a12071590625d9369d2279ee2ec93e0a3ae61d9d8"
+    },
+    {
+      "cts": "1_8_7",
+      "editorial_elements": [
+        {
+          "element": "del",
+          "xml_string_span": [
+            38,
+            51
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_7472",
+      "last_id": "t_7489",
+      "native_nodes": 18,
+      "nonwhitespace_code_points": 87,
+      "printed_nodes": 18,
+      "tei_string_sha256": "3ef82a88fcf41ac4960eaf6070012df56ef514020378d9db168ba894b0901695"
+    },
+    {
+      "cts": "1_8_8",
+      "editorial_elements": [],
+      "empty_nodes": 4,
+      "first_id": "t_7490",
+      "last_id": "e_87",
+      "native_nodes": 60,
+      "nonwhitespace_code_points": 246,
+      "printed_nodes": 56,
+      "tei_string_sha256": "18ecdfabf43dd6c9c97221d2119e951b159c085f8c6359c43f38662c18c2134c"
+    },
+    {
+      "cts": "1_8_9",
+      "editorial_elements": [],
+      "empty_nodes": 4,
+      "first_id": "t_7546",
+      "last_id": "e_89",
+      "native_nodes": 59,
+      "nonwhitespace_code_points": 275,
+      "printed_nodes": 55,
+      "tei_string_sha256": "ac0fcb85ca461e191e2c1c852576bf4b3ee16f38bec3d70547f839a551a5264c"
+    },
+    {
+      "cts": "1_8_10",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7601",
+      "last_id": "t_7650",
+      "native_nodes": 50,
+      "nonwhitespace_code_points": 230,
+      "printed_nodes": 50,
+      "tei_string_sha256": "a1b0685eba510a12a10797281f3c177e28f4a07e94f27cd8cf378e7b087b7312"
+    },
+    {
+      "cts": "1_8_11",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7651",
+      "last_id": "t_7683",
+      "native_nodes": 33,
+      "nonwhitespace_code_points": 153,
+      "printed_nodes": 33,
+      "tei_string_sha256": "3a5337a9f62d3c0f17b74c5d5615632bd99c84a3c5ac55da2ac9a3081f8fcd15"
+    },
+    {
+      "cts": "1_8_12",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7684",
+      "last_id": "t_7727",
+      "native_nodes": 44,
+      "nonwhitespace_code_points": 184,
+      "printed_nodes": 44,
+      "tei_string_sha256": "69790a51171a9da363317218af3614b201e734da24b5a8c63094fa00c47d6df1"
+    },
+    {
+      "cts": "1_8_13",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_7728",
+      "last_id": "e_90",
+      "native_nodes": 64,
+      "nonwhitespace_code_points": 290,
+      "printed_nodes": 63,
+      "tei_string_sha256": "82ee5e4f2ea75b5dedc0ec9b480f22b6afa0f1a253a57da1009c8d558281f6c3"
+    },
+    {
+      "cts": "1_8_14",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_7791",
+      "last_id": "e_91",
+      "native_nodes": 47,
+      "nonwhitespace_code_points": 216,
+      "printed_nodes": 46,
+      "tei_string_sha256": "02bd36d4b3f4edd4a29eb11e53b5b1aafaf5a8159af43e69037caa858b31441b"
+    },
+    {
+      "cts": "1_8_15",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7837",
+      "last_id": "t_7871",
+      "native_nodes": 35,
+      "nonwhitespace_code_points": 151,
+      "printed_nodes": 35,
+      "tei_string_sha256": "e6842a618293aaa3f3f3b4574368a6584fdca851f62bab0e872b5494b26ffd4e"
+    },
+    {
+      "cts": "1_8_16",
+      "editorial_elements": [
+        {
+          "element": "del",
+          "xml_string_span": [
+            106,
+            114
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_7872",
+      "last_id": "t_7919",
+      "native_nodes": 48,
+      "nonwhitespace_code_points": 189,
+      "printed_nodes": 48,
+      "tei_string_sha256": "f8c1e4bccb1819ab01ba143428287ed8edcb51a7c56f78544349b9e2f507c84a"
+    },
+    {
+      "cts": "1_8_17",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_7920",
+      "last_id": "t_7966",
+      "native_nodes": 47,
+      "nonwhitespace_code_points": 200,
+      "printed_nodes": 47,
+      "tei_string_sha256": "474da04c6765dcf703795e96e1c69f097a22cf352e059a47d55e087d1ddd5c91"
+    },
+    {
+      "cts": "1_8_18",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_7967",
+      "last_id": "e_93",
+      "native_nodes": 46,
+      "nonwhitespace_code_points": 208,
+      "printed_nodes": 44,
+      "tei_string_sha256": "6e7a770dbddaab087317e1e2b4d00986856f48b944e1f81c3b1c216f7a8ba7d7"
+    },
+    {
+      "cts": "1_8_19",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8011",
+      "last_id": "t_8042",
+      "native_nodes": 32,
+      "nonwhitespace_code_points": 145,
+      "printed_nodes": 32,
+      "tei_string_sha256": "f2b9c7a8785125a19360bac46a765c81121b5a1d5722ffa59cab14f0df978bfe"
+    },
+    {
+      "cts": "1_8_20",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_8043",
+      "last_id": "e_94",
+      "native_nodes": 69,
+      "nonwhitespace_code_points": 278,
+      "printed_nodes": 68,
+      "tei_string_sha256": "e910ce113ff98087f0b906e9688800a303a0360d4137b131b74874ae6da88614"
+    },
+    {
+      "cts": "1_8_21",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_8111",
+      "last_id": "e_95",
+      "native_nodes": 57,
+      "nonwhitespace_code_points": 266,
+      "printed_nodes": 56,
+      "tei_string_sha256": "e090039337c373efbaf8e4731dc9c6a1f710ccaf9f067c78bcc3cd96e40623c5"
+    },
+    {
+      "cts": "1_8_22",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8167",
+      "last_id": "t_8206",
+      "native_nodes": 40,
+      "nonwhitespace_code_points": 184,
+      "printed_nodes": 40,
+      "tei_string_sha256": "3de3a092eb80b6716acc1a57f74922353712ce919b43387ac3338d95cab3faa0"
+    },
+    {
+      "cts": "1_8_23",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8207",
+      "last_id": "t_8243",
+      "native_nodes": 37,
+      "nonwhitespace_code_points": 172,
+      "printed_nodes": 37,
+      "tei_string_sha256": "d09035d3a49c01999c4ca94b1d248c4639b57a60d85054155b64835dd9648845"
+    },
+    {
+      "cts": "1_8_24",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8244",
+      "last_id": "t_8285",
+      "native_nodes": 42,
+      "nonwhitespace_code_points": 224,
+      "printed_nodes": 42,
+      "tei_string_sha256": "14af0e12b106513667954c0adfe614d93280174d42ee62fb5089b0bc3caafede"
+    },
+    {
+      "cts": "1_8_25",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8286",
+      "last_id": "t_8313",
+      "native_nodes": 28,
+      "nonwhitespace_code_points": 140,
+      "printed_nodes": 28,
+      "tei_string_sha256": "7044556822875f115159bea004387829a40efbbe9485ac05ffc378e4f30bb0f4"
+    },
+    {
+      "cts": "1_8_26",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_8314",
+      "last_id": "e_96",
+      "native_nodes": 50,
+      "nonwhitespace_code_points": 197,
+      "printed_nodes": 49,
+      "tei_string_sha256": "4122e7c866393114181dd15f852ebf69afd51f950926e946d0d3d93d8174e673"
+    },
+    {
+      "cts": "1_8_27",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_8363",
+      "last_id": "e_97",
+      "native_nodes": 56,
+      "nonwhitespace_code_points": 244,
+      "printed_nodes": 55,
+      "tei_string_sha256": "a517df5273afdaf073510f8dd65d546bd91dc46c4a2f3ef9d6739fa729c7b71c"
+    },
+    {
+      "cts": "1_8_28",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8418",
+      "last_id": "t_8439",
+      "native_nodes": 22,
+      "nonwhitespace_code_points": 116,
+      "printed_nodes": 22,
+      "tei_string_sha256": "406abedba14b2d66b2cabf86c2aa05ebc9227e239930fb0657e06d9cb801f7ed"
+    },
+    {
+      "cts": "1_8_29",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8440",
+      "last_id": "t_8486",
+      "native_nodes": 47,
+      "nonwhitespace_code_points": 210,
+      "printed_nodes": 47,
+      "tei_string_sha256": "19ba612647a9006291c458783fd36debe5805fde918106f4a95c51e3f12f23a1"
+    },
+    {
+      "cts": "1_9_1",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8487",
+      "last_id": "t_8518",
+      "native_nodes": 32,
+      "nonwhitespace_code_points": 161,
+      "printed_nodes": 32,
+      "tei_string_sha256": "95d60c9a663710cc03613587949a7526dadb28ca7096490ad2010071eae857cc"
+    },
+    {
+      "cts": "1_9_2",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_8519",
+      "last_id": "e_98",
+      "native_nodes": 25,
+      "nonwhitespace_code_points": 101,
+      "printed_nodes": 24,
+      "tei_string_sha256": "b4cf28603348e1ad7790ec0880c1fee6f63ab8acd14adc91279adea347116bb3"
+    },
+    {
+      "cts": "1_9_3",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8543",
+      "last_id": "t_8574",
+      "native_nodes": 32,
+      "nonwhitespace_code_points": 143,
+      "printed_nodes": 32,
+      "tei_string_sha256": "8c89d6fbbb4910efc1582cc8ce9c19eabed6251a2d740a103e28539ed044f2c3"
+    },
+    {
+      "cts": "1_9_4",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8575",
+      "last_id": "t_8599",
+      "native_nodes": 25,
+      "nonwhitespace_code_points": 127,
+      "printed_nodes": 25,
+      "tei_string_sha256": "4b8466c0d6387cae30e873ab6b03f29fc0980aa6b7cdba8f81e0754a849120dc"
+    },
+    {
+      "cts": "1_9_5",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8600",
+      "last_id": "t_8648",
+      "native_nodes": 49,
+      "nonwhitespace_code_points": 259,
+      "printed_nodes": 49,
+      "tei_string_sha256": "ee1cfe84fa4b989068ce164e69af2b53755f6a2aa1145494615e458cb1e706d9"
+    },
+    {
+      "cts": "1_9_6",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8649",
+      "last_id": "t_8702",
+      "native_nodes": 54,
+      "nonwhitespace_code_points": 252,
+      "printed_nodes": 54,
+      "tei_string_sha256": "792fd4101d5296b951938f3e23d287c943c735ed5832cfc23d14b094aa2e51e8"
+    },
+    {
+      "cts": "1_9_7",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8703",
+      "last_id": "t_8756",
+      "native_nodes": 54,
+      "nonwhitespace_code_points": 256,
+      "printed_nodes": 54,
+      "tei_string_sha256": "c16fe62208270426d4b1247aca5fab40f32320637df0103bb11d4b3972ec2f0a"
+    },
+    {
+      "cts": "1_9_8",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8757",
+      "last_id": "t_8787",
+      "native_nodes": 31,
+      "nonwhitespace_code_points": 143,
+      "printed_nodes": 31,
+      "tei_string_sha256": "1b7b277d6e059aa53b48c228db12f15da38e7f0310bf40fe5ee6a373e5bb8969"
+    },
+    {
+      "cts": "1_9_9",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8788",
+      "last_id": "t_8814",
+      "native_nodes": 27,
+      "nonwhitespace_code_points": 149,
+      "printed_nodes": 27,
+      "tei_string_sha256": "3ab3f526fc7684bbe703d873a5550aa8f910175d427125c00e550c3c3615ea34"
+    },
+    {
+      "cts": "1_9_10",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8815",
+      "last_id": "t_8845",
+      "native_nodes": 31,
+      "nonwhitespace_code_points": 124,
+      "printed_nodes": 31,
+      "tei_string_sha256": "5ad1c2695a642b3e786f91363cfee890669845e75d933cd0c4a5d3d05f871180"
+    },
+    {
+      "cts": "1_9_11",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8846",
+      "last_id": "t_8882",
+      "native_nodes": 37,
+      "nonwhitespace_code_points": 164,
+      "printed_nodes": 37,
+      "tei_string_sha256": "3d75aa87414c425aae4246d21d9c07472b70724899b5f9204758faff4abcfa30"
+    },
+    {
+      "cts": "1_9_12",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8883",
+      "last_id": "t_8905",
+      "native_nodes": 23,
+      "nonwhitespace_code_points": 98,
+      "printed_nodes": 23,
+      "tei_string_sha256": "f218a3d07c6417234a65fcaf02ce4571828bde32538d3cc9f0a94685b6f158ee"
+    },
+    {
+      "cts": "1_9_13",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_8906",
+      "last_id": "t_8968",
+      "native_nodes": 63,
+      "nonwhitespace_code_points": 291,
+      "printed_nodes": 63,
+      "tei_string_sha256": "098089392e49bf89c517db30662f289df6a2965e9274287cf454c45cfc514c27"
+    },
+    {
+      "cts": "1_9_14",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_8969",
+      "last_id": "e_99",
+      "native_nodes": 51,
+      "nonwhitespace_code_points": 244,
+      "printed_nodes": 50,
+      "tei_string_sha256": "05eddd6f98e0a7abc324c0f2882585fc7664d5a6c25c8b66d9c70aa5f3e75220"
+    },
+    {
+      "cts": "1_9_15",
+      "editorial_elements": [
+        {
+          "element": "sic",
+          "xml_string_span": [
+            99,
+            108
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_9019",
+      "last_id": "t_9048",
+      "native_nodes": 30,
+      "nonwhitespace_code_points": 165,
+      "printed_nodes": 30,
+      "tei_string_sha256": "7b3dd864c92ca2174d5496cb5069c6e59d76dd22d1b180fc8065ea0e7752f875"
+    },
+    {
+      "cts": "1_9_16",
+      "editorial_elements": [
+        {
+          "element": "sic",
+          "xml_string_span": [
+            120,
+            133
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_9049",
+      "last_id": "t_9071",
+      "native_nodes": 23,
+      "nonwhitespace_code_points": 135,
+      "printed_nodes": 23,
+      "tei_string_sha256": "013e8de5539eb344309761db96d1262ec7e61009d2a379eb31e1b90d1966348b"
+    },
+    {
+      "cts": "1_9_17",
+      "editorial_elements": [
+        {
+          "element": "sic",
+          "xml_string_span": [
+            210,
+            226
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_9072",
+      "last_id": "t_9110",
+      "native_nodes": 39,
+      "nonwhitespace_code_points": 196,
+      "printed_nodes": 39,
+      "tei_string_sha256": "2ddc6e8ac6a8701d980c1191f065a49a9c11ea114b70b42824679c46b5770db3"
+    },
+    {
+      "cts": "1_9_18",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9111",
+      "last_id": "t_9138",
+      "native_nodes": 28,
+      "nonwhitespace_code_points": 149,
+      "printed_nodes": 28,
+      "tei_string_sha256": "81bc341412235cc683679ac27bd0dc9120c9f69b48b02b065a3a53f5eb03cbe5"
+    },
+    {
+      "cts": "1_9_19",
+      "editorial_elements": [
+        {
+          "element": "sic",
+          "xml_string_span": [
+            236,
+            248
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_9139",
+      "last_id": "t_9200",
+      "native_nodes": 62,
+      "nonwhitespace_code_points": 306,
+      "printed_nodes": 62,
+      "tei_string_sha256": "545a3196ce23549a77871a4d2860606f53f7e42d1e5595a6bc5082514d73a71a"
+    },
+    {
+      "cts": "1_9_20",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9201",
+      "last_id": "t_9229",
+      "native_nodes": 29,
+      "nonwhitespace_code_points": 162,
+      "printed_nodes": 29,
+      "tei_string_sha256": "abef18507668b94dcfde4deff74c1cd6f7eeb041467964425404b224a7b66b11"
+    },
+    {
+      "cts": "1_9_21",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_9230",
+      "last_id": "e_101",
+      "native_nodes": 31,
+      "nonwhitespace_code_points": 150,
+      "printed_nodes": 29,
+      "tei_string_sha256": "cf11c8622df63f2a7f8b8905a4ab43c18105bd7288b07c10e88980111c57c68e"
+    },
+    {
+      "cts": "1_9_22",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9259",
+      "last_id": "t_9291",
+      "native_nodes": 33,
+      "nonwhitespace_code_points": 150,
+      "printed_nodes": 33,
+      "tei_string_sha256": "a7d27a64d7548f2ab60e52e423df4c108451a28647e2502acbf98e27278ab446"
+    },
+    {
+      "cts": "1_9_23",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9292",
+      "last_id": "t_9334",
+      "native_nodes": 43,
+      "nonwhitespace_code_points": 194,
+      "printed_nodes": 43,
+      "tei_string_sha256": "d86b74b6c424d5f4743f575fd912b290d26208bc53b65a1d80c0cbf0568702b9"
+    },
+    {
+      "cts": "1_9_24",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9335",
+      "last_id": "t_9372",
+      "native_nodes": 38,
+      "nonwhitespace_code_points": 175,
+      "printed_nodes": 38,
+      "tei_string_sha256": "813e5f25d88b52cdec546993216f57d318b850bad06fbcf90f35020d60ed1f82"
+    },
+    {
+      "cts": "1_9_25",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9373",
+      "last_id": "t_9410",
+      "native_nodes": 38,
+      "nonwhitespace_code_points": 181,
+      "printed_nodes": 38,
+      "tei_string_sha256": "61c2c9480746e4520cea1e2219b9a7c61d34879130677d89444f1c42bd081804"
+    },
+    {
+      "cts": "1_9_26",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_9411",
+      "last_id": "e_102",
+      "native_nodes": 29,
+      "nonwhitespace_code_points": 136,
+      "printed_nodes": 28,
+      "tei_string_sha256": "942cb617073cbb0d5f35dff5ce3f5bfa17bafb0f23eade3c74f0e0f01ddcabc4"
+    },
+    {
+      "cts": "1_9_27",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_9439",
+      "last_id": "e_103",
+      "native_nodes": 45,
+      "nonwhitespace_code_points": 217,
+      "printed_nodes": 44,
+      "tei_string_sha256": "3afb46f35358aff776cc7775a0f784adf4582f435110b524e3adacd62c21c022"
+    },
+    {
+      "cts": "1_9_28",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_9483",
+      "last_id": "e_105",
+      "native_nodes": 43,
+      "nonwhitespace_code_points": 177,
+      "printed_nodes": 41,
+      "tei_string_sha256": "c0bb313df584a9bb9daf5d2740b8a4aa0bd0dff8d11d138cf9b08214aad5a1a3"
+    },
+    {
+      "cts": "1_9_29",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9524",
+      "last_id": "t_9594",
+      "native_nodes": 71,
+      "nonwhitespace_code_points": 331,
+      "printed_nodes": 71,
+      "tei_string_sha256": "c7b4130e2abaf2c1d9f95a2e6e4e6b18b9efa5ae9979b4dfa6729e92cea4abe4"
+    },
+    {
+      "cts": "1_9_30",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9595",
+      "last_id": "t_9622",
+      "native_nodes": 28,
+      "nonwhitespace_code_points": 124,
+      "printed_nodes": 28,
+      "tei_string_sha256": "c843cd929bcd76ab069586c660309cbbcd10f96b50887be1a70924cde428b355"
+    },
+    {
+      "cts": "1_9_31",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9623",
+      "last_id": "t_9665",
+      "native_nodes": 43,
+      "nonwhitespace_code_points": 210,
+      "printed_nodes": 43,
+      "tei_string_sha256": "eefb2c792f2641ead4d5250d42d4ec5017e14969a395e698bdd5d1c39d8c9dce"
+    },
+    {
+      "cts": "1_10_1",
+      "editorial_elements": [
+        {
+          "element": "del",
+          "xml_string_span": [
+            111,
+            126
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_9666",
+      "last_id": "t_9714",
+      "native_nodes": 49,
+      "nonwhitespace_code_points": 231,
+      "printed_nodes": 49,
+      "tei_string_sha256": "da9aa13f585ff8373c4f213342030d0bf2c5c1abc0cd1027c1867e976e3b5ac4"
+    },
+    {
+      "cts": "1_10_2",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9715",
+      "last_id": "t_9739",
+      "native_nodes": 25,
+      "nonwhitespace_code_points": 115,
+      "printed_nodes": 25,
+      "tei_string_sha256": "21b72426faf0978d057ada7ed37fccad7045c258b2e9f86fc9e2e969b71663a7"
+    },
+    {
+      "cts": "1_10_3",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9740",
+      "last_id": "t_9800",
+      "native_nodes": 61,
+      "nonwhitespace_code_points": 276,
+      "printed_nodes": 61,
+      "tei_string_sha256": "9e4e4430c92138200ac89ed9914881c344b04666e331d0ed822992c4ae6ccd30"
+    },
+    {
+      "cts": "1_10_4",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_9801",
+      "last_id": "t_9830",
+      "native_nodes": 32,
+      "nonwhitespace_code_points": 140,
+      "printed_nodes": 30,
+      "tei_string_sha256": "fc352685428d0f7930fe9bfc4c101a6f6615f25ce54dc3659d5e68736f8fa86a"
+    },
+    {
+      "cts": "1_10_5",
+      "editorial_elements": [
+        {
+          "element": "sic",
+          "xml_string_span": [
+            363,
+            406
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_9831",
+      "last_id": "t_9899",
+      "native_nodes": 69,
+      "nonwhitespace_code_points": 327,
+      "printed_nodes": 69,
+      "tei_string_sha256": "90d5d651268d2b754b9aa3848320ca8101a7731f6aee002f645ea6dd0fda90e7"
+    },
+    {
+      "cts": "1_10_6",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9900",
+      "last_id": "t_9961",
+      "native_nodes": 62,
+      "nonwhitespace_code_points": 279,
+      "printed_nodes": 62,
+      "tei_string_sha256": "0faf3b2d52110197580c71a27d336c0e2f60fc38b1deb67dda8e2aacd3a6fe47"
+    },
+    {
+      "cts": "1_10_7",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_9962",
+      "last_id": "t_10007",
+      "native_nodes": 46,
+      "nonwhitespace_code_points": 230,
+      "printed_nodes": 46,
+      "tei_string_sha256": "989a0072fa00c50f91bbe45d7f65f07713273b1485a0468180ea0092d9d5668b"
+    },
+    {
+      "cts": "1_10_8",
+      "editorial_elements": [],
+      "empty_nodes": 2,
+      "first_id": "t_10008",
+      "last_id": "e_109",
+      "native_nodes": 35,
+      "nonwhitespace_code_points": 159,
+      "printed_nodes": 33,
+      "tei_string_sha256": "8a47bb0376b7fdaa674e7e7cf3f5f29bd06e9215782a65d5039e24e2547bb949"
+    },
+    {
+      "cts": "1_10_9",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10041",
+      "last_id": "t_10076",
+      "native_nodes": 36,
+      "nonwhitespace_code_points": 188,
+      "printed_nodes": 36,
+      "tei_string_sha256": "4de7cf1c2d841c4619aa475ae55968167b527fd5e60da43d6552dafe36c8ba41"
+    },
+    {
+      "cts": "1_10_10",
+      "editorial_elements": [],
+      "empty_nodes": 1,
+      "first_id": "t_10077",
+      "last_id": "e_110",
+      "native_nodes": 46,
+      "nonwhitespace_code_points": 221,
+      "printed_nodes": 45,
+      "tei_string_sha256": "96c7f92b18c65de3087d9ee0a2960f77dca6cb0b9a14e7ee8c88e0f0692a964a"
+    },
+    {
+      "cts": "1_10_11",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10122",
+      "last_id": "t_10136",
+      "native_nodes": 15,
+      "nonwhitespace_code_points": 57,
+      "printed_nodes": 15,
+      "tei_string_sha256": "3f325b9809465c1f8a4e6437497e7526ea4b2b69ac88c45e36346cd1a52ac258"
+    },
+    {
+      "cts": "1_10_12",
+      "editorial_elements": [
+        {
+          "element": "sic",
+          "xml_string_span": [
+            305,
+            314
+          ]
+        }
+      ],
+      "empty_nodes": 0,
+      "first_id": "t_10137",
+      "last_id": "t_10195",
+      "native_nodes": 59,
+      "nonwhitespace_code_points": 259,
+      "printed_nodes": 59,
+      "tei_string_sha256": "7099bd23f70730138a53f49fba1ec47ff2b8343e40a5c07d6ebd1662ade223b2"
+    },
+    {
+      "cts": "1_10_13",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10196",
+      "last_id": "t_10232",
+      "native_nodes": 37,
+      "nonwhitespace_code_points": 147,
+      "printed_nodes": 37,
+      "tei_string_sha256": "a241bcabc914c2775f5948c0140a42754b3d1a523f6558b601c8e1c458870f8d"
+    },
+    {
+      "cts": "1_10_14",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10233",
+      "last_id": "t_10267",
+      "native_nodes": 35,
+      "nonwhitespace_code_points": 162,
+      "printed_nodes": 35,
+      "tei_string_sha256": "eb462cd26d663e1a9eac7711aae188db2e17d032ab520914b58bdd2f698cd2d4"
+    },
+    {
+      "cts": "1_10_15",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10268",
+      "last_id": "t_10280",
+      "native_nodes": 13,
+      "nonwhitespace_code_points": 56,
+      "printed_nodes": 13,
+      "tei_string_sha256": "38da01374c9dc19bde4f4a4f60a65d73285a98332cabcfc931b223d4ddc05bdb"
+    },
+    {
+      "cts": "1_10_16",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10281",
+      "last_id": "t_10332",
+      "native_nodes": 52,
+      "nonwhitespace_code_points": 240,
+      "printed_nodes": 52,
+      "tei_string_sha256": "333b70df03f20de0357f2734cea4db10b9dbd44a074d20e3d273d10e6a72df14"
+    },
+    {
+      "cts": "1_10_17",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10333",
+      "last_id": "t_10360",
+      "native_nodes": 28,
+      "nonwhitespace_code_points": 145,
+      "printed_nodes": 28,
+      "tei_string_sha256": "08caa04df15c69b9472189d176e90ec2d66517813fe5ad8a2c17b92de5a6235c"
+    },
+    {
+      "cts": "1_10_18",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10361",
+      "last_id": "t_10430",
+      "native_nodes": 70,
+      "nonwhitespace_code_points": 305,
+      "printed_nodes": 70,
+      "tei_string_sha256": "eba8c9742a05797988dd8049337860134af5318986aad400eb3f48cf5cd108c0"
+    },
+    {
+      "cts": "1_10_19",
+      "editorial_elements": [],
+      "empty_nodes": 0,
+      "first_id": "t_10431",
+      "last_id": "t_10462",
+      "native_nodes": 32,
+      "nonwhitespace_code_points": 145,
+      "printed_nodes": 32,
+      "tei_string_sha256": "9889768e4446f3c0e130ef9327a967ba94f17dd6e6bdd89767a1e5e327ebab24"
+    }
+  ],
+  "selected_identities": null,
+  "selected_occurrence_coverage": null,
+  "selection_go_independent_model_known_comparison": "not_run",
+  "sentences": "native_group_file_retained; completeness_not_assessed_after_required_identity_stop",
+  "source_or_mvp_accepted": false,
+  "unicode": "15.1.0",
+  "unit": {
+    "book": "1",
+    "chapters": 10,
+    "edition": "Marchant 1904/reprint 1961",
+    "first_cts": "1_1_1",
+    "last_cts": "1_10_19",
+    "original_vs_merged_book1_string_values": "exact_in_all_sections",
+    "sections": 205,
+    "work": "tlg0032.tlg006.perseus-grc2"
+  },
+  "version": "oga-anabasis1-native-binding/1",
+  "vocabulary_ready": false
+}

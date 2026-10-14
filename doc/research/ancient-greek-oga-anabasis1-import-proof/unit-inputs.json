@@ -12,16 +12,21 @@
     "declared_edition": "E. C. Marchant, Xenophon Opera Omnia volume 3, Oxford Clarendon Press 1904, reprint 1961",
     "acquired": true,
     "header_rights_exception_found": false,
-    "exact_oga_correspondence": "not_yet_established",
+    "exact_oga_correspondence": "archive_original_is_byte_identical; Book1_original_vs_merged_section_string_values_exact; explicit_editorial_projection_and_whitespace_reflow_verified_character_for_character",
     "public_source_redistribution": false
   },
-  "archive_proposal": {
+  "archive": {
     "url": "https://zenodo.org/api/records/14206061/files/opera_graeca_adnotata_v0.2.0.zip/content",
     "record_id": 14206061,
     "file": "opera_graeca_adnotata_v0.2.0.zip",
     "expected_bytes": 8629032478,
     "published_md5": "d4117ae52f1cc6319c6ba20af0c1cf3b",
     "authorization": "Justin explicitly authorized the official archive download after the initial gate stop",
-    "verified_acquisition": "pending; no success implied"
+    "verified_acquisition": true,
+    "bytes": 8629032478,
+    "md5": "d4117ae52f1cc6319c6ba20af0c1cf3b",
+    "sha256": "fffc246e9833f7ef265f0daffd1f4cc679489cb6de1fd9b652474a6313ecf6c3",
+    "selected_members": "archive-members.json",
+    "local_recovery": "same original request inode restored after accidental unlink; no network retry"
   }
 }

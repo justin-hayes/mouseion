@@ -1,0 +1,21 @@
+{
+  "agdt2-guidelines.md": {
+    "bytes": 230462,
+    "role": "producer_documentation_only; no_model_code_weights_or_training_corpus",
+    "sha256": "7cd20bcb111c0b6671595dd5b9c333281afc80a0f7db7dfe921dcae8489dbd56",
+    "url": "https://raw.githubusercontent.com/PerseusDL/treebank_data/0ebc9289bc6c8eb1069fac3433955f83f442762f/AGDT2/guidelines/Greek_guidelines.md"
+  },
+  "lemmatizer-readme-response.json": {
+    "bytes": 2700,
+    "decoded_readme_sha256": "9cea8cea5cf548ef42ebd74a239af887d2a751bfec4aff3209f9e364fd577a86",
+    "role": "producer_documentation_only; no_model_code_weights_or_training_corpus",
+    "sha256": "78cac81471242d3f8d689aa3299ff1a4a39424a58c14e90f703c2b9199301d87",
+    "url": "https://git.informatik.uni-leipzig.de/api/v4/projects/6595/repository/files/README.md?ref=267dbf045dfca1129115aef05ba9ac6ebc49f4db"
+  },
+  "producer-paper-v1.html": {
+    "bytes": 418796,
+    "role": "producer_documentation_only; no_model_code_weights_or_training_corpus",
+    "sha256": "a39ffcf6a11f737ee8c56d9d758d807d60b75b5b3326d5ea454e4cdd7f871d86",
+    "url": "https://arxiv.org/html/2410.12055v1"
+  }
+}

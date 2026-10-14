@@ -1,42 +1,237 @@
-# OGA Anabasis Book 1 import proof: acquisition-gate stop
+# OGA Anabasis Book 1 import proof: binding verified, lexical decoding stopped
 
-## Scope amendment — same task reopened
+## Current result after explicit archive authorization
 
-Justin subsequently authorized downloading the official archive for private
-inspection. The [live scope amendment](https://github.com/justin-hayes/mouseion/issues/2030#issuecomment-6178890938)
-reopens the same bounded proof and overrides the earlier no-archive limit only.
-The official download is being attempted with size/published-MD5 verification
-and local SHA-256 recording; **completion is not yet established**. No access
-bypass, source redistribution, new corpus, analysis beyond Book 1, provider call,
-source/MVP acceptance, PR or merge is authorized by this change. The individual
-accompanying upstream work XML has now been acquired and its exact Git blob and
-SHA-256 verified ([new input registry](ancient-greek-oga-anabasis1-import-proof/unit-inputs.json));
-its correspondence to OGA remains unestablished.
+**Acquisition and complete Book 1 text binding succeeded; vocabulary-ready
+publication stopped at required producer lexical decoding.** This is a bounded
+negative full-workflow result, not a successful import into learner vocabulary,
+source/MVP acceptance, or evidence that OGA is linguistically unusable.
 
-The previous gate evidence at commit
-`4104c8be238fe0d4b5500f8e18522e80dd516467` remains unchanged and independently
-reproducible. The following sections and the original `gate.py`, `evidence.json`
-and `ledger.json` describe that **historical initial assessment**, not the newly
-authorized acquisition's current verdict. The
-[rights notice](ancient-greek-oga-anabasis1-import-proof/NOTICE.md) records the
-pre-acquisition assessment and separate operation boundaries.
+Justin [explicitly authorized the official archive](https://github.com/justin-hayes/mouseion/issues/2030#issuecomment-6178890938),
+superseding only the original no-archive acquisition limit. The same research
+task/branch continued. No fallback corpus/edition, accounts/challenge bypass,
+analyzer/model execution, provider calls, learner-state changes, cards, production
+changes, PR or merge occurred. The previous gate evidence remains immutable at
+`4104c8be238fe0d4b5500f8e18522e80dd516467`; `gate.py`, `evidence.json`, `ledger.json`
+and the historical sections below still reproduce **that initial assessment**.
+The current verdict is [import-ledger.json](ancient-greek-oga-anabasis1-import-proof/import-ledger.json).
 
-During the download, the documentary subagent mistakenly deleted the partial
-file. The main session retained the original open inode; local recovery will
-restore and checksum those same response bytes when the request finishes,
-without starting another download. Acquisition remains pending. The new
-`acquire_archive.py` has **10 invented-byte safety tests** (27 together with the
-17 historical metadata tests); these do not prove archive completion or unit
-coverage.
+### Exact acquired components and rights
 
-An independently inspected upstream-revision detail: Book 1 in this release has
-10 chapter elements and 205 section elements, with one explicit `choice` at
-**1.3.20** (`sic` / `corr`). These structure counts are not OGA coverage proof.
-The retained GLAUx review set's `text_error_propagated` row instead targets
-**1.3.14**, so that particular illustrative target must not be treated as a
-verified witness to the correction at 1.3.20. The general annotated-revision
-qualification remains; no GLAUx artifact is changed or remediation made a
-prerequisite to this OGA attempt. Exact OGA correspondence is still pending.
+The one ordinary official request completed: **8,629,032,478 bytes**, published
+MD5 **`d4117ae52f1cc6319c6ba20af0c1cf3b`**, locally computed SHA-256
+**`fffc246e9833f7ef265f0daffd1f4cc679489cb6de1fd9b652474a6313ecf6c3`**.
+The source is [Zenodo record 14206061](https://zenodo.org/records/14206061),
+`opera_graeca_adnotata_v0.2.0.zip`. A documentary subagent mistakenly unlinked
+the partial file. Its original open inode was retained and restored locally
+after the original request completed; size and checksums were independently
+verified again. There was **no second download, network range extraction,
+alternate source or bypass**. This incident is not an upstream access failure.
+
+Only nested local ZIP directories and allowlisted Anabasis members were read;
+no corpus-wide decompression or analysis occurred. See
+[archive-members.json](ancient-greek-oga-anabasis1-import-proof/archive-members.json)
+for every exact container/member, size, CRC and SHA-256, and
+[unit-inputs.json](ancient-greek-oga-anabasis1-import-proof/unit-inputs.json)
+for acquisition provenance. Important containers/members:
+
+- `original_Greek_files.zip`: the original
+  `canonical-greekLit-0.0.11376425141/data/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml`
+  (within `original_Greek_files/`) is **byte-identical** to the upstream pinned
+  work XML, SHA-256 `865cf2c761e55a0f603a2ddbb58a08e94934f963724552b268a1493e4b9ae2ec`.
+- `workspace/merge.zip`: `merge/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml`.
+- `workspace/oga.zip`: `oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/`
+  carries primary PAULA text/ranges/features; `oga/laula/tlg0032.tlg006.perseus-grc2/`
+  carries original-text references and native sentence groups.
+- `workspace/conllu.zip`: the matching work's native-format file is retained,
+  not mistaken for canonical UD merely because its container says CoNLL-U.
+
+The archive's own README **99–107** explicitly grants CC BY-SA 4.0. Its README
+**12–40** documents the PAULA, LAULA, original and normalized representations.
+The original XML header identifies **Xenophon, Anabasis, E. C. Marchant,
+Opera Omnia volume 3, Clarendon Press 1904/reprint 1961**, Perseus/Tufts and
+preparation contributors, without a component-specific rights exception.
+The upstream repository's explicit default BY-SA grant remains evidence.
+[NOTICE.md](ancient-greek-oga-anabasis1-import-proof/NOTICE.md) now separately
+assesses these exact components: private inspection and bounded attributed
+diagnostics proceed; full text/annotations/maps stay Git-ignored locally.
+Exports/bundling, provider use and semantic/artifact acceptance are not approved.
+
+### Full Book 1 binding and explicit reading projection
+
+The proof measures **Book 1 only**, retaining the indivisible work unchanged:
+
+| Measurement | Verified result |
+| --- | --- |
+| Extent | **1.1.1–1.10.19**, 10 chapters / 205 sections |
+| Native nodes | **10,572**, required lemma/POS/CTS targets and text ranges resolved |
+| Printed nodes | **10,462**, `t_1`–`t_10462` |
+| Unprinted nodes | **110**, `e_1`–`e_110`; 95 literal `[0]`, 15 literal `[1]` |
+| PAULA Book 1 source span | Unicode code points **[0, 59793)** |
+| Marker-free reading | **59,353** code points; UTF-8 SHA-256 `0f18cae963899218fda6c62726d6a0b0429763f390597c1781a93d80c2ddd907` |
+| Exact non-whitespace correspondence | **48,892 characters**, every section verified against both original and merged TEI |
+
+Rules are versioned **`oga-anabasis1-native-binding/1`**. PAULA annotation-carried
+text is the declared reading-text authority (ADR 0093); it is not casual joining
+of lemma/token strings. Every 1-based native range is verified as a half-open
+Unicode-code-point span. All adjacent node spans have exactly one source space;
+there are no overlapping ranges, unexplained gaps or omitted printed characters.
+Printed referents agree exactly with the separate LAULA token attributes.
+
+Remove **only** verified `e_*` source spans and their following single separator:
+each also has native POS `-` and a zero-length, empty LAULA referent. No regex
+deletes lookalike printed content. All printed characters, polytonic marks and
+remaining PAULA spacing are unchanged, including spaces around punctuation.
+Every reading character maps back to its exact PAULA source coordinate; empty
+nodes remain retained evidence with **no invented reading span**.
+
+The original and merged Book 1 section string-values are exact, not merely NFC
+equivalent. TEI comparison omits explicit `del` text, chooses `corr` inside
+`choice`, retains `add` and standalone `sic`, and permits **only whitespace
+reflow**. Significant accents, case, apostrophes and punctuation are not folded.
+Every printed character maps monotonically to its original TEI section
+string-value coordinate, including split forms; this is not fuzzy alignment or
+an inferred lexical span. Suppressed editorial material remains in the originals
+and the diagnostic element spans; it is not silently made a learner exclusion.
+These rules describe this exact release's correspondence, not universal Greek
+tokenization or an accepted production adapter.
+
+Optional LAULA pointers are separately qualified: **486 nodes in 19 sections**
+do not reproduce the claimed referent when their literal element path is
+resolved and the element string-value is whitespace-folded. For example,
+`t_876` at 1.2.5 restarts at position 1 but targets the section rather than its
+later paragraph; `t_3328` at 1.3.20 resets after editorial markup. These are
+representation diagnostics, **not failures of the independently verified PAULA
+binding** or a claim that every possible LAULA implementation behaves identically.
+Also, **47 empty nodes** carry a citation different from their preceding printed
+node. Their raw metadata is retained, not used to reorder text or invent words.
+The ledger lists exact IDs/sections for both qualifications.
+
+### Required lexical stop, not a vocabulary result
+
+**142 printed occurrences have 21 distinct raw lemma strings ending in digits**,
+including 49 `λέγω3` predictions, nine `πάρειμι1`, one `πάρειμι2`, three each of
+`ἄπειμι1` and `ἄπειμι2`. The ledger lists **all affected native IDs, citations,
+raw lemma values and native POS**; they are not hidden by defaults or exclusions.
+
+The release's `query/README.md:32` documents lowercased NFC lemmas, and its
+`query/morphology.md` documents native POS meanings. The pinned OGA README
+[66–78][oga] attributes automatic parser/lemmatizer outputs to AGDT-trained
+models, linking the [producer paper](https://arxiv.org/abs/2410.12055).
+That is provenance, **not a verified decoding table or lexical namespace for
+these exact predicted numeric strings**. The investigated documentary evidence
+has not established their source-declared discriminator meanings, namespace,
+or complete citation-headword decoding. This is a bounded verification gap,
+not a claim no upstream explanation can exist or that numeric predictions are
+necessarily errors. An unpinned mapping draft was not promoted into authority.
+
+The main session completed the draft's documentary gaps, retaining exact
+originals/hashes in [producer-docs.json](ancient-greek-oga-anabasis1-import-proof/producer-docs.json):
+
+- [Producer paper v1 §3.1](https://arxiv.org/html/2410.12055v1#S3.SS1)
+  describes heterogeneous training conventions and normalization, including
+  numbered ellipsis placeholders; §4.4 describes character-sequence lemma
+  prediction. It does **not** define these lexical numeric endings as verified
+  dictionary IDs. Aggregate model scores do not certify Book 1 predictions.
+- [Lemmatizer README at `267dbf045dfca1129115aef05ba9ac6ebc49f4db`](https://git.informatik.uni-leipzig.de/celano/lemmatizer_for_oga/-/blob/267dbf045dfca1129115aef05ba9ac6ebc49f4db/README.md)
+  identifies **GreTa**, its 91.41 score and inference interface, but supplies
+  no numbered-lemma citation/discriminator decoding. Only the README was
+  retrieved, not code, models or training data; no commands in it were run.
+- [AGDT2 guidelines §2.5 at `0ebc9289bc6c8eb1069fac3433955f83f442762f`](https://github.com/PerseusDL/treebank_data/blob/0ebc9289bc6c8eb1069fac3433955f83f442762f/AGDT2/guidelines/Greek_guidelines.md#vrb)
+  say Morpheus numbers **should be deleted in the annotated lemma field**.
+  This is genuine annotation-policy evidence, not a dictionary namespace or
+  proof that a learned OGA prediction of either contrasting numbered form is
+  a valid source-declared identity. Mechanically importing this deletion rule
+  into canonical identity would erase the distinction ADR 0094 requires us
+  to preserve, without verifying what the differing predictions signify.
+
+An initial arXiv `v2` HTML request returned 404; the existing `v1` above was
+read normally. No challenge, alternate corpus or archive transport was involved.
+
+Do not strip the digits, silently merge the contrasting forms, manufacture an
+`OGA`/`Morpheus` homograph equivalence scheme, or publish numbered raw predictions
+as verified citation headwords. This blocks required identities under ADR 0094.
+**No canonical mapping was adopted for the other nodes either**: native `n/v/d`
+are not automatically universal UD NOUN/VERB/ADV, and no capitalization-based
+PROPN or blanket εἰμί→AUX exclusion was imported. Native POS counts in the ledger
+are **native**, not canonical vocabulary/eligibility denominators.
+
+Per the task's stop condition, downstream sentence completeness/practical input
+judgments, Go selection/statistics, independent model/Known comparison, 3/15
+selection, cap distribution, deterministic inputs and omissions are **unperformed,
+not zeros**. Native sentence groups and optional annotation files are retained
+but not promoted into optional-capability success to bypass this required stop.
+Gloss/translation, dictionaries, Anki/client artifacts and their semantics remain
+unassessed. No learner state or supported-language implementation changed.
+
+### Comparison and decision returned
+
+OGA now has a verified, maintainably pinned complete Book 1 **text-binding
+result**, beyond its preserved Stage 1 example. Its marker-free authority and
+original-text transformation are explicit; optional link metadata needs care.
+Required lexical decoding remains unresolved, so there is no comparable accepted
+selection or dry-input yield. This research does not select or reject OGA for
+the live [source decision](https://github.com/justin-hayes/mouseion/issues/2030).
+Any continuation must first establish the exact producer decoding/mapping
+evidence, not repeat the archive download, thin Book 1 or switch editions.
+
+The retained GLAUx proof remains provisional: 1,294 proposed identities, 373
+selected and 372 dry inputs are **not accepted vocabulary or a ready deck**.
+Retain its 63 lexical words in editorial deletions, presentation/headword/POS
+and sentence-boundary qualifications, and its unsupported blanket εἰμί→AUX
+rationale affecting 180 occurrences (cited UD evidence: 1,864 AUX and two VERB).
+No count difference establishes superiority or a prediction error by itself.
+The exact OGA original/merged release has a `sic/corr` choice at **1.3.20**;
+GLAUx's retained `text_error_propagated` example instead targets **1.3.14**.
+That particular row is **not a verified witness** to this 1.3.20 correction.
+The general revision qualification remains; neither earlier branch is modified
+and no GLAUx remediation becomes a prerequisite.
+
+### Reproduce the current bounded result
+
+Python **3.13 / Unicode 15.1.0**, standard library only. With the retained official
+archive in Git-ignored `private/archive/`, one offline command rechecks the whole
+archive size/MD5/SHA-256, extracts only allowlisted work members, checks member
+and retained producer-document hashes, validates the Book 1 binding/projection, compares the current
+ledger **byte-for-byte**, reconstructs private coordinate artifacts and runs all
+focused tests:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 doc/research/ancient-greek-oga-anabasis1-import-proof/import_gate.py --from-archive
+```
+
+Without `--from-archive`, it verifies retained selected-member hashes and reruns
+the same binding/ledger/tests, without rereading 8.63 GB. `--write` explicitly
+regenerates the ledger, never overwrites differing private projections, and is
+not used for verification. The official archive request is not retried by any
+reproducer; independent acquisition needs explicit access/scope authorization.
+The original one-shot acquirer and extraction helper remain inspectable code.
+The supplemental producer originals must also be present under
+`private/producer-docs/` at the hashes in `producer-docs.json`; they are small
+documentary inputs, not part of the corpus archive. No supplementary document
+or archive retrieval occurs implicitly in this offline command.
+
+**61 tests pass**: the 17 historical metadata tests, 10 acquisition tests, eight
+invented-ZIP tests and 26 invented-Unicode/XML binding/identity-stop tests. These
+exercise wrong ranges/bases/references, missing nodes/interior sections/chapters,
+duplicate targets, Unicode NFD/non-BMP coordinates, typed versus printed marker
+lookalikes, edition/character disagreement, lexical omission, entity declarations,
+ZIP bounds/path safety and unsupported numbered identity defaults. Invented
+fixtures are not claimed as source observations or sentence-quality tests.
+
+Full originals, the complete native-node manifest, reading text and coordinate
+maps stay private; public hashes/element spans/blocker IDs allow inspection of
+the bounded claims. Producer model/version/configuration specific to each
+released layer is not reconstructed or executed; undocumented details stay
+unknown. The older documentary-only command below remains a reproduction of
+the **initial** acquisition assessment, not the present verdict.
+
+Validation on **2026-10-14**: archive-inclusive and retained-member-only commands
+reproduce byte-identical current diagnostics; every selected member's original
+size/SHA-256 was independently checked again, and public section/native/blocker
+totals reconcile. `git diff --check` passes. Reattempted `make lint` is blocked
+by missing **golangci-lint 2.14.0**; `make coverage-new` stops at the missing
+**`.venv`/pytest** preflight. Neither whole-project check is claimed to pass.
 
 ## Historical initial gate result
 

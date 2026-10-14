@@ -1,0 +1,256 @@
+{
+  "archive": {
+    "bytes": 8629032478,
+    "file": "opera_graeca_adnotata_v0.2.0.zip",
+    "md5": "d4117ae52f1cc6319c6ba20af0c1cf3b",
+    "record_id": 14206061,
+    "sha256": "fffc246e9833f7ef265f0daffd1f4cc679489cb6de1fd9b652474a6313ecf6c3"
+  },
+  "members": [
+    {
+      "bytes": 4222,
+      "compressed_bytes": 1944,
+      "container": "outer",
+      "crc32": "f3b0ffa9",
+      "local_relative_path": "outer/opera_graeca_adnotata_v0.2.0/README.md",
+      "member": "opera_graeca_adnotata_v0.2.0/README.md",
+      "sha256": "c59449d8b97bb5774fb40dd6f16ee331d34f6163a6a95667729444a67b1d85cd"
+    },
+    {
+      "bytes": 8016,
+      "compressed_bytes": 2985,
+      "container": "outer",
+      "crc32": "23238c68",
+      "local_relative_path": "outer/opera_graeca_adnotata_v0.2.0/query/README.md",
+      "member": "opera_graeca_adnotata_v0.2.0/query/README.md",
+      "sha256": "2287f7fa97f286e9b11dbfd1dd4edcba585d40960b33fc4c5b572e5e565eac87"
+    },
+    {
+      "bytes": 3342,
+      "compressed_bytes": 723,
+      "container": "outer",
+      "crc32": "9cf1af6e",
+      "local_relative_path": "outer/opera_graeca_adnotata_v0.2.0/query/morphology.md",
+      "member": "opera_graeca_adnotata_v0.2.0/query/morphology.md",
+      "sha256": "d6a731eb288fbeaa5ebd9358586ba8fb626e5d6710b8f4e66964866ba2a842e1"
+    },
+    {
+      "bytes": 867,
+      "compressed_bytes": 490,
+      "container": "outer",
+      "crc32": "7376c404",
+      "local_relative_path": "outer/opera_graeca_adnotata_v0.2.0/query/syntax.md",
+      "member": "opera_graeca_adnotata_v0.2.0/query/syntax.md",
+      "sha256": "464c424be2dcee48313fb906cf66037039e582ee409f0a514afe0f1d6db9e6cb"
+    },
+    {
+      "bytes": 886347,
+      "compressed_bytes": 199139,
+      "container": "original_Greek_files.zip",
+      "crc32": "381f4502",
+      "local_relative_path": "original_Greek_files/original_Greek_files/canonical-greekLit-0.0.11376425141/data/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml",
+      "member": "original_Greek_files/canonical-greekLit-0.0.11376425141/data/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml",
+      "sha256": "865cf2c761e55a0f603a2ddbb58a08e94934f963724552b268a1493e4b9ae2ec"
+    },
+    {
+      "bytes": 707157,
+      "compressed_bytes": 184591,
+      "container": "original_Greek_files.zip",
+      "crc32": "c95d120f",
+      "local_relative_path": "original_Greek_files/original_Greek_files/canonical-greekLit-0.0.11376425141/text/tlg0032.tlg006.perseus-grc2.txt",
+      "member": "original_Greek_files/canonical-greekLit-0.0.11376425141/text/tlg0032.tlg006.perseus-grc2.txt",
+      "sha256": "f368656b0f672c12733f8f865972e923a1cd2193c770042897c42dfb6fb1c037"
+    },
+    {
+      "bytes": 886260,
+      "compressed_bytes": 199109,
+      "container": "workspace/merge.zip",
+      "crc32": "4e473175",
+      "local_relative_path": "workspace/merge/merge/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml",
+      "member": "merge/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml",
+      "sha256": "0a9b2491fbf484089b77dcd711e808779b9459c0789235f2589bf09a41bc3043"
+    },
+    {
+      "bytes": 303,
+      "compressed_bytes": 207,
+      "container": "workspace/oga.zip",
+      "crc32": "a5dd37f5",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno.xml",
+      "sha256": "27d3db0b4cd230ce5a1e0e2576cd5fd331aed71e1f9ee344a69cc3f581846826"
+    },
+    {
+      "bytes": 329,
+      "compressed_bytes": 228,
+      "container": "workspace/oga.zip",
+      "crc32": "f3e74a40",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_author.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_author.xml",
+      "sha256": "6d22f44c44c66b6004c8f30852a1aa1d68dc2de82aaa2aef7069e13b64556df9"
+    },
+    {
+      "bytes": 327,
+      "compressed_bytes": 226,
+      "container": "workspace/oga.zip",
+      "crc32": "e4da7b4b",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_title.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_title.xml",
+      "sha256": "100f9b1af4d6afd83696286755c82d6dabf880ff8469af8c5717f2ba8d78c2d0"
+    },
+    {
+      "bytes": 331,
+      "compressed_bytes": 228,
+      "container": "workspace/oga.zip",
+      "crc32": "98c9b1d8",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_work_date.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_work_date.xml",
+      "sha256": "90951d2d6a2e5e045d640cfe2edde70c03bab24929f34ad0b95c281b618eb19e"
+    },
+    {
+      "bytes": 350,
+      "compressed_bytes": 242,
+      "container": "workspace/oga.zip",
+      "crc32": "8b36f9b9",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_urn_cts.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_urn_cts.xml",
+      "sha256": "a358cfb5285b85d11483a741d8d024db091be442bda8e70937b240e833ec4fbc"
+    },
+    {
+      "bytes": 344,
+      "compressed_bytes": 235,
+      "container": "workspace/oga.zip",
+      "crc32": "dd03fbf6",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_urn_cts_author.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_urn_cts_author.xml",
+      "sha256": "3975bc1f0510778a13042cfa4208bd98bf35c5059c1e4c3d70c60831a14e2c82"
+    },
+    {
+      "bytes": 351,
+      "compressed_bytes": 236,
+      "container": "workspace/oga.zip",
+      "crc32": "e5873e4a",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_urn_cts_edition.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_urn_cts_edition.xml",
+      "sha256": "860b9fc07b90e6279bf7b6ca29a68f63e74f216bc746f9ae1f55a8b6976b82ba"
+    },
+    {
+      "bytes": 339,
+      "compressed_bytes": 231,
+      "container": "workspace/oga.zip",
+      "crc32": "31156242",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_urn_cts_work.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/anno_urn_cts_work.xml",
+      "sha256": "41a235bc4c4ec4b0e967c12de2f308c3fc2679800a2baf4f81f916b1c4360830"
+    },
+    {
+      "bytes": 708041,
+      "compressed_bytes": 183059,
+      "container": "workspace/oga.zip",
+      "crc32": "311362e5",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.xml",
+      "sha256": "8a30df6ee92128a7940b66e4509041439b821d05a5d9071a214fe93bd2236570"
+    },
+    {
+      "bytes": 6207730,
+      "compressed_bytes": 718861,
+      "container": "workspace/oga.zip",
+      "crc32": "c2897375",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01.xml",
+      "sha256": "8ec7eb72c0b025ca85faaa302f63f9e6c5bf39758bae7781516c51f51b5a4806"
+    },
+    {
+      "bytes": 3988307,
+      "compressed_bytes": 361906,
+      "container": "workspace/oga.zip",
+      "crc32": "b37135ad",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01_cts01.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01_cts01.xml",
+      "sha256": "d69b649dd110069ad41f1a36e2b1a6985221d384bff28dca0d68a5361d514422"
+    },
+    {
+      "bytes": 4316366,
+      "compressed_bytes": 639556,
+      "container": "workspace/oga.zip",
+      "crc32": "c9f15a4b",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01_ipa01.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01_ipa01.xml",
+      "sha256": "db2a8347bff1599f8456cb76a459736c69d5c8bdf652b089f74160e370a1fc54"
+    },
+    {
+      "bytes": 3845647,
+      "compressed_bytes": 575404,
+      "container": "workspace/oga.zip",
+      "crc32": "e230d03e",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01_lemma01.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01_lemma01.xml",
+      "sha256": "139cc291567d28d989396ab747bf378be75380e98648efbd60358909ebff7bf8"
+    },
+    {
+      "bytes": 11978867,
+      "compressed_bytes": 592995,
+      "container": "workspace/oga.zip",
+      "crc32": "e0744f17",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/postag.tlg0032.tlg006.perseus-grc2.tok01_postag01.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/postag.tlg0032.tlg006.perseus-grc2.tok01_postag01.xml",
+      "sha256": "f6a57aacc41d7508c6f103cbb356c1282e1ca99467d289fc77fb7345a62cc529"
+    },
+    {
+      "bytes": 6513586,
+      "compressed_bytes": 471373,
+      "container": "workspace/oga.zip",
+      "crc32": "52d137a2",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/dep.tlg0032.tlg006.perseus-grc2.tok01_dep01.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/dep.tlg0032.tlg006.perseus-grc2.tok01_dep01.xml",
+      "sha256": "54ad7ce962a9a6cd10f9a665700d600c9a5c99b832bbd06cce6bdf6988c0cebc"
+    },
+    {
+      "bytes": 3618573,
+      "compressed_bytes": 385879,
+      "container": "workspace/oga.zip",
+      "crc32": "75b4d354",
+      "local_relative_path": "workspace/oga/oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/dep.tlg0032.tlg006.perseus-grc2.tok01_dep01_dep-fnc01.xml",
+      "member": "oga/oga_v0.2.0_2/tlg0032.tlg006.perseus-grc2/dep.tlg0032.tlg006.perseus-grc2.tok01_dep01_dep-fnc01.xml",
+      "sha256": "43c0b2184f598e07f71a9264541dd52319d02434d77b12d8dce6ed791330de9c"
+    },
+    {
+      "bytes": 886260,
+      "compressed_bytes": 199109,
+      "container": "workspace/oga.zip",
+      "crc32": "4e473175",
+      "local_relative_path": "workspace/oga/oga/laula/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.xml",
+      "member": "oga/laula/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.xml",
+      "sha256": "0a9b2491fbf484089b77dcd711e808779b9459c0789235f2589bf09a41bc3043"
+    },
+    {
+      "bytes": 9165286,
+      "compressed_bytes": 775673,
+      "container": "workspace/oga.zip",
+      "crc32": "0d3eaaff",
+      "local_relative_path": "workspace/oga/oga/laula/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01.xml",
+      "member": "oga/laula/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01.xml",
+      "sha256": "a0cb6c386b729f74cd07687d79b4380c39599b470d5a4938b2b02f41045f1d75"
+    },
+    {
+      "bytes": 1410864,
+      "compressed_bytes": 401568,
+      "container": "workspace/oga.zip",
+      "crc32": "c2dc0706",
+      "local_relative_path": "workspace/oga/oga/laula/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01.xml",
+      "member": "oga/laula/tlg0032.tlg006.perseus-grc2/tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01.xml",
+      "sha256": "f594fbd07e4b45f82fecc1286688aac81acc872375adf803d985c8e87bbdfdc2"
+    },
+    {
+      "bytes": 4590108,
+      "compressed_bytes": 840588,
+      "container": "workspace/conllu.zip",
+      "crc32": "ad5c6b3e",
+      "local_relative_path": "workspace/conllu/conllu/tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01_annotated_lemma.conllu",
+      "member": "conllu/tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01_annotated_lemma.conllu",
+      "sha256": "0f9cbba8e4fdf28ddcedc70259c18f3d00573bc9a82d3acc6a9a050d17542780"
+    }
+  ],
+  "scope": "indivisible Anabasis work inputs only; analysis limited to Book 1",
+  "version": "oga-authorized-anabasis-extraction/1"
+}

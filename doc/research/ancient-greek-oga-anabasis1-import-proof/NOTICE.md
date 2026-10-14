@@ -1,5 +1,61 @@
 # Attribution, rights and modification notice
 
+## Current component assessment after verified acquisition
+
+The official v0.2.0 archive is now acquired and locally verified (size, published
+MD5 and SHA-256). Local recovery completed using the same request's retained
+inode; no retry occurred. Originals are unchanged under Git-ignored
+`private/archive/` and `private/archive-members/`. `archive-members.json` records
+every selected member's exact container/path, size, CRC and SHA-256.
+
+The **archive's own README, lines 99–107**, explicitly declares CC BY-SA 4.0 for
+this work and refers to the original-text repositories. The selected original
+Anabasis XML is byte-identical to the independently pinned upstream file under
+canonical-greekLit's explicit default BY-SA 4.0 declaration. Its header credits
+Xenophon, E. C. Marchant, the Perseus Project/Tufts and the named preparation
+contributors; it names *Opera Omnia*, volume 3, Clarendon Press 1904/reprint 1961.
+No component-specific rights exception was found in that header or in the
+selected PAULA/LAULA headers. This is affirmative component evidence, not
+permission inferred merely from public access or a missing prohibition.
+
+**Operations now assessed:** private non-commercial inspection of these exact
+components and public **bounded, attributed research diagnostics** (member hashes,
+Book 1 structure/span counts, native node IDs/citations, editorial element spans,
+and raw numbered-lemma predictions with native POS) proceed under CC BY-SA 4.0.
+These diagnostic projections/adaptations are offered under CC BY-SA 4.0 with
+the citations below and this modification notice. Whole source files, complete
+native annotations, marker-free reading text, and full coordinate maps remain
+private, not redistributed in Git. No inference of source acceptance, public
+dataset/app bundling, decks/exports, provider use or semantic acceptance follows.
+No dictionaries, models or analyzer code were acquired or executed.
+
+Supplementary producer documentation is separately pinned/hashed in
+`producer-docs.json`, retained privately, and cited rather than republished:
+Celano's *A State-of-the-Art Morphosyntactic Parser and Lemmatizer for Ancient
+Greek*, arXiv **2410.12055v1** (paper page declares **CC BY-NC-SA 4.0**, not the
+corpus's BY-SA grant); Celano's AGDT2 guidelines at treebank_data commit
+`0ebc9289bc6c8eb1069fac3433955f83f442762f`; and the lemmatizer README at
+`267dbf045dfca1129115aef05ba9ac6ebc49f4db`. The README's model Apache-2.0
+declaration is not assessed or exercised as model permission: no model/code
+payload was fetched or run, and no text/annotation rights are inferred from it.
+Only bounded factual findings/citations about these documents are published.
+
+**New Mouseion transformations, 2026-10-14:** select only the Anabasis work from
+nested local ZIP containers without unpacking the corpus; measure Book 1;
+validate native code-point ranges; suppress only typed, independently empty
+`e_*` placeholder spans and their following separator; retain printed characters
+and other PAULA spacing unchanged. Compare against explicit TEI `del` omission
+and `choice/corr` selection, retaining `add` and standalone `sic`; map every
+non-whitespace character exactly, without accent/case/punctuation normalization.
+Report optional LAULA pointer disagreements separately and stop before canonical
+lexical publication. These changes are not upstream text/annotation corrections
+or certification of model predictions. Research code/invented fixtures remain
+Mouseion-authored under the repository's unchanged code-license arrangements.
+
+The sections below retain the authorization history and **initial-gate** operation
+assessment. Statements there that acquisition was unperformed are historical,
+superseded by this exact-component assessment, not current restrictions.
+
 ## Live scope amendment: official archive authorized
 
 After the initial gate stop, Justin explicitly authorized downloading the archive
