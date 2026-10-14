@@ -1,0 +1,56 @@
+point	kind	section	hude_item	hude_leaf	hude_line	hude_codepoints	note
+after:cg2:w0334	insert	7	lysiaeorationes00lysi_1	19	16	U+1F23	
+cg2:w0540	word	12	lysiaeorationes00lysi_1	20	12	U+1F11 U+03BF U+03C1 U+03B1 U+03BA U+03C5 U+1FD6 U+03B1	
+cg2:w1034	word	21	lysiaeorationes0000lysi	42	13	U+03B4 U+1F72	
+cg2:w1073	word	22	lysiaeorationes0000lysi	42	18	U+03C4 U+03AD U+03C4 U+03C4 U+03B1 U+03C1 U+03B5 U+03C2	apparatus: tess. L
+cg2:w1110	word	23	lysiaeorationes0000lysi	42	22	U+03BF U+1F50 U+03B4 U+03AD U+03BD U+03B1	apparatus: oudena Bekker : ouden an L
+cg2:w1158	word	23	lysiaeorationes0000lysi	42	28	U+1F10 U+03C0 U+03B9 U+03BC U+03AD U+03BB U+03B5 U+03C3 U+03B8 U+03B1 U+03B9	apparatus: epimeleisthai L
+after:cg2:w1172	insert	23	lysiaeorationes00lysi_1	21	2	U+03BF U+1F50 U+03BA	printed in angle brackets; apparatus: ouk add. Reiske
+cg2:w1177	word	23	lysiaeorationes00lysi_1	21	2	U+03BF U+1F50 U+03B4 U+02BC	apparatus: oud' Reiske : ouk L
+after:cg2:w1475	insert	29	lysiaeorationes00lysi_1	22	8		paragraph printed once; no duplicate
+after:cg2:w1598	insert	32	lysiaeorationes00lysi_1	22	26	U+1F66	apparatus: o Mc et marg. Ald. : om. rell.
+cg2:w2037	word	41	lysiaeorationes00lysi_1	24	19		no word here; apparatus: ten Bergk : tin' Weidner : ton L
+after:cg2:w2039	insert	41	lysiaeorationes00lysi_1	24	19	U+03C4 U+1F74 U+03BD	
+cg2:w2080	word	41	lysiaeorationes00lysi_1	24	24	U+1F26	apparatus: en L
+cg2:w2083	word	42	lysiaeorationes00lysi_1	24	24	U+03BA U+03B1 U+03AF U+03C4 U+03BF U+03B9 U+0020 U+03B3 U+03B5	two words
+cg2:w2102	word	42	lysiaeorationes00lysi_1	24	26	U+03B5 U+1F30 U+03C3 U+1FC7 U+03B1	circumflex checked on IIIF crop; apparatus: eisieien L
+cg2:w2131	word	42	lysiaeorationes00lysi_1	25	1	U+1F26	apparatus: en L
+cg2:w2180	word	44	lysiaeorationes00lysi_1	25	9	U+03BF U+1F54 U+03C4 U+03B5	smooth breathing checked on IIIF crop
+cg2:w2228	word	45	lysiaeorationes00lysi_1	25	15	U+1F11 U+03BF U+03C1 U+03B1 U+03BA U+1F7C U+03C2	apparatus: heorakos en L
+cg2:w2239	word	45	lysiaeorationes00lysi_1	25	16	U+1F02 U+03BD	
+cg2:w2410	word	50	lysiaeorationes00lysi_1	26	9	U+1F10 U+03C0 U+03B9 U+03B8 U+03CC U+03BC U+03B7 U+03BD	apparatus: epithomen C : epeithomen rell.
+cg2:w0206	word	4	lysiaeorationes00lysi_1	19	4	U+1F04 U+03BB U+03BB U+03BF U+03C5	
+cg2:w0477	word	11	lysiaeorationes00lysi_1	20	5	U+03A0 U+03C1 U+03BF U+03CA U+03CC U+03BD U+03C4 U+03BF U+03C2	
+cg2:w0550	word	12	lysiaeorationes00lysi_1	20	13	U+03B1 U+1F50 U+03C4 U+1F74 U+03BD	
+cg2:w0805	word	17	lysiaeorationes0000lysi	39	15	U+1F26	apparatus: en L (it. 19)
+cg2:w0815	word	17	lysiaeorationes0000lysi	39	16	U+03B4 U+1F72	
+cg2:w0846	word	18	lysiaeorationes0000lysi	39	19	U+1F26	
+cg2:w0996	word	20	lysiaeorationes0000lysi	42	9	U+03C0 U+03C1 U+03BF U+03C3 U+03AF U+03BF U+03B9 U+03C4 U+03BF	apparatus: prosioito Kayser : prosioi L
+cg2:w1106	word	23	lysiaeorationes0000lysi	42	22	U+1F10 U+03B3 U+1F7C	
+cg2:w1730	word	34	lysiaeorationes00lysi_1	23	14	U+1F10 U+03C3 U+03C4 U+1F76	
+cg2:w1917	word	38	lysiaeorationes00lysi_1	24	6	U+03C3 U+03C9 U+03C6 U+03C1 U+03BF U+03BD U+03B5 U+1FD6 U+03BD	followed by <an> add. Taylor
+cg2:w1922	word	39	lysiaeorationes00lysi_1	24	6	U+03B4 U+1F72	
+cg2:w2012	word	40	lysiaeorationes00lysi_1	24	17	U+03BC U+03B5 U+1FD6 U+03BD U+03B1 U+03B9	apparatus: meinai Fuhr : men einai H P X1 : menein C Xc(1)
+cg2:w2059	word	41	lysiaeorationes00lysi_1	24	22	U+1F09 U+03C1 U+03BC U+03CC U+03B4 U+03B9 U+03BF U+03BD	
+cg2:w2069	word	41	lysiaeorationes00lysi_1	24	23	U+1F94 U+03B4 U+03B7	apparatus: edein L
+cg2:w2085	word	42	lysiaeorationes00lysi_1	24	24	U+03C0 U+03C1 U+03BF U+1FC4 U+03B4 U+03B7	apparatus: proedein L
+cg2:w2105	word	42	lysiaeorationes00lysi_1	24	27	U+1F94 U+03B4 U+03B7	apparatus: edein L
+cg2:w2229	word	45	lysiaeorationes00lysi_1	25	15	U+1F26	
+cg2:w2252	word	45	lysiaeorationes00lysi_1	25	17	U+1F26	apparatus: en L
+after:cg2:w2292	insert	47	lysiaeorationes00lysi_1	25	23		apparatus: <ta> toiauta Herwerden
+cg2:w0042	punct_after	1	lysiaeorationes00lysi_1	18	5		no mark after the word; s002w023 point
+cg2:w1090	word	22	lysiaeorationes0000lysi	42	20	U+1F21 U+03BC U+03AD U+03C1 U+1FB3	iota subscript
+cg2:w1075	punct_after	22	lysiaeorationes0000lysi	42	18	U+002C U+002E U+002E U+002E	lacuna dots; apparatus supplement Reiske
+cg2:w0341	punct_after	7	lysiaeorationes00lysi_1	19	17	U+002C U+002E U+002E U+002E	lacuna dots; apparatus: lacunam statuit H. Schenkl
+cg2:w0264	word	6	lysiaeorationes00lysi_1	19	9	U+03BC U+03AE U+03C4 U+03B5	
+cg2:w0266	word	6	lysiaeorationes00lysi_1	19	9	U+03BC U+03AE U+03C4 U+03B5	
+cg2:L01w001	rubric	28	lysiaeorationes00lysi_1	22	1	U+039D U+039F U+039C U+039F U+03A3	after section 28 text, before section 29
+cg2:L02w001	rubric	29	lysiaeorationes00lysi_1	22	9	U+039C U+0391 U+03A1 U+03A4 U+03A5 U+03A1 U+0395 U+03A3	after section 29
+cg2:L03w001	rubric	30	lysiaeorationes00lysi_1	22	12	U+039D U+039F U+039C U+039F U+03A3	
+cg2:L04w001	rubric	31	lysiaeorationes00lysi_1	22	25	U+039D U+039F U+039C U+039F U+03A3	before section 32
+cg2:L05w001	rubric	42	lysiaeorationes00lysi_1	25	3	U+039C U+0391 U+03A1 U+03A4 U+03A5 U+03A1 U+0395 U+03A3	before section 43
+cg2:L01w001	punct_after	28	lysiaeorationes00lysi_1	22	1	U+002E	rubric printed with full stop
+cg2:L02w001	punct_after	29	lysiaeorationes00lysi_1	22	9	U+002E	rubric printed with full stop
+cg2:L03w001	punct_after	30	lysiaeorationes00lysi_1	22	12	U+002E	rubric printed with full stop
+cg2:L04w001	punct_after	31	lysiaeorationes00lysi_1	22	25	U+002E	rubric printed with full stop
+cg2:L05w001	punct_after	42	lysiaeorationes00lysi_1	25	3	U+002E	rubric printed with full stop

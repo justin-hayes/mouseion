@@ -13,6 +13,24 @@ Report: [`../ancient-greek-lysias1-binding.md`](../ancient-greek-lysias1-binding
   - `rubric_bindings.tsv`: the 5 rubric nodes, with label document, TEI address and neighbour agreement.
   - `sentences.tsv`, `discrepancies.tsv`, `release_stability.tsv`, `summary.json`.
 
+Revision 3 (text authority):
+
+- `scripts/fetch_witnesses.sh`: run after `fetch_inputs.sh` on the same directory.
+  - It exports the 18 historical canonical-greekLit blobs of the Lysias I Greek file into `history/`.
+  - It fetches the Mnemosyne pages and the pinned Wikisource revisions into `witness/` and checks their SHA-256.
+  - Needs `curl`. No credentials, and no cookies are kept.
+- `scripts/lineage_collation.py`: compares the token sequences of every historical blob, the AGDT v1.6 and v2.1 printed sequences, and the revision current at the annotation date. Asserts git blob ids. Stdlib only.
+- `scripts/witness_collation.py`:
+  - Collates the full speech (grc2 with its labels) against Mnemosyne and Wikisource, under a declared comparison key.
+  - Accounts for every word and punctuation token.
+  - Joins the printed-page point checks.
+  - Stdlib only. Imports `binding_probe.py`.
+- `scripts/test_witness_collation.py`: 14 synthetic tests.
+- `fixtures/hude_oct_page_checks.tsv`: 55 readings that I transcribed from Internet Archive page images of Hude's Oxford text. Each records the item id, leaf, line, and its code points. These are manual transcriptions, not OCR; diacritic-critical points were checked on IIIF crops.
+- `collation/`: committed outputs. ASCII only; surfaces only as U+XXXX.
+  - `lineage_*.tsv/json`, `agdt_vs_revisions.tsv`, `agdt_v16_vs_annotated_base.tsv`
+  - `witness_word_ledger.tsv`, `witness_punct_ledger.tsv`, `witness_key_equalities.tsv`, `witness_named_checks.tsv`, `witness_point_checks.tsv`, `witness_structure.tsv`, `witness_summary.json`
+
 Keys are native IDs (`sNNNwNNN` for AGDT, `cg2:wNNNN` / `cg2:pNNNN` for running tokens, `cg2:LNNwNNN` / `cg2:LNNpNNN` for label tokens). Spans are half-open code-point offsets in the named document.
 
 The scripts write no Greek text into `manifest/`. The probe's optional `detail/` directory holds per-node surfaces for local review. It is scratch and not committed.
@@ -31,6 +49,20 @@ diff -r "$D/manifest" $W/manifest && echo MANIFEST_IDENTICAL
 The inputs are untrusted data. Run Python on them only with `python3 -I`, and pass paths as arguments. The probe asserts both primary hashes before it reads the inputs.
 
 Expected: both `sha256sum` lines report `OK`, the test run reports `OK` for 14 tests, and the diff prints `MANIFEST_IDENTICAL`.
+
+Revision 3, continuing in the same `$D`:
+
+```sh
+sh $W/scripts/fetch_witnesses.sh "$D/inputs"
+python3 -I $W/scripts/lineage_collation.py "$D/inputs" "$D/collation"
+python3 -I $W/scripts/witness_collation.py "$D/inputs" $W/manifest "$D/collation" $W/fixtures/hude_oct_page_checks.tsv
+python3 -I $W/scripts/test_witness_collation.py
+diff -r "$D/collation" $W/collation && echo COLLATION_IDENTICAL
+```
+
+Expected: every `sha256sum` line reports `OK`, 14 tests report `OK`, and the diff prints `COLLATION_IDENTICAL`.
+
+The Mnemosyne and Wikisource pins are live web pages. If a page changes upstream, its hash check fails loudly, and the change is not silently absorbed. The Hude page images are not fetched by the scripts. The fixture records their item and leaf ids so the pages can be re-viewed at `https://archive.org/details/<item>/page/n<leaf>`.
 
 ## Hash-fetch instructions for a reader
 

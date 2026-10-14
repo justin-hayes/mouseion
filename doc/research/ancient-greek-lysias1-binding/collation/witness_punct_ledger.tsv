@@ -1,0 +1,114 @@
+witness	class	anchor_before	anchor_after	section	canon_keys	node_keys	canon_codepoints	witness_codepoints
+MN	punctuation_mark	cg2:w0288	cg2:w0289	6	cg2:p0038	s011w054	U+002E	U+00B7
+MN	punctuation_mark	cg2:w0317	cg2:w0318	7	cg2:p0044	s013w014	U+00B7	U+002C
+MN	editorial_sign_only	cg2:w0323	cg2:w0324	7				U+005B
+MN	editorial_sign_only	cg2:w0324	cg2:w0325	7				U+005D
+MN	witness_ellipsis	cg2:w0341	cg2:w0342	7	cg2:p0047	s015w015	U+002E	U+002C U+2026
+MN	quotation_mark_only	cg2:w0551	cg2:w0552	12	cg2:p0082	s028w009	U+002C	U+002C U+00AB
+MN	quotation_mark_only	cg2:w0554	cg2:w0555	12				U+00BB
+MN	quotation_mark_only	cg2:w0555	cg2:w0556	12				U+00AB
+MN	quotation_mark_only	cg2:w0565	cg2:w0566	12	cg2:p0084	s029w007	U+002E	U+00BB U+002E
+MN	quotation_mark_only	cg2:w0720	cg2:w0721	15	cg2:p0111	s039w012	U+002C	U+002C U+00AB
+MN	quotation_mark_only	cg2:w0721	cg2:w0722	15				U+00BB
+MN	quotation_mark_only	cg2:w0722	cg2:w0723	15				U+00AB
+MN	quotation_mark_only	cg2:w0762	cg2:w0763	16				U+00BB
+MN	quotation_mark_only	cg2:w0763	cg2:w0764	16				U+00AB
+MN	editorial_sign_only	cg2:w0781	cg2:w0782	16				U+005B
+MN	editorial_sign_only	cg2:w0782	cg2:w0783	16				U+005D
+MN	quotation_mark_only	cg2:w0784	cg2:w0785	16	cg2:p0118	s043w006	U+002E	U+00BB U+002E
+MN	quotation_mark_only	cg2:w0876	cg2:w0877	18	cg2:p0132	s046w031	U+00B7	U+00B7 U+00AB
+MN	quotation_mark_only	cg2:w0878	cg2:w0879	18				U+00BB
+MN	quotation_mark_only	cg2:w0879	cg2:w0880	18				U+00AB
+MN	quotation_mark_only	cg2:w0916	cg2:w0917	18	cg2:p0138	s048w010	U+002E	U+00BB U+002E
+MN	quotation_mark_only	cg2:w1026	cg2:w1027	21	cg2:p0153	s054w009	U+002C	U+002C U+00AB
+MN	quotation_mark_only	cg2:w1064	cg2:w1065	21	cg2:p0160	s057w016	U+002E	U+00BB U+002E
+MN	witness_ellipsis	cg2:w1075	cg2:w1076	22	cg2:p0162	s059w009	U+002C	U+002C U+2026
+MN	punctuation_mark	cg2:w1115	cg2:w1116	23	cg2:p0168	s063w014	U+002C	
+MN	gap_with_word_difference:editorial_sign_only	cg2:w1172	cg2:w1173	23				U+2039 U+203A
+MN	quotation_mark_only	cg2:w1273	cg2:w1274	25				U+00AB
+MN	quotation_mark_only	cg2:w1314	cg2:w1315	26	cg2:p0198	s073w049	U+002E	U+00BB U+002E
+MN	editorial_sign_only	cg2:w1482	cg2:w1483	30				U+2039
+MN	editorial_sign_only	cg2:w1483	cg2:w1484	30				U+203A
+MN	punctuation_mark	cg2:w1571	cg2:w1572	31	cg2:p0238	s087w017	U+002E	U+00B7
+MN	punctuation_mark	cg2:w1885	cg2:w1886	38	cg2:p0286	s106w021	U+00B7	U+0028
+MN	editorial_sign_only	cg2:w1917	cg2:w1918	38				U+2039
+MN	editorial_sign_only	cg2:w1918	cg2:w1919	38				U+203A
+MN	punctuation_mark	cg2:w1920	cg2:w1921	38	cg2:p0290	s108w023	U+00B7	U+0029 U+00B7
+MN	editorial_sign_only	cg2:w1965	cg2:w1966	40	cg2:p0301	s112w009	U+00B7	U+00B7 U+005B
+MN	editorial_sign_only	cg2:w1966	cg2:w1967	40				U+005D
+WS	punctuation_mark	cg2:w0042	cg2:w0043	1				U+002C
+WS	punctuation_mark	cg2:w0262	cg2:w0263	6				U+002C
+WS	punctuation_mark	cg2:w0270	cg2:w0271	6				U+002C
+WS	punctuation_mark	cg2:w0274	cg2:w0275	6				U+002C
+WS	punctuation_mark	cg2:w0277	cg2:w0278	6				U+002C
+WS	punctuation_mark	cg2:w0285	cg2:w0286	6				U+002C
+WS	editorial_sign_only	cg2:w0323	cg2:w0324	7				U+005B
+WS	editorial_sign_only	cg2:w0324	cg2:w0325	7				U+005D
+WS	witness_ellipsis	cg2:w0341	cg2:w0342	7	cg2:p0047	s015w015	U+002E	U+002C U+002E U+002E U+002E
+WS	punctuation_mark	cg2:w0354	cg2:w0355	8	cg2:p0048	s016w014	U+002C	
+WS	quotation_mark_only	cg2:w0551	cg2:w0552	12	cg2:p0082	s028w009	U+002C	U+002C U+0022
+WS	punctuation_mark	cg2:w0554	cg2:w0555	12				U+0022 U+002C
+WS	punctuation_mark	cg2:w0555	cg2:w0556	12				U+002C U+0022
+WS	quotation_mark_only	cg2:w0565	cg2:w0566	12	cg2:p0084	s029w007	U+002E	U+002E U+0022
+WS	punctuation_mark	cg2:w0607	cg2:w0608	14				U+002C
+WS	punctuation_mark	cg2:w0682	cg2:w0683	15				U+002C
+WS	punctuation_mark	cg2:w0702	cg2:w0703	15				U+002C
+WS	punctuation_mark	cg2:w0704	cg2:w0705	15				U+002C
+WS	quotation_mark_only	cg2:w0720	cg2:w0721	15	cg2:p0111	s039w012	U+002C	U+002C U+0022
+WS	punctuation_mark	cg2:w0721	cg2:w0722	15				U+0022 U+002C
+WS	punctuation_mark	cg2:w0722	cg2:w0723	15				U+002C U+0022
+WS	quotation_mark_only	cg2:w0760	cg2:w0761	16	cg2:p0115	s041w018	U+002E	U+002E U+0022 U+0022
+WS	punctuation_mark	cg2:w0762	cg2:w0763	16				U+0022 U+002C
+WS	punctuation_mark	cg2:w0763	cg2:w0764	16				U+002C U+0022
+WS	editorial_sign_only	cg2:w0781	cg2:w0782	16				U+005B
+WS	editorial_sign_only	cg2:w0782	cg2:w0783	16				U+005D
+WS	quotation_mark_only	cg2:w0784	cg2:w0785	16	cg2:p0118	s043w006	U+002E	U+002E U+0022
+WS	punctuation_mark	cg2:w0808	cg2:w0809	17				U+002C
+WS	gap_with_word_difference:punctuation_mark	cg2:w0814	cg2:w0816	17				U+002C
+WS	punctuation_mark	cg2:w0847	cg2:w0848	17	cg2:p0130	s045w013	U+002E	
+WS	punctuation_mark	cg2:w0866	cg2:w0867	18				U+002C
+WS	quotation_mark_only	cg2:w0876	cg2:w0877	18	cg2:p0132	s046w031	U+00B7	U+00B7 U+0022
+WS	punctuation_mark	cg2:w0878	cg2:w0879	18				U+0022 U+002C
+WS	punctuation_mark	cg2:w0879	cg2:w0880	18				U+002C U+0022
+WS	quotation_mark_only	cg2:w0916	cg2:w0917	18	cg2:p0138	s048w010	U+002E	U+002E U+0022
+WS	punctuation_mark	cg2:w0925	cg2:w0926	19				U+002C
+WS	punctuation_mark	cg2:w0940	cg2:w0941	19				U+002C
+WS	punctuation_mark	cg2:w0973	cg2:w0974	20				U+002C
+WS	punctuation_mark	cg2:w0980	cg2:w0981	20				U+002C
+WS	punctuation_mark	cg2:w0993	cg2:w0994	20				U+002C
+WS	quotation_mark_only	cg2:w1026	cg2:w1027	21	cg2:p0153	s054w009	U+002C	U+002C U+0022
+WS	quotation_mark_only	cg2:w1064	cg2:w1065	21	cg2:p0160	s057w016	U+002E	U+002E U+0022
+WS	witness_ellipsis	cg2:w1075	cg2:w1076	22	cg2:p0162	s059w009	U+002C	U+002C U+002E U+002E U+002E
+WS	gap_with_word_difference:punctuation_mark	cg2:w1105	cg2:w1107	23				U+002C
+WS	punctuation_mark	cg2:w1115	cg2:w1116	23	cg2:p0168	s063w014	U+002C	
+WS	punctuation_mark	cg2:w1151	cg2:w1152	23				U+002C
+WS	gap_with_word_difference:editorial_sign_only	cg2:w1172	cg2:w1173	23				U+003C U+003E
+WS	punctuation_mark	cg2:w1247	cg2:w1248	25				U+002C
+WS	punctuation_mark	cg2:w1272	cg2:w1273	25				U+002C
+WS	quotation_mark_only	cg2:w1273	cg2:w1274	25				U+0022
+WS	quotation_mark_only	cg2:w1314	cg2:w1315	26	cg2:p0198	s073w049	U+002E	U+002E U+0022
+WS	punctuation_mark	cg2:w1320	cg2:w1321	27				U+002C
+WS	punctuation_mark	cg2:w1385	cg2:w1386	28				U+002C
+WS	punctuation_mark	cg2:w1431	cg2:w1432	29				U+002C
+WS	gap_with_word_difference:punctuation_mark	cg2:w1475	cg2:L02w001	29	cg2:p0226	s081w006	U+002E	U+002E U+002C U+002C U+002C U+002C U+002C U+002E U+002C U+002C U+002C U+002E U+002E
+WS	editorial_sign_only	cg2:w1482	cg2:w1483	30				U+003C
+WS	editorial_sign_only	cg2:w1483	cg2:w1484	30				U+003E
+WS	punctuation_mark	cg2:w1687	cg2:w1688	33				U+002C
+WS	gap_with_word_difference:punctuation_mark	cg2:w1729	cg2:w1731	34				U+002C
+WS	punctuation_mark	cg2:w1751	cg2:w1752	35				U+002C
+WS	punctuation_mark	cg2:w1760	cg2:w1761	35				U+002C
+WS	punctuation_mark	cg2:w1824	cg2:w1825	36				U+002C
+WS	punctuation_mark	cg2:w1855	cg2:w1856	37				U+002C
+WS	gap_with_word_difference:punctuation_mark	cg2:w1921	cg2:w1923	39				U+002C
+WS	punctuation_mark	cg2:w1953	cg2:w1954	39				U+002C
+WS	editorial_sign_only	cg2:w1965	cg2:w1966	40	cg2:p0301	s112w009	U+00B7	U+00B7 U+005B
+WS	editorial_sign_only	cg2:w1966	cg2:w1967	40				U+005D
+WS	editorial_sign_only	cg2:w2036	cg2:w2037	41				U+003C
+WS	editorial_sign_only	cg2:w2037	cg2:w2038	41				U+003E
+WS	gap_with_word_difference:punctuation_mark	cg2:w2058	cg2:w2060	41				U+1FFE
+WS	gap_with_word_difference:punctuation_mark	cg2:w2104	cg2:w2106	42				U+002C
+WS	punctuation_mark	cg2:w2154	cg2:w2155	43				U+002C
+WS	punctuation_mark	cg2:w2187	cg2:w2188	44				U+002C
+WS	punctuation_mark	cg2:w2190	cg2:w2191	44				U+002C
+WS	punctuation_mark	cg2:w2193	cg2:w2194	44				U+002C
+WS	punctuation_mark	cg2:w2295	cg2:w2296	47				U+002C

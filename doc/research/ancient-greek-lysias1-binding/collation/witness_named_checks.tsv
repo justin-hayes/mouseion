@@ -1,0 +1,79 @@
+check	canon_key	node_keys	MN_status	MN_codepoints	WS_status	WS_codepoints
+sentence125_variant	cg2:w2180	s125w015	differs	U+03BF U+1F54 U+03C4 U+03B5	differs	U+03BF U+1F54 U+03C4 U+03B5
+sentence11_reversed_components	cg2:w0264	s011w025;s011w026	equal_raw	U+03BC U+03AE U+03C4 U+03B5	equal_raw	U+03BC U+03AE U+03C4 U+03B5
+sentence11_reversed_components	cg2:w0266	s011w028;s011w029	equal_raw	U+03BC U+03AE U+03C4 U+03B5	equal_raw	U+03BC U+03AE U+03C4 U+03B5
+concatenation_candidate	cg2:w0229	s009w017;s009w018	equal_raw	U+03C4 U+1F00 U+03BB U+03B7 U+03B8 U+1FC6	equal_raw	U+03C4 U+1F00 U+03BB U+03B7 U+03B8 U+1FC6
+concatenation_candidate	cg2:w0566	s030w001;s030w002	equal_raw	U+03BA U+1F00 U+03B3 U+1F7C	equal_raw	U+03BA U+1F00 U+03B3 U+1F7C
+concatenation_candidate	cg2:w0583	s031w001;s031w002	equal_raw	U+03BA U+1F00 U+03B3 U+1F7C	equal_raw	U+03BA U+1F00 U+03B3 U+1F7C
+concatenation_candidate	cg2:w0899	s047w025;s047w026	equal_raw	U+03C4 U+1F00 U+03BB U+03B7 U+03B8 U+1FC6	equal_raw	U+03C4 U+1F00 U+03BB U+03B7 U+03B8 U+1FC6
+concatenation_candidate	cg2:w0915	s048w007;s048w008	equal_raw	U+03C4 U+1F00 U+03BB U+03B7 U+03B8 U+1FC6	equal_raw	U+03C4 U+1F00 U+03BB U+03B7 U+03B8 U+1FC6
+concatenation_candidate	cg2:w0917	s049w001;s049w002	equal_raw	U+03BA U+1F00 U+03BA U+03B5 U+03AF U+03BD U+03B7	equal_raw	U+03BA U+1F00 U+03BA U+03B5 U+03AF U+03BD U+03B7
+concatenation_candidate	cg2:w1014	s053w002;s053w003	equal_raw	U+03C4 U+1F06 U+03BB U+03BB U+03B1	equal_raw	U+03C4 U+1F06 U+03BB U+03BB U+03B1
+concatenation_candidate	cg2:w1155	s067w001;s067w002	equal_raw	U+03BA U+1F00 U+03B3 U+1F7C	equal_raw	U+03BA U+1F00 U+03B3 U+1F7C
+concatenation_candidate	cg2:w1244	s071w016;s071w017	equal_raw	U+03C4 U+03BF U+1F54 U+03C0 U+03B9 U+03C3 U+03B8 U+03B5 U+03BD	equal_raw	U+03C4 U+03BF U+1F54 U+03C0 U+03B9 U+03C3 U+03B8 U+03B5 U+03BD
+concatenation_candidate	cg2:w1257	s072w001;s072w002	equal_raw	U+03BA U+1F00 U+03BA U+03B5 U+1FD6 U+03BD U+03BF U+03C2	equal_raw	U+03BA U+1F00 U+03BA U+03B5 U+1FD6 U+03BD U+03BF U+03C2
+concatenation_candidate	cg2:w2108	s118w029;s118w030	equal_raw	U+03BA U+1F00 U+03BA U+03B5 U+1FD6 U+03BD U+03BF U+03C2	equal_raw	U+03BA U+1F00 U+03BA U+03B5 U+1FD6 U+03BD U+03BF U+03C2
+fold_conditional	cg2:w0026	s002w003	equal_key	U+03BF U+1F36 U+03B4 U+1FBD	equal_key	U+03BF U+1F36 U+03B4 U+0027
+fold_conditional	cg2:w0067	s004w007	equal_key	U+03C0 U+03B1 U+03C1 U+1FBD	equal_key	U+03C0 U+03B1 U+03C1 U+0027
+fold_conditional	cg2:w0071	s004w012	equal_key	U+1F00 U+03BB U+03BB U+1FBD	equal_key	U+1F00 U+03BB U+03BB U+0027
+fold_conditional	cg2:w0268	s011w031	equal_key	U+1F10 U+03C0 U+1FBD	equal_key	U+1F10 U+03C0 U+0027
+fold_conditional	cg2:w0342	s016w001	equal_key	U+1F10 U+03C0 U+1FBD	equal_key	U+1F10 U+03C0 U+0027
+fold_conditional	cg2:w0379	s018w012	equal_key	U+03C4 U+03B1 U+1FE6 U+03B8 U+1FBD	equal_key	U+03C4 U+03B1 U+1FE6 U+03B8 U+0027
+fold_conditional	cg2:w0461	s022w013	equal_key	U+1F00 U+03BB U+03BB U+1FBD	equal_key	U+1F00 U+03BB U+03BB U+0027
+fold_conditional	cg2:w0587	s031w006	equal_key	U+03BF U+1F50 U+03B4 U+1FBD	equal_key	U+03BF U+1F50 U+03B4 U+0027
+fold_conditional	cg2:w0645	s035w016	equal_key	U+03C4 U+03C1 U+03B9 U+03AC U+03BA U+03BF U+03BD U+03B8 U+1FBD	equal_key	U+03C4 U+03C1 U+03B9 U+03AC U+03BA U+03BF U+03BD U+03B8 U+0027
+fold_conditional	cg2:w0648	s036w002	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w0649	s036w003	equal_key	U+03BF U+1F50 U+03B4 U+1FBD	equal_key	U+03BF U+1F50 U+03B4 U+0027
+fold_conditional	cg2:w0700	s038w012	equal_key	U+03C0 U+03B1 U+03C1 U+1FBD	equal_key	U+03C0 U+03B1 U+03C1 U+0027
+fold_conditional	cg2:w0762	s042w002	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w0793	s044w012	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w0860	s046w014	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w0905	s047w033	equal_key	U+03C0 U+03B1 U+03C1 U+1FBD	equal_key	U+03C0 U+03B1 U+03C1 U+0027
+fold_conditional	cg2:w0965	s052w012	equal_key	U+03C0 U+03B1 U+03C1 U+1FBD	equal_key	U+03C0 U+03B1 U+03C1 U+0027
+fold_conditional	cg2:w1042	s055w011	equal_key	U+1F14 U+03BC U+1FBD	equal_key	U+1F14 U+03BC U+0027
+fold_conditional	cg2:w1047	s056w004	equal_key	U+1F10 U+03C0 U+1FBD	equal_key	U+1F10 U+03C0 U+0027
+fold_conditional	cg2:w1105	s063w002	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1137	s065w013	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1140	s066w002	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1181	s068w002	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1225	s070w020	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1233	s071w002	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1267	s072w013	equal_key	U+1F00 U+03BB U+03BB U+1FBD	equal_key	U+1F00 U+03BB U+03BB U+0027
+fold_conditional	cg2:w1271	s073w002	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1278	s073w010	equal_key	U+1F00 U+03BB U+03BB U+1FBD	equal_key	U+1F00 U+03BB U+03BB U+0027
+fold_conditional	cg2:w1334	s074w024	equal_key	U+03BF U+1F50 U+03B4 U+1FBD	equal_key	U+03BF U+1F50 U+03B4 U+0027
+fold_conditional	cg2:w1353	s075w014	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1379	s076w001	equal_key	U+1F00 U+03BB U+03BB U+1FBD	equal_key	U+1F00 U+03BB U+03BB U+0027
+fold_conditional	cg2:w1398	s076w023	equal_key	U+1F00 U+03BB U+03BB U+1FBD	equal_key	U+1F00 U+03BB U+03BB U+0027
+fold_conditional	cg2:w1424	s079w007	equal_key	U+1F00 U+03BB U+03BB U+1FBD	equal_key	U+1F00 U+03BB U+03BB U+0027
+fold_conditional	cg2:w1436	s079w021	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w1507	s085w020	equal_key	U+1F10 U+03C6 U+1FBD	equal_key	U+1F10 U+03C6 U+0027
+fold_conditional	cg2:w1580	s088w009	equal_key	U+1F10 U+03C0 U+1FBD	equal_key	U+1F10 U+03C0 U+0027
+fold_conditional	cg2:w1617	s092w005	equal_key	U+1F10 U+03C6 U+1FBD	equal_key	U+1F10 U+03C6 U+0027
+fold_conditional	cg2:w1666	s094w033	equal_key	U+1F65 U+03C3 U+03C4 U+1FBD	equal_key	U+1F65 U+03C3 U+03C4 U+0027
+fold_conditional	cg2:w1678	s094w046	equal_key	U+1F10 U+03C0 U+1FBD	equal_key	U+1F10 U+03C0 U+0027
+fold_conditional	cg2:w1696	s095w001	equal_key	U+1F00 U+03BD U+03B8 U+1FBD	equal_key	U+1F00 U+03BD U+03B8 U+0027
+fold_conditional	cg2:w1729	s097w003	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w2014	s115w020	equal_key	U+03BC U+03B5 U+03C4 U+1FBD	equal_key	U+03BC U+03B5 U+03C4 U+0027
+fold_conditional	cg2:w2028	s116w012	equal_key	U+03BC U+03B5 U+03B8 U+1FBD	equal_key	U+03BC U+03B5 U+03B8 U+0027
+fold_conditional	cg2:w2077	s117w025	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w2097	s118w017	equal_key	U+1F35 U+03BD U+1FBD	equal_key	U+1F35 U+03BD U+0027
+fold_conditional	cg2:w2120	s119w002	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+fold_conditional	cg2:w2146	s123w003	equal_key	U+03C0 U+03B1 U+03C1 U+1FBD	equal_key	U+03C0 U+03B1 U+03C1 U+0027
+fold_conditional	cg2:w2253	s128w017	equal_key	U+1F51 U+03C0 U+1FBD	equal_key	U+1F51 U+03C0 U+0027
+fold_conditional	cg2:w2286	s130w018	equal_key	U+1F00 U+03BB U+03BB U+1FBD	equal_key	U+1F00 U+03BB U+03BB U+0027
+fold_conditional	cg2:w2373	s133w030	equal_key	U+03B4 U+1FBD	equal_key	U+03B4 U+0027
+iota_subscript_lineage_fix_0a3eab7f	cg2:w1090	s060w009	equal_raw	U+1F21 U+03BC U+03AD U+03C1 U+1FB3	equal_raw	U+1F21 U+03BC U+03AD U+03C1 U+1FB3
+rubric_label	cg2:L01w001	s078w001	equal_key	U+039D U+039F U+039C U+039F U+03A3	equal_key	U+039D U+039F U+039C U+039F U+03A3
+rubric_label	cg2:L02w001	s082w001	equal_key	U+039C U+0391 U+03A1 U+03A4 U+03A5 U+03A1 U+0395 U+03A3	equal_key	U+039C U+0391 U+03A1 U+03A4 U+03A5 U+03A1 U+0395 U+03A3
+rubric_label	cg2:L03w001	s084w001	equal_key	U+039D U+039F U+039C U+039F U+03A3	equal_key	U+039D U+039F U+039C U+039F U+03A3
+rubric_label	cg2:L04w001	s090w001	equal_key	U+039D U+039F U+039C U+039F U+03A3	equal_key	U+039D U+039F U+039C U+039F U+03A3
+rubric_label	cg2:L05w001	s121w001	equal_key	U+039C U+0391 U+03A1 U+03A4 U+03A5 U+03A1 U+0395 U+03A3	equal_key	U+039C U+0391 U+03A1 U+03A4 U+03A5 U+03A1 U+0395 U+03A3
+editorial_del	cg2:w0324	s014w007	equal_raw	U+1F00 U+03B3 U+03B1 U+03B8 U+1F74	equal_raw	U+1F00 U+03B3 U+03B1 U+03B8 U+1F74
+editorial_del	cg2:w0782	s043w003	equal_raw	U+03C4 U+1F74 U+03BD	equal_raw	U+03C4 U+1F74 U+03BD
+editorial_add	cg2:w1483	s083w008	equal_raw	U+03C4 U+1F78 U+03BD	equal_raw	U+03C4 U+1F78 U+03BD
+editorial_add	cg2:w1918	s108w020	equal_raw	U+1F02 U+03BD	equal_raw	U+1F02 U+03BD
+editorial_del	cg2:w1966	s113w001	equal_raw	U+1F45 U+03C4 U+03B9	equal_raw	U+1F45 U+03C4 U+03B9
+editorial_add	cg2:w2037	s116w022	absent		equal_raw	U+03C4 U+03BF U+03C5
+sentence2_punct_s002w023	after:cg2:w0042	s002w023	no_punct		punct_present	U+002C
+lacuna_gap	after:cg2:w1075	s059w008	marks_between_words	U+002C U+2026	marks_between_words	U+002C U+002E U+002E U+002E

@@ -1,0 +1,3 @@
+from_commit	to_commit	to_date	op	sections	from_index	to_index	from_codepoints	to_codepoints
+8d9937ed69e5af4edecde098fab680a5c0045468	0a3eab7fccf72ca099241662cd1eda7737086779	2016-06-17	replace	22	1253:1254	1253:1254	U+1F21 U+03BC U+03AD U+03C1 U+03B1	U+1F21 U+03BC U+03AD U+03C1 U+1FB3
+0b7bef19fa1f759d1702e20280e35f37ba787ace	b01744e86530350db8f81a019072e68880e470fd	2021-04-20	delete	1	49:50	49:49	U+00B7	

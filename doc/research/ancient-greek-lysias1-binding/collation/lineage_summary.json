@@ -1,0 +1,11 @@
+{
+ "agdt_v16_vs_base_nonequal_ops": 20,
+ "annotated_base_commit": "aa0dd9e6a25c848c04e75169e525ec413f033499",
+ "annotation_date": "2014-08-21",
+ "best_match": {
+  "v1.6": "0a3eab7fccf72ca099241662cd1eda7737086779",
+  "v2.1": "0a3eab7fccf72ca099241662cd1eda7737086779"
+ },
+ "distinct_text_revisions": 3,
+ "lineage_change_ops": 2
+}

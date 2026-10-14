@@ -1,0 +1,148 @@
+{
+ "canonical": {
+  "lacuna_sections": [
+   22
+  ],
+  "lacunae": 1,
+  "punct_tokens": 368,
+  "word_tokens_with_labels": 2415
+ },
+ "cross_witness": {
+  "canonical_words_where_both_witnesses_differ": 8,
+  "mn_vs_ws_nonequal_word_ops": 27,
+  "mn_vs_ws_word_tokens_in_nonequal": 109,
+  "of_which_identical_witness_reading": 7
+ },
+ "hude_point_checks": {
+  "by_stream": {
+   "AGDT": {
+    "differs": 20,
+    "equal_key": 6,
+    "equal_raw": 29
+   },
+   "C": {
+    "differs": 23,
+    "equal_key": 6,
+    "equal_raw": 26
+   },
+   "MN": {
+    "differs": 8,
+    "equal_key": 3,
+    "equal_raw": 44
+   },
+   "WS": {
+    "differs": 35,
+    "equal_key": 1,
+    "equal_raw": 19
+   }
+  },
+  "points": 55,
+  "word_ledger_points_without_page_check": []
+ },
+ "named_checks": {
+  "concatenation_candidate|equal_raw|equal_raw": 11,
+  "editorial_add|absent|equal_raw": 1,
+  "editorial_add|equal_raw|equal_raw": 2,
+  "editorial_del|equal_raw|equal_raw": 3,
+  "fold_conditional|equal_key|equal_key": 50,
+  "iota_subscript_lineage_fix_0a3eab7f|equal_raw|equal_raw": 1,
+  "lacuna_gap|marks_between_words|marks_between_words": 1,
+  "rubric_label|equal_key|equal_key": 5,
+  "sentence11_reversed_components|equal_raw|equal_raw": 2,
+  "sentence125_variant|differs|differs": 1,
+  "sentence2_punct_s002w023|no_punct|punct_present": 1
+ },
+ "witness_inputs_sha256": {
+  "witness/mnemosyne/page1.html": "0c2c517bb98960b75d4f1bc7c04c55e02b019d2fe9e01165f0064a8bad700a43",
+  "witness/mnemosyne/page2.html": "253f4ebe80a0bc9fdc1230fc53095936319aff68c76fbf53e61b9a6dff7a5710",
+  "witness/mnemosyne/page3.html": "fe8208b4b66615d1057567e9ed1aa36efb2bf8bae28dfc225945a838fb08886d",
+  "witness/mnemosyne/page4.html": "3889704c7eb876a080e915828d68e84d15349e5f61ca2954fe628a1bc84052f6",
+  "witness/mnemosyne/page5.html": "2322afbdd5a4cdfff331d547987030c74fd499522ef76632dfc4ed75755fee75",
+  "witness/mnemosyne/page6.html": "845acbd3d7b403b17a47a86b732ccb74860c6d4ab4fe9e0c5a892ab94451c51e",
+  "witness/mnemosyne/page7.html": "3f91adea58bd994431050c5de82820be7beb28a582816b7fccfd6e5ad187cde2",
+  "witness/wikisource/rev102844.txt": "d0606d69b6af003ce8e99ef2d2d46dc70492af371425d487c445c12409fb44ad"
+ },
+ "witnesses": {
+  "MN": {
+   "bounds": {
+    "first_canonical_word_aligned_to_first_witness_word": true,
+    "first_op_equal": true,
+    "last_canonical_word_aligned_to_last_witness_word": true,
+    "last_op_equal": false,
+    "section_marker_first_last": [
+     1,
+     50
+    ]
+   },
+   "canonical_words_aligned": 2414,
+   "elision_marks_converted_by_K2": 51,
+   "equal_word_tokens": 2400,
+   "key_equal_raw_different": 74,
+   "nonequal_word_ops": 19,
+   "nonequal_word_ops_by_class": {
+    "diacritics_only": 4,
+    "editorially_marked_in_canonical": 1,
+    "reading": 13,
+    "word_division": 1
+   },
+   "punct_accounted": {
+    "canonical": 368,
+    "witness": 400
+   },
+   "punct_equal_tokens_in_equal_gaps": 350,
+   "punct_nonequal_gaps": 37,
+   "punct_nonequal_gaps_by_class": {
+    "editorial_sign_only": 10,
+    "gap_with_word_difference:editorial_sign_only": 1,
+    "punctuation_mark": 6,
+    "quotation_mark_only": 18,
+    "witness_ellipsis": 2
+   },
+   "punct_tokens": 400,
+   "section_markers": 50,
+   "section_markers_non_sequential": 0,
+   "word_tokens": 2420
+  },
+  "WS": {
+   "bounds": {
+    "first_canonical_word_aligned_to_first_witness_word": true,
+    "first_op_equal": true,
+    "last_canonical_word_aligned_to_last_witness_word": true,
+    "last_op_equal": true,
+    "section_marker_first_last": [
+     1,
+     50
+    ]
+   },
+   "canonical_words_aligned": 2415,
+   "elision_marks_converted_by_K2": 54,
+   "equal_word_tokens": 2388,
+   "key_equal_raw_different": 73,
+   "nonequal_word_ops": 33,
+   "nonequal_word_ops_by_class": {
+    "diacritics_only": 9,
+    "reading": 22,
+    "witness_block_insert": 1,
+    "word_division": 1
+   },
+   "punct_accounted": {
+    "canonical": 368,
+    "witness": 462
+   },
+   "punct_equal_tokens_in_equal_gaps": 351,
+   "punct_nonequal_gaps": 76,
+   "punct_nonequal_gaps_by_class": {
+    "editorial_sign_only": 10,
+    "gap_with_word_difference:editorial_sign_only": 1,
+    "gap_with_word_difference:punctuation_mark": 7,
+    "punctuation_mark": 45,
+    "quotation_mark_only": 11,
+    "witness_ellipsis": 2
+   },
+   "punct_tokens": 462,
+   "section_markers": 50,
+   "section_markers_non_sequential": 2,
+   "word_tokens": 2477
+  }
+ }
+}
