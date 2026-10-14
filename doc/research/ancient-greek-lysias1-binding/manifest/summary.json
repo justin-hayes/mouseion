@@ -1,75 +1,92 @@
 {
- "canonical_tokens_unbound": 3,
+ "anchor_sequence_equal": true,
+ "blocks": {
+  "count": 63,
+  "largest_nodes": 2,
+  "largest_tokens": 2
+ },
+ "canonical_punct_coverage": {
+  "accepted": 368
+ },
+ "canonical_word_coverage": {
+  "accepted": 2351,
+  "candidate_only": 14,
+  "conditional": 50
+ },
+ "concat_audit": {
+  "concat_nodes": 22,
+  "concat_window_size_2": 22,
+  "reversed_nodes": 4
+ },
  "denominators": {
   "agdt_nodes": 2834,
   "artificial": 32,
-  "canonical_punct_tokens": 368,
-  "canonical_word_tokens": 2410,
+  "label_punct_tokens": 0,
+  "label_word_tokens": 5,
   "printed": 2802,
   "punct_nodes": 374,
+  "running_punct_tokens": 368,
+  "running_word_tokens": 2410,
   "word_nodes": 2428
  },
- "punct_alignment_ops": {
-  "delete": 6,
-  "equal": 10,
-  "replace": 3
+ "equal_runs": {
+  "count": 64,
+  "max": 284
  },
- "punct_node_classes": {
-  "punct_exact_punct": 368,
-  "punct_punct_unaligned": 1,
-  "punct_rubric_attached_punct_no_running_text": 5
+ "exact_audit": {
+  "exact_nodes": 2346,
+  "exact_repeated_form": 1658,
+  "exact_single_node_run": 3
  },
- "reversed_order_candidates": [
+ "fold_and_concat_mechanisms": {
+  "('concat', 'candidate', 'no_hyphen')": 11,
+  "('concat', 'candidate', 'trailing_hyphen')": 11,
+  "('fold', 'conditional', 'final_U+0313')": 50
+ },
+ "label_documents": [
   {
-   "forms_len": [
-    3,
-    2
-   ],
-   "nodes": [
-    "s011w025",
-    "s011w026"
-   ],
-   "token": "cg2:w0264"
+   "address": "div[@subtype='section'][@n='29']/p[1]/label[1]",
+   "codepoints": 5,
+   "doc": "cg2:label01",
+   "text_sha256": "9ed348df9d09095f359d5e2e89212386a717701ba0d117f749f4c9df867b9e03"
   },
   {
-   "forms_len": [
-    3,
-    2
-   ],
-   "nodes": [
-    "s011w028",
-    "s011w029"
-   ],
-   "token": "cg2:w0264"
+   "address": "div[@subtype='section'][@n='30']/p[1]/label[1]",
+   "codepoints": 8,
+   "doc": "cg2:label02",
+   "text_sha256": "b04b781533ec79b7c64f92659ed20f34164ea6308f65f2c42b0577dd45ee15bf"
   },
   {
-   "forms_len": [
-    3,
-    2
-   ],
-   "nodes": [
-    "s011w025",
-    "s011w026"
-   ],
-   "token": "cg2:w0266"
+   "address": "div[@subtype='section'][@n='30']/p[3]/label[1]",
+   "codepoints": 5,
+   "doc": "cg2:label03",
+   "text_sha256": "9ed348df9d09095f359d5e2e89212386a717701ba0d117f749f4c9df867b9e03"
   },
   {
-   "forms_len": [
-    3,
-    2
-   ],
-   "nodes": [
-    "s011w028",
-    "s011w029"
-   ],
-   "token": "cg2:w0266"
+   "address": "div[@subtype='section'][@n='32']/p[1]/label[1]",
+   "codepoints": 5,
+   "doc": "cg2:label04",
+   "text_sha256": "9ed348df9d09095f359d5e2e89212386a717701ba0d117f749f4c9df867b9e03"
+  },
+  {
+   "address": "div[@subtype='section'][@n='43']/p[1]/label[1]",
+   "codepoints": 8,
+   "doc": "cg2:label05",
+   "text_sha256": "b04b781533ec79b7c64f92659ed20f34164ea6308f65f2c42b0577dd45ee15bf"
   }
  ],
+ "monotone_violations": 0,
+ "punct_node_status": {
+  "accepted": 368,
+  "annotation_only": 5,
+  "unaligned": 1
+ },
  "running_text": {
   "child_tags_in_sections": {
    "p": 56
   },
   "codepoints": 15110,
+  "doc": "cg2:run",
   "labels": 5,
   "lacunae_at": [
    6644
@@ -78,7 +95,7 @@
   "sections": 50,
   "sha256": "e60cfa97121a64d86f1a5c495ee3484cb63ddd730abe5749f9ca387485d29815"
  },
- "schema": "lysias1-binding-manifest/1",
+ "schema": "lysias1-binding-manifest/2",
  "source_agdt": {
   "path": "v2.1/Greek/texts/tlg0540.tlg001.perseus-grc1.tb.xml",
   "rev": "bf4334f0af5e13d16b04c1cccd6237e683ac6f5f",
@@ -89,12 +106,9 @@
   "rev": "01b725d835e6e733062ffd79e0efdbae1ba06e5c",
   "sha256": "21dbae42979097132d8d4c16531ed0527beac717b2cc1fffec541205f6514d6a"
  },
- "word_node_classes": {
-  "concat_exact": 22,
-  "exact_1to1": 2346,
-  "fold_elision_1to1": 45,
-  "fold_nfd_1to1": 5,
-  "rubric_label_exact": 5,
-  "unbound": 5
+ "word_node_status": {
+  "accepted": 2351,
+  "candidate": 27,
+  "conditional": 50
  }
 }

@@ -1,90 +1,148 @@
-key	sentence	word	class	reason
-s002w003	2	3	fold_elision_1to1	
-s004w007	4	7	fold_nfd_1to1	
-s004w012	4	12	fold_elision_1to1	
-s009w017	9	17	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s009w018	9	18	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s011w025	11	25	unbound	no exact, fold or concatenation correspondence in its aligned block
-s011w026	11	26	unbound	no exact, fold or concatenation correspondence in its aligned block
-s011w028	11	28	unbound	no exact, fold or concatenation correspondence in its aligned block
-s011w029	11	29	unbound	no exact, fold or concatenation correspondence in its aligned block
-s011w031	11	31	fold_elision_1to1	
-s016w001	16	1	fold_elision_1to1	
-s018w012	18	12	fold_elision_1to1	
-s022w013	22	13	fold_elision_1to1	
-s030w001	30	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s030w002	30	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s031w001	31	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s031w002	31	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s031w006	31	6	fold_elision_1to1	
-s035w016	35	16	fold_elision_1to1	
-s036w002	36	2	fold_elision_1to1	
-s036w003	36	3	fold_elision_1to1	
-s038w012	38	12	fold_nfd_1to1	
-s042w002	42	2	fold_elision_1to1	
-s044w012	44	12	fold_elision_1to1	
-s046w014	46	14	fold_elision_1to1	
-s047w025	47	25	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s047w026	47	26	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s047w033	47	33	fold_nfd_1to1	
-s048w007	48	7	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s048w008	48	8	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s049w001	49	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s049w002	49	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s052w012	52	12	fold_nfd_1to1	
-s053w002	53	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s053w003	53	3	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s055w011	55	11	fold_elision_1to1	
-s056w004	56	4	fold_elision_1to1	
-s063w002	63	2	fold_elision_1to1	
-s065w013	65	13	fold_elision_1to1	
-s066w002	66	2	fold_elision_1to1	
-s067w001	67	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s067w002	67	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s068w002	68	2	fold_elision_1to1	
-s070w020	70	20	fold_elision_1to1	
-s071w002	71	2	fold_elision_1to1	
-s071w016	71	16	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s071w017	71	17	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s072w001	72	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s072w002	72	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s072w013	72	13	fold_elision_1to1	
-s073w002	73	2	fold_elision_1to1	
-s073w010	73	10	fold_elision_1to1	
-s074w024	74	24	fold_elision_1to1	
-s075w014	75	14	fold_elision_1to1	
-s076w001	76	1	fold_elision_1to1	
-s076w023	76	23	fold_elision_1to1	
-s078w001	78	1	rubric_label_exact	exact match of canonical <label> (section 32, paragraph 1); label text is not running text
-s079w007	79	7	fold_elision_1to1	
-s079w021	79	21	fold_elision_1to1	
-s082w001	82	1	rubric_label_exact	exact match of canonical <label> (section 43, paragraph 1); label text is not running text
-s084w001	84	1	rubric_label_exact	exact match of canonical <label> (section 32, paragraph 1); label text is not running text
-s085w020	85	20	fold_elision_1to1	
-s088w009	88	9	fold_elision_1to1	
-s090w001	90	1	rubric_label_exact	exact match of canonical <label> (section 32, paragraph 1); label text is not running text
-s092w005	92	5	fold_elision_1to1	
-s094w033	94	33	fold_elision_1to1	
-s094w046	94	46	fold_elision_1to1	
-s095w001	95	1	fold_elision_1to1	
-s097w003	97	3	fold_elision_1to1	
-s115w020	115	20	fold_elision_1to1	
-s116w012	116	12	fold_elision_1to1	
-s117w025	117	25	fold_elision_1to1	
-s118w017	118	17	fold_elision_1to1	
-s118w029	118	29	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s118w030	118	30	concat_exact	hyphen-marked split forms; exact code-point concatenation
-s119w002	119	2	fold_elision_1to1	
-s121w001	121	1	rubric_label_exact	exact match of canonical <label> (section 43, paragraph 1); label text is not running text
-s123w003	123	3	fold_nfd_1to1	
-s125w015	125	15	unbound	no exact, fold or concatenation correspondence in its aligned block
-s128w017	128	17	fold_elision_1to1	
-s130w018	130	18	fold_elision_1to1	
-s133w030	133	30	fold_elision_1to1	
-s011w025;s011w026			reversed_order_candidate_not_bound	reversed-order hyphen-stripped concatenation equals canonical token cg2:w0264
-s011w028;s011w029			reversed_order_candidate_not_bound	reversed-order hyphen-stripped concatenation equals canonical token cg2:w0264
-s011w025;s011w026			reversed_order_candidate_not_bound	reversed-order hyphen-stripped concatenation equals canonical token cg2:w0266
-s011w028;s011w029			reversed_order_candidate_not_bound	reversed-order hyphen-stripped concatenation equals canonical token cg2:w0266
-cg2:w0264			unbound_canonical_token	canonical word token with no bound node
-cg2:w0266			unbound_canonical_token	canonical word token with no bound node
-cg2:w2180			unbound_canonical_token	canonical word token with no bound node
+key	sentence	class	correspondence	surface	canon_keys	reason
+s002w003	2	conditional	fold_equal	fold_elision	cg2:w0026	elision-fold; AGDT v1.6 form equals canonical token exactly
+s002w023	2	unaligned	none	none		no exact punctuation in the gap between word anchors
+s004w007	4	conditional	fold_equal	fold_nfd	cg2:w0067	elision-fold; AGDT v1.6 form equals canonical token exactly
+s004w012	4	conditional	fold_equal	fold_elision	cg2:w0071	elision-fold; AGDT v1.6 form equals canonical token exactly
+s009w017	9	candidate	concat_window	concat_exact	cg2:w0229	hyphen-marked components tile the token in order; no documented split convention
+s009w018	9	candidate	concat_window	concat_exact	cg2:w0229	hyphen-marked components tile the token in order; no documented split convention
+s011w025	11	candidate	concat_reversed	mismatch	cg2:w0264	components concatenate to the token only in reversed order; candidate link only, not accepted
+s011w026	11	candidate	concat_reversed	mismatch	cg2:w0264	components concatenate to the token only in reversed order; candidate link only, not accepted
+s011w028	11	candidate	concat_reversed	mismatch	cg2:w0266	components concatenate to the token only in reversed order; candidate link only, not accepted
+s011w029	11	candidate	concat_reversed	mismatch	cg2:w0266	components concatenate to the token only in reversed order; candidate link only, not accepted
+s011w031	11	conditional	fold_equal	fold_elision	cg2:w0268	elision-fold; AGDT v1.6 form equals canonical token exactly
+s016w001	16	conditional	fold_equal	fold_elision	cg2:w0342	elision-fold; AGDT v1.6 form equals canonical token exactly
+s018w012	18	conditional	fold_equal	fold_elision	cg2:w0379	elision-fold; AGDT v1.6 form equals canonical token exactly
+s022w013	22	conditional	fold_equal	fold_elision	cg2:w0461	elision-fold; AGDT v1.6 form equals canonical token exactly
+s030w001	30	candidate	concat_window	concat_exact	cg2:w0566	hyphen-marked components tile the token in order; no documented split convention
+s030w002	30	candidate	concat_window	concat_exact	cg2:w0566	hyphen-marked components tile the token in order; no documented split convention
+s031w001	31	candidate	concat_window	concat_exact	cg2:w0583	hyphen-marked components tile the token in order; no documented split convention
+s031w002	31	candidate	concat_window	concat_exact	cg2:w0583	hyphen-marked components tile the token in order; no documented split convention
+s031w006	31	conditional	fold_equal	fold_elision	cg2:w0587	elision-fold; AGDT v1.6 form equals canonical token exactly
+s035w016	35	conditional	fold_equal	fold_elision	cg2:w0645	elision-fold; AGDT v1.6 form equals canonical token exactly
+s036w002	36	conditional	fold_equal	fold_elision	cg2:w0648	elision-fold; AGDT v1.6 form equals canonical token exactly
+s036w003	36	conditional	fold_equal	fold_elision	cg2:w0649	elision-fold; AGDT v1.6 form equals canonical token exactly
+s038w012	38	conditional	fold_equal	fold_nfd	cg2:w0700	elision-fold; AGDT v1.6 form equals canonical token exactly
+s042w002	42	conditional	fold_equal	fold_elision	cg2:w0762	elision-fold; AGDT v1.6 form equals canonical token exactly
+s044w012	44	conditional	fold_equal	fold_elision	cg2:w0793	elision-fold; AGDT v1.6 form equals canonical token exactly
+s046w014	46	conditional	fold_equal	fold_elision	cg2:w0860	elision-fold; AGDT v1.6 form equals canonical token exactly
+s047w025	47	candidate	concat_window	concat_exact	cg2:w0899	hyphen-marked components tile the token in order; no documented split convention
+s047w026	47	candidate	concat_window	concat_exact	cg2:w0899	hyphen-marked components tile the token in order; no documented split convention
+s047w033	47	conditional	fold_equal	fold_nfd	cg2:w0905	elision-fold; AGDT v1.6 form equals canonical token exactly
+s048w007	48	candidate	concat_window	concat_exact	cg2:w0915	hyphen-marked components tile the token in order; no documented split convention
+s048w008	48	candidate	concat_window	concat_exact	cg2:w0915	hyphen-marked components tile the token in order; no documented split convention
+s049w001	49	candidate	concat_window	concat_exact	cg2:w0917	hyphen-marked components tile the token in order; no documented split convention
+s049w002	49	candidate	concat_window	concat_exact	cg2:w0917	hyphen-marked components tile the token in order; no documented split convention
+s052w012	52	conditional	fold_equal	fold_nfd	cg2:w0965	elision-fold; AGDT v1.6 form equals canonical token exactly
+s053w002	53	candidate	concat_window	concat_exact	cg2:w1014	hyphen-marked components tile the token in order; no documented split convention
+s053w003	53	candidate	concat_window	concat_exact	cg2:w1014	hyphen-marked components tile the token in order; no documented split convention
+s055w011	55	conditional	fold_equal	fold_elision	cg2:w1042	elision-fold; AGDT v1.6 form equals canonical token exactly
+s056w004	56	conditional	fold_equal	fold_elision	cg2:w1047	elision-fold; AGDT v1.6 form equals canonical token exactly
+s063w002	63	conditional	fold_equal	fold_elision	cg2:w1105	elision-fold; AGDT v1.6 form equals canonical token exactly
+s065w013	65	conditional	fold_equal	fold_elision	cg2:w1137	elision-fold; AGDT v1.6 form equals canonical token exactly
+s066w002	66	conditional	fold_equal	fold_elision	cg2:w1140	elision-fold; AGDT v1.6 form equals canonical token exactly
+s067w001	67	candidate	concat_window	concat_exact	cg2:w1155	hyphen-marked components tile the token in order; no documented split convention
+s067w002	67	candidate	concat_window	concat_exact	cg2:w1155	hyphen-marked components tile the token in order; no documented split convention
+s068w002	68	conditional	fold_equal	fold_elision	cg2:w1181	elision-fold; AGDT v1.6 form equals canonical token exactly
+s070w020	70	conditional	fold_equal	fold_elision	cg2:w1225	elision-fold; AGDT v1.6 form equals canonical token exactly
+s071w002	71	conditional	fold_equal	fold_elision	cg2:w1233	elision-fold; AGDT v1.6 form equals canonical token exactly
+s071w016	71	candidate	concat_window	concat_exact	cg2:w1244	hyphen-marked components tile the token in order; no documented split convention
+s071w017	71	candidate	concat_window	concat_exact	cg2:w1244	hyphen-marked components tile the token in order; no documented split convention
+s072w001	72	candidate	concat_window	concat_exact	cg2:w1257	hyphen-marked components tile the token in order; no documented split convention
+s072w002	72	candidate	concat_window	concat_exact	cg2:w1257	hyphen-marked components tile the token in order; no documented split convention
+s072w013	72	conditional	fold_equal	fold_elision	cg2:w1267	elision-fold; AGDT v1.6 form equals canonical token exactly
+s073w002	73	conditional	fold_equal	fold_elision	cg2:w1271	elision-fold; AGDT v1.6 form equals canonical token exactly
+s073w010	73	conditional	fold_equal	fold_elision	cg2:w1278	elision-fold; AGDT v1.6 form equals canonical token exactly
+s074w024	74	conditional	fold_equal	fold_elision	cg2:w1334	elision-fold; AGDT v1.6 form equals canonical token exactly
+s075w014	75	conditional	fold_equal	fold_elision	cg2:w1353	elision-fold; AGDT v1.6 form equals canonical token exactly
+s076w001	76	conditional	fold_equal	fold_elision	cg2:w1379	elision-fold; AGDT v1.6 form equals canonical token exactly
+s076w023	76	conditional	fold_equal	fold_elision	cg2:w1398	elision-fold; AGDT v1.6 form equals canonical token exactly
+s078w002	78	annotation_only	none	none		stop mark after a canonical label; the label text carries no stop
+s079w007	79	conditional	fold_equal	fold_elision	cg2:w1424	elision-fold; AGDT v1.6 form equals canonical token exactly
+s079w021	79	conditional	fold_equal	fold_elision	cg2:w1436	elision-fold; AGDT v1.6 form equals canonical token exactly
+s082w002	82	annotation_only	none	none		stop mark after a canonical label; the label text carries no stop
+s084w002	84	annotation_only	none	none		stop mark after a canonical label; the label text carries no stop
+s085w020	85	conditional	fold_equal	fold_elision	cg2:w1507	elision-fold; AGDT v1.6 form equals canonical token exactly
+s088w009	88	conditional	fold_equal	fold_elision	cg2:w1580	elision-fold; AGDT v1.6 form equals canonical token exactly
+s090w002	90	annotation_only	none	none		stop mark after a canonical label; the label text carries no stop
+s092w005	92	conditional	fold_equal	fold_elision	cg2:w1617	elision-fold; AGDT v1.6 form equals canonical token exactly
+s094w033	94	conditional	fold_equal	fold_elision	cg2:w1666	elision-fold; AGDT v1.6 form equals canonical token exactly
+s094w046	94	conditional	fold_equal	fold_elision	cg2:w1678	elision-fold; AGDT v1.6 form equals canonical token exactly
+s095w001	95	conditional	fold_equal	fold_elision	cg2:w1696	elision-fold; AGDT v1.6 form equals canonical token exactly
+s097w003	97	conditional	fold_equal	fold_elision	cg2:w1729	elision-fold; AGDT v1.6 form equals canonical token exactly
+s115w020	115	conditional	fold_equal	fold_elision	cg2:w2014	elision-fold; AGDT v1.6 form equals canonical token exactly
+s116w012	116	conditional	fold_equal	fold_elision	cg2:w2028	elision-fold; AGDT v1.6 form equals canonical token exactly
+s117w025	117	conditional	fold_equal	fold_elision	cg2:w2077	elision-fold; AGDT v1.6 form equals canonical token exactly
+s118w017	118	conditional	fold_equal	fold_elision	cg2:w2097	elision-fold; AGDT v1.6 form equals canonical token exactly
+s118w029	118	candidate	concat_window	concat_exact	cg2:w2108	hyphen-marked components tile the token in order; no documented split convention
+s118w030	118	candidate	concat_window	concat_exact	cg2:w2108	hyphen-marked components tile the token in order; no documented split convention
+s119w002	119	conditional	fold_equal	fold_elision	cg2:w2120	elision-fold; AGDT v1.6 form equals canonical token exactly
+s121w002	121	annotation_only	none	none		stop mark after a canonical label; the label text carries no stop
+s123w003	123	conditional	fold_equal	fold_nfd	cg2:w2146	elision-fold; AGDT v1.6 form equals canonical token exactly
+s125w015	125	candidate	positional_block	mismatch	cg2:w2180	sole free node and sole free token in the block; surfaces differ; not accepted
+s128w017	128	conditional	fold_equal	fold_elision	cg2:w2253	elision-fold; AGDT v1.6 form equals canonical token exactly
+s130w018	130	conditional	fold_equal	fold_elision	cg2:w2286	elision-fold; AGDT v1.6 form equals canonical token exactly
+s133w030	133	conditional	fold_equal	fold_elision	cg2:w2373	elision-fold; AGDT v1.6 form equals canonical token exactly
+cg2:w0026		canon_conditional				word_run
+cg2:w0067		canon_conditional				word_run
+cg2:w0071		canon_conditional				word_run
+cg2:w0229		canon_candidate_only				word_run
+cg2:w0264		canon_candidate_only				word_run
+cg2:w0266		canon_candidate_only				word_run
+cg2:w0268		canon_conditional				word_run
+cg2:w0342		canon_conditional				word_run
+cg2:w0379		canon_conditional				word_run
+cg2:w0461		canon_conditional				word_run
+cg2:w0566		canon_candidate_only				word_run
+cg2:w0583		canon_candidate_only				word_run
+cg2:w0587		canon_conditional				word_run
+cg2:w0645		canon_conditional				word_run
+cg2:w0648		canon_conditional				word_run
+cg2:w0649		canon_conditional				word_run
+cg2:w0700		canon_conditional				word_run
+cg2:w0762		canon_conditional				word_run
+cg2:w0793		canon_conditional				word_run
+cg2:w0860		canon_conditional				word_run
+cg2:w0899		canon_candidate_only				word_run
+cg2:w0905		canon_conditional				word_run
+cg2:w0915		canon_candidate_only				word_run
+cg2:w0917		canon_candidate_only				word_run
+cg2:w0965		canon_conditional				word_run
+cg2:w1014		canon_candidate_only				word_run
+cg2:w1042		canon_conditional				word_run
+cg2:w1047		canon_conditional				word_run
+cg2:w1105		canon_conditional				word_run
+cg2:w1137		canon_conditional				word_run
+cg2:w1140		canon_conditional				word_run
+cg2:w1155		canon_candidate_only				word_run
+cg2:w1181		canon_conditional				word_run
+cg2:w1225		canon_conditional				word_run
+cg2:w1233		canon_conditional				word_run
+cg2:w1244		canon_candidate_only				word_run
+cg2:w1257		canon_candidate_only				word_run
+cg2:w1267		canon_conditional				word_run
+cg2:w1271		canon_conditional				word_run
+cg2:w1278		canon_conditional				word_run
+cg2:w1334		canon_conditional				word_run
+cg2:w1353		canon_conditional				word_run
+cg2:w1379		canon_conditional				word_run
+cg2:w1398		canon_conditional				word_run
+cg2:w1424		canon_conditional				word_run
+cg2:w1436		canon_conditional				word_run
+cg2:w1507		canon_conditional				word_run
+cg2:w1580		canon_conditional				word_run
+cg2:w1617		canon_conditional				word_run
+cg2:w1666		canon_conditional				word_run
+cg2:w1678		canon_conditional				word_run
+cg2:w1696		canon_conditional				word_run
+cg2:w1729		canon_conditional				word_run
+cg2:w2014		canon_conditional				word_run
+cg2:w2028		canon_conditional				word_run
+cg2:w2077		canon_conditional				word_run
+cg2:w2097		canon_conditional				word_run
+cg2:w2108		canon_candidate_only				word_run
+cg2:w2120		canon_conditional				word_run
+cg2:w2146		canon_conditional				word_run
+cg2:w2180		canon_candidate_only				word_run
+cg2:w2253		canon_conditional				word_run
+cg2:w2286		canon_conditional				word_run
+cg2:w2373		canon_conditional				word_run
