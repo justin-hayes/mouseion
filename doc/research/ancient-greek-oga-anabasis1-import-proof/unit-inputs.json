@@ -1,0 +1,27 @@
+{
+  "scope": "Anabasis Book 1 only; indivisible whole-work original retained privately",
+  "text": {
+    "url": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/476fb6133498e5710de7eec0b492791da86be4b4/data/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml",
+    "repository": "PerseusDL/canonical-greekLit",
+    "release_tag": "0.0.11376425141",
+    "commit": "476fb6133498e5710de7eec0b492791da86be4b4",
+    "path": "data/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml",
+    "bytes": 886347,
+    "git_blob": "a220f4b8accd1448a0189a595493a78aa09c707b",
+    "sha256": "865cf2c761e55a0f603a2ddbb58a08e94934f963724552b268a1493e4b9ae2ec",
+    "declared_edition": "E. C. Marchant, Xenophon Opera Omnia volume 3, Oxford Clarendon Press 1904, reprint 1961",
+    "acquired": true,
+    "header_rights_exception_found": false,
+    "exact_oga_correspondence": "not_yet_established",
+    "public_source_redistribution": false
+  },
+  "archive_proposal": {
+    "url": "https://zenodo.org/api/records/14206061/files/opera_graeca_adnotata_v0.2.0.zip/content",
+    "record_id": 14206061,
+    "file": "opera_graeca_adnotata_v0.2.0.zip",
+    "expected_bytes": 8629032478,
+    "published_md5": "d4117ae52f1cc6319c6ba20af0c1cf3b",
+    "authorization": "Justin explicitly authorized the official archive download after the initial gate stop",
+    "verified_acquisition": "pending; no success implied"
+  }
+}

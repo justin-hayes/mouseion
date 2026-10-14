@@ -1,5 +1,45 @@
 # OGA Anabasis Book 1 import proof: acquisition-gate stop
 
+## Scope amendment — same task reopened
+
+Justin subsequently authorized downloading the official archive for private
+inspection. The [live scope amendment](https://github.com/justin-hayes/mouseion/issues/2030#issuecomment-6178890938)
+reopens the same bounded proof and overrides the earlier no-archive limit only.
+The official download is being attempted with size/published-MD5 verification
+and local SHA-256 recording; **completion is not yet established**. No access
+bypass, source redistribution, new corpus, analysis beyond Book 1, provider call,
+source/MVP acceptance, PR or merge is authorized by this change. The individual
+accompanying upstream work XML has now been acquired and its exact Git blob and
+SHA-256 verified ([new input registry](ancient-greek-oga-anabasis1-import-proof/unit-inputs.json));
+its correspondence to OGA remains unestablished.
+
+The previous gate evidence at commit
+`4104c8be238fe0d4b5500f8e18522e80dd516467` remains unchanged and independently
+reproducible. The following sections and the original `gate.py`, `evidence.json`
+and `ledger.json` describe that **historical initial assessment**, not the newly
+authorized acquisition's current verdict. The
+[rights notice](ancient-greek-oga-anabasis1-import-proof/NOTICE.md) records the
+pre-acquisition assessment and separate operation boundaries.
+
+During the download, the documentary subagent mistakenly deleted the partial
+file. The main session retained the original open inode; local recovery will
+restore and checksum those same response bytes when the request finishes,
+without starting another download. Acquisition remains pending. The new
+`acquire_archive.py` has **10 invented-byte safety tests** (27 together with the
+17 historical metadata tests); these do not prove archive completion or unit
+coverage.
+
+An independently inspected upstream-revision detail: Book 1 in this release has
+10 chapter elements and 205 section elements, with one explicit `choice` at
+**1.3.20** (`sic` / `corr`). These structure counts are not OGA coverage proof.
+The retained GLAUx review set's `text_error_propagated` row instead targets
+**1.3.14**, so that particular illustrative target must not be treated as a
+verified witness to the correction at 1.3.20. The general annotated-revision
+qualification remains; no GLAUx artifact is changed or remediation made a
+prerequisite to this OGA attempt. Exact OGA correspondence is still pending.
+
+## Historical initial gate result
+
 **Result: no complete-unit import was attempted.** The examined official download
 inventory supplies one whole-corpus archive, not an individual Anabasis package.
 That route is explicitly prohibited by

@@ -1,5 +1,50 @@
 # Attribution, rights and modification notice
 
+## Live scope amendment: official archive authorized
+
+After the initial gate stop, Justin explicitly authorized downloading the archive
+in the live session: “Feel free to download the archive if that unblocks you.”
+The official v0.2.0 Zenodo archive may now be acquired for **private inspection**
+under OGA's explicit corpus CC BY-SA 4.0 declaration. This overrides only the
+earlier no-archive acquisition boundary; it does not infer public redistribution
+of unreviewed components, accept a source, authorize challenge/account/mirror
+bypass, or change analysis scope beyond Anabasis Book 1. The previous gate
+assessment remains immutable at commit
+`4104c8be238fe0d4b5500f8e18522e80dd516467`.
+
+Proposed acquisition: one ordinary request to the official record's content
+endpoint for `opera_graeca_adnotata_v0.2.0.zip`, expected **8,629,032,478 bytes**,
+published MD5 `d4117ae52f1cc6319c6ba20af0c1cf3b`. Verify size and checksum,
+compute SHA-256 locally, retain the original privately, and use the ZIP central
+directory to locate the individual Anabasis work and accompanying notices.
+Do not unpack or analyze the corpus. Access errors/challenges stop the request;
+there is no automatic retry or alternate transport. Approximately 54 GiB free
+disk space was observed before download, sufficient for the archive plus the
+bounded selected-work extraction without corpus-wide decompression.
+
+A documentary subagent erroneously unlinked the partial download despite the
+new authorization and separate file ownership. The main session retained the
+still-open local inode through the downloader's file descriptor. A local
+recovery process holds that inode until the original request exits, then checks
+the complete size/MD5 and computes SHA-256 before restoring the archive path.
+This is recovery of the **same original response bytes**, not another network
+request, archive range extraction, alternate source or access workaround. No
+verified acquisition is claimed until recovery and checks complete.
+
+Exact component declarations/headers will be inspected before any source-derived
+public examples or text publication. The historical operation table below records
+the **initial** gate only and must not be read as undoing this authorization.
+
+The individually addressable canonical-greekLit Anabasis work file at commit
+`476fb6133498e5710de7eec0b492791da86be4b4` is also eligible for private comparison
+under its repository's explicit default BY-SA 4.0 grant and personal-use notice.
+Expected size: 886,347 bytes; Git blob
+`a220f4b8accd1448a0189a595493a78aa09c707b`. This is the one accompanying
+edition lead already scoped by the issue, not another corpus or substitute
+edition. Retain the indivisible work file but measure only Book 1. Inspect its
+own header for exceptions; do not infer exact OGA correspondence from the grant
+or CTS identifier, and do not publish the full original at this stage.
+
 Bounded documentary assessment, not legal advice, dataset acceptance or an
 archive-acquisition authorization. The acquisition-scope stop is sufficient;
 license uncertainty is not used to manufacture another reason to reject OGA.
