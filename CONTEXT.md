@@ -23,6 +23,10 @@ Text–annotation binding terms record the accepted classical identity direction
 in [ADR 0093](doc/adr/0093-classical-identity-and-reading-units.md), not a shipped
 classical acquisition model. Existing EPUB Books retain their IDs and analysis
 scope; no Work/Edition backfill is implied.
+The Canonical interpretation, Vocabulary-ready analysis, Annotation provenance,
+and Annotation occurrence terms record the accepted source-independent contract
+in [ADR 0094](doc/adr/0094-source-independent-annotation-and-provenance.md), not
+shipped partial-annotation support or a migration of existing corrections.
 
 ## Language
 
@@ -276,6 +280,31 @@ Text Source revision over declared passage bounds, retaining its transformation
 provenance. Bibliographic or CTS identifier agreement alone does not establish
 this correspondence.
 _Avoid_: work match, CTS match (candidate identity, not verified correspondence).
+
+**Canonical interpretation**:
+The source-independent linguistic meaning derived from exact annotation evidence
+through documented mappings, distinct from the preserved native evidence. It
+explicitly distinguishes usable information from missing or unresolved information.
+_Avoid_: original annotation, complete parse (not implied by interpretation).
+
+**Vocabulary-ready analysis**:
+An analysis with verified text correspondence and full declared-scope coverage,
+accounting for every lexical occurrence by usable vocabulary identity or justified
+non-vocabulary classification. It does not imply complete syntax, human review,
+or card suitability.
+_Avoid_: human-reviewed analysis, card-ready analysis, complete parse.
+
+**Annotation provenance**:
+The attributed origin and production or review history of linguistic evidence,
+at its documented layer and scope. Human, human-reviewed automatic, automatic,
+and unknown provenance are distinct from a learner's correction decisions.
+_Avoid_: scholarly certification, learner review, annotation quality.
+
+**Annotation occurrence**:
+A text-attested linguistic occurrence distinguished within one exact analysis,
+even when it shares a source span with another occurrence. An unprinted syntax
+node or multiword-token container is not an additional vocabulary occurrence.
+_Avoid_: source span (its textual anchor), native token ID (source-scoped evidence).
 
 **Book**:
 A learner's bibliographic identity for a defined Reading unit, owned per learner
