@@ -1,0 +1,70 @@
+{
+ "variant": "reading",
+ "flags": "_ambigignored",
+ "canonical_codepoints": 58560,
+ "canonical_tokens": 10415,
+ "gorman_sentences": 611,
+ "gorman_nodes_all_words": 10674,
+ "gorman_artificial_nodes": 139,
+ "gorman_printed_units": 10495,
+ "gorman_printed_nodes": 10535,
+ "gorman_merged_clitic_units": 40,
+ "gorman_trailing_hyphen_units": 5,
+ "unit_status": {
+  "exact": 10214,
+  "variant": 200,
+  "unmatched": 81
+ },
+ "unit_reasons": {
+  "elision-or-apostrophe-glyph-variant": 191,
+  "gorman-only": 76,
+  "different-token": 2,
+  "partial-piece": 5,
+  "no-canonical-counterpart-in-block": 5,
+  "accent-breathing-only-difference": 1,
+  "punctuation-mark-difference": 1
+ },
+ "canonical_only_tokens": 1,
+ "canonical_only_sample": [
+  "ἀνέβη"
+ ],
+ "candidate_sentences": 381,
+ "candidate_full_exact": 243,
+ "candidate_ws_distribution_full": {
+  "6-50": 347,
+  "<6": 13,
+  ">50": 21
+ },
+ "candidate_cp_over_400": 3,
+ "candidate_ws_over_50": 21,
+ "candidate_short_complete_lt6_full_exact": 12,
+ "candidate_crossing_section": 12,
+ "candidate_no_terminal": 0,
+ "native_sentences_subdoc_matches": 602,
+ "native_sentences_exact_all": 433,
+ "native_sentences_with_variant": 168,
+ "native_sentences_with_unmatched": 17,
+ "identities_total": 1496,
+ "identities_with_disc": 15,
+ "identities_selected_ge3": 493,
+ "occurrences_selected": 8127,
+ "identities_selected_with_qualifying": 477,
+ "identities_selected_without_qualifying": [
+  "λόφοσ|NOUN|-",
+  "στρατόπεδον|NOUN|-",
+  "ἐκεῖ|ADV|-",
+  "τριήρησ|NOUN|-",
+  "ἐπίσταμαι|VERB|-",
+  "ἵνα|CCONJ|SCONJ|-",
+  "διίστημι|VERB|-",
+  "διελαύνω|VERB|-",
+  "οἴχομαι|VERB|-",
+  "οὐκέτι|ADV|-",
+  "παίω|VERB|-",
+  "πεζόσ|ADJ|-",
+  "τρέχω|VERB|-",
+  "ἀναστρέφω|VERB|-",
+  "ἀριαῖοσ|NOUN|-",
+  "ἵημι|VERB|-"
+ ]
+}
