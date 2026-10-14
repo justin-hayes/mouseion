@@ -27,6 +27,10 @@ The Canonical interpretation, Vocabulary-ready analysis, Annotation provenance,
 and Annotation occurrence terms record the accepted source-independent contract
 in [ADR 0094](doc/adr/0094-source-independent-annotation-and-provenance.md), not
 shipped partial-annotation support or a migration of existing corrections.
+The Personal analyzed-Book occurrences and External frequency evidence terms
+distinguish the counting domains in
+[ADR 0095](doc/adr/0095-greek-personal-counts-and-external-frequency.md).
+That accepted Greek MVP direction does not deliver Ancient Greek support.
 
 ## Language
 
@@ -76,6 +80,19 @@ vocabulary snapshot: either recurring in that Book or appearing there and
 frequently across the learner's currently analyzed Books in the same study
 language, including that Book. Generated provenance does not exclude it.
 _Avoid_: recurring vocabulary (only one route into this pool), corpus words.
+
+**Personal analyzed-Book occurrences**:
+The learner-and-study-language-scoped total of an effective vocabulary identity's
+eligible occurrences across currently analyzed Books, after confirmed occurrence
+decisions. Distinct editions and overlapping Reading units contribute separately;
+the total is not a count of unique textual encounters.
+_Avoid_: global frequency, unique corpus occurrences, external corpus frequency.
+
+**External frequency evidence**:
+Source-attributed vocabulary occurrence counts or ranks from a corpus independent
+of the learner's analyzed Books. It is not personal analyzed-Book occurrences or
+evidence of learner knowledge.
+_Avoid_: personal corpus counts, Known vocabulary, universal Greek frequency.
 
 **Reserved vocabulary**:
 The frozen Book-vocabulary-candidate snapshot held by a current reading in its
