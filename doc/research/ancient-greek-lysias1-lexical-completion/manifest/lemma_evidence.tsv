@@ -1,0 +1,33 @@
+lemma_v21_cp	occurrences	smyth_2769_particles	agdt_4_1_12_1_conjunction_list	ud_grc_named_in	ud_general_named_in
+U+0398 U+03B5 U+03C3 U+03BC U+03BF U+03C6 U+03CC U+03C1 U+03B9 U+03B1	1	absent	absent		
+U+03B3 U+03AC U+03C1	31	exact	absent		
+U+03B3 U+03B5	1	accent_variant	absent		
+U+03B4 U+03AD	40	exact	exact		
+U+03B5 U+1F30 U+03BC U+03AF	2	absent	absent	ud_grc_aux	
+U+03B5 U+1F36 U+03C4 U+03B1	1	absent	absent		
+U+03BA U+03B1 U+03AF	13	exact	exact	ud_grc_cconj;ud_grc_part	
+U+03BA U+03B1 U+03AF U+03C4 U+03BF U+03B9	3	exact	exact		
+U+03BA U+03B1 U+1F76	8	accent_variant	accent_variant		
+U+03BC U+03AD U+03BD	34	exact	absent		
+U+03BC U+03AE	11	absent	absent		
+U+03BC U+1F74	2	absent	absent		
+U+03BD U+1FE6 U+03BD	1	exact	absent		
+U+03BF U+1F50	21	absent	absent		
+U+03BF U+1F50 U+03B4 U+03AD	2	exact	exact		
+U+03BF U+1F54 U+03C4 U+03B5	3	exact	exact		
+U+03BF U+1F56 U+03BD	10	exact	absent		
+U+03C0 U+03AC U+03B3 U+03BF U+03C2	1	absent	absent		
+U+03C0 U+1FB6 U+03B3 U+03BF U+03C2	1	absent	absent		
+U+03C3 U+03C6 U+03CC U+03B4 U+03C1 U+03B1	1	absent	absent		
+U+03C3 U+03CD U+03BD U+002D U+03BB U+03AD U+03B3 U+03C9	1	absent	absent		
+U+03C4 U+03B5	8	accent_variant	exact	ud_grc_cconj	
+U+03C4 U+03BF U+03AF U+03BD U+03C5 U+03BD	5	absent	absent		
+U+1F00 U+03BB U+03BB U+03AC	1	exact	exact	ud_grc_cconj	
+U+1F00 U+03BD U+03C4 U+03AF U+002D U+03B2 U+03BF U+03BB U+03AD U+03C9	2	absent	absent		
+U+1F04 U+03BD	21	absent	absent		
+U+1F08 U+03B8 U+03B7 U+03BD U+03B1 U+1FD6 U+03BF U+03C2	2	absent	absent	ud_grc_noun	
+U+1F0C U+03C1 U+03B5 U+03B9 U+03B1 U+03C2	2	absent	absent		
+U+1F14 U+03C0 U+03B5 U+03B9 U+03C4 U+03B1	2	absent	absent		
+U+1F19 U+03BB U+03BB U+03AC U+03C2	1	absent	absent		
+U+1F45 U+03BC U+03C9 U+03C2	1	absent	absent		
+U+1F61 U+03C2	2	exact	absent		

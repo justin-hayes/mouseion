@@ -1,0 +1,125 @@
+{
+  "inputs_verified": 20,
+  "nodes": 2834,
+  "node_classes": {
+    "artificial": 32,
+    "punct": 374,
+    "word": 2428
+  },
+  "t1a2_vocab_blocked": 235,
+  "t1a2_vocab_blocked_rules": {
+    "R01A": 2,
+    "R01C": 4,
+    "R01M": 2,
+    "R03A": 46,
+    "R03C": 70,
+    "R03N": 32,
+    "R03P": 72,
+    "R03S": 2,
+    "R05X": 2,
+    "R06": 3
+  },
+  "blocker_counts": {
+    "BI-ELIG-EIMI": 2,
+    "BI-ELIG-NAME": 8,
+    "BI-ELIG-PARTICLE": 222,
+    "BI-HEADWORD-CONDITIONAL": 2,
+    "BI-HEADWORD-UNRESOLVED": 1,
+    "BT-S011-ORDER": 2
+  },
+  "overlap_BI_ELIG_PARTICLE_and_BT_S011_ORDER": [
+    "s011w026",
+    "s011w029"
+  ],
+  "proposal_counts": {
+    "P01-PARTICLE-ADV": 62,
+    "P02-CONJPART-OPEN": 70,
+    "P03-GAR-OUN-TOINUN-ADV": 46,
+    "P04-VARIANT-HOLD": 10,
+    "P05-NEG-PART": 32,
+    "P06-EIMI-VERB": 2,
+    "P07-SUBST-ADJ-ADJ": 2,
+    "P08-PLACE-PROPN": 1,
+    "P10-HW-H3-CANDIDATE": 2,
+    "P11-HW-NONE": 1,
+    "none": 7
+  },
+  "finding_label_counts": {
+    "exact_fact": 235,
+    "proposed_interpretation": 145,
+    "unperformed_check": 6,
+    "unsupported_case": 157
+  },
+  "eligibility_changes": 0,
+  "smyth_2769_heading_tokens": 61,
+  "particle_occurrences": 222,
+  "particle_occurrences_smyth_2769": {
+    "absent": 65,
+    "accent_variant": 17,
+    "exact": 140
+  },
+  "particle_occurrences_agdt_4_1_12_1": {
+    "absent": 144,
+    "accent_variant": 8,
+    "exact": 70
+  },
+  "agdt_conjunction_particles": [
+    "\u1f00\u03bb\u03bb\u03ac",
+    "\u1f00\u03c4\u03ac\u03c1",
+    "\u03b4\u03ad",
+    "\u03b5\u1f34\u03c4\u03b5",
+    "\u1f24",
+    "\u1f20\u03b4\u03ad",
+    "\u03ba\u03b1\u03af",
+    "\u03ba\u03b1\u03af\u03c4\u03bf\u03b9",
+    "\u03bf\u1f50\u03b4\u03ad",
+    "\u03bf\u1f54\u03c4\u03b5",
+    "\u03bc\u03b7\u03b4\u03ad",
+    "\u03bc\u03ae\u03c4\u03b5",
+    "\u03c4\u03b5"
+  ],
+  "headword_results": {
+    "\u1f00\u03bd\u03c4\u03af-\u03b2\u03bf\u03bb\u03ad\u03c9": {
+      "H1": false,
+      "H2": false,
+      "H3_candidates": 1
+    },
+    "\u03c3\u03cd\u03bd-\u03bb\u03ad\u03b3\u03c9": {
+      "H1": false,
+      "H2": false,
+      "H3_candidates": 0
+    }
+  },
+  "name_results": {
+    "\u1f19\u03bb\u03bb\u03ac\u03c2": {
+      "nom_proper_exact": false,
+      "nom_proper_near": false,
+      "lemlist_exact": true
+    },
+    "\u0398\u03b5\u03c3\u03bc\u03bf\u03c6\u03cc\u03c1\u03b9\u03b1": {
+      "nom_proper_exact": false,
+      "nom_proper_near": false,
+      "lemlist_exact": true
+    },
+    "\u1f08\u03b8\u03b7\u03bd\u03b1\u1fd6\u03bf\u03c2": {
+      "nom_proper_exact": false,
+      "nom_proper_near": true,
+      "lemlist_exact": true
+    },
+    "\u1f0c\u03c1\u03b5\u03b9\u03b1\u03c2": {
+      "nom_proper_exact": false,
+      "nom_proper_near": false,
+      "lemlist_exact": true
+    },
+    "\u03c0\u1fb6\u03b3\u03bf\u03c2": {
+      "nom_proper_exact": false,
+      "nom_proper_near": false,
+      "lemlist_exact": true
+    },
+    "\u03c0\u03ac\u03b3\u03bf\u03c2": {
+      "nom_proper_exact": false,
+      "nom_proper_near": true,
+      "lemlist_exact": true
+    }
+  }
+}
