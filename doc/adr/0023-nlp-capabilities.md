@@ -2,6 +2,11 @@
 
 Status: **Accepted** · Date: 2026-08-24 · Author: Justin + Hermes
 
+For future classical support, [ADR 0096](0096-classical-catalogue-discovery-and-acquisition.md)
+amends universal NLP authority with producer support, present availability and
+validated evidence capabilities independent of Stanza. Implementation is pending;
+the existing NLP capability flow is unchanged.
+
 ## Context
 
 The web application currently treats study-language availability as a server/admin concern. Language support is actually determined by the NLP microservice's installed models and capabilities.
