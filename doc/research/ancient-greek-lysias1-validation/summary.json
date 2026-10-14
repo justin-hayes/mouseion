@@ -1,0 +1,185 @@
+{
+  "recon_version": "lysias1-recon-v1",
+  "pins": {
+    "agdt": {
+      "path": "agdt/v2.1/Greek/texts/tlg0540.tlg001.perseus-grc1.tb.xml",
+      "sha256": "44ecf3a29e33fe8a173ef1d08b43dc9e52c9e066cacbd642050d95af83d7a568",
+      "bytes": 304700
+    },
+    "canonical": {
+      "path": "canon/data/tlg0540/tlg001/tlg0540.tlg001.perseus-grc2.xml",
+      "sha256": "21dbae42979097132d8d4c16531ed0527beac717b2cc1fffec541205f6514d6a",
+      "bytes": 47533
+    }
+  },
+  "pin_checks": {
+    "agdt_matches_pin": true,
+    "canonical_matches_pin": true
+  },
+  "tools": {
+    "python": "3.13.5",
+    "platform": "Linux-6.12.111+deb13-cloud-amd64-x86_64-with-glibc2.41",
+    "stdlib_only": true,
+    "script_sha256": "3d9bc1d0536737bbb014872bd7c38d39017962441b7adb195dc8ce39a3bbc183"
+  },
+  "agdt": {
+    "native_sentences": 134,
+    "nodes_total": 2834,
+    "node_kinds": {
+      "printed": 2802,
+      "artificial:elliptic:bracket_form": 23,
+      "artificial:elliptic:form": 9
+    },
+    "printed_occurrences": 2802,
+    "printed_span_checks_failed": 0,
+    "reconstructed_codepoints": 15167,
+    "reconstructed_whitespace_tokens": 2415,
+    "nfc_nonconforming_forms": 5,
+    "marks_count": {
+      "U+0313": 50,
+      "U+0387": 0,
+      "U+00B7": 42,
+      "ASCII_semicolon": 7,
+      "U+2019": 0,
+      "U+02BC": 0,
+      "U+1FBD": 0
+    },
+    "pos_letter_counts": {
+      "r": 136,
+      "a": 243,
+      "d": 341,
+      "v": 569,
+      "u": 374,
+      "i": 25,
+      "n": 328,
+      "l": 284,
+      "p": 287,
+      "c": 215
+    },
+    "lemma_flags": {},
+    "aux_relation_counts": {
+      "AuxP": 138,
+      "AuxY": 195,
+      "AuxX": 231,
+      "AuxZ": 92,
+      "AuxK": 135,
+      "AuxC": 91,
+      "AuxG": 4,
+      "AuxV": 1
+    }
+  },
+  "canonical": {
+    "file_sha256": "21dbae42979097132d8d4c16531ed0527beac717b2cc1fffec541205f6514d6a",
+    "sections_found": 50,
+    "section_numbers_consecutive": true,
+    "editorial_elements": {
+      "note": 14,
+      "del": 3,
+      "add": 3,
+      "gap": 3,
+      "label": 5
+    },
+    "tags_seen_outside_note_label": [
+      "add",
+      "del",
+      "gap",
+      "milestone",
+      "p",
+      "q"
+    ],
+    "rubric_labels_removed_from_running_text": [
+      "Μάρτυρες",
+      "Νόμος"
+    ],
+    "running_whitespace_tokens": 2409
+  },
+  "alignment": {
+    "method": "difflib.SequenceMatcher on exact whitespace tokens, autojunk=False; no case/accent folding",
+    "agdt_tokens_equal": 2337,
+    "canonical_tokens_equal": 2337,
+    "agdt_token_equal_fraction": 0.967702,
+    "nonequal_blocks": 71,
+    "nonequal_by_op": {
+      "replace": 66,
+      "delete": 5
+    },
+    "nonequal_by_class": {
+      "elision_mark_clitic_or_punctuation_convention": 64,
+      "unexplained": 2,
+      "rubric_in_agdt_only": 5
+    },
+    "nonequal_unexplained_examples": [
+      [
+        "ὥστε-τε μή λυπεῖν-τε μή",
+        "ὥστε μήτε λυπεῖν μήτε"
+      ],
+      [
+        "οὔτε",
+        "οὕτε"
+      ]
+    ],
+    "nonequal_agdt_tokens": 78,
+    "nonequal_canonical_tokens": 72,
+    "first_agdt_token": "περὶ",
+    "last_agdt_token": "ἐπειθόμην.",
+    "first_canonical_token": "περὶ",
+    "last_canonical_token": "ἐπειθόμην."
+  },
+  "vocabulary": {
+    "lexical_pos_classes": {
+      "n": "NOUN",
+      "v": "VERB",
+      "a": "ADJ",
+      "d": "ADV"
+    },
+    "lexical_occurrences": 1481,
+    "unresolved_lexical_occurrences": 0,
+    "lexical_occurrences_total_checked": 1481,
+    "distinct_raw_lemma_identities": 502,
+    "selection_rule": ">= 3 lexical occurrences in this Book (provisional 3/15)",
+    "selected_identities": 136,
+    "selected_identities_with_aligned_occurrence": 136,
+    "selected_identity_omissions": {},
+    "selected_occurrences": 1017,
+    "selected_occurrences_unaligned": 36,
+    "selected_identities_with_unaligned_occurrence": 15,
+    "status": "conditional: canonical lemma-to-headword mapping not performed in this probe"
+  },
+  "sentences": {
+    "native_nonempty": 134,
+    "empty_native_segments": 0,
+    "units": {
+      "min": 1,
+      "p25": 10,
+      "median": 15.0,
+      "p75": 25,
+      "p90": 35,
+      "max": 65
+    },
+    "codepoints": {
+      "min": 6,
+      "p25": 60,
+      "median": 95.0,
+      "p75": 145,
+      "p90": 226,
+      "max": 390
+    },
+    "over_units_cap_50": 4,
+    "over_codepoints_cap_400": 0,
+    "terminal_marks": {
+      "·": 42,
+      ".": 86,
+      ";": 6
+    },
+    "completeness": "not certified: native boundaries are reported, not validated"
+  },
+  "runtime_seconds": 0.04,
+  "detail_bytes": {
+    "alignment_blocks.json": 19959,
+    "canonical_running_text.txt": 29674,
+    "per_identity.json": 166960,
+    "reconstruction.txt": 29762,
+    "rubrics.json": 154,
+    "sentences.json": 53998
+  }
+}
