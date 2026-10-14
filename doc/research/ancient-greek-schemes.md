@@ -2,6 +2,8 @@
 
 Research for #2032 under map #2021. Date: 2026-10-14. Baseline: `b262ed0a`. This version supersedes `a7a12f7d`; §0 lists what changed.
 
+**Parent review:** §11 corrects XML field interpretation and compares like-for-like corpus scopes. It supersedes conflicting earlier statements and bounds the reading-unit claims. Optional PTNK evidence is not required to resolve this survey; it remains unverified, with no rejected access retried.
+
 This document records evidence. It does not choose an architecture, a priority, a corpus, an MVP, or a normalization policy; those decisions stay with the human reviewer (#2021).
 
 ## 0. Corrections to `a7a12f7d`
@@ -9,13 +11,13 @@ This document records evidence. It does not choose an architecture, a priority, 
 - **XPOS (Perseus):** UD Perseus XPOS keeps the native 9-character AGDT postag, including `e` (middle or passive). Verified (§2.2).
 - **XPOS (PROIEL):** UD PROIEL XPOS holds two-character POS codes (observed values `V-`, `Nb`, `S-`, `Df`, `R-`), not the native morphology string.
 - **Worked example:** the earlier PROIEL example ἦν was imperfect, not aorist. The aorist example is now ἐγέννησεν (MATT 1.2, `3saia----i`), and ἦν (MATT 1.18, `3siia----i`) is the imperfect (§2.3).
-- **AGDT citation fields:** `subdoc` and `document_id` are sentence attributes. Words carry no citation field (§4).
+- **AGDT citation fields:** `subdoc` and `document_id` are sentence attributes. Some files also have token-level `cite` attributes; their presence varies by file (§4, §11).
 - **Converter reproduction:** the claim that converter rules reproduce UD PROIEL FEATS for 213,053 token pairs is withdrawn. It was not replicated. The converter rules are quoted as read (§2.3).
-- **Counts:** AGDT has 95 distinct relations (not 96). PROIEL native has 29 distinct `#` lemmas on 3,475 tokens (not 7,230). Zero native tokens carry `slash` (not 19,939). The UD PROIEL `LId` count (6,501) is not reconciled with the native `#` count.
+- **Counts:** AGDT has 95 distinct nonempty relations in this probe. The 3,475 native `#`-lemma tokens count the NT only; 7,230 counts NT, Herodotus and Chronicle. PROIEL has no `slash` attribute, but does have nested `slash` elements (19,939 across those three sources). Compare source-matched homograph counts in §11 rather than these unlike totals.
 - **Crosswalk FORM mismatches:** the 911 raw mismatches all disappear after Unicode NFC normalization (§2.2).
 - **Candidate units:** Lysias 1, 14, and 15 have speech-level subdoc ranges, so their reference check is trivial and their evidence is word-level only. Thucydides 1, Herodotus 1, Plutarch *Alcibiades*, and Gorman *Aeschines* 1 are not complete. Plutarch *Lycurgus*, Lysias 23, Polybius 1, and Athenaeus 12 and 13 are complete at leaf level (§6.1). The earlier scope rule could hide missing sections; it now scores the full span of claimed references.
 - **Herodotus, PROIEL:** book 1 has 212 distinct cited chapters, max 216; chapters 127–130 are absent (§6.3).
-- **Pedalion:** the earlier §4 probe used double-quoted attributes, but Pedalion XML uses single quotes. Its figures are withdrawn (§5).
+- **Pedalion:** XML quote style does not affect ElementTree parsing. Parent review independently reproduced 281,253 reference occurrences, 274,058 distinct references and 7,195 extra repeated occurrences across 40 XML files (§5, §11).
 - **NT completeness:** "other NT books are contiguous by chapter" is withdrawn. A per-book table is in §6.2. Titus is the only book checked against an external verse total.
 - **Removed claims:** Trachiniae's 46-line gap, Odyssey book 10's one-line shortfall, and the Aeschylus identification were not re-checked in this pass and are removed. Hebrews is not claimed complete: the file stops at chapter 12.
 
@@ -43,7 +45,7 @@ All numbers below come from the probes in §10, run once against these pins on 2
 | Dimension | AGDT v2.1 (native) | UD Perseus (converted from AGDT) | PROIEL native | UD PROIEL (converted from PROIEL) | Gorman | Pedalion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Morphology | 9-char `postag` (positions pos, person, number, tense, mood, voice, gender, case, degree; [TAGSETS.xml](https://github.com/PerseusDL/treebank_data/blob/bf4334f0af5e13d16b04c1cccd6237e683ac6f5f/v2.1/Greek/TAGSETS.xml)) | UPOS and FEATS (converted); XPOS keeps the native 9-char postag | 10-char `morphology` (person, number, tense, mood, voice, gender, case, degree, strength, inflection) | UPOS and FEATS (converted); XPOS holds two-character POS codes | not inspected beyond file count (§6.4) | `aldt` v1.5 (sample file, §5) |
-| Relations | `relation`; 95 distinct values, 66 `_` compounds (§2.1) | UD labels; DEPS `_` on every token | `relation` plus `head-id`; no `slash` attribute in the file | UD labels; DEPS `_` on every token | not inspected | not inspected |
+| Relations | `relation`; 95 distinct values, 66 `_` compounds (§2.1) | UD labels; DEPS `_` on every token | `relation` plus `head-id`; nested `slash` secondary edges (§11) | UD labels; DEPS `_` on every token | not inspected | not inspected |
 | Root | `head="0"`, `relation="PRED"` (ξυνέγραψε, first sentence of [tlg0003.tlg001.perseus-grc1.1.tb.xml](https://github.com/PerseusDL/treebank_data/blob/bf4334f0af5e13d16b04c1cccd6237e683ac6f5f/v2.1/Greek/texts/tlg0003.tlg001.perseus-grc1.1.tb.xml)) | root relation not re-checked | `head-id` absent on 12,630 tokens (roots and unannotated tokens, not separated) | not re-checked | not inspected | not inspected |
 | Empty nodes | `artificial` words (excluded from the crosswalk, §2.2) | not checked in this pass | 8,407 tokens with `empty-token-sort` (§2.3) | converter removes sort `P`, `V`, `C` empties (as read, §2.3) | not inspected | not inspected |
 | Lemma homographs | no `#` and no digits in any lemma (0 each) | plain lemma | `#` on 3,475 tokens, 29 distinct lemmas | plain lemma; MISC `LId` on 6,501 tokens | not inspected | not inspected |
@@ -122,7 +124,7 @@ Worked examples (native morphology position order: person, number, tense, mood, 
 - ἐγέννησεν, MATT 1.2, `3saia----i`: aorist indicative active. The converter's tense rule gives `Aspect=Perf|Tense=Past` for the aorist, while UD Perseus gives `Tense=Past` only (§2.2). The UD PROIEL CoNLL-U line for this token was read in an earlier pass and is not re-cited here.
 - ἦν, MATT 1.18, `3siia----i`: imperfect indicative active, converted to `Aspect=Imp`.
 
-The same aorist therefore receives different aspect features in the two UD treebanks. Both come from one tense value in their source, so the difference is in the conversion, not in the source morphology.
+The inspected Perseus output and PROIEL converter rule treat native aorist values differently in their normalized aspect representation. The converter was not rerun, so this is not a proof that every token in every converted release follows that rule.
 
 ### 2.4 Empty nodes
 
@@ -147,21 +149,19 @@ Examples:
 
 ## 4. Citations and sentence identity
 
-- AGDT sentence attributes are only `id`, `document_id`, and `subdoc`. Word attributes are `id`, `form`, `lemma`, `postag`, `relation`, `head`, `artificial`, and `insertion_id`. (Checked by parsing `tlg0003.tlg001.perseus-grc1.1.tb.xml`.) The citation sits in sentence-level `subdoc`, for example `1.1.1`. Lysias speeches carry a speech-level range (`1-50`).
+- The inspected Thucydides file uses sentence-level `id`, `document_id` and `subdoc`, with `subdoc` references such as `1.1.1`; this is not an exhaustive schema inventory. Other AGDT files also carry word-level `cite` (for example Suppliants, §11). Some Lysias files carry speech-level ranges such as `1-50` rather than exact per-token passage references.
 - UD Perseus `sent_id` is `<AGDT file>@<sentence id>` (for example `tlg0003.tlg001.perseus-grc1.1.tb.xml@3`).
 - PROIEL citations are `citation-part` (for example `MATT 1.18`), carried into UD PROIEL as MISC `Ref` on every token (214,005 of 214,005).
 - PROIEL sentence `id` is unique in the native file (0 duplicates, §2.3).
-- Homographs: AGDT lemmas have no `#` and no digits (§2.1). PROIEL native lemmas carry `#` on 3,475 tokens (29 distinct lemmas). UD PROIEL carries the variant in MISC `LId` on 6,501 tokens. The two counts do not reconcile.
+- Homographs: AGDT lemmas have no `#` and no digits in this inventory (§2.1). The native NT has 3,475 `#`-lemma tokens; UD NT has 3,462 `LId` tokens. Native Herodotus has 3,106 versus 3,039 in UD Herodotus. The 6,501 total is UD NT plus Herodotus, not NT alone. Differences remain version/subset/token-identity questions, not demonstrated homograph-conversion loss (§11).
 
 ## 5. Pedalion identity
 
-Pedalion XML uses single-quoted attributes. Sample file `src/pedalion/public/xml/epicurus1.xml` (in the pinned tree) has `format="aldt" version="1.5"` on its root and 1,523 `ref` attributes. Word `ref` values look like `Leuven|0537-012|1|1`. No `ref` value repeats within that file.
-
-Not verified in this pass: uniqueness of `ref` across files, the per-file inventory (41 XML files under `public/xml`), and relation labels. The earlier counts (281,253 words, 7,195 repeats) came from a probe that used double quotes and is withdrawn.
+Sample file `src/pedalion/public/xml/epicurus1.xml` (in the pinned tree) has an `aldt` v1.5 root and references such as `Leuven|0537-012|1|1`. Parent review parsed all 40 `public/xml/*.xml` files using ElementTree: 281,253 word/reference occurrences, 274,058 distinct `ref` strings and 7,195 extra occurrences. Thus a `ref` string alone is not globally unique across this snapshot. Quoting attributes with single or double quotes makes no difference to an XML parser. Corpus-wide relation semantics and complete reading-unit coverage remain unverified.
 
 ## 6. Candidate complete reading units
 
-"Complete" here means every canonical leaf of a unit (a section or a chapter at the leaf level of its canonical text) is covered by an AGDT sentence reference, and the word sequence matches. It does not mean identical text: AGDT files are based on different editions (grc1) from the canonical texts (grc2 or grc4). These are inventories of evidence, not a recommended MVP.
+The table records **candidate reference coverage and coarse cross-edition word similarity**, not verified textual completeness or annotation alignment. A broad sentence range may mark every leaf as covered despite missing text. The probe scopes references to their claimed endpoints, which can hide missing final material unless independently bounded. Its word comparison removes diacritics and uses `SequenceMatcher` over whole sequences, not a verified one-to-one offset mapping. Therefore the table's historical "complete" labels mean only that this reference probe reported full coverage within its scored scope. AGDT and comparison texts also use different editions. Candidate-specific exact-text, token, offset and full-unit validation is still required before an MVP is selected (§11).
 
 ### 6.1 AGDT v2.1 units
 
@@ -231,7 +231,7 @@ Book 1 is not complete in PROIEL (chapters 127–130 absent). Books 2 and 9 are 
 
 ## 7. Other open treebanks
 
-- **UD Ancient Greek-PTNK** (listed in UD 2.18; Septuagint Genesis 1–50 and Ruth 1–4, CC BY-SA 4.0, projected from Hebrew and corrected; per the UD listing): **not verified**. The user declined the clone. No PTNK data was accessed, and no SHA, file, licence, or count is given here. Every PTNK statement remains unverified.
+- **UD Ancient Greek-PTNK** (described by the researcher from a UD listing): **not verified in this survey**. The researcher reported a rejected clone operation. No permission to bypass that rejection is assumed, and parent review did not access the PTNK directory or retry the operation. This does not establish a user decision excluding PTNK from the broader effort. No verified pin, data or license conclusion is supplied here.
 - **AthDGC** (arXiv 2606.15510; Zenodo DOI 10.5281/zenodo.20439182, v0.4.0): automatic Stanza `grc_proiel` annotation across classical periods. **Not human-reviewed**, so it is not a candidate for human-reviewed units.
 
 ## 8. New precise questions
@@ -239,8 +239,8 @@ Book 1 is not complete in PROIEL (chapters 127–130 absent). Books 2 and 9 are 
 1. Which 361 tokens separate the native NT non-empty count (132,366) from the UD PROIEL NT count (132,005)?
 2. Are the NT verse gaps listed in §6.2 textual variants in the edition's apparatus?
 3. Why are chapters 127–130 of Herodotus book 1 absent from `hdt.xml`?
-4. Why does the UD PROIEL `LId` count (6,501) differ from the native `#`-lemma token count (3,475)?
-5. Does UD PTNK use the same aorist and middle conventions as UD Perseus or UD PROIEL? This needs a pinned clone, which the user has declined, so it stays open.
+4. What explains the like-for-like NT (3,475 versus 3,462) and Herodotus (3,106 versus 3,039) variant-count differences after accounting for release, omitted sentences and token identity?
+5. Does UD PTNK use the same aorist and middle conventions? This optional extension remains unverified; it need not block decisions using the inspected datasets.
 
 ## 9. Limitations
 
@@ -649,3 +649,74 @@ print('book 1 distinct chapters:', len(b1), '| min', min(b1), 'max', max(b1))
 print('missing chapters in 1..max:', [c for c in range(1, max(b1) + 1) if c not in b1])
 print('distinct chapters per book:', {b: len(c) for b, c in sorted(books.items())})
 ```
+
+## 11. Parent-review verification and resolution bounds
+
+The parent reviewer ran the following stdlib XML/CoNLL-U probe against the same pinned local source copies on 2026-10-14. No PTNK files were accessed.
+
+```python
+# Run: python3 -I reviewer_probe.py <src-dir>
+from pathlib import Path
+from collections import Counter
+import sys
+import xml.etree.ElementTree as ET
+
+src = Path(sys.argv[1])
+for name in ("greek-nt", "hdt", "chron"):
+    root = ET.parse(src / "syntacticus" / "proiel" / f"{name}.xml").getroot()
+    tokens = list(root.iter("token"))
+    print(name, {
+        "tokens": len(tokens),
+        "lemma_hash_tokens": sum("#" in (t.get("lemma") or "") for t in tokens),
+        "slash_attributes": sum(t.get("slash") is not None for t in tokens),
+        "slash_elements": sum(e.tag.rsplit("}", 1)[-1] == "slash" for e in root.iter()),
+    })
+
+root = ET.parse(src / "treebank_data" / "v2.1" / "Greek" / "texts" /
+                "tlg0085.tlg001.perseus-grc2.tb.xml").getroot()
+print("AGDT token citation:", next(w.attrib for w in root.iter("word") if w.get("cite")))
+
+counts = Counter()
+for path in (src / "UD_grc_PROIEL").glob("*.conllu"):
+    current = "unknown"
+    for line in path.read_text().splitlines():
+        if line.startswith("# source ="):
+            current = line.split("=", 1)[1].split(",")[0].strip()
+        elif line[:1].isdigit():
+            cols = line.split("\t")
+            if "-" not in cols[0] and "." not in cols[0] and "LId=" in cols[9]:
+                counts[current] += 1
+print("UD LId by source:", dict(counts))
+
+files = list((src / "pedalion" / "public" / "xml").glob("*.xml"))
+refs = Counter()
+words = 0
+for path in files:
+    for word in ET.parse(path).getroot().iter("word"):
+        words += 1
+        if word.get("ref") is not None:
+            refs[word.get("ref")] += 1
+print("Pedalion:", {"files": len(files), "words": words,
+      "ref_occurrences": sum(refs.values()), "distinct_refs": len(refs),
+      "extra_repeated_refs": sum(n - 1 for n in refs.values() if n > 1)})
+```
+
+Observed output:
+
+```text
+greek-nt: tokens 140773; lemma_hash_tokens 3475; slash_attributes 0; slash_elements 10439
+hdt: tokens 85166; lemma_hash_tokens 3106; slash_attributes 0; slash_elements 8231
+chron: tokens 24612; lemma_hash_tokens 649; slash_attributes 0; slash_elements 1269
+UD LId by source: Histories 3039; The Greek New Testament 3462
+Pedalion: files 40; words/ref_occurrences 281253; distinct_refs 274058; extra_repeated_refs 7195
+```
+
+The inspected Suppliants token has `cite="urn:cts:greekLit:tlg0085.tlg001:1"` alongside its surface, lemma, postag, head and relation. Its pinned file is [AGDT Suppliants](https://github.com/PerseusDL/treebank_data/blob/bf4334f0af5e13d16b04c1cccd6237e683ac6f5f/v2.1/Greek/texts/tlg0085.tlg001.perseus-grc2.tb.xml). Native PROIEL records at the pins above contain **secondary edges as child elements**, so the earlier zero-attribute observation cannot imply absent secondary syntax. The inspected UD releases use `_` in DEPS: source secondary edges are not represented there, regardless of whether they might be expressible in CoNLL-U. PROIEL's native morphology is not fully retained in UD XPOS; Perseus does retain its native morphology string.
+
+### What this research resolves
+
+It supplies concrete native/UD morphology, relation, secondary-edge, reference and lemma-identity differences, with selected reproducible checks, plus a **provisional** reading-unit shortlist. Retaining native evidence and normalizing its learner-facing interpretation are distinct questions for the annotation-contract decision. The survey does not choose either boundary.
+
+Lysias 23 and Plutarch's *Lycurgus* are short-to-medium prose leads; Lysias 1/14/15 and book-sized Polybius/Athenaeus material are additional leads with the coverage limitations above. These are not the only possible human-reviewed complete units, and coarse similarity is not sufficient evidence that a selected external edition is safe to display with those annotations. The MVP ticket must verify its chosen exact text/annotation revision, full reading bounds, token correspondence or annotation-text authority, offsets, provenance and applicable license before accepting it. If that validation needs new access or a precisely bounded experiment, create its prerequisite ticket then.
+
+PTNK, full Pedalion passage coverage, Gorman final-version selection and exact source-version discrepancies remain bounded unknowns. PTNK is **not** ruled out of the overall map and need not block decisions about inspected sources. No rejected acquisition was retried, no source was approved, and no claim of exhaustive corpus coverage or universally lossless conversion is made.
