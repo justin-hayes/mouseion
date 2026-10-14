@@ -1,0 +1,8 @@
+tag	node_key	native_forms	sim_forms	baseline_text_status	baseline_readiness
+replace	s060w009	U+1F21 U+03BC U+03AD U+03C1 U+1FB3	U+1F21 U+03BC U+03AD U+03C1 U+03B1	exact	vocab_ready
+delete	s078w002	U+002E		annotation_only_print_attested	punct_blocked
+delete	s082w002	U+002E		annotation_only_print_attested	punct_blocked
+delete	s084w002	U+002E		annotation_only_print_attested	punct_blocked
+delete	s090w002	U+002E		annotation_only_print_attested	punct_blocked
+delete	s121w002	U+002E		annotation_only_print_attested	punct_blocked
+replace	s125w015	U+03BF U+1F54 U+03C4 U+03B5	U+03BF U+1F55 U+03C4 U+03B5	variant_positional	non_vocab_blocked

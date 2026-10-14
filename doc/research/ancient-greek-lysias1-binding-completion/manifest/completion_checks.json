@@ -1,0 +1,65 @@
+{
+  "all_checks_pass": true,
+  "baseline_sha256": {
+    "route_nodes.tsv": "a2b8b427a75d676cf801c86661e9315654347175a8862f57a87bca8c3f973bb4",
+    "sentences.tsv": "57ec6f4d0d9c1c0591a224d02d3d19ec18278dcf327907886488c29f74566831"
+  },
+  "blockers_only_grow": true,
+  "changed_rows": 30,
+  "changed_rows_all_still_blocked": true,
+  "changed_rows_gained_their_blocker": true,
+  "check_results": {
+    "blockers_only_grow": true,
+    "changed_rows_all_still_blocked": true,
+    "changed_rows_gained_their_blocker": true,
+    "locked_fields_unchanged": true,
+    "node_keys_unique_per_route": true,
+    "nodes_per_route": true,
+    "route_count": true,
+    "s125_rows": true,
+    "same_row_set": true,
+    "sent11_rows": true,
+    "sentence_count": true,
+    "sentence_node_total": true
+  },
+  "locked_fields_unchanged": true,
+  "node_count_per_route_expected": 2834,
+  "node_keys_unique_per_route": true,
+  "nodes_per_route": {
+    "T1A1": 2834,
+    "T1A1X": 2834,
+    "T1A2": 2834,
+    "T2A1": 2834,
+    "T2A2": 2834,
+    "T3A2": 2834
+  },
+  "producer_ops_checked": 7,
+  "readiness_counts_after": {
+    "non_vocab_blocked": 3156,
+    "non_vocab_ok": 3042,
+    "punct_blocked": 1140,
+    "punct_ok": 1104,
+    "unprinted": 192,
+    "vocab_blocked": 4913,
+    "vocab_ready": 3457
+  },
+  "readiness_counts_before": {
+    "non_vocab_blocked": 3156,
+    "non_vocab_ok": 3042,
+    "punct_blocked": 1140,
+    "punct_ok": 1104,
+    "unprinted": 192,
+    "vocab_blocked": 4913,
+    "vocab_ready": 3457
+  },
+  "ready_claims_added": 0,
+  "route_count": 6,
+  "route_count_expected": 6,
+  "s125_rows": 6,
+  "s125_rows_expected": 6,
+  "same_row_set": true,
+  "sent11_rows": 24,
+  "sent11_rows_expected": 24,
+  "sentence_count": 134,
+  "sentence_node_total": 2834
+}

@@ -1,0 +1,30 @@
+{
+  "grc1-aa0dd9e6|c9b60a3": {
+    "sim_tokens": 2797,
+    "native_nodes": 2802,
+    "equal_tokens": 2795,
+    "non_equal_ops": 7,
+    "enclitic_insertions": 2
+  },
+  "grc1-aa0dd9e6|a4a810f": {
+    "sim_tokens": 2808,
+    "native_nodes": 2802,
+    "equal_tokens": 2784,
+    "non_equal_ops": 18,
+    "enclitic_insertions": 13
+  },
+  "grc2-pinned|c9b60a3": {
+    "sim_tokens": 2796,
+    "native_nodes": 2802,
+    "equal_tokens": 2795,
+    "non_equal_ops": 7,
+    "enclitic_insertions": 2
+  },
+  "grc2-pinned|a4a810f": {
+    "sim_tokens": 2807,
+    "native_nodes": 2802,
+    "equal_tokens": 2784,
+    "non_equal_ops": 18,
+    "enclitic_insertions": 13
+  }
+}
