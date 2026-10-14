@@ -1,0 +1,16 @@
+perseus_commit	date	glaux_tokens	source_tokens	diff_ops	glaux_tokens_unmatched	source_tokens_unmatched	first_differences
+6ca53fa904	2016-11-15	10488	10478	20	32	22	replace glaux=['(', 'ἡ'] source=['ʽἡ']; replace glaux=['στρατεύματι', ')'] source=['στρατεύματἰ']; replace glaux=['(', 'ἔτυχε'] source=['ʽἔτυχε']
+c73fc5af20	2016-11-15	10488	10478	20	32	22	replace glaux=['(', 'ἡ'] source=['ʽἡ']; replace glaux=['στρατεύματι', ')'] source=['στρατεύματἰ']; replace glaux=['(', 'ἔτυχε'] source=['ʽἔτυχε']
+4cbaae5064	2016-12-06	10488	10478	10	20	10	replace glaux=['(', 'ἡ'] source=['ʽἡ']; replace glaux=['στρατεύματι', ')'] source=['στρατεύματἰ']; replace glaux=['(', 'ἔτυχε'] source=['ʽἔτυχε']
+0bb4112b41	2017-08-16	10488	10478	10	20	10	replace glaux=['(', 'ἡ'] source=['ʽἡ']; replace glaux=['στρατεύματι', ')'] source=['στρατεύματἰ']; replace glaux=['(', 'ἔτυχε'] source=['ʽἔτυχε']
+d7ee42566e	2018-03-20	10488	10482	6	12	6	replace glaux=['(', 'ἡ'] source=['ʽἡ']; replace glaux=['στρατεύματι', ')'] source=['στρατεύματἰ']; replace glaux=['(', 'ἔτυχε'] source=['ʽἔτυχε']
+bd7b1c7a36	2019-09-09	10488	10488	0	0	0	
+84a6f3e545	2022-12-09	10488	10489	1	0	1	insert glaux=[] source=['ἢν']
+257c4b7b68	2024-09-28	10488	10489	1	0	1	insert glaux=[] source=['ἢν']
+0c75c60094	2026-03-29	10488	10489	1	0	1	insert glaux=[] source=['ἢν']
+299a8af276	2026-05-04	10488	10489	1	0	1	insert glaux=[] source=['ἢν']
+92e51fcc3f	2026-05-20	10488	10489	1	0	1	insert glaux=[] source=['ἢν']
+31bce58d6d	2026-07-16	10488	10489	1	0	1	insert glaux=[] source=['ἢν']
+cb252e6d7a	2026-07-17	10488	10489	1	0	1	insert glaux=[] source=['ἢν']
+dd96fe31bc	2026-08-26	10488	10489	1	0	1	insert glaux=[] source=['ἢν']
+70427323b6	2026-08-26	10488	10489	1	0	1	insert glaux=[] source=['ἢν']

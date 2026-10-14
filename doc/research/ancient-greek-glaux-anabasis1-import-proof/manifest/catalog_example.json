@@ -1,0 +1,87 @@
+{
+ "acquisition": {
+  "fallback": "none; another source or revision needs informed selection and fresh validation",
+  "steps": [
+   "fetch pinned text and annotation by commit",
+   "verify sha256",
+   "extract, bind, map, validate",
+   "publish atomically or report blocked"
+  ],
+  "trigger": "To Read intent"
+ },
+ "annotation_source": {
+  "commit": "b077d8f6ff429a5c7245954bc16bb7d1d7948823",
+  "git_blob": "ad9a1c7745d3c14cfa3f14882dec2477bf300c13",
+  "metadata_row": {
+   "GLAUX_TEXT_ID": "405",
+   "SOURCE": "Perseus",
+   "SOURCE_LICENSE": "CC BY-SA 4.0",
+   "TREEBANK_ANNOTATIONS": "NA"
+  },
+  "path": "xml/0032-006.xml",
+  "provenance": {
+   "kind": "automatic",
+   "label": "analysis=auto",
+   "layer": "lemma, postag, syntax",
+   "scope": "all 610 Book 1 segments"
+  },
+  "repository": "alekkeersmaekers/glaux"
+ },
+ "capabilities": {
+  "complete_sentences": "382 under oct-grc-terminal/1",
+  "morphology": "native postag retained; FEATS not mapped",
+  "requires_stanza": false,
+  "syntax": "native heads/relations retained; not validated or mapped",
+  "vocabulary_identities": "lemma+UPOS via documented crosswalk; no homograph discriminators in source"
+ },
+ "component_rights": {
+  "annotation": "CC BY-SA 4.0 (GLAUx README general licence; metadata row lists no restrictive treebank import)",
+  "derived_manifests": "CC BY-SA 4.0 with attribution; crosswalk tables CC BY-NC-SA 2.5 (derived from UD Perseus)",
+  "review_outcome": "evidence recorded; not approved by the agent",
+  "text": "CC BY-SA 3.0 US (repository README at bd7b1c7a); same Book 1 text declared CC BY-SA 4.0 at later revisions"
+ },
+ "edition": {
+  "cts_version": "urn:cts:greekLit:tlg0032.tlg006.perseus-grc2",
+  "evidence": "Perseus TEI sourceDesc; Marchant scan point checks",
+  "label": "Marchant, Xenophontis Opera Omnia vol. 3 (Oxford 1904)"
+ },
+ "example_version": "glaux-anabasis1-catalog-example/1",
+ "note": "Research illustration of a metadata-only catalogue offering; syncing it contributes no vocabulary counts.",
+ "reading_units": [
+  {
+   "annotation_offer": "glaux@b077d8f6:xml/0032-006.xml div_book=1",
+   "bounds": {
+    "first": "1.1.1",
+    "last": "1.10.19"
+   },
+   "probe_status": "import proof complete; human acceptance pending (#2030)",
+   "unit": "book 1"
+  },
+  {
+   "annotation_offer": "glaux@b077d8f6:xml/0032-006.xml",
+   "probe_status": "not assessed; must not be presented as analyzed from Book 1 evidence",
+   "unit": "whole work (books 1-7)"
+  }
+ ],
+ "text_source": {
+  "commit": "bd7b1c7a36a031f5b320f522ca0e7b260109349c",
+  "git_blob": "6fc2f2a14a177cfc26b7ba822a71f55faf551d8a",
+  "later_revisions": "84a6f3e5 adds sic/corr at 1.3.14; adopting it would be a new text revision requiring a new binding",
+  "path": "data/tlg0032/tlg006/tlg0032.tlg006.perseus-grc2.xml",
+  "repository": "PerseusDL/canonical-greekLit"
+ },
+ "work": {
+  "aliases": [
+   {
+    "scheme": "cts-work",
+    "value": "urn:cts:greekLit:tlg0032.tlg006"
+   },
+   {
+    "scheme": "glaux-tlg",
+    "value": "0032-006"
+   }
+  ],
+  "author": "Xenophon",
+  "title": "Anabasis"
+ }
+}

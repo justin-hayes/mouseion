@@ -1,0 +1,379 @@
+{
+ "binding_exceptions": [],
+ "card_inputs": {
+  "chosen_after_earlier_rejection": 27,
+  "chosen_flags": {
+   "capitalized_noun_lemma": 34,
+   "sentence_markup": 4,
+   "target_identity_repeats_in_sentence": 30
+  },
+  "eligible": 372,
+  "omission_reasons": {
+   "no qualifying occurrence: sentence over 50 whitespace units": 1
+  },
+  "omitted": 1,
+  "selected_identities": 373
+ },
+ "coverage": {
+  "section_mismatches": [],
+  "uncovered_non_space_characters": [],
+  "word_boundary_violations": []
+ },
+ "marchant_point_checks": {
+  "found": 12
+ },
+ "native": {
+  "nodes_by_other_book": {
+   "2": 7728,
+   "3": 8046,
+   "4": 9403,
+   "5": 9409,
+   "6": 7823,
+   "7": 12709
+  },
+  "root_attributes": {
+   "lang": "grc",
+   "version": "2"
+  },
+  "sentences_by_book": {
+   "1": 610,
+   "2": 459,
+   "3": 429,
+   "4": 561,
+   "5": 549,
+   "6": 488,
+   "7": 741
+  }
+ },
+ "nodes": {
+  "ambiguous_upos": {
+   "CCONJ|SCONJ": 6
+  },
+  "analysis_labels": {
+   "auto": 10645
+  },
+  "by_bind_rule": {
+   "B-CRASIS-SHARED": 7,
+   "B-CRUX-ANCHOR": 14,
+   "B-EXACT": 10411,
+   "B-SECLUDED": 73,
+   "B-SUFFIX-COMPONENT": 40,
+   "B-SUPPLIED": 4,
+   "B-UNPRINTED": 96
+  },
+  "by_bind_status": {
+   "anchor": 14,
+   "bound": 10528,
+   "no_span": 96,
+   "shared": 7
+  },
+  "by_kind": {
+   "crasis_fragment": 7,
+   "crux": 14,
+   "secluded": 73,
+   "suffix_component": 40,
+   "supplied": 4,
+   "unprinted": 96,
+   "word": 10411
+  },
+  "by_map_rule": {
+   "(none)": 169,
+   "M-C-LEMMA": 1432,
+   "M-C-UNATTESTED": 6,
+   "M-LETTER-a": 630,
+   "M-LETTER-d": 498,
+   "M-LETTER-g": 307,
+   "M-LETTER-i": 7,
+   "M-LETTER-l": 1048,
+   "M-LETTER-m": 165,
+   "M-LETTER-n": 1746,
+   "M-LETTER-p": 925,
+   "M-LETTER-r": 585,
+   "M-LETTER-u": 1171,
+   "M-V-DEFAULT": 1776,
+   "M-V-EIMI": 180
+  },
+  "by_upos": {
+   "(none)": 175,
+   "ADJ": 630,
+   "ADP": 585,
+   "ADV": 498,
+   "AUX": 180,
+   "CCONJ": 1163,
+   "DET": 1048,
+   "INTJ": 7,
+   "NOUN": 1746,
+   "NUM": 165,
+   "PART": 307,
+   "PRON": 925,
+   "PUNCT": 1171,
+   "SCONJ": 269,
+   "VERB": 1776
+  },
+  "by_vocabulary": {
+   "eligible": 4650,
+   "non_vocab": 5826,
+   "secluded": 73,
+   "unprinted": 96
+  },
+  "crux_nodes_in_word_flag": 19,
+  "elision_mark_decoded": 193,
+  "secluded_lexical_nodes": 63,
+  "secluded_nodes": 73,
+  "supplied_nodes": 4,
+  "total": 10645
+ },
+ "sensitivity": {
+  "capitalized_noun_lemma_as_PROPN": {
+   "rule": "not adopted: UD Perseus emits no PROPN; capitalization is a GLAUx lemma convention, not a native tag",
+   "selected_identities_remaining": 339,
+   "selected_identities_removed": 34,
+   "selected_occurrences_removed": 444
+  },
+  "eimi_as_VERB": {
+   "occurrences": 180,
+   "rule": "not adopted: UD Perseus tags 1864 of 1866 εἰμί AUX",
+   "would_add_selected_identity": true
+  },
+  "secluded_text_as_required_vocabulary": {
+   "lexical_nodes": 63,
+   "node_ids": [
+    "101438281",
+    "101438282",
+    "101440708",
+    "101443903",
+    "101443904",
+    "101443905",
+    "101443992",
+    "101443993",
+    "101443994",
+    "101443996",
+    "101443997",
+    "101443998",
+    "101443999",
+    "101444000",
+    "101444002",
+    "101444003",
+    "101444004",
+    "101444006",
+    "101444007",
+    "101444008",
+    "101444009",
+    "101444011",
+    "101444012",
+    "101444013",
+    "101444015",
+    "101444016",
+    "101444017",
+    "101444018",
+    "101444019",
+    "101444020",
+    "101444022",
+    "101444023",
+    "101444024",
+    "101444025",
+    "101444026",
+    "101444028",
+    "101444029",
+    "101444030",
+    "101444031",
+    "101444033",
+    "101444035",
+    "101444036",
+    "101444460",
+    "101444461",
+    "101444462",
+    "101444463",
+    "101444464",
+    "101444465",
+    "101444466",
+    "101444467",
+    "101444468",
+    "101444469",
+    "101444470",
+    "101444471",
+    "101444472",
+    "101444478",
+    "101444479",
+    "101444480",
+    "101444896",
+    "101446694",
+    "101446695",
+    "101446696",
+    "101446697"
+   ],
+   "rule": "if edition-secluded words must carry vocabulary identities, these nodes have no producer annotation and block vocabulary-ready publication"
+  },
+  "suffix_component_lemma_pairs": {
+   "μή+δέ": 1,
+   "μή+τε": 2,
+   "οὐ+δέ": 19,
+   "οὐ+τε": 18
+  },
+  "suffix_components": 40
+ },
+ "sentences": {
+  "boundaries": {
+   "terminal '.'": 373,
+   "terminal ';'": 9
+  },
+  "code_points_over_400": 4,
+  "complete_sentences": 382,
+  "max_units": 100,
+  "median_units": 21,
+  "native_relation": {
+   "native_segment_final_printed_character": {
+    ".": 373,
+    ";": 9,
+    "·": 228
+   },
+   "native_segments": 610,
+   "native_segments_per_complete_sentence": {
+    "1": 227,
+    "2": 102,
+    "3": 39,
+    "4": 10,
+    "5": 3,
+    "7": 1
+   },
+   "native_segments_spanning_complete_sentences": []
+  },
+  "over_either_cap": 22,
+  "units_le_5": 13,
+  "units_over_50": 22,
+  "with_editorial_markup": {
+   "add": 1,
+   "add+del": 1,
+   "del": 7,
+   "sic": 7
+  },
+  "without_eligible_vocabulary": 1
+ },
+ "text": {
+  "chapters": 10,
+  "code_points": 58547,
+  "editorial_regions": {
+   "add": 2,
+   "del": 8,
+   "sic": 7
+  },
+  "first_section": "1.1.1",
+  "heading_excluded": "Κύρου Ἀναβάσεως Α",
+  "last_section": "1.10.19",
+  "paragraph_milestones": 11,
+  "sections": 205
+ },
+ "text_revisions": {
+  "0bb4112b41": {
+   "glaux_tokens_unmatched": 20,
+   "source_tokens_unmatched": 10
+  },
+  "0c75c60094": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  },
+  "257c4b7b68": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  },
+  "299a8af276": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  },
+  "31bce58d6d": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  },
+  "4cbaae5064": {
+   "glaux_tokens_unmatched": 20,
+   "source_tokens_unmatched": 10
+  },
+  "6ca53fa904": {
+   "glaux_tokens_unmatched": 32,
+   "source_tokens_unmatched": 22
+  },
+  "70427323b6": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  },
+  "84a6f3e545": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  },
+  "92e51fcc3f": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  },
+  "bd7b1c7a36": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 0
+  },
+  "c73fc5af20": {
+   "glaux_tokens_unmatched": 32,
+   "source_tokens_unmatched": 22
+  },
+  "cb252e6d7a": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  },
+  "d7ee42566e": {
+   "glaux_tokens_unmatched": 12,
+   "source_tokens_unmatched": 6
+  },
+  "dd96fe31bc": {
+   "glaux_tokens_unmatched": 0,
+   "source_tokens_unmatched": 1
+  }
+ },
+ "versions": {
+  "bind": "glaux-perseus-bind/1",
+  "card_input": "grc-card-input-eligibility/1",
+  "extract": "perseus-tei-book-extract/1",
+  "map": "glaux-agdt-upos-crosswalk/1",
+  "profile": "ancient-greek/1",
+  "segment": "oct-grc-terminal/1"
+ },
+ "vocabulary": {
+  "analyzable_token_denominator": 4650,
+  "eligible_occurrences": 4650,
+  "identities": 1294,
+  "identities_by_upos": {
+   "ADJ": 223,
+   "ADV": 109,
+   "NOUN": 470,
+   "VERB": 492
+  },
+  "known_identities": 0,
+  "known_token_coverage": 0.0,
+  "occurrence_denominators": {
+   "native_nodes": 10645,
+   "printed_lexical_annotated_nodes": 9305,
+   "printed_lexical_non_vocabulary_by_upos": {
+    "ADP": 585,
+    "AUX": 180,
+    "CCONJ": 1163,
+    "CCONJ|SCONJ": 6,
+    "DET": 1048,
+    "INTJ": 7,
+    "NUM": 165,
+    "PART": 307,
+    "PRON": 925,
+    "SCONJ": 269
+   },
+   "printed_punctuation_and_crux_nodes": 1171,
+   "secluded_unannotated_nodes": 73,
+   "unprinted_nodes": 96,
+   "vocabulary_eligible": 4650
+  },
+  "reserved_identities": 0,
+  "selected_by_upos": {
+   "ADJ": 50,
+   "ADV": 41,
+   "NOUN": 138,
+   "VERB": 144
+  },
+  "selected_capitalized_headwords_any_upos": 38,
+  "selected_identities": 373,
+  "selected_occurrences": 3517
+ }
+}

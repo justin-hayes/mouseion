@@ -1,0 +1,13 @@
+check	section	perseus_bd7b1c7a	ocr_line	ocr_expected	interpretation
+book-heading	1 (head)	<head>Κύρου Ἀναβάσεως Α</head>	1053	ΚΥΡΟΥ ΑΝΑΒΑΣΕΩΣ A	printed book heading; excluded from the analysis scope as ancillary
+first-words	1.1.1	Δαρείου καὶ Παρυσάτιδος γίγνονται	590	Δαρείου καὶ Παρυσάτιδος γίγνονται παῖδες δύο	Book 1 opening
+seclusion-1.2.27	1.2.27	<del>καὶ φύλακας</del>	989	φυλακὴν [καὶ φύλακας] περὶ	square-bracket deletion printed
+supplement-1.4.4	1.4.4	<add>τὸ</add>	1702	ἔσωθεν (τὸ) πρὸ	angle-bracket supplement printed (OCR renders ⟨⟩ as ())
+reading-1.3.14	1.3.14	ἦν δὲ φύγῃ (no sic/corr)	1627	αὐτῷ, ἣν	OCR reads a grave accent, not Perseus's circumflex ἦν; corroborates the later sic/corr correction to ἢν, OCR breathing not relied on
+seclusion-1.7.15	1.7.15	<del>ἔνθα αἱ διώρυχες … ἔπεισιν.</del>	2766	ἔνθα. . . ἔπεισιν del.	apparatus records the deletion of the whole passage
+crux-1.8.4	1.8.4	<sic>καὶ τὸ στράτευμα</sic>	2810	Μένων δὲ Τκαὶ τὸ στράτευμα	obelus printed (OCR renders † as T)
+supplement-1.8.6	1.8.6	<add>κατὰ τὸ μέσον</add>	2838	ἑξακόσιοι (κατὰ τὸ μέσον	angle-bracket supplement printed
+seclusion-1.8.7	1.8.7	<del>οἱ μετὰ Κύρου</del>	2846	[oi μετὰ Κύρου]	square-bracket deletion printed
+crux-1.9.13	1.9.13	<sic>ἀξιοῦσθαι</sic>	3377	Τἀξιοῦσθαι εἶναι	obelus printed
+seclusion-1.10.1	1.10.1	<del>καὶ οἱ σὺν αὐτῷ</del>	3572	βασιλεὺς δὲ [kal οἱ σὺν αὐτῷ	square-bracket deletion printed
+crux-1.10.12	1.10.12	<sic>ἐπὶ ξύλου</sic>	3749	πέλτῃ Témi ξύλου	obelus printed before ἐπὶ (OCR garbles the crux and ἐπὶ)

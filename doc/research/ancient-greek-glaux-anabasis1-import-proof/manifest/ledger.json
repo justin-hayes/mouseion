@@ -1,0 +1,60 @@
+{
+ "binding_and_segmentation": {
+  "evidence": "{'anchor': 14, 'bound': 10528, 'no_span': 96, 'shared': 7}; 0 uncovered source characters; 0 section mismatches; 382 complete sentences, all unions of native segments",
+  "qualifications": [
+   "one ';' boundary leaves a speech attribution fragment (sentence 226)",
+   "terminal convention is research version oct-grc-terminal/1, not an accepted policy"
+  ],
+  "verdict": "pass"
+ },
+ "deterministic_card_inputs": {
+  "evidence": "372 of 373 selected identities have a qualifying sentence; 1 omitted ({'no qualifying occurrence: sentence over 50 whitespace units': 1})",
+  "qualification": "4 chosen sentences contain edition deletions or supplements that the plain sentence string shows without brackets; presentation unresolved",
+  "verdict": "pass"
+ },
+ "measured_output_quality": {
+  "evidence": "see review_set.tsv and report: proper names as NOUN, negation/adverb lemmas, component splits, adverb headwords, εἰμί as AUX, text typo propagation, unbracketed editorial text in sentence strings",
+  "verdict": "conditional"
+ },
+ "optional_capabilities": {
+  "dictionary_coverage": "unassessed (optional; the Kaikki dictionary index is deployment-supplied data with no grc build or test in the repository)",
+  "lexical_homograph_discriminators": "absent in source",
+  "morphology": "unassessed (native postag retained, FEATS not mapped)",
+  "syntax": "unassessed (native heads/relations and 96 elliptic nodes retained; no tree validation)"
+ },
+ "required_lexical_identities": {
+  "condition": "63 edition-secluded lexical nodes have no producer annotation; vocabulary-ready only if #2030 accepts edition seclusion as a justified non-vocabulary classification",
+  "evidence": "4650 eligible occurrences, 1294 identities, 0 unresolved printed nodes, 6 CCONJ|SCONJ-ambiguous nodes non-vocabulary under both candidates",
+  "verdict": "conditional"
+ },
+ "rights_by_operation": {
+  "bundled_or_distributed_data": "evidence suffices for #2035 exact-component review of the BY-SA text and annotation; acceptance is a human decision; vocabulary decisions need no NC-derived table at runtime",
+  "direct_acquisition_from_upstream": "evidence suffices: public pinned commits, no gated access",
+  "framework": "#2035: evidence suffices | defer | narrow blocker; not legal advice",
+  "local_private_noncommercial_analysis": "evidence suffices: text and annotation carry explicit BY-SA declarations",
+  "open_points": [
+   "Perseus README general Tufts copyright statement and request to offer modifications (recorded, not treated as a veto under #2035)",
+   "Zenodo GLAUx archive declares CC BY 4.0 for a different release (not used)",
+   "rights in GLAUx training data and models are not conflated with this output"
+  ],
+  "public_research_outputs": "evidence suffices with notices: text and annotation BY-SA (attribution, ShareAlike); UD-Perseus-derived crosswalk counts BY-NC-SA 2.5 (non-commercial research)"
+ },
+ "scope_and_edition": {
+  "evidence": "Book 1 complete: 205 sections 1.1.1-1.10.19; every GLAUx Book 1 node bound; edition Marchant 1904 per Perseus header, point-checked against the scan OCR",
+  "qualifications": [
+   "text revision is the 2019 Perseus blob that GLAUx annotated, including the 1.3.14 typo later corrected upstream",
+   "book heading excluded as ancillary; secluded, supplied and obelized text retained with markup provenance"
+  ],
+  "verdict": "pass"
+ },
+ "unperformed_semantic_and_artifact_checks": {
+  "items": [
+   "contextual Gloss/translation acceptance",
+   "Anki rendering of polytonic text and emphasis",
+   "dictionary meaning evidence",
+   "human acceptance of examples and usefulness",
+   "scholarly accuracy of automatic predictions"
+  ],
+  "verdict": "unassessed"
+ }
+}
