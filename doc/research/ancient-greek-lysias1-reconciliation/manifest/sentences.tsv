@@ -1,0 +1,135 @@
+sentence_id	nodes	printed	punct	unprinted	scope	last_printed_node	last_printed_relation	last_printed_t1_status	t1_span	lacuna_inside_t1_span	editorial_flags	t1a2_text_blocked_nodes	t1a2_annotation_only_punct	t1a2_vocab_blocked_nodes	t1a2_vocab_ready_nodes
+1	27	27	4	0	running_text	s001w027	AuxK	exact	0:153	False		0	0	2	11
+2	24	23	5	1	running_text	s002w023	AuxK	annotation_only_deleted_in_grc2	154:247	False		0	1	4	6
+3	20	20	2	0	running_text	s003w020	AuxK	exact	248:367	False		0	0	2	7
+4	17	17	2	0	running_text	s004w017	AuxK	exact	368:446	False		0	0	4	4
+5	32	32	2	0	running_text	s005w032	AuxK	exact	447:645	False		0	0	1	14
+6	13	13	3	0	running_text	s006w013	AuxK	exact	646:717	False		0	0	0	8
+7	37	37	3	0	running_text	s007w037	AuxK	exact	718:940	False		0	0	2	21
+8	74	73	8	1	running_text	s008w073	AuxK	exact	941:1331	False		0	0	5	27
+9	19	19	3	0	running_text	s009w019	AuxK	exact	1332:1430	False		0	0	1	7
+10	15	15	2	0	running_text	s010w015	AuxK	exact	1431:1517	False		0	0	1	8
+11	54	54	6	0	running_text	s011w054	AuxK	exact	1518:1767	False		4	0	7	18
+12	21	21	3	0	running_text	s012w021	AuxK	exact	1768:1895	False		0	0	1	9
+13	14	14	3	0	running_text	s013w014	AuxK	exact	1896:1953	False		0	0	3	4
+14	13	12	1	1	running_text	s014w012	AuxK	exact	1954:2025	False	del	0	0	1	8
+15	15	15	2	0	running_text	s015w015	AuxK	exact	2026:2108	False		0	0	1	7
+16	17	17	2	0	running_text	s016w017	AuxK	exact	2109:2206	False		0	0	1	9
+17	15	15	1	0	running_text	s017w015	AuxK	exact	2207:2301	False		0	0	1	7
+18	34	34	6	0	running_text	s018w034	AuxK	exact	2302:2463	False		0	0	3	13
+19	12	12	2	0	running_text	s019w012	AuxK	exact	2464:2521	False		0	0	1	4
+20	25	24	5	1	running_text	s020w024	AuxK	exact	2522:2637	False		0	0	2	9
+21	27	26	3	1	running_text	s021w026	AuxK	exact	2638:2766	False		0	0	2	12
+22	30	30	4	0	running_text	s022w030	AuxK	exact	2767:2936	False		0	0	1	14
+23	33	33	5	0	running_text	s023w033	AuxK	exact	2937:3111	False		0	0	1	14
+24	6	6	1	0	running_text	s024w006	AuxK	exact	3112:3136	False		0	0	1	2
+25	5	5	1	0	running_text	s025w005	AuxK	exact	3137:3165	False		0	0	1	3
+26	17	17	2	0	running_text	s026w017	AuxK	exact	3166:3255	False		0	0	1	8
+27	18	17	3	1	running_text	s027w017	AuxK	exact	3256:3330	False		0	0	4	6
+28	18	18	2	0	running_text	s028w018	AuxK	exact	3331:3426	False		0	0	2	7
+29	7	7	1	0	running_text	s029w007	AuxK	exact	3427:3463	False		0	0	2	3
+30	22	22	4	0	running_text	s030w022	AuxK	exact	3464:3581	False		0	0	2	9
+31	14	14	2	0	running_text	s031w014	AuxK	exact	3582:3659	False		0	0	1	6
+32	13	13	2	0	running_text	s032w013	AuxK	exact	3660:3720	False		0	0	1	4
+33	24	24	3	0	running_text	s033w024	AuxK	exact	3721:3847	False		0	0	1	10
+34	8	8	1	0	running_text	s034w008	AuxK	exact	3848:3890	False		0	0	0	4
+35	18	18	4	0	running_text	s035w018	AuxK	exact	3891:3985	False		0	0	1	9
+36	14	14	1	0	running_text	s036w014	AuxK	exact	3986:4061	False		0	0	3	7
+37	36	36	6	0	running_text	s037w036	AuxK	exact	4062:4272	False		0	0	1	15
+38	23	23	3	0	running_text	s038w023	AuxK	exact	4273:4396	False		0	0	1	10
+39	22	22	2	0	running_text	s039w022	AuxK	exact	4397:4535	False		0	0	1	12
+40	16	16	1	0	running_text	s040w016	AuxK	exact	4536:4608	False		0	0	1	6
+41	18	18	2	0	running_text	s041w018	AuxK	exact	4609:4713	False		0	0	1	8
+42	21	21	2	0	running_text	s042w021	AuxK	exact	4714:4822	False		0	0	2	9
+43	6	6	1	0	running_text	s043w006	AuxK	exact	4823:4850	False	del	0	0	1	3
+44	64	62	10	2	running_text	s044w062	AuxK	exact	4851:5163	False		0	0	2	25
+45	13	13	2	0	running_text	s045w013	AuxK	exact	5164:5224	False		0	0	0	5
+46	31	31	2	0	running_text	s046w031	AuxK	exact	5225:5397	False		0	0	0	13
+47	38	38	4	0	running_text	s047w038	AuxK	exact	5398:5634	False		0	0	1	22
+48	10	10	2	0	running_text	s048w010	AuxK	exact	5635:5674	False		0	0	1	4
+49	15	15	2	0	running_text	s049w015	AuxK	exact	5675:5743	False		0	0	1	6
+50	5	4	1	1	running_text	s050w004	AuxK	exact	5744:5762	False		0	0	1	1
+51	26	26	3	0	running_text	s051w026	AuxK	exact	5763:5908	False		0	0	1	9
+52	64	64	6	0	running_text	s052w064	AuxK	exact	5909:6254	False		0	0	2	24
+53	9	9	1	0	running_text	s053w009	AuxK	exact	6255:6301	False		0	0	1	6
+54	16	16	3	0	running_text	s054w016	AuxK	exact	6302:6385	False		0	0	2	5
+55	14	13	2	1	running_text	s055w013	AuxK	exact	6386:6445	False		0	0	2	2
+56	9	9	1	0	running_text	s056w009	AuxK	exact	6446:6490	False		0	0	1	3
+57	16	16	3	0	running_text	s057w016	AuxK	exact	6491:6568	False		0	0	1	7
+58	4	4	1	0	running_text	s058w004	AuxK	exact	6569:6593	False		0	0	0	2
+59	16	16	2	0	running_text	s059w016	AuxK	exact	6594:6685	True		0	0	1	7
+60	10	10	1	0	running_text	s060w010	AuxK	exact	6686:6749	False		0	0	1	6
+61	7	7	1	0	running_text	s061w007	AuxK	exact	6750:6788	False		0	0	0	2
+62	8	8	1	0	running_text	s062w008	AuxK	exact	6789:6835	False		0	0	0	5
+63	16	16	3	0	running_text	s063w016	AuxK	exact	6836:6936	False		0	0	1	8
+64	12	12	2	0	running_text	s064w012	AuxK	exact	6937:7002	False		0	0	1	5
+65	15	15	3	0	running_text	s065w015	AuxK	exact	7003:7073	False		0	0	1	5
+66	20	20	4	0	running_text	s066w020	AuxK	exact	7074:7172	False		0	0	1	7
+67	31	31	5	0	running_text	s067w031	AuxK	exact	7173:7332	False		0	0	2	11
+68	12	12	1	0	running_text	s068w012	AuxK	exact	7333:7395	False		0	0	2	5
+69	18	18	2	0	running_text	s069w018	AuxK	exact	7396:7512	False		0	0	1	9
+70	30	27	2	3	running_text	s070w027	AuxK	exact	7513:7661	False		0	0	1	13
+71	30	30	4	0	running_text	s071w030	AuxK	exact	7662:7806	False		0	0	2	12
+72	16	16	2	0	running_text	s072w016	AuxK	exact	7807:7901	False		0	0	4	6
+73	50	49	4	1	running_text	s073w049	AuxK	exact	7902:8163	False		0	0	2	20
+74	34	33	6	1	running_text	s074w033	AuxK	exact	8164:8337	False		0	0	1	11
+75	46	44	7	2	running_text	s075w044	AuxK	exact	8338:8562	False		0	0	4	18
+76	39	39	4	0	running_text	s076w039	AuxK	exact	8563:8789	False		0	0	3	17
+77	7	7	1	0	running_text	s077w007	AuxK	exact	8790:8824	False		0	0	2	3
+78	2	2	1	0	rubric_label,rubric_punctuation	s078w002	AuxK	annotation_only_print_attested		False		0	1	0	1
+79	25	25	5	0	running_text	s079w025	AuxK	exact	8825:8954	False		0	0	4	9
+80	35	35	4	0	running_text	s080w035	AuxK	exact	8955:9155	False		0	0	3	13
+81	6	6	1	0	running_text	s081w006	AuxK	exact	9156:9188	False		0	0	1	2
+82	2	2	1	0	rubric_label,rubric_punctuation	s082w002	AuxK	annotation_only_print_attested		False		0	1	0	1
+83	16	16	1	0	running_text	s083w016	AuxK	exact	9189:9264	False	add	0	0	4	4
+84	2	2	1	0	rubric_label,rubric_punctuation	s084w002	AuxK	annotation_only_print_attested		False		0	1	0	1
+85	48	48	6	0	running_text	s085w048	AuxK	exact	9265:9521	False		0	0	5	19
+86	27	27	2	0	running_text	s086w027	AuxK	exact	9522:9678	False		0	0	3	12
+87	18	17	3	1	running_text	s087w017	AuxK	exact	9679:9763	False		0	0	2	7
+88	21	21	2	0	running_text	s088w021	AuxK	exact	9764:9878	False		0	0	5	6
+89	8	8	1	0	running_text	s089w008	AuxK	exact	9879:9916	False		0	0	2	3
+90	2	2	1	0	rubric_label,rubric_punctuation	s090w002	AuxK	annotation_only_print_attested		False		0	1	0	1
+91	21	21	5	0	running_text	s091w021	AuxK	exact	9917:10022	False		0	0	0	11
+92	17	14	3	3	running_text	s092w014	AuxK	exact	10023:10096	False		0	0	1	4
+93	17	16	3	1	running_text	s093w016	AuxK	exact	10097:10186	False		0	0	0	8
+94	67	66	8	1	running_text	s094w066	AuxK	exact	10187:10570	False		0	0	4	28
+95	12	12	1	0	running_text	s095w012	AuxK	exact	10571:10632	False		0	0	0	5
+96	24	24	4	0	running_text	s096w024	AuxK	exact	10633:10756	False		0	0	5	9
+97	13	13	1	0	running_text	s097w013	AuxK	exact	10757:10825	False		0	0	1	4
+98	30	30	3	0	running_text	s098w030	AuxK	exact	10826:10985	False		0	0	3	11
+99	12	12	1	0	running_text	s099w012	AuxK	exact	10986:11075	False		0	0	1	5
+100	8	8	1	0	running_text	s100w008	AuxK	exact	11076:11113	False		0	0	0	4
+101	45	44	6	1	running_text	s101w044	AuxK	exact	11114:11352	False		0	0	2	19
+102	20	20	2	0	running_text	s102w020	AuxK	exact	11353:11458	False		0	0	2	10
+103	10	10	1	0	running_text	s103w010	AuxK	exact	11459:11506	False		0	0	1	3
+104	6	6	2	0	running_text	s104w006	AuxK	exact	11507:11529	False		0	0	1	2
+105	16	16	1	0	running_text	s105w016	AuxK	exact	11530:11624	False		0	0	1	7
+106	21	21	3	0	running_text	s106w021	AuxK	exact	11625:11735	False		0	0	3	10
+107	16	16	2	0	running_text	s107w016	AuxK	exact	11736:11831	False		0	0	3	8
+108	23	23	2	0	running_text	s108w023	AuxK	exact	11832:11976	False	add	0	0	2	12
+109	7	7	1	0	running_text	s109w007	AuxK	exact	11977:12013	False		0	0	1	3
+110	6	6	1	0	running_text	s110w006	AuxK	exact	12014:12042	False		0	0	1	2
+111	34	34	6	0	running_text	s111w034	AuxK	exact	12043:12222	False		0	0	1	16
+112	9	9	3	0	running_text	s112w009	AuxK	exact	12223:12263	False		0	0	2	3
+113	24	23	2	1	running_text	s113w023	AuxK	exact	12264:12401	False	del	0	0	0	9
+114	11	11	1	0	running_text	s114w011	AuxK	exact	12402:12463	False		0	0	2	5
+115	25	25	3	0	running_text	s115w025	AuxK	exact	12464:12610	False		0	0	2	11
+116	45	44	6	1	running_text	s116w044	AuxK	exact	12611:12860	False	add	0	0	5	19
+117	31	31	5	0	running_text	s117w031	AuxK	exact	12861:13002	False		0	0	6	9
+118	44	44	7	0	running_text	s118w044	AuxK	exact	13003:13231	False		0	0	7	17
+119	17	16	2	1	running_text	s119w016	AuxK	exact	13232:13305	False		0	0	3	6
+120	6	6	1	0	running_text	s120w006	AuxK	exact	13306:13338	False		0	0	1	2
+121	2	2	1	0	rubric_label,rubric_punctuation	s121w002	AuxK	annotation_only_print_attested		False		0	1	0	1
+122	8	8	2	0	running_text	s122w008	AuxK	exact	13339:13375	False		0	0	1	3
+123	23	23	2	0	running_text	s123w023	AuxK	exact	13376:13511	False		0	0	1	10
+124	4	4	1	0	running_text	s124w004	AuxK	exact	13512:13534	False		0	0	1	1
+125	43	43	6	0	running_text	s125w043	AuxK	exact	13535:13783	False		1	0	1	20
+126	9	9	1	0	running_text	s126w009	AuxK	exact	13784:13850	False		0	0	1	5
+127	28	27	2	1	running_text	s127w027	AuxK	exact	13851:13992	False		0	0	2	12
+128	20	20	2	0	running_text	s128w020	AuxK	exact	13993:14105	False		0	0	3	7
+129	20	20	4	0	running_text	s129w020	AuxK	exact	14106:14227	False		0	0	1	8
+130	23	23	4	0	running_text	s130w023	AuxK	exact	14228:14339	False		0	0	3	8
+131	29	29	4	0	running_text	s131w029	AuxK	exact	14340:14505	False		0	0	1	14
+132	39	37	5	2	running_text	s132w037	AuxK	exact	14506:14724	False		0	0	4	16
+133	47	45	5	2	running_text	s133w045	AuxK	exact	14725:14979	False		0	0	4	20
+134	25	25	2	0	running_text	s134w025	AuxK	exact	14980:15110	False		0	0	1	8

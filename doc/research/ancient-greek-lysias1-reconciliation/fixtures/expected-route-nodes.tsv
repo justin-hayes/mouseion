@@ -1,0 +1,65 @@
+route	node_key	text_status	identity_status	readiness	blockers	why
+T1A1	s001w003	exact	conditional	vocab_blocked	BI-ELIG-PARTICLE	particle with conditional eligibility; v1.6 number does not resolve it
+T1A2	s001w003	exact	conditional	vocab_blocked	BI-ELIG-PARTICLE	particle with conditional eligibility; v1.6 number does not resolve it
+T2A2	s001w003	own_surface_unspaced	conditional	vocab_blocked	BT-T2-NO-SOURCE-SPACING;BI-ELIG-PARTICLE	particle with conditional eligibility; v1.6 number does not resolve it
+T3A2	s001w003	op_level_equal_no_span	conditional	vocab_blocked	BT-T3-NO-SPAN-MANIFEST;BI-ELIG-PARTICLE	particle with conditional eligibility; v1.6 number does not resolve it
+T1A1	s002w022	exact	conditional	vocab_blocked	BI-ELIG-EIMI	einai without PNOM: VERB|AUX conditional
+T1A2	s002w022	exact	conditional	vocab_blocked	BI-ELIG-EIMI	einai without PNOM: VERB|AUX conditional
+T2A2	s002w022	own_surface_unspaced	conditional	vocab_blocked	BT-T2-NO-SOURCE-SPACING;BI-ELIG-EIMI	einai without PNOM: VERB|AUX conditional
+T3A2	s002w022	op_level_equal_no_span	conditional	vocab_blocked	BT-T3-NO-SPAN-MANIFEST;BI-ELIG-EIMI	einai without PNOM: VERB|AUX conditional
+T1A1	s002w023	annotation_only_deleted_in_grc2	n/a	punct_blocked	BS-PUNCT-ANNOTATION-ONLY	AuxK mark deleted from grc2 in 2021; present in grc1 2014
+T1A2	s002w023	annotation_only_deleted_in_grc2	n/a	punct_blocked	BS-PUNCT-ANNOTATION-ONLY	AuxK mark deleted from grc2 in 2021; present in grc1 2014
+T2A2	s002w023	own_surface_unspaced	n/a	punct_blocked	BT-T2-NO-SOURCE-SPACING	AuxK mark deleted from grc2 in 2021; present in grc1 2014
+T3A2	s002w023	op_level_equal_no_span	n/a	punct_blocked	BT-T3-NO-SPAN-MANIFEST	AuxK mark deleted from grc2 in 2021; present in grc1 2014
+T1A1	s004w007	conditional_fold	n/a	non_vocab_blocked	BT-ELISION-UNADOPTED	elision node whose raw v2.1 form NFC-composes (rho+U+0313); v1.6 form equals grc2
+T1A2	s004w007	exact	n/a	non_vocab_ok		elision node whose raw v2.1 form NFC-composes (rho+U+0313); v1.6 form equals grc2
+T2A2	s004w007	own_surface_unspaced	n/a	non_vocab_blocked	BT-T2-NO-SOURCE-SPACING	elision node whose raw v2.1 form NFC-composes (rho+U+0313); v1.6 form equals grc2
+T3A2	s004w007	op_level_equal_no_span	n/a	non_vocab_blocked	BT-T3-NO-SPAN-MANIFEST	elision node whose raw v2.1 form NFC-composes (rho+U+0313); v1.6 form equals grc2
+T1A1	s009w017	candidate_concat	n/a	non_vocab_blocked	BT-CRASIS-CANDIDATE	crasis fragment: anchored shared span, no substring offset
+T1A2	s009w017	shared_span_anchor	n/a	non_vocab_ok		crasis fragment: anchored shared span, no substring offset
+T2A2	s009w017	producer_notation_not_printable	n/a	non_vocab_blocked	BT-T2-NO-SOURCE-SPACING;BT-T2-COMPONENT-NOTATION	crasis fragment: anchored shared span, no substring offset
+T3A2	s009w017	op_level_component	n/a	non_vocab_blocked	BT-T3-NO-SPAN-MANIFEST	crasis fragment: anchored shared span, no substring offset
+T1A1	s009w018	candidate_concat	resolved	vocab_blocked	BT-CRASIS-CANDIDATE	crasis host, eligible ADJ: vocab-ready only with the shared span
+T1A2	s009w018	shared_span_anchor	resolved	vocab_ready		crasis host, eligible ADJ: vocab-ready only with the shared span
+T2A2	s009w018	producer_notation_not_printable	resolved	vocab_blocked	BT-T2-NO-SOURCE-SPACING;BT-T2-COMPONENT-NOTATION	crasis host, eligible ADJ: vocab-ready only with the shared span
+T3A2	s009w018	op_level_component	resolved	vocab_blocked	BT-T3-NO-SPAN-MANIFEST	crasis host, eligible ADJ: vocab-ready only with the shared span
+T1A1	s011w025	blocked_component_order	n/a	non_vocab_blocked	BT-S011-ORDER	sentence 11 enclitic before host: order conflict stays blocking
+T1A2	s011w025	blocked_component_order	n/a	non_vocab_blocked	BT-S011-ORDER	sentence 11 enclitic before host: order conflict stays blocking
+T2A2	s011w025	producer_notation_not_printable	n/a	non_vocab_blocked	BT-T2-NO-SOURCE-SPACING;BT-T2-COMPONENT-NOTATION	sentence 11 enclitic before host: order conflict stays blocking
+T3A2	s011w025	op_level_order_conflict	n/a	non_vocab_blocked	BT-S011-ORDER	sentence 11 enclitic before host: order conflict stays blocking
+T1A1	s011w026	blocked_component_order	conditional	vocab_blocked	BT-S011-ORDER;BI-ELIG-PARTICLE	sentence 11 host: order conflict and conditional particle overlap
+T1A2	s011w026	blocked_component_order	conditional	vocab_blocked	BT-S011-ORDER;BI-ELIG-PARTICLE	sentence 11 host: order conflict and conditional particle overlap
+T2A2	s011w026	producer_notation_not_printable	conditional	vocab_blocked	BT-T2-NO-SOURCE-SPACING;BT-T2-COMPONENT-NOTATION;BI-ELIG-PARTICLE	sentence 11 host: order conflict and conditional particle overlap
+T3A2	s011w026	op_level_order_conflict	conditional	vocab_blocked	BT-S011-ORDER;BI-ELIG-PARTICLE	sentence 11 host: order conflict and conditional particle overlap
+T1A1	s014w007	exact	resolved	vocab_ready		inside a TEI del: exact in grc2, no editorial markup in annotation-carried text
+T1A2	s014w007	exact	resolved	vocab_ready		inside a TEI del: exact in grc2, no editorial markup in annotation-carried text
+T2A2	s014w007	own_surface_unspaced	resolved	vocab_blocked	BT-T2-NO-SOURCE-SPACING;BT-T2-EDITORIAL-MARKUP	inside a TEI del: exact in grc2, no editorial markup in annotation-carried text
+T3A2	s014w007	op_level_equal_no_span	resolved	vocab_blocked	BT-T3-NO-SPAN-MANIFEST	inside a TEI del: exact in grc2, no editorial markup in annotation-carried text
+T1A1	s030w001	candidate_concat	conditional	vocab_blocked	BT-CRASIS-CANDIDATE;BI-ELIG-PARTICLE	crasis fragment of kai: shared span verified, eligibility still conditional
+T1A2	s030w001	shared_span_anchor	conditional	vocab_blocked	BI-ELIG-PARTICLE	crasis fragment of kai: shared span verified, eligibility still conditional
+T2A2	s030w001	producer_notation_not_printable	conditional	vocab_blocked	BT-T2-NO-SOURCE-SPACING;BT-T2-COMPONENT-NOTATION;BI-ELIG-PARTICLE	crasis fragment of kai: shared span verified, eligibility still conditional
+T3A2	s030w001	op_level_component	conditional	vocab_blocked	BT-T3-NO-SPAN-MANIFEST;BI-ELIG-PARTICLE	crasis fragment of kai: shared span verified, eligibility still conditional
+T1A1	s060w009	exact	resolved	vocab_ready		iota subscript: exact in grc2, variant against grc1 2014
+T1A2	s060w009	exact	resolved	vocab_ready		iota subscript: exact in grc2, variant against grc1 2014
+T2A2	s060w009	own_surface_unspaced	resolved	vocab_blocked	BT-T2-NO-SOURCE-SPACING	iota subscript: exact in grc2, variant against grc1 2014
+T3A2	s060w009	op_level_variant	resolved	vocab_blocked	BT-T3-NO-SPAN-MANIFEST;BT-T3-VARIANT	iota subscript: exact in grc2, variant against grc1 2014
+T1A1	s071w019	exact	conditional	vocab_blocked	BI-DISC-CONFLATED	conflated v2.1 identity resolved by the native v1.6 number
+T1A2	s071w019	exact	resolved	vocab_ready		conflated v2.1 identity resolved by the native v1.6 number
+T2A2	s071w019	own_surface_unspaced	resolved	vocab_blocked	BT-T2-NO-SOURCE-SPACING	conflated v2.1 identity resolved by the native v1.6 number
+T3A2	s071w019	op_level_equal_no_span	resolved	vocab_blocked	BT-T3-NO-SPAN-MANIFEST	conflated v2.1 identity resolved by the native v1.6 number
+T1A1	s072w007	exact	conditional	vocab_blocked	BI-HEADWORD-CONDITIONAL	compound headword conditional (decomposition match only)
+T1A2	s072w007	exact	conditional	vocab_blocked	BI-HEADWORD-CONDITIONAL	compound headword conditional (decomposition match only)
+T2A2	s072w007	own_surface_unspaced	conditional	vocab_blocked	BT-T2-NO-SOURCE-SPACING;BI-HEADWORD-CONDITIONAL	compound headword conditional (decomposition match only)
+T3A2	s072w007	op_level_equal_no_span	conditional	vocab_blocked	BT-T3-NO-SPAN-MANIFEST;BI-HEADWORD-CONDITIONAL	compound headword conditional (decomposition match only)
+T1A1	s078w002	annotation_only_print_attested	n/a	punct_blocked	BS-PUNCT-ANNOTATION-ONLY	rubric stop: printed by Hude, absent from grc1/grc2
+T1A2	s078w002	annotation_only_print_attested	n/a	punct_blocked	BS-PUNCT-ANNOTATION-ONLY	rubric stop: printed by Hude, absent from grc1/grc2
+T2A2	s078w002	own_surface_unspaced	n/a	punct_blocked	BT-T2-NO-SOURCE-SPACING	rubric stop: printed by Hude, absent from grc1/grc2
+T3A2	s078w002	annotation_only_print_attested	n/a	punct_blocked	BS-PUNCT-ANNOTATION-ONLY	rubric stop: printed by Hude, absent from grc1/grc2
+T1A1	s116w019	exact	unresolved	vocab_blocked	BI-HEADWORD-UNRESOLVED	compound headword unresolved (v1.6 number disagrees with Morpheus table)
+T1A2	s116w019	exact	unresolved	vocab_blocked	BI-HEADWORD-UNRESOLVED	compound headword unresolved (v1.6 number disagrees with Morpheus table)
+T2A2	s116w019	own_surface_unspaced	unresolved	vocab_blocked	BT-T2-NO-SOURCE-SPACING;BI-HEADWORD-UNRESOLVED	compound headword unresolved (v1.6 number disagrees with Morpheus table)
+T3A2	s116w019	op_level_equal_no_span	unresolved	vocab_blocked	BT-T3-NO-SPAN-MANIFEST;BI-HEADWORD-UNRESOLVED	compound headword unresolved (v1.6 number disagrees with Morpheus table)
+T1A1	s125w015	variant_positional	n/a	non_vocab_blocked	BT-S125-VARIANT	breathing variant against grc2; non-vocabulary CCONJ
+T1A2	s125w015	variant_positional	n/a	non_vocab_blocked	BT-S125-VARIANT	breathing variant against grc2; non-vocabulary CCONJ
+T2A2	s125w015	own_surface_unspaced	n/a	non_vocab_blocked	BT-T2-NO-SOURCE-SPACING	breathing variant against grc2; non-vocabulary CCONJ
+T3A2	s125w015	op_level_variant	n/a	non_vocab_blocked	BT-T3-NO-SPAN-MANIFEST;BT-T3-VARIANT	breathing variant against grc2; non-vocabulary CCONJ
