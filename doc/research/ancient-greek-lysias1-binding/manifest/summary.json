@@ -1,0 +1,100 @@
+{
+ "canonical_tokens_unbound": 3,
+ "denominators": {
+  "agdt_nodes": 2834,
+  "artificial": 32,
+  "canonical_punct_tokens": 368,
+  "canonical_word_tokens": 2410,
+  "printed": 2802,
+  "punct_nodes": 374,
+  "word_nodes": 2428
+ },
+ "punct_alignment_ops": {
+  "delete": 6,
+  "equal": 10,
+  "replace": 3
+ },
+ "punct_node_classes": {
+  "punct_exact_punct": 368,
+  "punct_punct_unaligned": 1,
+  "punct_rubric_attached_punct_no_running_text": 5
+ },
+ "reversed_order_candidates": [
+  {
+   "forms_len": [
+    3,
+    2
+   ],
+   "nodes": [
+    "s011w025",
+    "s011w026"
+   ],
+   "token": "cg2:w0264"
+  },
+  {
+   "forms_len": [
+    3,
+    2
+   ],
+   "nodes": [
+    "s011w028",
+    "s011w029"
+   ],
+   "token": "cg2:w0264"
+  },
+  {
+   "forms_len": [
+    3,
+    2
+   ],
+   "nodes": [
+    "s011w025",
+    "s011w026"
+   ],
+   "token": "cg2:w0266"
+  },
+  {
+   "forms_len": [
+    3,
+    2
+   ],
+   "nodes": [
+    "s011w028",
+    "s011w029"
+   ],
+   "token": "cg2:w0266"
+  }
+ ],
+ "running_text": {
+  "child_tags_in_sections": {
+   "p": 56
+  },
+  "codepoints": 15110,
+  "labels": 5,
+  "lacunae_at": [
+   6644
+  ],
+  "nfc": true,
+  "sections": 50,
+  "sha256": "e60cfa97121a64d86f1a5c495ee3484cb63ddd730abe5749f9ca387485d29815"
+ },
+ "schema": "lysias1-binding-manifest/1",
+ "source_agdt": {
+  "path": "v2.1/Greek/texts/tlg0540.tlg001.perseus-grc1.tb.xml",
+  "rev": "bf4334f0af5e13d16b04c1cccd6237e683ac6f5f",
+  "sha256": "44ecf3a29e33fe8a173ef1d08b43dc9e52c9e066cacbd642050d95af83d7a568"
+ },
+ "source_canonical": {
+  "path": "data/tlg0540/tlg001/tlg0540.tlg001.perseus-grc2.xml",
+  "rev": "01b725d835e6e733062ffd79e0efdbae1ba06e5c",
+  "sha256": "21dbae42979097132d8d4c16531ed0527beac717b2cc1fffec541205f6514d6a"
+ },
+ "word_node_classes": {
+  "concat_exact": 22,
+  "exact_1to1": 2346,
+  "fold_elision_1to1": 45,
+  "fold_nfd_1to1": 5,
+  "rubric_label_exact": 5,
+  "unbound": 5
+ }
+}

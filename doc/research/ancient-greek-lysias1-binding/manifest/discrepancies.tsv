@@ -1,0 +1,90 @@
+key	sentence	word	class	reason
+s002w003	2	3	fold_elision_1to1	
+s004w007	4	7	fold_nfd_1to1	
+s004w012	4	12	fold_elision_1to1	
+s009w017	9	17	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s009w018	9	18	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s011w025	11	25	unbound	no exact, fold or concatenation correspondence in its aligned block
+s011w026	11	26	unbound	no exact, fold or concatenation correspondence in its aligned block
+s011w028	11	28	unbound	no exact, fold or concatenation correspondence in its aligned block
+s011w029	11	29	unbound	no exact, fold or concatenation correspondence in its aligned block
+s011w031	11	31	fold_elision_1to1	
+s016w001	16	1	fold_elision_1to1	
+s018w012	18	12	fold_elision_1to1	
+s022w013	22	13	fold_elision_1to1	
+s030w001	30	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s030w002	30	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s031w001	31	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s031w002	31	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s031w006	31	6	fold_elision_1to1	
+s035w016	35	16	fold_elision_1to1	
+s036w002	36	2	fold_elision_1to1	
+s036w003	36	3	fold_elision_1to1	
+s038w012	38	12	fold_nfd_1to1	
+s042w002	42	2	fold_elision_1to1	
+s044w012	44	12	fold_elision_1to1	
+s046w014	46	14	fold_elision_1to1	
+s047w025	47	25	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s047w026	47	26	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s047w033	47	33	fold_nfd_1to1	
+s048w007	48	7	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s048w008	48	8	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s049w001	49	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s049w002	49	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s052w012	52	12	fold_nfd_1to1	
+s053w002	53	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s053w003	53	3	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s055w011	55	11	fold_elision_1to1	
+s056w004	56	4	fold_elision_1to1	
+s063w002	63	2	fold_elision_1to1	
+s065w013	65	13	fold_elision_1to1	
+s066w002	66	2	fold_elision_1to1	
+s067w001	67	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s067w002	67	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s068w002	68	2	fold_elision_1to1	
+s070w020	70	20	fold_elision_1to1	
+s071w002	71	2	fold_elision_1to1	
+s071w016	71	16	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s071w017	71	17	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s072w001	72	1	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s072w002	72	2	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s072w013	72	13	fold_elision_1to1	
+s073w002	73	2	fold_elision_1to1	
+s073w010	73	10	fold_elision_1to1	
+s074w024	74	24	fold_elision_1to1	
+s075w014	75	14	fold_elision_1to1	
+s076w001	76	1	fold_elision_1to1	
+s076w023	76	23	fold_elision_1to1	
+s078w001	78	1	rubric_label_exact	exact match of canonical <label> (section 32, paragraph 1); label text is not running text
+s079w007	79	7	fold_elision_1to1	
+s079w021	79	21	fold_elision_1to1	
+s082w001	82	1	rubric_label_exact	exact match of canonical <label> (section 43, paragraph 1); label text is not running text
+s084w001	84	1	rubric_label_exact	exact match of canonical <label> (section 32, paragraph 1); label text is not running text
+s085w020	85	20	fold_elision_1to1	
+s088w009	88	9	fold_elision_1to1	
+s090w001	90	1	rubric_label_exact	exact match of canonical <label> (section 32, paragraph 1); label text is not running text
+s092w005	92	5	fold_elision_1to1	
+s094w033	94	33	fold_elision_1to1	
+s094w046	94	46	fold_elision_1to1	
+s095w001	95	1	fold_elision_1to1	
+s097w003	97	3	fold_elision_1to1	
+s115w020	115	20	fold_elision_1to1	
+s116w012	116	12	fold_elision_1to1	
+s117w025	117	25	fold_elision_1to1	
+s118w017	118	17	fold_elision_1to1	
+s118w029	118	29	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s118w030	118	30	concat_exact	hyphen-marked split forms; exact code-point concatenation
+s119w002	119	2	fold_elision_1to1	
+s121w001	121	1	rubric_label_exact	exact match of canonical <label> (section 43, paragraph 1); label text is not running text
+s123w003	123	3	fold_nfd_1to1	
+s125w015	125	15	unbound	no exact, fold or concatenation correspondence in its aligned block
+s128w017	128	17	fold_elision_1to1	
+s130w018	130	18	fold_elision_1to1	
+s133w030	133	30	fold_elision_1to1	
+s011w025;s011w026			reversed_order_candidate_not_bound	reversed-order hyphen-stripped concatenation equals canonical token cg2:w0264
+s011w028;s011w029			reversed_order_candidate_not_bound	reversed-order hyphen-stripped concatenation equals canonical token cg2:w0264
+s011w025;s011w026			reversed_order_candidate_not_bound	reversed-order hyphen-stripped concatenation equals canonical token cg2:w0266
+s011w028;s011w029			reversed_order_candidate_not_bound	reversed-order hyphen-stripped concatenation equals canonical token cg2:w0266
+cg2:w0264			unbound_canonical_token	canonical word token with no bound node
+cg2:w0266			unbound_canonical_token	canonical word token with no bound node
+cg2:w2180			unbound_canonical_token	canonical word token with no bound node
