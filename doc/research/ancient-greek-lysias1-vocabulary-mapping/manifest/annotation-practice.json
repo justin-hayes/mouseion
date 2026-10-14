@@ -1,0 +1,242 @@
+{
+  "files_total": 33,
+  "files_with_aux_particles": 33,
+  "files_with_g_particles": 18,
+  "files_with_no_g_particles": 15,
+  "lysias_i_particles_d": 259,
+  "lysias_i_particles_g": 0,
+  "per_file": [
+    {
+      "file": "tlg0003.tlg001.perseus-grc1.1.tb.xml",
+      "particles_d": 2630,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 25266
+    },
+    {
+      "file": "tlg0007.tlg004.perseus-grc1.tb.xml",
+      "particles_d": 927,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 10709
+    },
+    {
+      "file": "tlg0007.tlg015.perseus-grc1.tb.xml",
+      "particles_d": 960,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 11415
+    },
+    {
+      "file": "tlg0008.tlg001.perseus-grc1.12.tb.xml",
+      "particles_d": 1865,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 20296
+    },
+    {
+      "file": "tlg0008.tlg001.perseus-grc1.13.tb.xml",
+      "particles_d": 2243,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 25289
+    },
+    {
+      "file": "tlg0011.tlg001.perseus-grc2.tb.xml",
+      "particles_d": 213,
+      "particles_g": 535,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 9026
+    },
+    {
+      "file": "tlg0011.tlg002.perseus-grc2.tb.xml",
+      "particles_d": 258,
+      "particles_g": 533,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 8990
+    },
+    {
+      "file": "tlg0011.tlg003.perseus-grc1.tb.xml",
+      "particles_d": 322,
+      "particles_g": 569,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 9751
+    },
+    {
+      "file": "tlg0011.tlg004.perseus-grc1.tb.xml",
+      "particles_d": 373,
+      "particles_g": 797,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 11521
+    },
+    {
+      "file": "tlg0011.tlg005.perseus-grc2.tb.xml",
+      "particles_d": 315,
+      "particles_g": 677,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 10806
+    },
+    {
+      "file": "tlg0012.tlg001.perseus-grc1.tb.xml",
+      "particles_d": 3757,
+      "particles_g": 9736,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 130479
+    },
+    {
+      "file": "tlg0012.tlg002.perseus-grc1.tb.xml",
+      "particles_d": 3304,
+      "particles_g": 7172,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 105612
+    },
+    {
+      "file": "tlg0013.tlg002.perseus-grc1.tb.xml",
+      "particles_d": 180,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 3968
+    },
+    {
+      "file": "tlg0016.tlg001.perseus-grc1.1.tb.xml",
+      "particles_d": 3268,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 33102
+    },
+    {
+      "file": "tlg0020.tlg001.perseus-grc1.tb.xml",
+      "particles_d": 126,
+      "particles_g": 594,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 8234
+    },
+    {
+      "file": "tlg0020.tlg002.perseus-grc1.tb.xml",
+      "particles_d": 193,
+      "particles_g": 509,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 7116
+    },
+    {
+      "file": "tlg0020.tlg003.perseus-grc1.tb.xml",
+      "particles_d": 87,
+      "particles_g": 243,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 3934
+    },
+    {
+      "file": "tlg0059.tlg001.perseus-grc1.tb.xml",
+      "particles_d": 284,
+      "particles_g": 439,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 6349
+    },
+    {
+      "file": "tlg0060.tlg001.perseus-grc3.11.tb.xml",
+      "particles_d": 1921,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 25660
+    },
+    {
+      "file": "tlg0085.tlg001.perseus-grc2.tb.xml",
+      "particles_d": 127,
+      "particles_g": 341,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 6071
+    },
+    {
+      "file": "tlg0085.tlg002.perseus-grc2.tb.xml",
+      "particles_d": 114,
+      "particles_g": 285,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 6381
+    },
+    {
+      "file": "tlg0085.tlg003.perseus-grc2.tb.xml",
+      "particles_d": 183,
+      "particles_g": 449,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 7222
+    },
+    {
+      "file": "tlg0085.tlg004.perseus-grc2.tb.xml",
+      "particles_d": 131,
+      "particles_g": 328,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 6372
+    },
+    {
+      "file": "tlg0085.tlg005.perseus-grc1.tb.xml",
+      "particles_d": 215,
+      "particles_g": 505,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 10037
+    },
+    {
+      "file": "tlg0085.tlg006.perseus-grc2.tb.xml",
+      "particles_d": 110,
+      "particles_g": 313,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 5846
+    },
+    {
+      "file": "tlg0085.tlg007.perseus-grc1.tb.xml",
+      "particles_d": 142,
+      "particles_g": 384,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 6518
+    },
+    {
+      "file": "tlg0096.tlg002.opp-grc2.1-53.tb.xml",
+      "particles_d": 146,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the Ancient Greek dependency treebank 2.0",
+      "words": 5221
+    },
+    {
+      "file": "tlg0540.tlg001.perseus-grc1.tb.xml",
+      "particles_d": 259,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 2834
+    },
+    {
+      "file": "tlg0540.tlg014.perseus-grc1.tb.xml",
+      "particles_d": 300,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 2782
+    },
+    {
+      "file": "tlg0540.tlg015.perseus-grc1.tb.xml",
+      "particles_d": 61,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 684
+    },
+    {
+      "file": "tlg0540.tlg023.perseus-grc1.tb.xml",
+      "particles_d": 90,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 891
+    },
+    {
+      "file": "tlg0543.tlg001.perseus-grc1.tb.xml",
+      "particles_d": 2268,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the syntactic annotation of the Ancient Greek dependency treebank 1.1",
+      "words": 28271
+    },
+    {
+      "file": "tlg0548.tlg001.perseus-grc1.1.1.1-1.4.1.tb.xml",
+      "particles_d": 48,
+      "particles_g": 0,
+      "scheme_declared": "Guidelines for the Ancient Greek dependency treebank 2.0",
+      "words": 1265
+    }
+  ],
+  "scope": "all AGDT v2.1 Greek texts, native fields only"
+}

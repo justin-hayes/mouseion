@@ -1,0 +1,112 @@
+{
+  "copula_identity_candidates": 2,
+  "diagnostics": {
+    "accent_variant_splits_same_upos": {
+      "ειμι|VERB": [
+        "εἰμί",
+        "εἶμι"
+      ],
+      "και|ADV": [
+        "καί",
+        "καὶ"
+      ],
+      "μη|ADV": [
+        "μή",
+        "μὴ"
+      ],
+      "παγοσ|NOUN": [
+        "πάγοσ",
+        "πᾶγοσ"
+      ],
+      "παιδιον|NOUN": [
+        "παίδιον",
+        "παιδίον"
+      ]
+    },
+    "keys_with_multiple_upos_identities": {
+      "καλόσ": [
+        "ADJ",
+        "ADV"
+      ],
+      "οἰκεῖοσ": [
+        "ADJ",
+        "ADV"
+      ]
+    }
+  },
+  "eligible_identities": 503,
+  "eligible_occurrences": 1439,
+  "eligible_resolved_occurrences": 1432,
+  "eligible_unresolved_headword_occurrences": 7,
+  "flags": {
+    "conjunction-upos-split-unresolved": 3,
+    "copula-unresolved": 41,
+    "elliptic": 32,
+    "headword-capitalized": 17,
+    "headword-grave-not-folded": 10,
+    "headword-hyphen-compound-undecoded": 7,
+    "identity-candidates:VERB,AUX": 41,
+    "particle-adverb-lineage": 259
+  },
+  "inputs": {
+    "lysias_sha256": "44ecf3a29e33fe8a173ef1d08b43dc9e52c9e066cacbd642050d95af83d7a568",
+    "treebank_commit": "bf4334f0af5e13d16b04c1cccd6237e683ac6f5f",
+    "ud_commit": "331ddef91411d0e6549744ee889e05549e6da77d"
+  },
+  "nodes_printed": 2802,
+  "nodes_total": 2834,
+  "nodes_unprinted_elliptic": 32,
+  "printed_by_letter": {
+    "a": 243,
+    "c": 215,
+    "d": 341,
+    "i": 25,
+    "l": 284,
+    "n": 328,
+    "p": 287,
+    "r": 136,
+    "u": 374,
+    "v": 569
+  },
+  "printed_by_rule": {
+    "R01": 328,
+    "R02": 243,
+    "R03": 82,
+    "R03P": 259,
+    "R04": 1,
+    "R05": 41,
+    "R06": 527,
+    "R07": 121,
+    "R08": 91,
+    "R09": 3,
+    "R10": 136,
+    "R11": 284,
+    "R12": 287,
+    "R13": 25,
+    "R14": 374
+  },
+  "printed_by_upos_status": {
+    "class_resolved_upos_unresolved": 3,
+    "resolved": 2408,
+    "resolved_conditional": 350,
+    "unresolved": 41
+  },
+  "printed_by_vocab_class": {
+    "eligible": 1439,
+    "non_vocab": 1322,
+    "unresolved": 41
+  },
+  "reconciliation": {
+    "class_counts_sum_to_printed": true,
+    "printed_plus_unprinted_equals_nodes": true
+  },
+  "resolved_identities": 498,
+  "rules_version": "lysias1-upos-rules/2026-10-14.1",
+  "scheme_declared": "GSAAGDT 1.1",
+  "ud_join": {
+    "sentence_joined": 13919,
+    "tokens_joined": 202989
+  },
+  "unresolved_copula_nodes": 41,
+  "unresolved_headword_identities": 5
+}
