@@ -31,6 +31,9 @@ The Personal analyzed-Book occurrences and External frequency evidence terms
 distinguish the counting domains in
 [ADR 0095](doc/adr/0095-greek-personal-counts-and-external-frequency.md).
 That accepted Greek MVP direction does not deliver Ancient Greek support.
+Classical Catalog entry and Catalog sync scope qualifications below follow
+[ADR 0096](doc/adr/0096-classical-catalogue-discovery-and-acquisition.md), an
+accepted discovery/acquisition direction whose implementation is pending.
 
 ## Language
 
@@ -54,9 +57,12 @@ selection left the set with no remaining candidate).
 _Avoid_: current language, mode, active profile.
 
 **Catalog sync scope**:
-The set of non-English languages that a connected catalog offers and the NLP
-service reports ready. The sync walks these feeds regardless of learner
-configuration and tags each book with the walked language.
+The set of offerings eligible for discovery from a connected catalog. In the
+current OPDS flow, this is the non-English language feeds whose NLP service
+reports ready, independent of learner configuration. In the accepted classical
+direction, it is the explicitly advertised edition/unit offerings of supported
+sources, independent of Stanza readiness. Discovery does not establish permission
+to acquire, annotation validity, or personal vocabulary evidence.
 _Avoid_: study-language scope, synced languages.
 
 **Known vocabulary**:
@@ -255,10 +261,13 @@ _Avoid_: detected language, inferred language (nothing is ever inferred from
 content).
 
 **Catalog entry**:
-A book as offered by a learner-owned catalog, identified by the catalog
+An offering from a learner-owned catalog, identified by the catalog
 connection plus that connection's stable entry identifier. A Book may carry one
-catalog-entry alias per connection; two connections may each offer the same
-entry identifier without being the same book.
+catalog-entry alias per connection in the current OPDS flow; two connections may
+each offer the same entry identifier without identifying the same offering.
+In the accepted classical direction, one Catalog entry may offer several
+declared Reading units; its identity is distinct from each corresponding Book's
+edition/unit identity. It is not inherently a one-entry-to-one-Book relationship.
 _Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
 
 **Work**:

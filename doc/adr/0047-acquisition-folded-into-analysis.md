@@ -2,6 +2,11 @@
 
 Status: **Accepted; the "Always the complete scope" clause is partially superseded by [ADR 0066](0066-main-text-selection-from-epub-structure.md)** · Date: 2026-09-06 · Author: Justin + opencode
 
+For future classical support, [ADR 0096](0096-classical-catalogue-discovery-and-acquisition.md)
+amends EPUB-only/inline acquisition and allows To Read text-only acquisition when
+annotations are unavailable. Implementation is pending; the current OPDS flow and
+catalogue-derived Book contract are unchanged.
+
 ## Context
 
 Mouseion's current flow separates content acquisition from analysis as two

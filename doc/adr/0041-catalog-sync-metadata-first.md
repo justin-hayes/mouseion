@@ -2,6 +2,11 @@
 
 Status: **Accepted** · Date: 2026-09-02 · Author: Justin + Codex
 
+For future classical support, [ADR 0096](0096-classical-catalogue-discovery-and-acquisition.md)
+amends the ready-NLP discovery gate and entry/unit representation while preserving
+metadata-first non-destructive sync. Implementation is pending; existing OPDS
+behavior is unchanged.
+
 ## Context
 
 Mouseion's manual acquisition path is intentionally selective: a learner-owned
