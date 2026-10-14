@@ -1,5 +1,5 @@
 {
-  "recon_version": "lysias1-recon-v1",
+  "recon_version": "lysias1-recon-v2",
   "pins": {
     "agdt": {
       "path": "agdt/v2.1/Greek/texts/tlg0540.tlg001.perseus-grc1.tb.xml",
@@ -20,30 +20,17 @@
     "python": "3.13.5",
     "platform": "Linux-6.12.111+deb13-cloud-amd64-x86_64-with-glibc2.41",
     "stdlib_only": true,
-    "script_sha256": "3d9bc1d0536737bbb014872bd7c38d39017962441b7adb195dc8ce39a3bbc183"
+    "script_sha256": "4109c3191b42ae28bb0d21e026848c51de1ecdc7db1a993beea922730cf1f2bb"
   },
   "agdt": {
     "native_sentences": 134,
-    "nodes_total": 2834,
+    "printed_nodes": 2802,
     "node_kinds": {
       "printed": 2802,
-      "artificial:elliptic:bracket_form": 23,
-      "artificial:elliptic:form": 9
+      "artificial:with_form": 32
     },
-    "printed_occurrences": 2802,
-    "printed_span_checks_failed": 0,
-    "reconstructed_codepoints": 15167,
-    "reconstructed_whitespace_tokens": 2415,
+    "word_tokens_with_key": 2428,
     "nfc_nonconforming_forms": 5,
-    "marks_count": {
-      "U+0313": 50,
-      "U+0387": 0,
-      "U+00B7": 42,
-      "ASCII_semicolon": 7,
-      "U+2019": 0,
-      "U+02BC": 0,
-      "U+1FBD": 0
-    },
     "pos_letter_counts": {
       "r": 136,
       "a": 243,
@@ -56,130 +43,207 @@
       "p": 287,
       "c": 215
     },
-    "lemma_flags": {},
-    "aux_relation_counts": {
-      "AuxP": 138,
-      "AuxY": 195,
-      "AuxX": 231,
-      "AuxZ": 92,
-      "AuxK": 135,
-      "AuxC": 91,
-      "AuxG": 4,
-      "AuxV": 1
-    }
+    "upos_candidate_counts": {
+      "ADP": 136,
+      "ADJ": 243,
+      "ADV": 341,
+      "VERB": 568,
+      "PUNCT": 374,
+      "INTJ": 25,
+      "NOUN": 328,
+      "DET": 284,
+      "PRON": 287,
+      "SCONJ": 91,
+      "CCONJ": 124,
+      "AUX": 1
+    },
+    "lemma_flags": {}
   },
   "canonical": {
-    "file_sha256": "21dbae42979097132d8d4c16531ed0527beac717b2cc1fffec541205f6514d6a",
     "sections_found": 50,
     "section_numbers_consecutive": true,
-    "editorial_elements": {
-      "note": 14,
-      "del": 3,
-      "add": 3,
-      "gap": 3,
-      "label": 5
+    "section_divs_nested": 0,
+    "running_text_codepoints": 15110,
+    "running_nfc": true,
+    "word_units": 2410,
+    "punct_units": 368,
+    "editorial": {
+      "chars_with_add": 8,
+      "chars_with_del": 11,
+      "chars_with_quote": 1187,
+      "element_add": 3,
+      "element_del": 3,
+      "element_q": 11,
+      "gap_reason_lost": 1,
+      "label_skipped": 5,
+      "note_skipped": 14,
+      "units_with_gap_before": 1
     },
-    "tags_seen_outside_note_label": [
-      "add",
-      "del",
-      "gap",
-      "milestone",
-      "p",
-      "q"
-    ],
-    "rubric_labels_removed_from_running_text": [
+    "edition_children_not_section": {
+      "edition_child_not_section:milestone": 2
+    },
+    "rubric_labels_skipped": [
       "Μάρτυρες",
       "Νόμος"
     ],
-    "running_whitespace_tokens": 2409
+    "rubrics_count": 5
   },
   "alignment": {
-    "method": "difflib.SequenceMatcher on exact whitespace tokens, autojunk=False; no case/accent folding",
-    "agdt_tokens_equal": 2337,
-    "canonical_tokens_equal": 2337,
-    "agdt_token_equal_fraction": 0.967702,
-    "nonequal_blocks": 71,
-    "nonequal_by_op": {
-      "replace": 66,
-      "delete": 5
+    "method": "level 1: difflib on exact NFC word keys; level 2: difflib on elision/breathing fold (U+0313 treated as elision mark) within unequal blocks; level 3: exact concatenation of consecutive AGDT nodes equal to adjacent canonical units. No reordering, no re-spelling.",
+    "tokens_total": 2428,
+    "tokens_bound_by_class": {
+      "exact": 2346,
+      "fold": 50,
+      "concat_exact": 22,
+      "unbound": 10
     },
-    "nonequal_by_class": {
-      "elision_mark_clitic_or_punctuation_convention": 64,
-      "unexplained": 2,
-      "rubric_in_agdt_only": 5
+    "canonical_word_units": 2410,
+    "canonical_word_units_unbound": 3,
+    "verification_failures": 0,
+    "unbound_blocks": 8,
+    "unbound_blocks_by_class": {
+      "replace_block_unexplained": 2,
+      "agdt_rubric_label": 5,
+      "replace_1to1_unexplained": 1
     },
-    "nonequal_unexplained_examples": [
-      [
-        "ὥστε-τε μή λυπεῖν-τε μή",
-        "ὥστε μήτε λυπεῖν μήτε"
-      ],
-      [
-        "οὔτε",
-        "οὕτε"
-      ]
-    ],
-    "nonequal_agdt_tokens": 78,
-    "nonequal_canonical_tokens": 72,
-    "first_agdt_token": "περὶ",
-    "last_agdt_token": "ἐπειθόμην.",
-    "first_canonical_token": "περὶ",
-    "last_canonical_token": "ἐπειθόμην."
-  },
-  "vocabulary": {
-    "lexical_pos_classes": {
-      "n": "NOUN",
-      "v": "VERB",
-      "a": "ADJ",
-      "d": "ADV"
+    "unbound_tokens": 10,
+    "unbound_agdt_tokens_by_class": {
+      "replace_block_unexplained": 4,
+      "agdt_rubric_label": 5,
+      "replace_1to1_unexplained": 1
     },
-    "lexical_occurrences": 1481,
-    "unresolved_lexical_occurrences": 0,
-    "lexical_occurrences_total_checked": 1481,
-    "distinct_raw_lemma_identities": 502,
-    "selection_rule": ">= 3 lexical occurrences in this Book (provisional 3/15)",
-    "selected_identities": 136,
-    "selected_identities_with_aligned_occurrence": 136,
-    "selected_identity_omissions": {},
-    "selected_occurrences": 1017,
-    "selected_occurrences_unaligned": 36,
-    "selected_identities_with_unaligned_occurrence": 15,
-    "status": "conditional: canonical lemma-to-headword mapping not performed in this probe"
+    "unbound_block_examples": [
+      {
+        "nodes": [
+          "25",
+          "26"
+        ],
+        "sentences": [
+          10
+        ],
+        "class": "replace_block_unexplained"
+      },
+      {
+        "nodes": [
+          "28",
+          "29"
+        ],
+        "sentences": [
+          10
+        ],
+        "class": "replace_block_unexplained"
+      },
+      {
+        "nodes": [
+          "1"
+        ],
+        "sentences": [
+          77
+        ],
+        "class": "agdt_rubric_label"
+      },
+      {
+        "nodes": [
+          "1"
+        ],
+        "sentences": [
+          81
+        ],
+        "class": "agdt_rubric_label"
+      },
+      {
+        "nodes": [
+          "1"
+        ],
+        "sentences": [
+          83
+        ],
+        "class": "agdt_rubric_label"
+      },
+      {
+        "nodes": [
+          "1"
+        ],
+        "sentences": [
+          89
+        ],
+        "class": "agdt_rubric_label"
+      },
+      {
+        "nodes": [
+          "1"
+        ],
+        "sentences": [
+          120
+        ],
+        "class": "agdt_rubric_label"
+      },
+      {
+        "nodes": [
+          "15"
+        ],
+        "sentences": [
+          124
+        ],
+        "class": "replace_1to1_unexplained"
+      }
+    ]
   },
   "sentences": {
-    "native_nonempty": 134,
-    "empty_native_segments": 0,
-    "units": {
-      "min": 1,
-      "p25": 10,
-      "median": 15.0,
-      "p75": 25,
-      "p90": 35,
-      "max": 65
+    "native_sentences": 134,
+    "with_word_tokens": 134,
+    "status_counts": {
+      "verified": 126,
+      "problem": 8
     },
-    "codepoints": {
-      "min": 6,
-      "p25": 60,
-      "median": 95.0,
-      "p75": 145,
-      "p90": 226,
-      "max": 390
+    "problem_types": {
+      "trailing_punct_mismatch": 1,
+      "unbound_token": 10
     },
-    "over_units_cap_50": 4,
-    "over_codepoints_cap_400": 0,
-    "terminal_marks": {
-      "·": 42,
-      ".": 86,
-      ";": 6
+    "units": 15,
+    "over_units_cap_50_verified_or_problem": 4,
+    "over_codepoints_cap_400_verified_or_problem": 0,
+    "start_context": {
+      "text_start": 1,
+      "after_terminal": 125,
+      "after_nonterminal": 1,
+      "null": 7
     },
-    "completeness": "not certified: native boundaries are reported, not validated"
+    "end_context": {
+      "terminal": 126,
+      "nonterminal": 1,
+      "null": 7
+    },
+    "sentences_with_medial_terminals": 1,
+    "completeness": "not certified: native segment boundaries are checked for contiguity and exact punctuation only"
   },
-  "runtime_seconds": 0.04,
-  "detail_bytes": {
-    "alignment_blocks.json": 19959,
-    "canonical_running_text.txt": 29674,
-    "per_identity.json": 166960,
-    "reconstruction.txt": 29762,
-    "rubrics.json": 154,
-    "sentences.json": 53998
-  }
+  "vocabulary": {
+    "content_upos_rule": "UPOS not in NON_CONTENT_UPOS and not UNMAPPED (internal/enrichment/lexical.go contentPOS)",
+    "content_printed_nodes": 1856,
+    "content_nodes_bound": 1846,
+    "content_nodes_unbound": 10,
+    "distinct_identities": 548,
+    "identity_key": "(canonical_lemma NFC/lower/final-sigma, UPOS candidate); no homograph discriminator exists in the AGDT lemmas",
+    "selection_rule": ">= 3 content occurrences in this Book (provisional 3/15)",
+    "selected_identities": 163,
+    "selected_occurrences": 1367,
+    "selected_status_counts": {
+      "upos_unresolved": 26,
+      "card_candidate": 137
+    },
+    "selected_upos_unresolved_but_eligible": 26,
+    "selected_raw_lemma_strings": 158,
+    "dictionary": {
+      "lemmas_checked": 158,
+      "lemmas_with_entry": 153,
+      "lemmas_missing_entry": 5,
+      "http_status_counts": {
+        "404": 5,
+        "200": 153
+      },
+      "identities_with_entry_for_all_raw_lemmas": 158,
+      "identities_missing_entry_for_some_raw_lemma": 5
+    }
+  },
+  "runtime_seconds": 0.07
 }
