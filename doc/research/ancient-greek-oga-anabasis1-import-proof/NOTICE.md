@@ -1,42 +1,60 @@
 # Attribution, rights and modification notice
 
-## Fresh-owner completion pass (#2052, 2026-10-15)
+## Fresh-owner completion pass (#2052, 2026-10-15; v2 review revision)
 
-This pass added narrow static inputs, listed with URL, revision, size, SHA-256
-and the licence statement found in `opus-completion-inputs.json`. They are kept
-privately under `private/opus-completion/` and cited, not republished:
+### What was acquired, and how
 
-- **PerseusDL/morpheus** at `b1b33c56…`: eight stem-source files (each matches
-  the existing manifest hash) and three documentation files (`doc/morpheus.html`,
-  `stemlib/Greek/xsl/lemmaRegistry.xsl`, `stemlib/Greek/makefile`). The README
-  states CC BY-SA 3.0 US unless otherwise indicated, with Tufts' general notice.
-  Only key, line and derivation witnesses are cited. Morpheus was not built or run.
-- **vgorman1/Greek-Dependency-Trees** at `d823e96d…`: the two Anabasis Book 1
-  tree files, the README and the licence file. The README says CC BY-NC-SA 4.0.
-  The licence file holds the CC BY-SA 4.0 text. Both are recorded and neither is
-  resolved here. These files are a lineage witness for the producer's training
-  labels. They are not a reading source, a correction or a gold standard. Only
-  counts and short lemma labels are published.
-- **UD_Ancient_Greek-Perseus** at `331ddef9…`: train, dev and test files,
-  README and LICENSE (CC BY-NC-SA 2.5). These are byte-identical copies of the
-  #2050 retained inputs, checked against that registry's hashes. They serve as
-  conversion evidence and only counts are published.
-- **UniversalDependencies/docs** at `24add7d0…`: Ancient Greek POS pages and the
-  universal AUX, cop and nonverbal-predication pages. GitHub reports Apache-2.0
-  for the repository. They are cited, not republished.
+`opus-completion-inputs.json` records every new input with its URL, revision,
+size, SHA-256, licence statement and how it was obtained.
 
-One Perseus Hopper request for a single LSJ entry returned **HTTP 405**. It was
-not retried and no other route was tried. No LSJ file was acquired.
+- **Fetched over the network on 2026-10-15** (one ordinary request per file):
+  - From **PerseusDL/morpheus** at `b1b33c56…`:
+    - eight complete stem-source files, each matching the hash in the existing
+      manifest;
+    - three documentation files: `doc/morpheus.html`,
+      `stemlib/Greek/xsl/lemmaRegistry.xsl` and `stemlib/Greek/makefile`.
+  - From **vgorman1/Greek-Dependency-Trees** at `d823e96d…`: two **complete
+    annotation XML files** (710,529 and 619,008 bytes, covering Anabasis 1.1–1.10)
+    plus the README and the licence file. These are training-data lineage
+    material, not short lemma extracts. Fetching them goes beyond the brief's
+    "narrow lexical records" wording, so it is recorded here as a scope
+    qualification for parent review. No other training file was fetched.
+  - From **UniversalDependencies/docs** at `24add7d0…`: Ancient Greek POS pages
+    and the universal AUX, cop and nonverbal-predication pages.
+- **Copied locally, not downloaded:** UD_Ancient_Greek-Perseus `331ddef9…`
+  train, dev and test files, README and LICENSE. These are byte-identical copies
+  of the #2050 retained inputs, checked against that registry's hashes.
+- **Refused and not retried:** one Perseus Hopper request for a single LSJ entry
+  returned HTTP 405. No other route was tried, and no LSJ file was acquired.
+- The v2 review revision fetched nothing.
 
-**New Mouseion transformations:** the pass interprets the producer's lemma
-labels against Morpheus keys and compound records, and maps native POS to UPOS
-using the UD Perseus conversion and the UD guidelines. It segments sentences on
-`.` and `;` over the unchanged reading text and serializes identities as
-`key#morpheus:n` for the Go probe. It models selection and picks sentence
-inputs. None of this changes upstream text or annotation, and none of it
-certifies a prediction. Full ledgers, sentences, examples and the probe input
-stay private. Public files hold counts, node IDs, citations, raw lemma labels
-and native POS, under CC BY-SA 4.0 with this notice.
+### Terms per source
+
+Each source keeps its own terms. Nothing here relicenses a source.
+
+| Source | Stated terms | What this pass publishes |
+| --- | --- | --- |
+| OGA v0.2.0 (archive README) | CC BY-SA 4.0 | Counts, node IDs, citations, raw lemma labels and native POS, as bounded diagnostics under CC BY-SA 4.0 with this notice. These are OGA-derived material. |
+| Morpheus (README) | CC BY-SA 3.0 US unless otherwise indicated; Tufts' general notice | Short key, line and derivation citations, attributed to Morpheus under its own terms. No file is republished. |
+| Gorman Trees | The README says CC BY-NC-SA 4.0; the licence file holds the CC BY-SA 4.0 text. This conflict is not resolved here. | v2 publishes only counts and agreement categories. The v1 summary (`opus-completion-summary.json`, kept unchanged as the 0e839900 record) does contain short Gorman lemma labels for the numbered-label tokens and the numbered-label tally. That is flagged here for the parent's rights review, not removed. |
+| UD Ancient Greek-Perseus | CC BY-NC-SA 2.5 | Counts only. |
+| UD docs repository | GitHub reports Apache-2.0 | Cited, not republished. |
+
+Full ledgers, sentence text, examples and the Go probe input stay private. The
+#2035 operation boundaries are unchanged: no export, bundling or provider use is
+approved.
+
+### Mouseion transformations
+
+None of these changes upstream text or annotation, and none certifies a
+prediction.
+
+- Lemma labels are interpreted against Morpheus keys and compound records.
+- Native POS is mapped to UPOS through the UD Perseus conversion. For εἰμί, UD
+  definitions are applied to the native syntax.
+- Sentences are segmented on `.` and `;` over the unchanged reading text.
+- Identities are serialized as `key#morpheus:n` for the Go probe.
+- Selection is modelled and sentence inputs are picked.
 
 ## Current component assessment after verified acquisition
 

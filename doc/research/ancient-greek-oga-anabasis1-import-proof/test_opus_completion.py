@@ -1,21 +1,37 @@
-"""Focused tests for opus_completion.py (#2052 fresh-owner pass).
+"""Focused tests for opus_completion.py (#2052 fresh-owner pass, v2 revision).
 
 Synthetic fixtures are invented to exercise one rule each; they are not source
-observations. The last class compares a full rebuild with the committed summary
-and is skipped when the private inputs are absent.
+observations. Temporary files go to an owned scratch directory, not /tmp. The
+last class compares a full rebuild with the committed v2 summary and is skipped
+when the private inputs are absent.
 """
 
 from __future__ import annotations
 
 import collections
 import json
+import shutil
 import tempfile
-import unittest
 import unicodedata
+import unittest
 from pathlib import Path
 
 import mapping_completion_v2 as v2
 import opus_completion as oc
+
+SCRATCH = Path.home() / ".cache/scratch/greek-oga-anabasis1-import-proof/opus-completion-tests"
+
+
+class OwnedScratch:
+    """A fresh directory under the owned scratch root, removed on exit."""
+
+    def __enter__(self) -> Path:
+        SCRATCH.mkdir(parents=True, exist_ok=True)
+        self.path = Path(tempfile.mkdtemp(prefix="t-", dir=SCRATCH))
+        return self.path
+
+    def __exit__(self, *exc) -> None:
+        shutil.rmtree(self.path, ignore_errors=True)
 
 
 def index_of(*records: tuple[str, str, str, str, str]) -> tuple[dict, dict, list[dict]]:
@@ -71,7 +87,11 @@ class IdentityRules(unittest.TestCase):
         self.assertEqual(got["headword"], "συλλέγω")
         self.assertIsNone(got["discriminator"])
         self.assertEqual(got["raw_flags"], ["multiple-accents"])
-        self.assertEqual(got["citation_flags"], [])
+
+    def test_compound_notation_needs_the_same_numbered_base(self):
+        record = ("vbs.cmp.ml", "6459", "compound", "sulle/gw", "su/n-le/gw2")
+        self.assertEqual(lemma("σύνλέγω3", record)["status"], "unresolved")
+        self.assertEqual(lemma("σύνλέγω", record)["status"], "unresolved")
 
     def test_ambiguous_compound_notation_is_not_decoded(self):
         got = lemma("σύνλέγω2", ("c", "1", "compound", "sulle/gw", "su/n-le/gw2"),
@@ -83,11 +103,34 @@ class IdentityRules(unittest.TestCase):
                     ("c", "2", "compound", "sulle/gw", "su/n-le/gw2"))
         self.assertEqual(got["rule"], "I-NUM-MORPHEUS-KEY")
 
-    def test_key_from_two_bases_is_qualified(self):
+    def test_key_from_two_bases_is_qualified_not_rejected(self):
         got = lemma("πρόσειμι1", ("c", "1", "compound", "pro/seimi1", "pro/s-ei)=mi"),
                     ("c", "2", "compound", "pro/seimi1", "pro/s-ei)mi/"))
+        self.assertEqual(got["status"], "resolved")
         self.assertEqual(got["declared"]["compound_bases"], ["εἰμί", "εἶμι"])
         self.assertEqual(got["qualifications"], ["scheme-derivation-ambiguous"])
+
+    def test_unattested_anomalous_plain_form_is_unsupported(self):
+        for raw in ("ἐνεἰμί", "σύλλέγω", "σύνεἶδον", "κατάκαθέζομαι"):
+            got = lemma(raw, self.LEGW3)
+            self.assertEqual(got["rule"], "I-UNSUPPORTED-CITATION-FORM", raw)
+            self.assertEqual(got["predicted_form"], raw)
+            self.assertIsNone(got["headword"])
+
+    def test_no_grave_acute_equivalence(self):
+        got = lemma("ἑπτὰ", ("lemlist", "1", "lemlist", "e(pta/", ""))
+        self.assertEqual(got["rule"], "I-UNSUPPORTED-CITATION-FORM")
+        self.assertEqual(lemma("ἑπτά", ("lemlist", "1", "lemlist", "e(pta/", ""))["rule"], "I-PLAIN")
+
+    def test_attested_anomalous_form_stays_usable(self):
+        got = lemma("οἶκόνδε", ("lemlist", "1", "lemlist", "oi)=ko/nde", ""))
+        self.assertEqual(got["rule"], "I-PLAIN")
+        self.assertTrue(got["attested_key"])
+        self.assertEqual(got["raw_flags"], ["multiple-accents"])
+
+    def test_unattested_well_formed_plain_form_stays_usable(self):
+        got = lemma("κῦρος", self.LEGW3)
+        self.assertEqual((got["rule"], got["status"], got["attested_key"]), ("I-PLAIN", "resolved", False))
 
     def test_missing_stem_source_fails_closed(self):
         by_head, compounds, _ = index_of(("absent-file", "1", "le-block", "le/gw3", ""))
@@ -107,65 +150,159 @@ class IdentityRules(unittest.TestCase):
         nfd = unicodedata.normalize("NFD", "Κῦρος")
         self.assertEqual(oc.profile_key(nfd), "κῦροσ")
         self.assertEqual(oc.profile_key("ᾠδή"), "ᾠδή")  # iota subscript kept
+        self.assertEqual(oc.vocabulary_status(lemma("ἐνεἰμί", self.LEGW3),
+                                              {"status": "resolved", "upos": "VERB"}), "unresolved-identity")
 
 
 EVIDENCE = {"pairs": {("c", "ἤ"): collections.Counter({"CCONJ": 3}),
                       ("c", "ὡσ"): collections.Counter({"SCONJ": 2, "CCONJ": 1})}}
+NONE = {"pnom": False, "pp": False, "adverbial": False, "infinitive_subject": False}
+
+
+def ctx(**kw) -> dict:
+    return {**NONE, **kw}
 
 
 class PosRules(unittest.TestCase):
     def test_unknown_native_tag_fails_closed(self):
-        got = oc.interpret_pos("x", "λέγω", "PRED", False, EVIDENCE)
+        got = oc.interpret_pos("x", "λέγω", "PRED", NONE, EVIDENCE)
         self.assertEqual(got["status"], "unresolved")
         self.assertIsNone(got["upos"])
         self.assertEqual(oc.vocabulary_status({"status": "resolved"}, got), "unresolved-pos")
 
     def test_letters_follow_the_conversion(self):
-        self.assertEqual(oc.interpret_pos("n", "κῦροσ", "SBJ", False, EVIDENCE)["upos"], "NOUN")
-        self.assertEqual(oc.interpret_pos("n", "ὁδόσ", "ADV", False, EVIDENCE)["upos"], "NOUN")
-        self.assertEqual(oc.interpret_pos("a", "πολύσ", "ADV", False, EVIDENCE)["upos"], "ADJ")
-        self.assertEqual(oc.interpret_pos("d", "δέ", "AuxY", False, EVIDENCE)["upos"], "ADV")
+        self.assertEqual(oc.interpret_pos("n", "κῦροσ", "SBJ", NONE, EVIDENCE)["upos"], "NOUN")
+        self.assertEqual(oc.interpret_pos("n", "ὁδόσ", "ADV", NONE, EVIDENCE)["upos"], "NOUN")
+        self.assertEqual(oc.interpret_pos("a", "πολύσ", "ADV", NONE, EVIDENCE)["upos"], "ADJ")
+        self.assertEqual(oc.interpret_pos("d", "δέ", "AuxY", NONE, EVIDENCE)["upos"], "ADV")
 
     def test_conjunction_pairs(self):
-        self.assertEqual(oc.interpret_pos("c", "ἤ", "COORD", False, EVIDENCE)["upos"], "CCONJ")
-        undecided = oc.interpret_pos("c", "ὡσ", "AuxC", False, EVIDENCE)
+        self.assertEqual(oc.interpret_pos("c", "ἤ", "COORD", NONE, EVIDENCE)["upos"], "CCONJ")
+        undecided = oc.interpret_pos("c", "ὡσ", "AuxC", NONE, EVIDENCE)
         self.assertEqual(undecided["status"], "ambiguous-outside-allowed")
         self.assertEqual(oc.vocabulary_status({"status": "unresolved"}, undecided), "non-vocabulary")
 
-    def test_eimi_context_and_diacritics(self):
-        cop = oc.interpret_pos("v", oc.profile_key("εἰμί"), "PRED", True, EVIDENCE)
-        other = oc.interpret_pos("v", oc.profile_key("εἰμί"), "PRED", False, EVIDENCE)
-        go = oc.interpret_pos("v", oc.profile_key("εἶμι"), "PRED", False, EVIDENCE)
-        self.assertEqual((cop["upos"], cop["rule"]), ("AUX", "P-V-EIMI-PNOM"))
-        self.assertEqual((other["upos"], other["rule"]), ("AUX", "P-V-EIMI-OTHER"))
-        self.assertEqual(go["upos"], "VERB")
+    def test_eimi_rules(self):
+        eimi = oc.profile_key("εἰμί")
+        cases = [
+            (ctx(pnom=True, infinitive_subject=True), "AUX", "P-V-EIMI-COP-PNOM"),
+            (ctx(pp=True), "AUX", "P-V-EIMI-COP-ADVERBIAL-PREDICATE"),
+            (ctx(adverbial=True), "AUX", "P-V-EIMI-COP-ADVERBIAL-PREDICATE"),
+            (ctx(infinitive_subject=True, adverbial=True), "VERB", "P-V-EIMI-IMPERSONAL-INFINITIVE"),
+            (ctx(infinitive_subject=True, pp=True), "AUX", "P-V-EIMI-COP-ADVERBIAL-PREDICATE"),
+            (NONE, "VERB", "P-V-EIMI-EXISTENTIAL"),
+        ]
+        for context, upos, rule in cases:
+            got = oc.interpret_pos("v", eimi, "PRED", context, EVIDENCE)
+            self.assertEqual((got["upos"], got["rule"]), (upos, rule), context)
+
+    def test_eimi_and_eimi_go_are_distinct(self):
+        go = oc.interpret_pos("v", oc.profile_key("εἶμι"), "PRED", ctx(pnom=True), EVIDENCE)
+        self.assertEqual((go["upos"], go["rule"]), ("VERB", "P-V-VERB"))
 
     def test_auxv_on_other_verb_is_unmapped(self):
-        self.assertEqual(oc.interpret_pos("v", "ἔχω", "AuxV", False, EVIDENCE)["status"], "unresolved")
+        self.assertEqual(oc.interpret_pos("v", "ἔχω", "AuxV", NONE, EVIDENCE)["status"], "unresolved")
 
-    def test_unresolved_identity_with_eligible_pos(self):
-        pos = oc.interpret_pos("v", "λέγω", "PRED", False, EVIDENCE)
-        self.assertEqual(oc.vocabulary_status({"status": "unresolved"}, pos), "unresolved-identity")
-
-    def test_pnom_through_coordination(self):
+    def test_eimi_context_from_native_rows(self):
         verb = ["1", "ἦν", "εἰμί", "v", "", "", "0", "PRED", "_", "t_1"]
         coord = ["2", "καί", "καί", "c", "", "", "1", "COORD", "_", "t_2"]
         pnom = ["3", "x", "x", "a", "", "", "2", "PNOM", "_", "t_3"]
-        children = {"1": [coord], "2": [pnom]}
-        self.assertTrue(oc.pnom_reachable(verb, children))
-        self.assertFalse(oc.pnom_reachable(verb, {"1": [["2", "", "", "", "", "", "1", "AuxZ"]]}))
+        inf = ["4", "λαβεῖν", "λαμβάνω", "v", "", "Mood=n|Tense=a", "1", "SBJ", "_", "t_4"]
+        self.assertTrue(oc.eimi_context(verb, {"1": [coord], "2": [pnom]})["pnom"])
+        got = oc.eimi_context(verb, {"1": [inf]})
+        self.assertEqual(got, ctx(infinitive_subject=True))
 
     def test_conversion_evidence_fails_closed_when_letter_splits(self):
         rows = ["1\tα\tα\tADV\td--------\t_\t0\troot\t_\t_", "2\tβ\tβ\tPART\td--------\t_\t1\tdiscourse\t_\t_"]
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "x.conllu"
+        with OwnedScratch() as tmp:
+            path = tmp / "x.conllu"
             path.write_text("\n".join(rows) + "\n\n", encoding="utf-8")
             with self.assertRaises(SystemExit):
                 oc.ud_perseus_evidence([path])
 
 
+def native(node_id, surface, lemma_, pos, start, end, empty=False):
+    return {"id": node_id, "surface": surface, "raw_lemma": lemma_, "empty": empty,
+            "native_morphology": {"pos": pos}, "reading_span": [start, end], "cts": "1_1_1"}
+
+
+def row(node_id, surface, lemma_, pos, number="1", head="0"):
+    return [number, surface, lemma_, pos, "", "_", head, "PRED", "_", node_id]
+
+
+class IntegrityGates(unittest.TestCase):
+    TEXT = "αβ γ ."
+
+    def nodes(self):
+        return [native("t_1", "αβ", "αβ", "n", 0, 2), native("t_2", "γ", "γ", "v", 3, 4),
+                native("t_3", ".", ".", "u", 5, 6), native("e_1", "[0]", "[0]", "-", 0, 0, empty=True)]
+
+    def groups(self):
+        return [[row("t_1", "αβ", "αβ", "n"), row("t_2", "γ", "γ", "v", "2"), row("t_3", ".", ".", "u", "3"),
+                 row("e_1", "[0]", "[0]", "-", "4")]]
+
+    def test_valid_fixture_passes(self):
+        self.assertEqual(oc.check_native_join(self.nodes(), self.groups())["printed_rows_joined"], 3)
+        printed = [n for n in self.nodes() if not n["empty"]]
+        self.assertEqual(oc.check_coverage(self.TEXT, printed)["covered_non_whitespace"], 4)
+        self.assertTrue(oc.check_sentence_coverage(self.TEXT, oc.segment(self.TEXT))["tail_is_whitespace"])
+
+    def test_missing_row_duplicate_join_and_duplicate_id(self):
+        groups = self.groups()
+        del groups[0][1]
+        with self.assertRaises(SystemExit):
+            oc.check_native_join(self.nodes(), groups)
+        groups = self.groups()
+        groups[0].append(row("t_2", "γ", "γ", "v", "5"))
+        with self.assertRaises(SystemExit):
+            oc.check_native_join(self.nodes(), groups)
+        with self.assertRaises(SystemExit):
+            oc.check_native_join(self.nodes() + [native("t_1", "αβ", "αβ", "n", 0, 2)], self.groups())
+
+    def test_row_without_node(self):
+        groups = self.groups()
+        groups[0].append(row("t_9", "δ", "δ", "n", "5"))
+        with self.assertRaises(SystemExit):
+            oc.check_native_join(self.nodes(), groups)
+
+    def test_surface_lemma_pos_and_diacritic_mismatch(self):
+        for column, value in ((1, "αϐ"), (2, "ἀβ"), (3, "a")):
+            groups = self.groups()
+            groups[0][0][column] = value
+            with self.assertRaises(SystemExit, msg=f"column {column}"):
+                oc.check_native_join(self.nodes(), groups)
+
+    def test_uncovered_overlapping_and_wrong_span(self):
+        printed = [n for n in self.nodes() if not n["empty"]]
+        with self.assertRaises(SystemExit):
+            oc.check_coverage(self.TEXT, printed[:2])
+        overlap = printed + [native("t_4", "β", "β", "n", 1, 2)]
+        with self.assertRaises(SystemExit):
+            oc.check_coverage(self.TEXT, overlap)
+        wrong = [native("t_1", "αβ", "αβ", "n", 1, 3)] + printed[1:]
+        with self.assertRaises(SystemExit):
+            oc.check_coverage(self.TEXT, wrong)
+
+    def test_group_crossing_fails(self):
+        text = "α . β ."
+        sentences = oc.segment(text)
+        where = {"t_1": 0, "t_2": 1}
+        groups = [[row("t_1", "α", "α", "n"), row("t_2", "β", "β", "n", "2")]]
+        with self.assertRaises(SystemExit):
+            oc.native_group_check(groups, where, {})
+        self.assertEqual(len(sentences), 2)
+
+    def test_sentence_tail_and_gap(self):
+        sentences = oc.segment("α .")
+        with self.assertRaises(SystemExit):
+            oc.check_sentence_coverage("α . β", sentences)
+        with self.assertRaises(SystemExit):
+            oc.check_sentence_coverage("β α .", [{**sentences[0], "start": 2, "end": 5}])
+
+
 class Sentences(unittest.TestCase):
     def test_terminals_closers_and_medial_ano_teleia(self):
+        # Synthetic only: a terminal inside parentheses is not claimed for the source.
         text = "α β · γ . δ ; ε ( ζ . ) η ."
         got = oc.segment(text)
         self.assertEqual([text[s["start"]:s["end"]] for s in got], ["α β · γ .", "δ ;", "ε ( ζ . )", "η ."])
@@ -177,8 +314,9 @@ class Sentences(unittest.TestCase):
             oc.segment("α β .  γ")
 
     def test_unreviewed_terminal_fails_closed(self):
-        with self.assertRaises(SystemExit):
-            oc.segment("α ! β .")
+        for char in ("!", "?", ";", "·"):
+            with self.assertRaises(SystemExit):
+                oc.segment(f"α {char} β .")
 
     def test_node_crossing_boundary_fails(self):
         sentences = oc.segment("α . β .")
@@ -196,9 +334,8 @@ class SelectionAndInputs(unittest.TestCase):
         long_sentence = " ".join(["λ"] * 51) + " ."
         text = long_sentence + " α β ."
         sentences = oc.segment(text)
-        first = node("t_1", 0, 1, "λ", 0)
-        later = node("t_2", len(long_sentence) + 1, len(long_sentence) + 2, "α", 1)
-        ledger = {"t_1": first, "t_2": later}
+        ledger = {"t_1": node("t_1", 0, 1, "λ", 0),
+                  "t_2": node("t_2", len(long_sentence) + 1, len(long_sentence) + 2, "α", 1)}
         got = oc.card_inputs([{"key": "k", "upos": "NOUN"}], {("k", "NOUN"): ["t_2", "t_1"]}, ledger, sentences, text)
         self.assertEqual(got[0]["chosen"], "t_2")
         self.assertEqual(got[0]["earlier_rejections"], [{"id": "t_1", "reasons": ["over-unit-cap"]}])
@@ -215,25 +352,26 @@ class SelectionAndInputs(unittest.TestCase):
 
 class ReproductionGuards(unittest.TestCase):
     def test_hash_mismatch_fails(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "input"
+        with OwnedScratch() as tmp:
+            path = tmp / "input"
             path.write_text("x", encoding="utf-8")
             with self.assertRaises(SystemExit):
                 oc.check_pin(path, "0" * 64)
             with self.assertRaises(SystemExit):
-                oc.check_pin(Path(tmp) / "missing", "0" * 64)
+                oc.check_pin(tmp / "missing", "0" * 64)
 
     def test_summary_and_private_output_mismatch(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "a.json").write_text("old", encoding="utf-8")
-            problems = oc.reproduction_problems('{"x": 1}\n', '{"x": 2}\n', {"a.json": "new", "b.tsv": "z"}, Path(tmp))
+        with OwnedScratch() as tmp:
+            (tmp / "a.json").write_text("old", encoding="utf-8")
+            problems = oc.reproduction_problems('{"x": 1}\n', '{"x": 2}\n', {"a.json": "new", "b.tsv": "z"}, tmp)
             self.assertEqual(problems, ["summary differs in keys ['x']", "private output differs from computed: a.json",
                                         "private output missing: b.tsv"])
-            self.assertEqual(oc.reproduction_problems(None, "{}", {}, Path(tmp))[0][:24], "committed summary missin")
+            self.assertEqual(oc.reproduction_problems(None, "{}", {}, tmp)[0][:24], "committed summary missin")
 
-    def test_write_guard(self):
+    def test_write_guard_protects_earlier_outputs(self):
         oc.guard_write_targets([oc.SUMMARY, oc.OUT_DIR / "x.json"])
-        for bad in (oc.HERE / "mapping-completion-v2-summary.json", oc.PRIVATE / "mapping-completion-v2" / "x.json",
+        for bad in (oc.HERE / "opus-completion-summary.json", oc.OWN / "out" / "node-ledger.json",
+                    oc.HERE / "mapping-completion-v2-summary.json", oc.PRIVATE / "mapping-completion-v2" / "x.json",
                     oc.PRIVATE / "import" / "native-nodes.json"):
             with self.assertRaises(SystemExit):
                 oc.guard_write_targets([bad])
@@ -241,13 +379,18 @@ class ReproductionGuards(unittest.TestCase):
 
 @unittest.skipUnless(oc.NATIVE_NODES.is_file() and oc.SUMMARY.is_file(), "private inputs not present")
 class FullBuild(unittest.TestCase):
-    def test_rebuild_matches_committed_summary(self):
+    def test_rebuild_matches_committed_summary_and_gates(self):
         summary, private = oc.build()
         text = json.dumps(summary, ensure_ascii=False, indent=1, sort_keys=True) + "\n"
         self.assertEqual(oc.reproduction_problems(oc.SUMMARY.read_text(encoding="utf-8"), text, private, oc.OUT_DIR), [])
-        self.assertEqual(summary["denominators"]["unresolved_ids"], [])
+        gates = summary["required_gates"]
+        for name in ("native_join", "reading_coverage", "sentence_coverage", "native_groups_nest",
+                     "canonical_pos_determinate"):
+            self.assertTrue(gates[name]["pass"], name)
+        self.assertEqual(gates["required_identity_usable"]["unsupported_ids"],
+                         ["t_437", "t_4624", "t_4638", "t_4930", "t_5121", "t_5145", "t_5775"])
+        self.assertFalse(gates["vocabulary_ready_accounting"]["pass"])
         self.assertEqual(summary["identity_layer"]["numbered_occurrences"], 142)
-        self.assertEqual(summary["denominators"]["printed"], 10462)
 
 
 if __name__ == "__main__":

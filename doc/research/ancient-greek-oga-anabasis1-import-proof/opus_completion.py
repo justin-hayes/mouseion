@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Fresh-owner completion pass for OGA Anabasis Book 1, issue #2052.
+"""Fresh-owner completion pass for OGA Anabasis Book 1, issue #2052 (v2 review revision).
 
-Research-only. It hash-checks every retained input, interprets the producer's
+Research-only. It hash-checks every retained input, fails closed on the native
+join, reading-coverage, sentence-coverage and group-nesting gates, interprets the producer's
 lemma labels and native POS for all 10,462 printed nodes under versioned rules,
 segments complete sentences over the verified reading text, models Mouseion's
 3/15 selection with empty Known/Reserved, runs the real Go selection code on the
@@ -10,7 +11,11 @@ with the committed summary and private outputs.
 
     python3 -I opus_completion.py           # verify and compare; writes nothing tracked or private
     python3 -I opus_completion.py --no-go   # same, without the Go probe (exit 1: parity unverified)
-    python3 -I opus_completion.py --write   # regenerate the summary and private/opus-completion/out/
+    python3 -I opus_completion.py --write   # regenerate the v2 summary and private/opus-completion/out-v2/
+
+The v1 result (opus-completion-summary.json, private/opus-completion/out/) is the
+immutable 0e839900 dry run; reproduce it from that commit. This version never
+writes it.
 
 The Go probe writes its input and output under
 ~/.cache/scratch/greek-oga-anabasis1-import-proof/opus-completion/ and removes
@@ -45,8 +50,8 @@ import mapping_completion_v2 as v2  # noqa: E402
 REPO = HERE.parents[2]
 PRIVATE = HERE / "private"
 OWN = PRIVATE / "opus-completion"
-OUT_DIR = OWN / "out"
-SUMMARY = HERE / "opus-completion-summary.json"
+OUT_DIR = OWN / "out-v2"  # private/opus-completion/out/ keeps the 0e839900 v1 outputs
+SUMMARY = HERE / "opus-completion-v2-summary.json"  # opus-completion-summary.json is v1, historical
 REGISTRY = HERE / "opus-completion-inputs.json"
 IMPORT_LEDGER = HERE / "import-ledger.json"
 NATIVE_NODES = PRIVATE / "import" / "native-nodes.json"
@@ -60,11 +65,11 @@ UD_PERSEUS = [OWN / "udperseus" / f"grc_perseus-ud-{s}.conllu" for s in ("train"
 SCRATCH = Path.home() / ".cache/scratch/greek-oga-anabasis1-import-proof/opus-completion"
 PROBE = "./doc/research/ancient-greek-oga-anabasis1-import-proof/_selectionprobe"
 
-VERSION = "oga-anabasis1-opus-completion/1"
+VERSION = "oga-anabasis1-opus-completion/2"
 RULESETS = {
-    "identity": "oga-greta-lemma/1",
-    "pos": "oga-agdt-upos/1",
-    "sentence": "oga-reading-terminal/1",
+    "identity": "oga-greta-lemma/2",
+    "pos": "oga-agdt-upos/2",
+    "sentence": "oga-reading-terminal/2",
     "selection_model": "mouseion-3-15-single-book-empty-known/1",
     "card_input": "grc-earliest-capped/1",
     "normalization_profile": "ancient-greek/1",
@@ -87,7 +92,7 @@ MAX_UNITS, MAX_CODE_POINTS = 50, 400  # #2034 provisional caps
 TERMINALS = frozenset({".", ";"})  # Perseus ASCII ';' is the Greek question mark
 MEDIAL = frozenset({"·"})  # ano teleia is medial (#2034)
 CLOSERS = frozenset({")", "]", "»", "’", "”"})
-UNSUPPORTED_TERMINALS = frozenset({"!", "?", ";", "·"})
+UNSUPPORTED_TERMINALS = frozenset({"!", "?", "\u037e", "\u0387"})
 EIMI = "εἰμί"
 # Producer-lineage conversion: AGDT letters the UD Perseus release maps to one UPOS.
 EXPECTED_LETTER_UPOS = {"a": "ADJ", "d": "ADV", "i": "INTJ", "l": "DET", "n": "NOUN",
@@ -106,8 +111,22 @@ COMPOUND_SURFACE_BASE = {
              "ἄπιμεν", "ἀπῄει", "ἀπιὼν", "ἀπιόντες", "ἀπιόντας", "συνῄει", "παρῄει"),
     "εἰμί": ("παρῆν", "παρῆσαν", "παροῦσι", "παρόντες", "παροῦσιν", "περιῆν", "περιεῖναι"),
 }
-ACUTE, GRAVE, CIRCUMFLEX = "́", "̀", "͂"
-SMOOTH, ROUGH = "̓", "̔"
+# Reviewer reading (diagnostic only, never used by the rule) of the εἰμί contexts
+# where the native-syntax rule output differs from, or is not settled by, a reading
+# of the sentence. All other εἰμί contexts were read and agree with the rule.
+EIMI_REVIEWER_READINGS = {
+    "t_2739": ("AUX", "copular 'it is (not) time': predicate ὥρα not attached to εἶναι"),
+    "t_5651": ("AUX", "copular: predicate adjective χρήσιμον not attached"),
+    "t_7640": ("AUX", "copular: clausal predicate introduced by ὡς is attached as AuxC"),
+    "t_9711": ("AUX", "copular quantification: numeral τέτταρες not attached"),
+    "t_10265": ("AUX", "copular: interrogative predicate τί is labelled SBJ"),
+    "t_10412": ("AUX", "copular quantification: numeral τετρακόσιαι not attached"),
+    "t_5989": ("VERB", "pure existential; the μετὰ ταῦτα PP is a temporal adjunct"),
+    "t_3351": ("AUX|VERB", "dative possessor with ὑποψία ἦν: possession or existential"),
+    "t_6641": ("AUX|VERB", "ἔστι ἡμῖν ἀρχή with extent PPs: possession or existential"),
+}
+ACUTE, GRAVE, CIRCUMFLEX = "\u0301", "\u0300", "\u0342"
+SMOOTH, ROUGH = "\u0313", "\u0314"
 
 
 class InputError(SystemExit):
@@ -259,7 +278,13 @@ def declared_meaning(rows: list[dict], stem_lines: dict[str, list[str]]) -> dict
 
 
 def interpret_lemma(raw: str, by_head: dict, compounds: dict, stem_lines: dict) -> dict:
-    """One OGA lemma label under oga-greta-lemma/1. Unknown shapes stay unresolved."""
+    """One OGA lemma label under oga-greta-lemma/2. Unknown shapes stay unresolved.
+
+    A plain label is a usable citation representation unless it is orthographically
+    anomalous (``citation_form_flags``) and no Morpheus key attests that exact
+    spelling. Attested anomalies (enclitic ``-δε`` forms, koronis crasis) stay
+    usable; unattested ones are unsupported, never repaired or accent-folded.
+    """
     headword, digits = split_label(raw)
     exact = [r for r in by_head.get(v2.citation_key(headword), []) if r["digits"] == digits and not r["loose"]]
     notation = compounds.get(v2.citation_key(headword) + digits, []) if not exact else []
@@ -282,12 +307,19 @@ def interpret_lemma(raw: str, by_head: dict, compounds: dict, stem_lines: dict) 
     elif digits:
         result.update(rule="I-UNRESOLVED-NUMBERED", headword=None, status="unresolved",
                       reason="numbered label has no exact Morpheus key or unique compound record")
+    elif citation_form_flags(headword) and not exact:
+        result.update(rule="I-UNSUPPORTED-CITATION-FORM", headword=None, status="unresolved",
+                      predicted_form=headword,
+                      reason="orthographically anomalous citation form with no attesting Morpheus key "
+                             "and no unique compound record; not repaired")
     else:
-        result.update(rule="I-PLAIN", headword=headword)
+        result.update(rule="I-PLAIN", headword=headword, attested_key=bool(exact))
+    result["raw_flags"] = citation_form_flags(headword)
+    result["citation_flags"] = []
     if result["headword"] is not None:
         result["key"] = profile_key(result["headword"])
-        result["citation_flags"] = citation_form_flags(result["headword"])
-        result["raw_flags"] = citation_form_flags(headword)
+        if result["rule"] == "I-PLAIN" and not exact:
+            result["citation_flags"] = citation_form_flags(result["headword"])
     return result
 
 
@@ -361,7 +393,37 @@ def pnom_reachable(cols: list[str], children: dict[str, list[list[str]]]) -> boo
     return False
 
 
-def interpret_pos(native: str, head_key: str, relation: str, has_pnom: bool, evidence: dict) -> dict:
+def eimi_context(cols: list[str], children: dict[str, list[list[str]]]) -> dict:
+    """Native-syntax evidence for a nonverbal predicate under one verb node."""
+    kids = children.get(cols[0], [])
+    return {"pnom": pnom_reachable(cols, children),
+            "pp": any(k[7] == "AuxP" for k in kids),
+            "adverbial": any(k[7] == "ADV" for k in kids),
+            "infinitive_subject": any(k[7] == "SBJ" and k[3] == "v" and "Mood=n" in k[5] for k in kids)}
+
+
+def eimi_rule(context: dict) -> tuple[str, str]:
+    """UD AUX/VERB for εἰμί from the UD definitions applied to native AGDT syntax.
+
+    AUX is a copula linking a nonverbal predicate (UD AUX, cop) or the grc
+    periphrastic auxiliary; AGDT marks both with PNOM. UD's one-verb analysis
+    also treats location, possession and benefaction phrases, and existentials
+    with a location, as predicates of the copula: AGDT gives these as AuxP or
+    ADV dependents. Impersonal ἔστι + infinitive has no nonverbal predicate, and
+    the grc AUX page admits no modal auxiliary. A pure existential has "no
+    predicate other than the verb" (simple-syntax), so it is neither copula nor
+    auxiliary.
+    """
+    if context["pnom"]:
+        return "AUX", "P-V-EIMI-COP-PNOM"
+    if context["infinitive_subject"] and not context["pp"]:
+        return "VERB", "P-V-EIMI-IMPERSONAL-INFINITIVE"
+    if context["pp"] or context["adverbial"]:
+        return "AUX", "P-V-EIMI-COP-ADVERBIAL-PREDICATE"
+    return "VERB", "P-V-EIMI-EXISTENTIAL"
+
+
+def interpret_pos(native: str, head_key: str, relation: str, context: dict, evidence: dict) -> dict:
     """Canonical UPOS for one printed node. Unknown tags and unmapped contexts fail closed."""
     pair = dict(evidence["pairs"].get((native, head_key), {}))
     if native in EXPECTED_LETTER_UPOS:
@@ -380,9 +442,9 @@ def interpret_pos(native: str, head_key: str, relation: str, has_pnom: bool, evi
             return {"upos": None, "candidates": ["AUX", "VERB"], "rule": "P-V-AUXV-UNMAPPED",
                     "status": "unresolved", "pair_attested": 0}
         if head_key == profile_key(EIMI):
-            rule = "P-V-EIMI-PNOM" if has_pnom else "P-V-EIMI-OTHER"
-            return {"upos": "AUX", "candidates": ["AUX"], "rule": rule, "status": "resolved",
-                    "pair_attested": pair.get("AUX", 0)}
+            upos, rule = eimi_rule(context)
+            return {"upos": upos, "candidates": [upos], "rule": rule, "status": "resolved",
+                    "pair_attested": pair.get(upos, 0), "context": context}
         return {"upos": "VERB", "candidates": ["VERB"], "rule": "P-V-VERB", "status": "resolved",
                 "pair_attested": pair.get("VERB", 0)}
     return {"upos": None, "candidates": [], "rule": "P-UNSUPPORTED-TAG", "status": "unresolved",
@@ -431,6 +493,65 @@ def segment(text: str) -> list[dict]:
     return sentences
 
 
+def check_native_join(nodes: list[dict], groups: list[list[list[str]]]) -> dict:
+    """Required gate: unique native IDs; each printed node joins exactly one CoNLL-U row
+    with the same surface, raw lemma and native POS; no Book 1 group row lacks a node."""
+    ids = [n["id"] for n in nodes]
+    if len(ids) != len(set(ids)):
+        raise InputError("duplicate native node IDs")
+    rows: dict[str, list[list[str]]] = collections.defaultdict(list)
+    for group in groups:
+        for cols in group:
+            rows[cols[9]].append(cols)
+    known = set(ids)
+    if any(row_id not in known for row_id in rows):
+        raise InputError("a Book 1 native group row has no native node")
+    for node in nodes:
+        found = rows.get(node["id"], [])
+        if len(found) > 1 or (not node["empty"] and len(found) != 1):
+            raise InputError(f"node {node['id']} joins {len(found)} CoNLL-U rows")
+        if node["empty"]:
+            continue
+        cols = found[0]
+        if (cols[1], cols[2], cols[3]) != (node["surface"], node["raw_lemma"], node["native_morphology"]["pos"]):
+            raise InputError(f"node {node['id']} differs from its CoNLL-U row")
+    return {"native_ids_unique": True, "printed_rows_joined": sum(1 for n in nodes if not n["empty"]),
+            "empty_rows_joined": sum(1 for n in nodes if n["empty"] and rows.get(n["id"]))}
+
+
+def check_coverage(text: str, printed: list[dict]) -> dict:
+    """Required gate: every non-whitespace reading character lies in exactly one printed
+    node span, each span reproduces its surface, and spans never overlap."""
+    owner = [0] * len(text)
+    for node in printed:
+        start, end = node["reading_span"]
+        if not 0 <= start < end <= len(text) or text[start:end] != node["surface"]:
+            raise InputError(f"reading span of {node['id']} does not reproduce its surface")
+        for i in range(start, end):
+            owner[i] += 1
+    if any(c > 1 for c in owner):
+        raise InputError("printed node spans overlap")
+    uncovered = [i for i, ch in enumerate(text) if not ch.isspace() and owner[i] == 0]
+    if uncovered:
+        raise InputError(f"{len(uncovered)} non-whitespace reading characters are not covered, first at {uncovered[0]}")
+    return {"covered_non_whitespace": sum(1 for ch in text if not ch.isspace()), "overlaps": 0}
+
+
+def check_sentence_coverage(text: str, sentences: list[dict]) -> dict:
+    """Required gate: sentences are ordered, disjoint, end on a terminal, and leave only
+    whitespace between them and after the last."""
+    position = 0
+    for sentence in sentences:
+        if text[position:sentence["start"]].strip() or sentence["start"] < position:
+            raise InputError(f"text outside sentences before {sentence['start']}")
+        if sentence["terminal"] not in TERMINALS:
+            raise InputError(f"sentence {sentence['index']} has no terminal")
+        position = sentence["end"]
+    if text[position:].strip():
+        raise InputError("non-whitespace text after the last sentence")
+    return {"sentences": len(sentences), "tail_is_whitespace": True}
+
+
 def sentence_of(nodes: list[dict], sentences: list[dict]) -> dict[str, int]:
     starts = [s["start"] for s in sentences]
     out = {}
@@ -452,6 +573,8 @@ def native_group_check(groups: list[list[list[str]]], where: dict[str, int], nod
             crossing.append(number)
         for index in indices:
             per_sentence[index] += 1
+    if crossing:
+        raise InputError(f"native groups cross complete-sentence boundaries: {crossing[:5]}")
     empties = collections.defaultdict(list)
     for group in groups:
         printed = [where[c[9]] for c in group if c[9] in where]
@@ -577,18 +700,35 @@ def gorman_alignment(printed: list[dict]) -> dict:
                 aligned[nodes[block.a + k]["id"]] = theirs[block.b + k][1:]
     lexical = [n for n in printed if n["id"] in aligned and n["native_morphology"]["pos"] != "u"]
     same = sum(1 for n in printed if n["id"] in aligned and aligned[n["id"]][0].lower() == n["raw_lemma"])
+
+    def relation(node) -> str:
+        """Gorman's label on the aligned token, as a category; Gorman strings stay private."""
+        if node["id"] not in aligned:
+            return "unaligned"
+        theirs = aligned[node["id"]][0].lower()
+        if theirs == node["raw_lemma"]:
+            return "same-string"
+        if theirs == split_label(node["raw_lemma"])[0]:
+            return "unnumbered-same-headword"
+        if split_label(theirs)[0] == split_label(node["raw_lemma"])[0]:
+            return "other-number-same-headword"
+        return "different-lemma"
+
     numbered = collections.Counter(
-        (n["raw_lemma"], aligned.get(n["id"], (None,))[0]) for n in printed if re.search(r"\d", n["raw_lemma"]))
-    gorman_numbered = collections.Counter(lemma for words in gorman.values() for _, lemma, _ in words
-                                          if re.search(r"\d", lemma) and not lemma.startswith("["))
-    return {"gorman_sections": len(gorman), "oga_sections_without_gorman": sorted(set(by_section) - set(gorman)),
+        (n["raw_lemma"], relation(n)) for n in printed if re.search(r"\d", n["raw_lemma"]))
+    off_book = sorted(s for s in gorman if s not in by_section)
+    return {"method": "same-section surface alignment (difflib), a local lexical alignment; "
+                      "not a complete binding, a training-partition proof or an accuracy gold standard",
+            "gorman_subdoc_labels": len(gorman), "oga_sections_without_gorman": sorted(set(by_section) - set(gorman)),
+            "gorman_subdoc_labels_not_oga_book1_sections": off_book,
             "aligned_printed_nodes": len(aligned), "lemma_equal_after_lowercase": same,
             "aligned_lexical_nodes": len(lexical),
             "lexical_lemma_equal_after_lowercase": sum(1 for n in lexical if aligned[n["id"]][0].lower() == n["raw_lemma"]),
             "lexical_pos_letter_equal": sum(1 for n in lexical if aligned[n["id"]][1] == n["native_morphology"]["pos"]),
-            "numbered_label_pairs": [{"oga": a, "gorman": b, "count": c}
-                                     for (a, b), c in sorted(numbered.items(), key=lambda kv: (kv[0][0], str(kv[0][1])))],
-            "gorman_numbered_labels": dict(sorted(gorman_numbered.items()))}
+            "numbered_label_relations": [{"oga": a, "gorman_same_token": b, "count": c}
+                                         for (a, b), c in sorted(numbered.items())],
+            "gorman_numbered_label_tokens": sum(1 for words in gorman.values() for _, lemma, _ in words
+                                                if re.search(r"\d", lemma) and not lemma.startswith("["))}
 
 
 def compound_consistency(ledger: dict) -> list[dict]:
@@ -661,7 +801,7 @@ def interpret_nodes(nodes, groups, evidence, lexicon) -> dict[str, dict]:
         children = collections.defaultdict(list)
         for c in group:
             children[c[6]].append(c)
-        pos = interpret_pos(native, head_key, cols[7], pnom_reachable(cols, children), evidence)
+        pos = interpret_pos(native, head_key, cols[7], eimi_context(cols, children), evidence)
         status = vocabulary_status(lemma, pos)
         ledger[node["id"]] = {
             "id": node["id"], "cts": node["cts"], "empty": False, "surface": node["surface"],
@@ -696,13 +836,21 @@ def adopted(node):
 
 
 def sensitivities(ledger: dict, evidence: dict) -> dict:
+    """Comparison scenarios. They are diagnostics of the adopted rules, not choices
+    delegated to anyone: each names a different interpretation contract."""
     det = {profile_key(x) for x in UD_GRC_DET_EXAMPLES}
     part = {profile_key(x) for x in UD_GRC_PART_EXAMPLES}
     num = set(evidence["num_lemmas"])
 
-    def eimi_verb(node):
-        if node["pos"]["rule"] == "P-V-EIMI-OTHER":
-            return "eligible", identity_string(node["lemma"]), "VERB"
+    def predicted_forms(node):
+        lemma = node["lemma"]
+        if lemma["rule"] == "I-UNSUPPORTED-CITATION-FORM" and node["pos"]["upos"] in ALLOWED_POS:
+            return "eligible", profile_key(lemma["predicted_form"]), node["pos"]["upos"]
+        return adopted(node)
+
+    def eimi_all_aux(node):
+        if node["pos"]["rule"].startswith("P-V-EIMI"):
+            return "non-vocabulary", None, None
         return adopted(node)
 
     def definitional(node):
@@ -712,21 +860,16 @@ def sensitivities(ledger: dict, evidence: dict) -> dict:
             return "non-vocabulary", None, None
         return adopted(node)
 
-    def malformed_unresolved(node):
-        if node["status"] == "eligible" and node["citation_flags"]:
-            return "unresolved-identity", None, None
-        return adopted(node)
-
-    def compound_record_unresolved(node):
+    def without_compound_rule(node):
         if node["status"] == "eligible" and node["lemma"]["rule"] == "I-COMPOUND-RECORD":
             return "unresolved-identity", None, None
         return adopted(node)
 
-    return {"adopted": scenario(ledger, adopted),
-            "S1_eimi_without_pnom_as_VERB": scenario(ledger, eimi_verb),
-            "S2_ud_grc_definitional_DET_NUM_PART": scenario(ledger, definitional),
-            "S3_malformed_citation_forms_unresolved": scenario(ledger, malformed_unresolved),
-            "S4_compound_record_decoding_rejected": scenario(ledger, compound_record_unresolved)}
+    return {"adopted_v2": scenario(ledger, adopted),
+            "C_unsupported_forms_counted_as_predicted_strings_(0e839900_identity_handling)": scenario(ledger, predicted_forms),
+            "D_eimi_all_AUX_ud_perseus_conversion_compatible": scenario(ledger, eimi_all_aux),
+            "D_strict_ud_grc_DET_NUM_PART_examples": scenario(ledger, definitional),
+            "D_without_compound_record_rule": scenario(ledger, without_compound_rule)}
 
 
 def analysis_json(ledger: dict, sentences: list[dict], text: str) -> str:
@@ -786,21 +929,25 @@ def examples(ledger, sentences, inputs, splits, editorial, group_check) -> dict:
             and o["pos"]["upos"] == n["pos"]["upos"] and o["sentence"] == n["sentence"]) > 1),
         "lexical-discriminator": first(lambda c, n: n["lemma"]["discriminator"] is not None),
         "compound-record-decoding": first(lambda c, n: n["lemma"]["rule"] == "I-COMPOUND-RECORD"),
-        "eimi-aux-without-pnom": next(({"node": n["id"]} for n in ledger.values()
-                                       if not n["empty"] and n["pos"]["rule"] == "P-V-EIMI-OTHER"), None),
+        "eimi-aux-adverbial-predicate": next(({"node": n["id"]} for n in ledger.values() if not n["empty"]
+                                              and n["pos"]["rule"] == "P-V-EIMI-COP-ADVERBIAL-PREDICATE"), None),
+        "eimi-verb-existential": next(({"node": n["id"]} for n in ledger.values() if not n["empty"]
+                                       and n["pos"]["rule"] == "P-V-EIMI-EXISTENTIAL"), None),
+        "eimi-verb-impersonal-infinitive": next(({"node": n["id"]} for n in ledger.values() if not n["empty"]
+                                                 and n["pos"]["rule"] == "P-V-EIMI-IMPERSONAL-INFINITIVE"), None),
         "lowercased-name-headword-as-NOUN": first(lambda c, n: n["pos"]["upos"] == "NOUN"
                                                   and n["surface"][:1].isupper() and n["lemma"]["headword"][:1].islower()),
         "particle-as-ADV": first(lambda c, n: n["lemma"]["key"] == "δέ" and n["pos"]["upos"] == "ADV"),
         "word-internal-space-in-sentence": first(lambda c, n: n["sentence"] in split_sentences),
         "elision-target": next(({"node": n["id"], "chosen_for_input": any(c["chosen"] == n["id"] for c in chosen)}
                                 for n in sorted(ledger.values(), key=lambda o: o.get("reading_span", [0])[0])
-                                if not n["empty"] and n["status"] == "eligible" and n["surface"].endswith("ʼ")), None),
+                                if not n["empty"] and n["status"] == "eligible" and n["surface"].endswith("\u02bc")), None),
         "editorial-material-in-sentence": first(lambda c, n: n["sentence"] in editorial),
         "empty-node-in-sentence": first(lambda c, n: n["sentence"] in group_check["empty_nodes_by_sentence"]),
         "optional-morphology-absent": first(lambda c, n: n["pos"]["upos"] in ("NOUN", "VERB", "ADJ")
                                             and not n["native_features"]),
-        "malformed-citation-form": next(({"node": n["id"], "flags": n["citation_flags"]} for n in ledger.values()
-                                         if not n["empty"] and n["status"] == "eligible" and n["citation_flags"]), None),
+        "unsupported-citation-form": next(({"node": n["id"], "flags": n["lemma"]["raw_flags"]} for n in ledger.values()
+                                           if not n["empty"] and n["lemma"]["rule"] == "I-UNSUPPORTED-CITATION-FORM"), None),
         "omission": next(({"identity": c["key"], "upos": c["upos"], "reasons": c["omission"]}
                           for c in inputs if c["omission"]), None),
         "nfd-polytonic-source": None,  # reading text is NFC throughout (checked in build)
@@ -820,8 +967,7 @@ def build() -> tuple[dict, dict]:
     tei = {r["id"]: r["tei_string_indices"] for r in json.loads(NODE_TO_TEI.read_text(encoding="utf-8"))}
     node_ids = {n["id"] for n in nodes}
     groups = [g for g in read_conllu_rows(CONLLU) if any(c[9] in node_ids for c in g)]
-    if any(c[9] not in node_ids for g in groups for c in g):
-        raise InputError("a Book 1 native group contains a node outside Book 1")
+    gates = {"native_join": check_native_join(nodes, groups)}
     rows = v2.load_index_rows()
     by_head, _ = v2.index_maps(rows)
     lexicon = (by_head, compound_notation_index(rows), load_stem_lines())
@@ -829,21 +975,20 @@ def build() -> tuple[dict, dict]:
     ledger = interpret_nodes(nodes, groups, evidence, lexicon)
 
     printed = [n for n in nodes if not n["empty"]]
-    for node in printed:
-        start, end = node["reading_span"]
-        if text[start:end] != node["surface"]:
-            raise InputError(f"reading span of {node['id']} does not reproduce its surface")
+    gates["reading_coverage"] = check_coverage(text, printed)
     sentences = segment(text)
+    gates["sentence_coverage"] = check_sentence_coverage(text, sentences)
     where = sentence_of(printed, sentences)
     for node_id, index in where.items():
         ledger[node_id]["sentence"] = index
     group_check = native_group_check(groups, where, {n["id"]: n for n in nodes})
+    gates["native_groups_nest"] = {"groups": group_check["native_groups"], "crossing": 0}
     splits = word_internal_spaces(printed, tei)
     editorial = editorial_by_sentence(printed, where, tei, import_ledger)
     for sentence in sentences:
         sentence["word_internal_spaces"] = sum(1 for i in splits if where[i] == sentence["index"])
         sentence["editorial"] = editorial.get(sentence["index"], [])
-        sentence["completeness"] = "complete"
+        sentence["completeness"] = "complete" if sentence["terminal"] in TERMINALS else "unverified"
 
     occurrences: dict[tuple[str, str], list[str]] = collections.defaultdict(list)
     for node in ledger.values():
@@ -899,6 +1044,14 @@ def summarize(ctx: dict) -> dict:
     selected_occ = sum(r["occurrences"] for r in model if r["selected"])
     chosen = [c for c in inputs_ if c["chosen"]]
     unresolved = sorted((n["id"] for n in printed if n["status"].startswith("unresolved")), key=lambda i: int(i[2:]))
+    unsupported = [{"id": n["id"], "cts": n["cts"], "raw_lemma": n["raw_lemma"], "surface": n["surface"],
+                    "native_pos": n["native_pos"], "upos": n["pos"]["upos"], "flags": n["lemma"]["raw_flags"]}
+                   for n in sorted(printed, key=lambda o: int(o["id"][2:]))
+                   if n["lemma"]["rule"] == "I-UNSUPPORTED-CITATION-FORM"]
+    eimi_review = [{"id": i, "rule_upos": ledger[i]["pos"]["upos"], "rule": ledger[i]["pos"]["rule"],
+                    "reviewer_reading": r, "reason": why,
+                    "agrees": ledger[i]["pos"]["upos"] in r.split("|")}
+                   for i, (r, why) in sorted(EIMI_REVIEWER_READINGS.items(), key=lambda kv: int(kv[0][2:]))]
     compound = compound_consistency(ledger)
     pairs = ctx["evidence"]["pairs"]
     function_adv = [r for r in ctx["selected"] if r["upos"] == "ADV" and any(
@@ -911,7 +1064,9 @@ def summarize(ctx: dict) -> dict:
         "reproduce": "python3 -I opus_completion.py",
         "inputs": ctx["inputs"], "binding": ctx["binding"],
         "identity_layer": {
-            "verdict": "established-for-all-printed-lexical-nodes" if not unresolved else "unresolved-nodes-remain",
+            "verdict": "established-for-all-printed-lexical-nodes" if not unsupported
+                       else "required-identity-unsupported-for-some-nodes",
+            "unsupported_citation_forms": unsupported,
             "namespace": {"scheme": DISCRIMINATOR_SCHEME, "meaning": "Perseus Morpheus lemma-key homograph number",
                           "pin": v2.MORPHEUS_PIN},
             "rule_counts_printed_non_punctuation": counter(n["lemma"]["rule"] for n in printed if n["native_pos"] != "u"),
@@ -930,7 +1085,11 @@ def summarize(ctx: dict) -> dict:
             "upos_counts": counter(n["pos"]["upos"] or "|".join(n["pos"]["candidates"]) for n in printed),
             "pair_unattested_by_rule": counter(n["pos"]["rule"] for n in printed if n["pos"]["pair_attested"] == 0),
             "eimi": counter(n["pos"]["rule"] for n in printed if n["pos"]["rule"].startswith("P-V-EIMI")),
-            "eimi_other_ids": sorted((n["id"] for n in printed if n["pos"]["rule"] == "P-V-EIMI-OTHER"), key=lambda i: int(i[2:])),
+            "eimi_ids_by_rule": {r: sorted((n["id"] for n in printed if n["pos"]["rule"] == r), key=lambda i: int(i[2:]))
+                                 for r in sorted({n["pos"]["rule"] for n in printed
+                                                  if n["pos"]["rule"].startswith("P-V-EIMI")
+                                                  and n["pos"]["rule"] != "P-V-EIMI-COP-PNOM"})},
+            "eimi_reviewer_comparison": eimi_review,
         },
         "denominators": {
             "native_nodes": len(ledger), "empty_unprinted": sum(1 for n in ledger.values() if n["empty"]),
@@ -975,7 +1134,8 @@ def summarize(ctx: dict) -> dict:
                                                    and ledger[c["chosen"]]["pos"]["upos"] == "NOUN"),
                 "at_most_5_units": sum(1 for c in chosen if sentences[c["sentence"]]["units"] <= 5)},
         },
-        "sensitivity_not_adopted": ctx["sensitivity"],
+        "required_gates": gate_report(ctx["gates"], unsupported, printed),
+        "comparison_scenarios": ctx["sensitivity"],
         "practical_quality_diagnostics": {
             "selected_ADV_whose_lemma_UD_Perseus_also_tags_g_or_c": {
                 "identities": len(function_adv), "occurrences": sum(r["occurrences"] for r in function_adv),
@@ -991,21 +1151,35 @@ def summarize(ctx: dict) -> dict:
         },
         "examples_present": {k: v is not None for k, v in examples(
             ledger, sentences, inputs_, ctx["splits"], ctx["editorial"], ctx["group_check"]).items()},
-        "verdicts": verdicts(unresolved, inputs_),
+        "verdicts": verdicts(unsupported, inputs_),
     }
 
 
-def verdicts(unresolved: list[str], inputs_: list[dict]) -> dict:
-    ready = not unresolved
+def gate_report(gates: dict, unsupported: list[dict], printed: list[dict]) -> dict:
+    """Integrity gates raise before this point; the lexical gates are reported here."""
+    pos_unresolved = [n["id"] for n in printed if n["status"] == "unresolved-pos"]
+    return {**{name: {"pass": True, **detail} for name, detail in sorted(gates.items())},
+            "canonical_pos_determinate": {"pass": not pos_unresolved, "unresolved_ids": pos_unresolved},
+            "required_identity_usable": {"pass": not unsupported,
+                                         "unsupported_ids": [u["id"] for u in unsupported]},
+            "vocabulary_ready_accounting": {"pass": not unsupported and not pos_unresolved}}
+
+
+def verdicts(unsupported: list[dict], inputs_: list[dict]) -> dict:
+    ready = not unsupported
     return {
-        "binding": "verified (baseline oga-anabasis1-native-binding/1, unchanged)",
-        "canonical_identity": "established under oga-greta-lemma/1" if ready else "unresolved nodes remain",
-        "canonical_pos": "established under oga-agdt-upos/1 with stated qualifications",
-        "sentences": "complete under oga-reading-terminal/1; native groups corroborate",
-        "selection": "real Go and independent model compared at runtime",
-        "card_inputs": f"{sum(1 for c in inputs_ if c['chosen'])} of {len(inputs_)} selected identities",
-        "vocabulary_ready_research_verdict": "conditional: accounting complete; acceptance belongs to #2030" if ready else "blocked",
-        "practical_quality": "measured concerns, not certified; see prediction_diagnostics and sensitivity",
+        "binding": "verified baseline oga-anabasis1-native-binding/1; join, coverage and nesting gates rechecked",
+        "representation_identity": ("established under oga-greta-lemma/2" if ready else
+                                    f"{len(unsupported)} printed nodes have no usable citation representation; "
+                                    "required identity unsupported for them"),
+        "representation_pos": ("determinate under oga-agdt-upos/2: producer-conversion-compatible lexical classes; "
+                               "εἰμί AUX/VERB from UD definitions over native syntax"),
+        "sentences": "complete under oga-reading-terminal/2; native groups nest",
+        "vocabulary_ready": "pass" if ready else "blocked by unsupported required identities",
+        "dry_run": ("measured" if ready else "conditional: unsupported nodes counted as unresolved, not as vocabulary")
+                   + "; real Go and independent model compared at runtime",
+        "card_inputs": f"{sum(1 for c in inputs_ if c['chosen'])} of {len(inputs_)} selected identities (dry run)",
+        "prediction_quality": "measured concerns, not certified; see prediction and practical-quality diagnostics",
         "unperformed": "Gloss, translation, dictionary coverage, Anki/client rendering, human example review",
     }
 
