@@ -14,6 +14,18 @@ agreement with it would not grant one either. The issue stays `enhancement` +
 [provider payloads/deck exports](https://github.com/justin-hayes/mouseion/issues/2055),
 are not cleared by anything here.
 
+**Editorial correction, 2026-10-15 (same pass; no new evidence).** The earlier
+version, `1f7dc568`, had four reporting errors, now fixed:
+
+- It mis-stated the Morpheus node accounting, which is 141 + 7 + 1 = 149.
+- It conflated D/E nodes with distinct headwords.
+- It described the §2(a)(4) carve-out too broadly.
+- It left Q4 open to a reading that separate packaging could get around the NC
+  bundling policy.
+
+The questions in §6 are now framed as inputs to an operational/policy
+disposition, not as legal facts the human can settle.
+
 Controlling decisions, preserved unchanged:
 
 - [planning-source acceptance](https://github.com/justin-hayes/mouseion/issues/2030#issuecomment-6188837579);
@@ -32,11 +44,19 @@ Controlling decisions, preserved unchanged:
    carries an OGA (CC BY-SA 4.0) value through unchanged or comes from a
    Mouseion rule over OGA syntax. The output-specific third-party dependence
    falls in three places:
-   - **Morpheus (CC BY-SA 3.0 US).** 149 lemma values depend on it:
-     - 141 numbered-label nodes, where Morpheus *confirms* an OGA-supplied
-       headword and number;
-     - one compound record, plus six of the seven citation repairs, whose
-       headword *is* a decoded Morpheus key.
+   - **Morpheus (CC BY-SA 3.0 US).** 149 lemma *nodes* depend on it, in three
+     kinds:
+     - **confirmation only, 141 nodes** (20 raw labels): the headword and
+       number are OGA's own label; Morpheus *confirms* the exact key exists;
+     - **directly decoded, 7 nodes**: the one compound-record node (D) and six
+       of the seven citation-repair nodes (E), whose headword *is* a decoded
+       Morpheus key;
+     - **formed and Morpheus-evidenced, 1 node**: the seventh citation repair,
+       whose headword is decoded from a Mouseion-formed key. That key is not a
+       Morpheus key; its six cited Morpheus witness rows are verified instead.
+
+     The seven repair nodes carry 5 distinct repaired headwords: 4 decoded from
+     Morpheus keys and 1 formed.
    - **UD Perseus (CC BY-NC-SA 2.5): 756 conjunction UPOS values.** These are
      28 distinct lemma-level CCONJ/SCONJ decisions, drawn from 29 raw labels.
      All 756 nodes are non-vocabulary either way. In the proof's code they
@@ -116,7 +136,7 @@ summary. The code citations show where each value comes from.
 | B | Plain lemma (`I-PLAIN`) | 9,156 | The headword *is* the OGA label ([`interpret_lemma`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_completion.py#L280-L323)). Morpheus is consulted only to set `attested_key` (8,926 true, 230 false). It changes an outcome only for orthographically flagged labels, and no `I-PLAIN` node is flagged | Morpheus lookup has no outcome effect on Book 1; the boolean is a Morpheus-derived flag |
 | C | Numbered lemma (`I-NUM-MORPHEUS-KEY`) | 141 nodes, 20 labels, 110 eligible | Headword and digits are split from the **OGA label**. The discriminator is `{scheme: "morpheus", value: <OGA digits>}`. Morpheus supplies the existence check that makes the rule apply, plus proof-ledger fields `morpheus_key` (Beta code), `declared.stem_classes`/`compound_bases` and witness `file:line` | Outcome-determining: without the exact key the rule falls to `I-UNRESOLVED-NUMBERED`. Values are mostly OGA strings; the optional fields are Morpheus strings |
 | D | Compound record (`I-COMPOUND-RECORD`) | 1 node | The headword is **decoded from the Morpheus key** of a unique compound record | Morpheus-sourced value |
-| E | Citation repairs (`R-CITATION-REPAIR`) | 7 nodes (5 labels) | Headword decoded from `after.morpheus_key` (6 nodes) or from a Mouseion-formed `formed_key` (1 node), checked against the Morpheus index ([`repaired_lemma`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_repair.py#L203-L220)). Three records also cite other Book 1 OGA nodes carrying the same headword. The supporting evidence includes **UD Perseus lemma/form counts** ([`verify_evidence`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_repair.py#L183-L200)) | Morpheus-sourced value; UD Perseus witness for the choice, but not the value source |
+| E | Citation repairs (`R-CITATION-REPAIR`) | 7 nodes (5 labels) | 7 nodes from 5 raw labels, giving 5 distinct repaired headwords. For 6 nodes (4 headwords) the headword is decoded from `after.morpheus_key`, and the decoded headword is checked against the Morpheus index. For 1 node (1 headword) it is decoded from a Mouseion-formed `formed_key`. That key is not a Morpheus key and is not index-checked; its 6 cited Morpheus witness rows are verified instead ([`repaired_lemma`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_repair.py#L203-L220)). Three records also cite other Book 1 OGA nodes carrying the same headword. The supporting evidence includes **UD Perseus lemma/form counts** ([`verify_evidence`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_repair.py#L183-L200)) | Morpheus-sourced value (6 nodes), or a value formed by Mouseion from a Morpheus pattern (1 node). UD Perseus is a witness for the choice, not the value source |
 | F | Conjunction UPOS (`P-C-PAIR`) | 756 nodes: 541 CCONJ, 215 SCONJ; 29 raw labels → 28 (lemma, UPOS) decisions; all `non-vocabulary` | A (letter `c`, lemma) pair must be single-valued in UD Perseus counts ([`interpret_pos`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_completion.py#L426-L451)). 31 of the 756 also depend on C, because the pair key uses the Morpheus-confirmed headword | UD Perseus-sourced decision. It does not affect vocabulary status ([`vocabulary_status`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_completion.py#L454-L463)), selection or card inputs ([`card_inputs`/`card_rejections`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_completion.py#L638-L678)) |
 | G | Letter table (`P-LETTER-*`) | 10-letter table, 8 letters occurring; 7,740 printed nodes in the repaired ledger (incl. 1,157 punctuation) | A fixed Mouseion constant ([L98–L100](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_completion.py#L98-L100)), described as the producer-lineage UD Perseus conversion. The proof aborts unless UD Perseus confirms each letter is single-valued ([`ud_perseus_evidence`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_completion.py#L351-L381)) | UD Perseus used as lineage and validator; it is not consulted per node for the value. The proof ledger's `pos.pair_attested` adds a UD Perseus count to every POS record |
 | H | Verb/εἰμί UPOS (`P-V-VERB`, `P-V-EIMI-*` v3) | 1,788 + 172 | Mouseion rule over OGA native syntax ([`eimi_rule_v3`](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus_repair.py#L81-L96)), justified from UD documentation definitions | No witness-data dependence found; UD documentation is cited, not embedded |
@@ -235,7 +255,12 @@ Only the operative language is quoted. Section letters follow each legal code.
   "produce, reproduce, and Share Adapted Material".
 - **§2(a)(2).** Where Exceptions and Limitations apply, "this Public License
   does not apply".
-- **§2(a)(4).** Technical modifications "never produce" Adapted Material.
+- **§2(a)(4).** "simply making modifications authorized by this Section 2(a)
+  (4) never produces Adapted Material". The authorized modifications are
+  limited to "technical modifications necessary" to exercise the Licensed
+  Rights in other media and formats. This does not cover every technical or
+  semantic transformation, so the interpretation rules and repairs are not
+  exempted by it.
 - **§2(a)(5)(C).** No downstream restrictions.
 - **§3(a).** These conditions apply "If You Share": attribution, notices, the
   URI, modification indication and licence indication.
@@ -280,10 +305,14 @@ another right the licence covers. That depends on the facts of each class:
   unresolved. The analytical expectation is that it is weaker than D/E. It
   changes if the artifact carries Morpheus key strings, stem classes or witness
   locations.
-- **D/E (7 values; 6 decoded Morpheus keys, 1 Mouseion-formed).** These are
-  individual dictionary citation forms taken from a Morpheus record, chosen
-  under Mouseion's reasons. For three of the five labels, other Book 1 OGA
-  nodes independently carry the same headword. Whether isolated headwords, or
+- **D/E (8 nodes: 1 compound-record node and 7 repair nodes).** Seven nodes
+  are directly decoded from Morpheus keys: D's one node and six of E's. The
+  eighth is E's formed-key node, which Mouseion built from the Morpheus pattern
+  and checked against cited witness rows. E's seven nodes carry five distinct
+  repaired headwords, four decoded and one formed. Each is an individual
+  dictionary citation form, chosen under Mouseion's reasons. For three of E's
+  five raw labels, other Book 1 OGA nodes independently carry the same
+  headword. Whether isolated headwords, or
   this small selection of them, are protected expression or adaptation of the
   stemlib is unresolved.
 - **F (28 decisions).** Each is a binary class per lemma, derived from whether
@@ -334,6 +363,10 @@ access challenge). It was not retried.
     unmodified form", which a 28-value derivative is not.
   - BY-SA 4.0 ShareAlike reaches only Adapted Material "derived from or based
     upon" OGA content.
+
+  This is a question about the licence text only. Even if separation avoided the
+  ShareAlike conflict, it would not satisfy the accepted policy's bar on
+  Mouseion bundling or mirroring NC data (see Q4).
 - **NC for private use.** *If* F, or the witness use behind it, exercises a
   licensed right, then 2.5 §4(c) limits even private reproduction and derivation
   to non-commercial purposes. The [policy](https://github.com/justin-hayes/mouseion/issues/2035#issuecomment-6163336026)
@@ -354,7 +387,7 @@ named evidence. Under the policy, that operation stays blocked.
 | Source members (OGA/canonical, BY-SA 4.0) | **Supported.** §2(a)(1); §3 applies only on Sharing | **Supported with conditions.** §3(a); §3(b) for Adapted Material; §2(a)(5)(C) | **Supported with conditions** as the packaging findings record; publication approval and owner sit with [#2056](https://github.com/justin-hayes/mouseion/issues/2056) | Not approved. Whether it is Sharing, and the provider's terms, are unknown ([#2055](https://github.com/justin-hayes/mouseion/issues/2055)) | Not approved. When Shared: §3(a), plus §3(b) for Adapted Material |
 | A, B, H, I (OGA-carried values; Mouseion rules over OGA syntax) | **Supported** under BY-SA 4.0. The Mouseion rules and reasons are Mouseion's own | **Supported with BY-SA 4.0 conditions**, treating the artifact conservatively as possible Adapted Material (§1(a)) | Same as O2 | As above | As above |
 | C (141 numbered nodes; OGA strings + Morpheus confirmation) | No 3.0 US distribution term is triggered. §3(b) labelling only if the values are a Derivative Work. **Unresolved, low exposure in this analysis** | **Unresolved.** If the terms attach: 3.0 US §4(b)–(c) credit/licence; BY-SA 4.0 is readable as a permitted later version; the Perseus modifications sentence is open. Optional Morpheus key/stem/witness fields widen this | Same as O2 | Concerns the headword/discriminator of the 14 selected identities touching C/D/E (11 wholly); not approved | Same as O4 |
-| D, E (7 Morpheus-sourced headwords; 1 formed) | As C, with a stronger value dependence. **Unresolved** | **Unresolved**; same conditional obligations as C | Same as O2 | As C | As C |
+| D, E (8 nodes: 7 directly decoded from Morpheus keys, 1 Mouseion-formed from a Morpheus pattern; E = 5 distinct headwords) | As C, with a stronger value dependence. **Unresolved** | **Unresolved**; same conditional obligations as C | Same as O2 | As C | As C |
 | F (756 conjunction UPOS / 28 decisions; UD-sourced) | **Unresolved.** If the terms attach: **restricted** to non-commercial purposes (2.5 §4(c)); policy opt-in mode | **Unresolved; restricted if the terms attach.** NC-SA only (2.5 §4(b)–(c)), which conflicts with BY-SA 4.0 §3(b) inside one Adapted Material. Blocked under the policy, which bars bundling NC data | **Unresolved; restricted if the terms attach.** The policy says NC data is "not bundled or mirrored by Mouseion" | Not in any card-relevant field in the proof. Not approved | Present only if an export includes non-vocabulary UPOS/analysis; then same as O2 |
 | G (10-letter table; UD as lineage/validator) | **Unresolved**; weaker dependence | **Unresolved** | **Unresolved** | Not in payload | Only in analysis exports |
 | J (Mouseion code, reasons, manifests) | Mouseion's own; AGPL-3.0 code licence | Mouseion's own. Dataset terms do not relicense code ([policy §4](https://github.com/justin-hayes/mouseion/issues/2035#issuecomment-6163336026)) | Same | — | — |
@@ -403,27 +436,49 @@ with BY-SA 4.0 ShareAlike in one Adapted Material.
 
 ## 6. Human decision frontier
 
-### Questions for law/policy judgment (cannot be settled from the named evidence)
+### Open applicability questions and the disposition they require
 
-1. **Q1.** Does a frozen artifact carrying class C (OGA headword/digits plus a
+These questions are open factual and legal issues. A "yes" or "no" from the
+human does not settle any of them as a legal fact, and it does not grant a
+right. What the human owns is an **operational and policy disposition under
+uncertainty**, made for each component and operation from the documented
+evidence. That disposition can be:
+
+- keep the operation blocked as unresolved, which is the policy default;
+- accept a stated risk position;
+- seek separately authorized evidence or rights clarification.
+
+Causal dependence alone does not attach a licence, and looking factual does
+not by itself exempt a value.
+
+1. **Q1.** Whether a frozen artifact carrying class C (OGA headword/digits plus a
    Morpheus existence confirmation, with or without Morpheus key strings)
-   exercise any right in Morpheus "copyrightable work of authorship"?
-2. **Q2.** Do the seven D/E citation values, taken individually from Morpheus
-   records, constitute reproduction or Derivative Work of the stemlib?
-3. **Q3.** Do the 28 F decisions, or the G table check, reproduce or adapt
-   protected expression in UD Perseus? Or do they fall outside the licence as
-   unprotected aggregate facts?
-4. **Q4.** If Q3 is "attaches": is any separation of F into a separately
-   licensed component acceptable? Or does that operation stay blocked because NC
-   and BY-SA 4.0 ShareAlike cannot both apply to one Adapted Material?
-5. **Q5.** Does the Morpheus "You must offer Perseus any modifications you make"
-   sentence bind Mouseion's distribution of C/D/E? Compliance would need contact
+   exercises any right in Morpheus "copyrightable work of authorship".
+2. **Q2.** Whether the D/E values reproduce or form a Derivative Work of the
+   stemlib. These are the seven directly decoded nodes (D's compound headword
+   and E's four decoded repair headwords) plus E's one formed headword.
+3. **Q3.** Whether the 28 F decisions, or the G table check, reproduce or
+   adapt protected expression in UD Perseus, or instead need no licensed
+   permission.
+4. **Q4.** How to dispose of F if NC terms may attach.
+   - Separately packaging or licensing F is not a way around the accepted
+     [policy](https://github.com/justin-hayes/mouseion/issues/2035#issuecomment-6163336026).
+     That policy says NC data is "not bundled or mirrored by Mouseion". Separate
+     packaging neither satisfies nor overrides it.
+   - Any Mouseion distribution or hosting of NC-covered F values therefore stays
+     blocked while NC applicability is unresolved or affirmed. That holds unless
+     the human separately amends the policy, which this pass does not propose.
+   - The only open textual point is the separate one in §3: whether separation
+     would avoid the licence-level ShareAlike conflict. It does not reopen the
+     policy.
+5. **Q5.** Whether the Morpheus "You must offer Perseus any modifications you
+   make" sentence binds Mouseion's distribution of C/D/E. Compliance would need contact
    with Perseus, which is not authorized.
-6. **Q6.** If any C–G values ship, should they ship in AGPL-3.0 release code or
-   in a separately noticed data artifact? The policy forbids automatic
+6. **Q6.** If a disposition ever lets any C–G values ship, whether they ship
+   in AGPL-3.0 release code or in a separately noticed data artifact. The policy forbids automatic
    relicensing in either direction.
-7. **Q7.** Are self-hosted Mouseion installations and Mouseion's own hosting
-   "non-commercial" in the 2.5 §4(c) sense? This matters if F attaches, even
+7. **Q7.** Whether self-hosted Mouseion installations and Mouseion's own
+   hosting are "non-commercial" in the 2.5 §4(c) sense. This matters if F attaches, even
    privately.
 
 ### Missing inventory or text evidence (not judgments)
@@ -449,7 +504,8 @@ The named primary evidence establishes:
 It does **not** establish whether C/D/E/F/G are protected adaptations. Those
 operations therefore remain **blocked as unresolved** under the
 [policy](https://github.com/justin-hayes/mouseion/issues/2035#issuecomment-6163336026)
-pending the human disposition of Q1–Q7.
+pending the human's operational/policy disposition, made with Q1–Q7 still
+open. That disposition is not a rights grant.
 
 Options exist, for example withholding F's values, or a replacement rule with
 re-validation. Each would need separate authorization. None is proposed as
