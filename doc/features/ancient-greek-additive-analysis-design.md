@@ -575,9 +575,10 @@ between §3's baseline commit and this one, so §3's citations still hold.
   and one shared Reading unit, whose §4 bounds are unchanged. It also records the
   projection, the correspondence check and the extracted-text digest. Only a
   binding relates evidence to a Reading unit.
-- An **Interpretation configuration** pins the analysis-affecting named versions
-  and the frozen exception table digest. The same set always resolves to the
-  same row.
+- An **Interpretation configuration** pins the analysis-affecting named versions,
+  including the POS and morphology mappings, and the frozen exception table
+  digest. The same set always resolves to the same row. No mapping has a
+  treebank as its basis (handoff "No treebank data").
 - An **Exact analysis** is identified by (binding, interpretation, adapter). It
   has exactly one **Capability diagnostic** for each of the five capabilities,
   plus sentence- and node-scoped **Diagnostic findings**. A confirmed defect is
@@ -733,23 +734,56 @@ The issue's "Canonical interpretation configuration".
 
 | purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
 | --- | --- | --- | --- | --- | --- | --- |
-| The pinned set of analysis-affecting named versions that turns bound evidence into a Canonical interpretation. | `id uuid`; `source_decoding text`; `lemma_mapping text`; `pos_mapping text`; `repair_layer text NULL` (NULL = the definition declares no repair layer, not "unknown"); `reading_terminal text`; `normalization_profile text`; `exception_table_digest text NULL` (blob with `blob_kind = interpretation_table`; NULL only when the reviewed interpretation definition declares that it has no exception table; the retained candidate's definition requires one, #2058 item 3); `contract_version text` (canonical-contract version); `configuration_digest text` (SHA-256 of the canonical serialization `interpretation/1` of the six slots, `exception_table_digest` and `contract_version`; never `id` or `created_at`); `created_at` | `id` | `configuration_digest` unique, and the tuple of every slot plus `exception_table_digest` and `contract_version` unique `NULLS NOT DISTINCT`. The same set therefore always gives the same row. | Shared. | **Immutable.** | `exception_table_digest` → Package blob `RESTRICT` |
+| The pinned set of analysis-affecting named versions that turns bound evidence into a Canonical interpretation. | `id uuid`; `source_decoding text`; `lemma_mapping text`; `pos_mapping text`; `morphology_mapping text NULL` (NULL = the definition declares no morphology mapping, not "unknown"); `repair_layer text NULL` (NULL = the definition declares no repair layer, not "unknown"); `reading_terminal text`; `normalization_profile text`; `exception_table_digest text NULL` (blob with `blob_kind = interpretation_table`; NULL only when the reviewed interpretation definition declares that it has no exception table; the retained candidate's definition requires one, #2058 item 3); `contract_version text` (canonical-contract version); `configuration_digest text` (SHA-256 of the canonical serialization `interpretation/1` of the seven slots, `exception_table_digest` and `contract_version`, with an explicit null marker for each NULL slot; never `id` or `created_at`); `created_at` | `id` | `configuration_digest` unique, and the tuple of every slot plus `exception_table_digest` and `contract_version` unique `NULLS NOT DISTINCT`. The same set therefore always gives the same row. | Shared. | **Immutable.** | `exception_table_digest` → Package blob `RESTRICT` |
 
 Each slot holds a public identifier of the form `name/version`, checked against
 `^[a-z0-9][a-z0-9-]*/[1-9][0-9]*$`. For the retained candidate, the handoff names
-`oga-greta-lemma/2` (lemma mapping), `oga-agdt-upos/3` (POS mapping, including its
-reviewed rule), `oga-anabasis1-research-repairs/1` (repair layer),
-`oga-reading-terminal/2` (reading-terminal policy) and `ancient-greek/1`
+`oga-greta-lemma/2` (lemma mapping), `oga-agdt-upos/4` (POS mapping, including its
+εἰμί rule), `oga-agdt-feats/1` (morphology mapping),
+`oga-anabasis1-research-repairs/1` (repair layer, subject to the lineage audit
+below), `oga-reading-terminal/2` (reading-terminal policy) and `ancient-greek/1`
 (normalization profile). The handoff names no separate source-decoding
 identifier (OD-13). The selection policy `grc-earliest-capped/1` is pinned by
 the same reviewed definition but is **not** a slot here, because a
 selection-policy change must not create a new analysis (OD-14).
+
+**No treebank lineage** (handoff "No treebank data", #2089). Every mapping slot
+is written from the source's own tagset documentation and the UD UPOS and FEATS
+tag definitions, and its reviewed definition records that lineage. No treebank
+(AGDT, PROIEL, Gorman, UD conversions) is a runtime input, mapping basis, repair
+witness or test oracle. In particular:
+
+- `oga-agdt-upos/4` is written independently from the AGDT tagset documentation
+  and the UPOS definitions. It replaces `oga-agdt-upos/3`, whose letter table
+  had UD-validator lineage, and reuses none of its table. Its εἰμί rule (AUX or
+  VERB) is decided again (OD-77). No configuration of the retained candidate
+  names `oga-agdt-upos/3`.
+- `oga-agdt-feats/1` maps the AGDT morphology tag positions to UD FEATS, from the
+  same documentation and the FEATS definitions. A native value that the
+  documentation does not map stays only in `native_morphology` (§7). Stage 1
+  checks that the core package's annotation members carry the morphology tags.
+  If they do not, the retained candidate's `morphology_mapping` is NULL and
+  morphology is `missing` or `unsupported`, never filled in.
 
 The **frozen exception-value/precondition table** (#2058 item 3) is referenced
 only by `exception_table_digest`. Its bytes come from local material and are
 verified against the digest pinned in the reviewed interpretation definition
 before they are stored. Its values never appear in public documents, logs or
 fixtures (§14).
+
+**Exception-table lineage audit.** Before the retained table is frozen for this
+design, Stage 1 audits the lineage of each of its records: the six POS repairs,
+the 20 confirmed labels, the compound record and the seven citation repairs. The
+audit records, per record, the documentation or retained source evidence that
+supports the value. Its per-record results are local material, and its public
+report gives only counts per lineage class and outcome (§14). A value
+that depends on a treebank witness is replaced by a value with permitted lineage
+or dropped. Either change gives a new repair-layer version, a new table digest
+and so a new Interpretation configuration. Nothing is edited in place, and the
+audit adds no new repair. The six POS repairs depend on the εἰμί rule, so OD-77
+is decided first. A dropped value that leaves an occurrence unresolved is
+reported by ACC-3 and returned as a Stage 1 obstacle (handoff Stage 1 "Stop"),
+never filled by guessing.
 
 **Unknown versions stop import.** Before any write, the shared validation
 interface (§10) checks every slot identifier, `contract_version` and the table
@@ -858,13 +892,14 @@ CREATE TABLE evidence_package_acquisitions (
 CREATE TABLE interpretation_configurations (
   id uuid PRIMARY KEY,
   source_decoding text NOT NULL, lemma_mapping text NOT NULL, pos_mapping text NOT NULL,
+  morphology_mapping text NULL,
   repair_layer text NULL, reading_terminal text NOT NULL, normalization_profile text NOT NULL,
   exception_table_digest text NULL REFERENCES evidence_blobs(digest) ON DELETE RESTRICT,
   contract_version text NOT NULL,
   configuration_digest text NOT NULL UNIQUE,
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE NULLS NOT DISTINCT (source_decoding, lemma_mapping, pos_mapping, repair_layer,
-    reading_terminal, normalization_profile, exception_table_digest, contract_version)
+  UNIQUE NULLS NOT DISTINCT (source_decoding, lemma_mapping, pos_mapping, morphology_mapping,
+    repair_layer, reading_terminal, normalization_profile, exception_table_digest, contract_version)
 );
 -- plus: name/version pattern checks on every slot and the mirrored update trigger.
 
@@ -1032,6 +1067,8 @@ Each invariant is covered by the `EVD` rows in [§15](#15-acceptance-test-matrix
    - An unknown slot, contract or table version stops import, and nothing is
      written (EVD-16, EVD-33).
    - The same set resolves to the same Interpretation configuration (EVD-17).
+   - The morphology mapping is part of that set: changing it, or declaring none,
+     gives a different configuration (EVD-34).
    - A selection-policy change creates no new interpretation or analysis
      (EVD-31).
 7. **Analysis.**
@@ -1066,6 +1103,13 @@ Each invariant is covered by the `EVD` rows in [§15](#15-acceptance-test-matrix
   card-selection policy change applies to a newly prepared specification, not
   to an analysis rewrite. This section keeps the selection policy pinned but
   outside analysis identity (OD-14).
+- **No treebank data (#2089).** The review decision replaces the handoff's
+  `oga-agdt-upos/3` with an independent `oga-agdt-upos/4`, adds the
+  `morphology_mapping` slot and requires the exception-table lineage audit. It
+  deliberately overrides the handoff's earlier Stage 1 "do not … change mappings
+  merely to evade the rights gate" and #2058's "do not claim independence" for
+  the UPOS table. The handoff now records the rule and the override. The εἰμί
+  rule is OD-77.
 - §4's Edition `evidence_pin` is resolved here as a Text Source revision `id`.
 - Finding `sentence_ref` and `node_ref` target §7's keys. §7 defines them.
 - Retention references from snapshots, decisions, deck specifications and
@@ -1185,7 +1229,13 @@ interpretation slot identifiers (§5).
 
 | purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
 | --- | --- | --- | --- | --- | --- | --- |
-| Names one documented lexical scheme in which discriminator values are interpreted. | `scheme` (for example `proiel`, `morpheus`, `example`); `description`; `value_pattern` (regular expression for valid values); `native_markers` (the native spellings that carry a discriminator inside a lemma, for example a trailing `#<digits>` in PROIEL, used to reject undecoded lemmas) | `scheme` | One entry per scheme. | Release-wide. | Changed only by a reviewed release. An entry is never removed or redefined while any identity uses it. | — |
+| Names one documented lexical scheme in which discriminator values are interpreted. | `scheme` (for example `morpheus`, `example`); `description`; `value_pattern` (regular expression for valid values); `native_markers` (the native spellings that carry a discriminator inside a lemma, for example a trailing `#<digits>`, used to reject undecoded lemmas) | `scheme` | One entry per scheme. | Release-wide. | Changed only by a reviewed release. An entry is never removed or redefined while any identity uses it. | — |
+
+**Initial registry.** The first release registers `morpheus`, the scheme the
+retained candidate's discriminators use (#2058), and the synthetic `example`
+and `example-*` schemes that fixtures use. It does not register `proiel`. The PROIEL anchors
+below stay public structural examples of decoding only (handoff "No treebank
+data").
 
 A scheme names a lexical scheme, not a Book, corpus, package or download URL.
 Two corpora that both write `#1` share a scheme only if a reviewed entry says
@@ -1347,9 +1397,10 @@ lemma mapping and from normalization (OD-13).
 Example (synthetic): under `example-decode/1`, native lemma `λέξις#ex:1`, and
 native lemma `λέξις` with native attribute `lexid=ex:1`, both decode to citation
 form `λέξις` with scheme `example`, value `ex:1`. Their key is `λέξισ`. Public
-anchor: PROIEL `εἰ#1` and `εἰ#2` decode to citation form `εἰ` with scheme
-`proiel` and values `1` and `2`. They are two identities that share lemma and
-UPOS (ADV).
+structural example (#2033): a decoding of PROIEL's `εἰ#1` and `εἰ#2` would give
+citation form `εἰ` with values `1` and `2`, two identities that share lemma and
+UPOS (ADV). No `proiel` scheme is registered, so no Mouseion release decodes
+them.
 
 ### Implementations and fixtures
 
@@ -1955,11 +2006,20 @@ Validation (§10) derives the states from the stored rows as follows.
 
 **Morphology.**
 
+Morphology is `usable` only through the Interpretation configuration's
+`morphology_mapping` slot (§5). `feats` holds only what that slot's reviewed
+mapping supplies, and nothing else may fill it: not the native tag read
+directly, not a capability claim in the candidate, and not a value taken from a
+treebank.
+
 - `missing`: no node has a morphology row.
-- `unsupported`: rows exist, but the interpretation has no reviewed FEATS
-  mapping for the scheme. `native_morphology` is still retained.
+- `unsupported`: rows exist, but `morphology_mapping` is NULL.
+  `native_morphology` is still retained, and every `feats` is `{}`.
 - Otherwise `usable`, with a node finding for each node whose native features are
   partly unmapped (`unsupported`) or ambiguous.
+
+The legacy adapter below is unchanged: legacy morphology was stored as UD FEATS
+by the producer and is read as it is.
 
 **Basic syntax.** A sentence's **tree participants** are its nodes of kind
 `word`, `component` and `punctuation`. Empty nodes and containers never
@@ -2234,6 +2294,8 @@ Each invariant is covered by the `OCC` rows in [§15](#15-acceptance-test-matrix
    - No root is fabricated (OCC-18).
    - Morphology keeps native features and gives FEATS only where mapped
      (OCC-19).
+   - Morphology is `usable` only through the interpretation's
+     `morphology_mapping` slot (OCC-26).
    - Secondary syntax is kept separately, including empty-node edges (OCC-20).
    - Unavailable syntax never makes an occurrence ineligible (OCC-21).
 8. **Persistence.** §7 records are immutable, and syntax endpoints stay within
@@ -2263,6 +2325,8 @@ Each invariant is covered by the `OCC` rows in [§15](#15-acceptance-test-matrix
   records with the Exact analysis.
 - Whether a sentence is suitable as a card target (beyond `boundary`) belongs to
   the #2034 sentence and card rules, not to this section.
+- "Reviewed FEATS mapping" now means §5's `morphology_mapping` slot (#2089).
+  Before it, the configuration had no place to name one.
 
 ## 8. Learner-state attachment and compatibility
 
@@ -3339,7 +3403,7 @@ checks. Adapters never open the package archive themselves.
 
 | aspect | specification |
 | --- | --- |
-| Responsibilities | Read the pinned members. Apply the reviewed projection and correspondence check to produce the Extracted text and verify `source_bounds` against the unit (§5 binding). Decode native lemma data (§6 source decoding). Apply the pinned lemma, POS, repair and reading-terminal mappings and the frozen exception table. Assign `node_id` in canonical node order. Map native spans into the Extracted text (SPAN-4). Classify accounting (§7). Emit the native lineage and adapter diagnostics. |
+| Responsibilities | Read the pinned members. Apply the reviewed projection and correspondence check to produce the Extracted text and verify `source_bounds` against the unit (§5 binding). Decode native lemma data (§6 source decoding). Apply the pinned lemma, POS, morphology, repair and reading-terminal mappings and the frozen exception table. Assign `node_id` in canonical node order. Map native spans into the Extracted text (SPAN-4). Classify accounting (§7). Emit the native lineage and adapter diagnostics. |
 | Inputs | The verified members (read-only, already checked against the pins); the binding declaration from the reviewed definition (Reading unit, `source_bounds`, projection and correspondence identifiers); the pinned Interpretation configuration (§5); and the frozen exception table's bytes, verified against the pinned digest before the call. Nothing else: no clock, environment, network, database or learner state. |
 | Outputs | Either a **candidate** (the §7 shape: sentences, nodes, spans, containers, occurrences, morphology, basic and secondary syntax) with its Extracted text, native lineage (native member, document, sentence and node references, and the native attributes that justify each derived value) and adapter diagnostics, or an adapter rejection with diagnostics. |
 | Must not | Publish or persist anything. Change learner state. Invent defaults: no `X` for an unknown POS, no root for a headless tree, no offset from a length, no guessed metadata. Approve its own output: it never sets `vocabulary_ready` or a capability state. Execute package-supplied code: no plugins, no subprocesses, no evaluation of expressions, regular expressions, templates, stylesheets or schemas taken from package bytes; XML is parsed with DTDs and external entities disabled and with bounded depth and token counts. Fetch network resources. Read the wall clock, environment or randomness. |
@@ -3429,7 +3493,7 @@ and `BND-1`. Every other ID is §7's, used unchanged.
 | rule | checks | source | class | codes |
 | --- | --- | --- | --- | --- |
 | VER-1 | `contract_version` is registered. | §5 | structural | `contract_version_unknown` |
-| VER-2 | Every interpretation slot and the table digest are registered. | §5 "Unknown versions stop import" | structural | `interpretation_version_unknown` (names the slot, never its value) |
+| VER-2 | Every interpretation slot, including `morphology_mapping` when it is set, and the table digest are registered. A registered slot identifier carries its reviewed lineage statement (§5 "No treebank lineage"), so a superseded identifier such as `oga-agdt-upos/3` is not registered. | §5 "Unknown versions stop import" | structural | `interpretation_version_unknown` (names the slot, never its value) |
 | VER-3 | The adapter ID is registered and supports the configuration. | this section | structural | `adapter_version_unsupported` |
 | VER-4 | Every reason code in the candidate (non-vocabulary reasons, adapter findings) is registered for the contract version. | §7 ACC-2 | structural | `reason_code_unknown` |
 | SCOPE-1 | The candidate names the declared binding, Reading unit, Extracted text digest and code-point length. | §5 binding | structural | `scope_mismatch` |
@@ -3638,7 +3702,7 @@ document-relative at `:1345-1350`).
 | `analyzer.Result` | candidate |
 | --- | --- |
 | `Language` | language. The declared scope is `legacy(run, source document)`, not a binding. `internal/parity` builds it from the run and from the document text the job analyzed, computing that text's digest and code-point length. SCOPE-1 compares the candidate with this declaration, and COR-1 checks the digest. SCOPE-2 does not apply, because there is no binding. |
-| `NormalizationProfile` | The normalization slot of a fixed compiled compatibility interpretation. That interpretation is never persisted as an Interpretation configuration. IDV-2 resolves it with `Lookup`. |
+| `NormalizationProfile` | The normalization slot of a fixed compiled compatibility interpretation. That interpretation is never persisted as an Interpretation configuration. IDV-2 resolves it with `Lookup`. Its `morphology_mapping` slot names a compiled compatibility mapping: the reviewed identity mapping over the UD FEATS that the producer emits. So the `Morphology` row below goes through the slot, as §7 requires. |
 | `Analysis` (analyzer name and version) | Lineage only. It never reaches consumers. |
 | `Sentence` | An Analysis sentence with one span from its `Location`, boundary `complete` (as §7's legacy adapter), and `Text` checked by SENT-4. |
 | `Token` | A node of kind `punctuation` when `UPOS = PUNCT`, otherwise `word`. Raw lemma and citation form are `RawLemma`. The identity is `(Language, CanonicalLemma, UPOS)` with no discriminator. Class `vocabulary` for words, `non_vocabulary(punctuation)` for punctuation. One span from `Location`. Surfaces are declared **not verbatim**, because the producer strips punctuation (`internal/analyzer/analyzer.go:51-53`), so COR-2 does not apply. |
@@ -5594,14 +5658,16 @@ Verified at commit `00a63be6b38f9b54d359b6e68ed014af30ab7b25` (`main`). Every
 | --- | --- | --- | --- |
 | This design, and the ADRs and handoff it cites | public | `doc/` | — |
 | Synthetic fixtures | public | `example-*` pin sets, packages, tables and definitions; the `ancient-greek-normalization/1`, `vocabulary-identity-comparison/1` and `source-decoding/1` cases; synthetic candidates and store-contract seeds | §6, §10, §12, §15 |
-| Structural examples | public | Invented forms such as `λέξις` with `example:ex:1` and `example:ex:2`, and the public #2033 anchors PROIEL `εἰ#1`/`εἰ#2` and `δέω#1`/`δέω#2` | §6, §7 |
+| Structural examples | public | Invented forms such as `λέξις` with `example:ex:1` and `example:ex:2`, and the public #2033 anchors PROIEL `εἰ#1`/`εἰ#2` and `δέω#1`/`δέω#2`. The PROIEL anchors are examples only: `proiel` is not a registered scheme, a mapping basis or a test oracle (§6, handoff "No treebank data"). | §6, §7 |
 | Existing characterization fixtures | public | The Stanza fixtures listed in §10 "Current anchors" | §10 |
-| Public interpretation version identifiers | public | Slot identifiers such as `oga-greta-lemma/2`, `oga-agdt-upos/3`, `oga-anabasis1-research-repairs/1`, `oga-reading-terminal/2` and `ancient-greek/1`; the selection policy `grc-earliest-capped/1`; adapter, projection, correspondence, contract and pin-set identifiers | §5, §10, §12 |
+| Public interpretation version identifiers | public | Slot identifiers such as `oga-greta-lemma/2`, `oga-agdt-upos/4`, `oga-agdt-feats/1`, `oga-anabasis1-research-repairs/1`, `oga-reading-terminal/2` and `ancient-greek/1`; the selection policy `grc-earliest-capped/1`; adapter, projection, correspondence, contract and pin-set identifiers | §5, §10, §12 |
 | Code | public | Adapters, validation, registries, reason codes and their fixed messages, synthetic pin sets, the public fields of retained pin-set entries, and pin-file commitments (see below) | §10, §12 |
 | The retained package | local only | The package file the operator holds, and its stored Package blob | §5, §12 |
 | Its hashes and member names | local only | Transport digest, Package content digest, and every member's path, size and digest | §5, §12 |
 | The retained pin file | local only | The operator's `pin-file/1` file, and its Installed pin set row | §12 |
 | The frozen exception-value/precondition table | local only | The table values, the operator's table file and its `interpretation_table` blob. The table digest is local too (OD-70). | §5, §12 |
+| Exception-table lineage audit | local only, apart from its summary | Per-record lineage and outcome are local. The public summary gives counts per lineage class (documentation, retained source, Morpheus, treebank) and per outcome (kept, replaced, dropped), and the new repair-layer identifier when any value is replaced or dropped. | §5 |
+| Interpretation lineage statements | public | Each reviewed slot definition's statement of the documentation it is written from, for example the AGDT tagset documentation and the UD UPOS and FEATS definitions for `oga-agdt-upos/4` and `oga-agdt-feats/1` | §5 |
 | Book 1 text and derived diagnostics | local only | Extracted text, §7 rows, Analysis headwords, Capability diagnostics and Diagnostic findings of an analysis of retained evidence; request `reason` and `diagnostics`; counts, snapshots, Known and history built from it | §5–§8, §11 |
 | Real-fixture parity output | local only | Every result of a [local-only acceptance step](#local-only-acceptance-steps), apart from whether it passed | this section |
 | Installation data | local only | The installation database, and every dump or backup of it (§9, §13 REC-3) | §9, §13 |
@@ -5690,7 +5756,8 @@ report says only that it ran and whether it passed. Time and memory measurements
 | --- | --- | --- |
 | #2061 | None. All of #2061's acceptance is synthetic. Real-source parity belongs to #2059 (#2061 "Testing Decisions"). | — |
 | #2059 | **L-1.** Register the retained package with `cmd/localregistration`, naming the retained pin set and interpretation and supplying the pin file and the frozen table (§12). | LOC-14, LOC-18, LOC-19 |
-| #2059 | **L-2.** Real-fixture parity. Prepare and adopt the retained Book 1, then compare complete-unit accounting, identities, selected identities, sentence inputs and omissions with the retained baseline (#2059 "Testing Decisions"). | VAL-08, OCC-09, OCC-10, OCC-17, ADP-15 |
+| handoff Stage 1 | **L-0.** Before the retained table is frozen: the exception-table lineage audit (§5), the check that the core annotation members carry the morphology tags that `oga-agdt-feats/1` maps, and the re-run of complete-unit accounting and selection under the new interpretation. The re-run's numbers are accepted as they come out and become the expected values for L-2. No mapping or table value is tuned to reproduce 438/434. | EVD-34, OCC-26 |
+| #2059 | **L-2.** Real-fixture comparison. Prepare and adopt the retained Book 1, then compare complete-unit accounting, identities, selected identities, sentence inputs and omissions with the L-0 result, and report the explicit differences from the earlier 438/434 baseline (#2059 "Testing Decisions", to be restated, §16). | VAL-08, OCC-09, OCC-10, OCC-17, ADP-15 |
 | #2059 | **L-3.** Compare every learner-relevant identity, POS and accounting decision, every exact complete sentence span and text, and every selected target span and surface. | OCC-01 to OCC-06, IDN-28 |
 | #2059 | **L-4.** Reproduce the retained negative-test classes and precondition-mutation rejections at the production interface, by mutating the retained package or the frozen table. | LOC-01 to LOC-13, LOC-19, VAL-16 |
 | #2059 | **L-5.** Measure production parsing, storage, memory and time against the operational envelope. | EVD-04, EVD-05, LOC-05, LOC-07, LOC-08 |
@@ -5700,7 +5767,10 @@ report says only that it ran and whether it passed. Time and memory measurements
 | #2063 | Card-specific steps are outside this design: the review of the exact provider payload before any transmission, the real provider sample review, and the personal-export and Anki client tests. #2063 owns their authorization. | — |
 
 The public record of the retained baseline is the #2054 canonical result. No
-local-only step adds values to it.
+local-only step adds values to it. The L-0 re-run is a new result under a new
+interpretation. It does not replace that record. Its public report follows the
+rule above, plus the lineage-audit summary that the classification table makes
+public.
 
 ### Invariants
 
@@ -5829,8 +5899,8 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | EVD-13 | A binding is unique on its inputs and immutable. A changed binding is a new row. | (d) | One validated synthetic binding. | Update its unit, bounds, projection or extracted-text digest. Insert a second binding with an equal key. | Every update and the duplicate insert are rejected. | The same revisions with projection `example-projection/2` give a new binding row, and the first is unchanged. |
 | EVD-14 | Recomputing a binding is deterministic. | (b) | An existing validated binding. A test adapter that returns a different extracted text for the same inputs. | Prepare the same unit again with that adapter. | The request fails with `binding_nondeterministic`. No new binding, extracted text or analysis is written, and A's current analysis is unchanged. | With the normal adapter, the existing binding is reused and no row is added. |
 | EVD-15 | No analysis references a rejected binding. | (d) | A synthetic binding with `validation_status = rejected` and one reason code. | Insert an Exact analysis on it. | Rejected. The binding remains, with its reasons. | An analysis on a validated binding is accepted. |
-| EVD-16 | An unknown interpretation, contract or table version stops import. | (c) | A synthetic candidate whose interpretation names `example-lemma/9`, which is absent from the compiled registry. Variants: an unknown `contract_version`, and an unlisted table digest. | Submit each to shared validation. | Each returns a rejection, `interpretation_version_unknown`, identifying the slot, and no validated interpretation. | The same candidate with `example-lemma/1` validates. Persistence after the rejection is EVD-33. |
-| EVD-17 | The same version set resolves to the same interpretation identity. | (b) | The synthetic interpretation set `example-decode/1`, `example-lemma/1`, `example-upos/1`, `example-repairs/1`, `example-terminal/1`, `ancient-greek/1` and table `T`. | Prepare two different Books, for owners A and B, with that set. | Both analyses reference one Interpretation configuration. | Changing any one slot, or the table digest, gives a different configuration. A repair layer of none differs from `example-repairs/1`. |
+| EVD-16 | An unknown interpretation, contract or table version stops import. | (c) | A synthetic candidate whose interpretation names `example-lemma/9`, which is absent from the compiled registry. Variants: an unknown `contract_version`, an unlisted table digest, and `morphology_mapping` `example-feats/9`. | Submit each to shared validation. | Each returns a rejection, `interpretation_version_unknown`, identifying the slot, and no validated interpretation. | The same candidate with `example-lemma/1` validates. Persistence after the rejection is EVD-33. |
+| EVD-17 | The same version set resolves to the same interpretation identity. | (b) | The synthetic interpretation set `example-decode/1`, `example-lemma/1`, `example-upos/1`, `example-feats/1`, `example-repairs/1`, `example-terminal/1`, `ancient-greek/1` and table `T`. | Prepare two different Books, for owners A and B, with that set. | Both analyses reference one Interpretation configuration. | Changing any one slot, or the table digest, gives a different configuration. A repair layer of none differs from `example-repairs/1`. |
 | EVD-18 | A new mapping version produces a new analysis and leaves the old one unchanged. | (b) | Owner A has adopted analysis X under `example-lemma/1`, has an active Reading and snapshot, and has a Lemma correction on X. | Prepare and adopt under `example-lemma/2`. | New analysis Y with a new configuration. X, its diagnostics and occurrences, the snapshot and the correction are unchanged and still readable. | Y carries no correction from X, and X is never updated to point at the new configuration. |
 | EVD-19 | At most one Exact analysis per (binding, interpretation, adapter). | (d) | An Exact analysis for (binding B, interpretation I, `example-adapter/1`). | Insert a second analysis with the same triple. Update the first analysis's interpretation. | Both are rejected. | `example-adapter/2` with the same B and I is accepted as a new analysis. |
 | EVD-20 | Every analysis persists one diagnostic state per capability, with reasons and scope. | (b) | A synthetic candidate with usable vocabulary and sentence/target, unsupported morphology, basic syntax invalid in one sentence, and missing secondary syntax. One node has an ambiguous POS. | Prepare it, then read A's evidence detail. | Five capability states are reported: `usable`, `usable`, `unsupported`, `usable` with an `invalid` sentence finding, and `missing`. Reason codes are present for every non-usable state and finding. The node finding reports `ambiguous`. | A write of an analysis lacking any one of the five capability rows fails at commit, and no analysis remains. |
@@ -5847,6 +5917,7 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | EVD-31 | A selection-policy change creates no new interpretation or analysis. | (b) | Owner A has adopted analysis X. The reviewed definition's selection policy changes from `example-select/1` to `example-select/2`. | Prepare A's Book again under the new definition version. | No new Interpretation configuration or Exact analysis. X stays current. The new policy is recorded only for newly prepared specifications (§8). | Changing any analysis-affecting slot in the same definition does create a new analysis (see EVD-18). |
 | EVD-32 | A binding references only a shared Reading unit. | (d) | A private §4 unit owned by A. | Insert a binding on it. | Rejected. | A binding on a shared unit is accepted. |
 | EVD-33 | An import naming an unknown interpretation version persists nothing for it. | (a) | Owner A. A synthetic package whose reviewed test definition names `example-lemma/9`, which is absent from the compiled registry. | Run the local import and preparation through the handler and River job. | The request ends failed with `interpretation_version_unknown`, without automatic retry. No Interpretation configuration, binding, analysis, diagnostic or current classical analysis is written for it. | The same package with `example-lemma/1` prepares successfully. |
+| EVD-34 | The morphology mapping is part of the interpretation identity. | (b) | The EVD-17 set, and two variants: one with `morphology_mapping` `example-feats/2`, one declaring no morphology mapping. | Prepare owner A's Book under each of the three sets. | Three Interpretation configurations with three different `configuration_digest` values, and three Exact analyses. The analysis declaring no morphology mapping reports `morphology` `unsupported`. | Preparing again under the first set reuses its configuration and analysis. A no-mapping set never equals a set naming `example-feats/1`. |
 | IDN-01 | Canonically equivalent NFC and NFD inputs give one key. | (c) | `ancient-greek-normalization/1` cases `λέξις` (U+03AD) and `λε` + U+0301 + `ξις`. | Normalize each under `ancient-greek/1`. | Both keys are U+03BB U+03AD U+03BE U+03B9 U+03C3 (`λέξισ`). | `λὲξις` (grave) does not give this key (see IDN-06). |
 | IDN-02 | Oxia and tonos, which are canonically equivalent, give one key. | (c) | Cases `λ` + U+1F73 + `ξις` and `λέξις` (U+03AD). | Normalize each. | Both keys are `λέξισ` with U+03AD. | U+1F72 (varia) does not give this key. |
 | IDN-03 | Case does not distinguish keys. | (c) | Cases `Λέξις` and `ΛΈΞΙΣ`. | Normalize each. | Both keys equal the key of `λέξις`. | Normalizing the key again changes nothing (see IDN-11). |
@@ -5866,7 +5937,7 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | IDN-17 | Same lemma and UPOS with different discriminators are distinct identities. | (c) | Comparison cases: `λέξισ` NOUN `example:ex:1`, `example:ex:2`, and null. | Compare every pair. | No two of the three are equal. | Equal scheme and value, compared byte for byte, are equal. |
 | IDN-18 | At most one identity row per five-value identity, even under concurrency. | (d) | No identity `grc` `λέξισ` NOUN `example:ex:1`. | Two transactions insert-if-absent that identity concurrently. Then insert `grc` `λέξισ` NOUN null twice. | Each pair resolves to one row and one ID. | `example:ex:2` gets a second, distinct row. |
 | IDN-19 | Identity rows are well formed and immutable. | (d) | One identity row. | Insert a row with only `discriminator_scheme` set, with only `discriminator_value` set, with an empty lemma, and with an empty or unknown UPOS. Update any field of the existing row. | Every insert and the update are rejected. | A row with both discriminator fields null, or both set, is accepted. |
-| IDN-20 | No lemma carries a discriminator marker. | (c) | Scheme `example` registered with native marker `#ex:<n>`. Scheme `proiel` with marker `#<digits>`. | Submit `λέξις#ex:1` and the public anchor `εἰ#1` to admission as citation forms. | Both are rejected with `discriminator_in_lemma`. | `λέξις` and `εἰ` are admitted. |
+| IDN-20 | No lemma carries a discriminator marker. | (c) | Scheme `example` registered with native marker `#ex:<n>`. Synthetic scheme `example-num` with marker `#<digits>`. | Submit `λέξις#ex:1` and the public anchor `εἰ#1` to admission as citation forms. | Both are rejected with `discriminator_in_lemma`. | `λέξις` and `εἰ` are admitted. |
 | IDN-21 | Decoding produces the discriminator, and normalization never infers one. | (c) | `source-decoding/1` cases for `example-decode/1`: native `λέξις#ex:1`; native `λέξις` with attribute `lexid=ex:1`; native `λέξις` with attribute `lexid=zz:9`, which has no reviewed mapping. | Decode each, then normalize the decoded form. | The first two give citation form `λέξις`, `example:ex:1`, and key `λέξισ`. The third is rejected with `discriminator_unmapped`. Normalizing `λέξις` alone gives a null discriminator. | The unmapped identifier is neither dropped nor turned into a null-discriminator identity. |
 | IDN-22 | The profile version is provenance, so unchanged identities match across versions. | (b) | Owner A has `λέξισ` NOUN `example:ex:1` Known, from an analysis under `ancient-greek/1`. A test-only `ancient-greek/2`, identical for this input, is registered. | Adopt a new analysis of another Book under `ancient-greek/2` that contains the same identity. | The identity reuses the same row and is Known in the new Book. | A synthetic input whose key changes under `ancient-greek/2` gives a different identity, which is not Known. |
 | IDN-23 | Discriminated identities stay distinct in Known, Reserved, snapshots and completion. | (b) | A classical Book with occurrences of `λέξις` NOUN `example:ex:1` and `example:ex:2`. Owner A has neither Known. | Start a Reading, freeze the snapshot, then finish and accept it. | The snapshot holds two identities. Both are Reserved while the Reading is active. After acceptance, A has two distinct Known identities, and the completion counts two. | In a second Book where every `example:ex:2` occurrence has an Occurrence exclusion, the snapshot, Reserved set and accepted Known hold only `example:ex:1`. `example:ex:2` stays not Known. |
@@ -5910,6 +5981,7 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | OCC-23 | Syntax endpoints stay within one analysis and one sentence. | (d) | Committed analyses A and B. | Insert, in A's transaction, a basic edge whose head is a node of B, and one whose head is in another sentence of A. | Both are rejected. | An edge between two nodes of the same sentence of A is accepted. |
 | OCC-24 | New analyses write no legacy rows, and legacy rows are never rewritten. | (a) | Owner A has an EPUB Book with a legacy analysis. The legacy table row counts and checksums are recorded. | Import and adopt a synthetic classical Book for A, read it through every consumer, and record a decision on it. | `analysis_runs`, `corpora`, `corpus_sentences` and `corpus_tokens` have the same counts and checksums as before. | Re-analysing the EPUB Book still writes legacy rows through the existing path, as today. |
 | OCC-25 | The `grc` form search key matches NFC and NFD, case and final sigma, and nothing broader. | (a) | Owner A has a classical Book with a node whose surface is `Λέξις` in NFD. | Run Concordance form searches for `λέξις` (NFC), `ΛΈΞΙΣ` and `λέξισ`. Then search for `λεξις`. | The first three find the node, and the highlight is its span. | `λεξις` (no accent) finds nothing. A search never changes any identity or Known state. |
+| OCC-26 | Morphology is `usable` only through the interpretation's morphology-mapping slot. | (c) | A candidate whose nodes all have native morphology rows that `example-feats/1` maps completely. Variant: the same candidate under an interpretation with no `morphology_mapping`. | Validate each, and read morphology through the read interface. | Under `example-feats/1`, `morphology` is `usable` and each node's `feats` holds the mapped features. Under no mapping, `morphology` is `unsupported`, every `feats` is `{}`, `native_morphology` is unchanged, and the read interface returns no FEATS. | The no-mapping variant with any non-empty `feats`, including a value copied from the native tag, is rejected (`canonical_value_unmapped`). |
 | LRN-01 | The same lemma and UPOS with `ex:1` and `ex:2` stays distinct in counts, Known, Reserved, the snapshot and Finish. | (b) | `grc`. Owner A's To Read classical Book G1 has an analysis with `λέξις` NOUN `example:ex:1` ×3 and `example:ex:2` ×3, ready counts, nothing Known. | Read G1's counts. Start G1, read Reserved, then Finish. | Counts list two identities with 3 each. The snapshot has two members. Both are Reserved while reading. Finish records snapshot 2, eligible 2, newly Known 2, already Known 0, and A has two Rich Known identities. | With `example:ex:1` already Rich Known before Start, the snapshot holds only `example:ex:2`, Finish accepts only it, and the `ex:1` Known row keeps its original completion. A null-discriminator `λέξισ` NOUN is never Known or Reserved by either. |
 | LRN-02 | Same-span occurrences hold independent decisions. | (b) | G1's analysis X has nodes 4 (`example:ex:1`) and 5 (`example:ex:2`), both at span `[10,16)`, each eligible. | Confirm an exclusion of `(X,4)`. Then confirm a correction of `(X,5)` to `ῥῆσις`. | `(X,4)` is excluded and `(X,5)` is corrected; reading each key returns only its own decision. Counts: `ex:1` and `ex:2` each fall by 1, and `ῥῆσισ` NOUN (null discriminator) rises by 1. | A decision request that names the span `[10,16)` and no node is rejected as not found and writes nothing. The exclusion never changes `(X,5)`. |
 | LRN-03 | A decision never transfers to another analysis. | (b) | G1 has a correction on `(X,4)`. §11 adopts analysis Y for G1, in which node 4 has the same native reference, span and identity. | Read G1's effective identities, counts and decisions. | `(Y,4)` has its native identity, and Y's counts ignore the `(X,4)` correction. The `(X,4)` decision is still stored, unchanged. | After Y is adopted, a confirm naming `(X,4)` is rejected and writes nothing. No decision row names `(Y,4)`. |
@@ -6074,7 +6146,7 @@ recorded in §17, or closed by a row that follows directly from a stated rule.
 | 2 | My Book is an explicit Edition and Reading unit, and annotation availability cannot change it | §4, §5 "Bytes present versus unit offered" | BIB-06, BIB-09, BIB-10, BIB-13, EVD-12, LOC-14 |
 | 3 | Usable citation headwords and distinct lexical homographs | §6, §7, §8 | IDN-17, IDN-28, IDN-29, IDN-30, IDN-37, OCC-01, LRN-01 |
 | 4 | Exact occurrence decisions when spans coincide | §7 "Occurrence identity", §8 "Effective identity" | OCC-01, OCC-12, OCC-13, LRN-02, LRN-22 |
-| 5 | Unsupported optional syntax stays explicitly unavailable | §7 "Optional layers and availability", §10 "Capability derivation and readiness" | OCC-07, OCC-08, OCC-18, OCC-21, VAL-02, VAL-03, EVD-20 |
+| 5 | Unsupported optional syntax stays explicitly unavailable | §7 "Optional layers and availability", §10 "Capability derivation and readiness" | OCC-07, OCC-08, OCC-18, OCC-21, OCC-26, VAL-02, VAL-03, EVD-20 |
 | 6 | Existing Known, reservations, snapshots and history preserved | §6 "Legacy compatibility", §8, §11 "Frozen state", §13 | IDN-24, IDN-25, IDN-26, IDN-27, LRN-13, LRN-14, ADP-21, MIG-01, MIG-02, MIG-10 |
 | 7 | Source refresh separated from adoption | §11 "Initial and replacement", §12 "Local selection" | ADP-14, ADP-15, ADP-17, ADP-22, ADP-30, LOC-25, EVD-18 |
 | 8 | Annotation-backed Reading works with NLP stopped | §10 "NLP independence", §12 | VAL-11, VAL-12, LOC-20, LOC-30 |
@@ -6100,7 +6172,7 @@ recorded in §17, or closed by a row that follows directly from a stated rule.
 | Impl 8 | Atomic adoption against expected owner, Book, evidence and request state, with counts and protected references. Freezes never change, and decisions never transfer. | §8, §9, §11 | ADP-09, ADP-12, ADP-13, ADP-20, ADP-21, ADP-25, RET-07, LRN-03, LRN-13 |
 | Impl 9 | Structural migration sequence, legacy preflight, concurrency rules, and tested restore or roll-forward. No numbers, no baseline edit, separate backfills. | §13 | MIG-01 to MIG-15, ADP-19, BIB-02 |
 | Impl 10 | Operator-local entry point without hosting, downloads or NLP, with safe failure. | §12 | LOC-14 to LOC-20, LOC-23, LOC-29 |
-| Impl 11 | Preserve the frozen minimum: unchanged source, the frozen table, non-vocabulary conjunctions with unresolved CCONJ/SCONJ, and required headwords and discriminators. Preserve provenance. Morpheus is corroboration, not a runtime dependency. | §5, §6, §7, §10, §12 | OCC-10, IDN-17, IDN-28, LOC-19, EVD-24, VAL-14, LOC-30. The real values are checked only in L-2 to L-4. |
+| Impl 11 | Preserve the frozen minimum: unchanged source, the frozen table, non-vocabulary conjunctions with unresolved CCONJ/SCONJ, and required headwords and discriminators. Preserve provenance. Morpheus is corroboration, not a runtime dependency. | §5, §6, §7, §10, §12 | OCC-10, IDN-17, IDN-28, LOC-19, EVD-24, VAL-14, LOC-30. The real values are checked only in L-0 and L-2 to L-4. Under #2089, "the frozen table" is the table that the L-0 lineage audit leaves, and the POS and morphology mappings are the independent `oga-agdt-upos/4` and `oga-agdt-feats/1` (§5). |
 | Impl 12 | Public and local material. Code release and data publication are separate. Unknown public-release applicability does not block. | §14 | PUB-01, PUB-02, PUB-03, LOC-21, VAL-07. Human channels: gap, OD-75. |
 | Impl 13 | Completion needs a reviewed design, a matrix and recorded human approval. SQL is not authorized before then. | §1, §15, §18 | None. A review rule: gap, OD-75. |
 | Test 1 | Observable behaviour, not table names. Each invariant is exercised and rejected. | §15 | See [Consistency audit](#consistency-audit): every invariant has a row, and no row asserts a proposed table name. |
@@ -6141,6 +6213,15 @@ Rows added by #2075, each following directly from a rule already stated:
   asserted it.
 - **PUB-01 to PUB-03**: §14's invariants.
 
+Rows added by #2089 (no treebank data), for the morphology-mapping slot:
+
+- **EVD-34**: §5 adds `morphology_mapping` to the configuration identity.
+- **OCC-26**: §7 makes morphology `usable` only through that slot.
+
+The exception-table lineage audit, the morphology-tag check and the re-run of
+the baseline need retained material, so they are the local-only step L-0
+(§14), not rows. The εἰμί rule is OD-77.
+
 Gaps recorded in §17: OD-68 (rich store-contract seeding), OD-74 (storage
 pressure), OD-75 (review-only requirements) and OD-76 (rich deck admission).
 SC-3 and the catalogue-offering rows have rows, but only the Stage 3 spec runs
@@ -6165,7 +6246,7 @@ offering and Claimed-alias parts of BIB-27.
 | item | inheritance |
 | --- | --- |
 | Sections | §4 records, "Ensure Book for Reading unit" and Edition reconciliation (not Unit offering or Claimed alias, and not Local registration, which ships in S9). §5 records, access rule and database ceilings. §6 in full. §7 in full, including the analysis read interface and its legacy adapter. §8 records, effective identity and the count-projection builder. §9 mechanism, guards and Adopted evidence record storage. §10's interfaces: shared validation, registries, diagnostics, the read shapes, the eligibility function, the Stanza compatibility adapter and parity observation, the store-contract harness, and the layering rules. #2059 adds the `oga` adapter and `internal/adoption`, and #2060 moves the learner-core consumers onto these interfaces. §13 S1 to S8, the legacy-`grc` preflight command, and the recovery rules. |
-| Matrix IDs | BIB-02, BIB-06, BIB-07, BIB-08, BIB-09, BIB-11, BIB-12, BIB-13, BIB-16, BIB-20, BIB-24, BIB-27 (except its offering and Claimed-alias parts), BIB-28; EVD-01, EVD-09, EVD-10, EVD-13, EVD-15, EVD-16, EVD-19, EVD-21, EVD-26 to EVD-30, EVD-32; IDN-01 to IDN-13, IDN-15, IDN-17 to IDN-21, IDN-33, IDN-35, IDN-36; OCC-01 to OCC-05, OCC-08 to OCC-20, OCC-22, OCC-23; LRN-16, LRN-17, LRN-24; RET-01, RET-02, RET-06, RET-13; VAL-01 to VAL-05, VAL-07 to VAL-10, VAL-13 to VAL-18, VAL-23; MIG-01 to MIG-06, MIG-08, MIG-09, MIG-13, MIG-15. #2061 runs MIG-01 to MIG-06 at S8; #2059 runs them again at S9. |
+| Matrix IDs | BIB-02, BIB-06, BIB-07, BIB-08, BIB-09, BIB-11, BIB-12, BIB-13, BIB-16, BIB-20, BIB-24, BIB-27 (except its offering and Claimed-alias parts), BIB-28; EVD-01, EVD-09, EVD-10, EVD-13, EVD-15, EVD-16, EVD-19, EVD-21, EVD-26 to EVD-30, EVD-32; IDN-01 to IDN-13, IDN-15, IDN-17 to IDN-21, IDN-33, IDN-35, IDN-36; OCC-01 to OCC-05, OCC-08 to OCC-20, OCC-22, OCC-23, OCC-26; LRN-16, LRN-17, LRN-24; RET-01, RET-02, RET-06, RET-13; VAL-01 to VAL-05, VAL-07 to VAL-10, VAL-13 to VAL-18, VAL-23; MIG-01 to MIG-06, MIG-08, MIG-09, MIG-13, MIG-15. #2061 runs MIG-01 to MIG-06 at S8; #2059 runs them again at S9. |
 | Local-only steps | None (§14). |
 | Blocking decisions | Every §17 row whose **blocks** column names #2061: OD-02, OD-03, OD-04, OD-06, OD-07, OD-12, OD-13, OD-14, OD-16, OD-17, OD-20, OD-21, OD-22, OD-23, OD-25, OD-26, OD-28, OD-29, OD-30, OD-32, OD-34, OD-35, OD-37, OD-41, OD-43, OD-44, OD-45, OD-47, OD-48, OD-63, OD-65, OD-68, OD-70. Most are under [§17 "Blocks #2061"](#blocks-2061-canonical-foundations). |
 
@@ -6174,9 +6255,9 @@ offering and Claimed-alias parts of BIB-27.
 | item | inheritance |
 | --- | --- |
 | Sections | §4 Local registration. §5 pins, application limits and acquisition. §9 evidence integrity check, unreferenced-evidence report and restore procedure. §10 the `oga` adapter and `internal/adoption`. §11 in full, including the OD-05 gate classification. §12 in full. §13 S9 and STOP-1. §14 L-1 to L-7. |
-| Matrix IDs | BIB-01, BIB-03, BIB-10, BIB-22, BIB-23, BIB-26; EVD-02 to EVD-08, EVD-11, EVD-12†, EVD-14, EVD-17, EVD-20, EVD-23, EVD-24, EVD-25, EVD-31, EVD-33; IDN-29; RET-03, RET-07, RET-11, RET-14, RET-16; VAL-06, VAL-19, VAL-22; ADP-01 to ADP-11, ADP-12†, ADP-13, ADP-14, ADP-15†, ADP-16 to ADP-19, ADP-20†, ADP-22, ADP-23, ADP-25 to ADP-30; LOC-01 to LOC-19, LOC-20†, LOC-21 to LOC-31; MIG-07, MIG-10; PUB-01, PUB-02, PUB-03. EVD-03, EVD-04, EVD-05, EVD-07, EVD-33, VAL-06 and ADP-06 need restating first (OD-71). |
-| Local-only steps | L-1 to L-7 (§14) |
-| Blocking decisions | Every §17 row whose **blocks** column names #2059: OD-05, OD-08, OD-12, OD-13, OD-15, OD-16, OD-19, OD-38, OD-39, OD-41, OD-43, OD-47, OD-49, OD-50, OD-51, OD-52, OD-54, OD-56 to OD-61, OD-63, OD-64, OD-69 to OD-74. Most are under [§17 "Blocks #2059"](#blocks-2059-local-import-and-adoption). |
+| Matrix IDs | BIB-01, BIB-03, BIB-10, BIB-22, BIB-23, BIB-26; EVD-02 to EVD-08, EVD-11, EVD-12†, EVD-14, EVD-17, EVD-20, EVD-23, EVD-24, EVD-25, EVD-31, EVD-33, EVD-34; IDN-29; RET-03, RET-07, RET-11, RET-14, RET-16; VAL-06, VAL-19, VAL-22; ADP-01 to ADP-11, ADP-12†, ADP-13, ADP-14, ADP-15†, ADP-16 to ADP-19, ADP-20†, ADP-22, ADP-23, ADP-25 to ADP-30; LOC-01 to LOC-19, LOC-20†, LOC-21 to LOC-31; MIG-07, MIG-10; PUB-01, PUB-02, PUB-03. EVD-03, EVD-04, EVD-05, EVD-07, EVD-33, VAL-06 and ADP-06 need restating first (OD-71). |
+| Local-only steps | L-1 to L-7 (§14). L-2 compares against the result of §14's L-0, which runs in handoff Stage 1, so L-0 runs first. |
+| Blocking decisions | Every §17 row whose **blocks** column names #2059: OD-05, OD-08, OD-12, OD-13, OD-15, OD-16, OD-19, OD-38, OD-39, OD-41, OD-43, OD-47, OD-49, OD-50, OD-51, OD-52, OD-54, OD-56 to OD-61, OD-63, OD-64, OD-69 to OD-74, OD-77. Most are under [§17 "Blocks #2059"](#blocks-2059-local-import-and-adoption). |
 
 #### #2060 Reading and vocabulary
 
@@ -6196,6 +6277,24 @@ offering and Claimed-alias parts of BIB-27.
 | Local-only steps | Card-specific, and outside this design (§14). |
 | Blocking decisions | OD-14 and OD-76. OD-76 is under [§17 "Blocks #2063"](#blocks-2063-cards). |
 
+#### Spec statements to update after #2089
+
+#2089 (no treebank data) changes what #2059 and #2063 may assume. Once it lands,
+these statements in the spec bodies need restating. This design does not edit
+the specs.
+
+| spec | statement | why it changes | restate as |
+| --- | --- | --- | --- |
+| #2059 | "Implementation Decisions": "Consume the unchanged source, frozen 34-record value/precondition table and reviewed local interpretation code … No new repair, mapping, shortened unit or source fallback." | `oga-agdt-upos/4` and `oga-agdt-feats/1` are new mappings, and the lineage audit can replace or drop table records, so the table may hold fewer than 34 records under a new repair-layer version. | Consume the unchanged source, the table that the Stage 1 lineage audit leaves, and the reviewed `oga-agdt-upos/4` and `oga-agdt-feats/1` mappings. No new repair, shortened unit or source fallback, and no mapping beyond those. |
+| #2059 | "Testing Decisions": the "expected original baseline context" (its node, eligible-occurrence, identity, 438 selected-identity, 434 sentence-input and omission counts, and the Morpheus-touching selected identities). | The numbers come from `oga-agdt-upos/3` and the unaudited table. Stage 1 accepts the re-run's numbers instead (§14 L-0). | Compare with the Stage 1 L-0 result, and report the differences from the earlier baseline explicitly. |
+| #2059 | "Testing Decisions": "Reproduce baseline selection/input hashes where serialization is unchanged … No extra interpretation change beyond the accepted conjunction ambiguity." | The POS mapping, the morphology mapping, the εἰμί rule (OD-77) and possibly the repair layer change. | Reproduce the L-0 hashes. The accepted interpretation changes are the conjunction ambiguity and #2089's. |
+| #2059 | "Out of Scope": "new mappings/repairs". | As the first row. | New repairs, and mappings other than `oga-agdt-upos/4` and `oga-agdt-feats/1`. |
+| #2063 | Summary: "The retained 438 selected identities and 434 deterministic sentence inputs are preparation evidence …". | The counts change under the new interpretation. | The selected identities and deterministic sentence inputs from Stage 1 are preparation evidence … |
+| #2063 | "Testing Decisions": "Reproducing 434 deterministic inputs is not a promise of 434 accepted cards." | As above. | Reproducing the Stage 1 deterministic inputs is not a promise of the same number of accepted cards. |
+
+#2063 has no "no new … mapping" statement. Its "Out of Scope" excludes new
+lexical repairs, which still holds, because the lineage audit adds none.
+
 ### Consistency audit
 
 | check | result | action |
@@ -6204,7 +6303,7 @@ offering and Claimed-alias parts of BIB-27.
 | Every FK target exists | One missing key. §4's Claimed alias references `(owner_id, offering_id)`, but Unit offering declared no `(owner_id, id)` uniqueness. §4's Unit offering → "the owner's catalogue connection" names a record that OD-09 leaves to Stage 3. Every other composite reference, including those into `books`, `primary_goal_snapshots` and `reading_history`, has a matching key at this commit. | Added `(owner_id, id)` to Unit offering. This is mechanical: `id` is already the key, so the composite adds no restriction and only makes the declared reference valid, as for Work and Edition. The connection target stays with OD-09 and OD-66. |
 | Current-state facts | §3 B-12 and its correction said `reading_history` is keyed `(owner_id, language, book_id)`. Migration 000010 replaced that key with `completion_id` (`migrations/000010_reading_history_append_only.up.sql:7-11`). §8 and §13 already use the current key. | Fixed in §3. |
 | Every invariant has a matrix row | Every numbered invariant in §4–§14 cites at least one existing row, and every cited ID exists. §4's "Implementation rules" are review rules exercised by the BIB rows above them, as §4 says. | — |
-| Every row's seam is (a)–(d) | **Not clean until OD-41, OD-48 and OD-65 are decided.** Counting the added rows, 226 of the 271 rows use (a)–(d). 45 use a widened seam: 31 `(a) + CLI`, 9 `(d) (OD-41)`, 3 `lint (OD-48)` and 2 `CI (OD-65)`. RET-14 and RET-16 ran operator commands under a plain `(d)` label. | Relabelled RET-14 and RET-16 `(d) (OD-41)`, as §9 already says. Listed the widenings under §15 "Seams". OD-41's question now names the `(a) + CLI` rows, and OD-65's names MIG-15. |
+| Every row's seam is (a)–(d) | **Not clean until OD-41, OD-48 and OD-65 are decided.** Counting the added rows, 228 of the 273 rows use (a)–(d) (#2089 added EVD-34 and OCC-26). 45 use a widened seam: 31 `(a) + CLI`, 9 `(d) (OD-41)`, 3 `lint (OD-48)` and 2 `CI (OD-65)`. RET-14 and RET-16 ran operator commands under a plain `(d)` label. | Relabelled RET-14 and RET-16 `(d) (OD-41)`, as §9 already says. Listed the widenings under §15 "Seams". OD-41's question now names the `(a) + CLI` rows, and OD-65's names MIG-15. |
 | No table-name assertion in "expected" | No row's expected column, setup, action or negative case names a proposed table. OCC-24, VAL-09, VAL-11 and MIG-05 name existing shipped tables, and MIG-01 and MIG-04 name `schema_migrations`, as the unchanged characterization baseline. The ground rules forbid proposed names only. | — |
 | No private values | Every Greek form is an invented example or a public #2033 anchor. No 64-hex digest, frozen table value, Book 1 text or private count appears. The only hashes are commit SHAs. | — |
 | Rows that contradict later sections | EVD-03, EVD-04, EVD-05, EVD-07, EVD-33, VAL-06 and ADP-06 expect admission failures through a handler and request state `failed`. §12 refuses them in the command, and §11 records stored-byte failures as `blocked`. | Raised as OD-71. |
@@ -6220,7 +6319,8 @@ Rows are grouped by the first downstream spec they block. The **blocks**
 column lists every spec a row blocks. §18 records an answer to every row before
 any spec starts (§1). IDs are never reused: OD-24 and OD-53 are merged into
 OD-63 and OD-39, and keep their IDs so that references still resolve. OD-68 to
-OD-76 come from the §16 traceability and consistency audit.
+OD-76 come from the §16 traceability and consistency audit. OD-77 comes from
+the #2089 rework (no treebank data).
 
 ### Blocks #2061 canonical foundations
 
@@ -6289,6 +6389,7 @@ OD-76 come from the §16 traceability and consistency audit.
 | OD-72 | May §9's unreferenced-evidence report print blob and Package content digests? §12 and §13 print no digest, and §14 classes package hashes as local-only. | (1) Yes. The report runs only on the installation, and its output is local-only material that is never posted (§14 PUB-R3). (2) The report names blobs and contents by record IDs and a per-run ordinal, and prints digests only with an explicit operator flag. | (1). | (1) needs no change to §9, and the operator can match a blob to the file they hold. A pasted report would expose hashes, which only the review rule prevents. (2) makes a pasted report safe, but blobs and contents are keyed by digest, so the report needs a second handle. | #2075 | #2059 | open |
 | OD-73 | §12 says that §9's delete guard must cover the Installed pin set, and that §9's referencer list must include the Local selection, which references an acquisition. §9 lists neither, and no row covers them. | (1) The Installed pin set gets the shared-evidence delete guard (RET-GUARD-1). The Local selection is an owner-scoped retention root: its acquisition reference stays `NO ACTION` (RET-FK-2), it gets the owner guard (RET-GUARD-2), and the unreferenced report treats a Book's current Local selection as live. (2) Neither is protected. Pins are recoverable from the operator's file, and an acquisition that only a Local selection names is reported unreferenced. | (1). | (1) keeps every retained pin set resolvable, which OD-58 needs for re-verification, and keeps a registered package from being reported unreferenced before the learner moves its Book to To Read. It adds two guards and one referencer to §9. (2) adds nothing, but a lost Installed pin set row blocks `verify` with `pin_file_missing` until the operator registers again. | #2075 | #2059 | open |
 | OD-74 | How is new work paused under storage pressure? ADR 0097 says "monitor storage and queue pressure; pause/reject new acquisition before exhausting capacity", and the handoff says "configure operator capacity checks/alerts and pause new work before exhaustion". §11 bounds queue pressure. No section pauses new work on storage pressure, and no row covers it. | (1) Leave storage monitoring to the operator ("the operator owns capacity", ADR 0097). A full database stays a failure that writes nothing (§12 exit 1, §11 transient `storage_unavailable`), and nothing is evicted (RET-01, RET-14). (2) Add an operator-configured storage threshold that admission and the command check before new work, and that refuses with a permanent code. #2059 specifies it before implementation. | (2). | (1) adds nothing, but new work is refused only once the database is already full, which is later than ADR 0097 asks. (2) meets ADR 0097, at the cost of a configuration value, a code and a design addition that needs review. | #2075 | #2059 | open |
+| OD-77 | Which εἰμί rule does `oga-agdt-upos/4` apply, AUX or VERB? #2089 supersedes `oga-agdt-upos/3`, its εἰμί rule and, pending the lineage audit, its six POS repairs. AUX is non-vocabulary and VERB is vocabulary (#2058), so the rule changes the εἰμί VERB count. The rule may rest only on the UPOS definitions and the source's own annotation, never on a treebank. OGA's own annotation is the retained source (#2030), read as evidence, not a treebank witness. | (1) AUX where the source's own native annotation marks εἰμί as a copula, and VERB otherwise (existential and possessive uses), following the UPOS definitions of AUX and VERB. (2) AUX for every εἰμί. (3) VERB for every εἰμί. | (1). A human decides and records the rule in Stage 1, before the lineage audit of the six POS repairs, because those repairs correct this rule's output. | (1) follows the UPOS definitions and reads only the source's own annotation, but it inherits the automatic annotation's errors, which stay disclosed, and the audit decides which repairs survive. (2) needs no native syntax and no POS repairs, but it removes every existential εἰμί from vocabulary. (3) needs no native syntax either, but it counts copular εἰμί as vocabulary, against the AUX definition. | #2089 | #2059 | open |
 
 ### Blocks #2060 Reading and vocabulary
 
@@ -6434,3 +6535,4 @@ it back for narrow rework.
 | OD-74 | Option (1) | Single-user installation; the operator owns storage capacity. |
 | OD-75 | _pending_ | |
 | OD-76 | _pending_ | |
+| OD-77 | _pending_ | |
