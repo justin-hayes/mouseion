@@ -5115,14 +5115,14 @@ Verified at commit `bf961751318a8216c8f6d76a0479ede5ae903673` (`main`). Every
 - The **legacy-`grc` preflight** is a read-only operator command. It reports
   counts and IDs per owner, checks the assumptions that the new constraints rely
   on, and reports rollout status. Any `grc` row stops Greek import for the whole
-  installation until a separately approved reconciliation plan exists (OD-56).
+  installation until a separately approved reconciliation plan exists (OD-63).
   Rows are never converted.
 - No data-only work is required to add Greek.
 - Recovery is roll-forward by default. Backup and restore is the evidence-loss
   path, verified by §9's integrity check. A half-applied rollout is detected by
   golang-migrate's dirty flag and the preflight's rollout checks.
 
-New rule and command names are proposed terms (OD-60).
+New rule and command names are proposed terms (OD-67).
 
 ### Current anchors
 
@@ -5172,9 +5172,10 @@ Rules for every step:
   later reader or writer (MIG-04).
 - **STEP-8. No classical writer before S9.** No code that inserts a §4
   association, Book current classical analysis or §8 rich row is reachable
-  before S9 has shipped. Their only entry point in scope, §12 Local
-  registration, needs S9's table. So when S6 and S7 run, no classical Book
-  exists, and A-4 confirms it.
+  before S9 has shipped. Their only entry point in scope,
+  `cmd/localregistration` (§12), needs S9's Local registration and Local
+  selection tables. So when S6 and S7 run, no classical Book exists, and A-4
+  confirms it.
 
 | step | name | records added (section) | depends on | purely additive | existing tables touched | effect on existing rows | downstream spec |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -5186,12 +5187,12 @@ Rules for every step:
 | S6 | `classical_adoption_anchor` | Adopted evidence record (§9); Book current classical analysis (§5), including its foreign key to the Adopted evidence record; the exclusion trigger on `book_current_analyses` (§5). | S1, S2, S5 | New tables plus one new trigger on an existing table | `book_current_analyses` (trigger) | None | #2061 (storage); #2059 writes it through adoption |
 | S7 | `rich_learner_attachments` | Exact occurrence decision, Exact Lemma review flag, Rich count readiness, Rich vocabulary count, Rich snapshot membership, Snapshot count contribution, Rich Known vocabulary (§8), each with its §9 foreign key to the Adopted evidence record; snapshot representation on `primary_goal_snapshots` (§8, §9); the tuple-row trigger on `primary_goal_snapshot_vocabulary` (§8). | S3, S5, S6 | No: relaxes five `NOT NULL` columns, guarded by a new check (see [Changes to existing tables](#changes-to-existing-tables)) | `primary_goal_snapshots`, `primary_goal_snapshot_vocabulary`; `users`, `books`, `reading_history` (referenced only) | None | #2061 (storage); #2059 writes counts at adoption; #2060 uses it in learner workflows |
 | S8 | `validate_snapshot_representation` | No record. Validates the constraints that S7 added `NOT VALID`. | S7 | Yes: reads rows, changes none | `primary_goal_snapshots` | None | #2061 |
-| S9 | `classical_preparation` | Local registration (§4); Preparation request, Preparation attempt, Staged count row (§11). | S1, S2, S3, S4, S5 | Yes | `users` (referenced only) | None | #2059 |
+| S9 | `classical_preparation` | Local registration (§4); Installed pin set, Local selection (§12); Preparation request, Preparation attempt, Staged count row (§11). | S1, S2, S3, S4, S5 | Yes | `users` (referenced only) | None | #2059 |
 
 #2060 adds no step. If it needs structure, that structure gets a new step after
 S9, under these rules. §4's Unit offering and Claimed alias get no step here,
 because they depend on OD-09's connection record and on the Stage 3 discovery
-spec (OD-59).
+spec (OD-66).
 
 **Why the order differs from the ticket's example.** Three foreign-key
 dependencies force it:
@@ -5252,17 +5253,19 @@ view and every baseline function and trigger.
 
 ### Legacy-`grc` preflight
 
-**Delivery: an operator command.** The proposed name is `legacy-grc-preflight`.
-§12 places its command surface beside §9's integrity check and
-unreferenced-evidence report. It follows `cmd/vocabularybackfill`: it reads
+**Delivery: an operator command.** The proposed name is
+`cmd/legacygrcpreflight`, one command per operation, as §12 does with
+`cmd/localregistration`. It follows `cmd/vocabularybackfill`: it reads
 `MOUSEION_DATABASE_URL`, opens the store without migrating, and prints a report.
+Unlike §12's one-line summary, the report is a JSON document, because it lists
+IDs.
 
 - It runs every check in one `REPEATABLE READ READ ONLY` transaction. It writes
   nothing and takes only the locks that ordinary reads take.
 - It is not a River job and has no schedule.
 - A command, not a SQL script, because reviewed code then enforces the
-  content-free output and seam (d) can test it (MIG-07). §12 calls the same
-  function before registering (STOP-1).
+  content-free output and seam (d) can test it (MIG-07).
+  `cmd/localregistration` calls the same function before registering (STOP-1).
 - The command merges before S1, with an empty step manifest, so that run 1
   below is possible. Each step's PR adds that step's manifest entry (R-2).
 
@@ -5273,7 +5276,7 @@ records run only when those records exist.
 
 1. after the pre-rollout backup, before the binary that carries S1 is deployed;
 2. after each step is deployed;
-3. inside every §12 Local registration (STOP-1);
+3. inside every `cmd/localregistration` run that writes (STOP-1);
 4. after every restore, following §9's integrity check.
 
 **Language classification.** A language value **is `grc`** exactly when
@@ -5284,6 +5287,15 @@ lists the rows that hold a `grc` value, by byte equality on that value. So
 `GRC`, `grc-x-test`, `grc_Grek` and a value with surrounding whitespace are all
 `grc`, exactly as the application would treat them.
 
+**Legacy rows only.** The classical path itself writes `grc` values into
+existing tables: a classical Book's `books.language_tag`, its `primary_goals`
+row, its rich snapshot, its `reading_history` row, and §12's
+`supported_languages` row. A row is **legacy** unless it belongs to a classical
+Book (one with a §4 association) or to a rich snapshot (`exact_analysis_id IS
+NOT NULL`). The G checks count legacy rows only, so a later run after a
+successful import still reports `clear` (MIG-14). Before S2 and S7 exist, every
+row is legacy.
+
 **Legacy checks.** Each check counts and lists, per owner, the rows that match.
 A row whose key contains vocabulary text is reported only by the UUID columns
 of its key, with a count. "Is `grc`" in this table means the classification
@@ -5291,16 +5303,17 @@ above.
 
 | check | category | table (path:line) | a row matches when | reported |
 | --- | --- | --- | --- | --- |
-| P-1 | Books | `books` (`migrations/000001_initialize.up.sql:268-280`) | `language_tag` is `grc` | Book IDs |
-| P-2 | Analyses | `source_materials` (`:412-426`), `analysis_runs` (`:193-215`), `book_current_analyses` (`:239-245`), `corpus_tokens` (`:380-405`) | the source material's `language` is `grc`, or its Book matches P-1; a run of such a source material; a current-analysis row of such a Book; a token whose `language` is `grc` | source material IDs, run IDs, Book IDs; token counts per run ID |
-| P-3 | Current readings | `primary_goals` (`:1291-1299`) | `language` is `grc` | Book and snapshot IDs |
-| P-4 | Known vocabulary | `known_vocabulary` (`:1104-1111`) | `language` is `grc` | row IDs |
-| P-5 | Reservations | `primary_goal_snapshot_vocabulary` (`migrations/000007_primary_goal_snapshots.up.sql:35-51`) | a row of an unreleased snapshot named by a `primary_goals` row, where the row or its snapshot is `grc` | snapshot IDs, row counts |
-| P-6 | Snapshots and history | `primary_goal_snapshots` (`:14-33`), `primary_goal_snapshot_vocabulary`, `reading_history` (`migrations/000004_reading_history.up.sql:3-12`) | `language` is `grc` | snapshot IDs; row counts per snapshot ID; completion IDs |
-| P-7 | Occurrence decisions | `occurrence_lemma_corrections` (`migrations/000023_occurrence_lemma_corrections.up.sql:1-25`, with exclusions from `migrations/000024_occurrence_vocabulary_exclusions.up.sql`), `occurrence_lemma_review_flags` (`migrations/000025_occurrence_lemma_review_flags.up.sql:1-27`) | the Book matches P-1, or the run matches P-2 | counts of corrections, exclusions and flags per (Book ID, run ID) |
-| P-8 | Browse counts | `vocabulary_browse_counts` (`migrations/000031_vocabulary_browse_counts.up.sql:1-15`), `vocabulary_browse_count_readiness` (`:20-32`) | `language` is `grc` | counts per (Book ID, run ID) |
-| P-9 | Deck specifications | `deck_preparation_manifest_items` (`migrations/000001_initialize.up.sql:676-711`), `deck_preparation_vocabulary` (`:876-884`), `generated_vocabulary` (`:1089-1097`), `decks` (`:935-941`), `vocabulary_browse_selections`, `custom_vocabulary_decks`, `custom_vocabulary_deck_identities` (`migrations/000026_custom_vocabulary_selections.up.sql:1-12`, `:14-27`, `:29-42`), `custom_vocabulary_deck_preparations`, `custom_vocabulary_deck_preparation_identities` (`migrations/000027_custom_deck_preparations.up.sql:1-36`, `:45-59`) | `language` is `grc` | the UUID key columns of each row, or of its containing deck or preparation, with counts |
-| P-10 | Other rows with a language | Owner-scoped: `users.active_study_language` (`migrations/000001_initialize.up.sql:1433-1441`), `vocabulary_states` (`migrations/000001_initialize.up.sql:1447-1456`), `selection_candidates` (`:1335-1356`), `curated_sentences` (`:541-550`), `example_sentences` (`:1031-1047`). Installation-wide or nullable owner: `shared_lemmas` (`:1377-1386`), `enrichment_cache` (`:948-968`), `normalized_corpus_artifacts` (`:1251-1260`), `frequency_datasets` (`:1054-1064`), `frequency_entries` (`:1071-1082`), `supported_languages` (`:1422-1426`), `opds_connections` (`:1267-1277`) | `language` is `grc` | counts per owner; owner `null` means installation-wide |
+| G-1 | Books | `books` (`migrations/000001_initialize.up.sql:268-280`) | `language_tag` is `grc` and the Book has no §4 association | Book IDs |
+| G-2 | Analyses | `source_materials` (`:412-426`), `analysis_runs` (`:193-215`), `book_current_analyses` (`:239-245`), `corpus_tokens` (`:380-405`) | the source material's `language` is `grc`, or its Book matches G-1; a run of such a source material; a current-analysis row of such a Book; a token whose `language` is `grc` | source material IDs, run IDs, Book IDs; token counts per run ID |
+| G-3 | Current readings | `primary_goals` (`:1291-1299`) | `language` is `grc` and the Book is not classical | Book and snapshot IDs |
+| G-4 | Known vocabulary | `known_vocabulary` (`:1104-1111`) | `language` is `grc` | row IDs |
+| G-5 | Reservations | `primary_goal_snapshot_vocabulary` (`migrations/000007_primary_goal_snapshots.up.sql:35-51`) | a row of an unreleased snapshot named by a `primary_goals` row, where the row or its snapshot is `grc` | snapshot IDs, row counts |
+| G-6 | Snapshots and history | `primary_goal_snapshots` (`:14-33`), `primary_goal_snapshot_vocabulary`, `reading_history` (`migrations/000004_reading_history.up.sql:3-12`) | `language` is `grc`, the snapshot is not rich, and the Book is not classical | snapshot IDs; row counts per snapshot ID; completion IDs |
+| G-7 | Occurrence decisions | `occurrence_lemma_corrections` (`migrations/000023_occurrence_lemma_corrections.up.sql:1-25`, with exclusions from `migrations/000024_occurrence_vocabulary_exclusions.up.sql`), `occurrence_lemma_review_flags` (`migrations/000025_occurrence_lemma_review_flags.up.sql:1-27`) | the Book matches G-1, or the run matches G-2 | counts of corrections, exclusions and flags per (Book ID, run ID) |
+| G-8 | Browse counts | `vocabulary_browse_counts` (`migrations/000031_vocabulary_browse_counts.up.sql:1-15`), `vocabulary_browse_count_readiness` (`:20-32`) | `language` is `grc` | counts per (Book ID, run ID) |
+| G-9 | Deck specifications | `deck_preparation_manifest_items` (`migrations/000001_initialize.up.sql:676-711`), `deck_preparation_vocabulary` (`:876-884`), `generated_vocabulary` (`:1089-1097`), `decks` (`:935-941`), `vocabulary_browse_selections`, `custom_vocabulary_decks`, `custom_vocabulary_deck_identities` (`migrations/000026_custom_vocabulary_selections.up.sql:1-12`, `:14-27`, `:29-42`), `custom_vocabulary_deck_preparations`, `custom_vocabulary_deck_preparation_identities` (`migrations/000027_custom_deck_preparations.up.sql:1-36`, `:45-59`) | `language` is `grc` | the UUID key columns of each row, or of its containing deck or preparation, with counts |
+| G-10 | Other learner and analysis rows | Owner-scoped: `vocabulary_states` (`migrations/000001_initialize.up.sql:1447-1456`), `selection_candidates` (`:1335-1356`), `curated_sentences` (`:541-550`), `example_sentences` (`:1031-1047`). Installation-wide: `shared_lemmas` (`:1377-1386`), `enrichment_cache` (`:948-968`), `normalized_corpus_artifacts` (`:1251-1260`), `frequency_datasets` (`:1054-1064`), `frequency_entries` (`:1071-1082`) | `language` is `grc` | counts per owner; owner `null` means installation-wide |
+| INF-1 | Preferences and display metadata (informational, never blocks) | `users.active_study_language` (`migrations/000001_initialize.up.sql:1433-1441`), `supported_languages` (`:1422-1426`), `opds_connections` (`:1267-1277`) | the value is `grc` | counts per owner. These hold no vocabulary or learner fact, and §12 itself writes `supported_languages`, so they are reported but never block. |
 
 ```sql
 -- illustrative, not a migration
@@ -5335,19 +5348,21 @@ lose.
 
 **Result and stop rule.**
 
-- **Result.** The result is `clear`, with exit code 0, exactly when every P
-  count is 0 and every A and R check passes. Otherwise the result is `blocked`,
+- **Result.** The result is `clear`, with exit code 0, exactly when every G
+  count is 0 and every A and R check passes. INF-1 never affects the result. Otherwise the result is `blocked`,
   with exit code 2. If the command cannot finish (connection, permission or
   timeout), it exits 1, and that run is never treated as clear.
-- **STOP-1.** §12's Local registration runs the preflight first. If the result
-  is not `clear`, registration is refused with `legacy_grc_preflight_blocked`
-  and writes nothing. In this design's scope, §12 is the only path that creates
-  a classical Book (catalogue offerings are Stage 3, OD-59), so no Greek import
-  can start while the result is blocked. A later import path must apply the
-  same gate.
-- **STOP-2.** When a P check finds rows, Greek import stays stopped for the
+- **STOP-1.** `cmd/localregistration` runs the preflight after its configuration
+  checks (§12 P-1 to P-5) and before it reads any local file. If the result is
+  not `clear`, it refuses with `legacy_grc_preflight_blocked`, exits 4 ("refused
+  by reviewed configuration") and writes nothing. `-verify-only` opens no
+  database and writes nothing, so it skips the preflight. In this design's
+  scope, §12 is the only path that creates a classical Book (catalogue
+  offerings are Stage 3, OD-66), so no Greek import can start while the result
+  is blocked. A later import path must apply the same gate.
+- **STOP-2.** When a G check finds rows, Greek import stays stopped for the
   whole installation until a separately approved reconciliation plan exists
-  (OD-56). The plan states how its outcome shows in the preflight, for example
+  (OD-63). The plan states how its outcome shows in the preflight, for example
   through a reviewed list of reconciled row IDs, so that a `clear` result
   stays the only condition for import.
 - **STOP-3.** Rows are never converted. No step, command, job, adoption or
@@ -5370,7 +5385,7 @@ rule. Synthetic example:
 {"format":"legacy-grc-preflight/1","result":"blocked",
  "schema":{"version":"<current version>","dirty":false,
            "steps":[{"step":"S1","state":"complete"},{"step":"S2","state":"absent"}]},
- "findings":[{"check":"P-4","table":"known_vocabulary",
+ "findings":[{"check":"G-4","table":"known_vocabulary",
               "owner_id":"00000000-0000-4000-8000-00000000000a","count":2,
               "ids":["00000000-0000-4000-8000-0000000000b1","00000000-0000-4000-8000-0000000000b2"]}],
  "assumptions":[{"check":"A-3","result":"pass","count":0,"ids":[]}],
@@ -5504,7 +5519,7 @@ Each invariant is covered by the `MIG` rows in [§15](#15-acceptance-test-matrix
    dirty, and stops server start (MIG-04).
 5. **Preflight.** It is read-only and content-free, and reports counts and IDs
    per owner. Any `grc` row blocks Greek import for the whole installation.
-   Legacy rows are never converted (MIG-07, MIG-08, MIG-10).
+   Legacy rows are never converted, and rows written by the classical path never count as legacy (MIG-07, MIG-08, MIG-10, MIG-14).
 6. **Assumptions.** A violated assumption that a new constraint relies on is
    reported and blocks (MIG-09).
 7. **Restore.** A restore of blobs plus records passes the integrity check. A
@@ -5518,18 +5533,28 @@ Each invariant is covered by the `MIG` rows in [§15](#15-acceptance-test-matrix
 - **§6 "Legacy compatibility" and OD-24.** They recommend isolating legacy `grc`
   rows and continuing rollout. This ticket requires rollout of Greek import to
   stop while any `grc` row exists. §13 follows the ticket (STOP-2). §6 is not
-  rewritten (OD-56).
+  rewritten (OD-63).
 - **§9 IC-6.** IC-6 does not name the restriction subject for a missing blob
-  that only acquisitions reference (OD-57). MIG-12 asserts only that the Book
+  that only acquisitions reference (OD-64). MIG-12 asserts only that the Book
   shows unavailable.
 - **§15 seams.** The seams include no generated-artifact check, which MIG-13
-  needs (OD-58).
+  needs (OD-65).
 - **§4 Unit offering and Claimed alias** depend on OD-09's connection record and
-  on Stage 3. No step includes them (OD-59).
+  on Stage 3. No step includes them (OD-66).
 - **§9 "Indexes".** X-7 makes §9's snapshot index partial. This refines §9 and
   does not change it.
-- **§12** is pending. It must place the preflight command and call it before
-  every Local registration (STOP-1).
+- **§12 order of operations and exit codes.** §12 does not run the preflight.
+  STOP-1 inserts it after §12's P-5, refusing with exit 4 and
+  `legacy_grc_preflight_blocked`, which joins §10's registry as a
+  command-output code. §12's exit-code table and step list are not rewritten.
+  §12's step IDs P-1 to P-8 are why the legacy checks here are named G-1 to
+  G-10.
+- **§12 records.** §12's Installed pin set and Local selection ship in S9 with
+  Local registration. §12's registration transaction writes S1, S2 and S4
+  records, so the command needs every step up to S9 (STEP-8).
+- **§12 `supported_languages` write.** §12 inserts a `grc` display-name row.
+  That is why INF-1 is informational, and why the G checks exclude classical
+  Books and rich snapshots.
 - **OD-12 and OD-32.** X-1 to X-9 assume OD-12 option (2) and OD-32 option (1).
 - **OD-41.** MIG rows that run operator commands use seam (d), widened as for
   RET-14 and RET-16.
@@ -5846,13 +5871,14 @@ rows use synthetic fixtures only.
 | MIG-04 | A failed step is reported as half-applied, stops server start, and leaves no partial object. | (d) | A database at S6 with MIG-01's data. A second session holds a lock on `primary_goal_snapshots` that conflicts with S7. | Run the server's migration path. | S7 fails within its 5-second lock wait. `schema_migrations` is at S7's version and dirty. No S7 object exists, and the server does not start. The preflight reports `migration_dirty` and S7 `absent`, with result `blocked`. After the lock is released and the version is reset to S6 (REC-5), the migration path applies S7. | On a cleanly migrated database, the preflight reports every step `complete`. A database with S9's objects but without S8's validation reports `rollout_partial`. |
 | MIG-05 | The representation check and S7's foreign keys hold from S7's commit, and S8 validates them. | (d) | A database at S7 with MIG-01's data. | Insert a snapshot with all five legacy columns and an `exact_analysis_id`. Then apply S8. | The insert is rejected. After S8, every constraint that S7 added to `primary_goal_snapshots` is validated, and no row has changed. | A legacy snapshot insert and its release succeed between S7 and S8, and again after S8. |
 | MIG-06 | The changes to existing tables leave the legacy write paths unchanged. | (a) | Server at S9. Owner A has an EPUB `de` Book. | A moves the Book to To Read. The analysis job publishes. A starts, ends, starts again and finishes the Reading. | Publication writes the Book's current analysis. Start writes a legacy snapshot with no `exact_analysis_id`, and its tuple vocabulary. Finish writes history and Known. Every response matches the existing handler tests. | A tuple vocabulary row for a rich snapshot, and a current EPUB analysis for a classical Book, are both rejected (EVD-27, LRN-16). |
-| MIG-07 | The preflight reports seeded legacy `grc` rows per owner, in counts and IDs only, and blocks rollout. | (d) (OD-41) | MIG-01's database, plus rows for owners A and B in every P-1 to P-10 table whose language is `grc`, `GRC`, `grc-x-test` or `grc_Grek`. Every seeded lemma, title and form contains a marker string. | Run the preflight. | The result is `blocked`, with exit code 2. Each P check reports exactly the seeded counts and IDs, per owner and table. The output contains no marker string, lemma, title, text or form. Every row digest is unchanged. | Owner C has no `grc` row, yet §12 Local registration for C is refused with `legacy_grc_preflight_blocked` and writes nothing. The stop covers the whole installation. |
+| MIG-07 | The preflight reports seeded legacy `grc` rows per owner, in counts and IDs only, and blocks rollout. | (d) (OD-41) | MIG-01's database, plus rows for owners A and B in every G-1 to G-10 table whose language is `grc`, `GRC`, `grc-x-test` or `grc_Grek`. Every seeded lemma, title and form contains a marker string. | Run the preflight. | The result is `blocked`, with exit code 2. Each G check reports exactly the seeded counts and IDs, per owner and table. The output contains no marker string, lemma, title, text or form. Every row digest is unchanged. | Owner C has no `grc` row, yet `cmd/localregistration` for C exits 4 with `legacy_grc_preflight_blocked`, reads no package file and writes nothing. The stop covers the whole installation. |
 | MIG-08 | The preflight passes on a clean database. | (d) (OD-41) | MIG-01's database at S9, plus `el` rows with the invented lemma `λέξις`, and a Book whose title contains `grc`. | Run the preflight. | The result is `clear`, with exit code 0. Every count is 0, and every A and R check passes. | Adding one `grc` Known row for owner B makes the result `blocked`, listing exactly that row's ID. |
-| MIG-09 | The preflight checks the uniqueness and owner-isolation assumptions that the new constraints rely on. | (d) (OD-41) | MIG-01's database. Through direct SQL, one current reading points at a snapshot in another language, and one snapshot vocabulary row's language differs from its snapshot's. | Run the preflight. | The result is `blocked`. A-3 reports `snapshot_language_mismatch` with those goal and snapshot IDs. Every P count is 0. | In a scratch database with `books_owner_id_id_key` dropped, A-1 reports `referenced_key_missing` and names that constraint. |
-| MIG-10 | Legacy `grc` rows are never converted. | (d) (OD-41) | MIG-07's seeded database at the pre-rollout version. | Apply S1 to S9, run the preflight twice, then attempt §12 Local registration. | Every seeded row is byte-identical. No Vocabulary identity, Rich Known, membership, decision, count or Book–Reading unit association exists for any of them. Both preflight reports are identical. | Registration is refused, and every new table still has zero rows. |
+| MIG-09 | The preflight checks the uniqueness and owner-isolation assumptions that the new constraints rely on. | (d) (OD-41) | MIG-01's database. Through direct SQL, one current reading points at a snapshot in another language, and one snapshot vocabulary row's language differs from its snapshot's. | Run the preflight. | The result is `blocked`. A-3 reports `snapshot_language_mismatch` with those goal and snapshot IDs. Every G count is 0. | In a scratch database with `books_owner_id_id_key` dropped, A-1 reports `referenced_key_missing` and names that constraint. |
+| MIG-10 | Legacy `grc` rows are never converted. | (d) (OD-41) | MIG-07's seeded database at the pre-rollout version. | Apply S1 to S9, run the preflight twice, then run `cmd/localregistration` for owner A. | Every seeded row is byte-identical. No Vocabulary identity, Rich Known, membership, decision, count or Book–Reading unit association exists for any of them. Both preflight reports are identical. | Registration is refused, and every new table still has zero rows. |
 | MIG-11 | A restore of blobs plus records passes the integrity check. | (d) (OD-41) | At S9, owners A and B each adopt a synthetic classical Book through §11. A adopts twice, so an older analysis keeps its Adopted evidence record. A also has an exact decision, a rich snapshot, a completion and Rich Known. | Dump the whole database with `pg_dump -Fc` inside the database container. Restore it into a fresh database with `pg_restore --single-transaction --exit-on-error`. Run the integrity check, then the preflight. | The restore succeeds. The integrity check passes with no restriction, and R-1 to R-3 pass. Every table digest equals the source's. Both Books report current evidence available, and A's older analysis is still readable as A's evidence. | A dump that excludes the evidence tables' data fails `pg_restore` as a whole, and the fresh database stays empty. |
-| MIG-12 | A restore that is missing a blob fails the integrity check and shows the unavailable state. | (d) (OD-41) | MIG-11's dump, loaded into a fresh database with triggers disabled (`session_replication_role = replica`) and without the Package blob of A's current build. §9 calls this a non-conforming restore. | Run the integrity check. Then read A's Book evidence and A's Reading chooser through the store. | The check fails with `evidence_reference_missing` and appends an `integrity_failure` restriction (OD-57). A's Book shows Evidence unavailable with the reason, and Start is refused. Frozen records are byte-identical, and no Reading ends automatically. | B's Book, whose evidence does not depend on that blob, stays available. A conforming restore of the same reduced data fails as a whole. |
-| MIG-13 | Regenerated sqlc output matches the committed code at every step. | CI: `make sqlc` plus `git diff --exit-code` (OD-58) | Each step's PR. | Run `make sqlc`, then `git diff --exit-code gen/sqlc`. | There is no diff, and the build and tests pass. | A step file changed without regeneration fails the check. |
+| MIG-12 | A restore that is missing a blob fails the integrity check and shows the unavailable state. | (d) (OD-41) | MIG-11's dump, loaded into a fresh database with triggers disabled (`session_replication_role = replica`) and without the Package blob of A's current build. §9 calls this a non-conforming restore. | Run the integrity check. Then read A's Book evidence and A's Reading chooser through the store. | The check fails with `evidence_reference_missing` and appends an `integrity_failure` restriction (OD-64). A's Book shows Evidence unavailable with the reason, and Start is refused. Frozen records are byte-identical, and no Reading ends automatically. | B's Book, whose evidence does not depend on that blob, stays available. A conforming restore of the same reduced data fails as a whole. |
+| MIG-13 | Regenerated sqlc output matches the committed code at every step. | CI: `make sqlc` plus `git diff --exit-code` (OD-65) | Each step's PR. | Run `make sqlc`, then `git diff --exit-code gen/sqlc`. | There is no diff, and the build and tests pass. | A step file changed without regeneration fails the check. |
+| MIG-14 | Rows that the classical path writes are not legacy rows. | (d) (OD-41) | A clean database at S9. Owner A registers a synthetic classical Book with `cmd/localregistration`, adopts it, sets their study language to `grc`, then starts and finishes a rich Reading. | Run the preflight. | The result is `clear`. Every G count is 0. INF-1 reports the `grc` study language and display-name row, and the result does not change. | A legacy `grc` Known row added for owner A makes the result `blocked`, listing only that row. |
 
 ## 16. Requirement traceability
 
@@ -5927,11 +5953,11 @@ decisions (see §1) are not reopened here.
 | OD-60 | How is ADR 0096's "explicit informed choice" for automatic or unknown-provenance annotation made on the local path? §11 says an initial request needs no approval. | (1) To Read on a classical Book whose release-scope claims include `automatic` or `unknown` is a `Confirmation` disclosure that states provenance by layer. Confirming records `approved_at` on the initial request. (2) The operator's registration is the informed choice. (3) Show provenance on the row only, with an ordinary To Read. | (1). §12 is written against it. | (1) puts the choice with the owner, on an existing pattern, and leaves a durable record. Its cost is one extra disclosure step for these Books. (2) needs no learner step, but the operator chooses for the learner. (3) is informative, but nothing shows the learner made the choice. | #2073 | open |
 | OD-61 | Where does the safe XML reader live, so that admission (ADM-10) and adapters parse XML under the same rules? §10 lets adapters import only `internal/canonical`, `internal/domain` and `internal/canonicalization`. | (1) A new leaf package, `internal/safexml`, importing only the standard library. Adapters and `internal/evidencepackage` may import it, through the ADR 0091 amendment (OD-43). (2) Put the reader in `internal/canonical`. (3) Each user configures `encoding/xml` itself, checked by tests. | (1). | (1) gives one implementation and one test suite for entity, DTD, encoding and depth rules, at the cost of one more allow-list entry. (2) needs no new allow-list entry, but puts parsing into the validation package, which §10 keeps pure of input formats. (3) lets the two copies drift, so admission could accept what an adapter would parse differently. | #2073 | open |
 | OD-62 | New terms used in §12. | Keep **Local selection**, **Installed pin set**, pin file, pin-set commitment, admission check and interpretation definition (a compiled, named Interpretation configuration) as design-local names. Amend the `CONTEXT.md` **Book** entry as OD-08 says. | Keep them design-local. | None of them appears to learners: learners see the Edition, unit, provenance and request states. Adding them would grow the glossary with operator detail. | #2073 | open |
-| OD-56 | What does a legacy `grc` row found by the §13 preflight stop? §6 "Legacy compatibility" and OD-24 recommend isolating the rows and continuing rollout. Issue #2074 requires rollout of Greek import to stop until a separately approved reconciliation plan exists. ADR 0098 requires an audit before rollout, and stops any reconciliation until a human-approved plan exists. | (1) Stop Greek import for the whole installation while any `grc` row exists (§13 STOP-1, STOP-2). (2) Block classical adoption only for affected owners (OD-24 option (3)). (3) Isolate and continue (OD-24 option (1)). | (1). §13 is written against it, as #2074 requires. | (1) is the strictest choice. It matches "audit before rollout", and §3 (B-33) expects no such rows, so in practice it should cost nothing. Its cost is that one owner's legacy rows stop import for every owner. (2) needs an owner-scoped gate inside §11 adoption. (3) relies on §6's comparison rule 5 alone, and lets import start before anyone has reviewed the legacy rows. If (1) is chosen, OD-24's isolation rules still describe how the rows behave after an approved plan lets import resume. | #2074 | open |
-| OD-57 | Which restriction subject does §9's integrity check use when a Package blob is missing and only acquisitions reference it (IC-6)? The blob carries the link to its Package content, so that link is lost with the blob. | (1) The Package content of each text and annotation revision behind every Adopted evidence record or current row whose acquisition names the missing blob. (2) Report the restore as failed, with no restriction. | (1). | (1) lets the affected Books show unavailable through §5's transitive rule, and leaves Books that do not depend on the blob available, as MIG-12 asserts. Like OD-38, it restricts every build of that content. (2) is simpler, but leaves the installation unusable until an exact restore succeeds. | #2074 | open |
-| OD-58 | Which seam covers MIG-13, the generated sqlc drift check? It is not a web, store-contract, validation or persistence test. | (1) Allow a CI generated-artifact seam for generated-code rows only: `make sqlc` followed by `git diff --exit-code`. (2) Drop the row, and rely on repository CI without a matrix row. | (1). | (1) keeps the acceptance criterion visible in the matrix, as OD-48 does for layering. (2) leaves the criterion implicit. | #2074 | open |
-| OD-59 | In which step do §4's Unit offering and Claimed alias ship? Unit offering references OD-09's classical connection record, which is Stage 3 work, and none of #2061, #2059 or #2060 implements catalogue offerings. | (1) No §13 step. The Stage 3 discovery spec adds them, with the connection record, as a later step under §13's rules. (2) Add them, with the connection record, to S2. | (1). | (1) ships no table without a writer, as ADR 0038 asks, and §12 Local registration covers this design's scope. Identity conflict kinds about claimed aliases stay unused until Stage 3. (2) settles Stage 3's connection shape early. | #2074 | open |
-| OD-60 | New terms used in §13. | Add to `CONTEXT.md`: **Legacy-`grc` preflight** (the read-only report that must be clear before Greek import starts). Keep logical step, the STEP, STOP and REC rules, the P, A and R checks, and rollout check as design-local names. | Add the one term in a separately reviewed `CONTEXT.md` change. | The preflight's result decides whether an operator can import Greek, so operators need the name. The rest is implementation detail. | #2074 | open |
+| OD-63 | What does a legacy `grc` row found by the §13 preflight stop? §6 "Legacy compatibility" and OD-24 recommend isolating the rows and continuing rollout. Issue #2074 requires rollout of Greek import to stop until a separately approved reconciliation plan exists. ADR 0098 requires an audit before rollout, and stops any reconciliation until a human-approved plan exists. | (1) Stop Greek import for the whole installation while any `grc` row exists (§13 STOP-1, STOP-2). (2) Block classical adoption only for affected owners (OD-24 option (3)). (3) Isolate and continue (OD-24 option (1)). | (1). §13 is written against it, as #2074 requires. | (1) is the strictest choice. It matches "audit before rollout", and §3 (B-33) expects no such rows, so in practice it should cost nothing. Its cost is that one owner's legacy rows stop import for every owner. (2) needs an owner-scoped gate inside §11 adoption. (3) relies on §6's comparison rule 5 alone, and lets import start before anyone has reviewed the legacy rows. If (1) is chosen, OD-24's isolation rules still describe how the rows behave after an approved plan lets import resume. | #2074 | open |
+| OD-64 | Which restriction subject does §9's integrity check use when a Package blob is missing and only acquisitions reference it (IC-6)? The blob carries the link to its Package content, so that link is lost with the blob. | (1) The Package content of each text and annotation revision behind every Adopted evidence record or current row whose acquisition names the missing blob. (2) Report the restore as failed, with no restriction. | (1). | (1) lets the affected Books show unavailable through §5's transitive rule, and leaves Books that do not depend on the blob available, as MIG-12 asserts. Like OD-38, it restricts every build of that content. (2) is simpler, but leaves the installation unusable until an exact restore succeeds. | #2074 | open |
+| OD-65 | Which seam covers MIG-13, the generated sqlc drift check? It is not a web, store-contract, validation or persistence test. | (1) Allow a CI generated-artifact seam for generated-code rows only: `make sqlc` followed by `git diff --exit-code`. (2) Drop the row, and rely on repository CI without a matrix row. | (1). | (1) keeps the acceptance criterion visible in the matrix, as OD-48 does for layering. (2) leaves the criterion implicit. | #2074 | open |
+| OD-66 | In which step do §4's Unit offering and Claimed alias ship? Unit offering references OD-09's classical connection record, which is Stage 3 work, and none of #2061, #2059 or #2060 implements catalogue offerings. | (1) No §13 step. The Stage 3 discovery spec adds them, with the connection record, as a later step under §13's rules. (2) Add them, with the connection record, to S2. | (1). | (1) ships no table without a writer, as ADR 0038 asks, and §12 Local registration covers this design's scope. Identity conflict kinds about claimed aliases stay unused until Stage 3. (2) settles Stage 3's connection shape early. | #2074 | open |
+| OD-67 | New terms used in §13. | Add to `CONTEXT.md`: **Legacy-`grc` preflight** (the read-only report that must be clear before Greek import starts). Keep logical step, the STEP, STOP and REC rules, the P, A and R checks, and rollout check as design-local names. | Add the one term in a separately reviewed `CONTEXT.md` change. | The preflight's result decides whether an operator can import Greek, so operators need the name. The rest is implementation detail. | #2074 | open |
 
 ## 18. Approval record
 
