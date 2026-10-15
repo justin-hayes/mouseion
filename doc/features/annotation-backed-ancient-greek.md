@@ -97,9 +97,11 @@ stage below.
   under CC BY-SA 4.0, with Morpheus under MPL-2.0 or CC BY-SA. Morpheus-derived
   values stay subject to the rights gate. The rule is not a new source, survey
   or research chain, and it clears no rights by itself.
-- **Public structural examples.** The public #2033 anchors, such as PROIEL
-  `εἰ#1`/`εἰ#2`, stay as structural examples of discriminator decoding. They are
-  not a registered scheme, a mapping basis or a test oracle.
+- **No treebank values in examples.** PROIEL is a treebank under CC BY-NC-SA,
+  so its annotation values, including the homograph forms that #2033 cited,
+  are not used as examples, fixtures or test inputs. Examples are invented.
+  Naming a format's conventions (for example PROIEL's `#<digits>` lemma suffix)
+  uses no data and stays allowed.
 
 ## Initial operational envelope
 

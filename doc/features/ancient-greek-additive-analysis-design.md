@@ -146,7 +146,7 @@ or incomplete:
 | B-06 | `occurrence_lemma_corrections` is unique on `(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)`. Exclusions are a flag on the same row. | `migrations/000023_occurrence_lemma_corrections.up.sql:17-18`, `migrations/000024_occurrence_vocabulary_exclusions.up.sql:1-7` | **Blocks.** Two occurrences that share a span collide: one Lemma correction or Occurrence exclusion would address both. | §7, §8 |
 | B-07 | `occurrence_lemma_review_flags` has primary key `(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)`. | `migrations/000025_occurrence_lemma_review_flags.up.sql:19-20` | **Blocks.** One Lemma review flag per span, not per occurrence. | §7, §8 |
 | B-08 | `selection.OccurrenceIdentity` is `(SourceDocumentID, StartOffset, EndOffset)`. `requireUniqueOccurrences` rejects a decision whose span matches anything other than exactly one token. | `internal/selection/selection.go:47-51`, `internal/selection/selection.go:150-166` | **Blocks.** A decision on a shared span fails with `ErrInvalidDecision`, so a learner cannot decide either occurrence. This fails safely rather than leaking the decision. | §7 |
-| B-09 | Vocabulary identity is `selection.Identity{Language, CanonicalLemma, UPOS}`. The domain mirror is `domain.SnapshotIdentity`. | `internal/selection/selection.go:27`, `internal/domain/current_reading_finish.go:5-7` | **Blocks.** There is no lexical discriminator, so homographs such as the public #2033 anchors PROIEL `εἰ#1`/`εἰ#2` merge. | §6 |
+| B-09 | Vocabulary identity is `selection.Identity{Language, CanonicalLemma, UPOS}`. The domain mirror is `domain.SnapshotIdentity`. | `internal/selection/selection.go:27`, `internal/domain/current_reading_finish.go:5-7` | **Blocks.** There is no lexical discriminator, so homographs such as the synthetic `λέξις` `example:ex:1` and `example:ex:2` merge. | §6 |
 | B-10 | `selection.Effective` builds the identity from the trimmed lemma and upper-cased UPOS. `OccurrenceEligible` also rejects dependency `compound:prt`. | `internal/selection/selection.go:264-285` | **Constrains.** Eligibility reads syntax. When syntax is unavailable, the result depends on an empty dependency, which today cannot occur (B-03). | §6, §7 |
 | B-11 | `known_vocabulary` is unique on `(owner_id, language, canonical_lemma, upos)`. | `migrations/000001_initialize.up.sql:1936` | **Blocks.** Known cannot distinguish discriminated identities. A legacy tuple row would match both descendants if read as a wildcard. | §8 |
 | B-12 | `reading_history` primary key was `(owner_id, language, book_id)`. Per-completion counts and `goal_snapshot_id` were added later, and the primary key is now `completion_id`, with `(owner_id, language, goal_snapshot_id)` unique. | `migrations/000004_reading_history.up.sql:9`, `migrations/000009_primary_goal_completion_provenance.up.sql:6-22`, `migrations/000010_reading_history_append_only.up.sql:7-11` | **Does not block identity.** Reading completion is per snapshot. Its counts must be computed over rich identities. | §8 |
@@ -1233,9 +1233,9 @@ interpretation slot identifiers (§5).
 
 **Initial registry.** The first release registers `morpheus`, the scheme the
 retained candidate's discriminators use (#2058), and the synthetic `example`
-and `example-*` schemes that fixtures use. It does not register `proiel`. The PROIEL anchors
-below stay public structural examples of decoding only (handoff "No treebank
-data").
+and `example-*` schemes that fixtures use. It does not register `proiel`, and
+no example, fixture or test uses PROIEL annotation values: PROIEL is a treebank
+under a non-commercial licence (handoff "No treebank data").
 
 A scheme names a lexical scheme, not a Book, corpus, package or download URL.
 Two corpora that both write `#1` share a scheme only if a reviewed entry says
@@ -1396,11 +1396,9 @@ lemma mapping and from normalization (OD-13).
 
 Example (synthetic): under `example-decode/1`, native lemma `λέξις#ex:1`, and
 native lemma `λέξις` with native attribute `lexid=ex:1`, both decode to citation
-form `λέξις` with scheme `example`, value `ex:1`. Their key is `λέξισ`. Public
-structural example (#2033): a decoding of PROIEL's `εἰ#1` and `εἰ#2` would give
-citation form `εἰ` with values `1` and `2`, two identities that share lemma and
-UPOS (ADV). No `proiel` scheme is registered, so no Mouseion release decodes
-them.
+form `λέξις` with scheme `example`, value `ex:1`. Their key is `λέξισ`. Native
+lemma `λέξις#ex:2` decodes to the same citation form with value `ex:2`. They
+are two identities that share lemma and UPOS.
 
 ### Implementations and fixtures
 
@@ -5658,7 +5656,7 @@ Verified at commit `00a63be6b38f9b54d359b6e68ed014af30ab7b25` (`main`). Every
 | --- | --- | --- | --- |
 | This design, and the ADRs and handoff it cites | public | `doc/` | — |
 | Synthetic fixtures | public | `example-*` pin sets, packages, tables and definitions; the `ancient-greek-normalization/1`, `vocabulary-identity-comparison/1` and `source-decoding/1` cases; synthetic candidates and store-contract seeds | §6, §10, §12, §15 |
-| Structural examples | public | Invented forms such as `λέξις` with `example:ex:1` and `example:ex:2`, and the public #2033 anchors PROIEL `εἰ#1`/`εἰ#2` and `δέω#1`/`δέω#2`. The PROIEL anchors are examples only: `proiel` is not a registered scheme, a mapping basis or a test oracle (§6, handoff "No treebank data"). | §6, §7 |
+| Structural examples | public | Invented forms such as `λέξις` with `example:ex:1` and `example:ex:2`. No example uses treebank annotation values, including the PROIEL forms that #2033 cited (§6, handoff "No treebank data"). | §6, §7 |
 | Existing characterization fixtures | public | The Stanza fixtures listed in §10 "Current anchors" | §10 |
 | Public interpretation version identifiers | public | Slot identifiers such as `oga-greta-lemma/2`, `oga-agdt-upos/4`, `oga-agdt-feats/1`, `oga-anabasis1-research-repairs/1`, `oga-reading-terminal/2` and `ancient-greek/1`; the selection policy `grc-earliest-capped/1`; adapter, projection, correspondence, contract and pin-set identifiers | §5, §10, §12 |
 | Code | public | Adapters, validation, registries, reason codes and their fixed messages, synthetic pin sets, the public fields of retained pin-set entries, and pin-file commitments (see below) | §10, §12 |
@@ -5937,7 +5935,7 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | IDN-17 | Same lemma and UPOS with different discriminators are distinct identities. | (c) | Comparison cases: `λέξισ` NOUN `example:ex:1`, `example:ex:2`, and null. | Compare every pair. | No two of the three are equal. | Equal scheme and value, compared byte for byte, are equal. |
 | IDN-18 | At most one identity row per five-value identity, even under concurrency. | (d) | No identity `grc` `λέξισ` NOUN `example:ex:1`. | Two transactions insert-if-absent that identity concurrently. Then insert `grc` `λέξισ` NOUN null twice. | Each pair resolves to one row and one ID. | `example:ex:2` gets a second, distinct row. |
 | IDN-19 | Identity rows are well formed and immutable. | (d) | One identity row. | Insert a row with only `discriminator_scheme` set, with only `discriminator_value` set, with an empty lemma, and with an empty or unknown UPOS. Update any field of the existing row. | Every insert and the update are rejected. | A row with both discriminator fields null, or both set, is accepted. |
-| IDN-20 | No lemma carries a discriminator marker. | (c) | Scheme `example` registered with native marker `#ex:<n>`. Synthetic scheme `example-num` with marker `#<digits>`. | Submit `λέξις#ex:1` and the public anchor `εἰ#1` to admission as citation forms. | Both are rejected with `discriminator_in_lemma`. | `λέξις` and `εἰ` are admitted. |
+| IDN-20 | No lemma carries a discriminator marker. | (c) | Scheme `example` registered with native marker `#ex:<n>`. Synthetic scheme `example-num` with marker `#<digits>`. | Submit `λέξις#ex:1` and `ξέλ#2` to admission as citation forms. | Both are rejected with `discriminator_in_lemma`. | `λέξις` and `ξέλ` are admitted. |
 | IDN-21 | Decoding produces the discriminator, and normalization never infers one. | (c) | `source-decoding/1` cases for `example-decode/1`: native `λέξις#ex:1`; native `λέξις` with attribute `lexid=ex:1`; native `λέξις` with attribute `lexid=zz:9`, which has no reviewed mapping. | Decode each, then normalize the decoded form. | The first two give citation form `λέξις`, `example:ex:1`, and key `λέξισ`. The third is rejected with `discriminator_unmapped`. Normalizing `λέξις` alone gives a null discriminator. | The unmapped identifier is neither dropped nor turned into a null-discriminator identity. |
 | IDN-22 | The profile version is provenance, so unchanged identities match across versions. | (b) | Owner A has `λέξισ` NOUN `example:ex:1` Known, from an analysis under `ancient-greek/1`. A test-only `ancient-greek/2`, identical for this input, is registered. | Adopt a new analysis of another Book under `ancient-greek/2` that contains the same identity. | The identity reuses the same row and is Known in the new Book. | A synthetic input whose key changes under `ancient-greek/2` gives a different identity, which is not Known. |
 | IDN-23 | Discriminated identities stay distinct in Known, Reserved, snapshots and completion. | (b) | A classical Book with occurrences of `λέξις` NOUN `example:ex:1` and `example:ex:2`. Owner A has neither Known. | Start a Reading, freeze the snapshot, then finish and accept it. | The snapshot holds two identities. Both are Reserved while the Reading is active. After acceptance, A has two distinct Known identities, and the completion counts two. | In a second Book where every `example:ex:2` occurrence has an Occurrence exclusion, the snapshot, Reserved set and accepted Known hold only `example:ex:1`. `example:ex:2` stays not Known. |
@@ -6305,7 +6303,7 @@ lexical repairs, which still holds, because the lineage audit adds none.
 | Every invariant has a matrix row | Every numbered invariant in §4–§14 cites at least one existing row, and every cited ID exists. §4's "Implementation rules" are review rules exercised by the BIB rows above them, as §4 says. | — |
 | Every row's seam is (a)–(d) | **Not clean until OD-41, OD-48 and OD-65 are decided.** Counting the added rows, 228 of the 273 rows use (a)–(d) (#2089 added EVD-34 and OCC-26). 45 use a widened seam: 31 `(a) + CLI`, 9 `(d) (OD-41)`, 3 `lint (OD-48)` and 2 `CI (OD-65)`. RET-14 and RET-16 ran operator commands under a plain `(d)` label. | Relabelled RET-14 and RET-16 `(d) (OD-41)`, as §9 already says. Listed the widenings under §15 "Seams". OD-41's question now names the `(a) + CLI` rows, and OD-65's names MIG-15. |
 | No table-name assertion in "expected" | No row's expected column, setup, action or negative case names a proposed table. OCC-24, VAL-09, VAL-11 and MIG-05 name existing shipped tables, and MIG-01 and MIG-04 name `schema_migrations`, as the unchanged characterization baseline. The ground rules forbid proposed names only. | — |
-| No private values | Every Greek form is an invented example or a public #2033 anchor. No 64-hex digest, frozen table value, Book 1 text or private count appears. The only hashes are commit SHAs. | — |
+| No private values | Every Greek form is an invented example (#2089 replaced the PROIEL #2033 anchors). No 64-hex digest, frozen table value, Book 1 text or private count appears. The only hashes are commit SHAs. | — |
 | Rows that contradict later sections | EVD-03, EVD-04, EVD-05, EVD-07, EVD-33, VAL-06 and ADP-06 expect admission failures through a handler and request state `failed`. §12 refuses them in the command, and §11 records stored-byte failures as `blocked`. | Raised as OD-71. |
 | Cross-section gaps | §12 asks §9 to guard the Installed pin set and to list the Local selection as a referencer, with no open decision. §5, §9, §10, §11 and §12 cite #2054 to #2056 (and the closed #2055) as rights gates for local operations. §5 and §10 compile the table digest, while §12 pins it locally. §9's report prints digests. OD-19's lift record is specified nowhere. | Raised as OD-73, OD-69, OD-70 and OD-72. The lift is noted on OD-19. |
 | One interpretation per pin set | §5 "Pins" names one Interpretation configuration per pin set. §12 lets a pin set list several and names one with `-interpretation`. With one listed interpretation they agree, as §12 says. | No decision needed. |
