@@ -11,6 +11,7 @@ import collections
 import copy
 import json
 import unittest
+from unittest import mock
 
 import mapping_completion_v2 as v2
 import opus_completion as oc
@@ -24,6 +25,8 @@ def lexicon(**overrides) -> dict:
     base = {"rows_by_location": {("vbs.cmp.ml", 6459): rows[0]},
             "stem_lines": {"vbs.cmp.ml": [""] * 6458 + ["su/n-le/gw2 sulle/gw"]},
             "by_head": v2.index_maps(rows)[0],
+            "native_edges": {"t_2738": ("ὥρα", "PNOM", "t_2736"), "t_2739": ("εἶναι", "OBJ", "t_2736"),
+                             "t_2736": ("δοκεῖ", "PRED", "ROOT")},
             "ud_lemma_forms": collections.Counter({("συλλέγω", "συνέλεγεν"): 1, ("συλλέγω", "συνελέγοντο"): 1,
                                                    ("συλλέγω", "συλλέξας"): 1, ("σύν-λέγω", "συλλέξας"): 2})}
     base.update(overrides)
@@ -40,6 +43,19 @@ def unsupported_node(node_id="t_437", raw="σύλλέγω", surface="συνέλ�
             "status": "unresolved-identity", "identity": None}
 
 
+def parallel(node_id, raw, surface):
+    node = unsupported_node(node_id, raw, surface)
+    node["lemma"] = {"raw_lemma": raw, "rule": "I-PLAIN", "status": "resolved", "headword": raw,
+                     "key": oc.profile_key(raw), "discriminator": None, "raw_flags": []}
+    return node
+
+
+def citation_ledger(**changes) -> dict:
+    """The t_437 target plus the two OGA parallels its record cites."""
+    return {"t_437": unsupported_node(**changes), "t_402": parallel("t_402", "συλλέγω", "συνελέγετο"),
+            "t_4272": parallel("t_4272", "συλλέγω", "συνέλεξε")}
+
+
 def only(records: dict, citation=("t_437",), pos=()) -> dict:
     out = copy.deepcopy(records)
     out["citation_repairs"] = [r for r in out["citation_repairs"] if r["id"] in citation]
@@ -49,7 +65,7 @@ def only(records: dict, citation=("t_437",), pos=()) -> dict:
 
 class CitationRepairs(unittest.TestCase):
     def test_exact_repair_applies_and_keeps_raw(self):
-        ledger = {"t_437": unsupported_node()}
+        ledger = citation_ledger()
         applied = rp.apply_repairs(ledger, only(RECORDS), lexicon())
         node = ledger["t_437"]
         self.assertEqual(applied["citation"], ["t_437"])
@@ -62,7 +78,7 @@ class CitationRepairs(unittest.TestCase):
     def test_wrong_raw_value_diacritic_surface_tag_or_place_fails(self):
         for change in ({"raw": "σύλλεγω"}, {"surface": "συνέλεξε"}, {"native": "n"}, {"cts": "1_1_8"}):
             with self.subTest(change=change), self.assertRaises(SystemExit):
-                rp.apply_repairs({"t_437": unsupported_node(**change)}, only(RECORDS), lexicon())
+                rp.apply_repairs(citation_ledger(**change), only(RECORDS), lexicon())
 
     def test_unknown_node_fails(self):
         with self.assertRaises(SystemExit):
@@ -71,8 +87,10 @@ class CitationRepairs(unittest.TestCase):
     def test_node_no_longer_unsupported_fails(self):
         node = unsupported_node()
         node["lemma"]["rule"] = "I-PLAIN"
+        ledger = citation_ledger()
+        ledger["t_437"] = node
         with self.assertRaises(SystemExit):
-            rp.apply_repairs({"t_437": node}, only(RECORDS), lexicon())
+            rp.apply_repairs(ledger, only(RECORDS), lexicon())
 
     def test_missing_repair_leaves_the_node_unresolved(self):
         ledger = {"t_437": unsupported_node()}
@@ -84,7 +102,7 @@ class CitationRepairs(unittest.TestCase):
         counts = collections.Counter({("συλλέγω", "συνέλεγεν"): 2})
         for lex in (lexicon(rows_by_location={}), lexicon(stem_lines=lines), lexicon(ud_lemma_forms=counts)):
             with self.assertRaises(SystemExit):
-                rp.apply_repairs({"t_437": unsupported_node()}, only(RECORDS), lex)
+                rp.apply_repairs(citation_ledger(), only(RECORDS), lex)
 
     def test_digit_or_headword_mismatch_fails(self):
         for edit in ({"discriminator": {"scheme": "morpheus", "value": "2"}}, {"headword": "συλλεγω"},
@@ -92,7 +110,26 @@ class CitationRepairs(unittest.TestCase):
             records = only(RECORDS)
             records["citation_repairs"][0]["after"].update(edit)
             with self.subTest(edit=edit), self.assertRaises(SystemExit):
-                rp.apply_repairs({"t_437": unsupported_node()}, records, lexicon())
+                rp.apply_repairs(citation_ledger(), records, lexicon())
+
+    def test_cited_oga_parallel_must_carry_the_headword(self):
+        for raw in ("σύλλέγω", "συλλεγω", "συλλέγω1"):
+            ledger = citation_ledger()
+            ledger["t_402"]["raw_lemma"] = raw
+            with self.subTest(raw=raw), self.assertRaises(SystemExit):
+                rp.apply_repairs(ledger, only(RECORDS), lexicon())
+        ledger = citation_ledger()
+        del ledger["t_4272"]
+        with self.assertRaises(SystemExit):
+            rp.apply_repairs(ledger, only(RECORDS), lexicon())
+
+    def test_convention_nodes_checked(self):
+        item = next(r for r in RECORDS["citation_repairs"] if r["id"] == "t_5145")
+        ledger = {"t_8572": parallel("t_8572", "εἶδον", "ἰδεῖν"), "t_8932": parallel("t_8932", "εἶδον", "ἰδεῖν")}
+        rp.verify_oga_nodes(item, item["evidence"], ledger)
+        ledger["t_8932"]["surface"] = "ἰδὼν"
+        with self.assertRaises(SystemExit):
+            rp.verify_oga_nodes(item, item["evidence"], ledger)
 
     def test_profile_unchanged_grave_stays_distinct(self):
         self.assertNotEqual(oc.profile_key("ἑπτὰ"), oc.profile_key("ἑπτά"))
@@ -137,6 +174,34 @@ class PosRepairs(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 rp.apply_repairs({"t_2739": node}, only(RECORDS, citation=(), pos=("t_2739",)), lexicon())
 
+    def test_native_edge_witness_must_match(self):
+        bad_edges = (
+            {"t_2738": ("ὥρα", "PNOM", "t_2739")},       # wrong head
+            {"t_2738": ("ὥρα", "SBJ", "t_2736")},        # wrong relation
+            {"t_2738": ("ωρα", "PNOM", "t_2736")},       # one diacritic
+            {"t_2738": ("ὥρᾳ", "PNOM", "t_2736")},       # iota subscript
+            {"t_2739": None},                            # missing node
+        )
+        for change in bad_edges:
+            lex = lexicon()
+            lex["native_edges"] = {**lex["native_edges"], **change}
+            if None in change.values():
+                lex["native_edges"] = {k: v for k, v in lex["native_edges"].items() if v is not None}
+            with self.subTest(change=change), self.assertRaises(SystemExit):
+                rp.apply_repairs({"t_2739": eimi_node()}, only(RECORDS, citation=(), pos=("t_2739",)), lex)
+
+    def test_missing_witness_fails(self):
+        records = only(RECORDS, citation=(), pos=("t_2739",))
+        records["pos_repairs"][0]["evidence"] = {}
+        with self.assertRaises(SystemExit):
+            rp.apply_repairs({"t_2739": eimi_node()}, records, lexicon())
+
+    def test_t7640_chain_runs_through_the_elided_node(self):
+        item = next(r for r in RECORDS["pos_repairs"] if r["id"] == "t_7640")
+        heads = {e[0]: e[3] for e in item["evidence"]["native_edges"]}
+        self.assertEqual([heads["t_7647"], heads["t_7648"], heads["e_88"], heads["t_7641"]],
+                         ["t_7648", "e_88", "t_7641", "t_7640"])
+
     def test_no_op_repair_fails(self):
         records = only(RECORDS, citation=(), pos=("t_2739",))
         records["pos_repairs"][0]["after_upos"] = "VERB"
@@ -174,6 +239,44 @@ class EimiRuleV3(unittest.TestCase):
         self.assertTrue(rp.eimi_context_v3(verb, {"1": [empty]}, {"e_1"})["pnom_verbal_or_empty"])
 
 
+class Whitelist(unittest.TestCase):
+    def test_exact_whitelist(self):
+        rp.check_whitelist(RECORDS)
+        duplicate = copy.deepcopy(RECORDS)
+        duplicate["citation_repairs"].append(copy.deepcopy(duplicate["citation_repairs"][0]))
+        missing = copy.deepcopy(RECORDS)
+        missing["pos_repairs"].pop()
+        extra = copy.deepcopy(RECORDS)
+        extra["pos_repairs"][0]["id"] = "t_9999"
+        overlap = copy.deepcopy(RECORDS)
+        overlap["pos_repairs"][0]["id"] = "t_437"
+        for name, records in (("duplicate", duplicate), ("missing", missing), ("extra", extra), ("overlap", overlap)):
+            with self.subTest(name), self.assertRaises(SystemExit):
+                rp.check_whitelist(records)
+
+
+class RunExitStatus(unittest.TestCase):
+    """A failed required gate must make the default run fail even when outputs reproduce."""
+
+    def summary(self, gate_pass: bool) -> dict:
+        return {"required_gates": {"required_identity_usable": {"pass": gate_pass}, "native_join": {"pass": True}},
+                "selection": {"selected": 1, "go_probe_expected_stdout": "x"}, "card_inputs": {"eligible": 1}}
+
+    def run_with(self, gate_pass: bool) -> int:
+        private = {"analysis.json": "a", "selection-model.tsv": "s"}
+        with mock.patch.object(rp, "build", return_value=(self.summary(gate_pass), private)), \
+                mock.patch.object(oc, "reproduction_problems", return_value=[]), \
+                mock.patch.object(oc, "run_go_probe", return_value=[]), \
+                mock.patch.object(rp.SUMMARY.__class__, "is_file", return_value=False), \
+                mock.patch("builtins.print"):
+            return rp.run(write=False, use_go=True)
+
+    def test_failed_gate_is_nonzero_even_when_everything_reproduces(self):
+        self.assertEqual(self.run_with(gate_pass=False), 1)
+        self.assertEqual(self.run_with(gate_pass=True), 0)
+        self.assertEqual(rp.failing_gates(self.summary(False)), ["required_identity_usable"])
+
+
 class Guards(unittest.TestCase):
     def test_write_guard_protects_earlier_outputs(self):
         rp.guard_write_targets([rp.SUMMARY, rp.OUT_DIR / "x.json"])
@@ -189,7 +292,7 @@ class FullRepairBuild(unittest.TestCase):
         summary, private = rp.build()
         text = json.dumps(summary, ensure_ascii=False, indent=1, sort_keys=True) + "\n"
         self.assertEqual(oc.reproduction_problems(rp.SUMMARY.read_text(encoding="utf-8"), text, private, rp.OUT_DIR), [])
-        self.assertTrue(all(g["pass"] for g in summary["required_gates"].values()))
+        self.assertEqual(rp.failing_gates(summary), [])
         self.assertEqual(summary["denominators"]["unresolved_ids"], [])
         self.assertEqual(summary["denominators"]["printed"], 10462)
         self.assertEqual(summary["eimi"]["nodes"], 178)

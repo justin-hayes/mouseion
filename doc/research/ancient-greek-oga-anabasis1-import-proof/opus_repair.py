@@ -43,6 +43,9 @@ RECORDS = HERE / "opus-repair-records.json"
 SUMMARY = HERE / "opus-repair-summary.json"
 OUT_DIR = oc.PRIVATE / "opus-repair" / "out"
 EIMI_KEY = oc.profile_key(oc.EIMI)
+# The exact authorized whitelist (#2052 bounded repair exception).
+AUTHORIZED_CITATION = ("t_437", "t_4624", "t_4638", "t_5775", "t_4930", "t_5121", "t_5145")
+AUTHORIZED_POS = ("t_2739", "t_3351", "t_7640", "t_10265", "t_10412", "t_5989")
 
 
 class RepairError(SystemExit):
@@ -102,6 +105,56 @@ def load_records(path: Path = RECORDS) -> dict:
     if records.get("version") != "oga-anabasis1-research-repairs/1":
         raise RepairError("unknown repair-record version")
     return records
+
+
+def check_whitelist(records: dict) -> None:
+    """Records must name exactly the authorized IDs, once each, with no overlap."""
+    citation = [r["id"] for r in records["citation_repairs"]]
+    pos = [r["id"] for r in records["pos_repairs"]]
+    if len(set(citation)) != len(citation) or len(set(pos)) != len(pos):
+        raise RepairError("duplicate repair IDs")
+    if set(citation) & set(pos):
+        raise RepairError("a node has both a citation and a POS repair")
+    if sorted(citation) != sorted(AUTHORIZED_CITATION) or sorted(pos) != sorted(AUTHORIZED_POS):
+        raise RepairError("repair IDs differ from the authorized whitelist")
+
+
+def native_edge_index(groups: list) -> dict[str, tuple[str, str, str]]:
+    """Node ID -> (form, native relation, head node ID or ROOT) from the pinned groups."""
+    index = {}
+    for group in groups:
+        by_number = {c[0]: c[9] for c in group}
+        for cols in group:
+            index[cols[9]] = (unicodedata.normalize("NFC", cols[1]), cols[7], by_number.get(cols[6], "ROOT"))
+    return index
+
+
+def verify_native_edges(item: dict, edges: dict) -> None:
+    """Each cited native edge must match the parse exactly. This checks the citation of
+    the parse, not the Greek interpretation built on it."""
+    cited = item.get("evidence", {}).get("native_edges")
+    if not cited:
+        raise RepairError(f"{item['id']}: POS repair has no native edge witness")
+    for node_id, form, relation, head in cited + item["evidence"].get("native_parallel_pnom_datives", []):
+        if edges.get(node_id) != (unicodedata.normalize("NFC", form), relation, head):
+            raise RepairError(f"{item['id']}: native edge {node_id} is {edges.get(node_id)}, record says "
+                              f"{(form, relation, head)}")
+
+
+def verify_oga_nodes(item: dict, evidence: dict, ledger: dict) -> None:
+    """Cited OGA parallels carry the repaired headword; convention nodes their stated lemma/surfaces."""
+    target = unicodedata.normalize("NFC", item["after"]["headword"])
+    for node_id in evidence.get("oga_same_lexeme_nodes", []):
+        node = ledger.get(node_id)
+        if node is None or node["empty"] or unicodedata.normalize("NFC", node["raw_lemma"]) != target:
+            raise RepairError(f"{item['id']}: OGA parallel {node_id} does not carry {target}")
+    convention = evidence.get("oga_convention_nodes")
+    if convention:
+        for node_id in convention["ids"]:
+            node = ledger.get(node_id)
+            if (node is None or node["empty"] or node["raw_lemma"] != convention["lemma"]
+                    or node["surface"] not in convention["surfaces"]):
+                raise RepairError(f"{item['id']}: OGA convention node {node_id} differs from the record")
 
 
 def check_component(records: dict) -> None:
@@ -195,7 +248,7 @@ def apply_repairs(ledger: dict, records: dict, lexicon: dict) -> dict:
         if node is None or node["empty"] or node["cts"] != item["cts"]:
             raise RepairError(f"citation repair names an unknown or misplaced node {item['id']}")
         check_preconditions(node, item["expected"], "citation")
-        verify_evidence(item, records, lexicon)
+        verify_oga_nodes(item, verify_evidence(item, records, lexicon), ledger)
         node["lemma"] = repaired_lemma(item, node["lemma"], lexicon)
         node["citation_flags"] = []
         applied["citation"].append(item["id"])
@@ -204,6 +257,7 @@ def apply_repairs(ledger: dict, records: dict, lexicon: dict) -> dict:
         if node is None or node["empty"] or node["cts"] != item["cts"]:
             raise RepairError(f"POS repair names an unknown or misplaced node {item['id']}")
         check_preconditions(node, item["expected"], "pos")
+        verify_native_edges(item, lexicon["native_edges"])
         if item["after_upos"] not in ("AUX", "VERB") or item["after_upos"] == node["pos"]["upos"]:
             raise RepairError(f"POS repair for {item['id']} does not change the εἰμί UPOS")
         node["pos"] = {**node["pos"], "upos": item["after_upos"], "candidates": [item["after_upos"]],
@@ -237,6 +291,7 @@ def ud_lemma_forms(paths: list[Path]) -> dict:
 def build() -> tuple[dict, dict]:
     inputs = oc.verify_inputs()
     records = load_records()
+    check_whitelist(records)
     check_component(records)
     nodes = json.loads(oc.NATIVE_NODES.read_text(encoding="utf-8"))
     import_ledger = json.loads(oc.IMPORT_LEDGER.read_text(encoding="utf-8"))
@@ -253,7 +308,8 @@ def build() -> tuple[dict, dict]:
     ledger = oc.interpret_nodes(nodes, groups, evidence, (by_head, oc.compound_notation_index(rows), stem_lines))
     uncorrected = {k: (n["status"], n["identity"], n["pos"]["upos"]) for k, n in ledger.items() if not n["empty"]}
     lexicon = {"rows_by_location": {(r["file"], r["line"]): r for r in rows}, "stem_lines": stem_lines,
-               "by_head": by_head, "ud_lemma_forms": ud_lemma_forms(oc.UD_PERSEUS)}
+               "by_head": by_head, "ud_lemma_forms": ud_lemma_forms(oc.UD_PERSEUS),
+               "native_edges": native_edge_index(groups)}
     eimi_changes = apply_eimi_v3(ledger, groups, {n["id"] for n in nodes if n["empty"]})
     applied = apply_repairs(ledger, records, lexicon)
 
@@ -347,7 +403,8 @@ def summarize(ctx: dict) -> dict:
     gates = {**{name: {"pass": True, **detail} for name, detail in sorted(ctx["gates"].items())},
              "canonical_pos_determinate": {"pass": not pos_unresolved, "unresolved_ids": pos_unresolved},
              "required_identity_usable": {"pass": not unsupported, "unsupported_ids": [u["id"] for u in unsupported]},
-             "all_whitelisted_repairs_applied": {"pass": len(ctx["applied"]["citation"]) == 7 and len(ctx["applied"]["pos"]) == 6,
+             "all_whitelisted_repairs_applied": {"pass": sorted(ctx["applied"]["citation"]) == sorted(AUTHORIZED_CITATION)
+                                                         and sorted(ctx["applied"]["pos"]) == sorted(AUTHORIZED_POS),
                                                  "citation": ctx["applied"]["citation"], "pos": ctx["applied"]["pos"]},
              "vocabulary_ready_accounting": {"pass": not unresolved}}
     return {
@@ -438,17 +495,27 @@ def guard_write_targets(paths: list[Path]) -> None:
             raise SystemExit(f"refusing to write {path}: not an opus-repair output")
 
 
+def failing_gates(summary: dict) -> list[str]:
+    return sorted(name for name, gate in summary["required_gates"].items() if not gate["pass"])
+
+
 def run(write: bool, use_go: bool) -> int:
+    """Exit 0 only when outputs reproduce, Go parity holds and every required gate passes.
+
+    ``--write`` still writes diagnostics for a failing gate but then exits 1, so a
+    regenerated summary never reads as a passing proof.
+    """
     summary, private = build()
     summary_text = json.dumps(summary, ensure_ascii=False, indent=1, sort_keys=True) + "\n"
+    failing = failing_gates(summary)
     if write:
         guard_write_targets([SUMMARY] + [OUT_DIR / name for name in private])
         OUT_DIR.mkdir(parents=True, exist_ok=True)
         for name, text in private.items():
             (OUT_DIR / name).write_text(text, encoding="utf-8")
         SUMMARY.write_text(summary_text, encoding="utf-8")
-        print(f"wrote {SUMMARY.name} and {len(private)} private outputs under {OUT_DIR}")
-        return 0
+        print(f"wrote {SUMMARY.name} and {len(private)} private outputs under {OUT_DIR}; failing gates: {failing}")
+        return 1 if failing else 0
     committed = SUMMARY.read_text(encoding="utf-8") if SUMMARY.is_file() else None
     problems = oc.reproduction_problems(committed, summary_text, private, OUT_DIR)
     if use_go:
@@ -456,11 +523,10 @@ def run(write: bool, use_go: bool) -> int:
                                     summary["selection"]["go_probe_expected_stdout"])
     else:
         problems.append("go parity not run (--no-go)")
-    gates = summary["required_gates"]
-    print(json.dumps({"gates_failing": sorted(k for k, v in gates.items() if not v["pass"]),
-                      "selected": summary["selection"]["selected"], "card_inputs": summary["card_inputs"]["eligible"],
+    print(json.dumps({"gates_failing": failing, "selected": summary["selection"]["selected"],
+                      "card_inputs": summary["card_inputs"]["eligible"],
                       "reproduction_problems": problems}, ensure_ascii=False, sort_keys=True))
-    return 1 if problems else 0
+    return 1 if problems or failing else 0
 
 
 def main(argv: list[str] | None = None) -> int:

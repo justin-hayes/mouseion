@@ -31,7 +31,7 @@ From `doc/research/ancient-greek-oga-anabasis1-import-proof/`, with Go on
 python3 -I opus_repair.py                     # read-only: all gates, repairs, Go parity, compare
 python3 -I opus_completion.py                 # uncorrected v2 still reproduces exactly
 python3 -I mapping_completion_v2.py           # earlier evidence still reproduces exactly
-python3 -m unittest discover -p 'test_*.py'   # 157 tests (139 earlier + 18 repair tests)
+python3 -m unittest discover -p 'test_*.py'   # 164 tests (139 earlier + 25 repair tests)
 ```
 
 `opus_repair.py` (`oga-anabasis1-opus-repair/1`) works in four steps:
@@ -66,12 +66,38 @@ v1 or v2 outputs, `private/opus-completion/`, or the repair records.
 A missing repair leaves its node unresolved, and the vocabulary-ready gate then
 fails.
 
+**Review fix after parent review.** The parent found that the `t_7640` witness
+in `230decab` named a native edge that does not exist: it said ἐλῶντα attaches
+PNOM directly to ὡς. Nothing had checked the POS witnesses. The fix leaves every
+mapping rule, repair target and count unchanged. Only the `t_7640` uncertainty
+text changes, which in turn changes the node-ledger hash. It adds these checks:
+
+- **Edge witnesses.** Each of the 6 POS records now lists structured edges
+  ([node, exact form, relation, head]); `t_3351` also lists its 5 possessive-dative
+  parallels. All are checked against the pinned CoNLL-U groups before any POS
+  repair applies. These checks confirm the cited parse, not the Greek reading.
+- **OGA parallels.** Cited parallel nodes must carry the repaired headword, and
+  convention nodes their stated lemma and surfaces.
+- **Exact whitelist.** Records must name exactly the authorized 7 citation and 6
+  POS IDs, once each, with no node in both lists.
+- **Exit status.** `opus_repair.py` now exits 1 whenever any required gate fails,
+  even when every output reproduces. `--write` records the failing gates and
+  also exits 1.
+
+Mutation tests cover:
+
+- a wrong head, relation or diacritic, or a changed iota subscript, in an edge;
+- a missing witness or node;
+- a wrong parallel lemma;
+- duplicate, missing, extra or overlapping repair IDs;
+- a mocked run where every output reproduces but one gate fails.
+
 **Checks on 2026-10-15.** All of these passed:
 
 - the read-only repair reproduction, with no problems and Go parity;
 - the uncorrected v2 reproduction;
 - the `mapping_completion_v2.py` reproduction;
-- all 157 companion tests;
+- all 164 companion tests;
 - `git diff --check`;
 - `make lint`;
 - `make coverage-new`.
@@ -141,7 +167,7 @@ overrides:
 | --- | --- | --- |
 | `t_2739` | VERB → **AUX** | οὐχ ὥρα εἶναι … καθεύδειν: ὥρα is the predicate. The native parse attaches its PNOM to impersonal δοκεῖ. |
 | `t_3351` | VERB → **AUX** | τοῖς δὲ ὑποψία ἦν: a possessive dative, parsed as an ATR of the subject. The producer itself labels possessive datives PNOM in five other εἰμί clauses (`t_662`, `t_976`, `t_6764`, `t_8982`, `t_9036`), which become AUX. |
-| `t_7640` | VERB → **AUX** | ἡ γνώμη ἦν ὡς … ἐλῶντα: the native parse itself labels ἐλῶντα PNOM, under the ὡς that depends on ἦν. |
+| `t_7640` | VERB → **AUX** | ἡ γνώμη ἦν ὡς … ἐλῶντα: the native parse labels ἐλῶντα PNOM, but attaches it indirectly: `t_7647` PNOM → `t_7648` καί (COORD) → `e_88` [0], an elided node (ADV) → `t_7641` ὡς (AuxC) → `t_7640` ἦν. Reading the ὡς-participle phrase as the predicate of ἦν is a review judgment, since the parse does not attach the PNOM to ἦν itself. Uncertainty is low-medium. |
 | `t_10265` | VERB → **AUX** | τὰ ὑπὲρ τοῦ λόφου τί ἐστιν: proleptic subject. The clause is copular whether τί or the locative PP is the predicate. |
 | `t_10412` | VERB → **AUX** | ἦσαν δ' αὗται τετρακόσιαι … ἅμαξαι: bare αὗται, without the article, cannot be attributive. It is the pronoun subject, and the numeral + noun is the predicate. |
 | `t_5989` | AUX → **VERB** | μετὰ ταῦτα … ἔστιν ὅ τι σε ἠδίκησα;: a temporal PP, not a predicate. ἔστιν ὅ τι is existential, with the relative clause as subject. |
