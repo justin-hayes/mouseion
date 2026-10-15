@@ -2265,7 +2265,509 @@ Each invariant is covered by the `OCC` rows in [§15](#15-acceptance-test-matrix
 
 ## 8. Learner-state attachment and compatibility
 
-_Pending: owned by the learner-state attachment ticket._
+Verified at commit `f05c521b38378378bd725d0549c2289c843b5e3e` (`main`). Every
+`path:line` in this section refers to that commit.
+
+### Summary
+
+- There is **one** learner lifecycle. Start, Switch, End, Finish, disposition,
+  visibility and previously-read import keep their tables, locks, decision
+  functions and replay rules. Rich identities add records that hang off the
+  existing anchors: the Book, the Current reading row (`primary_goals`), the
+  snapshot row (`primary_goal_snapshots`) and the completion row
+  (`reading_history`).
+- **Exact occurrence decisions** (Lemma correction, Occurrence exclusion) and
+  **exact Lemma review flags** are keyed by owner, Book and occurrence
+  `(analysis_id, node_id)` (§7). The offset-keyed tables are unchanged.
+- **Rich count projection**: per (owner, Book, analysis), effective counts per
+  rich identity plus a readiness record with state `pending | ready |
+  unavailable`. It parallels `vocabulary_browse_counts` (migration 000031),
+  which is unchanged.
+- **Rich Known** is a membership record per (owner, identity), written only by
+  Finish from a rich snapshot. **Reserved** needs no record: as today, it is the
+  frozen membership of the owner's unreleased snapshot.
+- A **snapshot representation** is either legacy (tuple rows) or rich (rich
+  membership rows), never both. The snapshot row says which (OD-32).
+- Every consumer branches on the representation of the record it reads, never
+  on the language or the producer.
+
+New record names are proposed terms (OD-36). Table names in the illustrative DDL
+are not prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| The Current reading is one `primary_goals` row per `(owner_id, language)`, pointing at its snapshot. | `migrations/000001_initialize.up.sql:1291-1299`, `:1968`; `migrations/000007_primary_goal_snapshots.up.sql:4-5`, `:53-54` | One current reading per owner and language, whatever the representation. A `grc` reading and an `el` reading coexist and are independent. |
+| A snapshot row requires `source_material_id`, `analysis_run_id`, `content_revision_id`, `content_snapshot_id` and `corpus_id` (`NOT NULL`), with foreign keys to `source_materials`, `analysis_runs` and `corpora`. | `migrations/000007_primary_goal_snapshots.up.sql:14-33` (columns `:19-23`, references `:30-32`) | A classical reading has none of these (§5 OD-12). The snapshot row cannot be inserted for it unless the constraint is relaxed additively (OD-32). |
+| Snapshot vocabulary is tuple-keyed, `occurrence_count > 0`, and cascades from its snapshot. | `migrations/000007_primary_goal_snapshots.up.sql:35-51` | B-13. Rich membership is a separate record with the same cascade. |
+| A Current reading without a snapshot is the legacy no-snapshot shape. Finish accepts it with an empty snapshot ID and accepts nothing. | `internal/persistence/current_reading.go:236-240`, `:282-291`; `internal/domain/current_reading_finish.go:90-107` | A classical reading must never be represented by a NULL `snapshot_id`; it would finish as an empty legacy reading. |
+| Reserved vocabulary is read from the unreleased snapshot of the language's current reading. Release sets `released_at`. | `sqlc/queries/deck_preparations.sql:289-296`; `sqlc/queries/current_reading.sql:99-107`, `:157-160` | Rich Reserved is the same predicate over rich membership. No reservation record is added. |
+| Start freezes in-transaction: Known and Reserved exclusions, then the 3/15 rule with library totals from ready projections, which fail with pending or unavailable. | `internal/persistence/current_reading_lifecycle.go:46-90`, `:100-115`, `:138-154`, `:178-260` (errors `:253-258`); `internal/selection/eligibility.go:5`, `:9`, `:52-54` | A rich freeze uses the same order and the same `selection` rule. Only the fact loaders differ. |
+| Known matching treats a Known `upos = ''` as a wildcard; Reserved matching is exact. | `internal/selection/eligibility.go:63-74`; `internal/domain/current_reading_finish.go:127-133` | Legacy only. Rich matching follows §6 "Identity comparison". |
+| Finish writes one `reading_history` row (idempotent per snapshot) and inserts Known with set semantics, then returns the Book to Inbox, releases the snapshot and deletes the current row. A replay still ends an active reading. | `internal/persistence/current_reading.go:234-278`, `:322-343`, `:347-355`; `sqlc/queries/current_reading.sql:190-213`, `:271-333`; `migrations/000010_reading_history_append_only.up.sql:4-11` | Reused unchanged. A rich Finish writes rich Known instead of tuple Known. |
+| Legacy Known completion provenance requires source, run, revision, unit snapshot and corpus together. | `migrations/000009_primary_goal_completion_provenance.up.sql:24-78` (check `:67-78`) | Rich Known cannot be stored in `known_vocabulary` without inventing those values. It gets its own record. |
+| Lemma decisions take the learner-state lock, the Book row lock and the per-Book advisory lock, reject the current reading's Book, check the preview fingerprint, then update decisions and Browse counts in the same transaction. | `internal/persistence/lemma_review.go:187-214`, `:216-248`, `:256-259`, `:265-274` | Rich decisions take the same locks in the same order and keep counts exact in the same transaction. |
+| A decision equal to the analyzer lemma deletes the stored correction (`keep` stores nothing). | `internal/persistence/lemma_review.go:276-286` | Same for rich decisions (§6 OD-23). |
+| Flags are inserted with `ON CONFLICT DO NOTHING`, so a resolved flag is never reopened. Unresolved flags on the current analysis block Start and Switch. | `internal/persistence/lemma_review.go:63-81`, `:106-110`; `internal/persistence/current_reading_lifecycle.go:627-632`; `internal/persistence/current_reading.go:146` | Rich flags keep both rules, keyed by exact occurrence. |
+| The Browse projection is per (owner, Book) with the analysis run in the readiness row and a builder version. It is built in the publication transaction and fenced by the per-Book lock. | `migrations/000031_vocabulary_browse_counts.up.sql:1-32`; `internal/persistence/vocabulary_browse_counts.go:18`, `:299-351` | B-16. The rich projection is a parallel pair of records with the same build, fence and delta rules (ADR 0087). |
+| Coverage uses the analysis's analyzable-token count as denominator, so exclusions never shrink it. | `internal/persistence/projected_vocabulary.go:12-14`; `sqlc/queries/books.sql:161-180` | The rich denominator is analysis-intrinsic too (rule EFF-3). |
+| Disposition and visibility writes touch only their own row. | `internal/persistence/book_dispositions.go:54-91`; `internal/persistence/book_visibility.go:36-66` | Reused unchanged. They write nothing rich. |
+| A catalogue language change releases and deletes the Book's readings in other languages. | `internal/persistence/books.go:832-847`, `:868-880` | Reused. Releasing the snapshot is enough for rich Reserved. Classical Books do not take this path (OD-10). |
+| Store-contract scenarios are fixed to `de` and seed tuples. The fixture adapter stores per-Book frozen vocabulary directly. | `internal/storecontract/harness.go:17-39`, `:99-115`, `:124-132`; `internal/fixtures/storecontract_test.go:42-69` | B-30. See [Store-contract extension](#store-contract-extension). |
+
+### Effective identity
+
+For an Annotation occurrence `(analysis_id, node_id)` of a classical Book `b`
+of owner `o`:
+
+- **EFF-1.** At most one Exact occurrence decision exists for `(o, b, analysis_id,
+  node_id)`. The effective identity is:
+  - none, when the decision is `exclude`;
+  - the decision's `identity_id`, when the decision is `correct`;
+  - otherwise the node's native `identity_id` (§7).
+
+  A native identity plus at most one confirmed correction is therefore the only
+  way an occurrence gets an identity. Corrections never chain or stack.
+- **EFF-2.** The occurrence contributes one count to its effective identity
+  exactly when its node is `vocabulary` (§7), it has an effective identity, and
+  the shared language eligibility (`selection`, with OD-03 option (1) for
+  syntax) accepts it. SQL never decides this (ADR 0087).
+- **EFF-3.** The **coverage denominator** of an analysis is the number of its
+  occurrences that contribute under EFF-2 with no decisions applied. It depends
+  only on the analysis. An exclusion removes the occurrence's count from its
+  identity but keeps it in the denominator, and never makes it Known or
+  Reserved (ADR 0081). A correction moves the count between identities and
+  leaves the denominator unchanged.
+- **EFF-4.** A decision is written only while its analysis is the Book's current
+  classical analysis. It stays stored after a later adoption, unchanged and
+  inert: it never applies to another analysis, even one whose node IDs, native
+  references or spans are equal (§7 "Occurrence identity"). It is readable as
+  evidence, and §9 retains what it references.
+- **EFF-5.** A decision never moves to another occurrence, Book or owner, and
+  is never derived from a span, surface or lemma match.
+
+### Records
+
+#### Exact occurrence decision
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One learner-confirmed Lemma correction or Occurrence exclusion for one exact occurrence of a classical Book. | `owner_id uuid`; `book_id uuid`; `analysis_id uuid`; `node_id integer`; `decision text` ∈ {`correct`, `exclude`}; `identity_id uuid NULL`; `corrected_citation_form text NULL`; `normalization_profile text NULL` (`name/version`, §6); `created_at`, `updated_at timestamptz` | `(owner_id, book_id, analysis_id, node_id)` | Key only: at most one decision per occurrence per owner and Book. Two occurrences on one span have two keys. | Owner. Another owner's decisions are never read. | **Mutable** only by that owner's confirmed lemma review on the Book's current analysis: replaced, or deleted for `keep`. Never changed by adoption, profile changes or other owners. | `(owner_id, book_id)` → §4 Book–Reading unit association `ON DELETE CASCADE`; `(analysis_id, node_id)` → §7 Annotation occurrence `RESTRICT`; `identity_id` → §6 Vocabulary identity `RESTRICT` |
+
+Checks:
+
+- `decision = correct` ⇔ `identity_id`, `corrected_citation_form` and
+  `normalization_profile` are all non-NULL; `exclude` ⇔ all three NULL (mirrors
+  `migrations/000024_occurrence_vocabulary_exclusions.up.sql:6-7`, `:13-15`).
+- A trigger requires: the node's accounting class is `vocabulary`; for
+  `correct`, the identity's UPOS equals the node's UPOS, its language equals the
+  Book's language, its discriminator is NULL, and it differs from the node's
+  identity (§6 OD-23); on insert or update, `analysis_id` is the Book's current
+  classical analysis (EFF-4).
+- At most one Book per owner can hold decisions on one analysis, because an
+  analysis has one Reading unit (§5 binding) and an owner has at most one Book
+  per unit (§4).
+
+#### Exact Lemma review flag
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| A non-authoritative review flag on one exact occurrence. | `owner_id`; `book_id`; `analysis_id`; `node_id`; `reason text` (non-empty); `evidence_provenance jsonb` (object); `resolution text NULL` ∈ {`keep`, `correct`, `exclude`}; `flagged_at`; `resolved_at NULL` | `(owner_id, book_id, analysis_id, node_id)` | Key only. | Owner. | Inserted with insert-if-absent, so a resolved flag is never reopened. Only `resolution` and `resolved_at` change, together, when a decision resolves it. | As Exact occurrence decision. |
+
+Checks mirror `migrations/000025_occurrence_lemma_review_flags.up.sql:14-18`.
+The German detector writes no `grc` flags, and no `grc` detector is approved, so
+no row is written until one is. The Start and Switch gate still reads this
+record for classical Books, so a future detector needs no lifecycle change.
+
+#### Rich count readiness
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Whether the Book's rich counts are usable for its current classical analysis. | `owner_id`; `book_id`; `language text`; `analysis_id uuid`; `state text` ∈ {`pending`, `ready`, `unavailable`}; `builder_version integer` (> 0, starting at 1, independent of the legacy builder's 3); `coverage_denominator bigint NULL` (EFF-3; non-NULL ⇔ `ready`); `reason text NULL` (required ⇔ `unavailable`); `updated_at` | `(owner_id, book_id)` | `(owner_id, book_id, analysis_id)` unique, as the count rows' reference target. | Owner. | **Mutable** by adoption (§11), decisions and the rebuild job only, as listed under [Count projection](#count-projection). | `(owner_id, book_id)` → §4 association `ON DELETE CASCADE`; `analysis_id` → Exact analysis `RESTRICT` |
+
+#### Rich vocabulary count
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Effective occurrence count of one rich identity in one Book's analysis. | `owner_id`; `book_id`; `analysis_id`; `identity_id`; `occurrence_count bigint` (> 0); `corrected boolean` (some contributing occurrence is corrected) | `(owner_id, book_id, analysis_id, identity_id)` | Key only. | Owner. | **Mutable** by the same writers as readiness. Derived data: never retained evidence. | `(owner_id, book_id, analysis_id)` → Rich count readiness `ON DELETE CASCADE`; `identity_id` → Vocabulary identity `RESTRICT` |
+
+Index `(owner_id, identity_id, book_id)` serves the library total.
+
+#### Snapshot representation (additive to `primary_goal_snapshots`)
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Lets the existing snapshot row anchor a rich reading. | new column `exact_analysis_id uuid NULL`; the five legacy evidence columns become nullable (OD-32) | existing `(owner_id, id)` | unchanged | unchanged | `exact_analysis_id` is set at insert and never changes. `released_at` keeps its one write. | `exact_analysis_id` → Exact analysis `RESTRICT` |
+
+A check makes the representations exclusive and exhaustive: either all five
+legacy evidence columns are non-NULL and `exact_analysis_id` is NULL
+(**legacy**), or all five are NULL and `exact_analysis_id` is non-NULL
+(**rich**). Every existing row is legacy, because the five columns are `NOT
+NULL` today, so no row is rewritten. A trigger on insert requires a rich
+snapshot's `exact_analysis_id` to be the Book's current classical analysis.
+
+#### Rich snapshot membership
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One frozen rich identity of a rich Current-reading vocabulary snapshot, with its count context and exact evidence. | `owner_id`; `snapshot_id`; `identity_id`; `language text`; `analysis_id uuid` (equals the snapshot's `exact_analysis_id`); `headword text` (frozen display headword, §6, OD-35); `occurrence_count integer` (> 0; in-Book effective count); `library_total bigint NULL` (the total used; NULL when the in-Book route qualified and no total was read); `route text` ∈ {`in_book`, `library_total`}; `occurrence_node_ids integer[]` (the effective occurrences, ascending; cardinality = `occurrence_count`); `observed_forms jsonb`; `selected_at` | `(owner_id, snapshot_id, identity_id)` | Key only: an identity appears once per snapshot, and `ex:1` and `ex:2` are two rows. | Owner. | **Immutable.** Inserted only in the transaction that inserts its snapshot. | `(owner_id, snapshot_id)` → `primary_goal_snapshots` `ON DELETE CASCADE` (as `migrations/000007_primary_goal_snapshots.up.sql:49`); `identity_id` → Vocabulary identity `RESTRICT`; `analysis_id` → Exact analysis `RESTRICT` |
+
+Checks: `route = in_book` ⇔ `occurrence_count ≥ 3` and `library_total IS NULL`;
+`route = library_total` ⇔ `1 ≤ occurrence_count < 3` and `library_total ≥ 15`.
+A trigger rejects a row for a legacy snapshot, an `analysis_id` other than the
+snapshot's, a `language` other than the snapshot's or the identity's, and an
+insert for a snapshot created in an earlier transaction. An additive trigger on
+`primary_goal_snapshot_vocabulary` rejects a tuple row for a rich snapshot.
+
+#### Snapshot count contribution
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Which Books' analyses made up the library totals a rich snapshot used. | `owner_id`; `snapshot_id`; `book_id`; `analysis_id`; `builder_version` | `(owner_id, snapshot_id, book_id)` | Key only. | Owner. | **Immutable.** Written in the snapshot's transaction, one row per contributing Book, only when at least one identity needed a library total. | `(owner_id, snapshot_id)` → snapshot `ON DELETE CASCADE`; `(owner_id, book_id)` → `books` `ON DELETE CASCADE`; `analysis_id` → Exact analysis `RESTRICT` |
+
+#### Rich Known vocabulary
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Modeled Known membership of one rich identity, with the completion that accepted it. | `owner_id`; `language text` (equals the identity's language); `identity_id`; `headword text` (copied from the accepted membership row); `completion_id uuid`; `snapshot_id uuid`; `book_id uuid`; `analysis_id uuid`; `accepted_at timestamptz` | `(owner_id, identity_id)` | Key only: set semantics. A second acceptance of the same identity inserts nothing and keeps the first provenance. | Owner, per language through the identity. `grc` and `el` identities are different rows. | **Immutable.** Inserted only by a rich Finish. There is no update or delete path, as for legacy Known. | `owner_id` → `users` `ON DELETE CASCADE`; `completion_id` → `reading_history(completion_id)` `NO ACTION`; `(owner_id, snapshot_id, identity_id)` → Rich snapshot membership `NO ACTION`; `identity_id` → Vocabulary identity `RESTRICT` |
+
+The membership reference makes "Known only from a completed reading's frozen
+snapshot" a database fact. `NO ACTION` lets the owner cascade delete both rows
+in one statement. Rich Known has no Generated or deck provenance column: Finish
+never reads deck state, and Generated provenance for rich identities belongs to
+#2063.
+
+```sql
+-- illustrative, not a migration
+ALTER TABLE primary_goal_snapshots
+  ALTER COLUMN source_material_id DROP NOT NULL,
+  ALTER COLUMN analysis_run_id DROP NOT NULL,
+  ALTER COLUMN content_revision_id DROP NOT NULL,
+  ALTER COLUMN content_snapshot_id DROP NOT NULL,
+  ALTER COLUMN corpus_id DROP NOT NULL,
+  ADD COLUMN exact_analysis_id uuid NULL REFERENCES exact_analyses(id) ON DELETE RESTRICT,
+  ADD CONSTRAINT primary_goal_snapshots_one_representation CHECK (
+    (exact_analysis_id IS NULL AND source_material_id IS NOT NULL AND analysis_run_id IS NOT NULL
+     AND content_revision_id IS NOT NULL AND content_snapshot_id IS NOT NULL AND corpus_id IS NOT NULL)
+    OR
+    (exact_analysis_id IS NOT NULL AND source_material_id IS NULL AND analysis_run_id IS NULL
+     AND content_revision_id IS NULL AND content_snapshot_id IS NULL AND corpus_id IS NULL));
+
+CREATE TABLE exact_occurrence_decisions (
+  owner_id uuid NOT NULL,
+  book_id uuid NOT NULL,
+  analysis_id uuid NOT NULL,
+  node_id integer NOT NULL,
+  decision text NOT NULL CHECK (decision IN ('correct','exclude')),
+  identity_id uuid NULL REFERENCES vocabulary_identities(id) ON DELETE RESTRICT,
+  corrected_citation_form text NULL,
+  normalization_profile text NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (owner_id, book_id, analysis_id, node_id),
+  FOREIGN KEY (owner_id, book_id) REFERENCES book_reading_units(owner_id, book_id) ON DELETE CASCADE,
+  FOREIGN KEY (analysis_id, node_id) REFERENCES annotation_occurrences(analysis_id, node_id) ON DELETE RESTRICT,
+  CHECK ((decision = 'correct') = (identity_id IS NOT NULL)),
+  CHECK ((decision = 'correct') = (corrected_citation_form IS NOT NULL)),
+  CHECK ((decision = 'correct') = (normalization_profile IS NOT NULL))
+);
+
+CREATE TABLE rich_count_readiness (
+  owner_id uuid NOT NULL,
+  book_id uuid NOT NULL,
+  language text NOT NULL,
+  analysis_id uuid NOT NULL REFERENCES exact_analyses(id) ON DELETE RESTRICT,
+  state text NOT NULL CHECK (state IN ('pending','ready','unavailable')),
+  builder_version integer NOT NULL CHECK (builder_version > 0),
+  coverage_denominator bigint NULL CHECK (coverage_denominator >= 0),
+  reason text NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (owner_id, book_id),
+  UNIQUE (owner_id, book_id, analysis_id),
+  FOREIGN KEY (owner_id, book_id) REFERENCES book_reading_units(owner_id, book_id) ON DELETE CASCADE,
+  CHECK ((state = 'ready') = (coverage_denominator IS NOT NULL)),
+  CHECK ((state = 'unavailable') = (reason IS NOT NULL))
+);
+
+CREATE TABLE rich_vocabulary_counts (
+  owner_id uuid NOT NULL,
+  book_id uuid NOT NULL,
+  analysis_id uuid NOT NULL,
+  identity_id uuid NOT NULL REFERENCES vocabulary_identities(id) ON DELETE RESTRICT,
+  occurrence_count bigint NOT NULL CHECK (occurrence_count > 0),
+  corrected boolean NOT NULL DEFAULT false,
+  PRIMARY KEY (owner_id, book_id, analysis_id, identity_id),
+  FOREIGN KEY (owner_id, book_id, analysis_id)
+    REFERENCES rich_count_readiness(owner_id, book_id, analysis_id) ON DELETE CASCADE
+);
+CREATE INDEX ON rich_vocabulary_counts (owner_id, identity_id, book_id);
+
+CREATE TABLE rich_snapshot_vocabulary (
+  owner_id uuid NOT NULL,
+  snapshot_id uuid NOT NULL,
+  identity_id uuid NOT NULL REFERENCES vocabulary_identities(id) ON DELETE RESTRICT,
+  language text NOT NULL,
+  analysis_id uuid NOT NULL REFERENCES exact_analyses(id) ON DELETE RESTRICT,
+  headword text NOT NULL CHECK (headword <> ''),
+  occurrence_count integer NOT NULL CHECK (occurrence_count > 0),
+  library_total bigint NULL,
+  route text NOT NULL CHECK (route IN ('in_book','library_total')),
+  occurrence_node_ids integer[] NOT NULL CHECK (cardinality(occurrence_node_ids) = occurrence_count),
+  observed_forms jsonb NOT NULL,
+  selected_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (owner_id, snapshot_id, identity_id),
+  FOREIGN KEY (owner_id, snapshot_id) REFERENCES primary_goal_snapshots(owner_id, id) ON DELETE CASCADE,
+  CHECK ((route = 'in_book' AND occurrence_count >= 3 AND library_total IS NULL)
+      OR (route = 'library_total' AND occurrence_count BETWEEN 1 AND 2 AND library_total >= 15))
+);
+
+CREATE TABLE rich_known_vocabulary (
+  owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  language text NOT NULL,
+  identity_id uuid NOT NULL REFERENCES vocabulary_identities(id) ON DELETE RESTRICT,
+  headword text NOT NULL,
+  completion_id uuid NOT NULL REFERENCES reading_history(completion_id),
+  snapshot_id uuid NOT NULL,
+  book_id uuid NOT NULL,
+  analysis_id uuid NOT NULL,
+  accepted_at timestamptz NOT NULL,
+  PRIMARY KEY (owner_id, identity_id),
+  FOREIGN KEY (owner_id, snapshot_id, identity_id)
+    REFERENCES rich_snapshot_vocabulary(owner_id, snapshot_id, identity_id)
+);
+-- plus: exact Lemma review flags (as 000025, keyed like the decisions); snapshot
+-- count contributions; the membership, decision and representation triggers
+-- above; mirrored update-rejecting triggers on the immutable records; and an
+-- insert trigger on primary_goal_snapshot_vocabulary rejecting rich snapshots.
+```
+
+### Representation selection
+
+Code chooses the representation from the record it holds, never from the
+language, the producer or a package:
+
+| record | legacy when | rich when |
+| --- | --- | --- |
+| Book (counts, decisions, flags, Start target) | it has a `book_current_analyses` row | it has a §5 Book current classical analysis row. §5's exclusion trigger forbids both. A Book with neither has no analysis and is not a Start target. |
+| Snapshot | `exact_analysis_id IS NULL` | `exact_analysis_id IS NOT NULL` (exclusive by the check above) |
+| Current reading | its snapshot is legacy, or `snapshot_id` is NULL (the legacy no-snapshot shape, `internal/persistence/current_reading.go:236-238`) | its snapshot is rich. A rich reading never has a NULL `snapshot_id`. |
+| Completion | its snapshot is legacy or absent | its snapshot is rich |
+| Known check for a candidate | the candidate is a legacy tuple: only `known_vocabulary`, with today's blank-UPOS wildcard | the candidate is a rich identity: Rich Known, plus `known_vocabulary` rows that equal it under §6 "Identity comparison" (null discriminator, non-blank UPOS, not `grc`) |
+
+Start and Switch choose at freeze time from the target Book's anchor. Every
+later read (Reserved, the Finish preview at
+`internal/persistence/current_reading_lifecycle.go:418-431`, Finish, snapshot
+listing) dispatches on the snapshot's representation. A legacy selection never
+reads Rich Known (OD-33), so no legacy outcome can change.
+
+### Count projection
+
+Per (owner, Book, analysis), the rich projection holds one count row per
+effective identity (EFF-2) and one readiness row. It parallels migration
+000031; nothing in `vocabulary_browse_counts` or its readiness changes, and the
+legacy builder never reads classical Books (it reads `current_analysis_identity`,
+which a classical Book never appears in).
+
+Writers, mirroring `internal/persistence/vocabulary_browse_counts.go:299-351` and
+`internal/persistence/lemma_review.go:216-248`:
+
+| event | writes |
+| --- | --- |
+| §11 adoption of analysis Y for Book b | In the adoption transaction: delete b's count rows, then set readiness to `(Y, ready, denominator, counts)` when the build fits the transaction, otherwise `(Y, pending)` and enqueue a rebuild job. The build applies b's decisions on Y only (EFF-4), so a fresh adoption has none. |
+| Confirmed exact decision on b's current analysis, readiness `ready` | In the decision transaction, under the per-Book lock: recompute only the old and new effective identities of each changed occurrence (ADR 0087 delta), upsert or delete their rows. Readiness stays `ready`; the denominator does not change (EFF-3). |
+| Confirmed exact decision, readiness not `ready` | Set readiness to `pending` and enqueue a rebuild. |
+| Rebuild job succeeds | Under the per-Book lock, if readiness still names the current analysis and the decision revision is unchanged (as `:334-343`), replace count rows and set `ready`. Otherwise write nothing; a newer event owns readiness. |
+| Rebuild job exhausts its attempts | Set `unavailable` with the failure reason, if readiness still names the same analysis (OD-34). |
+| Owner deletion | Cascades. |
+
+Readers use count rows only when readiness is `ready`, names the Book's current
+classical analysis and has the current builder version. Book-scoped consumers
+(Browse, My Books coverage, Reading coverage and chooser bands, lemma review
+impact) read the rich projection for classical Books exactly as they read the
+legacy one for EPUB Books (ADR 0087 item 2), and show Updating or Unavailable
+for any other readiness.
+
+**Contributing Books** for owner `o` and language `L` (ADR 0090, ADR 0095):
+
+- Exactly the Books of `o` with `language_state = chosen`, `language_tag = L`,
+  and a Book current classical analysis that is Vocabulary-ready and carries no
+  Usability restriction naming the vocabulary capability (§5). Disposition and
+  visibility do not matter: Inbox, To Read, Read, Hidden and the current
+  reading's own Book all contribute.
+- Discovery (offerings without a Book or without a current analysis), whole-work
+  bytes with no binding for the unit, other owners' Books, EPUB Books and legacy
+  `grc` analysis-run Books contribute nothing to rich totals and do not affect
+  their readiness. Legacy `grc` tuples match no rich identity (§6 rule 5).
+- Likewise, classical Books never contribute to legacy totals.
+
+**Library total** of rich identity `i` = Σ `occurrence_count` of `i` over the
+contributing Books, including the Book being frozen. It is read in one
+statement snapshot together with readiness, as at
+`internal/persistence/current_reading_lifecycle.go:189-234`. If any contributing
+Book's readiness is not `ready` for its current analysis, no total is returned:
+the error is unavailable when any such Book is `unavailable`, otherwise pending
+(`:253-258`). A pending or unavailable Book is never counted as zero.
+
+### The 3/15 rule on rich identities
+
+A rich identity `i` with in-Book effective count `n` (EFF-2, computed in the
+freeze transaction from the analysis and the Book's decisions) enters a new rich
+snapshot exactly when:
+
+1. `i` is not Known for the owner (Rich Known, or a legacy row equal under §6),
+2. `i` is not Reserved (a member of an unreleased rich snapshot of the owner in
+   `L`, or equal under §6 to a tuple of an unreleased legacy snapshot), and
+3. `n ≥ 3`, or `n ≥ 1` and the library total of `i` is at least 15.
+
+`n = 0` never qualifies. The library total is read only when some identity
+satisfies 1 and 2 with `1 ≤ n < 3`; if none does, other Books' readiness does
+not block the freeze (ADR 0085). The rule is `selection`'s
+`readingFrequencyEligible` (`internal/selection/eligibility.go:52-54`), applied
+to a rich identity key; thresholds are not duplicated.
+
+### Lifecycle transitions
+
+Existing behaviour, restated, and what each transition additionally writes for a
+rich representation. No transition, verdict, lock or learner state is added.
+Each transition keeps today's locks in today's order. Start, Switch, End, Finish
+and lemma decisions take the learner-state lock
+(`internal/persistence/lemma_review.go:256-259`); disposition and visibility
+take only their row locks.
+
+| transition | existing behaviour (path:line) | reused | additionally for rich |
+| --- | --- | --- | --- |
+| **Start** | Locks (`internal/persistence/current_reading_lifecycle.go:511-516`); loads facts including unresolved flags (`:606-634`); `DecideStart` (`internal/domain/current_reading_start.go:58-76`); freezes the snapshot with Known, Reserved and 3/15 (`internal/persistence/current_reading_lifecycle.go:46-90`, `:100-154`); fails on pending or unavailable totals (`:253-258`); inserts the current row (`:677-686`). | Locks, `DecideStart`, the current-row insert and the `beforeCommit` hook (`:559-583`). | Flags read from Exact Lemma review flags on the current analysis. The snapshot row is rich. Membership rows and, when totals were read, contribution rows are inserted in the same transaction. No tuple row is written. |
+| **Switch** | `internal/persistence/current_reading.go:32-62`; `DecideSwitchCurrentReading` (`internal/domain/current_reading_transition.go:120-143`); releases the old snapshot (`internal/persistence/current_reading.go:93`), freezes the target (`:96`), repoints the current row (`:100`). | All of it, including replay proof by timestamps (`internal/domain/current_reading_transition.go:150-159`). | The target's freeze is rich or legacy by the target Book. Switching between a legacy and a rich Book in one language is allowed and writes one representation per snapshot. |
+| **End** | `internal/persistence/current_reading.go:175-213`; `DecideEndCurrentReading` (`internal/domain/current_reading_transition.go:83-97`); releases the snapshot (`internal/persistence/current_reading.go:206`) and deletes the current row (`:209`). Disposition, snapshot and history stay. | All of it. | Nothing. Releasing the snapshot ends its rich reservation. |
+| **Finish** | `internal/persistence/current_reading.go:234-278`; `PlanCurrentReadingFinish` (`internal/domain/current_reading_finish.go:86-108`); records the completion and Known (`internal/persistence/current_reading.go:322-343`); returns the Book to Inbox, releases and deletes (`:347-355`); a replay still ends an active reading (`:269-273`). | The plan, the completion row (`reading_history`, idempotent per snapshot), Inbox, release and delete. | Facts: the snapshot's rich identities and the Known that matches them. The plan's counts fill the same `reading_history` columns. Accepted identities are inserted into Rich Known with set semantics, and the inserted count must equal the plan, as at `:333-341`. Deck and Generated state are never read, so Finish completes whatever the card state. |
+| **Disposition change** | `internal/persistence/book_dispositions.go:54-91` | All of it. | Nothing. Contribution does not depend on disposition. |
+| **Visibility** | `internal/persistence/book_visibility.go:40-66` | All of it. | Nothing. |
+| **Previously-read import** | `internal/persistence/current_reading_lifecycle.go:385-400` | All of it. | Nothing: it writes a completion with no snapshot and no Known. |
+| **Language change ending a reading** | `internal/persistence/books.go:839-845`, `:868-880` | All of it. | Nothing: release ends the rich reservation. |
+| **Lemma decision** | `internal/persistence/lemma_review.go:187-214`: locks, rejects the current reading's Book (`:265-274`), checks the fingerprint, writes decisions, resolves flags (`:250-254`), updates counts (`:241-246`). | Locks, current-reading rejection, fingerprint check. | Writes Exact occurrence decisions and resolves exact flags. The fingerprint covers the exact decisions and the current analysis ID, so a preview made before an adoption is stale. Counts follow [Count projection](#count-projection). |
+| **Flag save** | `internal/persistence/lemma_review.go:19-30`, `:63-81` | Insert-if-absent. | Keyed by exact occurrence, on the current analysis only. |
+| **Deck preparation** | Admission from the current snapshot (ADR 0085). | Unchanged in §8. | Nothing in §8. Card records are #2063. Preparing a deck never writes Known (ADR 0036). |
+| **Evidence adoption** (§11; not a learner transition) | — | — | Count and readiness writes above. It never changes a snapshot, membership, decision, Known or completion. |
+
+### Store-contract extension
+
+The existing scenarios keep `const Language = "de"`
+(`internal/storecontract/harness.go:17-18`), their seeds and their bodies.
+`Scenarios()` (`:124-132`) still returns exactly them. The rich scenarios are a
+second list, `richScenarios(v Variant)`, run by `Run` for `Variant{Language:
+"grc"}` after the existing ones. Rich scenarios seed through a new
+`RichSeeder` returned by the harness. Its seeds carry rich identities (lemma,
+UPOS, discriminator), occurrences with exact keys, spans and node class, per-Book
+readiness state, and rich Known. The harness shape is §10's to settle (OD-04).
+
+Named scenarios:
+
+| scenario | covers |
+| --- | --- |
+| `rich: lifecycle start, switch, end and finish on a classical Book` | Start freezes rich membership; Switch to a second classical Book; End; Finish writes completion and Rich Known. Same verdicts as the `de` lifecycle scenarios (LRN-19). |
+| `rich: discriminated identities stay distinct across Known, Reserved, snapshot and finish` | LRN-01 |
+| `rich: same-span occurrences hold independent decisions` | LRN-02 |
+| `rich: a decision does not transfer to a new analysis` | LRN-03 |
+| `rich: an exclusion keeps the coverage denominator` | LRN-04 |
+| `rich: pending or unavailable counts block only below-floor selection` | LRN-05 |
+| `rich: the 3/15 boundaries` | LRN-07 to LRN-09 |
+| `rich: contributing Books` | LRN-21 |
+| `rich: grc is isolated from el, and owners are isolated` | LRN-11, LRN-12 |
+| `rich: a frozen snapshot is unchanged by later counts, analyses and corrections` | LRN-13 |
+| `rich: stale requests change nothing` | LRN-19 |
+| `rich: counts follow the current analysis and stay exact after decisions` | LRN-26 |
+| `rich: the current reading refuses decisions on its Book` | LRN-20 |
+| `rich: exact flags gate Start and are never reopened` | LRN-22 |
+| `rich: disposition, visibility and previously-read import write no rich state` | LRN-23 |
+
+**Fixture adapter** (`internal/fixtures`, plain `go test`):
+
+- It stores rich identities as five-field values and compares them with the §6
+  comparison function (I-8). A NULL discriminator is a distinct "absent" value,
+  never the empty string. It does not intern.
+- It stores exact occurrences as `(analysisID, nodeID)` with their spans,
+  allowing equal spans, and decisions and flags in maps keyed by owner, Book and
+  that pair. It never looks an occurrence up by span.
+- It computes in-Book counts, effective identities and the coverage denominator
+  by calling the same `selection` projection over its seeded occurrences, and
+  the 3/15 decision through the same eligibility function. It does not seed
+  frozen vocabulary directly for rich Books (unlike the tuple map at
+  `internal/fixtures/storecontract_test.go:62-66`).
+- It holds readiness per (owner, Book) as one of `pending`, `ready`,
+  `unavailable`, settable by the seeder, and returns the same pending and
+  unavailable errors as PostgreSQL.
+- It marks each snapshot legacy or rich, keeps Rich Known apart from its legacy
+  Known slice, and uses the same `domain` decision functions as today
+  (`internal/fixtures/reading_lifecycle.go:297-334`).
+
+The PostgreSQL adapter seeds classical Books through the §11 adoption interface
+with synthetic analyses, not by inserting rows behind it.
+
+### Invariants
+
+Each invariant is covered by the `LRN` rows in [§15](#15-acceptance-test-matrix).
+
+1. **Identity.** Discriminated identities stay distinct in counts, Known,
+   Reserved, snapshot membership and Finish (LRN-01). `grc` and `el` are
+   isolated, and so are owners (LRN-11, LRN-12).
+2. **Decisions.**
+   - At most one decision per (owner, Book, exact occurrence); a correction's
+     identity has the occurrence's UPOS and a NULL discriminator; decisions name
+     only `vocabulary` occurrences of a classical Book (LRN-02, LRN-17).
+   - Same-span occurrences hold independent decisions and flags (LRN-02,
+     LRN-22).
+   - A decision never transfers to another analysis, and is written only on the
+     current analysis (LRN-03, LRN-18).
+   - An exclusion keeps the coverage denominator (LRN-04).
+   - The current reading's Book refuses decisions (LRN-20).
+3. **Counts.**
+   - Pending or unavailable counts block a freeze that needs a library total and
+     are never read as zero (LRN-05, LRN-06).
+   - Only contributing Books add to totals (LRN-21); disposition and visibility
+     do not change contribution (LRN-23).
+   - Counts are used only for the Book's current analysis and stay exact after a
+     decision (LRN-26).
+4. **Selection.** The 3/15 boundaries hold for rich identities, and Known and
+   Reserved are excluded (LRN-07, LRN-08, LRN-09, LRN-10).
+5. **Snapshots.**
+   - A snapshot is exactly one of legacy or rich, and its membership is
+     immutable and tied to its analysis (LRN-16).
+   - A frozen snapshot is unchanged by later counts, analyses and corrections
+     (LRN-13).
+6. **Known.** Rich Known is written only by Finish from frozen membership, with
+   set semantics, and never by deck preparation (LRN-15, LRN-24).
+7. **Lifecycle.** No new state: rich readings follow the same transitions,
+   verdicts and stale-request rules (LRN-19); Finish completes without deck
+   state (LRN-15).
+8. **Legacy.** Legacy `de` snapshots, Known and history behave identically and
+   their rows are not rewritten (LRN-14). Rich identities never reach the
+   Browse-selection or Custom-deck stores (LRN-25, OD-01).
+
+### Conflicts and dependencies noted
+
+- **OD-32.** The existing snapshot row cannot anchor a classical reading
+  without relaxing five `NOT NULL` columns on a shipped table
+  (`migrations/000007_primary_goal_snapshots.up.sql:19-23`). §5 avoided the
+  same kind of change for `book_current_analyses` (OD-12). Here the alternative
+  is a second reading or snapshot anchor, which ADR 0098 forbids. §8 is written
+  against OD-32 option (1).
+- The decision, readiness and count records reference §4's Book–Reading unit
+  association and §5's Exact analysis. The rich-snapshot insert trigger reads
+  §5's Book current classical analysis.
+- How a Reading gate recognizes a classical Book (B-25, B-26) is OD-05, owned
+  by §11. §8 assumes Start's eligibility classifier reports a classical Book
+  with a current classical analysis as eligible.
+- OD-04 is #2071's. §8 keeps every `de` scenario unchanged and adds a rich list
+  beside it. If #2071 parameterizes the existing scenarios instead, the rich
+  scenario names above still apply.
+- The retention of decisions, snapshot membership, contributions and Rich Known
+  on older analyses is §9's.
+- Card records for rich identities (Generated vocabulary, deck preparation
+  vocabulary and deck specifications, B-14 and B-15) are #2063's. §8 requires
+  only that Finish reads none of them and that none writes Known.
+- The fingerprint of a rich lemma-review preview includes the current analysis
+  ID. The preview interface is §10's.
 
 ## 9. Retention references
 
@@ -2463,6 +2965,32 @@ rows use synthetic fixtures only.
 | OCC-23 | Syntax endpoints stay within one analysis and one sentence. | (d) | Committed analyses A and B. | Insert, in A's transaction, a basic edge whose head is a node of B, and one whose head is in another sentence of A. | Both are rejected. | An edge between two nodes of the same sentence of A is accepted. |
 | OCC-24 | New analyses write no legacy rows, and legacy rows are never rewritten. | (a) | Owner A has an EPUB Book with a legacy analysis. The legacy table row counts and checksums are recorded. | Import and adopt a synthetic classical Book for A, read it through every consumer, and record a decision on it. | `analysis_runs`, `corpora`, `corpus_sentences` and `corpus_tokens` have the same counts and checksums as before. | Re-analysing the EPUB Book still writes legacy rows through the existing path, as today. |
 | OCC-25 | The `grc` form search key matches NFC and NFD, case and final sigma, and nothing broader. | (a) | Owner A has a classical Book with a node whose surface is `Λέξις` in NFD. | Run Concordance form searches for `λέξις` (NFC), `ΛΈΞΙΣ` and `λέξισ`. Then search for `λεξις`. | The first three find the node, and the highlight is its span. | `λεξις` (no accent) finds nothing. A search never changes any identity or Known state. |
+| LRN-01 | The same lemma and UPOS with `ex:1` and `ex:2` stays distinct in counts, Known, Reserved, the snapshot and Finish. | (b) | `grc`. Owner A's To Read classical Book G1 has an analysis with `λέξις` NOUN `example:ex:1` ×3 and `example:ex:2` ×3, ready counts, nothing Known. | Read G1's counts. Start G1, read Reserved, then Finish. | Counts list two identities with 3 each. The snapshot has two members. Both are Reserved while reading. Finish records snapshot 2, eligible 2, graduated 2, already Known 0, and A has two Rich Known identities. | With `example:ex:1` already Rich Known before Start, the snapshot holds only `example:ex:2`, Finish accepts only it, and the `ex:1` Known row keeps its original completion. A null-discriminator `λέξισ` NOUN is never Known or Reserved by either. |
+| LRN-02 | Same-span occurrences hold independent decisions. | (b) | G1's analysis X has nodes 4 (`example:ex:1`) and 5 (`example:ex:2`), both at span `[10,16)`, each eligible. | Confirm an exclusion of `(X,4)`. Then confirm a correction of `(X,5)` to `ῥῆσις`. | `(X,4)` is excluded and `(X,5)` is corrected; reading each key returns only its own decision. Counts: `ex:1` and `ex:2` each fall by 1, and `ῥῆσισ` NOUN (null discriminator) rises by 1. | A decision request that names the span `[10,16)` and no node is rejected as not found and writes nothing. The exclusion never changes `(X,5)`. |
+| LRN-03 | A decision never transfers to another analysis. | (b) | G1 has a correction on `(X,4)`. §11 adopts analysis Y for G1, in which node 4 has the same native reference, span and identity. | Read G1's effective identities, counts and decisions. | `(Y,4)` has its native identity, and Y's counts ignore the `(X,4)` correction. The `(X,4)` decision is still stored, unchanged. | After Y is adopted, a confirm naming `(X,4)` is rejected and writes nothing. No decision row names `(Y,4)`. |
+| LRN-04 | An exclusion keeps the coverage denominator. | (b) | G1's analysis has 10 counted occurrences, 3 of them `example:ex:1`, which is Rich Known. Ready counts. | Exclude one `ex:1` occurrence. | `ex:1` counts 2. The coverage denominator stays 10, and covered occurrences are 2 of 10. | The denominator never becomes 9. The excluded occurrence is not Known, not Reserved, and not in any later snapshot's occurrence list. |
+| LRN-05 | A pending projection blocks cross-Book selection, never counted as zero. | (b) | G1 has `example:ex:1` ×2 and nothing Known. Classical Book G2 in `grc` has readiness `pending`. | Start G1. | Rejected with the pending (Updating) error. No current reading, snapshot, membership or contribution row exists. | When every G1 candidate has 3 or more in-Book occurrences or is Known, the same Start succeeds while G2 is pending, and no contribution row is written. |
+| LRN-06 | An unavailable projection reports unavailable, never zero. | (a) | As LRN-05, but G2's rebuild job exhausts its attempts in River. | Request Start for G1 through the Reading handler. | The response shows the unavailable recovery state. Nothing is written. | After a successful rebuild of G2, the same Start succeeds and G2's counts are in the library total. |
+| LRN-07 | 3/15: two in the Book with 15 in total qualifies; 14 does not. | (b) | G1 has `example:ex:1` ×2. G2 has it ×13. Both ready. | Start G1. | The snapshot includes `ex:1` with in-Book 2, library total 15, route `library_total`. Contribution rows name G1 and G2 with their analysis IDs. | With G2 ×12 (total 14), `ex:1` is not in the snapshot. |
+| LRN-08 | 3/15: three in the Book qualifies at any total; zero never does. | (b) | G1 has `example:ex:1` ×3 and no other Book contains it. G2 has `example:ex:2` ×100 and G1 has none. | Start G1. | `ex:1` is in the snapshot with route `in_book` and no library total. | `ex:2` is not in the snapshot. |
+| LRN-09 | 3/15: one in the Book with 15 in total qualifies; 14 does not. | (b) | G1 has `example:ex:1` ×1. G2 has it ×14. Both ready. | Start G1. | `ex:1` is in the snapshot with in-Book 1 and library total 15. | With G2 ×13, `ex:1` is not in the snapshot. |
+| LRN-10 | Known and Reserved identities are excluded from 3/15. | (b) | `example:ex:1` ×5 is Rich Known. G1 is the current reading and holds `example:ex:2`. G2 has both ×5. | Preview a correction on G2 through lemma review impact. End G1, then Start G2. | The impact preview reports `ex:1` as Known and `ex:2` as Reserved, not as new candidates. After End, G2's snapshot includes `ex:2` and still excludes `ex:1`. | A legacy `xx` `λέξισ` NOUN Known row does not exclude either (§6 rule 1). |
+| LRN-11 | `grc` and `el` are isolated. | (b) | Owner A has an `el` Book E with `λέξισ` NOUN ×5 and an `el` current reading, and `el` Known `λέξισ` NOUN. G1 in `grc` has `λέξις` NOUN (null discriminator) ×3. | Start G1 in `grc`, then Finish it. | Both readings are current at once. G1's snapshot includes the `grc` identity. Finish writes only `grc` Rich Known. | The `el` reading, snapshot, Known and counts are unchanged. The `grc` library total excludes E, and the `el` totals exclude G1. |
+| LRN-12 | Two owners are isolated. | (b) | Owners A and B each have a Book on the same shared analysis X. B has `example:ex:1` Known and an exclusion on `(X,4)`. | A reads counts, Starts and Finishes. | A's counts include `(X,4)`, A's snapshot includes `ex:1`, and A gets Rich Known for it. | B's decision, Known and counts are unchanged. A's request naming B's Book is not found. |
+| LRN-13 | A frozen snapshot is unchanged by new counts, a new analysis or a correction. | (b) | A Started G1: snapshot S holds `example:ex:1` (in-Book 3) and `example:ex:2` (2, total 15). | (1) Adopt a new analysis for G2 that changes its counts. (2) Adopt analysis Y for G1. (3) Request a correction on G1. (4) End, correct `(X,4)`, Start again. | S's members, counts, totals, headwords, occurrence lists, analysis ID and contributions are unchanged after every step. Step 4 creates a new snapshot from Y. | Step 3 is rejected and writes nothing. |
+| LRN-14 | Legacy `de` snapshots, Known and history behave identically (characterization). | (b) | Every existing `de` store-contract scenario. A `de` Book with a legacy snapshot, Known and history recorded before the change. | Run the existing scenarios. Run LRN-01 for `grc` in the same store. | The `de` scenarios pass unchanged. The recorded `de` snapshot rows, Known rows and history rows are unchanged. | No rich row is written for a `de` Start or Finish. No tuple Known or tuple snapshot row is written by the `grc` run. |
+| LRN-15 | Finish with the card state unavailable still completes, and cards never make anything Known. | (a) | A's current reading is classical G1. A deck preparation from its snapshot is queued and its River job is discarded. | Finish through the Reading handler. | The completion is recorded, Rich Known equals the snapshot minus what was already Known, G1 returns to Inbox and the reading ends. | Before Finish, the queued and failed preparation added no Rich Known. The preparation's state is not changed by Finish. |
+| LRN-16 | A snapshot is exactly one of legacy or rich, and its membership is immutable and tied to its analysis. | (d) | A legacy snapshot L and a rich snapshot R for owner A. | Insert a snapshot with both representations, and with neither. Insert a rich member into L, a tuple row into R, a member of R naming another analysis, and a member of R in a later transaction. Update a member of R. | Every write is rejected and R is unchanged. | Inserting a legacy snapshot with its five evidence columns and its tuple rows is accepted exactly as today. |
+| LRN-17 | Decision integrity. | (d) | A's classical Book G1 with analysis X, a punctuation node 6, and an EPUB Book E. | Insert two decisions for `(A, G1, X, 4)`; a `correct` without an identity; an `exclude` with one; a decision on node 6; a correction whose identity has another UPOS or a discriminator; a decision on E. | Every insert is rejected. | One `correct` decision with a matching null-discriminator identity on `(A, G1, X, 4)` is accepted. |
+| LRN-18 | A decision is written only on the Book's current analysis; a stale confirm writes nothing. | (a) | A previews a correction on `(X,4)` through the lemma review page. §11 then adopts Y for G1. | Confirm the preview. | The stale response is shown. No decision row and no count change exists. | The same confirm before the adoption succeeds. |
+| LRN-19 | No second state machine: rich readings follow the same transitions and stale-request rules. | (b) | Classical G1 and G2, To Read. | Start G1; Switch to G2; End; Start G1; Finish. Repeat each with a stale expected Book or snapshot, and replay each accepted request. | The accepted sequence gives the same verdicts and replays as the `de` lifecycle scenarios, and each snapshot is rich. | Each stale request is rejected and changes no row. A replayed Finish returns the recorded completion and adds no Known. |
+| LRN-20 | The current reading refuses decisions on its Book. | (b) | G1 is the current reading. | Confirm an exclusion on `(X,4)`. | Rejected with the current-reading error. | No decision, flag resolution or count change is written. |
+| LRN-21 | Only contributing Books add to the library total. | (b) | `grc`, owner A: G1 current; G2 Hidden Inbox; G3 Read; G4 with an offering only; package bytes for a unit with no binding; G6 whose analysis carries a vocabulary Usability restriction; a legacy `grc` EPUB Book L with `λέξισ` NOUN tuples. Owner B's G5. Each has `example:ex:1` or `λέξισ` occurrences. G1 has `ex:1` ×1. | Start G1. | The library total is the sum over G1, G2 and G3, and contribution rows name exactly those. | G4, the unbound bytes, G5, G6 and L add nothing and, while pending or failing, do not block the Start. |
+| LRN-22 | Exact flags gate Start and are independent per occurrence. | (b) | An unresolved flag on `(X,4)` and none on `(X,5)`, which share a span. | Start G1. Confirm `keep` on `(X,4)`. Save the same flag again. Start G1. | The first Start is rejected for unresolved flags. `keep` resolves the flag and stores no decision. The second Start succeeds. | Saving the flag again does not reopen it. `(X,5)` has no flag throughout. |
+| LRN-23 | Disposition, visibility and previously-read import write no rich learner state. | (b) | G2 is a ready contributing Book. G3 is an Inbox classical Book with no history. | Hide G2 and move it to Inbox. Import G3 as previously read. | The library total and G2's readiness are unchanged. G3 gets one completion with no snapshot. | No decision, count, membership or Rich Known row changes. Stale revisions are rejected as today. |
+| LRN-24 | Rich Known is immutable, set-valued and backed by frozen membership. | (d) | A has Rich Known `example:ex:1` from completion C. | Update any column. Insert `ex:1` again for A. Insert a row with no matching snapshot member. Insert a row whose language differs from its identity's. | Each is rejected or inserts nothing; the row is unchanged. | Inserting `ex:1` for owner B from B's own completion is accepted. |
+| LRN-25 | Rich identities never reach the Browse-selection or Custom-deck stores (OD-01). | (a) | Owner A with classical Books. | Run Start, decisions, Finish and Browse for `grc` through the handlers. | The tuple-keyed Browse-selection and Custom-deck stores have no `grc` row for A. | The existing `de` Browse-selection characterization still reads its rows. |
+| LRN-26 | Counts follow the current analysis and stay exact after decisions. | (b) | G1 is ready under X with `example:ex:1` ×3. | Confirm a correction of one `ex:1` occurrence to `ῥῆσις`. Then adopt Y for G1 without building counts. Start G2, which needs G1's total. | After the correction, readiness is still ready, `ex:1` is 2 and `ῥῆσισ` NOUN is 1. After the adoption, G1 is pending and G2's Start waits. | X's count rows are never read once Y is current. |
 
 ## 16. Requirement traceability
 
@@ -2475,7 +3003,7 @@ decisions (see §1) are not reopened here.
 
 | ID | question | options | recommendation | consequence | raised by | status |
 | --- | --- | --- | --- | --- | --- | --- |
-| OD-01 | Must rich identities reach the tuple-keyed Browse selection and Custom deck stores (B-17), whose UI is being retired? | (1) Greek identities are never written there; a test asserts it. (2) Add a discriminator to those stores. | (1), decided by #2069. | (1) adds no structure, but a Greek identity cannot be selected for a Custom deck. (2) changes stores outside the Reading path for a retiring UI. | #2064 | open |
+| OD-01 | Must rich identities reach the tuple-keyed Browse selection and Custom deck stores (B-17), whose UI is being retired? | (1) Greek identities are never written there; a test asserts it. (2) Add a discriminator to those stores. | (1), decided by #2069. §8 is written against it, and LRN-25 asserts it. | (1) adds no structure, but a Greek identity cannot be selected for a Custom deck. (2) changes stores outside the Reading path for a retiring UI. | #2064 | open |
 | OD-02 | Where is the generic casefold fallback rejected for `grc` (B-18, B-19)? | (1) The registry refuses `grc` unless a dedicated profile is registered, for both `For` and `Lookup`. (2) Only the shared validation interface rejects casefold-normalized `grc` identities. | (1), decided by #2067. §6 is written against it: `grc` is a dedicated-profile language, and every other unregistered language keeps the fallback. | (1) fails closed for every caller, including lemma review, but changes registry behaviour for an unregistered language. (2) leaves other callers able to normalize `grc` with casefold. | #2064 | open |
 | OD-03 | How does Reading eligibility treat an occurrence whose optional syntax is unavailable, given that `OccurrenceEligible` reads the dependency (B-10)? | (1) Unavailable syntax never makes an occurrence ineligible; syntax-based exclusions apply only when syntax is present. (2) Language-specific eligibility rules come from the canonical interpretation. | (1). §7 is written against it: a syntax-based exclusion applies only where the occurrence's basic syntax is usable. #2071 (§10) owns the eligibility interface that applies it. | (1) keeps one rule but needs explicit "unavailable" semantics. (2) moves eligibility into producer data. | #2064 | open |
 | OD-04 | How do store-contract scenarios cover Greek when the harness is fixed to `de` and seeds only tuples (B-30)? | (1) Parameterize the scenario language and extend the seeds with discriminators, span references and optional syntax. (2) Add a separate Greek scenario set beside the existing one. | (1), decided by #2071. | (1) runs every existing scenario against rich identities, but changes the harness interface for both adapters. (2) duplicates scenarios and lets them drift. | #2064 | open |
@@ -2506,6 +3034,11 @@ decisions (see §1) are not reopened here.
 | OD-29 | Does the legacy adapter re-validate legacy dependency trees with the §7 tree rules (TREE-1 to TREE-4)? `validateCorpusToken` never checked one root per sentence, cycles or connection (`internal/analysis/jobs.go:1849-1862`). | (1) No. The legacy adapter reports legacy basic syntax as `usable`, exactly as consumers read it today. (2) Yes. Legacy sentences that fail are reported `invalid` and withheld. | (1). | (1) keeps the legacy characterization exact (OCC-11). A legacy tree that would fail the §7 rules stays visible as it is today. (2) applies one standard everywhere, but changes current EPUB Concordance and sentence-study output without a reviewed migration, against "legacy analyses remain readable without mass conversion" (handoff Stage 2). | #2068 | open |
 | OD-30 | Is a `non_vocabulary` word or component, such as a native-class conjunction, an Annotation occurrence? | (1) No. Occurrences are word or component nodes classed `vocabulary` or `unresolved`. Non-vocabulary nodes are accounted for but take no count and no learner decision. (2) Yes. Every text-attested word or component is an occurrence, and the accounting class decides whether it counts. | (1). §7 is written against it. | (1) makes the occurrence foreign key unable to name anything a learner cannot sensibly decide. A learner cannot correct a native-class conjunction into vocabulary; only a new reviewed interpretation can. (2) lets a learner correct or exclude such a node, but an exclusion of something that never counts has no effect, and a correction would override a reviewed classification, against #2058 item 1 ("not a learner Occurrence exclusion"). | #2068 | open |
 | OD-31 | New terms used in §7. | Add to `CONTEXT.md`: **Non-vocabulary classification** (a source-supported, reason-coded accounting class that is not an Occurrence exclusion), **Multiword container** (a printed token whose linguistic components are counted instead of it) and **Unprinted node** (an annotation node with no text span, such as an empty node). Extend the existing **Annotation occurrence** entry to say it is identified by (Exact analysis, node), never by offsets. Keep Analysis sentence, Analysis node, Node span, Sentence span, Container component, accounting class, analysis read interface and the rule IDs as design-local names. | Add them in a separately reviewed `CONTEXT.md` change. | The three appear in learner-facing explanations of counts and coverage. Without them, "excluded" is ambiguous between a learner's Occurrence exclusion and a source-supported classification. The rest are storage detail. | #2068 | open |
+| OD-32 | How does the existing snapshot row anchor a classical reading? `primary_goal_snapshots` requires five legacy evidence columns and references `analysis_runs` and `corpora` (`migrations/000007_primary_goal_snapshots.up.sql:19-23`, `:30-32`), which a classical Book does not have (§5 OD-12). | (1) A new migration drops `NOT NULL` from the five columns and adds a nullable `exact_analysis_id` with a check that exactly one representation is set. (2) The same relaxation, plus a separate 1:1 classical snapshot record and a deferred trigger requiring exactly one side. (3) A parallel classical snapshot and current-reading anchor. (4) Leave `primary_goals.snapshot_id` NULL for classical readings and point at a classical snapshot elsewhere. | (1). §8 is written against it. | (1) keeps one snapshot anchor, so `primary_goals`, `reading_history` and `deck_preparations` keep their snapshot references, and a row check states the representation. It relaxes constraints on a shipped table, the kind of change OD-12 avoided. No existing row changes, because all of them satisfy the legacy branch. Queries that read the five columns directly (`sqlc/queries/current_reading.sql:109-119`, `:271-333`) must run only for legacy snapshots; `GetCurrentReading` already coalesces them (`:12-17`). (2) gives the same result with a cross-table trigger instead of a row check. (3) is a second learner state machine, which ADR 0098 forbids. (4) makes a classical reading look like the legacy no-snapshot shape, which Finish accepts with nothing to accept (`internal/persistence/current_reading.go:236-240`, `internal/domain/current_reading_finish.go:90-107`). | #2069 | open |
+| OD-33 | Do Rich Known rows affect legacy (tuple) selection? §6 defines equality between a legacy tuple and a null-discriminator, non-`grc` rich identity. | (1) No. Legacy selection reads only `known_vocabulary`. Rich selection reads Rich Known plus the legacy rows that equal its candidates under §6. (2) Both directions apply the §6 equality. | (1). | (1) guarantees that no legacy outcome changes (LRN-14). It is unobservable today, because the only rich language is `grc`, and §6 rule 5 keeps `grc` legacy and rich apart. A future non-`grc` classical language needs this revisited before its Known crosses representations. (2) is symmetric but makes legacy selection read a new record for no current case. | #2069 | open |
+| OD-34 | Is rich count readiness stored as an explicit state, or derived from River job rows as the legacy library-total query does (`internal/persistence/current_reading_lifecycle.go:197-219`)? | (1) Explicit `pending`, `ready` and `unavailable`, written by adoption, decisions and the rebuild job; the job writes `unavailable` when it exhausts its attempts. (2) Readiness row presence plus River job state, as today. | (1). §8 is written against it. | (1) makes the readiness state a persisted fact the fixture adapter can represent directly, and drops the JSON match on job arguments. It needs the job's last attempt to write the state, and a discarded job that never reaches that path leaves `pending`. (2) reuses a proven query, but couples the learner core to River's table layout. | #2069 | open |
+| OD-35 | Is the frozen snapshot headword stored per membership row, or derived when read? §6 asks §8 to place it. | (1) Stored on Rich snapshot membership and copied to Rich Known at acceptance. (2) Derived from the snapshot's analysis and the Book's decisions at read time. | (1). §8 is written against it. | (1) keeps the headword frozen even if a decision on the old analysis is later read differently, and lets the Known list show the accepted headword without a join through analyses. It costs one text column per row. (2) stores nothing, but makes a frozen display depend on mutable decisions. | #2069 | open |
+| OD-36 | New terms used in §8. | Add to `CONTEXT.md`: **Snapshot representation** (legacy tuple or rich, fixed when a snapshot is frozen) and **Library total** (an identity's effective count over the owner's contributing Books in one language, the 15 of the 3/15 rule). Extend **Known vocabulary** and **Current-reading vocabulary snapshot** to say they hold rich identities for classical Books. Keep Exact occurrence decision, Exact Lemma review flag, Rich count readiness, Rich vocabulary count, Rich snapshot membership, Snapshot count contribution and Rich Known vocabulary as design-local names. | Add them in a separately reviewed `CONTEXT.md` change. | The two terms appear in learner-facing explanations of why a word was selected and why Start is waiting. The rest are storage detail. | #2069 | open |
 
 ## 18. Approval record
 
