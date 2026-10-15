@@ -738,7 +738,7 @@ The issue's "Canonical interpretation configuration".
 Each slot holds a public identifier of the form `name/version`, checked against
 `^[a-z0-9][a-z0-9-]*/[1-9][0-9]*$`. For the retained candidate, the handoff names
 `oga-greta-lemma/2` (lemma mapping), `oga-agdt-upos/4` (POS mapping, including its
-εἰμί rule), no morphology mapping (NULL), `oga-anabasis1-research-repairs/2`
+εἰμί rule), `oga-agdt-feats/1` (morphology mapping), `oga-anabasis1-research-repairs/2`
 (repair layer), `oga-reading-terminal/2` (reading-terminal policy) and
 `ancient-greek/1` (normalization profile). The handoff names no separate
 source-decoding identifier (OD-13). The selection policy `grc-earliest-capped/1`
@@ -751,12 +751,13 @@ reviewed definition records its lineage. For the retained candidate:
 - `oga-agdt-upos/4` is written independently from the AGDT tagset documentation
   and the UPOS definitions, and replaces the superseded `oga-agdt-upos/3`. Its
   εἰμί rule is OD-77.
-- Morphology is deferred. With `morphology_mapping` NULL, morphology is
-  `unsupported` and `native_morphology` is retained (§7). A later interpretation
-  version may add `oga-agdt-feats/1`, written from the same documentation and
-  the FEATS definitions, after checking that the core package's annotation
-  members carry the morphology tags. That version is a new configuration and
-  needs explicit adoption.
+- `oga-agdt-feats/1` maps the AGDT `postag` positions (person, number, tense,
+  mood, voice, gender, case, degree) to UD FEATS, from the same documentation
+  and the FEATS definitions. A native value that the documentation does not map
+  stays only in `native_morphology` (§7). Stage 1 confirms that the core
+  package's annotation members carry the tags. Only if they do not does the
+  retained candidate declare no morphology mapping, with morphology
+  `unsupported`. Morphology never affects Vocabulary-ready.
 
 The **frozen exception-value/precondition table** (#2058 item 3) is referenced
 only by `exception_table_digest`. Its bytes come from local material and are
@@ -1099,7 +1100,7 @@ Each invariant is covered by the `EVD` rows in [§15](#15-acceptance-test-matrix
   outside analysis identity (OD-14).
 - **No treebank data (#2089).** The handoff records the rule and the earlier
   lines it overrides. This section applies it: `oga-agdt-upos/4`, the
-  `morphology_mapping` slot (NULL for the retained candidate), and the
+  `morphology_mapping` slot with `oga-agdt-feats/1`, and the
   exception-table changes.
 - §4's Edition `evidence_pin` is resolved here as a Text Source revision `id`.
 - Finding `sentence_ref` and `node_ref` target §7's keys. §7 defines them.
@@ -5646,14 +5647,14 @@ Verified at commit `00a63be6b38f9b54d359b6e68ed014af30ab7b25` (`main`). Every
 | Synthetic fixtures | public | `example-*` pin sets, packages, tables and definitions; the `ancient-greek-normalization/1`, `vocabulary-identity-comparison/1` and `source-decoding/1` cases; synthetic candidates and store-contract seeds | §6, §10, §12, §15 |
 | Structural examples | public | Invented forms such as `λέξις` with `example:ex:1` and `example:ex:2`. | §6, §7 |
 | Existing characterization fixtures | public | The Stanza fixtures listed in §10 "Current anchors" | §10 |
-| Public interpretation version identifiers | public | Slot identifiers such as `oga-greta-lemma/2`, `oga-agdt-upos/4`, `oga-anabasis1-research-repairs/2`, `oga-reading-terminal/2` and `ancient-greek/1`; the selection policy `grc-earliest-capped/1`; adapter, projection, correspondence, contract and pin-set identifiers | §5, §10, §12 |
+| Public interpretation version identifiers | public | Slot identifiers such as `oga-greta-lemma/2`, `oga-agdt-upos/4`, `oga-agdt-feats/1`, `oga-anabasis1-research-repairs/2`, `oga-reading-terminal/2` and `ancient-greek/1`; the selection policy `grc-earliest-capped/1`; adapter, projection, correspondence, contract and pin-set identifiers | §5, §10, §12 |
 | Code | public | Adapters, validation, registries, reason codes and their fixed messages, synthetic pin sets, the public fields of retained pin-set entries, and pin-file commitments (see below) | §10, §12 |
 | The retained package | local only | The package file the operator holds, and its stored Package blob | §5, §12 |
 | Its hashes and member names | local only | Transport digest, Package content digest, and every member's path, size and digest | §5, §12 |
 | The retained pin file | local only | The operator's `pin-file/1` file, and its Installed pin set row | §12 |
 | The frozen exception-value/precondition table | local only | The table values, the operator's table file and its `interpretation_table` blob. The table digest is local too (OD-70). | §5, §12 |
 | Exception-table lineage audit | local only, apart from its summary | Per-record lineage and outcome are local. The public summary gives counts per lineage class (documentation, retained source, Morpheus, treebank) and per outcome (kept, replaced, dropped), and any further repair-layer identifier. | §5 |
-| Interpretation lineage statements | public | Each reviewed slot definition's statement of the documentation it is written from, for example the AGDT tagset documentation and the UD UPOS definitions for `oga-agdt-upos/4` | §5 |
+| Interpretation lineage statements | public | Each reviewed slot definition's statement of the documentation it is written from, for example the AGDT tagset documentation and the UD UPOS and FEATS definitions for `oga-agdt-upos/4` and `oga-agdt-feats/1` | §5 |
 | Book 1 text and derived diagnostics | local only | Extracted text, §7 rows, Analysis headwords, Capability diagnostics and Diagnostic findings of an analysis of retained evidence; request `reason` and `diagnostics`; counts, snapshots, Known and history built from it | §5–§8, §11 |
 | Real-fixture parity output | local only | Every result of a [local-only acceptance step](#local-only-acceptance-steps), apart from whether it passed | this section |
 | Installation data | local only | The installation database, and every dump or backup of it (§9, §13 REC-3) | §9, §13 |
@@ -5742,7 +5743,7 @@ report says only that it ran and whether it passed. Time and memory measurements
 | --- | --- | --- |
 | #2061 | None. All of #2061's acceptance is synthetic. Real-source parity belongs to #2059 (#2061 "Testing Decisions"). | — |
 | #2059 | **L-1.** Register the retained package with `cmd/localregistration`, naming the retained pin set and interpretation and supplying the pin file and the frozen table (§12). | LOC-14, LOC-18, LOC-19 |
-| handoff Stage 1 | **L-0.** Before the retained table is frozen: the exception-table lineage audit (§5) and the re-run of complete-unit accounting and selection under the new interpretation. The re-run's numbers are accepted as they come out and become the expected values for L-2. No mapping or table value is tuned to reproduce 438/434. | OCC-09, OCC-10, OCC-17 |
+| handoff Stage 1 | **L-0.** Before the retained table is frozen: the exception-table lineage audit (§5), the confirmation that the core annotation members carry the morphology tags that `oga-agdt-feats/1` maps, and the re-run of complete-unit accounting and selection under the new interpretation. The re-run's numbers are accepted as they come out and become the expected values for L-2. No mapping or table value is tuned to reproduce 438/434. | OCC-09, OCC-10, OCC-17 |
 | #2059 | **L-2.** Real-fixture comparison. Prepare and adopt the retained Book 1, then compare complete-unit accounting, identities, selected identities, sentence inputs and omissions with the L-0 result, and report the explicit differences from the earlier 438/434 baseline (#2059 "Testing Decisions", to be restated, §16). | VAL-08, OCC-09, OCC-10, OCC-17, ADP-15 |
 | #2059 | **L-3.** Compare every learner-relevant identity, POS and accounting decision, every exact complete sentence span and text, and every selected target span and surface. | OCC-01 to OCC-06, IDN-28 |
 | #2059 | **L-4.** Reproduce the retained negative-test classes and precondition-mutation rejections at the production interface, by mutating the retained package or the frozen table. | LOC-01 to LOC-13, LOC-19, VAL-16 |
@@ -6158,7 +6159,7 @@ recorded in §17, or closed by a row that follows directly from a stated rule.
 | Impl 8 | Atomic adoption against expected owner, Book, evidence and request state, with counts and protected references. Freezes never change, and decisions never transfer. | §8, §9, §11 | ADP-09, ADP-12, ADP-13, ADP-20, ADP-21, ADP-25, RET-07, LRN-03, LRN-13 |
 | Impl 9 | Structural migration sequence, legacy preflight, concurrency rules, and tested restore or roll-forward. No numbers, no baseline edit, separate backfills. | §13 | MIG-01 to MIG-15, ADP-19, BIB-02 |
 | Impl 10 | Operator-local entry point without hosting, downloads or NLP, with safe failure. | §12 | LOC-14 to LOC-20, LOC-23, LOC-29 |
-| Impl 11 | Preserve the frozen minimum: unchanged source, the frozen table, non-vocabulary conjunctions with unresolved CCONJ/SCONJ, and required headwords and discriminators. Preserve provenance. Morpheus is corroboration, not a runtime dependency. | §5, §6, §7, §10, §12 | OCC-10, IDN-17, IDN-28, LOC-19, EVD-24, VAL-14, LOC-30. The real values are checked only in L-0 and L-2 to L-4. Under #2089, "the frozen table" is the table that §5's exception-table changes and the L-0 audit leave, and the POS mapping is the independent `oga-agdt-upos/4` (§5). |
+| Impl 11 | Preserve the frozen minimum: unchanged source, the frozen table, non-vocabulary conjunctions with unresolved CCONJ/SCONJ, and required headwords and discriminators. Preserve provenance. Morpheus is corroboration, not a runtime dependency. | §5, §6, §7, §10, §12 | OCC-10, IDN-17, IDN-28, LOC-19, EVD-24, VAL-14, LOC-30. The real values are checked only in L-0 and L-2 to L-4. Under #2089, "the frozen table" is the table that §5's exception-table changes and the L-0 audit leave, and the POS and morphology mappings are the independent `oga-agdt-upos/4` and `oga-agdt-feats/1` (§5). |
 | Impl 12 | Public and local material. Code release and data publication are separate. Unknown public-release applicability does not block. | §14 | PUB-01, PUB-02, PUB-03, LOC-21, VAL-07. Human channels: gap, OD-75. |
 | Impl 13 | Completion needs a reviewed design, a matrix and recorded human approval. SQL is not authorized before then. | §1, §15, §18 | None. A review rule: gap, OD-75. |
 | Test 1 | Observable behaviour, not table names. Each invariant is exercised and rejected. | §15 | See [Consistency audit](#consistency-audit): every invariant has a row, and no row asserts a proposed table name. |
@@ -6204,7 +6205,7 @@ Rows added by #2089 (no treebank data), for the morphology-mapping slot:
 - **EVD-34**: §5 adds `morphology_mapping` to the configuration identity.
 - **OCC-26**: §7 makes morphology `usable` only through that slot.
 
-The exception-table lineage audit and the re-run of the baseline need retained material, so they are the local-only step L-0
+The exception-table lineage audit, the morphology-tag confirmation and the re-run of the baseline need retained material, so they are the local-only step L-0
 (§14), not rows. The εἰμί rule is OD-77.
 
 Gaps recorded in §17: OD-68 (rich store-contract seeding), OD-74 (storage
@@ -6265,8 +6266,8 @@ offering and Claimed-alias parts of BIB-27.
 #### Spec statements updated for #2089
 
 The #2059 and #2063 bodies were restated for #2089 on 2026-10-15: the reduced
-exception table, `oga-agdt-upos/4` as the only new mapping, morphology without a
-mapping, and comparison with the Stage 1 re-run instead of 438/434.
+exception table, `oga-agdt-upos/4` and `oga-agdt-feats/1` as the only new
+mappings, and comparison with the Stage 1 re-run instead of 438/434.
 
 ### Consistency audit
 

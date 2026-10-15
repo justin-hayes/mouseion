@@ -41,15 +41,15 @@ the ZIP transport hash of one published build; different compression software ca
 preserve all members without reproducing that ZIP. Installations verify the exact
 reviewed release's transport, manifest and member pins, not the entire upstream
 archive. Pin interpretation separately, including `oga-greta-lemma/2`, the
-POS mapping `oga-agdt-upos/4` with its εἰμί rule, no morphology mapping, the
+POS mapping `oga-agdt-upos/4` with its εἰμί rule, the morphology mapping
+`oga-agdt-feats/1`, the
 repair layer `oga-anabasis1-research-repairs/2` (or a later version from the
 Stage 1 lineage audit), `oga-reading-terminal/2`, `ancient-greek/1` and
 `grc-earliest-capped/1`. Under [No treebank data](#no-treebank-data),
 `oga-agdt-upos/4` replaces the linked handoff's `oga-agdt-upos/3`, and
-`/2` drops the six POS repairs that corrected `/3`'s εἰμί rule. Morphology
-stays unavailable until a later interpretation version adds a mapping such as
-`oga-agdt-feats/1`. The other identifiers are as recorded in the linked
-handoff.
+`/2` drops the six POS repairs that corrected `/3`'s εἰμί rule.
+`oga-agdt-feats/1` is new and maps the source's AGDT morphology tags to UD
+FEATS. The other identifiers are as recorded in the linked handoff.
 An analysis-affecting change requires a new interpretation and explicit adoption,
 not an in-place change or a new implicit identity equivalence. A card-selection
 policy change applies to a newly prepared specification, not an analysis rewrite
@@ -81,8 +81,8 @@ stage below.
 - **What mappings are written from.** Each interpretation table is written only
   from the source's own tagset documentation (for OGA, the AGDT tagset and its
   annotation guidelines) and from the UD UPOS and FEATS tag definitions. In
-  `oga-agdt-upos/4`, "agdt" names the tagset that the OGA source uses. It does
-  not name treebank data.
+  `oga-agdt-upos/4` and `oga-agdt-feats/1`, "agdt" names the tagset that the
+  OGA source uses. It does not name treebank data.
 - **Lineage.** Every interpretation slot and every exception-table value records
   its lineage: the documentation it is written from, or the retained source
   evidence it reads. A value whose only basis is a treebank witness is replaced
@@ -177,11 +177,14 @@ decision. No new acquisition or script execution is authorized by this document.
   Every interpreted value must have supported lineage; do not bundle witnesses.
   Writing mappings under [No treebank data](#no-treebank-data) is required, not
   evasion of the rights gate.
-- Write `oga-agdt-upos/4` independently, from the AGDT tagset documentation
-  and the UD UPOS definitions only, and record that lineage in its reviewed
-  definition. It reuses none of `oga-agdt-upos/3`'s letter table. A native value
-  that the documentation does not map stays unmapped and is reported, never
-  guessed.
+- Write `oga-agdt-upos/4` and `oga-agdt-feats/1` independently, from the AGDT
+  tagset documentation and the UD UPOS/FEATS definitions only, and record that
+  lineage in each reviewed definition. Neither reuses `oga-agdt-upos/3`'s
+  letter table. A native value that the documentation does not map stays
+  unmapped and is reported, never guessed.
+- Confirm that the core package's annotation members carry the AGDT morphology
+  tags. If they do not, the retained candidate declares no morphology mapping,
+  and morphology is reported unavailable rather than filled in.
 - Decide and record the εἰμί rule (AUX or VERB) again for `oga-agdt-upos/4`, as
   an explicit human decision from the UPOS definitions and the source's own
   native annotation (design OD-77). Its errors are disclosed, not repaired.
