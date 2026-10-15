@@ -154,3 +154,17 @@ mapped or corrected. Source-derived documentary evidence is offered under
 CC BY-SA 4.0, without warranty or upstream endorsement. Research code and invented
 test fixtures are Mouseion-authored; the repository's application-code license
 is unchanged. Dataset terms do not automatically relicense application code.
+
+## Mapping-completion pass (2026-10-15): Morpheus and UD documentation
+
+- **Morpheus Greek stemlib** (<https://github.com/PerseusDL/morpheus>, pinned
+  at `b1b33c56ef2338fe0dcd1893628ed638f00c0986`). The repository is licensed
+  CC BY-SA 3.0 US. Morpheus is Tufts University / Perseus Digital Library work.
+  This pass uses the stemlib only to derive lemma-key identity and proper-name
+  evidence. The committed summary records only short witnesses (file, line,
+  key, derivation) and per-file SHA-256 hashes. The full index stays private.
+  Mouseion does not relicense Morpheus data. Share-alike applies to any
+  redistribution of the stemlib itself.
+- **UD Ancient Greek-Perseus README** and **UD UPOS index**: documentation
+  only, retained privately with SHA-256 hashes in `producer-docs.json`. The
+  README is listed as CC BY-NC-SA 2.5. No treebank data, model, or code is redistributed.

@@ -1,0 +1,1923 @@
+{
+ "downstream": "stopped-before-selection-sentence-cap-omission",
+ "gates": {
+  "aligned_with_conllu_surface_lemma_pos": 10572,
+  "empty_nodes_unprinted": 110,
+  "native_nodes": 10572
+ },
+ "identity_layer": {
+  "blocked_occurrence_ids": [
+   "t_302",
+   "t_5468",
+   "t_6606",
+   "t_7682",
+   "t_7815",
+   "t_9906",
+   "t_9922"
+  ],
+  "blocked_occurrences": 7,
+  "distinct_numbered_labels": 21,
+  "labels": [
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "de/w2",
+      "line": 24228
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "vbs.simp.ml",
+      "key": "de/w2",
+      "line": 5091
+     }
+    ],
+    "headword": "δέω",
+    "loose_witnesses": [],
+    "occurrences": 5,
+    "raw_lemma": "δέω2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "de/w1",
+     "de/w2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "eu)qu/s2",
+      "line": 29298
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom03",
+      "key": "eu)qu/s2",
+      "line": 1005
+     }
+    ],
+    "headword": "εὐθύς",
+    "loose_witnesses": [],
+    "occurrences": 7,
+    "raw_lemma": "εὐθύς2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "*eu)=qus",
+     "eu)qu/s1",
+     "eu)qu/s2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "qei=os1",
+      "line": 42966
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom03",
+      "key": "qei=os1",
+      "line": 4889
+     }
+    ],
+    "headword": "θεῖος",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "θεῖος1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "qei=os1",
+     "qei=os2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "3",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "le/gw3",
+      "line": 34654
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "vbs.simp.ml",
+      "key": "le/gw3",
+      "line": 12240
+     }
+    ],
+    "headword": "λέγω",
+    "loose_witnesses": [],
+    "occurrences": 49,
+    "raw_lemma": "λέγω3",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2",
+     "3"
+    ],
+    "same_headword_keys": [
+     "le/gw1",
+     "le/gw2",
+     "le/gw3"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "ce/nos1",
+      "line": 23928
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom04",
+      "key": "ce/nos1",
+      "line": 10739
+     }
+    ],
+    "headword": "ξένος",
+    "loose_witnesses": [],
+    "occurrences": 4,
+    "raw_lemma": "ξένος1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "ce/nos1",
+     "ce/nos2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "para/-ei)mi/": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "pa/reimi1",
+       "line": 4562
+      }
+     ]
+    },
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "para/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "pa/reimi1",
+      "line": 4562
+     }
+    ],
+    "headword": "πάρειμι",
+    "loose_witnesses": [],
+    "occurrences": 9,
+    "raw_lemma": "πάρειμι1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "pa/reimi1",
+     "pa/reimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "para/-ei)=mi": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "pa/reimi2",
+       "line": 4559
+      }
+     ]
+    },
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "para/-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "pa/reimi2",
+      "line": 4559
+     }
+    ],
+    "headword": "πάρειμι",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "πάρειμι2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "pa/reimi1",
+     "pa/reimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "peri/-ei)mi/": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "peri/eimi1",
+       "line": 4820
+      }
+     ]
+    },
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "peri/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "peri/eimi1",
+      "line": 4820
+     }
+    ],
+    "headword": "περίειμι",
+    "loose_witnesses": [],
+    "occurrences": 2,
+    "raw_lemma": "περίειμι1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "peri/eimi1",
+     "peri/eimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "pisto/s2",
+      "line": 40854
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom05",
+      "key": "pisto/s2",
+      "line": 4877
+     }
+    ],
+    "headword": "πιστός",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "πιστός2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "pisto/s1",
+     "pisto/s2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "pro/-ei)=mi": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "pro/eimi1",
+       "line": 5218
+      }
+     ]
+    },
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "pro/-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "pro/eimi1",
+      "line": 5218
+     }
+    ],
+    "headword": "πρόειμι",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "πρόειμι1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "pro/eimi1",
+     "pro/eimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "pro/-ei)mi/": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "pro/eimi2",
+       "line": 5221
+      }
+     ]
+    },
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "pro/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "pro/eimi2",
+      "line": 5221
+     }
+    ],
+    "headword": "πρόειμι",
+    "loose_witnesses": [],
+    "occurrences": 3,
+    "raw_lemma": "πρόειμι2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "pro/eimi1",
+     "pro/eimi2"
+    ]
+   },
+   {
+    "decision": "ambiguous-shared-key",
+    "derivations": {
+     "pro/s-ei)=mi": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "pro/seimi1",
+       "line": 5639
+      }
+     ],
+     "pro/s-ei)mi/": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "pro/seimi1",
+       "line": 5643
+      }
+     ]
+    },
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "pro/s-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "pro/seimi1",
+      "line": 5639
+     },
+     {
+      "class": "compound",
+      "derivation": "pro/s-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "pro/seimi1",
+      "line": 5643
+     }
+    ],
+    "headword": "πρόσειμι",
+    "loose_witnesses": [],
+    "occurrences": 6,
+    "raw_lemma": "πρόσειμι1",
+    "reason": "same key from 2 distinct producer derivations",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "pro/seimi1",
+     "pro/seimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "su/n-ei)=mi": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "su/neimi2",
+       "line": 6338
+      }
+     ]
+    },
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "su/n-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "su/neimi2",
+      "line": 6338
+     }
+    ],
+    "headword": "σύνειμι",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "σύνειμι2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "su/neimi1",
+     "su/neimi2"
+    ]
+   },
+   {
+    "decision": "not-established-no-key",
+    "derivations": {},
+    "discriminator": "2",
+    "exact_witnesses": [],
+    "headword": "σύνλέγω",
+    "loose_witnesses": [],
+    "near_derivations": [
+     {
+      "derivation": "su/n-le/gw2",
+      "file": "vbs.cmp.ml",
+      "key": "sulle/gw",
+      "line": 6459
+     }
+    ],
+    "occurrences": 1,
+    "raw_lemma": "σύνλέγω2",
+    "reason": "the spelled prefix-compound derivation has no digit-bearing output key",
+    "same_headword_discriminators": [],
+    "same_headword_keys": []
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "xra/w2",
+      "line": 48488
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "vbs.simp.ml",
+      "key": "xra/w2",
+      "line": 22963
+     }
+    ],
+    "headword": "χράω",
+    "loose_witnesses": [],
+    "occurrences": 2,
+    "raw_lemma": "χράω2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "xra/w1",
+     "xra/w2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "a)po/-ei)mi/": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "a)/peimi1",
+       "line": 912
+      }
+     ]
+    },
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "a)po/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "a)/peimi1",
+      "line": 912
+     }
+    ],
+    "headword": "ἄπειμι",
+    "loose_witnesses": [],
+    "occurrences": 3,
+    "raw_lemma": "ἄπειμι1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "a)/peimi1",
+     "a)/peimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "a)po/-ei)=mi": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "a)/peimi2",
+       "line": 908
+      }
+     ]
+    },
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "a)po/-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "a)/peimi2",
+      "line": 908
+     }
+    ],
+    "headword": "ἄπειμι",
+    "loose_witnesses": [],
+    "occurrences": 3,
+    "raw_lemma": "ἄπειμι2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "a)/peimi1",
+     "a)/peimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "a)/rwma1",
+      "line": 18889
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom01",
+      "key": "a)/rwma1",
+      "line": 11021
+     }
+    ],
+    "headword": "ἄρωμα",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "ἄρωμα1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "*)/arwma",
+     "a)/rwma",
+     "a)/rwma1",
+     "a)/rwma2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "e)pi/-ei)mi/": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "e)/peimi1",
+       "line": 3092
+      }
+     ]
+    },
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "e)pi/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "e)/peimi1",
+      "line": 3092
+     }
+    ],
+    "headword": "ἔπειμι",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "ἔπειμι1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "e)/peimi1",
+     "e)/peimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {
+     "e)pi/-ei)=mi": [
+      {
+       "file": "vbs.cmp.ml",
+       "key": "e)/peimi2",
+       "line": 3089
+      }
+     ]
+    },
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "e)pi/-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "e)/peimi2",
+      "line": 3089
+     }
+    ],
+    "headword": "ἔπειμι",
+    "loose_witnesses": [],
+    "occurrences": 5,
+    "raw_lemma": "ἔπειμι2",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "e)/peimi1",
+     "e)/peimi2"
+    ]
+   },
+   {
+    "decision": "key-resolved",
+    "derivations": {},
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "h)/1",
+      "line": 31244
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom03",
+      "key": "h)/1",
+      "line": 3438
+     }
+    ],
+    "headword": "ἤ",
+    "loose_witnesses": [],
+    "occurrences": 36,
+    "raw_lemma": "ἤ1",
+    "reason": "one producer key with this headword and digit",
+    "same_headword_discriminators": [
+     "1",
+     "2"
+    ],
+    "same_headword_keys": [
+     "h(=",
+     "h(=|",
+     "h)/1",
+     "h)/2",
+     "h)="
+    ]
+   }
+  ],
+  "numbered_occurrences": 142,
+  "occurrence_decisions": {
+   "ambiguous-shared-key": 6,
+   "key-resolved": 135,
+   "not-established-no-key": 1
+  },
+  "result": "failed"
+ },
+ "inputs": {
+  "conllu_sha256": "0f9cbba8e4fdf28ddcedc70259c18f3d00573bc9a82d3acc6a9a050d17542780",
+  "index_records": 188173,
+  "native_nodes_sha256": "2a5aca90602428b23f0f88cbcbfbd1ac787c87d25bd9bd87c67c7a29ae0f942b"
+ },
+ "morpheus_index_sha256": "57f81c8627c654411f185f2c2d491a958c8acdd5684400fe3c1696ebb2b9d5c2",
+ "morpheus_manifest": {
+  "index_sha256": "57f81c8627c654411f185f2c2d491a958c8acdd5684400fe3c1696ebb2b9d5c2",
+  "pin": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+  "records_by_class": {
+   "compound": 7180,
+   "le-block": 126862,
+   "lemlist": 49090,
+   "lsj-compound": 5041
+  },
+  "stemsrc_files": {
+   ".cvsignore": "d98826edce76feb122b19c24e6d774bef7fc9f622c4f8df5e17ca415bcd83275",
+   "badstem": "7356c4b96f4e38d84254181acf4389267e703df58ed262710a518480fcc5a301",
+   "bgrep": "bf8b5475be1ccb342d5d1a86ae062a859ed3132855b8f019939c5dd262b6d5f5",
+   "diod.failed": "2355e202db0f0948219f44c07c855d6fbe2b0fc0ac0ee083eb440c362daab6f1",
+   "diod.lc.failed": "fa8163a218c604975c1189df796a229aa66569fd5e3855ee8cd7b687f7f836a7",
+   "dopnom.c": "4a0aff6a37b6da07b36951592640d18a20208e9785a78bf6b24396bf719a63bc",
+   "entitylist-byhand.txt": "4a8090415dc6500fff052f9134ad2ad5848ae4d8f8a2293b259ce75271f90127",
+   "flatlems.c": "024676dc849fb7a7c5d2c011594880fb4021c619934c004b40fde6f2a9beb4ab",
+   "geteu": "d67c15fa364ba45a7d10a35fe1a81081fc5f25d3101e014c624012bcf0d028b9",
+   "getheads": "3482bcaafc64b80fbd4a756efc0e1cecd2e803cf003178d8b4af84cd6d530865",
+   "getpref": "2bb0dec5fb9a0bad04db623d4ac5c2c4701c8cd9dcd2111ee008697a52918d4d",
+   "getunique": "ba2d0e8ab1d921580665e44cdf7cafc1e253ba7eb2e40d80ac9b36c31239dcff",
+   "goodstem.c": "30310df5329dae4f241ea640570eefc38c1889c73afc1825741b6c2e6ecc1da5",
+   "grabmorph.pl": "9c0e547cad9b71d8cea2a7d811f2bd70985032d4c17ef991f9670d393436a8f8",
+   "headnolen.c": "67476700cf34eb15045168bf2b3fb05e9088fc5c292dee72434a96b933e18799",
+   "irreg.nom.src": "96f3cfae1ef4d406e36c8599613ea0f39759dfdc6414d8acc32d761e903f9c7c",
+   "irreg.vbs.src": "b0fc8086f5dcf464acc9c909b397226478bde0df079a44a6aaa35d40e012a964",
+   "lemlist": "9c24975473c68111ff6b8a7e14020a221765ceaa854ffa499385e2a2904aec8d",
+   "lsj.byhand": "0f4dab47ddec55fc0213704e2f526f6bae7e5d0c44d814295d3b6b98cbbf2b5c",
+   "lsj.nom": "bfb03e172cb16e464ae6e97793a9c3b0d2196433e40463081f9a1e2d481af8d2",
+   "lsj.vbs": "1169d2ccea85048e95742d12f58b49faf83fafc02f064abc2fa988239da6aa4c",
+   "lsj.vbs.byhand": "5b389785449b0a16d2bb9e5c37f9f0a203ec86ee9d683d456860ee909e9332a9",
+   "lsj01": "e7f173f2b5a7ddb750bd19c668c467caeb9c77baf753e2d831c9577820a4772d",
+   "morphheads": "45b652489f1893e884344a7bda03bb80e6d7895955bb084ffe32f0b3c7d96777",
+   "nom.algo1": "c9de1dcfa1636fde6cd52caab1c59d07a34a417b1ca38b8405f268ed30c07dda",
+   "nom.comp": "cd9e2d8ac004f01c59bbeb512485ca04bc5bba16a162af93c6f0bb0a3895ae2e",
+   "nom.irreg": "e6a3f0c5fbfcb97b329e09523e2875fab38345536c09193049ae39f45c8037e7",
+   "nom.proper": "2a122d2b42f749d52c9b76ff720443f9ad471ae9e79eb6c834a57660708f29ef",
+   "nom.smith.bio": "8f003586930509d123f427c6947be79ea3ab104cc220fe8fa204013700c5bb19",
+   "nom.smith.geo": "045169ce87788ccbf895ffd3c45d720b2fca078768a49592ca552ee23d1dbc9b",
+   "nom01": "30267de6e3d6dadf482ffe95f859b386f2fcb13816a82f3a4b75701fbf7d5a55",
+   "nom02": "f874ddc49930d1e765b52f6e458ed9d66d21797b827f392be3f926a1fca815ac",
+   "nom03": "5e24f5c2d61efd91b2c558841953312cb158a90852fc89e7bad14c4fa24699ba",
+   "nom04": "5c170806b2edbc804129c3e8f9c1dfb66b58971ac1a6a63f7b7b6dc4b36e0f28",
+   "nom05": "f500396c4c70f46425f155b12e4437519b9d7a909c6fee52286e76f2e12a5e22",
+   "nom06": "00766df7e696226ef973caadbccea70474efade623ab819e6c0a16fef078a334",
+   "nom07": "6ad5971f5f626267fb9a110c168679521de5bbf6827dd67eec88d6ed4d265b19",
+   "nom08.herod": "947425f6439ece47131c37b2a03e644317fceb932fc81a7e3a55df355072b7fb",
+   "nom09.homer": "5c511123f77e3300a55c7d3b1fff7531aff9a693d10b6ab60a0045921cb25365",
+   "nom09.homer.pn": "d872202e216a2fbdb9334de607cb49e8b9f1f6573acd2cbdfdec90e49a4aab92",
+   "nom09.homer.tmp": "6057930092e691043d9821a44032e7ead6e64cd14a5c7328a98f2ff506134cc4",
+   "nom10.crat": "bec68e404d7ccefaa1625b8c69ade3c97b1df5c2409c92c376a91081ae0cda41",
+   "nom11.soph": "93641bd318b58f956cfb2840480ada6580f6b253077595b6e8cdade94830200f",
+   "nom12.tom": "e8b0ec957de0c6febfe2433024f1caa8baaa6491a5ccbed598386d4a2f86de1e",
+   "nom13.paus": "d6dd0fcc92e49e9b7a6d431a6f393192a429ea70d457b76c71fbead38693fcbe",
+   "nom14.aesch": "f313099af64e853d49f76f06d464bd89b1f46864bb51f5f7b650e568d8f42d80",
+   "nom15.plut": "8d2e9068a5de89f5339d5107faeb3721e567f4a06c6566be5bc596628f18c931",
+   "nom16.apollod": "2a0a96ba569c982dc528d72fe32af5b8edc8cea7df14a83a23ec2af5c7f4ea78",
+   "nom17.isoc": "94c679f76c87bef21d98637d4a2b2e89363e84cf7b99d823b518610d63b9bf0b",
+   "nom18.aeschin": "8d5d0edab5c30bb9acb6b8028f0eee390ceaa3bb7b222a1fcca1cf5d54fa216a",
+   "nom19.isaeus": "7df82636e6794e9553732a96b20ee693eb7ebeb024c072f37619e0b336d3fdc4",
+   "nom20.minor": "b6935cf664fce957cc6b4f85b5de9d89b0c8ac638969bf5c2a70eebe8cc9318b",
+   "nom21.lysias": "da905ca97497113b597815715c608e804eac984caf99797c9d9863cbe9784aec",
+   "nom22.heshom": "91c5e6460f745bc5a71c6c12547997e092d303e7b29256cc2bbd5df1fe428983",
+   "nom23.hhymn": "191dcbdedc147791b5989d5d934b490947e8e7535a3e5d671cc991468c9c2eb3",
+   "nom24.homerica": "7e54c66c770b2b570b123466415774a314df2c6097a9f1bfbd3ca44eeafb029c",
+   "nom25.thuc": "8116d10c14809f0ca59104b5f956de275a1b81bd961e955bf2d43680d15fd7f6",
+   "nom26.dem": "6be1122c38d2fa2d076c6bf71435530628649a96304af42cf2e6624e138be9e4",
+   "nom27.xen": "617d40a36d68ef3f10456f04ee15ec672606f26e6ee78d7c3d4f335d869242fa",
+   "nom28.plato": "61b209768afb7ec88548ea821f47b6f75eb832cf23d9edc05449238d05ddda45",
+   "nom30.aristoph": "10f12c788a4395528c6ac8dca47a5869671fb12601c66d81ecc8f9a8d1f10a62",
+   "nom31.diod": "82e89e132cf7c58bcc532414b560548d532493e92f57d303cf4bc482562c75b7",
+   "nom32.smithbio": "62dbc7786dc4f0aa6735752ea057f93438e167a7d4a2f72102f6cd9a1b9a2e06",
+   "nom32.thuc.2": "0fa5ef563bbf63b5d00323460610a5153840bcdb8e41324b878e81c7fba46705",
+   "nom34.quint": "8fc0ffd2fd9b9096bc6bf30e52ce36817688a5e44d0df7eb9e57ae32bc22bf5f",
+   "nom36.plut": "f129549ebb94c940104df16f0261981abb9decafc1c155fba0bae810b4776686",
+   "old.nom.irreg": "29a67314cf099275b40d41da49048c82f9e0d7d1a9ee2911df240d868c0ba353",
+   "old.vbs.irreg": "5c161b8e8d3e94f17ca1f14a560b15b228cf623410f0785b0361d5ed5d582e4f",
+   "pat": "02966e897026fd810ea1dd013509f476f5a7256d321d4926f1136bd94447be28",
+   "stripref.c": "4b257daac9ced6c8fdbdb07870e52caa55a908985864cbb6c86b33a48a0d3b1a",
+   "t.paus": "9d256b64bd63723a7c07c40bc710ccd1c203143987498e7ae7be2f7b93cc1421",
+   "tailnolen": "f8ffbc92dd150d9b25a85f803c17a663119f055c94415377e1714a58e50bf537",
+   "tmp": "41124f75903d93992fb576efaf3d94958eefb2885e6795d007117a38bf309db7",
+   "tmp.paus": "37cd1c0d780d84adb3ea4b127a9369ece8a3f7c67c70351653025052068e191d",
+   "vbs.cmp.lsj": "9d3ab2a6ed954fec63494dd69e571d525d5ea2e03f9a666406eb6052809770bc",
+   "vbs.cmp.ml": "e5e31787a96f77f07e56d9ebe04fe443b60ec9b66b49bbc920448c030eb89268",
+   "vbs.irreg": "05f20d682e502981fbfc09299d852edf066bf01be0d5624a74a58edbf7f043b1",
+   "vbs.simp.02.new": "016d8ecccb216ba1f9b542b56e53f3882592c3c175a7ccc721db8375cce012d8",
+   "vbs.simp.ml": "857a00ce3cef756861f32af6380bab3537279eccb4cc2a0e3976438c202d7b5a",
+   "x.nom09.homer": "5c53b6a8b2b5e2090ed9d59832998f9998cdb56a91fee9b23a0a86c1c0cfd750",
+   "xpnom06.paus": "d777dd6a0a07da5fee8a2b67f3319b043f661765e1126da7b810230b90b736b5",
+   "zapapriv.lex": "aa1d2d75be1cc31d2514eae5dccb44fa4b3df36041bc625fd7063dfb0e1e1375",
+   "zapdoric.lex": "cb27b1fdfa6c1e2253f6dca74f01a3c249d0892ba2bb116532a369ced7a4df4d",
+   "zapfirstf.c": "adef7ecd4e5714470e2cd7e705716663ba09bc2a26f3dd1aa1415b93b0e51f91"
+  },
+  "undecodable_keys_skipped": {
+   "compound": 1,
+   "le-block": 293,
+   "lemlist": 197
+  }
+ },
+ "morpheus_pin": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+ "pos_layer": {
+  "allowed_pos_default": [
+   "ADJ",
+   "ADV",
+   "NOUN",
+   "VERB"
+  ],
+  "blocked_by_rule": {
+   "pos-a-adverb-status-conflict": {
+    "count": 113,
+    "ids": [
+     "t_1000",
+     "t_10097",
+     "t_10115",
+     "t_10117",
+     "t_10131",
+     "t_1277",
+     "t_1462",
+     "t_1494",
+     "t_1589",
+     "t_1595",
+     "t_1822",
+     "t_1901",
+     "t_1961",
+     "t_2262",
+     "t_2283",
+     "t_2353",
+     "t_261",
+     "t_2711",
+     "t_2767",
+     "t_2777",
+     "t_2801",
+     "t_2866",
+     "t_2900",
+     "t_2910",
+     "t_2969",
+     "t_3185",
+     "t_3378",
+     "t_3399",
+     "t_3607",
+     "t_3780",
+     "t_3986",
+     "t_3988",
+     "t_4266",
+     "t_4297",
+     "t_4516",
+     "t_4682",
+     "t_4687",
+     "t_4722",
+     "t_4737",
+     "t_4740",
+     "t_4764",
+     "t_4916",
+     "t_4988",
+     "t_4990",
+     "t_5101",
+     "t_5120",
+     "t_5125",
+     "t_5126",
+     "t_5129",
+     "t_5134",
+     "t_5136",
+     "t_5138",
+     "t_5178",
+     "t_5334",
+     "t_5427",
+     "t_5499",
+     "t_5585",
+     "t_5587",
+     "t_5665",
+     "t_5669",
+     "t_5738",
+     "t_5931",
+     "t_6084",
+     "t_6204",
+     "t_6524",
+     "t_6741",
+     "t_7139",
+     "t_7213",
+     "t_7221",
+     "t_7418",
+     "t_7427",
+     "t_7443",
+     "t_7447",
+     "t_7454",
+     "t_7516",
+     "t_7517",
+     "t_7525",
+     "t_7606",
+     "t_7679",
+     "t_7706",
+     "t_7742",
+     "t_7745",
+     "t_7757",
+     "t_7842",
+     "t_7895",
+     "t_8106",
+     "t_8261",
+     "t_8386",
+     "t_8510",
+     "t_8519",
+     "t_8538",
+     "t_8539",
+     "t_857",
+     "t_8604",
+     "t_8616",
+     "t_8626",
+     "t_8639",
+     "t_8699",
+     "t_8731",
+     "t_8738",
+     "t_8843",
+     "t_8925",
+     "t_8980",
+     "t_9061",
+     "t_9069",
+     "t_9122",
+     "t_9148",
+     "t_9181",
+     "t_9224",
+     "t_9250",
+     "t_9269",
+     "t_9646",
+     "t_9759"
+    ]
+   },
+   "pos-c-adverb-function-conflict": {
+    "count": 1,
+    "ids": [
+     "t_8011"
+    ]
+   },
+   "pos-d-function-conflict": {
+    "count": 11,
+    "ids": [
+     "t_1843",
+     "t_2972",
+     "t_4470",
+     "t_4471",
+     "t_4725",
+     "t_4751",
+     "t_5222",
+     "t_5770",
+     "t_5836",
+     "t_8720",
+     "t_9927"
+    ]
+   },
+   "pos-d-unrecognised-relation": {
+    "count": 4,
+    "ids": [
+     "t_6300",
+     "t_6304",
+     "t_8570",
+     "t_9520"
+    ]
+   },
+   "pos-n-adverb-status-conflict": {
+    "count": 411,
+    "ids": [
+     "t_10141",
+     "t_10191",
+     "t_10227",
+     "t_1024",
+     "t_10279",
+     "t_10356",
+     "t_1037",
+     "t_10391",
+     "t_10393",
+     "t_1043",
+     "t_10451",
+     "t_10459",
+     "t_1051",
+     "t_1078",
+     "t_1086",
+     "t_1105",
+     "t_1108",
+     "t_1125",
+     "t_1175",
+     "t_1194",
+     "t_1196",
+     "t_1199",
+     "t_1201",
+     "t_1206",
+     "t_1237",
+     "t_1239",
+     "t_1243",
+     "t_1245",
+     "t_1252",
+     "t_1256",
+     "t_1258",
+     "t_1262",
+     "t_1264",
+     "t_1269",
+     "t_1280",
+     "t_1321",
+     "t_1363",
+     "t_1365",
+     "t_1368",
+     "t_1370",
+     "t_1377",
+     "t_1393",
+     "t_1399",
+     "t_1401",
+     "t_1404",
+     "t_1406",
+     "t_1411",
+     "t_1432",
+     "t_1447",
+     "t_1504",
+     "t_1507",
+     "t_1516",
+     "t_1521",
+     "t_1548",
+     "t_1592",
+     "t_1632",
+     "t_1666",
+     "t_1668",
+     "t_1671",
+     "t_1675",
+     "t_1681",
+     "t_1687",
+     "t_1688",
+     "t_1690",
+     "t_1714",
+     "t_1733",
+     "t_1734",
+     "t_1736",
+     "t_1741",
+     "t_1743",
+     "t_1752",
+     "t_1815",
+     "t_1818",
+     "t_1845",
+     "t_1853",
+     "t_1924",
+     "t_1926",
+     "t_1933",
+     "t_1935",
+     "t_1937",
+     "t_1942",
+     "t_1946",
+     "t_1968",
+     "t_1970",
+     "t_1981",
+     "t_1987",
+     "t_2000",
+     "t_2003",
+     "t_2006",
+     "t_2014",
+     "t_2016",
+     "t_2024",
+     "t_2088",
+     "t_2158",
+     "t_2167",
+     "t_2208",
+     "t_2287",
+     "t_2324",
+     "t_234",
+     "t_2363",
+     "t_2370",
+     "t_2565",
+     "t_2571",
+     "t_2573",
+     "t_2585",
+     "t_2608",
+     "t_263",
+     "t_276",
+     "t_286",
+     "t_2887",
+     "t_2957",
+     "t_308",
+     "t_311",
+     "t_3129",
+     "t_3280",
+     "t_3306",
+     "t_3403",
+     "t_3405",
+     "t_3410",
+     "t_3421",
+     "t_3423",
+     "t_3428",
+     "t_3438",
+     "t_3440",
+     "t_3443",
+     "t_3448",
+     "t_3451",
+     "t_3460",
+     "t_3486",
+     "t_3501",
+     "t_3518",
+     "t_3531",
+     "t_3540",
+     "t_3558",
+     "t_3562",
+     "t_3564",
+     "t_3567",
+     "t_3613",
+     "t_3615",
+     "t_3632",
+     "t_3644",
+     "t_3656",
+     "t_3664",
+     "t_3677",
+     "t_3688",
+     "t_3718",
+     "t_372",
+     "t_3720",
+     "t_3735",
+     "t_3736",
+     "t_3738",
+     "t_3741",
+     "t_3743",
+     "t_3764",
+     "t_3797",
+     "t_3808",
+     "t_3826",
+     "t_392",
+     "t_3945",
+     "t_3961",
+     "t_3980",
+     "t_3995",
+     "t_3997",
+     "t_4002",
+     "t_4006",
+     "t_404",
+     "t_4040",
+     "t_4045",
+     "t_4047",
+     "t_4051",
+     "t_4094",
+     "t_4096",
+     "t_4101",
+     "t_4105",
+     "t_411",
+     "t_4117",
+     "t_4121",
+     "t_4191",
+     "t_4195",
+     "t_4203",
+     "t_4299",
+     "t_4315",
+     "t_4390",
+     "t_4393",
+     "t_44",
+     "t_441",
+     "t_445",
+     "t_4500",
+     "t_451",
+     "t_4522",
+     "t_4552",
+     "t_4553",
+     "t_4555",
+     "t_4570",
+     "t_4572",
+     "t_4576",
+     "t_4585",
+     "t_4590",
+     "t_4592",
+     "t_4595",
+     "t_4604",
+     "t_4615",
+     "t_465",
+     "t_4685",
+     "t_4747",
+     "t_4748",
+     "t_4752",
+     "t_4790",
+     "t_4819",
+     "t_4823",
+     "t_4830",
+     "t_4833",
+     "t_4839",
+     "t_4850",
+     "t_4856",
+     "t_4882",
+     "t_4912",
+     "t_4969",
+     "t_4979",
+     "t_5012",
+     "t_5049",
+     "t_5054",
+     "t_507",
+     "t_5073",
+     "t_5078",
+     "t_5115",
+     "t_5155",
+     "t_5165",
+     "t_5191",
+     "t_5210",
+     "t_5247",
+     "t_5262",
+     "t_5311",
+     "t_5332",
+     "t_5362",
+     "t_5372",
+     "t_5408",
+     "t_5424",
+     "t_5534",
+     "t_5578",
+     "t_5619",
+     "t_5659",
+     "t_5754",
+     "t_5843",
+     "t_59",
+     "t_5918",
+     "t_5921",
+     "t_5926",
+     "t_611",
+     "t_6130",
+     "t_6251",
+     "t_6335",
+     "t_6336",
+     "t_6338",
+     "t_6345",
+     "t_6356",
+     "t_6359",
+     "t_6371",
+     "t_6399",
+     "t_6403",
+     "t_6408",
+     "t_6414",
+     "t_6456",
+     "t_6470",
+     "t_6511",
+     "t_6514",
+     "t_6583",
+     "t_6652",
+     "t_6656",
+     "t_6664",
+     "t_6668",
+     "t_6794",
+     "t_6843",
+     "t_6903",
+     "t_6936",
+     "t_6951",
+     "t_6967",
+     "t_6970",
+     "t_6975",
+     "t_6989",
+     "t_6991",
+     "t_7008",
+     "t_7016",
+     "t_7042",
+     "t_7045",
+     "t_7049",
+     "t_7068",
+     "t_7078",
+     "t_7099",
+     "t_7105",
+     "t_7138",
+     "t_7148",
+     "t_7165",
+     "t_7192",
+     "t_7225",
+     "t_7233",
+     "t_7251",
+     "t_7254",
+     "t_7261",
+     "t_7285",
+     "t_7303",
+     "t_7308",
+     "t_7334",
+     "t_7342",
+     "t_7347",
+     "t_7368",
+     "t_7381",
+     "t_7414",
+     "t_7456",
+     "t_7514",
+     "t_7523",
+     "t_7572",
+     "t_7591",
+     "t_7593",
+     "t_7620",
+     "t_7622",
+     "t_7627",
+     "t_7671",
+     "t_7673",
+     "t_7691",
+     "t_7747",
+     "t_7770",
+     "t_7795",
+     "t_7825",
+     "t_7832",
+     "t_7879",
+     "t_7949",
+     "t_7965",
+     "t_7978",
+     "t_8001",
+     "t_8004",
+     "t_8009",
+     "t_8027",
+     "t_8036",
+     "t_8040",
+     "t_8052",
+     "t_8061",
+     "t_8077",
+     "t_8098",
+     "t_8202",
+     "t_8222",
+     "t_8231",
+     "t_8242",
+     "t_826",
+     "t_8265",
+     "t_8280",
+     "t_8343",
+     "t_8348",
+     "t_8368",
+     "t_8371",
+     "t_8436",
+     "t_848",
+     "t_8482",
+     "t_8485",
+     "t_8498",
+     "t_850",
+     "t_8531",
+     "t_8536",
+     "t_8553",
+     "t_8606",
+     "t_8637",
+     "t_8642",
+     "t_8661",
+     "t_8690",
+     "t_8728",
+     "t_8785",
+     "t_8800",
+     "t_8817",
+     "t_8871",
+     "t_889",
+     "t_890",
+     "t_892",
+     "t_8936",
+     "t_8950",
+     "t_8974",
+     "t_899",
+     "t_9016",
+     "t_9052",
+     "t_9093",
+     "t_9102",
+     "t_917",
+     "t_918",
+     "t_920",
+     "t_923",
+     "t_925",
+     "t_9282",
+     "t_9302",
+     "t_9306",
+     "t_934",
+     "t_9390",
+     "t_9458",
+     "t_9532",
+     "t_9555",
+     "t_9562",
+     "t_957",
+     "t_9584",
+     "t_959",
+     "t_9593",
+     "t_962",
+     "t_9636",
+     "t_966",
+     "t_9700",
+     "t_981",
+     "t_9811",
+     "t_988",
+     "t_9940",
+     "t_9950",
+     "t_9953",
+     "t_9968",
+     "t_9976",
+     "t_9980"
+    ]
+   },
+   "pos-n-proper-undecided": {
+    "count": 398,
+    "ids": [
+     "t_10153",
+     "t_10170",
+     "t_10210",
+     "t_10225",
+     "t_10287",
+     "t_10307",
+     "t_10389",
+     "t_10397",
+     "t_10420",
+     "t_1062",
+     "t_1073",
+     "t_112",
+     "t_1124",
+     "t_1135",
+     "t_1154",
+     "t_1161",
+     "t_1166",
+     "t_1181",
+     "t_1218",
+     "t_1231",
+     "t_1233",
+     "t_1242",
+     "t_1305",
+     "t_1313",
+     "t_1325",
+     "t_1336",
+     "t_1344",
+     "t_1345",
+     "t_1356",
+     "t_14",
+     "t_1418",
+     "t_1419",
+     "t_1444",
+     "t_1493",
+     "t_1519",
+     "t_1532",
+     "t_1535",
+     "t_1545",
+     "t_1552",
+     "t_1596",
+     "t_160",
+     "t_1607",
+     "t_1613",
+     "t_1640",
+     "t_1651",
+     "t_1661",
+     "t_1674",
+     "t_1705",
+     "t_1710",
+     "t_1726",
+     "t_1757",
+     "t_1761",
+     "t_1771",
+     "t_1782",
+     "t_1824",
+     "t_1841",
+     "t_1849",
+     "t_1855",
+     "t_1862",
+     "t_1864",
+     "t_1870",
+     "t_1887",
+     "t_1899",
+     "t_1906",
+     "t_1915",
+     "t_1945",
+     "t_1964",
+     "t_1967",
+     "t_1976",
+     "t_2008",
+     "t_2018",
+     "t_2026",
+     "t_2030",
+     "t_2071",
+     "t_2081",
+     "t_2083",
+     "t_2100",
+     "t_2106",
+     "t_2130",
+     "t_2153",
+     "t_2160",
+     "t_2170",
+     "t_2204",
+     "t_231",
+     "t_2317",
+     "t_2383",
+     "t_2417",
+     "t_2418",
+     "t_2467",
+     "t_2495",
+     "t_2499",
+     "t_251",
+     "t_258",
+     "t_2587",
+     "t_2611",
+     "t_2659",
+     "t_270",
+     "t_2726",
+     "t_2738",
+     "t_2845",
+     "t_2886",
+     "t_2937",
+     "t_2950",
+     "t_2952",
+     "t_2964",
+     "t_298",
+     "t_2983",
+     "t_3075",
+     "t_3083",
+     "t_3090",
+     "t_3096",
+     "t_3100",
+     "t_3110",
+     "t_3136",
+     "t_3154",
+     "t_3178",
+     "t_3194",
+     "t_3220",
+     "t_3237",
+     "t_3284",
+     "t_3295",
+     "t_3322",
+     "t_3368",
+     "t_341",
+     "t_3415",
+     "t_3427",
+     "t_3433",
+     "t_3446",
+     "t_3464",
+     "t_3491",
+     "t_3507",
+     "t_3522",
+     "t_3526",
+     "t_3539",
+     "t_3546",
+     "t_3552",
+     "t_3554",
+     "t_3569",
+     "t_3572",
+     "t_3587",
+     "t_3592",
+     "t_3600",
+     "t_3603",
+     "t_3612",
+     "t_3650",
+     "t_3665",
+     "t_3671",
+     "t_3694",
+     "t_3696",
+     "t_3702",
+     "t_3711",
+     "t_3713",
+     "t_3746",
+     "t_3810",
+     "t_3825",
+     "t_384",
+     "t_3844",
+     "t_3878",
+     "t_39",
+     "t_3984",
+     "t_3985",
+     "t_3993",
+     "t_4011",
+     "t_4018",
+     "t_4033",
+     "t_4053",
+     "t_4058",
+     "t_4067",
+     "t_4080",
+     "t_4083",
+     "t_4110",
+     "t_4125",
+     "t_4197",
+     "t_421",
+     "t_4210",
+     "t_4215",
+     "t_4268",
+     "t_4301",
+     "t_4310",
+     "t_4335",
+     "t_4356",
+     "t_4358",
+     "t_4405",
+     "t_4417",
+     "t_4454",
+     "t_448",
+     "t_4507",
+     "t_4526",
+     "t_4532",
+     "t_4544",
+     "t_4567",
+     "t_4609",
+     "t_4625",
+     "t_4627",
+     "t_4633",
+     "t_4659",
+     "t_4666",
+     "t_4695",
+     "t_47",
+     "t_470",
+     "t_4710",
+     "t_4736",
+     "t_4773",
+     "t_4798",
+     "t_4803",
+     "t_4915",
+     "t_4983",
+     "t_4995",
+     "t_4999",
+     "t_5002",
+     "t_501",
+     "t_5022",
+     "t_5097",
+     "t_5104",
+     "t_5193",
+     "t_522",
+     "t_5252",
+     "t_5255",
+     "t_5339",
+     "t_5400",
+     "t_5405",
+     "t_5418",
+     "t_5463",
+     "t_5474",
+     "t_5521",
+     "t_5553",
+     "t_557",
+     "t_5628",
+     "t_5639",
+     "t_5672",
+     "t_5681",
+     "t_5687",
+     "t_5693",
+     "t_5718",
+     "t_5725",
+     "t_5740",
+     "t_5750",
+     "t_5758",
+     "t_5768",
+     "t_5783",
+     "t_5784",
+     "t_58",
+     "t_580",
+     "t_5801",
+     "t_5808",
+     "t_5810",
+     "t_5832",
+     "t_5853",
+     "t_5896",
+     "t_6002",
+     "t_6019",
+     "t_6036",
+     "t_6077",
+     "t_6100",
+     "t_6122",
+     "t_6149",
+     "t_6160",
+     "t_6244",
+     "t_6247",
+     "t_6249",
+     "t_6281",
+     "t_6295",
+     "t_6303",
+     "t_6324",
+     "t_6346",
+     "t_6366",
+     "t_6410",
+     "t_6416",
+     "t_6422",
+     "t_65",
+     "t_6502",
+     "t_6591",
+     "t_6638",
+     "t_6729",
+     "t_6801",
+     "t_6809",
+     "t_6819",
+     "t_6849",
+     "t_6863",
+     "t_6868",
+     "t_6884",
+     "t_6892",
+     "t_690",
+     "t_6916",
+     "t_6923",
+     "t_6940",
+     "t_6946",
+     "t_6955",
+     "t_6962",
+     "t_6987",
+     "t_7018",
+     "t_7025",
+     "t_7031",
+     "t_7038",
+     "t_7063",
+     "t_7073",
+     "t_7082",
+     "t_7089",
+     "t_7115",
+     "t_7122",
+     "t_7150",
+     "t_7197",
+     "t_7203",
+     "t_7214",
+     "t_7273",
+     "t_7279",
+     "t_7288",
+     "t_7329",
+     "t_7336",
+     "t_7383",
+     "t_7408",
+     "t_7431",
+     "t_7438",
+     "t_7441",
+     "t_7450",
+     "t_7459",
+     "t_7461",
+     "t_7466",
+     "t_7474",
+     "t_7487",
+     "t_75",
+     "t_7511",
+     "t_7519",
+     "t_7548",
+     "t_7568",
+     "t_7582",
+     "t_7604",
+     "t_7617",
+     "t_762",
+     "t_7653",
+     "t_767",
+     "t_7687",
+     "t_771",
+     "t_7737",
+     "t_775",
+     "t_7756",
+     "t_7782",
+     "t_7819",
+     "t_7865",
+     "t_790",
+     "t_7916",
+     "t_7918",
+     "t_7922",
+     "t_798",
+     "t_8006",
+     "t_8045",
+     "t_809",
+     "t_8111",
+     "t_8148",
+     "t_8190",
+     "t_8220",
+     "t_8246",
+     "t_8295",
+     "t_8380",
+     "t_8402",
+     "t_8431",
+     "t_8449",
+     "t_8480",
+     "t_8487",
+     "t_8513",
+     "t_858",
+     "t_8601",
+     "t_8625",
+     "t_8666",
+     "t_8677",
+     "t_8709",
+     "t_871",
+     "t_8713",
+     "t_8727",
+     "t_876",
+     "t_8764",
+     "t_8779",
+     "t_8795",
+     "t_8797",
+     "t_8899",
+     "t_8949",
+     "t_8988",
+     "t_903",
+     "t_9046",
+     "t_907",
+     "t_9090",
+     "t_9135",
+     "t_9182",
+     "t_9373",
+     "t_942",
+     "t_9430",
+     "t_9469",
+     "t_9565",
+     "t_965",
+     "t_9654",
+     "t_9668",
+     "t_9671",
+     "t_9728",
+     "t_9730",
+     "t_974",
+     "t_9881",
+     "t_99",
+     "t_997"
+    ]
+   }
+  },
+  "printed_nodes": 10462,
+  "result": "failed",
+  "rules": {
+   "pos-a-adjective": {
+    "resolved-eligible": 815
+   },
+   "pos-a-adverb-status-conflict": {
+    "blocked": 113
+   },
+   "pos-c-adverb-function-conflict": {
+    "blocked": 1
+   },
+   "pos-c-auxy-coordinating": {
+    "resolved-outside-allowed-pos": 5
+   },
+   "pos-c-coordinating": {
+    "resolved-outside-allowed-pos": 473
+   },
+   "pos-c-subordinating": {
+    "resolved-outside-allowed-pos": 277
+   },
+   "pos-d-adverb": {
+    "resolved-eligible": 1476
+   },
+   "pos-d-function-conflict": {
+    "blocked": 11
+   },
+   "pos-d-unrecognised-relation": {
+    "blocked": 4
+   },
+   "pos-i-interjection": {
+    "resolved-outside-allowed-pos": 7
+   },
+   "pos-l-article": {
+    "resolved-outside-allowed-pos": 1047
+   },
+   "pos-n-adverb-status-conflict": {
+    "blocked": 411
+   },
+   "pos-n-common-morpheus-evidence": {
+    "resolved-eligible": 723
+   },
+   "pos-n-proper-morpheus-evidence": {
+    "resolved-outside-allowed-pos": 278
+   },
+   "pos-n-proper-undecided": {
+    "blocked": 398
+   },
+   "pos-p-pronoun": {
+    "resolved-outside-allowed-pos": 721
+   },
+   "pos-r-adposition": {
+    "resolved-outside-allowed-pos": 577
+   },
+   "pos-r-adposition-conjunction": {
+    "resolved-outside-allowed-pos": 2
+   },
+   "pos-u-punctuation": {
+    "resolved-outside-allowed-pos": 1157
+   },
+   "pos-v-copula-aux": {
+    "resolved-outside-allowed-pos": 115
+   },
+   "pos-v-verb": {
+    "resolved-eligible": 1851
+   }
+  },
+  "status_totals": {
+   "blocked": 938,
+   "resolved-eligible": 4865,
+   "resolved-outside-allowed-pos": 4659
+  }
+ },
+ "version": "mapping-completion/2"
+}

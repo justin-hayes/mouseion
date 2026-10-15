@@ -12,10 +12,28 @@
     "sha256": "78cac81471242d3f8d689aa3299ff1a4a39424a58c14e90f703c2b9199301d87",
     "url": "https://git.informatik.uni-leipzig.de/api/v4/projects/6595/repository/files/README.md?ref=267dbf045dfca1129115aef05ba9ac6ebc49f4db"
   },
+  "morpheus-README.md": {
+    "bytes": 1150,
+    "role": "producer_documentation_only; no_model_code_weights_or_training_corpus; stemlib keys extracted only as witnesses",
+    "sha256": "5c5342e0a67e1a1f9480eacf8d636df67544e2a019bec9688605cf74e1285fc0",
+    "url": "https://github.com/PerseusDL/morpheus (commit b1b33c56ef2338fe0dcd1893628ed638f00c0986, README.md)"
+  },
   "producer-paper-v1.html": {
     "bytes": 418796,
     "role": "producer_documentation_only; no_model_code_weights_or_training_corpus",
     "sha256": "a39ffcf6a11f737ee8c56d9d758d807d60b75b5b3326d5ea454e4cdd7f871d86",
     "url": "https://arxiv.org/html/2410.12055v1"
+  },
+  "ud-ancient-greek-perseus-README.md": {
+    "bytes": 4228,
+    "role": "producer_documentation_only; no_treebank_data_redistributed",
+    "sha256": "dfa8f9389227246e0d367d427d900b7a7d7eaf9f7f3e39de6d6a285bd4dc1238",
+    "url": "not recorded in this pass"
+  },
+  "ud-upos-index.html": {
+    "bytes": 7768,
+    "role": "producer_documentation_only; UPOS definitions only",
+    "sha256": "a93e5f1b036b7583532dd3c65d5abe62adca9c4c1396ca0e931a2f43469db18e",
+    "url": "not recorded in this pass"
   }
 }
