@@ -553,7 +553,521 @@ Each invariant is covered by the `BIB` rows in [§15](#15-acceptance-test-matrix
 
 ## 5. Immutable evidence, bindings and interpretations
 
-_Pending: owned by the immutable evidence ticket._
+Verified at commit `76e6f93d585fe9c8ca66198431e6f6a5562d3f3c` (`main`). Every
+`path:line` in this section refers to that commit. No file outside `doc/` changed
+between §3's baseline commit and this one, so §3's citations still hold.
+
+### Summary
+
+- Acquired package bytes are stored **once per SHA-256 digest** in a shared
+  **Package blob**. The **Package content** record and its **Package members**
+  hold the source-content identity: the digest of the reviewed member
+  inventory. This identity is kept separate from the transport digest of one
+  ZIP build. Member bytes are not stored a second time.
+- **Package acquisition** is the owner-scoped provenance row, one per owner,
+  origin and release. It is also the **owner evidence access** record. Shared
+  physical rows have no owner and are read only through an acquisition.
+- **Text Source revisions** and **Annotation Source revisions** name exact
+  members, their upstream origin and their release metadata. Unknown metadata
+  stays explicitly unknown. Revisions carry no Reading unit.
+- A **Text–annotation binding** joins one text revision, one annotation revision
+  and one shared Reading unit. It also records the projection, the
+  correspondence check and the extracted-text digest. Only a binding introduces
+  Reading-unit bounds.
+- An **Interpretation configuration** pins the analysis-affecting named versions
+  and the frozen exception table digest. The same set always resolves to the
+  same row.
+- An **Exact analysis** is identified by (binding, interpretation, adapter). It
+  has exactly one **Capability diagnostic** for each of the five capabilities,
+  plus sentence- and node-scoped **Diagnostic findings**. A confirmed defect is
+  an appended **Usability restriction** and never an edit.
+- **Provenance claims** record attributed review provenance by layer and scope,
+  including the repair layer.
+- The owner's current classical analysis is a **parallel record** beside
+  `book_current_analyses`. An additive trigger keeps the two exclusive, so each
+  (owner, Book) has at most one current published analysis. EPUB promotion is
+  unchanged (OD-12).
+
+Every record in this section is immutable except the owner's current-analysis
+row, which only §11 adoption replaces. New record names are proposed terms
+(OD-18). Table names in the illustrative DDL are not prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| Trigger `source_content_revisions_immutable` runs `reject_source_content_revision_mutation()`, which raises on every `UPDATE`. The baseline reuses the same function for `source_material_unit_snapshots` and `source_material_units`. | `migrations/000001_initialize.up.sql:116-121`, `:2504`, `:2511`, `:2518` | **Mirrored, not reused.** Each new immutable record gets its own `BEFORE UPDATE` trigger, which runs a new function with the same body (raise on every update). Its message names classical evidence. The existing function would report "source content revisions are immutable" for unrelated records, and its body stays untouched. |
+| `source_content_revisions` checks `content_digest = 'sha256:' \|\| encode(digest(content,'sha256'),'hex')` when `digest_version = 1`, using pgcrypto. | `migrations/000001_initialize.up.sql:1127-1128`, `:29` | The Package blob and Extracted text mirror this check, without the legacy `digest_version = 0` escape. |
+| Source bytes are owner-scoped. Revisions are unique on `(owner_id, source_material_id, content_digest)`, so identical bytes held by two owners are stored twice. | `migrations/000001_initialize.up.sql:1118-1126`, `:2048` | Classical bytes use a shared blob keyed by digest. Ownership lives in the Package acquisition. |
+| The migrations contain no `BEFORE DELETE` trigger. Deleting referenced rows is prevented only by foreign keys. | `grep -l "BEFORE DELETE" migrations/*.sql` returns no file at `76e6f93d` | Delete protection here is `RESTRICT` or `NO ACTION` foreign keys. Transitive retention references belong to §9. |
+| `analysis_runs` is owner-scoped and references an owner's `source_content_revisions` row and corpus. Deleting the source material cascades to it. | `migrations/000001_initialize.up.sql:193-215`, `:2573`, `:2581`, `:2589` | A shared exact analysis cannot be an `analysis_runs` row without copying bytes per owner and inventing analyzer fields (OD-12). |
+| `book_current_analyses` has primary key `(owner_id, book_id)`. `source_material_id` and `analysis_run_id` are `NOT NULL` and reference `source_materials` and `analysis_runs`. | `migrations/000001_initialize.up.sql:239-245`, `:1544`, `:2613`, `:2629` | Holding a classical analysis there would mean relaxing `NOT NULL` columns and foreign keys on a shipped table (OD-12). |
+| The `current_analysis_identity` view joins `book_current_analyses` to `source_materials`, `analysis_runs` and a complete `corpora` row. Code and queries reference it in 61 places. | `migrations/000001_initialize.up.sql:433-444`; `grep -rn --include='*.sql' --include='*.go' current_analysis_identity sqlc/queries internal` (61 lines) | A parallel record leaves the view and every EPUB reader unchanged. |
+| `publishEligibleAnalysis` upserts `book_current_analyses` on `(owner_id, book_id)`. | `internal/analysis/jobs.go:1711-1743`, upsert at `:1736-1739` | Unchanged. The new exclusion trigger never fires for an EPUB Book. |
+| Test PostgreSQL is 16, and compose runs 18. | `internal/testutil/postgres_integration.go:90`, `compose.yaml:13` | `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+) is available for explicitly unknown metadata. |
+
+### Records
+
+All digests are `text` of the form `sha256:<64 lowercase hex>`. "Shared" means
+the row has no owner column and is reached only through the
+[access path](#owner-evidence-access). Default `ON DELETE` is `RESTRICT`.
+
+#### Package blob
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The exact bytes of one acquired package build (a ZIP), or of one frozen interpretation exception table. | `digest text` (checked equal to the SHA-256 of `content`); `blob_kind text` ∈ {`package`, `interpretation_table`}; `content bytea`; `byte_length bigint` (= `octet_length(content)`, ≤ 16,777,216); `package_content_digest text NULL` (required for `package`, NULL for `interpretation_table`); `created_at` | `digest` | Key only. Identical bytes are stored once, whatever their origin or owner. | Shared. | **Immutable.** Every `UPDATE` is rejected by the mirrored trigger. No delete path is designed (ADR 0097 retains unreferenced evidence by default). A delete while referenced fails on the foreign keys below. | `package_content_digest` → Package content `RESTRICT`. Referenced by Package acquisition and Interpretation configuration, `RESTRICT`. |
+
+A blob's `digest` is the package's **transport identity**. It identifies one ZIP
+build and nothing else.
+
+#### Package content
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Source-content identity: the exact member inventory that one or more builds carry. | `digest text` (SHA-256 of the canonical inventory serialization `inventory/1`: one line per member, sorted by path, giving path, role, size and member digest); `inventory_format text` (`inventory/1`); `member_count integer` (1–128); `expanded_bytes bigint` (0–67,108,864); `created_at` | `digest` | Key only. | Shared. | **Immutable.** | None. A deferred constraint trigger checks at commit that `member_count` and `expanded_bytes` equal the count and sum of its Package member rows. |
+
+Two ZIP builds that preserve every member but differ in compression are two
+blobs with one Package content. Both resolve to the same revisions, bindings and
+analyses (EVD-06).
+
+#### Package member
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One pinned member of a Package content. | `package_content_digest text`; `path text` (normalized relative path: NFC, `/` separators, no leading `/`, no `.` or `..` segment, no empty segment); `role text` ∈ {`text`, `annotation`, `notice`, `manifest`}; `byte_length bigint` (≥ 0); `member_digest text` | `(package_content_digest, path)` | Key only: no duplicate path within a content. | Shared. | **Immutable.** | `package_content_digest` → Package content `RESTRICT` |
+
+`role` comes from the reviewed pins, never from the package. Member bytes are
+read from the blob through the safe reader (see [Limits](#limits-and-where-they-are-enforced)).
+The reader re-verifies `member_digest` on every read. Reading pages use
+Extracted text and analysis rows, not members.
+
+#### Package acquisition (owner evidence access)
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One owner's verified acquisition of one package build from one origin and release. It is that owner's provenance and their only route to the shared evidence. | `id uuid`; `owner_id uuid`; `package_digest text` (a blob with `blob_kind = package`); `origin_kind text` ∈ {`operator_local`, `catalog_release`}; `origin_ref text` (the Local registration `definition_id`, or the catalogue connection ID; text, not a foreign key); `package_release text NULL` (NULL = declared unknown); `pin_set text` (identifier and version of the reviewed pin set it was verified against); `acquired_at timestamptz` | `id` | `(owner_id, id)` unique, as a composite-reference target. `(owner_id, package_digest, origin_kind, origin_ref, package_release)` unique `NULLS NOT DISTINCT`: repeating the same owner, origin and release is idempotent, while another origin, another release or another owner gives another row. | Owner. | **Immutable.** | `owner_id` → `users(id)` `ON DELETE CASCADE`; `package_digest` → Package blob `RESTRICT`. The link to the preparation request belongs to §11. |
+
+`origin_ref` is deliberately not a foreign key. Removing a connection never
+removes an acquisition, so provenance and access survive it (ADR 0097
+"Retention follows every retained reference").
+
+#### Evidence notice
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| A notice that must travel with the components it covers. It is either a package member or a record that Mouseion issues, such as a modification notice for an interpretation. | `id uuid`; `notice_kind text` ∈ {`member`, `record`}; `package_content_digest text NULL` and `member_path text NULL` (both required for `member`, and the member's role must be `notice`); `notice_text text NULL` and `notice_digest text NULL` (both required for `record`, digest checked); `issued_by text NULL` (reviewed definition identifier, required for `record`); `created_at` | `id` | `(package_content_digest, member_path)` unique for `member`; `notice_digest` unique for `record`. | Shared. | **Immutable.** | `(package_content_digest, member_path)` → Package member `RESTRICT` |
+
+#### Notice coverage
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Links a notice to a component it covers, so that a later export can reproduce every applicable notice. | `notice_id uuid`; exactly one of `text_revision_id`, `annotation_revision_id`, `interpretation_id uuid`, or the pair `package_content_digest` + `member_path`; `declared_by text` (pin set or interpretation definition) | `(notice_id, subject)` | Key only. | Shared. | **Immutable.** | `notice_id` → Evidence notice `RESTRICT`; subject → its record `RESTRICT` |
+
+Rights decisions are **not** modelled here. No record in this section has a
+permission, licence-cleared or exportable flag. Operation-specific rights stay
+with the external gates
+[#2054](https://github.com/justin-hayes/mouseion/issues/2054),
+[#2055](https://github.com/justin-hayes/mouseion/issues/2055) and
+[#2056](https://github.com/justin-hayes/mouseion/issues/2056). A hash proves
+bytes, not rights (handoff "Initial operational envelope").
+
+#### Text Source revision
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One immutable revision of a Text Source: the exact text members from one upstream origin and release. | `id uuid`; `origin text` (reviewed upstream origin identifier, for example `example-text-repo`); `release_identifier text NULL`; `release_revision text NULL` (for example an upstream commit); `text_format text` (reviewed format identifier, for example `example-tei/1`); `package_content_digest text`; `member_set_digest text` (SHA-256 over the sorted (path, member digest) pairs of its members); `created_at` | `id` | `(origin, release_identifier, release_revision, package_content_digest, member_set_digest)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | `package_content_digest` → Package content `RESTRICT`. §4's unidentified-Edition `evidence_pin` targets this record's `id`. |
+
+**Text Source revision member:** `(text_revision_id, package_content_digest,
+member_path)` is the key and is immutable, referencing Package member
+`RESTRICT`. The member's role is `text`, or `annotation` when annotation-carried
+text is the verified authority (ADR 0093). Its `package_content_digest` equals
+the revision's.
+
+#### Annotation Source revision
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One immutable revision of an Annotation Source. | `id uuid`; `origin text`; `release_identifier text NULL`; `release_revision text NULL`; `annotation_scheme text` (reviewed scheme identifier, for example `example-scheme`); `scheme_version text NULL`; `producer text NULL`; `declared_coverage text NULL` (upstream-declared passage coverage in its own citation terms); `package_content_digest text`; `member_set_digest text`; `created_at` | `id` | `(origin, release_identifier, release_revision, annotation_scheme, scheme_version, package_content_digest, member_set_digest)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | as Text Source revision |
+
+**Annotation Source revision member:** same shape as the text revision member,
+with role `annotation`.
+
+**Explicitly unknown metadata.** In both revision records, a NULL in
+`release_identifier`, `release_revision`, `scheme_version`, `producer` or
+`declared_coverage` means "the reviewed pin set declared this unknown". The pin
+set must state every field, either as a value or as the explicit `unknown`
+marker. A missing field stops import. An empty string is rejected by a check.
+Importers never infer a value from file names, the package manifest or the
+current date (ADR 0094 "Provenance, versions…").
+
+One revision can back several Reading units, because only bindings name units.
+
+#### Extracted text
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The exact document text that a binding's spans index into, as half-open Unicode code-point offsets. | `digest text` (SHA-256 of the UTF-8 bytes of `content`, checked); `content text`; `code_point_length integer`; `created_at` | `digest` | Key only. | Shared. | **Immutable.** | None |
+
+#### Text–annotation binding
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The verified correspondence between one Annotation Source revision and one exact Text Source revision over one Reading unit. | `id uuid`; `text_revision_id uuid`; `annotation_revision_id uuid`; `reading_unit_id uuid` (a shared §4 unit; OD-17); `source_bounds text` (the unit's extent in the sources' own citation terms, from the reviewed definition); `projection text` (reviewed transformation/projection identifier and version, for example `example-projection/1`); `correspondence text` (reviewed correspondence-check identifier and version); `extracted_text_digest text`; `validation_status text` ∈ {`validated`, `rejected`}; `rejection_reasons text[]` (reason codes; non-empty exactly when `rejected`); `created_at` | `id` | `(text_revision_id, annotation_revision_id, reading_unit_id, source_bounds, projection, correspondence)` unique. | Shared. | **Immutable.** A changed binding is a new row with a different key. | `text_revision_id`, `annotation_revision_id` → revisions `RESTRICT`; `reading_unit_id` → §4 Reading unit `RESTRICT`; `extracted_text_digest` → Extracted text `RESTRICT` |
+
+The binding inputs are deterministic. When an import computes a binding whose
+key already exists, it reuses the existing row only if `extracted_text_digest`
+and `validation_status` are equal. Otherwise the import stops with a
+`binding_nondeterministic` failure and writes nothing (EVD-14). A `rejected`
+binding is retained for inspection. No analysis may reference it (EVD-15).
+
+#### Interpretation configuration
+
+The issue's "Canonical interpretation configuration".
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The pinned set of analysis-affecting named versions that turns bound evidence into a Canonical interpretation. | `id uuid`; `source_decoding text`; `lemma_mapping text`; `pos_mapping text`; `repair_layer text NULL` (NULL = the definition declares no repair layer, not "unknown"); `reading_terminal text`; `normalization_profile text`; `exception_table_digest text NULL` (blob with `blob_kind = interpretation_table`); `contract_version text` (canonical-contract version); `configuration_digest text` (SHA-256 of the canonical serialization `interpretation/1` of every field above); `created_at` | `id` | `configuration_digest` unique, and the tuple of every slot plus `exception_table_digest` and `contract_version` unique `NULLS NOT DISTINCT`. The same set therefore always gives the same row. | Shared. | **Immutable.** | `exception_table_digest` → Package blob `RESTRICT` |
+
+Each slot holds a public identifier of the form `name/version`, checked against
+`^[a-z0-9][a-z0-9-]*/[1-9][0-9]*$`. For the retained candidate, the handoff names
+`oga-greta-lemma/2` (lemma mapping), `oga-agdt-upos/3` (POS mapping, including its
+reviewed rule), `oga-anabasis1-research-repairs/1` (repair layer),
+`oga-reading-terminal/2` (reading-terminal policy) and `ancient-greek/1`
+(normalization profile). The handoff names no separate source-decoding
+identifier (OD-13). The selection policy `grc-earliest-capped/1` is pinned by
+the same reviewed definition but is **not** a slot here, because a
+selection-policy change must not create a new analysis (OD-14).
+
+The **frozen exception-value/precondition table** (#2058 item 3) is referenced
+only by `exception_table_digest`. Its bytes come from local material and are
+verified against the digest pinned in the reviewed interpretation definition
+before they are stored. Its values never appear in public documents, logs or
+fixtures (§14).
+
+**Unknown versions stop import.** Before any write, the shared validation
+interface (§10) checks every slot identifier, `contract_version` and the table
+digest against the registry compiled into the reviewed release. If any one is
+unknown, the import fails with `interpretation_version_unknown` and persists no
+configuration, analysis or diagnostic (EVD-16). The database pattern check is
+only a syntax backstop and does not decide what is known.
+
+#### Exact analysis
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One immutable analysis of one binding under one interpretation by one adapter. | `id uuid`; `binding_id uuid`; `interpretation_id uuid`; `adapter text` (reviewed adapter identifier and version, for example `example-adapter/1`); `vocabulary_ready boolean` (shared validation's verdict, §10); `created_at` | `id` | `(binding_id, interpretation_id, adapter)` unique. | Shared. | **Immutable.** It is written in one transaction with all its Capability diagnostics, Diagnostic findings and §7 occurrence rows, and never partly. | `binding_id` → binding `RESTRICT`, and a trigger rejects a binding whose status is not `validated`; `interpretation_id` → Interpretation configuration `RESTRICT` |
+
+A new mapping version gives a new Interpretation configuration and therefore a
+new Exact analysis. The old analysis, its diagnostics and every learner record
+that cites it are unchanged (EVD-18). Two owners whose acquisitions resolve to
+the same binding and interpretation share one Exact analysis row. Adoption,
+decisions and counts remain per owner (§8, §11).
+
+#### Capability diagnostic
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The release-scope state of one capability in one analysis. | `analysis_id uuid`; `capability text` ∈ {`vocabulary`, `sentence_target`, `morphology`, `basic_syntax`, `secondary_syntax`}; `state text` ∈ {`missing`, `unsupported`, `ambiguous`, `invalid`, `usable`}; `reason_codes text[]` (each matching `^[a-z][a-z0-9_]*$`; empty exactly when `usable`) | `(analysis_id, capability)` | Key only. A deferred constraint trigger requires all five capabilities for every analysis at commit. | Shared. | **Immutable.** | `analysis_id` → Exact analysis `RESTRICT` |
+
+#### Diagnostic finding
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| A narrower-scope fact about one capability, such as an invalid tree in one sentence or an unresolved POS on one node. | `analysis_id uuid`; `capability text`; `ordinal integer`; `scope text` ∈ {`sentence`, `node`}; `sentence_ref`, `node_ref` (§7 keys; `node_ref` NULL for `sentence`); `state text` (the same five values); `reason_code text` | `(analysis_id, capability, ordinal)` | `(analysis_id, capability, scope, sentence_ref, node_ref, reason_code)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | `(analysis_id, capability)` → Capability diagnostic `RESTRICT`; refs → §7 sentence and node `RESTRICT` |
+
+For a given sentence or node, the effective state of a capability is the
+narrowest finding that applies. If no finding applies, it is the release-scope
+state. Readiness rules over these states belong to §10. Reason codes come from a
+versioned registry in reviewed code. Examples are `mapping_unsupported`,
+`tree_cycle`, `root_missing` and `native_class_unresolved`.
+
+#### Usability restriction
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| An appended record of a later integrity failure or confirmed defect that restricts capabilities without changing immutable facts (ADR 0097). | `id uuid`; exactly one subject: `package_content_digest`, `text_revision_id`, `annotation_revision_id`, `binding_id`, `interpretation_id` or `analysis_id`; `capabilities text[]` (a non-empty subset of the five); `basis text` ∈ {`integrity_failure`, `confirmed_defect`}; `reason_code text`; `explanation text` (non-empty); `recorded_by text` (operator command or reviewed release identifier); `recorded_at` | `id` | None. Repeated restrictions are allowed and all apply. | Shared. A defect is a fact about evidence, so it applies to every owner who uses it. | **Append-only**; each row is immutable. Lifting is OD-19. | subject → its record `RESTRICT` |
+
+A capability is **restricted** for an analysis when any restriction names that
+capability on the analysis or on any of its transitive inputs (binding,
+revisions, package content, interpretation). Consumers and new adoption treat a
+restricted capability as not usable, and the reason is shown. The Capability
+diagnostic row itself is unchanged. Only operator commands and reviewed releases
+write restrictions; no learner route does.
+
+#### Provenance claim
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| An attributed claim about how one annotation layer was produced, over one scope. | `id uuid`; exactly one subject: `annotation_revision_id` or `interpretation_id` (for the repair layer); `layer text` ∈ {`segmentation`, `lemma`, `pos`, `morphology`, `basic_syntax`, `secondary_syntax`, `repair`}; `scope text` ∈ {`release`, `subset`, `sentence`, `token`}; `scope_ref text NULL` (NULL exactly for `release`); `provenance text` ∈ {`human`, `human_reviewed_automatic`, `automatic`, `unknown`}; `attributed_to text` (the upstream statement or reviewed definition that makes the claim) | `id` | `(subject, layer, scope, scope_ref)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | subject → its record `RESTRICT` |
+
+The reviewed definition declares a `release` claim for every layer the analysis
+uses, as `unknown` when upstream says nothing. A narrower claim overrides a
+broader one only for its own scope and layer. A syntax claim says nothing about
+lemma or morphology (ADR 0094). Claims are upstream assertions that Mouseion
+records, not Mouseion certification. Learner corrections are never claims.
+
+#### Book current classical analysis
+
+Shape only. Adoption and replacement belong to §11.
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The owner's currently published Exact analysis for a classical Book, with the acquisitions that give the Book access to it. | `owner_id uuid`; `book_id uuid`; `analysis_id uuid`; `text_acquisition_id uuid`; `annotation_acquisition_id uuid` (may equal the text acquisition); `adopted_at timestamptz` | `(owner_id, book_id)` | Key only: at most one per (owner, Book). | Owner. | **Mutable** only by §11 adoption, which replaces `analysis_id`, the acquisitions and `adopted_at` together. | `(owner_id, book_id)` → §4 Book–Reading unit association `ON DELETE CASCADE`; `analysis_id` → Exact analysis `RESTRICT`; `(owner_id, text_acquisition_id)` and `(owner_id, annotation_acquisition_id)` → Package acquisition `NO ACTION` (owner deletion cascades both rows) |
+
+At insert and update, a trigger checks the following. The analysis's binding
+must name the same Reading unit as the Book's association. The text
+acquisition's blob must carry the text revision's Package content, and the
+annotation acquisition's blob the annotation revision's. A second additive
+trigger on `book_current_analyses` rejects a row whose Book has a §4
+association. Together, these keep at most one current published analysis per
+(owner, Book) across both anchors (EVD-27).
+
+```sql
+-- illustrative, not a migration
+CREATE TABLE evidence_blobs (
+  digest text PRIMARY KEY CHECK (digest = 'sha256:' || encode(digest(content, 'sha256'), 'hex')),
+  blob_kind text NOT NULL CHECK (blob_kind IN ('package', 'interpretation_table')),
+  content bytea NOT NULL,
+  byte_length bigint NOT NULL CHECK (byte_length = octet_length(content) AND byte_length <= 16777216),
+  package_content_digest text NULL REFERENCES evidence_package_contents(digest) ON DELETE RESTRICT,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK ((blob_kind = 'package') = (package_content_digest IS NOT NULL))
+);
+-- plus: BEFORE UPDATE trigger mirroring reject_source_content_revision_mutation().
+
+CREATE TABLE evidence_package_acquisitions (
+  id uuid PRIMARY KEY,
+  owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  package_digest text NOT NULL REFERENCES evidence_blobs(digest) ON DELETE RESTRICT,
+  origin_kind text NOT NULL CHECK (origin_kind IN ('operator_local', 'catalog_release')),
+  origin_ref text NOT NULL CHECK (btrim(origin_ref) <> ''),
+  package_release text NULL CHECK (package_release IS NULL OR btrim(package_release) <> ''),
+  pin_set text NOT NULL,
+  acquired_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (owner_id, id),
+  UNIQUE NULLS NOT DISTINCT (owner_id, package_digest, origin_kind, origin_ref, package_release)
+);
+
+CREATE TABLE interpretation_configurations (
+  id uuid PRIMARY KEY,
+  source_decoding text NOT NULL, lemma_mapping text NOT NULL, pos_mapping text NOT NULL,
+  repair_layer text NULL, reading_terminal text NOT NULL, normalization_profile text NOT NULL,
+  exception_table_digest text NULL REFERENCES evidence_blobs(digest) ON DELETE RESTRICT,
+  contract_version text NOT NULL,
+  configuration_digest text NOT NULL UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE NULLS NOT DISTINCT (source_decoding, lemma_mapping, pos_mapping, repair_layer,
+    reading_terminal, normalization_profile, exception_table_digest, contract_version)
+);
+-- plus: name/version pattern checks on every slot and the mirrored update trigger.
+
+CREATE TABLE book_current_classical_analyses (
+  owner_id uuid NOT NULL,
+  book_id uuid NOT NULL,
+  analysis_id uuid NOT NULL REFERENCES exact_analyses(id) ON DELETE RESTRICT,
+  text_acquisition_id uuid NOT NULL,
+  annotation_acquisition_id uuid NOT NULL,
+  adopted_at timestamptz NOT NULL,
+  PRIMARY KEY (owner_id, book_id),
+  FOREIGN KEY (owner_id, book_id) REFERENCES book_reading_units(owner_id, book_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id, text_acquisition_id) REFERENCES evidence_package_acquisitions(owner_id, id) ON DELETE NO ACTION,
+  FOREIGN KEY (owner_id, annotation_acquisition_id) REFERENCES evidence_package_acquisitions(owner_id, id) ON DELETE NO ACTION
+);
+-- plus: a BEFORE INSERT OR UPDATE trigger on book_current_analyses rejecting a Book
+-- that has a book_reading_units row (exclusion across both anchors).
+```
+
+### Pins
+
+A **pin set** is a reviewed definition with an identifier and a version. It
+declares:
+
+- the accepted transport digests;
+- the Package content digest;
+- every member's path, role, size and digest;
+- notice coverage;
+- each revision's origin and its release metadata, or explicit `unknown`;
+- the revision members;
+- the provenance claims;
+- the Reading unit and `source_bounds`;
+- the Interpretation configuration and the selection policy.
+
+Pins are never read from the package. The package's own manifest member is an
+ordinary pinned member: its bytes must match their pin, and its contents
+are never used to decide what to accept (EVD-07). Pins live either in reviewed
+application code or in reviewed operator-local configuration, and OD-15 decides
+which one holds the private retained pin set. In both cases the import reads pins
+only through one pin-set interface, and the identifier and version are recorded
+on every Package acquisition.
+
+A repacked build with a new transport digest needs a pin-set version that lists
+it. If it preserves every member, it resolves to the existing Package content
+and revisions.
+
+### Limits and where they are enforced
+
+The handoff's operational envelope sets these per-package bounds. The
+application enforces the configured value, whose default is the handoff value. The
+database enforces the handoff value as a hard ceiling, and raising it needs a
+reviewed change (OD-16).
+
+| bound | application enforcement (before any write) | database backstop |
+| --- | --- | --- |
+| ≤ 16 MiB (16,777,216 bytes) compressed per package | The acquisition stage (§11 durable stage, §12 local stage) reads at most limit + 1 bytes from the source and fails with `package_too_large` before hashing or storing. | `byte_length` check on Package blob, which also covers the interpretation table. |
+| ≤ 128 members | The safe ZIP reader counts central-directory entries and stops at entry 129 with `package_too_many_members`. It cross-checks local headers against the central directory. | `member_count` check on Package content, and the deferred count-equals-rows trigger. |
+| ≤ 64 MiB (67,108,864 bytes) expanded | The reader decompresses with a running total across all members that ignores declared sizes, and stops at the cap with `package_expanded_too_large`. Each member's actual size must equal its pinned size. | `expanded_bytes` check, and the deferred sum-equals-rows trigger. |
+| Exact inventory | Every entry, directory entries included, must be pinned, and every pin must be present. Unlisted, missing or duplicate paths, size or digest mismatches, symlinks and special entries, encrypted entries, compression methods other than stored and deflate, and unsafe paths (absolute, `..`, backslash, non-NFC) are rejected with `package_inventory_mismatch` or `package_entry_unsafe`. The computed Package content digest must equal the pinned digest. | Member path check, and `(package_content_digest, path)` key. |
+
+Validation runs on the package bytes in a bounded worker and outside any
+database transaction. Only a fully verified package is then written: in one
+short transaction that inserts the Package content, members, blob, notices,
+revisions, provenance claims and the owner's acquisition. A failure at any
+check writes no evidence row, and the request records the reason (§11, §12).
+These failures stop immediately and never consume transient retries (handoff
+"Initial operational envelope").
+
+### Bytes present versus unit offered
+
+- Inventory verification covers every pinned member, including whole-work text
+  and annotation bytes outside the bound unit.
+- A Reading unit is offered only by a §4 Unit offering or Local registration
+  that names it. No record infers an offering, binding or availability from
+  member presence, member paths or the package manifest.
+- A binding is created only for the unit and `source_bounds` named by the
+  request's reviewed definition. The adapter extracts and validates only that
+  extent. Only an Exact analysis of that binding produces occurrences and counts
+  (§7, §11).
+- So a package that carries Books 1–7 while its definition names Book 1 yields
+  revisions that reference the whole-work members, one Book 1 binding and one
+  Book 1 analysis. It yields no offering, Book, binding, analysis or count for
+  Books 2–7 (EVD-12).
+
+### Owner evidence access
+
+Shared physical rows carry no owner and never grant access. **Owner O may read
+evidence E** exactly when O holds a Package acquisition whose blob carries the
+Package content that E derives from, transitively:
+
+- a member or notice derives from its Package content;
+- a revision derives from its Package content;
+- a binding derives from both revisions' contents;
+- an analysis, diagnostic, finding or restriction derives from its binding.
+
+The rules:
+
+- Every store method that returns evidence takes the authenticated owner and
+  either a Book ID or an acquisition ID, and applies this predicate in the same
+  query.
+- **Through a Book:** (owner, Book) → Book current classical analysis → its
+  acquisitions and analysis. §9's owner-scoped retention references, such as
+  frozen snapshots and decisions on an older analysis, are the only other Book
+  routes, and they must satisfy the same predicate when written and when read.
+- **Through an acquisition:** used during preparation and inspection (§11, §12).
+- No web route accepts a blob digest, revision, binding, interpretation or
+  analysis ID as authority. An ID unknown to the owner returns the existing
+  not-found response, exactly as an absent ID does.
+- Owner B's identical upload gives B their own acquisition and, from then on,
+  their own access. It never grants access to A's acquisitions, requests or
+  current records, and it never changes them (EVD-25).
+- Owner deletion cascades the owner's acquisitions and current records. Shared
+  rows remain (EVD-29).
+
+### Relationship to `analysis_runs` and `book_current_analyses`
+
+Recommendation OD-12 (2): `analysis_runs`, `corpora`, `corpus_tokens`,
+`book_current_analyses`, `current_analysis_identity` and `publishEligibleAnalysis`
+are unchanged and keep serving EPUB Books. A classical Book's published analysis
+is an Exact analysis named by the Book current classical analysis row. The only
+change to a shipped table is the additive exclusion trigger on
+`book_current_analyses`. It is new, it never fires for a Book without a §4
+association, and §4 guarantees that an EPUB Book never gains one.
+
+How the Reading gates (B-25, B-26) recognize the new anchor stays OD-05. The
+storage choice here is compatible with both OD-05 options: the single domain
+classification (ADR 0052, ADR 0097) is extended to read the parallel record,
+whether or not the gate call sites change.
+
+### Invariants
+
+Each invariant is covered by the `EVD` rows in [§15](#15-acceptance-test-matrix).
+
+1. **Bytes.**
+   - Package bytes are never replaced. While any acquisition or interpretation
+     references a blob, it cannot be deleted (EVD-01).
+   - Identical bytes are stored once. Each distinct (owner, origin, release) gets
+     its own acquisition row, and repeating one is idempotent (EVD-02).
+   - Transport identity and source-content identity are separate. Two pinned
+     builds of the same members share one Package content and resolve to the
+     same revisions and analyses (EVD-06).
+2. **Inventory and limits.**
+   - A package is stored only if its transport digest, every member and its
+     content digest match the reviewed pins exactly (EVD-03, EVD-07).
+   - The 16 MiB, 128-member and 64 MiB bounds hold against dishonest metadata in
+     the application (EVD-04, EVD-05) and as database ceilings (EVD-26).
+3. **Notices.** Every component that the pin set declares a notice for has
+   Notice coverage, and the coverage can be retrieved with the component
+   (EVD-08).
+4. **Revisions.**
+   - Revisions are immutable (EVD-10).
+   - Undeclared upstream metadata is stored and reported as unknown, never
+     guessed (EVD-11).
+   - Bytes present never create an offering, binding, analysis or count
+     (EVD-12).
+5. **Bindings.**
+   - A binding is unique on its inputs and immutable. A changed binding is a new
+     row (EVD-13).
+   - Recomputing an existing binding with a different result stops the import
+     (EVD-14).
+   - No analysis references a rejected binding (EVD-15).
+   - A binding's extracted text is immutable and matches its digest (EVD-09).
+   - Bindings reference shared Reading units only (EVD-32).
+6. **Interpretation.**
+   - An unknown slot, contract or table version stops import, and nothing is
+     written (EVD-16).
+   - The same set resolves to the same Interpretation configuration (EVD-17).
+   - A selection-policy change creates no new interpretation or analysis
+     (EVD-31).
+7. **Analysis.**
+   - At most one Exact analysis exists per (binding, interpretation, adapter)
+     (EVD-19).
+   - A new mapping version gives a new analysis and leaves the old one and its
+     learner references unchanged (EVD-18).
+   - At most one current published analysis exists per (owner, Book) across both
+     anchors (EVD-27).
+   - EPUB promotion is unchanged (EVD-28).
+8. **Diagnostics.**
+   - Every analysis has exactly one state for each of the five capabilities, with
+     reason codes when the state is not usable (EVD-20).
+   - Diagnostics never change (EVD-21).
+   - A confirmed defect is an appended restriction that leaves the analysis and
+     diagnostics unchanged (EVD-22), and applies transitively only to the
+     capabilities it names (EVD-23).
+9. **Provenance.** Claims are kept per layer and scope, including the repair
+   layer, and one layer's claim never implies another's (EVD-24).
+10. **Access.**
+    - Identical bytes never give one owner access to another owner's
+      acquisition, Book evidence or requests (EVD-25).
+    - Owner deletion leaves shared evidence and other owners intact (EVD-29).
+11. **Recovery.** A database backup and restore reproduces every blob, inventory,
+    notice, revision, binding, interpretation, analysis, diagnostic, restriction
+    and claim exactly, and the restored digests still verify (EVD-30).
+
+### Conflicts and dependencies noted
+
+- Issue item 6 lists the selection policy among the interpretation's pinned
+  versions. The handoff ("Accepted evidence and bounded scope") says a
+  card-selection policy change applies to a newly prepared specification, not
+  to an analysis rewrite. This section keeps the selection policy pinned but
+  outside analysis identity (OD-14).
+- §4's Edition `evidence_pin` is resolved here as a Text Source revision `id`.
+- Finding `sentence_ref` and `node_ref` target §7's keys. §7 defines them.
+- Retention references from snapshots, decisions, deck specifications and
+  in-flight requests to these records belong to §9. §9 must cover acquisitions as
+  well as analyses, so that a retained reference also keeps its access route.
+- `vocabulary_ready` is computed by §10's validation. The adoption transaction,
+  the request link on acquisitions and the replacement of the current record
+  belong to §11.
 
 ## 6. Vocabulary identity and normalization
 
@@ -667,6 +1181,38 @@ rows use synthetic fixtures only.
 | BIB-28 | Reconciliations do not self-reference or chain. | (d) | Editions `u-1` (unidentified), `u-2` (unidentified), `ed-1` (named). `u-1` is reconciled to `ed-1`. | Record `u-2` → `u-2`, `u-1` → `ed-1` again, and `u-2` → `u-1`. | All three are rejected, and no row changes. | `u-2` → `ed-1` is accepted. |
 | BIB-29 | An operation for one owner never changes or reveals another owner's offering-side rows. | (a) | Owners A and B each have a Book for the same verified unit from their own connections. A's Book has an Identity conflict. | B syncs and withdraws the offering, moves the Book to To Read, and requests My Books and Book detail. | B's responses show no conflict or offering metadata from A. A's offering, conflict, disposition and Book are unchanged. | B's requests carrying A's Book ID return the existing not-found response. |
 | BIB-30 | A private Edition or unit is never resolved for another owner. | (b) | Owner A has a private Edition and unit from an unverified offering. | Resolve owner B's offering with an identical advertisement. | B gets B's own private Work, Edition, unit and Book. | B's resolution never returns A's private record IDs. |
+| EVD-01 | Package bytes cannot be replaced, or deleted while referenced. | (d) | A synthetic package blob referenced by owner A's acquisition, and an interpretation table blob referenced by an Interpretation configuration. | Update each blob's content, digest or length. Delete each blob. | Every update and both deletes are rejected. Both blobs still verify against their digests. | Deleting an unreferenced synthetic blob is not blocked by any evidence constraint (no purge path is designed; retention is §9). |
+| EVD-02 | Identical bytes are stored once, with a distinct acquisition per origin and release. | (b) | Synthetic package `example-pkg` and two synthetic pin sets that accept it, from origins `example-local` and `example-release-2`. Owner A. | Import `example-pkg` for A from `example-local`, then from `example-release-2`, then from `example-local` again. | One blob, one Package content and one set of revisions. A has exactly two acquisitions, each reporting its own origin and release. | The third import adds no row. A different byte sequence with equal size is stored as a separate blob. |
+| EVD-03 | A package whose inventory differs from the reviewed pins is rejected, and nothing is written. | (a) | Owner A. Synthetic pin set for `example-pkg`. Variants: one unlisted extra member, one missing member, one member with a changed byte, one with the right digest but a pinned size that differs, and one duplicate entry name. | Run the local import for each variant through its handler and River job. | Each request ends failed, with an inventory reason and no automatic retry. No blob, content, member, revision, notice, acquisition, binding or analysis row exists. A has no current classical analysis. | The exact `example-pkg` imports successfully under the same pin set. |
+| EVD-04 | The compressed-size and member-count bounds hold before any write. | (a) | Owner A. Synthetic packages: one of 16 MiB + 1 byte, and one with 129 empty members, each pinned in a test pin set. | Run the local import for each. | Each fails with `package_too_large` or `package_too_many_members`. The request records it, and no evidence row is written. | A package of exactly 16 MiB with 128 members, all pinned, passes these two checks. |
+| EVD-05 | The expanded-size bound holds against dishonest metadata, and unsafe entries are rejected. | (a) | Owner A. Synthetic packages: one whose central directory understates sizes and that expands past 64 MiB, one with a `../x` entry, one with an absolute path, and one with a symlink entry. | Run the local import for each. | Each fails with `package_expanded_too_large` or `package_entry_unsafe`. The reader stops at the cap, and no evidence row is written. | A pinned package expanding to exactly 64 MiB passes this check. |
+| EVD-06 | Transport identity and source-content identity are separate. | (b) | Two synthetic ZIP builds of the same members with different compression. A pin set version lists both transport digests. Owner A. | Import build 1, then build 2. | Two blobs and one Package content. Both acquisitions resolve to the same revisions. Preparing the same unit and interpretation from either gives the same binding and Exact analysis. | A third build that is not listed in the pin set is rejected, even though its members match. |
+| EVD-07 | Pins come from reviewed definitions, never from the package. | (a) | Owner A. A synthetic package whose own manifest member lists one extra member that is present in the ZIP, and whose manifest bytes differ from the pinned manifest. | Run the local import. | It fails with an inventory mismatch on both the manifest member and the extra member. Nothing is written. | Changing only the package's manifest to list exactly the pinned members still fails, because the manifest member's digest differs from its pin. |
+| EVD-08 | Notices are retained and linked to every component they cover. | (b) | A synthetic pin set declaring a notice member for the text and annotation members, and a Mouseion-issued record notice for the interpretation. Owner A. | Import and prepare. Then request A's evidence detail for the Book. | Each component reports its covering notices, with exact text that can be retrieved. The notice member's bytes verify against their pin. | A pin set that declares a notice member absent from the package is rejected at inventory, and nothing is written. |
+| EVD-09 | Extracted text and its spans are tied to an exact digest. | (d) | — | Insert an Extracted text whose digest is not the SHA-256 of its UTF-8 content. Update an existing Extracted text. Insert a binding whose `extracted_text_digest` names no Extracted text. | All are rejected. | Extracted text whose digest matches is accepted, and an insert of equal content reuses the key. |
+| EVD-10 | Text and Annotation Source revisions are immutable. | (d) | One synthetic text revision and one annotation revision with their member rows. | Update any field of each revision and member row. | Every update is rejected. | Inserting a second revision with an equal uniqueness tuple is rejected. |
+| EVD-11 | Undeclared upstream metadata stays explicitly unknown. | (b) | A synthetic pin set declaring `release_identifier: unknown` and `scheme_version: unknown` for the annotation revision. Owner A. | Import, then read A's evidence detail. | The revision reports both fields as unknown, not an empty string, a default or a value inferred from file names. | A pin set that omits the field rather than declaring it unknown stops import, and nothing is written. |
+| EVD-12 | Whole-work bytes create no offering, Book, binding, analysis or count for units the definition does not name. | (a) | A synthetic package with text and annotation members for `example-section` 1–7. Its reviewed definition names only unit `constituent_book:example-section:1`. Owner A. | Register and import, prepare, then request My Books and Vocabulary. | A has one Book, for section 1, with one binding and one analysis over section 1. Counts cover only section 1 occurrences. | No Book, Unit offering, Local registration, binding or analysis exists for sections 2–7. Counts and Browse rows contain no occurrence from them. |
+| EVD-13 | A binding is unique on its inputs and immutable. A changed binding is a new row. | (d) | One validated synthetic binding. | Update its unit, bounds, projection or extracted-text digest. Insert a second binding with an equal key. | Every update and the duplicate insert are rejected. | The same revisions with projection `example-projection/2` give a new binding row, and the first is unchanged. |
+| EVD-14 | Recomputing a binding is deterministic. | (b) | An existing validated binding. A test adapter that returns a different extracted text for the same inputs. | Prepare the same unit again with that adapter. | The request fails with `binding_nondeterministic`. No new binding, extracted text or analysis is written, and A's current analysis is unchanged. | With the normal adapter, the existing binding is reused and no row is added. |
+| EVD-15 | No analysis references a rejected binding. | (d) | A synthetic binding with `validation_status = rejected` and one reason code. | Insert an Exact analysis on it. | Rejected. The binding remains, with its reasons. | An analysis on a validated binding is accepted. |
+| EVD-16 | An unknown interpretation, contract or table version stops import. | (c) | A synthetic candidate whose interpretation names `example-lemma/9`, which is absent from the compiled registry. Variants: an unknown `contract_version`, and an unlisted table digest. | Submit each to shared validation. | Each fails with `interpretation_version_unknown` and identifies the slot. No interpretation, analysis or diagnostic is persisted. | The same candidate with `example-lemma/1` validates. |
+| EVD-17 | The same version set resolves to the same interpretation identity. | (b) | The synthetic interpretation set `example-decode/1`, `example-lemma/1`, `example-upos/1`, `example-repairs/1`, `example-terminal/1`, `ancient-greek/1` and table `T`. | Prepare two different Books, for owners A and B, with that set. | Both analyses reference one Interpretation configuration. | Changing any one slot, or the table digest, gives a different configuration. A repair layer of none differs from `example-repairs/1`. |
+| EVD-18 | A new mapping version produces a new analysis and leaves the old one unchanged. | (b) | Owner A has adopted analysis X under `example-lemma/1`, has an active Reading and snapshot, and has a Lemma correction on X. | Prepare and adopt under `example-lemma/2`. | New analysis Y with a new configuration. X, its diagnostics and occurrences, the snapshot and the correction are unchanged and still readable. | Y carries no correction from X, and X is never updated to point at the new configuration. |
+| EVD-19 | At most one Exact analysis per (binding, interpretation, adapter). | (d) | An Exact analysis for (binding B, interpretation I, `example-adapter/1`). | Insert a second analysis with the same triple. Update the first analysis's interpretation. | Both are rejected. | `example-adapter/2` with the same B and I is accepted as a new analysis. |
+| EVD-20 | Every analysis persists one diagnostic state per capability, with reasons and scope. | (b) | A synthetic candidate with usable vocabulary and sentence/target, unsupported morphology, basic syntax invalid in one sentence, and missing secondary syntax. One node has an ambiguous POS. | Prepare it, then read A's evidence detail. | Five capability states are reported: `usable`, `usable`, `unsupported`, `usable` with an `invalid` sentence finding, and `missing`. Reason codes are present for every non-usable state and finding. The node finding reports `ambiguous`. | A write of an analysis lacking any one of the five capability rows fails at commit, and no analysis remains. |
+| EVD-21 | Diagnostics and findings are immutable. | (d) | An analysis with five Capability diagnostics and one finding. | Update a state, a reason code or a finding. Delete a diagnostic. | All are rejected. | — |
+| EVD-22 | A confirmed defect is appended as a restriction, and the analysis is not edited. | (b) | Owner A has adopted analysis X with usable basic syntax. | Record a `confirmed_defect` restriction on X for `basic_syntax`. | A's syntax-dependent features report it unavailable, with the explanation. Vocabulary, Reading and the Capability diagnostic row are unchanged. X's fields are byte-identical. | Recording a second restriction adds a row and changes none. No learner route can record one. |
+| EVD-23 | A restriction applies transitively, and only to the capabilities it names. | (b) | Analyses X and Y both use annotation revision R. Analysis Z uses another revision. | Record an `integrity_failure` restriction on R for `morphology`. | X and Y report morphology as restricted. Z is unaffected, and vocabulary stays usable for X and Y. New adoption of X or Y for a morphology-dependent request is refused. | — |
+| EVD-24 | Provenance claims are kept per layer and scope, including the repair layer. | (b) | A synthetic pin set: lemma `automatic` at release scope, basic syntax `human_reviewed_automatic` for a sentence subset, the repair layer `automatic` on the interpretation, and morphology `unknown`. | Import, prepare, then read evidence detail. | Each layer reports its own claim and scope, attributed to its source statement. | Basic syntax review is not reported as lemma or morphology review. A pin set lacking a release claim for a used layer stops import. |
+| EVD-25 | Identical bytes never give another owner access. | (a) | Owner A has imported and adopted `example-pkg`. Owner B has none. | B requests evidence detail with A's Book ID, A's acquisition ID, and the shared revision, binding and analysis IDs. Then B imports identical `example-pkg`. | Before the import, every request returns the existing not-found response. After it, B has B's own acquisition and can read the shared revisions through it. B still gets not-found for A's Book, acquisition and current record. | A's acquisition, current record and request are unchanged by B's import. |
+| EVD-26 | The database enforces the package bounds as ceilings. | (d) | — | Insert a blob over 16,777,216 bytes. Insert a Package content with 129 members, or with expanded bytes over 67,108,864. Commit a content whose member rows disagree with its count or sum. | Each is rejected. | A content whose count and sum equal its rows commits. |
+| EVD-27 | At most one current published analysis per (owner, Book), across both anchors. | (d) | Owner A has a classical Book C and an EPUB Book E. | Insert a `book_current_analyses` row for C. Insert a classical current row for E. Insert a second classical current row for C. Insert a classical current row whose acquisitions do not carry the analysis's revisions. | All are rejected. | A classical current row for C with matching acquisitions is accepted. |
+| EVD-28 | EPUB analysis promotion is unchanged. | (a) | The existing EPUB analysis and promotion integration scenarios. | Run them with the classical schema present. | Same responses and persisted current analyses as the baseline. No classical row is created, and the exclusion trigger never fires. | — |
+| EVD-29 | Owner deletion removes that owner's access rows and leaves shared evidence and other owners intact. | (d) | Owners A and B each hold an acquisition of `example-pkg` and a current classical analysis on the shared analysis. | Delete user A. | A's acquisitions and current rows are gone. Blob, content, revisions, binding, interpretation, analysis, diagnostics, B's acquisition and B's current row remain. | — |
+| EVD-30 | Backup and restore reproduce exact evidence. | (d) | A synthetic installation with two owners, two builds, notices, a restriction and claims. | Take a logical dump, then restore into an empty database. | Every evidence row is equal. Every blob, extracted-text and member digest re-verifies, and each owner's evidence detail is unchanged. | A restore missing one blob fails digest verification for each record that references it, rather than reporting the evidence usable. |
+| EVD-31 | A selection-policy change creates no new interpretation or analysis. | (b) | Owner A has adopted analysis X. The reviewed definition's selection policy changes from `example-select/1` to `example-select/2`. | Prepare A's Book again under the new definition version. | No new Interpretation configuration or Exact analysis. X stays current. The new policy is recorded only for newly prepared specifications (§8). | Changing any analysis-affecting slot in the same definition does create a new analysis (see EVD-18). |
+| EVD-32 | A binding references only a shared Reading unit. | (d) | A private §4 unit owned by A. | Insert a binding on it. | Rejected. | A binding on a shared unit is accepted. |
 
 ## 16. Requirement traceability
 
@@ -690,6 +1236,14 @@ decisions (see §1) are not reopened here.
 | OD-09 | Where do classical catalogue connections live, given that `opds_connections.owner_id` is nullable and has no unique `(owner_id, id)` (`migrations/000001_initialize.up.sql:1267-1277`, `:1960`)? | (1) Generalize `opds_connections` with a connection kind, and add a unique `(owner_id, id)`. (2) A separate classical connection record, owner-scoped with `(owner_id, id)` unique. | (2), decided in the spec for handoff stage 3 ([catalog release and durable acquisition](annotation-backed-ancient-greek.md#3-authorize-catalog-release-and-implement-durable-acquisitionadoption)). The local route needs neither. | (1) shares one Catalogs list but carries the OPDS single-`language` and `url` columns, which ADR 0096 says classical data must not be forced through. (2) lets a Unit offering use a composite owner and connection key, but adds a second connection kind to Catalogs. | #2065 | open |
 | OD-10 | Does later sync update a classical Book's `title`, `author` and `language`? | (1) They are set once at creation from the Work. Advertised metadata is stored on the Unit offering, and display reads Work, Edition and unit descriptions. (2) Follow OPDS: sync overwrites them, and a language change ends an incompatible Current reading (`internal/persistence/books.go:832-847`). | (1). | (1) means sync can never end a reading or rename a Book shared by several offerings. A changed description reaches the Book only through a reviewed definition. (2) lets two offerings of one Book overwrite each other. | #2065 | open |
 | OD-11 | New terms used in §4. | Add to `CONTEXT.md`: **Unit offering**, **Local registration**, **Verified identity alias**, **Claimed alias**, **Identity conflict**, **Edition reconciliation**, **Reconciliation class**, **Book–Reading unit association**, **Named Edition** / **Unidentified Edition**, and **classical Book** (a Book with a Book–Reading unit association). Or keep them as design-local names. | Add them in a separately reviewed `CONTEXT.md` change. **Unit offering** is defined as one declared Reading unit that a Catalog entry offers. | Adding them gives implementation and UI one vocabulary. Keeping them local leaves "offering" ambiguous: `CONTEXT.md:273-274` already calls a Catalog entry "an offering", and "alias" is ambiguous against the OPDS `catalog_entry` alias. | #2065 | open |
+| OD-12 | How does an Exact analysis relate to `analysis_runs` and `book_current_analyses` (§5)? | (1) Extend additively: make `book_current_analyses.source_material_id` and `analysis_run_id` nullable, and add a nullable classical-analysis column with a check that exactly one side is set. (2) A parallel owner-scoped "Book current classical analysis" record keyed `(owner_id, book_id)` and referencing the §4 association, plus an additive trigger on `book_current_analyses` that rejects classical Books. | (2). §5 is written against it. | (1) keeps one physical anchor, but it relaxes `NOT NULL` columns and foreign keys on a shipped table (`migrations/000001_initialize.up.sql:239-245`, `:2613`, `:2629`). It also changes the meaning of `current_analysis_identity` (`:433-444`), which code and queries reference in 61 places, and of the upsert at `internal/analysis/jobs.go:1736-1739`. (2) leaves every EPUB structure, view and query unchanged. Its cost is that the single domain classification must read two anchors, which is OD-05's gate question, and a cross-table exclusion trigger. | #2066 | open |
+| OD-13 | Which identifier fills the source-decoding slot for the retained candidate? The handoff names lemma, POS, repair, terminal and normalization identifiers, but no decoding identifier. | (1) Source decoding is a separate slot, and the Stage 1 reviewed definition names its own `name/version` identifier. (2) Treat the decoding as part of `oga-greta-lemma/2` and fill the slot with that identifier. | (1). | (1) keeps decoding revisions visibly separate from mapping and normalization, as the #2033 resolution requires, but needs one more reviewed public identifier at Stage 1. (2) adds no identifier, but a decoding-only change then cannot be versioned without also versioning the lemma mapping. | #2066 | open |
+| OD-14 | Is the selection policy (`grc-earliest-capped/1`) part of the analysis-affecting interpretation identity? Issue #2066 item 6 lists it there. The handoff says a card-selection policy change applies to a newly prepared specification, not to an analysis rewrite. | (1) Pin it in the same reviewed definition, but keep it out of the Interpretation configuration. It is recorded with the specifications it governs (§8). (2) Include it as a slot, so a policy change creates a new interpretation and analysis. | (1). §5 is written against it. | (1) matches the handoff, and a policy change needs no re-adoption or new counts. (2) forces a new analysis, adoption and count projection for a change that alters no occurrence. That contradicts the handoff. | #2066 | open |
+| OD-15 | Where does the private retained pin set live, including transport, content and member digests and the exception-table digest? | (1) Compiled into reviewed application code, which publishes the private digests in the public repository. (2) A reviewed operator-local pin file, loaded through the same pin-set interface. Its identifier and version are recorded on every acquisition. (3) Synthetic pin sets in code for CI, and the retained pin set operator-local. | (3), decided by #2075 (§14) with #2073 (§12). | (1) gives one review path, but exposes values this design keeps private. (2) keeps them local, but the file's review happens outside the repository. (3) keeps CI public and synthetic and the retained values local, at the cost of two pin sources behind one interface. All three keep the rule that pins never come from the package. | #2066 | open |
+| OD-16 | Are the package bounds (16 MiB, 128 members, 64 MiB) configurable above the handoff values? | (1) The application enforces configured values that default to the handoff values and can only be lowered. The database checks the handoff values as ceilings, and raising one needs a reviewed change. (2) Fully configurable at runtime, with no database ceiling. (3) Fixed constants. | (1). | (1) follows "Deliberately review any required limit change" (handoff Stage 1) and keeps a backstop against application bugs. (2) lets an operator setting silently admit larger packages, with no backstop. (3) contradicts "configurable engineering defaults". | #2066 | open |
+| OD-17 | Can a Text–annotation binding reference a private (advertised-only) Reading unit? | (1) No. Bindings reference shared units only, and the Stage 3 spec decides private-unit evidence. (2) Yes. A binding inherits the unit's `owner_id`, and private bindings and analyses cascade on owner deletion. | (1). | (1) keeps every evidence row shared and immutable, and is enough for the local path, which uses reviewed definitions and so shared units (§4 OD-06). It defers evidence for unverified advertised units. (2) supports that case now, but adds owner-scoped cascades to otherwise shared immutable evidence. | #2066 | open |
+| OD-18 | New terms used in §5. | Add to `CONTEXT.md`: **Package acquisition** (an owner's verified acquisition of exact package bytes; their provenance and evidence access), **Capability diagnostic** and **Usability restriction**. Keep Package blob, Package content, Package member, Evidence notice, Notice coverage, Extracted text, Interpretation configuration, Exact analysis, Diagnostic finding, Provenance claim and Book current classical analysis as design-local names. | Add the three in a separately reviewed `CONTEXT.md` change. | The three appear in learner-facing explanations and in other sections. The rest are storage detail. "Exact analysis" stays design-local, so that it does not compete with the existing "analysis". | #2066 | open |
+| OD-19 | Can a Usability restriction be lifted? | (1) Append-only lift records are allowed only for `integrity_failure`, after the exact bytes are restored and re-verified. A `confirmed_defect` is never lifted; recovery is a new validated analysis. (2) No lift. Every recovery is a new analysis and adoption. | (1), specified with §9 and §11. | (1) lets an exact restore return evidence to use without rewriting history, as ADR 0097 "Durable bounded work and recovery" requires. (2) makes a restored, byte-identical package permanently unusable. | #2066 | open |
 
 ## 18. Approval record
 
