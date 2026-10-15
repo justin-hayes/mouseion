@@ -1157,6 +1157,11 @@ Go 1.27.2 and Python 3.13.5.
   all (OD-24).
 - Modern languages keep their profiles, keys and outcomes. Their rich identities
   have a null discriminator and are identical to their tuples.
+- **Dictionary lookup** for `grc` belongs to #2060 and reads English
+  Wiktionary's Ancient Greek entries through Kaikki (CC BY-SA 4.0 and GFDL). It
+  matches an identity's key and UPOS against Go-computed `ancient-greek/1` entry
+  keys, never reads the discriminator, and shows every matching entry
+  separately (OD-81, OD-82).
 
 New record names are proposed terms (OD-27). Table names in the illustrative DDL
 are not prescriptions.
@@ -1174,6 +1179,11 @@ are not prescriptions.
 | Concordance falls back to the casefold profile when `For` fails. Its form key is NFC, `strings.ToLower` and `ς` → `σ`. | `internal/persistence/concordance.go:22-30` | For `grc`, the lemma key comes from `ancient-greek/1` and the fallback branch never applies. |
 | Concordance form matching lowercases surfaces in SQL: `translate(lower(o.surface), 'ς', 'σ')`. | `sqlc/queries/concordance.sql:115` | PostgreSQL `lower()` depends on the database's collation provider and Unicode tables, which are not pinned. OD-26. |
 | The dictionary resolves its lookup key through `canonicalization.Normalize`, and returns an empty key on error. | `internal/dictionary/index.go:365-370` | With `grc` registered as dedicated, it uses `ancient-greek/1` or fails closed. It never casefolds `grc`. |
+| The index derivation reads only `de`, `it` and `el`, and computes each row's key in Python. | `nlp/scripts/derive_dictionary_index.py:21`, `nlp/scripts/derive_dictionary_index.py:130`, `nlp/scripts/derive_dictionary_index.py:410-417` | Python cannot compute `ancient-greek/1` keys (I-10). "Dictionary lookup" below has Go compute every `grc` key. |
+| An index row is keyed `(language, lemma, upos)`. The derivation merges the senses of every Wiktionary entry with that key into one row. | `nlp/scripts/derive_dictionary_index.py:71-82`, `nlp/scripts/derive_dictionary_index.py:369-383`, `nlp/scripts/derive_dictionary_index.py:420-432` | Entries from separate etymologies merge into one sense list. For `grc`, each source entry stays its own row. |
+| Lookup returns rows with the requested UPOS first, then lemma-only rows (`upos = ''`) as weaker evidence. | `internal/dictionary/index.go:107-148` | `grc` lookup keeps that order, and keeps the entries apart. |
+| The attribution notice and the index metadata name CC BY-SA 3.0 / GFDL. | `internal/dictionary/attribution.go:4`, `nlp/scripts/derive_dictionary_index.py:445-448` | Wiktionary licenses entry text under CC BY-SA 4.0 and GFDL. The notice is corrected before `grc` entries are shown (#2060). |
+| The lemma-risk detector reads the dictionary index for lemma review. | `cmd/server/main.go:241-242`, `cmd/server/main.go:370-377` | `grc` lemma review does not read the dictionary (see "Dictionary lookup"). |
 | The NLP producer casefolds every language except `de`, and labels the result `unicode-casefold` 1.2.0. | `nlp/src/mouseion_nlp/producer.py:42-43`, `nlp/src/mouseion_nlp/producer.py:351-355` | NLP produces no `grc` keys (Greek NLP support is out of scope). Shared validation rejects a `grc` candidate labelled with any profile other than `ancient-greek/1`. |
 | Known matching treats a Known row with `upos = ''` as matching every UPOS. | `sqlc/queries/core.sql:238-239`, `sqlc/queries/books.sql:180-185` | A legacy UPOS wildcard. For modern languages it stays as it is. It never matches a rich identity. |
 | The module requires Go 1.27.2. That toolchain and `golang.org/x/text` v0.43.0 report Unicode 17.0.0. An older local Go 1.26 reports 15.0.0, and x/text then selects its 15.0.0 tables. Python 3.13 reports 15.1.0. | `go.mod:3`; go1.27.2 `$GOROOT/src/unicode/tables.go:6` (`const Version = "17.0.0"`); `golang.org/x/text@v0.43.0/unicode/norm/tables17.0.0.go:11` (built only under `go1.27`); `go.mod:20`; `python3 -c 'import unicodedata; print(unicodedata.unidata_version)'` prints `15.1.0`; `nlp/pyproject.toml:6` | The profile is pinned to 17.0.0, and the implementation checks the version at run time (IDN-11). Python is not a conforming implementation today. |
@@ -1416,7 +1426,7 @@ Every place that computes or compares a `grc` key:
 | I-4 | Go shared canonical validation (§10) | recomputes the key from the decoded citation form and compares | none | Rejects a candidate whose supplied key differs (`canonical_key_mismatch`), whose `grc` profile is not `ancient-greek/1` (`normalization_profile_rejected`), or whose citation form is not admitted. | `ancient-greek-normalization/1` and `vocabulary-identity-comparison/1` |
 | I-5 | Go lemma review | computes the corrected key | `internal/lemmareview/lemmareview.go:466-474` | For a classical analysis, uses `Lookup` with the analysis's `normalization_profile` slot, through the admission check. For an analysis whose `grc` profile is not registered (a legacy casefold `grc` analysis), lemma review is unavailable; it never renormalizes. | `ancient-greek-normalization/1` |
 | I-6 | Go Concordance term normalization | computes the lemma lookup key; compares stored keys | `internal/persistence/concordance.go:22-30` | Lemma key through `ancient-greek/1`; no fallback for `grc`. Form search for `grc` per OD-26. | `ancient-greek-normalization/1` |
-| I-7 | Go dictionary lookup key | computes | `internal/dictionary/index.go:365-370` | Resolves through the registry, so `grc` uses `ancient-greek/1` or fails closed with an empty key. No Greek dictionary is in scope. | `ancient-greek-normalization/1` |
+| I-7 | Go dictionary lookup key: the query key, and the key of each `grc` index entry | computes; compares | `internal/dictionary/index.go:365-370` | Resolves through the registry, so `grc` uses `ancient-greek/1` or fails closed with an empty key. Go computes the key of every `grc` entry headword through the admission check (OD-82). Matching follows "Dictionary lookup" below: keys and UPOS only, never the discriminator. | `ancient-greek-normalization/1` and `dictionary-lookup/1` |
 | I-8 | Go identity comparison (rich to rich, and legacy to rich) | compares | `internal/selection/selection.go:27` compares tuples | One shared function implements the comparison rules below. Every Go caller uses it. | `vocabulary-identity-comparison/1` |
 | I-9 | PostgreSQL | compares only, byte equality | tuple equality in `sqlc/queries/core.sql:238-242`, `sqlc/queries/books.sql:180-185` | Never computes a `grc` key. Rich joins use `identity_id`. Legacy-to-rich joins require `discriminator_scheme IS NULL`, equal language, lemma and UPOS, and a non-`grc` language (OD-24). A legacy `upos = ''` row never joins to a rich identity. | `vocabulary-identity-comparison/1`, loaded by a seam (d) test |
 | I-10 | Python NLP producer | none for `grc` | `nlp/src/mouseion_nlp/producer.py:351-355` | Emits no `grc` key. Python 3.13 has Unicode 15.1.0 tables and full-mapping `str.lower()`, so it cannot conform without a reviewed pin change (OD-25). A `grc` candidate it produced would be rejected by I-4. | none (I-4's rejection row covers it) |
@@ -1568,6 +1578,135 @@ plan (ADR 0098, handoff Stage 2).
 - A correction's `corrected_citation_form` is the headword for that occurrence's
   effective identity in that Book.
 
+### Dictionary lookup
+
+Added by [#2091](https://github.com/justin-hayes/mouseion/issues/2091). The
+learner flow runs tokenization → lemma → morphology → dictionary, so a Greek
+learner looks up a headword while reading, not only on a card. This subsection
+places that lookup and fixes how it matches identities. It acquires no data,
+builds no index and implements nothing. The Current anchors rows about the
+dictionary index, after the first, were verified at commit `606e8290` (`main`).
+
+**Owning spec (OD-81).** [#2060 Reading and vocabulary](https://github.com/justin-hayes/mouseion/issues/2060)
+owns `grc` dictionary lookup: the `grc` index entries, the lookup and its
+learner-facing display. [#2063 cards](https://github.com/justin-hayes/mouseion/issues/2063)
+reads the same lookup as lexical evidence and adds no second Greek dictionary.
+
+**Source (OD-81).** English Wiktionary's Ancient Greek entries, as extracted by
+Wiktextract and published by Kaikki.org. This is the pipeline that already
+builds the dictionary index (ADR 0064). Wiktionary licenses entry text under
+CC BY-SA 4.0 and GFDL, with no non-commercial term. On 2026-10-15 Kaikki
+listed 64,151 distinct Ancient Greek words, extracted on 2026-10-03 from the
+enwiktionary dump of 2026-09-02.
+
+- **Perseus LSJ is not chosen.** The PerseusDL `lexica` repository licenses its
+  contents under CC BY-SA 4.0 "unless otherwise indicated". The same notice
+  says Tufts provides the materials "for the personal use of students, scholars,
+  and the public", and adds "You must offer Perseus any modifications you make".
+  Those terms need a rights review before any use. LSJ would also need a second
+  derivation pipeline.
+- **Excluded:** any source with a non-commercial licence, and any treebank (§18
+  Conditions).
+- The dictionary is a lookup only. It is never a mapping basis, repair witness,
+  decoding input or test oracle for an analysis, so it cannot change a lemma,
+  UPOS or discriminator.
+
+**Index entries.** The `grc` part of the index keeps **one row per source
+entry**: one Wiktextract record, identified by its page title (`word`), its
+part of speech and, when the page has numbered etymologies, its
+`etymology_number`. Entries are never merged by key, unlike today's rows
+(see Current anchors). Each row stores:
+
+- the source headword, NFC, exactly as the page title spells it;
+- the UPOS mapped from the source part of speech, or empty when the mapping
+  gives none (today's lemma-only rows);
+- the etymology number, or empty;
+- the senses, forms and IPA the derivation already extracts, in source order;
+- no key. Go computes the key (OD-82).
+
+A headword that fails §6 admission, for example a multi-word phrase, is not
+matchable. Under OD-82's recommendation the server skips it when it opens the
+index and logs how many it skipped. No headword is repaired.
+Page titles carry no macrons or breves, so a decoded citation form written with
+length marks has a different key and finds no entry. Neither side is changed to
+make them meet.
+
+**Key matching.**
+
+1. The query is one effective rich identity: its language `grc`, its canonical
+   lemma (the key) and its UPOS. The headword shown (§6 "Analysis headword") is
+   never the query.
+2. Go computes each entry's key from its source headword with `ancient-greek/1`
+   (I-1, I-7), through the admission check.
+3. An entry matches when its key is byte-equal to the identity's canonical lemma
+   and its UPOS equals the identity's UPOS. An entry with an empty UPOS matches on
+   the key alone and is shown after the exact matches, labelled as weaker
+   evidence, as for modern languages today.
+4. An entry with a different non-empty UPOS does not match.
+5. Nothing else is compared: no casefold, accent stripping, subscript and adscript
+   equivalence, or prefix match.
+
+**Homograph discriminators.** The lookup never reads the discriminator.
+
+- No reviewed mapping exists between a scheme's values, such as `morpheus` `#1`
+  and `#2`, and dictionary entries. The `morpheus` numbering belongs to that
+  lexicon. Nothing shows that it corresponds to Wiktionary's etymology numbers or
+  to any other entry order.
+- So `λέξις` NOUN `morpheus:1` and `λέξις` NOUN `morpheus:2` (synthetic values)
+  both show **every** matching entry, each as its own entry, in source order.
+  When the identity has a discriminator, the view says that the entries are not
+  matched to it.
+- Every matching entry stays separate. Senses from two entries are never merged
+  into one list, and no entry is hidden because another exists.
+- The two identities stay distinct. Lookup never merges them, renames them, or
+  adds, drops or chooses a discriminator. Their Known, Reserved, counts and
+  corrections are unaffected.
+- A later mapping from `(scheme, value)` to an entry is a reviewed, versioned
+  registry, like a discriminator scheme. It needs its own approved decision and a
+  stable entry identifier across dumps. This design defines none.
+- Lookup offers no discriminator choice to a learner. OD-23 stays as answered.
+
+**Where the learner sees it.** #2060 shows the matching entries for an
+identity opened from Browse, beside the headword and the discriminator metadata.
+It reuses an established disclosure pattern (`doc/design/`). Each entry shows its
+source headword, part of speech, etymology number if any, senses and the
+index's `provider_version`. The Wiktionary attribution is shown with the entries.
+Modern-language views are unchanged; extending the display to them needs a
+separate decision.
+
+**Availability.**
+
+- The index is the operator-local file named by `MOUSEION_DICTIONARY_INDEX`. A
+  missing index, or one without `grc` rows, shows the dictionary as unavailable
+  with a reason. It never blocks Browse, counts, Reading, End, Switch or Finish,
+  and it is never shown as "no entry".
+- An identity with no matching entry shows "no dictionary entry". That changes
+  no count, eligibility or selection.
+- Lookup is local and deterministic. It needs no NLP service and no provider,
+  and makes no network call.
+- Lookup writes no learner, Book or evidence state. A record that freezes
+  lexical evidence (a #2063 deck specification) records the index
+  `provider_version` and the entries it used.
+- `grc` lemma review does not read the dictionary. The lemma-risk detector keeps
+  its modern-language behaviour, and a missing entry never flags a Greek
+  occurrence. Enabling it for `grc` needs a separate decision.
+
+**Fixture format.** `dictionary-lookup/1`, UTF-8 JSON Lines, with strings as
+code-point arrays, like the other §6 formats:
+
+```json
+{"format":"dictionary-lookup/1","case":"discriminated-shows-all",
+ "entries":[{"headword":["U+03BB","U+03AD","U+03BE","U+03B9","U+03C2"],"upos":"NOUN","etymology":"1"},
+            {"headword":["U+03BB","U+03AD","U+03BE","U+03B9","U+03C2"],"upos":"NOUN","etymology":"2"}],
+ "query":{"language":"grc","canonical_lemma":["U+03BB","U+03AD","U+03BE","U+03B9","U+03C3"],"upos":"NOUN",
+          "discriminator_scheme":"example","discriminator_value":"ex:1"},
+ "expect":{"matches":[0,1],"weaker":[],"unmatched_discriminator":true}}
+```
+
+`expect.matches` and `expect.weaker` list entry indexes in display order.
+Fixtures use synthetic entries only (§14); no Wiktionary text enters a public
+fixture. Proposed location: `internal/dictionary/testdata/dictionary-lookup-v1.jsonl`.
+
 ### Invariants
 
 Each invariant is covered by the `IDN` rows in [§15](#15-acceptance-test-matrix).
@@ -1632,6 +1771,18 @@ Each invariant is covered by the `IDN` rows in [§15](#15-acceptance-test-matrix
    (IDN-34). Form search is OD-26.
 8. **Modern languages.** Identity, normalization and outcomes for `de`, `el`,
    `it` and unregistered languages are unchanged (IDN-35, IDN-36).
+9. **Dictionary lookup.**
+   - Go computes every `grc` entry key with `ancient-greek/1`. A headword that
+     fails admission matches nothing (IDN-39).
+   - An entry matches on byte-equal key and equal UPOS. Lemma-only entries
+     follow as weaker evidence, and no other comparison applies (IDN-40).
+   - Lookup never reads the discriminator. Two identities that differ only in
+     the discriminator show the same entries, every entry separately, and
+     stay distinct (IDN-41).
+   - An unavailable index is shown as unavailable, never as "no entry", and it
+     blocks no Reading operation. Lookup needs no NLP service or provider, and
+     writes no learner state (IDN-42).
+   - Lookup never changes an identity, a count or a selection (IDN-43).
 
 ### Conflicts and dependencies noted
 
@@ -1662,6 +1813,17 @@ Each invariant is covered by the `IDN` rows in [§15](#15-acceptance-test-matrix
   transaction, which §5 defines.
 - The legacy `grc` preflight query and report belong to §13.
 - Public fixture content rules belong to §14.
+- #2091 replaced I-7's "No Greek dictionary is in scope" with "Dictionary
+  lookup". The handoff's Stage 4 does not list a dictionary, and its Stage 5
+  forbids a "dictionary-only substitute" for card Glosses. Placing lookup in
+  #2060 contradicts neither: lookup is evidence shown beside a headword, never a
+  Gloss. OD-81 records the placement and the source.
+- The `grc` index rows (one per source entry, no stored key) are a change to
+  the index derivation, which is not database state (ADR 0064). §13 gains no
+  step.
+- The attribution notice names CC BY-SA 3.0 (`internal/dictionary/attribution.go:4`).
+  #2060 corrects it to the licence Wiktionary states before showing `grc`
+  entries.
 
 ## 7. Canonical analysis and exact occurrences
 
@@ -5972,6 +6134,11 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | IDN-36 | Modern-language identities and learner outcomes are unchanged. | (b) | Every existing store-contract scenario (language `de`). | Run them with rich identities and the classical schema present. Run selection over synthetic `de` and `el` corpora. | Every scenario passes unchanged. Known, Reserved, snapshot, completion and count results equal the baseline, including the blank-UPOS Known match. Selection gives the same candidate identities, counts, observed forms and sentence references as the baseline recorded at this commit. | No modern-language Known, snapshot or count row gains a discriminator. |
 | IDN-37 | Cross-Book views choose an identity's headword by the stated preference order. | (b) | Owner A has two classical Books whose current analyses give one identity the headwords `Λέξις` and `λέξις`. The second Book is the Concordance priority Book. | Read the Concordance lemma group. Then accept a completed Reading of the first Book that makes the identity Known, and read the Known list and the Concordance group. | Before acceptance, the group shows `λέξις`, from the priority Book. After it, both views show `Λέξις`, the headword frozen with the Known acceptance. | Without a priority Book or Known acceptance, the view shows `Λέξις`, the smaller by code-point order. It never shows the key. |
 | IDN-38 | A corrected identity shows the correction's citation form in its Book. | (b) | Owner A's Book has two occurrences of `λέξις` NOUN `example:ex:1`. | Confirm a correction of the first to `Λῆξις`, then of the second to `λῆξις`. Read the Book's vocabulary. | The effective identity `λῆξισ` NOUN with a null discriminator shows `λῆξις`, from the latest correction. The Analysis headword for `example:ex:1` is unchanged. | Another Book with the same identity from its analysis shows its own headword, not the correction's. |
+| IDN-39 | Go computes every `grc` entry key with `ancient-greek/1`; a headword that fails admission matches nothing. | (a) | A synthetic index whose `grc` rows have the headwords `Λέξις`, `λε` + U+0301 + `ξις` (NFD) and `λέξις λέξις`. Owner A's classical Book has the identity `λέξισ` NOUN. | Open the identity from Browse. | Both single-word entries are shown, because both keys are `λέξισ`. Opening the index logs one skipped headword. | The multi-word headword is never shown, and no key is computed by casefold or by Python. |
+| IDN-40 | An entry matches on byte-equal key and equal UPOS; lemma-only entries follow as weaker evidence; nothing else is compared. | (a) | A synthetic index with `grc` entries `λέξις` NOUN, `λέξις` with empty UPOS, `λέξις` VERB, `λὲξις` NOUN and `λήιξις` NOUN. The identity is `λέξισ` NOUN. | Open the identity from Browse. | The NOUN entry is shown first, then the empty-UPOS entry, labelled weaker. | The VERB entry, the grave-accent entry and the adscript entry are not shown. |
+| IDN-41 | Lookup never reads the discriminator; identities that differ only in it show the same entries, separately, and stay distinct. | (a) | A synthetic index with two `grc` entries `λέξις` NOUN, etymology numbers 1 and 2, with different senses. Owner A's Book has `λέξις` NOUN `example:ex:1` and `example:ex:2`. | Open each identity from Browse. Then mark `example:ex:1` Known. | Each identity shows both entries as two entries, in source order, with their senses apart, and says they are not matched to its discriminator. After the Known decision, only `example:ex:1` is Known. | No sense list merges the two entries, no entry is hidden, and neither identity shows a chosen discriminator or changes. |
+| IDN-42 | An unavailable index is shown as unavailable and blocks nothing; lookup needs no NLP or provider and writes no learner state. | (a) | Owner A has a current classical Reading. NLP is stopped and no provider is configured. Run once with no index file, once with an index without `grc` rows, and once with a synthetic `grc` index. | Open an identity from Browse, then End the Reading. | Without `grc` entries, the view shows the dictionary as unavailable with a reason. With them, entries are shown. End succeeds in every run. No learner, Book or evidence row changes when an identity is opened. | No run shows "no dictionary entry" when the index is missing, and no run makes a network call. |
+| IDN-43 | Lookup never changes an identity, a count or a selection. | (a) | Owner A's classical Book with a recorded Browse, count and selection result. A synthetic `grc` index with entries for some identities and none for others. | Load the index, then read Browse, counts and the Start selection. | Every result equals the one recorded without the index. | An identity with no entry is not excluded, flagged or demoted. |
 | OCC-01 | Two nodes with an identical span are two occurrences with two keys. | (c) | A synthetic candidate. Nodes 4 (`λέξις` NOUN `example:ex:1`) and 5 (`λέξις` NOUN `example:ex:2`) are both `word`, `vocabulary`, with span `[10,16)`. | Validate the candidate. | Accepted. It yields occurrences `(A,4)` and `(A,5)`, both counted. Each key resolves to its own node and identity. | A candidate that gives node 5 the same `native_node_ref` as node 4 in that sentence is rejected (`OCC-ID-1`). A lookup by span `[10,16)` is not an occurrence key and is not offered by the interface. |
 | OCC-02 | A discontinuous span round-trips exactly. | (d) | A validated synthetic analysis where node 9 has spans `[2,5)` and `[9,12)`, and the Extracted text has known slices at both. | Persist it, then read node 9 through the analysis read interface. | Two spans in order, `[2,5)` then `[9,12)`. The text slices equal the Extracted text at those spans. No span `[2,12)` exists. | Validating spans `[2,5)` and `[4,8)` (overlapping), `[2,5)` and `[5,8)` (adjacent), or `[9,12)` before `[2,5)` is rejected (`SPAN-2`), seam (c). |
 | OCC-03 | An empty node has no span and no count. | (c) | A candidate sentence with words 1–3 and an empty node `2.1` that has a lemma. | Validate and read counts. | The empty node is `empty`, `non_vocabulary(empty_node)`, with a NULL surface, no span and no occurrence. The count is that of words 1–3 only. | A candidate giving the empty node a span, a surface or class `vocabulary` is rejected (`SPAN-3`, `ACC-2`). |
@@ -6179,7 +6346,7 @@ recorded in §17, or closed by a row that follows directly from a stated rule.
 | --- | --- | --- | --- |
 | 1 | Ancient Greek in my existing application | §2, §4, §8, §10 | BIB-22, LOC-14, LRN-19, VAL-11, VAL-20 |
 | 2 | My Book is an explicit Edition and Reading unit, and annotation availability cannot change it | §4, §5 "Bytes present versus unit offered" | BIB-06, BIB-09, BIB-10, BIB-13, EVD-12, LOC-14 |
-| 3 | Usable citation headwords and distinct lexical homographs | §6, §7, §8 | IDN-17, IDN-28, IDN-29, IDN-30, IDN-37, OCC-01, LRN-01 |
+| 3 | Usable citation headwords and distinct lexical homographs | §6, §6 "Dictionary lookup", §7, §8 | IDN-17, IDN-28, IDN-29, IDN-30, IDN-37, IDN-41, OCC-01, LRN-01 |
 | 4 | Exact occurrence decisions when spans coincide | §7 "Occurrence identity", §8 "Effective identity" | OCC-01, OCC-12, OCC-13, LRN-02, LRN-22 |
 | 5 | Unsupported optional syntax stays explicitly unavailable | §7 "Optional layers and availability", §10 "Capability derivation and readiness" | OCC-07, OCC-21, OCC-26, OCC-27, VAL-03, VAL-24, EVD-20 |
 | 6 | Existing Known, reservations, snapshots and history preserved | §6 "Legacy compatibility", §8, §11 "Frozen state", §13 | IDN-24, IDN-25, IDN-26, IDN-27, LRN-13, LRN-14, ADP-21, MIG-01, MIG-02, MIG-10 |
@@ -6268,6 +6435,10 @@ for Exact analyses):
 - **Withdrawn:** OCC-20, listed under §15 "Withdrawn rows" (secondary syntax is
   dropped, OD-80).
 
+Rows added by #2091 (Greek dictionary lookup in the learner flow): IDN-39 to
+IDN-43, for §6 "Dictionary lookup". Its placement and source are OD-81, and
+where `grc` entry keys are computed is OD-82.
+
 Gaps recorded in §17: OD-68 (rich store-contract seeding), OD-74 (storage
 pressure), OD-75 (review-only requirements) and OD-76 (rich deck admission).
 SC-3 and the catalogue-offering rows have rows, but only the Stage 3 spec runs
@@ -6310,25 +6481,32 @@ offering and Claimed-alias parts of BIB-27.
 
 | item | inheritance |
 | --- | --- |
-| Sections | §4 display of Edition and unit. §6 headword display, lemma review on classical analyses (I-5) and Concordance (I-6). §7 consumers through the analysis read interface. §8 lifecycle transitions, representation selection, the 3/15 rule, contributing Books and the rich store-contract scenarios. §9 deletion behaviour and the restricted-Book behaviour. §10 "Shared learner core": the consumers that read through #2061's interfaces, and the NLP independence of the Reading entry points. |
-| Matrix IDs | BIB-04, BIB-05; EVD-18, EVD-22; IDN-14, IDN-16, IDN-22 to IDN-28, IDN-30, IDN-31, IDN-32, IDN-34, IDN-37, IDN-38; OCC-06, OCC-07, OCC-21, OCC-24, OCC-25; LRN-01 to LRN-14, LRN-15‡, LRN-18 to LRN-23, LRN-25, LRN-26; RET-05, RET-08, RET-10, RET-12, RET-15, RET-17; VAL-11, VAL-12, VAL-20, VAL-21; ADP-21‡, ADP-24; MIG-11, MIG-12, MIG-14; and the † observations of EVD-12, ADP-12, ADP-15, ADP-20 and LOC-20. |
+| Sections | §4 display of Edition and unit. §6 headword display, lemma review on classical analyses (I-5), Concordance (I-6) and "Dictionary lookup" (I-7): the `grc` index entries, the lookup, its display and the attribution correction. §7 consumers through the analysis read interface. §8 lifecycle transitions, representation selection, the 3/15 rule, contributing Books and the rich store-contract scenarios. §9 deletion behaviour and the restricted-Book behaviour. §10 "Shared learner core": the consumers that read through #2061's interfaces, and the NLP independence of the Reading entry points. |
+| Matrix IDs | BIB-04, BIB-05; EVD-18, EVD-22; IDN-14, IDN-16, IDN-22 to IDN-28, IDN-30, IDN-31, IDN-32, IDN-34, IDN-37 to IDN-43; OCC-06, OCC-07, OCC-21, OCC-24, OCC-25; LRN-01 to LRN-14, LRN-15‡, LRN-18 to LRN-23, LRN-25, LRN-26; RET-05, RET-08, RET-10, RET-12, RET-15, RET-17; VAL-11, VAL-12, VAL-20, VAL-21; ADP-21‡, ADP-24; MIG-11, MIG-12, MIG-14; and the † observations of EVD-12, ADP-12, ADP-15, ADP-20 and LOC-20. |
 | Local-only steps | L-8 (§14) |
-| Blocking decisions | Every §17 row whose **blocks** column names #2060: OD-01, OD-03, OD-04, OD-05, OD-22, OD-23, OD-26, OD-33, OD-34, OD-35, OD-42. Those that block no earlier spec are under [§17 "Blocks #2060"](#blocks-2060-reading-and-vocabulary). |
+| Blocking decisions | Every §17 row whose **blocks** column names #2060: OD-01, OD-03, OD-04, OD-05, OD-22, OD-23, OD-26, OD-33, OD-34, OD-35, OD-42, OD-81, OD-82. Those that block no earlier spec are under [§17 "Blocks #2060"](#blocks-2060-reading-and-vocabulary). |
 
 #### #2063 cards
 
 | item | inheritance |
 | --- | --- |
-| Sections | #2063 mostly consumes §8 and §9: frozen Rich snapshot membership and headwords, Rich Known, and §9's R6 rules (one Adopted evidence record reference per (Book, analysis) used, and notices resolved only through them). It also reads §7's `sentence_target` capability, sentence boundaries and highlighting rule, and §6's headword and discriminator display. **Card-specific rules are outside this design:** rich deck records (B-14, B-15), sentence and target selection, the length caps, Glosses and translations, provider payloads, note and APKG packaging, client acceptance and the personal-export assessment. |
+| Sections | #2063 mostly consumes §8 and §9: frozen Rich snapshot membership and headwords, Rich Known, and §9's R6 rules (one Adopted evidence record reference per (Book, analysis) used, and notices resolved only through them). It also reads §7's `sentence_target` capability, sentence boundaries and highlighting rule, §6's headword and discriminator display, and §6 "Dictionary lookup" as lexical evidence, which #2060 delivers. It adds no second Greek dictionary, and records the index `provider_version` and the entries it used with each frozen specification. **Card-specific rules are outside this design:** rich deck records (B-14, B-15), sentence and target selection, the length caps, Glosses and translations, provider payloads, note and APKG packaging, client acceptance and the personal-export assessment. |
 | Matrix IDs | RET-04, plus LRN-15‡ and ADP-21‡ with real deck records. #2063 adds its own card rows (OD-76). |
 | Local-only steps | Card-specific, and outside this design (§14). |
-| Blocking decisions | OD-14 and OD-76. OD-76 is under [§17 "Blocks #2063"](#blocks-2063-cards). |
+| Blocking decisions | OD-14, OD-76 and OD-81. OD-76 is under [§17 "Blocks #2063"](#blocks-2063-cards). |
 
 #### Spec statements updated for #2089
 
 The #2059 and #2063 bodies were restated for #2089 on 2026-10-15: the reduced
 exception table, `oga-agdt-upos/4` and `oga-agdt-feats/1` as the only new
 mappings, and comparison with the Stage 1 re-run instead of 438/434.
+
+#### Spec statements updated for #2091
+
+The #2060 body was restated for #2091 on 2026-10-15: it owns `grc` dictionary
+lookup, from English Wiktionary through Kaikki, matched as §6 "Dictionary
+lookup" says. The #2063 body was restated to read that lookup as lexical
+evidence instead of adding its own.
 
 ### Consistency audit
 
@@ -6356,7 +6534,8 @@ any spec starts (§1). IDs are never reused: OD-24 and OD-53 are merged into
 OD-63 and OD-39, and keep their IDs so that references still resolve. OD-68 to
 OD-76 come from the §16 traceability and consistency audit. OD-77 comes from
 the #2089 rework (no treebank data), and OD-78 to OD-80 from the #2090 rework
-(syntax storage deferred).
+(syntax storage deferred). OD-81 and OD-82 come from the #2091 rework (Greek
+dictionary lookup).
 
 ### Blocks #2061 canonical foundations
 
@@ -6437,6 +6616,8 @@ the #2089 rework (no treebank data), and OD-78 to OD-80 from the #2090 rework
 | OD-01 | Must rich identities reach the tuple-keyed Browse selection and Custom deck stores (B-17), whose UI is being retired? | (1) Greek identities are never written there; a test asserts it. (2) Add a discriminator to those stores. | (1), decided by #2069. §8 is written against it, and LRN-25 asserts it. | (1) adds no structure, but a Greek identity cannot be selected for a Custom deck. (2) changes stores outside the Reading path for a retiring UI. | #2064 | #2060 | open |
 | OD-33 | Do Rich Known rows affect legacy (tuple) selection? §6 defines equality between a legacy tuple and a null-discriminator, non-`grc` rich identity. | (1) No. Legacy selection reads only `known_vocabulary`. Rich selection reads Rich Known plus the legacy rows that equal its candidates under §6. (2) Both directions apply the §6 equality. | (1). | (1) guarantees that no legacy outcome changes (LRN-14). It is unobservable today, because the only rich language is `grc`, and §6 rule 5 keeps `grc` legacy and rich apart. A future non-`grc` classical language needs this revisited before its Known crosses representations. (2) is symmetric but makes legacy selection read a new record for no current case. | #2069 | #2060 | open |
 | OD-42 | Issue #2070 says a Book that fails the integrity check shows "unavailable with a reason, with no End or Finish". ADR 0097 "Durable bounded work and recovery" says "do not automatically End or Finish a Reading. Operations wholly supported by intact frozen records may continue, including explicit End/Finish". | (1) Follow the ADR: no automatic End or Finish, and explicit End and Finish stay available. (2) Follow the ticket wording: refuse explicit End and Finish too. | (1). The ADR is binding (§1), and §9 and RET-17 are written against it. | (1) lets a learner close a reading whose frozen snapshot is intact, without touching evidence. (2) traps the learner in a current reading until an operator restores the evidence, which contradicts a binding ADR. | #2070 | #2060 | open |
+| OD-81 | Where does `grc` dictionary lookup belong, and which source does it read (§6 "Dictionary lookup", #2091)? Today I-7 says no Greek dictionary is in scope, and dictionary use appears only in the card stage. | (1) #2060 owns lookup in the learner flow, and #2063 reads it as lexical evidence. The source is English Wiktionary's Ancient Greek entries through Kaikki, the existing index pipeline (CC BY-SA 4.0 and GFDL). (2) #2063 owns it, for cards only. (3) A separate spec between #2059 and #2060. (4) Option (1) with Perseus LSJ (PerseusDL `lexica`, CC BY-SA 4.0 "unless otherwise indicated") as the source. | (1). §6 is written against it. | (1) puts the dictionary where the learner reads, reuses the derivation, the operator-local file and the attribution path, and gives #2063 one lexical source. It adds a display and an index change to #2060, and its Wiktionary coverage of Ancient Greek is unmeasured. (2) leaves Reading without lookup, against the learner flow #2091 records. (3) keeps #2060 smaller, but adds a fifth spec and handoff step for one lookup. (4) needs a rights review of the repository's "personal use" wording and its "You must offer Perseus any modifications" term, and a second derivation pipeline. Every option excludes non-commercial sources and treebanks. | #2091 | #2060, #2063 | open |
+| OD-82 | Where are `grc` entry keys computed? The derivation is Python, which cannot compute `ancient-greek/1` (I-10). | (1) The index stores the NFC source headword and no `grc` key. The server computes each key with `ancient-greek/1` when it opens the index, and keeps an in-memory map from key to entries. It skips and counts headwords that fail admission. (2) A Go build step writes the keys into the index and records the profile name and Unicode version in its metadata. The server ignores the `grc` rows when the recorded profile is not its active `grc` profile. | (1). §6 is written against it. | (1) cannot hold a key that disagrees with the running profile, and needs no new build step. Its cost is reading every `grc` headword at start-up, about 64,000 at the 2026-10-15 count, and the map's memory. (2) starts faster and keeps memory flat, but adds a Go step to the derivation and a profile check, and a profile change needs an index rebuild. | #2091 | #2060 | open |
 
 ### Blocks #2063 cards
 
@@ -6578,3 +6759,5 @@ it back for narrow rework.
 | OD-78 | _pending_ | |
 | OD-79 | _pending_ | |
 | OD-80 | _pending_ | |
+| OD-81 | _pending_ | |
+| OD-82 | _pending_ | |
