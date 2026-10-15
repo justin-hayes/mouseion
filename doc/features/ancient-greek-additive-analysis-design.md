@@ -6510,4 +6510,4 @@ it back for narrow rework.
 | OD-74 | Option (1) | Single-user installation; the operator owns storage capacity. |
 | OD-75 | _pending_ | |
 | OD-76 | _pending_ | |
-| OD-77 | _pending_ | |
+| OD-77 | Accept (1) | AUX where the native annotation marks εἰμί as a copula, VERB otherwise. Recorded from the owner's answer on #2093. |
