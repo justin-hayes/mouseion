@@ -1,5 +1,43 @@
 # Attribution, rights and modification notice
 
+## Fresh-owner completion pass (#2052, 2026-10-15)
+
+This pass added narrow static inputs, listed with URL, revision, size, SHA-256
+and the licence statement found in `opus-completion-inputs.json`. They are kept
+privately under `private/opus-completion/` and cited, not republished:
+
+- **PerseusDL/morpheus** at `b1b33c56…`: eight stem-source files (each matches
+  the existing manifest hash) and three documentation files (`doc/morpheus.html`,
+  `stemlib/Greek/xsl/lemmaRegistry.xsl`, `stemlib/Greek/makefile`). The README
+  states CC BY-SA 3.0 US unless otherwise indicated, with Tufts' general notice.
+  Only key, line and derivation witnesses are cited. Morpheus was not built or run.
+- **vgorman1/Greek-Dependency-Trees** at `d823e96d…`: the two Anabasis Book 1
+  tree files, the README and the licence file. The README says CC BY-NC-SA 4.0.
+  The licence file holds the CC BY-SA 4.0 text. Both are recorded and neither is
+  resolved here. These files are a lineage witness for the producer's training
+  labels. They are not a reading source, a correction or a gold standard. Only
+  counts and short lemma labels are published.
+- **UD_Ancient_Greek-Perseus** at `331ddef9…`: train, dev and test files,
+  README and LICENSE (CC BY-NC-SA 2.5). These are byte-identical copies of the
+  #2050 retained inputs, checked against that registry's hashes. They serve as
+  conversion evidence and only counts are published.
+- **UniversalDependencies/docs** at `24add7d0…`: Ancient Greek POS pages and the
+  universal AUX, cop and nonverbal-predication pages. GitHub reports Apache-2.0
+  for the repository. They are cited, not republished.
+
+One Perseus Hopper request for a single LSJ entry returned **HTTP 405**. It was
+not retried and no other route was tried. No LSJ file was acquired.
+
+**New Mouseion transformations:** the pass interprets the producer's lemma
+labels against Morpheus keys and compound records, and maps native POS to UPOS
+using the UD Perseus conversion and the UD guidelines. It segments sentences on
+`.` and `;` over the unchanged reading text and serializes identities as
+`key#morpheus:n` for the Go probe. It models selection and picks sentence
+inputs. None of this changes upstream text or annotation, and none of it
+certifies a prediction. Full ledgers, sentences, examples and the probe input
+stay private. Public files hold counts, node IDs, citations, raw lemma labels
+and native POS, under CC BY-SA 4.0 with this notice.
+
 ## Current component assessment after verified acquisition
 
 The official v0.2.0 archive is now acquired and locally verified (size, published

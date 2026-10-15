@@ -1,0 +1,1989 @@
+{
+ "binding": {
+  "empty_nodes": 110,
+  "native_nodes": 10572,
+  "printed_nodes": 10462
+ },
+ "card_inputs": {
+  "chosen_flags": {
+   "at_most_5_units": 1,
+   "lowercased_name_like_target": 40,
+   "sentence_has_editorial_element": 9,
+   "sentence_has_word_internal_space": 36
+  },
+  "chosen_sentence_units": {
+   "max": 50,
+   "median": 27.5,
+   "min": 4,
+   "p90": 43
+  },
+  "distinct_chosen_sentences": 178,
+  "earlier_rejection_reasons": {
+   "over-code-point-cap": 19,
+   "over-unit-cap": 75
+  },
+  "eligible": 432,
+  "omitted": [
+   {
+    "ids": [
+     "t_3870",
+     "t_9863",
+     "t_10327"
+    ],
+    "key": "οἴχομαι",
+    "reasons": [
+     "over-unit-cap"
+    ],
+    "upos": "VERB"
+   },
+   {
+    "ids": [
+     "t_4195",
+     "t_4209",
+     "t_5935",
+     "t_8708"
+    ],
+    "key": "πατήρ",
+    "reasons": [
+     "over-unit-cap"
+    ],
+    "upos": "NOUN"
+   },
+   {
+    "ids": [
+     "t_2013",
+     "t_4189",
+     "t_7139"
+    ],
+    "key": "πρότεροσ",
+    "reasons": [
+     "over-unit-cap"
+    ],
+    "upos": "ADJ"
+   },
+   {
+    "ids": [
+     "t_3153",
+     "t_3251",
+     "t_3800"
+    ],
+    "key": "ἄπειμι#morpheus:1",
+    "reasons": [
+     "over-code-point-cap",
+     "over-unit-cap"
+    ],
+    "upos": "VERB"
+   },
+   {
+    "ids": [
+     "t_4624",
+     "t_4638",
+     "t_5775"
+    ],
+    "key": "ἐνεἰμί",
+    "reasons": [
+     "headword-unusable:medial-breathing",
+     "over-unit-cap"
+    ],
+    "upos": "VERB"
+   }
+  ],
+  "selected": 437,
+  "using_later_occurrence": 56
+ },
+ "denominators": {
+  "empty_unprinted": 110,
+  "native_nodes": 10572,
+  "non_vocabulary_by_upos": {
+   "ADP": 579,
+   "AUX": 178,
+   "CCONJ": 541,
+   "DET": 1047,
+   "INTJ": 7,
+   "PRON": 721,
+   "SCONJ": 215
+  },
+  "printed": 10462,
+  "punctuation": 1157,
+  "unresolved_ids": [],
+  "vocabulary_status": {
+   "eligible": 6017,
+   "non-vocabulary": 4445
+  }
+ },
+ "examples_present": {
+  "cap-rejection-then-later-occurrence": true,
+  "compound-record-decoding": true,
+  "editorial-material-in-sentence": true,
+  "eimi-aux-without-pnom": true,
+  "elision-target": true,
+  "empty-node-in-sentence": true,
+  "lexical-discriminator": true,
+  "lowercased-name-headword-as-NOUN": true,
+  "malformed-citation-form": true,
+  "nfd-polytonic-source": false,
+  "omission": true,
+  "optional-morphology-absent": true,
+  "ordinary-complete-sentence": true,
+  "particle-as-ADV": true,
+  "repeated-target-in-sentence": true,
+  "short-complete-sentence-chosen": true,
+  "word-internal-space-in-sentence": true
+ },
+ "identity_layer": {
+  "malformed_raw_lemma_predictions": [
+   {
+    "decoded_headword_flags": "multiple-accents",
+    "ids": [
+     "t_5121"
+    ],
+    "raw_flags": "multiple-accents",
+    "raw_lemma": "κατάκαθέζομαι",
+    "rule": "I-PLAIN"
+   },
+   {
+    "decoded_headword_flags": "multiple-accents",
+    "ids": [
+     "t_437"
+    ],
+    "raw_flags": "multiple-accents",
+    "raw_lemma": "σύλλέγω",
+    "rule": "I-PLAIN"
+   },
+   {
+    "decoded_headword_flags": "medial-breathing,multiple-accents",
+    "ids": [
+     "t_5145"
+    ],
+    "raw_flags": "medial-breathing,multiple-accents",
+    "raw_lemma": "σύνεἶδον",
+    "rule": "I-PLAIN"
+   },
+   {
+    "decoded_headword_flags": "",
+    "ids": [
+     "t_302"
+    ],
+    "raw_flags": "multiple-accents",
+    "raw_lemma": "σύνλέγω2",
+    "rule": "I-COMPOUND-RECORD"
+   },
+   {
+    "decoded_headword_flags": "medial-breathing",
+    "ids": [
+     "t_4624",
+     "t_4638",
+     "t_5775"
+    ],
+    "raw_flags": "medial-breathing",
+    "raw_lemma": "ἐνεἰμί",
+    "rule": "I-PLAIN"
+   },
+   {
+    "decoded_headword_flags": "grave-accent",
+    "ids": [
+     "t_4930"
+    ],
+    "raw_flags": "grave-accent",
+    "raw_lemma": "ἑπτὰ",
+    "rule": "I-PLAIN"
+   }
+  ],
+  "namespace": {
+   "meaning": "Perseus Morpheus lemma-key homograph number",
+   "pin": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "scheme": "morpheus"
+  },
+  "numbered_labels": [
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "de"
+     ],
+     "witnesses": [
+      "lemlist:24228",
+      "vbs.simp.ml:5091"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "δέω",
+    "ids": [
+     "t_1416",
+     "t_2393",
+     "t_5487",
+     "t_5500",
+     "t_9239"
+    ],
+    "morpheus_key": "de/w2",
+    "native_pos": {
+     "v": 5
+    },
+    "occurrences": 5,
+    "qualifications": [],
+    "raw_lemma": "δέω2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 5
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "wd:adverb"
+     ],
+     "witnesses": [
+      "lemlist:29298",
+      "nom03:1005"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "εὐθύς",
+    "ids": [
+     "t_5080",
+     "t_5391",
+     "t_5476",
+     "t_5527",
+     "t_7291",
+     "t_8327",
+     "t_8591"
+    ],
+    "morpheus_key": "eu)qu/s2",
+    "native_pos": {
+     "d": 7
+    },
+    "occurrences": 7,
+    "qualifications": [],
+    "raw_lemma": "εὐθύς2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 7
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "aj"
+     ],
+     "witnesses": [
+      "lemlist:42966",
+      "nom03:4889"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "θεῖος",
+    "ids": [
+     "t_4537"
+    ],
+    "morpheus_key": "qei=os1",
+    "native_pos": {
+     "a": 1
+    },
+    "occurrences": 1,
+    "qualifications": [],
+    "raw_lemma": "θεῖος1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 1
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "de"
+     ],
+     "witnesses": [
+      "lemlist:34654",
+      "vbs.simp.ml:12240"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "3"
+    },
+    "headword": "λέγω",
+    "ids": [
+     "t_1070",
+     "t_1111",
+     "t_1293",
+     "t_1324",
+     "t_1352",
+     "t_1388",
+     "t_1415",
+     "t_1801",
+     "t_1825",
+     "t_2299",
+     "t_2612",
+     "t_2650",
+     "t_2846",
+     "t_2868",
+     "t_3019",
+     "t_3262",
+     "t_3602",
+     "t_3726",
+     "t_4131",
+     "t_4145",
+     "t_4280",
+     "t_4473",
+     "t_4508",
+     "t_5295",
+     "t_5503",
+     "t_5548",
+     "t_5666",
+     "t_6174",
+     "t_6317",
+     "t_6593",
+     "t_6636",
+     "t_6877",
+     "t_7558",
+     "t_7577",
+     "t_7859",
+     "t_7874",
+     "t_7995",
+     "t_8109",
+     "t_8276",
+     "t_8395",
+     "t_8426",
+     "t_8820",
+     "t_9136",
+     "t_9311",
+     "t_9385",
+     "t_9709",
+     "t_9736",
+     "t_10004",
+     "t_10418"
+    ],
+    "morpheus_key": "le/gw3",
+    "native_pos": {
+     "v": 49
+    },
+    "occurrences": 49,
+    "qualifications": [],
+    "raw_lemma": "λέγω3",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 49
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "no"
+     ],
+     "witnesses": [
+      "lemlist:23928",
+      "nom04:10739"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "ξένος",
+    "ids": [
+     "t_507",
+     "t_561",
+     "t_594",
+     "t_3202"
+    ],
+    "morpheus_key": "ce/nos1",
+    "native_pos": {
+     "n": 4
+    },
+    "occurrences": 4,
+    "qualifications": [],
+    "raw_lemma": "ξένος1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 4
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἰμί"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:4562"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "πάρειμι",
+    "ids": [
+     "t_752",
+     "t_773",
+     "t_1150",
+     "t_2311",
+     "t_3465",
+     "t_3511",
+     "t_5538",
+     "t_5558",
+     "t_6163"
+    ],
+    "morpheus_key": "pa/reimi1",
+    "native_pos": {
+     "v": 9
+    },
+    "occurrences": 9,
+    "qualifications": [],
+    "raw_lemma": "πάρειμι1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 9
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἶμι"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:4559"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "πάρειμι",
+    "ids": [
+     "t_10315"
+    ],
+    "morpheus_key": "pa/reimi2",
+    "native_pos": {
+     "v": 1
+    },
+    "occurrences": 1,
+    "qualifications": [],
+    "raw_lemma": "πάρειμι2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 1
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἰμί"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:4820"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "περίειμι",
+    "ids": [
+     "t_7748",
+     "t_9358"
+    ],
+    "morpheus_key": "peri/eimi1",
+    "native_pos": {
+     "v": 2
+    },
+    "occurrences": 2,
+    "qualifications": [],
+    "raw_lemma": "περίειμι1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 2
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "aj"
+     ],
+     "witnesses": [
+      "lemlist:40854",
+      "nom05:4877"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "πιστός",
+    "ids": [
+     "t_8421"
+    ],
+    "morpheus_key": "pisto/s2",
+    "native_pos": {
+     "a": 1
+    },
+    "occurrences": 1,
+    "qualifications": [],
+    "raw_lemma": "πιστός2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 1
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἶμι"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:5218"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "πρόειμι",
+    "ids": [
+     "t_7801"
+    ],
+    "morpheus_key": "pro/eimi1",
+    "native_pos": {
+     "v": 1
+    },
+    "occurrences": 1,
+    "qualifications": [],
+    "raw_lemma": "πρόειμι1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 1
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἰμί"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:5221"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "πρόειμι",
+    "ids": [
+     "t_1590",
+     "t_5625",
+     "t_5642"
+    ],
+    "morpheus_key": "pro/eimi2",
+    "native_pos": {
+     "v": 3
+    },
+    "occurrences": 3,
+    "qualifications": [],
+    "raw_lemma": "πρόειμι2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 3
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἰμί",
+      "εἶμι"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:5639",
+      "vbs.cmp.ml:5643"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "πρόσειμι",
+    "ids": [
+     "t_5468",
+     "t_6606",
+     "t_7682",
+     "t_7815",
+     "t_9906",
+     "t_9922"
+    ],
+    "morpheus_key": "pro/seimi1",
+    "native_pos": {
+     "v": 6
+    },
+    "occurrences": 6,
+    "qualifications": [
+     "scheme-derivation-ambiguous"
+    ],
+    "raw_lemma": "πρόσειμι1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 6
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἶμι"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:6338"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "σύνειμι",
+    "ids": [
+     "t_10099"
+    ],
+    "morpheus_key": "su/neimi2",
+    "native_pos": {
+     "v": 1
+    },
+    "occurrences": 1,
+    "qualifications": [],
+    "raw_lemma": "σύνειμι2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 1
+    }
+   },
+   {
+    "declared": {
+     "compound_record": "vbs.cmp.ml:6459",
+     "derivation": "su/n-le/gw2"
+    },
+    "discriminator": null,
+    "headword": "συλλέγω",
+    "ids": [
+     "t_302"
+    ],
+    "morpheus_key": "sulle/gw",
+    "native_pos": {
+     "v": 1
+    },
+    "occurrences": 1,
+    "qualifications": [],
+    "raw_lemma": "σύνλέγω2",
+    "rule": "I-COMPOUND-RECORD",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 1
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "de",
+      "vb",
+      "vs"
+     ],
+     "witnesses": [
+      "lemlist:48488",
+      "vbs.simp.ml:22963"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "χράω",
+    "ids": [
+     "t_4387",
+     "t_9084"
+    ],
+    "morpheus_key": "xra/w2",
+    "native_pos": {
+     "v": 2
+    },
+    "occurrences": 2,
+    "qualifications": [],
+    "raw_lemma": "χράω2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 2
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἰμί"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:912"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "ἄπειμι",
+    "ids": [
+     "t_3153",
+     "t_3251",
+     "t_3800"
+    ],
+    "morpheus_key": "a)/peimi1",
+    "native_pos": {
+     "v": 3
+    },
+    "occurrences": 3,
+    "qualifications": [],
+    "raw_lemma": "ἄπειμι1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 3
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἶμι"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:908"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "ἄπειμι",
+    "ids": [
+     "t_2778",
+     "t_4375",
+     "t_9536"
+    ],
+    "morpheus_key": "a)/peimi2",
+    "native_pos": {
+     "v": 3
+    },
+    "occurrences": 3,
+    "qualifications": [],
+    "raw_lemma": "ἄπειμι2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 3
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "no"
+     ],
+     "witnesses": [
+      "lemlist:18889",
+      "nom01:11021"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "ἄρωμα",
+    "ids": [
+     "t_4633"
+    ],
+    "morpheus_key": "a)/rwma1",
+    "native_pos": {
+     "n": 1
+    },
+    "occurrences": 1,
+    "qualifications": [],
+    "raw_lemma": "ἄρωμα1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 1
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἰμί"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:3092"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "ἔπειμι",
+    "ids": [
+     "t_5708"
+    ],
+    "morpheus_key": "e)/peimi1",
+    "native_pos": {
+     "v": 1
+    },
+    "occurrences": 1,
+    "qualifications": [],
+    "raw_lemma": "ἔπειμι1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 1
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [
+      "εἶμι"
+     ],
+     "stem_classes": [],
+     "witnesses": [
+      "vbs.cmp.ml:3089"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "2"
+    },
+    "headword": "ἔπειμι",
+    "ids": [
+     "t_1584",
+     "t_5519",
+     "t_6365",
+     "t_6516",
+     "t_10114"
+    ],
+    "morpheus_key": "e)/peimi2",
+    "native_pos": {
+     "v": 5
+    },
+    "occurrences": 5,
+    "qualifications": [],
+    "raw_lemma": "ἔπειμι2",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 5
+    }
+   },
+   {
+    "declared": {
+     "compound_bases": [],
+     "stem_classes": [
+      "wd:conj"
+     ],
+     "witnesses": [
+      "lemlist:31244",
+      "nom03:3438"
+     ]
+    },
+    "discriminator": {
+     "scheme": "morpheus",
+     "value": "1"
+    },
+    "headword": "ἤ",
+    "ids": [
+     "t_165",
+     "t_187",
+     "t_343",
+     "t_845",
+     "t_1278",
+     "t_2413",
+     "t_2420",
+     "t_2575",
+     "t_3230",
+     "t_3234",
+     "t_3931",
+     "t_4269",
+     "t_4451",
+     "t_4626",
+     "t_4921",
+     "t_4962",
+     "t_4967",
+     "t_5089",
+     "t_5426",
+     "t_5694",
+     "t_5698",
+     "t_7697",
+     "t_7947",
+     "t_8854",
+     "t_9105",
+     "t_9299",
+     "t_9303",
+     "t_9557",
+     "t_9591",
+     "t_9892",
+     "t_10118",
+     "t_10132",
+     "t_10325",
+     "t_10328",
+     "t_10343",
+     "t_10383"
+    ],
+    "morpheus_key": "h)/1",
+    "native_pos": {
+     "c": 31,
+     "d": 5
+    },
+    "occurrences": 36,
+    "qualifications": [],
+    "raw_lemma": "ἤ1",
+    "rule": "I-NUM-MORPHEUS-KEY",
+    "status": "resolved",
+    "vocabulary_status": {
+     "eligible": 5,
+     "non-vocabulary": 31
+    }
+   }
+  ],
+  "numbered_occurrences": 142,
+  "rule_counts_printed_non_punctuation": {
+   "I-COMPOUND-RECORD": 1,
+   "I-NUM-MORPHEUS-KEY": 141,
+   "I-PLAIN": 9163
+  },
+  "split_identities_same_headword_and_upos": [
+   {
+    "identities": {
+     "δέω": {
+      "occurrences": 8,
+      "selected": true
+     },
+     "δέω#morpheus:2": {
+      "occurrences": 5,
+      "selected": true
+     }
+    },
+    "key": "δέω",
+    "upos": "VERB"
+   },
+   {
+    "identities": {
+     "λέγω": {
+      "occurrences": 10,
+      "selected": true
+     },
+     "λέγω#morpheus:3": {
+      "occurrences": 49,
+      "selected": true
+     }
+    },
+    "key": "λέγω",
+    "upos": "VERB"
+   },
+   {
+    "identities": {
+     "ξένοσ": {
+      "occurrences": 2,
+      "selected": false
+     },
+     "ξένοσ#morpheus:1": {
+      "occurrences": 4,
+      "selected": true
+     }
+    },
+    "key": "ξένοσ",
+    "upos": "NOUN"
+   },
+   {
+    "identities": {
+     "πάρειμι": {
+      "occurrences": 4,
+      "selected": true
+     },
+     "πάρειμι#morpheus:1": {
+      "occurrences": 9,
+      "selected": true
+     },
+     "πάρειμι#morpheus:2": {
+      "occurrences": 1,
+      "selected": false
+     }
+    },
+    "key": "πάρειμι",
+    "upos": "VERB"
+   },
+   {
+    "identities": {
+     "πιστόσ": {
+      "occurrences": 8,
+      "selected": true
+     },
+     "πιστόσ#morpheus:2": {
+      "occurrences": 1,
+      "selected": false
+     }
+    },
+    "key": "πιστόσ",
+    "upos": "ADJ"
+   },
+   {
+    "identities": {
+     "πρόειμι": {
+      "occurrences": 1,
+      "selected": false
+     },
+     "πρόειμι#morpheus:1": {
+      "occurrences": 1,
+      "selected": false
+     },
+     "πρόειμι#morpheus:2": {
+      "occurrences": 3,
+      "selected": true
+     }
+    },
+    "key": "πρόειμι",
+    "upos": "VERB"
+   },
+   {
+    "identities": {
+     "χράω": {
+      "occurrences": 6,
+      "selected": true
+     },
+     "χράω#morpheus:2": {
+      "occurrences": 2,
+      "selected": false
+     }
+    },
+    "key": "χράω",
+    "upos": "VERB"
+   },
+   {
+    "identities": {
+     "ἄπειμι#morpheus:1": {
+      "occurrences": 3,
+      "selected": true
+     },
+     "ἄπειμι#morpheus:2": {
+      "occurrences": 3,
+      "selected": true
+     }
+    },
+    "key": "ἄπειμι",
+    "upos": "VERB"
+   },
+   {
+    "identities": {
+     "ἔπειμι": {
+      "occurrences": 1,
+      "selected": false
+     },
+     "ἔπειμι#morpheus:1": {
+      "occurrences": 1,
+      "selected": false
+     },
+     "ἔπειμι#morpheus:2": {
+      "occurrences": 5,
+      "selected": true
+     }
+    },
+    "key": "ἔπειμι",
+    "upos": "VERB"
+   }
+  ],
+  "verdict": "established-for-all-printed-lexical-nodes"
+ },
+ "inputs": {
+  "morpheus_pin": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+  "new_inputs": 46,
+  "original_pins": {
+   "README.md": "2287f7fa97f286e9b11dbfd1dd4edcba585d40960b33fc4c5b572e5e565eac87",
+   "morpheus-index.tsv": "57f81c8627c654411f185f2c2d491a958c8acdd5684400fe3c1696ebb2b9d5c2",
+   "morpheus-manifest.json": "bb672f881d8bdb2c0db4783605b65aeaa4bc7fcb562c2ecf34fa764cf8b4568f",
+   "native-nodes.json": "2a5aca90602428b23f0f88cbcbfbd1ac787c87d25bd9bd87c67c7a29ae0f942b",
+   "node-to-tei.json": "1f9016a011f9f62ef87931a9e58d655c5152d0feae3e69b85f0eaa0885b7b631",
+   "reading.txt": "0f18cae963899218fda6c62726d6a0b0429763f390597c1781a93d80c2ddd907",
+   "tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01_annotated_lemma.conllu": "0f9cbba8e4fdf28ddcedc70259c18f3d00573bc9a82d3acc6a9a050d17542780"
+  },
+  "producer_documents": [
+   "agdt2-guidelines.md",
+   "lemmatizer-readme-response.json",
+   "morpheus-README.md",
+   "producer-paper-v1.html",
+   "ud-ancient-greek-perseus-README.md",
+   "ud-upos-index.html"
+  ]
+ },
+ "pos_layer": {
+  "eimi": {
+   "P-V-EIMI-OTHER": 54,
+   "P-V-EIMI-PNOM": 124
+  },
+  "eimi_other_ids": [
+   "t_139",
+   "t_1013",
+   "t_1026",
+   "t_1302",
+   "t_1374",
+   "t_1805",
+   "t_1842",
+   "t_2426",
+   "t_2739",
+   "t_2926",
+   "t_3146",
+   "t_3302",
+   "t_3318",
+   "t_3351",
+   "t_3631",
+   "t_3649",
+   "t_3714",
+   "t_4135",
+   "t_4464",
+   "t_4566",
+   "t_4703",
+   "t_4766",
+   "t_4802",
+   "t_4860",
+   "t_4906",
+   "t_4951",
+   "t_5605",
+   "t_5651",
+   "t_5989",
+   "t_6214",
+   "t_6220",
+   "t_6536",
+   "t_6603",
+   "t_6641",
+   "t_6890",
+   "t_6911",
+   "t_7259",
+   "t_7547",
+   "t_7640",
+   "t_7933",
+   "t_8070",
+   "t_8185",
+   "t_8317",
+   "t_8400",
+   "t_8573",
+   "t_8931",
+   "t_9711",
+   "t_9845",
+   "t_10043",
+   "t_10155",
+   "t_10265",
+   "t_10285",
+   "t_10385",
+   "t_10412"
+  ],
+  "pair_unattested_by_rule": {
+   "P-LETTER-a": 69,
+   "P-LETTER-d": 29,
+   "P-LETTER-n": 272,
+   "P-LETTER-p": 3,
+   "P-LETTER-u": 5,
+   "P-V-VERB": 74
+  },
+  "rule_counts": {
+   "P-C-PAIR": 756,
+   "P-LETTER-a": 928,
+   "P-LETTER-d": 1491,
+   "P-LETTER-i": 7,
+   "P-LETTER-l": 1047,
+   "P-LETTER-n": 1810,
+   "P-LETTER-p": 721,
+   "P-LETTER-r": 579,
+   "P-LETTER-u": 1157,
+   "P-V-EIMI-OTHER": 54,
+   "P-V-EIMI-PNOM": 124,
+   "P-V-VERB": 1788
+  },
+  "ud_perseus": {
+   "aux_lemma_relation": {
+    "εἰμί|conj": 1,
+    "εἰμί|cop": 1863,
+    "ἔχω|aux": 11
+   },
+   "context_letters": {
+    "c": {
+     "CCONJ": 6695,
+     "SCONJ": 2299
+    },
+    "v": {
+     "AUX": 1875,
+     "VERB": 35836
+    }
+   },
+   "single_valued_letters": {
+    "a": {
+     "ADJ": 21626
+    },
+    "d": {
+     "ADV": 19008
+    },
+    "g": {
+     "PART": 13627
+    },
+    "i": {
+     "INTJ": 424
+    },
+    "l": {
+     "DET": 11831
+    },
+    "m": {
+     "NUM": 230
+    },
+    "n": {
+     "NOUN": 41252
+    },
+    "p": {
+     "PRON": 12633
+    },
+    "r": {
+     "ADP": 10649
+    },
+    "u": {
+     "PUNCT": 24963
+    }
+   },
+   "tokens": 202989
+  },
+  "upos_counts": {
+   "ADJ": 928,
+   "ADP": 579,
+   "ADV": 1491,
+   "AUX": 178,
+   "CCONJ": 541,
+   "DET": 1047,
+   "INTJ": 7,
+   "NOUN": 1810,
+   "PRON": 721,
+   "PUNCT": 1157,
+   "SCONJ": 215,
+   "VERB": 1788
+  },
+  "verdict": "established-for-all-printed-nodes"
+ },
+ "practical_quality_diagnostics": {
+  "selected_ADV_whose_lemma_UD_Perseus_also_tags_g_or_c": {
+   "identities": 24,
+   "keys": [
+    "γάρ",
+    "γε",
+    "δέ",
+    "δή",
+    "εἶτα",
+    "καί",
+    "μέν",
+    "μέντοι",
+    "μή",
+    "μήν",
+    "οὖν",
+    "ποτέ",
+    "τε",
+    "τοιγάρ",
+    "ἀλλά",
+    "ἄν",
+    "ἔνθα",
+    "ἔπειτα",
+    "ἤ#morpheus:1",
+    "ὅμωσ",
+    "ὅτι",
+    "ὡσ",
+    "ὥσπερ",
+    "ὥστε"
+   ],
+   "occurrences": 1041
+  },
+  "selected_NOUN_always_capitalized_in_book": {
+   "identities": 40,
+   "occurrences": 453
+  }
+ },
+ "prediction_diagnostics": {
+  "compound_eimi_consistency": {
+   "consistent": 22,
+   "inconsistent": 7,
+   "scheme-ambiguous": 6
+  },
+  "compound_eimi_inconsistent": [
+   {
+    "cts": "1_2_17",
+    "declared_base": [
+     "εἰμί"
+    ],
+    "form_base": "εἶμι",
+    "id": "t_1590",
+    "raw_lemma": "πρόειμι2",
+    "verdict": "inconsistent"
+   },
+   {
+    "cts": "1_3_17",
+    "declared_base": [
+     "εἰμί"
+    ],
+    "form_base": "εἶμι",
+    "id": "t_3153",
+    "raw_lemma": "ἄπειμι1",
+    "verdict": "inconsistent"
+   },
+   {
+    "cts": "1_3_19",
+    "declared_base": [
+     "εἰμί"
+    ],
+    "form_base": "εἶμι",
+    "id": "t_3251",
+    "raw_lemma": "ἄπειμι1",
+    "verdict": "inconsistent"
+   },
+   {
+    "cts": "1_4_7",
+    "declared_base": [
+     "εἰμί"
+    ],
+    "form_base": "εἶμι",
+    "id": "t_3800",
+    "raw_lemma": "ἄπειμι1",
+    "verdict": "inconsistent"
+   },
+   {
+    "cts": "1_6_1",
+    "declared_base": [
+     "εἰμί"
+    ],
+    "form_base": "εἶμι",
+    "id": "t_5625",
+    "raw_lemma": "πρόειμι2",
+    "verdict": "inconsistent"
+   },
+   {
+    "cts": "1_6_1",
+    "declared_base": [
+     "εἰμί"
+    ],
+    "form_base": "εἶμι",
+    "id": "t_5642",
+    "raw_lemma": "πρόειμι2",
+    "verdict": "inconsistent"
+   },
+   {
+    "cts": "1_6_2",
+    "declared_base": [
+     "εἰμί"
+    ],
+    "form_base": "εἶμι",
+    "id": "t_5708",
+    "raw_lemma": "ἔπειμι1",
+    "verdict": "inconsistent"
+   }
+  ],
+  "gorman_training_lineage": {
+   "aligned_lexical_nodes": 8926,
+   "aligned_printed_nodes": 10068,
+   "gorman_numbered_labels": {
+    "θεῖος1": 1,
+    "λέγω3": 51,
+    "ξένος1": 5,
+    "πάρειμι1": 3,
+    "πιστός1": 1,
+    "πρόειμι1": 2,
+    "σύνειμι2": 1,
+    "ἄν1": 2,
+    "ἄπειμι2": 2,
+    "ἄρωμα1": 1,
+    "ἔπειμι1": 1,
+    "ἔπειμι2": 4,
+    "ἤ1": 22,
+    "ὅτι1": 3,
+    "ὅτι2": 1
+   },
+   "gorman_sections": 207,
+   "lemma_equal_after_lowercase": 9773,
+   "lexical_lemma_equal_after_lowercase": 8636,
+   "lexical_pos_letter_equal": 8839,
+   "numbered_label_pairs": [
+    {
+     "count": 5,
+     "gorman": "δέω",
+     "oga": "δέω2"
+    },
+    {
+     "count": 7,
+     "gorman": "εὐθύς",
+     "oga": "εὐθύς2"
+    },
+    {
+     "count": 1,
+     "gorman": "θεῖος1",
+     "oga": "θεῖος1"
+    },
+    {
+     "count": 49,
+     "gorman": "λέγω3",
+     "oga": "λέγω3"
+    },
+    {
+     "count": 1,
+     "gorman": "ξένος",
+     "oga": "ξένος1"
+    },
+    {
+     "count": 3,
+     "gorman": "ξένος1",
+     "oga": "ξένος1"
+    },
+    {
+     "count": 7,
+     "gorman": "πάρειμι",
+     "oga": "πάρειμι1"
+    },
+    {
+     "count": 2,
+     "gorman": "πάρειμι1",
+     "oga": "πάρειμι1"
+    },
+    {
+     "count": 1,
+     "gorman": "παρέρχομαι",
+     "oga": "πάρειμι2"
+    },
+    {
+     "count": 2,
+     "gorman": "περίειμι",
+     "oga": "περίειμι1"
+    },
+    {
+     "count": 1,
+     "gorman": "πιστός",
+     "oga": "πιστός2"
+    },
+    {
+     "count": 1,
+     "gorman": "πρόειμι1",
+     "oga": "πρόειμι1"
+    },
+    {
+     "count": 2,
+     "gorman": "προέρχομαι",
+     "oga": "πρόειμι2"
+    },
+    {
+     "count": 1,
+     "gorman": "πρόειμι1",
+     "oga": "πρόειμι2"
+    },
+    {
+     "count": 5,
+     "gorman": "προσέρχομαι",
+     "oga": "πρόσειμι1"
+    },
+    {
+     "count": 1,
+     "gorman": "πρόσειμι",
+     "oga": "πρόσειμι1"
+    },
+    {
+     "count": 1,
+     "gorman": "σύνειμι2",
+     "oga": "σύνειμι2"
+    },
+    {
+     "count": 1,
+     "gorman": "συλλέγω",
+     "oga": "σύνλέγω2"
+    },
+    {
+     "count": 2,
+     "gorman": "χράω",
+     "oga": "χράω2"
+    },
+    {
+     "count": 3,
+     "gorman": "ἀπέρχομαι",
+     "oga": "ἄπειμι1"
+    },
+    {
+     "count": 1,
+     "gorman": "ἀπέρχομαι",
+     "oga": "ἄπειμι2"
+    },
+    {
+     "count": 2,
+     "gorman": "ἄπειμι2",
+     "oga": "ἄπειμι2"
+    },
+    {
+     "count": 1,
+     "gorman": "ἄρωμα1",
+     "oga": "ἄρωμα1"
+    },
+    {
+     "count": 1,
+     "gorman": "ἐπέρχομαι",
+     "oga": "ἔπειμι1"
+    },
+    {
+     "count": 2,
+     "gorman": "ἐπέρχομαι",
+     "oga": "ἔπειμι2"
+    },
+    {
+     "count": 3,
+     "gorman": "ἔπειμι2",
+     "oga": "ἔπειμι2"
+    },
+    {
+     "count": 7,
+     "gorman": "ἢ",
+     "oga": "ἤ1"
+    },
+    {
+     "count": 8,
+     "gorman": "ἤ",
+     "oga": "ἤ1"
+    },
+    {
+     "count": 21,
+     "gorman": "ἤ1",
+     "oga": "ἤ1"
+    }
+   ],
+   "oga_sections_without_gorman": [
+    "1.7.20"
+   ]
+  },
+  "stem_class_consistency": [
+   {
+    "count": 5,
+    "native_pos": "v",
+    "raw_lemma": "δέω2",
+    "stem_classes": "de",
+    "verdict": "consistent"
+   },
+   {
+    "count": 7,
+    "native_pos": "d",
+    "raw_lemma": "εὐθύς2",
+    "stem_classes": "wd:adverb",
+    "verdict": "consistent"
+   },
+   {
+    "count": 1,
+    "native_pos": "a",
+    "raw_lemma": "θεῖος1",
+    "stem_classes": "aj",
+    "verdict": "consistent"
+   },
+   {
+    "count": 49,
+    "native_pos": "v",
+    "raw_lemma": "λέγω3",
+    "stem_classes": "de",
+    "verdict": "consistent"
+   },
+   {
+    "count": 4,
+    "native_pos": "n",
+    "raw_lemma": "ξένος1",
+    "stem_classes": "no",
+    "verdict": "consistent"
+   },
+   {
+    "count": 1,
+    "native_pos": "a",
+    "raw_lemma": "πιστός2",
+    "stem_classes": "aj",
+    "verdict": "consistent"
+   },
+   {
+    "count": 2,
+    "native_pos": "v",
+    "raw_lemma": "χράω2",
+    "stem_classes": "de,vb,vs",
+    "verdict": "consistent"
+   },
+   {
+    "count": 1,
+    "native_pos": "n",
+    "raw_lemma": "ἄρωμα1",
+    "stem_classes": "no",
+    "verdict": "consistent"
+   },
+   {
+    "count": 31,
+    "native_pos": "c",
+    "raw_lemma": "ἤ1",
+    "stem_classes": "wd:conj",
+    "verdict": "consistent"
+   },
+   {
+    "count": 5,
+    "native_pos": "d",
+    "raw_lemma": "ἤ1",
+    "stem_classes": "wd:conj",
+    "verdict": "native-tag-differs"
+   }
+  ]
+ },
+ "private_outputs": {
+  "analysis.json": {
+   "lines": 1,
+   "sha256": "c2ea84cfe978768af4cf916357c414b3d3ec9c7745e97f65a95cc2b2058f3019"
+  },
+  "card-inputs.json": {
+   "lines": 4139,
+   "sha256": "192b6bfb0378d49d68fd52aabee8438b029a3c70912e8d01d53541720ba3fe43"
+  },
+  "compound-consistency.json": {
+   "lines": 358,
+   "sha256": "9f9556118147a335eb31935c6878d61ee1dbe8fe9ff7f9801ebd29a4caf18f83"
+  },
+  "examples.json": {
+   "lines": 327,
+   "sha256": "d16834cb8caf82e7f0e3828ec8f2e3fb12af067301d445cec030a3448ea0993a"
+  },
+  "node-ledger.json": {
+   "lines": 429734,
+   "sha256": "7be3861a2cf4bf34c8e9ea841dd6220034e5968c0de9fddcc8ceae28215d80c6"
+  },
+  "selection-model.tsv": {
+   "lines": 1429,
+   "sha256": "27dfea21abe9c9017f59e680df72f5c58ce121f212ecb8f20d917d202bc639d9"
+  },
+  "sentences.json": {
+   "lines": 4990,
+   "sha256": "539190b646387602d312ae811685f8fbd165a58ec2dc6f0ab8a8d0db7941e46f"
+  }
+ },
+ "reproduce": "python3 -I opus_completion.py",
+ "rulesets": {
+  "card_input": "grc-earliest-capped/1",
+  "identity": "oga-greta-lemma/1",
+  "normalization_profile": "ancient-greek/1",
+  "pos": "oga-agdt-upos/1",
+  "selection_model": "mouseion-3-15-single-book-empty-known/1",
+  "sentence": "oga-reading-terminal/1"
+ },
+ "selection": {
+  "corrections": 0,
+  "eligible_occurrences": 6017,
+  "exclusions": 0,
+  "go_probe_expected_stdout": "candidates=1428 selected=437 analyzable_tokens=6017 distinct_identities=1428 sentences=381",
+  "identities": 1428,
+  "identities_by_upos": {
+   "ADJ": 279,
+   "ADV": 139,
+   "NOUN": 489,
+   "VERB": 521
+  },
+  "known": 0,
+  "known_token_coverage": 0.0,
+  "reserved": 0,
+  "selected": 437,
+  "selected_by_upos": {
+   "ADJ": 79,
+   "ADV": 59,
+   "NOUN": 146,
+   "VERB": 153
+  },
+  "selected_occurrence_coverage": 0.7971,
+  "selected_occurrences": 4796,
+  "selected_with_discriminator": 11,
+  "selection_model_sha256": "27dfea21abe9c9017f59e680df72f5c58ce121f212ecb8f20d917d202bc639d9",
+  "top_identities": [
+   {
+    "key": "δέ",
+    "occurrences": 326,
+    "upos": "ADV"
+   },
+   {
+    "key": "καί",
+    "occurrences": 236,
+    "upos": "ADV"
+   },
+   {
+    "key": "κῦροσ",
+    "occurrences": 170,
+    "upos": "NOUN"
+   },
+   {
+    "key": "οὐ",
+    "occurrences": 103,
+    "upos": "ADV"
+   },
+   {
+    "key": "μέν",
+    "occurrences": 100,
+    "upos": "ADV"
+   },
+   {
+    "key": "βασιλεύσ",
+    "occurrences": 73,
+    "upos": "NOUN"
+   },
+   {
+    "key": "ἔχω",
+    "occurrences": 70,
+    "upos": "VERB"
+   },
+   {
+    "key": "τε",
+    "occurrences": 60,
+    "upos": "ADV"
+   },
+   {
+    "key": "γάρ",
+    "occurrences": 59,
+    "upos": "ADV"
+   },
+   {
+    "key": "ἕλλην",
+    "occurrences": 54,
+    "upos": "NOUN"
+   },
+   {
+    "key": "ποιέω",
+    "occurrences": 52,
+    "upos": "VERB"
+   },
+   {
+    "key": "πολύσ",
+    "occurrences": 51,
+    "upos": "ADJ"
+   }
+  ],
+  "unknown_identities": 1428
+ },
+ "sensitivity_not_adopted": {
+  "S1_eimi_without_pnom_as_VERB": {
+   "eligible_occurrences": 6071,
+   "identities": 1429,
+   "selected": 438,
+   "unresolved_printed_nodes": 0
+  },
+  "S2_ud_grc_definitional_DET_NUM_PART": {
+   "eligible_occurrences": 5723,
+   "identities": 1403,
+   "selected": 420,
+   "unresolved_printed_nodes": 0
+  },
+  "S3_malformed_citation_forms_unresolved": {
+   "eligible_occurrences": 6010,
+   "identities": 1423,
+   "selected": 436,
+   "unresolved_printed_nodes": 7
+  },
+  "S4_compound_record_decoding_rejected": {
+   "eligible_occurrences": 6016,
+   "identities": 1428,
+   "selected": 436,
+   "unresolved_printed_nodes": 1
+  },
+  "adopted": {
+   "eligible_occurrences": 6017,
+   "identities": 1428,
+   "selected": 437,
+   "unresolved_printed_nodes": 0
+  }
+ },
+ "sentences": {
+  "at_most_5_units": 10,
+  "code_points": {
+   "max": 625,
+   "median": 138,
+   "min": 13,
+   "p90": 275
+  },
+  "completeness": {
+   "complete": 381
+  },
+  "native_group_check": {
+   "groups_crossing_sentences": [],
+   "groups_per_sentence": {
+    "1": 227,
+    "2": 102,
+    "3": 38,
+    "4": 10,
+    "5": 3,
+    "7": 1
+   },
+   "native_groups": 607
+  },
+  "over_code_point_cap": 4,
+  "over_code_point_cap_only": 0,
+  "over_unit_cap": 36,
+  "over_unit_cap_if_punctuation_units_excluded": 21,
+  "sentences": 381,
+  "sentences_with_editorial_elements": {
+   "125": [
+    "choice@1_3_20",
+    "corr@1_3_20",
+    "sic@1_3_20"
+   ],
+   "137": [
+    "add@1_4_4"
+   ],
+   "143": [
+    "del@1_4_7"
+   ],
+   "267": [
+    "del@1_7_13"
+   ],
+   "279": [
+    "sic@1_8_4"
+   ],
+   "280": [
+    "add@1_8_6",
+    "del@1_8_6"
+   ],
+   "281": [
+    "del@1_8_7"
+   ],
+   "296": [
+    "del@1_8_16"
+   ],
+   "334": [
+    "sic@1_9_15"
+   ],
+   "336": [
+    "sic@1_9_16"
+   ],
+   "338": [
+    "sic@1_9_17"
+   ],
+   "341": [
+    "sic@1_9_19"
+   ],
+   "357": [
+    "del@1_10_1"
+   ],
+   "361": [
+    "sic@1_10_5"
+   ],
+   "370": [
+    "sic@1_10_12"
+   ],
+   "56": [
+    "del@1_2_12"
+   ]
+  },
+  "sentences_with_empty_nodes": 85,
+  "sentences_with_word_internal_spaces": 33,
+  "terminals": {
+   ".": 372,
+   ";": 9
+  },
+  "units": {
+   "max": 109,
+   "median": 24,
+   "min": 3,
+   "p90": 49
+  },
+  "units_histogram_by_10": {
+   "0-9": 31,
+   "10-19": 109,
+   "100+": 1,
+   "20-29": 98,
+   "30-39": 63,
+   "40-49": 43,
+   "50-59": 17,
+   "60-69": 14,
+   "70-79": 5
+  },
+  "within_both_caps": 345,
+  "word_internal_space_nodes": [
+   "t_2058",
+   "t_2116",
+   "t_2127",
+   "t_2343",
+   "t_2522",
+   "t_2527",
+   "t_2672",
+   "t_2686",
+   "t_2742",
+   "t_2789",
+   "t_2792",
+   "t_2836",
+   "t_2962",
+   "t_2981",
+   "t_2984",
+   "t_3315",
+   "t_3391",
+   "t_3863",
+   "t_3872",
+   "t_3894",
+   "t_3949",
+   "t_4026",
+   "t_4289",
+   "t_4292",
+   "t_4378",
+   "t_4697",
+   "t_4862",
+   "t_6143",
+   "t_6300",
+   "t_6304",
+   "t_6311",
+   "t_6621",
+   "t_6981",
+   "t_7716",
+   "t_8083",
+   "t_8089",
+   "t_8134",
+   "t_8232",
+   "t_8470",
+   "t_8567",
+   "t_8570",
+   "t_8833",
+   "t_8909",
+   "t_9517",
+   "t_9520",
+   "t_9786",
+   "t_10309"
+  ]
+ },
+ "status": "research interpretation; not source acceptance, production mapping, or certified predictions",
+ "verdicts": {
+  "binding": "verified (baseline oga-anabasis1-native-binding/1, unchanged)",
+  "canonical_identity": "established under oga-greta-lemma/1",
+  "canonical_pos": "established under oga-agdt-upos/1 with stated qualifications",
+  "card_inputs": "432 of 437 selected identities",
+  "practical_quality": "measured concerns, not certified; see prediction_diagnostics and sensitivity",
+  "selection": "real Go and independent model compared at runtime",
+  "sentences": "complete under oga-reading-terminal/1; native groups corroborate",
+  "unperformed": "Gloss, translation, dictionary coverage, Anki/client rendering, human example review",
+  "vocabulary_ready_research_verdict": "conditional: accounting complete; acceptance belongs to #2030"
+ },
+ "version": "oga-anabasis1-opus-completion/1"
+}

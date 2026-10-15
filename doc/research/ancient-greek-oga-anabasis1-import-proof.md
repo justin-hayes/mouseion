@@ -1,6 +1,408 @@
-# OGA Anabasis Book 1 import proof: binding verified, lexical decoding stopped
+# OGA Anabasis Book 1 import proof: complete workflow measured, with qualifications
 
-## Latest result: mapping completion review revision (#2052, 2026-10-15)
+## Current result: fresh-owner completion pass (#2052, 2026-10-15)
+
+**Every one of the 10,462 printed nodes now has a versioned lemma and UPOS
+interpretation, and no node is left unresolved.** The 142 numbered labels
+(21 distinct) decode against Perseus Morpheus lemma keys. The whole Book 1
+workflow then ran end to end:
+
+- 381 complete sentences;
+- real Go selection, byte-identical to an independent Python model: **437 of
+  1,428 identities** selected, with empty Known and Reserved;
+- deterministic sentence inputs for **432 of the 437**.
+
+This is research evidence for
+[#2030](https://github.com/justin-hayes/mouseion/issues/2030). It does not
+accept OGA, a mapping, a deck or the MVP. Practical quality has large, measured
+problems: function words become ADV vocabulary, names are NOUN, several
+predictions pick the wrong homograph, and seven predicted citation forms are
+malformed (§F). The earlier stops below stay as history.
+
+The binding baseline (`oga-anabasis1-native-binding/1`) is unchanged.
+
+### A. Reproduce
+
+From `doc/research/ancient-greek-oga-anabasis1-import-proof/`, with Go on
+`PATH` and `GOTMPDIR=$HOME/.cache/gotmp`:
+
+```sh
+python3 -I opus_completion.py                 # read-only: verify, rebuild, run the Go probe, compare
+python3 -m unittest discover -p 'test_*.py'   # 127 tests: 97 earlier plus 30 for this pass
+```
+
+The default run:
+
+1. checks every input against its pin. That covers the original pins, the 46
+   new entries in [`opus-completion-inputs.json`](ancient-greek-oga-anabasis1-import-proof/opus-completion-inputs.json),
+   the Morpheus manifest and the producer documents;
+2. rebuilds everything in memory;
+3. compares the result with the committed
+   [`opus-completion-summary.json`](ancient-greek-oga-anabasis1-import-proof/opus-completion-summary.json)
+   and the seven private outputs under `private/opus-completion/out/`;
+4. runs `_selectionprobe` (Mouseion's `selection.Project`,
+   `NewEligibility(nil, nil)`, `AllowsBookDeckCandidate` and
+   `AnalyzableStatistics`) and requires its output to match the Python model
+   byte for byte.
+
+The Go input and output go to a temporary directory under
+`~/.cache/scratch/greek-oga-anabasis1-import-proof/opus-completion/`, which is
+then deleted. Exit status is 1 on any mismatch; `--no-go` always exits 1.
+Only `--write` regenerates, and it writes nothing but this pass's summary and
+`private/opus-completion/out/`. Earlier outputs are never rewritten:
+`mapping_completion_v2.py` still reproduces exactly.
+
+**New private inputs.** All are hash-pinned in the registry. They are narrow,
+static and public, and no analyzer, model or provider was run. Rights are in
+[NOTICE.md](ancient-greek-oga-anabasis1-import-proof/NOTICE.md).
+
+| Input | Pin | Use |
+| --- | --- | --- |
+| Morpheus stem sources `vbs.simp.ml`, `vbs.cmp.ml`, `vbs.cmp.lsj`, `nom01`, `nom03`, `nom04`, `nom05`, `lemlist` | `PerseusDL/morpheus@b1b33c56`; each hash equals the existing manifest | Key, stem-class and compound-derivation witnesses |
+| Morpheus `doc/morpheus.html`, `stemlib/Greek/xsl/lemmaRegistry.xsl`, `stemlib/Greek/makefile` | same commit | Stem-file format; LSJ-keyed lemma registry |
+| Gorman `Xen_Anab_book_1.1-5.xml`, `Xen_Anab_book_1.6-9.xml`, README, licence | `vgorman1/Greek-Dependency-Trees@d823e96d` (blobs `e3b2a6e3`, `6ef273f3`) | Training-label lineage witness only |
+| UD Ancient Greek-Perseus train/dev/test, README, LICENSE | `331ddef9`; byte-identical to the #2050 pins | AGDT-to-UPOS conversion evidence |
+| UD docs `_grc/pos/*`, `_u-pos/{AUX_,VERB,PROPN,PART,ADV,NUM,DET}`, `_u-dep/cop`, `_u-overview/simple-syntax` | `UniversalDependencies/docs@24add7d0` | Category and copula definitions |
+
+A single Perseus Hopper request for one LSJ entry returned HTTP 405. It was not
+retried or worked around, and no LSJ file was acquired.
+
+**Checks on 2026-10-15.** All of these passed:
+
+- the read-only reproduction, including Go parity;
+- all 127 companion tests;
+- `python3 -I mapping_completion_v2.py`, which still compares exactly;
+- `git diff --check`;
+- `make lint` (golangci-lint 2.14.0: 0 issues; ruff and mypy clean);
+- `make coverage-new` (NLP: 90 passed, 3 skipped; Go unit and integration).
+  The research Python sits outside the coverage reports, so it reports "No
+  lines with coverage information".
+
+### B. Lexical interpretation (`oga-greta-lemma/1`)
+
+**Evidence chain.** Each link below comes from a primary record:
+
+1. **Training data.** The producer paper (arXiv 2410.12055v1, §3 and
+   Appendix A) trains GreTa on AGDT, the Gorman Trees and the Pedalion Trees,
+   all "natively annotated using the AGDT annotation scheme". Appendix A lists
+   `tlg0032.tlg006` (*Anabasis*) among the training, validation and test texts.
+   The paper's §3.1 normalization changes apostrophes, `_CO`/`_AP` suffixes,
+   split conjunctions and ellipsis. It does not mention lemma digits.
+2. **Where the digits come from.** In AGDT2 guidelines §2 (the morphological
+   layer), Arethusa's morphology options "are the output of the tagger Morpheus". §2.5 says that
+   "the Morpheus tagger outputs lemmas followed by a number" and that the number
+   should be deleted. So any digit that survives in the lemma field is a
+   Morpheus number. Gorman's README says the trees were annotated in Arethusa.
+3. **Same strings on the same tokens.** Gorman's Book 1 trees carry the
+   identical labels: `λέγω3` on all 49 aligned OGA `λέγω3` tokens, and also
+   `ἤ1`, `θεῖος1`, `ξένος1`, `πάρειμι1`, `πρόειμι1`, `σύνειμι2`, `ἄπειμι2`,
+   `ἄρωμα1` and `ἔπειμι2`. These labels are the training data's own strings,
+   not an OGA-specific code.
+4. **What a Morpheus key is.** In `morpheus.html`, `:le:` gives "the lemma or
+   headword" of a stem entry. `lemmaRegistry.xsl` takes `entryFree/@key` from
+   LSJ as the lemma ID. The makefile builds `lsj.vbs` and `lsj.nom` from LSJ
+   lemmata. The keys therefore belong to the Perseus LSJ key lineage. They were
+   not checked one by one against LSJ (see the 405 above).
+5. **What each digit means.** Each numbered key is its own Morpheus lexical
+   entry, and the stem records state how entries differ (table below).
+
+**Rules.** The canonical key always uses the accepted `ancient-greek/1` profile
+(NFC, then lowercase, then final σ, then NFC). The display headword keeps final
+`ς`.
+
+| Rule | Condition | Result | Printed lexical nodes |
+| --- | --- | --- | ---: |
+| `I-PLAIN` | No trailing digits | The headword is the raw lemma, which the release lowercases (`query/README.md`). No discriminator. Never a wildcard for numbered forms. | 9,163 |
+| `I-NUM-MORPHEUS-KEY` | Headword plus digits equals a non-loose Morpheus key, with every diacritic kept | Headword plus discriminator `{scheme: morpheus, value: n}`; probe key `λέγω#morpheus:3` | 141 |
+| `I-COMPOUND-RECORD` | No exact key; exactly one single-prefix Morpheus compound record whose prefix + base, without the hyphen, equals the label | Decodes to that record's key | 1 (`t_302`) |
+| `I-UNRESOLVED-NUMBERED` | Anything else with digits | Unresolved, which blocks publication | 0 |
+
+**The 21 labels.** "Declared" means the distinction the Morpheus record states.
+"Gorman" is the training tree's label on the same aligned token.
+
+| Label | Occ. | Morpheus key (witness) | Declared | Gorman, same token | Form check |
+| --- | ---: | --- | --- | --- | --- |
+| `λέγω3` | 49 | `le/gw3` (vbs.simp.ml:12240) | own `:le:` entry (`le/gw1`, `le/gw2` distinct) | λέγω3 49 | — |
+| `ἤ1` | 36 | `h)/1` (nom03:3438) | `wd … conj`; `ἤ2` is `exclam` | ἤ1 21, ἤ 8, ἢ 7 | native c 31, d 5 |
+| `πάρειμι1` | 9 | `pa/reimi1` (vbs.cmp.ml:4562) | `para/-ei)mi/`: παρά + εἰμί | πάρειμι 7, πάρειμι1 2 | 9 consistent |
+| `εὐθύς2` | 7 | `eu)qu/s2` (nom03:1005) | adverb; `εὐθύς1` adjective | εὐθύς 7 | consistent |
+| `πρόσειμι1` | 6 | `pro/seimi1` (vbs.cmp.ml:5639, 5643) | derived from **both** εἶμι and εἰμί | προσέρχομαι 5, πρόσειμι 1 | scheme-ambiguous |
+| `δέω2` | 5 | `de/w2` (vbs.simp.ml:5091) | own entry (`de/w1` distinct stems) | δέω 5 | — |
+| `ἔπειμι2` | 5 | `e)/peimi2` (vbs.cmp.ml:3089) | ἐπί + εἶμι | ἔπειμι2 3, ἐπέρχομαι 2 | 5 consistent |
+| `ξένος1` | 4 | `ce/nos1` (nom04:10739) | noun; `ξένος2` adjective | ξένος1 3, ξένος 1 | consistent |
+| `πρόειμι2` | 3 | `pro/eimi2` (vbs.cmp.ml:5221) | πρό + εἰμί | προέρχομαι 2, πρόειμι1 1 | **3 inconsistent** |
+| `ἄπειμι1` | 3 | `a)/peimi1` (vbs.cmp.ml:912) | ἀπό + εἰμί | ἀπέρχομαι 3 | **3 inconsistent** |
+| `ἄπειμι2` | 3 | `a)/peimi2` (vbs.cmp.ml:908) | ἀπό + εἶμι | ἄπειμι2 2, ἀπέρχομαι 1 | 3 consistent |
+| `περίειμι1` | 2 | `peri/eimi1` (vbs.cmp.ml:4820) | περί + εἰμί | περίειμι 2 | 2 consistent |
+| `χράω2` | 2 | `xra/w2` (vbs.simp.ml:22963) | own entry | χράω 2 | — |
+| `θεῖος1` | 1 | `qei=os1` (nom03:4889) | adjective; `θεῖος2` noun | θεῖος1 1 | consistent |
+| `πάρειμι2` | 1 | `pa/reimi2` (vbs.cmp.ml:4559) | παρά + εἶμι | παρέρχομαι 1 | consistent |
+| `πιστός2` | 1 | `pisto/s2` (nom05:4877) | adjective, same stem as `pisto/s1` | πιστός 1 | — |
+| `πρόειμι1` | 1 | `pro/eimi1` (vbs.cmp.ml:5218) | πρό + εἶμι | πρόειμι1 1 | consistent |
+| `σύνειμι2` | 1 | `su/neimi2` (vbs.cmp.ml:6338) | σύν + εἶμι | σύνειμι2 1 | consistent |
+| `ἄρωμα1` | 1 | `a)/rwma1` (nom01:11021) | noun, same stem as `a)/rwma2` | ἄρωμα1 1 | — |
+| `ἔπειμι1` | 1 | `e)/peimi1` (vbs.cmp.ml:3092) | ἐπί + εἰμί | ἐπέρχομαι 1 | **inconsistent** |
+| `σύνλέγω2` | 1 | → `sulle/gw` (vbs.cmp.ml:6459) | record `su/n-le/gw2 sulle/gw`: συλλέγω, no digit | συλλέγω 1 | decoded |
+
+"Form check" compares the stem of each surface form with the base its key
+declares. The reviewer table in `COMPOUND_SURFACE_BASE` assigns the stems:
+εἶμι shows ἰ-/ᾐ-/ῄ-, and εἰμί shows ἦν/ὤν/ὄντ-/εἶναι. Of the 35 compound
+occurrences, 22 are consistent, 7 are inconsistent and 6 are ambiguous in the
+scheme itself. The seven inconsistent ones (`t_1590`, `t_3153`, `t_3251`,
+`t_3800`, `t_5625`, `t_5642`, `t_5708`) are **upstream prediction errors**,
+and the adapter keeps them unchanged. Native POS agrees with the declared
+stem class on 101 of 106 simplex occurrences. The other five are `ἤ1` tagged
+`d`, which is variance in the native tag.
+
+**Limits of the identity layer:**
+
+- `πρόσειμι1` is a valid, distinct key. The scheme does not say which base it
+  stands for.
+- The `I-COMPOUND-RECORD` rule rests on one producer record. Rejecting it would
+  leave `t_302` unresolved (S4 in §G).
+- Seven predicted citation forms break Greek orthographic rules: `ἐνεἰμί` ×3,
+  `σύλλέγω`, `σύνεἶδον`, `κατάκαθέζομαι`, and `ἑπτὰ` with a grave accent.
+  Like `σύνλέγω2`, they look like prefix + base notation, but no producer
+  record decodes them. They are **kept as predicted and never repaired**.
+  Their headwords fail the card-headword check (`ἐνεἰμί` is omitted). S3
+  treats them as unresolved instead.
+- The plain and numbered forms of nine headwords stay separate identities, for
+  example `λέγω` 10 and `λέγω#morpheus:3` 49. The same holds for `πάρειμι`,
+  `δέω`, `χράω`, `πιστός`, `ξένος`, `ἔπειμι`, `πρόειμι` and `ἄπειμι` 1/2.
+  Merging them would need equivalence evidence, which is absent.
+
+### C. POS interpretation (`oga-agdt-upos/1`)
+
+**Primary evidence.** UD Ancient Greek-Perseus is the AGDT-to-UD conversion
+(its README: "UPOS: converted from manual", converted by G. Celano). Its
+202,989 tokens are paired with native XPOS, giving an observed letter mapping:
+
+| Letter | UPOS |
+| --- | --- |
+| a | ADJ 21,626 |
+| d | ADV 19,008 |
+| i | INTJ 424 |
+| l | DET 11,831 |
+| n | NOUN 41,252 |
+| p | PRON 12,633 |
+| r | ADP 10,649 |
+| u | PUNCT 24,963 |
+| g | PART (absent from OGA) |
+| m | NUM (absent from OGA) |
+| c | CCONJ 6,695 / SCONJ 2,299 |
+| v | VERB 35,836 / AUX 1,875 |
+
+The code fails closed if any single-valued letter ever becomes multi-valued.
+
+| Rule | Basis | Nodes |
+| --- | --- | ---: |
+| `P-LETTER-{a,d,i,l,n,p,r,u}` | Single-valued conversion | 7,740 |
+| `P-C-PAIR` | (c, lemma) pair attested with a single UPOS; otherwise CCONJ\|SCONJ, determinate non-vocabulary | 756 (all attested) |
+| `P-V-EIMI-PNOM` | εἰμί (exact diacritics) with a PNOM child, directly or through COORD/APOS → AUX | 124 |
+| `P-V-EIMI-OTHER` | Other εἰμί → AUX | 54 (IDs in the summary) |
+| `P-V-VERB` | Every other verb, including εἶμι and all εἰμί compounds | 1,788 |
+| Unknown tag; `AuxV` on another verb | Fail closed as unresolved | 0 |
+
+Why the context-dependent cases come out as they do:
+
+- **Nominals and adjectives with an ADV relation stay NOUN/ADJ.** AGDT2 §2.6
+  tags a word as adverb only once it has attained adverb status. UD Perseus
+  v2.11 moved "adverbially used nominals from advmod to obl" and kept them
+  NOUN. The conversion is single-valued even for those relations. So syntax is
+  not converted into lexical ADV. This affects 411 n nodes with ADV and 113 a
+  nodes with ADV, AuxY or AuxZ.
+- **Copula.** UD cop says "verbal copulas are tagged AUX", and that existential
+  *be* may be a copula when it is the same verb as in equational clauses. UD
+  simple-syntax analyses one-verb languages as copular across equation,
+  attribution, location, possession and benefaction. AGDT2 §3.7 defines PNOM as
+  the complement of a copulative verb, and §4.1.9.4 labels the periphrastic
+  participle PNOM. The UD grc AUX page covers periphrasis. UD Perseus has εἰμί
+  `cop` AUX 1,863 times and VERB twice. All 11 of its tokens with the misspelt
+  lemma `είμί` are VERB, which shows that the converter keys on the lemma.
+  - That makes the 124 PNOM cases well supported.
+  - The other 54 include locative and possessive copulas, plus pure
+    existentials where UD makes the verb the head and leaves its UPOS
+    unspecified. AUX there follows the conversion. VERB is S1.
+- **Proper names stay NOUN.** The conversion has no PROPN, and capitalization
+  and Morpheus starred keys are not used.
+- **Particles follow the native tag.** AGDT2 §2.6 says sentence-adverb
+  particles "should be tagged as adverbs". §2.8 treats inferential, causal and
+  some adversative conjunctions, such as μέντοι, as adverbs, and UD Perseus pairs `d` δέ (2,322),
+  καί (1,828), μέν, γάρ, ἄν and others with ADV. The UD grc pages define
+  DET/NUM/PART more narrowly (they give δή and αὖ as PART). AGDT2 §2.9 has its
+  own numeral POS, which the conversion maps to NUM, but OGA never predicts it,
+  so cardinals arrive as `a` and become ADJ. That divergence is measured in S2,
+  not adopted.
+
+The conversion is single-valued, so the letter rule also covers 452 printed
+nodes whose (letter, lemma) pair never occurs in UD Perseus: n 272, v 74, a 69,
+d 29, p 3, u 5.
+
+### D. Denominators, sentences, selection
+
+| Count | Value |
+| --- | ---: |
+| Native / unprinted (`e_*`) / printed | 10,572 / 110 / 10,462 |
+| Punctuation | 1,157 |
+| Non-vocabulary lexical | 3,288: DET 1,047; PRON 721; ADP 579; CCONJ 541; SCONJ 215; AUX 178; INTJ 7 |
+| **Eligible occurrences** (analyzable denominator) | **6,017** |
+| Unresolved printed nodes | **0** |
+
+**Sentences (`oga-reading-terminal/1`).**
+
+- Segmentation runs over the exact 59,353-code-point reading text. A sentence
+  ends at `.` (372) or `;` (9; Perseus's ASCII question mark), plus any
+  following closers. Ano teleia `·` (226) is medial.
+- Any `!`, `?`, U+037E or U+0387 fails the run, and none occurs. The Book ends
+  on a terminal, and no parenthesis contains a terminal.
+- That gives **381 complete sentences**. All 607 native groups nest whole
+  inside them (groups per sentence: 1–7), and none crosses a boundary.
+- All nine `;` boundaries were inspected. `ἔφη Ὀρόντας .` (1.6.7, 3 units) is a
+  complete short assent.
+- 85 sentences contain empty nodes, which are never printed.
+
+**Lengths.** Units are whitespace-delimited after an outer trim, and code points
+are counted on the same trimmed text.
+
+| Measure | Units | Code points |
+| --- | --- | --- |
+| Range | 3–109 | 13–625 |
+| Median | 24 | 138 |
+| p90 | 49 | 275 |
+
+- 10 sentences have at most 5 units. No minimum applies.
+- 36 sentences exceed 50 units and 4 exceed 400 code points; none exceeds only
+  the code-point cap. 345 sentences are within both caps.
+- The PAULA text adds a space next to punctuation that the TEI does not have
+  (1,151 before punctuation, 5 after an opening parenthesis), so punctuation
+  counts as units. Without punctuation units, only 21 sentences exceed 50.
+- PAULA also splits 47 words, for example `οὐ δὲ`, `οὔ τε`, `κ ἂν` and
+  `τ οὔμπαλιν`; 33 sentences contain such a split.
+- The text is reported as bound, never respaced.
+
+**Selection.** One analyzed Book; Known, Reserved, corrections, exclusions and
+external frequencies are all empty. With a single Book the across-Books total
+equals the in-Book count, so 3/15 reduces to at least three occurrences. The
+probe supplies the total as `currentReadingCandidateFrequency` does.
+
+| Measure | Value |
+| --- | --- |
+| Identities | **1,428**: NOUN 489, VERB 521, ADJ 279, ADV 139 |
+| Selected | **437**: NOUN 146, VERB 153, ADJ 79, ADV 59 |
+| Selected identities with a discriminator | 11 |
+| Selected occurrences | 4,796 of 6,017 (79.7%) |
+| Known-token coverage | 0.0%; all 1,428 Unknown; the snapshot would freeze all 437 |
+
+The real Go probe printed `candidates=1428 selected=437
+analyzable_tokens=6017 distinct_identities=1428 sentences=381`. Its TSV is
+byte-identical to the model. The most frequent identities are δέ|ADV 326,
+καί|ADV 236, κῦρος|NOUN 170, οὐ|ADV 103, μέν|ADV 100 and βασιλεύς|NOUN 73.
+
+### E. Deterministic sentence inputs (`grc-earliest-capped/1`)
+
+For each selected identity, the rule takes the earliest occurrence whose
+sentence:
+
+- is complete;
+- has at most 50 units and 400 code points;
+- contains the verified target span (its reading slice equals the surface);
+- has a headword that passes the orthographic check.
+
+Ties go by span start, then node ID. Nothing is shortened, and the frozen
+selection does not change.
+
+- **432 eligible, 5 omitted.**
+  - Over a cap in every occurrence: οἴχομαι (3), πατήρ (4), πρότερος|ADJ (3)
+    and `ἄπειμι#morpheus:1` (3, all three of them mispredictions).
+  - `ἐνεἰμί` (3): malformed headword, and also over the unit cap.
+- 56 inputs use a later occurrence. The earlier rejections were 75 over the
+  unit cap and 19 over the code-point cap.
+- The chosen sentences run 4–50 units, median 27.5, across 178 distinct
+  sentences.
+- Flags on chosen inputs:
+  - 36 sentences contain a word-internal split;
+  - 9 contain editorial positions;
+  - 40 targets are capitalized nouns;
+  - 1 sentence has at most 5 units.
+
+**Examples.** Each example is the first case that satisfies its stated rule. All
+are private in `examples.json`, and the summary only records whether each
+exists:
+
+- ordinary complete sentence;
+- short sentence chosen (`t_2855`, 4 units);
+- cap rejection followed by a later choice;
+- repeated target;
+- lexical discriminator (`t_507`);
+- compound-record decoding (`t_302`);
+- εἰμί AUX without PNOM (`t_139`);
+- lowercased name as NOUN;
+- particle as ADV;
+- word-internal split;
+- elision (`t_128`, not chosen);
+- editorial material;
+- empty node in the sentence;
+- optional morphology absent;
+- malformed citation form (`t_437`);
+- omission.
+
+**NFD source text is absent**: the reading text is entirely NFC.
+
+### F. Practical quality
+
+These are measured, not certified. Each is either an upstream prediction or a
+representation fact that the adapter preserves.
+
+| Finding | Kind | Effect |
+| --- | --- | --- |
+| Discourse particles and conjunction uses tagged `d` become ADV (AGDT2 §2.6; conversion) | Mapping, faithful | 24 selected ADV identities (1,041 occurrences) have lemmas that UD Perseus elsewhere tags g or c: δέ, καί, μέν, τε, γάρ, ἄν, δή, οὖν, μή, ἀλλά, ὡς, ὅτι, ὥστε… |
+| Names are NOUN, and their headwords are lowercase (`query/README.md:32`) | Conversion and producer convention | 40 selected NOUN identities (453 occurrences) are always capitalized in the Book |
+| Cardinals and adjectival pronouns tagged `a` become ADJ | Conversion | Applying the UD grc DET/NUM/PART definitions (S2) selects 17 fewer identities |
+| Wrong εἰμί/εἶμι homograph in compounds | Upstream prediction | 7 occurrences; `ἄπειμι#1` is selected and then omitted |
+| Malformed predicted citation forms | Upstream prediction | 7 occurrences in 5 identities; `ἐνεἰμί` is selected and then omitted |
+| Numbered and plain forms of one headword split | Training-data convention | 9 headwords, e.g. λέγω 10 + λέγω#3 49 |
+| PAULA spacing and word splits | Representation | Units are inflated; card sentences differ from the printed word division |
+| Punctuation and relation artifacts | Producer data | `(` carries lemma U+0314 (×5); relation `AuxΖ` with a Greek Zeta (×4). None affects vocabulary |
+| Training overlap | Lineage | Gorman's Book 1 is in the training texts. OGA matches Gorman's human lemma on 8,636 of 8,926 aligned lexical nodes and its native POS letter on 8,839, so these predictions are not held-out |
+
+### G. Sensitivity (not adopted)
+
+| Scenario | Eligible occ. | Identities | Selected | Unresolved |
+| --- | ---: | ---: | ---: | ---: |
+| Adopted | 6,017 | 1,428 | 437 | 0 |
+| S1: εἰμί without PNOM as VERB | 6,071 | 1,429 | 438 | 0 |
+| S2: UD grc DET/NUM/PART definitions | 5,723 | 1,403 | 420 | 0 |
+| S3: malformed citation forms unresolved | 6,010 | 1,423 | 436 | 7 (publication blocked) |
+| S4: compound-record decoding rejected | 6,016 | 1,428 | 436 | 1 (publication blocked) |
+
+### H. Verdicts
+
+| Layer | Verdict |
+| --- | --- |
+| Binding / reading text | Verified baseline, unchanged |
+| Canonical identity | **Established under `oga-greta-lemma/1`.** Qualifications: the S3/S4 policy choices; `πρόσειμι1` derivation ambiguity; LSJ keys not checked one by one |
+| Canonical POS | **Established under `oga-agdt-upos/1`**, with S1 and S2 as the open policy alternatives |
+| Sentences | Complete; native groups corroborate the boundaries |
+| Selection and Known comparison | Measured, with real Go parity |
+| Card inputs | 432 / 437 |
+| Vocabulary-ready accounting | Complete, conditional on #2030 accepting S1–S4 as adopted, and on practical usefulness |
+| Practical quality | Concerns measured in §F; no source or MVP acceptance |
+| Unperformed | Gloss, translation, dictionary coverage, Anki/client rendering, human example review |
+
+For #2030 to decide:
+
+1. Is the producer's `d`→ADV for particles acceptable? It makes δέ, καί, μέν
+   and similar words vocabulary.
+2. Names as lowercase NOUN headwords.
+3. Malformed predicted forms: keep them as predicted (adopted) or treat them as
+   unresolved (S3).
+4. The `σύνλέγω2` compound-record decoding (S4).
+5. Pure-existential εἰμί as AUX (S1).
+6. PAULA spacing in card sentences.
+
+None of these needs a new survey.
+
+## Prior mapping-completion review revision (historical, superseded above)
 
 **Neither canonical layer is established, so the pass stopped before the
 sentence, selection, cap, and omission checks.** The retained binding stays

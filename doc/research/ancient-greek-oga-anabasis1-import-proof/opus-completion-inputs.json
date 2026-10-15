@@ -1,0 +1,420 @@
+{
+ "inputs": [
+  {
+   "bytes": 311709,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated; private retention, cited not republished",
+   "path": "private/opus-completion/morpheus-stemsrc/vbs.simp.ml",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme records: Morpheus lemma keys and compound derivations (witness lines only; analyzer not built or run)",
+   "sha256": "857a00ce3cef756861f32af6380bab3537279eccb4cc2a0e3976438c202d7b5a",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/stemsrc/vbs.simp.ml"
+  },
+  {
+   "bytes": 193759,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated; private retention, cited not republished",
+   "path": "private/opus-completion/morpheus-stemsrc/vbs.cmp.ml",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme records: Morpheus lemma keys and compound derivations (witness lines only; analyzer not built or run)",
+   "sha256": "e5e31787a96f77f07e56d9ebe04fe443b60ec9b66b49bbc920448c030eb89268",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/stemsrc/vbs.cmp.ml"
+  },
+  {
+   "bytes": 140408,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated; private retention, cited not republished",
+   "path": "private/opus-completion/morpheus-stemsrc/vbs.cmp.lsj",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme records: Morpheus lemma keys and compound derivations (witness lines only; analyzer not built or run)",
+   "sha256": "9d3ab2a6ed954fec63494dd69e571d525d5ea2e03f9a666406eb6052809770bc",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/stemsrc/vbs.cmp.lsj"
+  },
+  {
+   "bytes": 278928,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated; private retention, cited not republished",
+   "path": "private/opus-completion/morpheus-stemsrc/nom01",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme records: Morpheus lemma keys and compound derivations (witness lines only; analyzer not built or run)",
+   "sha256": "30267de6e3d6dadf482ffe95f859b386f2fcb13816a82f3a4b75701fbf7d5a55",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/stemsrc/nom01"
+  },
+  {
+   "bytes": 187052,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated; private retention, cited not republished",
+   "path": "private/opus-completion/morpheus-stemsrc/nom03",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme records: Morpheus lemma keys and compound derivations (witness lines only; analyzer not built or run)",
+   "sha256": "5e24f5c2d61efd91b2c558841953312cb158a90852fc89e7bad14c4fa24699ba",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/stemsrc/nom03"
+  },
+  {
+   "bytes": 233496,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated; private retention, cited not republished",
+   "path": "private/opus-completion/morpheus-stemsrc/nom04",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme records: Morpheus lemma keys and compound derivations (witness lines only; analyzer not built or run)",
+   "sha256": "5c170806b2edbc804129c3e8f9c1dfb66b58971ac1a6a63f7b7b6dc4b36e0f28",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/stemsrc/nom04"
+  },
+  {
+   "bytes": 189652,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated; private retention, cited not republished",
+   "path": "private/opus-completion/morpheus-stemsrc/nom05",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme records: Morpheus lemma keys and compound derivations (witness lines only; analyzer not built or run)",
+   "sha256": "f500396c4c70f46425f155b12e4437519b9d7a909c6fee52286e76f2e12a5e22",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/stemsrc/nom05"
+  },
+  {
+   "bytes": 583666,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated; private retention, cited not republished",
+   "path": "private/opus-completion/morpheus-stemsrc/lemlist",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme records: Morpheus lemma keys and compound derivations (witness lines only; analyzer not built or run)",
+   "sha256": "9c24975473c68111ff6b8a7e14020a221765ceaa854ffa499385e2a2904aec8d",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/stemsrc/lemlist"
+  },
+  {
+   "bytes": 34276,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated",
+   "path": "private/opus-completion/morpheus-docs/morpheus.html",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme documentation: stem-file format and LSJ-keyed lemma registry",
+   "sha256": "bc7e0ae77278f691ae333b7e799e9ea2e395a18dd0664a84e4bcc24b2adf3b53",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/doc/morpheus.html"
+  },
+  {
+   "bytes": 555,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated",
+   "path": "private/opus-completion/morpheus-docs/lemmaRegistry.xsl",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme documentation: stem-file format and LSJ-keyed lemma registry",
+   "sha256": "94b157292ea34939fda2e947d16ebaa32fe1fbd7f52f33decb9b02348a0edfc2",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/xsl/lemmaRegistry.xsl"
+  },
+  {
+   "bytes": 2280,
+   "licence": "Morpheus README: CC BY-SA 3.0 US unless otherwise indicated",
+   "path": "private/opus-completion/morpheus-docs/makefile",
+   "revision": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+   "role": "lexical-scheme documentation: stem-file format and LSJ-keyed lemma registry",
+   "sha256": "257f982080a8d5606d74eaca3f49eef6e5171b5567afb8f382bf8b2e52343848",
+   "url": "https://raw.githubusercontent.com/PerseusDL/morpheus/b1b33c56ef2338fe0dcd1893628ed638f00c0986/stemlib/Greek/makefile"
+  },
+  {
+   "bytes": 1225,
+   "licence": "README says CC BY-NC-SA 4.0; TREEBANK LICENSE file is CC BY-SA 4.0 text; both retained; private inspection, public counts only",
+   "path": "private/opus-completion/gorman/README.md",
+   "revision": "d823e96d253277bc1872b83ff5ac8c393a0f830a",
+   "role": "producer training-data lineage witness (paper §3, App. A: Gorman Trees; tlg0032.tlg006 listed); label-convention evidence only, never a correction or source",
+   "sha256": "dd34f8a04508128a726a58e01ed387bbdf1f66c8d3cde23ce4e3f1d9bc6e2073",
+   "url": "https://raw.githubusercontent.com/vgorman1/Greek-Dependency-Trees/d823e96d253277bc1872b83ff5ac8c393a0f830a/README.md"
+  },
+  {
+   "bytes": 20131,
+   "licence": "README says CC BY-NC-SA 4.0; TREEBANK LICENSE file is CC BY-SA 4.0 text; both retained; private inspection, public counts only",
+   "path": "private/opus-completion/gorman/TREEBANK LICENSE",
+   "revision": "d823e96d253277bc1872b83ff5ac8c393a0f830a",
+   "role": "producer training-data lineage witness (paper §3, App. A: Gorman Trees; tlg0032.tlg006 listed); label-convention evidence only, never a correction or source",
+   "sha256": "b42fac528cae505cd8673b7f0c6112dc7c73e9c04a75f71af4517830796bf208",
+   "url": "https://raw.githubusercontent.com/vgorman1/Greek-Dependency-Trees/d823e96d253277bc1872b83ff5ac8c393a0f830a/TREEBANK%20LICENSE"
+  },
+  {
+   "bytes": 710529,
+   "licence": "README says CC BY-NC-SA 4.0; TREEBANK LICENSE file is CC BY-SA 4.0 text; both retained; private inspection, public counts only",
+   "path": "private/opus-completion/gorman/Xen_Anab_book_1.1-5.xml",
+   "revision": "d823e96d253277bc1872b83ff5ac8c393a0f830a",
+   "role": "producer training-data lineage witness (paper §3, App. A: Gorman Trees; tlg0032.tlg006 listed); label-convention evidence only, never a correction or source",
+   "sha256": "6b6b9c3c2c9c51f5d2e60f73f6cf8e07d8e620b7c13582aa5f8044889f0d4d40",
+   "url": "https://raw.githubusercontent.com/vgorman1/Greek-Dependency-Trees/d823e96d253277bc1872b83ff5ac8c393a0f830a/xml%20versions/Xen_Anab_book_1.1-5.xml"
+  },
+  {
+   "bytes": 619008,
+   "licence": "README says CC BY-NC-SA 4.0; TREEBANK LICENSE file is CC BY-SA 4.0 text; both retained; private inspection, public counts only",
+   "path": "private/opus-completion/gorman/Xen_Anab_book_1.6-9.xml",
+   "revision": "d823e96d253277bc1872b83ff5ac8c393a0f830a",
+   "role": "producer training-data lineage witness (paper §3, App. A: Gorman Trees; tlg0032.tlg006 listed); label-convention evidence only, never a correction or source",
+   "sha256": "8091055396cc74d7de24c30e2aa13ea4665ca3110b92d2d51d76e013bea9ab6c",
+   "url": "https://raw.githubusercontent.com/vgorman1/Greek-Dependency-Trees/d823e96d253277bc1872b83ff5ac8c393a0f830a/xml%20versions/Xen_Anab_book_1.6-9.xml"
+  },
+  {
+   "bytes": 14826536,
+   "licence": "CC BY-NC-SA 2.5; private, public counts only",
+   "path": "private/opus-completion/udperseus/grc_perseus-ud-train.conllu",
+   "revision": "331ddef91411d0e6549744ee889e05549e6da77d",
+   "role": "producer-lineage AGDT-to-UD conversion evidence (converted by G. Celano); copied byte-identically from the #2050 retained inputs, hash-matched to its pinned registry",
+   "sha256": "d7471c9b91bcd975848fa5d9b65c31f1fc48a597ed3667796968a82c6d098a7e",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Ancient_Greek-Perseus/331ddef91411d0e6549744ee889e05549e6da77d/grc_perseus-ud-train.conllu"
+  },
+  {
+   "bytes": 2080649,
+   "licence": "CC BY-NC-SA 2.5; private, public counts only",
+   "path": "private/opus-completion/udperseus/grc_perseus-ud-dev.conllu",
+   "revision": "331ddef91411d0e6549744ee889e05549e6da77d",
+   "role": "producer-lineage AGDT-to-UD conversion evidence (converted by G. Celano); copied byte-identically from the #2050 retained inputs, hash-matched to its pinned registry",
+   "sha256": "7899f809fc250404839694330b9db25f79a5b1f20cfa12e6dc3a368a4ec7cd22",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Ancient_Greek-Perseus/331ddef91411d0e6549744ee889e05549e6da77d/grc_perseus-ud-dev.conllu"
+  },
+  {
+   "bytes": 1979022,
+   "licence": "CC BY-NC-SA 2.5; private, public counts only",
+   "path": "private/opus-completion/udperseus/grc_perseus-ud-test.conllu",
+   "revision": "331ddef91411d0e6549744ee889e05549e6da77d",
+   "role": "producer-lineage AGDT-to-UD conversion evidence (converted by G. Celano); copied byte-identically from the #2050 retained inputs, hash-matched to its pinned registry",
+   "sha256": "e18d47c395c0ec8da678fb5e315ce6d90133e88c25ed2a55bc72a2a66e6254d5",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Ancient_Greek-Perseus/331ddef91411d0e6549744ee889e05549e6da77d/grc_perseus-ud-test.conllu"
+  },
+  {
+   "bytes": 4228,
+   "licence": "CC BY-NC-SA 2.5; private, public counts only",
+   "path": "private/opus-completion/udperseus/README.md",
+   "revision": "331ddef91411d0e6549744ee889e05549e6da77d",
+   "role": "producer-lineage AGDT-to-UD conversion evidence (converted by G. Celano); copied byte-identically from the #2050 retained inputs, hash-matched to its pinned registry",
+   "sha256": "dfa8f9389227246e0d367d427d900b7a7d7eaf9f7f3e39de6d6a285bd4dc1238",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Ancient_Greek-Perseus/331ddef91411d0e6549744ee889e05549e6da77d/README.md"
+  },
+  {
+   "bytes": 279,
+   "licence": "CC BY-NC-SA 2.5; private, public counts only",
+   "path": "private/opus-completion/udperseus/LICENSE.txt",
+   "revision": "331ddef91411d0e6549744ee889e05549e6da77d",
+   "role": "producer-lineage AGDT-to-UD conversion evidence (converted by G. Celano); copied byte-identically from the #2050 retained inputs, hash-matched to its pinned registry",
+   "sha256": "1e610c18edecad65470980c2990acef370ee51d6b962515282e698735c46d0af",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Ancient_Greek-Perseus/331ddef91411d0e6549744ee889e05549e6da77d/LICENSE.txt"
+  },
+  {
+   "bytes": 3522,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/index.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "d2388ac1f5e64eff1be68d519d21bebe7840ed1dccb46b5ac613b43faaa486bf",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/index.md"
+  },
+  {
+   "bytes": 1557,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/introduction.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "5b0e27a7da02f294b730305b7168ef90d8ef2e90d8d33de3d93dab76e7f26fad",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/introduction.md"
+  },
+  {
+   "bytes": 2266,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_ADJ.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "33bd8fac4e9f4b29132eca231514cd9c02cffae8f7f49b20847c72ed2951d5da",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/ADJ.md"
+  },
+  {
+   "bytes": 2190,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_ADP.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "fe3b32d31e22805811f8c0320a6c278c4d10b07489d3012e32f5f22e8bb84492",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/ADP.md"
+  },
+  {
+   "bytes": 1276,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_ADV.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "9b523bf62f866064658beae20ccd51e698b92068a5417f7d01742a8fa3ac38aa",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/ADV.md"
+  },
+  {
+   "bytes": 1562,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_AUX_.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "c1bf37d2f6cfe14c088955fa6f621b7dd78733b9fac8ec50af67a12799d96af9",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/AUX_.md"
+  },
+  {
+   "bytes": 432,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_CCONJ.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "6c172de127261ca6e83b8299ff687e0363c83378c20e3bf2a8e1fc8364555559",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/CCONJ.md"
+  },
+  {
+   "bytes": 1422,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_DET.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "365f7b3e1d6acd83c424c352ac916d85df2bc03221e727e7c3c571bcc3d777ef",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/DET.md"
+  },
+  {
+   "bytes": 311,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_INTJ.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "78dde8e7884ddbf62bf650dbdc3021306a90556299a9ad11913dc6d9e2f50274",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/INTJ.md"
+  },
+  {
+   "bytes": 1015,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_NOUN.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "5179e649251ee2b12ef05a6c2ce5900d00cb05a7e910055aeecb10498d732936",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/NOUN.md"
+  },
+  {
+   "bytes": 1425,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_NUM.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "a2ba8bdebfb7ebb3ee2c0af9d40b51d8d58746f31fb94875eb8a463f194912f2",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/NUM.md"
+  },
+  {
+   "bytes": 1312,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_PART.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "b5c3734b27ce017187360a43e31e08d54c51f67e8548f4b1fefa681a80361a2c",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/PART.md"
+  },
+  {
+   "bytes": 1416,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_PRON.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "af4ef7e13a8b3c99a495cc72e8e24ba6263ff926c42bc18268d582d47e849247",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/PRON.md"
+  },
+  {
+   "bytes": 342,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_PROPN.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "354ecd5b2e76f2af281eab2bfb8b62dabc8801b8246e614cc9e2b52fb1f44d9c",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/PROPN.md"
+  },
+  {
+   "bytes": 978,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_SCONJ.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "8ee7dd1873a03c017f09b2a76dea803fd8f6e35c7678c5141e594898cb334b48",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/SCONJ.md"
+  },
+  {
+   "bytes": 1088,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_VERB.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "a1aa87249f6208d22853c61a1baca802c2d3114a2aeb659c32b1e7b09427507b",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/VERB.md"
+  },
+  {
+   "bytes": 148,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-grc/pos_X.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD Ancient Greek language-specific category definitions",
+   "sha256": "eccdaa05b12dfd91f376683014994dbb519392dd27c376c726c7e4e6b6d9f928",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_grc/pos/X.md"
+  },
+  {
+   "bytes": 5047,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-dep_cop.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "c2c9508220f1e409e44274e2452034cf0b148a5597e806196c091482e94753ae",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-dep/cop.md"
+  },
+  {
+   "bytes": 24293,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-overview_simple-syntax.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "f96f80b56334be85e79c87fd97d8a2883681a126eee575c9f774d1be1e6ae3fe",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-overview/simple-syntax.md"
+  },
+  {
+   "bytes": 2129,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-pos_ADV.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "f9a1198a3486e460656d6b1121cd268c2ad8f82870a1c261947596e15564c17a",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-pos/ADV.md"
+  },
+  {
+   "bytes": 2652,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-pos_AUX_.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "1435b177a68be843159910f6229877c5be4533ccedd1f07aa797d044d95cea7f",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-pos/AUX_.md"
+  },
+  {
+   "bytes": 4641,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-pos_DET.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "16d8ace8662a093a3ecb601de50100775448319b5e4e551544d103ab1abb85e6",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-pos/DET.md"
+  },
+  {
+   "bytes": 2162,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-pos_NUM.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "aaedd8a96fc34b22e0518adec1f78a363b1583d7086d277fc4b268751175bb70",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-pos/NUM.md"
+  },
+  {
+   "bytes": 1975,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-pos_PART.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "7eeebc05f7fa90369ee2674416568866bd5d3b4ff95d388b76c9e5895ee7d11b",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-pos/PART.md"
+  },
+  {
+   "bytes": 2036,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-pos_PROPN.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "a92d79170bdde2b99b86342dc7df75bf4c4e413d910db1dbc1ed6c344e61db2e",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-pos/PROPN.md"
+  },
+  {
+   "bytes": 2013,
+   "licence": "UD docs repository (GitHub reports Apache-2.0); private copy, cited not republished",
+   "path": "private/opus-completion/ud-docs-u/_u-pos_VERB.md",
+   "revision": "24add7d0b041d11432f6694424111f1b7f50aa86",
+   "role": "UD universal category and copula/nonverbal-predication guidelines",
+   "sha256": "c5534f4432cbdc7549472237cf55b5607de8c297600913957fb62093f201d567",
+   "url": "https://raw.githubusercontent.com/UniversalDependencies/docs/24add7d0b041d11432f6694424111f1b7f50aa86/_u-pos/VERB.md"
+  }
+ ],
+ "note": "New narrow static inputs for the #2052 fresh-owner pass. Retained privately under private/opus-completion/; verified by opus_completion.py. Existing pinned inputs (native nodes, reading text, CoNLL-U member, Morpheus index, producer documents) are verified by their original pins.",
+ "version": "opus-completion-inputs/1"
+}
