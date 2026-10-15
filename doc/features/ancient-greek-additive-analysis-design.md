@@ -3850,7 +3850,589 @@ Each invariant is covered by the `VAL` rows in [§15](#15-acceptance-test-matrix
 
 ## 11. Durable preparation and atomic adoption
 
-_Pending: owned by the durable preparation and adoption ticket._
+Verified at commit `669cf4b5165212c4422b3eac57b5851d37399e32` (`main`). Every
+`path:line` in this section refers to that commit. River is v0.49.0
+(`go.mod:11`); River citations name files in that module version.
+
+### Summary
+
+- A **Preparation request** is the durable, owner-scoped intent to prepare one
+  pinned choice for one classical Book. It records the pinned choice, its kind
+  (`initial` or `replacement`), the evidence that was current when it was made,
+  an owner approval for a replacement, its state, its deadline and one attempt
+  counter per stage.
+- **Admission** creates the request and inserts its first River job in one
+  transaction, under the installation **capacity gate**. Over capacity, the
+  request is still written, in state `failed` with an explained reason, and
+  nothing is dropped.
+- Work runs in five **stages**: verify package → interpret → validate →
+  prepare projections → adopt. Each stage attempt is one River job. The
+  attempt counters live on the request row, so duplicate delivery and
+  restarts cannot reset them.
+- Stage work runs outside the HTTP request and outside every transaction.
+  Each stage opens and closes with a short transaction.
+- **Adoption** is one transaction. It locks the Book, re-checks authorization,
+  the request and the expected evidence, then writes the Adopted evidence
+  record (§9), the Book current classical analysis (§5) and the ready count
+  projection (§8) together. If any check fails, nothing is written and the old
+  evidence stays current.
+- Leaving To Read cancels that owner's outstanding requests for that Book.
+  Choosing a new candidate supersedes the running one. Neither deletes
+  evidence.
+- Adoption writes only request, current-evidence, projection and retention
+  rows. It cannot change snapshots, reservations, Known, history, deck records
+  or decisions.
+
+New record and rule names are proposed terms (OD-55). Table names in the
+illustrative DDL are not prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| Analysis submission takes a per-owner advisory lock, locks the To Read Book, and creates the run, its River job (`InsertTx`), the display handle and the first attempt row in one transaction. | `internal/analysis/jobs.go:238-270` (lock `:247`, To Read check `:250`), `:416-431` (`InsertTx` `:422`) | **Reused pattern.** Admission writes the request and inserts its River job with `InsertTx` in the same transaction (ADR 0097 "Durable bounded work"). |
+| River retries are disabled for analysis jobs (`MaxAttempts: 1`). Each retry increments `analysis_runs.attempt_count` and inserts a new job and attempt row in one transaction. | `internal/analysis/jobs.go:130-166` (counter `:152-155`, insert `:158`, attempt row `:162`) | **Reused pattern.** The attempt budget is a database fact on the request. River's own attempt number is never the budget. |
+| `admitToReadBookAnalysis` locks the Book row and refuses a Book that is the current reading or is not To Read. | `internal/analysis/jobs.go:277-306` | Admission and adoption apply the same two checks under the same Book row lock. |
+| `publishCompletedRun` takes the owner lock, locks run and attempt, skips a cancelled attempt, locks the Book, and publishes only through `publishEligibleAnalysis`. | `internal/analysis/jobs.go:1644-1680`, `:1684-1709` | The adoption transaction follows the same shape: lock, re-check the state that cancellation writes, then publish. |
+| `publishEligibleAnalysis` checks the run is still current and that `noNewerAnalysisRun` holds, builds the Browse projection, and upserts `book_current_analyses`, all in one transaction. | `internal/analysis/jobs.go:1713-1743`, `:168-176` | **Precedent, extended.** Supersession here is decided by request state and an explicit expected-evidence check, not by display number or creation time. |
+| Cancellation commits the durable state first, then cancels River jobs best effort. The cancelled state fences a racing worker. | `internal/analysis/jobs.go:788-797`, `:803` | Cancellation here works the same way. |
+| Failure recording uses `context.WithoutCancel`, so a cancelled job context still records its failure. | `internal/analysis/jobs.go:1217-1218` | Stage failure and interruption recording do the same. |
+| The River client has one worker per queue for analysis, catalogue sync and prepared decks, and a client-wide job timeout that defaults to 30 minutes. `RescueStuckJobsAfter` is not set. | `internal/analysis/jobs.go:2017`, `:36`, `:2020-2030` | A new queue, `classical_preparation`, with `MaxWorkers: 1`. That bounds one process only. The installation bound is the capacity gate. River's rescuer defaults to 1 hour (`client.go:391-397`). |
+| `river.JobSnooze` reschedules a job without incrementing its attempt. | River `error.go:31-43` | Waiting for capacity snoozes and consumes no budget. |
+| Lemma decisions and Start take the learner-state lock (salt 194), then the Book row lock, then the per-Book fence (salt 193). The Browse publication takes the same fence. | `internal/persistence/lemma_review.go:192-205`, `:256-259`; `internal/persistence/current_reading_lifecycle.go:511-516`; `internal/persistence/vocabulary_browse_counts.go:330-336` | Adoption takes the Book row lock and then the per-Book fence, a subsequence of that order. It takes no learner-state lock, because it writes no learner state. |
+| A fixed-key transaction advisory lock already serializes first-user creation. | `internal/persistence/persistence.go:346` | Precedent for the capacity gate (OD-49). |
+| The To Read handler commits the disposition change, then submits EPUB analysis in a separate step. | `internal/webapp/library_handlers.go:289-307` | For classical Books, admission runs inside the disposition transaction, so To Read intent and its request commit together. EPUB behaviour is unchanged. |
+| Disposition changes lock the Book row and the disposition state. Finish returns the Book to Inbox. | `internal/persistence/book_dispositions.go:54-91`; `internal/persistence/current_reading.go:345-349` | Both paths leave To Read, so both cancel the Book's outstanding requests in their own transaction. |
+
+### Records
+
+#### Preparation request
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One owner's durable intent to prepare one pinned choice for one classical Book, with its bounded progress and outcome. | **Identity:** `id uuid`; `owner_id uuid`; `book_id uuid`; `sequence bigint` (1, 2, … per (owner, Book), assigned under the Book row lock); `kind text` ∈ {`initial`, `replacement`}; `retry_of uuid NULL`. **Pinned choice:** `pin_set text` (pin-set identifier and version, §5 "Pins"); `origin_kind text`, `origin_ref text`, `package_release text NULL` (as §5 Package acquisition); `package_digest text` (transport identity); `package_content_digest text` (manifest identity); `reading_unit_id uuid`; `binding_declaration_digest text` (SHA-256 of the canonical serialization of `source_bounds`, `projection` and `correspondence` from the pin set); `interpretation_digest text` (the §5 `configuration_digest`); `adapter text` (`name/version`). **Expected evidence:** `expected_analysis_id uuid NULL`; `expected_adoption_request_id uuid NULL`. **Approval:** `approved_at timestamptz NULL`. **Progress:** `state text` ∈ {`queued`, `running`, `blocked`, `failed`, `cancelled`, `superseded`, `adopted`}; `stage text` ∈ {`verify`, `interpret`, `validate`, `prepare_projections`, `adopt`}; `attempts_verify`, `attempts_interpret`, `attempts_validate`, `attempts_prepare`, `attempts_adopt smallint` (each 0–3); `lease_job_id bigint NULL`; `lease_expires_at timestamptz NULL`; `next_attempt_at timestamptz NULL`. **Resolved inputs** (write-once, set by stages): `text_acquisition_id`, `annotation_acquisition_id`, `binding_id`, `interpretation_id`, `candidate_analysis_id uuid NULL`; `staged_builder_version integer NULL`; `staged_coverage_denominator bigint NULL`. **Outcome:** `reason text NULL` (registered code); `diagnostics jsonb` (array in the §10 diagnostic shape, default `[]`); `superseded_by uuid NULL`. **Times:** `created_at`; `deadline_at` (= `created_at` + 24 h); `updated_at`; `finished_at NULL`; `adopted_at NULL` | `id` | `(owner_id, id)` unique, as a composite-reference target. `(owner_id, book_id, sequence)` unique. **At most one non-terminal request per (owner, Book):** partial unique index on `(owner_id, book_id)` where `state IN ('queued','running')`. | Owner. Another owner's requests are never read, written, counted per owner or cancelled. | **Mutable** in its progress and outcome fields only. Identity, pinned choice, expected evidence, `approved_at`, `created_at` and `deadline_at` are immutable after insert. Each resolved input is write-once. Attempt counters only increase. A terminal state never changes. A trigger enforces all of these and the transition table below. Deleted only by the owner cascade (RET-GUARD-2). | `owner_id` → `users(id)` `ON DELETE CASCADE`; `(owner_id, book_id)` → §4 Book–Reading unit association `ON DELETE CASCADE`, under the owner guard; `(owner_id, retry_of)`, `(owner_id, expected_adoption_request_id)` and `(owner_id, superseded_by)` → Preparation request `NO ACTION`; `(owner_id, text_acquisition_id)` and `(owner_id, annotation_acquisition_id)` → §5 Package acquisition `NO ACTION`; `binding_id` → §5 binding `RESTRICT`; `interpretation_id` → §5 Interpretation configuration `RESTRICT`; `candidate_analysis_id` → §5 Exact analysis `RESTRICT` (§9 R2) |
+
+Checks:
+
+- `kind = initial` ⇔ `expected_analysis_id` and `expected_adoption_request_id`
+  are both NULL. A replacement names both.
+- `kind = replacement` ⇒ `approved_at IS NOT NULL`. A replacement row without an
+  owner approval cannot exist.
+- `state = adopted` ⇔ `adopted_at IS NOT NULL`.
+- Terminal state ⇔ `finished_at IS NOT NULL`. `blocked`, `failed`, `cancelled`
+  and `superseded` require `reason`.
+- `state = superseded` with `reason = superseded_by_request` ⇔ `superseded_by IS NOT NULL`.
+- `lease_job_id` and `lease_expires_at` are both set or both NULL, and both
+  are NULL in every terminal state.
+- `staged_builder_version` and `staged_coverage_denominator` are both set or
+  both NULL.
+- `deadline_at = created_at + interval '24 hours'`.
+
+`reason` and `diagnostics` hold only registered codes and the §10 diagnostic
+shape. They are safe to log and carry no source text, digests or learner input.
+
+#### Preparation attempt
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The history of one stage attempt, for diagnostics. | `owner_id`; `request_id`; `stage text`; `attempt_number smallint` (1–3); `river_job_id bigint`; `outcome text NULL` ∈ {`succeeded`, `transient`, `permanent`, `interrupted`, `discarded`}; `code text NULL`; `started_at`; `finished_at NULL` | `(request_id, stage, attempt_number)` | Key only. A fourth attempt for one stage cannot be inserted. | Owner. | **Append-only.** Only `outcome`, `code` and `finished_at` change, once, together. | `(owner_id, request_id)` → Preparation request `ON DELETE CASCADE` |
+
+A trigger requires `attempt_number` to equal the request's counter for that
+stage at insert. The counter on the request is the budget. The attempt row
+explains it.
+
+#### Staged count row
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One identity's effective count for the candidate analysis, computed before adoption. | `owner_id`; `request_id`; `identity_id`; `occurrence_count bigint` (> 0); `corrected boolean` | `(request_id, identity_id)` | Key only. | Owner. | **Mutable** by the prepare stage only, which replaces the whole set. Deleted when the request becomes terminal. Derived data: never retained evidence. | `(owner_id, request_id)` → Preparation request `ON DELETE CASCADE`; `identity_id` → §6 Vocabulary identity `RESTRICT` |
+
+```sql
+-- illustrative, not a migration
+CREATE TABLE preparation_requests (
+  id uuid PRIMARY KEY,
+  owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  book_id uuid NOT NULL,
+  sequence bigint NOT NULL CHECK (sequence > 0),
+  kind text NOT NULL CHECK (kind IN ('initial','replacement')),
+  retry_of uuid NULL,
+  pin_set text NOT NULL,
+  origin_kind text NOT NULL, origin_ref text NOT NULL, package_release text NULL,
+  package_digest text NOT NULL, package_content_digest text NOT NULL,
+  reading_unit_id uuid NOT NULL,
+  binding_declaration_digest text NOT NULL,
+  interpretation_digest text NOT NULL,
+  adapter text NOT NULL,
+  expected_analysis_id uuid NULL,
+  expected_adoption_request_id uuid NULL,
+  approved_at timestamptz NULL,
+  state text NOT NULL CHECK (state IN ('queued','running','blocked','failed','cancelled','superseded','adopted')),
+  stage text NOT NULL CHECK (stage IN ('verify','interpret','validate','prepare_projections','adopt')),
+  attempts_verify smallint NOT NULL DEFAULT 0 CHECK (attempts_verify BETWEEN 0 AND 3),
+  attempts_interpret smallint NOT NULL DEFAULT 0 CHECK (attempts_interpret BETWEEN 0 AND 3),
+  attempts_validate smallint NOT NULL DEFAULT 0 CHECK (attempts_validate BETWEEN 0 AND 3),
+  attempts_prepare smallint NOT NULL DEFAULT 0 CHECK (attempts_prepare BETWEEN 0 AND 3),
+  attempts_adopt smallint NOT NULL DEFAULT 0 CHECK (attempts_adopt BETWEEN 0 AND 3),
+  lease_job_id bigint NULL, lease_expires_at timestamptz NULL, next_attempt_at timestamptz NULL,
+  text_acquisition_id uuid NULL, annotation_acquisition_id uuid NULL,
+  binding_id uuid NULL REFERENCES text_annotation_bindings(id) ON DELETE RESTRICT,
+  interpretation_id uuid NULL REFERENCES interpretation_configurations(id) ON DELETE RESTRICT,
+  candidate_analysis_id uuid NULL REFERENCES exact_analyses(id) ON DELETE RESTRICT,
+  staged_builder_version integer NULL, staged_coverage_denominator bigint NULL,
+  reason text NULL, diagnostics jsonb NOT NULL DEFAULT '[]', superseded_by uuid NULL,
+  created_at timestamptz NOT NULL, deadline_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL, finished_at timestamptz NULL, adopted_at timestamptz NULL,
+  UNIQUE (owner_id, id),
+  UNIQUE (owner_id, book_id, sequence),
+  FOREIGN KEY (owner_id, book_id) REFERENCES book_reading_units(owner_id, book_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id, text_acquisition_id) REFERENCES evidence_package_acquisitions(owner_id, id),
+  FOREIGN KEY (owner_id, annotation_acquisition_id) REFERENCES evidence_package_acquisitions(owner_id, id),
+  FOREIGN KEY (owner_id, retry_of) REFERENCES preparation_requests(owner_id, id),
+  FOREIGN KEY (owner_id, expected_adoption_request_id) REFERENCES preparation_requests(owner_id, id),
+  FOREIGN KEY (owner_id, superseded_by) REFERENCES preparation_requests(owner_id, id),
+  CHECK ((kind = 'initial') = (expected_analysis_id IS NULL)),
+  CHECK ((expected_analysis_id IS NULL) = (expected_adoption_request_id IS NULL)),
+  CHECK (kind = 'initial' OR approved_at IS NOT NULL),
+  CHECK ((state = 'adopted') = (adopted_at IS NOT NULL)),
+  CHECK ((state IN ('queued','running')) = (finished_at IS NULL)),
+  CHECK (state IN ('queued','running','adopted') OR reason IS NOT NULL),
+  CHECK ((lease_job_id IS NULL) = (lease_expires_at IS NULL)),
+  CHECK (state IN ('queued','running') OR lease_job_id IS NULL),
+  CHECK ((staged_builder_version IS NULL) = (staged_coverage_denominator IS NULL)),
+  CHECK (deadline_at = created_at + interval '24 hours')
+);
+CREATE UNIQUE INDEX preparation_requests_one_open_per_book
+  ON preparation_requests (owner_id, book_id) WHERE state IN ('queued','running');
+CREATE INDEX ON preparation_requests (state, deadline_at) WHERE state IN ('queued','running');
+-- plus: the transition and write-once trigger; the §9 owner guard
+-- (reject_retention_root_deletion); preparation_attempts and staged_count_rows
+-- as tabled above; indexes led by (owner_id, text_acquisition_id) and
+-- (owner_id, annotation_acquisition_id) for the owner cascade (§9 "Indexes").
+```
+
+### State transitions
+
+Only these transitions are allowed. The trigger rejects every other one.
+`blocked`, `failed`, `cancelled`, `superseded` and `adopted` are terminal.
+
+| from | to | when | written by |
+| --- | --- | --- | --- |
+| (insert) | `queued` | Admission within capacity. | Admission |
+| (insert) | `failed` | Admission over capacity, with `installation_queue_full` (OD-51). | Admission |
+| `queued` | `running` | A stage attempt begins and the active-pipeline gate is free. | Stage begin |
+| `running` | `queued` | A transient failure leaves budget and deadline, so the next attempt is scheduled after backoff. The active slot is released. | Stage finish |
+| `running` | `running` | A stage succeeds and the next stage's job is inserted. | Stage finish |
+| `running` | `blocked` | A permanent failure that needs intervention or another choice (see [Outcomes](#outcomes-and-retry)). | Stage finish, adoption |
+| `queued`, `running` | `failed` | The stage budget or the deadline is exhausted, or adoption finds the Book is the current reading (OD-50). | Stage begin, stage finish, adoption |
+| `queued`, `running` | `cancelled` | The Book leaves To Read. | Disposition change, Finish |
+| `queued`, `running` | `superseded` | A newer request for the same Book is admitted, or adoption finds stale request or evidence state. | Admission, adoption |
+| `running` | `adopted` | The adoption transaction commits. | Adoption |
+
+### Stages
+
+Every stage is one or more **stage attempts**. Each attempt is one River job,
+with the same three-part shape:
+
+1. **Begin** (short transaction). Lock the request `FOR UPDATE`.
+   - If it is terminal, or its `stage` or attempt number differs from the job's
+     arguments, finish the job and change nothing. A duplicate or stale delivery
+     ends here.
+   - If the deadline has passed, set `failed` with `deadline_exceeded`.
+   - If a live lease (`lease_expires_at` is later than now) belongs to another
+     job, finish the job and change nothing. Two deliveries never run one stage
+     at once.
+   - If a lease has expired, the earlier attempt was interrupted. Close it with
+     outcome `interrupted` (code `worker_interrupted`). It stays counted.
+   - If the request is `queued`, pass the active-pipeline gate (see
+     [Capacity](#capacity)). If the gate is held, snooze.
+   - If the stage counter is already 3, set `failed` with
+     `retry_budget_exhausted`.
+   - Otherwise increment the stage counter, insert the attempt row, and set the
+     lease to now + stage timeout + 1 minute. Commit.
+2. **Work** (no transaction). Run the stage under a context with the 5-minute
+   stage timeout. The work reads only persisted rows and pins, and holds no
+   database lock.
+3. **Finish** (short transaction, with `context.WithoutCancel`, as at
+   `internal/analysis/jobs.go:1218`). Lock the request `FOR UPDATE`.
+   - If the request is no longer `running`, or the lease is no longer this
+     job's, write no stage output. Close the attempt as `discarded`.
+   - Otherwise write the stage's outputs, close the attempt, then either advance
+     `stage` and insert the next stage's job with `InsertTx`, or apply the
+     failure rules below. Clear the lease. Commit.
+
+The counter is incremented and committed in Begin, before any work. A crash
+during Work therefore leaves the attempt counted. Duplicate delivery, a restart,
+a River rescue or a re-inserted job cannot give a stage more than three
+attempts, because the counter has a database ceiling of 3.
+
+| stage | inputs | outputs (written in Finish) | idempotency and resume rule |
+| --- | --- | --- | --- |
+| `verify` | The pinned package source: the §12 local path, or a later catalogue transfer. The pins. The rights gate for the operation (#2054–#2056). | The §5 evidence rows of a verified package (Package content, members, blob, notices, revisions, provenance claims) and the owner's Package acquisition. Links `text_acquisition_id` and `annotation_acquisition_id`. | The rights gate is checked first. A closed gate gives `blocked` with `rights_gate_closed`, before any byte is read. Bytes are checked against the pins and the §5 limits in the work step, outside every transaction (§5 "Limits"). Every row is insert-if-absent on its digest key. The acquisition is insert-if-absent on its §5 unique tuple. A re-run after a committed Finish is a stale delivery. Later stages read the stored blob and never re-acquire it. |
+| `interpret` | The stored blob, through the safe reader. The pins. | Interpretation configuration, insert-if-absent on `configuration_digest`. Extracted text and Text–annotation binding (§5), insert-if-absent. Links `interpretation_id` and `binding_id`. | The resolved configuration's digest must equal `interpretation_digest`, otherwise `blocked` with `interpretation_version_unknown`. A recomputed binding that differs from a stored one gives `blocked` with `binding_nondeterministic` (EVD-14). A `rejected` binding is stored for inspection and gives `blocked` with its reason codes. |
+| `validate` | The stored blob, binding and interpretation. | When Validated: the Exact analysis with its five Capability diagnostics, Diagnostic findings and §7 rows, in one transaction (§5). Links `candidate_analysis_id`. | The adapter is run again on the stored members. It is deterministic (§10), so the re-run is the stage's resume. `canonical.Validate` decides the outcome. The analysis is insert-if-absent on (binding, interpretation, adapter). An existing row is reused only if its `vocabulary_ready` and diagnostics are equal, otherwise `blocked` with `analysis_nondeterministic`. Rejected: `blocked` with the diagnostics, and no analysis. Validated but not Vocabulary-ready: the analysis is stored for inspection, and the request is `blocked` with the denying codes (OD-54). Not adoptable because of a `vocabulary` Usability restriction: `blocked` with `evidence_restricted`. |
+| `prepare_projections` | The candidate analysis, the Book's decisions on it (none for a never-adopted analysis, EFF-4) and the current rich builder version. | The whole Staged count row set, `staged_builder_version` and `staged_coverage_denominator` (EFF-2, EFF-3). | The set is replaced as a whole, so a re-run gives the same rows. Decisions on the candidate cannot change meanwhile, because a decision is written only on the current analysis (§8 EFF-4). |
+| `adopt` | Everything above. | The adoption transaction below. | The stage uses the shared Begin, so its attempts are counted and leased like every other stage. Its Work is empty, and the adoption transaction is its Finish. If the adoption commits, the request is `adopted`. A re-run finds a terminal request and changes nothing. |
+
+Rules shared by all stages:
+
+- The River job carries only `owner_id`, `request_id`, `stage` and
+  `attempt_number`. The pinned choice and the budget are read from the
+  request, never from job arguments or River metadata.
+- River jobs are inserted on queue `classical_preparation` with
+  `MaxAttempts: 5`. River attempts count only deliveries of one job, for
+  example after a crash. They never extend the stage budget, because Begin
+  checks the request's counter.
+- On shutdown, the worker records the interruption under
+  `context.WithoutCancel` and returns `river.JobSnooze(0)`, so the next process
+  resumes the job at once. The interrupted attempt stays counted.
+- A crashed process's job is resumed by River's stuck-job rescuer. Its delay
+  counts toward the deadline.
+- The worker sets its River timeout to the stage timeout plus 1 minute.
+- All deadline and lease comparisons use one application clock value, passed
+  into SQL as a parameter. Tests inject the clock.
+
+### Budgets
+
+These are the handoff's "Initial operational envelope" values. They are
+binding defaults. The application reads configured values that can only be
+lower. The database checks the attempt ceiling and the deadline arithmetic.
+
+| scope | bound | enforcement |
+| --- | --- | --- |
+| Each stage | 3 total attempts, including the first, for transient failures | Per-stage counter on the request, `CHECK (… BETWEEN 0 AND 3)`, incremented in Begin. The third transient failure gives `failed` with `retry_budget_exhausted`. |
+| Each request | 24-hour deadline from `created_at`, including queue, snooze, backoff and rescue time | `deadline_at`. Checked in Begin, before scheduling a retry, and in adoption step 3. A request past its deadline is never counted as pending or active. When it is next touched, it becomes `failed` with `deadline_exceeded`. Reads show it as failed at once. |
+| Each local import stage, and each package transfer | 5-minute timeout | Work-step context deadline. Expiry is transient `worker_interrupted`. |
+| Each metadata request | 30-second timeout | Not used by these stages. Catalogue discovery owns it (handoff Stage 3). |
+| Automatic retry delay | Jittered exponential backoff starting at 10 s, capped at 5 min | After the *n*-th transient failure of a stage, base = min(10 s × 2^(*n*−1), 5 min). The delay is uniform in [base/2, base]. A longer upstream retry instruction is honoured only if the retry still starts before the deadline. If a retry cannot start before the deadline, the request becomes `failed` with `deadline_exceeded` immediately. |
+| Waiting for the active pipeline | No budget used | `river.JobSnooze` with a delay uniform in [10 s, 20 s], and never past the deadline. Waiting increments no counter. |
+| Permanent failures | No retry | `blocked` or `failed` at once, with diagnostics. No counter is consumed beyond the attempt that found the failure. |
+
+Failure classes are §10's. Only `storage_unavailable` and `worker_interrupted`
+are transient. Every other code is permanent.
+
+### Outcomes and Retry
+
+| outcome | state | reason codes (examples) | Retry offered |
+| --- | --- | --- | --- |
+| Transient budget exhausted | `failed` | `retry_budget_exhausted` | Yes |
+| Deadline passed | `failed` | `deadline_exceeded` | Yes |
+| Admission over capacity | `failed` | `installation_queue_full` | Yes |
+| The Book became the current reading | `failed` | `book_is_current_reading` (OD-50) | Yes, after End or Finish |
+| Supplied bytes do not match the pins, or break a limit | `blocked` | `package_too_large`, `package_inventory_mismatch`, transport or content digest mismatch | Yes, after the operator supplies the exact bytes (§12) |
+| Rights gate closed | `blocked` | `rights_gate_closed` | Yes, after the gate opens |
+| The pinned choice is deterministically unusable | `blocked` | `interpretation_version_unknown`, `binding_rejected`, `binding_nondeterministic`, structural codes, `coverage_gap`, `occurrence_unresolved`, `evidence_restricted` | No. The same pin gives the same result. Another choice is a new replacement request. |
+| Leaving To Read | `cancelled` | `left_to_read` | No. Re-entering To Read follows the initial-request rule. |
+| Newer choice or stale state | `superseded` | `superseded_by_request`, `expected_state_changed`, `already_current` | No |
+
+**Retry** is an explicit owner action on the Book's latest request. It is
+offered only when that request is `failed` or `blocked` with a code marked as
+retryable above. It runs Admission for a **new** request:
+
+- with the same pinned choice (every pinned-choice field copied);
+- with the same kind, and `retry_of` naming the earlier request;
+- with expected evidence equal to the Book's current evidence at the time of
+  Retry;
+- for a replacement, with `approved_at` set by the Retry itself, after the
+  same explanation that the original approval showed.
+
+Retry never picks a newer candidate, revision, Edition or unit. If the earlier
+request is `initial` and the Book has current evidence by now, Retry is not
+offered.
+
+### Capacity
+
+The two installation bounds are enforced at admission and at the queued-to-
+running step, in the same transaction as the write they guard.
+
+- **Pending.** At most 32 requests are **pending** across all owners. Pending
+  means `state IN ('queued','running')` and `deadline_at` later than now.
+- **Active.** At most 1 request is **active**. Active means `state = 'running'`
+  and a lease that has not expired.
+
+**Mechanism (OD-49).** A transaction-scoped advisory lock with one fixed
+installation key, the **capacity gate**, as at
+`internal/persistence/persistence.go:346`. Under it:
+
+- Admission first supersedes the Book's open request, if any, then counts
+  pending requests. If the count is 32 or more, it inserts the new request as
+  `failed` with `installation_queue_full`, and inserts no job. Otherwise it
+  inserts the request as `queued` and inserts its job.
+- Begin, for a `queued` request, counts active requests other than itself. If
+  one exists, it snoozes. Otherwise it sets `running` and takes the lease.
+
+**Why this is race-free.**
+
+- Only two writes can raise a count: an admission (pending) and a
+  queued-to-running step (active). Both happen only while holding the gate.
+- Each transaction counts in a statement that runs after it acquired the gate.
+  Under `READ COMMITTED`, that statement's snapshot includes every row
+  committed by an earlier holder, and an earlier holder commits before its
+  transaction-scoped lock is released. So two concurrent admissions at 31 are
+  serialized, and the second sees 32.
+- Every other transition lowers a count, and runs without the gate. A
+  concurrent decrease can only make an admission refuse conservatively. It can
+  never let a count pass its bound.
+- Expiry is time-based, so it only lowers a count. A request whose lease
+  expired must pass the gate again in Begin before it can be active again.
+
+**Lock order.** Every path takes locks in this order and skips the ones it
+does not need: Book row → Book current classical analysis row → request rows,
+in ascending `id` → capacity gate → per-Book fence (salt 193). Stage Begin and
+Finish take only request → gate, and adoption takes no gate. The cycle-free
+order prevents deadlock with Start, lemma decisions and dispositions, which take
+the Book row before the per-Book fence (`internal/persistence/lemma_review.go:192-205`).
+
+`MaxWorkers: 1` on the `classical_preparation` queue keeps one process from
+running a second pipeline. The gate is what bounds the installation when
+several processes run.
+
+**Explained, not dropped.** A refused or waiting request is always a
+persisted row with a state and a reason. Book detail shows "Waiting for another
+preparation to finish" for a `queued` request whose job is snoozed. It shows
+"Not started: the installation's preparation queue is full" with Retry for
+`installation_queue_full`. No request is ever deleted, and no job is ever
+inserted without its request.
+
+### Admission
+
+Admission is one transaction that creates a request and inserts its first
+`verify` job with `InsertTx`, as the existing analysis submission does
+(`internal/analysis/jobs.go:238-270`, `:416-431`). It runs from three entry
+points:
+
+| entry point | kind | transaction it joins | pinned choice |
+| --- | --- | --- | --- |
+| To Read on a classical Book with no current classical analysis and no open request | `initial` | The disposition transaction (`internal/persistence/book_dispositions.go:54-91`), so To Read and its intent commit together | The pinned choice of the Book's most recent `initial` request, if one exists. Otherwise the candidate that the Book's Unit offering or Local registration (§4) selects at this moment. |
+| Refresh: the owner approves a named replacement candidate | `replacement` | Its own transaction | The candidate the owner approved. `approved_at` is set. Expected evidence is the Book's current evidence. |
+| Retry | as the earlier request | Its own transaction | Copied from the earlier request. |
+
+Steps, in order:
+
+1. Lock the Book row `FOR UPDATE`. A Book that is not the owner's, or has no §4
+   association, returns the existing not-found response.
+2. Require To Read, and refuse the owner's current reading's Book, as
+   `admitToReadBookAnalysis` does (`internal/analysis/jobs.go:277-306`).
+3. Lock the Book's open request, if any. For To Read, an open request makes
+   admission a no-op, so repeated To Read never adds or re-pins a request. For
+   Refresh and Retry, set the open request to `superseded` with
+   `superseded_by_request`.
+4. Take the capacity gate, count, and insert the request as `queued` or
+   `failed`, as under [Capacity](#capacity). The new `sequence` is the Book's
+   highest plus one.
+5. Insert the `verify` job, attempt 1, with `InsertTx`.
+6. Commit.
+
+A To Read on a Book that already has current classical evidence creates no
+request. To Read never creates a replacement. The HTTP handler returns as soon
+as admission commits. No byte is read and no package is parsed in the request.
+
+### Adoption transaction
+
+Adoption is the `adopt` stage's Finish. One transaction runs these steps in
+order. Any failed check rolls the transaction back.
+
+1. **Lock.** Lock the Book row `FOR UPDATE`, then the Book's current classical
+   analysis row `FOR UPDATE` if it exists. The Book row is locked first because
+   an initial adoption has no current row yet, and because Start, dispositions
+   and lemma decisions lock the same row.
+2. **Authorize.** The Book is the owner's and still has the association to the
+   request's `reading_unit_id`. The owner still holds both linked acquisitions,
+   and they satisfy §5's access predicate for the candidate. The operation's
+   rights gate is still open. The candidate is adoptable: Vocabulary-ready, with
+   no `vocabulary` Usability restriction on it or its inputs (§10). A
+   replacement has `approved_at`. The Book is still To Read and is not the
+   current reading.
+3. **Request.** Lock the request `FOR UPDATE`. It is `running`, its stage is
+   `adopt`, its live lease belongs to this job, its deadline has not passed,
+   and it has the highest `sequence` among
+   the Book's requests that are not `cancelled`.
+4. **Expected evidence.** The current row's `analysis_id` is not distinct from
+   `expected_analysis_id`, and the Book's most recently adopted request (highest
+   `sequence` in state `adopted`) is not distinct from
+   `expected_adoption_request_id`. The second comparison also catches X → Y → X
+   re-adoption, which an analysis comparison alone would miss. If the candidate
+   equals the current analysis, the outcome is `superseded` with
+   `already_current`.
+5. **Projections ready.** `staged_builder_version` equals the current rich
+   builder version, and the staged rows exist for this request. If not, the
+   attempt is transient `projection_stale`, and `stage` returns to
+   `prepare_projections`. Its counter is not reset.
+6. **Retention references.** Insert the Adopted evidence record
+   `(owner, Book, candidate, text acquisition, annotation acquisition)`,
+   insert-if-absent (§9 RET-TX). The request's own R2 references already exist.
+7. **Switch.** Take the per-Book fence (salt 193). Upsert the Book current
+   classical analysis row with the candidate, both acquisitions and
+   `adopted_at`, all together. The analysis fixes its binding, and the binding
+   fixes its text and annotation revisions, so text, binding and analysis
+   switch as one value. Replace the Book's Rich vocabulary count rows with the
+   staged rows, and set Rich count readiness to (candidate, `ready`, builder
+   version, staged denominator) (§8 "Count projection").
+8. **Close.** Set the request `adopted` with `adopted_at` and `finished_at`.
+   Set any other open request for the Book to `superseded` with
+   `superseded_by_request`. Admission leaves none, so this step is defensive.
+   Delete the request's staged rows. Close the attempt as `succeeded`. Clear
+   the lease. Commit.
+
+**On failure.** After the rollback, one short transaction locks the request and
+records the outcome, unless the request is already terminal:
+
+| failed step | outcome |
+| --- | --- |
+| 2: rights gate closed, or candidate restricted | `blocked` with `rights_gate_closed` or `evidence_restricted` |
+| 2: the Book is the current reading | `failed` with `book_is_current_reading` (OD-50) |
+| 2: any other authorization check | `failed` with `authorization_lost` |
+| 3: the lease is not this job's | No outcome. The attempt is closed as `discarded`, as in every stage's Finish. |
+| 3 (otherwise) or 4 | `superseded` with `expected_state_changed` or `already_current` |
+| 5 | transient `projection_stale`, as above |
+| A database error at any step, including commit | transient `storage_unavailable`, under the stage budget |
+
+In every case, the old evidence stays current, and no Adopted evidence record,
+count row, readiness change or current-row change from this attempt exists.
+They were all written in the rolled-back transaction.
+
+### Initial and replacement
+
+- **Initial.** An `initial` request adopts its pinned choice automatically when
+  it passes the adoption checks. It needs no approval, because To Read on an
+  offered unit is the owner's selection of that candidate (ADR 0097).
+- **Replacement.** A `replacement` request needs the owner's explicit approval
+  of the named candidate, recorded as `approved_at` when the request is
+  created. Before approval, the page explains that replacement can change
+  personal counts and does not transfer corrections or exclusions (ADR 0097).
+  A replacement without approval cannot be created (database check), and
+  adoption checks approval again (step 2).
+- **Repeated To Read never re-pins.** To Read creates only `initial` requests,
+  only when the Book has no current classical analysis, and reuses the pinned
+  choice of the Book's most recent `initial` request. A newer catalogue
+  candidate reaches the Book only through Refresh.
+
+### Cancellation and supersession
+
+- **Leaving To Read** cancels that owner's open request for that Book only. The
+  cancel is written in the same transaction as the disposition change:
+  `TransitionBookDisposition` away from To Read
+  (`internal/persistence/book_dispositions.go:54-91`), and Finish's return to
+  Inbox (`internal/persistence/current_reading.go:345-349`). The statement is
+  scoped by `(owner_id, book_id)`. It sets `cancelled` with `left_to_read`,
+  clears the lease and deletes the staged rows. After commit, River jobs are
+  cancelled best effort (`internal/analysis/jobs.go:788-797`). A worker that
+  races the cancel writes nothing, because Finish and adoption both require
+  `running`.
+- **Hiding a Book** is not leaving To Read, and cancels nothing (§9
+  "Deletion behaviour").
+- **Choosing C while B runs.** Admitting C supersedes B in C's transaction,
+  under the Book row lock. When B finishes later, its Finish sees `superseded`
+  and writes nothing. B's adoption fails step 3. B cannot win by finishing last.
+- **Re-entering To Read** never revives a cancelled request. A cancelled
+  request is terminal. To Read never creates a replacement, so a cancelled
+  replacement comes back only if the owner approves it again through Refresh.
+  A Book without current evidence gets a new `initial` request with its
+  original pin.
+- **Nothing is deleted.** Cancellation and supersession change request state
+  only. Package acquisitions, shared evidence, Adopted evidence records and
+  every other §9 root stay. A request's references stay as physical rows
+  (OD-39).
+- **Other owners.** No cancellation, supersession or capacity step reads or
+  writes another owner's request. Owner A's cancel leaves owner B's request on
+  the same shared evidence running. Shared rows that A's `verify` stage wrote
+  are reused by B's stages.
+
+### Frozen state
+
+Adoption writes exactly these records: Preparation request, Preparation
+attempt, Staged count row (deleted), Adopted evidence record (§9), Book current
+classical analysis (§5), Rich count readiness and Rich vocabulary count (§8).
+The earlier stages also write the shared §5, §6 and §7 evidence rows and the
+owner's Package acquisition.
+
+No stage and no adoption step writes `primary_goals`, `primary_goal_snapshots`,
+snapshot vocabulary or Rich snapshot membership, snapshot count contributions,
+Known (legacy or rich), `reading_history`, Exact occurrence decisions or flags,
+deck preparations or specifications, dispositions or visibility. This is a
+structural property: the `internal/adoption` package issues no statement on
+those records, and adoption's checks read only the Book, current-evidence and
+request rows. The §8 snapshot trigger and §9 references keep a frozen record on
+its own analysis, so a later adoption cannot reach it. ADP-21 asserts the
+result.
+
+### OD-05 resolution
+
+OD-05 is answered as option (2), consistent with §5's OD-12 option (2). The
+adopted anchor is the parallel Book current classical analysis record. The
+single domain classification (ADR 0052) reads it and reports a classical Book
+as Reading-ready (§10). Every B-26 call site moves to that classification in
+one change. EPUB Books keep reading `book_current_analyses` through the same
+classification, so their verdicts do not change.
+
+### Invariants
+
+Each invariant is covered by the `ADP` rows in [§15](#15-acceptance-test-matrix).
+
+1. **Intent.** A request and its first job commit together, or neither does.
+   A classical To Read and its initial request commit together (ADP-01).
+   Parsing never runs in an HTTP request or inside a transaction (ADP-01).
+2. **One open request.** At most one open request exists per (owner, Book)
+   (ADP-16). Repeated To Read never adds a request or re-pins (ADP-17).
+3. **Budgets.**
+   - No stage exceeds 3 attempts, whatever the delivery or restart pattern
+     (ADP-02, ADP-03, ADP-04).
+   - The deadline counts from creation, including queue and backoff time
+     (ADP-05).
+   - Permanent failures stop at once and consume no retry (ADP-06, ADP-18).
+   - Retry creates a new request with the same pin (ADP-04).
+   - Retry delays follow the binding backoff, and waiting consumes no attempt
+     (ADP-08, ADP-26).
+4. **Capacity.** At most 32 pending and 1 active request per installation,
+   under concurrency, and a refused request is explained, not dropped (ADP-07,
+   ADP-08, ADP-19).
+5. **Adoption.**
+   - Adoption happens only in one transaction that writes current evidence,
+     counts and retention references together (ADP-12, ADP-20).
+   - It requires the expected evidence and the latest running request,
+     including after re-adoption of an earlier analysis (ADP-09, ADP-13,
+     ADP-25).
+   - It never switches the evidence of the current reading's Book (ADP-24).
+   - A failure leaves the old evidence current and no partial row (ADP-12).
+   - A replacement requires owner approval (ADP-14). An initial request adopts
+     automatically (ADP-15).
+6. **Cancellation.**
+   - A cancelled or superseded request never adopts (ADP-09, ADP-10).
+   - Cancellation is scoped to one owner and Book, and deletes no evidence
+     (ADP-10, ADP-11).
+   - Re-entering To Read revives nothing (ADP-22).
+7. **Frozen state.** Adoption changes no snapshot, reservation, Known, history,
+   deck record or decision (ADP-21).
+8. **Isolation.** An owner never sees or affects another owner's requests
+   (ADP-11, ADP-23).
+
+### Conflicts and dependencies noted
+
+- **§8 "Count projection".** §8 lets adoption set readiness `pending` and
+  enqueue a rebuild when the build does not fit the transaction. ADR 0097
+  requires ready projections before adoption, and this ticket requires the
+  adoption commit to write them. §11 always builds counts in the
+  `prepare_projections` stage and adopts only with them ready, so the `pending`
+  path is never taken at adoption. §8 is not rewritten (OD-52).
+- **§9 terminal states.** §9's illustrative unreferenced-evidence query treats
+  `adopted`, `cancelled`, `failed` and `superseded` as terminal. §11 also makes
+  `blocked` terminal. Under OD-39 option (1), a `blocked` request is a non-root
+  holder too (OD-53). §9 is not rewritten.
+- **§10 `adoption.Service`.** §10's illustrative `Adopt(…, analysis
+  *canonical.ValidatedAnalysis)` is called only by the `adopt` stage, with the
+  analysis the `validate` stage produced. The public entry points are
+  admission (To Read, Refresh, Retry) and cancellation. This refines §10, and
+  does not change it.
+- **OD-47.** §11 stores a validated analysis that is not Vocabulary-ready, for
+  owner inspection, and never adopts it (OD-54).
+- **Current reading.** The ticket does not say what happens when a Book
+  becomes the current reading while a replacement runs. §11 refuses the
+  adoption (OD-50).
+- **Package transfer.** The `verify` stage's catalogue transfer, its 5-minute
+  timeout and upstream rate limits belong to handoff Stage 3. §12 supplies the
+  local source. Both feed the same stage.
+- **§12** places the operator commands, and calls Admission for the local
+  path. §11 does not choose the local command surface.
+
 
 ## 12. Operator-local entry point
 
@@ -4102,6 +4684,32 @@ rows use synthetic fixtures only.
 | VAL-21 | A restriction makes a capability unavailable to consumers at read time. | (b) | A Reading-ready classical Book with no current reading. Then an operator Usability restriction naming `vocabulary` is appended to its analysis's binding. | Request Start, Browse counts and Concordance lemma lookup. | Start returns the ineligible verdict. Browse reports Unavailable, and Concordance lists the Book as unavailable with the restriction's reason. The validated states and diagnostics stored for the analysis are unchanged. | A restriction naming only `basic_syntax` leaves Start, counts and lemma lookup unchanged, and withholds only syntax. |
 | VAL-22 | Only a validated, Vocabulary-ready, unrestricted analysis is adopted. | (a) | Owner A's classical Book with current analysis X. A new preparation produces a validated analysis Y with `VocabularyReady` false (`occurrence_unresolved`). | Run preparation through adoption. | The request ends with `occurrence_unresolved`. X remains current, with its counts, decisions and snapshots unchanged. | A Vocabulary-ready Y is adopted. A Y with a `vocabulary` restriction is not. |
 | VAL-23 | An adapter is deterministic and invents no defaults. | (c) | A synthetic package for `example-adapter/1`, in which one native sentence has no heads, one native token has no POS, and one native token has a POS with no reviewed mapping. | Run the adapter twice on the same inputs, then validate its candidate. | The two candidates are equal under the canonical serialization. The headless sentence has no basic-syntax edge and gets a `basic_syntax` `missing` finding (`syntax_absent`), not a fabricated root. The token without a POS has `upos_state` `missing`, and the unmapped POS gives `mapping_unsupported`. Neither has UPOS `X`. Every native node in the extent appears in the candidate (ACC-1). | A test adapter that adds a root to the headless sentence is caught by the adapter's own reviewed fixture, not by `Validate` (SPAN-4 and TREE-5 are adapter obligations). |
+| ADP-01 | A request and its first job commit together. A classical To Read and its initial request commit together. Parsing runs outside the HTTP request and every transaction. | (a) | Owner A, a classical Book in Inbox with a synthetic `example-def` offering. The test's River client is not yet started. A second run injects a failure into the job insert. | POST To Read, then start River. | The response returns before any package byte is read. Book detail shows the Book To Read with a `queued` preparation. One request and one `verify` job exist. After River runs, the Book has current evidence. | With the job insert failing, the POST shows the error, the Book is not To Read, and neither a request nor a job exists. |
+| ADP-02 | Duplicate job delivery gives one adoption and does not reset attempts. | (a) | A's initial request in `queued`. The test inserts a second River job with the same arguments for each stage, and delivers each stage's job twice concurrently. | Run River to completion. | Exactly one Book current classical analysis, one Adopted evidence record and one count projection exist. Every stage counter is 1, and each stage has one `succeeded` attempt. The duplicate deliveries finished without writing. | A duplicate delivered after the request is `adopted` changes nothing, and no counter changes. |
+| ADP-03 | A restart mid-stage resumes without a budget reset. | (a) | A's request in `validate` with `attempts_validate = 1` and a live lease. The test kills the River client during the work step, then starts a new client with a short stuck-job rescue delay. | Run River to completion. | The first attempt is recorded `interrupted`. The stage resumes as attempt 2, and the request is adopted. `attempts_validate` is 2, and earlier stage counters are unchanged. | A clean shutdown during work snoozes the job with delay 0. It resumes on the next start, and its interrupted attempt is still counted. |
+| ADP-04 | The third transient failure gives `failed` with Retry offered. Retry creates a new request with the same pin. | (a) | A's request whose `interpret` stage fails transiently with `storage_unavailable` every time (persistence wrapper). | Run River to completion, then POST Retry from Book detail with the wrapper removed, and run River. | The first request is `failed` with `retry_budget_exhausted`, `attempts_interpret = 3`, and three attempt rows. Book detail offers Retry. The new request has `retry_of` set, the same kind and every pinned-choice field equal, and fresh counters. It is adopted. | A fourth `interpret` attempt on the first request cannot be inserted. A Retry on a request that is not the Book's latest is refused, and creates nothing. |
+| ADP-05 | The deadline counts from creation, including queue and backoff time, and stops the request. | (a) | A's request created at T, held in `queued` by another active pipeline. The injected clock moves to T + 24 h + 1 s. | Let the snoozed job run. | The request is `failed` with `deadline_exceeded`, with no new attempt. Book detail offers Retry. Pending and active counts exclude it. | At T + 23 h 59 m, a transient failure whose backoff would end after T + 24 h fails at once with `deadline_exceeded`, and schedules no job. |
+| ADP-06 | A permanent hash mismatch is `blocked` immediately, with no retries. | (a) | A's request whose local package source has one member byte changed from its pin. | Run River to completion. | The request is `blocked` with `package_inventory_mismatch` after exactly one `verify` attempt. No evidence row and no acquisition was written. Book detail explains it, and offers Retry once exact bytes are supplied. | A transient failure in the same stage would retry, which shows that the permanent class is what stopped it. |
+| ADP-07 | A 33rd pending request is refused, with an explained state. | (a) | 32 open requests across owners A, B and C, on 32 Books. One more expired request past its deadline. | Owner D POSTs To Read on a classical Book. | D's Book is To Read. D's request exists in `failed` with `installation_queue_full`, and no job exists for it. Book detail explains it and offers Retry. The 32 others are unchanged. | The expired request is not counted. With 31 open, D's request is `queued`. A request superseded in the same admission frees its own slot. |
+| ADP-08 | A second active pipeline waits. | (a) | Owners A and B each have a `queued` request. A's `verify` work is held in progress by a test hook. | Run River with two client processes, then release A's hook. | While A runs, B's job snoozes with no counter change and B's state stays `queued`. Book detail shows B waiting. At most one request is `running` with a live lease at any observed instant. After A adopts, B runs and adopts. | B's counters are all 0 when its first stage begins. |
+| ADP-09 | Choosing C while B runs supersedes B, and B cannot adopt. | (a) | A's Book with current analysis X. Replacement B is in `prepare_projections`, held by a test hook. | A approves replacement C. Then release B's hook, and run River. | B is `superseded` with `superseded_by_request` naming C. B's Finish wrote no staged rows. C is adopted and is current. X keeps its Adopted evidence record. | Forcing B's job straight to its adopt step fails at step 3. The Book's current analysis is never B's candidate. |
+| ADP-10 | Leaving To Read cancels intent and keeps evidence. | (a) | A's initial request in `interpret`, with acquisitions and package rows already written. | A moves the Book to Inbox, then River runs the remaining jobs. | The request is `cancelled` with `left_to_read`, and no later stage output exists. The blob, Package content, acquisitions and every evidence row are still present. The Book has no current evidence. | A Finish that returns a Book to Inbox cancels that Book's open request in the same way. Hiding the Book cancels nothing. |
+| ADP-11 | Owner A's cancel does not affect owner B. | (a) | A and B each have an open request for the same package and unit, on their own Books. A's `verify` wrote the shared rows. | A leaves To Read. Run River. | A's request is `cancelled`. B's request reuses the shared rows, reaches `adopted`, and B's Book has current evidence. No row of B's changed during A's cancellation. | A request by A for A's Book can never change state because of B's disposition change. |
+| ADP-12 | A transaction failure at the adopt step keeps the old evidence current, with no partial rows. | (a) | A's Book with current analysis X and ready counts. Replacement Y's adoption commit fails through an injected fault, at each adoption step in turn, including commit. | Run the adopt job. | X is current. Book detail, Reading and Browse show X's evidence and counts. No Adopted evidence record for Y, no count row for Y and no readiness change exist. The attempt is transient, and the next attempt adopts Y. | A fault that persists through three attempts ends with `retry_budget_exhausted`, and X stays current. |
+| ADP-13 | Stale expected evidence leads to `superseded`. | (a) | Replacement request R for A's Book, expecting current analysis X, held before its adopt step. A test hook then commits an adoption of analysis Z for the Book that does not pass through admission, so R is still the latest `running` request. | Release R and run its adopt job. | R is `superseded` with `expected_state_changed`. Z is current, and no Adopted evidence record, count row or readiness change for R's candidate exists. | Without the hook, R adopts. |
+| ADP-14 | A replacement without approval is refused. | (a) | A's Book with current analysis X, and a newer candidate offered. | POST Refresh without the approval confirmation. | The response refuses and explains, and no request or job is created. A direct insert of a replacement row with no `approved_at` is rejected by the database. | The same POST with the confirmation creates a `queued` replacement with `approved_at` set. |
+| ADP-15 | An initial request adopts its pinned choice automatically. | (a) | A's classical Book in Inbox, with no current evidence. | POST To Read and run River. | The request is `adopted` with no approval step. The Book is Reading-ready, and Start is offered. | — |
+| ADP-16 | At most one open request per (owner, Book). | (a) | A's Book with an open request. | Send two concurrent Refresh approvals for different candidates. | Exactly one request is open. The other is `superseded` with `superseded_by_request`, or the later admission superseded the earlier. | A direct insert of a second open request for the Book is rejected by the database. |
+| ADP-17 | Repeated To Read never re-pins. | (a) | A's initial request I1 for candidate P is `cancelled`, after A left To Read. The offering now selects a newer candidate Q. | A POSTs To Read again, then POSTs To Read on the already-To-Read Book. | One new `initial` request I2 exists, with every pinned-choice field equal to I1's (P). The second To Read creates nothing. Q is offered only through Refresh. | A To Read on a Book that has current evidence creates no request. |
+| ADP-18 | A deterministically unusable pin is `blocked` with no Retry offered. | (a) | A's request whose validated candidate is not Vocabulary-ready (`occurrence_unresolved`). | Run River to completion. | The request is `blocked` with `occurrence_unresolved` after one `validate` attempt. The analysis is stored and inspectable, and no Book current classical analysis names it. Book detail offers no Retry. | A `vocabulary` restriction on an otherwise ready candidate gives `blocked` with `evidence_restricted`. |
+| ADP-19 | The capacity gate is race-free. | (a) | 31 open requests. | Two owners POST To Read on two classical Books concurrently, 50 times on fresh databases. | In every run, exactly one new request is `queued` and the other is `failed` with `installation_queue_full`. Pending never exceeds 32. | — |
+| ADP-20 | Adoption writes current evidence, ready counts and retention references in one commit. | (a) | A's request at the adopt step. A test observer reads the Book in a separate connection in a loop. | Run the adopt job. | The observer sees either no current evidence and no counts, or the new analysis with `ready` counts and its Adopted evidence record, never a mix. After adoption, Browse counts equal the staged counts. | — |
+| ADP-21 | Adoption changes no frozen state. | (a) | A's classical Book G1 is the current reading, with an active rich snapshot whose library totals used G2's counts. A's classical Book G2 has an ended rich snapshot, a completion and Rich Known from an earlier reading on analysis X, and decisions on X. A deck preparation exists for G1. | Approve and run a replacement that adopts Y for G2. | G2's current analysis is Y, with ready counts. Both snapshots, their membership and contributions, reservations, Known, history, the deck preparation and the decisions on X are byte-identical before and after. | — |
+| ADP-22 | Re-entering To Read does not revive a cancelled replacement. | (a) | A's Book with current analysis X. Replacement R is `cancelled` after A left To Read. | A POSTs To Read again, and River runs. | No request is created, R stays `cancelled`, and X is current. | — |
+| ADP-23 | An owner never sees or affects another owner's requests. | (a) | Owner A has an open request on A's Book. | B GETs A's Book detail and POSTs Retry and To Read with A's Book ID and request ID. | Each returns the existing not-found response. A's request is unchanged. | — |
+| ADP-24 | A Book that became the current reading is not switched under it. | (a) | A's Book with analysis X. Replacement R is held before adopt. A Starts a Reading on the Book. | Release R. | R is `failed` with `book_is_current_reading`. X is current, and the Reading is unchanged. Book detail offers Retry after End or Finish. | After End, Retry admits a new request that adopts. |
+| ADP-25 | Expected evidence catches re-adoption of an earlier analysis. | (a) | A's Book: X adopted by R1, then Y by R2, then X again by R3. A request R4 created while R1's adoption was current, expecting (X, R1), is still `running` (test-injected). | Run R4's adopt job. | R4 is `superseded` with `expected_state_changed`, although the current analysis is X again. | — |
+| ADP-26 | Retry delays follow the binding backoff. | (a) | A's request whose `verify` fails transiently twice, then succeeds. The injected clock and random source are recorded. | Run River. | The second attempt is scheduled 5–10 s after the first failure, and the third 10–20 s after the second. No delay exceeds 5 minutes. Waiting for the active pipeline snoozes 10–20 s and increments no counter. | An upstream retry instruction longer than the remaining deadline gives `failed` with `deadline_exceeded`, with no scheduled job. |
 
 ## 16. Requirement traceability
 
@@ -4118,7 +4726,7 @@ decisions (see §1) are not reopened here.
 | OD-02 | Where is the generic casefold fallback rejected for `grc` (B-18, B-19)? | (1) The registry refuses `grc` unless a dedicated profile is registered, for both `For` and `Lookup`. (2) Only the shared validation interface rejects casefold-normalized `grc` identities. | (1), decided by #2067. §6 is written against it: `grc` is a dedicated-profile language, and every other unregistered language keeps the fallback. | (1) fails closed for every caller, including lemma review, but changes registry behaviour for an unregistered language. (2) leaves other callers able to normalize `grc` with casefold. | #2064 | open |
 | OD-03 | How does Reading eligibility treat an occurrence whose optional syntax is unavailable, given that `OccurrenceEligible` reads the dependency (B-10)? | (1) Unavailable syntax never makes an occurrence ineligible; syntax-based exclusions apply only when syntax is present. (2) Language-specific eligibility rules come from the canonical interpretation. | (1). §7 is written against it: a syntax-based exclusion applies only where the occurrence's basic syntax is usable. #2071 (§10) owns the eligibility interface that applies it. | (1) keeps one rule but needs explicit "unavailable" semantics. (2) moves eligibility into producer data. | #2064 | open |
 | OD-04 | How do store-contract scenarios cover Greek when the harness is fixed to `de` and seeds only tuples (B-30)? | (1) Parameterize the scenario language and extend the seeds with discriminators, span references and optional syntax. (2) Add a separate Greek scenario set beside the existing one. | (1) for the harness, decided by #2071 (§10 "Store-contract harness"). The harness takes a language variant and gains a rich seeder that seeds only validated synthetic candidates. The rich scenarios are §8's separate list, run for `grc` and a synthetic casefold language `xx`. The existing `de` scenarios and their tuple seeds are unchanged. | (1) runs every existing scenario against rich identities, but changes the harness interface for both adapters. (2) duplicates scenarios and lets them drift. The chosen form changes the harness once for both adapters, and does not re-run tuple scenarios under a rich variant, where they would test the tuple path twice. Rich coverage is §8's named list. | #2064 | open |
-| OD-05 | Does Evidence adoption publish through the existing analysis-run anchor that every Reading gate checks (B-23 to B-26), or through a new anchor? | (1) Adoption produces an exact analysis that the existing classification recognizes, so the six call sites stay unchanged. (2) A new adopted-analysis anchor, with every gate changed together. | Decided by #2068 and #2072, with §8 compatibility. | (1) reuses existing anchors, as the handoff requires, but `book_current_analyses` references a source material and run. (2) needs an atomic change across all gates. | #2064 | open |
+| OD-05 | Does Evidence adoption publish through the existing analysis-run anchor that every Reading gate checks (B-23 to B-26), or through a new anchor? | (1) Adoption produces an exact analysis that the existing classification recognizes, so the six call sites stay unchanged. (2) A new adopted-analysis anchor, with every gate changed together. | (2), decided by #2072 (§11 "OD-05 resolution"), consistent with §5's OD-12 (2) and §8. The adopted anchor is the parallel Book current classical analysis record. The single domain classification (ADR 0052) reads it, and every B-26 call site moves to that classification in one change. EPUB verdicts are unchanged. | (1) reuses existing anchors, as the handoff requires, but `book_current_analyses` references a source material and run. (2) needs an atomic change across all gates. | #2064 | open |
 | OD-06 | Are Work, Edition and Reading unit records global or owner-scoped (§4)? | (1) All shared. (2) All owner-scoped. (3) Shared when created from a reviewed identity definition; private to one owner when derived only from that owner's unverified catalogue advertisement. | (3). §4 is written against it. | (1) puts one learner's connection-supplied descriptions in rows other owners can resolve to. Sync then needs a write ban that the schema cannot express. (2) gives the simplest authorization (composite owner keys everywhere), but every owner duplicates descriptions, and §5 evidence cannot cite a shared unit. (3) keeps reviewed identity and its evidence shareable, and lets no learner input reach another owner. Its cost is a nullable `owner_id` and a trigger checking that associated units are shared or same-owner. It narrows issue item 7's "shared descriptions" for advertised rows. | #2065 | open |
 | OD-07 | Does a Reading unit need its own stable external citation scheme field? | (1) The unit stores an internal reviewed `citation_scheme` name with its bounds. External citation identifiers, such as a CTS passage URN, are verified aliases only. (2) Add a stable external citation identifier column to the unit. (3) No scheme field; bounds are opaque text. | (1). | (1) makes `extent_key` comparable within a scheme without trusting external identifiers. (2) makes an external alias a de facto key, against ADR 0093. (3) cannot tell `1` in one scheme from `1` in another, so uniqueness on (Edition, extent) is unsafe. | #2065 | open |
 | OD-08 | How does the operator-local path fit `CONTEXT.md:355-357` ("Books … enter the library only through a connected catalog, never by manual entry") and the closed provenance values at `internal/domain/books.go:14-19` and `:252-256`? | (1) A reviewed, compiled definition is an offering origin. Add a provenance value such as `operator_local`, and amend the `CONTEXT.md` wording in a separately reviewed change. (2) Require a synthetic local connection row, so that every Book still has a connection. | (1). Final interface decided by #2073. | (1) keeps the path free of connections, as #2065 requires, but needs a glossary change outside this ticket. (2) keeps the wording but invents a connection that has no feed, credentials or sync, and would be visible in Catalogs. | #2065 | open |
@@ -4162,6 +4770,13 @@ decisions (see §1) are not reopened here.
 | OD-46 | New terms used in §10. | Add to `CONTEXT.md`: **Canonical-analysis candidate** (an adapter's unvalidated output) and **Validated analysis** (shared validation's verdict, the only thing adoption and the learner core accept). Keep source interpretation adapter, shared canonical validation, learner core, compatibility adapter, parity observation, failure class, effective capability state, adoptable (analysis), Reading-ready (Book) and the rule IDs as design-local names. | Add the two in a separately reviewed `CONTEXT.md` change. | Both appear in other sections and in diagnostics shown to owners. Without them, "analysis" is ambiguous between a candidate, a validated analysis and a stored Exact analysis. The rest are module or storage detail. | #2071 | open |
 | OD-47 | Issue #2071 says "missing scope gives a rejection with a diagnostic". §7 makes a coverage gap (ACC-4) deny Vocabulary-ready instead of rejecting the candidate. Which applies? | (1) Follow §7: the candidate is Validated, `vocabulary` is `invalid` with `coverage_gap`, `vocabulary_ready` is false, and §11 never adopts it. A candidate declaring a different unit, binding or Extracted text is Rejected outright (SCOPE-1, COR-1). (2) Make ACC-4 structural, so a coverage gap rejects the candidate and nothing is stored. | (1). §10 is written against it. | (1) keeps §7 unchanged and lets §11 retain a partial analysis for owner inspection, if §11 chooses to store it. It never reaches learners, so the learner-visible outcome is the rejection the issue asks for. (2) matches the issue's wording literally, but rewrites a §7 rule, and an owner then cannot inspect which part of the unit was uncovered. | #2071 | open |
 | OD-48 | The layering rows VAL-13 and VAL-14 need a lint rule or dependency test, which the ground rules' seams (a)–(d) do not include. | (1) Allow a lint seam for layering rows only: `make lint-go` (depguard) plus a transitive `go list -deps -test` test. (2) Express layering through seam (c) by asserting only behaviour, with no import check. | (1). | (1) is the only way to test a package-import invariant, and it matches how ADR 0091 is already enforced. It adds a fifth seam kind, limited to two rows. (2) cannot observe an import, so the invariant would go untested. | #2071 | open |
+| OD-49 | Which mechanism enforces the installation capacity bounds transactionally (§11 "Capacity")? | (1) A transaction-scoped advisory lock with one fixed key (the capacity gate), taken by admission and by the queued-to-running step, with counts read after it. (2) A singleton lock row, seeded by a migration and locked `FOR UPDATE`. (3) A database constraint alone. | (1). | (1) follows the existing fixed-key precedent (`internal/persistence/persistence.go:346`), needs no seeded row, and is released automatically at commit or rollback. Its cost is a key that must not collide with other advisory keys, so the key is a named constant. (2) is equally race-free and visible in `pg_locks` as a row lock, but it fails open if the seed row is missing, and needs a migration-owned row. (3) is impossible: "active" depends on lease expiry and "pending" on the deadline, which a constraint cannot read. A partial unique index cannot express a bound of 32. | #2072 | open |
+| OD-50 | What happens when a Book becomes the current reading while a replacement request runs? ADR 0097 says frozen Reading keeps its exact evidence, and active-reading vocabulary changes only through End, review and Start. | (1) Adoption refuses. The request becomes `failed` with `book_is_current_reading`, and Retry is offered after End or Finish. (2) Adoption proceeds. The frozen snapshot is unchanged, but the Reading page's current evidence changes under it. (3) Start cancels the Book's open replacement. | (1). §11 is written against it. | (1) never shows a Reading on one revision while its Book's evidence is another, and matches `admitToReadBookAnalysis`, which refuses the current Book (`internal/analysis/jobs.go:277-306`). The owner repeats the request later. (2) adopts sooner, but exposes mixed revisions during a Reading, which ADR 0097 forbids. (3) makes Start cancel work, which is a new Start side effect. | #2072 | open |
+| OD-51 | How is a request refused for capacity represented? | (1) A persisted request in `failed` with `installation_queue_full`, no job, and Retry offered. (2) No row. The handler shows a message, and the Book stays To Read with no request. (3) A new state `refused`. | (1). | (1) keeps the refusal visible after the response, and keeps the ticket's state set. The refused row is terminal and never counted. (2) leaves no durable trace, so the owner cannot later tell why nothing happened ("silently dropped"). (3) adds a state the ticket does not list. | #2072 | open |
+| OD-52 | §8 lets adoption set count readiness `pending` and enqueue a rebuild when the build does not fit the transaction. ADR 0097 requires ready projections before adoption. Which applies? | (1) Counts are built in a `prepare_projections` stage before adoption, and adoption copies them and sets `ready` in its own commit. The `pending` path is never taken at adoption. (2) Follow §8: adoption may publish with `pending` counts. | (1). §11 is written against it. | (1) satisfies ADR 0097 "Required vocabulary count projections must be ready", and the adoption commit writes the projections, as #2072 requires. The cost is a staged row set per request. (2) can publish a Book whose counts are not usable yet, so Start and Browse wait after adoption. §8's `pending` path still serves decisions and rebuilds. | #2072 | open |
+| OD-53 | Is a `blocked` request terminal, and a non-root holder under OD-39? §9's illustrative query lists only `adopted`, `cancelled`, `failed` and `superseded` as terminal. | (1) Yes. `blocked` is terminal, and a new request (Retry or Refresh) is the only way forward, so OD-39 option (1) treats it as a non-root holder. (2) `blocked` is live, so its evidence is never reported as unreferenced. | (1). | (1) makes every state other than `queued` and `running` terminal, and reports evidence that only a blocked request touched. §9's query must add `blocked` when implemented. (2) keeps a blocked import's bytes out of the report forever, which OD-39 (1) rejects for cancelled requests. | #2072 | open |
+| OD-54 | Does §11 store a validated analysis that is not Vocabulary-ready (OD-47)? | (1) Store it, with its diagnostics and §7 rows, for owner inspection. Never adopt it. The request is `blocked`. (2) Store nothing. The request carries the diagnostics only. | (1). | (1) lets the owner see which occurrences or code points failed, through §5's access rule. The cost is retained rows that no root keeps live, which the unreferenced report then lists. (2) stores less, but the owner can see only counts per code. | #2072 | open |
+| OD-55 | New terms used in §11. | Add to `CONTEXT.md`: **Preparation request** (an owner's durable, bounded intent to prepare one pinned choice for one Book) and **Retry** (an explicit owner action that creates a new bounded request for the same pinned choice). Keep stage, stage attempt, Preparation attempt, Staged count row, admission, capacity gate, expected evidence, pending, active and lease as design-local names. | Add the two in a separately reviewed `CONTEXT.md` change. | Both appear in learner-facing Book detail states and in ADR 0097's wording. The rest are worker detail. | #2072 | open |
 
 ## 18. Approval record
 
