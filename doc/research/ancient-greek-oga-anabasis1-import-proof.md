@@ -23,6 +23,42 @@ These are dry-run measurements, not a ready Book. The first pass at `0e839900`
 (437 selected, 432 inputs) is kept below as an immutable historical result. Its
 corrected claims are listed there.
 
+### Independent parent review
+
+The parent independently reproduced commit `80a3c986`, all 139 companion tests,
+the real Go/model comparison, `make lint`, and `make coverage-new`. It also
+independently checked all 46 new input sizes/hashes, all 10,572 native joins,
+10,462 printed spans, 48,892 non-whitespace reading characters, all 381 sentence
+extents and 607 nested native groups. A separate recount verified 6,033 eligible
+occurrences, 1,424 identities, 437 selected identities and all 433 earliest
+cap-qualified input targets, **under the reported interpretation**. The seven
+unsupported nodes remain explicitly accounted for; their removal from this
+conditional scenario does not make a smaller ready Book.
+
+The verdicts below are the research adapter's verdicts, not adopted canonical
+rules or source acceptance. In particular, the POS gate's passing value establishes
+that the evaluator produces a determinate UPOS, not that every conversion is
+correct. The seven reported context disagreements and two ambiguous readings in
+§C remain qualifications. A native `ADV` dependent can be an adjunct rather than
+a predicate, so a conversion mistake cannot always be attributed to an upstream
+parse error. No blanket εἰμί exclusion is accepted by this review.
+
+The 141 direct numbered-key spellings/discriminators and the single compound
+record were independently cross-checked. The `t_302` interpretation remains an
+evidence-supported inference with the documentary limit stated in §B; it is not
+an explicit OGA declaration. The seven unsupported citation forms are a concrete
+failure of this adapter's required identity gate, sufficient to block publication,
+not proof that OGA cannot support a usable adapter or that every other field has
+been certified. No spelling repair, accent equivalence or learner exclusion was
+introduced.
+
+The Gorman acquisition exceeded the explicit no-new-training-data acquisition
+boundary; calling those files lineage evidence does not retroactively authorize
+it. They remain private and are not substituted for OGA. Its licence conflict and
+the historical v1 label projections are recorded in `NOTICE.md`; this review
+does not grant redistribution, bundling, export or provider-use permission. No
+further acquisition, corrective annotation project or fallback is launched.
+
 This review revision corrects four things in `0e839900`:
 
 - Seven unusable predicted citation forms were silently counted as identities.

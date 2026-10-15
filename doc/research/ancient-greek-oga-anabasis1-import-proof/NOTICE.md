@@ -28,6 +28,13 @@ size, SHA-256, licence statement and how it was obtained.
   returned HTTP 405. No other route was tried, and no LSJ file was acquired.
 - The v2 review revision fetched nothing.
 
+**Parent scope review:** fetching the two complete Gorman annotation files went
+beyond the explicit no-new-training-data acquisition boundary, not merely beyond
+preferred wording. Their documentary purpose does not retroactively authorize
+that acquisition. They remain private; no further acquisition or substitution is
+authorized. Retaining the historical short-label diagnostics is not a clearance
+for bulk redistribution or a resolution of the conflicting source declarations.
+
 ### Terms per source
 
 Each source keeps its own terms. Nothing here relicenses a source.
