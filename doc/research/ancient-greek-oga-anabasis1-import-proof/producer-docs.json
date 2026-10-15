@@ -28,12 +28,12 @@
     "bytes": 4228,
     "role": "producer_documentation_only; no_treebank_data_redistributed",
     "sha256": "dfa8f9389227246e0d367d427d900b7a7d7eaf9f7f3e39de6d6a285bd4dc1238",
-    "url": "not recorded in this pass"
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Ancient_Greek-Perseus/331ddef91411d0e6549744ee889e05549e6da77d/README.md"
   },
   "ud-upos-index.html": {
     "bytes": 7768,
-    "role": "producer_documentation_only; UPOS definitions only",
+    "role": "producer_documentation_only; a list of UPOS tag names with short labels, not per-category definition evidence; not used to establish any category mapping",
     "sha256": "a93e5f1b036b7583532dd3c65d5abe62adca9c4c1396ca0e931a2f43469db18e",
-    "url": "not recorded in this pass"
+    "url": "unknown; the original retrieval URL was not recorded and is not inferred"
   }
 }

@@ -1,0 +1,854 @@
+{
+ "alignment": {
+  "conllu_rows": 65022,
+  "conllu_rows_without_native_node": 54450,
+  "empty": 110,
+  "empty_with_conllu_row": 110,
+  "mismatches": [],
+  "printed": 10462,
+  "printed_aligned": 10462,
+  "printed_joined": 10462
+ },
+ "binding": {
+  "empty_nodes": 110,
+  "native_nodes": 10572,
+  "printed_nodes": 10462
+ },
+ "identity_layer": {
+  "canonical_identity_adopted": 0,
+  "distinct_numbered_labels": 21,
+  "labels": [
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "de/w2",
+      "line": 24228
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "vbs.simp.ml",
+      "key": "de/w2",
+      "line": 5091
+     }
+    ],
+    "headword": "δέω",
+    "loose_witnesses": [],
+    "occurrences": 5,
+    "raw_lemma": "δέω2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 2,
+    "accent_erased_near_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "*eu)=qus",
+      "line": 7020
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom.proper",
+      "key": "*eu)=qus",
+      "line": 14428
+     }
+    ],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "eu)qu/s2",
+      "line": 29298
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom03",
+      "key": "eu)qu/s2",
+      "line": 1005
+     }
+    ],
+    "headword": "εὐθύς",
+    "loose_witnesses": [],
+    "occurrences": 7,
+    "raw_lemma": "εὐθύς2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "qei=os1",
+      "line": 42966
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom03",
+      "key": "qei=os1",
+      "line": 4889
+     }
+    ],
+    "headword": "θεῖος",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "θεῖος1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "3",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "le/gw3",
+      "line": 34654
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "vbs.simp.ml",
+      "key": "le/gw3",
+      "line": 12240
+     }
+    ],
+    "headword": "λέγω",
+    "loose_witnesses": [],
+    "occurrences": 49,
+    "raw_lemma": "λέγω3",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1",
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "ce/nos1",
+      "line": 23928
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom04",
+      "key": "ce/nos1",
+      "line": 10739
+     }
+    ],
+    "headword": "ξένος",
+    "loose_witnesses": [],
+    "occurrences": 4,
+    "raw_lemma": "ξένος1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "para/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "pa/reimi1",
+      "line": 4562
+     }
+    ],
+    "headword": "πάρειμι",
+    "loose_witnesses": [],
+    "occurrences": 9,
+    "raw_lemma": "πάρειμι1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "para/-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "pa/reimi2",
+      "line": 4559
+     }
+    ],
+    "headword": "πάρειμι",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "πάρειμι2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "peri/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "peri/eimi1",
+      "line": 4820
+     }
+    ],
+    "headword": "περίειμι",
+    "loose_witnesses": [],
+    "occurrences": 2,
+    "raw_lemma": "περίειμι1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "pisto/s2",
+      "line": 40854
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom05",
+      "key": "pisto/s2",
+      "line": 4877
+     }
+    ],
+    "headword": "πιστός",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "πιστός2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "pro/-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "pro/eimi1",
+      "line": 5218
+     }
+    ],
+    "headword": "πρόειμι",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "πρόειμι1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "pro/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "pro/eimi2",
+      "line": 5221
+     }
+    ],
+    "headword": "πρόειμι",
+    "loose_witnesses": [],
+    "occurrences": 3,
+    "raw_lemma": "πρόειμι2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [
+     "pro/s-ei)=mi",
+     "pro/s-ei)mi/"
+    ],
+    "decision": "source-key-collision",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "pro/s-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "pro/seimi1",
+      "line": 5639
+     },
+     {
+      "class": "compound",
+      "derivation": "pro/s-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "pro/seimi1",
+      "line": 5643
+     }
+    ],
+    "headword": "πρόσειμι",
+    "loose_witnesses": [],
+    "occurrences": 6,
+    "raw_lemma": "πρόσειμι1",
+    "reason": "same exact key from 2 distinct producer derivations or records",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "su/n-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "su/neimi2",
+      "line": 6338
+     }
+    ],
+    "headword": "σύνειμι",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "σύνειμι2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "headword-absent-in-pinned-source",
+    "discriminator": "2",
+    "exact_witnesses": [],
+    "headword": "σύνλέγω",
+    "loose_witnesses": [],
+    "near_derivations": [
+     {
+      "class": "compound",
+      "derivation": "su/n-le/gw2",
+      "file": "vbs.cmp.ml",
+      "key": "sulle/gw",
+      "line": 6459
+     }
+    ],
+    "occurrences": 1,
+    "raw_lemma": "σύνλέγω2",
+    "reason": "no producer key or derivation with this headword",
+    "same_headword_other_digits": []
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "xra/w2",
+      "line": 48488
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "vbs.simp.ml",
+      "key": "xra/w2",
+      "line": 22963
+     }
+    ],
+    "headword": "χράω",
+    "loose_witnesses": [],
+    "occurrences": 2,
+    "raw_lemma": "χράω2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "a)po/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "a)/peimi1",
+      "line": 912
+     }
+    ],
+    "headword": "ἄπειμι",
+    "loose_witnesses": [],
+    "occurrences": 3,
+    "raw_lemma": "ἄπειμι1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "a)po/-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "a)/peimi2",
+      "line": 908
+     }
+    ],
+    "headword": "ἄπειμι",
+    "loose_witnesses": [],
+    "occurrences": 3,
+    "raw_lemma": "ἄπειμι2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "a)/rwma1",
+      "line": 18889
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom01",
+      "key": "a)/rwma1",
+      "line": 11021
+     }
+    ],
+    "headword": "ἄρωμα",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "ἄρωμα1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "",
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "e)pi/-ei)mi/",
+      "file": "vbs.cmp.ml",
+      "key": "e)/peimi1",
+      "line": 3092
+     }
+    ],
+    "headword": "ἔπειμι",
+    "loose_witnesses": [],
+    "occurrences": 1,
+    "raw_lemma": "ἔπειμι1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 0,
+    "accent_erased_near_witnesses": [],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "2",
+    "exact_witnesses": [
+     {
+      "class": "compound",
+      "derivation": "e)pi/-ei)=mi",
+      "file": "vbs.cmp.ml",
+      "key": "e)/peimi2",
+      "line": 3089
+     }
+    ],
+    "headword": "ἔπειμι",
+    "loose_witnesses": [],
+    "occurrences": 5,
+    "raw_lemma": "ἔπειμι2",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "1"
+    ]
+   },
+   {
+    "accent_erased_near_witness_count": 5,
+    "accent_erased_near_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "h(=|",
+      "line": 31025
+     },
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "h)=",
+      "line": 31268
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "lsj.nom",
+      "key": "h(=",
+      "line": 59212
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom03",
+      "key": "h)=",
+      "line": 3446
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom03",
+      "key": "h(=|",
+      "line": 3449
+     }
+    ],
+    "canonical_identity": "not-adopted",
+    "collision_derivations": [],
+    "decision": "candidate-match-under-unvalidated-hypothesis",
+    "discriminator": "1",
+    "exact_witnesses": [
+     {
+      "class": "lemlist",
+      "derivation": "",
+      "file": "lemlist",
+      "key": "h)/1",
+      "line": 31244
+     },
+     {
+      "class": "le-block",
+      "derivation": "",
+      "file": "nom03",
+      "key": "h)/1",
+      "line": 3438
+     }
+    ],
+    "headword": "ἤ",
+    "loose_witnesses": [],
+    "occurrences": 36,
+    "raw_lemma": "ἤ1",
+    "reason": "one exact key with this headword and digit; the digit correspondence is unvalidated",
+    "same_headword_other_digits": [
+     "2"
+    ]
+   }
+  ],
+  "numbered_occurrences": 142,
+  "occurrence_decisions": {
+   "candidate-match-under-unvalidated-hypothesis": 135,
+   "headword-absent-in-pinned-source": 1,
+   "source-key-collision": 6
+  },
+  "verdict": "not-established",
+  "verdict_reason": "no OGA numbering-to-Morpheus numbering correspondence is established by the retained evidence; all candidates are unvalidated hypotheses"
+ },
+ "index": {
+  "loose_decoded_records": 129,
+  "records": 188173,
+  "records_by_class": {
+   "compound": 7180,
+   "le-block": 126862,
+   "lemlist": 49090,
+   "lsj-compound": 5041
+  },
+  "undecodable_records_by_class": {
+   "le-block": 208,
+   "lemlist": 154
+  }
+ },
+ "pins": {
+  "files": {
+   "morpheus-index.tsv": "57f81c8627c654411f185f2c2d491a958c8acdd5684400fe3c1696ebb2b9d5c2",
+   "morpheus-manifest.json": "bb672f881d8bdb2c0db4783605b65aeaa4bc7fcb562c2ecf34fa764cf8b4568f",
+   "native-nodes.json": "2a5aca90602428b23f0f88cbcbfbd1ac787c87d25bd9bd87c67c7a29ae0f942b",
+   "tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01_annotated_lemma.conllu": "0f9cbba8e4fdf28ddcedc70259c18f3d00573bc9a82d3acc6a9a050d17542780"
+  },
+  "morpheus_pin": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+  "producer_documents": {
+   "agdt2-guidelines.md": {
+    "bytes": 230462,
+    "sha256": "7cd20bcb111c0b6671595dd5b9c333281afc80a0f7db7dfe921dcae8489dbd56",
+    "url": "https://raw.githubusercontent.com/PerseusDL/treebank_data/0ebc9289bc6c8eb1069fac3433955f83f442762f/AGDT2/guidelines/Greek_guidelines.md"
+   },
+   "lemmatizer-readme-response.json": {
+    "bytes": 2700,
+    "sha256": "78cac81471242d3f8d689aa3299ff1a4a39424a58c14e90f703c2b9199301d87",
+    "url": "https://git.informatik.uni-leipzig.de/api/v4/projects/6595/repository/files/README.md?ref=267dbf045dfca1129115aef05ba9ac6ebc49f4db"
+   },
+   "morpheus-README.md": {
+    "bytes": 1150,
+    "sha256": "5c5342e0a67e1a1f9480eacf8d636df67544e2a019bec9688605cf74e1285fc0",
+    "url": "https://github.com/PerseusDL/morpheus (commit b1b33c56ef2338fe0dcd1893628ed638f00c0986, README.md)"
+   },
+   "producer-paper-v1.html": {
+    "bytes": 418796,
+    "sha256": "a39ffcf6a11f737ee8c56d9d758d807d60b75b5b3326d5ea454e4cdd7f871d86",
+    "url": "https://arxiv.org/html/2410.12055v1"
+   },
+   "ud-ancient-greek-perseus-README.md": {
+    "bytes": 4228,
+    "sha256": "dfa8f9389227246e0d367d427d900b7a7d7eaf9f7f3e39de6d6a285bd4dc1238",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Ancient_Greek-Perseus/331ddef91411d0e6549744ee889e05549e6da77d/README.md"
+   },
+   "ud-upos-index.html": {
+    "bytes": 7768,
+    "sha256": "a93e5f1b036b7583532dd3c65d5abe62adca9c4c1396ca0e931a2f43469db18e",
+    "url": "unknown; the original retrieval URL was not recorded and is not inferred"
+   }
+  }
+ },
+ "pos_layer": {
+  "canonical_pos_adopted": 0,
+  "copula_eimi_candidates": {
+   "AUX": 115,
+   "VERB": 63
+  },
+  "native_pos_counts": {
+   "a": 928,
+   "c": 756,
+   "d": 1491,
+   "i": 7,
+   "l": 1047,
+   "n": 1810,
+   "p": 721,
+   "r": 579,
+   "u": 1157,
+   "v": 1966
+  },
+  "printed_nodes": 10462,
+  "propn_evidence_counts": {
+   "absent": 59,
+   "both": 419,
+   "exact-starred-only": 315,
+   "exact-unstarred-only": 1017
+  },
+  "proposal_status_counts": {
+   "proposal-multi-candidate": 1646,
+   "proposal-single-candidate": 8816
+  },
+  "rules": {
+   "pos-a-adjective": {
+    "ADJ": 815
+   },
+   "pos-a-adverbial-function": {
+    "ADJ,ADV": 113
+   },
+   "pos-c-adverbial-function": {
+    "SCONJ,ADV": 1
+   },
+   "pos-c-auxy": {
+    "CCONJ": 5
+   },
+   "pos-c-coordinating": {
+    "CCONJ": 473
+   },
+   "pos-c-subordinating": {
+    "SCONJ": 277
+   },
+   "pos-d-adverb": {
+    "ADV": 1476
+   },
+   "pos-d-function-mismatch": {
+    "ADV,ADP": 1,
+    "ADV,CCONJ": 9,
+    "ADV,SCONJ": 1
+   },
+   "pos-d-unrecognised-relation": {
+    "ADV,PART": 4
+   },
+   "pos-i-interjection": {
+    "INTJ": 7
+   },
+   "pos-l-article": {
+    "DET": 1047
+   },
+   "pos-n-adverbial-function": {
+    "NOUN,ADV": 411
+   },
+   "pos-n-proper-undecided": {
+    "NOUN,PROPN": 383
+   },
+   "pos-n-starred-morpheus-key": {
+    "PROPN": 283
+   },
+   "pos-n-unstarred-morpheus-key": {
+    "NOUN": 733
+   },
+   "pos-p-pronoun": {
+    "PRON,DET": 721
+   },
+   "pos-r-adposition": {
+    "ADP": 577
+   },
+   "pos-r-adposition-other": {
+    "ADP,SCONJ": 2
+   },
+   "pos-u-punctuation": {
+    "PUNCT": 1157
+   },
+   "pos-v-copula-pnom": {
+    "AUX": 115
+   },
+   "pos-v-verb": {
+    "VERB": 1851
+   }
+  },
+  "unsupported_native_tags": [],
+  "verdict": "not-established",
+  "verdict_reason": "proposals only; no UPOS mapping is adopted, and candidate sets are exploratory diagnostics, not blockers or verified exclusions"
+ },
+ "private_outputs": {
+  "identity-ledger-v2.json": {
+   "lines": 652,
+   "sha256": "11bddc74a698796926f34cecf4547bb35d874bee6bb06f4926d06e789a472acb"
+  },
+  "mapping-ledger-v2.json": {
+   "lines": 169590,
+   "sha256": "3d69e49bca702ea37d72767ae8bff5294056b2ac28d1a1de4ccaaf67c6f63e53"
+  }
+ },
+ "reproduce": "python3 -I mapping_completion_v2.py",
+ "status": "exploratory-diagnostics; no canonical identity or UPOS mapping is adopted",
+ "verdicts": {
+  "canonical_identity": "not-established",
+  "canonical_pos": "not-established",
+  "sentence_selection_cap_omission": "not-run; canonical layers are not established"
+ },
+ "version": "mapping-completion/v2"
+}

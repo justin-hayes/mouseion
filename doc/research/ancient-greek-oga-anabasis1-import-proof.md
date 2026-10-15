@@ -1,105 +1,134 @@
 # OGA Anabasis Book 1 import proof: binding verified, lexical decoding stopped
 
-## Latest result: mapping completion (#2052, 2026-10-15)
+## Latest result: mapping completion review revision (#2052, 2026-10-15)
 
-**Both required mapping layers failed on measured, reproducible blockers, so
-the pass stopped before the sentence, selection, cap, and omission checks.** The
-retained binding stays verified. This is a bounded negative result: no Book 1
-vocabulary is ready, and no learner-facing vocabulary was published.
+**Neither canonical layer is established, so the pass stopped before the
+sentence, selection, cap, and omission checks.** The retained binding stays
+verified. This is a bounded negative result: no Book 1 vocabulary is ready, and
+none was published.
 
-Reproduce with `python3 -I mapping_completion.py run` from this directory. It
-reads the retained `private/` inputs and a private Morpheus key index whose
-SHA-256 is pinned in the script, and it writes `mapping-completion-summary.json`
-(tracked) plus private ledgers. Tests: `python3 -m unittest discover -p 'test_*.py'`
-(75 tests pass: 61 existing, 14 new).
+This revision supersedes the first proposal (commit `eb2e9f70`). That proposal
+used accent-erased keys, called candidate matches "resolved", treated POS
+candidate evaluator output as 938 "blocked" nodes, and had a silent unknown-tag
+default. Its files are kept as historical evidence: `mapping_completion.py`,
+`test_mapping_completion.py`, and `mapping-completion-summary.json`. Do not run
+the historical `run` command for reproduction, because it overwrites its tracked
+summary and private ledgers.
 
-### Inputs and pins
+Reproduce with `python3 -I mapping_completion_v2.py` from this directory. The
+default run recomputes everything in memory, checks retained inputs against
+pinned hashes, and compares the committed `mapping-completion-v2-summary.json`
+and the private v2 ledgers. It exits 1 on any mismatch and writes nothing.
+`--write` regenerates the summary and the private v2 ledgers under
+`private/mapping-completion-v2/`. Tests: `python3 -m unittest discover -p 'test_*.py'`.
 
-- Native nodes: 10,572 (`private/import/native-nodes.json`, sha256 `2a5aca90…`).
-  All printed nodes match the retained CoNLL-U on surface, lemma, and native POS.
-  110 empty nodes are unprinted.
-- CoNLL-U (Book 1 subset, sha256 `0f9cbba8…`).
-- Morpheus Greek stemlib at commit `b1b33c56ef2338fe0dcd1893628ed638f00c0986`
-  (<https://github.com/PerseusDL/morpheus>). Full index of all 84 `stemsrc` files:
-  188,173 records (lemlist 49,090; `:le:` blocks 126,862; `vbs.cmp.ml` compounds
-  7,180; `vbs.cmp.lsj` compounds 5,041). The index is private, sha256
-  `57f81c86…`; the per-file hash manifest is `private/mapping-completion/morpheus-manifest.json`.
-- Undecodable keys (Latin or non-beta names) are kept only as loose records.
-  They never resolve an identity: 293 `:le:` and 197 lemlist keys, plus 1 compound.
+### What is verified
 
-### Identity layer: failed (7 of 142 occurrences blocked)
+- Native nodes: 10,572 (`private/import/native-nodes.json`, sha256 `2a5aca90…`),
+  matching `import-ledger.json` on 10,572 native, 110 empty, and 10,462 printed
+  nodes. Printed AGDT POS counts also match the ledger.
+- CoNLL-U member `tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01_annotated_lemma.conllu`,
+  sha256 `0f9cbba8…`, matching `archive-members.json`. All 10,462 printed nodes
+  join it and match on surface, lemma, and native POS. The 110 empty nodes are
+  counted separately (all 110 have a row). The file has 65,022 rows, and 54,450
+  rows have ids that are not native nodes. Their scope was not checked in this
+  pass. Nothing here claims they are Book 1.
+- Morpheus index (`b1b33c56…`, index sha256 `57f81c86…`, manifest `bb672f88…`):
+  188,173 records. Undecodable records are counted by class and never dropped
+  silently: 362 undecodable records (`le-block` 208, lemlist 154) have no head and
+  never match. 129 decodable records are loose and never approve.
+- Producer documents (`producer-docs.json`) are checked by SHA-256. The UD
+  Ancient Greek-Perseus README is pinned to commit `331ddef9…`. The UD UPOS
+  index's original URL was not recorded, so it is listed as unknown. The index
+  lists UPOS names and short labels only; it is not evidence for any category
+  mapping.
 
-| Raw lemma | Occurrences | Decision | Basis |
-| --- | ---: | --- | --- |
-| πρόσειμι1 | 6 | ambiguous-shared-key | Same key `pro/seimi1` from two derivation records, `vbs.cmp.ml:5639` (`pro/s-ei)=mi`) and `:5643` (`pro/s-ei)mi/`). |
-| σύνλέγω2 | 1 | not-established-no-key | Derivation `su/n-le/gw2` yields `sulle/gw` with no digit (`vbs.cmp.ml:6459`). No digit-bearing key. `vbs.cmp.lsj` has no `su/n-le/gw` entry. |
-| 19 other labels | 135 | key-resolved | One producer key with this headword and digit (see limit below). |
+### Identity layer: not established (0 canonical identities adopted)
 
-Blocked occurrence IDs: `t_302` (σύνλέγω2); `t_5468`, `t_6606`, `t_7682`,
-`t_7815`, `t_9906`, `t_9922` (πρόσειμι1).
+Exact matching uses NFC, lower case, and final sigma folded to sigma. Every
+diacritic is kept. Accent-erased matches are listed as near witnesses only and
+never approve.
 
-σύνλέγω2 is "not established by the pinned source", not "shown impossible".
-Only the spelled prefix-compound derivation was checked, not the full LSJ table
-for every possible compound.
+| Decision (per label) | Labels | Occurrences | Meaning |
+| --- | ---: | ---: | --- |
+| `candidate-match-under-unvalidated-hypothesis` | 19 | 135 | One exact key with this headword and digit. The digit correspondence between OGA and Morpheus is unvalidated. |
+| `source-key-collision` | 1 (πρόσειμι1) | 6 | The same exact key from two producer derivations (`vbs.cmp.ml:5639` and `:5643`). This is shared output, not proof of distinct homographs. |
+| `headword-absent-in-pinned-source` | 1 (σύνλέγω2) | 1 | No producer key or derivation with this headword. The spelled prefix-compound derivation `su/n-le/gw2` yields `sulle/gw` with no digit (`vbs.cmp.ml:6459`). |
 
-**Limit on the 135 resolved occurrences.** No retained producer document defines
-how OGA's digits relate to Morpheus's. The "key-resolved" decision therefore
-assumes the digits correspond. A paradigm-POS check on nine sampled keys supports
-that assumption at the POS level. Morpheus's own records agree with OGA's
-native POS for `le/gw3` (verb), `h)/1` (conjunction), `ce/nos1` (masculine
-noun), `eu)qu/s2` (adverb), `de/w2` and `xra/w2` (verbal), `qei=os1` and
-`pisto/s2` (adjective), and `a)/rwma1` (neuter noun). This does not establish
-sense-level correspondence, and it was not run for all 19 labels. The identity
-verdict does not depend on this limit, because the layer already fails.
+- Total: 21 labels and 142 numbered occurrences. The 135 candidate occurrences
+  are a hypothesis, not identity. The seven occurrences in the collision and
+  absent decisions are one subset diagnostic, not the count of unresolved items.
+- The earlier figure of 7 blocked occurrences is a subset of the 142, and the
+  earlier "135 resolved" wording is withdrawn.
+- No loose-decoded record approved any label. The earlier `ἦ1`→`ἤ1` and
+  `εὒθύς2`→`εὐθύς2` matches are regression fixtures (`test_mapping_completion_v2.py`)
+  and no longer resolve.
+- Not established: that OGA digits mean Morpheus digits. No retained producer
+  document establishes that correspondence, so every candidate remains a hypothesis.
 
-### Canonical POS layer: failed (938 of 10,462 printed nodes blocked)
+### Canonical POS layer: not established (0 UPOS mappings adopted)
 
-Status totals: resolved-eligible 4,865; resolved-outside-AllowedPOS 4,659; blocked 938.
-Eligibility uses the default `AllowedPOS` (NOUN, VERB, ADJ, ADV) from
-`internal/selection/selection.go`. A blocked node has candidate UPOS tags that
-mix eligible and ineligible values, or have two eligible values.
+The values below are candidate proposals from `propose()`. They are exploratory
+diagnostics, not verified mappings and not blockers. Candidate sets are checked
+against the 17 UD UPOS tags.
 
-| Blocking rule | Nodes | Candidates and why unresolved |
-| --- | ---: | --- |
-| pos-n-adverb-status-conflict | 411 | Native `n` with ADV relation. AGDT 2.6 makes noun-with-adverb-status an adverb, but native POS cannot show that status. NOUN and ADV are both eligible. |
-| pos-n-proper-undecided | 398 | Native `n` where Morpheus evidence is both starred (proper) and unstarred (common), or absent. NOUN is eligible; PROPN is not. Example: κῦρος (158 nodes) is both a proper name and a common noun. |
-| pos-a-adverb-status-conflict | 113 | Native `a` with ADV/AuxY/AuxZ relation (AGDT 2.6). ADJ and ADV are both eligible. |
-| pos-d-function-conflict | 11 | Native `d` with COORD, AuxC, or AuxP. ADV versus CCONJ, SCONJ, or ADP. |
-| pos-d-unrecognised-relation | 4 | Relation `AuxΖ` (Greek capital zeta), absent from the consulted AGDT tables. ADV versus PART. |
-| pos-c-adverb-function-conflict | 1 | Native `c` (πρίν) with ADV relation. SCONJ versus ADV. |
+- 10,462 printed nodes: 8,816 single-candidate proposals and 1,646 multi-candidate
+  proposals. Unsupported native tags: 0 (the verdict would become `unsupported`
+  if any appeared; unknown tags are never upper-cased).
+- Native tags in Book 1 (AGDT letters, matching the import ledger): `a` 928, `c` 756,
+  `d` 1,491, `i` 7, `l` 1,047, `n` 1,810, `p` 721, `r` 579, `u` 1,157, `v` 1,966.
 
-Resolved rules:
+Main proposal rules (counts of printed nodes):
 
-- `u`→PUNCT (1,157); `i`→INTJ (7); `l`→DET (1,047); `p`→PRON or DET (721; both ineligible).
-- `c` COORD→CCONJ (473); AuxC→SCONJ (277); AuxY→CCONJ (5).
-- `r` AuxP→ADP (577).
-- `d` with ADV, ATR, OBJ, OCOMP, PNOM, AuxY, or AuxZ→ADV (1,476).
-- `a`→ADJ (815).
-- `n`→NOUN (723) when Morpheus has only unstarred keys; `n`→PROPN (278) when only starred.
-- `v`→VERB (1,788). `v` εἰμί with a PNOM dependent in the same sentence→AUX (178, ineligible).
+- `u`→PUNCT 1,157; `i`→INTJ 7; `l`→DET 1,047; `p`→PRON or DET 721 (multi).
+- `c`: COORD→CCONJ 473; AuxC→SCONJ 277; AuxY→CCONJ 5; ADV function (πρίν) 1 (multi).
+- `r`: AuxP→ADP 577; other relation 2 (ADP or SCONJ, multi).
+- `d`: ADV, ATR, OBJ, OCOMP, PNOM, AuxY, AuxZ→ADV 1,476; COORD, AuxC, or AuxP
+  function 11 (multi, ADV plus another tag); unrecognised relation 4 (multi).
+- `a`: ADJ 815; ADV, AuxY, or AuxZ relation 113 (multi, ADJ or ADV).
+- `n`: ADV relation 411 (multi, NOUN or ADV); starred-only Morpheus key 283 (PROPN);
+  unstarred-only 733 (NOUN); mixed or absent 383 (multi, NOUN or PROPN).
+- `v`: copula εἰμί with a PNOM dependent in the same sentence 115 (AUX); other
+  verbs 1,851 (VERB, including 63 εἰμί nodes without a PNOM dependent).
 
-Limits and product consequences:
+Limits of the POS candidates:
 
-- **Particles become eligible.** `d` AuxY and AuxZ resolve to ADV, which is
-  eligible under AllowedPOS. Particles such as μέν and οὐ would therefore be eligible vocabulary.
-  ADR 0005 excludes function words, so this needs a product decision before any publication.
-- **PROPN rule.** Starred Morpheus keys carry proper-name tags (e.g. `pers_name`).
-  Whether starred-only lemmas match UD PROPN convention is not established. For
-  example, ἕλλην (53 nodes) is starred-only and resolves to PROPN.
-- **Copula rule.** An εἰμί is AUX only with a PNOM dependent in the same
-  sentence. The head lookup was sentence-scoped after a bug fix during this pass.
+- **Syntactic function is not lexical status.** A noun or adjective with an ADV
+  relation yields a multi-candidate proposal. AGDT §2.6 says attained adverb status
+  is annotated as an adverb. It does not say every nominal or adjectival head with
+  an adverbial relation changes POS, and this pass does not decide that.
+- **Proper names.** Starred Morpheus keys are an exact-key proposal of PROPN only.
+  Whether starred-only lemmas match UD PROPN convention, and whether the OGA
+  lineage is the same, is unestablished. The 283 PROPN proposals are not
+  verified exclusions or verified PROPNs.
+- **Copula.** The AUX proposal follows the UD Perseus changelog. The consulted
+  README alone is not a validated complete conversion, so the rule is a proposal.
+- **Particles** (`d` AuxY and AuxZ) propose ADV. That is inside the current
+  `AllowedPOS` default (NOUN, VERB, ADJ, ADV). This pass does not use `AllowedPOS`
+  as an adoption criterion, and it does not claim ADR 0005 forces a new product
+  decision. Any practical choice about function words is a #2030 quality
+  question, not a blocker here.
+- **Native POS counts** are preserved from the retained AGDT tags. They are not
+  eligibility denominators.
 
-### Downstream: not run
+### Verdicts and boundaries
 
-Sentence, selection, cap, and omission measurements were not run, because both
-required layers failed. No tested subset is claimed as a ready Book.
+- Canonical identity: **not established**. The digit correspondence is an
+  unvalidated hypothesis, and no discriminator interpretation is adopted.
+- Canonical POS: **not established**. Proposals are unadopted. No unsupported tag
+  is present in Book 1, so no layer failed closed on an unknown tag.
+- Sentence, selection, cap, and omission: **not run**. Both canonical layers are
+  not established, so no tested subset is claimed as a ready Book.
+- The historical proposal's counts and claims (7 of 142 blocked, 938 blocked,
+  4,865 eligible, 278 PROPN exclusions, 178 AUX, 1,788 VERB) are withdrawn.
+  The v2 counts above replace them.
 
 ### Not run
 
-- Repository-wide `make lint` and `make coverage-new` (not part of this research directory).
 - No Greek provider, model, dictionary, or training-corpus call was made.
 - No archive redownload, and no edits to `private/archive*`, `private/inputs`,
   `private/text`, `private/import`, or accepted documents.
+- Repository checks are reported separately in the handoff.
 
 ## Prior stop after explicit archive authorization (historical, 2026-10-14)
 
