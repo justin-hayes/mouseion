@@ -579,7 +579,7 @@ between §3's baseline commit and this one, so §3's citations still hold.
   including the POS and morphology mappings, and the frozen exception table
   digest. The same set always resolves to the same row.
 - An **Exact analysis** is identified by (binding, interpretation, adapter). It
-  has exactly one **Capability diagnostic** for each of the five capabilities,
+  has exactly one **Capability diagnostic** for each of the four capabilities,
   plus sentence- and node-scoped **Diagnostic findings**. A confirmed defect is
   an appended **Usability restriction** and never an edit.
 - **Provenance claims** record attributed review provenance by layer and scope,
@@ -803,25 +803,32 @@ decisions and counts remain per owner (§8, §11).
 
 | purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
 | --- | --- | --- | --- | --- | --- | --- |
-| The release-scope state of one capability in one analysis. | `analysis_id uuid`; `capability text` ∈ {`vocabulary`, `sentence_target`, `morphology`, `basic_syntax`, `secondary_syntax`}; `state text` ∈ {`missing`, `unsupported`, `ambiguous`, `invalid`, `usable`}; `reason_codes text[]` (each matching `^[a-z][a-z0-9_]*$`; empty exactly when `usable`) | `(analysis_id, capability)` | Key only. A deferred constraint trigger requires all five capabilities for every analysis at commit. | Shared. | **Immutable.** | `analysis_id` → Exact analysis `RESTRICT` |
+| The release-scope state of one capability in one analysis. | `analysis_id uuid`; `capability text` ∈ {`vocabulary`, `sentence_target`, `morphology`, `basic_syntax`}; `state text` ∈ {`missing`, `unsupported`, `ambiguous`, `invalid`, `usable`}; `reason_codes text[]` (each matching `^[a-z][a-z0-9_]*$`; empty exactly when `usable`) | `(analysis_id, capability)` | Key only. A deferred constraint trigger requires all four capabilities for every analysis at commit. | Shared. | **Immutable.** | `analysis_id` → Exact analysis `RESTRICT` |
+
+Syntax is not stored for Exact analyses (§7, #2090). Their `basic_syntax` row is
+therefore always `missing`, with reason `syntax_not_stored`, and has no
+findings. `basic_syntax` stays a capability because legacy analyses report it
+and consumers check it. There is no `secondary_syntax` capability (OD-80): no
+consumer reads secondary syntax, and a later design that needs it adds it.
 
 #### Diagnostic finding
 
 | purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
 | --- | --- | --- | --- | --- | --- | --- |
-| A narrower-scope fact about one capability, such as an invalid tree in one sentence or an unresolved POS on one node. | `analysis_id uuid`; `capability text`; `ordinal integer`; `scope text` ∈ {`sentence`, `node`}; `sentence_ref`, `node_ref` (§7 keys; `node_ref` NULL for `sentence`); `state text` (the same five values); `reason_code text` | `(analysis_id, capability, ordinal)` | `(analysis_id, capability, scope, sentence_ref, node_ref, reason_code)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | `(analysis_id, capability)` → Capability diagnostic `RESTRICT`; refs → §7 sentence and node `RESTRICT` |
+| A narrower-scope fact about one capability, such as a sentence cut by the extent or an unresolved POS on one node. | `analysis_id uuid`; `capability text`; `ordinal integer`; `scope text` ∈ {`sentence`, `node`}; `sentence_ref`, `node_ref` (§7 keys; `node_ref` NULL for `sentence`); `state text` (the same five values); `reason_code text` | `(analysis_id, capability, ordinal)` | `(analysis_id, capability, scope, sentence_ref, node_ref, reason_code)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | `(analysis_id, capability)` → Capability diagnostic `RESTRICT`; refs → §7 sentence and node `RESTRICT` |
 
 For a given sentence or node, the effective state of a capability is the
 narrowest finding that applies. If no finding applies, it is the release-scope
 state. Readiness rules over these states belong to §10. Reason codes come from a
 versioned registry in reviewed code. Examples are `mapping_unsupported`,
-`tree_cycle`, `root_missing` and `native_class_unresolved`.
+`upos_mapping_ambiguous`, `unit_extent_cuts_sentence` and
+`native_class_unresolved`.
 
 #### Usability restriction
 
 | purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
 | --- | --- | --- | --- | --- | --- | --- |
-| An appended record of a later integrity failure or confirmed defect that restricts capabilities without changing immutable facts (ADR 0097). | `id uuid`; exactly one subject: `package_content_digest`, `text_revision_id`, `annotation_revision_id`, `binding_id`, `interpretation_id` or `analysis_id`; `capabilities text[]` (a non-empty subset of the five); `basis text` ∈ {`integrity_failure`, `confirmed_defect`}; `reason_code text`; `explanation text` (non-empty); `recorded_by text` (operator command or reviewed release identifier); `recorded_at` | `id` | None. Repeated restrictions are allowed and all apply. | Shared (OD-20). A defect is a fact about evidence, so it applies to every owner who uses it. | **Append-only**; each row is immutable. Lifting is OD-19. | subject → its record `RESTRICT` |
+| An appended record of a later integrity failure or confirmed defect that restricts capabilities without changing immutable facts (ADR 0097). | `id uuid`; exactly one subject: `package_content_digest`, `text_revision_id`, `annotation_revision_id`, `binding_id`, `interpretation_id` or `analysis_id`; `capabilities text[]` (a non-empty subset of the four); `basis text` ∈ {`integrity_failure`, `confirmed_defect`}; `reason_code text`; `explanation text` (non-empty); `recorded_by text` (operator command or reviewed release identifier); `recorded_at` | `id` | None. Repeated restrictions are allowed and all apply. | Shared (OD-20). A defect is a fact about evidence, so it applies to every owner who uses it. | **Append-only**; each row is immutable. Lifting is OD-19. | subject → its record `RESTRICT` |
 
 A capability is **restricted** for an analysis when any restriction names that
 capability on the analysis or on any of its transitive inputs (binding,
@@ -834,13 +841,16 @@ write restrictions; no learner route does.
 
 | purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
 | --- | --- | --- | --- | --- | --- | --- |
-| An attributed claim about how one annotation layer was produced, over one scope. | `id uuid`; exactly one subject: `annotation_revision_id` or `interpretation_id` (for the repair layer); `layer text` ∈ {`segmentation`, `lemma`, `pos`, `morphology`, `basic_syntax`, `secondary_syntax`, `repair`}; `scope text` ∈ {`release`, `subset`, `sentence`, `token`}; `scope_ref text NULL` (NULL exactly for `release`); `provenance text` ∈ {`human`, `human_reviewed_automatic`, `automatic`, `unknown`}; `attributed_to text` (the upstream statement or reviewed definition that makes the claim) | `id` | `(subject, layer, scope, scope_ref)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | subject → its record `RESTRICT` |
+| An attributed claim about how one annotation layer was produced, over one scope. | `id uuid`; exactly one subject: `annotation_revision_id` or `interpretation_id` (for the repair layer); `layer text` ∈ {`segmentation`, `lemma`, `pos`, `morphology`, `basic_syntax`, `repair`}; `scope text` ∈ {`release`, `subset`, `sentence`, `token`}; `scope_ref text NULL` (NULL exactly for `release`); `provenance text` ∈ {`human`, `human_reviewed_automatic`, `automatic`, `unknown`}; `attributed_to text` (the upstream statement or reviewed definition that makes the claim) | `id` | `(subject, layer, scope, scope_ref)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | subject → its record `RESTRICT` |
 
 The reviewed definition declares a `release` claim for every layer the analysis
 uses, as `unknown` when upstream says nothing. A narrower claim overrides a
 broader one only for its own scope and layer. A syntax claim says nothing about
 lemma or morphology (ADR 0094). Claims are upstream assertions that Mouseion
 records, not Mouseion certification. Learner corrections are never claims.
+While syntax storage is deferred (§7), an Exact analysis uses no syntax layer,
+so a definition needs no syntax claim. A pin set may still declare one for an
+annotation revision, and it is recorded like any other claim.
 
 #### Book current classical analysis
 
@@ -1075,7 +1085,7 @@ Each invariant is covered by the `EVD` rows in [§15](#15-acceptance-test-matrix
      anchors (EVD-27).
    - EPUB promotion is unchanged (EVD-28).
 8. **Diagnostics.**
-   - Every analysis has exactly one state for each of the five capabilities, with
+   - Every analysis has exactly one state for each of the four capabilities, with
      reason codes when the state is not usable (EVD-20).
    - Diagnostics never change (EVD-21).
    - A confirmed defect is an appended restriction that leaves the analysis and
@@ -1102,6 +1112,10 @@ Each invariant is covered by the `EVD` rows in [§15](#15-acceptance-test-matrix
   lines it overrides. This section applies it: `oga-agdt-upos/4`, the
   `morphology_mapping` slot with `oga-agdt-feats/1`, and the
   exception-table changes.
+- **Syntax storage deferred (#2090).** §7 stores no syntax for Exact analyses.
+  This section states that `basic_syntax` is always `missing`
+  (`syntax_not_stored`), and drops `secondary_syntax` from the capabilities and
+  provenance layers (OD-80).
 - §4's Edition `evidence_pin` is resolved here as a Text Source revision `id`.
 - Finding `sentence_ref` and `node_ref` target §7's keys. §7 defines them.
 - Retention references from snapshots, decisions, deck specifications and
@@ -1659,9 +1673,12 @@ between §3's baseline commit and this one, so §3's citations still hold.
 
 - A validated Exact analysis (§5) stores its **sentences**, **nodes**, **span
   references**, **container components**, **Annotation occurrences** and the
-  optional **morphology**, **basic syntax** and **secondary syntax** layers. All
-  of them are shared, immutable and written in the analysis's single
-  transaction.
+  optional **morphology** layer. All of them are shared, immutable and written
+  in the analysis's single transaction.
+- **Syntax is not stored (#2090).** An Exact analysis has no syntax records, so
+  its `basic_syntax` capability is always `missing`. Secondary syntax is not a
+  capability at all (OD-80). A later reviewed design may add syntax storage (see
+  [Syntax (deferred)](#syntax-deferred)).
 - A node is identified by `(analysis_id, node_id)`. `node_id` is an
   analysis-scoped integer. Native identifiers are kept as evidence and scoped to
   their source revision and document. They never identify a node across
@@ -1677,10 +1694,12 @@ between §3's baseline commit and this one, so §3's citations still hold.
 - An **Annotation occurrence** is `(analysis_id, node_id)` for a word or
   component node whose class is `vocabulary` or `unresolved`. Offsets are display
   data and never identify an occurrence or transfer a decision.
-- Optional layers keep native values. Canonical FEATS, UPOS and relations exist
-  only where a reviewed mapping supplies them. Each layer's availability is the
-  §5 Capability diagnostic for that capability, narrowed by sentence and node
-  findings. Invalid syntax is retained and withheld from consumers.
+- Morphology keeps native values. Canonical FEATS and UPOS exist only where a
+  reviewed mapping supplies them. Each layer's availability is the §5
+  Capability diagnostic for that capability, narrowed by sentence and node
+  findings. The read interface keeps a layer shape for syntax, because legacy
+  analyses still report it and consumers still need the "syntax unavailable"
+  paths.
 - Legacy analyses stay in `corpus_tokens` and `corpus_sentences` and are never
   rewritten. New analyses write only the new representation. Every consumer reads
   both through one **analysis read interface** (OD-28, option (i)).
@@ -1866,26 +1885,6 @@ without a reviewed mapping stays only in `native_morphology` and gets a node
 finding (`morphology`, `unsupported` or `ambiguous`). It is never guessed into
 `feats`.
 
-#### Basic syntax edge
-
-| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
-| --- | --- | --- | --- | --- | --- | --- |
-| One node's basic dependency: its head and relation. | `analysis_id uuid`; `node_id integer`; `head_node_id integer` (equal to `node_id` only for an actual root); `native_relation text NULL`; `relation text NULL` (UD basic relation where a reviewed mapping supplies it; `root` exactly when self-headed) | `(analysis_id, node_id)` | Key only: at most one basic head per node. | Shared. | **Immutable.** | `(analysis_id, node_id)` and `(analysis_id, head_node_id)` → Analysis node `RESTRICT` |
-
-Checks: `head_node_id = node_id` ⇔ `relation = 'root'`. Both nodes are in the
-same sentence. Neither is `empty` or `multiword_container`. A row is written
-only for a node the source gives a head for. A node with no native head gets no
-row, and the adapter never makes it a root.
-
-#### Secondary syntax edge
-
-| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
-| --- | --- | --- | --- | --- | --- | --- |
-| One native secondary or enhanced edge, such as a CoNLL-U `DEPS` edge, including edges to and from empty nodes. | `analysis_id uuid`; `edge_ordinal integer`; `node_id integer`; `head_node_id integer`; `native_relation text`; `relation text NULL` (mapped enhanced relation where reviewed) | `(analysis_id, edge_ordinal)` | `(analysis_id, node_id, head_node_id, native_relation)` unique. | Shared. | **Immutable.** | both nodes → Analysis node `RESTRICT` |
-
-Secondary edges are never folded into basic syntax, and basic syntax is never
-derived from them.
-
 ```sql
 -- illustrative, not a migration
 CREATE TABLE analysis_nodes (
@@ -1944,19 +1943,49 @@ CREATE TABLE annotation_occurrences (
 -- plus: a trigger rejecting an occurrence whose node is not a word or component
 -- classed vocabulary or unresolved; mirrored update triggers on every table;
 -- a trigger rejecting inserts for an analysis committed in an earlier transaction.
-
-CREATE TABLE analysis_basic_syntax (
-  analysis_id uuid NOT NULL,
-  node_id integer NOT NULL,
-  head_node_id integer NOT NULL,
-  native_relation text NULL,
-  relation text NULL,
-  PRIMARY KEY (analysis_id, node_id),
-  FOREIGN KEY (analysis_id, node_id) REFERENCES analysis_nodes(analysis_id, node_id) ON DELETE RESTRICT,
-  FOREIGN KEY (analysis_id, head_node_id) REFERENCES analysis_nodes(analysis_id, node_id) ON DELETE RESTRICT,
-  CHECK ((head_node_id = node_id) = (relation IS NOT DISTINCT FROM 'root'))
-);
 ```
+
+#### Syntax (deferred)
+
+**Decision (#2090).** With no treebank data (#2089), the initial implementation
+stores no syntax for Exact analyses. There is no basic syntax edge record and no
+secondary syntax edge record. OGA's dependency layers (`dep01`, `dep-fnc01`) are
+in the optional tier, outside the retained core package, so the chosen
+interpretation loses nothing it uses.
+
+- An Exact analysis's `basic_syntax` Capability diagnostic (§5) is always
+  `missing`, with reason `syntax_not_stored` and no sentence or node findings.
+- A candidate whose declared scope is a binding carries no basic-syntax edge.
+  Validation rejects one that does (SCOPE-4, §10).
+- Basic syntax stays in the in-memory candidate and validated types for the §10
+  Stanza compatibility candidate, which is validated for parity and never
+  stored. Its tree structure is not checked (OD-79), as for legacy rows
+  (OD-29).
+- **Secondary syntax is dropped, not deferred (OD-80).** No consumer reads it,
+  no candidate carries it, and the legacy adapter never had it. It is not a
+  capability, a layer or a candidate field. A later design that needs it adds
+  it.
+- Deferring storage does not stop an adapter from reading native annotation in
+  memory. Whether the retained core package carries what OD-77's rule reads is
+  OD-77's question, not this section's.
+- A later reviewed design may add syntax storage for Exact analyses. It then
+  defines the records and the tree rules, restates the §15 "Deferred rows", and
+  adds its tables in a new §13 step. The rule IDs TREE-1 to TREE-5, SYN-1 and
+  SYN-2 are reserved for it and never reused. Because §7 records are
+  immutable, stored syntax needs a new adapter version and therefore a new
+  Exact analysis. No existing analysis gains syntax rows.
+
+**Empty nodes are kept (OD-78, option (1)).** An `empty` node stays a node of kind `empty`,
+classed `non_vocabulary(empty_node)`, with no span and no occurrence, exactly as
+above. It is not deferred with syntax:
+
+- ACC-1 requires every node the source attests in the extent to be accounted
+  for. Deferring empty nodes would need a carve-out from that rule.
+- An empty node can carry native evidence, such as a lemma, that the owner's
+  evidence detail can show.
+- It costs one node row and changes no count, coverage or occurrence.
+- A later syntax design needs no new node kind and no change to canonical node
+  order.
 
 ### Occurrence identity
 
@@ -1988,7 +2017,7 @@ matching"). Search keys never place a highlight.
 ### Optional layers and availability
 
 Each layer's availability is the §5 **Capability diagnostic** for its
-capability (`morphology`, `basic_syntax`, `secondary_syntax`), narrowed per
+capability (`morphology`, `basic_syntax`), narrowed per
 sentence or node by **Diagnostic findings**. No §7 record repeats the state.
 Validation (§10) derives the states from the stored rows as follows.
 
@@ -2008,42 +2037,32 @@ directly, and not a capability claim in the candidate.
 The legacy adapter below is unchanged: legacy morphology was stored as UD FEATS
 by the producer and is read as it is.
 
-**Basic syntax.** A sentence's **tree participants** are its nodes of kind
-`word`, `component` and `punctuation`. Empty nodes and containers never
-participate. A sentence has a **complete basic tree** exactly when rules TREE-1
-to TREE-4 hold. For each sentence:
+**Basic syntax in an Exact analysis.** Always `missing` (`syntax_not_stored`),
+with no findings, because syntax is not stored
+([Syntax (deferred)](#syntax-deferred)).
 
-- no participant has a basic-syntax row: sentence finding `missing`
-  (`syntax_absent`);
-- rows exist but the tree is not complete: sentence finding `invalid`, with one
-  reason per violated rule (`root_missing`, `root_multiple`, `tree_cycle`,
-  `tree_disconnected`, `head_unresolved`);
-- complete, but some participant's `relation` is NULL: sentence finding
-  `unsupported` (`relation_unmapped`);
-- otherwise no finding: the sentence's basic syntax is usable.
-
-The release-scope state is `missing` when no sentence has any row,
-`unsupported` when the interpretation declares no reviewed relation mapping,
-`invalid` when rows exist but no sentence has a complete tree, and otherwise
-`usable`, with the findings above for every other sentence.
-
-**Secondary syntax.** `missing` when there are no edges. `unsupported` when edges
-exist but no relation is mapped. `usable` otherwise. Secondary syntax is not
-tree-validated. Its endpoints must be nodes of the same sentence (rule SYN-2).
+**Basic syntax in a compatibility candidate (OD-79).** This applies only to a
+candidate whose declared scope is legacy: the §10 Stanza compatibility
+candidate, validated in memory and never stored. Validation does not check its
+tree structure, exactly as the legacy adapter does not re-check stored legacy
+trees (OD-29). `basic_syntax` is `usable` when the candidate carries edges, with
+each node's relation and head as the producer gave them, and `missing`
+(`syntax_absent`) when it carries none. A node without an edge has no relation
+value. The relations are the producer's UD labels, so no mapping applies.
 
 **Withholding.** The read interface returns a layer's values for a sentence or
 node only when its effective state is `usable` and no Usability restriction
 (§5) names the capability. Otherwise it returns the state and reason codes and
-no values. Stored rows of an invalid tree stay inspectable in the owner's
-evidence detail (§5 access rule). They are never served to Concordance,
-sentence selection or eligibility.
+no values.
 
 **Eligibility with unavailable syntax (OD-03, option (1)).** A syntax-based
 exclusion, such as today's `compound:prt` rule
 (`internal/selection/selection.go:281-285`), applies to an occurrence only when
 the occurrence's basic syntax is usable. When syntax is unavailable, the
 occurrence's eligibility is decided by its identity and UPOS alone. Unavailable
-syntax is never evidence that a relation is absent (ADR 0094).
+syntax is never evidence that a relation is absent (ADR 0094). An Exact
+analysis's basic syntax is never usable, so its occurrences are always decided
+by identity and UPOS alone.
 
 ### Validation rules
 
@@ -2115,31 +2134,16 @@ Extracted text.
 - **ACC-5.** A `vocabulary` node has a rich identity, a decoded citation form and
   a resolved UPOS. Its identity's UPOS and discriminator equal the node's.
 
-**Trees.** For one sentence's tree participants:
+**Trees and syntax endpoints (deferred).** No tree or syntax-endpoint rule
+applies in this design: Exact analyses carry no syntax (SCOPE-4, §10), and the
+compatibility candidate's trees are not checked (OD-79). TREE-1 to TREE-5,
+SYN-1 and SYN-2 are reserved for a later syntax-storage design. An adapter
+still never invents a head or relation the source does not give (§10 "Source
+interpretation adapter").
 
-- **TREE-1.** Every participant has exactly one basic-syntax row, and its head is
-  a participant of the same sentence (`head_unresolved` otherwise).
-- **TREE-2.** Exactly one participant is self-headed with relation `root`
-  (`root_missing`, `root_multiple`). A self-headed row whose relation is not
-  `root`, or a `root` that is not self-headed, is rejected outright as malformed.
-- **TREE-3.** Following heads from any participant reaches the root without
-  revisiting a node (`tree_cycle`).
-- **TREE-4.** Every participant reaches the root (`tree_disconnected`).
-- **TREE-5.** The adapter never adds a root, head or relation that the source
-  does not give, in order to satisfy TREE-1 to TREE-4. A failed tree is stored as
-  given and is withheld.
-
-**Syntax endpoints.**
-
-- **SYN-1.** Basic-syntax endpoints are never `empty` or `multiword_container`
-  nodes.
-- **SYN-2.** Secondary-syntax endpoints are nodes of the same sentence, and may be
-  `empty`.
-
-Rules SPAN-\*, SENT-1, SENT-2, SENT-4, CONT-1, CONT-2, OCC-ID-\*, ACC-1, ACC-2,
-ACC-5, TREE-2's malformed case, TREE-5 and SYN-\* **reject** a candidate. Rules
-ACC-3 and ACC-4 decide `vocabulary_ready`. Rules TREE-1 to TREE-4 produce syntax
-findings and never reject a candidate or change vocabulary readiness.
+Rules SPAN-\*, SENT-1, SENT-2, SENT-4, CONT-1, CONT-2, OCC-ID-\*, ACC-1, ACC-2
+and ACC-5 **reject** a candidate. Rules ACC-3 and ACC-4 decide
+`vocabulary_ready`.
 
 ### Legacy coexistence and the analysis read interface
 
@@ -2166,7 +2170,7 @@ applies the §5 access rule (exact) or the existing current-analysis predicate
 | Sentence | ordinal; spans; text; reconstruction label; boundary and reason | as stored; text sliced from Extracted text | ordinal; one span `[start_offset, end_offset)` in its unit; stored `sentence_text`; boundary `complete` (see below) |
 | Node | node key; kind; surface (nullable); raw lemma; citation form; identity; native POS; UPOS and state; accounting class; spans; container or components | as stored; identity is the rich identity | node key `(sentence_ordinal, token_ordinal)`; kind `punctuation` when UPOS is `PUNCT`, otherwise `word`; identity is the legacy tuple, with no discriminator; no citation form; accounting class `not_declared`; one span; no containers |
 | Occurrence key | `exact(analysis_id, node_id)` or `legacy(source_document_id, start_offset, end_offset)` | `exact` | `legacy`, exactly today's `selection.OccurrenceIdentity` |
-| Layer\<T\> (morphology, basic syntax, secondary syntax) | state; reason codes; value only when usable | derived as above, with restrictions | morphology `usable` (stored map as both native and FEATS); basic syntax `usable` (stored relation and head, unchanged); secondary syntax `missing` (`legacy_basic_only`) |
+| Layer\<T\> (morphology, basic syntax) | state; reason codes; value only when usable | morphology derived as above, with restrictions; basic syntax always `missing` (`syntax_not_stored`) | morphology `usable` (stored map as both native and FEATS); basic syntax `usable` (stored relation and head, unchanged) |
 
 Legacy rules:
 
@@ -2187,7 +2191,12 @@ Legacy rules:
 - **Characterization.** For a legacy analysis, every consumer's output through the
   interface equals its output before the interface existed (OCC-11).
 
-**Unavailable syntax in consumers.** When a Layer is not usable:
+The `Layer<T>` shape stays for basic syntax although the exact adapter never
+returns a syntax value: the legacy adapter still reports EPUB syntax, and
+consumers still need the paths below for Books without syntax.
+
+**Unavailable syntax in consumers.** When a Layer is not usable, which is always
+the case for a classical Book's syntax in this design:
 
 - Sentence study shows "Syntax unavailable", with the state and the reason, in
   place of the relation and head. It never shows an empty relation or a head
@@ -2214,12 +2223,10 @@ estimates, not requirements.
 | Container component | 10¹–10³ | depends on the scheme's multiword tokens |
 | Annotation occurrence | < 10⁴ | nodes minus punctuation, containers, empty and non-vocabulary nodes; ~6×10³ of them pass eligibility |
 | Node morphology | ≤ 10⁴ | |
-| Basic syntax edge | ≤ 10⁴ | |
-| Secondary syntax edge | 0–10³ | |
 | Diagnostic finding (§5) | ≤ 10⁴ | bounded by nodes and sentences |
 
-That is about 6×10⁴ rows per Exact analysis. At roughly 100–250 bytes per node
-row and under 60 bytes per span, occurrence or edge row, the heap is a few MB,
+That is about 5×10⁴ rows per Exact analysis. At roughly 100–250 bytes per node
+row and under 60 bytes per span or occurrence row, the heap is a few MB,
 with indexes of the same order. The rows are stored once per Exact analysis and
 shared by every owner who adopts it.
 
@@ -2235,14 +2242,13 @@ constraints above:
 | Concordance form lookup (OD-26) | `analysis_nodes (form_search_key, analysis_id)` |
 | Occurrence review and lemma review: occurrences of an analysis in reading order | unique `(analysis_id, occurrence_ordinal)` |
 | Lemma review by exact observed form | `analysis_nodes (analysis_id, form_search_key)` |
-| Concordance dependents of a head | `analysis_basic_syntax (analysis_id, head_node_id)` |
-| Concordance role filter | `analysis_basic_syntax (analysis_id, relation)` |
 | Container of a component | primary key of Container component |
 | Findings of a sentence or node (§5) | `(analysis_id, sentence_ref)` and `(analysis_id, node_ref)` on Diagnostic finding |
 
 Owner-scoped counts and decisions are §8 records keyed by owner and Book. They
 join these shared rows by `(analysis_id, node_id)` or `identity_id`. None of
-the shared indexes needs an owner column.
+the shared indexes needs an owner column. Syntax-dependent Concordance queries
+need no index on Exact analyses, because they return unavailable for them.
 
 ### Invariants
 
@@ -2274,19 +2280,15 @@ Each invariant is covered by the `OCC` rows in [§15](#15-acceptance-test-matrix
    - Native-class non-vocabulary accounting with ambiguous UPOS is accepted
      (OCC-10).
 7. **Optional layers.**
-   - Missing syntax is reported `missing`, and syntax-dependent Concordance shows
+   - An Exact analysis stores no syntax. `basic_syntax` is `missing`
+     (`syntax_not_stored`) (OCC-27), and syntax-dependent Concordance shows
      unavailable rather than zero (OCC-07).
-   - An invalid tree is withheld as `invalid` while vocabulary stays usable
-     (OCC-08, OCC-18).
-   - No root is fabricated (OCC-18).
    - Morphology keeps native features and gives FEATS only where mapped
      (OCC-19).
    - Morphology is `usable` only through the interpretation's
      `morphology_mapping` slot (OCC-26).
-   - Secondary syntax is kept separately, including empty-node edges (OCC-20).
    - Unavailable syntax never makes an occurrence ineligible (OCC-21).
-8. **Persistence.** §7 records are immutable, and syntax endpoints stay within
-   one analysis and one sentence (OCC-22, OCC-23).
+8. **Persistence.** §7 records are immutable (OCC-22).
 9. **Legacy.**
    - A legacy analysis reads identically through the shared interface (OCC-11).
    - A new analysis writes no legacy rows, and no legacy row is rewritten
@@ -2314,6 +2316,13 @@ Each invariant is covered by the `OCC` rows in [§15](#15-acceptance-test-matrix
   the #2034 sentence and card rules, not to this section.
 - "Reviewed FEATS mapping" now means §5's `morphology_mapping` slot (#2089).
   Before it, the configuration had no place to name one.
+- **Syntax storage deferred (#2090).** The Basic syntax edge record, its indexes,
+  the tree and endpoint rules, and OCC-08, OCC-18 and OCC-23 are deferred.
+  Secondary syntax is dropped with OCC-20 (OD-80). §10 adds SCOPE-4 and keeps
+  basic syntax, unchecked, in the compatibility candidate (OD-79). §13 S5 adds
+  no syntax table. Whether empty nodes stay is OD-78. The handoff's "optional
+  invalid syntax remains inspectable but unavailable" still holds: an Exact
+  analysis holds no syntax, so it has no invalid syntax to show.
 
 ## 8. Learner-state attachment and compatibility
 
@@ -2915,8 +2924,8 @@ closures of everything it names.
 
 | dependency | records (section) | reached from X by | protected by |
 | --- | --- | --- | --- |
-| Analysis | Exact analysis; its five Capability diagnostics and Diagnostic findings (§5) | X itself; diagnostics and findings → X | Inbound `RESTRICT` from roots; delete guard on every row |
-| Analysis content | Analysis sentences, Sentence spans, Analysis nodes, Node spans, Container components, Annotation occurrences, Node morphology, Basic and Secondary syntax edges (§7); Analysis headwords (§6) | each → X, directly or through its node or sentence | `RESTRICT` to X; delete guard. The node IDs in a membership's `occurrence_node_ids` array have no foreign key. Their rows are protected because nothing under X can be deleted. |
+| Analysis | Exact analysis; its four Capability diagnostics and Diagnostic findings (§5) | X itself; diagnostics and findings → X | Inbound `RESTRICT` from roots; delete guard on every row |
+| Analysis content | Analysis sentences, Sentence spans, Analysis nodes, Node spans, Container components, Annotation occurrences, Node morphology (§7; no syntax records, which are deferred); Analysis headwords (§6) | each → X, directly or through its node or sentence | `RESTRICT` to X; delete guard. The node IDs in a membership's `occurrence_node_ids` array have no foreign key. Their rows are protected because nothing under X can be deleted. |
 | Vocabulary identity | Vocabulary identity (§6) | node → identity | `RESTRICT` from nodes, decisions, membership, Known and counts; delete guard |
 | Binding | Text–annotation binding (§5) | X → binding | `RESTRICT`; delete guard |
 | Text revision and annotation revision | Text Source revision, Annotation Source revision, and their revision members (§5) | binding → revisions; members → revision | `RESTRICT`; delete guard |
@@ -3185,11 +3194,11 @@ restrictions listed below. It checks:
 | IC-3 | Every `interpretation_table` blob digest. | `interpretation_table_digest_mismatch` |
 | IC-4 | Every Extracted text: digest of the UTF-8 content, and code-point length. | `extracted_text_digest_mismatch` |
 | IC-5 | Every record-kind Evidence notice: `notice_digest`. | `notice_digest_mismatch` |
-| IC-6 | Every closure edge resolves: an anti-join for each foreign key in the closure table and the Referencers table, including the added Adopted evidence record keys. Every Adopted evidence record and current row satisfies §5's access predicate. Every Package content's member count and byte sum equals its member rows. Every Exact analysis has its five diagnostics and a `validated` binding. | `evidence_reference_missing` |
+| IC-6 | Every closure edge resolves: an anti-join for each foreign key in the closure table and the Referencers table, including the added Adopted evidence record keys. Every Adopted evidence record and current row satisfies §5's access predicate. Every Package content's member count and byte sum equals its member rows. Every Exact analysis has its four diagnostics and a `validated` binding. | `evidence_reference_missing` |
 | IC-7 | Rows that no key reaches are complete. Every Exact analysis's persisted rows pass the §10 shared validation rules again; for example, every printed node has a span, and every qualifying node has an Annotation occurrence. Every Notice coverage and Provenance claim that the acquisition's recorded pin set declares exists. | `evidence_reference_missing` |
 
 **On failure.** For each failure, the check appends one Usability restriction
-(§5) with basis `integrity_failure`, all five capabilities, the reason code
+(§5) with basis `integrity_failure`, all four capabilities, the reason code
 above and an explanation naming the failed row. The subject is:
 
 - for IC-1 and IC-2, the blob's Package content (OD-38);
@@ -3392,7 +3401,7 @@ checks. Adapters never open the package archive themselves.
 | --- | --- |
 | Responsibilities | Read the pinned members. Apply the reviewed projection and correspondence check to produce the Extracted text and verify `source_bounds` against the unit (§5 binding). Decode native lemma data (§6 source decoding). Apply the pinned lemma, POS, morphology, repair and reading-terminal mappings and the frozen exception table. Assign `node_id` in canonical node order. Map native spans into the Extracted text (SPAN-4). Classify accounting (§7). Emit the native lineage and adapter diagnostics. |
 | Inputs | The verified members (read-only, already checked against the pins); the binding declaration from the reviewed definition (Reading unit, `source_bounds`, projection and correspondence identifiers); the pinned Interpretation configuration (§5); and the frozen exception table's bytes, verified against the pinned digest before the call. Nothing else: no clock, environment, network, database or learner state. |
-| Outputs | Either a **candidate** (the §7 shape: sentences, nodes, spans, containers, occurrences, morphology, basic and secondary syntax) with its Extracted text, native lineage (native member, document, sentence and node references, and the native attributes that justify each derived value) and adapter diagnostics, or an adapter rejection with diagnostics. |
+| Outputs | Either a **candidate** (the §7 shape: sentences, nodes, spans, containers, occurrences and morphology; a classical adapter emits no syntax, SCOPE-4) with its Extracted text, native lineage (native member, document, sentence and node references, and the native attributes that justify each derived value) and adapter diagnostics, or an adapter rejection with diagnostics. |
 | Must not | Publish or persist anything. Change learner state. Invent defaults: no `X` for an unknown POS, no root for a headless tree, no offset from a length, no guessed metadata. Approve its own output: it never sets `vocabulary_ready` or a capability state. Execute package-supplied code: no plugins, no subprocesses, no evaluation of expressions, regular expressions, templates, stylesheets or schemas taken from package bytes; XML is parsed with DTDs and external entities disabled and with bounded depth and token counts. Fetch network resources. Read the wall clock, environment or randomness. |
 | Invariants | Deterministic: the same inputs give a byte-identical candidate under the canonical serialization (EVD-14 relies on it). Every node the source attests in the extent appears in the candidate (ACC-1). Native evidence is copied, never edited. |
 | Version support | Each adapter declares one adapter identifier (`name/version`, for example `example-adapter/1`) and the exact set of slot identifiers it implements. Both are compiled into the reviewed release. A configuration naming any other version is refused before any member is read, with `adapter_version_unsupported` (permanent). A new mapping version needs a reviewed release. |
@@ -3437,7 +3446,7 @@ type AdapterOutput struct {
 | --- | --- |
 | Responsibilities | Decide whether a candidate is admissible, and derive each capability's state from the candidate's content alone, by the rules below. |
 | Inputs | The candidate; the declared Reading unit and binding (unit ID, language, binding ID and status, Extracted text and its digest and code-point length); the Interpretation configuration; and the adapter ID. |
-| Outputs | Either **Rejected**, with diagnostics and no analysis, or **Validated**: a validated analysis carrying one state and reason-code set per capability (§5's five), sentence- and node-scoped findings, and `VocabularyReady`. |
+| Outputs | Either **Rejected**, with diagnostics and no analysis, or **Validated**: a validated analysis carrying one state and reason-code set per capability (§5's four), sentence- and node-scoped findings, and `VocabularyReady`. |
 | Must not | Write anything. Read learner state, restrictions, the database or the network. Repair, reorder or fill in candidate content. Read producer claims as proof. Branch on adapter, producer or language, except where a rule names one: the dedicated-profile check (§6) and a registry lookup keyed by adapter ID. |
 | Invariants | Pure and deterministic: equal inputs give equal outputs, including diagnostic order (sorted by rule, scope, sentence, node). Only `Validate` can construct a validated analysis, because its fields are unexported. A producer claim never raises a state: a claim with no support produces only a `claim_not_supported` notice. Optional failures never change `VocabularyReady`. |
 | Version support | The compiled registries say what this release supports: contract versions (initially `canonical/1`), adapter identifiers, slot identifiers and table digests, normalization profiles (through `canonicalization.Lookup`), discriminator schemes, and reason codes per contract version. Anything else fails VER-1 to VER-4. |
@@ -3486,6 +3495,7 @@ and `BND-1`. Every other ID is §7's, used unchanged.
 | SCOPE-1 | The candidate names the declared binding, Reading unit, Extracted text digest and code-point length. | §5 binding | structural | `scope_mismatch` |
 | SCOPE-2 | The declared binding's status is `validated`. | §5 (EVD-15) | structural | `binding_rejected` |
 | SCOPE-3 | The candidate's language equals the declared language, and every identity's language equals it. | §4, §6 | structural | `language_mismatch` |
+| SCOPE-4 | **No syntax in an Exact analysis:** a candidate whose declared scope is a binding carries no basic-syntax edge. | §7 "Syntax (deferred)" | structural | `exact_syntax_unsupported` |
 | ACC-4 | **Full declared scope:** every non-`White_Space` code point of the extent lies in a printed node's span. | §7 | **required** | `coverage_gap` (count = uncovered code points) |
 | COR-1 | The supplied Extracted text hashes to the declared digest, and its length equals the declared code-point length. | §5 | structural | `extracted_text_mismatch` |
 | COR-2 | **Exact text correspondence:** when the adapter declares verbatim surfaces, each printed node's surface equals the concatenation of its Extracted-text slices. A component that references exactly its container's spans (CONT-2) is exempt. | §7 SPAN-4 | structural | `surface_span_mismatch` |
@@ -3502,18 +3512,17 @@ and `BND-1`. Every other ID is §7's, used unchanged.
 | IDV-3 | Every citation form passes the §6 admission check. | §6 | structural | `citation_form_invalid`, `discriminator_in_lemma` |
 | IDV-4 | Every identity's canonical lemma equals the profile key recomputed from the citation form. | §6 I-4 | structural | `canonical_key_mismatch` |
 | IDV-5 | **Discriminator pairs:** scheme and value are both set or both null. The scheme is registered, and the value matches the scheme's pattern. | §6 | structural | `discriminator_half_set`, `discriminator_scheme_unknown`, `discriminator_value_invalid` |
-| TREE-2 (malformed case), SYN-1, SYN-2 | A self-headed edge that is not `root`, or a `root` that is not self-headed, and invalid syntax endpoints. | §7 | structural | `root_malformed`, `syntax_endpoint_invalid` |
-| TREE-1 to TREE-4 | **Tree validity per optional layer**, per sentence. | §7 | optional (`basic_syntax`) | `head_unresolved`, `root_missing`, `root_multiple`, `tree_cycle`, `tree_disconnected`, `syntax_absent`, `relation_unmapped` |
-| morphology, secondary syntax | As §7 "Optional layers and availability". | §7 | optional | `morphology_unmapped`, `morphology_ambiguous`, `secondary_unmapped` |
-| SPAN-4, TREE-5 | No span from a length, and no fabricated root, head or relation. | §7 | adapter obligation | — |
+| morphology | As §7 "Optional layers and availability". | §7 | optional | `morphology_unmapped`, `morphology_ambiguous` |
+| basic syntax | As §7 "Optional layers and availability": `missing` for a binding-scope candidate, and for a legacy-scope candidate without edges. Tree structure is not checked (OD-79). | §7 | optional | `syntax_not_stored`, `syntax_absent` |
+| SPAN-4 | No span from a length. | §7 | adapter obligation | — |
 
 Rules marked **required** are the ones that deny Vocabulary-ready. A
 structural failure denies it too, because nothing is validated. Optional rules
 withhold only their capability, only at the scope of the finding.
 
-SPAN-4 and TREE-5 constrain how an adapter produced its output. A candidate
-alone cannot show that they were broken: a fabricated root looks like a real
-one. They are enforced by each adapter's reviewed fixtures and by COR-2, not by
+SPAN-4 constrains how an adapter produced its output. A candidate alone cannot
+show that it was broken: a span computed from a length looks like a mapped one.
+It is enforced by each adapter's reviewed fixtures and partly by COR-2, not by
 `Validate` (see Conflicts).
 
 #### Capability derivation and readiness
@@ -3525,7 +3534,8 @@ findings:
 | --- | --- | --- |
 | `vocabulary` | `usable` when ACC-3 and ACC-4 hold. `missing` (`lemma_layer_absent`) when no node carries native lemma data. Otherwise `invalid`, with the failing codes among `occurrence_unresolved` and `coverage_gap`. | One node finding per unresolved occurrence, with its cause (`mapping_unsupported` → `unsupported`, `upos_mapping_ambiguous` → `ambiguous`, `lemma_absent` → `missing`, `discriminator_unmapped` → `unsupported`). |
 | `sentence_target` | `usable` when at least one sentence is `complete`. `unsupported` when every sentence is `unknown`. Otherwise `missing`. | `incomplete` gives a `missing` finding (`unit_extent_cuts_sentence`). `unknown` gives an `unsupported` finding (`source_boundary_undeclared`). Whether a sentence is a good card target belongs to the #2034 rules. |
-| `morphology`, `basic_syntax`, `secondary_syntax` | As §7 "Optional layers and availability". | As §7. |
+| `morphology` | As §7 "Optional layers and availability". | As §7. |
+| `basic_syntax` | Binding scope (an Exact analysis): `missing` (`syntax_not_stored`). Legacy scope (the compatibility candidate): `usable` with its edges as given, or `missing` (`syntax_absent`) when it has none (OD-79). | None. |
 
 Readiness:
 
@@ -3549,9 +3559,9 @@ Readiness:
 | field | type | meaning |
 | --- | --- | --- |
 | `code` | text, registered | Reason code, `^[a-z][a-z0-9_]*$`, from the registry for the contract version. |
-| `rule` | text, nullable | Rule ID from the catalogue above, for example `TREE-3`. Null for adapter and version codes. |
+| `rule` | text, nullable | Rule ID from the catalogue above, for example `SPAN-2`. Null for adapter and version codes. |
 | `severity` | `reject`, `blocks_vocabulary`, `withholds`, `notice` | `reject` makes the outcome Rejected. `blocks_vocabulary` denies Vocabulary-ready. `withholds` withholds one capability at one scope. `notice` changes nothing. |
-| `capability` | one of the five, or `none` | The capability affected. `none` for structural, version and scope codes. |
+| `capability` | one of the four, or `none` | The capability affected. `none` for structural, version and scope codes. |
 | `scope` | `request`, `binding`, `analysis`, `sentence`, `node` | The narrowest scope the fact holds for. |
 | `sentence_ordinal` | integer, nullable | §7 key, set for `sentence` and `node` scope. |
 | `node_id` | integer, nullable | §7 key, set for `node` scope. |
@@ -3618,7 +3628,7 @@ decides nothing (VAL-20).
 | Counts: My Books coverage, Reading chooser bands, library totals | `vocabulary`. The contributing-Book rule is §8's. | Pending or unavailable, never zero (§8). |
 | Concordance lemma and form lookup | `vocabulary` | The Book is left out, and its name and reason are listed. |
 | Concordance sentence context and highlighting | sentence spans (always present, SENT-2); `sentence_target` only for the boundary label | — |
-| Concordance role filter, dependents, sentence-study relations | `basic_syntax`, per sentence | Unavailable with the reason (§7). Never an empty result. |
+| Concordance role filter, dependents, sentence-study relations | `basic_syntax`, per sentence | Unavailable with the reason (§7). Never an empty result. Always the case for a classical Book in this design. |
 | Morphology display | `morphology`, per node | "Morphology unavailable" with the reason. |
 | Lemma review: preview, confirm and flags | `vocabulary` on the Book's current analysis | Refused with the existing not-ready response. The rich preview fingerprint covers the current analysis ID and the Book's exact decisions and flags, so an adoption makes a preview stale (§8, LRN-18). |
 | Reading Start and Switch | Reading-ready target Book, and count readiness when 3/15 needs library totals | The existing ineligible verdict (`internal/domain/current_reading_start.go:58-76`). |
@@ -3662,9 +3672,9 @@ calls it with an exact occurrence.
 | Binding and scope | `binding_rejected`, `binding_nondeterministic`, `scope_mismatch`, `extracted_text_mismatch`, `language_mismatch`, `correspondence_failed`, `projection_failed` | permanent | adapter, validation, §5 | No analysis. |
 | Required scope | `coverage_gap`, `occurrence_unresolved` | permanent for that analysis | validation | Validated but not Vocabulary-ready. Never adopted. A new interpretation or evidence is a new request. |
 | Unsupported mapping or version | `contract_version_unknown`, `interpretation_version_unknown`, `adapter_version_unsupported`, `normalization_profile_rejected`, `discriminator_scheme_unknown`, `reason_code_unknown` | permanent | adapter, validation | Nothing is written (EVD-16, EVD-33). |
-| Structure and identity | `span_*`, `sentence_*`, `boundary_incomplete_interior`, `container_malformed`, `component_outside_container`, `node_order`, `occurrence_set_mismatch`, `accounting_missing`, `non_vocabulary_unsupported`, `identity_upos_mismatch`, `upos_invalid`, `citation_form_invalid`, `discriminator_in_lemma`, `discriminator_half_set`, `discriminator_value_invalid`, `canonical_key_mismatch`, `surface_span_mismatch`, `root_malformed`, `syntax_endpoint_invalid`, `native_parse_failed` | permanent | adapter, validation | Rejected. No analysis. |
+| Structure and identity | `span_*`, `sentence_*`, `boundary_incomplete_interior`, `exact_syntax_unsupported`, `container_malformed`, `component_outside_container`, `node_order`, `occurrence_set_mismatch`, `accounting_missing`, `non_vocabulary_unsupported`, `identity_upos_mismatch`, `upos_invalid`, `citation_form_invalid`, `discriminator_in_lemma`, `discriminator_half_set`, `discriminator_value_invalid`, `canonical_key_mismatch`, `surface_span_mismatch`, `native_parse_failed` | permanent | adapter, validation | Rejected. No analysis. |
 | Node mapping findings | `mapping_unsupported`, `upos_mapping_ambiguous`, `lemma_absent`, `discriminator_unmapped`, `native_class_unresolved` | no failure in itself | adapter | They lead to `occurrence_unresolved` (permanent) only when they leave an occurrence unresolved. |
-| Optional layers | `syntax_absent`, `root_missing`, `root_multiple`, `tree_cycle`, `tree_disconnected`, `head_unresolved`, `relation_unmapped`, `morphology_unmapped`, `morphology_ambiguous`, `secondary_unmapped`, `unit_extent_cuts_sentence`, `source_boundary_undeclared`, `claim_not_supported` | no failure | validation | The capability is withheld at that scope. Vocabulary-ready is unaffected. |
+| Optional layers | `syntax_not_stored`, `syntax_absent`, `morphology_unmapped`, `morphology_ambiguous`, `unit_extent_cuts_sentence`, `source_boundary_undeclared`, `claim_not_supported` | no failure | validation | The capability is withheld at that scope. Vocabulary-ready is unaffected. |
 | Infrastructure | `storage_unavailable` (connection loss, serialization failure, lock timeout), `worker_interrupted` (shutdown, job timeout) | **transient** | §11 worker | Retried within the §11 budget. When the budget is exhausted, the request fails with `retry_budget_exhausted`, which is permanent for that request only. |
 | Stale request | `expected_state_changed` | no failure | §11 | A stale outcome. Nothing changes (§11). |
 
@@ -3677,7 +3687,13 @@ transient class. The Stanza path keeps its own failures unchanged, including
 
 **Purpose.** Run Stanza output through the same validation interface as an
 **observation only**, so that parity between the two paths can be measured. It
-is not a publication path.
+is not a publication path, and it persists nothing, as today. Its candidate is
+the only one that carries basic syntax in this design (SCOPE-4 rejects syntax in
+a binding-scope candidate), so the in-memory candidate and validated types keep
+basic syntax, and P-2 still covers the German `compound:prt` exclusion.
+Validation passes those edges through without checking tree structure, as the
+legacy adapter does for stored rows (OD-29, OD-79). Both sides of P-2 therefore
+read the same relations.
 
 **Mapping** (`internal/interpretation/stanzacompat`, adapter ID
 `stanza-compat/1`). It produces one candidate per source document of the run,
@@ -3748,10 +3764,7 @@ morphology and diagnostics are not parity fields.
 **Mismatch categories.** These are reported, never acted on:
 `candidate_rejected` (with the rejection codes), `vocabulary_not_ready` (with
 codes), `identity_only_legacy`, `identity_only_canonical`, `count_differs`,
-`denominator_differs`, `sentence_differs`, and `syntax_withheld_changed_eligibility`.
-The last one counts identities whose P-2 difference comes only from a sentence
-whose basic syntax validation withheld, where OD-03 then skipped a syntax-based
-exclusion.
+`denominator_differs` and `sentence_differs`.
 
 **Reporting.** A mismatch is reported as:
 
@@ -3779,7 +3792,7 @@ the producer received:
 
 The test asserts that P-1 to P-4 are equal and that the outcome is Validated and
 Vocabulary-ready, with no mismatch category reported (VAL-08). A fixture that
-legitimately diverges, for example because its tree fails TREE-3, does not get
+legitimately diverges, for example because a token's span fails SPAN-2, does not get
 an exception. Its expectation names the category and count, and changing it
 needs review. The test also asserts that the legacy-side values equal the
 fixture's existing expectations, so parity can never pass by changing the
@@ -3837,10 +3850,10 @@ Each invariant is covered by the `VAL` rows in [§15](#15-acceptance-test-matrix
    the same `Validate`. Equal defects give equal diagnostics (VAL-01). Validation
    is deterministic (VAL-15).
 2. **Claims are not proof.** A producer claim never raises a capability state
-   (VAL-02, VAL-03). Only a validated, Vocabulary-ready, unrestricted analysis is
+   (VAL-03). Only a validated, Vocabulary-ready, unrestricted analysis is
    adopted (VAL-22).
 3. **Optional failures are local.** A failed optional rule withholds only its
-   capability at its scope. Vocabulary readiness is unchanged (VAL-02).
+   capability at its scope. Vocabulary readiness is unchanged (VAL-03, EVD-20).
 4. **Scope.** A candidate that does not cover its declared unit is not
    Vocabulary-ready, with a `coverage_gap` diagnostic. A candidate for another
    unit, binding or language is rejected (VAL-04, VAL-05).
@@ -3866,22 +3879,33 @@ Each invariant is covered by the `VAL` rows in [§15](#15-acceptance-test-matrix
     restriction makes a capability unavailable at read time (VAL-21).
 13. **Adapters.** An adapter is deterministic, keeps every attested node, and
     never invents a default (VAL-23).
+14. **Syntax.** A binding-scope candidate that carries basic syntax is rejected
+    (VAL-24). The compatibility candidate keeps its basic syntax, unchecked, so
+    parity covers syntax-based exclusions (VAL-08).
 
 ### Conflicts and dependencies noted
 
-- **SPAN-4 and TREE-5.** §7 lists TREE-5 among the rules that reject a
-  candidate. A candidate alone cannot show that a span came from a length or
-  that a root was fabricated, so `Validate` cannot enforce either rule. This
-  section treats both as adapter obligations, enforced by each adapter's
-  reviewed fixtures and, for spans, partly by COR-2. §7 is not rewritten.
+- **SPAN-4.** A candidate alone cannot show that a span came from a length, so
+  `Validate` cannot enforce it. This section treats it as an adapter
+  obligation, enforced by each adapter's reviewed fixtures and partly by COR-2.
+  TREE-5 had the same problem; it is now deferred with syntax storage (§7).
 - **"Missing scope gives a rejection."** Issue #2071 asks for a rejection. §7
   makes a coverage gap (ACC-4) deny Vocabulary-ready instead of rejecting the
   candidate. This section follows §7: the analysis is validated but not
   Vocabulary-ready, carries `coverage_gap`, and is never adopted. A candidate
   declaring a different unit or binding is rejected outright (SCOPE-1). VAL-04
   and VAL-05 assert both. The choice is recorded as OD-47.
-- **New rule IDs.** VER-1 to VER-4, SCOPE-1 to SCOPE-3, COR-1, COR-2, IDV-1 to
+- **New rule IDs.** VER-1 to VER-4, SCOPE-1 to SCOPE-4, COR-1, COR-2, IDV-1 to
   IDV-5 and BND-1 are added here. They do not change any §7 rule.
+- **Syntax storage deferred (#2090).** SCOPE-4 enforces §7's decision in
+  `Validate`, which branches on declared scope as SCOPE-2 already does. Basic
+  syntax stays in the candidate and validated types for the compatibility
+  candidate only, without tree checks (OD-79). Secondary syntax and its
+  `secondary_unmapped` code are dropped (OD-80). The tree and endpoint codes
+  (`root_malformed`, `syntax_endpoint_invalid`, `root_missing`, `root_multiple`,
+  `tree_cycle`, `tree_disconnected`, `head_unresolved`, `relation_unmapped`) and
+  the `syntax_withheld_changed_eligibility` parity category are dropped with the
+  tree rules.
 - **B-25 and B-26 are not NLP gates** (§3 correction). They are still listed
   under NLP independence, because they are the gates an annotation-backed Book
   must pass with NLP stopped. Their mechanism is OD-05 (§11).
@@ -4139,7 +4163,7 @@ database ceiling is 3) nor reset or skip one.
 | --- | --- | --- | --- |
 | `verify` | The pinned package source: the §12 local path, or a later catalogue transfer. The pins. The rights gate for the operation (#2054–#2056). | The §5 evidence rows of a verified package (Package content, members, blob, notices, revisions, provenance claims) and the owner's Package acquisition. Links `text_acquisition_id` and `annotation_acquisition_id`. | The rights gate is checked first. A closed gate gives `blocked` with `rights_gate_closed`, before any byte is read. Bytes are checked against the pins and the §5 limits in the work step, outside every transaction (§5 "Limits"). Every row is insert-if-absent on its digest key. The acquisition is insert-if-absent on its §5 unique tuple. A re-run after a committed Finish is a stale delivery. Later stages read the stored blob and never re-acquire it. |
 | `interpret` | The stored blob, through the safe reader. The pins. | Interpretation configuration, insert-if-absent on `configuration_digest`. Extracted text and Text–annotation binding (§5), insert-if-absent. Links `interpretation_id` and `binding_id`. | The resolved configuration's digest must equal `interpretation_digest`, otherwise `blocked` with `interpretation_version_unknown`. A recomputed binding that differs from a stored one gives `blocked` with `binding_nondeterministic` (EVD-14). A `rejected` binding is stored for inspection and gives `blocked` with its reason codes. |
-| `validate` | The stored blob, binding and interpretation. | When Validated: the Exact analysis with its five Capability diagnostics, Diagnostic findings and §7 rows, in one transaction (§5). Links `candidate_analysis_id`. | The adapter is run again on the stored members. It is deterministic (§10), so the re-run is the stage's resume. `canonical.Validate` decides the outcome. The analysis is insert-if-absent on (binding, interpretation, adapter). An existing row is reused only if its `vocabulary_ready` and diagnostics are equal, otherwise `blocked` with `analysis_nondeterministic`. Rejected: `blocked` with the diagnostics, and no analysis. Validated but not Vocabulary-ready: the analysis is stored for inspection, and the request is `blocked` with the denying codes (OD-54). Not adoptable because of a `vocabulary` Usability restriction: `blocked` with `evidence_restricted`. |
+| `validate` | The stored blob, binding and interpretation. | When Validated: the Exact analysis with its four Capability diagnostics, Diagnostic findings and §7 rows, in one transaction (§5). Links `candidate_analysis_id`. | The adapter is run again on the stored members. It is deterministic (§10), so the re-run is the stage's resume. `canonical.Validate` decides the outcome. The analysis is insert-if-absent on (binding, interpretation, adapter). An existing row is reused only if its `vocabulary_ready` and diagnostics are equal, otherwise `blocked` with `analysis_nondeterministic`. Rejected: `blocked` with the diagnostics, and no analysis. Validated but not Vocabulary-ready: the analysis is stored for inspection, and the request is `blocked` with the denying codes (OD-54). Not adoptable because of a `vocabulary` Usability restriction: `blocked` with `evidence_restricted`. |
 | `prepare_projections` | The candidate analysis, the Book's decisions on it (none for a never-adopted analysis, EFF-4) and the current rich builder version. | The whole Staged count row set, `staged_builder_version` and `staged_coverage_denominator` (EFF-2, EFF-3). | The set is replaced as a whole, so a re-run gives the same rows. Decisions on the candidate cannot change meanwhile, because a decision is written only on the current analysis (§8 EFF-4). |
 | `adopt` | Everything above. | The adoption transaction below. | The stage uses the shared Begin, so its attempts are counted and leased like every other stage. Its Work is empty, and the adoption transaction is its Finish. If the adoption commits, the request is `adopted`. A re-run finds a terminal request and changes nothing. |
 
@@ -5235,7 +5259,7 @@ Rules for every step:
 | S2 | `classical_bibliographic_identity` | Work, Edition, Reading unit, Edition reconciliation, Verified identity alias, Book–Reading unit association, Identity conflict (§4). | S1 (Edition `evidence_pin` → Text Source revision; guard functions) | Yes | `users`, `books` (referenced only) | None | #2061 |
 | S3 | `vocabulary_identities` | Vocabulary identity (§6). | S1 (guard functions) | Yes | — | None | #2061 |
 | S4 | `classical_interpretations_and_bindings` | Interpretation configuration, Notice coverage, Provenance claim, Text–annotation binding (§5). | S1, S2 | Yes | — | None | #2061 |
-| S5 | `exact_analyses` | Exact analysis, Capability diagnostic, Diagnostic finding, Usability restriction (§5); Analysis headword (§6); Analysis sentence, Sentence span, Analysis node, Node span, Container component, Annotation occurrence, Node morphology, Basic syntax edge, Secondary syntax edge (§7). | S3, S4 | Yes | — | None | #2061 |
+| S5 | `exact_analyses` | Exact analysis, Capability diagnostic, Diagnostic finding, Usability restriction (§5); Analysis headword (§6); Analysis sentence, Sentence span, Analysis node, Node span, Container component, Annotation occurrence, Node morphology (§7). No syntax table (see below). | S3, S4 | Yes | — | None | #2061 |
 | S6 | `classical_adoption_anchor` | Adopted evidence record (§9); Book current classical analysis (§5), including its foreign key to the Adopted evidence record; the exclusion trigger on `book_current_analyses` (§5). | S1, S2, S5 | New tables plus one new trigger on an existing table | `book_current_analyses` (trigger) | None | #2061 (storage); #2059 writes it through adoption |
 | S7 | `rich_learner_attachments` | Exact occurrence decision, Exact Lemma review flag, Rich count readiness, Rich vocabulary count, Rich snapshot membership, Snapshot count contribution, Rich Known vocabulary (§8), each with its §9 foreign key to the Adopted evidence record; snapshot representation on `primary_goal_snapshots` (§8, §9); the tuple-row trigger on `primary_goal_snapshot_vocabulary` (§8). | S3, S5, S6 | No: relaxes five `NOT NULL` columns, guarded by a new check (see [Changes to existing tables](#changes-to-existing-tables)) | `primary_goal_snapshots`, `primary_goal_snapshot_vocabulary`; `users`, `books`, `reading_history` (referenced only) | None | #2061 (storage); #2059 writes counts at adoption; #2060 uses it in learner workflows |
 | S8 | `validate_snapshot_representation` | No record. Validates the constraints that S7 added `NOT VALID`. | S7 | Yes: reads rows, changes none | `primary_goal_snapshots` | None | #2061 |
@@ -5245,6 +5269,11 @@ Rules for every step:
 S9, under these rules. §4's Unit offering and Claimed alias get no step here,
 because they depend on OD-09's connection record and on the Stage 3 discovery
 spec (OD-66).
+
+S5 adds no syntax table, because §7 defers syntax storage for Exact analyses
+(#2090). If a later reviewed design needs syntax storage, its tables get a new
+step after S9, under these rules. They are new tables that reference S5's
+nodes, so STEP-4 holds and no S5 table is altered.
 
 **Why the order differs from the ticket's example.** Three foreign-key
 dependencies force it:
@@ -5890,11 +5919,11 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | EVD-17 | The same version set resolves to the same interpretation identity. | (b) | The synthetic interpretation set `example-decode/1`, `example-lemma/1`, `example-upos/1`, `example-feats/1`, `example-repairs/1`, `example-terminal/1`, `ancient-greek/1` and table `T`. | Prepare two different Books, for owners A and B, with that set. | Both analyses reference one Interpretation configuration. | Changing any one slot, or the table digest, gives a different configuration. A repair layer of none differs from `example-repairs/1`. |
 | EVD-18 | A new mapping version produces a new analysis and leaves the old one unchanged. | (b) | Owner A has adopted analysis X under `example-lemma/1`, has an active Reading and snapshot, and has a Lemma correction on X. | Prepare and adopt under `example-lemma/2`. | New analysis Y with a new configuration. X, its diagnostics and occurrences, the snapshot and the correction are unchanged and still readable. | Y carries no correction from X, and X is never updated to point at the new configuration. |
 | EVD-19 | At most one Exact analysis per (binding, interpretation, adapter). | (d) | An Exact analysis for (binding B, interpretation I, `example-adapter/1`). | Insert a second analysis with the same triple. Update the first analysis's interpretation. | Both are rejected. | `example-adapter/2` with the same B and I is accepted as a new analysis. |
-| EVD-20 | Every analysis persists one diagnostic state per capability, with reasons and scope. | (b) | A synthetic candidate with usable vocabulary and sentence/target, unsupported morphology, basic syntax invalid in one sentence, and missing secondary syntax. One node has an ambiguous POS. | Prepare it, then read A's evidence detail. | Five capability states are reported: `usable`, `usable`, `unsupported`, `usable` with an `invalid` sentence finding, and `missing`. Reason codes are present for every non-usable state and finding. The node finding reports `ambiguous`. | A write of an analysis lacking any one of the five capability rows fails at commit, and no analysis remains. |
-| EVD-21 | Diagnostics and findings are immutable. | (d) | An analysis with five Capability diagnostics and one finding. | Update a state, a reason code or a finding. Delete a diagnostic. | All are rejected. | Inserting a further finding for the committed analysis is also rejected, because an analysis is written in one transaction. |
-| EVD-22 | A confirmed defect is appended as a restriction, and the analysis is not edited. | (b) | Owner A has adopted analysis X with usable basic syntax. | Record a `confirmed_defect` restriction on X for `basic_syntax`. | A's syntax-dependent features report it unavailable, with the explanation. Vocabulary, Reading and the Capability diagnostic row are unchanged. X's fields are byte-identical. | Recording a second restriction adds a row and changes none. No learner route can record one. |
+| EVD-20 | Every analysis persists one diagnostic state per capability, with reasons and scope. | (b) | A synthetic candidate with usable vocabulary and sentence/target, unsupported morphology and no syntax. One node has an ambiguous POS. | Prepare it, then read A's evidence detail. | Four capability states are reported: `usable`, `usable`, `unsupported` and `missing`, the last with reason `syntax_not_stored`. Reason codes are present for every non-usable state and finding. The node finding reports `ambiguous`. | A write of an analysis lacking any one of the four capability rows fails at commit, and no analysis remains. |
+| EVD-21 | Diagnostics and findings are immutable. | (d) | An analysis with four Capability diagnostics and one finding. | Update a state, a reason code or a finding. Delete a diagnostic. | All are rejected. | Inserting a further finding for the committed analysis is also rejected, because an analysis is written in one transaction. |
+| EVD-22 | A confirmed defect is appended as a restriction, and the analysis is not edited. | (b) | Owner A has adopted analysis X with usable morphology. | Record a `confirmed_defect` restriction on X for `morphology`. | A's morphology display reports it unavailable, with the explanation. Vocabulary, Reading and the Capability diagnostic row are unchanged. X's fields are byte-identical. | Recording a second restriction adds a row and changes none. No learner route can record one. |
 | EVD-23 | A restriction applies transitively, and only to the capabilities it names. | (b) | Analyses X and Y both use annotation revision R. Analysis Z uses another revision. | Record an `integrity_failure` restriction on R for `morphology`. | X and Y report morphology as restricted. Z is unaffected, and vocabulary stays usable for X and Y. New adoption of X or Y for a morphology-dependent request is refused. | Z's morphology stays usable, and the restriction changes no diagnostic row of X, Y or Z. |
-| EVD-24 | Provenance claims are kept per layer and scope, including the repair layer. | (b) | A synthetic pin set: lemma `automatic` at release scope, basic syntax `human_reviewed_automatic` for a sentence subset, the repair layer `automatic` on the interpretation, and morphology `unknown`. | Import, prepare, then read evidence detail. | Each layer reports its own claim and scope, attributed to its source statement. | Basic syntax review is not reported as lemma or morphology review. A pin set lacking a release claim for a used layer stops import. |
+| EVD-24 | Provenance claims are kept per layer and scope, including the repair layer. | (b) | A synthetic pin set: lemma `automatic` at release scope, POS `human_reviewed_automatic` for a sentence subset, the repair layer `automatic` on the interpretation, and morphology `unknown`. | Import, prepare, then read evidence detail. | Each layer reports its own claim and scope, attributed to its source statement. | POS review is not reported as lemma or morphology review. A pin set lacking a release claim for a used layer stops import. |
 | EVD-25 | Identical bytes never give another owner access. | (a) | Owner A has imported and adopted `example-pkg`. Owner B has none. | B requests evidence detail with A's Book ID, A's acquisition ID, and the shared revision, binding and analysis IDs. Then B imports identical `example-pkg`. | Before the import, every request returns the existing not-found response. After it, B has B's own acquisition and can read the shared revisions through it. B still gets not-found for A's Book, acquisition and current record. | A's acquisition, current record and request are unchanged by B's import. |
 | EVD-26 | The database enforces the package bounds as ceilings. | (d) | — | Insert a blob over 16,777,216 bytes. Insert a Package content with 129 members, or with expanded bytes over 67,108,864. Commit a content whose member rows disagree with its count or sum. | Each is rejected. | A content whose count and sum equal its rows commits. |
 | EVD-27 | At most one current published analysis per (owner, Book), across both anchors. | (d) | Owner A has a classical Book C and an EPUB Book E. | Insert an existing-anchor (EPUB) current analysis for C. Insert a classical current row for E. Insert a second classical current row for C. Insert a classical current row whose acquisitions do not carry the analysis's revisions. | All are rejected. | A classical current row for C with matching acquisitions is accepted. |
@@ -5945,12 +5974,11 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | IDN-38 | A corrected identity shows the correction's citation form in its Book. | (b) | Owner A's Book has two occurrences of `λέξις` NOUN `example:ex:1`. | Confirm a correction of the first to `Λῆξις`, then of the second to `λῆξις`. Read the Book's vocabulary. | The effective identity `λῆξισ` NOUN with a null discriminator shows `λῆξις`, from the latest correction. The Analysis headword for `example:ex:1` is unchanged. | Another Book with the same identity from its analysis shows its own headword, not the correction's. |
 | OCC-01 | Two nodes with an identical span are two occurrences with two keys. | (c) | A synthetic candidate. Nodes 4 (`λέξις` NOUN `example:ex:1`) and 5 (`λέξις` NOUN `example:ex:2`) are both `word`, `vocabulary`, with span `[10,16)`. | Validate the candidate. | Accepted. It yields occurrences `(A,4)` and `(A,5)`, both counted. Each key resolves to its own node and identity. | A candidate that gives node 5 the same `native_node_ref` as node 4 in that sentence is rejected (`OCC-ID-1`). A lookup by span `[10,16)` is not an occurrence key and is not offered by the interface. |
 | OCC-02 | A discontinuous span round-trips exactly. | (d) | A validated synthetic analysis where node 9 has spans `[2,5)` and `[9,12)`, and the Extracted text has known slices at both. | Persist it, then read node 9 through the analysis read interface. | Two spans in order, `[2,5)` then `[9,12)`. The text slices equal the Extracted text at those spans. No span `[2,12)` exists. | Validating spans `[2,5)` and `[4,8)` (overlapping), `[2,5)` and `[5,8)` (adjacent), or `[9,12)` before `[2,5)` is rejected (`SPAN-2`), seam (c). |
-| OCC-03 | An empty node has no span and no count. | (c) | A candidate sentence with words 1–3 and an empty node `2.1` that has a lemma and secondary-syntax edges. | Validate and read counts. | The empty node is `empty`, `non_vocabulary(empty_node)`, with a NULL surface, no span and no occurrence. The count is that of words 1–3 only. | A candidate giving the empty node a span, a surface or class `vocabulary` is rejected (`SPAN-3`, `ACC-2`). |
+| OCC-03 | An empty node has no span and no count. | (c) | A candidate sentence with words 1–3 and an empty node `2.1` that has a lemma. | Validate and read counts. | The empty node is `empty`, `non_vocabulary(empty_node)`, with a NULL surface, no span and no occurrence. The count is that of words 1–3 only. | A candidate giving the empty node a span, a surface or class `vocabulary` is rejected (`SPAN-3`, `ACC-2`). |
 | OCC-04 | A container with two counted components counts 2, not 3. | (c) | Container node 3, surface `λέξισῥῆσ`, span `[10,18)`, with components 4 (`λέξις` NOUN `example:ex:1`) and 5 (`ῥῆσις` NOUN), both referencing `[10,18)`. | Validate and count. | Occurrences `(A,4)` and `(A,5)`. The container has no occurrence. The count is 2. | A candidate classing the container `vocabulary`, giving a component a span `[10,14)` computed from `len("λέξις")` without native offsets, or a span outside `[10,18)`, is rejected (`ACC-2`, `SPAN-4`, `CONT-2`). |
 | OCC-05 | Punctuation is not an occurrence. | (c) | A candidate sentence ending in a punctuation node with span `[30,31)`. | Validate. | The node is `punctuation`, `non_vocabulary(punctuation)`, with a span and no occurrence. It counts nothing. | A candidate classing it `vocabulary` or `unresolved` is rejected. At seam (d), inserting an occurrence row for that node is rejected by the database. |
 | OCC-06 | A sentence cut by the extent is persisted as `incomplete`. | (a) | Owner A. A synthetic package whose unit `book 1` starts inside a native sentence. | Import and prepare the Book, then open its first sentence in sentence study. | The sentence is reported `incomplete` with reason `unit_extent_cuts_sentence`. Its in-extent nodes are present and counted. Its text is only the in-extent slice. It is not offered as a complete sentence target. | The adapter declaring that sentence `complete` is rejected by validation (`SENT-3`), and nothing is written. |
-| OCC-07 | Missing syntax gives `basic_syntax` `missing`, and Concordance shows unavailable, not zero. | (a) | Owner A. A Vocabulary-ready synthetic analysis without basic syntax, adopted for Book G. Owner A also has an EPUB Book with legacy syntax. | Run a syntax-dependent Concordance query (role filter) for a lemma present in G. Then open sentence study for a G sentence. | Capability `basic_syntax` is `missing` with reason `syntax_absent`. The query names G as "syntax unavailable" with the reason, and lists only the EPUB Book's matches. Sentence study shows "Syntax unavailable" and no relation or head. Lemma lookup still finds G's occurrences. | The response never reports G as having zero matches for the role, and never shows an empty relation. |
-| OCC-08 | A cyclic tree is withheld as `invalid`, and vocabulary stays usable. | (c) | A candidate where sentence 2's basic heads form a cycle (node 5 → 6 → 5) and every other sentence has a complete tree. | Validate, then read sentence 2's basic syntax through the interface. | Accepted, and `vocabulary_ready` is true. Sentence 2 has a `basic_syntax` finding `invalid` with reason `tree_cycle`. The interface returns state `invalid` and no edges for sentence 2, and edges for the other sentences. The stored edges stay inspectable in evidence detail. | No root is added and no edge is dropped to repair the cycle (`TREE-5`). |
+| OCC-07 | An Exact analysis gives `basic_syntax` `missing`, and Concordance shows unavailable, not zero. | (a) | Owner A. A Vocabulary-ready synthetic analysis, adopted for Book G. Owner A also has an EPUB Book with legacy syntax. | Run a syntax-dependent Concordance query (role filter) for a lemma present in G. Then open sentence study for a G sentence. | Capability `basic_syntax` is `missing` with reason `syntax_not_stored`. The query names G as "syntax unavailable" with the reason, and lists only the EPUB Book's matches. Sentence study shows "Syntax unavailable" and no relation or head. Lemma lookup still finds G's occurrences. | The response never reports G as having zero matches for the role, and never shows an empty relation. |
 | OCC-09 | An unresolved lexical occurrence blocks Vocabulary-ready. | (c) | A candidate in which one `word` node has a native lemma that the interpretation cannot map, and is classed `unresolved`. | Validate. | Accepted for inspection with `vocabulary_ready` false. The node has an occurrence that does not count, and a vocabulary finding names it. | The same candidate with that native node dropped from the node set is rejected (`ACC-1`), and nothing is written. |
 | OCC-10 | Non-vocabulary conjunction accounting is accepted with ambiguous UPOS. | (c) | The synthetic conjunction example: node 7 `ξέλ`, native POS `example:C`, `upos_state` `ambiguous` with candidates CCONJ and SCONJ, `non_vocabulary(native_conjunction_class)`, evidence `pos@7`. All other nodes resolved. | Validate. | Accepted with `vocabulary_ready` true. Node 7 has no occurrence and no count, and a node finding `ambiguous` (`upos_mapping_ambiguous`). It is not shown as an Occurrence exclusion. | Node 7 with UPOS `X`, with no `native_evidence_ref`, or with reason `native_conjunction_class` under an interpretation that has no reviewed conjunction mapping, is rejected (`ACC-2`). |
 | OCC-11 | A legacy `corpus_tokens` analysis reads identically through the shared interface. | (a) | Owner A. A German EPUB Book with a published legacy analysis that includes a multiword token, a shared span, a correction and an exclusion. The responses of the Reading page, Book vocabulary, Browse, lemma review, sentence study, Concordance and deck preparation are recorded before the interface. | Request the same pages after the interface is in place. | Every response is byte-identical to the recording, apart from CSRF tokens and timestamps. Occurrence keys stay offset-keyed. A decision on the shared span still fails as today. | A checksum of the analysis's `corpus_tokens` and `corpus_sentences` rows is unchanged after every request. |
@@ -5960,15 +5988,13 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | OCC-15 | Sentence text comes only from the bound text. | (c) | A candidate sentence whose spans slice to `λέξις, ῥῆσις` in the Extracted text. | Validate it with supplied text `λέξις ῥῆσις` and no reconstruction. | Rejected with `sentence_text_unbound`. | The same text with a reviewed reconstruction `example-spacing/1` is accepted and stored as `reconstructed_text`. Without supplied text, the sentence text is the slices. |
 | OCC-16 | Every node in the extent has exactly one accounting class. | (c) | A candidate with a word node whose accounting class is absent. | Validate. | Rejected (`ACC-1`), and nothing is written. | A candidate with every node classed is accepted. |
 | OCC-17 | A coverage gap blocks Vocabulary-ready. | (c) | A candidate whose Extracted text has a non-whitespace code point at `[50,51)` that no printed node covers. All other nodes are resolved. | Validate. | Accepted for inspection with `vocabulary_ready` false and a `coverage_gap` finding for `[50,51)`. | Uncovered whitespace alone leaves `vocabulary_ready` true. |
-| OCC-18 | A tree without a root is withheld, and no root is fabricated. | (c) | Sentence 3 of a candidate gives heads for every node, and none of them is a root. Sentence 4 has two roots. Sentence 5 has a node whose head is in sentence 4. | Validate. | Accepted. Sentences 3, 4 and 5 get `invalid` findings `root_missing`, `root_multiple` and `head_unresolved`, and their edges are withheld. Vocabulary readiness is unchanged. | A self-headed row with relation `nsubj`, or a `root` row whose head is another node, is rejected as malformed (`TREE-2`). |
 | OCC-19 | Morphology keeps native features and gives FEATS only where mapped. | (c) | A node whose native tag has one feature with a reviewed mapping and one without. | Validate and read the node's morphology. | `native_morphology` holds the full native tag. `feats` holds only the mapped feature. A node finding marks the unmapped feature `unsupported`. | A candidate putting a guessed value for the unmapped feature into `feats` is rejected (`canonical_value_unmapped`). |
-| OCC-20 | Secondary syntax is kept separately, including empty-node edges. | (c) | A candidate with complete basic trees and secondary edges to and from an empty node. | Validate, then read both layers. | Basic syntax `usable`. Secondary syntax `usable`, with the empty-node edges. No secondary edge appears in basic syntax. | A candidate without secondary edges has `secondary_syntax` `missing` and leaves basic syntax unchanged. A basic edge whose endpoint is the empty node is rejected (`SYN-1`). |
-| OCC-21 | Unavailable syntax never makes an occurrence ineligible. | (b) | Owner A's Book has a Vocabulary-ready analysis with `basic_syntax` `missing`, and a NOUN occurrence that would be eligible. | Read A's Book vocabulary and counts. | The occurrence is eligible and counted. | With usable syntax in which that node's relation is a syntax-excluded relation, the occurrence is not counted. |
-| OCC-22 | §7 records are immutable once the analysis commits. | (d) | A committed analysis with sentences, nodes, spans, a container, occurrences, morphology and both syntax layers. | Update any field of each record. Insert a further node, span or occurrence for that analysis. Delete a node. | Every operation is rejected, and the rows are unchanged. | Inserting the same records for a new analysis in its own transaction succeeds. |
-| OCC-23 | Syntax endpoints stay within one analysis and one sentence. | (d) | Committed analyses A and B. | Insert, in A's transaction, a basic edge whose head is a node of B, and one whose head is in another sentence of A. | Both are rejected. | An edge between two nodes of the same sentence of A is accepted. |
+| OCC-21 | Unavailable syntax never makes an occurrence ineligible. | (b) | Owner A's Book has a Vocabulary-ready analysis with `basic_syntax` `missing`, and a NOUN occurrence that would be eligible. | Read A's Book vocabulary and counts. | The occurrence is eligible and counted. | For a legacy Book whose stored relation for an otherwise eligible occurrence is `compound:prt`, the occurrence is not counted, as today. |
+| OCC-22 | §7 records are immutable once the analysis commits. | (d) | A committed analysis with sentences, nodes, spans, a container, occurrences and morphology. | Update any field of each record. Insert a further node, span or occurrence for that analysis. Delete a node. | Every operation is rejected, and the rows are unchanged. | Inserting the same records for a new analysis in its own transaction succeeds. |
 | OCC-24 | New analyses write no legacy rows, and legacy rows are never rewritten. | (a) | Owner A has an EPUB Book with a legacy analysis. The legacy table row counts and checksums are recorded. | Import and adopt a synthetic classical Book for A, read it through every consumer, and record a decision on it. | `analysis_runs`, `corpora`, `corpus_sentences` and `corpus_tokens` have the same counts and checksums as before. | Re-analysing the EPUB Book still writes legacy rows through the existing path, as today. |
 | OCC-25 | The `grc` form search key matches NFC and NFD, case and final sigma, and nothing broader. | (a) | Owner A has a classical Book with a node whose surface is `Λέξις` in NFD. | Run Concordance form searches for `λέξις` (NFC), `ΛΈΞΙΣ` and `λέξισ`. Then search for `λεξις`. | The first three find the node, and the highlight is its span. | `λεξις` (no accent) finds nothing. A search never changes any identity or Known state. |
 | OCC-26 | Morphology is `usable` only through the interpretation's morphology-mapping slot. | (c) | A candidate whose nodes all have native morphology rows that `example-feats/1` maps completely. Variant: the same candidate under an interpretation with no `morphology_mapping`. | Validate each, and read morphology through the read interface. | Under `example-feats/1`, `morphology` is `usable` and each node's `feats` holds the mapped features. Under no mapping, `morphology` is `unsupported`, every `feats` is `{}`, `native_morphology` is unchanged, and the read interface returns no FEATS. | The no-mapping variant with any non-empty `feats`, including a value copied from the native tag, is rejected (`canonical_value_unmapped`). |
+| OCC-27 | An Exact analysis stores no syntax, and `basic_syntax` is `missing`. | (c) | A binding-scope candidate with no syntax, whose binding's native annotation has heads in every sentence. | Validate, then read the basic-syntax layer through the validated analysis. | Validated. `basic_syntax` is `missing` with `syntax_not_stored`, with no sentence or node findings. The layer returns no value. `vocabulary` and `morphology` are unchanged, and no `secondary_syntax` capability exists. | A legacy-scope compatibility candidate with edges is `usable` for `basic_syntax`, so the `missing` state comes from the scope, not from the data. |
 | LRN-01 | The same lemma and UPOS with `ex:1` and `ex:2` stays distinct in counts, Known, Reserved, the snapshot and Finish. | (b) | `grc`. Owner A's To Read classical Book G1 has an analysis with `λέξις` NOUN `example:ex:1` ×3 and `example:ex:2` ×3, ready counts, nothing Known. | Read G1's counts. Start G1, read Reserved, then Finish. | Counts list two identities with 3 each. The snapshot has two members. Both are Reserved while reading. Finish records snapshot 2, eligible 2, newly Known 2, already Known 0, and A has two Rich Known identities. | With `example:ex:1` already Rich Known before Start, the snapshot holds only `example:ex:2`, Finish accepts only it, and the `ex:1` Known row keeps its original completion. A null-discriminator `λέξισ` NOUN is never Known or Reserved by either. |
 | LRN-02 | Same-span occurrences hold independent decisions. | (b) | G1's analysis X has nodes 4 (`example:ex:1`) and 5 (`example:ex:2`), both at span `[10,16)`, each eligible. | Confirm an exclusion of `(X,4)`. Then confirm a correction of `(X,5)` to `ῥῆσις`. | `(X,4)` is excluded and `(X,5)` is corrected; reading each key returns only its own decision. Counts: `ex:1` and `ex:2` each fall by 1, and `ῥῆσισ` NOUN (null discriminator) rises by 1. | A decision request that names the span `[10,16)` and no node is rejected as not found and writes nothing. The exclusion never changes `(X,5)`. |
 | LRN-03 | A decision never transfers to another analysis. | (b) | G1 has a correction on `(X,4)`. §11 adopts analysis Y for G1, in which node 4 has the same native reference, span and identity. | Read G1's effective identities, counts and decisions. | `(Y,4)` has its native identity, and Y's counts ignore the `(X,4)` correction. The `(X,4)` decision is still stored, unchanged. | After Y is adopted, a confirm naming `(X,4)` is rejected and writes nothing. No decision row names `(Y,4)`. |
@@ -6013,8 +6039,7 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | RET-16 | The integrity check detects an unresolved reference. | (d) (OD-41) | A restored database where data was loaded with triggers and constraints disabled, and one Node span and one Extracted text row of X are missing. | Run the integrity check. | The check reports `evidence_reference_missing` for both (IC-7 for the span, IC-6 for the Extracted text), and appends restrictions on X and on X's binding. No frozen record changes. | When a root names an analysis that does not exist, the check reports the restore as failed and appends nothing. |
 | RET-17 | A restricted Book is never ended, finished or substituted automatically. | (b) | G1 is the current reading on X. A second, intact build P2 of the same Package content exists, from another acquisition of A. An `integrity_failure` restriction is on that content. | Read the current reading. Then End it. Then, in a second run, Finish it. | Before any action, G1 is still the current reading. Explicit End succeeds. Explicit Finish succeeds from the frozen snapshot. No analysis, acquisition or blob is adopted or read for G1 in place of X, including through P2. | Start of G1 is refused with the restriction reason. |
 | VAL-01 | Imported and Stanza candidates both go through one validator, and equal defects give equal diagnostics. | (c) | Two synthetic candidates over one 40-code-point extent: one from a test adapter declaring `example-adapter/1`, and one produced by the Stanza compatibility adapter from a synthetic `analyzer.Result`. Each has one node span `[38,41)`. | Validate each through the shared interface. | Both are Rejected with one `reject` diagnostic, code `span_out_of_bounds`, rule `SPAN-1`, scope `node`, and the same `node_id`. Neither yields a validated analysis. | With the span corrected to `[37,40)`, both are Validated and Vocabulary-ready. |
-| VAL-02 | A producer claiming syntax gets `invalid` for a cyclic tree, while vocabulary stays usable. | (c) | A candidate whose producer claim marks `basic_syntax` usable. In every sentence, the basic heads form a cycle (for example node 2 → 3 → 2), and no other rule fails. | Validate, then read basic syntax for each sentence through the read interface. | Validated. `basic_syntax` is `invalid` with `tree_cycle`. `vocabulary` is `usable`, and `VocabularyReady` is true. A `claim_not_supported` notice is returned. The read interface returns no edges. The validated analysis holds exactly the candidate's edges: none added, none dropped. | The same candidate with a complete tree in one sentence gives release-scope `usable` and an `invalid` finding for each other sentence. The claim never makes `basic_syntax` `usable` on its own. |
-| VAL-03 | A capability claim is not proof. | (c) | A candidate whose claim marks `morphology` and `secondary_syntax` usable, but which has no morphology rows and no secondary edges. | Validate. | `morphology` is `missing` and `secondary_syntax` is `missing`, each with a `claim_not_supported` notice. `VocabularyReady` is unchanged. | Adding morphology rows with no reviewed FEATS mapping gives `unsupported`, never `usable`. |
+| VAL-03 | A capability claim is not proof. | (c) | A binding-scope candidate whose claim marks `morphology` and `basic_syntax` usable, but which has no morphology rows and no syntax. | Validate. | `morphology` is `missing` and `basic_syntax` is `missing` (`syntax_not_stored`), each with a `claim_not_supported` notice. `VocabularyReady` is unchanged. | Adding morphology rows with no reviewed FEATS mapping gives `unsupported`, never `usable`. |
 | VAL-04 | A candidate that does not cover its declared unit is denied Vocabulary-ready and is never adopted, with a diagnostic (OD-47). | (c) | A declared unit whose Extracted text is 200 code points. The candidate's printed nodes cover only `[0,120)`. Everything else is well formed. | Validate. | Validated, with `vocabulary` `invalid`, code `coverage_gap`, rule `ACC-4`, severity `blocks_vocabulary`, and a count equal to the uncovered non-`White_Space` code points. `VocabularyReady` is false. The analysis is not adoptable. | A candidate covering the full extent is Vocabulary-ready. A coverage gap never shows as a smaller unit or as a ready analysis. |
 | VAL-05 | A candidate for another unit, binding or language is rejected. | (c) | Declared binding B1 for unit `book 1`, language `grc`. Candidates naming (i) binding B2, (ii) the right binding with a different Extracted text digest, and (iii) the right binding with language `el`. | Validate each. | Each is Rejected: (i) `scope_mismatch` (`SCOPE-1`), (ii) `extracted_text_mismatch` (`COR-1`), (iii) `language_mismatch` (`SCOPE-3`). | The candidate naming B1, the right digest and `grc` validates. |
 | VAL-06 | An unknown version is a permanent failure that writes nothing and is never retried. | (a) | Owner A has a classical Book. A synthetic reviewed definition names `example-lemma/9`, which is absent from the compiled registry. A second definition names adapter `example-adapter/2`, which no registered adapter declares. | Submit a preparation request for each through the web handler, and run the River jobs to completion. | Each request is failed with a permanent class, code `interpretation_version_unknown` or `adapter_version_unsupported` respectively, after exactly one attempt. No Exact analysis, Interpretation configuration, diagnostic or current record exists for either. The Book's state is unchanged. | The same definitions with `example-lemma/1` and `example-adapter/1` prepare successfully. A transient fault (VAL-19) is the only thing that retries. |
@@ -6032,9 +6057,10 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | VAL-18 | Exact text correspondence holds for verbatim surfaces. | (c) | A candidate declaring verbatim surfaces, in which one word's surface is `λέξις` while its span slices `λεξις` (no accent) from the Extracted text. A multiword container's components reference exactly the container's span. | Validate. | Rejected, `surface_span_mismatch` (`COR-2`), naming only the word's `node_id`. The components raise no correspondence diagnostic. | With the surface matching the slice, the candidate validates. |
 | VAL-19 | Only infrastructure failures are transient, and they retry within budget. | (a) | A preparation request whose persistence is wrapped to fail the first adoption commit with a serialization failure. A second request whose candidate is rejected `coverage_gap`. | Run both River jobs to completion. | The first retries, succeeds once, and leaves exactly one current record and one Exact analysis. The second fails permanently after one attempt, with `coverage_gap`. | A fault that persists past the §11 budget ends with `retry_budget_exhausted` and leaves the Book's previous current analysis unchanged. |
 | VAL-20 | Consumers never branch on producer or language. | (b) | The rich scenarios run under `Variant{grc}` and `Variant{xx}`. In each, the same synthetic analysis content is seeded twice: once labelled `example-adapter/1` and once labelled `stanza-compat/1`. | Run Start, counts, lemma review preview and Finish for each Book. | Verdicts, counts, snapshot membership and Known are equal across both adapters and both variants, up to the language field. | Changing the adapter label alone never changes a verdict or a count. |
-| VAL-21 | A restriction makes a capability unavailable to consumers at read time. | (b) | A Reading-ready classical Book with no current reading. Then an operator Usability restriction naming `vocabulary` is appended to its analysis's binding. | Request Start, Browse counts and Concordance lemma lookup. | Start returns the ineligible verdict. Browse reports Unavailable, and Concordance lists the Book as unavailable with the restriction's reason. The validated states and diagnostics stored for the analysis are unchanged. | A restriction naming only `basic_syntax` leaves Start, counts and lemma lookup unchanged, and withholds only syntax. |
+| VAL-21 | A restriction makes a capability unavailable to consumers at read time. | (b) | A Reading-ready classical Book with no current reading. Then an operator Usability restriction naming `vocabulary` is appended to its analysis's binding. | Request Start, Browse counts and Concordance lemma lookup. | Start returns the ineligible verdict. Browse reports Unavailable, and Concordance lists the Book as unavailable with the restriction's reason. The validated states and diagnostics stored for the analysis are unchanged. | A restriction naming only `morphology` leaves Start, counts and lemma lookup unchanged, and withholds only morphology. |
 | VAL-22 | Only a validated, Vocabulary-ready, unrestricted analysis is adopted. | (a) | Owner A's classical Book with current analysis X. A new preparation produces a validated analysis Y with `VocabularyReady` false (`occurrence_unresolved`). | Run preparation through adoption. | The request ends with `occurrence_unresolved`. X remains current, with its counts, decisions and snapshots unchanged. | A Vocabulary-ready Y is adopted. A Y with a `vocabulary` restriction is not. |
-| VAL-23 | An adapter is deterministic and invents no defaults. | (c) | A synthetic package for `example-adapter/1`, in which one native sentence has no heads, one native token has no POS, and one native token has a POS with no reviewed mapping. | Run the adapter twice on the same inputs, then validate its candidate. | The two candidates are equal under the canonical serialization. The headless sentence has no basic-syntax edge and gets a `basic_syntax` `missing` finding (`syntax_absent`), not a fabricated root. The token without a POS has `upos_state` `missing`, and the unmapped POS gives `mapping_unsupported`. Neither has UPOS `X`. Every native node in the extent appears in the candidate (ACC-1). | A test adapter that adds a root to the headless sentence is caught by the adapter's own reviewed fixture, not by `Validate` (SPAN-4 and TREE-5 are adapter obligations). |
+| VAL-23 | An adapter is deterministic and invents no defaults. | (c) | A synthetic package for `example-adapter/1`, in which one native sentence has native heads, one has none, one native token has no POS, and one native token has a POS with no reviewed mapping. | Run the adapter twice on the same inputs, then validate its candidate. | The two candidates are equal under the canonical serialization. No sentence has a basic-syntax edge, and `basic_syntax` is `missing` (`syntax_not_stored`). The token without a POS has `upos_state` `missing`, and the unmapped POS gives `mapping_unsupported`. Neither has UPOS `X`. Every native node in the extent appears in the candidate (ACC-1). | A test adapter that emits the native heads is rejected with `exact_syntax_unsupported` (SCOPE-4). A test adapter that fills UPOS `X` for the token without a POS is caught by the adapter's own reviewed fixture, not by `Validate`. |
+| VAL-24 | A binding-scope candidate that carries basic syntax is rejected. | (c) | A synthetic binding-scope candidate from `example-adapter/1` with a complete basic tree in every sentence. | Validate. | Rejected with `exact_syntax_unsupported` (SCOPE-4). No validated analysis exists, so nothing can be adopted or written. | The same edges in a legacy-scope compatibility candidate are Validated, with `basic_syntax` `usable` and the edges passed through unchecked (OD-79). |
 | ADP-01 | A request and its first job commit together. A classical To Read and its initial request commit together. Parsing runs outside the HTTP request and every transaction. | (a) | Owner A, a classical Book in Inbox, registered from the synthetic `example-def`, with its Local selection (§12). The test's River client is not yet started. A second run injects a failure into the job insert. | POST To Read, then start River. | The response returns before any package byte is read. Book detail shows the Book To Read with a `queued` preparation. One request and one `verify` job exist. After River runs, the Book has current evidence. | With the job insert failing, the POST shows the error, the Book is not To Read, and neither a request nor a job exists. |
 | ADP-02 | Duplicate job delivery gives one adoption and does not reset attempts. | (a) | A's initial request in `queued`. The test inserts a second River job with the same arguments for each stage, and delivers each stage's job twice concurrently. | Run River to completion. | Exactly one current evidence for the Book, one Adopted evidence record and one ready count projection exist. Book detail's preparation history shows one successful attempt per stage. The duplicate deliveries wrote nothing. | A duplicate delivered after the request is `adopted` changes nothing, and the history is unchanged. |
 | ADP-03 | A restart mid-stage resumes without a budget reset. | (a) | A's request in its `validate` stage, attempt 1, with work in progress. The test kills the worker process during the work step, then starts a new process. | Advance the injected clock past the attempt's lease, and run the reconciler and River. | The history shows `validate` attempt 1 as interrupted and attempt 2 as succeeded, and one attempt for each earlier stage. The request is adopted. | A clean shutdown during work records the interruption at once and schedules attempt 2 after backoff. The interrupted attempt is still counted. |
@@ -6115,6 +6141,28 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | PUB-02 | No output channel carries local material. | (a) + CLI | LOC-21's sentinel package, pin file and table, registered and adopted for owner A. | Run LOC-21's flows, including its failures, the legacy-`grc` preflight (§13), the evidence integrity check and the unreferenced-evidence report (§9). Capture all stdout and stderr, server log lines, River job arguments and metadata, and request `reason` and `diagnostics`. | No sentinel appears in any captured output. | A test-only diagnostic or report line that embeds a member path or a lemma fails this row, which shows the check is effective. |
 | PUB-03 | Gates are per operation: a closed public-release or catalog-publication gate never blocks the operator-local route. | (a) + CLI | A test rights-gate state with the operator-local import gate open and every other operation's gate closed. Owner A. | Register `example-def/1`, POST To Read with the informed-choice confirmation, and run River. | Registration exits 0 and the request is `adopted`. No response, output or diagnostic names a public-release or catalog gate. | With the operator-local import gate closed, the command exits 4 `rights_gate_closed` before it reads the package (LOC-17), and the `verify` stage of an already registered Book is `blocked` with `rights_gate_closed`. |
 
+### Deferred rows
+
+These rows assert stored syntax or tree validation, which §7 defers (#2090,
+OD-79). Their IDs are kept and never reused. No spec runs them. A later reviewed
+design that adds syntax storage restates and schedules them.
+
+| ID | invariant | seam | setup | action | expected | negative case |
+| --- | --- | --- | --- | --- | --- | --- |
+| OCC-08 | A cyclic tree is withheld as `invalid`, and vocabulary stays usable. | (c) | A candidate where sentence 2's basic heads form a cycle (node 5 → 6 → 5) and every other sentence has a complete tree. | Validate, then read sentence 2's basic syntax through the interface. | Accepted, and `vocabulary_ready` is true. Sentence 2 has a `basic_syntax` finding `invalid` with reason `tree_cycle`. The interface returns state `invalid` and no edges for sentence 2, and edges for the other sentences. The stored edges stay inspectable in evidence detail. | No root is added and no edge is dropped to repair the cycle (`TREE-5`). |
+| OCC-18 | A tree without a root is withheld, and no root is fabricated. | (c) | Sentence 3 of a candidate gives heads for every node, and none of them is a root. Sentence 4 has two roots. Sentence 5 has a node whose head is in sentence 4. | Validate. | Accepted. Sentences 3, 4 and 5 get `invalid` findings `root_missing`, `root_multiple` and `head_unresolved`, and their edges are withheld. Vocabulary readiness is unchanged. | A self-headed row with relation `nsubj`, or a `root` row whose head is another node, is rejected as malformed (`TREE-2`). |
+| OCC-23 | Syntax endpoints stay within one analysis and one sentence. | (d) | Committed analyses A and B. | Insert, in A's transaction, a basic edge whose head is a node of B, and one whose head is in another sentence of A. | Both are rejected. | An edge between two nodes of the same sentence of A is accepted. |
+| VAL-02 | A producer claiming syntax gets `invalid` for a cyclic tree, while vocabulary stays usable. | (c) | A candidate whose producer claim marks `basic_syntax` usable. In every sentence, the basic heads form a cycle (for example node 2 → 3 → 2), and no other rule fails. | Validate, then read basic syntax for each sentence through the read interface. | Validated. `basic_syntax` is `invalid` with `tree_cycle`. `vocabulary` is `usable`, and `VocabularyReady` is true. A `claim_not_supported` notice is returned. The read interface returns no edges. The validated analysis holds exactly the candidate's edges: none added, none dropped. | The same candidate with a complete tree in one sentence gives release-scope `usable` and an `invalid` finding for each other sentence. The claim never makes `basic_syntax` `usable` on its own. |
+
+### Withdrawn rows
+
+These rows assert secondary syntax, which is dropped (OD-80). Their IDs are
+kept and never reused.
+
+| ID | invariant | seam | setup | action | expected | negative case |
+| --- | --- | --- | --- | --- | --- | --- |
+| OCC-20 | Secondary syntax is kept separately, including empty-node edges. | (c) | A candidate with complete basic trees and secondary edges to and from an empty node. | Validate, then read both layers. | Basic syntax `usable`. Secondary syntax `usable`, with the empty-node edges. No secondary edge appears in basic syntax. | A candidate without secondary edges has `secondary_syntax` `missing` and leaves basic syntax unchanged. A basic edge whose endpoint is the empty node is rejected (`SYN-1`). |
+
 ## 16. Requirement traceability
 
 Traced at commit `00a63be6b38f9b54d359b6e68ed014af30ab7b25` (`main`), against
@@ -6133,7 +6181,7 @@ recorded in §17, or closed by a row that follows directly from a stated rule.
 | 2 | My Book is an explicit Edition and Reading unit, and annotation availability cannot change it | §4, §5 "Bytes present versus unit offered" | BIB-06, BIB-09, BIB-10, BIB-13, EVD-12, LOC-14 |
 | 3 | Usable citation headwords and distinct lexical homographs | §6, §7, §8 | IDN-17, IDN-28, IDN-29, IDN-30, IDN-37, OCC-01, LRN-01 |
 | 4 | Exact occurrence decisions when spans coincide | §7 "Occurrence identity", §8 "Effective identity" | OCC-01, OCC-12, OCC-13, LRN-02, LRN-22 |
-| 5 | Unsupported optional syntax stays explicitly unavailable | §7 "Optional layers and availability", §10 "Capability derivation and readiness" | OCC-07, OCC-08, OCC-18, OCC-21, OCC-26, VAL-02, VAL-03, EVD-20 |
+| 5 | Unsupported optional syntax stays explicitly unavailable | §7 "Optional layers and availability", §10 "Capability derivation and readiness" | OCC-07, OCC-21, OCC-26, OCC-27, VAL-03, VAL-24, EVD-20 |
 | 6 | Existing Known, reservations, snapshots and history preserved | §6 "Legacy compatibility", §8, §11 "Frozen state", §13 | IDN-24, IDN-25, IDN-26, IDN-27, LRN-13, LRN-14, ADP-21, MIG-01, MIG-02, MIG-10 |
 | 7 | Source refresh separated from adoption | §11 "Initial and replacement", §12 "Local selection" | ADP-14, ADP-15, ADP-17, ADP-22, ADP-30, LOC-25, EVD-18 |
 | 8 | Annotation-backed Reading works with NLP stopped | §10 "NLP independence", §12 | VAL-11, VAL-12, LOC-20, LOC-30 |
@@ -6164,7 +6212,7 @@ recorded in §17, or closed by a row that follows directly from a stated rule.
 | Impl 13 | Completion needs a reviewed design, a matrix and recorded human approval. SQL is not authorized before then. | §1, §15, §18 | None. A review rule: gap, OD-75. |
 | Test 1 | Observable behaviour, not table names. Each invariant is exercised and rejected. | §15 | See [Consistency audit](#consistency-audit): every invariant has a row, and no row asserts a proposed table name. |
 | Test 2 | Primary seam (a). Reuse the store-contract scenarios for lifecycle, Known, deck admission and occurrence review. | §8 "Store-contract extension", §10 "Store-contract harness", §15 | LRN-01, LRN-02, LRN-19, LRN-22. Rich deck admission: gap, OD-76. PostgreSQL seeding of rich scenarios: OD-68. |
-| Test 3 | Seam (c) for parity, full-scope rejection, identities, overlapping spans, normalization and unavailable optional evidence. | §6, §7, §10 | VAL-08, VAL-04, VAL-05, VAL-16, OCC-01, OCC-02, IDN-01 to IDN-12, VAL-02, VAL-03 |
+| Test 3 | Seam (c) for parity, full-scope rejection, identities, overlapping spans, normalization and unavailable optional evidence. | §6, §7, §10 | VAL-08, VAL-04, VAL-05, VAL-16, OCC-01, OCC-02, IDN-01 to IDN-12, VAL-03 |
 | Test 4 | Duplicate delivery, late finishers, stale intent, transaction failure, two-owner isolation and exact restoration, with modern characterization retained. | §9, §11, §13 | Duplicates ADP-02, ADP-28; late finishers ADP-09; stale intent ADP-13, ADP-25, LRN-18; transaction failure ADP-12, RET-07; two owners ADP-11, ADP-23, ADP-30, EVD-25, LRN-12; restoration EVD-30, MIG-11, RET-15; characterization OCC-11, IDN-36, LRN-14, MIG-02 |
 | Test 5 | Public CI is synthetic. The real Book 1 fixture is a local oracle. No private payload in logs or artifacts. | §14 | PUB-01, PUB-02, LOC-21, VAL-07; L-1 to L-8 |
 | Test 6 | No migrations, implementation, provider calls or fixture execution are needed to complete this design. | — | None. A review rule: gap, OD-75. |
@@ -6208,6 +6256,18 @@ Rows added by #2089 (no treebank data), for the morphology-mapping slot:
 The exception-table lineage audit, the morphology-tag confirmation and the re-run of the baseline need retained material, so they are the local-only step L-0
 (§14), not rows. The εἰμί rule is OD-77.
 
+Rows added, restated, deferred and withdrawn by #2090 (syntax storage deferred
+for Exact analyses):
+
+- **Added:** OCC-27 (§7: an Exact analysis stores no syntax) and VAL-24 (§10
+  SCOPE-4).
+- **Restated:** OCC-03, OCC-07, OCC-21, OCC-22, EVD-20, EVD-21, EVD-22, EVD-24,
+  VAL-03, VAL-21 and VAL-23 no longer persist or read exact syntax.
+- **Deferred:** OCC-08, OCC-18, OCC-23 and VAL-02, listed under §15 "Deferred
+  rows" (tree validation waits for syntax storage, OD-79).
+- **Withdrawn:** OCC-20, listed under §15 "Withdrawn rows" (secondary syntax is
+  dropped, OD-80).
+
 Gaps recorded in §17: OD-68 (rich store-contract seeding), OD-74 (storage
 pressure), OD-75 (review-only requirements) and OD-76 (rich deck admission).
 SC-3 and the catalogue-offering rows have rows, but only the Stage 3 spec runs
@@ -6222,8 +6282,9 @@ delivers: the listed spec makes their persisted assertions pass, and #2060
 completes the observation. Rows marked ‡ need a deck preparation on a rich
 snapshot in their setup, which #2063 delivers (OD-76).
 
-**Not in any of the four specs.** These rows need §4's Unit offering and Claimed
-alias, which ship with the Stage 3 discovery spec (OD-66): BIB-14, BIB-15,
+**Not in any of the four specs.** The §15 "Deferred rows" wait for a syntax
+storage design, and OCC-20 is withdrawn. These rows need §4's Unit offering and
+Claimed alias, which ship with the Stage 3 discovery spec (OD-66): BIB-14, BIB-15,
 BIB-17, BIB-18, BIB-19, BIB-21, BIB-25, BIB-29, BIB-30, RET-09, and the
 offering and Claimed-alias parts of BIB-27.
 
@@ -6232,9 +6293,9 @@ offering and Claimed-alias parts of BIB-27.
 | item | inheritance |
 | --- | --- |
 | Sections | §4 records, "Ensure Book for Reading unit" and Edition reconciliation (not Unit offering or Claimed alias, and not Local registration, which ships in S9). §5 records, access rule and database ceilings. §6 in full. §7 in full, including the analysis read interface and its legacy adapter. §8 records, effective identity and the count-projection builder. §9 mechanism, guards and Adopted evidence record storage. §10's interfaces: shared validation, registries, diagnostics, the read shapes, the eligibility function, the Stanza compatibility adapter and parity observation, the store-contract harness, and the layering rules. #2059 adds the `oga` adapter and `internal/adoption`, and #2060 moves the learner-core consumers onto these interfaces. §13 S1 to S8, the legacy-`grc` preflight command, and the recovery rules. |
-| Matrix IDs | BIB-02, BIB-06, BIB-07, BIB-08, BIB-09, BIB-11, BIB-12, BIB-13, BIB-16, BIB-20, BIB-24, BIB-27 (except its offering and Claimed-alias parts), BIB-28; EVD-01, EVD-09, EVD-10, EVD-13, EVD-15, EVD-16, EVD-19, EVD-21, EVD-26 to EVD-30, EVD-32; IDN-01 to IDN-13, IDN-15, IDN-17 to IDN-21, IDN-33, IDN-35, IDN-36; OCC-01 to OCC-05, OCC-08 to OCC-20, OCC-22, OCC-23, OCC-26; LRN-16, LRN-17, LRN-24; RET-01, RET-02, RET-06, RET-13; VAL-01 to VAL-05, VAL-07 to VAL-10, VAL-13 to VAL-18, VAL-23; MIG-01 to MIG-06, MIG-08, MIG-09, MIG-13, MIG-15. #2061 runs MIG-01 to MIG-06 at S8; #2059 runs them again at S9. |
+| Matrix IDs | BIB-02, BIB-06, BIB-07, BIB-08, BIB-09, BIB-11, BIB-12, BIB-13, BIB-16, BIB-20, BIB-24, BIB-27 (except its offering and Claimed-alias parts), BIB-28; EVD-01, EVD-09, EVD-10, EVD-13, EVD-15, EVD-16, EVD-19, EVD-21, EVD-26 to EVD-30, EVD-32; IDN-01 to IDN-13, IDN-15, IDN-17 to IDN-21, IDN-33, IDN-35, IDN-36; OCC-01 to OCC-05, OCC-09 to OCC-17, OCC-19, OCC-22, OCC-26, OCC-27; LRN-16, LRN-17, LRN-24; RET-01, RET-02, RET-06, RET-13; VAL-01, VAL-03 to VAL-05, VAL-07 to VAL-10, VAL-13 to VAL-18, VAL-23, VAL-24; MIG-01 to MIG-06, MIG-08, MIG-09, MIG-13, MIG-15. #2061 runs MIG-01 to MIG-06 at S8; #2059 runs them again at S9. |
 | Local-only steps | None (§14). |
-| Blocking decisions | Every §17 row whose **blocks** column names #2061: OD-02, OD-03, OD-04, OD-06, OD-07, OD-12, OD-13, OD-14, OD-16, OD-17, OD-20, OD-21, OD-22, OD-23, OD-25, OD-26, OD-28, OD-29, OD-30, OD-32, OD-34, OD-35, OD-37, OD-41, OD-43, OD-44, OD-45, OD-47, OD-48, OD-63, OD-65, OD-68, OD-70. Most are under [§17 "Blocks #2061"](#blocks-2061-canonical-foundations). |
+| Blocking decisions | Every §17 row whose **blocks** column names #2061: OD-02, OD-03, OD-04, OD-06, OD-07, OD-12, OD-13, OD-14, OD-16, OD-17, OD-20, OD-21, OD-22, OD-23, OD-25, OD-26, OD-28, OD-29, OD-30, OD-32, OD-34, OD-35, OD-37, OD-41, OD-43, OD-44, OD-45, OD-47, OD-48, OD-63, OD-65, OD-68, OD-70, OD-78, OD-79, OD-80. Most are under [§17 "Blocks #2061"](#blocks-2061-canonical-foundations). |
 
 #### #2059 local import and adoption
 
@@ -6294,7 +6355,8 @@ column lists every spec a row blocks. §18 records an answer to every row before
 any spec starts (§1). IDs are never reused: OD-24 and OD-53 are merged into
 OD-63 and OD-39, and keep their IDs so that references still resolve. OD-68 to
 OD-76 come from the §16 traceability and consistency audit. OD-77 comes from
-the #2089 rework (no treebank data).
+the #2089 rework (no treebank data), and OD-78 to OD-80 from the #2090 rework
+(syntax storage deferred).
 
 ### Blocks #2061 canonical foundations
 
@@ -6334,6 +6396,9 @@ the #2089 rework (no treebank data).
 | OD-65 | Which seam covers MIG-13, the generated sqlc drift check? It is not a web, store-contract, validation or persistence test. MIG-15, added by #2075, uses the same seam for the shipped-migration check. | (1) Allow a CI generated-artifact seam for generated-code and shipped-migration rows only: `make sqlc` followed by `git diff --exit-code`. (2) Drop the row, and rely on repository CI without a matrix row. | (1). | (1) keeps the acceptance criterion visible in the matrix, as OD-48 does for layering. (2) leaves the criterion implicit. | #2074 | #2061 | open |
 | OD-68 | Which spec makes the rich store-contract rows pass on PostgreSQL? §8 and §10 seed classical Books on the PostgreSQL adapter only through §11's adoption interface, and §13 gives adoption's writes to #2059 (S6, S9). #2061 "Testing Decisions" extends the store-contract scenarios for the transitions it exposes. | (1) The rows belong to the first spec that has §11 adoption: #2059 for adoption rows, #2060 for learner rows. #2061 proves identity, occurrence and storage invariants at seams (c) and (d), and lands the harness (OD-04) with fixture-adapter seeding. (2) #2061 ships §11's adoption transaction without the durable stages, so that its PostgreSQL adapter can seed through it. #2059 adds admission, stages and the reconciler. (3) A test-only PostgreSQL seeder writes validated analyses directly. | (1). §16 "Downstream inheritance" is written against it. | (1) changes no design, but #2061's acceptance includes no PostgreSQL run of the rich scenarios: they first pass under #2059 and #2060. (2) gives #2061 full store-contract coverage, but splits §11 across two specs. (3) contradicts §8, which seeds "through the §11 adoption interface with synthetic analyses, not by inserting rows behind it". | #2075 | #2061 | open |
 | OD-70 | Is the frozen exception table's digest public? §5 pins it in the reviewed interpretation definition, and §10 VER-2 checks it against the compiled registry. §12 puts the retained table digest in the authenticated pin file, and §14 classes it local. | (1) Local. A retained interpretation's table digest comes from the authenticated pin set, and VER-2 checks it against that value instead of a compiled one. Synthetic tables keep compiled digests. (2) Public. The digest is compiled, as §5 and §10 say, and §14 moves it to the public column. | (1). §14 is written against it. | (1) keeps every hash of local material except the commitment out of the repository, as #2062's ground rules ask. `Validate` stays pure, because its caller passes the resolved digest in. (2) needs no change to §5 or §10. It reveals no table value, but publishes a hash of local material that the commitment already authenticates, so it adds no protection. | #2075 | #2061, #2059 | open |
+| OD-78 | With syntax storage deferred for Exact analyses (§7, #2090), are empty (unprinted) nodes kept as nodes, or deferred with syntax? In CoNLL-U they exist for enhanced dependencies, and they have no span, no count and no occurrence. | (1) Keep them: kind `empty`, `non_vocabulary(empty_node)`, no span and no occurrence, as §7 describes. (2) Defer them with syntax: the adapter emits no empty node, and the lineage records each one it skipped. | (1). §7 is written against it. | (1) keeps ACC-1 (every attested node is accounted for) without a carve-out, keeps any native evidence an empty node carries, such as a lemma, inspectable, and needs no node-kind or node-order change when syntax storage is added. It costs one node row per empty node and changes no count. (2) stores less, but needs an ACC-1 exception and a lineage record for skipped nodes, and a later syntax design must add the node kind back and renumber canonical node order under a new adapter version. | #2090 | #2061 | open |
+| OD-79 | Does `Validate` check the tree structure of the Stanza compatibility candidate's basic syntax, now that no Exact analysis stores syntax (§7, #2090)? | (1) No. Its edges pass through as given, `usable` when present and `missing` (`syntax_absent`) when absent, as the legacy adapter reads stored rows (OD-29). TREE-1 to TREE-5 and SYN-1 are deferred with syntax storage, with OCC-08, OCC-18 and VAL-02. (2) Yes. TREE-1 to TREE-4 withhold invalid trees in memory, and parity reports `syntax_withheld_changed_eligibility`. | (1). §7 and §10 are written against it. | (1) makes both sides of parity P-2 read the same relations, so `compound:prt` coverage is exact by construction, and #2061 builds no tree validator for a candidate that is never stored or shown. A cyclic Stanza tree stays visible exactly as it is today. (2) tests tree rules that no stored analysis uses, and makes parity report differences that come only from the canonical side's stricter check. | #2090 | #2061 | open |
+| OD-80 | Is secondary syntax kept as a deferred capability, or dropped (§5, §7, #2090)? | (1) Drop it: no `secondary_syntax` capability, Layer, candidate field or provenance layer, and SYN-2 and OCC-20 withdrawn. A later design that needs it adds it. (2) Keep the capability, always `missing`, so a later design adds no capability. | (1). §5, §7 and §10 are written against it. | (1) removes a capability that no consumer reads, that no candidate carries and that the legacy adapter never had. A later design adds one capability value and one Layer. (2) keeps a fifth always-`missing` capability in every analysis, diagnostic and restriction for a need nobody has stated. | #2090 | #2061 | open |
 
 ### Blocks #2059 local import and adoption
 
@@ -6510,3 +6575,6 @@ it back for narrow rework.
 | OD-75 | _pending_ | |
 | OD-76 | _pending_ | |
 | OD-77 | Accept (1) | AUX where the native annotation marks εἰμί as a copula, VERB otherwise. Recorded from the owner's answer on #2093. |
+| OD-78 | _pending_ | |
+| OD-79 | _pending_ | |
+| OD-80 | _pending_ | |
