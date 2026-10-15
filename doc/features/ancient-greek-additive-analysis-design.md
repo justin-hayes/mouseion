@@ -1076,7 +1076,538 @@ Each invariant is covered by the `EVD` rows in [§15](#15-acceptance-test-matrix
 
 ## 6. Vocabulary identity and normalization
 
-_Pending: owned by the vocabulary identity ticket._
+Verified at commit `553c2bec53f95b7bff8e3fa8c6043a33b9bad35f` (`main`). Every
+`path:line` in this section refers to that commit. Toolchain facts were read with
+Go 1.27.2 and Python 3.13.5.
+
+### Summary
+
+- A **rich vocabulary identity** is the five-part value
+  `(language, canonical_lemma, upos, discriminator_scheme, discriminator_value)`.
+  The two discriminator fields are both set or both null. It extends ADR 0005's
+  `(language, canonical lemma, POS)` tuple. The discriminator is never encoded in
+  the lemma spelling.
+- Rich identities are **interned** in one shared, immutable table with a surrogate
+  ID. New consumers reference that ID (recommendation OD-21).
+- The **citation headword** is separate from the key. It is the decoded citation
+  form, with final `ς` kept. It is stored per occurrence (§7) and as one **Analysis
+  headword** per (Exact analysis, identity) (OD-22).
+- **Source decoding** and **normalization** are separate, separately versioned
+  steps. Decoding is an adapter responsibility (for example `example-decode/1`).
+  It turns native lemma data into a decoded citation form and a discriminator.
+  Normalization is the Mouseion-owned profile `ancient-greek/1`, pinned to
+  Unicode 17.0.0. It turns a decoded citation form into a key and never infers a
+  discriminator.
+- `grc` resolves only to `ancient-greek/1`. Generic casefold for `grc` is an error
+  everywhere (OD-02, option 1).
+- Existing tuple rows are untouched. A legacy tuple equals a rich identity only
+  when the rich discriminator is null and language, lemma and UPOS are equal byte
+  for byte. It is never a wildcard. Legacy `grc` tuples match no rich identity at
+  all (OD-24).
+- Modern languages keep their profiles, keys and outcomes. Their rich identities
+  have a null discriminator and are identical to their tuples.
+
+New record names are proposed terms (OD-27). Table names in the illustrative DDL
+are not prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| The identity tuple is `selection.Identity{Language, CanonicalLemma, UPOS}`, mirrored by `domain.SnapshotIdentity`. | `internal/selection/selection.go:27`, `internal/domain/current_reading_finish.go:5-7` | The rich identity is a new type. The tuple types and every tuple-keyed store keep their meaning (B-09, B-11, B-13 to B-16). |
+| `Effective` takes the lemma from the learner decision when present, and the UPOS always from the analyzed fact. | `internal/selection/selection.go:264-274` | A Lemma correction today changes the lemma only. It never changes UPOS. This section keeps that. |
+| A decision whose lemma equals the analyzer's canonical lemma resolves to `keep` and stores nothing. | `internal/domain/lemma_review.go:101-122` | A learner cannot clear a discriminator by re-entering the same lemma (OD-23). |
+| Lemma review normalizes the corrected lemma with `canonicalization.For(p.Language)`, the active profile, and records its name and version on the decision. | `internal/lemmareview/lemmareview.go:466-474`, `internal/lemmareview/lemmareview.go:501` | For a classical analysis, the correction uses the profile named by the analysis's interpretation, looked up by exact version, not the active profile. |
+| `For` falls back to `unicode-casefold` 1.2.0 for any unregistered language, and `Lookup` does so for version `1.2.0`. Only `de` and `el` are registered. | `internal/canonicalization/canonicalization.go:76-103`, `internal/canonicalization/canonicalization.go:105-126` | B-18. `grc` must be registered as requiring a dedicated profile, so neither function falls back for it. |
+| The casefold profile collapses whitespace and applies full Unicode case folding. `modern-greek` 1 uses the same function. | `internal/canonicalization/unicode.go:28-31`, `internal/canonicalization/unicode.go:42-44` | Full folding expands iota subscript to adscript (`ᾳ` → `αι`). It is unsuitable for `grc` and stays unchanged for `el`. |
+| Concordance falls back to the casefold profile when `For` fails. Its form key is NFC, `strings.ToLower` and `ς` → `σ`. | `internal/persistence/concordance.go:22-30` | For `grc`, the lemma key comes from `ancient-greek/1` and the fallback branch never applies. |
+| Concordance form matching lowercases surfaces in SQL: `translate(lower(o.surface), 'ς', 'σ')`. | `sqlc/queries/concordance.sql:115` | PostgreSQL `lower()` depends on the database's collation provider and Unicode tables, which are not pinned. OD-26. |
+| The dictionary resolves its lookup key through `canonicalization.Normalize`, and returns an empty key on error. | `internal/dictionary/index.go:365-370` | With `grc` registered as dedicated, it uses `ancient-greek/1` or fails closed. It never casefolds `grc`. |
+| The NLP producer casefolds every language except `de`, and labels the result `unicode-casefold` 1.2.0. | `nlp/src/mouseion_nlp/producer.py:42-43`, `nlp/src/mouseion_nlp/producer.py:351-355` | NLP produces no `grc` keys (Greek NLP support is out of scope). Shared validation rejects a `grc` candidate labelled with any profile other than `ancient-greek/1`. |
+| Known matching treats a Known row with `upos = ''` as matching every UPOS. | `sqlc/queries/core.sql:238-239`, `sqlc/queries/books.sql:180-185` | A legacy UPOS wildcard. For modern languages it stays as it is. It never matches a rich identity. |
+| The module requires Go 1.27.2. That toolchain and `golang.org/x/text` v0.43.0 report Unicode 17.0.0. An older local Go 1.26 reports 15.0.0, and x/text then selects its 15.0.0 tables. Python 3.13 reports 15.1.0. | `go.mod:3`; go1.27.2 `$GOROOT/src/unicode/tables.go:6` (`const Version = "17.0.0"`); `golang.org/x/text@v0.43.0/unicode/norm/tables17.0.0.go:11` (built only under `go1.27`); `go.mod:20`; `python3 -c 'import unicodedata; print(unicodedata.unidata_version)'` prints `15.1.0`; `nlp/pyproject.toml:6` | The profile is pinned to 17.0.0, and the implementation checks the version at run time (IDN-11). Python is not a conforming implementation today. |
+| No browser code normalizes or compares lemmas. The only first-party script is `my-books.js`, which handles request recovery. | `git grep -nI -e 'normalize(' -e 'toLowerCase' -- 'internal/webapp/*.js' 'internal/webapp/*.templ' ':!internal/webapp/static/vendor'` returns nothing | Browser search sends raw input. The server computes every key. |
+
+### Records
+
+#### Vocabulary identity
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One distinct rich vocabulary identity, interned so that consumers carry one non-null reference instead of five fields with nullable parts. | `id uuid`; `language text` (canonical base language tag from `NormalizeLanguage`, for example `grc`; checked `^[a-z]{2,3}$`); `canonical_lemma text` (non-empty; the profile output, never the headword); `upos text` (one of the 17 UD UPOS tags; never empty); `discriminator_scheme text NULL` (a registered scheme identifier, checked `^[a-z][a-z0-9-]*$`); `discriminator_value text NULL` (non-empty, no leading or trailing whitespace); `created_at` | `id` | `(language, canonical_lemma, upos, discriminator_scheme, discriminator_value)` unique `NULLS NOT DISTINCT`: one row per distinct identity. A check requires `(discriminator_scheme IS NULL) = (discriminator_value IS NULL)`. | Shared. A row carries no owner and grants no access. It is reached only through an owner-scoped reference or a shared Exact analysis row that the owner may read (§5 access rule). | **Immutable.** Insert-if-absent only. No update, no delete path. | Referenced `RESTRICT` by §7 occurrence rows, Analysis headwords, rich Lemma corrections and §8 membership records. |
+
+Text comparison on these columns is byte equality under the database's
+deterministic default collation. No query applies `lower()`, `upper()`,
+`btrim()`, `normalize()` or `translate()` to them. The profile version is not a
+column. It is provenance on the Interpretation configuration (§5) and on each
+rich Lemma correction. An identity computed under two profile versions that
+yields the same five values is the same row.
+
+This section requires no modern-language row in this table. Whether §8 writes
+modern-language rows is §8's decision. Any it writes have null discriminators.
+
+```sql
+-- illustrative, not a migration
+CREATE TABLE vocabulary_identities (
+  id uuid PRIMARY KEY,
+  language text NOT NULL CHECK (language ~ '^[a-z]{2,3}$'),
+  canonical_lemma text NOT NULL CHECK (canonical_lemma <> ''),
+  upos text NOT NULL CHECK (upos IN ('ADJ','ADP','ADV','AUX','CCONJ','DET','INTJ','NOUN',
+    'NUM','PART','PRON','PROPN','PUNCT','SCONJ','SYM','VERB','X')),
+  discriminator_scheme text NULL CHECK (discriminator_scheme ~ '^[a-z][a-z0-9-]*$'),
+  discriminator_value text NULL CHECK (discriminator_value <> '' AND discriminator_value = btrim(discriminator_value)),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK ((discriminator_scheme IS NULL) = (discriminator_value IS NULL)),
+  UNIQUE NULLS NOT DISTINCT (language, canonical_lemma, upos, discriminator_scheme, discriminator_value)
+);
+-- plus: a BEFORE UPDATE trigger rejecting every update (mirrored, as in §5).
+```
+
+**Index and size consequences of interning (OD-21).** The table has one primary
+key index and one five-column unique index. Each consumer stores one 16-byte
+`uuid` and one single-column index entry per row. A composite value would put
+the language, a Greek lemma of typically 10–30 UTF-8 bytes, the UPOS and two
+nullable text fields (roughly 40–70 bytes with varlena headers) in every
+occurrence, headword, correction, membership and snapshot row. Every key and
+index of those consumers would grow to the same width. Each join would also
+compare two nullable columns, where a plain `=` treats `NULL = NULL` as unknown
+and silently drops the match. With interning, consumers join on one non-null
+column, and the nullable comparison happens once, in the unique index. The
+costs are one join to display a lemma, and an insert-if-absent step
+(`ON CONFLICT DO NOTHING` followed by a select) when an analysis or correction
+introduces an identity.
+
+#### Discriminator scheme (compiled registry entry)
+
+Not a table. Schemes are registered in reviewed application code, like
+interpretation slot identifiers (§5).
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Names one documented lexical scheme in which discriminator values are interpreted. | `scheme` (for example `proiel`, `morpheus`, `example`); `description`; `value_pattern` (regular expression for valid values); `native_markers` (the native spellings that carry a discriminator inside a lemma, for example a trailing `#<digits>` in PROIEL, used to reject undecoded lemmas) | `scheme` | One entry per scheme. | Release-wide. | Changed only by a reviewed release. An entry is never removed or redefined while any identity uses it. | — |
+
+A scheme names a lexical scheme, not a Book, corpus, package or download URL.
+Two corpora that both write `#1` share a scheme only if a reviewed entry says
+their lexicons are the same scheme. Values are compared byte for byte. The
+profile never normalizes them.
+
+#### Analysis headword
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The learner-facing headword for one identity in one Exact analysis. | `analysis_id uuid`; `identity_id uuid`; `headword text` (an NFC decoded citation form that occurs in this analysis, with final `ς` kept); `variant_count integer` (≥ 1; number of distinct NFC decoded citation forms in the analysis that normalize to this identity) | `(analysis_id, identity_id)` | Key only: one headword per identity per analysis. | Shared, as the Exact analysis. | **Immutable.** Written in the analysis's single transaction (§5 "Exact analysis"). | `analysis_id` → Exact analysis `RESTRICT`; `identity_id` → Vocabulary identity `RESTRICT` |
+
+The per-occurrence decoded citation form is node evidence and belongs to §7.
+The Analysis headword is derived from it, deterministically:
+
+1. Group the analysis's occurrences of the identity by NFC decoded citation form.
+2. Choose the form with the most occurrences. Break a tie by the earliest
+   occurrence in reading order (§7 order).
+3. Record the number of distinct forms as `variant_count`. A value above 1 is
+   reported in the owner's evidence detail. It writes no Diagnostic finding,
+   because it does not change any capability state. The identity is not split or
+   changed.
+
+**What is shown.**
+
+- A view scoped to one Book shows the headword of the analysis it reads: the
+  Book's current classical analysis, or for a frozen record, the analysis that
+  record froze.
+- When a Lemma correction gives an effective identity, that Book's views show
+  the correction's `corrected_citation_form` for it. If several corrections in
+  the Book give the same identity with different forms, the most recently
+  confirmed one is shown. A correction never changes the Analysis headword.
+- A record that freezes an identity for display (snapshot vocabulary, deck
+  specification item, Known acceptance) freezes the headword it showed. §8 places
+  the column. Later analyses never change a frozen headword.
+- A view that aggregates one identity across Books (the Known list, Concordance
+  lemma groups) shows, in order of preference:
+  1. the headword frozen with the owner's most recent Known acceptance of that
+     identity;
+  2. the Analysis headword of the owner's current analysis for the Concordance
+     priority Book;
+  3. the smallest headword, by code-point order, among the owner's current
+     classical analyses that contain the identity.
+- The discriminator is shown as separate metadata, the scheme's description and
+  the value, next to the headword. It is never appended to the headword text.
+- The normalized key is shown only for a legacy row, which has no headword. That
+  is today's behaviour.
+
+When two analyses disagree, each Book-scoped view keeps showing its own
+analysis's headword. A disagreement never merges, splits or renames an identity.
+
+#### Rich Lemma correction (fields this section requires)
+
+The occurrence key and record placement belong to §7 and §8. This table states
+only the identity fields that a correction on a classical Exact analysis carries.
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| A learner-confirmed alternative identity for one exact occurrence. | §7 occurrence key fields; `owner_id`; `book_id`; `corrected_citation_form text` (the learner's input, trimmed and NFC, with final `ς` kept; it is the headword for this occurrence); `identity_id uuid` (the resulting rich identity); `normalization_profile text` (the profile `name/version` used, equal to the analysis's interpretation slot); `confirmed_at` | §7 | At most one per (owner, Book, exact occurrence), as for today's corrections. | Owner. | Mutable only by that owner's confirmed lemma review, as today. Never changed by a new analysis or profile. | `identity_id` → Vocabulary identity `RESTRICT`; occurrence → §7 `RESTRICT` |
+
+### Normalization profile `ancient-greek/1`
+
+**Definition.** For an admitted decoded citation form `s`:
+
+1. `s₁ = NFC(s)`.
+2. `s₂` = `s₁` with each code point replaced by its **simple** lowercase mapping
+   (`UnicodeData.txt` field 13). No `SpecialCasing.txt` mapping, no `Final_Sigma`
+   context and no locale tailoring. This is "Unicode lowercase", not full case
+   folding. It equals Go's `strings.ToLower`.
+3. `s₃` = `s₂` with every U+03C2 `ς` replaced by U+03C3 `σ`.
+4. `key = NFC(s₃)`.
+
+**Unicode pin.** The profile uses Unicode **17.0.0** data for NFC and lowercase
+mappings. That is the version that Go 1.27's `unicode` package and
+`golang.org/x/text` v0.43.0's `unicode/norm` report (see Current anchors).
+
+**Admitted input.** The profile is defined only for strings that pass the shared
+validation interface's admission check (§10). Every caller computes a `grc` key
+through that entry point. A string is admitted when all of these hold:
+
+- it is valid UTF-8 and non-empty;
+- it has no leading or trailing `White_Space` and no internal `White_Space`
+  (an Ancient Greek citation lemma in an admitted scheme is one word; a
+  multi-word native lemma is a decoding rejection);
+- it has no code point whose General_Category is `Cc`, `Cs`, `Co` or `Cn` **as of
+  Unicode 17.0.0**, so a later toolchain cannot silently widen the repertoire;
+- it does not match any registered scheme's `native_markers`, so an undecoded
+  discriminator never becomes lemma spelling.
+
+A string that fails admission is rejected with `citation_form_invalid` or
+`discriminator_in_lemma`. Nothing is repaired.
+
+**What the profile preserves.** Each item is a fixture case (IDN rows):
+
+- Iota subscript is preserved. `ᾼ` lowercases to `ᾳ`, not `αι`. A subscript form
+  and its adscript spelling give different keys.
+- Accents, breathings and diaeresis stay significant. Acute and grave give
+  different keys. Only canonical equivalence unifies, for example oxia U+1F73 and
+  tonos U+03AD, which NFC maps to one code point.
+- No NFKC or NFKD. Lunate sigma U+03F2 `ϲ` stays `ϲ`.
+- No elision, apostrophe, koronis or crasis handling. Combining U+0313 and
+  U+2019 stay distinct. Only a documented producer decoding may change them.
+- Malformed stacked marks are kept. NFC composes what canonical composition
+  composes, and the remaining marks stay in the key. Nothing else is repaired.
+- No whitespace collapsing and no trimming. Admission rejects whitespace instead.
+
+The profile is pure and idempotent: `key(key(s)) = key(s)` for every admitted `s`.
+
+**Registration.** `grc` is registered as a **dedicated-profile language**. For it:
+
+- `For("grc")` returns `ancient-greek/1` while that is the active `grc` profile.
+  If no `grc` profile were registered, it would return `ErrUnsupportedLanguage`,
+  never the casefold fallback.
+- `Lookup("grc", v)` returns a registered `grc` profile with version `v`, or
+  `ErrProfileNotFound`. `Lookup("grc", "1.2.0")` is `ErrProfileNotFound`.
+- Locale forms such as `grc-x-example` resolve through the base tag `grc`, never
+  through `el`. `el` never resolves to `ancient-greek/1`.
+- Every caller that has a fallback branch (`internal/persistence/concordance.go:24-27`)
+  skips the fallback for a dedicated-profile language and reports the language as
+  unsupported instead.
+- Unregistered languages other than `grc` keep today's casefold fallback, so
+  their behaviour does not change.
+
+**Version as provenance.** `ancient-greek/1` is recorded in the Interpretation
+configuration's `normalization_profile` slot (§5) and on each rich Lemma
+correction. It is not part of the identity. A later `ancient-greek/2` that gives
+the same five values for an input resolves to the same Vocabulary identity row,
+so Known and Reserved still match. A new version may not make a key that already
+denotes one lexical entry denote another. Its reviewed fixture must contain every
+`ancient-greek/1` case and state, for each, whether the key changes. Any changed
+key that existing learner rows use needs a separately approved plan (§13).
+
+### Source decoding
+
+Source decoding is an adapter responsibility. It is named in the Interpretation
+configuration's `source_decoding` slot as its own `name/version`, separate from
+lemma mapping and from normalization (OD-13).
+
+- **Input:** one native lemma record as retained evidence: the native lemma string
+  and any native lexical-identifier attribute, for example a PROIEL `#1` suffix or
+  a UD `LId=1` feature.
+- **Output:** either a **decoded citation form** with an optional
+  `(discriminator_scheme, discriminator_value)`, or a rejection reason. The
+  decoded citation form is the citation spelling, with final `ς`, case and marks
+  as the decoding documents.
+- Decoding may change elision marks, apostrophes or koronis only where its
+  reviewed documentation and its fixture name the exact native convention.
+- Decoding never guesses an elision expansion, resolves crasis, inserts an iota or
+  repairs marks.
+- The discriminator comes only from native data that the decoding's reviewed
+  mapping names. Its scheme comes from the reviewed definition, never from a
+  Book, package or URL. A native identifier with no reviewed mapping is
+  `discriminator_unmapped`, a vocabulary finding for that node, never dropped.
+- Native evidence is never edited. The decoded form and the discriminator are
+  derived values stored with the node (§7).
+- Normalization receives only the decoded citation form. It cannot see native
+  attributes, so it can never infer, add or drop a discriminator.
+
+Example (synthetic): under `example-decode/1`, native lemma `λέξις#ex:1`, and
+native lemma `λέξις` with native attribute `lexid=ex:1`, both decode to citation
+form `λέξις` with scheme `example`, value `ex:1`. Their key is `λέξισ`. Public
+anchor: PROIEL `εἰ#1` and `εἰ#2` decode to citation form `εἰ` with scheme
+`proiel` and values `1` and `2`. They are two identities that share lemma and
+UPOS (ADV).
+
+### Implementations and fixtures
+
+Every place that computes or compares a `grc` key:
+
+| # | place | computes or compares | current code | requirement | fixture format |
+| --- | --- | --- | --- | --- | --- |
+| I-1 | Go `canonicalization`: the `ancient-greek/1` profile and the admission check | computes | none; `internal/canonicalization/unicode.go:28-31` is the casefold profile that `grc` uses today | Implements the definition above. A test asserts that `unicode.Version` and `norm.Version` equal `17.0.0`. | `ancient-greek-normalization/1` |
+| I-2 | Go `canonicalization` registry (`For`, `Lookup`) | resolves the profile | `internal/canonicalization/canonicalization.go:76-103` | Dedicated-profile rule above. | `ancient-greek-normalization/1` rows with `"call"` set (profile resolution) |
+| I-3 | Go source-decoding adapters | produce the decoded citation form and discriminator (not the key) | none | One fixture file per decoding version. | `source-decoding/1` |
+| I-4 | Go shared canonical validation (§10) | recomputes the key from the decoded citation form and compares | none | Rejects a candidate whose supplied key differs (`canonical_key_mismatch`), whose `grc` profile is not `ancient-greek/1` (`normalization_profile_rejected`), or whose citation form is not admitted. | `ancient-greek-normalization/1` and `vocabulary-identity-comparison/1` |
+| I-5 | Go lemma review | computes the corrected key | `internal/lemmareview/lemmareview.go:466-474` | For a classical analysis, uses `Lookup` with the analysis's `normalization_profile` slot, through the admission check. For an analysis whose `grc` profile is not registered (a legacy casefold `grc` analysis), lemma review is unavailable; it never renormalizes. | `ancient-greek-normalization/1` |
+| I-6 | Go Concordance term normalization | computes the lemma lookup key; compares stored keys | `internal/persistence/concordance.go:22-30` | Lemma key through `ancient-greek/1`; no fallback for `grc`. Form search for `grc` per OD-26. | `ancient-greek-normalization/1` |
+| I-7 | Go dictionary lookup key | computes | `internal/dictionary/index.go:365-370` | Resolves through the registry, so `grc` uses `ancient-greek/1` or fails closed with an empty key. No Greek dictionary is in scope. | `ancient-greek-normalization/1` |
+| I-8 | Go identity comparison (rich to rich, and legacy to rich) | compares | `internal/selection/selection.go:27` compares tuples | One shared function implements the comparison rules below. Every Go caller uses it. | `vocabulary-identity-comparison/1` |
+| I-9 | PostgreSQL | compares only, byte equality | tuple equality in `sqlc/queries/core.sql:238-242`, `sqlc/queries/books.sql:180-185` | Never computes a `grc` key. Rich joins use `identity_id`. Legacy-to-rich joins require `discriminator_scheme IS NULL`, equal language, lemma and UPOS, and a non-`grc` language (OD-24). A legacy `upos = ''` row never joins to a rich identity. | `vocabulary-identity-comparison/1`, loaded by a seam (d) test |
+| I-10 | Python NLP producer | none for `grc` | `nlp/src/mouseion_nlp/producer.py:351-355` | Emits no `grc` key. Python 3.13 has Unicode 15.1.0 tables and full-mapping `str.lower()`, so it cannot conform without a reviewed pin change (OD-25). A `grc` candidate it produced would be rejected by I-4. | none (I-4's rejection row covers it) |
+| I-11 | Browser | none | no first-party normalization code (see Current anchors) | Sends raw input. The server applies I-6. No client-side key, filter or sort decides identity. | none (a seam (a) row covers search input) |
+
+**Fixture formats.** All three are UTF-8 JSON Lines. They give every string as an
+array of `"U+XXXX"` code points, so editors, Git filters and terminals cannot
+normalize them. Public fixtures use synthetic or #2033-public examples only (§14).
+
+`ancient-greek-normalization/1`:
+
+```json
+{"format":"ancient-greek-normalization/1","case":"nfd-acute","profile":"ancient-greek/1","unicode":"17.0.0",
+ "input":["U+03BB","U+03B5","U+0301","U+03BE","U+03B9","U+03C2"],
+ "expect":{"key":["U+03BB","U+03AD","U+03BE","U+03B9","U+03C3"]},
+ "equal_to_case":"nfc-acute","note":"NFD and NFC give one key"}
+```
+
+`expect` is either `{"key": [...]}` or `{"rejected": "<reason code>"}`. An
+optional `equal_to_case` or `distinct_from_case` asserts the relation to another
+case's key. Profile-resolution rows carry `"call": {"fn": "For" | "Lookup",
+"language": "...", "version": "..."}` and expect `{"profile": "name/version"}` or
+`{"rejected": "..."}`.
+
+`vocabulary-identity-comparison/1`:
+
+```json
+{"format":"vocabulary-identity-comparison/1","case":"legacy-null-vs-ex1",
+ "left":{"kind":"legacy","language":"xx","canonical_lemma":["U+03BB","U+03AD","U+03BE","U+03B9","U+03C3"],"upos":"NOUN"},
+ "right":{"kind":"rich","language":"xx","canonical_lemma":["U+03BB","U+03AD","U+03BE","U+03B9","U+03C3"],"upos":"NOUN",
+          "discriminator_scheme":"example","discriminator_value":"ex:1"},
+ "equal":false}
+```
+
+`source-decoding/1`:
+
+```json
+{"format":"source-decoding/1","case":"marker-suffix","decoding":"example-decode/1",
+ "native":{"lemma":["U+03BB","U+03AD","U+03BE","U+03B9","U+03C2","U+0023","U+0065","U+0078","U+003A","U+0031"],"attributes":{}},
+ "expect":{"citation_form":["U+03BB","U+03AD","U+03BE","U+03B9","U+03C2"],"discriminator_scheme":"example","discriminator_value":"ex:1"}}
+```
+
+`expect` is either the decoded triple or `{"rejected": "<reason code>"}`.
+
+Proposed locations: `internal/canonicalization/testdata/ancient-greek-normalization-v1.jsonl`,
+`internal/canonicalization/testdata/vocabulary-identity-comparison.jsonl`, and
+one `source-decoding` file beside each decoding adapter. This ticket creates none
+of them.
+
+**Required synthetic cases** (each one is an IDN row):
+
+| case | input | expected key | relation |
+| --- | --- | --- | --- |
+| NFC versus NFD | `λέξις` (U+03AD) and `λε` + U+0301 + `ξις` | `λέξισ` | equal |
+| oxia versus tonos | `λ` + U+1F73 + `ξις` and `λέξις` | `λέξισ` | equal (canonical equivalence) |
+| case | `Λέξις`, `ΛΈΞΙΣ` | `λέξισ` | equal to `λέξις` |
+| final sigma | `λέξις`, `λέξισ` | `λέξισ` | equal |
+| iota subscript versus adscript | `λῄξις` (U+1FC4), `λήιξις` | `λῄξισ`, `λήιξισ` | distinct |
+| capital with prosgegrammeni | `ᾼ` (U+1FBC) | `ᾳ` (U+1FB3) | not `αι` |
+| acute versus grave | `λέξις`, `λὲξις` (U+1F72) | `λέξισ`, `λὲξισ` | distinct |
+| elision marks | `λέξ` + U+0313, `λέξ` + U+2019 | each unchanged | distinct; neither stripped |
+| malformed stacked marks | `λε` + U+0301 + U+0301 + `ξις`; U+0313 + U+0301 + `Λέξις` | `λέ` + U+0301 + `ξισ`; U+0313 + U+0301 + `λέξισ` | marks kept, not repaired |
+| no compatibility mapping | `λέξι` + U+03F2 | `λέξι` + U+03F2 | distinct from `λέξισ` |
+| simple, not full, lowercase | U+0130 | U+0069 | not U+0069 U+0307 |
+| discriminators | `λέξις` NOUN `example:ex:1` and `example:ex:2` | `λέξισ` both | distinct identities |
+| undecoded marker | `λέξις#ex:1` given to admission | — | rejected `discriminator_in_lemma` |
+| whitespace | ` λέξις`, `λέξις λέξις` | — | rejected `citation_form_invalid` |
+
+### Identity comparison
+
+Rich to rich: two rich identities are equal exactly when all five fields are
+byte-equal, with a null discriminator equal only to a null discriminator.
+
+Legacy to rich: a legacy tuple `(language, canonical_lemma, upos)` equals a rich
+identity exactly when all of these hold:
+
+1. the rich identity's discriminator is null;
+2. the languages are byte-equal;
+3. the lemmas are byte-equal;
+4. the UPOS values are byte-equal and non-empty, so a legacy `upos = ''` row never
+   matches a rich identity;
+5. the language is not `grc` (OD-24).
+
+A legacy tuple is never a wildcard over discriminated identities. `λέξισ` NOUN
+Known as a legacy row does not make `λέξισ` NOUN `example:ex:1` or `example:ex:2`
+Known or Reserved. The comparison is never used to transfer Known across a split
+(one identity becomes several) or a merge (several become one). Facts stay on the
+identity they were recorded for. Any reconciliation needs a separately approved
+plan (ADR 0098, handoff Stage 2).
+
+### Legacy compatibility
+
+- Existing tuple rows stay as they are, with no backfill and no rewrite. That
+  covers Known (B-11), Reserved snapshot rows (B-13), Generated and deck
+  preparation rows (B-14), deck specification items (B-15), Browse counts (B-16),
+  Reading history (B-12) and corrections, flags and exclusions (B-06, B-07).
+- Modern languages keep their profiles (`german-standard-post-1996` 6,
+  `modern-greek` 1, `unicode-casefold` 1.2.0), their keys, their blank-UPOS Known
+  wildcard and their selection outcomes. Their rich identity is their tuple with a
+  null discriminator. The German parity fixture
+  (`internal/canonicalization/german_parity_test.go:12-30`) and every existing
+  store-contract scenario pass unchanged.
+- `grc` and `el` are different languages with separate identities, Known,
+  Reserved, Browse and counts, even for byte-equal lemmas. `NormalizeLanguage`
+  keeps `grc` and `el` apart (`internal/canonicalization/canonicalization.go:162-172`).
+- **Legacy `grc` rows.** §3 expects none (B-33), but the casefold fallback
+  (B-18) could have created some. The §13 preflight counts them per owner and
+  table. If it finds any:
+  - they stay unchanged and readable in their existing views, under their
+    original casefold interpretation;
+  - they match no rich `grc` identity (comparison rule 5), so they neither mark
+    rich identities Known nor reserve them;
+  - lemma review on their legacy analysis is unavailable, because `Lookup("grc",
+    "1.2.0")` fails (I-5); they are never renormalized;
+  - the preflight report lists them, and no reconciliation happens without a
+    separately approved plan. Rollout of the classical path continues (OD-24).
+
+  A casefold key expands iota subscripts. For example, casefold maps `λῄξις` to
+  `λήιξισ`, which is byte-equal to the `ancient-greek/1` key of the adscript
+  spelling `λήιξις`. Applying the plain legacy rule to `grc` would therefore
+  transfer Known across a subscript and adscript distinction. Rule 5 prevents
+  that.
+
+### Effective identity and Lemma corrections
+
+- The **effective vocabulary identity** of an occurrence in a classical Exact
+  analysis is:
+  - none, if an Occurrence exclusion applies;
+  - the rich Lemma correction's identity, if one applies;
+  - otherwise, the analysis's identity for the occurrence (§7).
+- A correction targets one exact occurrence (§7) in one Exact analysis, and
+  produces a rich identity. It never edits native evidence, the decoded form,
+  the Exact analysis or the Analysis headword.
+- The learner enters a citation form. It is trimmed, put in NFC and admitted,
+  then normalized with the profile named by the analysis's interpretation, found
+  by `Lookup` with the exact version.
+- UPOS is always the occurrence's canonical UPOS. Learners do not edit POS.
+- **Discriminator** (OD-23):
+  - If the resulting key equals the occurrence's key, the decision is `keep` and
+    stores nothing, as today. This also holds when the occurrence has a
+    discriminator, so a learner cannot set, change or clear one.
+  - If the key differs, the corrected identity has a null discriminator.
+- Only a reviewed interpretation (source decoding, lemma mapping or repair layer)
+  sets a discriminator. That produces a new Interpretation configuration and Exact
+  analysis (§5).
+- A correction keeps the profile it was confirmed under. It is never
+  reinterpreted under a new profile, and never carried to another analysis,
+  occurrence, Book or owner.
+- A correction's `corrected_citation_form` is the headword for that occurrence's
+  effective identity in that Book.
+
+### Invariants
+
+Each invariant is covered by the `IDN` rows in [§15](#15-acceptance-test-matrix).
+
+1. **Normalization.**
+   - Canonically equivalent inputs give one key (IDN-01, IDN-02).
+   - Case and final sigma do not distinguish keys (IDN-03, IDN-04).
+   - Iota subscript and adscript give different keys. A capital with
+     prosgegrammeni keeps its subscript (IDN-05).
+   - Acute and grave give different keys (IDN-06).
+   - Combining U+0313 and U+2019 are preserved and give different keys (IDN-07).
+   - Malformed stacked marks are kept in the key, not repaired (IDN-08).
+   - No compatibility mapping is applied (IDN-09).
+   - Lowercasing uses simple mappings (IDN-10).
+   - The profile is idempotent, and every implementation that computes `grc`
+     keys (I-1) reports Unicode 17.0.0 (IDN-11).
+   - Input that is not admitted is rejected, never repaired (IDN-12).
+2. **Profile resolution.**
+   - No new `grc` key is computed with casefold. `For`, `Lookup` and validation
+     never resolve `grc` to the fallback (IDN-13), and no learner route casefolds
+     `grc` input (IDN-14). Existing legacy casefold `grc` rows are only read
+     (IDN-27, IDN-33).
+   - `grc` and `el` resolve to different profiles and give distinct identities for
+     the same spelling (IDN-15, IDN-16).
+3. **Identity.**
+   - The same lemma and UPOS with discriminators `example:ex:1` and `example:ex:2`
+     are distinct identities, and both differ from the null-discriminator identity
+     (IDN-17).
+   - At most one Vocabulary identity row exists per five-value identity. A half-set
+     discriminator, an empty lemma or an empty UPOS is rejected, and rows never
+     change (IDN-18, IDN-19).
+   - No identity's lemma carries a discriminator marker (IDN-20).
+   - Normalization never infers a discriminator. Decoding produces it from
+     reviewed native data only (IDN-21).
+   - The profile version is provenance: unchanged identities match across
+     versions (IDN-22).
+4. **Learner state.**
+   - Discriminated identities stay distinct in Known, Reserved, Current-reading
+     vocabulary snapshots and Reading completion (IDN-23).
+   - A legacy null-discriminator Known row does not mark `example:ex:1` or
+     `example:ex:2` Known or Reserved (IDN-24).
+   - A legacy `upos = ''` Known row never matches a rich identity (IDN-25).
+   - Known is never transferred across a split or merge (IDN-26).
+   - Legacy `grc` rows match no rich `grc` identity and are not rewritten (IDN-27).
+5. **Headword.**
+   - A learner sees the decoded citation form, with final `ς`, never the key
+     (IDN-28).
+   - Within one analysis the headword is deterministic, and variants are reported
+     (IDN-29).
+   - Two analyses that disagree each show their own headword. Frozen records keep
+     theirs (IDN-30).
+   - Cross-Book views follow the stated preference order (IDN-37).
+   - A corrected identity shows the correction's citation form in its Book
+     (IDN-38).
+6. **Corrections.**
+   - A correction uses the analysis's profile, yields a null discriminator, and
+     leaves evidence unchanged (IDN-31).
+   - A learner cannot set or clear a discriminator (IDN-32).
+   - No lemma review runs on a legacy casefold `grc` analysis (IDN-33).
+7. **Search.** A `grc` Concordance lemma lookup in NFD, upper case or with final
+   sigma reaches the same results as the NFC citation form, through the server
+   (IDN-34). Form search is OD-26.
+8. **Modern languages.** Identity, normalization and outcomes for `de`, `el`,
+   `it` and unregistered languages are unchanged (IDN-35, IDN-36).
+
+### Conflicts and dependencies noted
+
+- Issue item 7 says Lemma corrections "may change lemma or UPOS". Today a
+  correction changes the lemma only (`internal/selection/selection.go:264-274`).
+  This section keeps UPOS unchanged and lets only a reviewed interpretation change
+  it (OD-23).
+- OD-02 is resolved here as option (1), the dedicated-profile registry rule.
+- Legacy comparison rule 4 (non-empty UPOS) goes beyond the issue's wording. It
+  is needed because Known matching treats `upos = ''` as a wildcard
+  (`sqlc/queries/core.sql:238-239`), which would otherwise match every rich UPOS.
+  Rule 5 is OD-24.
+- §6 names a separate `source_decoding` version, which assumes OD-13 option (1).
+  Under option (2), decoding and normalization stay separate steps, but a
+  decoding change is versioned through the lemma-mapping identifier.
+- The #2033 rule for highlighting (verified target spans, `grc`-scoped fallback
+  matching, no erased diacritics or subscript and adscript equivalence) belongs
+  to §7 occurrence alignment. Search keys never establish identity here.
+- The per-occurrence decoded citation form and discriminator, and the occurrence
+  key that corrections target, belong to §7.
+- Where rich identities attach to Known, snapshots, completion and deck
+  specifications, and where a frozen headword is stored, belong to §8. §8 must
+  also keep OD-01: no rich identity reaches the tuple-keyed Browse-selection or
+  Custom-deck stores.
+- The admission check, reason codes and the `canonical_key_mismatch` rejection
+  belong to §10's interface. This section defines what they check.
+- The Analysis headword rows are written in the Exact analysis's single
+  transaction, which §5 defines.
+- The legacy `grc` preflight query and report belong to §13.
+- Public fixture content rules belong to §14.
 
 ## 7. Canonical analysis and exact occurrences
 
@@ -1219,6 +1750,44 @@ rows use synthetic fixtures only.
 | EVD-31 | A selection-policy change creates no new interpretation or analysis. | (b) | Owner A has adopted analysis X. The reviewed definition's selection policy changes from `example-select/1` to `example-select/2`. | Prepare A's Book again under the new definition version. | No new Interpretation configuration or Exact analysis. X stays current. The new policy is recorded only for newly prepared specifications (§8). | Changing any analysis-affecting slot in the same definition does create a new analysis (see EVD-18). |
 | EVD-32 | A binding references only a shared Reading unit. | (d) | A private §4 unit owned by A. | Insert a binding on it. | Rejected. | A binding on a shared unit is accepted. |
 | EVD-33 | An import naming an unknown interpretation version persists nothing for it. | (a) | Owner A. A synthetic package whose reviewed test definition names `example-lemma/9`, which is absent from the compiled registry. | Run the local import and preparation through the handler and River job. | The request ends failed with `interpretation_version_unknown`, without automatic retry. No Interpretation configuration, binding, analysis, diagnostic or current classical analysis is written for it. | The same package with `example-lemma/1` prepares successfully. |
+| IDN-01 | Canonically equivalent NFC and NFD inputs give one key. | (c) | `ancient-greek-normalization/1` cases `λέξις` (U+03AD) and `λε` + U+0301 + `ξις`. | Normalize each under `ancient-greek/1`. | Both keys are U+03BB U+03AD U+03BE U+03B9 U+03C3 (`λέξισ`). | `λὲξις` (grave) does not give this key (see IDN-06). |
+| IDN-02 | Oxia and tonos, which are canonically equivalent, give one key. | (c) | Cases `λ` + U+1F73 + `ξις` and `λέξις` (U+03AD). | Normalize each. | Both keys are `λέξισ` with U+03AD. | U+1F72 (varia) does not give this key. |
+| IDN-03 | Case does not distinguish keys. | (c) | Cases `Λέξις` and `ΛΈΞΙΣ`. | Normalize each. | Both keys equal the key of `λέξις`. | Normalizing the key again changes nothing (see IDN-11). |
+| IDN-04 | Final and medial sigma give one key. | (c) | Cases `λέξις` and `λέξισ`. | Normalize each. | Both keys end in U+03C3. No key contains U+03C2. | Lunate U+03F2 is not unified with either (see IDN-09). |
+| IDN-05 | Iota subscript and adscript stay distinct, and a capital keeps its subscript. | (c) | Cases `λῄξις` (U+1FC4), `λήιξις`, and `ᾼ` (U+1FBC). | Normalize each, and compare the first two. | `λῄξισ` keeps U+1FC4. `λήιξισ` keeps U+03AE U+03B9. The two keys differ. `ᾼ` gives U+1FB3. | Neither the casefold profile's output `αι` for `ᾼ` nor `λήιξισ` for `λῄξις` is produced. |
+| IDN-06 | Acute and grave stay distinct. | (c) | Cases `λέξις` and `λὲξις` (U+1F72). | Normalize and compare. | `λέξισ` and `λὲξισ`. The keys differ. | No accent is stripped or converted. |
+| IDN-07 | Combining U+0313 and U+2019 elision marks are preserved and stay distinct. | (c) | Cases `λέξ` + U+0313 and `λέξ` + U+2019. | Normalize and compare. | Each key equals its input. The two keys differ. | Neither mark is removed, replaced or mapped to the other, or to U+1FBD or U+02BC. |
+| IDN-08 | Malformed stacked marks are kept, not repaired. | (c) | Cases `λε` + U+0301 + U+0301 + `ξις`, and U+0313 + U+0301 + `Λέξις`. | Normalize each. | Keys `λ` U+03AD U+0301 `ξισ`, and U+0313 U+0301 `λέξισ`. The second U+0301 and the leading marks remain. | The key never equals `λέξισ`. |
+| IDN-09 | No compatibility mapping is applied. | (c) | Case `λέξι` + U+03F2. | Normalize. | The key ends in U+03F2. | It differs from `λέξισ`. An NFKC implementation would fail this row. |
+| IDN-10 | Lowercasing uses simple mappings. | (c) | Case U+0130. | Normalize. | Key U+0069. | A full-mapping implementation, which gives U+0069 U+0307, fails this row. |
+| IDN-11 | The profile is idempotent and pinned to Unicode 17.0.0. | (c) | Every key in the `ancient-greek-normalization/1` fixture. | Normalize each key again, and read the implementation's reported Unicode versions. | Each key is unchanged. The Go implementation reports `17.0.0` for both case mapping and normalization. | A build whose reported version differs fails this row before any fixture runs. |
+| IDN-12 | Input that is not admitted is rejected, never repaired. | (c) | Cases: empty; ` λέξις`; `λέξις λέξις`; `λέξις` + U+0007; `λέξις` + a code point unassigned in Unicode 17.0.0. | Submit each to the admission check. | Each is rejected with `citation_form_invalid`. No key is returned. | `λέξις` is admitted. |
+| IDN-13 | `grc` never uses the casefold fallback, in the registry or in validation. | (c) | The default registry. A synthetic `grc` candidate labelled `unicode-casefold` 1.2.0, as an NLP-shaped producer would label it. | Call `For("grc")`, `Lookup("grc", "1")`, `Lookup("grc", "1.2.0")` and `For("grc-x-example")`. Submit the candidate to shared validation. | `For` gives `ancient-greek/1` for both tags. `Lookup("grc", "1")` gives `ancient-greek/1`. `Lookup("grc", "1.2.0")` gives `ErrProfileNotFound`. Validation rejects the candidate with `normalization_profile_rejected`. | A test registry without a `grc` profile returns `ErrUnsupportedLanguage` from `For("grc")`, not the casefold profile. `For("xx")` still returns the casefold profile. |
+| IDN-14 | No learner route normalizes `grc` with casefold. | (a) | Owner A has a classical Book with an adopted synthetic analysis under `ancient-greek/1`. | Confirm a Lemma correction to `ᾼλέξις` through lemma review. Run a Concordance lemma lookup for `ᾼλέξις`. | The stored corrected key and the Concordance lookup key both contain U+1FB3, not `αι`. The correction records `ancient-greek/1`. | With the `grc` profile removed from a test registry, both routes report the language as unsupported and write nothing. |
+| IDN-15 | `grc` and `el` resolve to different profiles and give distinct identities for one spelling. | (c) | `vocabulary-identity-comparison/1` case: `grc` `λέξισ` NOUN null, and `el` `λέξισ` NOUN null. | Resolve each language's profile. Compare the two identities. | `grc` gives `ancient-greek/1`. `el` gives `modern-greek` 1. The identities are not equal. | `For("el")` never returns `ancient-greek/1`, and `For("grc")` never returns `modern-greek`. |
+| IDN-16 | `grc` and `el` learner state stays separate. | (b) | Owner A has `el` `λέξισ` NOUN Known. A `grc` analysis contains `λέξις` NOUN with a null discriminator. | Read the `grc` Book's vocabulary, Known status and counts. | The `grc` identity is not Known and counts as unknown. The `el` Known row is unchanged. | Marking the `grc` identity Known leaves the `el` row and `el` counts unchanged. |
+| IDN-17 | Same lemma and UPOS with different discriminators are distinct identities. | (c) | Comparison cases: `λέξισ` NOUN `example:ex:1`, `example:ex:2`, and null. | Compare every pair. | No two of the three are equal. | Equal scheme and value, compared byte for byte, are equal. |
+| IDN-18 | At most one identity row per five-value identity, even under concurrency. | (d) | No identity `grc` `λέξισ` NOUN `example:ex:1`. | Two transactions insert-if-absent that identity concurrently. Then insert `grc` `λέξισ` NOUN null twice. | Each pair resolves to one row and one ID. | `example:ex:2` gets a second, distinct row. |
+| IDN-19 | Identity rows are well formed and immutable. | (d) | One identity row. | Insert a row with only `discriminator_scheme` set, with only `discriminator_value` set, with an empty lemma, and with an empty or unknown UPOS. Update any field of the existing row. | Every insert and the update are rejected. | A row with both discriminator fields null, or both set, is accepted. |
+| IDN-20 | No lemma carries a discriminator marker. | (c) | Scheme `example` registered with native marker `#ex:<n>`. Scheme `proiel` with marker `#<digits>`. | Submit `λέξις#ex:1` and the public anchor `εἰ#1` to admission as citation forms. | Both are rejected with `discriminator_in_lemma`. | `λέξις` and `εἰ` are admitted. |
+| IDN-21 | Decoding produces the discriminator, and normalization never infers one. | (c) | `source-decoding/1` cases for `example-decode/1`: native `λέξις#ex:1`; native `λέξις` with attribute `lexid=ex:1`; native `λέξις` with attribute `lexid=zz:9`, which has no reviewed mapping. | Decode each, then normalize the decoded form. | The first two give citation form `λέξις`, `example:ex:1`, and key `λέξισ`. The third is rejected with `discriminator_unmapped`. Normalizing `λέξις` alone gives a null discriminator. | The unmapped identifier is neither dropped nor turned into a null-discriminator identity. |
+| IDN-22 | The profile version is provenance, so unchanged identities match across versions. | (b) | Owner A has `λέξισ` NOUN `example:ex:1` Known, from an analysis under `ancient-greek/1`. A test-only `ancient-greek/2`, identical for this input, is registered. | Adopt a new analysis of another Book under `ancient-greek/2` that contains the same identity. | The identity reuses the same row and is Known in the new Book. | A synthetic input whose key changes under `ancient-greek/2` gives a different identity, which is not Known. |
+| IDN-23 | Discriminated identities stay distinct in Known, Reserved, snapshots and completion. | (b) | A classical Book with occurrences of `λέξις` NOUN `example:ex:1` and `example:ex:2`. Owner A has neither Known. | Start a Reading, freeze the snapshot, then finish and accept it. | The snapshot holds two identities. Both are Reserved while the Reading is active. After acceptance, A has two distinct Known identities, and the completion counts two. | In a second Book where every `example:ex:2` occurrence has an Occurrence exclusion, the snapshot, Reserved set and accepted Known hold only `example:ex:1`. `example:ex:2` stays not Known. |
+| IDN-24 | A legacy null-discriminator Known row is not a wildcard. | (b) | Owner A has a legacy tuple Known row, `xx` `λέξισ` NOUN. `xx` is a test-only language, not `grc`, so that comparison rule 5 does not decide the result. A rich analysis in `xx` contains `λέξισ` NOUN `example:ex:1` and `example:ex:2`. | Read Known status and counts for both. | Neither discriminated identity is Known. The legacy row is unchanged. | A rich `xx` `λέξισ` NOUN identity with a null discriminator is Known. |
+| IDN-25 | A legacy blank-UPOS Known row never matches a rich identity. | (b) | Owner A has a legacy `xx` `λέξισ` Known row with `upos = ''`, and a modern `de` Known row with `upos = ''`. | Read the Known status of rich `xx` `λέξισ` NOUN with a null discriminator, and of a `de` tuple occurrence with that lemma. | The rich identity is not Known. The `de` occurrence is Known, as today. | Neither legacy row is changed, and no rich identity gains Known from either. |
+| IDN-26 | Known never transfers across a split or a merge. | (b) | Split: owner A has `λέξισ` NOUN with a null discriminator Known. A's Book adopts analysis Y, whose new interpretation gives `example:ex:1` and `example:ex:2` instead. Merge: owner B has `λέξισ` NOUN `example:ex:1` Known and no null identity Known. B's Book adopts analysis Z, whose interpretation gives only the null identity. | Adopt Y for A and Z for B, then read Known status. | Neither descendant is Known for A. The null identity is not Known for B. Both original Known rows remain on their original identities. | Neither adoption creates, deletes or rewrites a Known row. |
+| IDN-27 | Legacy `grc` tuple rows match no rich `grc` identity and are not rewritten. | (b) | Owner A has a legacy `grc` Known tuple `λήιξισ` NOUN, created by the casefold fallback. A classical analysis contains `λήιξις` NOUN with a null discriminator, whose key is `λήιξισ`. | Read Known status and counts for the classical Book. List A's Known vocabulary. | The rich identity is not Known. The legacy row is listed unchanged, with its key. | No Known row is added, removed or changed. A legacy `grc` Known tuple `λέξισ` NOUN marks none of the rich `grc` identities `λέξισ` NOUN null, `example:ex:1` or `example:ex:2` Known or Reserved. |
+| IDN-28 | Learners see the decoded citation form, never the key, and the discriminator separately. | (a) | Owner A has an adopted classical analysis containing `λέξις` NOUN `example:ex:1`. | Request the Book's vocabulary, the Reading snapshot review and Known. | Each shows the headword `λέξις` with final `ς`, and the discriminator as separate metadata. | No response shows `λέξισ` or `λέξις#ex:1` as a headword. |
+| IDN-29 | The Analysis headword is deterministic, and variants are reported. | (b) | A synthetic analysis with three occurrences decoded as `Λέξις` and two as `λέξις`, one identity. | Prepare it twice, then read evidence detail. | Both preparations give headword `Λέξις` and `variant_count` 2. Evidence detail reports the variants. | With a 2–2 tie, the form of the earliest occurrence in reading order wins. |
+| IDN-30 | Disagreeing analyses each show their own headword, and frozen records keep theirs. | (b) | Two Books with analyses whose headwords for one identity are `Λέξις` and `λέξις`. Owner A has an active snapshot frozen on the first. | Read each Book's vocabulary. Adopt a new analysis for the first Book with headword `λέξις`. Read the snapshot. | Each Book shows its own analysis's headword. The snapshot still shows `Λέξις`. The identity row is unchanged. | No headword change creates or merges an identity. |
+| IDN-31 | A correction uses the analysis's profile, yields a null discriminator, and leaves evidence unchanged. | (b) | Owner A's classical analysis X under `ancient-greek/1` has an occurrence of `λέξις` NOUN `example:ex:1`. | Confirm a correction to `λῆξις`. | The effective identity is `λῆξισ` NOUN with a null discriminator. The correction records `ancient-greek/1` and headword `λῆξις`. X's occurrence, decoded form, Analysis headword and native evidence are unchanged. | The correction does not apply in any other analysis, Book or owner. |
+| IDN-32 | A learner cannot set or clear a discriminator. | (a) | As IDN-31. | Submit a correction request carrying a discriminator parameter. Submit a correction to `λέξις`. | The parameter is ignored and no discriminator is stored. The second request resolves to `keep` and stores nothing. The effective identity keeps `example:ex:1`. | No route accepts a discriminator from learner input. |
+| IDN-33 | No lemma review runs on a legacy casefold `grc` analysis. | (b) | Owner A has a legacy analysis-run-backed `grc` Book, whose profile is `unicode-casefold` 1.2.0. | Request lemma review and confirm a correction. | Lemma review reports the language unsupported for that analysis. Nothing is written. | Lemma review on a `de` Book works as today. |
+| IDN-34 | `grc` search input reaches the same lemma results whatever its NFC form, case or final sigma. | (a) | Owner A has an adopted classical analysis containing `λέξις` NOUN. | Run Concordance lemma lookups for `λέξις`, its NFD form, `ΛΈΞΙΣ` and `λέξισ`. | All four return the same occurrences. | `λὲξις` and `λήιξις` return none of them. |
+| IDN-35 | Modern-language normalization is unchanged. | (c) | The German parity fixture, and characterization cases for `modern-greek` 1 and `unicode-casefold` 1.2.0 recorded at this commit. | Normalize every case. | Every key equals its recorded value. | `For("el")`, `For("de")` and `For("xx")` return the same profile name and version as at this commit. |
+| IDN-36 | Modern-language identities and learner outcomes are unchanged. | (b) | Every existing store-contract scenario (language `de`). | Run them with rich identities and the classical schema present. Run selection over synthetic `de` and `el` corpora. | Every scenario passes unchanged. Known, Reserved, snapshot, completion and count results equal the baseline, including the blank-UPOS Known match. Selection gives the same candidate identities, counts, observed forms and sentence references as the baseline recorded at this commit. | No modern-language Known, snapshot or count row gains a discriminator. |
+| IDN-37 | Cross-Book views choose an identity's headword by the stated preference order. | (b) | Owner A has two classical Books whose current analyses give one identity the headwords `Λέξις` and `λέξις`. The second Book is the Concordance priority Book. | Read the Concordance lemma group. Then accept a completed Reading of the first Book that makes the identity Known, and read the Known list and the Concordance group. | Before acceptance, the group shows `λέξις`, from the priority Book. After it, both views show `Λέξις`, the headword frozen with the Known acceptance. | Without a priority Book or Known acceptance, the view shows `Λέξις`, the smaller by code-point order. It never shows the key. |
+| IDN-38 | A corrected identity shows the correction's citation form in its Book. | (b) | Owner A's Book has two occurrences of `λέξις` NOUN `example:ex:1`. | Confirm a correction of the first to `Λῆξις`, then of the second to `λῆξις`. Read the Book's vocabulary. | The effective identity `λῆξισ` NOUN with a null discriminator shows `λῆξις`, from the latest correction. The Analysis headword for `example:ex:1` is unchanged. | Another Book with the same identity from its analysis shows its own headword, not the correction's. |
 
 ## 16. Requirement traceability
 
@@ -1232,7 +1801,7 @@ decisions (see §1) are not reopened here.
 | ID | question | options | recommendation | consequence | raised by | status |
 | --- | --- | --- | --- | --- | --- | --- |
 | OD-01 | Must rich identities reach the tuple-keyed Browse selection and Custom deck stores (B-17), whose UI is being retired? | (1) Greek identities are never written there; a test asserts it. (2) Add a discriminator to those stores. | (1), decided by #2069. | (1) adds no structure, but a Greek identity cannot be selected for a Custom deck. (2) changes stores outside the Reading path for a retiring UI. | #2064 | open |
-| OD-02 | Where is the generic casefold fallback rejected for `grc` (B-18, B-19)? | (1) The registry refuses `grc` unless a dedicated profile is registered, for both `For` and `Lookup`. (2) Only the shared validation interface rejects casefold-normalized `grc` identities. | (1), decided by #2067. | (1) fails closed for every caller, including lemma review, but changes registry behaviour for an unregistered language. (2) leaves other callers able to normalize `grc` with casefold. | #2064 | open |
+| OD-02 | Where is the generic casefold fallback rejected for `grc` (B-18, B-19)? | (1) The registry refuses `grc` unless a dedicated profile is registered, for both `For` and `Lookup`. (2) Only the shared validation interface rejects casefold-normalized `grc` identities. | (1), decided by #2067. §6 is written against it: `grc` is a dedicated-profile language, and every other unregistered language keeps the fallback. | (1) fails closed for every caller, including lemma review, but changes registry behaviour for an unregistered language. (2) leaves other callers able to normalize `grc` with casefold. | #2064 | open |
 | OD-03 | How does Reading eligibility treat an occurrence whose optional syntax is unavailable, given that `OccurrenceEligible` reads the dependency (B-10)? | (1) Unavailable syntax never makes an occurrence ineligible; syntax-based exclusions apply only when syntax is present. (2) Language-specific eligibility rules come from the canonical interpretation. | Decided by #2068 together with #2071. | (1) keeps one rule but needs explicit "unavailable" semantics. (2) moves eligibility into producer data. | #2064 | open |
 | OD-04 | How do store-contract scenarios cover Greek when the harness is fixed to `de` and seeds only tuples (B-30)? | (1) Parameterize the scenario language and extend the seeds with discriminators, span references and optional syntax. (2) Add a separate Greek scenario set beside the existing one. | (1), decided by #2071. | (1) runs every existing scenario against rich identities, but changes the harness interface for both adapters. (2) duplicates scenarios and lets them drift. | #2064 | open |
 | OD-05 | Does Evidence adoption publish through the existing analysis-run anchor that every Reading gate checks (B-23 to B-26), or through a new anchor? | (1) Adoption produces an exact analysis that the existing classification recognizes, so the six call sites stay unchanged. (2) A new adopted-analysis anchor, with every gate changed together. | Decided by #2068 and #2072, with §8 compatibility. | (1) reuses existing anchors, as the handoff requires, but `book_current_analyses` references a source material and run. (2) needs an atomic change across all gates. | #2064 | open |
@@ -1251,6 +1820,13 @@ decisions (see §1) are not reopened here.
 | OD-18 | New terms used in §5. | Add to `CONTEXT.md`: **Package acquisition** (an owner's verified acquisition of exact package bytes; their provenance and evidence access), **Capability diagnostic** and **Usability restriction**. Keep Package blob, Package content (source-content identity, as against a blob's transport identity), Package member, pin set, Evidence notice, Notice coverage, Extracted text, Interpretation configuration, Exact analysis, Diagnostic finding, Provenance claim and Book current classical analysis as design-local names. "Owner evidence access" is the role that Package acquisition plays, not a separate record. | Add the three in a separately reviewed `CONTEXT.md` change. | The three appear in learner-facing explanations and in other sections. The rest are storage detail. "Exact analysis" stays design-local, so that it does not compete with the existing "analysis". | #2066 | open |
 | OD-19 | Can a Usability restriction be lifted? | (1) Append-only lift records are allowed only for `integrity_failure`, after the exact bytes are restored and re-verified. A `confirmed_defect` is never lifted; recovery is a new validated analysis. (2) No lift. Every recovery is a new analysis and adoption. | (1), specified with §9 and §11. | (1) lets an exact restore return evidence to use without rewriting history, as ADR 0097 "Durable bounded work and recovery" requires. (2) makes a restored, byte-identical package permanently unusable. | #2066 | open |
 | OD-20 | Is a Usability restriction installation-wide, or per owner? | (1) Installation-wide: a restriction on shared evidence applies to every owner whose Book uses it, and each affected owner is notified. (2) Per owner: the operator records it for chosen owners. | (1). §5 is written against it. | (1) follows ADR 0097: "an integrity failure or confirmed binding/interpretation defect records an explained usability restriction … notify affected owners". A defect in shared bytes is a property of the bytes, not of one owner's choice. It changes no owner's adoption, which ADR 0097 "Alice's refresh cannot switch Bob" protects. (2) lets known-defective evidence stay usable for owners who were not named. | #2066 | open |
+| OD-21 | Is the rich vocabulary identity an interned record with a surrogate ID, or a composite value carried in each consumer (§6)? | (1) One shared, immutable, interned Vocabulary identity table, unique `NULLS NOT DISTINCT` on the five values. Consumers carry its `uuid`. (2) The same, but owner-scoped: one interned row per owner. (3) A composite value: each consumer carries language, lemma, UPOS, scheme and value. | (1). §6 is written against it. | (1) gives each consumer one non-null 16-byte reference and single-column indexes. The nullable comparison happens once, in one unique index. Its costs are a join to display a lemma and an insert-if-absent step. A row interned by one learner's Lemma correction holds only a normalized lemma and UPOS, has no owner link, and stays after that owner is deleted. (2) removes that residue, but shared Exact analysis rows (§5) would then need a second, shared identity reference. (3) needs no join, but widens every consumer key and index by roughly 40–70 bytes. Every join must then compare nullable columns, where `NULL = NULL` silently drops matches. That is the merge or wildcard defect this design forbids. | #2067 | open |
+| OD-22 | Where does the citation headword live, and what is shown when analyses disagree (§6)? | (1) The decoded citation form per occurrence (§7), plus one Analysis headword per (Exact analysis, identity), chosen deterministically. Frozen records freeze the headword they showed. (2) One headword per (identity, Interpretation configuration). (3) A headword column on the identity row. | (1). | (1) keeps every Book-scoped view exact to its own analysis, and keeps frozen records stable. It needs a cross-Book display rule, which §6 gives. (2) is smaller, but two Books under one interpretation whose texts spell the citation form differently would share one headword. (3) makes the first analysis's spelling permanent for every Book and owner, so a later analysis could never show its own. | #2067 | open |
+| OD-23 | Who may set a discriminator, or change UPOS, in a Lemma correction (§6)? Issue #2067 item 7 says corrections "may change lemma or UPOS". Today they change the lemma only (`internal/selection/selection.go:264-274`). | (1) Learners never set, change or clear a discriminator, and never change UPOS. A correction to a different key gives a null discriminator. Re-entering the same key is `keep`. Only a reviewed interpretation sets discriminators or changes UPOS, as a new Exact analysis. (2) Learners may choose among `(scheme, value)` pairs already attested for the same key and UPOS in the same Exact analysis. (3) Learners may type a discriminator. | (1). | (1) matches today's lemma-only corrections and "no learner POS editing". A learner who thinks the analysis chose the wrong homograph can exclude the occurrence or correct it to a different lemma, but cannot pick the other homograph. (2) allows that choice, but the reading increment shows no glosses that tell `ex:1` from `ex:2`, so the choice would be uninformed. It also needs a new correction UI. (3) lets free text create identities in reviewed schemes, against the #2033 rule that discriminators come from documented schemes. | #2067 | open |
+| OD-24 | What happens if the §13 preflight finds legacy `grc` tuple rows (§6)? | (1) Isolate and continue. The rows stay unchanged and readable, match no rich `grc` identity (comparison rule 5), are reported, and are never reconciled without a separately approved plan. Lemma review on their legacy analysis is unavailable. (2) Apply the plain legacy rule (equal lemma, UPOS and null discriminator). (3) Block classical adoption for affected owners until a reconciliation plan is approved. | (1). | (1) never transfers Known across a distinction. The cost is that an affected owner's legacy `grc` Known words show as unknown in classical Books. (2) is unsafe: a casefold key expands iota subscripts, so a legacy subscript row byte-equals the `ancient-greek/1` key of the adscript spelling, and Known would transfer across that distinction. (3) is safe, but it adds a learner-data gate to §11 adoption for a case that §3 expects never to occur. | #2067 | open |
+| OD-25 | How does `ancient-greek/1` survive a toolchain whose Unicode version is not 17.0.0 (Go, `golang.org/x/text`, or a future Python implementation, where Python 3.13 has 15.1.0)? | (1) The implementation asserts 17.0.0. A toolchain change fails that test, and a reviewed change may keep `ancient-greek/1` only if the full fixture plus an exhaustive per-code-point lowercase and NFC table for every code point assigned in 17.0.0 are unchanged. Admission keeps rejecting code points unassigned in 17.0.0, through a frozen table. Otherwise the change needs `ancient-greek/2`. (2) Ship frozen 17.0.0 normalization and case tables with the profile, independent of the toolchain. (3) Follow the toolchain's Unicode version silently. | (1). | (1) keeps one definition and catches drift in review, at the cost of a generated check per toolchain upgrade. (2) is fully reproducible, but carries and maintains copied Unicode tables. (3) can change keys, and therefore Known matches, without review, against the #2033 rule that Unicode changes that can alter identity be reviewable. | #2067 | open |
+| OD-26 | How is the `grc` Concordance **form** search key computed (§6 I-6)? Today SQL computes it as `translate(lower(o.surface), 'ς', 'σ')` (`sqlc/queries/concordance.sql:115`), with PostgreSQL's unpinned `lower()` and no NFC on stored surfaces. | (1) Go computes an `ancient-greek/1` search key for each occurrence surface, which §7 stores with the occurrence, and SQL compares bytes. The key is for search only, never identity. (2) Keep the SQL expression for `grc`. | (1), with §7 placing the stored key. | (1) gives exactly the accommodation #2033 allows for search (NFC and NFD, case, sigma), from the pinned implementation. Its cost is one stored column per occurrence. (2) depends on the database's collation provider and Unicode tables, and an NFD surface never matches an NFC query. | #2067 | open |
+| OD-27 | New terms used in §6. | Add to `CONTEXT.md`: **Rich vocabulary identity** (language, canonical lemma, UPOS and an optional scheme-qualified lexical discriminator), **Lexical homograph discriminator** (the #2033 term), **Citation headword** (the decoded citation form shown to learners, distinct from the canonical lemma key) and **Source decoding** (the versioned adapter step from native lemma data to a decoded citation form and discriminator). Keep Vocabulary identity (the interned record), Analysis headword, Discriminator scheme and dedicated-profile language as design-local names. Extend the existing **Effective vocabulary identity** entry to name the rich identity. | Add them in a separately reviewed `CONTEXT.md` change. | The four appear in learner-facing explanations, corrections and other sections. Without them, "lemma" stays ambiguous between key, headword and native value. The rest are storage detail. | #2067 | open |
 
 ## 18. Approval record
 
