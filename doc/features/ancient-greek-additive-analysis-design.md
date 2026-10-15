@@ -5132,12 +5132,11 @@ New rule and command names are proposed terms (OD-60).
 | golang-migrate marks the target version dirty before running a file and clean after it. It runs the file as one `Exec` without arguments, which lib/pq sends as one simple query, so PostgreSQL runs it as one implicit transaction. `Up` refuses to run on a dirty database. | `migrate.go:738`, `:750`; `database/postgres/postgres.go:285-296`; `migrate.go:215-223` | A failed step leaves no partial object, leaves its version dirty and stops server start. The dirty flag is the half-applied signal. |
 | Migrations are embedded with `//go:embed *.sql`. | `migrations/embed.go:6-9` | A new step needs no change outside `migrations/`. |
 | sqlc reads `migrations/*.up.sql`. Non-nullable `uuid` columns map to `string`, and nullable ones stay `pgtype`. `make sqlc` runs the pinned sqlc, and CI asserts `git diff --exit-code`. | `sqlc.yaml:12-13`, `:22-27`; `Makefile:192-197` | Every step regenerates `gen/sqlc`. S7 changes generated Go types (see [Generated artifacts](#generated-artifacts-and-review)). |
-| The latest shipped migration is `000034_delete_imported_known_vocabulary`. | `migrations/000034_delete_imported_known_vocabulary.up.sql` | Numbers are allocated when each step is implemented, never here. |
 | The baseline already carries a `NOT VALID` constraint. | `migrations/000001_initialize.up.sql:1520` | `NOT VALID` followed by validation is an established form. |
 | `pgcrypto` is installed by the baseline. | `migrations/000001_initialize.up.sql:29` | §5's digest checks need no new extension and no `go.mod` change. |
 | `primary_goal_snapshots` has five `NOT NULL` legacy evidence columns. `primary_goal_snapshot_vocabulary` cascades from it. | `migrations/000007_primary_goal_snapshots.up.sql:14-33`, `:35-51` | S7 relaxes these columns under §8's representation check (OD-32). |
 | `book_current_analyses` has primary key `(owner_id, book_id)`. | `migrations/000001_initialize.up.sql:239-245`, `:1544` | S6's trigger looks up one association per write by this key. |
-| An operator command reads `MOUSEION_DATABASE_URL`, opens the store without migrating, prints a report and fails while conflicts remain. | `cmd/vocabularybackfill/main.go:1-3`, `:23-37` | The preflight follows this precedent. |
+| An operator command reads `MOUSEION_DATABASE_URL`, opens the store without migrating, prints a report and fails while conflicts remain. | `cmd/vocabularybackfill/main.go:1-3`, `:23-38`, `:40-42` | The preflight follows this precedent. |
 | `NormalizeLanguage` trims, lower-cases, maps `_` to `-` and keeps the base subtag. | `internal/canonicalization/canonicalization.go:162-172` | The preflight's language predicate mirrors it. |
 | The integration-test template database name hashes the embedded migration files. | `internal/testutil/postgres_integration.go:167-180` | Each step's PR rebuilds the template automatically. |
 
@@ -5164,11 +5163,18 @@ Rules for every step:
   the step or with a later PR of the same spec.
 - **STEP-6. No effect on existing rows.** A step leaves every pre-existing row
   byte-identical (MIG-01, MIG-03).
-- **STEP-7. Bounded lock waits.** S6, S7 and S8 touch existing tables. Each one
-  bounds its own lock waits to 5 seconds, for its own transaction only (for
-  example `SET LOCAL lock_timeout`). If an unexpected session holds a
-  conflicting lock, the step fails and rolls back. It never queues an `ACCESS
-  EXCLUSIVE` request that would block every later reader (MIG-04).
+- **STEP-7. Bounded lock waits.** Every step locks at least one existing table:
+  S6 to S8 change one, and the others reference `users`, `books`,
+  `primary_goal_snapshots` or `reading_history`. Each step bounds its own lock
+  waits to 5 seconds, for its own transaction only (for example `SET LOCAL
+  lock_timeout`). If an unexpected session holds a conflicting lock, the step
+  fails and rolls back. It never queues a lock request that would block every
+  later reader or writer (MIG-04).
+- **STEP-8. No classical writer before S9.** No code that inserts a §4
+  association, Book current classical analysis or §8 rich row is reachable
+  before S9 has shipped. Their only entry point in scope, §12 Local
+  registration, needs S9's table. So when S6 and S7 run, no classical Book
+  exists, and A-4 confirms it.
 
 | step | name | records added (section) | depends on | purely additive | existing tables touched | effect on existing rows | downstream spec |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -5203,8 +5209,11 @@ dependencies force it:
 
 Written against OD-12 option (2) and OD-32 option (1), which §5 and §8 use. If
 either resolves differently, this table is revised before any SQL is written.
-S7 takes the alternative to a new table only where §8 requires one snapshot
-anchor (ADR 0098 forbids a second one). Every other record is a new table.
+S7 alters an existing table instead of adding one only because §8 anchors rich
+readings on the existing snapshot row. OD-32 records why a parallel anchor would
+be the second learner-state machine that ADR 0098 rules out
+(`doc/adr/0098-shared-core-classical-acquisition.md:118-119`). Every other
+record is a new table.
 
 Lock names are PostgreSQL table-lock modes. Every step runs in the startup
 migration path, before the server accepts requests (`cmd/server/main.go:146-153`),
@@ -5213,11 +5222,11 @@ running from before the deployment.
 
 | # | table | change | step | lock and runtime on a populated table | `NOT VALID` + validate | why it is non-breaking |
 | --- | --- | --- | --- | --- | --- | --- |
-| X-1 | `book_current_analyses` | New `BEFORE INSERT OR UPDATE` row trigger that rejects a row whose Book has a §4 association (§5). | S6 | `SHARE ROW EXCLUSIVE` until S6 commits: writes wait, reads continue. No scan. Afterwards, each EPUB publication adds one primary-key lookup on the association. | Not applicable: a trigger checks only new writes, and no association exists when S6 runs. | No Book has an association when S6 runs. §4 inserts an association only in the transaction that creates its Book, so no EPUB Book ever gains one. `publishEligibleAnalysis` (`internal/analysis/jobs.go:1711-1743`) is unchanged (EVD-28). |
+| X-1 | `book_current_analyses` | New `BEFORE INSERT OR UPDATE` row trigger that rejects a row whose Book has a §4 association (§5). | S6 | `SHARE ROW EXCLUSIVE` until S6 commits: writes wait, reads continue. No scan. Afterwards, each EPUB publication adds one primary-key lookup on the association. | Not applicable: a trigger checks only new writes, and no association exists when S6 runs (STEP-8, A-4). | No Book has an association when S6 runs. §4 inserts an association only in the transaction that creates its Book, so no EPUB Book ever gains one. `publishEligibleAnalysis` (`internal/analysis/jobs.go:1711-1743`) is unchanged (EVD-28). |
 | X-2 | `primary_goal_snapshots` | Add `exact_analysis_id uuid NULL`, with no default (§8). | S7 | `ACCESS EXCLUSIVE` for a catalog-only change. A nullable column without a default rewrites no row. | Not applicable | Every existing row reads `NULL`, which is the legacy representation. |
 | X-3 | `primary_goal_snapshots` | Drop `NOT NULL` from `source_material_id`, `analysis_run_id`, `content_revision_id`, `content_snapshot_id` and `corpus_id` (OD-32). | S7 | `ACCESS EXCLUSIVE`, catalog-only, no scan. | Not applicable | X-4 still requires all five for a legacy row, so no legacy row can lose one. Their existing foreign keys are unchanged. |
 | X-4 | `primary_goal_snapshots` | Check that exactly one representation is set (§8). | S7 adds it `NOT VALID`; S8 validates it | S7: `ACCESS EXCLUSIVE`, catalog-only, no scan. The check applies to every row inserted or updated after S7 commits. S8: `SHARE UPDATE EXCLUSIVE`, so reads and writes continue during one sequential scan (one row per snapshot ever frozen). | Yes | Every existing row satisfies the legacy branch. The five columns are `NOT NULL` until S7, and `exact_analysis_id` is new. |
-| X-5 | `primary_goal_snapshots` | Foreign key `exact_analysis_id` → Exact analysis `RESTRICT` (§8). | S7 adds it `NOT VALID`; S8 validates it | S7: `SHARE ROW EXCLUSIVE` on both tables, catalog-only. S8: `SHARE UPDATE EXCLUSIVE` on snapshots and `ROW SHARE` on the referenced table, with a scan that finds only `NULL`. | Yes | Every existing value is `NULL`. |
+| X-5 | `primary_goal_snapshots` | Foreign key `exact_analysis_id` → Exact analysis `RESTRICT` (§8), added as a separate constraint after X-2, not inline in the column definition. | S7 adds it `NOT VALID`; S8 validates it | S7: `SHARE ROW EXCLUSIVE` on both tables, catalog-only. S8: `SHARE UPDATE EXCLUSIVE` on snapshots and `ROW SHARE` on the referenced table, with a scan that finds only `NULL`. | Yes | Every existing value is `NULL`. |
 | X-6 | `primary_goal_snapshots` | Foreign key `(owner_id, book_id, exact_analysis_id)` → Adopted evidence record `NO ACTION` (§9). | S7 adds it `NOT VALID`; S8 validates it | As X-5. | Yes | `MATCH SIMPLE` skips a row whose `exact_analysis_id` is `NULL`, so every legacy row passes. |
 | X-7 | `primary_goal_snapshots` | Index `(owner_id, book_id, exact_analysis_id) WHERE exact_analysis_id IS NOT NULL`. This serves the owner-cascade check that §9 "Indexes" requires. | S7 | `SHARE` while the index builds: writes wait, reads continue. The build scans the heap but stores no entry for an existing row. | Not applicable | The cascade's equality on `exact_analysis_id` implies `IS NOT NULL`, so the partial index serves it. No existing query names the column, so no existing plan changes. |
 | X-8 | `primary_goal_snapshots` | New `BEFORE INSERT` row trigger requiring a rich snapshot's `exact_analysis_id` to be the Book's current classical analysis (§8). | S7 | `SHARE ROW EXCLUSIVE`, no scan. | Not applicable | The trigger returns at once when `exact_analysis_id` is `NULL`, which is every legacy insert. |
@@ -5229,8 +5238,12 @@ of an existing table. The new tables reference `users(id)`,
 `reading_history(completion_id)`. Creating each foreign key takes `SHARE ROW
 EXCLUSIVE` on the referenced table until the step commits. No scan is needed,
 because the new table is empty. After rollout, a delete from a referenced table,
-such as the owner cascade, checks the new table through the index that §9
-"Indexes" requires.
+such as the owner cascade, checks every new table that references it. So each of
+these foreign keys gets an index led by its referencing columns, in the step
+that creates the table (STEP-4). A primary key or §9 "Indexes" covers most of
+them. These need their own index: Identity conflict `(owner_id, book_id)` and
+`(owner_id, other_book_id)`; Snapshot count contribution `(owner_id, book_id)`;
+and Rich Known `(completion_id)`.
 
 **Unchanged.** `books`, `known_vocabulary`, `reading_history`, `analysis_runs`,
 `corpora`, `corpus_sentences`, `corpus_tokens`, `vocabulary_browse_counts`, the
@@ -5250,6 +5263,8 @@ unreferenced-evidence report. It follows `cmd/vocabularybackfill`: it reads
 - A command, not a SQL script, because reviewed code then enforces the
   content-free output and seam (d) can test it (MIG-07). §12 calls the same
   function before registering (STOP-1).
+- The command merges before S1, with an empty step manifest, so that run 1
+  below is possible. Each step's PR adds that step's manifest entry (R-2).
 
 It runs against both the pre-rollout schema and any later step. Checks on new
 records run only when those records exist.
@@ -5261,20 +5276,18 @@ records run only when those records exist.
 3. inside every §12 Local registration (STOP-1);
 4. after every restore, following §9's integrity check.
 
-**Language predicate.** A value is `grc` when its `NormalizeLanguage` form is
-`grc`:
-
-```sql
--- illustrative, not a migration
-split_part(replace(lower(btrim(value)), '_', '-'), '-', 1) = 'grc'
-```
-
-Language tags are ASCII. This predicate only detects rows, and never compares
-vocabulary identity, so §6's byte-equality rule does not apply to it.
+**Language classification.** A language value **is `grc`** exactly when
+`canonicalization.NormalizeLanguage` returns `grc` for it. The command does
+not reimplement that rule in SQL. For each table below, it reads the distinct
+values of the language column, classifies each value in Go, and then counts and
+lists the rows that hold a `grc` value, by byte equality on that value. So
+`GRC`, `grc-x-test`, `grc_Grek` and a value with surrounding whitespace are all
+`grc`, exactly as the application would treat them.
 
 **Legacy checks.** Each check counts and lists, per owner, the rows that match.
 A row whose key contains vocabulary text is reported only by the UUID columns
-of its key, with a count.
+of its key, with a count. "Is `grc`" in this table means the classification
+above.
 
 | check | category | table (path:line) | a row matches when | reported |
 | --- | --- | --- | --- | --- |
@@ -5287,13 +5300,16 @@ of its key, with a count.
 | P-7 | Occurrence decisions | `occurrence_lemma_corrections` (`migrations/000023_occurrence_lemma_corrections.up.sql:1-25`, with exclusions from `migrations/000024_occurrence_vocabulary_exclusions.up.sql`), `occurrence_lemma_review_flags` (`migrations/000025_occurrence_lemma_review_flags.up.sql:1-27`) | the Book matches P-1, or the run matches P-2 | counts of corrections, exclusions and flags per (Book ID, run ID) |
 | P-8 | Browse counts | `vocabulary_browse_counts` (`migrations/000031_vocabulary_browse_counts.up.sql:1-15`), `vocabulary_browse_count_readiness` (`:20-32`) | `language` is `grc` | counts per (Book ID, run ID) |
 | P-9 | Deck specifications | `deck_preparation_manifest_items` (`migrations/000001_initialize.up.sql:676-711`), `deck_preparation_vocabulary` (`:876-884`), `generated_vocabulary` (`:1089-1097`), `decks` (`:935-941`), `vocabulary_browse_selections`, `custom_vocabulary_decks`, `custom_vocabulary_deck_identities` (`migrations/000026_custom_vocabulary_selections.up.sql:1-12`, `:14-27`, `:29-42`), `custom_vocabulary_deck_preparations`, `custom_vocabulary_deck_preparation_identities` (`migrations/000027_custom_deck_preparations.up.sql:1-36`, `:45-59`) | `language` is `grc` | the UUID key columns of each row, or of its containing deck or preparation, with counts |
-| P-10 | Other rows with a language | Owner-scoped: `vocabulary_states` (`migrations/000001_initialize.up.sql:1447-1456`), `selection_candidates` (`:1335-1356`), `curated_sentences` (`:541-550`), `example_sentences` (`:1031-1047`). Installation-wide or nullable owner: `shared_lemmas` (`:1377-1386`), `enrichment_cache` (`:948-968`), `normalized_corpus_artifacts` (`:1251-1260`), `frequency_datasets` (`:1054-1064`), `frequency_entries` (`:1071-1082`), `supported_languages` (`:1422-1426`), `opds_connections` (`:1267-1277`) | `language` is `grc` | counts per owner; owner `null` means installation-wide |
+| P-10 | Other rows with a language | Owner-scoped: `users.active_study_language` (`migrations/000001_initialize.up.sql:1433-1441`), `vocabulary_states` (`migrations/000001_initialize.up.sql:1447-1456`), `selection_candidates` (`:1335-1356`), `curated_sentences` (`:541-550`), `example_sentences` (`:1031-1047`). Installation-wide or nullable owner: `shared_lemmas` (`:1377-1386`), `enrichment_cache` (`:948-968`), `normalized_corpus_artifacts` (`:1251-1260`), `frequency_datasets` (`:1054-1064`), `frequency_entries` (`:1071-1082`), `supported_languages` (`:1422-1426`), `opds_connections` (`:1267-1277`) | `language` is `grc` | counts per owner; owner `null` means installation-wide |
 
 ```sql
 -- illustrative, not a migration
+-- 1. Distinct values, classified in Go with NormalizeLanguage.
+SELECT DISTINCT language FROM known_vocabulary;
+-- 2. Rows holding the values classified as grc, by byte equality.
 SELECT owner_id, count(*) AS n, array_agg(id ORDER BY id) AS ids
 FROM known_vocabulary
-WHERE split_part(replace(lower(btrim(language)), '_', '-'), '-', 1) = 'grc'
+WHERE language = ANY($1::text[])
 GROUP BY owner_id
 ORDER BY owner_id;
 ```
@@ -5517,6 +5533,10 @@ Each invariant is covered by the `MIG` rows in [§15](#15-acceptance-test-matrix
 - **OD-12 and OD-32.** X-1 to X-9 assume OD-12 option (2) and OD-32 option (1).
 - **OD-41.** MIG rows that run operator commands use seam (d), widened as for
   RET-14 and RET-16.
+- **§8's illustrative DDL** adds the `exact_analysis_id` foreign key inline in
+  `ADD COLUMN`, which validates it at once. §13 adds it as a separate `NOT
+  VALID` constraint that S8 validates (X-5). This refines §8 and does not
+  change it.
 
 ## 14. Public and local material
 
@@ -5832,7 +5852,7 @@ rows use synthetic fixtures only.
 | MIG-10 | Legacy `grc` rows are never converted. | (d) (OD-41) | MIG-07's seeded database at the pre-rollout version. | Apply S1 to S9, run the preflight twice, then attempt §12 Local registration. | Every seeded row is byte-identical. No Vocabulary identity, Rich Known, membership, decision, count or Book–Reading unit association exists for any of them. Both preflight reports are identical. | Registration is refused, and every new table still has zero rows. |
 | MIG-11 | A restore of blobs plus records passes the integrity check. | (d) (OD-41) | At S9, owners A and B each adopt a synthetic classical Book through §11. A adopts twice, so an older analysis keeps its Adopted evidence record. A also has an exact decision, a rich snapshot, a completion and Rich Known. | Dump the whole database with `pg_dump -Fc` inside the database container. Restore it into a fresh database with `pg_restore --single-transaction --exit-on-error`. Run the integrity check, then the preflight. | The restore succeeds. The integrity check passes with no restriction, and R-1 to R-3 pass. Every table digest equals the source's. Both Books report current evidence available, and A's older analysis is still readable as A's evidence. | A dump that excludes the evidence tables' data fails `pg_restore` as a whole, and the fresh database stays empty. |
 | MIG-12 | A restore that is missing a blob fails the integrity check and shows the unavailable state. | (d) (OD-41) | MIG-11's dump, loaded into a fresh database with triggers disabled (`session_replication_role = replica`) and without the Package blob of A's current build. §9 calls this a non-conforming restore. | Run the integrity check. Then read A's Book evidence and A's Reading chooser through the store. | The check fails with `evidence_reference_missing` and appends an `integrity_failure` restriction (OD-57). A's Book shows Evidence unavailable with the reason, and Start is refused. Frozen records are byte-identical, and no Reading ends automatically. | B's Book, whose evidence does not depend on that blob, stays available. A conforming restore of the same reduced data fails as a whole. |
-| MIG-13 | Regenerated sqlc output matches the committed code at every step. | CI (OD-58) | Each step's PR. | Run `make sqlc`, then `git diff --exit-code gen/sqlc`. | There is no diff, and the build and tests pass. | A step file changed without regeneration fails the check. |
+| MIG-13 | Regenerated sqlc output matches the committed code at every step. | CI: `make sqlc` plus `git diff --exit-code` (OD-58) | Each step's PR. | Run `make sqlc`, then `git diff --exit-code gen/sqlc`. | There is no diff, and the build and tests pass. | A step file changed without regeneration fails the check. |
 
 ## 16. Requirement traceability
 
