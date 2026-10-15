@@ -7,6 +7,68 @@ after the parent's independent review. Scope:
 Nothing was fetched or downloaded. No repair, mapping, selection, stopword,
 Gloss, provider, deck or production change was made.
 
+## Independent parent disposition (2026-10-15)
+
+**I endorse the scoped recommendation: choose the exact repaired OGA v0.2.0
+Book 1 slice for MVP planning, subject to Justin's acceptance in #2030.**
+Reviewed `c911cf3a3306e84acfc0647f2308cb6076fe8695` and Opus's qualification
+revision `2f8a155594c866bb5b41cbee843b8a82b96c92d2`. This is an assessment
+recommendation, not a record of human acceptance or authorization to implement.
+
+The useful signal is the complete, exact whole-unit proof plus the inspected
+ordinary and targeted examples, not an estimated accuracy percentage. The
+retained evidence supports moving to a bounded source choice rather than
+another general repair round. It also exposes genuine costs that a learner
+would encounter, including wrong name lemmas, wrong numbered identities,
+duplicate headword inputs and split-word spacing. These are not merely cosmetic;
+wrong identities can affect later Known comparison. Acceptance would mean
+tolerating disclosed automatic prediction quality for this first slice, not
+certifying it or promising that learner corrections already work for Greek.
+
+Independent verification:
+
+- Read all 12 deterministic content examples and their exact targets, the
+  shortest/median/longest sentence examples, and targeted repair, name,
+  homograph, spacing and editorial cases from retained local artifacts.
+- Independently reconstructed the spacing sensitivity from the pinned node–TEI
+  coordinates and original reading text: 1,203 adjacent-node joins, 47
+  non-punctuation split pairs, 33 affected sentences, and 36 inputs across 17
+  chosen sentences. Hypothetical removal of those separator spaces gives 437
+  qualifying inputs, versus the actual 434. This does not adopt a new reading
+  text or validate its coordinates for production.
+- Recounted 59 selected ADV identities (1,395 occurrences), 13 with a
+  function-UPOS comparison elsewhere in the Book (765 occurrences), and 40
+  all-capitalized selected NOUN identities (453 occurrences). These are
+  diagnostics, not gold particle/name classifications or a new stoplist.
+- Recomputed the comparison after temporarily suppressing OGA discriminators:
+  434 OGA (key, UPOS) pairs, 373 GLAUx pairs, 347 shared, 87 OGA-only and 26
+  GLAUx-only. This is neither lexical equivalence nor an accuracy ranking.
+- Reran the read-only review and its 9 tests, the unchanged repaired proof with
+  real-Go parity and its 164 companion tests, repository lint, coverage-new and
+  diff checks. All pass. Research Python is outside production coverage; the
+  coverage command does not establish a research-code percentage.
+
+The initial report's “~1.8%” claim is withdrawn: it mixed redundant-input counts
+with prediction errors, and the review was not an exhaustive accuracy audit.
+The chosen εἰμί target is impersonal, not existential. The formed συνεῖδον
+identity remains eligible and inspectable despite being unselected. Six
+editorial-bearing chosen sentences serve nine inputs, not six inputs. These
+reporting corrections do not change any source, mapping, selection or output.
+
+The known archive acquisition cost and unresolved runtime-data/provider/export
+permissions are real stage gates. No fatal obstacle to this bounded planning
+choice has been demonstrated; neither is an eventual supported acquisition or
+deck guaranteed. A concrete infeasible stage may reopen the choice, but the
+present evidence does not justify another open-ended source investigation.
+
+**Next only if Justin accepts:** resume #2031 with this exact slice as its
+named fixture and reconcile the superseded human-only candidate wording through
+human-reviewed documentation. Acquisition, repair-layer deployment, reading
+projection, Gloss/card presentation and operation-specific rights remain
+explicit gates of that planning handoff. No new task, source fallback,
+stopword policy, provider call, accepted-document edit or implementation is
+launched by this review.
+
 ## 1. Recommendation
 
 **Accept** Opera Graeca Adnotata v0.2.0, Xenophon *Anabasis* Book 1 (Marchant
@@ -188,8 +250,10 @@ but is within the accepted #2034 cap.
     input, because it occurs once.
   - It still appears in the Browse vocabulary inventory and in the reading
     source.
-  - It could be selected under other conditions, for example with multi-Book
-    across-Books counts or different Known/Reserved state.
+  - It could be selected under other conditions, for example when multi-Book
+    across-Books counts reach the existing threshold and it is neither Known
+    nor Reserved. Changing Known/Reserved alone cannot make its one occurrence
+    satisfy the frequency floor in this one-Book scenario.
   - Its medium-uncertainty disclosure still applies; being unselected does not
     hide it.
 - **Selected citation repairs:** συλλέγω, ἑπτά and ἔνειμι. All are common
@@ -391,7 +455,9 @@ Six chosen sentences contain editorial elements: 56, 125, 137, 279, 336 and
 - **Judgment:**
   - Better for a learner than showing deleted words without brackets.
   - Unmarked cruces and supplements are a minor presentation qualification.
-    Six chosen sentence inputs are affected.
+    Six distinct chosen sentences carry editorial elements and serve nine
+    sentence inputs; not every editorial element is an unmarked crux or
+    supplement.
   - No vocabulary-identity decision about seclusion is needed for OGA, because
     the deleted text is not in the annotation-carried reading.
 
@@ -438,7 +504,7 @@ disagreement.
 | Lexical homographs | Morpheus numbers preserved (141 occurrences), under a reviewed research mapping with medium-uncertainty limits, not gold. Costs: 4 double-selected headwords and 2 identities whose every occurrence carries the wrong number | The source declares no lexical discriminators; it uses a different identity scheme. Its λέγω, δέω and πάρειμι are single identities. Nothing shows whether any particular merge is right or wrong |
 | Names | Lowercase headwords; 4 name problems found (§4.4) | Capitalized headwords; Μένων, Ὀρόντης, Κιλικία and Ξενίας are single identities |
 | Card inputs | 434/438 (437 under TEI spacing) | 372/373 |
-| Remaining work before vocabulary-ready | None, under the disclosed repair layer | Seclusion decision, and an εἰμί rule still to be supported |
+| Research vocabulary-accounting result | Complete under the disclosed repair layer; a production importer remains unbuilt | Conditional on seclusion and a supported εἰμί rule |
 | Acquisition | Demonstrated route: the official 8.6 GB corpus archive. The retained investigation did not establish a supported per-work package or a complete machine-readable catalogue | Small per-file pinned GitHub raw files; `metadata.txt` catalogue |
 | Rights evidence | OGA BY-SA 4.0 (archive README); text BY-SA 4.0 | GLAUx BY-SA 4.0; text revision under a BY-SA 3.0 US README |
 | Maintenance | 13 node-bound repairs; fail closed on any component change | No repair layer, but its open rules would still need deciding |
@@ -479,8 +545,8 @@ facts and corrections keep their exact original evidence. A later repair-layer
 version or OGA release must therefore be adopted as new evidence, and it cannot
 rewrite them. That immutability does **not** stop a wrong prediction from
 becoming Known, or from colliding with another Book's identity later. The 2
-wrong-number identities are accepted here as disclosed known errors, not as
-harmless ones.
+wrong-number identities are recommended for acceptance as disclosed known
+errors, not as harmless ones; human acceptance is still pending.
 
 ## 7. Why the remaining issues are acceptable, not blocking
 
