@@ -148,6 +148,8 @@ separately reviewed local operation is permissible.
 
 ### 2. Review additive schema, canonical interfaces and compatibility
 
+Design under review: [Ancient Greek additive analysis design](ancient-greek-additive-analysis-design.md) (proposed; not approved).
+
 **Go:** separately reviewed design satisfies ADR 0098 before any SQL is written.
 Only then may authorized implementation add the needed structures. Keep the
 immutable baseline and every shipped migration untouched; allocate successor

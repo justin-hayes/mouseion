@@ -65,6 +65,7 @@ legible from stored display names.
 - [Learner review of analyzer lemmas](features/lemma-review-and-correction.md) — implemented Book- and analysis-scoped review of suspicious occurrence lemmas before reading/deck vocabulary freezes; the analyzer evidence remains immutable.
 - [Vocabulary Browse and Concordance](features/vocabulary-browse-and-concordance.md) — **accepted, partially shipped**: Current-reading Book Browse with effective local and cross-Book counts and cross-Book evidence investigation; retire Browse selection and Custom deck UI.
 - [Reading-owned Book vocabulary](features/reading-owned-book-vocabulary.md) — **accepted, implemented**: freeze once on starting Current reading, include corpus-qualified candidates seen once or twice ([ADR 0090](adr/0090-library-total-book-vocabulary-selection.md)), and prepare new Book decks only from that snapshot. [ADR 0085](adr/0085-reading-owned-book-vocabulary.md) owns the boundary.
+- [Ancient Greek additive analysis design](features/ancient-greek-additive-analysis-design.md) — **proposed design; not approved**: additive schema and module-interface design for local annotation-backed Ancient Greek ([#2062](https://github.com/justin-hayes/mouseion/issues/2062)); no SQL or implementation is authorized until its approval record is filled.
 
 Retired feature records are preserved under [`doc/archive/features/`](archive/features/).
 
