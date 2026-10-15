@@ -1611,7 +1611,657 @@ Each invariant is covered by the `IDN` rows in [§15](#15-acceptance-test-matrix
 
 ## 7. Canonical analysis and exact occurrences
 
-_Pending: owned by the canonical analysis ticket._
+Verified at commit `2ac8b48cdbf088e4b99e83f202774497199f5eb4` (`main`). Every
+`path:line` in this section refers to that commit. No file outside `doc/` changed
+between §3's baseline commit and this one, so §3's citations still hold.
+
+### Summary
+
+- A validated Exact analysis (§5) stores its **sentences**, **nodes**, **span
+  references**, **container components**, **Annotation occurrences** and the
+  optional **morphology**, **basic syntax** and **secondary syntax** layers. All
+  of them are shared, immutable and written in the analysis's single
+  transaction.
+- A node is identified by `(analysis_id, node_id)`. `node_id` is an
+  analysis-scoped integer. Native identifiers are kept as evidence and scoped to
+  their source revision and document. They never identify a node across
+  analyses.
+- Spans are a separate relation: a node has 0..N half-open Unicode code-point
+  spans against the binding's Extracted text. Several nodes may share a span. One
+  node may have several spans. Empty nodes have none. No offset is ever derived
+  from lemma or surface length.
+- Every node in the bound extent has an **accounting class**: `vocabulary`,
+  `non_vocabulary` (with a reason code and a native evidence reference) or
+  `unresolved`. A multiword container never counts; its attested components
+  may.
+- An **Annotation occurrence** is `(analysis_id, node_id)` for a word or
+  component node whose class is `vocabulary` or `unresolved`. Offsets are display
+  data and never identify an occurrence or transfer a decision.
+- Optional layers keep native values. Canonical FEATS, UPOS and relations exist
+  only where a reviewed mapping supplies them. Each layer's availability is the
+  §5 Capability diagnostic for that capability, narrowed by sentence and node
+  findings. Invalid syntax is retained and withheld from consumers.
+- Legacy analyses stay in `corpus_tokens` and `corpus_sentences` and are never
+  rewritten. New analyses write only the new representation. Every consumer reads
+  both through one **analysis read interface** (OD-28, option (i)).
+
+New record names are proposed terms (OD-31). Table names in the illustrative DDL
+are not prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| A token's key is its position `(analysis_run_id, sentence_ordinal, token_ordinal)`. Surface, lemmas, UPOS, offsets, dependency and head are `NOT NULL`, with `dependency <> ''` and `head >= 0` checked. | `migrations/000001_initialize.up.sql:380-404`, `:1648` (B-01, B-02) | Classical analyses cannot be stored there without inventing values. They get their own records. Legacy rows keep their shape. |
+| A legacy sentence has one span and a stored `sentence_text`. | `migrations/000001_initialize.up.sql:360-373`; written by `insertCorpusSentences` at `internal/analysis/jobs.go:1759-1787` | A classical sentence has 1..N spans and no stored text. Its text is the slices of the Extracted text. |
+| `corpusTokenInserter.add` passes every token through `validateCorpusToken` before batching it. | `internal/analysis/jobs.go:1789-1822`, `:1837-1847` | The legacy write path is unchanged. Classical analyses are written by the §11 adoption path after §10 validation, never through this inserter. |
+| `validateCorpusToken` checks only a non-empty dependency, a head within the sentence, and that a `root` token is self-headed. It does not check one root per sentence, cycles or connection. | `internal/analysis/jobs.go:1849-1862` | The legacy check is not the §7 tree rule. The read interface does not re-run the §7 rule on legacy rows (OD-29). |
+| The Stanza producer flattens multiword tokens into words. A word without its own character offsets takes the token's offsets, and a missing end becomes `start + len(word.text)`. | `nlp/src/mouseion_nlp/producer.py:255-262` | Legacy components already share their container's span, and the container itself is not stored. The length fallback is a legacy derivation that this section forbids for classical analyses (rule SPAN-4). |
+| The producer drops a word with no usable lemma, with only a log line. | `nlp/src/mouseion_nlp/producer.py:266-271` | A classical node with no usable identity is `unresolved` and blocks Vocabulary-ready. It is never dropped (rule ACC-1). |
+| Occurrence identity is `(SourceDocumentID, StartOffset, EndOffset)`. | `internal/selection/selection.go:44-51` | Legacy occurrence keys stay offset-keyed. Classical keys are `(analysis_id, node_id)`. |
+| Sentence study counts the persisted words a decision's span addresses, and attributes the decision only when the count is one. | `sqlc/queries/concordance.sql:43-68` | Legacy fail-safe behaviour stays. Classical decisions address one node and need no span-uniqueness proof. |
+| `concordance_occurrences` joins the head token by `token_ordinal = t.head`. Sentence study shows each token's dependency and head. | `migrations/000018_remove_reading_journey.up.sql:6-34`; `internal/webapp/concordance.templ:186` | With syntax unavailable, there is no head to join and no relation to show. The interface reports "unavailable" with a reason, never an empty relation. |
+| `OccurrenceEligible` rejects dependency `compound:prt`. | `internal/selection/selection.go:281-285` | Syntax-based exclusions apply only where the node's basic syntax is usable (OD-03, option (1)). |
+| Concordance form search lowercases surfaces in SQL. | `sqlc/queries/concordance.sql:115` | Classical nodes carry a stored `ancient-greek/1` form search key (OD-26, option (1)). |
+
+### Records
+
+All records in this section are **shared** (no owner column) and reached only
+through the §5 access rule for their Exact analysis. They are **immutable**:
+written only in the Exact analysis's single transaction, with every `UPDATE`
+rejected by a mirrored trigger (§5), and no insert accepted for an analysis
+that has already committed. Default `ON DELETE` is `RESTRICT`. Offsets are
+integers in Unicode code points into the binding's Extracted text (§5), which
+holds exactly the Reading unit's extent.
+
+#### Analysis sentence
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One sentence of an Exact analysis, as the annotation segments it within the bound extent. | `analysis_id uuid`; `sentence_ordinal integer` (0-based, dense, in reading order); `native_member_path text` (the annotation revision member the sentence comes from); `native_document_ref text NULL` (native document or subdocument identifier, for example AGDT `document_id`/`subdoc`; NULL when the scheme has none); `native_sentence_ref text` (native sentence identifier within that member and document); `boundary text` ∈ {`complete`, `incomplete`, `unknown`}; `boundary_reason text NULL` (reason code, required unless `complete`, for example `unit_extent_cuts_sentence`, `source_boundary_undeclared`); `reconstruction text NULL` and `reconstructed_text text NULL` (both or neither: a reviewed transformation `name/version` and its output) | `(analysis_id, sentence_ordinal)` | `(analysis_id, native_member_path, native_document_ref, native_sentence_ref)` unique `NULLS NOT DISTINCT`. | Shared. | **Immutable.** | `analysis_id` → Exact analysis `RESTRICT` |
+
+The sentence's **text** is the ordered slices of the Extracted text at its
+spans. It is not stored. `reconstructed_text` exists only when a reviewed
+transformation (for example spacing or punctuation reconstruction from
+annotation-carried text, ADR 0093) produced it. Consumers then show it labelled
+with that transformation and still highlight against the spans. No consumer
+joins token surfaces into sentence text.
+
+`boundary` is the adapter's declaration, checked by validation (rule SENT-3):
+
+- `complete`: the native sentence lies wholly inside the extent, and the source
+  declares its boundaries.
+- `incomplete`: the native sentence continues before the extent's start or after
+  its end. Only its in-extent part is in the analysis.
+- `unknown`: the source does not declare sentence boundaries in a way the
+  reviewed adapter can verify.
+
+#### Sentence span
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One half-open span of a sentence. | `analysis_id uuid`; `sentence_ordinal integer`; `span_ordinal integer` (0-based, in text order); `start_cp integer`; `end_cp integer` | `(analysis_id, sentence_ordinal, span_ordinal)` | Key only. | Shared. | **Immutable.** | `(analysis_id, sentence_ordinal)` → Analysis sentence `RESTRICT` |
+
+#### Analysis node
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One node of the annotation: a word, a multiword container, a component, an unprinted (empty) node or punctuation. | `analysis_id uuid`; `node_id integer` (≥ 1; position in the analysis's canonical node order, see below); `sentence_ordinal integer`; `native_node_ref text` (native node identifier, scoped to the sentence's native member, document and sentence; for example an AGDT token `id` or a CoNLL-U `ID` such as `4`, `4-5` or `4.1`); `native_cite text NULL` (native citation such as AGDT `cite`; evidence only); `kind text` ∈ {`word`, `multiword_container`, `component`, `empty`, `punctuation`}; `surface text NULL` (native form, NFC not applied; NULL exactly for `empty`); `raw_lemma text NULL` (native lemma, verbatim); `citation_form text NULL` (decoded citation form, §6); `discriminator_scheme text NULL`, `discriminator_value text NULL` (decoded, §6; both or neither); `identity_id uuid NULL` (rich identity, §6); `native_pos text NULL` (native POS or class, verbatim); `upos text NULL`; `upos_state text` ∈ {`resolved`, `ambiguous`, `unsupported`, `missing`}; `upos_candidates text[]` (non-empty exactly when `ambiguous`; UD tags); `accounting_class text` ∈ {`vocabulary`, `non_vocabulary`, `unresolved`}; `non_vocabulary_reason text NULL`, `native_evidence_ref text NULL` (both required exactly when `non_vocabulary`); `form_search_key text NULL` (OD-26; `ancient-greek/1` key of `NFC(surface)` for `grc`; NULL for `empty`) | `(analysis_id, node_id)` | `(analysis_id, sentence_ordinal, native_node_ref)` unique. | Shared. | **Immutable.** | `(analysis_id, sentence_ordinal)` → Analysis sentence `RESTRICT`; `identity_id` → Vocabulary identity `RESTRICT` |
+
+Checks on a node row:
+
+- `upos` is non-NULL exactly when `upos_state = resolved`.
+- `identity_id` non-NULL requires `upos_state = resolved`. The identity's UPOS
+  equals `upos`, and its discriminator equals the node's. A trigger checks this.
+- `kind = empty` ⇔ `surface IS NULL`.
+- `kind ∈ {multiword_container, empty, punctuation}` ⇒
+  `accounting_class = non_vocabulary`, with reason `multiword_container`,
+  `empty_node` or `punctuation` respectively.
+- `accounting_class = vocabulary` ⇒ `kind ∈ {word, component}`, `identity_id`,
+  `citation_form` and `upos` non-NULL.
+
+**Canonical node order and `node_id`.** The adapter assigns `node_id`
+deterministically from the bound evidence:
+
+1. sentences in `sentence_ordinal` order;
+2. within a sentence, native node order;
+3. a container immediately before its first component;
+4. an empty node immediately after the node it is anchored to (for example
+   CoNLL-U `4.1` after `4`).
+
+The same binding, interpretation and adapter therefore always give the same
+`node_id` values (§5 determinism). `node_id` is stable for the life of the
+analysis because the analysis is immutable. It is not comparable across
+analyses.
+
+**Non-vocabulary reason codes** come from a registry in reviewed code that is
+versioned with the canonical contract (§5 `contract_version`). The structural
+codes are `punctuation`, `empty_node` and `multiword_container`. Every other
+code names a source-supported native class that the reviewed interpretation
+maps to non-vocabulary, for example `native_conjunction_class`. A reason code is
+never a learner decision. A non-vocabulary classification is not an Occurrence
+exclusion (ADR 0094 "Usability is capability-specific"). `native_evidence_ref`
+names the native attribute that justifies the class, for example
+`pos@native_node_ref`, so it can be inspected.
+
+**Example: non-vocabulary conjunction (synthetic, per #2058 item 1).** Scheme
+`example`. Node 7 is printed `ξέλ` at span `[40,43)`. Raw lemma `ξέλ`. Native POS
+`example:C`, which the reviewed definition documents as the conjunction class.
+The interpretation's POS mapping cannot choose between CCONJ and SCONJ from the
+native record. The row is:
+
+| field | value |
+| --- | --- |
+| `kind` | `word` |
+| `citation_form` | `ξέλ` |
+| `identity_id` | NULL |
+| `native_pos` | `example:C` |
+| `upos` | NULL |
+| `upos_state` | `ambiguous` |
+| `upos_candidates` | `{CCONJ,SCONJ}` |
+| `accounting_class` | `non_vocabulary` |
+| `non_vocabulary_reason` | `native_conjunction_class` |
+| `native_evidence_ref` | `pos@7` |
+
+It is accounted for, so it does not block Vocabulary-ready (rule ACC-2). It has
+no Annotation occurrence, so it is neither counted nor offered for a learner
+decision. A node finding records `ambiguous` UPOS with reason
+`upos_mapping_ambiguous`. No `X` is invented, and the node is not omitted.
+
+#### Node span
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One verified half-open span of a node against the Extracted text. | `analysis_id uuid`; `node_id integer`; `span_ordinal integer` (0-based, in text order); `start_cp integer`; `end_cp integer` | `(analysis_id, node_id, span_ordinal)` | Key only. **No** uniqueness on `(analysis_id, start_cp, end_cp)`: several nodes may share a span. | Shared. | **Immutable.** | `(analysis_id, node_id)` → Analysis node `RESTRICT` |
+
+- **Shared span:** nodes 4 and 5 each have one row `[10,16)`.
+- **Discontinuous span:** node 9 has rows `[2,5)` (ordinal 0) and `[9,12)`
+  (ordinal 1).
+- **Empty node:** no rows.
+
+#### Container component
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Links a multiword container to one of its linguistic components. | `analysis_id uuid`; `container_node_id integer`; `component_node_id integer`; `component_order integer` (0-based) | `(analysis_id, component_node_id)` | `(analysis_id, container_node_id, component_order)` unique. A component belongs to exactly one container. | Shared. | **Immutable.** | both node references → Analysis node `RESTRICT` |
+
+A trigger checks that the container's `kind` is `multiword_container`, the
+component's is `component`, and both are in the same sentence. Validation checks
+the remaining rules (CONT-1 to CONT-3).
+
+**Example (synthetic).** Container node 3 has surface `λέξισῥῆσ` and span
+`[10,18)`. Its components are node 4 (`λέξις` NOUN `example:ex:1`) and node 5
+(`ῥῆσις` NOUN). The source gives no finer offsets, so nodes 4 and 5 each
+reference `[10,18)`. The container is `non_vocabulary(multiword_container)`, and
+both components are `vocabulary`. The count is 2, not 3.
+
+#### Annotation occurrence
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The exact occurrence that counts, Lemma corrections, Occurrence exclusions and Lemma review flags address (§8). | `analysis_id uuid`; `node_id integer`; `occurrence_ordinal integer` (0-based, dense, in canonical node order) | `(analysis_id, node_id)` | `(analysis_id, occurrence_ordinal)` unique. | Shared. Decisions on it are owner-scoped (§8). | **Immutable.** | `(analysis_id, node_id)` → Analysis node `RESTRICT`. Target of §8 decision references `RESTRICT`. |
+
+A row exists **exactly** for each node whose `kind ∈ {word, component}` and
+`accounting_class ∈ {vocabulary, unresolved}` (rule OCC-ID-2). A trigger rejects
+a row for any other node, and validation rejects an analysis that is missing
+one. Materializing the row gives §8 decisions a foreign-key target that cannot
+name punctuation, a container, an empty node or a non-vocabulary node.
+Non-vocabulary word nodes, such as the conjunction example, are accounted for
+but are not occurrences (OD-30).
+
+An occurrence **contributes one count** exactly when its node's class is
+`vocabulary`. Existing language-specific eligibility (allowed POS, syntax-based
+exclusions) then applies on top of that, in the learner core (§8, §10). An
+`unresolved` occurrence never counts. It exists so diagnostics and inspection
+can name it, and because it blocks Vocabulary-ready (rule ACC-3).
+
+#### Node morphology
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The morphology layer for one node. | `analysis_id uuid`; `node_id integer`; `native_morphology jsonb` (native features or tag exactly as the source gives them, as an object of strings, for example `{"postag":"n-s---fn-"}`); `feats jsonb` (canonical UD FEATS, an object holding only the features a reviewed mapping supplies; may be `{}`) | `(analysis_id, node_id)` | Key only. | Shared. | **Immutable.** | `(analysis_id, node_id)` → Analysis node `RESTRICT` |
+
+No row means the source gives no morphology for the node. A native feature
+without a reviewed mapping stays only in `native_morphology` and gets a node
+finding (`morphology`, `unsupported` or `ambiguous`). It is never guessed into
+`feats`.
+
+#### Basic syntax edge
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One node's basic dependency: its head and relation. | `analysis_id uuid`; `node_id integer`; `head_node_id integer` (equal to `node_id` only for an actual root); `native_relation text NULL`; `relation text NULL` (UD basic relation where a reviewed mapping supplies it; `root` exactly when self-headed) | `(analysis_id, node_id)` | Key only: at most one basic head per node. | Shared. | **Immutable.** | `(analysis_id, node_id)` and `(analysis_id, head_node_id)` → Analysis node `RESTRICT` |
+
+Checks: `head_node_id = node_id` ⇔ `relation = 'root'`. Both nodes are in the
+same sentence. Neither is `empty` or `multiword_container`. A row is written
+only for a node the source gives a head for. A node with no native head gets no
+row, and the adapter never makes it a root.
+
+#### Secondary syntax edge
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One native secondary or enhanced edge, such as a PROIEL `slash` or a CoNLL-U `DEPS` edge, including edges to and from empty nodes. | `analysis_id uuid`; `edge_ordinal integer`; `node_id integer`; `head_node_id integer`; `native_relation text`; `relation text NULL` (mapped enhanced relation where reviewed) | `(analysis_id, edge_ordinal)` | `(analysis_id, node_id, head_node_id, native_relation)` unique. | Shared. | **Immutable.** | both nodes → Analysis node `RESTRICT` |
+
+Secondary edges are never folded into basic syntax, and basic syntax is never
+derived from them.
+
+```sql
+-- illustrative, not a migration
+CREATE TABLE analysis_nodes (
+  analysis_id uuid NOT NULL,
+  node_id integer NOT NULL CHECK (node_id >= 1),
+  sentence_ordinal integer NOT NULL,
+  native_node_ref text NOT NULL CHECK (native_node_ref <> ''),
+  native_cite text NULL,
+  kind text NOT NULL CHECK (kind IN ('word','multiword_container','component','empty','punctuation')),
+  surface text NULL,
+  raw_lemma text NULL,
+  citation_form text NULL,
+  discriminator_scheme text NULL,
+  discriminator_value text NULL,
+  identity_id uuid NULL REFERENCES vocabulary_identities(id) ON DELETE RESTRICT,
+  native_pos text NULL,
+  upos text NULL,
+  upos_state text NOT NULL CHECK (upos_state IN ('resolved','ambiguous','unsupported','missing')),
+  upos_candidates text[] NOT NULL DEFAULT '{}',
+  accounting_class text NOT NULL CHECK (accounting_class IN ('vocabulary','non_vocabulary','unresolved')),
+  non_vocabulary_reason text NULL,
+  native_evidence_ref text NULL,
+  form_search_key text NULL,
+  PRIMARY KEY (analysis_id, node_id),
+  UNIQUE (analysis_id, sentence_ordinal, native_node_ref),
+  FOREIGN KEY (analysis_id, sentence_ordinal) REFERENCES analysis_sentences(analysis_id, sentence_ordinal) ON DELETE RESTRICT,
+  CHECK ((kind = 'empty') = (surface IS NULL)),
+  CHECK ((upos_state = 'resolved') = (upos IS NOT NULL)),
+  CHECK ((upos_state = 'ambiguous') = (cardinality(upos_candidates) > 0)),
+  CHECK ((discriminator_scheme IS NULL) = (discriminator_value IS NULL)),
+  CHECK ((accounting_class = 'non_vocabulary') = (non_vocabulary_reason IS NOT NULL)),
+  CHECK ((accounting_class = 'non_vocabulary') = (native_evidence_ref IS NOT NULL)),
+  CHECK (kind IN ('word','component') OR accounting_class = 'non_vocabulary'),
+  CHECK (accounting_class <> 'vocabulary'
+         OR (identity_id IS NOT NULL AND citation_form IS NOT NULL AND upos IS NOT NULL))
+);
+
+CREATE TABLE analysis_node_spans (
+  analysis_id uuid NOT NULL,
+  node_id integer NOT NULL,
+  span_ordinal integer NOT NULL CHECK (span_ordinal >= 0),
+  start_cp integer NOT NULL CHECK (start_cp >= 0),
+  end_cp integer NOT NULL CHECK (end_cp > start_cp),
+  PRIMARY KEY (analysis_id, node_id, span_ordinal),
+  FOREIGN KEY (analysis_id, node_id) REFERENCES analysis_nodes(analysis_id, node_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE annotation_occurrences (
+  analysis_id uuid NOT NULL,
+  node_id integer NOT NULL,
+  occurrence_ordinal integer NOT NULL CHECK (occurrence_ordinal >= 0),
+  PRIMARY KEY (analysis_id, node_id),
+  UNIQUE (analysis_id, occurrence_ordinal),
+  FOREIGN KEY (analysis_id, node_id) REFERENCES analysis_nodes(analysis_id, node_id) ON DELETE RESTRICT
+);
+-- plus: a trigger rejecting an occurrence whose node is not a word or component
+-- classed vocabulary or unresolved; mirrored update triggers on every table;
+-- a trigger rejecting inserts for an analysis committed in an earlier transaction.
+
+CREATE TABLE analysis_basic_syntax (
+  analysis_id uuid NOT NULL,
+  node_id integer NOT NULL,
+  head_node_id integer NOT NULL,
+  native_relation text NULL,
+  relation text NULL,
+  PRIMARY KEY (analysis_id, node_id),
+  FOREIGN KEY (analysis_id, node_id) REFERENCES analysis_nodes(analysis_id, node_id) ON DELETE RESTRICT,
+  FOREIGN KEY (analysis_id, head_node_id) REFERENCES analysis_nodes(analysis_id, node_id) ON DELETE RESTRICT,
+  CHECK ((head_node_id = node_id) = (relation IS NOT DISTINCT FROM 'root'))
+);
+```
+
+### Occurrence identity
+
+- An Annotation occurrence is identified by `(analysis_id, node_id)`, and only
+  by that pair.
+- Offsets are display data. No store method, query or validation step
+  identifies an occurrence, attributes a decision or transfers a decision by
+  offset equality, span overlap, surface, lemma, `native_node_ref` or
+  `native_cite`.
+- Two nodes with identical spans are two occurrences with two keys, and can have
+  different decisions (§8).
+- Equal `native_node_ref` values in two analyses, for example under two
+  interpretations of the same binding, give two different occurrences. No
+  decision, flag or count moves from one to the other (#2058 qualification,
+  ADR 0094 "Adapters and publication compatibility").
+- §5 Diagnostic finding references resolve to this section's keys:
+  `sentence_ref` is `(analysis_id, sentence_ordinal)` and `node_ref` is
+  `(analysis_id, node_id)`.
+
+**Highlighting.** A target is highlighted at its node's spans, sliced from the
+Extracted text, which is exactly the text the reader displays. A discontinuous
+node highlights each slice. Components that share their container's span
+highlight that whole span, and the UI names which component is the target. If a
+span's slice cannot be shown, for example because a reconstruction changed the
+displayed text, the alignment failure is reported, and no highlight is guessed
+from the lemma or surface (#2033 "Exact evidence, headwords and source
+matching"). Search keys never place a highlight.
+
+### Optional layers and availability
+
+Each layer's availability is the §5 **Capability diagnostic** for its
+capability (`morphology`, `basic_syntax`, `secondary_syntax`), narrowed per
+sentence or node by **Diagnostic findings**. No §7 record repeats the state.
+Validation (§10) derives the states from the stored rows as follows.
+
+**Morphology.**
+
+- `missing`: no node has a morphology row.
+- `unsupported`: rows exist, but the interpretation has no reviewed FEATS
+  mapping for the scheme. `native_morphology` is still retained.
+- Otherwise `usable`, with a node finding for each node whose native features are
+  partly unmapped (`unsupported`) or ambiguous.
+
+**Basic syntax.** A sentence's **tree participants** are its nodes of kind
+`word`, `component` and `punctuation`. Empty nodes and containers never
+participate. A sentence has a **complete basic tree** exactly when rules TREE-1
+to TREE-4 hold. For each sentence:
+
+- no participant has a basic-syntax row: sentence finding `missing`
+  (`syntax_absent`);
+- rows exist but the tree is not complete: sentence finding `invalid`, with one
+  reason per violated rule (`root_missing`, `root_multiple`, `tree_cycle`,
+  `tree_disconnected`, `head_unresolved`);
+- complete, but some participant's `relation` is NULL: sentence finding
+  `unsupported` (`relation_unmapped`);
+- otherwise no finding: the sentence's basic syntax is usable.
+
+The release-scope state is `missing` when no sentence has any row,
+`unsupported` when the interpretation declares no reviewed relation mapping,
+`invalid` when rows exist but no sentence has a complete tree, and otherwise
+`usable`, with the findings above for every other sentence.
+
+**Secondary syntax.** `missing` when there are no edges. `unsupported` when edges
+exist but no relation is mapped. `usable` otherwise. Secondary syntax is not
+tree-validated. Its endpoints must be nodes of the same sentence (rule SYN-2).
+
+**Withholding.** The read interface returns a layer's values for a sentence or
+node only when its effective state is `usable` and no Usability restriction
+(§5) names the capability. Otherwise it returns the state and reason codes and
+no values. Stored rows of an invalid tree stay inspectable in the owner's
+evidence detail (§5 access rule). They are never served to Concordance,
+sentence selection or eligibility.
+
+**Eligibility with unavailable syntax (OD-03, option (1)).** A syntax-based
+exclusion, such as today's `compound:prt` rule
+(`internal/selection/selection.go:281-285`), applies to an occurrence only when
+the occurrence's basic syntax is usable. When syntax is unavailable, the
+occurrence's eligibility is decided by its identity and UPOS alone. Unavailable
+syntax is never evidence that a relation is absent (ADR 0094).
+
+### Validation rules
+
+These are the rules the shared canonical-validation interface (§10) applies to a
+candidate before any write. §10 references them by ID. "Extent" is the binding's
+Extracted text.
+
+**Spans.**
+
+- **SPAN-1.** Every span satisfies `0 ≤ start_cp < end_cp ≤ code_point_length`
+  of the Extracted text.
+- **SPAN-2.** A node's or sentence's spans are ordered by `start_cp`, pairwise
+  disjoint and non-adjacent (`end_cpᵢ < start_cpᵢ₊₁`). Adjacent spans are one
+  span.
+- **SPAN-3.** Nodes of kind `word`, `multiword_container`, `component` and
+  `punctuation` have at least one span. `empty` nodes have none.
+- **SPAN-4.** Every span is the adapter's verified mapping of native coordinates
+  or native text into the Extracted text. No span is computed from the length of
+  a surface, lemma or citation form.
+- **SPAN-5.** Each node's spans lie within the union of its sentence's spans.
+
+**Sentences.**
+
+- **SENT-1.** Sentence ordinals are dense from 0, in order of first `start_cp`.
+  Sentence spans are pairwise disjoint across the analysis.
+- **SENT-2.** A sentence has at least one span and at least one node.
+- **SENT-3.** `boundary = complete` only when the native sentence lies wholly in
+  the extent and the source declares its boundaries. A native sentence that the
+  extent cuts is `incomplete`. A sentence the adapter cannot verify is
+  `unknown`. The adapter never upgrades `unknown` to `complete`.
+- **SENT-4.** A candidate that supplies sentence text is accepted only if the
+  text equals the slices at its spans, or if it names a reviewed reconstruction
+  transformation. Otherwise it is rejected with `sentence_text_unbound`.
+
+**Containers.**
+
+- **CONT-1.** A `multiword_container` has at least two components. A `component`
+  has exactly one container.
+- **CONT-2.** A component's spans lie within its container's spans. A component
+  without native finer offsets references exactly its container's spans.
+- **CONT-3.** A container contributes no count. Each of its components is
+  classified on its own.
+
+**Occurrence identity.**
+
+- **OCC-ID-1.** `node_id` values are dense from 1, in canonical node order.
+  `native_node_ref` is unique within its sentence.
+- **OCC-ID-2.** An Annotation occurrence exists for exactly the nodes with
+  `kind ∈ {word, component}` and `accounting_class ∈ {vocabulary, unresolved}`.
+
+**Accounting.**
+
+- **ACC-1.** Every node in the extent has exactly one accounting class. A node
+  that the source attests but the interpretation cannot classify is
+  `unresolved`. It is never dropped.
+- **ACC-2.** `non_vocabulary` requires a registered reason code and a native
+  evidence reference. Structural kinds (container, empty, punctuation) are
+  always `non_vocabulary` with their structural reason. A reason other than a
+  structural one requires a reviewed native-class mapping in the
+  interpretation.
+- **ACC-3.** A Vocabulary-ready analysis has zero `unresolved` occurrences.
+- **ACC-4.** A Vocabulary-ready analysis covers the full declared unit. Every
+  code point of the Extracted text that is not `White_Space` lies in some
+  printed node's span (`word`, `multiword_container`, `component` or
+  `punctuation`). An uncovered code point is a `coverage_gap` finding and
+  blocks Vocabulary-ready. Material that is not part of the text, such as
+  apparatus, is removed by the binding's reviewed projection (§5), never by the
+  analysis.
+- **ACC-5.** A `vocabulary` node has a rich identity, a decoded citation form and
+  a resolved UPOS. Its identity's UPOS and discriminator equal the node's.
+
+**Trees.** For one sentence's tree participants:
+
+- **TREE-1.** Every participant has exactly one basic-syntax row, and its head is
+  a participant of the same sentence (`head_unresolved` otherwise).
+- **TREE-2.** Exactly one participant is self-headed with relation `root`
+  (`root_missing`, `root_multiple`). A self-headed row whose relation is not
+  `root`, or a `root` that is not self-headed, is rejected outright as malformed.
+- **TREE-3.** Following heads from any participant reaches the root without
+  revisiting a node (`tree_cycle`).
+- **TREE-4.** Every participant reaches the root (`tree_disconnected`).
+- **TREE-5.** The adapter never adds a root, head or relation that the source
+  does not give, in order to satisfy TREE-1 to TREE-4. A failed tree is stored as
+  given and is withheld.
+
+**Syntax endpoints.**
+
+- **SYN-1.** Basic-syntax endpoints are never `empty` or `multiword_container`
+  nodes.
+- **SYN-2.** Secondary-syntax endpoints are nodes of the same sentence, and may be
+  `empty`.
+
+Rules SPAN-\*, SENT-1, SENT-2, SENT-4, CONT-1, CONT-2, OCC-ID-\*, ACC-1, ACC-2,
+ACC-5, TREE-2's malformed case, TREE-5 and SYN-\* **reject** a candidate. Rules
+ACC-3 and ACC-4 decide `vocabulary_ready`. Rules TREE-1 to TREE-4 produce syntax
+findings and never reject a candidate or change vocabulary readiness.
+
+### Legacy coexistence and the analysis read interface
+
+**Decision (OD-28, option (i)).** Analyses that already exist stay in
+`analysis_runs`, `corpus_sentences` and `corpus_tokens`. They are never
+rewritten, backfilled or copied. New Exact analyses write only the records in
+this section. Nothing dual-writes. EPUB analysis keeps writing legacy rows
+through `corpusTokenInserter` (`internal/analysis/jobs.go:1789-1847`), unchanged.
+
+Every consumer that reads analysis content goes through one **analysis read
+interface**. It has two adapters: an exact adapter over this section's records,
+and a legacy adapter over `corpus_*` rows. The consumers are the Reading page,
+Book vocabulary and Browse projection, lemma review, sentence study,
+Concordance, sentence selection and deck preparation, and Finish. They do not
+branch on which adapter answered.
+
+**Contract.** Every method takes the authenticated owner and a Book, and
+applies the §5 access rule (exact) or the existing current-analysis predicate
+(legacy) in the same query. It returns these shapes:
+
+| shape | fields | exact adapter | legacy adapter |
+| --- | --- | --- | --- |
+| Analysis ref | kind (`exact` or `legacy`), ID | `exact`, `analysis_id` | `legacy`, `analysis_run_id` + `corpus_id` |
+| Sentence | ordinal; spans; text; reconstruction label; boundary and reason | as stored; text sliced from Extracted text | ordinal; one span `[start_offset, end_offset)` in its unit; stored `sentence_text`; boundary `complete` (see below) |
+| Node | node key; kind; surface (nullable); raw lemma; citation form; identity; native POS; UPOS and state; accounting class; spans; container or components | as stored; identity is the rich identity | node key `(sentence_ordinal, token_ordinal)`; kind `punctuation` when UPOS is `PUNCT`, otherwise `word`; identity is the legacy tuple, with no discriminator; no citation form; accounting class `not_declared`; one span; no containers |
+| Occurrence key | `exact(analysis_id, node_id)` or `legacy(source_document_id, start_offset, end_offset)` | `exact` | `legacy`, exactly today's `selection.OccurrenceIdentity` |
+| Layer\<T\> (morphology, basic syntax, secondary syntax) | state; reason codes; value only when usable | derived as above, with restrictions | morphology `usable` (stored map as both native and FEATS); basic syntax `usable` (stored relation and head, unchanged); secondary syntax `missing` (`legacy_basic_only`) |
+
+Legacy rules:
+
+- **Legacy rows are read, never written.** No new code updates or deletes a
+  `corpus_tokens`, `corpus_sentences` or `analysis_runs` row, except the
+  existing EPUB write and cascade paths.
+- **Legacy occurrences keep today's semantics.** They stay offset-keyed, a
+  decision still needs a unique span (`internal/selection/selection.go:150-166`),
+  and eligibility still runs `OccurrenceEligible` as today.
+- **`not_declared`** is the legacy adapter's accounting value. It appears only
+  for legacy nodes. The §7 accounting rules apply only to exact analyses.
+- **Legacy boundary is `complete`.** An EPUB analysis covers whole source units.
+  A legacy sentence is therefore never cut by a Reading-unit edge. Reporting
+  `complete` keeps today's consumer behaviour, which reads no boundary
+  declaration.
+- **Legacy trees are reported as today.** The legacy adapter reports what
+  `validateCorpusToken` admitted. It does not re-run TREE-1 to TREE-4 (OD-29).
+- **Characterization.** For a legacy analysis, every consumer's output through the
+  interface equals its output before the interface existed (OCC-11).
+
+**Unavailable syntax in consumers.** When a Layer is not usable:
+
+- Sentence study shows "Syntax unavailable", with the state and the reason, in
+  place of the relation and head. It never shows an empty relation or a head
+  token.
+- A syntax-dependent Concordance query, such as a role filter or dependents of a
+  lemma, returns an **unavailable** result for the analyses that lack usable
+  syntax, with the reason. It never returns "no results" for them. When some
+  Books have usable syntax and others do not, the result lists the matches from
+  the usable Books and names the Books whose syntax is unavailable.
+- Lemma and form lookup in Concordance do not depend on syntax and work as usual.
+- Eligibility follows OD-03 option (1) above.
+
+### Size and indexes
+
+Public orders of magnitude for one Book-sized unit: about 10⁴ nodes and about
+6×10³ eligible occurrences. Sentence counts are on the order of 10³. These are
+estimates, not requirements.
+
+| record | rows per unit (order) | note |
+| --- | --- | --- |
+| Analysis sentence, Sentence span | ~10³ each | about one span per sentence |
+| Analysis node | ~10⁴ | words, punctuation, containers, components, empty nodes |
+| Node span | ~10⁴ | about one per printed node, more for discontinuous nodes; none for empty nodes |
+| Container component | 10¹–10³ | depends on the scheme's multiword tokens |
+| Annotation occurrence | < 10⁴ | nodes minus punctuation, containers, empty and non-vocabulary nodes; ~6×10³ of them pass eligibility |
+| Node morphology | ≤ 10⁴ | |
+| Basic syntax edge | ≤ 10⁴ | |
+| Secondary syntax edge | 0–10³ | |
+| Diagnostic finding (§5) | ≤ 10⁴ | bounded by nodes and sentences |
+
+That is about 6×10⁴ rows per Exact analysis. At roughly 100–250 bytes per node
+row and under 60 bytes per span, occurrence or edge row, the heap is a few MB,
+with indexes of the same order. The rows are stored once per Exact analysis and
+shared by every owner who adopts it.
+
+Indexes that the named queries need, beyond primary keys and the uniqueness
+constraints above:
+
+| query | index |
+| --- | --- |
+| Reading page and sentence study: nodes of a sentence in order | primary key `(analysis_id, node_id)` serves range scans in node order. `(analysis_id, sentence_ordinal, node_id)` serves sentence lookup. |
+| Spans of a sentence's nodes | primary key `(analysis_id, node_id, span_ordinal)` |
+| Browse and Book vocabulary: group occurrences by identity in one analysis | `analysis_nodes (analysis_id, identity_id)`, joined to Annotation occurrence on its primary key |
+| Concordance lemma lookup across the owner's current classical analyses | `analysis_nodes (identity_id, analysis_id)` |
+| Concordance form lookup (OD-26) | `analysis_nodes (form_search_key, analysis_id)` |
+| Occurrence review and lemma review: occurrences of an analysis in reading order | unique `(analysis_id, occurrence_ordinal)` |
+| Lemma review by exact observed form | `analysis_nodes (analysis_id, form_search_key)` |
+| Concordance dependents of a head | `analysis_basic_syntax (analysis_id, head_node_id)` |
+| Concordance role filter | `analysis_basic_syntax (analysis_id, relation)` |
+| Container of a component | primary key of Container component |
+| Findings of a sentence or node (§5) | `(analysis_id, sentence_ref)` and `(analysis_id, node_ref)` on Diagnostic finding |
+
+Owner-scoped counts and decisions are §8 records keyed by owner and Book. They
+join these shared rows by `(analysis_id, node_id)` or `identity_id`. None of
+the shared indexes needs an owner column.
+
+### Invariants
+
+Each invariant is covered by the `OCC` rows in [§15](#15-acceptance-test-matrix).
+
+1. **Identity.**
+   - Occurrence identity is `(analysis, node)`. Two nodes with an identical span
+     have two occurrence keys (OCC-01, OCC-12).
+   - Equal native IDs in two analyses give two occurrences, and nothing transfers
+     between them (OCC-13).
+   - Offsets never identify an occurrence or transfer a decision (OCC-01, OCC-13).
+2. **Spans.**
+   - Shared and discontinuous spans are stored explicitly and round-trip exactly
+     (OCC-02).
+   - Empty nodes have no span and no count (OCC-03).
+   - No span is derived from length. Component spans lie within their
+     container's spans (OCC-14).
+3. **Containers.** A container plus two counted components counts 2 (OCC-04).
+4. **Occurrence membership.** Punctuation, containers, empty nodes and
+   non-vocabulary nodes are never Annotation occurrences (OCC-05).
+5. **Sentences.**
+   - A boundary cut by the extent is persisted as `incomplete` (OCC-06).
+   - Sentence text comes only from the bound text, or from a named reviewed
+     transformation (OCC-15).
+6. **Accounting.**
+   - Every node is classified (OCC-16).
+   - An unresolved occurrence blocks Vocabulary-ready (OCC-09).
+   - A coverage gap blocks Vocabulary-ready (OCC-17).
+   - Native-class non-vocabulary accounting with ambiguous UPOS is accepted
+     (OCC-10).
+7. **Optional layers.**
+   - Missing syntax is reported `missing`, and syntax-dependent Concordance shows
+     unavailable rather than zero (OCC-07).
+   - An invalid tree is withheld as `invalid` while vocabulary stays usable
+     (OCC-08, OCC-18).
+   - No root is fabricated (OCC-18).
+   - Morphology keeps native features and gives FEATS only where mapped
+     (OCC-19).
+   - Secondary syntax is kept separately, including empty-node edges (OCC-20).
+   - Unavailable syntax never makes an occurrence ineligible (OCC-21).
+8. **Persistence.** §7 records are immutable, and syntax endpoints stay within
+   one analysis and one sentence (OCC-22, OCC-23).
+9. **Legacy.**
+   - A legacy analysis reads identically through the shared interface (OCC-11).
+   - A new analysis writes no legacy rows, and no legacy row is rewritten
+     (OCC-24).
+10. **Search.** The `grc` form search key matches NFC and NFD, case and final
+    sigma, and nothing broader (OCC-25).
+
+### Conflicts and dependencies noted
+
+- §5's Diagnostic finding has `sentence_ref` and `node_ref`. This section defines
+  them as `(analysis_id, sentence_ordinal)` and `(analysis_id, node_id)`.
+- §6 leaves the per-node decoded citation form, discriminator and occurrence key
+  to this section. They are the node fields above. The Analysis headword (§6)
+  is derived from the `citation_form` of `vocabulary` occurrences.
+- OD-26 is placed here as `form_search_key` on the node, computed by Go
+  (`ancient-greek/1`, §6 I-6).
+- OD-03 is answered here as option (1). #2071 (§10) owns the eligibility
+  interface that applies it.
+- The coverage denominator and owner-scoped counts are §8. This section defines
+  only which occurrences contribute a count.
+- §10 owns the validation interface, its result type and readiness rules. It
+  references the rule IDs above. §11 owns the transaction that writes these
+  records with the Exact analysis.
+- Whether a sentence is suitable as a card target (beyond `boundary`) belongs to
+  the #2034 sentence and card rules, not to this section.
 
 ## 8. Learner-state attachment and compatibility
 
@@ -1788,6 +2438,31 @@ rows use synthetic fixtures only.
 | IDN-36 | Modern-language identities and learner outcomes are unchanged. | (b) | Every existing store-contract scenario (language `de`). | Run them with rich identities and the classical schema present. Run selection over synthetic `de` and `el` corpora. | Every scenario passes unchanged. Known, Reserved, snapshot, completion and count results equal the baseline, including the blank-UPOS Known match. Selection gives the same candidate identities, counts, observed forms and sentence references as the baseline recorded at this commit. | No modern-language Known, snapshot or count row gains a discriminator. |
 | IDN-37 | Cross-Book views choose an identity's headword by the stated preference order. | (b) | Owner A has two classical Books whose current analyses give one identity the headwords `Λέξις` and `λέξις`. The second Book is the Concordance priority Book. | Read the Concordance lemma group. Then accept a completed Reading of the first Book that makes the identity Known, and read the Known list and the Concordance group. | Before acceptance, the group shows `λέξις`, from the priority Book. After it, both views show `Λέξις`, the headword frozen with the Known acceptance. | Without a priority Book or Known acceptance, the view shows `Λέξις`, the smaller by code-point order. It never shows the key. |
 | IDN-38 | A corrected identity shows the correction's citation form in its Book. | (b) | Owner A's Book has two occurrences of `λέξις` NOUN `example:ex:1`. | Confirm a correction of the first to `Λῆξις`, then of the second to `λῆξις`. Read the Book's vocabulary. | The effective identity `λῆξισ` NOUN with a null discriminator shows `λῆξις`, from the latest correction. The Analysis headword for `example:ex:1` is unchanged. | Another Book with the same identity from its analysis shows its own headword, not the correction's. |
+| OCC-01 | Two nodes with an identical span are two occurrences with two keys. | (c) | A synthetic candidate. Nodes 4 (`λέξις` NOUN `example:ex:1`) and 5 (`λέξις` NOUN `example:ex:2`) are both `word`, `vocabulary`, with span `[10,16)`. | Validate the candidate. | Accepted. It yields occurrences `(A,4)` and `(A,5)`, both counted. Each key resolves to its own node and identity. | A candidate that gives node 5 the same `native_node_ref` as node 4 in that sentence is rejected (`OCC-ID-1`). A lookup by span `[10,16)` is not an occurrence key and is not offered by the interface. |
+| OCC-02 | A discontinuous span round-trips exactly. | (d) | A validated synthetic analysis where node 9 has spans `[2,5)` and `[9,12)`, and the Extracted text has known slices at both. | Persist it, then read node 9 through the analysis read interface. | Two spans in order, `[2,5)` then `[9,12)`. The text slices equal the Extracted text at those spans. No span `[2,12)` exists. | Validating spans `[2,5)` and `[4,8)` (overlapping), `[2,5)` and `[5,8)` (adjacent), or `[9,12)` before `[2,5)` is rejected (`SPAN-2`), seam (c). |
+| OCC-03 | An empty node has no span and no count. | (c) | A candidate sentence with words 1–3 and an empty node `2.1` that has a lemma and secondary-syntax edges. | Validate and read counts. | The empty node is `empty`, `non_vocabulary(empty_node)`, with a NULL surface, no span and no occurrence. The count is that of words 1–3 only. | A candidate giving the empty node a span, a surface or class `vocabulary` is rejected (`SPAN-3`, `ACC-2`). |
+| OCC-04 | A container with two counted components counts 2, not 3. | (c) | Container node 3, surface `λέξισῥῆσ`, span `[10,18)`, with components 4 (`λέξις` NOUN `example:ex:1`) and 5 (`ῥῆσις` NOUN), both referencing `[10,18)`. | Validate and count. | Occurrences `(A,4)` and `(A,5)`. The container has no occurrence. The count is 2. | A candidate classing the container `vocabulary`, giving a component a span `[10,14)` computed from `len("λέξις")` without native offsets, or a span outside `[10,18)`, is rejected (`ACC-2`, `SPAN-4`, `CONT-2`). |
+| OCC-05 | Punctuation is not an occurrence. | (c) | A candidate sentence ending in a punctuation node with span `[30,31)`. | Validate. | The node is `punctuation`, `non_vocabulary(punctuation)`, with a span and no occurrence. It counts nothing. | A candidate classing it `vocabulary` or `unresolved` is rejected. At seam (d), inserting an occurrence row for that node is rejected by the database. |
+| OCC-06 | A sentence cut by the extent is persisted as `incomplete`. | (a) | Owner A. A synthetic package whose unit `book 1` starts inside a native sentence. | Import and prepare the Book, then open its first sentence in sentence study. | The sentence is reported `incomplete` with reason `unit_extent_cuts_sentence`. Its in-extent nodes are present and counted. Its text is only the in-extent slice. It is not offered as a complete sentence target. | The adapter declaring that sentence `complete` is rejected by validation (`SENT-3`), and nothing is written. |
+| OCC-07 | Missing syntax gives `basic_syntax` `missing`, and Concordance shows unavailable, not zero. | (a) | Owner A. A Vocabulary-ready synthetic analysis without basic syntax, adopted for Book G. Owner A also has an EPUB Book with legacy syntax. | Run a syntax-dependent Concordance query (role filter) for a lemma present in G. Then open sentence study for a G sentence. | Capability `basic_syntax` is `missing` with reason `syntax_absent`. The query names G as "syntax unavailable" with the reason, and lists only the EPUB Book's matches. Sentence study shows "Syntax unavailable" and no relation or head. Lemma lookup still finds G's occurrences. | The response never reports G as having zero matches for the role, and never shows an empty relation. |
+| OCC-08 | A cyclic tree is withheld as `invalid`, and vocabulary stays usable. | (c) | A candidate where sentence 2's basic heads form a cycle (node 5 → 6 → 5) and every other sentence has a complete tree. | Validate, then read sentence 2's basic syntax through the interface. | Accepted, and `vocabulary_ready` is true. Sentence 2 has a `basic_syntax` finding `invalid` with reason `tree_cycle`. The interface returns state `invalid` and no edges for sentence 2, and edges for the other sentences. The stored edges stay inspectable in evidence detail. | No root is added and no edge is dropped to repair the cycle (`TREE-5`). |
+| OCC-09 | An unresolved lexical occurrence blocks Vocabulary-ready. | (c) | A candidate in which one `word` node has a native lemma that the interpretation cannot map, and is classed `unresolved`. | Validate. | Accepted for inspection with `vocabulary_ready` false. The node has an occurrence that does not count, and a vocabulary finding names it. | The same candidate with that native node dropped from the node set is rejected (`ACC-1`), and nothing is written. |
+| OCC-10 | Non-vocabulary conjunction accounting is accepted with ambiguous UPOS. | (c) | The synthetic conjunction example: node 7 `ξέλ`, native POS `example:C`, `upos_state` `ambiguous` with candidates CCONJ and SCONJ, `non_vocabulary(native_conjunction_class)`, evidence `pos@7`. All other nodes resolved. | Validate. | Accepted with `vocabulary_ready` true. Node 7 has no occurrence and no count, and a node finding `ambiguous` (`upos_mapping_ambiguous`). It is not shown as an Occurrence exclusion. | Node 7 with UPOS `X`, with no `native_evidence_ref`, or with reason `native_conjunction_class` under an interpretation that has no reviewed conjunction mapping, is rejected (`ACC-2`). |
+| OCC-11 | A legacy `corpus_tokens` analysis reads identically through the shared interface. | (a) | Owner A. A German EPUB Book with a published legacy analysis that includes a multiword token, a shared span, a correction and an exclusion. The responses of the Reading page, Book vocabulary, Browse, lemma review, sentence study, Concordance and deck preparation are recorded before the interface. | Request the same pages after the interface is in place. | Every response is byte-identical to the recording, apart from CSRF tokens and timestamps. Occurrence keys stay offset-keyed. A decision on the shared span still fails as today. | A checksum of the analysis's `corpus_tokens` and `corpus_sentences` rows is unchanged after every request. |
+| OCC-12 | Occurrence rows are unique per (analysis, node), and the key names no offset. | (d) | A persisted analysis with occurrences `(A,4)` and `(A,5)` that share span `[10,16)`. | Insert a second occurrence row for `(A,4)`. Insert a decision for `(A,4)` and another for `(A,5)`. | The duplicate occurrence is rejected. Both decisions are stored and each references one occurrence. | A decision referencing `(A,99)` (no such occurrence) is rejected by the foreign key. |
+| OCC-13 | Equal native IDs in two analyses give two occurrences, and nothing transfers. | (c) | Analyses A and B of the same binding under two interpretations. Both contain native node `s1:4` with span `[10,16)`. Owner O has a Lemma correction on `(A,n)`. | Read O's effective identities for B. | `(A,n)` and `(B,m)` are different keys, even if `n = m`. B shows the analysis identity for `(B,m)` and no correction. | Matching `native_node_ref`, span or surface never attributes O's decision to `(B,m)`. |
+| OCC-14 | No span is derived from length. Component spans lie within the container's spans. | (c) | A container `[10,18)` whose source gives no component offsets. | Validate it with components referencing `[10,18)`, and again with component spans `[10,15)` and `[15,18)` that the adapter computed from citation-form lengths. | The first is accepted as a shared span. The second is rejected (`SPAN-4`), because its spans have no native coordinate mapping. | Components with native-attested sub-spans `[10,15)` and `[15,18)` are accepted. |
+| OCC-15 | Sentence text comes only from the bound text. | (c) | A candidate sentence whose spans slice to `λέξις, ῥῆσις` in the Extracted text. | Validate it with supplied text `λέξις ῥῆσις` and no reconstruction. | Rejected with `sentence_text_unbound`. | The same text with a reviewed reconstruction `example-spacing/1` is accepted and stored as `reconstructed_text`. Without supplied text, the sentence text is the slices. |
+| OCC-16 | Every node in the extent has exactly one accounting class. | (c) | A candidate with a word node whose accounting class is absent. | Validate. | Rejected (`ACC-1`), and nothing is written. | A candidate with every node classed is accepted. |
+| OCC-17 | A coverage gap blocks Vocabulary-ready. | (c) | A candidate whose Extracted text has a non-whitespace code point at `[50,51)` that no printed node covers. All other nodes are resolved. | Validate. | Accepted for inspection with `vocabulary_ready` false and a `coverage_gap` finding for `[50,51)`. | Uncovered whitespace alone leaves `vocabulary_ready` true. |
+| OCC-18 | A tree without a root is withheld, and no root is fabricated. | (c) | Sentence 3 of a candidate gives heads for every node, and none of them is a root. Sentence 4 has two roots. Sentence 5 has a node whose head is in sentence 4. | Validate. | Accepted. Sentences 3, 4 and 5 get `invalid` findings `root_missing`, `root_multiple` and `head_unresolved`, and their edges are withheld. Vocabulary readiness is unchanged. | A self-headed row with relation `nsubj`, or a `root` row whose head is another node, is rejected as malformed (`TREE-2`). |
+| OCC-19 | Morphology keeps native features and gives FEATS only where mapped. | (c) | A node whose native tag has one feature with a reviewed mapping and one without. | Validate and read the node's morphology. | `native_morphology` holds the full native tag. `feats` holds only the mapped feature. A node finding marks the unmapped feature `unsupported`. | A candidate putting a guessed value for the unmapped feature into `feats` is rejected (`canonical_value_unmapped`). |
+| OCC-20 | Secondary syntax is kept separately, including empty-node edges. | (c) | A candidate with complete basic trees and secondary edges to and from an empty node. | Validate, then read both layers. | Basic syntax `usable`. Secondary syntax `usable`, with the empty-node edges. No secondary edge appears in basic syntax. | A candidate without secondary edges has `secondary_syntax` `missing` and leaves basic syntax unchanged. A basic edge whose endpoint is the empty node is rejected (`SYN-1`). |
+| OCC-21 | Unavailable syntax never makes an occurrence ineligible. | (b) | Owner A's Book has a Vocabulary-ready analysis with `basic_syntax` `missing`, and a NOUN occurrence that would be eligible. | Read A's Book vocabulary and counts. | The occurrence is eligible and counted. | With usable syntax in which that node's relation is a syntax-excluded relation, the occurrence is not counted. |
+| OCC-22 | §7 records are immutable once the analysis commits. | (d) | A committed analysis with sentences, nodes, spans, a container, occurrences, morphology and both syntax layers. | Update any field of each record. Insert a further node, span or occurrence for that analysis. Delete a node. | Every operation is rejected, and the rows are unchanged. | Inserting the same records for a new analysis in its own transaction succeeds. |
+| OCC-23 | Syntax endpoints stay within one analysis and one sentence. | (d) | Committed analyses A and B. | Insert, in A's transaction, a basic edge whose head is a node of B, and one whose head is in another sentence of A. | Both are rejected. | An edge between two nodes of the same sentence of A is accepted. |
+| OCC-24 | New analyses write no legacy rows, and legacy rows are never rewritten. | (a) | Owner A has an EPUB Book with a legacy analysis. The legacy table row counts and checksums are recorded. | Import and adopt a synthetic classical Book for A, read it through every consumer, and record a decision on it. | `analysis_runs`, `corpora`, `corpus_sentences` and `corpus_tokens` have the same counts and checksums as before. | Re-analysing the EPUB Book still writes legacy rows through the existing path, as today. |
+| OCC-25 | The `grc` form search key matches NFC and NFD, case and final sigma, and nothing broader. | (a) | Owner A has a classical Book with a node whose surface is `Λέξις` in NFD. | Run Concordance form searches for `λέξις` (NFC), `ΛΈΞΙΣ` and `λέξισ`. Then search for `λεξις`. | The first three find the node, and the highlight is its span. | `λεξις` (no accent) finds nothing. A search never changes any identity or Known state. |
 
 ## 16. Requirement traceability
 
@@ -1802,7 +2477,7 @@ decisions (see §1) are not reopened here.
 | --- | --- | --- | --- | --- | --- | --- |
 | OD-01 | Must rich identities reach the tuple-keyed Browse selection and Custom deck stores (B-17), whose UI is being retired? | (1) Greek identities are never written there; a test asserts it. (2) Add a discriminator to those stores. | (1), decided by #2069. | (1) adds no structure, but a Greek identity cannot be selected for a Custom deck. (2) changes stores outside the Reading path for a retiring UI. | #2064 | open |
 | OD-02 | Where is the generic casefold fallback rejected for `grc` (B-18, B-19)? | (1) The registry refuses `grc` unless a dedicated profile is registered, for both `For` and `Lookup`. (2) Only the shared validation interface rejects casefold-normalized `grc` identities. | (1), decided by #2067. §6 is written against it: `grc` is a dedicated-profile language, and every other unregistered language keeps the fallback. | (1) fails closed for every caller, including lemma review, but changes registry behaviour for an unregistered language. (2) leaves other callers able to normalize `grc` with casefold. | #2064 | open |
-| OD-03 | How does Reading eligibility treat an occurrence whose optional syntax is unavailable, given that `OccurrenceEligible` reads the dependency (B-10)? | (1) Unavailable syntax never makes an occurrence ineligible; syntax-based exclusions apply only when syntax is present. (2) Language-specific eligibility rules come from the canonical interpretation. | Decided by #2068 together with #2071. | (1) keeps one rule but needs explicit "unavailable" semantics. (2) moves eligibility into producer data. | #2064 | open |
+| OD-03 | How does Reading eligibility treat an occurrence whose optional syntax is unavailable, given that `OccurrenceEligible` reads the dependency (B-10)? | (1) Unavailable syntax never makes an occurrence ineligible; syntax-based exclusions apply only when syntax is present. (2) Language-specific eligibility rules come from the canonical interpretation. | (1). §7 is written against it: a syntax-based exclusion applies only where the occurrence's basic syntax is usable. #2071 (§10) owns the eligibility interface that applies it. | (1) keeps one rule but needs explicit "unavailable" semantics. (2) moves eligibility into producer data. | #2064 | open |
 | OD-04 | How do store-contract scenarios cover Greek when the harness is fixed to `de` and seeds only tuples (B-30)? | (1) Parameterize the scenario language and extend the seeds with discriminators, span references and optional syntax. (2) Add a separate Greek scenario set beside the existing one. | (1), decided by #2071. | (1) runs every existing scenario against rich identities, but changes the harness interface for both adapters. (2) duplicates scenarios and lets them drift. | #2064 | open |
 | OD-05 | Does Evidence adoption publish through the existing analysis-run anchor that every Reading gate checks (B-23 to B-26), or through a new anchor? | (1) Adoption produces an exact analysis that the existing classification recognizes, so the six call sites stay unchanged. (2) A new adopted-analysis anchor, with every gate changed together. | Decided by #2068 and #2072, with §8 compatibility. | (1) reuses existing anchors, as the handoff requires, but `book_current_analyses` references a source material and run. (2) needs an atomic change across all gates. | #2064 | open |
 | OD-06 | Are Work, Edition and Reading unit records global or owner-scoped (§4)? | (1) All shared. (2) All owner-scoped. (3) Shared when created from a reviewed identity definition; private to one owner when derived only from that owner's unverified catalogue advertisement. | (3). §4 is written against it. | (1) puts one learner's connection-supplied descriptions in rows other owners can resolve to. Sync then needs a write ban that the schema cannot express. (2) gives the simplest authorization (composite owner keys everywhere), but every owner duplicates descriptions, and §5 evidence cannot cite a shared unit. (3) keeps reviewed identity and its evidence shareable, and lets no learner input reach another owner. Its cost is a nullable `owner_id` and a trigger checking that associated units are shared or same-owner. It narrows issue item 7's "shared descriptions" for advertised rows. | #2065 | open |
@@ -1827,6 +2502,10 @@ decisions (see §1) are not reopened here.
 | OD-25 | How does `ancient-greek/1` survive a toolchain whose Unicode version is not 17.0.0 (Go, `golang.org/x/text`, or a future Python implementation, where Python 3.13 has 15.1.0)? | (1) The implementation asserts 17.0.0. A toolchain change fails that test, and a reviewed change may keep `ancient-greek/1` only if the full fixture plus an exhaustive per-code-point lowercase and NFC table for every code point assigned in 17.0.0 are unchanged. Admission keeps rejecting code points unassigned in 17.0.0, through a frozen table. Otherwise the change needs `ancient-greek/2`. (2) Ship frozen 17.0.0 normalization and case tables with the profile, independent of the toolchain. (3) Follow the toolchain's Unicode version silently. | (1). | (1) keeps one definition and catches drift in review, at the cost of a generated check per toolchain upgrade. (2) is fully reproducible, but carries and maintains copied Unicode tables. (3) can change keys, and therefore Known matches, without review, against the #2033 rule that Unicode changes that can alter identity be reviewable. | #2067 | open |
 | OD-26 | How is the `grc` Concordance **form** search key computed (§6 I-6)? Today SQL computes it as `translate(lower(o.surface), 'ς', 'σ')` (`sqlc/queries/concordance.sql:115`), with PostgreSQL's unpinned `lower()` and no NFC on stored surfaces. | (1) Go computes an `ancient-greek/1` search key for each occurrence surface, which §7 stores with the occurrence, and SQL compares bytes. The key is for search only, never identity. (2) Keep the SQL expression for `grc`. | (1), with §7 placing the stored key. | (1) gives exactly the accommodation #2033 allows for search (NFC and NFD, case, sigma), from the pinned implementation. Its cost is one stored column per occurrence. (2) depends on the database's collation provider and Unicode tables, and an NFD surface never matches an NFC query. | #2067 | open |
 | OD-27 | New terms used in §6. | Add to `CONTEXT.md`: **Rich vocabulary identity** (language, canonical lemma, UPOS and an optional scheme-qualified lexical discriminator), **Lexical homograph discriminator** (the #2033 term), **Citation headword** (the decoded citation form shown to learners, distinct from the canonical lemma key) and **Source decoding** (the versioned adapter step from native lemma data to a decoded citation form and discriminator). Keep Vocabulary identity (the interned record), Analysis headword, Discriminator scheme and dedicated-profile language as design-local names. Extend the existing **Effective vocabulary identity** entry to name the rich identity. | Add them in a separately reviewed `CONTEXT.md` change. | The four appear in learner-facing explanations, corrections and other sections. Without them, "lemma" stays ambiguous between key, headword and native value. The rest are storage detail. | #2067 | open |
+| OD-28 | How do new Exact analyses coexist with legacy `corpus_tokens` and `corpus_sentences` analyses (§7)? | (i) New analyses write only the §7 records. Every consumer reads both through one analysis read interface, with an exact adapter and a legacy adapter. The legacy adapter maps `corpus_tokens` rows into the same shape, with offset-keyed occurrences and no discriminator. (ii) New analyses dual-write: the §7 records plus `corpus_tokens` and `corpus_sentences` rows. | (i), with no dual-write. §7 is written against it. | (i) leaves every legacy row and the EPUB write path untouched, and keeps one source of truth per analysis. Its cost is changing every content consumer to read through the interface at once, guarded by a characterization test (OCC-11). (ii) keeps legacy consumers working unchanged, but `corpus_tokens` cannot hold unprinted nodes, shared-span occurrences, discontinuous spans or absent syntax without invented values (B-01, B-02, B-03). It would also store two copies that could disagree, and those rows are owner-scoped while Exact analyses are shared (§5). | #2068 | open |
+| OD-29 | Does the legacy adapter re-validate legacy dependency trees with the §7 tree rules (TREE-1 to TREE-4)? `validateCorpusToken` never checked one root per sentence, cycles or connection (`internal/analysis/jobs.go:1849-1862`). | (1) No. The legacy adapter reports legacy basic syntax as `usable`, exactly as consumers read it today. (2) Yes. Legacy sentences that fail are reported `invalid` and withheld. | (1). | (1) keeps the legacy characterization exact (OCC-11). A legacy tree that would fail the §7 rules stays visible as it is today. (2) applies one standard everywhere, but changes current EPUB Concordance and sentence-study output without a reviewed migration, against "legacy analyses remain readable without mass conversion" (handoff Stage 2). | #2068 | open |
+| OD-30 | Is a `non_vocabulary` word or component, such as a native-class conjunction, an Annotation occurrence? | (1) No. Occurrences are word or component nodes classed `vocabulary` or `unresolved`. Non-vocabulary nodes are accounted for but take no count and no learner decision. (2) Yes. Every text-attested word or component is an occurrence, and the accounting class decides whether it counts. | (1). §7 is written against it. | (1) makes the occurrence foreign key unable to name anything a learner cannot sensibly decide. A learner cannot correct a native-class conjunction into vocabulary; only a new reviewed interpretation can. (2) lets a learner correct or exclude such a node, but an exclusion of something that never counts has no effect, and a correction would override a reviewed classification, against #2058 item 1 ("not a learner Occurrence exclusion"). | #2068 | open |
+| OD-31 | New terms used in §7. | Add to `CONTEXT.md`: **Non-vocabulary classification** (a source-supported, reason-coded accounting class that is not an Occurrence exclusion), **Multiword container** (a printed token whose linguistic components are counted instead of it) and **Unprinted node** (an annotation node with no text span, such as an empty node). Extend the existing **Annotation occurrence** entry to say it is identified by (Exact analysis, node), never by offsets. Keep Analysis sentence, Analysis node, Node span, Sentence span, Container component, accounting class, analysis read interface and the rule IDs as design-local names. | Add them in a separately reviewed `CONTEXT.md` change. | The three appear in learner-facing explanations of counts and coverage. Without them, "excluded" is ambiguous between a learner's Occurrence exclusion and a source-supported classification. The rest are storage detail. | #2068 | open |
 
 ## 18. Approval record
 
