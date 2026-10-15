@@ -37,6 +37,10 @@ accepted discovery/acquisition direction whose implementation is pending.
 Evidence adoption records the accepted operational direction in
 [ADR 0097](doc/adr/0097-classical-evidence-refresh-adoption-and-retention.md),
 not a shipped classical refresh workflow.
+The opt-in curated catalog and shared canonical-analysis direction follows
+[ADR 0098](doc/adr/0098-shared-core-classical-acquisition.md), whose documentation
+review and implementation are pending. It also reconciles the superseded
+candidate-specific human-only MVP wording; provenance does not certify quality.
 
 ## Language
 
@@ -481,6 +485,10 @@ The language, canonical lemma, and part-of-speech identity attributed to an
 analyzed occurrence in learner-facing vocabulary after any confirmed
 correction. It can differ from the preserved analyzer assignment; an excluded
 occurrence contributes none.
+In the accepted classical direction, Ancient Greek additionally preserves an
+applicable scheme-qualified lexical homograph distinction. An unqualified identity
+is not a wildcard for those distinctions; existing learner facts are not
+automatically reconciled.
 _Avoid_: edited analyzer lemma, global corrected lemma.
 
 **Vocabulary Browse inventory**:

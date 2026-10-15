@@ -2,6 +2,11 @@
 
 Status: **Accepted; implementation pending** · Date: 2026-10-14 · Author: Justin + OpenCode
 
+**Candidate-scope amendment:** [ADR 0098](0098-shared-core-classical-acquisition.md)
+reconciles the historical human-reviewed Greek MVP requirement below with the
+human-authorized automatic-evidence scope. Its documentation review is pending;
+the general integrity, provenance and learner-state contracts are unchanged.
+
 Recorded through the live decision in
 [Choose a source-independent annotation and provenance contract](https://github.com/justin-hayes/mouseion/issues/2027).
 This is an accepted contract, not authorization for production implementation,

@@ -2,6 +2,11 @@
 
 Status: **Accepted; implementation pending** · Date: 2026-10-14 · Author: Justin + OpenCode
 
+**Candidate-scope amendment:** [ADR 0098](0098-shared-core-classical-acquisition.md)
+reconciles the historical human-reviewed Greek MVP requirement below with the
+human-authorized automatic-evidence scope. Its documentation review is pending;
+informed choice, rights, full-unit validation and owner adoption remain required.
+
 Recorded through the human-confirmed decision in
 [Choose the Greek repository sync, browse and acquisition flow](https://github.com/justin-hayes/mouseion/issues/2028).
 Planning only: no production implementation, schema changes, backfills, source
@@ -32,7 +37,7 @@ compatibility with arbitrary CTS endpoints or Git repositories. Text repositorie
 such as Perseus/OGL and annotation repositories are separate inputs whose offerings
 may be matched. Supporting a repository does not approve its files, component
 rights, bindings, or annotation quality. Exact initial candidates belong to
-[Choose the smallest useful human-reviewed Ancient Greek slice](https://github.com/justin-hayes/mouseion/issues/2030).
+[Choose the smallest useful annotation-backed Ancient Greek slice](https://github.com/justin-hayes/mouseion/issues/2030).
 
 Sync performs bounded metadata discovery: bibliographic descriptions, source and
 release identifiers, declared Reading-unit bounds, annotation availability,

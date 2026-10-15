@@ -2,6 +2,11 @@
 
 Status: **Accepted; Greek implementation pending** · Date: 2026-10-14 · Author: Justin + OpenCode
 
+**Candidate-scope amendment:** [ADR 0098](0098-shared-core-classical-acquisition.md)
+reconciles the historical human-reviewed Greek MVP requirement below with the
+human-authorized automatic-evidence scope. Its documentation review is pending;
+personal-count, identity and frozen learner-state contracts are unchanged.
+
 Recorded through the live decision in
 [Choose how Greek corpus evidence relates to personal vocabulary counts](https://github.com/justin-hayes/mouseion/issues/2029).
 Justin accepted all four recommendations and confirmed the consolidated contract.
@@ -120,7 +125,7 @@ meaning and output-rights decisions; it cannot silently replace personal counts.
 Retaining the shared rule avoids speculative weighting and alignment work but
 accepts library-size dependence, edition/overlap inflation and uncalibrated Greek
 thresholds. Candidate-specific readiness and review validation remain with
-[Choose the smallest useful human-reviewed Ancient Greek slice](https://github.com/justin-hayes/mouseion/issues/2030).
+[Choose the smallest useful annotation-backed Ancient Greek slice](https://github.com/justin-hayes/mouseion/issues/2030).
 Measurement/acceptance planning and implementation implications remain with
 [Validate the shared-core architecture and staged implementation handoff](https://github.com/justin-hayes/mouseion/issues/2031).
 External frequency is outside this MVP handoff, not remaining fog on its route.
