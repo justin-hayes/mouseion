@@ -21,10 +21,31 @@ The Gorman files were not used.
 - phrase-length quotations of the reading text, a few words each, given as the
   grounds for each repair.
 
-Each source keeps its own terms; nothing is relicensed. These excerpts are
-offered as bounded, attributed research diagnostics and are flagged for the
-parent's rights review. They are not a clearance for redistribution, export or
-bundling.
+Each source keeps its own terms; nothing is relicensed. **Parent review,
+2026-10-15:** the operation assessed here is this non-commercial research report
+and its bounded, separately attributed diagnostic excerpts, not a combined
+redistributable dataset. The OGA-derived short quotations/projections are
+offered under CC BY-SA 4.0; the separately identified Morpheus witnesses retain
+CC BY-SA 3.0 US; the separately identified UD Perseus lemma/form witnesses retain
+CC BY-NC-SA 2.5. No upstream endorsement is implied. These are short evidence
+citations, not publication of a full source, treebank or corrected annotation.
+This assessment does not clear app-data reuse, full-source redistribution,
+commercial reuse of NC witnesses, decks/exports, bundling or provider use, nor
+assert that the different ShareAlike terms can be combined into one license.
+
+UD Perseus attribution: Ancient Greek and Latin Dependency Treebank contributors
+at Tufts University and Leipzig University, under Gregory Crane, edited by
+Giuseppe G. A. Celano, Gregory Crane and Bridget Almas; UD conversion by Celano,
+with Daniel Zeman listed as a contributor. See the pinned
+[README](https://github.com/UniversalDependencies/UD_Ancient_Greek-Perseus/blob/331ddef91411d0e6549744ee889e05549e6da77d/README.md)
+and
+[LICENSE](https://github.com/UniversalDependencies/UD_Ancient_Greek-Perseus/blob/331ddef91411d0e6549744ee889e05549e6da77d/LICENSE.txt),
+which declares [CC BY-NC-SA 2.5](https://creativecommons.org/licenses/by-nc-sa/2.5/).
+The repair records extract only the named short lemma/form witnesses and counts;
+Mouseion adds the comparison, repair proposal and review reasons on 2026-10-15.
+Morpheus/OGA attribution and modification notices are retained below. Research
+code remains separate from source-derived evidence; no application-code license
+or whole-file combined-license grant is inferred from this notice.
 
 Full repaired ledgers, sentence text and repaired-identity inputs stay private
 under `private/opus-repair/out/`.

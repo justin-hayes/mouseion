@@ -22,6 +22,69 @@ Two things therefore change:
 Source acceptance and practical usefulness remain #2030 decisions, and #2031
 stays downstream.
 
+### Independent parent review of the repair pass (2026-10-15)
+
+Reviewed Opus proof `230decab379de2c1608b5a341391998a0ed356de` and final
+review fix `edea7210e9f56c83d98e2ce5ee1043a90b6238e8` on the same research
+branch. **The bounded, repaired whole-unit accounting proof passes.** This is
+not acceptance of OGA, a production importer, a ready deck or a new requirement
+to certify every automatic prediction. The uncorrected proof still fails its
+seven citation representations; the authorized exception is material.
+
+Independent checks, separate from the script's own gate output:
+
+- Rechecked all 46 retained input size/SHA-256 pairs and the component-bound
+  CoNLL-U/native-node hashes. No new input was acquired for this pass.
+- Rejoined all 10,572 native nodes to their original rows, retained all 110
+  unprinted nodes, checked all 10,462 printed spans against the exact reading
+  text, and recounted 48,892 non-whitespace characters without gaps/overlaps.
+  All 607 native groups and 381 sentence extents remain accounted for.
+- Compared repaired and uncorrected node ledgers. The only 16 changed
+  interpretations are the authorized seven citation nodes, six reviewed POS
+  nodes and three consequences of the revised εἰμί rule. Raw lemmas, surfaces,
+  native tags and spans are unchanged; other identities are not merged or
+  corrected. The normalization profile is unchanged.
+- Independently checked the citation records' UD lemma/form counts, retained
+  stem lines and cited OGA parallel nodes. All 24 structured POS edge witnesses
+  match the original CoNLL-U, including the `e_88` chain corrected during review.
+  An accurately cited edge supports the evidence record, not a gold-standard
+  semantic classification.
+- Independently recounted 6,037 eligible occurrences, 1,426 identities, 438
+  selected identities and 4,819 selected occurrences (79.8%). Checked all 434
+  chosen targets against the earliest qualifying occurrence and the unchanged
+  complete-sentence/cap rules. The four cap-only omissions are unchanged;
+  ἔνειμι is the only newly selected identity. εἰμί is AUX 158 / VERB 20.
+- Reran the final read-only repair proof with real-Go/Python parity, both prior
+  read-only reproductions, all 164 companion tests, `make lint`,
+  `make coverage-new` and `git diff --check`. All pass. Research Python is
+  outside production coverage reports; the coverage command does not establish
+  a research-code percentage (NLP tests: 90 passed, 3 skipped).
+
+**Interpretation limits remain explicit.** The retained lineage establishes
+real notation and paradigm/citation parallels; it does not establish the exact
+historical transformation that produced each OGA label. The formed συνεῖδον
+repair is defensible within the producer-compatible convention, but remains
+medium-uncertainty and is not an attested Morpheus headword or dictionary-coverage
+claim. `t_302` retains its previously disclosed interpretation qualification.
+The six POS repairs are bounded review judgments; two alternative εἰμί readings
+remain plausible, with no change to the selected identities or chosen inputs.
+Other producer-compatible POS conversions and the seven known wrong-homograph
+predictions are not certified or silently fixed.
+
+The applicable rights review covers only private inspection and the separately
+attributed, bounded public diagnostic excerpts described in `NOTICE.md`, not a
+combined unrestricted dataset or permission to ship the repair records as app
+data. No Gorman input was used for these repairs; its earlier acquisition scope
+deviation and conflicting declarations remain documented, not excused.
+
+**Disposition:** resolve #2052 as a completed bounded proof under the explicit
+repair exception and return the practical source decision to #2030. No further
+repair/acquisition task, stopword policy, source fallback, accepted-document
+amendment or implementation is launched. Practical particle/name/spacing
+concerns, semantic Gloss and dictionary coverage, client/deck rendering and
+operation-specific export/bundling/provider permissions remain separate from
+this accounting success. Book 1 does not establish complete-work readiness.
+
 ### A. Reproduce
 
 From `doc/research/ancient-greek-oga-anabasis1-import-proof/`, with Go on
