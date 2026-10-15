@@ -194,7 +194,7 @@ ADR 0081's exact-analysis corrections, and ADRs 0078/0085/0071's frozen
 Reading/history/deck contracts. No current schema or modern-language lifecycle
 is changed.
 
-[Choose the smallest useful human-reviewed Ancient Greek slice](https://github.com/justin-hayes/mouseion/issues/2030)
+[Choose the smallest useful annotation-backed Ancient Greek slice](https://github.com/justin-hayes/mouseion/issues/2030)
 owns exact candidate acceptance.
 [Validate the shared-core architecture and staged implementation handoff](https://github.com/justin-hayes/mouseion/issues/2031)
 owns concrete interfaces, storage/reference protection, migration/backfill,
