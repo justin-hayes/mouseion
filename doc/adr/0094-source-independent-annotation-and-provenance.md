@@ -36,8 +36,8 @@ correspondence rather than assume equivalent releases or token coverage.
 Adapters retain source-native information linked to its sentences and nodes:
 forms, lemma variants and lexical discriminators, POS, morphology, primary and
 secondary syntax, review claims, and references where supplied. This includes
-AGDT token `cite` and sentence `document_id`/`subdoc`, and PROIEL nested `slash`
-elements. Unknown fields remain preserved in the artifact. Evidence is
+AGDT token `cite` and sentence `document_id`/`subdoc`, and native secondary
+or enhanced edges. Unknown fields remain preserved in the artifact. Evidence is
 retrievable for inspection and diagnostics subject to licensing and access;
 this does not require a new learner-facing philological interface or a
 first-class query for every native field.

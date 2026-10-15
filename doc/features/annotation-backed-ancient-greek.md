@@ -23,8 +23,10 @@ Use the canonical resolutions rather than restating their investigations:
 - [Repaired whole-unit proof](https://github.com/justin-hayes/mouseion/issues/2052#issuecomment-6187073387):
   explicit seven citation/six POS research repairs, raw and uncorrected comparison,
   automatic provenance and known quality limitations. **438 selected identities /
-  434 deterministic sentence inputs** describe the demonstrated baseline, not ready
-  cards, accuracy, or a promised yield for every learner.
+  434 deterministic sentence inputs** describe the demonstrated baseline under the
+  superseded `oga-agdt-upos/3` interpretation, not ready cards, accuracy, a
+  promised yield for every learner, or a target for the replacement interpretation
+  (see [No treebank data](#no-treebank-data)).
 - [Per-work packaging resolution](https://github.com/justin-hayes/mouseion/issues/2053#issuecomment-6188570169)
   and [immutable inventory, hashes and notices](https://github.com/justin-hayes/mouseion/blob/50a93846fd8ddab68751c577d2d8bccd23fa3c5a/doc/research/ancient-greek-oga-per-work-packaging.md):
   private core ZIP **4,234,495 bytes**, with **31 source members** totaling
@@ -38,10 +40,16 @@ Keep source-content identity (reviewed manifest and member hashes) separate from
 the ZIP transport hash of one published build; different compression software can
 preserve all members without reproducing that ZIP. Installations verify the exact
 reviewed release's transport, manifest and member pins, not the entire upstream
-archive. Pin interpretation separately, including `oga-greta-lemma/2`,
-`oga-agdt-upos/3` with the reviewed εἰμί rule, the
-`oga-anabasis1-research-repairs/1` layer, `oga-reading-terminal/2`,
-`ancient-greek/1` and `grc-earliest-capped/1`, as recorded in the linked handoff.
+archive. Pin interpretation separately, including `oga-greta-lemma/2`, the
+POS mapping `oga-agdt-upos/4` with its εἰμί rule, the morphology mapping
+`oga-agdt-feats/1`, the
+repair layer `oga-anabasis1-research-repairs/2` (or a later version from the
+Stage 1 lineage audit), `oga-reading-terminal/2`, `ancient-greek/1` and
+`grc-earliest-capped/1`. Under [No treebank data](#no-treebank-data),
+`oga-agdt-upos/4` replaces the linked handoff's `oga-agdt-upos/3`, and
+`/2` drops the six POS repairs that corrected `/3`'s εἰμί rule.
+`oga-agdt-feats/1` is new and maps the source's AGDT morphology tags to UD
+FEATS. The other identifiers are as recorded in the linked handoff.
 An analysis-affecting change requires a new interpretation and explicit adoption,
 not an in-place change or a new implicit identity equivalence. A card-selection
 policy change applies to a newly prepared specification, not an analysis rewrite
@@ -57,6 +65,42 @@ Known prediction/homograph/name errors, duplicated inputs, split spacing and rep
 maintenance costs remain disclosed. No automatic fidelity/stopword/repair loop,
 source survey, Greek NLP execution or Latin support follows. GLAUx and Lysias
 remain retained alternatives, not automatic replacements.
+
+## No treebank data
+
+Decided by Justin on 2026-10-15 in the
+[design review](https://github.com/justin-hayes/mouseion/issues/2076)
+([#2089](https://github.com/justin-hayes/mouseion/issues/2089)). It binds every
+stage below.
+
+- **The rule.** No treebank is a runtime input, mapping basis, repair witness or
+  test oracle. This covers AGDT, PROIEL, Gorman and every UD conversion or UD
+  treebank. No source with a non-commercial licence, such as the NC UD
+  witnesses, is used either. OGA's own annotation is the retained source, read
+  as evidence; it is not a treebank witness.
+- **What mappings are written from.** Each interpretation table is written only
+  from the source's own tagset documentation (for OGA, the AGDT tagset and its
+  annotation guidelines) and from the UD UPOS and FEATS tag definitions. In
+  `oga-agdt-upos/4` and `oga-agdt-feats/1`, "agdt" names the tagset that the
+  OGA source uses. It does not name treebank data.
+- **Lineage.** Every interpretation slot and every exception-table value records
+  its lineage: the documentation it is written from, or the retained source
+  evidence it reads. A value whose only basis is a treebank witness is replaced
+  or dropped through a new interpretation version (Stage 1).
+- **Deliberate override.** This rule overrides two earlier lines:
+  Stage 1's "do not … change mappings merely to evade the rights gate", and
+  [#2058](https://github.com/justin-hayes/mouseion/issues/2058#issuecomment-6191383128)'s
+  "do not claim independence" for the UPOS table, whose fixed letter table had
+  UD-validator lineage. A mapping rewritten under this rule is the decided
+  remedy, not evasion. Do not treat it as one, and do not restore the earlier
+  mapping to reproduce an earlier result.
+- **What stays.** The source decision is unchanged:
+  [OGA v0.2.0 and canonical-greekLit](https://github.com/justin-hayes/mouseion/issues/2030#issuecomment-6188837579)
+  under CC BY-SA 4.0, with Morpheus under MPL-2.0 or CC BY-SA. Morpheus-derived
+  values stay subject to the rights gate. The rule is not a new source, survey
+  or research chain, and it clears no rights by itself.
+- **Examples are invented.** No example, fixture or test input uses treebank
+  annotation values.
 
 ## Initial operational envelope
 
@@ -130,18 +174,42 @@ decision. No new acquisition or script execution is authorized by this document.
   source members' existing BY-SA declarations. Private reproduction is not clearance.
 - Build and independently verify a frozen runtime fixture without undeclared
   Morpheus/NC witness installations, runtime downloads or analyzer execution.
-  Every interpreted value must have supported lineage; do not bundle witnesses or
-  change mappings merely to evade the rights gate.
+  Every interpreted value must have supported lineage; do not bundle witnesses.
+  Writing mappings under [No treebank data](#no-treebank-data) is required, not
+  evasion of the rights gate.
+- Write `oga-agdt-upos/4` and `oga-agdt-feats/1` independently, from the AGDT
+  tagset documentation and the UD UPOS/FEATS definitions only, and record that
+  lineage in each reviewed definition. Neither reuses `oga-agdt-upos/3`'s
+  letter table. A native value that the documentation does not map stays
+  unmapped and is reported, never guessed.
+- Confirm that the core package's annotation members carry the AGDT morphology
+  tags. If they do not, the retained candidate declares no morphology mapping,
+  and morphology is reported unavailable rather than filled in.
+- Decide and record the εἰμί rule (AUX or VERB) again for `oga-agdt-upos/4`, as
+  an explicit human decision from the UPOS definitions and the source's own
+  native annotation (design OD-77). Its errors are disclosed, not repaired.
+- Drop the six POS repairs, which corrected the superseded rule, and audit the
+  lineage of every remaining exception-table value: the 20 confirmed labels,
+  the compound record and the seven citation repairs. Record, per value, the
+  documentation or retained source evidence it rests on. Any value that depends
+  on a treebank witness is replaced by a value with permitted lineage or
+  dropped, through a new repair-layer version and table digest. Nothing adds a
+  repair.
 - Verify exact source/package/member hashes, retained original projections,
   declared Book 1 extent, binding, versioned interpretation and repair provenance.
-  Reproduce complete-unit accounting and the baseline 438/434 result under the
-  same declared selection context. Rights clearance is not semantic certification.
+  Re-run complete-unit accounting and selection under the new interpretation and
+  the same declared selection context, compare it explicitly with the 438/434
+  baseline, and accept the resulting numbers. Do not tune any mapping or table
+  value to reproduce 438/434. Rights clearance is not semantic certification.
 - Exercise actual size, parser/time and storage limits, including the final
   interpretation artifact and notices, rather than assuming the research scripts
   are a deployable importer. Deliberately review any required limit change.
 
-**Stop:** unresolved required rights, hidden witnesses, missing required mappings,
-incomplete binding/scope or practical infeasibility. Return the exact obstacle for
+**Stop:** unresolved required rights, hidden witnesses, treebank lineage in any
+runtime value, missing required mappings (including occurrences that the new
+interpretation leaves unresolved), incomplete binding/scope or practical
+infeasibility. A lower selected-identity or sentence-input count is not in
+itself a stop. Return the exact obstacle for
 an explicit human decision; do not launch another repair/source loop or approve a
 smaller scope. Failed publication permission can block distribution even where a
 separately reviewed local operation is permissible.
@@ -268,8 +336,9 @@ with ADR 0098's source-provenance amendment, not a human-only annotation gate.
 - Deterministic source-based sentence selection and verified target/headword
   evidence pass the existing complete-sentence, length and alignment rules; no
   German syntax gates, guessed lexical repairs or truncated sentences. Freeze
-  inputs before provider work. Record per-identity omissions and reasons; 434
-  deterministic inputs are not 434 semantically accepted cards.
+  inputs before provider work. Record per-identity omissions and reasons; the
+  Stage 1 count of deterministic inputs is not a count of semantically accepted
+  cards.
 - Review a small concrete set spanning short complete sentences, implicit subjects,
   repeated targets, NFC/NFD polytonic text, lexical homographs, missing optional
   forms, Gloss abstention and source-supported elision/crasis/shared spans where
