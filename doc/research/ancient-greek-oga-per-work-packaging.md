@@ -22,8 +22,9 @@ assembled a 31-member Anabasis "core" package privately from the retained
 official archive. It is **4,234,495 bytes**, about 1/2,038 of the
 8,629,032,478-byte archive. Assembly is deterministic. Every member is
 byte-identical to its archive original. I then ran the reviewed proof code
-from commit `e610a5aa` against that package alone. With the explicit
-research-repair layer, it reproduces every whole-unit result byte-for-byte:
+from commit `e610a5aa` with source members supplied only by that package,
+plus the separately retained, pinned interpretation witnesses and repair layer.
+It reproduces every whole-unit result byte-for-byte:
 
 - 10,572 native nodes;
 - 6,037 eligible occurrences and 1,426 identities;
@@ -38,14 +39,16 @@ Mouseion-hosted per-work packages.** It goes ahead only under these named
 conditions:
 
 1. **Source acceptance.** OGA Anabasis Book 1 is accepted in
-   [#2030](https://github.com/justin-hayes/mouseion/issues/2030).
+   [the slice decision](https://github.com/justin-hayes/mouseion/issues/2030).
 2. **Redistribution review.** An owning decision records that the existing
    exact-component evidence is enough to approve Mouseion redistribution of the
    specific core package, as rule 6 of the
    [licensing decision](https://github.com/justin-hayes/mouseion/issues/2035#issuecomment-6163336026)
    requires. Every package component has an explicit CC BY-SA 4.0 declaration
    and I found no file-level exception (see [Rights](#3-component-and-operation-rights)).
-   **That approval has not been given. This research does not give it.**
+   **That approval has not been given. This research does not give it.** The
+   exact-core evidence supports a conditional redistribution recommendation;
+   no unresolved file-level declaration gap was found for its source members.
 3. **A separate interpretation artifact.** Mouseion's own interpretation layer
    (decoder and mapping rules plus the 13 research repairs) is versioned
    separately from the source package and gets its own rights review. Two of
@@ -54,13 +57,14 @@ conditions:
    - conjunction decisions that the proof derives at run time from
      **UD Perseus (CC BY-NC-SA 2.5)** counts.
 
-   Neither witness may be bundled. The NC-derived decisions are the one
-   **unresolved runtime-rights item** (see [Interpretation layer](#interpretation-layer-is-not-part-of-the-source-package)).
+   Neither witness belongs in this source package. Rights in the derived
+   Morpheus decodings/repair values and NC-derived decisions are **unresolved
+   for runtime distribution** (see [Interpretation layer](#interpretation-layer-is-not-part-of-the-source-package)).
 4. **Unit-scoped validation.** Only Book 1 is validated. The package carries the
    indivisible whole-work files, but Books 2–7 must not be offered as
    vocabulary-ready until validated.
 5. **An operations owner.**
-   [#2031](https://github.com/justin-hayes/mouseion/issues/2031) assigns
+   [the architectural handoff](https://github.com/justin-hayes/mouseion/issues/2031) assigns
    hosting and release maintenance. No service is designed or provisioned here.
 
 **The alternative, per-installation archive download and extraction, is also
@@ -72,7 +76,8 @@ installation pays an 8.63 GB transfer, plus disk space if the archive is cached.
 specific:
 
 - Mouseion-hosted redistribution remains *unapproved*.
-- Rights are *unresolved* for NC-derived runtime interpretation data.
+- Rights are *unresolved* for Morpheus-derived and NC-derived runtime
+  interpretation data. Private reproduction does not clear their distribution.
 - Gorman stays *excluded*.
 
 ## 1. Package boundary and required components
@@ -160,7 +165,8 @@ match this independent inventory exactly in size, CRC32 and SHA-256.
 - **Text normalization.** OGA documents that its `merge`, LAULA and PAULA text
   are NFC- and apostrophe-normalized derivatives of the originals
   (`original_Greek_files/README.md`, SHA-256 `e6837dc6…`). The PAULA primary
-  text is therefore OGA's adaptation. The upstream TEI is the Edition witness.
+  text is therefore OGA-normalized source evidence, not the original bytes.
+  The upstream TEI is the Edition witness.
   This is the same text-authority relationship the earlier proof already
   verified character for character.
 
@@ -177,10 +183,13 @@ unit:
 
 The PAULA layers are stand-off. Tokens address character ranges in one
 whole-work text, and features address token IDs. A Book-1-only cut would
-therefore rewrite offsets and IDs. That would produce new, Mouseion-transformed
-artifacts that no longer match the pinned original hashes. Such a cut would need
-its own version and a complete re-validation, and as an adaptation it would
-trigger BY-SA ShareAlike. The whole-work core package costs only 4.2 MB, so
+produce new, Mouseion-transformed artifacts that no longer match the pinned
+original hashes. Some original coordinates/IDs might be retained, especially
+because Book 1 starts at offset zero; their validity and all cross-file references
+would still need checking. Such a cut needs its own version and complete
+re-validation. If it constitutes Adapted Material under BY-SA §1(a), Sharing it
+triggers §3(b); merely changing a technical format does not automatically do so
+(§2(a)(4)). The whole-work core package costs only 4.2 MB, so
 **original byte-preserving selection is sufficient and preferable**.
 
 Carrying Books 2–7 is not validation of them. In the terms of
@@ -227,12 +236,15 @@ A runtime acquisition should therefore pin three separate artifacts:
 | --- | --- | --- | --- |
 | Source package | Byte-identical OGA/upstream members, notices, manifest | Upstream creators; Mouseion packaging | Yes, if redistribution is approved |
 | Interpretation artifact | Ruleset versions, frozen per-label decoding, conjunction decisions, repair *values* bound to component hashes | Mouseion research (owning decision needed) | Yes, after its own rights review |
-| Proof witnesses | Morpheus stemlib/index, UD Perseus treebank, UD/producer docs, Gorman | Third parties | **No.** Proof-only, cited, kept private |
+| Proof witnesses | Morpheus stemlib/index, UD Perseus treebank, UD/producer docs | Third parties | **No.** Proof-only, cited, kept private. Gorman remains excluded even from this reproduction |
 
 The proof run here staged 51 witness files outside the package, from the
 retained proof. They are hash-checked against the existing
 [registry](https://github.com/justin-hayes/mouseion/blob/e610a5aa6c77c25864114ef9604ac9d50515039b/doc/research/ancient-greek-oga-anabasis1-import-proof/opus-completion-inputs.json).
-They are not a runtime requirement.
+They are required by the current executable research proof, not part of the
+proposed runtime source-package boundary. Replacing their live lookup with a
+reviewed, frozen interpretation artifact is a proposal, **not a demonstrated
+witness-free runtime**. That artifact has not been assembled or cleared here.
 
 ## 2. Measurements
 
@@ -273,11 +285,19 @@ also reproduced byte-for-byte. Package verification fails closed when:
 - a path is unsafe;
 - the source archive hash is wrong (see the tests).
 
-**Caveat for #2031.** ZIP bytes depend on the deflate implementation. Use the
+**Caveat for the architectural handoff.** ZIP bytes depend on the deflate implementation. Use the
 member hashes and the canonical `MANIFEST.json` hash as the *content identity*,
 and the ZIP SHA-256 as the *transport identity* of one published build. An
 independent re-derivation from the official archive with another zlib yields
 the same member hashes. Its ZIP hash need not match.
+
+`verify_package` is a private probe's internal-consistency check, not an
+authenticated publisher or archive-membership proof. A self-consistent replaced
+manifest would not establish provenance. A supported acquisition flow must pin
+the expected ZIP and manifest hashes from a separately trusted reviewed offering
+index. Installations using route A verify that chain; they do **not** rehash the
+8.63 GB archive. This investigation establishes membership by independently
+rehashing the retained official archive and comparing its selected members.
 
 **Proof reproduction from the package.**
 [`reproduce_proof.py`](ancient-greek-oga-per-work-packaging/reproduce_proof.py)
@@ -377,8 +397,8 @@ package (SHA-256 `ccf0e8ce…`).
 | Metadata (`anno_*.xml`, `__cts__.xml`, `urn_cts` catalogue) | OGA (Celano); Perseus for `__cts__.xml` | Covered by the respective release declarations above; no separate statement | Bibliographic fact. Treat conservatively under BY-SA 4.0 with attribution |
 | PAULA DTDs | OGA archive | Covered by the OGA README | Schema files; no separate statement |
 | Mouseion manifest, notice and hashes | Mouseion | Mouseion-authored | Facts about files. The application code licence is unchanged |
-| Extracted/converted evidence (reading projection, coordinate maps, native-node JSON, ledgers, analysis, selection, sentence inputs) | Derived from OGA and Perseus by Mouseion | Adaptations of BY-SA 4.0 material; no separate declaration | Shared copies carry BY-SA 4.0 attribution and modification notices, and ShareAlike for adapted material (§3(b)). Private computation shares nothing |
-| Interpretation artifact: rules and repair values | Mouseion research (#2052) | None yet | **Owning-decision gap.** Morpheus-derived decoded keys/discriminators may be adaptations of CC BY-SA 3.0 US material (not reviewed here; no 3.0 US legal code is retained). The 756 conjunction decisions are derived from CC BY-NC-SA 2.5 counts. **Whether those derived decisions carry NC terms is unresolved.** Bundling them under the redistribution policy waits on review, or on a separately authorized, re-validated non-NC rule |
+| Extracted/converted evidence (reading projection, coordinate maps, native-node JSON, ledgers, analysis, selection, sentence inputs) | Derived from OGA and Perseus by Mouseion | Components carrying text/annotations remain subject to their applicable BY-SA 4.0 rights; no separate declaration | Retain attribution and transformation notices. ShareAlike applies when Sharing Adapted Material (§1(a), §3(b)), not automatically to every format conversion, hash, count or factual mapping. This probe publishes only assessed diagnostics, not these private projections |
+| Interpretation artifact: rules and repair values | Mouseion [Book 1 proof](https://github.com/justin-hayes/mouseion/issues/2052) | None yet | **Output-rights gap.** Morpheus-derived decoded keys/discriminators may be adaptations of CC BY-SA 3.0 US material (not reviewed here; no 3.0 US legal code is retained). The 756 conjunction decisions are derived from CC BY-NC-SA 2.5 counts. **Whether those derived decisions carry NC terms is unresolved.** Bundling them under the redistribution policy waits on review, or on a separately authorized, re-validated non-NC rule |
 | Morpheus witnesses | Tufts University / Perseus Digital Library | [README](https://github.com/PerseusDL/morpheus/blob/b1b33c56ef2338fe0dcd1893628ed638f00c0986/README.md): CC BY-SA 3.0 US unless otherwise indicated; "You must offer Perseus any modifications you make" | Proof-only; never packaged |
 | UD Ancient Greek-Perseus witnesses | AGDT contributors (Tufts, Leipzig) under Gregory Crane; ed. Celano, Crane and Almas; UD conversion by Celano (with Zeman) | [LICENSE](https://github.com/UniversalDependencies/UD_Ancient_Greek-Perseus/blob/331ddef91411d0e6549744ee889e05549e6da77d/LICENSE.txt): CC BY-NC-SA 2.5 | Proof-only; never packaged. Not eligible for Mouseion redistribution under the policy |
 | Gorman trees (vgorman1/Greek-Dependency-Trees `d823e96d`) | As recorded in the retained notice; not re-read | Conflicting: README BY-NC-SA 4.0 vs `TREEBANK LICENSE` BY-SA 4.0 (retained notice) | **Excluded.** Not read, staged or required by the repaired result |
@@ -391,12 +411,12 @@ not grants.
 
 | Operation | Disposition |
 | --- | --- |
-| Private extraction and inspection (this probe) | Performed within the earlier authorization of the archive for private inspection. CC licences put conditions only on *Sharing*, so no condition is triggered. Packages stay in Git-ignored `private/` |
+| Private extraction and inspection (this probe) | Performed within the earlier authorization of the archive for private inspection. BY-SA 4.0 grants reproduction and adaptation; its §3 attribution/ShareAlike conditions concern Sharing. Packages stay in Git-ignored `private/`. This does not generalize to NC witnesses: non-commercial purpose remains a separate constraint |
 | Self-hosted direct upstream acquisition (installation downloads the official archive and extracts the work) | Eligible under the policy's direct-acquisition mode. The components are BY-SA, not NC, so no extra opt-in category applies. Mouseion redistributes nothing. Notices still have to be retained and shown before acquisition |
-| Mouseion-hosted redistribution (release assets/mirror of the per-work packages) | **Eligible for exact-component review; not approved.** Members are unmodified Licensed Material, so the attribution conditions of §3(a)(1) apply: creator identification, copyright notice where supplied, licence and disclaimer notices, and a URI. So does §2(a)(5)(C): **no additional terms or technological measures may restrict recipients' licensed rights**. The package must also state the repackaging (`NOTICE.txt` does) and carry the original repositories' notices, as the OGA README asks. ShareAlike (§3(b)) applies to *adapted* material, not to byte-identical members. Re-cutting files would trigger it. **Bounded gap:** whether §4 sui generis database terms apply to hosting many works as a substantial portion of the corpus database is not settled here. §4(c) attribution would apply in any case |
+| Mouseion-hosted redistribution (release assets/mirror of the per-work packages) | **The retained declarations suffice to recommend exact-core redistribution under the existing policy, with these conditions; no publication is authorized.** Members are unmodified Licensed Material, so retain §3(a)(1) attribution, supplied copyright/licence/disclaimer notices and source URIs. Under §2(a)(5)(C), impose no additional recipient restrictions or effective technological measures. Retain prior OGA modification notices and state the repackaging (`NOTICE.txt` does). §3(b) applies to Adapted Material, not automatically to unchanged members or technical reformatting. **Scale limit:** substantial-database reuse, if §4 applies, is permitted by §4(a); a new database protected by sui generis rights can itself be Adapted Material under §4(b), with §4(c) attribution. No corpus-wide hosting/database assessment is made |
 | Installation use (local acquisition, validation, Reading) | Private computation. Same-installation learner display is not treated here as public Sharing. Whether a multi-user household instance is "the public" is not assessed |
-| Later exports (decks, analysis or sentence exports) | Adapted material from OGA and Perseus. Shared exports need BY-SA 4.0 attribution, modification notices and ShareAlike. Exports must not carry NC-derived values unless separately cleared. A personal download is not publication permission |
-| Provider use (Gloss/translation) | **Not assessed and not performed.** It needs its own operation review. No Greek text was sent anywhere |
+| Later exports (decks, analysis or sentence exports) | Assess the actual included components and whether the operation is Sharing. Retain BY-SA 4.0 attribution, licence/source links and modification notices for included protected text/annotations; apply §3(b) to Adapted Material, not automatically to the application code or every mixed-artifact component. Morpheus-/NC-derived interpretation values remain uncleared for distribution. A personal download is not blanket publication permission; no concrete Greek deck/export is cleared here |
+| Provider use (Gloss/translation) | **Not performed or cleared.** BY-SA 4.0 does not itself prohibit a commercial provider, but any Sharing of covered input must satisfy attribution/licence/no-additional-restrictions requirements, and a shared translation may be Adapted Material. The precise payload, presence of uncleared interpretation values, provider retention/training/reuse terms and recipient notice mechanism are unknown. Those are the bounded prerequisites to approving a provider operation; private installation use does not settle them |
 
 **No rights-holder clarification prerequisite was identified for the core
 package's members.** Every one has an explicit declaration and no exception
@@ -407,11 +427,17 @@ turned up. The residual statements must be shown, not resolved:
 - Zenodo's `other-at`;
 - the "look also at the original repositories" clause.
 
-The open items are owning decisions, not licence choices:
+The open items are not licences for Justin to choose:
 
 - approval of Mouseion redistribution;
-- review of the interpretation artifact, including the NC-derived conjunction
-  decisions.
+- factual applicability/output-rights review of the interpretation artifact,
+  including Morpheus-derived decoded/repair values and NC-derived conjunction
+  decisions. The retained declarations do not settle whether those selected
+  outputs contain protected adapted expression or what mixed-output obligations
+  attach. No 3.0 US legal code or output-specific clearance is retained. Until
+  resolved, supported distribution of that artifact remains blocked; privately
+  reproducing it is not a substitute. A replacement rule would require separate
+  authorization and validation, not an implied continuation of this investigation.
 
 ## 4. On-demand acquisition comparison
 
@@ -431,7 +457,7 @@ and
 | Rights posture | Mouseion is a redistributor: review, notices, no downstream restrictions | Direct acquisition; no Mouseion redistribution |
 | Maintainer work | Per OGA release: fetch the archive once, extract deterministically, validate each *offered* unit, review rights, publish immutable versions, keep old versions and the archive | Pin the archive identity and member manifest in the adapter; ship nested-ZIP extraction code |
 | Upstream dependency | At release-build time only; installations depend on Mouseion hosting | Every new installation and restore depends on Zenodo |
-| Size and policy fit | Meets the artifact-size bounds | Must allow an 8.6 GB artifact, and acquires the whole corpus to prepare one Book. It must not register, analyze or count the other works |
+| Size and policy fit | Provides a measured input for the handoff's still-unselected resource bounds | Must explicitly allow an 8.6 GB artifact and its local hashing/storage costs. No bounds exception is approved here. It acquires the whole corpus container to prepare one Book, but must not register, extract, analyze or count the other works |
 | Range-fetch variant (B′) | n/a | **Untested and unauthorized.** It could avoid the full download, but cannot verify the whole-archive hash. It would need the operation proposed below |
 
 **Recommended semantics for either route.** These need no service design.
@@ -439,7 +465,8 @@ and
 - **Discovery.** Metadata-only sync reads a small, versioned offering index. It
   must not download packages.
 - **What each offering entry carries.**
-  - Work and Edition identity: `urn:cts:greekLit:tlg0032.tlg006.perseus-grc2`;
+  - Distinct Work and Edition identities, with the edition alias
+    `urn:cts:greekLit:tlg0032.tlg006.perseus-grc2`;
     Marchant 1904; canonical-greekLit `0.0.11376425141`/`476fb613`.
   - Declared Reading units, with exact bounds and validation status. Book 1 is
     validated; other books are "carried, not validated".
@@ -452,12 +479,16 @@ and
   must add member identity, because OGA ships none.
 - **Selection-triggered acquisition.** Downloads happen only on To Read, with
   the package and interpretation-artifact versions pinned first. Verify the ZIP
-  hash, then the manifest and every member hash and the source-archive identity.
+  hash, then the independently pinned manifest and every member hash. Check the
+  manifest's claimed source-archive identity against the reviewed offering;
+  route B additionally hashes the locally acquired archive itself.
   Retain the notices. Rerun the proof-equivalent binding and accounting gates.
   Publish atomically.
-- **No collateral effects.** Sync and acquisition must not download or analyze
-  other works or affect personal counts. Counts follow only validated,
-  published, full-scope evidence.
+- **No collateral effects.** Sync downloads metadata only. Route A acquisition
+  requests only the selected package; route B necessarily transfers the full
+  archive container but extracts only the selected work and its notices.
+  Neither route analyzes other works or contributes counts merely by acquisition.
+  Counts follow only validated, published, full-scope personal Book evidence.
 - **Failure and retry.** Transient transfer failures get bounded retries
   against the *same* pinned hashes. A hash mismatch is an integrity failure, not
   a reason to take another version. Exact re-derivation from the official
@@ -489,7 +520,7 @@ GitHub tree and Zenodo record already show that the only evidenced annotation
 route is the single archive. OGA's GitHub tree holds documentation and one
 unrelated `annotation_example`.
 
-## 6. Handoff to #2031
+## 6. Handoff to the shared-core architecture decision
 
 - **Preferred option.** Route A: one-time extraction from the verified official
   archive into reviewed, immutable, versioned per-work packages (core tier) with
@@ -511,7 +542,7 @@ unrelated `annotation_example`.
   - Exact re-derivation for recovery.
 - **Human or owning decisions.**
   - Accept the OGA Anabasis Book 1 source in
-    [#2030](https://github.com/justin-hayes/mouseion/issues/2030).
+    [the slice decision](https://github.com/justin-hayes/mouseion/issues/2030).
   - Decide whether Mouseion will host, applying the existing policy. The
     evidence appears sufficient for that review.
   - Decide who owns hosting and maintenance.
@@ -521,8 +552,9 @@ unrelated `annotation_example`.
     shown as not analyzed.
 - **Shipping-stage blockers.**
   - Redistribution approval.
-  - The NC-derived conjunction decisions: clear them, or authorize and
-    re-validate a replacement rule.
+  - Output-specific rights in Morpheus-derived decodings/repair values and
+    NC-derived conjunction decisions. Resolve the bounded applicability gaps,
+    or separately authorize and re-validate a replacement rule.
   - A Gorman-free reproduction command. Drop the unused Gorman pin and the
     producer-document layout drift.
 - **Not established here.** Validation of Books 2–7, practical usefulness,
@@ -535,7 +567,8 @@ archive at
 `…/issue-2052-happy-falcon/doc/research/ancient-greek-oga-anabasis1-import-proof/private/archive/`.
 Set `R` to that proof directory, `A=$R/private/archive/opera_graeca_adnotata_v0.2.0.zip`,
 `S` to a new owned scratch child, and `GOTMPDIR=$HOME/.cache/gotmp`, with Go on
-`PATH`:
+`PATH`. Set `TMPDIR` to a new directory under `$S` too, so focused-test temporary
+fixtures never go to `/tmp`:
 
 ```sh
 python3 -I package_probe.py inventory --archive "$A"              # compare with work-inventory.json
@@ -556,8 +589,11 @@ session's start.
 Other checks run: `make lint` (golangci-lint 2.14.0: 0 issues; ruff and mypy
 over `nlp/` clean) and ruff on the new research files. This worktree has no
 `.venv`, so `make lint` used the retained proof worktree's `.venv` tools through
-`VENV_BIN`. `make coverage-new` was not run: no Go or Python application code
-changed, and the project coverage gate does not measure research scripts.
+`VENV_BIN`. The researcher did not run `make coverage-new`; the parent attempted
+it and it stopped at Python preflight because this worktree has no `.venv`.
+No environment was installed and no application-coverage result is claimed.
+The local coverage preview omits scripts outside its reports; this is not an
+assertion that Sonar excludes research files. No PR or merge is proposed.
 
 **Public files contain only:**
 
@@ -566,3 +602,29 @@ changed, and the project coverage gate does not measure research scripts.
 - short licence quotations.
 
 No packages, source text, annotation bundles or examples are committed.
+
+## Independent parent review (2026-10-15)
+
+The parent independently reran the inventory, both package builds and the 12
+focused tests. The committed inventory and package summaries reproduced
+byte-for-byte. In another new detached worktree at `e610a5aa`, the parent reran
+`reproduce_proof.py` against the retained private packages: the complete committed
+reproduction record matched, including all four private projections, repaired
+summary/outputs, **438 selected / 434 sentence inputs**, real-Go parity and the
+unchanged CLI's two disclosed missing-Gorman failures. The parent also compared
+the replacement input verifier with the original: only the four Gorman registry
+checks are skipped; all other pin, Morpheus-manifest and producer checks remain.
+No Gorman data was staged or read.
+
+All 27 earlier selected-member records independently matched the new inventory
+in byte count, CRC32 and SHA-256. The parent also reran `make lint` successfully
+using the installed toolchain on `PATH` and the retained venv's existing lint
+tools; no dependencies were acquired. Parent scratch and its detached worktree
+were removed after these checks. The two privately retained packages remain
+Git-ignored for review; all earlier inputs and outputs remain untouched.
+
+Review corrected overbroad claims about necessary offset rewriting, automatic
+ShareAlike on every conversion/export, and package-only runtime independence.
+The conclusion is **technical source-package feasibility with named conditions**,
+not a shipped witness-free interpreter, resolved interpretation-output rights,
+source acceptance, provider/export approval or publication authorization.
