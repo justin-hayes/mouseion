@@ -99,11 +99,8 @@ stage below.
   under CC BY-SA 4.0, with Morpheus under MPL-2.0 or CC BY-SA. Morpheus-derived
   values stay subject to the rights gate. The rule is not a new source, survey
   or research chain, and it clears no rights by itself.
-- **No treebank values in examples.** PROIEL is a treebank under CC BY-NC-SA,
-  so its annotation values, including the homograph forms that #2033 cited,
-  are not used as examples, fixtures or test inputs. Examples are invented.
-  Naming a format's conventions (for example PROIEL's `#<digits>` lemma suffix)
-  uses no data and stays allowed.
+- **Examples are invented.** No example, fixture or test input uses treebank
+  annotation values.
 
 ## Initial operational envelope
 

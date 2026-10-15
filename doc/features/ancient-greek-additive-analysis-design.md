@@ -1224,9 +1224,7 @@ interpretation slot identifiers (§5).
 
 **Initial registry.** The first release registers `morpheus`, the scheme the
 retained candidate's discriminators use (#2058), and the synthetic `example`
-and `example-*` schemes that fixtures use. It does not register `proiel`, and
-no example, fixture or test uses PROIEL annotation values: PROIEL is a treebank
-under a non-commercial licence (handoff "No treebank data").
+and `example-*` schemes that fixtures use.
 
 A scheme names a lexical scheme, not a Book, corpus, package or download URL.
 Two corpora that both write `#1` share a scheme only if a reviewed entry says
@@ -1366,8 +1364,8 @@ configuration's `source_decoding` slot as its own `name/version`, separate from
 lemma mapping and from normalization (OD-13).
 
 - **Input:** one native lemma record as retained evidence: the native lemma string
-  and any native lexical-identifier attribute, for example a PROIEL `#1` suffix or
-  a UD `LId=1` feature.
+  and any native lexical-identifier attribute, for example a `#ex:1` suffix or
+  a `lexid=ex:1` attribute.
 - **Output:** either a **decoded citation form** with an optional
   `(discriminator_scheme, discriminator_value)`, or a rejection reason. The
   decoded citation form is the citation spelling, with final `ς`, case and marks
@@ -1882,7 +1880,7 @@ row, and the adapter never makes it a root.
 
 | purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
 | --- | --- | --- | --- | --- | --- | --- |
-| One native secondary or enhanced edge, such as a PROIEL `slash` or a CoNLL-U `DEPS` edge, including edges to and from empty nodes. | `analysis_id uuid`; `edge_ordinal integer`; `node_id integer`; `head_node_id integer`; `native_relation text`; `relation text NULL` (mapped enhanced relation where reviewed) | `(analysis_id, edge_ordinal)` | `(analysis_id, node_id, head_node_id, native_relation)` unique. | Shared. | **Immutable.** | both nodes → Analysis node `RESTRICT` |
+| One native secondary or enhanced edge, such as a CoNLL-U `DEPS` edge, including edges to and from empty nodes. | `analysis_id uuid`; `edge_ordinal integer`; `node_id integer`; `head_node_id integer`; `native_relation text`; `relation text NULL` (mapped enhanced relation where reviewed) | `(analysis_id, edge_ordinal)` | `(analysis_id, node_id, head_node_id, native_relation)` unique. | Shared. | **Immutable.** | both nodes → Analysis node `RESTRICT` |
 
 Secondary edges are never folded into basic syntax, and basic syntax is never
 derived from them.
@@ -5646,7 +5644,7 @@ Verified at commit `00a63be6b38f9b54d359b6e68ed014af30ab7b25` (`main`). Every
 | --- | --- | --- | --- |
 | This design, and the ADRs and handoff it cites | public | `doc/` | — |
 | Synthetic fixtures | public | `example-*` pin sets, packages, tables and definitions; the `ancient-greek-normalization/1`, `vocabulary-identity-comparison/1` and `source-decoding/1` cases; synthetic candidates and store-contract seeds | §6, §10, §12, §15 |
-| Structural examples | public | Invented forms such as `λέξις` with `example:ex:1` and `example:ex:2`. No example uses treebank annotation values, including the PROIEL forms that #2033 cited (§6, handoff "No treebank data"). | §6, §7 |
+| Structural examples | public | Invented forms such as `λέξις` with `example:ex:1` and `example:ex:2`. | §6, §7 |
 | Existing characterization fixtures | public | The Stanza fixtures listed in §10 "Current anchors" | §10 |
 | Public interpretation version identifiers | public | Slot identifiers such as `oga-greta-lemma/2`, `oga-agdt-upos/4`, `oga-anabasis1-research-repairs/2`, `oga-reading-terminal/2` and `ancient-greek/1`; the selection policy `grc-earliest-capped/1`; adapter, projection, correspondence, contract and pin-set identifiers | §5, §10, §12 |
 | Code | public | Adapters, validation, registries, reason codes and their fixed messages, synthetic pin sets, the public fields of retained pin-set entries, and pin-file commitments (see below) | §10, §12 |
@@ -6280,7 +6278,7 @@ mapping, and comparison with the Stage 1 re-run instead of 438/434.
 | Every invariant has a matrix row | Every numbered invariant in §4–§14 cites at least one existing row, and every cited ID exists. §4's "Implementation rules" are review rules exercised by the BIB rows above them, as §4 says. | — |
 | Every row's seam is (a)–(d) | **Not clean until OD-41, OD-48 and OD-65 are decided.** Every row uses (a)–(d) except the widened ones: the `(a) + CLI` rows, the `(d) (OD-41)` rows, the `lint (OD-48)` rows and the `CI (OD-65)` rows, each listed by its label in §15. RET-14 and RET-16 ran operator commands under a plain `(d)` label. | Relabelled RET-14 and RET-16 `(d) (OD-41)`, as §9 already says. Listed the widenings under §15 "Seams". OD-41's question now names the `(a) + CLI` rows, and OD-65's names MIG-15. |
 | No table-name assertion in "expected" | No row's expected column, setup, action or negative case names a proposed table. OCC-24, VAL-09, VAL-11 and MIG-05 name existing shipped tables, and MIG-01 and MIG-04 name `schema_migrations`, as the unchanged characterization baseline. The ground rules forbid proposed names only. | — |
-| No private values | Every Greek form is an invented example (#2089 replaced the PROIEL #2033 anchors). No 64-hex digest, frozen table value, Book 1 text or private count appears. The only hashes are commit SHAs. | — |
+| No private values | Every Greek form is an invented example. No 64-hex digest, frozen table value, Book 1 text or private count appears. The only hashes are commit SHAs. | — |
 | Rows that contradict later sections | EVD-03, EVD-04, EVD-05, EVD-07, EVD-33, VAL-06 and ADP-06 expect admission failures through a handler and request state `failed`. §12 refuses them in the command, and §11 records stored-byte failures as `blocked`. | Raised as OD-71. |
 | Cross-section gaps | §12 asks §9 to guard the Installed pin set and to list the Local selection as a referencer, with no open decision. §5, §9, §10, §11 and §12 cite #2054 to #2056 (and the closed #2055) as rights gates for local operations. §5 and §10 compile the table digest, while §12 pins it locally. §9's report prints digests. OD-19's lift record is specified nowhere. | Raised as OD-73, OD-69, OD-70 and OD-72. The lift is noted on OD-19. |
 | One interpretation per pin set | §5 "Pins" names one Interpretation configuration per pin set. §12 lets a pin set list several and names one with `-interpretation`. With one listed interpretation they agree, as §12 says. | No decision needed. |
