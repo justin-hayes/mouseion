@@ -41,13 +41,15 @@ the ZIP transport hash of one published build; different compression software ca
 preserve all members without reproducing that ZIP. Installations verify the exact
 reviewed release's transport, manifest and member pins, not the entire upstream
 archive. Pin interpretation separately, including `oga-greta-lemma/2`, the
-POS mapping `oga-agdt-upos/4` with its εἰμί rule, the morphology mapping
-`oga-agdt-feats/1`, the repair layer that the Stage 1 lineage audit leaves (at
-present `oga-anabasis1-research-repairs/1`), `oga-reading-terminal/2`,
-`ancient-greek/1` and `grc-earliest-capped/1`. `oga-agdt-upos/4` and
-`oga-agdt-feats/1` are new and replace the linked handoff's `oga-agdt-upos/3`
-under [No treebank data](#no-treebank-data). The other identifiers are as
-recorded in the linked handoff.
+POS mapping `oga-agdt-upos/4` with its εἰμί rule, no morphology mapping, the
+repair layer `oga-anabasis1-research-repairs/2` (or a later version from the
+Stage 1 lineage audit), `oga-reading-terminal/2`, `ancient-greek/1` and
+`grc-earliest-capped/1`. Under [No treebank data](#no-treebank-data),
+`oga-agdt-upos/4` replaces the linked handoff's `oga-agdt-upos/3`, and
+`/2` drops the six POS repairs that corrected `/3`'s εἰμί rule. Morphology
+stays unavailable until a later interpretation version adds a mapping such as
+`oga-agdt-feats/1`. The other identifiers are as recorded in the linked
+handoff.
 An analysis-affecting change requires a new interpretation and explicit adoption,
 not an in-place change or a new implicit identity equivalence. A card-selection
 policy change applies to a newly prepared specification, not an analysis rewrite
@@ -79,8 +81,8 @@ stage below.
 - **What mappings are written from.** Each interpretation table is written only
   from the source's own tagset documentation (for OGA, the AGDT tagset and its
   annotation guidelines) and from the UD UPOS and FEATS tag definitions. In
-  `oga-agdt-upos/4` and `oga-agdt-feats/1`, "agdt" names the tagset that the
-  OGA source uses. It does not name treebank data.
+  `oga-agdt-upos/4`, "agdt" names the tagset that the OGA source uses. It does
+  not name treebank data.
 - **Lineage.** Every interpretation slot and every exception-table value records
   its lineage: the documentation it is written from, or the retained source
   evidence it reads. A value whose only basis is a treebank witness is replaced
@@ -178,25 +180,21 @@ decision. No new acquisition or script execution is authorized by this document.
   Every interpreted value must have supported lineage; do not bundle witnesses.
   Writing mappings under [No treebank data](#no-treebank-data) is required, not
   evasion of the rights gate.
-- Write `oga-agdt-upos/4` and `oga-agdt-feats/1` independently, from the AGDT
-  tagset documentation and the UD UPOS/FEATS definitions only, and record that
-  lineage in each reviewed definition. Neither reuses `oga-agdt-upos/3`'s
-  letter table. A native value that the documentation does not map stays
-  unmapped and is reported, never guessed.
+- Write `oga-agdt-upos/4` independently, from the AGDT tagset documentation
+  and the UD UPOS definitions only, and record that lineage in its reviewed
+  definition. It reuses none of `oga-agdt-upos/3`'s letter table. A native value
+  that the documentation does not map stays unmapped and is reported, never
+  guessed.
 - Decide and record the εἰμί rule (AUX or VERB) again for `oga-agdt-upos/4`, as
   an explicit human decision from the UPOS definitions and the source's own
-  native annotation (design OD-77). The earlier rule and its six POS repairs are
-  not carried forward by default.
-- Check that the core package's annotation members carry the AGDT morphology
-  tags that `oga-agdt-feats/1` maps. If they do not, the retained candidate
-  declares no morphology mapping, and morphology is reported unavailable rather
-  than filled in.
-- Audit the lineage of every frozen exception-table value: the six POS repairs,
-  the 20 confirmed labels, the compound record and the seven citation repairs.
-  Record, per value, the documentation or retained source evidence it rests on.
-  Any value that depends on a treebank witness is replaced by a value with
-  permitted lineage or dropped, through a new repair-layer version and table
-  digest. The audit adds no new repair.
+  native annotation (design OD-77). Its errors are disclosed, not repaired.
+- Drop the six POS repairs, which corrected the superseded rule, and audit the
+  lineage of every remaining exception-table value: the 20 confirmed labels,
+  the compound record and the seven citation repairs. Record, per value, the
+  documentation or retained source evidence it rests on. Any value that depends
+  on a treebank witness is replaced by a value with permitted lineage or
+  dropped, through a new repair-layer version and table digest. Nothing adds a
+  repair.
 - Verify exact source/package/member hashes, retained original projections,
   declared Book 1 extent, binding, versioned interpretation and repair provenance.
   Re-run complete-unit accounting and selection under the new interpretation and
