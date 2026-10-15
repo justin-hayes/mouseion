@@ -1,6 +1,6 @@
 # Ancient Greek additive analysis: schema and module-interface design
 
-Status: **Proposed design — not approved. No SQL, migration or application implementation is authorized.** · Date: 2026-10-15
+Status: **Changes requested (§18) — not approved. No SQL, migration or application implementation is authorized.** · Date: 2026-10-15
 
 Owning spec: [#2062 Design additive analysis for local annotation-backed Ancient Greek](https://github.com/justin-hayes/mouseion/issues/2062).
 
@@ -32,7 +32,7 @@ section contradicts its own, it records the conflict under
 
 ## 1. Status and authority
 
-Status: **Proposed design — not approved. No SQL, migration or application implementation is authorized.** · Date: 2026-10-15
+Status: **Changes requested (§18) — not approved. No SQL, migration or application implementation is authorized.** · Date: 2026-10-15
 
 The implementation specs that follow this design are
 [#2061 canonical foundations](https://github.com/justin-hayes/mouseion/issues/2061),
@@ -6334,7 +6334,7 @@ Vocabulary rows propose `CONTEXT.md` changes, which are separately reviewed. Unt
 
 ## 18. Approval record
 
-Status: **not approved.** §1's status line stays "not approved" until this
+Status: **changes requested.** §1's status line stays "not approved" until this
 record is filled in with an approval.
 
 The repository owner fills in this record under
@@ -6344,14 +6344,14 @@ merged pull request is not approval (§1).
 
 | field | value |
 | --- | --- |
-| Outcome | _pending_: "Approved", or "Changes requested" |
-| Approver | _pending_: GitHub username |
-| Date | _pending_: YYYY-MM-DD |
-| Approved document revision | _pending_: commit SHA of this document as approved |
-| Approved sections | _pending_: for example "§4–§14", or a list |
-| Sections with changes requested | _pending_: a list, or "none" |
-| Conditions | _pending_: each condition, or "none" |
-| Approval comment on #2062 | _pending_: link to the comment on [#2062](https://github.com/justin-hayes/mouseion/issues/2062) |
+| Outcome | Changes requested |
+| Approver | justin-hayes (review outcome only; no approval is recorded) |
+| Date | 2026-10-15 |
+| Approved document revision | none; reviewed at `1cc4e7f7` |
+| Approved sections | none yet |
+| Sections with changes requested | §5, §6, §7, §10, §13, §14, §15 and §16, and the handoff, through [#2089](https://github.com/justin-hayes/mouseion/issues/2089) (no treebank data: independent `oga-agdt-upos/4`, a morphology-mapping slot, an exception-table lineage audit, a restated Stage 1 check), [#2090](https://github.com/justin-hayes/mouseion/issues/2090) (defer syntax storage for Exact analyses) and [#2091](https://github.com/justin-hayes/mouseion/issues/2091) (place Greek dictionary lookup in the learner flow) |
+| Conditions | **No treebank data.** No treebank (AGDT, PROIEL, Gorman, UD conversions) is a runtime input, mapping basis, repair witness or test oracle, and no source with a non-commercial licence is used. This deliberately overrides the handoff's Stage 1 "do not … change mappings merely to evade the rights gate" and #2058's "do not claim independence" for the UPOS table. The source decision (#2030) is unchanged. |
+| Approval comment on #2062 | none: #2062 stays open until approval |
 
 Answer every §17 row: accept the recommendation, choose another option, or send
 it back for narrow rework.
@@ -6380,7 +6380,7 @@ it back for narrow rework.
 | OD-20 | _pending_ | |
 | OD-21 | _pending_ | |
 | OD-22 | _pending_ | |
-| OD-23 | _pending_ | |
+| OD-23 | Accept (1) | Revisit option (2) once dictionary glosses exist (#2091). |
 | OD-24 | — | Merged into OD-63. Record no separate answer. |
 | OD-25 | _pending_ | |
 | OD-26 | _pending_ | |
@@ -6402,7 +6402,7 @@ it back for narrow rework.
 | OD-42 | _pending_ | |
 | OD-43 | _pending_ | |
 | OD-44 | _pending_ | |
-| OD-45 | _pending_ | |
+| OD-45 | Option (3) | Parity runs in tests only; no production hook. |
 | OD-46 | _pending_ | |
 | OD-47 | _pending_ | |
 | OD-48 | _pending_ | |
@@ -6426,11 +6426,11 @@ it back for narrow rework.
 | OD-66 | _pending_ | |
 | OD-67 | _pending_ | |
 | OD-68 | _pending_ | |
-| OD-69 | _pending_ | |
+| OD-69 | Accept (1) | |
 | OD-70 | _pending_ | |
 | OD-71 | _pending_ | |
 | OD-72 | _pending_ | |
 | OD-73 | _pending_ | |
-| OD-74 | _pending_ | |
+| OD-74 | Option (1) | Single-user installation; the operator owns storage capacity. |
 | OD-75 | _pending_ | |
 | OD-76 | _pending_ | |
