@@ -1,0 +1,1574 @@
+{
+ "adv": {
+  "also_adj_in_book": [
+   "καλόσ",
+   "κακόσ",
+   "ὅσ",
+   "ταχύσ",
+   "ὕστεροσ"
+  ],
+  "occurrences": 1395,
+  "rows": [
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "CCONJ": 93
+    },
+    "key": "δέ",
+    "occurrences": 326
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "CCONJ": 324
+    },
+    "key": "καί",
+    "occurrences": 236
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "οὐ",
+    "occurrences": 103
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "μέν",
+    "occurrences": 100
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "CCONJ": 12
+    },
+    "key": "τε",
+    "occurrences": 60
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "γάρ",
+    "occurrences": 59
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "SCONJ": 7
+    },
+    "key": "ἄν",
+    "occurrences": 40
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἐνταῦθα",
+    "occurrences": 37
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "SCONJ": 44
+    },
+    "key": "ὡσ",
+    "occurrences": 37
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "δή",
+    "occurrences": 35
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "οὖν",
+    "occurrences": 32
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἐντεῦθεν",
+    "occurrences": 24
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "CCONJ": 8
+    },
+    "key": "μή",
+    "occurrences": 23
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "γε",
+    "occurrences": 17
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἔτι",
+    "occurrences": 14
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "οὕτωσ",
+    "occurrences": 13
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "SCONJ": 7
+    },
+    "key": "ὥστε",
+    "occurrences": 13
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "πρόσθεν",
+    "occurrences": 12
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "πάλιν",
+    "occurrences": 11
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "τότε",
+    "occurrences": 10
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "CCONJ": 30
+    },
+    "key": "ἀλλά",
+    "occurrences": 10
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἤδη",
+    "occurrences": 10
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "εὖ",
+    "occurrences": 9
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "αὖ",
+    "occurrences": 8
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "μάλιστα",
+    "occurrences": 8
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "μέντοι",
+    "occurrences": 8
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἔνθα",
+    "occurrences": 8
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "εὐθύσ#morpheus:2",
+    "occurrences": 7
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "μήν",
+    "occurrences": 6
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "μᾶλλον",
+    "occurrences": 6
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "πάνυ",
+    "occurrences": 6
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ποτέ",
+    "occurrences": 6
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "CCONJ": 1
+    },
+    "key": "εἶτα",
+    "occurrences": 5
+   },
+   {
+    "also_adj_in_book": true,
+    "also_function_upos_in_book": {},
+    "key": "καλόσ",
+    "occurrences": 5
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἐκεῖ",
+    "occurrences": 5
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἔξω",
+    "occurrences": 5
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "CCONJ": 32
+    },
+    "key": "ἤ#morpheus:1",
+    "occurrences": 5
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ὅπου",
+    "occurrences": 5
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "εἴσω",
+    "occurrences": 4
+   },
+   {
+    "also_adj_in_book": true,
+    "also_function_upos_in_book": {},
+    "key": "κακόσ",
+    "occurrences": 4
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "οἴκοι",
+    "occurrences": 4
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "πολλάκισ",
+    "occurrences": 4
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "πώποτε",
+    "occurrences": 4
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ὄπισθεν",
+    "occurrences": 4
+   },
+   {
+    "also_adj_in_book": true,
+    "also_function_upos_in_book": {
+     "DET": 3,
+     "PRON": 86
+    },
+    "key": "ὅσ",
+    "occurrences": 4
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ὧδε",
+    "occurrences": 4
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "μηκέτι",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "νῦν",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "οὐκέτι",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "οὔπω",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": true,
+    "also_function_upos_in_book": {},
+    "key": "ταχύσ",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "τοιγάρ",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἅμα",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ἔπειτα",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ὅμωσ",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {},
+    "key": "ὅπη",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "SCONJ": 48
+    },
+    "key": "ὅτι",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": true,
+    "also_function_upos_in_book": {},
+    "key": "ὕστεροσ",
+    "occurrences": 3
+   },
+   {
+    "also_adj_in_book": false,
+    "also_function_upos_in_book": {
+     "SCONJ": 11
+    },
+    "key": "ὥσπερ",
+    "occurrences": 3
+   }
+  ],
+  "selected": 59,
+  "share_of_selected_occurrences": 0.1587,
+  "with_function_upos_for_same_key": 13,
+  "with_function_upos_occurrences": 765
+ },
+ "content_sample": {
+  "rows": [
+   {
+    "chosen": "t_1834",
+    "cts": "1_2_21",
+    "editorial_in_sentence": [],
+    "key": "αἰσθάνομαι",
+    "occurrences": 8,
+    "sentence": 81,
+    "tei_units": 41,
+    "units": 44,
+    "upos": "VERB",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_914",
+    "cts": "1_2_6",
+    "editorial_in_sentence": [],
+    "key": "διαβαίνω",
+    "occurrences": 11,
+    "sentence": 37,
+    "tei_units": 17,
+    "units": 19,
+    "upos": "VERB",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_311",
+    "cts": "1_1_7",
+    "editorial_in_sentence": [],
+    "key": "θάλασσα",
+    "occurrences": 8,
+    "sentence": 13,
+    "tei_units": 21,
+    "units": 22,
+    "upos": "NOUN",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_10208",
+    "cts": "1_10_13",
+    "editorial_in_sentence": [],
+    "key": "λόφοσ",
+    "occurrences": 6,
+    "sentence": 371,
+    "tei_units": 32,
+    "units": 37,
+    "upos": "NOUN",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_1066",
+    "cts": "1_2_8",
+    "editorial_in_sentence": [],
+    "key": "πέντε",
+    "occurrences": 18,
+    "sentence": 42,
+    "tei_units": 40,
+    "units": 43,
+    "upos": "ADJ",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_911",
+    "cts": "1_2_5",
+    "editorial_in_sentence": [],
+    "key": "πλοῖον",
+    "occurrences": 7,
+    "sentence": 36,
+    "tei_units": 10,
+    "units": 12,
+    "upos": "NOUN",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_51",
+    "cts": "1_1_2",
+    "editorial_in_sentence": [],
+    "key": "στρατηγόσ",
+    "occurrences": 15,
+    "sentence": 1,
+    "tei_units": 27,
+    "units": 30,
+    "upos": "NOUN",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_509",
+    "cts": "1_1_10",
+    "editorial_in_sentence": [],
+    "key": "τρεῖσ",
+    "occurrences": 22,
+    "sentence": 21,
+    "tei_units": 34,
+    "units": 37,
+    "upos": "ADJ",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_1226",
+    "cts": "1_2_10",
+    "editorial_in_sentence": [],
+    "key": "χρύσεοσ",
+    "occurrences": 6,
+    "sentence": 49,
+    "tei_units": 27,
+    "units": 31,
+    "upos": "ADJ",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_9623",
+    "cts": "1_9_31",
+    "editorial_in_sentence": [],
+    "key": "ἀποθνήσκω",
+    "occurrences": 4,
+    "sentence": 355,
+    "tei_units": 39,
+    "units": 43,
+    "upos": "VERB",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_1053",
+    "cts": "1_2_8",
+    "editorial_in_sentence": [],
+    "key": "ἐμβάλλω",
+    "occurrences": 4,
+    "sentence": 42,
+    "tei_units": 40,
+    "units": 43,
+    "upos": "VERB",
+    "word_split_in_sentence": false
+   },
+   {
+    "chosen": "t_3986",
+    "cts": "1_4_9",
+    "editorial_in_sentence": [],
+    "key": "ἡδύσ",
+    "occurrences": 4,
+    "sentence": 149,
+    "tei_units": 24,
+    "units": 28,
+    "upos": "ADJ",
+    "word_split_in_sentence": false
+   }
+  ],
+  "rule": "plain lowercase-attested NOUN/VERB/ADJ selected identities without discriminator or citation repair, sorted by (key, UPOS); every 27.08th of 325"
+ },
+ "editorial": {
+  "chosen_sentences_with_editorial": [
+   56,
+   125,
+   137,
+   279,
+   336,
+   357
+  ],
+  "elements": {
+   "125": [
+    "choice@1_3_20",
+    "corr@1_3_20",
+    "sic@1_3_20"
+   ],
+   "137": [
+    "add@1_4_4"
+   ],
+   "143": [
+    "del@1_4_7"
+   ],
+   "267": [
+    "del@1_7_13"
+   ],
+   "279": [
+    "sic@1_8_4"
+   ],
+   "280": [
+    "add@1_8_6",
+    "del@1_8_6"
+   ],
+   "281": [
+    "del@1_8_7"
+   ],
+   "296": [
+    "del@1_8_16"
+   ],
+   "334": [
+    "sic@1_9_15"
+   ],
+   "336": [
+    "sic@1_9_16"
+   ],
+   "338": [
+    "sic@1_9_17"
+   ],
+   "341": [
+    "sic@1_9_19"
+   ],
+   "357": [
+    "del@1_10_1"
+   ],
+   "361": [
+    "sic@1_10_5"
+   ],
+   "370": [
+    "sic@1_10_12"
+   ],
+   "56": [
+    "del@1_2_12"
+   ]
+  },
+  "sentences_with_editorial": 16
+ },
+ "glaux_selected_comparison": {
+  "glaux_only": [
+   "βάρβαροσ|ADJ",
+   "κίλιξ|ADJ",
+   "κρατύσ|ADJ",
+   "μιλήσιοσ|ADJ",
+   "ξένοσ|ADJ",
+   "στρεπτόσ|ADJ",
+   "ἐχθρόσ|ADJ",
+   "μάλα|ADV",
+   "πρότεροσ|ADV",
+   "ταύτῃ|ADV",
+   "ὅπῃ|ADV",
+   "ὕστερον|ADV",
+   "ᾗ|ADV",
+   "βασίλεια|NOUN",
+   "δαρεικόσ|NOUN",
+   "δεξιά|NOUN",
+   "ξενίασ|NOUN",
+   "οἰκουμένη|NOUN",
+   "πισίδησ|NOUN",
+   "ἄρχων|NOUN",
+   "βιάζω|VERB",
+   "προέρχομαι|VERB",
+   "προίημι|VERB",
+   "προσέρχομαι|VERB",
+   "ἀποθνῄσκω|VERB",
+   "ἐπέρχομαι|VERB"
+  ],
+  "glaux_only_by_upos": {
+   "ADJ": 7,
+   "ADV": 6,
+   "NOUN": 7,
+   "VERB": 6
+  },
+  "glaux_selected": 373,
+  "oga_only": [
+   "αὐτόσ|ADJ",
+   "δέκα|ADJ",
+   "δισχίλιοι|ADJ",
+   "δύο|ADJ",
+   "δώδεκα|ADJ",
+   "εἴκοσι|ADJ",
+   "εἷσ|ADJ",
+   "κράτιστοσ|ADJ",
+   "οἷοσ|ADJ",
+   "οὐδείσ|ADJ",
+   "οὗτοσ|ADJ",
+   "πέντε|ADJ",
+   "πεντακόσιοι|ADJ",
+   "πλέοσ|ADJ",
+   "πλείων|ADJ",
+   "πλεῖστοσ|ADJ",
+   "πρότεροσ|ADJ",
+   "πᾶσ|ADJ",
+   "τέσσαρεσ|ADJ",
+   "τετρακόσιοι|ADJ",
+   "τισ|ADJ",
+   "τοσοῦτοσ|ADJ",
+   "τρεῖσ|ADJ",
+   "τριάκοντα|ADJ",
+   "τριακόσιοι|ADJ",
+   "χίλιοι|ADJ",
+   "ἄλλοσ|ADJ",
+   "ἄριστοσ|ADJ",
+   "ἅπασ|ADJ",
+   "ἑκατόν|ADJ",
+   "ἑξακόσιοι|ADJ",
+   "ἑπτά|ADJ",
+   "ἕκαστοσ|ADJ",
+   "ὁπόσοσ|ADJ",
+   "ὅσοσ|ADJ",
+   "ὕστεροσ|ADJ",
+   "γάρ|ADV",
+   "γε|ADV",
+   "δέ|ADV",
+   "δή|ADV",
+   "καί|ADV",
+   "μάλιστα|ADV",
+   "μέν|ADV",
+   "μέντοι|ADV",
+   "μήν|ADV",
+   "μᾶλλον|ADV",
+   "οὖν|ADV",
+   "ταχύσ|ADV",
+   "τε|ADV",
+   "τοιγάρ|ADV",
+   "ἀλλά|ADV",
+   "ἄν|ADV",
+   "ἤ|ADV",
+   "ὅπη|ADV",
+   "ὅσ|ADV",
+   "ὅτι|ADV",
+   "ὕστεροσ|ADV",
+   "ὡσ|ADV",
+   "ὥσπερ|ADV",
+   "ὥστε|ADV",
+   "βάρβαροσ|NOUN",
+   "βασίλειον|NOUN",
+   "δεξιόσ|NOUN",
+   "θρᾷξ|NOUN",
+   "κίλισσα|NOUN",
+   "κιλίκια|NOUN",
+   "μένω|NOUN",
+   "μιλήσιοσ|NOUN",
+   "ξένοσ|NOUN",
+   "ξενία|NOUN",
+   "πισίδαι|NOUN",
+   "πολέμιοσ|NOUN",
+   "φίλοσ|NOUN",
+   "ἄρχω|NOUN",
+   "ὀρόντασ|NOUN",
+   "δέχομαι|VERB",
+   "διίστημι|VERB",
+   "εἰμί|VERB",
+   "εἶδον|VERB",
+   "εἶμι|VERB",
+   "εἶπον|VERB",
+   "πρόειμι|VERB",
+   "πρόσειμι|VERB",
+   "ἀποθνήσκω|VERB",
+   "ἄπειμι|VERB",
+   "ἐρῶ|VERB",
+   "ἔπειμι|VERB"
+  ],
+  "oga_only_by_upos": {
+   "ADJ": 36,
+   "ADV": 24,
+   "NOUN": 15,
+   "VERB": 12
+  },
+  "oga_selected": 438,
+  "oga_selected_without_morpheus_numbers": 434,
+  "shared": 347
+ },
+ "headword_splits": {
+  "headwords": 9,
+  "rows": [
+   {
+    "headword": "δέω",
+    "identities": [
+     {
+      "card": true,
+      "key": "δέω",
+      "occurrences": 8,
+      "selected": true,
+      "upos": "VERB"
+     },
+     {
+      "card": true,
+      "key": "δέω#morpheus:2",
+      "occurrences": 5,
+      "selected": true,
+      "upos": "VERB"
+     }
+    ],
+    "selected_identities": 2
+   },
+   {
+    "headword": "λέγω",
+    "identities": [
+     {
+      "card": true,
+      "key": "λέγω",
+      "occurrences": 10,
+      "selected": true,
+      "upos": "VERB"
+     },
+     {
+      "card": true,
+      "key": "λέγω#morpheus:3",
+      "occurrences": 49,
+      "selected": true,
+      "upos": "VERB"
+     }
+    ],
+    "selected_identities": 2
+   },
+   {
+    "headword": "ξένος",
+    "identities": [
+     {
+      "card": false,
+      "key": "ξένοσ",
+      "occurrences": 2,
+      "selected": false,
+      "upos": "NOUN"
+     },
+     {
+      "card": true,
+      "key": "ξένοσ#morpheus:1",
+      "occurrences": 4,
+      "selected": true,
+      "upos": "NOUN"
+     }
+    ],
+    "selected_identities": 1
+   },
+   {
+    "headword": "πάρειμι",
+    "identities": [
+     {
+      "card": true,
+      "key": "πάρειμι",
+      "occurrences": 4,
+      "selected": true,
+      "upos": "VERB"
+     },
+     {
+      "card": true,
+      "key": "πάρειμι#morpheus:1",
+      "occurrences": 9,
+      "selected": true,
+      "upos": "VERB"
+     },
+     {
+      "card": false,
+      "key": "πάρειμι#morpheus:2",
+      "occurrences": 1,
+      "selected": false,
+      "upos": "VERB"
+     }
+    ],
+    "selected_identities": 2
+   },
+   {
+    "headword": "πιστός",
+    "identities": [
+     {
+      "card": true,
+      "key": "πιστόσ",
+      "occurrences": 8,
+      "selected": true,
+      "upos": "ADJ"
+     },
+     {
+      "card": false,
+      "key": "πιστόσ#morpheus:2",
+      "occurrences": 1,
+      "selected": false,
+      "upos": "ADJ"
+     }
+    ],
+    "selected_identities": 1
+   },
+   {
+    "headword": "πρόειμι",
+    "identities": [
+     {
+      "card": false,
+      "key": "πρόειμι",
+      "occurrences": 1,
+      "selected": false,
+      "upos": "VERB"
+     },
+     {
+      "card": false,
+      "key": "πρόειμι#morpheus:1",
+      "occurrences": 1,
+      "selected": false,
+      "upos": "VERB"
+     },
+     {
+      "card": true,
+      "key": "πρόειμι#morpheus:2",
+      "occurrences": 3,
+      "selected": true,
+      "upos": "VERB"
+     }
+    ],
+    "selected_identities": 1
+   },
+   {
+    "headword": "χράω",
+    "identities": [
+     {
+      "card": true,
+      "key": "χράω",
+      "occurrences": 6,
+      "selected": true,
+      "upos": "VERB"
+     },
+     {
+      "card": false,
+      "key": "χράω#morpheus:2",
+      "occurrences": 2,
+      "selected": false,
+      "upos": "VERB"
+     }
+    ],
+    "selected_identities": 1
+   },
+   {
+    "headword": "ἄπειμι",
+    "identities": [
+     {
+      "card": false,
+      "key": "ἄπειμι#morpheus:1",
+      "occurrences": 3,
+      "selected": true,
+      "upos": "VERB"
+     },
+     {
+      "card": true,
+      "key": "ἄπειμι#morpheus:2",
+      "occurrences": 3,
+      "selected": true,
+      "upos": "VERB"
+     }
+    ],
+    "selected_identities": 2
+   },
+   {
+    "headword": "ἔπειμι",
+    "identities": [
+     {
+      "card": false,
+      "key": "ἔπειμι",
+      "occurrences": 1,
+      "selected": false,
+      "upos": "VERB"
+     },
+     {
+      "card": false,
+      "key": "ἔπειμι#morpheus:1",
+      "occurrences": 1,
+      "selected": false,
+      "upos": "VERB"
+     },
+     {
+      "card": true,
+      "key": "ἔπειμι#morpheus:2",
+      "occurrences": 5,
+      "selected": true,
+      "upos": "VERB"
+     }
+    ],
+    "selected_identities": 1
+   }
+  ],
+  "with_two_selected_identities": [
+   "δέω",
+   "λέγω",
+   "πάρειμι",
+   "ἄπειμι"
+  ]
+ },
+ "inputs": {
+  "import/node-to-tei.json": "1f9016a011f9f62ef87931a9e58d655c5152d0feae3e69b85f0eaa0885b7b631",
+  "opus-completion/out-v2/sentences.json": "539190b646387602d312ae811685f8fbd165a58ec2dc6f0ab8a8d0db7941e46f",
+  "opus-repair/out/card-inputs.json": "f0686b172e03c3f4ee2a895a01cd959f2fc1536dd615b82e2c629f97db522789",
+  "opus-repair/out/node-ledger.json": "f5a61b438893eda30ffe94ae3c08f1f225251e339633569c02193834640f19fc",
+  "opus-repair/out/selection-model.tsv": "855ea59e3b449cf3634416de99c42898b2e939890353baa747a9f92ed1f96076"
+ },
+ "names": {
+  "occurrences": 453,
+  "rows": [
+   {
+    "chosen": "t_14",
+    "first": "t_14",
+    "key": "κῦροσ",
+    "occurrences": 170
+   },
+   {
+    "chosen": "t_73",
+    "first": "t_73",
+    "key": "ἕλλην",
+    "occurrences": 54
+   },
+   {
+    "chosen": "t_413",
+    "first": "t_413",
+    "key": "κλέαρχοσ",
+    "occurrences": 34
+   },
+   {
+    "chosen": "t_67",
+    "first": "t_67",
+    "key": "τισσαφέρνησ",
+    "occurrences": 20
+   },
+   {
+    "chosen": "t_1837",
+    "first": "t_1837",
+    "key": "μένων",
+    "occurrences": 10
+   },
+   {
+    "chosen": "t_5653",
+    "first": "t_5653",
+    "key": "ὀρόντησ",
+    "occurrences": 10
+   },
+   {
+    "chosen": "t_1318",
+    "first": "t_1318",
+    "key": "κίλιξ",
+    "occurrences": 9
+   },
+   {
+    "chosen": "t_1760",
+    "first": "t_1760",
+    "key": "πέρσησ",
+    "occurrences": 9
+   },
+   {
+    "chosen": "t_1315",
+    "first": "t_1315",
+    "key": "συέννεσισ",
+    "occurrences": 9
+   },
+   {
+    "chosen": "t_3300",
+    "first": "t_3300",
+    "key": "εὐφράτησ",
+    "occurrences": 8
+   },
+   {
+    "chosen": "t_1841",
+    "first": "t_1841",
+    "key": "κιλικία",
+    "occurrences": 6
+   },
+   {
+    "chosen": "t_273",
+    "first": "t_273",
+    "key": "μίλητοσ",
+    "occurrences": 6
+   },
+   {
+    "chosen": "t_82",
+    "first": "t_82",
+    "key": "ξενία",
+    "occurrences": 6
+   },
+   {
+    "chosen": "t_557",
+    "first": "t_557",
+    "key": "πρόξενοσ",
+    "occurrences": 6
+   },
+   {
+    "chosen": "t_1344",
+    "first": "t_1344",
+    "key": "κίλισσα",
+    "occurrences": 5
+   },
+   {
+    "chosen": "t_939",
+    "first": "t_939",
+    "key": "μένω",
+    "occurrences": 5
+   },
+   {
+    "chosen": "t_754",
+    "first": "t_754",
+    "key": "σάρδεισ",
+    "occurrences": 5
+   },
+   {
+    "chosen": "t_3572",
+    "first": "t_3572",
+    "key": "συρία",
+    "occurrences": 5
+   },
+   {
+    "chosen": "t_3546",
+    "first": "t_3546",
+    "key": "ἀβροκόμησ",
+    "occurrences": 5
+   },
+   {
+    "chosen": "t_1",
+    "first": "t_1",
+    "key": "δαρεῖοσ",
+    "occurrences": 4
+   },
+   {
+    "chosen": "t_962",
+    "first": "t_962",
+    "key": "κελαιναί",
+    "occurrences": 4
+   },
+   {
+    "chosen": "t_3",
+    "first": "t_3",
+    "key": "παρύσατισ",
+    "occurrences": 4
+   },
+   {
+    "chosen": "t_2573",
+    "first": "t_803",
+    "key": "πασίων",
+    "occurrences": 4
+   },
+   {
+    "chosen": "t_572",
+    "first": "t_572",
+    "key": "πισίδαι",
+    "occurrences": 4
+   },
+   {
+    "chosen": "t_917",
+    "first": "t_917",
+    "key": "φρυγία",
+    "occurrences": 4
+   },
+   {
+    "chosen": "t_1159",
+    "first": "t_682",
+    "key": "ἀρκάσ",
+    "occurrences": 4
+   },
+   {
+    "chosen": "t_1105",
+    "first": "t_1105",
+    "key": "ἑλλάσ",
+    "occurrences": 4
+   },
+   {
+    "chosen": "t_4140",
+    "first": "t_4140",
+    "key": "βαβυλών",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_2357",
+    "first": "t_2357",
+    "key": "θρᾷξ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_1710",
+    "first": "t_1710",
+    "key": "κιλίκια",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_898",
+    "first": "t_898",
+    "key": "μαίανδροσ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_1039",
+    "first": "t_1039",
+    "key": "μαρσύασ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_613",
+    "first": "t_613",
+    "key": "μιλήσιοσ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_1552",
+    "first": "t_1552",
+    "key": "πίγρησ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_585",
+    "first": "t_585",
+    "key": "σοφαίνετοσ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_590",
+    "first": "t_590",
+    "key": "σωκράτησ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_1942",
+    "first": "t_1942",
+    "key": "ταρσόσ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_9638",
+    "first": "t_7428",
+    "key": "ἀριαῖοσ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_10",
+    "first": "t_10",
+    "key": "ἀρταξέρξησ",
+    "occurrences": 3
+   },
+   {
+    "chosen": "t_5810",
+    "first": "t_5810",
+    "key": "ὀρόντασ",
+    "occurrences": 3
+   }
+  ],
+  "selected_adj_never_lowercase": [
+   "λακεδαιμόνιοσ",
+   "ἑλληνικόσ"
+  ],
+  "selected_noun_never_lowercase": 40,
+  "with_input": 40
+ },
+ "repairs": {
+  "citation_repairs_selected": [
+   "συλλέγω",
+   "ἑπτά",
+   "ἔνειμι"
+  ],
+  "eimi_changed_nodes": [
+   {
+    "cts": "1_3_11",
+    "id": "t_2739",
+    "identity": null,
+    "sentence": 110,
+    "status": "non-vocabulary",
+    "surface_label": "εἶναι",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_3_21",
+    "id": "t_3351",
+    "identity": null,
+    "sentence": 126,
+    "status": "non-vocabulary",
+    "surface_label": "ἦν",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_8_10",
+    "id": "t_7640",
+    "identity": null,
+    "sentence": 288,
+    "status": "non-vocabulary",
+    "surface_label": "ἦν",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_10_14",
+    "id": "t_10265",
+    "identity": null,
+    "sentence": 372,
+    "status": "non-vocabulary",
+    "surface_label": "ἐστιν",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_10_18",
+    "id": "t_10412",
+    "identity": null,
+    "sentence": 378,
+    "status": "non-vocabulary",
+    "surface_label": "ἦσαν",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_6_6",
+    "id": "t_5989",
+    "identity": "εἰμί",
+    "sentence": 223,
+    "status": "eligible",
+    "surface_label": "ἔστιν",
+    "upos": "VERB"
+   }
+  ],
+  "eimi_verb_input": {
+   "chosen": "t_3631",
+   "cts": "1_4_4",
+   "editorial_in_sentence": [],
+   "key": "εἰμί",
+   "occurrences": 20,
+   "sentence": 139,
+   "tei_units": 38,
+   "units": 43,
+   "upos": "VERB",
+   "word_split_in_sentence": false
+  },
+  "enelmi_input": {
+   "chosen": "t_5775",
+   "cts": "1_6_3",
+   "editorial_in_sentence": [],
+   "key": "ἔνειμι",
+   "occurrences": 4,
+   "sentence": 215,
+   "tei_units": 12,
+   "units": 13,
+   "upos": "VERB",
+   "word_split_in_sentence": false
+  },
+  "formed_citation": {
+   "cts": "1_5_9",
+   "id": "t_5145",
+   "identity": "συνεῖδον",
+   "occurrences": 1,
+   "selected": false,
+   "sentence": 197,
+   "status": "eligible",
+   "surface_label": "συνιδεῖν",
+   "upos": "VERB"
+  }
+ },
+ "scope": "OGA v0.2.0 Anabasis Book 1, repaired research layer oga-anabasis1-opus-repair/1",
+ "sentence_lengths": {
+  "longest": {
+   "code_points": 286,
+   "editorial": [],
+   "sentence": 268,
+   "tei_code_points": 281,
+   "tei_units": 45,
+   "units": 50,
+   "word_split": false
+  },
+  "median": {
+   "code_points": 157,
+   "editorial": [],
+   "sentence": 245,
+   "tei_code_points": 153,
+   "tei_units": 22,
+   "units": 26,
+   "word_split": false
+  },
+  "shortest": {
+   "code_points": 22,
+   "editorial": [],
+   "sentence": 114,
+   "tei_code_points": 21,
+   "tei_units": 3,
+   "units": 4,
+   "word_split": false
+  }
+ },
+ "spacing": {
+  "chosen_sentences": 179,
+  "chosen_sentences_with_word_split": 17,
+  "inputs_in_sentences_with_word_split": 36,
+  "joins": 1203,
+  "later_occurrence": 58,
+  "later_occurrence_that_tei_spacing_would_make_first": 26,
+  "omissions": [
+   {
+    "chosen": null,
+    "key": "οἴχομαι",
+    "occurrence_tei_units": [
+     54,
+     62,
+     53
+    ],
+    "occurrences": 3,
+    "tei_spacing_choice": null,
+    "upos": "VERB"
+   },
+   {
+    "chosen": null,
+    "key": "πατήρ",
+    "occurrence_tei_units": [
+     51,
+     51,
+     56,
+     48
+    ],
+    "occurrences": 4,
+    "tei_spacing_choice": "t_8708",
+    "upos": "NOUN"
+   },
+   {
+    "chosen": null,
+    "key": "πρότεροσ",
+    "occurrence_tei_units": [
+     59,
+     51,
+     48
+    ],
+    "occurrences": 3,
+    "tei_spacing_choice": "t_7139",
+    "upos": "ADJ"
+   },
+   {
+    "chosen": null,
+    "key": "ἄπειμι#morpheus:1",
+    "occurrence_tei_units": [
+     45,
+     100,
+     50
+    ],
+    "occurrences": 3,
+    "tei_spacing_choice": "t_3153",
+    "upos": "VERB"
+   }
+  ],
+  "over_unit_cap": {
+   "paula": 36,
+   "tei_spacing": 21
+  },
+  "selected_occurrences_that_are_split_parts": {
+   "δέ|ADV": 10,
+   "καί|ADV": 2,
+   "μή|ADV": 2,
+   "οὐ|ADV": 37,
+   "τε|ADV": 11
+  },
+  "selected_targets_that_are_split_parts": [],
+  "sentences_with_word_split": 33,
+  "split_pairs": [
+   {
+    "count": 2,
+    "pair": [
+     "κ",
+     "ἂν"
+    ]
+   },
+   {
+    "count": 2,
+    "pair": [
+     "μή",
+     "τε"
+    ]
+   },
+   {
+    "count": 1,
+    "pair": [
+     "μη",
+     "δὲ"
+    ]
+   },
+   {
+    "count": 8,
+    "pair": [
+     "οὐ",
+     "δʼ"
+    ]
+   },
+   {
+    "count": 11,
+    "pair": [
+     "οὐ",
+     "δὲ"
+    ]
+   },
+   {
+    "count": 4,
+    "pair": [
+     "οὔ",
+     "τʼ"
+    ]
+   },
+   {
+    "count": 14,
+    "pair": [
+     "οὔ",
+     "τε"
+    ]
+   },
+   {
+    "count": 1,
+    "pair": [
+     "τ",
+     "αὐτὰ"
+    ]
+   },
+   {
+    "count": 1,
+    "pair": [
+     "τ",
+     "αὐτὸν"
+    ]
+   },
+   {
+    "count": 1,
+    "pair": [
+     "τ",
+     "οὔμπαλιν"
+    ]
+   },
+   {
+    "count": 2,
+    "pair": [
+     "τ",
+     "ἆλλα"
+    ]
+   }
+  ],
+  "tei_spacing_inputs": 437,
+  "within_both_caps": {
+   "paula": 345,
+   "tei_spacing": 360
+  },
+  "word_splits": 47
+ },
+ "totals": {
+  "selected": 438,
+  "selected_occurrences": 4819,
+  "sentences": 381,
+  "with_input": 434
+ },
+ "version": "oga-anabasis1-acceptance-review/1",
+ "wrong_homographs": [
+  {
+   "cts": "1_2_17",
+   "id": "t_1590",
+   "identity_all_occurrences_wrong": true,
+   "is_chosen_card_target": true,
+   "key": "πρόειμι#morpheus:2",
+   "selected": true,
+   "upos": "VERB"
+  },
+  {
+   "cts": "1_3_17",
+   "id": "t_3153",
+   "identity_all_occurrences_wrong": true,
+   "is_chosen_card_target": false,
+   "key": "ἄπειμι#morpheus:1",
+   "selected": true,
+   "upos": "VERB"
+  },
+  {
+   "cts": "1_3_19",
+   "id": "t_3251",
+   "identity_all_occurrences_wrong": true,
+   "is_chosen_card_target": false,
+   "key": "ἄπειμι#morpheus:1",
+   "selected": true,
+   "upos": "VERB"
+  },
+  {
+   "cts": "1_4_7",
+   "id": "t_3800",
+   "identity_all_occurrences_wrong": true,
+   "is_chosen_card_target": false,
+   "key": "ἄπειμι#morpheus:1",
+   "selected": true,
+   "upos": "VERB"
+  },
+  {
+   "cts": "1_6_1",
+   "id": "t_5625",
+   "identity_all_occurrences_wrong": true,
+   "is_chosen_card_target": false,
+   "key": "πρόειμι#morpheus:2",
+   "selected": true,
+   "upos": "VERB"
+  },
+  {
+   "cts": "1_6_1",
+   "id": "t_5642",
+   "identity_all_occurrences_wrong": true,
+   "is_chosen_card_target": false,
+   "key": "πρόειμι#morpheus:2",
+   "selected": true,
+   "upos": "VERB"
+  },
+  {
+   "cts": "1_6_2",
+   "id": "t_5708",
+   "identity_all_occurrences_wrong": true,
+   "is_chosen_card_target": false,
+   "key": "ἔπειμι#morpheus:1",
+   "selected": false,
+   "upos": "VERB"
+  }
+ ]
+}
