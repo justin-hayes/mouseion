@@ -173,7 +173,383 @@ or incomplete:
 
 ## 4. Bibliographic identity and offerings
 
-_Pending: owned by the bibliographic identity ticket._
+Verified at commit `b99c9c45ce64327a59495595a03bd941f9e9a1d2` (`main`). Every
+`path:line` in this section refers to that commit.
+
+### Summary
+
+- **Work**, **Edition** and **Reading unit** are new records, separate from
+  Book. They hold identity and description, never learner state.
+- **Book** keeps its existing table and columns unchanged. A classical Book is
+  linked to exactly one Reading unit through a separate, immutable
+  **Book–Reading unit association**. A Book is classical exactly when that
+  association exists. Existing EPUB Books have none and need no backfill.
+- External identifiers (CTS URNs, repository identifiers) are **aliases**. A
+  **verified identity alias** comes only from reviewed application code and
+  resolves identity. A **claimed alias** is what a catalogue advertises. It is
+  kept as provenance and never resolves identity.
+- A connection-scoped Catalog entry offers Reading units through **Unit
+  offering** records, one per declared unit. The existing one-entry-to-one-Book
+  alias stays exactly as it is, for OPDS only.
+- The operator-local path records a **Local registration** in place of an
+  offering. It needs no connection and no Catalog entry.
+- Shared and private records: see [OD-06](#17-open-decisions). This section is
+  written against the recommended option (3). Records created from reviewed
+  identity definitions are shared. Records derived only from one owner's
+  unverified catalogue advertisement are private to that owner.
+
+New record names are proposed terms (OD-11). Table names in the illustrative
+DDL are not prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| `books` has `id`, `owner_id`, `title`, `metadata_provenance`, `language_state`, `language_tag` and timestamps; `author` was added later. It has no bibliographic identity columns. | `migrations/000001_initialize.up.sql:268-280`, `migrations/000011_book_author.up.sql:2` | The association and offerings are separate records. No column is added to `books`. |
+| `books` is unique on `(owner_id, id)`. | `migrations/000001_initialize.up.sql:1560` | Owner-scoped records reference a Book through `(owner_id, book_id)`, as `book_aliases` and `book_dispositions` already do. |
+| Owner-scoped Book children cascade when the Book is deleted. No query deletes a Book; deletion happens only through the owner cascade from `users`. | `migrations/000001_initialize.up.sql:2604-2605`, `migrations/000015_book_dispositions.up.sql:8`, `migrations/000001_initialize.up.sql:2645`; `git grep -niI "delete from books" -- sqlc internal` returns nothing | The association follows the same `ON DELETE CASCADE` from Book. See [Owner deletion](#owner-deletion) for private records. |
+| Catalogue-entry aliases are unique on `(owner_id, connection_id, namespace, value)`. A check ties `catalog_entry` to a non-null connection. The connection reference cascades. | `migrations/000001_initialize.up.sql:2189`, `migrations/000001_initialize.up.sql:1519-1520`, `migrations/000001_initialize.up.sql:2596-2597` | Left unchanged. Classical offerings are a separate record (B-20). |
+| `ReconcileCatalogueEntry` takes an advisory lock on owner, connection and entry. It then finds or creates the Book, activates membership, inserts an Inbox disposition when it creates the Book, and inserts the alias. | `internal/persistence/books.go:752-779`, `internal/persistence/books.go:788`, `internal/persistence/books.go:851-866`, `sqlc/queries/book_dispositions.sql:20-23` | Classical Book creation reuses the same lock, membership and Inbox steps. The OPDS method itself is not changed. |
+| OPDS sync overwrites title, author and language. A language change ends an incompatible Current reading. | `internal/persistence/books.go:832-847` | Classical Books do not take this path (OD-10). |
+| Book metadata provenance accepts only `catalog_sync`, `acquisition` and `source_materials_backfill`. The database has no check on the column. | `internal/domain/books.go:14-19`, `internal/domain/books.go:252-256` | The operator-local path needs a distinct provenance value (OD-08). |
+| `opds_connections.owner_id` is nullable, and the table has no unique `(owner_id, id)`. | `migrations/000001_initialize.up.sql:1267-1277`, `migrations/000001_initialize.up.sql:1960` | An offering cannot use a composite owner-and-connection foreign key to this table today (OD-09). |
+| A Book is read by `(owner_id, id)`. | `sqlc/queries/book_aliases.sql:16-19` | Another owner's Book ID is not found, whatever unit both Books share. |
+
+### Records
+
+#### Work
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Groups the Editions of one composition. Holds descriptive metadata only. | `id uuid`; `owner_id uuid NULL` (NULL = shared); `origin text` ∈ {`reviewed`, `advertised`}; `title text` (non-empty); `author text` (default `''`); `language text` (canonical Book-language tag, for example `grc`); `created_at`, `updated_at timestamptz` | `id` | `(owner_id, id)` unique, as a composite-reference target. No uniqueness on title, author or language: descriptions never identify a Work. | Shared when `owner_id` is NULL; otherwise private to that owner. `origin = reviewed` ⇔ `owner_id IS NULL`. | `id`, `owner_id`, `origin` immutable. Descriptive fields are mutable. A shared row is written only from a reviewed identity definition. A private row is written only by its owner's sync. | `owner_id` → `users(id)` `ON DELETE CASCADE` (private rows only) |
+
+#### Edition
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One textual version of a Work, independent of the repository or producer that supplies it. | `id uuid`; `work_id uuid`; `owner_id uuid NULL`; `origin text`; `identification text` ∈ {`named`, `unidentified`}; `label text NULL` (descriptive label such as an editor and year; required and non-empty for `named`, NULL for `unidentified`); `evidence_pin uuid NULL` (the §5 pinned evidence record that backs an unidentified Edition; required for `unidentified`); `created_at`, `updated_at` | `id` | `(owner_id, id)` unique. No uniqueness on `label`, Work title or evidence: identical labels, titles or bytes never identify an Edition. | Same rule as Work. A shared Edition belongs to a shared Work. A private Edition belongs to a shared Work or to a Work private to the same owner. | `id`, `work_id`, `owner_id`, `origin`, `identification`, `evidence_pin` immutable. `label` is mutable for `named` rows only. An unidentified Edition never becomes named in place; identification is recorded as an [Edition reconciliation](#edition-reconciliation). | `work_id` → Work `NO ACTION`; `evidence_pin` → §5 pinned evidence `RESTRICT`; `owner_id` → `users(id)` `ON DELETE CASCADE` (private rows only) |
+
+An unidentified Edition is displayed as "Unidentified edition" with its pinned
+source shown. It never displays a guessed editor or a named Edition's label.
+
+#### Reading unit
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The declared extent of one Edition that a Book represents. | `id uuid`; `edition_id uuid`; `owner_id uuid NULL` (equals the Edition's `owner_id`); `extent_kind text` ∈ {`whole_work`, `constituent_book`, `bounded_passage`}; `citation_scheme text NULL`; `bound_start text NULL`; `bound_end text NULL`; `extent_key text` (canonical serialization of kind, scheme and bounds); `created_at` | `id` | `(edition_id, extent_key)` unique; `(owner_id, id)` unique. | Inherits its Edition's scope. Units of a shared Edition are shared. | **Immutable.** Every update is rejected. | `edition_id` → Edition `NO ACTION`; `owner_id` → `users(id)` `ON DELETE CASCADE` (private rows only) |
+
+Extent rules, as checks:
+
+- `whole_work`: `citation_scheme`, `bound_start` and `bound_end` are NULL, and
+  `extent_key = 'whole_work'`.
+- `constituent_book`: `citation_scheme` and `bound_start` are non-empty and
+  `bound_end` is NULL. For example, `example-work / ed-1 / book 1` is
+  scheme `example-section`, start `1`, key
+  `constituent_book:example-section:1`.
+- `bounded_passage`: all three are non-empty. For example, Books 1–2 is
+  `bounded_passage:example-section:1:2`.
+
+Ordering and containment of bounds are scheme-specific. Reviewed adapter code
+checks them before insert; the database does not.
+
+A Reading unit has no field for annotation coverage, availability, source
+revision, producer or evidence. Those live in §5 and never change the unit.
+
+#### Edition reconciliation
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Records that a verified identification showed one Edition to be the same textual version as another. No ID changes. | `subject_edition_id uuid`; `identified_edition_id uuid`; `owner_id uuid NULL` (equals the subject's `owner_id`); `verified_by text` (reviewed definition identifier and version); `recorded_at` | `subject_edition_id` | At most one reconciliation per subject. Subject ≠ identified. The identified Edition is shared, or private to the same owner, and is never itself a subject (no chains). | Subject's scope. | Append-only; immutable once written. | both → Edition `NO ACTION`; `owner_id` → `users(id)` `ON DELETE CASCADE` (private rows only) |
+
+#### Book (existing, unchanged)
+
+The `books` table, its columns, constraints and every existing query stay as
+they are. A classical Book is an ordinary row: `language_state = 'chosen'`,
+`language_tag` from the Work, `title` and `author` copied from the Work at
+creation (OD-10), `metadata_provenance` set by its origin (OD-08), active
+membership, and an Inbox disposition when created.
+
+#### Book–Reading unit association
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| States that an owner's Book stands for exactly one Reading unit. | `owner_id uuid`; `book_id uuid`; `reading_unit_id uuid`; `created_at` | `(owner_id, book_id)` | `(owner_id, reading_unit_id)` unique: at most one Book per owner and unit. `(owner_id, reading_unit_id, book_id)` unique, as the target for offerings and local registrations. | Owner. The referenced unit is shared or private to the same owner. | **Immutable.** Inserted only in the transaction that inserts the Book. | `(owner_id, book_id)` → `books(owner_id, id)` `ON DELETE CASCADE`; `reading_unit_id` → Reading unit `NO ACTION` |
+
+#### Verified identity alias
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| An external identifier that reviewed code has verified to name one shared Work, Edition or Reading unit. | `scheme text` (for example `cts`, `example-repo`); `value text`; exactly one of `work_id`, `edition_id`, `reading_unit_id uuid`; `verified_by text`; `created_at` | `(scheme, value)` | One target per scheme and value. | Shared. Targets only shared records. | Immutable. Inserted only from reviewed identity definitions (compiled pin sets and reviewed adapter mappings), never from sync input. | target → Work, Edition or Reading unit `RESTRICT` |
+
+#### Claimed alias
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| An identifier a Unit offering advertises, kept as provenance. Never used to resolve identity. | `owner_id uuid`; `offering_id uuid`; `scheme text`; `value text`; `claimed_kind text` ∈ {`work`, `edition`, `reading_unit`}; `first_seen_at`, `last_seen_at` | `(owner_id, offering_id, scheme, value)` | None across offerings. Many offerings may claim the same value. | Owner. | Rows are added by sync; only `last_seen_at` changes. | `(owner_id, offering_id)` → Unit offering `ON DELETE CASCADE` |
+
+#### Identity conflict
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| A diagnostic that identity evidence disagrees. Recorded instead of merging. | `id uuid`; `owner_id uuid`; `book_id uuid`; `conflict_kind text` ∈ {`claimed_alias_names_other_edition`, `claimed_alias_shared_across_editions`, `duplicate_after_reconciliation`}; `conflict_subject text` (`scheme:value`, or the other Book's ID); `other_book_id uuid NULL`; `recorded_at` | `id` | `(owner_id, book_id, conflict_kind, conflict_subject)` unique, so a repeat sync records nothing new. | Owner. | Append-only. A resolution workflow is out of scope (ADR 0093 introduces no Book-merge workflow). | `(owner_id, book_id)` and `(owner_id, other_book_id)` → `books(owner_id, id)` `ON DELETE CASCADE` |
+
+#### Unit offering
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One Reading unit that a connection-scoped Catalog entry offers, resolved to the owner's Book. | `id uuid`; `owner_id uuid`; `connection_id uuid`; `entry_namespace text`; `entry_value text`; `offering_key text` (adapter-declared stable unit designation within the entry); `declared_edition_key text` (adapter-declared within the entry); `reading_unit_id uuid`; `book_id uuid`; `advertised_title`, `advertised_author`, `advertised_bounds_label text`; `advertised_availability` (ADR 0096 metadata summary); `first_seen_at`, `last_seen_at`; `withdrawn_at NULL` | `id` | `(owner_id, connection_id, entry_namespace, entry_value, offering_key)` unique. Several offerings, from one entry or several, may name the same unit and Book. | Owner. | Identity fields (`owner_id` through `book_id`) immutable. Advertised fields, `last_seen_at` and `withdrawn_at` are mutable by that owner's sync only. | `(owner_id, reading_unit_id, book_id)` → association `NO ACTION`; `connection_id` → the owner's catalogue connection `ON DELETE CASCADE` (OD-09); `owner_id` → `users(id)` `ON DELETE CASCADE` |
+
+`offering_key` and `declared_edition_key` come from the reviewed adapter's
+reading of the entry's declared units. They are never derived from title,
+annotation fragments or mutable coverage (ADR 0096).
+
+#### Local registration
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Stands in for "offered by" when the operator-local path (§12) creates the Book from a reviewed definition, with no connection. | `owner_id uuid`; `definition_id text` (identifier of the reviewed pin set compiled into the application); `reading_unit_id uuid`; `book_id uuid`; `registered_at` | `(owner_id, definition_id, reading_unit_id)` | Key only. | Owner. | Immutable. | `(owner_id, reading_unit_id, book_id)` → association `NO ACTION`; `owner_id` → `users(id)` `ON DELETE CASCADE` |
+
+The pinned versions used for a request belong to §11's request record, not here.
+A new pin version for the same definition and unit reuses the same Local
+registration and Book.
+
+```sql
+-- illustrative, not a migration
+CREATE TABLE reading_units (
+  id uuid PRIMARY KEY,
+  edition_id uuid NOT NULL REFERENCES editions(id) ON DELETE NO ACTION,
+  owner_id uuid NULL,
+  extent_kind text NOT NULL CHECK (extent_kind IN ('whole_work','constituent_book','bounded_passage')),
+  citation_scheme text NULL, bound_start text NULL, bound_end text NULL,
+  extent_key text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (edition_id, extent_key),
+  UNIQUE (owner_id, id)
+);
+-- plus: a trigger rejecting every UPDATE, and a check enforcing the extent rules.
+
+CREATE TABLE book_reading_units (
+  owner_id uuid NOT NULL,
+  book_id uuid NOT NULL,
+  reading_unit_id uuid NOT NULL REFERENCES reading_units(id) ON DELETE NO ACTION,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (owner_id, book_id),
+  UNIQUE (owner_id, reading_unit_id),
+  UNIQUE (owner_id, reading_unit_id, book_id),
+  FOREIGN KEY (owner_id, book_id) REFERENCES books(owner_id, id) ON DELETE CASCADE
+);
+-- plus: a trigger rejecting every UPDATE, and a trigger rejecting an insert whose
+-- unit's owner_id is neither NULL nor equal to the row's owner_id.
+```
+
+#### Owner deletion
+
+Deleting a user is the only path that deletes Books
+(`migrations/000001_initialize.up.sql:2645`). It also deletes that owner's
+private Works, Editions and units. For that reason, references that can be
+removed by the same owner cascade use `NO ACTION` rather than `RESTRICT`:
+
+- unit → Edition
+- Edition → Work
+- association → unit
+- offering or Local registration → association
+- reconciliation → Edition
+
+PostgreSQL checks `NO ACTION` at the end of the statement, so the result does
+not depend on the order of cascaded deletes. A shared record is never removed
+by owner deletion and still cannot be deleted while referenced. Owner deletion
+leaves shared records and other owners' rows untouched (BIB-27).
+
+### Resolution procedures
+
+Each procedure runs in one short PostgreSQL transaction, with no network or file
+I/O inside it. This follows ADR 0044's rule against holding a transaction
+across feed I/O.
+
+**Ensure Book for Reading unit** `(owner, unit, origin)`. This is shared by Unit
+offerings and the operator-local path.
+
+1. Reject the call unless the unit is shared or private to `owner`. The error is
+   the same as for a missing unit.
+2. Compute the unit's **reconciliation class** (proposed term, OD-11). Its
+   **root** is the unit with the same `extent_key` in the identified Edition, if
+   the unit's Edition is a reconciliation subject and that unit exists.
+   Otherwise the root is the unit itself. The class is the root, plus every
+   unit with the root's `extent_key` in an Edition reconciled to the root's
+   Edition. Because reconciliations do not chain, the class is one level deep.
+3. Take a transaction-scoped advisory lock on `owner + ":" + root`. This uses
+   the same mechanism as the catalogue-identity lock at
+   `internal/persistence/books.go:788`, with its own key class.
+4. Look up the owner's associations for units in the class.
+   - **None:** insert the Book, active membership, Inbox disposition and an
+     association to the *requested* unit. Return the new Book.
+   - **One:** return that Book. Its association still names the unit it was
+     created for, which may be the other side of a reconciliation. The Book ID
+     and association are never re-pointed. Disposition, membership and metadata
+     are not changed.
+   - **More than one** (the owner held Books on both sides before
+     reconciliation): return the Book whose unit is exactly the requested unit.
+     Record `duplicate_after_reconciliation` once per pair. Never merge.
+5. The unique `(owner_id, reading_unit_id)` constraint is the backstop if the
+   lock is bypassed.
+
+So a Book stands for exactly one Reading unit, the one in its association.
+After reconciliation, that unit is verified to be the same Edition and extent
+as the identified unit. ADR 0093 preserves the Book ID in this case rather than
+creating a Book "by changing Edition or unit".
+
+**Resolve a Unit offering** (catalogue sync, one advertised unit at a time):
+
+1. If an offering already exists for `(owner, connection, entry, offering_key)`,
+   update its advertised fields and `last_seen_at`, clear `withdrawn_at`, and add
+   any new claimed aliases. Its unit and Book never change. Stop.
+2. Otherwise choose the Edition:
+   1. If reviewed adapter code verifies that the entry names a shared Edition,
+      use that Edition, creating it from its reviewed definition if absent.
+   2. Otherwise, if an offering of the same `(owner, connection, entry)` with the
+      same `declared_edition_key` exists, use its Edition.
+   3. Otherwise create a private Work and Edition for `owner` with
+      `origin = advertised`, described from the advertisement.
+3. Find the unit by `(edition_id, extent_key)`, or create it in the Edition's
+   scope.
+4. Check every claimed alias.
+   - If a verified alias with the same `(scheme, value)` names a different
+     Edition (or a unit or Work of a different Edition), record
+     `claimed_alias_names_other_edition`.
+   - If another of this owner's offerings, from any connection, claims the same
+     `(scheme, value)` and resolved to a different Edition, record
+     `claimed_alias_shared_across_editions` on both Books.
+5. Ensure Book for the unit, insert the offering, and insert its claimed aliases.
+
+An offering missing from a complete sync gets `withdrawn_at`. Its Book,
+association, disposition and history are untouched (ADR 0096 "Shared experience
+and preservation"). Removing a connection deletes its offerings and claimed
+aliases. The Books and associations remain.
+
+**Local registration** (operator-local path, interface owned by §12):
+
+1. Load the reviewed definition by `definition_id` from application code. If it
+   is unknown, write nothing.
+2. Ensure its shared Work, Edition, unit and verified aliases exist, with
+   create-if-absent on their uniqueness keys.
+3. Ensure Book for the unit with the local origin.
+4. Insert the Local registration if absent. The owner needs no connection.
+
+**Edition reconciliation** is recorded only from a reviewed identity
+definition, never from sync heuristics. It inserts one reconciliation row and
+nothing else. No Book, association, disposition, membership, history or §5
+evidence row changes, and no ID is rewritten.
+
+### Invariants
+
+Each invariant is covered by the `BIB` rows in [§15](#15-acceptance-test-matrix).
+
+1. **Work.**
+   - A Work has a stable internal ID. No title, author, language or alias is part
+     of its key. Two Works with identical descriptions coexist, and changing a
+     Work's description leaves its ID and Editions unchanged (BIB-26).
+   - A shared Work's description changes only through a reviewed identity
+     definition. One owner's sync never changes a description another owner
+     sees (BIB-25).
+2. **Edition.**
+   - Every Edition belongs to exactly one Work (BIB-11).
+   - An unidentified Edition is never resolved to, merged with, or labelled as
+     a named Edition because of its title, author, Work or evidence bytes
+     (BIB-06, BIB-17).
+   - After an Edition reconciliation, every Book ID, association, disposition and
+     history row is unchanged. The next acquisition of the identified unit
+     returns the existing Book (BIB-07).
+   - If an owner held a Book on each side before reconciliation, both remain and
+     a `duplicate_after_reconciliation` conflict is recorded (BIB-08).
+   - A reconciliation never names its own subject. It is never recorded for an
+     Edition that is already a subject, and never targets an Edition that is
+     itself a subject (BIB-28).
+3. **Reading unit.**
+   - At most one Reading unit exists per (Edition, extent) (BIB-11).
+   - A unit's kind, scheme and bounds never change after insert (BIB-09).
+   - Annotation coverage and source revisions never change a unit's bounds or
+     its Book (BIB-10).
+4. **Book ↔ Reading unit.**
+   - A classical Book references exactly one Reading unit, and that reference
+     never changes (BIB-13).
+   - At most one Book exists per (owner, Reading unit) (BIB-12).
+   - Repeating acquisition of the same Edition and unit returns the same Book,
+     including under concurrency (BIB-01, BIB-02).
+   - A Book is classical if and only if the store reports a Reading unit for it.
+     For every Book created by OPDS sync, EPUB acquisition or the source-material
+     backfill, the store reports no Reading unit, and the existing behaviour
+     applies. No column on `books` and no flag carries this (BIB-20).
+   - A Book never gains an association after its creating transaction, so an
+     existing EPUB Book never becomes classical (BIB-20).
+   - Sync never changes a classical Book's title, author or language (OD-10,
+     BIB-19).
+5. **Aliases and verified identity.**
+   - A verified alias is unique per scheme and value, and names exactly one
+     shared record (BIB-16).
+   - Sync input never creates a verified alias or a shared record's description.
+     Only reviewed identity definitions do (BIB-25).
+   - Verified aliases from two repositories resolve to one owner Book only when
+     they name the same Edition and unit (BIB-15).
+   - Claimed aliases, titles, authors, overlapping text and identical bytes never
+     resolve or merge Books (BIB-14, BIB-17).
+   - A claimed-alias disagreement is recorded as an Identity conflict and leaves
+     both Books separate (BIB-14).
+6. **Entry-to-unit offering.**
+   - One Catalog entry offering N declared units yields N Unit offerings and N
+     Books, each Inbox when created (BIB-18).
+   - A repeat sync creates no Book and changes no disposition. A withdrawn
+     offering keeps its Book (BIB-19).
+   - OPDS reconciliation (`internal/persistence/books.go:752-866`) writes no
+     association or offering. Classical sync writes no `catalog_entry` Book
+     alias. The alias index at `migrations/000001_initialize.up.sql:2189` and
+     every OPDS query are unchanged (BIB-20, BIB-21).
+   - The operator-local path creates the Work, Edition, unit, Book and Local
+     registration for an owner with no connection and no Catalog entry
+     (BIB-22, BIB-23).
+7. **Owner authorization.**
+   - Sharing a Reading unit gives no access to another owner's Book, offering,
+     Local registration or Identity conflict. Every Book-, offering- and
+     conflict-bearing response for owner B contains only B's rows, whatever
+     units B shares with A (BIB-03, BIB-29).
+   - An operation on owner B's behalf never creates, changes or deletes owner A's
+     Book, association, offering, Claimed alias, Identity conflict or Local
+     registration (BIB-29).
+   - A private Work, Edition or unit is never associated with, or resolved for,
+     another owner (BIB-24, BIB-30).
+   - **Implementation rules**, checked in review and exercised by the rows
+     above:
+     - Every query on the owner-scoped records in this section filters by the
+       authenticated owner, and joins Books on `(owner_id, book_id)`.
+     - Shared records are reached only by a join from an owner-scoped row, or by
+       reviewed identity resolution, which returns record IDs and never Books.
+     - No web route accepts a Work, Edition or unit ID as authority to reach a
+       Book.
+8. **Overlap and editions.**
+   - Two Editions of one Work, and overlapping units such as Book 1 and Books
+     1–2, give distinct Books (BIB-04, BIB-05).
+   - Disposition, visibility, membership, Reading, snapshot, history, Known
+     provenance and occurrence decisions stay keyed by Book, as today. Completing,
+     triaging or hiding one Book never changes another Book of the same Work,
+     Edition or overlapping unit (BIB-04, BIB-05).
+   - Grouping by Work is a display query only.
+
+### Conflicts and dependencies noted
+
+- `CONTEXT.md:355-357` says Books enter "only through a connected catalog, never
+  by manual entry". The operator-local path contradicts this wording (OD-08).
+- Issue item 7 calls Work, Edition and Reading unit "shared descriptions". The
+  recommended OD-06 option keeps every reviewed identity shared, but makes rows
+  derived only from one owner's unverified advertisement private.
+- `BIB` rows on seam (b) need the store-contract harness to seed classical
+  Books, which is open as OD-04. Rows on seam (b) that involve offerings call
+  "Resolve a Unit offering" directly through the shared store interface, with a
+  synthetic adapter result. Only rows on seam (a) run a full catalogue sync.
+- `advertised_availability` carries the availability and coverage summary that
+  ADR 0096 "Browse, intent and acquisition" requires My Books to show. Its shape
+  belongs to the Stage 3 discovery spec
+  ([handoff §3](annotation-backed-ancient-greek.md#3-authorize-catalog-release-and-implement-durable-acquisitionadoption)).
+- `evidence_pin` on an unidentified Edition references §5's pinned evidence
+  record. §5 defines that record's key.
 
 ## 5. Immutable evidence, bindings and interpretations
 
@@ -261,6 +637,36 @@ rows use synthetic fixtures only.
 
 | ID | invariant | seam | setup | action | expected | negative case |
 | --- | --- | --- | --- | --- | --- | --- |
+| BIB-01 | Repeating acquisition for the same Edition and unit returns the same Book. | (b) | Owner A, reviewed definition `example-def` for `example-work / ed-1 / book 1`. A has registered once, then moved the Book to To Read. | Register `example-def` for A again. | The same Book ID is returned. A has one Book for the unit, one association and one Local registration. The disposition is still To Read. | A third registration after a new pin version of `example-def` still returns the same Book and adds no Local registration. |
+| BIB-02 | At most one Book per (owner, unit), even under concurrent acquisition. | (d) | Owner A, no Book for the unit. | Two transactions ensure a Book for the same unit concurrently. | Both return the same Book ID. A has exactly one Book for the unit. | See BIB-12 for a direct second Book on the same unit. |
+| BIB-03 | Two owners with the same unit get two Books, each invisible to the other. | (a) | Owners A and B. Both register `example-def`. | B requests My Books, then requests A's Book detail by ID. | B's My Books lists only B's Book. A's Book detail returns the existing not-found response. The two Book IDs differ and share only the shared unit. | B's To Read on B's Book leaves A's disposition unchanged. |
+| BIB-04 | Two Editions of one Work give two Books with independent state. Work grouping is display only. | (a) | Shared `example-work` with named Editions `ed-1` and `ed-2`, each with `book 1`. Owner A has both Books. | A moves the `ed-1` Book to To Read. | My Books groups both under `example-work`. Only the `ed-1` Book is To Read; the `ed-2` Book stays Inbox. | Hiding the `ed-2` Book does not hide the `ed-1` Book. |
+| BIB-05 | Overlapping units give two Books with no shared disposition or completion. | (a) | Edition `ed-1` with units `book 1` and `books 1–2`. Owner A has both Books. The `book 1` Book has a Vocabulary-ready analysis. | A starts and finishes Reading the `book 1` Book. | The `book 1` Book has a Reading completion. The `books 1–2` Book has no history and keeps its disposition. | Ensuring a Book for `books 1–2` returns the existing `books 1–2` Book, not the `book 1` Book. |
+| BIB-06 | An unidentified Edition is never merged with a named one by title. | (b) | Shared `example-work` with named Edition `ed-1` `book 1`, and an unidentified Edition of the same Work with `book 1` backed by pinned evidence. Owner A. | Ensure A's Book for each unit. | Two Books. The unidentified one displays as unidentified and never shows `ed-1`'s label. | Giving both Books the same title and author still yields two Books. |
+| BIB-07 | Verified reconciliation keeps Book IDs and history. | (b) | Owner A has a To Read Book with history on the unidentified Edition's `book 1`. | Record a reconciliation of the unidentified Edition as `ed-1`. Then ensure A's Book for `ed-1` `book 1`. | The original Book ID is returned. The store still reports its original unit for it. Its disposition and history are unchanged. No Edition or unit ID is changed, and A has no new Book. | A reconciliation from sync input, without a reviewed definition, is rejected and writes nothing. |
+| BIB-08 | Reconciliation never merges two existing Books. | (b) | Owner A has a Book on each side of the later reconciliation. | Record the reconciliation, then ensure A's Book for `ed-1` `book 1`. | Both Books remain. The call returns the `ed-1` Book. One `duplicate_after_reconciliation` conflict is recorded. | Repeating the call records no second conflict. |
+| BIB-09 | Reading unit bounds never change. | (d) | A shared unit `constituent_book:example-section:1`. | Update its kind, scheme, start or end. | Each update is rejected. The unit row is unchanged. | Inserting a second unit with the same Edition and extent is rejected (see BIB-11). |
+| BIB-10 | Annotation coverage and source revisions never change a unit or its Book. | (a) | Owner A has a To Read Book for `book 1`. Synthetic annotation evidence covers only part of `book 1`. | Prepare the Book with the partial evidence, then with a later source revision. | The displayed bounds stay `book 1`. The Book ID and association are unchanged. Preparation reports incomplete coverage (§10, §11). | No smaller unit is created and no other Book is offered from the partial coverage. |
+| BIB-11 | At most one Reading unit per (Edition, extent), and every Edition belongs to one Work. | (d) | Edition `ed-1`. | Insert two units with equal `extent_key`. Insert an Edition with no Work. | The second unit and the Work-less Edition are rejected. | Units `constituent_book:example-section:1` and `bounded_passage:example-section:1:2` coexist. |
+| BIB-12 | At most one Book per (owner, Reading unit). | (d) | Owner A has a Book for `book 1`. | Insert an association of a second A Book to the same unit. | Rejected. | An association for owner B to the same unit succeeds. |
+| BIB-13 | A classical Book references exactly one unit, and the reference never changes. | (d) | Owner A has a Book for `book 1`. | Update the association to `books 1–2`. Insert a second association for the same Book. | Both are rejected. | Deleting owner A removes the Book and its association by cascade. |
+| BIB-14 | An alias collision across repositories without verification gives two Books and a recorded conflict. | (b) | Owner A has connections to two synthetic repositories. Each has one entry claiming `cts:urn:example:ed-1` for a unit `book 1`. Neither is verified. | Resolve both offerings. | Two Books, each Inbox. An Identity conflict records the shared claimed alias on both Books. | Repeating the sync records no new conflict and no new Book. |
+| BIB-15 | Verified aliases from two repositories resolve to one Book only for the same Edition and unit. | (b) | Reviewed mappings verify `example-repo-1:x` and `example-repo-2:y` as shared `ed-1`. Owner A has both connections. | Resolve offerings for `book 1` from both, and then for `books 1–2` from the second. | Both `book 1` offerings point to one Book. `books 1–2` is a separate Book. | A `book 1` offering whose verified Edition is `ed-2` gives a separate Book. |
+| BIB-16 | A verified alias is unique per scheme and value. | (d) | A verified alias `cts:urn:example:ed-1` names `ed-1`. | Insert the same scheme and value naming `ed-2`. | Rejected. | The same value under another scheme is accepted. |
+| BIB-17 | Titles, authors and identical bytes never merge Books. | (b) | Owner A has two connections advertising unverified entries with identical title and author. Synthetic pinned evidence for both has an identical digest. | Resolve both offerings. | Two private Editions and two Books. | The second offering is not resolved to the first's Edition or Book. |
+| BIB-18 | One entry offering two units gives two Books. | (a) | A synthetic classical connection whose entry declares `book 1` and `books 1–2`. | Run catalogue sync. | Two Inbox Books, listed in My Books with their Edition and bounds. | No Book alias is created for the entry (see BIB-21). |
+| BIB-19 | Repeat sync and withdrawal keep Books and dispositions. | (a) | After BIB-18, A has moved `book 1` to To Read. | Sync again with changed advertised titles, then sync without the entry. | No new Book. The disposition and the Books' title, author and language are unchanged; the new titles appear only as advertised offering metadata. The offerings are marked withdrawn. Both Books stay in My Books. | Removing the connection deletes its offerings. Both Books and their associations remain. |
+| BIB-20 | An existing EPUB Book behaves identically, and no association rows are created. | (a) | An existing OPDS connection, and an EPUB Book created before classical support. | OPDS sync, To Read acquisition, analysis, then Reading. | Responses match the modern-language baseline. Neither Book has a Reading unit association, and the owner has no Unit offerings or Local registrations. | Re-running OPDS sync does not attach a Reading unit to any Book. |
+| BIB-21 | The existing catalogue-entry alias keeps working unchanged for OPDS. | (d) | Owner A has one OPDS Book with a `catalog_entry` alias, and one classical Book from an offering on the same entry identifier. | Insert a second `catalog_entry` alias with the same owner, connection, namespace and value. Look up the alias. | The duplicate is rejected as today. The lookup returns only the OPDS Book. | The classical Book has no `catalog_entry` alias. |
+| BIB-22 | The operator-local path creates a Book without a connection. | (b) | Owner A with no catalogue connection. | Register `example-def` for A. | A has one Inbox Book with an association and a Local registration, and no Unit offering. The Work, Edition and unit exist. | An unknown `definition_id` writes no Work, Edition, unit, Book or registration. |
+| BIB-23 | A second owner's registration reuses the shared unit and creates that owner's Book. | (b) | After BIB-22, owner B. | Register `example-def` for B. | B has a new Book on the same shared unit. A's rows are unchanged. No second Work, Edition or unit exists. | B's Book ID differs from A's. |
+| BIB-24 | A private unit is never associated with another owner's Book. | (d) | Owner A has a private Edition and unit from an unverified offering. | Insert owner B's association to A's private unit. | Rejected. | Owner A's association to the same unit is accepted. |
+| BIB-25 | Sync input never changes a shared description or creates a verified alias. | (b) | Shared `ed-1` from a reviewed definition. Owners A and B each have a `book 1` Book. | A's offering for a verified `ed-1` unit advertises a different Edition label, a different Work title and a new claimed CTS identifier. | B sees the reviewed label and title. A's values appear only as A's advertised offering metadata and Claimed alias. No verified alias is added. | Resolving a later offering that claims the same new identifier does not resolve through it. |
+| BIB-26 | A Work's identity is its internal ID, not its description. | (b) | Two reviewed definitions describe two Works with identical title, author and language. | Register both for owner A. Then a reviewed definition update changes the first Work's title. | Two Works and two Books exist. After the update, the Work ID, its Editions and A's Book are unchanged. | Neither registration resolves to the other's Work. |
+| BIB-27 | Owner deletion removes the owner's private records and leaves shared records and other owners intact. | (d) | Owner A has a Book on a shared unit, a Book on a private unit with an offering and Claimed alias, a Local registration and an Identity conflict. Owner B has a Book on the same shared unit. | Delete user A. | The deletion succeeds. A's Books, associations, offerings, Claimed aliases, conflicts, registrations and private Work, Edition and unit are gone. The shared Work, Edition and unit and all of B's rows remain. | Deleting the shared unit directly while B's Book references it is rejected. |
+| BIB-28 | Reconciliations do not self-reference or chain. | (d) | Editions `u-1` (unidentified), `u-2` (unidentified), `ed-1` (named). `u-1` is reconciled to `ed-1`. | Record `u-2` → `u-2`, `u-1` → `ed-1` again, and `u-2` → `u-1`. | All three are rejected, and no row changes. | `u-2` → `ed-1` is accepted. |
+| BIB-29 | An operation for one owner never changes or reveals another owner's offering-side rows. | (a) | Owners A and B each have a Book for the same verified unit from their own connections. A's Book has an Identity conflict. | B syncs and withdraws the offering, moves the Book to To Read, and requests My Books and Book detail. | B's responses show no conflict or offering metadata from A. A's offering, conflict, disposition and Book are unchanged. | B's requests carrying A's Book ID return the existing not-found response. |
+| BIB-30 | A private Edition or unit is never resolved for another owner. | (b) | Owner A has a private Edition and unit from an unverified offering. | Resolve owner B's offering with an identical advertisement. | B gets B's own private Work, Edition, unit and Book. | B's resolution never returns A's private record IDs. |
 
 ## 16. Requirement traceability
 
@@ -278,6 +684,12 @@ decisions (see §1) are not reopened here.
 | OD-03 | How does Reading eligibility treat an occurrence whose optional syntax is unavailable, given that `OccurrenceEligible` reads the dependency (B-10)? | (1) Unavailable syntax never makes an occurrence ineligible; syntax-based exclusions apply only when syntax is present. (2) Language-specific eligibility rules come from the canonical interpretation. | Decided by #2068 together with #2071. | (1) keeps one rule but needs explicit "unavailable" semantics. (2) moves eligibility into producer data. | #2064 | open |
 | OD-04 | How do store-contract scenarios cover Greek when the harness is fixed to `de` and seeds only tuples (B-30)? | (1) Parameterize the scenario language and extend the seeds with discriminators, span references and optional syntax. (2) Add a separate Greek scenario set beside the existing one. | (1), decided by #2071. | (1) runs every existing scenario against rich identities, but changes the harness interface for both adapters. (2) duplicates scenarios and lets them drift. | #2064 | open |
 | OD-05 | Does Evidence adoption publish through the existing analysis-run anchor that every Reading gate checks (B-23 to B-26), or through a new anchor? | (1) Adoption produces an exact analysis that the existing classification recognizes, so the six call sites stay unchanged. (2) A new adopted-analysis anchor, with every gate changed together. | Decided by #2068 and #2072, with §8 compatibility. | (1) reuses existing anchors, as the handoff requires, but `book_current_analyses` references a source material and run. (2) needs an atomic change across all gates. | #2064 | open |
+| OD-06 | Are Work, Edition and Reading unit records global or owner-scoped (§4)? | (1) All shared. (2) All owner-scoped. (3) Shared when created from a reviewed identity definition; private to one owner when derived only from that owner's unverified catalogue advertisement. | (3). §4 is written against it. | (1) puts one learner's connection-supplied descriptions in rows other owners can resolve to. Sync then needs a write ban that the schema cannot express. (2) gives the simplest authorization (composite owner keys everywhere), but every owner duplicates descriptions, and §5 evidence cannot cite a shared unit. (3) keeps reviewed identity and its evidence shareable, and lets no learner input reach another owner. Its cost is a nullable `owner_id` and a trigger checking that associated units are shared or same-owner. It narrows issue item 7's "shared descriptions" for advertised rows. | #2065 | open |
+| OD-07 | Does a Reading unit need its own stable external citation scheme field? | (1) The unit stores an internal reviewed `citation_scheme` name with its bounds. External citation identifiers, such as a CTS passage URN, are verified aliases only. (2) Add a stable external citation identifier column to the unit. (3) No scheme field; bounds are opaque text. | (1). | (1) makes `extent_key` comparable within a scheme without trusting external identifiers. (2) makes an external alias a de facto key, against ADR 0093. (3) cannot tell `1` in one scheme from `1` in another, so uniqueness on (Edition, extent) is unsafe. | #2065 | open |
+| OD-08 | How does the operator-local path fit `CONTEXT.md:355-357` ("Books … enter the library only through a connected catalog, never by manual entry") and the closed provenance values at `internal/domain/books.go:14-19` and `:252-256`? | (1) A reviewed, compiled definition is an offering origin. Add a provenance value such as `operator_local`, and amend the `CONTEXT.md` wording in a separately reviewed change. (2) Require a synthetic local connection row, so that every Book still has a connection. | (1). Final interface decided by #2073. | (1) keeps the path free of connections, as #2065 requires, but needs a glossary change outside this ticket. (2) keeps the wording but invents a connection that has no feed, credentials or sync, and would be visible in Catalogs. | #2065 | open |
+| OD-09 | Where do classical catalogue connections live, given that `opds_connections.owner_id` is nullable and has no unique `(owner_id, id)` (`migrations/000001_initialize.up.sql:1267-1277`, `:1960`)? | (1) Generalize `opds_connections` with a connection kind, and add a unique `(owner_id, id)`. (2) A separate classical connection record, owner-scoped with `(owner_id, id)` unique. | (2), decided in the spec for handoff stage 3 ([catalog release and durable acquisition](annotation-backed-ancient-greek.md#3-authorize-catalog-release-and-implement-durable-acquisitionadoption)). The local route needs neither. | (1) shares one Catalogs list but carries the OPDS single-`language` and `url` columns, which ADR 0096 says classical data must not be forced through. (2) lets a Unit offering use a composite owner and connection key, but adds a second connection kind to Catalogs. | #2065 | open |
+| OD-10 | Does later sync update a classical Book's `title`, `author` and `language`? | (1) They are set once at creation from the Work. Advertised metadata is stored on the Unit offering, and display reads Work, Edition and unit descriptions. (2) Follow OPDS: sync overwrites them, and a language change ends an incompatible Current reading (`internal/persistence/books.go:832-847`). | (1). | (1) means sync can never end a reading or rename a Book shared by several offerings. A changed description reaches the Book only through a reviewed definition. (2) lets two offerings of one Book overwrite each other. | #2065 | open |
+| OD-11 | New terms used in §4. | Add to `CONTEXT.md`: **Unit offering**, **Local registration**, **Verified identity alias**, **Claimed alias**, **Identity conflict**, **Edition reconciliation**, **Reconciliation class**, **Book–Reading unit association**, **Named Edition** / **Unidentified Edition**, and **classical Book** (a Book with a Book–Reading unit association). Or keep them as design-local names. | Add them in a separately reviewed `CONTEXT.md` change. **Unit offering** is defined as one declared Reading unit that a Catalog entry offers. | Adding them gives implementation and UI one vocabulary. Keeping them local leaves "offering" ambiguous: `CONTEXT.md:273-274` already calls a Catalog entry "an offering", and "alias" is ambiguous against the OPDS `catalog_entry` alias. | #2065 | open |
 
 ## 18. Approval record
 
