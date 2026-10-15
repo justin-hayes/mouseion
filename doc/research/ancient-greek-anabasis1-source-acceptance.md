@@ -25,24 +25,34 @@ Acceptance would mean exactly this:
    make that choice.
 2. **Not readiness.** Shipping, cards and any Mouseion-hosted data still pass
    the separate implementation, presentation and permission gates in §6.
-   Failing one of those later gates blocks that stage. It does not retroactively
-   make this source choice or the #2052 proof blocked.
+   Failing one of those later gates blocks that stage; it does not retroactively
+   mark the #2052 proof as blocked. A gate that proves concretely infeasible, or
+   a newly discovered fatal source or rights issue, may legitimately reopen the
+   source choice. Ordinary gate work should not restart open-ended source
+   research.
 3. **Not a gold standard.** The predictions remain attributed automatic output.
-   The review found specific, small identity defects (§4). They are disclosed;
-   nothing is certified or silently fixed.
+   This limited inspection found specific, named identity errors (§4.4, §4.5).
+   Disclosure does not make them correct. Nothing is certified or silently
+   fixed.
 
 The reasons, from the actual outputs:
 
-- **Content vocabulary is plausible.** All 12 content words in a deterministic
-  sample have a plausible lemma for their target form.
-- **Identity noise is small and named.** About 8 of 434 sentence inputs (≈1.8%)
-  show it, and every case is listed by node ID.
-- **The other practical concerns are presentation and policy costs that the
-  retained evidence can already address downstream.** These are particles,
-  names and PAULA spacing. None is a defect in source fidelity.
-- **The main real cost is operational.** OGA has no per-work package, only an
-  8.6 GB corpus archive. That is a #2031/#2035 acquisition-engineering and
-  redistribution-review gate. It does not show that the slice is unusable.
+- **Content vocabulary in the sample is plausible.** All 12 content words in a
+  deterministic sample have a plausible lemma and a useful sentence input. Twelve
+  items are a spot check, not an error rate.
+- **The known identity problems fall into named families.** These are
+  lexical-prediction errors (wrong Morpheus homograph numbers; wrong name
+  lemmas) and duplicated presentation (one lexeme split across two selected
+  identities). Each case is listed by node ID. This was not an exhaustive audit
+  of the 434 inputs, so no global error rate or upper bound is claimed.
+- **Particles, name headwords and PAULA spacing are real costs, but bounded
+  ones.** The span binding remains exact. Spacing affects the reading text,
+  sentence caps and which sentences are eligible (§4.6).
+- **The main known operational cost is acquisition.** The demonstrated route is
+  the official 8.6 GB corpus archive. The retained investigation did not
+  establish a supported per-work package or a complete machine-readable
+  catalogue. That is a #2031/#2035 engineering and redistribution-review gate,
+  not evidence that the slice is unusable.
 
 No new stopword strategy is needed (§4.3). Justin's stopword idea stays a
 recorded fallback. This review does not use it as permission to change
@@ -140,7 +150,10 @@ section:
   target, and the sentence is a complete, coherent source sentence. Attic -ττ-
   and iota-subscript forms keep their exact surfaces against standard headwords.
   ἥδιον is used adverbially but identified as ADJ, which is producer-compatible.
-- **Judgment:** this is the core of a useful deck. Nothing here needs repair.
+- **Judgment:** these are plausible lemmas with useful sentence inputs, and none
+  needs repair. They are dry inputs only: no card was built, and Gloss,
+  dictionary coverage and client rendering are untested. Twelve items do not
+  give a general error rate.
 
 The chosen sentences are 4–50 units long, median 27.5, across 179 sentences:
 
@@ -155,21 +168,33 @@ but is within the accepted #2034 cap.
 
 - **ἔνειμι** is newly selected (4 occurrences). Its input is `t_5775`, 1.6.3, a
   13-unit sentence beginning ἐνῆν δὲ ἐν τῇ ἐπιστολῇ. The other three
-  occurrences are over the cap. **Judgment:** a correct, useful card that the
-  repair made possible. The repaired form is an ordinary dictionary headword.
+  occurrences are over the cap. **Judgment:** a plausible lemma and a useful
+  sentence input, which the repair made possible. The #2052 positive evidence
+  for the repair stands. Dictionary coverage of the headword was not checked,
+  and no card was built.
 - **Changed εἰμί readings.** Five reviewed nodes are now AUX and non-vocabulary:
   `t_2739`, `t_3351`, `t_7640`, `t_10265` and `t_10412`. `t_5989` (1.6.6, ἔστιν
-  ὅ τι) is now VERB. The εἰμί|VERB input moved to `t_3631` (1.4.4, a 43-unit
-  sentence with several existential and locative ἦν/ἦσαν). **Judgment:** a
-  sensible existential example. Card value depends on the Gloss, which is
-  unassessed. The two open readings (`t_5651`, `t_9711`) cannot change the
-  selected identities or the inputs.
-- **The formed citation συνεῖδον** (`t_5145`, 1.5.9) is a single occurrence, not
-  selected, and has no input. Its medium uncertainty therefore never reaches a
-  learner in this slice. It counts as a Book 1 identity (1 of 1,426), not as
-  vocabulary.
+  ὅ τι) is now VERB. The εἰμί|VERB input moved to `t_3631`, 1.4.4. The target is
+  the ἦν in **καὶ παρελθεῖν οὐκ ἦν βίᾳ**, under ledger rule
+  `P-V-EIMI-IMPERSONAL-INFINITIVE`: the impersonal "it was not possible [to pass
+  by force]". The same 43-unit sentence also contains copular and locative
+  ἦν/ἦσαν, but those are other nodes, not the target. **Judgment:** a sensible
+  impersonal example. Card value depends on the Gloss, which is unassessed. The
+  two open readings (`t_5651`, `t_9711`) cannot change the selected identities
+  or the inputs.
+- **The formed citation συνεῖδον** (`t_5145`, 1.5.9) is an eligible vocabulary
+  identity: 1 occurrence, 1 of the 1,426 identities.
+  - It is not in this Book's 438-identity frozen selection and has no sentence
+    input, because it occurs once.
+  - It still appears in the Browse vocabulary inventory and in the reading
+    source.
+  - It could be selected under other conditions, for example with multi-Book
+    across-Books counts or different Known/Reserved state.
+  - Its medium-uncertainty disclosure still applies; being unselected does not
+    hide it.
 - **Selected citation repairs:** συλλέγω, ἑπτά and ἔνειμι. All are common
-  content words with straightforward cards.
+  content words with plausible sentence inputs, pending Gloss, dictionary and
+  client checks.
 
 ### 4.3 Particles and conjunction uses as ADV
 
@@ -224,12 +249,25 @@ are also always capitalized: λακεδαιμόνιος and ἑλληνικός.
 | Κιλικία | Split into κιλικία (6) and κιλίκια (3) | `t_1841`, `t_1710` |
 | Ξενίας | → **ξενία** ("hospitality") (6) | `t_82`, 1.1.2 |
 
-- **Learning cost:** about 3 redundant name cards, plus 2 misleading headwords.
-  Names are low-value cards in any case.
-- **Judgment:** acceptable, with disclosure. The defects are cosmetic or
-  low-value. Mouseion's occurrence-scoped learner corrections (ADR 0081) are the
-  established route for an owner who cares; whether they apply to Greek is not
-  assessed here.
+These are two different kinds of problem:
+
+- **Lexical-prediction errors.** `ξενία` NOUN is a name lemmatized as the common
+  noun for "hospitality", so the name shares that noun's identity. `μένω` NOUN is
+  not the name's lemma at all, and its headword is the verb "remain".
+- **Duplicated presentation.** Ὀρόντας and Κιλικία are each one name spread
+  across two selected identities. Μένων is split as well, and one half of its
+  split is the wrong `μένω` lemma above.
+
+**Learning cost.** Duplicated pairs affect both cards in each pair. Wrong
+identities, once Known, also affect future counts and what is recorded as known.
+For example, a Known `ξενία` NOUN would cover a later real occurrence of
+"hospitality" in another Book.
+
+**Judgment.** Acceptable, with disclosure, for a bounded first slice. The view
+that names are lower-value cards is the reviewer's judgment, not a fact about
+every name. Mouseion's occurrence-scoped learner corrections (ADR 0081) are the
+established route for an owner who wants to fix these; whether they apply to
+Greek is not assessed here.
 - Capitalized display headwords would need a presentation rule with its own
   evidence. Not adopted.
 
@@ -250,8 +288,10 @@ identities. Every occurrence of those two identities is a misprediction:
 - A contextual Gloss of προϊόντων ("advancing") would be right. Only the hidden
   homograph number is wrong. That matters if a dictionary is keyed by Morpheus
   number, which is a dictionary-stage gate (§6).
-- On Finish, both identities would become Known under the wrong number. That is
-  bounded: 2 identities.
+- On Finish, both identities would become Known under the wrong number. A
+  Known πρόειμι#2 would also match any later Book's genuine εἰμί-based πρόειμι#2.
+  ADR 0097 freezing stops later evidence from rewriting that fact. It does not
+  stop a wrong prediction from becoming Known.
 
 **Plain/numbered splits.** Four headwords have **two selected identities**:
 
@@ -262,14 +302,18 @@ identities. Every occurrence of those two identities is a misprediction:
 | πάρειμι | 4 + #1 9; both εἰμί-based |
 | ἄπειμι | #1 3 + #2 3 |
 
-That gives 3 visibly duplicated headword cards. The splits are preserved, not
-merged, as required. Because identities are compared on the exact key, marking
-`λέγω` Known does not cover `λέγω#morpheus:3`.
+In the λέγω, δέω and πάρειμι pairs, both identities are selected and both have
+sentence inputs. Each pair therefore shows the learner two cards under one
+headword. This is duplicated presentation, not proof that either label is a
+wrong prediction. The ἄπειμι pair is different: its #1 half is the wrong-number
+error above. The splits are preserved, not merged, as required. Because
+identities are compared on the exact key, marking `λέγω` Known does not cover
+`λέγω#morpheus:3`.
 
-**Judgment:** a real but small cost: 1 wrong-number card and 3 duplicates. Do
-not merge or relabel silently. A later owner correction, or a reviewed
-versioned identity rule, could address it under ADR 0097 without rewriting
-frozen state.
+**Judgment:** a real cost. One chosen card target carries a wrong homograph
+number, and three headwords appear as duplicated cards. Do not merge or relabel
+silently. A later owner correction, or a reviewed versioned identity rule, could
+address this as new evidence under ADR 0097, without rewriting frozen state.
 
 ### 4.6 Sentence-input omissions and PAULA spacing
 
@@ -309,15 +353,22 @@ omission. With TEI spacing:
 
 **Judgment:**
 
-- The cost is real but presentational: a learner sees `κ ἂν`, and three
-  identities lose cards.
-- It is reversible without new data. The binding already maps every reading
-  character to its TEI coordinate.
-- A versioned TEI-spaced projection, together with the unit measure #2034
-  applies to it, is exactly the kind of "explicit versioned transformation
-  provenance" #2034 allows. It is a #2031 adapter/presentation stage decision,
-  and is not adopted here.
-- It is not a source-fidelity defect.
+- The source span binding stays exact. The cost is still real: a learner sees
+  `κ ἂν`, and three identities lose sentence inputs.
+- This is not just display styling. Removing whitespace changes the analysed
+  reading text, its coordinates and which sentences fit under the caps.
+- The retained TEI map supports this sensitivity measure. It is not a validated
+  or adopted new projection.
+- Any future TEI-spaced derivation would need:
+  - a versioned text mapping, the kind of "explicit versioned transformation
+    provenance" #2034 permits;
+  - a full rerun of binding, coverage, target-span, sentence and cap checks.
+
+  It must not assume the 437 inputs above are ready. Whether to do this is a
+  #2031 adapter stage decision. It is not implemented or adopted here.
+- **Judgment:** an acceptable, bounded source-quality cost for a planning
+  choice. It is not guaranteed to be a trivial cosmetic fix, and it does not need
+  fixing before the slice is accepted.
 
 ### 4.7 Editorial material
 
@@ -339,8 +390,8 @@ Six chosen sentences contain editorial elements: 56, 125, 137, 279, 336 and
     non-vocabulary.
 - **Judgment:**
   - Better for a learner than showing deleted words without brackets.
-  - Unmarked cruces and supplements are a minor presentation qualification;
-    six cards are affected.
+  - Unmarked cruces and supplements are a minor presentation qualification.
+    Six chosen sentence inputs are affected.
   - No vocabulary-identity decision about seclusion is needed for OGA, because
     the deleted text is not in the annotation-carried reading.
 
@@ -350,16 +401,21 @@ Different text revisions, units, projections and mappings mean that
 **438 versus 373 is not an accuracy ranking.** GLAUx is not worse for selecting
 fewer, and OGA is not better for selecting more.
 
-**Overlap of selected identities.** OGA's Morpheus numbers are dropped for the
-comparison, which turns OGA's 438 into 434 distinct keys:
+**Overlap of selected identities.** The unit compared is the pair (normalized
+lemma key, UPOS). OGA's Morpheus discriminators are suppressed for this
+comparison only, which turns OGA's 438 selected identities into 434 pairs:
 
-| | Identities |
+| | (key, UPOS) pairs |
 | --- | --- |
 | Shared | 347 |
 | OGA only | 87 |
 | GLAUx only | 26 |
 
-The difference is mostly scheme mapping, not lexical disagreement.
+A shared pair is a string match. It does not show that the two sources'
+identities are equivalent, and it is not a canonical merge. Both annotations are
+automatic and unreviewed, so these are differences in quantity and scheme, not
+quality. Most of the difference is scheme mapping rather than lexical
+disagreement.
 
 - **OGA only (87).**
   - **ADJ (36):** numerals and quantifiers that GLAUx maps to NUM or DET/PRON,
@@ -379,11 +435,11 @@ The difference is mostly scheme mapping, not lexical disagreement.
 | Secluded text | Absent from the annotated reading; no decision needed | 63 lexical words present but unannotated; the seclusion classification is still open |
 | Reading spacing | PAULA: spaced punctuation, 47 splits (§4.6) | TEI spacing; 40 suffix and 7 crasis components bound to source substrings |
 | εἰμί | Context rule v3 plus 6 reviewed repairs; AUX 158 / VERB 20 | Blanket AUX for 180, an unsupported qualification per the [parent review](https://github.com/justin-hayes/mouseion/issues/2030#issuecomment-6178553143) |
-| Lexical homographs | Morpheus numbers preserved (141 occurrences). Costs: 4 double-selected headwords and 2 all-wrong numbered identities | None in the source, so homographs merge silently; unified λέγω, δέω, πάρειμι |
-| Names | Lowercase headwords; ~4 split or wrong (§4.4) | Capitalized headwords; Μένων, Ὀρόντης, Κιλικία and Ξενίας unified |
+| Lexical homographs | Morpheus numbers preserved (141 occurrences), under a reviewed research mapping with medium-uncertainty limits, not gold. Costs: 4 double-selected headwords and 2 identities whose every occurrence carries the wrong number | The source declares no lexical discriminators; it uses a different identity scheme. Its λέγω, δέω and πάρειμι are single identities. Nothing shows whether any particular merge is right or wrong |
+| Names | Lowercase headwords; 4 name problems found (§4.4) | Capitalized headwords; Μένων, Ὀρόντης, Κιλικία and Ξενίας are single identities |
 | Card inputs | 434/438 (437 under TEI spacing) | 372/373 |
 | Remaining work before vocabulary-ready | None, under the disclosed repair layer | Seclusion decision, and an εἰμί rule still to be supported |
-| Acquisition | One 8.6 GB corpus archive; no per-work package or manifest outside it | Small per-file pinned GitHub raw files; `metadata.txt` catalogue |
+| Acquisition | Demonstrated route: the official 8.6 GB corpus archive. The retained investigation did not establish a supported per-work package or a complete machine-readable catalogue | Small per-file pinned GitHub raw files; `metadata.txt` catalogue |
 | Rights evidence | OGA BY-SA 4.0 (archive README); text BY-SA 4.0 | GLAUx BY-SA 4.0; text revision under a BY-SA 3.0 US README |
 | Maintenance | 13 node-bound repairs; fail closed on any component change | No repair layer, but its open rules would still need deciding |
 
@@ -391,8 +447,8 @@ The difference is mostly scheme mapping, not lexical disagreement.
 
 - **Where GLAUx is ahead:** operations, and name/lemma tidiness.
 - **Where OGA is ahead:** the current corrected text, no seclusion decision,
-  preserved homograph distinctions, and a completed, parent-verified εἰμί and
-  identity pass.
+  homograph discriminators preserved (with the costs and limits above), and a
+  completed, parent-verified εἰμί and identity pass.
 - **What switching would cost:** choosing GLAUx now would reopen its own
   mapping questions, the εἰμί rule and seclusion.
 - **Why this review accepts OGA anyway:** it found no OGA practical defect
@@ -406,7 +462,7 @@ combined or adopted from it.
 | Gate | Status | Blocks the source choice? | Blocks what |
 | --- | --- | --- | --- |
 | Private non-commercial inspection; bounded attributed diagnostics | Assessed ([`NOTICE.md`](ancient-greek-oga-anabasis1-import-proof/NOTICE.md)): OGA and text BY-SA 4.0; Morpheus witnesses CC BY-SA 3.0 US; UD Perseus witnesses CC BY-NC-SA 2.5; kept separate, no combined licence | No | — |
-| Acquisition route (#2028/ADR 0096, #2035) | **Unassessed engineering and permission.** Either each installation downloads the 8.6 GB archive and extracts one work, or Mouseion redistributes a reviewed exact-component package. BY-SA is eligible after exact-component review under #2035. Discovery needs a pinned manifest, because OGA publishes none per work. | No | Supported To Read acquisition |
+| Acquisition route (#2028/ADR 0096, #2035) | **Unassessed engineering and permission.** Either each installation downloads the 8.6 GB archive and extracts one work, or Mouseion redistributes a reviewed exact-component package. BY-SA is eligible after exact-component review under #2035. The retained investigation found no supported per-work manifest, so discovery may need a pinned one. Choosing between these is an engineering and operation-rights decision; no new acquisition research is authorized now. | No | Supported To Read acquisition |
 | Runtime use of the repair layer and mappings | **Unassessed.** The adapter needs only the 13 repaired values and the decoding rules, not the NC witnesses. Whether shipping the repaired values or Morpheus-key validation data carries obligations has not been reviewed. | No | Shipping the adapter or app data |
 | Reading presentation (spacing, editorial signs, name headwords) | Evidence is retained (TEI map, editorial spans); the projection is undecided | No | Card and reading presentation quality |
 | Gloss and translation (ADR 0079, #2034) | **Unassessed**; particle Gloss abstention is possible | No | Ready cards |
@@ -415,44 +471,61 @@ combined or adopted from it.
 | Provider use, exports, bundling (#2035) | **Not approved.** Sending a BY-SA sentence to the configured provider, deck exports with notices, and bundling each need their own review | No | Provider calls, exports, distribution |
 | Books 2–7 | **Unproven.** The work file is present in the archive, but each Book needs its own import proof and possibly its own repairs | No (Book 1 slice) | Whole-work Reading units |
 
-Frozen learner facts are protected by ADR 0097, lines 55–57. Frozen snapshots,
-Known facts and corrections keep their exact original evidence, so a later
-repair-layer version or OGA release must be adopted as new evidence. It never
-rewrites them. That is why the 2 wrong-number identities can be accepted and
-disclosed now, rather than repaired first.
+Each gate can block its own stage. If one turns out to be concretely
+infeasible, it may legitimately reopen the source choice.
+
+ADR 0097, lines 55–57, protects frozen learner facts: frozen snapshots, Known
+facts and corrections keep their exact original evidence. A later repair-layer
+version or OGA release must therefore be adopted as new evidence, and it cannot
+rewrite them. That immutability does **not** stop a wrong prediction from
+becoming Known, or from colliding with another Book's identity later. The 2
+wrong-number identities are accepted here as disclosed known errors, not as
+harmless ones.
 
 ## 7. Why the remaining issues are acceptable, not blocking
 
-**Identity noise reaches at most ~8 of 434 inputs:**
+**Known identity issues, by family.** The audit was limited, so these counts are
+not an error rate and not an upper bound.
 
-- 1 wrong-number card;
-- 3 duplicated headwords;
-- 3 duplicated names;
-- 1 misleading name headword.
+- **Lexical-prediction errors:**
+  - 2 selected identities carry a wrong homograph number throughout:
+    πρόειμι#2 and ἄπειμι#1.
+  - 1 chosen card target carries a wrong number (`t_1590`).
+  - 2 names have wrong lemmas: `ξενία` NOUN and `μένω` NOUN.
+- **Duplicated presentation:**
+  - 3 headwords (λέγω, δέω, πάρειμι), each with two selected identities and two
+    inputs;
+  - 3 names, each split across two identities (Μένων, Ὀρόντας, Κιλικία). The
+    Μένων split overlaps the wrong `μένω` lemma above.
 
-In addition, 2 wrong-number identities are frozen. Each case is named and
-attributed upstream, and none corrupts another identity or a sentence span.
+Wrong identities that become Known affect future counts and what is recorded as
+known.
 
-**Unit inflation from PAULA spacing costs 3 inputs**, one of which is a
-misprediction anyway. It is reversible from retained evidence.
+**Unit inflation from PAULA spacing costs 3 sentence inputs** in this
+sensitivity measure, one of them a misprediction. Recovering them would need a
+versioned derivation and a full rerun (§4.6), not a display tweak.
 
 **Particle cards cost review time but take no slots.** They teach words a reader
 must know.
 
-**Not blocking:** none of these is a material defect for the requested use, which
-is a first bounded Reading/vocabulary slice with honest stage gates. Requiring
-their removal would bring back the 100%-fidelity prerequisite that the
+**Judgment:** this limited inspection found no material systemic defect for the
+requested use, which is a first bounded Reading/vocabulary slice with honest
+stage gates. The known errors above are real and disclosed, and the 12-item
+content sample is not a general error rate. Requiring every such error to be
+removed first would bring back the 100%-fidelity prerequisite that the
 [scope reset](https://github.com/justin-hayes/mouseion/issues/2030#issuecomment-6177588105)
-rejected.
+rejected. It allows automatic annotation quality with disclosure, but disclosure
+does not make the data error-free.
 
 **What would have justified deferral:**
 
-- a content-word lemma error rate visible in the sample;
+- a systemic content-lemma problem;
 - wrong sentence spans;
 - a rights obstacle to self-hosted direct use;
-- an acquisition route that cannot be made to work.
+- an acquisition route that is concretely infeasible.
 
-None was observed. The acquisition route is costly but workable.
+This inspection demonstrated none of these. The known acquisition route is
+costly; its feasibility is a stage gate.
 
 ## 8. One next step, if Justin accepts
 
@@ -467,8 +540,8 @@ This review opens no research ticket, repair, acquisition or other chain.
 
 - **Book 1 only.** Books 2–7 are not inspected.
 - **The sample is a judgment, not a certification.** It covers 12 content items
-  plus the targeted categories; the other ~420 inputs were not read
-  individually.
+  plus the targeted categories. The remaining inputs were not read individually,
+  so no error rate or upper bound is claimed.
 - **The ADV classification is a heuristic.** The within-Book function-UPOS
   comparison is a heuristic, not gold; the v2 UD comparison gives 24 identities.
 - **TEI-spacing figures are a sensitivity measure.** They are not adopted.
@@ -494,6 +567,24 @@ cd ../ancient-greek-oga-anabasis1-import-proof && GOTMPDIR=$HOME/.cache/gotmp py
 
 Expected output: `gates_failing: []`, `reproduction_problems: []`, 438 selected,
 434 card inputs.
+
+**Checks.**
+
+- **The reviewer ran:** the read-only acceptance review, its 9 tests, the
+  read-only `opus_repair.py` reproduction, and ruff check/format on the new
+  files.
+- **The parent independently ran** (review of `c911cf3a`): the 9 review tests;
+  the 164 proof companion tests; the read-only acceptance and proof
+  reproductions, including Go parity; `make lint`; and `make coverage-new`. All
+  passed. NLP reported 90 passed and 3 skipped; research Python is outside
+  production coverage.
+- **The parent also independently:**
+  - read all 12 content sentences and their targets, plus 10 targeted cases;
+  - recomputed every measurement this report cites: the spacing joins, splits
+    and TEI sensitivity; the ADV, function-UPOS and name counts; and the GLAUx
+    overlap.
+
+  All matched.
 
 Attribution: OGA v0.2.0 (Celano 2024, CC BY-SA 4.0); Xenophon, ed. Marchant,
 Perseus Digital Library canonical-greekLit (CC BY-SA 4.0); GLAUx (Keersmaekers,
