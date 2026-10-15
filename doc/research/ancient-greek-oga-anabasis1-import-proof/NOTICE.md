@@ -1,5 +1,38 @@
 # Attribution, rights and modification notice
 
+## Authorized research-repair pass (#2052, 2026-10-15)
+
+This pass fetched nothing. It reuses retained inputs only:
+
+- the native nodes and CoNLL-U member;
+- the pinned Morpheus index and stem files;
+- the UD Ancient Greek-Perseus copies.
+
+The Gorman files were not used.
+
+`opus-repair-records.json` is public. It contains:
+
+- each repair's node ID, raw OGA lemma, surface, native POS and repaired
+  citation;
+- short Morpheus key, line and derivation witnesses (Morpheus terms: CC BY-SA
+  3.0 US);
+- short UD Ancient Greek-Perseus lemma and form labels with token counts
+  (CC BY-NC-SA 2.5);
+- phrase-length quotations of the reading text, a few words each, given as the
+  grounds for each repair.
+
+Each source keeps its own terms; nothing is relicensed. These excerpts are
+offered as bounded, attributed research diagnostics and are flagged for the
+parent's rights review. They are not a clearance for redistribution, export or
+bundling.
+
+Full repaired ledgers, sentence text and repaired-identity inputs stay private
+under `private/opus-repair/out/`.
+
+The repairs are a Mouseion research interpretation layer. They do not change
+the upstream text, annotation, raw predictions or spans, and they are not
+learner corrections.
+
 ## Fresh-owner completion pass (#2052, 2026-10-15; v2 review revision)
 
 ### What was acquired, and how

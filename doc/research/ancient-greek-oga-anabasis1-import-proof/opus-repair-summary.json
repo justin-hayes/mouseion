@@ -1,0 +1,699 @@
+{
+ "binding": {
+  "empty_nodes": 110,
+  "native_nodes": 10572,
+  "printed_nodes": 10462
+ },
+ "card_inputs": {
+  "chosen_sentence_units": {
+   "max": 50,
+   "median": 27.5,
+   "min": 4,
+   "p90": 43
+  },
+  "distinct_chosen_sentences": 179,
+  "earlier_rejection_reasons": {
+   "over-code-point-cap": 19,
+   "over-unit-cap": 79
+  },
+  "eligible": 434,
+  "omitted": [
+   {
+    "ids": [
+     "t_3870",
+     "t_9863",
+     "t_10327"
+    ],
+    "key": "οἴχομαι",
+    "reasons": [
+     "over-unit-cap"
+    ],
+    "upos": "VERB"
+   },
+   {
+    "ids": [
+     "t_4195",
+     "t_4209",
+     "t_5935",
+     "t_8708"
+    ],
+    "key": "πατήρ",
+    "reasons": [
+     "over-unit-cap"
+    ],
+    "upos": "NOUN"
+   },
+   {
+    "ids": [
+     "t_2013",
+     "t_4189",
+     "t_7139"
+    ],
+    "key": "πρότεροσ",
+    "reasons": [
+     "over-unit-cap"
+    ],
+    "upos": "ADJ"
+   },
+   {
+    "ids": [
+     "t_3153",
+     "t_3251",
+     "t_3800"
+    ],
+    "key": "ἄπειμι#morpheus:1",
+    "reasons": [
+     "over-code-point-cap",
+     "over-unit-cap"
+    ],
+    "upos": "VERB"
+   }
+  ],
+  "selected": 438,
+  "using_later_occurrence": 58
+ },
+ "comparison_with_uncorrected_v2": {
+  "identity_changes": [
+   {
+    "after": {
+     "occurrences": 20,
+     "selected": true
+    },
+    "before": {
+     "occurrences": 23,
+     "selected": true
+    },
+    "key": "εἰμί",
+    "upos": "VERB"
+   },
+   {
+    "after": {
+     "occurrences": 1,
+     "selected": false
+    },
+    "before": null,
+    "key": "καθέζομαι",
+    "upos": "VERB"
+   },
+   {
+    "after": {
+     "occurrences": 4,
+     "selected": true
+    },
+    "before": {
+     "occurrences": 3,
+     "selected": true
+    },
+    "key": "συλλέγω",
+    "upos": "VERB"
+   },
+   {
+    "after": {
+     "occurrences": 1,
+     "selected": false
+    },
+    "before": null,
+    "key": "συνεῖδον",
+    "upos": "VERB"
+   },
+   {
+    "after": {
+     "occurrences": 4,
+     "selected": true
+    },
+    "before": {
+     "occurrences": 3,
+     "selected": true
+    },
+    "key": "ἑπτά",
+    "upos": "ADJ"
+   },
+   {
+    "after": {
+     "occurrences": 4,
+     "selected": true
+    },
+    "before": {
+     "occurrences": 1,
+     "selected": false
+    },
+    "key": "ἔνειμι",
+    "upos": "VERB"
+   }
+  ],
+  "nodes_with_changed_interpretation": [
+   "t_437",
+   "t_2739",
+   "t_3351",
+   "t_4624",
+   "t_4638",
+   "t_4930",
+   "t_5030",
+   "t_5121",
+   "t_5145",
+   "t_5147",
+   "t_5775",
+   "t_5989",
+   "t_6214",
+   "t_7640",
+   "t_10265",
+   "t_10412"
+  ],
+  "uncorrected_v2": {
+   "eligible_occurrences": 6033,
+   "identities": 1424,
+   "selected": 437,
+   "unresolved_printed_nodes": 7
+  }
+ },
+ "denominators": {
+  "empty_unprinted": 110,
+  "lemma_rules": {
+   "I-COMPOUND-RECORD": 1,
+   "I-NUM-MORPHEUS-KEY": 141,
+   "I-PLAIN": 9156,
+   "R-CITATION-REPAIR": 7
+  },
+  "native_nodes": 10572,
+  "non_vocabulary_by_upos": {
+   "ADP": 579,
+   "AUX": 158,
+   "CCONJ": 541,
+   "DET": 1047,
+   "INTJ": 7,
+   "PRON": 721,
+   "SCONJ": 215
+  },
+  "printed": 10462,
+  "unresolved_ids": [],
+  "vocabulary_status": {
+   "eligible": 6037,
+   "non-vocabulary": 4425
+  }
+ },
+ "eimi": {
+  "ids_by_rule": {
+   "P-V-EIMI-COP-ADVERBIAL-PREDICATE": [
+    "t_139",
+    "t_1013",
+    "t_1026",
+    "t_1302",
+    "t_1374",
+    "t_1805",
+    "t_1842",
+    "t_2426",
+    "t_2926",
+    "t_3302",
+    "t_3318",
+    "t_3649",
+    "t_3714",
+    "t_4135",
+    "t_4464",
+    "t_4566",
+    "t_4802",
+    "t_5605",
+    "t_6214",
+    "t_6220",
+    "t_6536",
+    "t_6603",
+    "t_6641",
+    "t_7259",
+    "t_7547",
+    "t_8185",
+    "t_8317",
+    "t_8400",
+    "t_9845",
+    "t_10043",
+    "t_10155"
+   ],
+   "P-V-EIMI-EXISTENTIAL": [
+    "t_4860",
+    "t_4951",
+    "t_5651",
+    "t_6890",
+    "t_6911",
+    "t_7933",
+    "t_8070",
+    "t_8573",
+    "t_9711",
+    "t_10285",
+    "t_10385"
+   ],
+   "P-V-EIMI-IMPERSONAL-INFINITIVE": [
+    "t_3146",
+    "t_3631",
+    "t_4703",
+    "t_4766",
+    "t_4906",
+    "t_5030",
+    "t_5147",
+    "t_8931"
+   ],
+   "R-POS-REPAIR": [
+    "t_2739",
+    "t_3351",
+    "t_5989",
+    "t_7640",
+    "t_10265",
+    "t_10412"
+   ]
+  },
+  "nodes": 178,
+  "rules": {
+   "P-V-EIMI-COP-ADVERBIAL-PREDICATE": 31,
+   "P-V-EIMI-COP-PNOM": 122,
+   "P-V-EIMI-EXISTENTIAL": 11,
+   "P-V-EIMI-IMPERSONAL-INFINITIVE": 8,
+   "R-POS-REPAIR": 6
+  },
+  "upos": {
+   "AUX": 158,
+   "VERB": 20
+  },
+  "v3_rule_changes_vs_v2": [
+   {
+    "id": "t_5030",
+    "v2_rule": "P-V-EIMI-COP-PNOM",
+    "v2_upos": "AUX",
+    "v3_rule": "P-V-EIMI-IMPERSONAL-INFINITIVE",
+    "v3_upos": "VERB"
+   },
+   {
+    "id": "t_5147",
+    "v2_rule": "P-V-EIMI-COP-PNOM",
+    "v2_upos": "AUX",
+    "v3_rule": "P-V-EIMI-IMPERSONAL-INFINITIVE",
+    "v3_upos": "VERB"
+   },
+   {
+    "id": "t_6214",
+    "v2_rule": "P-V-EIMI-IMPERSONAL-INFINITIVE",
+    "v2_upos": "VERB",
+    "v3_rule": "P-V-EIMI-COP-ADVERBIAL-PREDICATE",
+    "v3_upos": "AUX"
+   }
+  ]
+ },
+ "inputs": {
+  "morpheus_pin": "b1b33c56ef2338fe0dcd1893628ed638f00c0986",
+  "new_inputs": 46,
+  "original_pins": {
+   "README.md": "2287f7fa97f286e9b11dbfd1dd4edcba585d40960b33fc4c5b572e5e565eac87",
+   "morpheus-index.tsv": "57f81c8627c654411f185f2c2d491a958c8acdd5684400fe3c1696ebb2b9d5c2",
+   "morpheus-manifest.json": "bb672f881d8bdb2c0db4783605b65aeaa4bc7fcb562c2ecf34fa764cf8b4568f",
+   "native-nodes.json": "2a5aca90602428b23f0f88cbcbfbd1ac787c87d25bd9bd87c67c7a29ae0f942b",
+   "node-to-tei.json": "1f9016a011f9f62ef87931a9e58d655c5152d0feae3e69b85f0eaa0885b7b631",
+   "reading.txt": "0f18cae963899218fda6c62726d6a0b0429763f390597c1781a93d80c2ddd907",
+   "tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01_annotated_lemma.conllu": "0f9cbba8e4fdf28ddcedc70259c18f3d00573bc9a82d3acc6a9a050d17542780"
+  },
+  "producer_documents": [
+   "agdt2-guidelines.md",
+   "lemmatizer-readme-response.json",
+   "morpheus-README.md",
+   "producer-paper-v1.html",
+   "ud-ancient-greek-perseus-README.md",
+   "ud-upos-index.html"
+  ]
+ },
+ "learner_state": {
+  "corrections": 0,
+  "exclusions": 0,
+  "known": 0,
+  "note": "research repairs are a separate interpretation layer, not learner corrections",
+  "reserved": 0
+ },
+ "private_outputs": {
+  "analysis.json": {
+   "lines": 1,
+   "sha256": "a8b652ef95a0f66ec9b5d7faa187799b113eaa5871bb34fad5aa94a6099a91d2"
+  },
+  "card-inputs.json": {
+   "lines": 4149,
+   "sha256": "f0686b172e03c3f4ee2a895a01cd959f2fc1536dd615b82e2c629f97db522789"
+  },
+  "node-ledger.json": {
+   "lines": 441465,
+   "sha256": "51802348441e52136e13aee8954b39a1c2bbdbcc4fbba0d670fde12390f5deab"
+  },
+  "repaired-identity-inputs.json": {
+   "lines": 100,
+   "sha256": "769157ef1f3c232feae980bc616681b6a93f3fabd7c8cf485fee78e1ab408863"
+  },
+  "selection-model.tsv": {
+   "lines": 1427,
+   "sha256": "855ea59e3b449cf3634416de99c42898b2e939890353baa747a9f92ed1f96076"
+  }
+ },
+ "repairs": {
+  "citation_applied": [
+   "t_437",
+   "t_4624",
+   "t_4638",
+   "t_5775",
+   "t_4930",
+   "t_5121",
+   "t_5145"
+  ],
+  "pos_applied": [
+   "t_2739",
+   "t_3351",
+   "t_7640",
+   "t_10265",
+   "t_10412",
+   "t_5989"
+  ],
+  "targets": [
+   {
+    "cts": "1_1_9",
+    "headword": "συλλέγω",
+    "id": "t_437",
+    "identity": "συλλέγω",
+    "identity_card_input": "t_302",
+    "identity_selected": true,
+    "key": "συλλέγω",
+    "lemma_rule": "R-CITATION-REPAIR",
+    "native_pos": "v",
+    "pos_rule": "P-V-VERB",
+    "raw_lemma": "σύλλέγω",
+    "status": "eligible",
+    "upos": "VERB"
+   },
+   {
+    "cts": "1_3_11",
+    "headword": "εἰμί",
+    "id": "t_2739",
+    "identity": null,
+    "identity_card_input": null,
+    "identity_selected": false,
+    "key": "εἰμί",
+    "lemma_rule": "I-PLAIN",
+    "native_pos": "v",
+    "pos_rule": "R-POS-REPAIR",
+    "raw_lemma": "εἰμί",
+    "status": "non-vocabulary",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_3_21",
+    "headword": "εἰμί",
+    "id": "t_3351",
+    "identity": null,
+    "identity_card_input": null,
+    "identity_selected": false,
+    "key": "εἰμί",
+    "lemma_rule": "I-PLAIN",
+    "native_pos": "v",
+    "pos_rule": "R-POS-REPAIR",
+    "raw_lemma": "εἰμί",
+    "status": "non-vocabulary",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_5_1",
+    "headword": "ἔνειμι",
+    "id": "t_4624",
+    "identity": "ἔνειμι",
+    "identity_card_input": "t_5775",
+    "identity_selected": true,
+    "key": "ἔνειμι",
+    "lemma_rule": "R-CITATION-REPAIR",
+    "native_pos": "v",
+    "pos_rule": "P-V-VERB",
+    "raw_lemma": "ἐνεἰμί",
+    "status": "eligible",
+    "upos": "VERB"
+   },
+   {
+    "cts": "1_5_2",
+    "headword": "ἔνειμι",
+    "id": "t_4638",
+    "identity": "ἔνειμι",
+    "identity_card_input": "t_5775",
+    "identity_selected": true,
+    "key": "ἔνειμι",
+    "lemma_rule": "R-CITATION-REPAIR",
+    "native_pos": "v",
+    "pos_rule": "P-V-VERB",
+    "raw_lemma": "ἐνεἰμί",
+    "status": "eligible",
+    "upos": "VERB"
+   },
+   {
+    "cts": "1_5_6",
+    "headword": "ἑπτά",
+    "id": "t_4930",
+    "identity": "ἑπτά",
+    "identity_card_input": "t_935",
+    "identity_selected": true,
+    "key": "ἑπτά",
+    "lemma_rule": "R-CITATION-REPAIR",
+    "native_pos": "a",
+    "pos_rule": "P-LETTER-a",
+    "raw_lemma": "ἑπτὰ",
+    "status": "eligible",
+    "upos": "ADJ"
+   },
+   {
+    "cts": "1_5_9",
+    "headword": "καθέζομαι",
+    "id": "t_5121",
+    "identity": "καθέζομαι",
+    "identity_card_input": null,
+    "identity_selected": false,
+    "key": "καθέζομαι",
+    "lemma_rule": "R-CITATION-REPAIR",
+    "native_pos": "v",
+    "pos_rule": "P-V-VERB",
+    "raw_lemma": "κατάκαθέζομαι",
+    "status": "eligible",
+    "upos": "VERB"
+   },
+   {
+    "cts": "1_5_9",
+    "headword": "συνεῖδον",
+    "id": "t_5145",
+    "identity": "συνεῖδον",
+    "identity_card_input": null,
+    "identity_selected": false,
+    "key": "συνεῖδον",
+    "lemma_rule": "R-CITATION-REPAIR",
+    "native_pos": "v",
+    "pos_rule": "P-V-VERB",
+    "raw_lemma": "σύνεἶδον",
+    "status": "eligible",
+    "upos": "VERB"
+   },
+   {
+    "cts": "1_6_3",
+    "headword": "ἔνειμι",
+    "id": "t_5775",
+    "identity": "ἔνειμι",
+    "identity_card_input": "t_5775",
+    "identity_selected": true,
+    "key": "ἔνειμι",
+    "lemma_rule": "R-CITATION-REPAIR",
+    "native_pos": "v",
+    "pos_rule": "P-V-VERB",
+    "raw_lemma": "ἐνεἰμί",
+    "status": "eligible",
+    "upos": "VERB"
+   },
+   {
+    "cts": "1_6_6",
+    "headword": "εἰμί",
+    "id": "t_5989",
+    "identity": "εἰμί",
+    "identity_card_input": "t_3631",
+    "identity_selected": true,
+    "key": "εἰμί",
+    "lemma_rule": "I-PLAIN",
+    "native_pos": "v",
+    "pos_rule": "R-POS-REPAIR",
+    "raw_lemma": "εἰμί",
+    "status": "eligible",
+    "upos": "VERB"
+   },
+   {
+    "cts": "1_8_10",
+    "headword": "εἰμί",
+    "id": "t_7640",
+    "identity": null,
+    "identity_card_input": null,
+    "identity_selected": false,
+    "key": "εἰμί",
+    "lemma_rule": "I-PLAIN",
+    "native_pos": "v",
+    "pos_rule": "R-POS-REPAIR",
+    "raw_lemma": "εἰμί",
+    "status": "non-vocabulary",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_10_14",
+    "headword": "εἰμί",
+    "id": "t_10265",
+    "identity": null,
+    "identity_card_input": null,
+    "identity_selected": false,
+    "key": "εἰμί",
+    "lemma_rule": "I-PLAIN",
+    "native_pos": "v",
+    "pos_rule": "R-POS-REPAIR",
+    "raw_lemma": "εἰμί",
+    "status": "non-vocabulary",
+    "upos": "AUX"
+   },
+   {
+    "cts": "1_10_18",
+    "headword": "εἰμί",
+    "id": "t_10412",
+    "identity": null,
+    "identity_card_input": null,
+    "identity_selected": false,
+    "key": "εἰμί",
+    "lemma_rule": "I-PLAIN",
+    "native_pos": "v",
+    "pos_rule": "R-POS-REPAIR",
+    "raw_lemma": "εἰμί",
+    "status": "non-vocabulary",
+    "upos": "AUX"
+   }
+  ]
+ },
+ "reproduce": "python3 -I opus_repair.py",
+ "required_gates": {
+  "all_whitelisted_repairs_applied": {
+   "citation": [
+    "t_437",
+    "t_4624",
+    "t_4638",
+    "t_5775",
+    "t_4930",
+    "t_5121",
+    "t_5145"
+   ],
+   "pass": true,
+   "pos": [
+    "t_2739",
+    "t_3351",
+    "t_7640",
+    "t_10265",
+    "t_10412",
+    "t_5989"
+   ]
+  },
+  "canonical_pos_determinate": {
+   "pass": true,
+   "unresolved_ids": []
+  },
+  "native_groups_nest": {
+   "crossing": 0,
+   "groups": 607,
+   "pass": true
+  },
+  "native_join": {
+   "empty_rows_joined": 110,
+   "native_ids_unique": true,
+   "pass": true,
+   "printed_rows_joined": 10462
+  },
+  "reading_coverage": {
+   "covered_non_whitespace": 48892,
+   "overlaps": 0,
+   "pass": true
+  },
+  "required_identity_usable": {
+   "pass": true,
+   "unsupported_ids": []
+  },
+  "sentence_coverage": {
+   "pass": true,
+   "sentences": 381,
+   "tail_is_whitespace": true
+  },
+  "vocabulary_ready_accounting": {
+   "pass": true
+  }
+ },
+ "rulesets": {
+  "card_input": "grc-earliest-capped/1",
+  "identity": "oga-greta-lemma/2",
+  "normalization_profile": "ancient-greek/1",
+  "pos": "oga-agdt-upos/3 (εἰμί rule v3) + research repairs",
+  "repairs": "oga-anabasis1-research-repairs/1",
+  "selection_model": "mouseion-3-15-single-book-empty-known/1",
+  "sentence": "oga-reading-terminal/2"
+ },
+ "selection": {
+  "eligible_occurrences": 6037,
+  "go_probe_expected_stdout": "candidates=1426 selected=438 analyzable_tokens=6037 distinct_identities=1426 sentences=381",
+  "identities": 1426,
+  "identities_by_upos": {
+   "ADJ": 278,
+   "ADV": 139,
+   "NOUN": 489,
+   "VERB": 520
+  },
+  "known_token_coverage": 0.0,
+  "selected": 438,
+  "selected_by_upos": {
+   "ADJ": 79,
+   "ADV": 59,
+   "NOUN": 146,
+   "VERB": 154
+  },
+  "selected_occurrence_coverage": 0.7982,
+  "selected_occurrences": 4819,
+  "selection_model_sha256": "855ea59e3b449cf3634416de99c42898b2e939890353baa747a9f92ed1f96076",
+  "unknown_identities": 1426
+ },
+ "sentences": {
+  "at_most_5_units": 10,
+  "code_points": {
+   "max": 625,
+   "median": 138,
+   "min": 13,
+   "p90": 275
+  },
+  "completeness": {
+   "complete": 381
+  },
+  "native_groups": 607,
+  "over_code_point_cap": 4,
+  "over_code_point_cap_only": 0,
+  "over_unit_cap": 36,
+  "over_unit_cap_if_punctuation_units_excluded": 21,
+  "sentences": 381,
+  "terminals": {
+   ".": 372,
+   ";": 9
+  },
+  "units": {
+   "max": 109,
+   "median": 24,
+   "min": 3,
+   "p90": 49
+  },
+  "units_histogram_by_10": {
+   "0-9": 31,
+   "10-19": 109,
+   "100+": 1,
+   "20-29": 98,
+   "30-39": 63,
+   "40-49": 43,
+   "50-59": 17,
+   "60-69": 14,
+   "70-79": 5
+  },
+  "within_both_caps": 345
+ },
+ "status": "research repair pass; not source acceptance, production mapping or learner state",
+ "verdicts": {
+  "binding_and_unit_gates": "pass (join, coverage, sentences, nesting re-run)",
+  "identity": "every printed lexical node has a usable identity",
+  "note": "Measured with an explicit research-repair layer; not the strict uncorrected proof. Source acceptance and usefulness remain #2030.",
+  "pos": "determinate; εἰμί v3 rule plus six reviewed repairs; other classes producer-compatible",
+  "vocabulary_ready_accounting": "complete with research repairs"
+ },
+ "version": "oga-anabasis1-opus-repair/1"
+}

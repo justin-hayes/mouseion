@@ -1,6 +1,277 @@
-# OGA Anabasis Book 1 import proof: interpretation determinate, seven required identities unsupported
+# OGA Anabasis Book 1 import proof: all required gates pass with an explicit research-repair layer
 
-## Current result: v2 review revision (#2052, 2026-10-15)
+## Current result: authorized research-repair pass (#2052, 2026-10-15)
+
+**With 7 citation repairs and 6 εἰμί POS repairs, every whole-unit gate
+passes.** No printed node is left unresolved, and the measured dry run is
+**1,426 identities, 438 selected, and 434 of 438 with sentence inputs**. The
+real Go selection matches the independent Python model byte for byte.
+
+Justin authorized this bounded exception on
+[#2052](https://github.com/justin-hayes/mouseion/issues/2052#issuecomment-6186557784).
+Two things therefore change:
+
+- **This is not the strict uncorrected proof.** It applies an explicit,
+  versioned research-repair layer. The uncorrected v2 result (7 required
+  identities unsupported, 437/433) and the v1 dry run (437/432) stay
+  reproducible and unchanged.
+- **The repairs are not learner state.** Known, Reserved, corrections and
+  exclusions are all still empty. Raw OGA predictions, surfaces, native POS and
+  spans are untouched.
+
+Source acceptance and practical usefulness remain #2030 decisions, and #2031
+stays downstream.
+
+### A. Reproduce
+
+From `doc/research/ancient-greek-oga-anabasis1-import-proof/`, with Go on
+`PATH` and `GOTMPDIR=$HOME/.cache/gotmp`:
+
+```sh
+python3 -I opus_repair.py                     # read-only: all gates, repairs, Go parity, compare
+python3 -I opus_completion.py                 # uncorrected v2 still reproduces exactly
+python3 -I mapping_completion_v2.py           # earlier evidence still reproduces exactly
+python3 -m unittest discover -p 'test_*.py'   # 157 tests (139 earlier + 18 repair tests)
+```
+
+`opus_repair.py` (`oga-anabasis1-opus-repair/1`) works in four steps:
+
+1. it runs the unchanged v2 interpreter;
+2. it applies the εἰμί rule v3 to all 178 εἰμί nodes;
+3. it applies only the whitelisted records in
+   [`opus-repair-records.json`](ancient-greek-oga-anabasis1-import-proof/opus-repair-records.json),
+   which are bound to the OGA v0.2.0 component hashes;
+4. it reruns every gate, the real Go probe, the 3/15 model and the sentence
+   inputs.
+
+It compares everything with
+[`opus-repair-summary.json`](ancient-greek-oga-anabasis1-import-proof/opus-repair-summary.json)
+and the five private outputs in `private/opus-repair/out/`. Only `--write`
+regenerates, and it can write only those. A test checks that it never writes the
+v1 or v2 outputs, `private/opus-completion/`, or the repair records.
+
+**Each repair fails closed.** The run stops on:
+
+- a wrong component revision;
+- a node that is unknown or in the wrong section;
+- any raw lemma, surface, native POS, relation, prior rule or prior UPOS that
+  differs from the record, including by one diacritic;
+- a node that is no longer in its recorded prior state;
+- a Morpheus row, stem line or UD Perseus lemma/form count that differs from its
+  cited witness;
+- a repaired key that does not decode exactly to the recorded headword, or that
+  carries a homograph number;
+- a POS repair that would not change the UPOS.
+
+A missing repair leaves its node unresolved, and the vocabulary-ready gate then
+fails.
+
+**Checks on 2026-10-15.** All of these passed:
+
+- the read-only repair reproduction, with no problems and Go parity;
+- the uncorrected v2 reproduction;
+- the `mapping_completion_v2.py` reproduction;
+- all 157 companion tests;
+- `git diff --check`;
+- `make lint`;
+- `make coverage-new`.
+
+**No new input was acquired.** The evidence is already retained and pinned:
+
+- the Morpheus index and stem files;
+- the UD Ancient Greek-Perseus copies;
+- the OGA component itself.
+
+There were no network requests, and the Gorman files were not used.
+
+### B. Citation repairs: seven occurrences, five labels, all resolved
+
+The decisive new evidence comes from the AGDT lineage that trained the producer,
+as seen in UD Ancient Greek-Perseus.
+
+- That lineage writes compound lemmas in Morpheus's **hyphenated derivation
+  notation**: 88 such lemma types over 125 tokens, e.g. `ἐν-εἰμί`, `σύν-εἶδον`,
+  `κατά-καθέζομαι`, `σύν-λέγω`.
+- It also writes the **plain citation form for forms of the same paradigms**:
+  `ἔνεστι` occurs both as `ἐν-εἰμί` and as `ἔνειμι`; `συλλέξας` both as
+  `σύν-λέγω` and as `συλλέγω`; `καθεζόμενος` both as `κατά-καθέζομαι` and as
+  `καθέζομαι`.
+- The anomalous OGA labels are that notation with the hyphen removed. That is
+  not a guess about shape: the notation and the citation demonstrably name the
+  same lexeme in the producer's own training lineage.
+
+The same evidence also strengthens the existing `t_302` decoding (`σύνλέγω2` →
+συλλέγω), which this pass leaves unchanged.
+
+Every repair is an explicit record. Each holds the before/after values, the
+witnesses, the reason and the uncertainty. The `ancient-greek/1` profile is
+unchanged.
+
+| Node(s) | Raw label → repaired citation | Kind | Key evidence | Uncertainty |
+| --- | --- | --- | --- | --- |
+| `t_437` (συνέλεξεν, 1.1.9) | `σύλλέγω` → **συλλέγω** | malformed compound spelling | Morpheus `sulle/gw` (`vbs.cmp.ml:6459`); UD Perseus `συλλέγω` for συνέλεγεν/συνελέγοντο/συλλέξας; OGA `t_402`, `t_4272` συλλέγω | Low |
+| `t_4624`, `t_4638`, `t_5775` (ἐνῆν, 1.5.1/1.5.2/1.6.3) | `ἐνεἰμί` → **ἔνειμι** | notation → citation | UD Perseus `ἐν-εἰμί` (ἐνῆν ×2, ἔνεστι) and `ἔνειμι` (ἔνεστι ×3, ἐνείη); OGA `t_4654` ἐνῆσαν = ἔνειμι; single Morpheus key `e)/neimi` | Morpheus's one record derives `e)/neimi` from εἶμι, so it is **not** used as base evidence. The εἰμί base comes from the surface and the producer's notation. There is no homograph number, so none is guessed. |
+| `t_4930` (ἑπτὰ, 1.5.6) | `ἑπτὰ` → **ἑπτά** | node-specific: the surface's sandhi grave was copied into the lemma | Morpheus `e(pta/`; UD Perseus lemmatizes ἑπτὰ as ἑπτά ×9; OGA `t_935`, `t_3765`, `t_5824` ἑπτά | Low. This is **not** a global grave/acute equivalence. |
+| `t_5121` (ἐκαθέζετο, 1.5.9) | `κατάκαθέζομαι` → **καθέζομαι** | redundant prefix notation | Morpheus `kaqe/zomai` with its κατά-prefixed stem and imperfect ending (`vbs.simp.ml:9780–9782`); UD Perseus `καθέζομαι` (καθέζετο ×6) and `κατά-καθέζομαι` for the same participle | Low |
+| `t_5145` (συνιδεῖν, 1.5.9) | `σύνεἶδον` → **συνεῖδον** | notation → compound citation, formed by the scheme's own pattern | UD Perseus `σύν-εἶδον` (συνιδοῦσα, συνεῖδε) and sibling `προσεῖδον`; Morpheus prefix + εἶδον keys (`e)nei=don`, `prosei=don`, `parei=don` …) and σύν keeping ν before a vowel (`su/neimi1`, `su/noida`); OGA lemmatizes ἰδεῖν as εἶδον | **Medium.** συνεῖδον is formed, not itself an attested key. The LSJ-derived list has συνοράω instead, which is not adopted because it would cross the producer's εἶδον/ὁράω separation. Single occurrence, not selected either way. |
+
+The seven wrong-homograph predictions (`t_1590`, `t_3153`, `t_3251`, `t_3800`,
+`t_5625`, `t_5642`, `t_5708`) are outside this scope. They stay as recorded
+upstream prediction errors.
+
+### C. εἰμί: rule v3 plus reviewed repairs, checked across all 178
+
+**Rule v3 changes 3 nodes**, each confirmed by reading the context:
+
+- `t_5030`: ἦν θεάσασθαι, with the infinitive labelled PNOM, means "it was
+  possible to observe": impersonal **VERB**.
+- `t_5147`: συνιδεῖν δ' ἦν, with an empty-node PNOM, is likewise impersonal:
+  **VERB**.
+- `t_6214`: σχολὴ ᾖ ἡμῖν, with a nominal subject and a possessive dative, means
+  "that we may have leisure": possession, **AUX**.
+
+The impersonal reading now needs either an infinitive or empty PNOM, or an
+infinitive subject without a nominal subject. In both cases there must be no
+lexical PNOM and no PP.
+
+**Six reviewed POS repairs.** Each names the native-parse witness that it
+overrides:
+
+| Node | Rule → repaired | Positive classification and evidence |
+| --- | --- | --- |
+| `t_2739` | VERB → **AUX** | οὐχ ὥρα εἶναι … καθεύδειν: ὥρα is the predicate. The native parse attaches its PNOM to impersonal δοκεῖ. |
+| `t_3351` | VERB → **AUX** | τοῖς δὲ ὑποψία ἦν: a possessive dative, parsed as an ATR of the subject. The producer itself labels possessive datives PNOM in five other εἰμί clauses (`t_662`, `t_976`, `t_6764`, `t_8982`, `t_9036`), which become AUX. |
+| `t_7640` | VERB → **AUX** | ἡ γνώμη ἦν ὡς … ἐλῶντα: the native parse itself labels ἐλῶντα PNOM, under the ὡς that depends on ἦν. |
+| `t_10265` | VERB → **AUX** | τὰ ὑπὲρ τοῦ λόφου τί ἐστιν: proleptic subject. The clause is copular whether τί or the locative PP is the predicate. |
+| `t_10412` | VERB → **AUX** | ἦσαν δ' αὗται τετρακόσιαι … ἅμαξαι: bare αὗται, without the article, cannot be attributive. It is the pronoun subject, and the numeral + noun is the predicate. |
+| `t_5989` | AUX → **VERB** | μετὰ ταῦτα … ἔστιν ὅ τι σε ἠδίκησα;: a temporal PP, not a predicate. ἔστιν ὅ τι is existential, with the relative clause as subject. |
+
+**Reviewed and kept without repair:**
+
+- `t_6641` keeps **AUX**: a possessive dative ἡμῖν, consistent with `t_3351`.
+- `t_5651` and `t_9711` keep **VERB**: the native attributive parse gives a
+  grammatical existential reading, and there is no positive evidence that it is
+  wrong. These are the only open readings. If either were AUX, εἰμί|VERB would
+  fall from 20 to at most 18 occurrences; selection and inputs would not change.
+
+**Result:**
+
+| Rule | Nodes |
+| --- | ---: |
+| PNOM copula | 122 |
+| Adverbial/PP predicate | 31 |
+| Impersonal infinitive | 8 |
+| Existential | 11 |
+| Reviewed repair | 6 |
+
+That gives **AUX 158, VERB 20**. The other UPOS classes remain
+producer-compatible conversions, not strict UD gold, as in v2.
+
+### D. Whole-unit rerun
+
+**Integrity gates.** Every gate below passes:
+
+| Gate | Result |
+| --- | --- |
+| Native join | 10,462 printed + 110 empty nodes |
+| Reading coverage | 48,892 non-whitespace characters, exact, no overlaps |
+| Sentence coverage | 381 complete sentences, whitespace-only tail |
+| Native groups | all 607 nest |
+| Canonical POS | determinate for all printed nodes |
+| Required identity | **usable for every printed lexical node** (0 unsupported) |
+| Repair whitelist | all 13 applied |
+| Vocabulary-ready accounting | complete |
+
+**Denominators.**
+
+| Count | Value |
+| --- | ---: |
+| Eligible occurrences | 6,037 |
+| Non-vocabulary lexical | 3,268, including AUX 158 |
+| Punctuation | 1,157 |
+| Unresolved | 0 |
+
+Lemma rules over the printed non-punctuation nodes:
+
+| Lemma rule | Nodes |
+| --- | ---: |
+| `I-PLAIN` | 9,156 |
+| `I-NUM-MORPHEUS-KEY` | 141 |
+| `I-COMPOUND-RECORD` | 1 |
+| `R-CITATION-REPAIR` | 7 |
+
+**Selection.** One analyzed Book; Known, Reserved, corrections, exclusions and
+external frequencies are all empty.
+
+| Measure | Repaired | Uncorrected v2 |
+| --- | --- | --- |
+| Identities | **1,426**: NOUN 489, VERB 520, ADJ 278, ADV 139 | 1,424 |
+| Selected | **438**: NOUN 146, VERB 154, ADJ 79, ADV 59 | 437 |
+| Selected occurrences | 4,819 / 6,037 (79.8%) | — |
+| Known-token coverage | 0% | 0% |
+
+The Go probe printed `candidates=1426 selected=438 analyzable_tokens=6037
+distinct_identities=1426 sentences=381`. Its TSV is byte-identical to the model.
+
+**Changes from the uncorrected v2.** 16 nodes have a changed interpretation.
+Identity counts move as follows:
+
+| Identity | Occurrences | Selected |
+| --- | --- | --- |
+| ἔνειμι VERB | 1 → 4 | **newly selected** |
+| συλλέγω VERB | 3 → 4 | yes |
+| ἑπτά ADJ | 3 → 4 | yes |
+| εἰμί VERB | 23 → 20 | yes |
+| καθέζομαι VERB | new, 1 | no |
+| συνεῖδον VERB | new, 1 | no |
+
+**Sentence inputs** (same rules as v2: complete sentence, at most 50 units and
+400 code points after trimming, verified target span, usable headword; earliest
+occurrence first; nothing shortened):
+
+- **434 of 438** selected identities get an input. The 4 omissions are the same
+  as in v2: οἴχομαι, πατήρ, πρότερος|ADJ and `ἄπειμι#morpheus:1`. Every
+  occurrence of each is over a cap.
+- 58 inputs use a later occurrence. The earlier rejections were 79 over the unit
+  cap and 19 over the code-point cap.
+- The chosen sentences run 4–50 units (median 27.5) across 179 distinct
+  sentences.
+
+Inputs for repaired identities, as private spans:
+
+| Identity | Chosen input |
+| --- | --- |
+| ἔνειμι | `t_5775` (reading span 33056–33060); `t_4624`, `t_4638` and `t_4654` are over the unit cap |
+| συλλέγω | `t_302` |
+| ἑπτά | `t_935` |
+| εἰμί\|VERB | `t_3631` (was `t_2739`, now AUX); `t_3146` is over the cap |
+
+Sentence extents and length distributions are unchanged from v2. Repaired
+ledgers and inputs stay private.
+
+### E. Verdicts
+
+| Layer | Verdict |
+| --- | --- |
+| Binding and whole-unit gates | **Pass** |
+| Identity | **Pass with the research-repair layer.** 7 occurrences use explicit citation repairs; `t_5145` carries a medium-uncertainty formed citation. Without repairs, v2 still fails on these 7. |
+| POS | **Determinate.** εἰμί follows rule v3 plus 6 reviewed repairs; 2 readings stay open with stated impact. Other classes are producer-compatible, not strict UD |
+| Vocabulary-ready accounting | **Complete under the repair layer.** This is not an uncorrected proof, and it is not source acceptance. |
+| Dry run | 438 selected, 434 inputs, real Go parity |
+| Prediction quality | 7 wrong-homograph predictions, the function-word ADV and name findings from v2, and the PAULA spacing all remain |
+
+**For #2030 (practical, not Greek-factual).** The repaired citation failures
+were content verbs and a numeral; the residual open εἰμί readings are function
+words.
+
+- No stopword strategy was needed to reach a passing gate.
+- Justin's stopword idea stays a recorded fallback, not adopted.
+- The practical questions remain from v2:
+  - particles as ADV: 24 selected identities, 1,041 occurrences;
+  - names as lowercase NOUN headwords;
+  - PAULA spacing.
+
+## v2 review revision (historical; superseded by the research-repair pass above)
 
 **The integrity gates and the canonical POS gate pass.** All 10,572 native nodes
 join their CoNLL-U rows, every non-whitespace reading character is covered, all

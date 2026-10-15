@@ -1,0 +1,188 @@
+{
+ "version": "oga-anabasis1-research-repairs/1",
+ "authority": "Justin-authorized bounded repair exception, #2052 (issuecomment-6186557784). Research repairs only: not learner corrections, exclusions or Reserved state; raw OGA predictions, surfaces, native POS and spans are never changed.",
+ "component": {
+  "release": "Opera Graeca Adnotata v0.2.0 (Zenodo 14206061)",
+  "archive_sha256": "fffc246e9833f7ef265f0daffd1f4cc679489cb6de1fd9b652474a6313ecf6c3",
+  "work": "tlg0032.tlg006.perseus-grc2",
+  "conllu_member": "workspace/conllu.zip:conllu/tlg0032.tlg006.perseus-grc2.tok01_sentence-seg01_annotated_lemma.conllu",
+  "conllu_member_sha256": "0f9cbba8e4fdf28ddcedc70259c18f3d00573bc9a82d3acc6a9a050d17542780",
+  "native_nodes_sha256": "2a5aca90602428b23f0f88cbcbfbd1ac787c87d25bd9bd87c67c7a29ae0f942b"
+ },
+ "evidence_sources": {
+  "morpheus_index": "private/mapping-completion/morpheus-index.tsv (PerseusDL/morpheus b1b33c56, sha256 57f81c86..., all 84 stem-source files)",
+  "morpheus_stemsrc": "private/opus-completion/morpheus-stemsrc/ (pinned in opus-completion-inputs.json)",
+  "ud_perseus": "private/opus-completion/udperseus/ (UD_Ancient_Greek-Perseus 331ddef9, AGDT-lineage conversion; CC BY-NC-SA 2.5; private, counts and short lemma labels cited)",
+  "oga_book1": "same OGA component: other Book 1 nodes carrying the target lemma"
+ },
+ "citation_repairs": [
+  {
+   "id": "t_437",
+   "cts": "1_1_9",
+   "expected": {"raw_lemma": "σύλλέγω", "surface": "συνέλεξεν", "native_pos": "v", "v2_rule": "I-UNSUPPORTED-CITATION-FORM"},
+   "repair_kind": "lexical-spelling: malformed compound citation to the scheme's citation key",
+   "after": {"headword": "συλλέγω", "morpheus_key": "sulle/gw", "discriminator": null},
+   "evidence": {
+    "morpheus_rows": [["vbs.cmp.ml", 6459, "sulle/gw", "su/n-le/gw2"]],
+    "stem_lines": [["vbs.cmp.ml", 6459, "su/n-le/gw2 sulle/gw"]],
+    "ud_perseus_lemma_forms": [["συλλέγω", "συνέλεγεν", 1], ["συλλέγω", "συνελέγοντο", 1], ["συλλέγω", "συλλέξας", 1], ["σύν-λέγω", "συλλέξας", 2]],
+    "oga_same_lexeme_nodes": ["t_402", "t_4272"]
+   },
+   "reason": "συνέλεξεν is the augmented aorist of the σύν + λέγω 'gather' compound. The scheme records that compound once, as key sulle/gw (vbs.cmp.ml:6459). The AGDT lineage lemmatizes the same paradigm as συλλέγω (and also writes the derivation σύν-λέγω for συλλέξας). OGA itself labels συνελέγετο and συνέλεξε (t_402, t_4272) συλλέγω. The predicted σύλλέγω is the assimilated prefix written with its own accent; the scheme has no such key.",
+   "uncertainty": "Low. The scheme key has no homograph number, so no discriminator is assigned."
+  },
+  {
+   "id": "t_4624",
+   "cts": "1_5_1",
+   "expected": {"raw_lemma": "ἐνεἰμί", "surface": "ἐνῆν", "native_pos": "v", "v2_rule": "I-UNSUPPORTED-CITATION-FORM"},
+   "repair_kind": "lexical-spelling: prefix+base notation to the citation form",
+   "after": {"headword": "ἔνειμι", "morpheus_key": "e)/neimi", "discriminator": null},
+   "evidence": {
+    "morpheus_rows": [["vbs.cmp.ml", 2556, "e)/neimi", "e)n-ei)=mi"]],
+    "stem_lines": [["vbs.cmp.ml", 2556, "e)n-ei)=mi e)/neimi"]],
+    "ud_perseus_lemma_forms": [["ἐν-εἰμί", "ἐνῆν", 2], ["ἐν-εἰμί", "ἔνεστι", 1], ["ἔνειμι", "ἔνεστι", 3], ["ἔνειμι", "ἐνείη", 1]],
+    "oga_same_lexeme_nodes": ["t_4654"]
+   },
+   "reason": "ἐνῆν is the imperfect of ἐν + εἰμί 'be in'. The predicted label is the AGDT-lineage derivation notation ἐν-εἰμί without its hyphen; that lineage writes ἐν-εἰμί for ἐνῆν and both ἐν-εἰμί and ἔνειμι for ἔνεστι, so the notation and the citation name one lexeme. OGA labels ἐνῆσαν (t_4654) ἔνειμι. The scheme has a single key e)/neimi with no homograph number.",
+   "uncertainty": "The only scheme record (vbs.cmp.ml:2556) derives e)/neimi from εἶμι 'go', not εἰμί. That record is not used as base evidence; the base comes from the εἰμί-paradigm surface and the producer's own notation. Because the scheme has one ἔνειμι key and no number, no discriminator is guessed."
+  },
+  {
+   "id": "t_4638",
+   "cts": "1_5_2",
+   "expected": {"raw_lemma": "ἐνεἰμί", "surface": "ἐνῆν", "native_pos": "v", "v2_rule": "I-UNSUPPORTED-CITATION-FORM"},
+   "repair_kind": "lexical-spelling: prefix+base notation to the citation form",
+   "after": {"headword": "ἔνειμι", "morpheus_key": "e)/neimi", "discriminator": null},
+   "same_evidence_as": "t_4624",
+   "reason": "Same label and surface as t_4624.",
+   "uncertainty": "As t_4624."
+  },
+  {
+   "id": "t_5775",
+   "cts": "1_6_3",
+   "expected": {"raw_lemma": "ἐνεἰμί", "surface": "ἐνῆν", "native_pos": "v", "v2_rule": "I-UNSUPPORTED-CITATION-FORM"},
+   "repair_kind": "lexical-spelling: prefix+base notation to the citation form",
+   "after": {"headword": "ἔνειμι", "morpheus_key": "e)/neimi", "discriminator": null},
+   "same_evidence_as": "t_4624",
+   "reason": "Same label and surface as t_4624.",
+   "uncertainty": "As t_4624."
+  },
+  {
+   "id": "t_4930",
+   "cts": "1_5_6",
+   "expected": {"raw_lemma": "ἑπτὰ", "surface": "ἑπτὰ", "native_pos": "a", "v2_rule": "I-UNSUPPORTED-CITATION-FORM"},
+   "repair_kind": "lexical-spelling: surface sandhi accent copied into the lemma, node-specific",
+   "after": {"headword": "ἑπτά", "morpheus_key": "e(pta/", "discriminator": null},
+   "evidence": {
+    "morpheus_rows": [["lemlist", 26145, "e(pta/", ""], ["nom02", 9121, "e(pta/", ""]],
+    "ud_perseus_lemma_forms": [["ἑπτά", "ἑπτὰ", 9]],
+    "oga_same_lexeme_nodes": ["t_935", "t_3765", "t_5824"]
+   },
+   "reason": "The surface carries a grave because a word follows it; the citation form has the acute. The scheme key is e(pta/, the AGDT lineage lemmatizes grave-accented ἑπτὰ as ἑπτά, and OGA labels the other three Book 1 occurrences ἑπτά.",
+   "uncertainty": "Low. This repairs one node only. The ancient-greek/1 profile is unchanged: grave and acute stay distinct everywhere else."
+  },
+  {
+   "id": "t_5121",
+   "cts": "1_5_9",
+   "expected": {"raw_lemma": "κατάκαθέζομαι", "surface": "ἐκαθέζετο", "native_pos": "v", "v2_rule": "I-UNSUPPORTED-CITATION-FORM"},
+   "repair_kind": "lexical-spelling: redundant prefix notation to the citation form",
+   "after": {"headword": "καθέζομαι", "morpheus_key": "kaqe/zomai", "discriminator": null},
+   "evidence": {
+    "morpheus_rows": [["vbs.simp.ml", 9780, "kaqe/zomai", ""]],
+    "stem_lines": [["vbs.simp.ml", 9780, ":le:kaqe/zomai"], ["vbs.simp.ml", 9781, ":vs:kaqez w_stem,rpb:kata/,mid"], ["vbs.simp.ml", 9782, "@ imperf ind mp"]],
+    "ud_perseus_lemma_forms": [["καθέζομαι", "καθέζετο", 6], ["καθέζομαι", "καθεζόμενος", 1], ["κατά-καθέζομαι", "καθεζόμενος", 1]],
+    "oga_same_lexeme_nodes": []
+   },
+   "reason": "ἐκαθέζετο is the imperfect of καθέζομαι, augmented before καθ-. The scheme's καθέζομαι entry carries a stem with the κατά prefix and an imperfect indicative mid/pass ending (vbs.simp.ml:9780-9782). The AGDT lineage writes the same paradigm both as καθέζομαι and as the notation κατά-καθέζομαι. No key κατακαθέζομαι exists.",
+   "uncertainty": "Low. No other Book 1 node carries this lexeme."
+  },
+  {
+   "id": "t_5145",
+   "cts": "1_5_9",
+   "expected": {"raw_lemma": "σύνεἶδον", "surface": "συνιδεῖν", "native_pos": "v", "v2_rule": "I-UNSUPPORTED-CITATION-FORM"},
+   "repair_kind": "lexical-spelling: prefix+base notation to the compound citation formed by the scheme's own pattern",
+   "after": {"headword": "συνεῖδον", "morpheus_key": null, "formed_key": "sunei=don", "discriminator": null},
+   "evidence": {
+    "morpheus_rows": [["vbs.simp.ml", 6249, "ei)=don", ""], ["vbs.cmp.ml", 2555, "e)nei=don", "e)n-ei)=don"], ["vbs.cmp.ml", 5638, "prosei=don", "pro/s-ei)=don"], ["vbs.cmp.ml", 4558, "parei=don", "para/-ei)=don"], ["vbs.cmp.ml", 6340, "su/neimi1", "su/n-ei)mi/"], ["vbs.cmp.ml", 6522, "su/noida", "su/n-oi)=da"]],
+    "stem_lines": [["vbs.cmp.ml", 2555, "e)n-ei)=don e)nei=don"], ["vbs.cmp.ml", 5638, "pro/s-ei)=don prosei=don"], ["vbs.cmp.ml", 6340, "su/n-ei)mi/ su/neimi1"]],
+    "ud_perseus_lemma_forms": [["σύν-εἶδον", "συνιδοῦσα", 1], ["σύν-εἶδον", "συνεῖδε", 1], ["προσεῖδον", "προσιδεῖν", 1]],
+    "oga_same_lexeme_nodes": [],
+    "oga_convention_nodes": {"lemma": "εἶδον", "surfaces": ["ἰδεῖν"], "ids": ["t_8572", "t_8932"]}
+   },
+   "reason": "συνιδεῖν is the aorist infinitive of the σύν + εἶδον compound. The producer lemmatizes the simplex aorist under εἶδον (t_8572, t_8932 ἰδεῖν), separately from ὁράω. The AGDT lineage writes this compound σύν-εἶδον and writes the sibling προσιδεῖν as plain προσεῖδον. The scheme forms every prefix + εἶδον key the same way (ἐνεῖδον, προσεῖδον, παρεῖδον ...), and keeps σύν's ν before a vowel (σύνειμι, σύνοιδα), giving συνεῖδον.",
+   "uncertainty": "Medium. συνεῖδον is formed by the scheme's documented pattern but is not itself an attested key. The LSJ-derived lemma list files these forms under συνοράω (lsj.vbs:42646); that headword is not adopted because it would cross the producer's εἶδον/ὁράω separation. Single occurrence; not selected under either headword."
+  }
+ ],
+ "pos_repairs": [
+  {
+   "id": "t_2739",
+   "cts": "1_3_11",
+   "expected": {"raw_lemma": "εἰμί", "surface": "εἶναι", "native_pos": "v", "relation": "OBJ", "rule_upos": "VERB", "rule": "P-V-EIMI-EXISTENTIAL"},
+   "repair_kind": "pos-interpretation: copula whose predicate the native parse attaches to the governing verb",
+   "after_upos": "AUX",
+   "ud_category": "1-2 equation/attribution (UD cop)",
+   "evidence": {"native_witness": ["t_2738 ὥρα PNOM -> δοκεῖ (t_2736)", "t_2739 εἶναι OBJ -> δοκεῖ"]},
+   "reason": "οὐχ ὥρα εἶναι ... καθεύδειν: 'it is not time to sleep'. ὥρα is the predicate noun of εἶναι; impersonal δοκεῖ takes the εἶναι clause and cannot itself take a predicate nominal, so the PNOM label belongs to εἶναι.",
+   "uncertainty": "Low."
+  },
+  {
+   "id": "t_3351",
+   "cts": "1_3_21",
+   "expected": {"raw_lemma": "εἰμί", "surface": "ἦν", "native_pos": "v", "relation": "PRED", "rule_upos": "VERB", "rule": "P-V-EIMI-EXISTENTIAL"},
+   "repair_kind": "pos-interpretation: possessive dative predicate attached as an attribute",
+   "after_upos": "AUX",
+   "ud_category": "4-5 possession/benefaction (UD simple-syntax: copular in a one-copula language)",
+   "evidence": {"native_witness": ["t_3347 τοῖς ATR -> ὑποψία (t_3349)", "t_3349 ὑποψία SBJ -> ἦν"], "native_parallels": ["t_662", "t_976", "t_6764", "t_8982", "t_9036"]},
+   "reason": "τοῖς δὲ ὑποψία μὲν ἦν: 'they had a suspicion'. τοῖς is the article used as a pronoun, in the dative of the possessor. The producer's own parse labels the possessive dative as PNOM in five other Book 1 εἰμί clauses, which the rule already maps to AUX; here the dative is attached to the subject instead.",
+   "uncertainty": "Medium: classifying the possessive dative with εἰμί as UD categories 4-5 rather than a pure existential follows the producer's PNOM practice and UD's Czech-style one-copula analysis."
+  },
+  {
+   "id": "t_7640",
+   "cts": "1_8_10",
+   "expected": {"raw_lemma": "εἰμί", "surface": "ἦν", "native_pos": "v", "relation": "PRED", "rule_upos": "VERB", "rule": "P-V-EIMI-EXISTENTIAL"},
+   "repair_kind": "pos-interpretation: predicate marked PNOM inside an AuxC clause",
+   "after_upos": "AUX",
+   "ud_category": "1-2 equation/attribution with clausal predicate (UD cop)",
+   "evidence": {"native_witness": ["t_7641 ὡς AuxC -> ἦν", "t_7647 ἐλῶντα PNOM -> ὡς"]},
+   "reason": "ἡ δὲ γνώμη ἦν ὡς ... ἐλῶντα: 'the intention was to drive ...'. The native parse itself labels the participle PNOM, under the ὡς that depends on ἦν.",
+   "uncertainty": "Low."
+  },
+  {
+   "id": "t_10265",
+   "cts": "1_10_14",
+   "expected": {"raw_lemma": "εἰμί", "surface": "ἐστιν", "native_pos": "v", "relation": "OBJ", "rule_upos": "VERB", "rule": "P-V-EIMI-EXISTENTIAL"},
+   "repair_kind": "pos-interpretation: proleptic subject and interrogative predicate",
+   "after_upos": "AUX",
+   "ud_category": "1 equation, or 3 location (copular either way)",
+   "evidence": {"native_witness": ["t_10264 τί SBJ -> ἐστιν", "t_10260 τὰ OBJ -> κατιδόντας", "t_10261 ὑπὲρ AuxP -> τὰ"]},
+   "reason": "κατιδόντας τὰ ὑπὲρ τοῦ λόφου τί ἐστιν ἀπαγγεῖλαι: the subject of the indirect question is anticipated as the object of κατιδόντας (prolepsis). Read as 'what the things beyond the hill are', τί is the predicate. Read as 'what is beyond the hill', the PP is a locative predicate. Both readings are copular.",
+   "uncertainty": "Low for AUX; which copular reading applies is not settled."
+  },
+  {
+   "id": "t_10412",
+   "cts": "1_10_18",
+   "expected": {"raw_lemma": "εἰμί", "surface": "ἦσαν", "native_pos": "v", "relation": "ExD", "rule_upos": "VERB", "rule": "P-V-EIMI-EXISTENTIAL"},
+   "repair_kind": "pos-interpretation: pronoun subject and numeral-noun predicate parsed as one attributive phrase",
+   "after_upos": "AUX",
+   "ud_category": "1 / 2.1 equation/quantification (UD cop)",
+   "evidence": {"native_witness": ["t_10414 αὗται ATR -> ἅμαξαι", "t_10415 τετρακόσιαι ATR -> ἅμαξαι", "t_10420 ἅμαξαι SBJ -> ἦσαν"]},
+   "reason": "ἦσαν δ' αὗται τετρακόσιαι ... ἅμαξαι: 'these were four hundred wagons'. A demonstrative used attributively needs the article with its noun (αὗται αἱ ἅμαξαι); bare αὗται is the pronoun subject referring back to the wagons, and τετρακόσιαι ἅμαξαι is the predicate.",
+   "uncertainty": "Low."
+  },
+  {
+   "id": "t_5989",
+   "cts": "1_6_6",
+   "expected": {"raw_lemma": "εἰμί", "surface": "ἔστιν", "native_pos": "v", "relation": "PRED", "rule_upos": "AUX", "rule": "P-V-EIMI-COP-ADVERBIAL-PREDICATE"},
+   "repair_kind": "pos-interpretation: temporal PP adjunct taken as a predicate; existential with relative-clause subject",
+   "after_upos": "VERB",
+   "ud_category": "6 pure existential (UD simple-syntax: the verb heads, no predicate)",
+   "evidence": {"native_witness": ["t_5982 μετὰ AuxP -> ἔστιν", "t_5983 ταῦτα ADV -> μετὰ", "t_5993 ἠδίκησα ATR -> ταῦτα"]},
+   "reason": "μετὰ ταῦτα ... ἔστιν ὅ τι σε ἠδίκησα;: 'after that, is there anything in which I wronged you?' μετά with the accusative ταῦτα is temporal, not a location predicate. ἔστιν ὅ τι is the existential 'there is something which', with the relative clause as subject; the native parse attaches that clause to ταῦτα instead.",
+   "uncertainty": "Low."
+  }
+ ],
+ "reviewed_without_repair": [
+  {"id": "t_6641", "rule_upos": "AUX", "classification": "possession (dative ἡμῖν, attached as ATR of ἀρχή) with extent PPs; UD categories 4-5, copular", "uncertainty": "Low-medium; consistent with t_3351 and the five native PNOM possessive datives."},
+  {"id": "t_5651", "rule_upos": "VERB", "classification": "εἴ τι ἄλλο χρήσιμον ἦν: the native parse makes χρήσιμον attributive ('if there was anything else useful'), an existential reading", "uncertainty": "Open: the predicative reading ('whatever else was useful') is also grammatical. No positive evidence that the native parse is wrong, so the rule output stands; effect at most one εἰμί|VERB occurrence."},
+  {"id": "t_9711", "rule_upos": "VERB", "classification": "τέτταρες δ' ἐλέγοντο παρασάγγαι εἶναι τῆς ὁδοῦ: the native parse makes τέτταρες attributive (existential 'four parasangs of road')", "uncertainty": "Open: a quantification reading (copular) is also grammatical. Rule output stands; effect at most one εἰμί|VERB occurrence."}
+ ]
+}
