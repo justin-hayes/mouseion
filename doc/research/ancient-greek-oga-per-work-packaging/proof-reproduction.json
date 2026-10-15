@@ -1,0 +1,75 @@
+{
+ "gorman_registry_entries_not_staged": [
+  "private/opus-completion/gorman/README.md",
+  "private/opus-completion/gorman/TREEBANK LICENSE",
+  "private/opus-completion/gorman/Xen_Anab_book_1.1-5.xml",
+  "private/opus-completion/gorman/Xen_Anab_book_1.6-9.xml"
+ ],
+ "import_gate_assess": {
+  "import_ledger_byte_identical": true,
+  "private_projections": {
+   "native-nodes.json": {
+    "retained_identical": true,
+    "sha256": "2a5aca90602428b23f0f88cbcbfbd1ac787c87d25bd9bd87c67c7a29ae0f942b"
+   },
+   "node-to-tei.json": {
+    "retained_identical": true,
+    "sha256": "1f9016a011f9f62ef87931a9e58d655c5152d0feae3e69b85f0eaa0885b7b631"
+   },
+   "reading-to-paula.json": {
+    "retained_identical": true,
+    "sha256": "e4739c29c869ef6b76aee43429f6134e3b447e6b8580a71cd69ebcf36e8a8cd3"
+   },
+   "reading.txt": {
+    "retained_identical": true,
+    "sha256": "0f18cae963899218fda6c62726d6a0b0429763f390597c1781a93d80c2ddd907"
+   }
+  }
+ },
+ "package": {
+  "file": "oga-v0.2.0_tlg0032.tlg006.perseus-grc2_core.zip",
+  "members": 31,
+  "sha256": "19bc870c02ceb0bd2be08ef952ecb7945b879d1aaebee1cb0f63be8de14ead76",
+  "tier": "core"
+ },
+ "proof_commit": "e610a5aa6c77c25864114ef9604ac9d50515039b",
+ "runs": {
+  "mapping_completion_v2": {
+   "exit": 0,
+   "report": {
+    "identity": "not-established",
+    "pos": "not-established",
+    "reproduction_problems": []
+   }
+  },
+  "opus_repair": {
+   "exit": 0,
+   "report": {
+    "card_inputs": 434,
+    "gates_failing": [],
+    "reproduction_problems": [],
+    "selected": 438
+   }
+  }
+ },
+ "staged_witness_files": 51,
+ "unchanged_import_gate_cli": {
+  "exit": 1,
+  "ledger_and_projection_checks_passed": true,
+  "missing_inputs_reported": [
+   "private/opus-completion/gorman/README.md"
+  ],
+  "package_tier": "complete",
+  "producer_documents_copied_for_layout": [
+   "morpheus-README.md",
+   "ud-ancient-greek-perseus-README.md",
+   "ud-upos-index.html"
+  ],
+  "test_errors": [
+   "test_rebuild_matches_committed_outputs_and_gates",
+   "test_rebuild_matches_committed_summary_and_gates"
+  ],
+  "tests": "Ran 164 tests"
+ },
+ "version": "oga-anabasis1-package-reproduction/1"
+}

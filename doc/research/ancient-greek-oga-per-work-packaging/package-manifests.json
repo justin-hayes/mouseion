@@ -1,0 +1,36 @@
+{
+ "packages": {
+  "complete": {
+   "by_tier": {
+    "core": 42256593,
+    "metadata": 4035,
+    "notice": 36485,
+    "optional": 17464641,
+    "schema": 3312
+   },
+   "bytes": 6432447,
+   "file": "oga-v0.2.0_tlg0032.tlg006.perseus-grc2_complete.zip",
+   "manifest_sha256": "9475fce090c25eb3593cd4b528fc26282fb9da32af7ebac25e81d501ec71ebda",
+   "member_bytes": 59765066,
+   "members": 40,
+   "sha256": "5f6eb2522295b50bc990cb32cbeda6c610a4384ade935f82c1e0b4b23dd693a7"
+  },
+  "core": {
+   "by_tier": {
+    "core": 42256593,
+    "metadata": 4035,
+    "notice": 36485,
+    "schema": 3312
+   },
+   "bytes": 4234495,
+   "file": "oga-v0.2.0_tlg0032.tlg006.perseus-grc2_core.zip",
+   "manifest_sha256": "7bb405000ac2f4aabd0819bbe831451784af4e15aab059e6df1e610fa973273a",
+   "member_bytes": 42300425,
+   "members": 31,
+   "sha256": "19bc870c02ceb0bd2be08ef952ecb7945b879d1aaebee1cb0f63be8de14ead76"
+  }
+ },
+ "python": "3.13.5",
+ "version": "oga-anabasis-work-packages/1",
+ "zlib": "1.3.1"
+}
