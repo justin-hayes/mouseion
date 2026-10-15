@@ -1584,8 +1584,10 @@ Added by [#2091](https://github.com/justin-hayes/mouseion/issues/2091). The
 learner flow runs tokenization → lemma → morphology → dictionary, so a Greek
 learner looks up a headword while reading, not only on a card. This subsection
 places that lookup and fixes how it matches identities. It acquires no data,
-builds no index and implements nothing. The Current anchors rows about the
-dictionary index, after the first, were verified at commit `606e8290` (`main`).
+builds no index and implements nothing. It is written against the
+recommendations of OD-81 and OD-82, which stay open until §18 records answers.
+The five Current anchors rows that follow the dictionary lookup-key row were
+verified at commit `606e8290` (`main`).
 
 **Owning spec (OD-81).** [#2060 Reading and vocabulary](https://github.com/justin-hayes/mouseion/issues/2060)
 owns `grc` dictionary lookup: the `grc` index entries, the lookup and its
@@ -1617,12 +1619,16 @@ part of speech and, when the page has numbered etymologies, its
 `etymology_number`. Entries are never merged by key, unlike today's rows
 (see Current anchors). Each row stores:
 
-- the source headword, NFC, exactly as the page title spells it;
+- the source headword: the page title, put in NFC and otherwise unchanged;
 - the UPOS mapped from the source part of speech, or empty when the mapping
   gives none (today's lemma-only rows);
 - the etymology number, or empty;
 - the senses, forms and IPA the derivation already extracts, in source order;
 - no key. Go computes the key (OD-82).
+
+The derivation records an index format version in the index metadata. The
+server treats `grc` as unavailable in an index whose format predates per-entry
+rows. Modern-language rows keep today's shape and lookup.
 
 A headword that fails §6 admission, for example a multi-word phrase, is not
 matchable. Under OD-82's recommendation the server skips it when it opens the
@@ -1664,7 +1670,11 @@ make them meet.
 - A later mapping from `(scheme, value)` to an entry is a reviewed, versioned
   registry, like a discriminator scheme. It needs its own approved decision and a
   stable entry identifier across dumps. This design defines none.
-- Lookup offers no discriminator choice to a learner. OD-23 stays as answered.
+- Lookup offers no discriminator choice to a learner. §18 answers OD-23 with
+  "revisit option (2) once dictionary glosses exist". Lookup makes entries
+  visible, but without a reviewed mapping no entry says which discriminator it
+  belongs to, so a choice between `#1` and `#2` would still be uninformed.
+  OD-23 (1) stands, and the revisit waits for such a mapping.
 
 **Where the learner sees it.** #2060 shows the matching entries for an
 identity opened from Browse, beside the headword and the discriminator metadata.
@@ -6134,11 +6144,11 @@ Some rows name a widened seam. Each widening waits on its open decision:
 | IDN-36 | Modern-language identities and learner outcomes are unchanged. | (b) | Every existing store-contract scenario (language `de`). | Run them with rich identities and the classical schema present. Run selection over synthetic `de` and `el` corpora. | Every scenario passes unchanged. Known, Reserved, snapshot, completion and count results equal the baseline, including the blank-UPOS Known match. Selection gives the same candidate identities, counts, observed forms and sentence references as the baseline recorded at this commit. | No modern-language Known, snapshot or count row gains a discriminator. |
 | IDN-37 | Cross-Book views choose an identity's headword by the stated preference order. | (b) | Owner A has two classical Books whose current analyses give one identity the headwords `Λέξις` and `λέξις`. The second Book is the Concordance priority Book. | Read the Concordance lemma group. Then accept a completed Reading of the first Book that makes the identity Known, and read the Known list and the Concordance group. | Before acceptance, the group shows `λέξις`, from the priority Book. After it, both views show `Λέξις`, the headword frozen with the Known acceptance. | Without a priority Book or Known acceptance, the view shows `Λέξις`, the smaller by code-point order. It never shows the key. |
 | IDN-38 | A corrected identity shows the correction's citation form in its Book. | (b) | Owner A's Book has two occurrences of `λέξις` NOUN `example:ex:1`. | Confirm a correction of the first to `Λῆξις`, then of the second to `λῆξις`. Read the Book's vocabulary. | The effective identity `λῆξισ` NOUN with a null discriminator shows `λῆξις`, from the latest correction. The Analysis headword for `example:ex:1` is unchanged. | Another Book with the same identity from its analysis shows its own headword, not the correction's. |
-| IDN-39 | Go computes every `grc` entry key with `ancient-greek/1`; a headword that fails admission matches nothing. | (a) | A synthetic index whose `grc` rows have the headwords `Λέξις`, `λε` + U+0301 + `ξις` (NFD) and `λέξις λέξις`. Owner A's classical Book has the identity `λέξισ` NOUN. | Open the identity from Browse. | Both single-word entries are shown, because both keys are `λέξισ`. Opening the index logs one skipped headword. | The multi-word headword is never shown, and no key is computed by casefold or by Python. |
+| IDN-39 | Go computes every `grc` entry key with `ancient-greek/1`; a headword that fails admission matches nothing. | (a) | A synthetic index whose `grc` rows have the headwords `Λέξις`, `λέξις` and `λέξις λέξις`. Owner A's classical Book has the identity `λέξισ` NOUN. | Open the identity from Browse. | Both single-word entries are shown, as two entries, because both keys are `λέξισ`. Opening the index logs one skipped headword. | The multi-word headword is never shown, and no key is computed by casefold or by Python. |
 | IDN-40 | An entry matches on byte-equal key and equal UPOS; lemma-only entries follow as weaker evidence; nothing else is compared. | (a) | A synthetic index with `grc` entries `λέξις` NOUN, `λέξις` with empty UPOS, `λέξις` VERB, `λὲξις` NOUN and `λήιξις` NOUN. The identity is `λέξισ` NOUN. | Open the identity from Browse. | The NOUN entry is shown first, then the empty-UPOS entry, labelled weaker. | The VERB entry, the grave-accent entry and the adscript entry are not shown. |
-| IDN-41 | Lookup never reads the discriminator; identities that differ only in it show the same entries, separately, and stay distinct. | (a) | A synthetic index with two `grc` entries `λέξις` NOUN, etymology numbers 1 and 2, with different senses. Owner A's Book has `λέξις` NOUN `example:ex:1` and `example:ex:2`. | Open each identity from Browse. Then mark `example:ex:1` Known. | Each identity shows both entries as two entries, in source order, with their senses apart, and says they are not matched to its discriminator. After the Known decision, only `example:ex:1` is Known. | No sense list merges the two entries, no entry is hidden, and neither identity shows a chosen discriminator or changes. |
-| IDN-42 | An unavailable index is shown as unavailable and blocks nothing; lookup needs no NLP or provider and writes no learner state. | (a) | Owner A has a current classical Reading. NLP is stopped and no provider is configured. Run once with no index file, once with an index without `grc` rows, and once with a synthetic `grc` index. | Open an identity from Browse, then End the Reading. | Without `grc` entries, the view shows the dictionary as unavailable with a reason. With them, entries are shown. End succeeds in every run. No learner, Book or evidence row changes when an identity is opened. | No run shows "no dictionary entry" when the index is missing, and no run makes a network call. |
-| IDN-43 | Lookup never changes an identity, a count or a selection. | (a) | Owner A's classical Book with a recorded Browse, count and selection result. A synthetic `grc` index with entries for some identities and none for others. | Load the index, then read Browse, counts and the Start selection. | Every result equals the one recorded without the index. | An identity with no entry is not excluded, flagged or demoted. |
+| IDN-41 | Lookup never reads the discriminator; identities that differ only in it show the same entries, separately, and stay distinct. | (a) | A synthetic index with two `grc` entries `λέξις` NOUN, etymology numbers 1 and 2, with different senses. Owner A's Book has `λέξις` NOUN `example:ex:1` and `example:ex:2`. | Open each identity from Browse. | Each identity shows both entries as two entries, in source order, with their senses apart, and says they are not matched to its discriminator. The two identities keep their own Browse rows and counts. | No sense list merges the two entries, no entry is hidden, and neither identity shows a chosen discriminator or changes. |
+| IDN-42 | An unavailable index is shown as unavailable and blocks nothing; lookup needs no NLP or provider and writes no learner state. | (a) | Owner A has a current classical Reading. NLP is stopped and no provider is configured. Run once with no index file, once with an index without `grc` rows, and once with a synthetic `grc` index. | Open an identity from Browse. | Without `grc` entries, the view shows the dictionary as unavailable with a reason. With them, entries are shown. In every run the Reading's End, Switch and Finish stay offered, and no learner, Book or evidence row changes. | No run shows "no dictionary entry" when the index is missing, and no run makes a network call. |
+| IDN-43 | Lookup never changes an identity, a count or a selection. | (a) | Owner A's classical Book with a recorded Browse, count and selection result. A synthetic `grc` index with entries for some identities and none for others. | Read Browse, counts and the Start selection with the index loaded. | Every result equals the one recorded without the index. | An identity with no entry is not excluded, flagged or demoted. |
 | OCC-01 | Two nodes with an identical span are two occurrences with two keys. | (c) | A synthetic candidate. Nodes 4 (`λέξις` NOUN `example:ex:1`) and 5 (`λέξις` NOUN `example:ex:2`) are both `word`, `vocabulary`, with span `[10,16)`. | Validate the candidate. | Accepted. It yields occurrences `(A,4)` and `(A,5)`, both counted. Each key resolves to its own node and identity. | A candidate that gives node 5 the same `native_node_ref` as node 4 in that sentence is rejected (`OCC-ID-1`). A lookup by span `[10,16)` is not an occurrence key and is not offered by the interface. |
 | OCC-02 | A discontinuous span round-trips exactly. | (d) | A validated synthetic analysis where node 9 has spans `[2,5)` and `[9,12)`, and the Extracted text has known slices at both. | Persist it, then read node 9 through the analysis read interface. | Two spans in order, `[2,5)` then `[9,12)`. The text slices equal the Extracted text at those spans. No span `[2,12)` exists. | Validating spans `[2,5)` and `[4,8)` (overlapping), `[2,5)` and `[5,8)` (adjacent), or `[9,12)` before `[2,5)` is rejected (`SPAN-2`), seam (c). |
 | OCC-03 | An empty node has no span and no count. | (c) | A candidate sentence with words 1–3 and an empty node `2.1` that has a lemma. | Validate and read counts. | The empty node is `empty`, `non_vocabulary(empty_node)`, with a NULL surface, no span and no occurrence. The count is that of words 1–3 only. | A candidate giving the empty node a span, a surface or class `vocabulary` is rejected (`SPAN-3`, `ACC-2`). |
