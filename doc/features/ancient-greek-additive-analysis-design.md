@@ -2778,7 +2778,459 @@ Each invariant is covered by the `LRN` rows in [§15](#15-acceptance-test-matrix
 
 ## 9. Retention references
 
-_Pending: owned by the retention references ticket._
+Verified at commit `f84003451246cef53c52fe246284dd4a801ea145` (`main`). Every
+`path:line` in this section refers to that commit. No file outside `doc/` changed
+between §3's baseline commit and this one, so §3's citations still hold.
+
+### Summary
+
+- A **retention root** is a retained record that depends on exact evidence:
+  adopted Book evidence, a preparation request, an exact occurrence decision or
+  flag, a snapshot and its membership, a completion and Rich Known, a deck
+  specification or artifact, a Usability restriction, and an unidentified
+  Edition's evidence pin. Each root protects the full **evidence closure** of
+  what it names, down to the bytes.
+- Mechanism **(i)** (OD-37): direct foreign keys along the closure, `RESTRICT`
+  into shared evidence and `NO ACTION` between owner-scoped rows, plus **delete
+  guards** that reject every `DELETE` and `TRUNCATE` of shared evidence today. No
+  retention-reference table keyed by referencer kind is added.
+- One new owner-scoped record, the **Adopted evidence record**, keeps every
+  (owner, Book, analysis) that was ever adopted, with the acquisitions that gave
+  access. Owner-scoped roots reference it, so a root also protects the blob and
+  keeps its owner's access route after a later adoption replaces the current
+  analysis.
+- The protection is always part of the referencing record's own transaction
+  (rule RET-TX).
+- Hiding, leaving To Read, removing a connection, upstream withdrawal and
+  cancellation delete nothing that a root needs. Account deletion keeps the
+  existing owner-cascade boundary and removes only that owner's rows. This
+  design adds no erasure workflow (ADR 0035).
+- Unreferenced evidence is kept. A read-only report identifies it. No job, TTL
+  or purge exists.
+- After a restore, an operator-run **evidence integrity check** re-hashes every
+  stored byte and resolves every reference. A failure appends an
+  `integrity_failure` Usability restriction (§5). Affected Books show
+  unavailable with the reason. Nothing frozen changes, and nothing is
+  substituted.
+
+New record and rule names are proposed terms (OD-40). Table names in the
+illustrative DDL are not prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| The baseline's immutability triggers are `BEFORE UPDATE` only. No migration has a `BEFORE DELETE` or `TRUNCATE` trigger. | `migrations/000001_initialize.up.sql:116-121`, `:2504`, `:2511`, `:2518`, `:2525` | A row with no inbound foreign key is deletable today. §9 adds delete guards to the new shared evidence records. The baseline triggers are not changed. |
+| Legacy decks protect their analysis run with a `NO ACTION` foreign key. The same deck row cascades when its source material is deleted. | `migrations/000001_initialize.up.sql:2821`, `:2853` | The direct-foreign-key precedent exists. Classical evidence has no cascade from an owner-scoped parent, so it cannot be lost through one. |
+| Legacy snapshots cascade from their Book, source material, run and corpus. Completions and deck preparations reference the snapshot with `NO ACTION`. | `migrations/000007_primary_goal_snapshots.up.sql:29-32`, `:57`; `migrations/000009_primary_goal_completion_provenance.up.sql:12-14` | A completion already protects its snapshot. A rich snapshot (§8) adds a `RESTRICT` reference to its Exact analysis and no cascade from evidence. |
+| A legacy deck preparation is retired by setting `retired_at`. It is not deleted. | `sqlc/queries/deck_preparations.sql:149-158`; `migrations/000001_initialize.up.sql:2343` | Deck history is retained by convention today. Classical deck records are roots (#2063). |
+| No application code deletes a user or a Book. The only `DELETE FROM users` is in a test. Books cascade from `users`. | `git grep -nIi "delete from users\|delete from books" -- . ':!doc'` returns only `internal/epub/ingest_integration_test.go:91`; `migrations/000001_initialize.up.sql:2645` | Account deletion exists only as a database-level owner cascade. Book deletion does not exist. |
+| Removing a connection deletes the connection row. Book aliases and sync status cascade from it. | `sqlc/queries/opds.sql:29`, called from `internal/webapp/catalog_handlers.go:126`; `migrations/000001_initialize.up.sql:2597`, `:2669` | §4 offerings cascade from a connection. §5 acquisitions name their origin as text, not as a foreign key, so no evidence or root is reached. |
+| End and Finish delete only the current-reading row. Disposition and visibility write only their own rows. | `sqlc/queries/current_reading.sql:174-176`; `internal/persistence/book_dispositions.go:54-91`; `internal/persistence/book_visibility.go:36-66` | No learner transition deletes a root or evidence. |
+
+### Referencers
+
+Each row is a retention root. "Names" lists the closure entry points that the
+root references itself. The full closure of each entry point is in
+[Dependency closure](#dependency-closure). Owner-scoped rows reach shared
+evidence through the owner's Adopted evidence record or acquisitions, which
+also protect the bytes and the access route (§5 "Owner evidence access").
+
+| root | record (owning section) | owner scope | names | reference and on-delete |
+| --- | --- | --- | --- | --- |
+| R1. Adopted current Book evidence | Book current classical analysis (§5) and Adopted evidence record (§9) | Owner | Exact analysis; text and annotation acquisitions | Current row → `(owner_id, book_id, analysis_id)` Adopted evidence record `NO ACTION` (added constraint, no new column). Adopted evidence record → analysis `RESTRICT`, → acquisitions `NO ACTION`. |
+| R2. In-flight preparation request | Preparation request (§11) | Owner | Acquisitions; candidate Exact analysis once written; Interpretation configuration once resolved | Request → acquisitions `NO ACTION`; → candidate analysis `RESTRICT`; → Interpretation configuration `RESTRICT`. §11 owns the request's shape and states. |
+| R3. Exact occurrence decisions and flags | Exact occurrence decision, Exact Lemma review flag (§8) | Owner | Annotation occurrence; corrected identity; the analysis through its Adopted evidence record | As §8 (occurrence and identity `RESTRICT`), plus `(owner_id, book_id, analysis_id)` → Adopted evidence record `NO ACTION` (added constraint, no new column). |
+| R4. Active and ended snapshots | Rich snapshot row, Rich snapshot membership, Snapshot count contribution (§8) | Owner | Exact analysis; identities; contributing Books' analyses | As §8 (analysis and identity `RESTRICT`). Rich snapshot row `(owner_id, book_id, exact_analysis_id)` and contribution `(owner_id, book_id, analysis_id)` → Adopted evidence record `NO ACTION`. The composite key is unchecked for a legacy snapshot because `exact_analysis_id` is NULL. Release sets `released_at` and deletes nothing. |
+| R5. Reading completions and history | `reading_history` row; Rich Known vocabulary (§8) | Owner | The completed snapshot; the accepted membership; the analysis | Completion → snapshot `NO ACTION` (existing, `migrations/000009_primary_goal_completion_provenance.up.sql:12-14`). Rich Known → membership `NO ACTION` (§8), plus `(owner_id, book_id, analysis_id)` → Adopted evidence record `NO ACTION`. |
+| R6. Deck specifications and artifacts, Reading-owned and custom | Classical deck records (#2063) | Owner | Every (Book, analysis) whose occurrences, sentences or headwords the specification or artifact uses; identities | Required of #2063: one `(owner_id, book_id, analysis_id)` → Adopted evidence record `NO ACTION` per (Book, analysis) used, and identities `RESTRICT`. The artifact resolves its notices through these references and never through the Book's current analysis. |
+| R7. Capability restrictions | Usability restriction (§5) | Shared | Its subject | Subject `RESTRICT` (§5). A restriction is itself guarded, so its explanation stays resolvable. |
+| R8. Unidentified Edition's pinned text revision | Edition (§4) | Shared, or private to an owner | Text Source revision | `RESTRICT` (§4, §5). |
+
+Derived data is not a root. Rich count readiness and Rich vocabulary counts
+(§8) reference the analysis with `RESTRICT` only to keep their rows consistent.
+They are rebuilt or deleted by their writers, and their deletion releases
+nothing, because the Adopted evidence record still holds the analysis.
+
+### Dependency closure
+
+The **evidence closure** of an Exact analysis X is every row below. Most rows
+are reached from X through `RESTRICT` foreign keys between shared records.
+Notices, provenance claims and restrictions point at the closure instead, and
+no key reaches them. Every row carries the delete guard. The closure of an acquisition is its blob and
+that blob's Package content. An owner-scoped root holds the union of the
+closures of everything it names.
+
+| dependency | records (section) | reached from X by | protected by |
+| --- | --- | --- | --- |
+| Analysis | Exact analysis; its five Capability diagnostics and Diagnostic findings (§5) | X itself; diagnostics and findings → X | Inbound `RESTRICT` from roots; delete guard on every row |
+| Analysis content | Analysis sentences, Sentence spans, Analysis nodes, Node spans, Container components, Annotation occurrences, Node morphology, Basic and Secondary syntax edges (§7); Analysis headwords (§6) | each → X, directly or through its node or sentence | `RESTRICT` to X; delete guard. The node IDs in a membership's `occurrence_node_ids` array have no foreign key. Their rows are protected because nothing under X can be deleted. |
+| Vocabulary identity | Vocabulary identity (§6) | node → identity | `RESTRICT` from nodes, decisions, membership, Known and counts; delete guard |
+| Binding | Text–annotation binding (§5) | X → binding | `RESTRICT`; delete guard |
+| Text revision and annotation revision | Text Source revision, Annotation Source revision, and their revision members (§5) | binding → revisions; members → revision | `RESTRICT`; delete guard |
+| Unit | Reading unit (§4) | binding → unit | `RESTRICT` (§5); §4's update-rejecting trigger; the delete guard on shared units, and on their shared Edition and Work |
+| Extracted text | Extracted text (§5) | binding → Extracted text | `RESTRICT`; delete guard |
+| Interpretation version and frozen table | Interpretation configuration; exception-table Package blob (§5) | X → interpretation → table blob | `RESTRICT`; delete guard |
+| Manifest and members | Package content; Package members, including the `manifest` member (§5) | revision members → Package member → Package content | `RESTRICT`; delete guard |
+| Blob | Package blob of the build that the owner acquired (§5) | Root → Adopted evidence record or request → acquisition → blob | Acquisition → blob `RESTRICT` (§5). Root → acquisition `NO ACTION`. The acquisition also has the owner-scoped guard below. A shared root (R7, R8) does not name a build. It protects the content, not a particular blob. |
+| Notices | Evidence notices and Notice coverage whose subject is a revision, a member of either revision, or the interpretation (§5) | coverage → subject; coverage → notice → notice member | `RESTRICT` from coverage; delete guard on coverage and notices. Coverage has no inbound key, so the guard is its only protection. |
+| Provenance | Provenance claims on the annotation revision or the interpretation (§5) | claim → subject | Delete guard. A claim has no inbound key. |
+| Restrictions | Usability restrictions naming any row above (§5) | restriction → subject | Delete guard |
+| Rights records | None is modelled. §5 keeps operation-specific rights with the external gates [#2054](https://github.com/justin-hayes/mouseion/issues/2054), [#2055](https://github.com/justin-hayes/mouseion/issues/2055) and [#2056](https://github.com/justin-hayes/mouseion/issues/2056). | — | A rights record that a gate later adds for a component in this closure joins it with a `RESTRICT` reference to that component and the delete guard. |
+
+### Records
+
+#### Adopted evidence record
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| Keeps every (owner, Book, Exact analysis) that was ever adopted, with the acquisitions that gave the owner access when it was first adopted. It is the owner-scoped anchor that R1 and R3–R6 reference. | `owner_id uuid`; `book_id uuid`; `analysis_id uuid`; `text_acquisition_id uuid`; `annotation_acquisition_id uuid` (may equal the text acquisition); `first_adopted_at timestamptz` | `(owner_id, book_id, analysis_id)` | Key only. Adopting the same analysis again for the same Book reuses the row, and its first acquisitions are kept. | Owner. | **Immutable** and append-only. Inserted only by §11 adoption, insert-if-absent, in the transaction that writes the Book current classical analysis row. Deleted only by the owner cascade (owner guard below). | `(owner_id, book_id)` → §4 Book–Reading unit association `ON DELETE CASCADE`, with the owner guard; `analysis_id` → Exact analysis `RESTRICT`; `(owner_id, text_acquisition_id)` and `(owner_id, annotation_acquisition_id)` → Package acquisition `NO ACTION` |
+
+At insert, a trigger applies the same checks as §5's trigger on the current
+row. The analysis's binding names the Book's Reading unit. The text
+acquisition's blob carries the text revision's Package content, and the
+annotation acquisition's blob carries the annotation revision's. Every Adopted
+evidence record therefore satisfies §5's access predicate for its owner. That is
+why a retained reference stays readable as that owner's evidence after a
+replacement (EFF-4).
+
+```sql
+-- illustrative, not a migration
+CREATE TABLE adopted_evidence_records (
+  owner_id uuid NOT NULL,
+  book_id uuid NOT NULL,
+  analysis_id uuid NOT NULL REFERENCES exact_analyses(id) ON DELETE RESTRICT,
+  text_acquisition_id uuid NOT NULL,
+  annotation_acquisition_id uuid NOT NULL,
+  first_adopted_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (owner_id, book_id, analysis_id),
+  FOREIGN KEY (owner_id, book_id) REFERENCES book_reading_units(owner_id, book_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id, text_acquisition_id) REFERENCES evidence_package_acquisitions(owner_id, id) ON DELETE NO ACTION,
+  FOREIGN KEY (owner_id, annotation_acquisition_id) REFERENCES evidence_package_acquisitions(owner_id, id) ON DELETE NO ACTION
+);
+
+-- Added constraints on §5 and §8 records. They add no column.
+ALTER TABLE book_current_classical_analyses
+  ADD FOREIGN KEY (owner_id, book_id, analysis_id)
+    REFERENCES adopted_evidence_records(owner_id, book_id, analysis_id) ON DELETE NO ACTION;
+ALTER TABLE exact_occurrence_decisions
+  ADD FOREIGN KEY (owner_id, book_id, analysis_id)
+    REFERENCES adopted_evidence_records(owner_id, book_id, analysis_id) ON DELETE NO ACTION;
+ALTER TABLE primary_goal_snapshots
+  ADD FOREIGN KEY (owner_id, book_id, exact_analysis_id)
+    REFERENCES adopted_evidence_records(owner_id, book_id, analysis_id) ON DELETE NO ACTION;
+-- likewise: exact Lemma review flags, snapshot count contributions and Rich Known.
+
+-- Delete guard on shared evidence (one function, one trigger pair per table).
+CREATE FUNCTION reject_classical_evidence_deletion() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'classical evidence is retained and cannot be deleted';
+END;
+$$;
+CREATE TRIGGER evidence_blobs_retained BEFORE DELETE ON evidence_blobs
+  FOR EACH ROW EXECUTE FUNCTION reject_classical_evidence_deletion();
+CREATE TRIGGER evidence_blobs_not_truncated BEFORE TRUNCATE ON evidence_blobs
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_classical_evidence_deletion();
+
+-- Owner guard on owner-scoped retention rows: deletion only inside the owner cascade.
+CREATE FUNCTION reject_retention_root_deletion() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM users WHERE id = OLD.owner_id) THEN
+    RAISE EXCEPTION 'retained evidence reference can be removed only with its owner';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+CREATE TRIGGER adopted_evidence_records_retained BEFORE DELETE ON adopted_evidence_records
+  FOR EACH ROW EXECUTE FUNCTION reject_retention_root_deletion();
+```
+
+### Mechanism
+
+**Decision (OD-37, option (i)).** Protection is a foreign key on the
+referencing row itself. There is no separate reference table. The rules:
+
+- **RET-FK-1.** Every reference into a shared evidence record is `ON DELETE
+  RESTRICT`. This covers both shared-to-shared references and owner-to-shared
+  references. Owner deletion never deletes a shared row, so `RESTRICT` never
+  blocks it.
+- **RET-FK-2.** Every retention reference between owner-scoped rows that the
+  same owner cascade removes is `NO ACTION`, as in §4 and §5. PostgreSQL checks
+  it at the end of the statement, so cascade order does not matter. The only
+  exception is a record's anchor to its own Book. The Adopted evidence record,
+  like §8's records, keeps `ON DELETE CASCADE` from the §4 association, and the
+  owner guard (RET-GUARD-2) decides whether that cascade may proceed.
+- **RET-FK-3.** Every owner-scoped root that names an Exact analysis for a Book
+  also references the Adopted evidence record `(owner_id, book_id,
+  analysis_id)`. A root that names a request instead, before adoption,
+  references that request's acquisitions (R2).
+- **RET-GUARD-1. Delete guard.** Every shared record in the closure table above
+  has a `BEFORE DELETE` row trigger and a `BEFORE TRUNCATE` statement trigger.
+  Both reject the operation. These records are the §5 shared records, the §6
+  identity and headword records, and the §7 records. On §4's Work, Edition and
+  Reading unit, the row trigger rejects only shared rows (`owner_id IS NULL`), so
+  the owner cascade still removes private ones (§4 "Owner deletion"). §4's
+  private rows are never in a closure, because bindings name shared units only
+  (OD-17). The guard is what makes "retain by default" a database fact. It
+  also covers leaf rows that no foreign key reaches, such as Notice coverage,
+  Provenance claims, findings, spans and restrictions. `RESTRICT` still records
+  the closure, which a future reclamation must respect after it replaces the
+  guard. Together with §5's mirrored update triggers, a referenced row can be
+  neither deleted nor replaced.
+- **RET-GUARD-2. Owner guard.** The Adopted evidence record, the Package
+  acquisition (§5) and the preparation request (§11) reject `DELETE` while
+  their owner's `users` row exists. Inside the owner cascade the parent row is
+  already gone, so the delete proceeds. A direct delete of a classical Book, or
+  of its association, cascades to its Adopted evidence records and fails there,
+  rolling back the whole statement.
+- **RET-TX. Same transaction.** A retention reference is part of its
+  referencing record. It is either a foreign key on that record's own row, or
+  an Adopted evidence record or request link inserted earlier in the same
+  transaction. No referencing record commits without its protection. No job,
+  later transaction or deferred step adds protection afterwards. In particular:
+  - §11 adoption inserts the Adopted evidence record, insert-if-absent, in the
+    transaction that writes or replaces the Book current classical analysis
+    row.
+  - §11 links a request to its acquisitions and candidate analysis in the
+    transaction that writes those evidence rows (§5 "Limits").
+  - §8's writers (Start, Switch, Finish, lemma decisions) and #2063's deck
+    writers insert their rows with the foreign keys above, in their existing
+    transactions.
+
+  §11 relies on this rule. A failed or rolled-back transaction leaves neither
+  the referencing record nor its protection.
+- **Concurrency.** Shared evidence is never deleted, so nothing races a
+  reference today. If a later reclamation replaces the guard, each foreign-key
+  check takes `FOR KEY SHARE` on the referenced row. A concurrent delete and a
+  new reference therefore serialize, and a committed reference never points at
+  a deleted row.
+- **Indexes.** The owner cascade deletes Adopted evidence records and
+  acquisitions, so every `NO ACTION` key that references them needs an index
+  led by its referencing columns. The primary keys of decisions, flags and the
+  current row already serve this. The rich snapshot row needs `(owner_id,
+  book_id, exact_analysis_id)`. Contributions and Rich Known need `(owner_id,
+  book_id, analysis_id)`. Adopted evidence records need `(owner_id,
+  text_acquisition_id)` and `(owner_id, annotation_acquisition_id)`. `RESTRICT`
+  keys into shared evidence get no extra index, because no shared row is ever
+  deleted. A reclamation change adds those, and the report below tolerates
+  sequential scans.
+
+**Rules for records not yet designed.** §11's preparation request and #2063's
+deck specifications and artifacts must follow RET-FK-1 to RET-FK-3, RET-GUARD-2
+(for the request) and RET-TX. A classical deck record never resolves notices,
+sentences or headwords through the Book's current analysis. It always resolves
+them through its own Adopted evidence record references.
+
+### Deletion behaviour
+
+| event | rows it writes or deletes today or in this design | evidence and roots released |
+| --- | --- | --- |
+| Hide a Book | Visibility row only (`internal/persistence/book_visibility.go:36-66`) | None |
+| Leave To Read, or any disposition change | Disposition row only (`internal/persistence/book_dispositions.go:54-91`). Leaving To Read also cancels the owner's in-flight request (§11), which changes the request's state and deletes nothing. | None |
+| End or Finish a Reading | Deletes the current-reading row (`sqlc/queries/current_reading.sql:174-176`), releases the snapshot and, for Finish, writes the completion and Rich Known (§8) | None. The snapshot, membership and completion stay roots. |
+| Remove a catalogue connection | Deletes the connection, its offerings and claimed aliases (§4) | None. Acquisitions name their origin as text (§5), and Books, associations and roots stay. |
+| Upstream withdrawal | Sets `withdrawn_at` on the offering (§4) | None. Discovery reports the withdrawal separately (ADR 0097). |
+| Owner cancels a request | Request state only (§11) | None. The cancelled request's references stay physical rows (OD-39). Other owners' requests, adoptions and roots are not read or written. |
+| Replacement adoption (§11) | Replaces the Book current classical analysis row | None. The old analysis keeps its Adopted evidence record. Decisions, snapshots, completions and decks on it stay resolvable (EFF-4). |
+| `keep` on an exact decision (§8) | Deletes that decision row | Only that decision's reference. The Adopted evidence record still holds the analysis. |
+| Delete a classical Book directly | **No path exists today.** A direct `DELETE` is refused by RET-GUARD-2 when the Book has an Adopted evidence record. | — |
+| Delete an account | **No application path exists today.** Only the database-level owner cascade exists (`migrations/000001_initialize.up.sql:2645`), exercised only by a test (`internal/epub/ingest_integration_test.go:91`). The cascade removes the owner's Books, associations, offerings, acquisitions, requests, Adopted evidence records, current rows, decisions, flags, snapshots, membership, completions, Rich Known and deck records. | That owner's roots only. Shared evidence, other owners' rows and their roots are untouched. Evidence that only this owner referenced becomes unreferenced and is retained. |
+
+This design adds **no erasure workflow**. ADR 0035 "Independent removal and
+retention" and ADR 0097 "Retention follows every retained reference" keep
+whole-account deletion at the existing owner-cascade boundary. Any legal or
+erasure workflow that must remove referenced evidence needs a separate
+decision.
+
+### Cross-owner rule
+
+- Shared evidence rows have no owner and no owner foreign key. No owner-scoped
+  delete, cascade or state change can reach them (RET-FK-1, RET-GUARD-1).
+- One owner's root protects the shared rows for every owner. Owner A releasing
+  interest, by cancelling, hiding, leaving To Read, removing a connection or
+  deleting the account, never removes a row that owner B's root reaches.
+- A root grants **no access**. Access stays §5's predicate: the owner holds an
+  acquisition whose blob carries the evidence's Package content. B's roots are
+  checked against B's acquisitions at insert (RET-TX and the Adopted evidence
+  record trigger). A's roots never satisfy B's predicate, and the presence of
+  identical bytes never does (physical deduplication is not access). An ID that
+  only A's roots reach returns not-found to B.
+
+### Unreferenced evidence
+
+Unreferenced evidence is retained by default (ADR 0097, ADR 0098). Evidence is
+**unreferenced** when it is outside the closure of every root R1–R8 whose root
+is live. Every root is live except a request in a terminal state (OD-39).
+
+An operator-run **unreferenced-evidence report** identifies it:
+
+- It runs in one read-only `REPEATABLE READ` transaction, writes nothing, and
+  takes no lock beyond that snapshot.
+- It is started only by an operator command. It is not a River job, it has no
+  schedule, and nothing calls it automatically.
+- Per record kind (blob, Package content, revision, binding, interpretation,
+  analysis, identity), it reports the IDs or digests, the byte or row totals,
+  and `held_by`. `held_by` lists any non-root holders: an acquisition with no
+  live root, a terminal request, or another unreferenced evidence row.
+- It deletes nothing, and it marks nothing for deletion. A future reclamation
+  is a separately approved change that defines its own selection, guard
+  replacement and recovery.
+
+```sql
+-- illustrative, not a migration
+-- Analyses outside every live root (one of the per-kind queries).
+WITH live_roots(analysis_id) AS (
+  SELECT analysis_id FROM adopted_evidence_records
+  UNION SELECT candidate_analysis_id FROM preparation_requests
+    WHERE candidate_analysis_id IS NOT NULL AND state NOT IN ('adopted','cancelled','failed','superseded')
+  UNION SELECT exact_analysis_id FROM primary_goal_snapshots WHERE exact_analysis_id IS NOT NULL
+  UNION SELECT analysis_id FROM exact_occurrence_decisions
+  UNION SELECT analysis_id FROM rich_snapshot_vocabulary
+  UNION SELECT analysis_id FROM snapshot_count_contributions
+  UNION SELECT analysis_id FROM rich_known_vocabulary
+  UNION SELECT analysis_id FROM classical_deck_evidence_references     -- #2063
+  UNION SELECT analysis_id FROM usability_restrictions WHERE analysis_id IS NOT NULL
+)
+SELECT a.id
+FROM exact_analyses a
+WHERE NOT EXISTS (SELECT 1 FROM live_roots r WHERE r.analysis_id = a.id);
+-- Blobs, contents, revisions, bindings and interpretations are reported by
+-- walking the closure downward from the referenced analyses, plus the R2, R7
+-- and R8 entry points.
+```
+
+### Restore expectations and integrity check
+
+**Backup.** All classical bytes and records are in PostgreSQL (§5, ADR 0098). A
+valid backup is one consistent logical dump of the whole database, taken in
+one snapshot, so records and blobs are always captured together. A dump that
+excludes evidence table data, a data-only dump of part of the schema, or bytes
+copied separately from records is not a valid backup of classical evidence.
+The operator owns capacity and backups (ADR 0097 "Capacity and availability
+guarantees").
+
+**Restore.** A restore recreates the schema with every constraint and trigger,
+in one transaction that stops at the first error (for `pg_restore`,
+`--single-transaction --exit-on-error`). A restore that loses a row that a key
+needs, or that violates a check, therefore fails as a whole, and the
+installation is not started on it. Loading data with triggers or constraints
+disabled is not a valid restore. The integrity check below still catches bytes
+altered at the storage level, and most rows lost by such a load (IC-6, IC-7).
+It cannot detect a lost Usability restriction, or a lost provenance claim that
+no pin set declares. That is why the load rule exists.
+
+**Evidence integrity check.** This is an operator command. It runs after every
+restore, before the web server serves requests, and on demand. It is not a job
+and has no schedule. It reads everything in one snapshot and writes only the
+restrictions listed below. It checks:
+
+| check | verifies | failure reason code |
+| --- | --- | --- |
+| IC-1 | Every Package blob: SHA-256 of `content` equals `digest`, and `octet_length(content)` equals `byte_length`. | `blob_digest_mismatch` |
+| IC-2 | Every `package` blob: the safe reader (§5 "Limits") re-reads it, and every member's path, size and digest, and the recomputed Package content digest, equal the stored inventory. | `package_inventory_mismatch` |
+| IC-3 | Every `interpretation_table` blob digest. | `interpretation_table_digest_mismatch` |
+| IC-4 | Every Extracted text: digest of the UTF-8 content, and code-point length. | `extracted_text_digest_mismatch` |
+| IC-5 | Every record-kind Evidence notice: `notice_digest`. | `notice_digest_mismatch` |
+| IC-6 | Every closure edge resolves: an anti-join for each foreign key in the closure table and the Referencers table, including the added Adopted evidence record keys. Every Adopted evidence record and current row satisfies §5's access predicate. Every Package content's member count and byte sum equals its member rows. Every Exact analysis has its five diagnostics and a `validated` binding. | `evidence_reference_missing` |
+| IC-7 | Rows that no key reaches are complete. Every Exact analysis's persisted rows pass the §10 shared validation rules again; for example, every printed node has a span, and every qualifying node has an Annotation occurrence. Every Notice coverage and Provenance claim that the acquisition's recorded pin set declares exists. | `evidence_reference_missing` |
+
+**On failure.** For each failure, the check appends one Usability restriction
+(§5) with basis `integrity_failure`, all five capabilities, the reason code
+above and an explanation naming the failed row. The subject is:
+
+- for IC-1 and IC-2, the blob's Package content (OD-38);
+- for IC-3, every Interpretation configuration that names the table;
+- for IC-4, every binding that names the Extracted text;
+- for IC-6 and IC-7, the nearest existing row of the closure above the missing
+  one.
+
+Under §5's transitive rule, every analysis that depends on the subject becomes
+restricted. An IC-5 failure restricts no capability. It is reported, and every
+operation that would reproduce that notice, such as a deck artifact or an export,
+fails closed until an exact restore. If an IC-6 failure has no existing row to
+attach a restriction to, for example because a root names a missing analysis,
+the check reports the restore as failed. The operator restores again.
+
+**What a Book shows.** A Book whose current classical analysis, or whose
+retained reference used by an operation, is restricted shows **"Evidence
+unavailable"** with the reason, in Book detail, the Reading page and the
+chooser. The following happen, as ADR 0097 "Durable bounded work and recovery"
+and §5 require:
+
+- Start, Switch to the Book, lemma decisions, new deck preparation and new
+  adoption of the restricted analysis are refused with the reason.
+- There is **no automatic End or Finish**. A current reading on the Book stays
+  current. Explicit End stays available. Explicit Finish stays available
+  because it reads only the frozen snapshot (§8), which the check does not
+  change.
+- There is **no substitution**. No other analysis, revision, Edition, or intact
+  build of the same content is adopted or read in its place.
+- **Nothing frozen changes.** Snapshots, membership, decisions, flags,
+  completions, Known, Adopted evidence records and the Book current classical
+  analysis row are byte-identical before and after the check.
+- Recovery is an exact restore that passes the check, followed by OD-19's lift.
+  An explicitly chosen, validated replacement through §11 is the alternative.
+
+### Invariants
+
+Each invariant is covered by the `RET` rows in [§15](#15-acceptance-test-matrix).
+
+1. **Referenced evidence cannot be deleted or replaced.** While any root
+   reaches a blob, revision, binding, interpretation, analysis or any other
+   closure row, every `DELETE`, `TRUNCATE` and `UPDATE` of it is refused
+   (RET-01, RET-02, RET-03).
+2. **Every root protects its full closure**, including notices, provenance and
+   the acquired blob, and keeps its owner's access route after a replacement
+   adoption (RET-04, RET-05, RET-06).
+3. **Same transaction.** No referencing record commits without its protection
+   (RET-07).
+4. **Release events release nothing.** Hiding, leaving To Read, End, Finish,
+   connection removal, upstream withdrawal and cancellation delete no evidence
+   and no root (RET-08, RET-09).
+5. **Cross-owner.**
+   - One owner's release never removes evidence another owner's root reaches
+     (RET-10).
+   - Owner deletion removes only that owner's rows (RET-11).
+   - A root grants no access (RET-12).
+6. **Deletion boundary.** A classical Book with adopted evidence cannot be
+   deleted except through its owner. The design adds no erasure path (RET-13).
+7. **Unreferenced evidence** is reported and never deleted (RET-14).
+8. **Restore.**
+   - The integrity check detects altered bytes and unresolved references
+     (RET-15, RET-16).
+   - It marks affected Books unavailable without changing frozen records,
+     without automatic End or Finish, and without substitution (RET-15,
+     RET-17).
+   - A clean restore passes with no restriction (RET-15).
+
+### Conflicts and dependencies noted
+
+- **§5 additions, not contradictions.** §9 adds the delete guard to every §5
+  shared record, and the owner guard to Package acquisition. §5 already says no
+  delete path is designed. §9 also adds the composite foreign key from the Book
+  current classical analysis row to the Adopted evidence record. None of these
+  changes a §5 field.
+- **§8 additions.** §8 assigned retention on older analyses to §9. §9 adds the
+  composite foreign key `(owner_id, book_id, analysis_id)` → Adopted evidence
+  record to the decision, flag, rich snapshot, contribution and Rich Known
+  records. No §8 column changes.
+- **§11** owns the request record. It must carry the R2 references, the owner
+  guard and its terminal states (OD-39), and must insert the Adopted evidence
+  record under RET-TX.
+- **#2063** owns classical deck records. It must carry the R6 references and
+  resolve notices only through them.
+- **Usability restriction subject.** §5's restriction has no blob subject, so a
+  corrupted build can only be restricted through its Package content (OD-38).
+- **Ticket wording versus ADR 0097.** Issue #2070 says a failed Book shows "no
+  End or Finish". ADR 0097 is binding and allows explicit End and Finish when
+  frozen records support them, forbidding only automatic ones. §9 follows the
+  ADR (OD-42).
+- **Seams.** RET-14 and RET-16 test operator commands on seam (d) (OD-41).
+- **Operator commands.** The integrity check and the unreferenced report are
+  operator commands. Their command-line surface is §12's to place beside the
+  local entry point.
 
 ## 10. Module interfaces and validation
 
@@ -2998,6 +3450,23 @@ rows use synthetic fixtures only.
 | LRN-24 | Rich Known is immutable, set-valued and backed by frozen membership. | (d) | A has Rich Known `example:ex:1` from completion C. | Update any column. Insert `ex:1` again for A. Insert a row with no matching snapshot member. Insert a row whose language differs from its identity's. | Each is rejected or inserts nothing; the row is unchanged. | Inserting `ex:1` for owner B from B's own completion is accepted. |
 | LRN-25 | Rich identities never reach the Browse-selection or Custom-deck stores (OD-01). | (a) | Owner A with classical Books. | Run Start, decisions, Finish and Browse for `grc` through the handlers. | The tuple-keyed Browse-selection and Custom-deck stores have no `grc` row for A. | The existing `de` Browse-selection characterization still reads its rows. |
 | LRN-26 | Counts follow the current analysis and stay exact after decisions. | (b) | G1 is ready under X with `example:ex:1` ×3. | Confirm a correction of one `ex:1` occurrence to `ῥῆσις`. Then adopt Y for G1 without building counts. Start G2, which needs G1's total. | After the correction, readiness is still ready, `ex:1` is 2 and `ῥῆσισ` NOUN is 1. After the adoption, G1 is pending and G2's Start waits. | X's counts are never reported for G1 once Y is current. |
+| RET-01 | Deleting or replacing a blob, revision, binding or interpretation referenced by a snapshot is refused. | (d) | Owner A adopted synthetic analysis X of `example-pkg` for Book G1, Started G1 (rich snapshot S on X), then Ended it. | Separately: delete X's package blob, text revision, annotation revision, binding, Interpretation configuration, exception-table blob and X itself; update each of them; insert a blob with X's blob digest and different bytes. | Every statement fails. Every row and its digest is unchanged, S still resolves to X, and X's sentences still slice the same Extracted text. | The same deletes with no root at all (an unadopted, unrequested synthetic analysis) are also refused by the delete guard. Nothing is ever deleted. |
+| RET-02 | Leaf evidence that no foreign key reaches cannot be deleted, and evidence tables cannot be truncated. | (d) | X as in RET-01, with Notice coverage, a Provenance claim, a Diagnostic finding, a Node span and a Usability restriction. | Delete one row of each kind. Truncate each table, with and without `CASCADE`. | Every statement fails. Row counts are unchanged. | Deleting A's own exact decision through `keep` (§8) succeeds, and X is still protected by A's Adopted evidence record. |
+| RET-03 | An in-flight request protects its acquisitions and candidate analysis before adoption. | (d) | Owner A has a preparation request whose candidate analysis Y and acquisitions are written. Y is not adopted. | Delete Y, its binding and A's acquisition. | Refused. The request still resolves Y and its acquisitions. | A request that has not yet written any evidence references nothing, and no evidence row exists for it. |
+| RET-04 | A deck artifact still resolves its notices after a new analysis is adopted. | (b) | Owner A's Book G1 adopted X. A synthetic pin set declares a member notice for the text and annotation members and a record notice on X's interpretation. A Reading-owned deck artifact was prepared from G1's snapshot on X. | Adopt analysis Y (new interpretation, with its own record notice) for G1, then read the artifact's notices. | The artifact lists exactly X's three notices, with their text. It lists none of Y's. | A custom deck artifact drawn from X behaves the same. An artifact never lists notices through the Book's current analysis. |
+| RET-05 | A retained reference keeps its owner's access route after a replacement adoption. | (b) | G1 adopted X. A has an exclusion on `(X,4)`, an ended snapshot on X and a completion on X. | Adopt Y for G1. Then read, as A, the decision's evidence, the snapshot's sentences and the completion's headwords. | All three reads return X's rows and X's Extracted text slices. G1's current analysis is Y. | Reading X's evidence through G1's current analysis returns Y's rows, never X's. |
+| RET-06 | A root protects the blob of the build the owner acquired. | (d) | G1 adopted X through acquisition Q of blob P. | Delete Q while A exists. Delete P. | Both refused. | Deleting user A succeeds and removes Q (see RET-11). |
+| RET-07 | Protection is written in the same transaction as the referencing record. | (d) | G1 is current on X. An injected fault makes an adoption of Y for G1 fail before commit. Separately, Book G2 has never adopted X. | Run the failing adoption. Then insert a decision for G2 that names `(X,4)`. | After the failure, G1's current analysis is still X, and G1 has no Adopted evidence record for Y. The G2 decision is rejected because G2 has no Adopted evidence record for X. | A successful adoption commits the current row and the Adopted evidence record together. |
+| RET-08 | Hiding a Book or leaving To Read keeps the evidence. | (a) | Owner A's G1 has an in-flight request, adopted X, an ended snapshot and a completion. | Through the handlers: hide G1, then move it out of To Read. | Every evidence row, acquisition, Adopted evidence record and root of G1 is unchanged, except that the request is now cancelled. Unhiding G1 shows X's evidence again. | The unreferenced-evidence report lists no row of X's closure. |
+| RET-09 | Connection removal and upstream withdrawal keep the evidence. | (a) | Owner A acquired `example-pkg` through a synthetic catalogue connection and adopted X for G1. | Sync without the entry (withdrawal), then remove the connection through the handler. | The offering is withdrawn and then deleted with the connection. G1, its acquisition, X and every root remain. G1 still opens for Reading. | No new acquisition, request or adoption is created. |
+| RET-10 | Owner A's cancellation keeps owner B's referenced evidence. | (b) | Owners A and B each acquired `example-pkg`. B adopted the shared analysis X and Started a reading on it. A's request for the same unit is in flight on X. | A cancels the request (leaves To Read). | B's current analysis, snapshot, Adopted evidence record and access to X are unchanged. Every shared row of X's closure exists. | A's cancellation writes nothing in B's scope. B cancelling B's own request later does not change A's rows. |
+| RET-11 | Owner deletion removes only that owner's rows, and evidence only that owner used is retained. | (d) | Owners A and B share analysis X. A alone uses analysis Z. Both have roots on their analyses. | Delete user A. | All of A's Books, acquisitions, requests, Adopted evidence records, snapshots, decisions, completions and Rich Known are gone. X, Z and their closures are unchanged. B's rows are unchanged. The report lists Z's closure as unreferenced. | Z is not deleted. |
+| RET-12 | A retention reference grants no access. | (a) | Owner A adopted X and has an ended snapshot on it. Owner B has no acquisition of `example-pkg`. | B requests evidence detail, sentence study and the snapshot route using A's Book, snapshot and analysis IDs. | Every response is the existing not-found response, exactly as for an absent ID. | After B acquires the identical bytes, B can read X only through B's own Book. A's Book and snapshot still return not-found to B. |
+| RET-13 | A classical Book with adopted evidence cannot be deleted except through its owner. | (d) | A's G1 adopted X and has an ended snapshot and a completion. | Delete G1's `books` row. Delete G1's Reading-unit association. | Both deletes fail, and every row of G1, its roots and X's closure is unchanged. | Deleting user A removes G1 (RET-11). |
+| RET-14 | Unreferenced evidence is reported but not deleted. | (d) | Synthetic analysis Z whose only root was a cancelled request. Analysis X is adopted. | Run the unreferenced-evidence report twice. | Both runs list Z's analysis, binding, revisions, content and blob with `held_by` = terminal request, and do not list X. Both runs write nothing. Row counts and digests are unchanged. | No River job, schedule or background task runs the report or deletes anything. |
+| RET-15 | The post-restore integrity check detects an altered blob and marks affected Books unavailable, without changing frozen records. | (a) | A dump of an installation where A's To Read Book G1 adopted X, with an ended snapshot, decisions and a completion. It is restored into a test database. One package blob's bytes are then altered at the storage level (the test drops the digest check for that one write). | Run the integrity check. Then, through the handlers, request G1's Book detail and Reading page, Start G1, and confirm a lemma decision on G1. | One `integrity_failure` restriction naming `blob_digest_mismatch` is appended on the blob's Package content. G1 shows "Evidence unavailable" with that reason. Start and the lemma decision are refused with the reason. The snapshot, membership, decisions, completion, Known, Adopted evidence records and current rows are byte-identical to before the check. | A clean restore of the same dump passes every check and appends no restriction. |
+| RET-16 | The integrity check detects an unresolved reference. | (d) | A restored database where data was loaded with triggers and constraints disabled, and one Node span and one Extracted text row of X are missing. | Run the integrity check. | The check reports `evidence_reference_missing` for both (IC-7 for the span, IC-6 for the Extracted text), and appends restrictions on X and on X's binding. No frozen record changes. | When a root names an analysis that does not exist, the check reports the restore as failed and appends nothing. |
+| RET-17 | A restricted Book is never ended, finished or substituted automatically. | (b) | G1 is the current reading on X. A second, intact build P2 of the same Package content exists, from another acquisition of A. An `integrity_failure` restriction is on that content. | Read the current reading. Then End it. Then, in a second run, Finish it. | Before any action, G1 is still the current reading. Explicit End succeeds. Explicit Finish succeeds from the frozen snapshot. No analysis, acquisition or blob is adopted or read for G1 in place of X, including through P2. | Start of G1 is refused with the restriction reason. |
 
 ## 16. Requirement traceability
 
@@ -3046,6 +3515,12 @@ decisions (see §1) are not reopened here.
 | OD-34 | Is rich count readiness stored as an explicit state, or derived from River job rows as the legacy library-total query does (`internal/persistence/current_reading_lifecycle.go:197-219`)? | (1) Explicit `pending`, `ready` and `unavailable`, written by adoption, decisions and the rebuild job; the job writes `unavailable` when it exhausts its attempts. (2) Readiness row presence plus River job state, as today. | (1). §8 is written against it. | (1) makes the readiness state a persisted fact the fixture adapter can represent directly, and drops the JSON match on job arguments. It needs the job's last attempt to write the state, and a discarded job that never reaches that path leaves `pending`. (2) reuses a proven query, but couples the learner core to River's table layout. | #2069 | open |
 | OD-35 | Is the frozen snapshot headword stored per membership row, or derived when read? §6 asks §8 to place it. | (1) Stored on Rich snapshot membership and copied to Rich Known at acceptance. (2) Derived from the snapshot's analysis and the Book's decisions at read time. | (1). §8 is written against it. | (1) keeps the headword frozen even if a decision on the old analysis is later read differently, and lets the Known list show the accepted headword without a join through analyses. It costs one text column per row. (2) stores nothing, but makes a frozen display depend on mutable decisions. | #2069 | open |
 | OD-36 | New terms used in §8. | Add to `CONTEXT.md`: **Snapshot representation** (legacy tuple or rich, fixed when a snapshot is frozen) and **Library total** (an identity's effective count over the owner's contributing Books in one language, the 15 of the 3/15 rule). Extend **Known vocabulary** and **Current-reading vocabulary snapshot** to say they hold rich identities for classical Books. Keep Exact occurrence decision, Exact Lemma review flag, Rich count readiness, Rich vocabulary count, Rich snapshot membership, Snapshot count contribution and Rich Known vocabulary as design-local names. | Add them in a separately reviewed `CONTEXT.md` change. | The two terms appear in learner-facing explanations of why a word was selected and why Start is waiting. The rest are storage detail. | #2069 | open |
+| OD-37 | How do retained records protect the evidence they depend on (§9)? | (i) Direct foreign keys along the closure: `RESTRICT` into shared evidence and `NO ACTION` between owner-scoped rows. One owner-scoped Adopted evidence record per (owner, Book, analysis) carries the acquisitions. Delete and truncate guards on shared evidence, and an owner guard on owner-scoped retention rows. (ii) A retention-reference record (referencer kind and ID → analysis and acquisitions), written beside each referencing record, plus `RESTRICT` foreign keys from the analysis downward. | (i). §9 is written against it. | **Query cost.** (i) adds a few index lookups per referencing insert and no extra row. The unreferenced report must union about nine referencing kinds, which is acceptable for a rare operator report. (ii) adds one row and one write per referencing record, and a trigger per referencer kind to remove the row when the referencer goes. Its report is a single anti-join. **Backup and restore.** Both live in one dump. In (i), under §9's single-transaction restore rule, a restore that lost a referenced row fails constraint validation, so a broken reference cannot be restored silently. In (ii), the reference row has no foreign key to its polymorphic referencer, so a restore can bring back reference rows that disagree with their referencers, and only the integrity check can notice. **Future reclamation.** In (i), any delete of a reachable row is refused by the database itself, so after replacing the guard, reclamation can only remove rows that nothing reaches. A new referencer kind must add its foreign key, which review and the `RET` rows check. In (ii), reclamation reads one table, but a referencer whose reference row was never written, or was removed early, is unprotected. Nothing in the database detects that, which is the failure ADR 0097 forbids. | #2070 | open |
+| OD-38 | Usability restriction (§5) has no blob subject. Which subject does an `integrity_failure` on one package build name (§9 IC-1, IC-2)? | (1) The blob's Package content, so every build of that content is restricted. (2) Add a blob subject to Usability restriction, and restrict only analyses reached through acquisitions of that blob. | (1). | (1) needs no change to §5. An owner whose acquisition is a different, intact build of the same content also sees unavailability until an exact restore and lift (OD-19). That is conservative, and rare, because a second build needs its own pin-set version (§5 "Pins"). (2) is precise, but adds a subject kind to §5 and makes restriction scope depend on owner acquisitions, against OD-20's installation-wide reading. | #2070 | open |
+| OD-39 | Is a preparation request a retention root in every state, or only while in flight? | (1) Live only while not terminal. A terminal request (adopted, cancelled, failed or superseded) keeps its foreign keys as physical rows, but the unreferenced report treats it as a non-root holder (`held_by`). (2) Live in every state. | (1). The state names belong to §11. | (1) follows ADR 0097, which lists "in-flight work" as a reference. It lets the report show evidence that only an abandoned request touched, while the foreign keys still block any delete until a separately approved reclamation decides about request history. (2) never reports such evidence, so a cancelled import holds its bytes forever, even in the report. | #2070 | open |
+| OD-40 | New terms used in §9. | Add **Retention reference** to `CONTEXT.md`: the reference by which a retained learner, request, deck or restriction record protects the exact evidence it depends on, transitively, without granting access. A record that holds one is a retention root. Keep retention root, evidence closure, Adopted evidence record, delete guard, owner guard, unreferenced-evidence report and evidence integrity check as design-local names. | Add **Retention reference** in a separately reviewed `CONTEXT.md` change, and keep the rest design-local. | Adding it gives implementation, ADR 0097 and UI copy one word for "why this cannot be deleted". Keeping everything design-local avoids a glossary change, but leaves ADR 0097's "retained reference" undefined in `CONTEXT.md`. | #2070 | open |
+| OD-41 | Which §15 seam covers the operator commands in §9 (the evidence integrity check and the unreferenced-evidence report)? Neither has a web handler or a store-contract operation, and §15's seam (d) is for constraints. | (1) Use seam (d), widened to cover operator commands run against a real, restored PostgreSQL database, as RET-14 and RET-16 do. RET-15 still observes the Book through seam (a). (2) Add a seam (e) for operator-command integration tests. | (1). | (1) keeps four seams and reuses `testutil.Postgres` (B-32), but widens (d)'s wording. (2) names the seam exactly, but changes §15's shared seam list for every ticket. | #2070 | open |
+| OD-42 | Issue #2070 says a Book that fails the integrity check shows "unavailable with a reason, with no End or Finish". ADR 0097 "Durable bounded work and recovery" says "do not automatically End or Finish a Reading. Operations wholly supported by intact frozen records may continue, including explicit End/Finish". | (1) Follow the ADR: no automatic End or Finish, and explicit End and Finish stay available. (2) Follow the ticket wording: refuse explicit End and Finish too. | (1). The ADR is binding (§1), and §9 and RET-17 are written against it. | (1) lets a learner close a reading whose frozen snapshot is intact, without touching evidence. (2) traps the learner in a current reading until an operator restores the evidence, which contradicts a binding ADR. | #2070 | open |
 
 ## 18. Approval record
 
