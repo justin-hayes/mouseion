@@ -4514,7 +4514,588 @@ Each invariant is covered by the `ADP` rows in [§15](#15-acceptance-test-matrix
 
 ## 12. Operator-local entry point
 
-_Pending: owned by the operator-local entry point ticket._
+Verified at commit `bf961751318a8216c8f6d76a0479ede5ae903673` (`main`). Every
+`path:line` in this section refers to that commit.
+
+### Summary
+
+- The entry point is a **hybrid** (OD-56 option (iii)). An operator command,
+  `cmd/localregistration`, admits one local package and registers it for one
+  owner. The learner then moves the resulting Inbox Book to To Read through the
+  existing My Books action. That To Read starts §11's initial request.
+- The command reads files. The web process never does. The command writes the
+  verified §5 evidence, the §4 Book and Local registration, the owner's
+  Package acquisition and a **Local selection** in one short transaction. It
+  creates no Preparation request, no River job and no disposition change.
+- Every value that decides acceptance comes from reviewed code, or from an
+  operator-local pin file whose digest is compiled into reviewed code
+  (OD-15, OD-57). The operator supplies only the owner, the names of a
+  compiled pin set and interpretation, and the local files. The package
+  supplies bytes only.
+- Admission runs ten ordered checks on the package bytes in memory, outside
+  every transaction, before any interpretation. Each check has a permanent
+  diagnostic code. A failure writes nothing.
+- The command never contacts NLP, never opens a network connection other than
+  to PostgreSQL, never downloads anything and never falls back to another
+  file, pin set, Edition or source.
+- Output and logs carry codes, rule IDs, counts and record IDs only.
+
+New names are proposed terms (OD-62). The command, package and flag names are
+proposals, not prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| Operator commands read `MOUSEION_DATABASE_URL`, open the store with `persistence.Open`, run one operation, print one `key=value` summary line to stdout, and exit non-zero through `log.Fatal` on any error. `cataloguebackfill` also validates `MOUSEION_SECRET`, because it builds the catalogue service. | `cmd/vocabularybackfill/main.go:17-35`, `:42-53`; `cmd/cataloguebackfill/main.go:18-47` | `cmd/localregistration` follows the same shape: database URL from the environment, one summary line, explicit exit codes. It builds no catalogue service and needs no secret. |
+| The server reads one operator-local file, the dictionary index named by `MOUSEION_DICTIONARY_INDEX`. A missing file is a supported absent state, and an unusable file is a startup error. | `cmd/server/main.go:377-401` | Precedent for an operator-supplied local file. This section keeps package files out of the server entirely: only the command reads them. |
+| The NLP client reads `MOUSEION_NLP_ADDR` and connects lazily. | `internal/analyzer/grpc.go:22-25`; §10 N-5 | The command never imports `internal/analyzer` and never reads `MOUSEION_NLP_ADDR`. |
+| `users.username` is `NOT NULL` and unique. There is no admin role in use (ADR 0017/0024). | `migrations/000001_initialize.up.sql:1433-1440`, `:2152` | The operator names the owner by username. |
+| Book metadata provenance accepts only `catalog_sync`, `acquisition` and `source_materials_backfill`. | `internal/domain/books.go:14-19`, `:248-256` | A Book created here carries a new value, `operator_local` (OD-08). |
+| Study-language display names come from `supported_languages`, with the code as fallback. Catalogue sync writes it. | `migrations/000001_initialize.up.sql:1422-1426`; `sqlc/queries/core.sql:60-67`; `sqlc/queries/book_aliases.sql:4-14` | Registration inserts the Work language's reviewed display name if absent, so `grc` is not shown as a bare code. It never overwrites a row. |
+| The To Read handler checks the owner's Book, applies `TransitionBookDisposition` with the expected revision, then submits EPUB analysis. | `internal/webapp/library_handlers.go:270-310`; route `internal/webapp/webapp.go:238` | The learner's existing To Read action is the trigger. §11 admission joins its disposition transaction for classical Books. |
+| EPUB reading opens ZIP bytes already in memory with `zip.NewReader` and decodes XML with `encoding/xml`. OPDS bounds XML input with `io.LimitReader`. | `internal/epub/epub.go:131-136`, `:484-499`; `internal/opds/client.go:452` | Admission likewise works on in-memory bytes. It does not reuse the EPUB reader, which has no inventory, link or expansion checks. |
+| Design patterns for this flow: `AnnotatedBookRow` (margin note with an adjacent recovery action), `Confirmation`, `AsyncStatus`, `Feedback`, `MetadataList`; "Errors explain what happened and the next available action." | `doc/design/components.md:141-170`, `:448-458`, `:485-488`, `:496-506`, `:508-531`; `doc/design/design-system.md:429` | The learner-visible flow uses only these. |
+
+### Interface choice
+
+| option | how it works | assessment |
+| --- | --- | --- |
+| (i) CLI registers the package, creates the Book **and** the initial request | The operator command also sets To Read and admits a §11 request. | The operator changes a learner's disposition and makes the learner's reading choice. ADR 0096 requires an explicit informed choice for automatic-provenance annotation, and §11 requires To Read and its request to commit together in the disposition transaction. Running admission from a command also puts a second admission caller outside the web flow. Rejected. |
+| (ii) Operator-configured local directory, plus a learner-visible "Add local edition" action | The server scans a configured directory. A learner picks a package and the web process imports it. | The web process gains package file access and parsing on a request path. Any learner could import any file in the directory, so the directory needs its own owner scoping. "Add local edition" is a new UI pattern, and it contradicts the Book rule "never by manual entry" (`CONTEXT.md:355-357`) more strongly than (i) or (iii). Rejected. |
+| **(iii) Hybrid** | The operator command registers the package and the owner's Inbox Book. The learner moves it to To Read through the existing My Books action, which starts §11's initial request. | File access stays in an operator process. Learner intent and the informed choice stay with the learner and the existing disposition flow. Admission keeps one caller. **Recommended (OD-56).** |
+
+The rest of this section specifies (iii).
+
+### Command
+
+```text
+MOUSEION_DATABASE_URL=postgres://… \
+  go run ./cmd/localregistration \
+    -owner <username> \
+    -pin-set <identifier>/<version> \
+    -interpretation <identifier>/<version> \
+    -package <path> \
+    [-pin-file <path>] \
+    [-interpretation-table <path>] \
+    [-verify-only]
+```
+
+- Every flag except the two optional files and `-verify-only` is required.
+  There is no default pin set, no "latest" version and no default
+  interpretation. A flag given twice is a usage error.
+- `-pin-file` is required exactly when the compiled pin set has
+  operator-local fields (OD-15 (3)). `-interpretation-table` is required
+  exactly when the interpretation definition declares an exception table. An
+  unneeded file flag is a usage error, so a stray file is never silently
+  ignored.
+- `-verify-only` runs every check up to and including admission, opens no
+  database connection, writes nothing, and reports `outcome=verified`.
+- The command reads no other environment variable. It ignores
+  `MOUSEION_NLP_ADDR`, `MOUSEION_SECRET` and every provider setting.
+
+### Inputs
+
+| value | supplied by | checked against | never from |
+| --- | --- | --- | --- |
+| Owner | Operator: `-owner` username | An existing `users` row, inside the registration transaction | The package, the pin file |
+| Pin set identifier and version | Operator: `-pin-set` names one entry | The compiled pin-set registry. The entry must be present and not retired (OD-58). | The package. No default. |
+| Interpretation definition identifier and version | Operator: `-interpretation` names one entry | The compiled interpretation registry (§10 VER-1, VER-2). The pin set must list it among the interpretations it supports, and its adapter must support it (§10 VER-3). | The package. No default. |
+| Package bytes | Operator: `-package` file | Admission ADM-1 to ADM-10, against the pins | — |
+| Pin-file bytes (retained pin sets only) | Operator: `-pin-file` | SHA-256 of the exact file bytes equals the commitment compiled into the pin-set entry (OD-57). Parsed only after that match. | The package |
+| Exception-table bytes | Operator: `-interpretation-table` | SHA-256 equals the table digest the pin set declares for that interpretation, and length ≤ 16 MiB | The package |
+| `definition_id` | Reviewed code: the pin set's identifier | — | Operator, package |
+| Work, Edition, Reading unit, verified aliases, title, author, language and language display name | Reviewed code: the definition (§4 "Local registration") | — | Operator, package |
+| `source_bounds`, projection, correspondence, adapter, provenance claims, notice coverage, revision origins and release metadata, `package_release`, the list of supported interpretations | Reviewed code, or the authenticated pin file where §14 marks a field private | — | Operator, package |
+| Accepted transport digests, Package content digest, every member's path, role, size and digest, the table digest | The authenticated pin file (retained pin sets), or reviewed code (synthetic CI pin sets) | — | Operator flags, package |
+| `origin_kind = operator_local`, `origin_ref = definition_id` | Fixed by the command | — | — |
+| Database location | Environment: `MOUSEION_DATABASE_URL` | Required unless `-verify-only` | — |
+
+A field present in both reviewed code and the pin file makes the pin file
+invalid (`pin_file_invalid`). The pin file can add the private values that
+the compiled entry marks as local, and nothing else. Its identifier and
+version must equal `-pin-set`. The package's own manifest member is an
+ordinary pinned member: its bytes are checked, and its content is never read
+to decide anything (§5 "Pins").
+
+### Pin sets the server can read
+
+The server needs the pins again in §11's `verify` and `interpret` stages, and
+must not read files. The command therefore stores the authenticated pin file:
+
+#### Installed pin set
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| The exact bytes of one operator-local pin file, whose digest reviewed code has compiled as that pin set's commitment. The server reads private pins from here, never from a file. | `pin_set text` (`identifier/version`); `pin_file_format text` (`pin-file/1`); `content bytea` (≤ 1 MiB); `digest text` (`sha256:` of `content`, checked); `installed_at timestamptz` | `pin_set` | `digest` unique | Shared. | **Immutable.** Every `UPDATE` is rejected by a mirrored trigger, as for §5 records. No delete path. | None. Package acquisitions and Preparation requests name it by `pin_set` text. |
+
+The one pin-set interface (§5 "Pins") resolves a pin set as follows:
+
+1. Look up the compiled entry. If it is absent, the pin set is unknown.
+2. If the entry has no local fields, return it.
+3. Otherwise read the Installed pin set row and check that its digest equals
+   the compiled commitment, on every load. If the row is missing or differs,
+   the pin set is unavailable, with `pin_file_missing` or `pin_file_mismatch`.
+
+So a row edited directly in the database is detected, not trusted. The
+private values live in the installation's database, which is local, and never
+in the public repository (§14).
+
+```sql
+-- illustrative, not a migration
+CREATE TABLE installed_pin_sets (
+  pin_set text PRIMARY KEY CHECK (pin_set ~ '^[a-z0-9][a-z0-9-]*/[1-9][0-9]*$'),
+  pin_file_format text NOT NULL CHECK (pin_file_format = 'pin-file/1'),
+  content bytea NOT NULL CHECK (octet_length(content) <= 1048576),
+  digest text NOT NULL UNIQUE CHECK (digest = 'sha256:' || encode(digest(content, 'sha256'), 'hex')),
+  installed_at timestamptz NOT NULL DEFAULT now()
+);
+-- plus: BEFORE UPDATE trigger mirroring reject_source_content_revision_mutation().
+```
+
+### Local selection
+
+The operator chooses both the package and the frozen interpretation. §4's
+Local registration records neither, by design, so the choice gets its own
+record. It is the candidate that §11 admission takes "from the Book's Local
+registration" when it builds an `initial` request.
+
+#### Local selection
+
+| purpose | fields (type sketch) | key | uniqueness | owner scope | mutability | references |
+| --- | --- | --- | --- | --- | --- | --- |
+| One operator selection of a package acquisition and a frozen interpretation for one owner's classical Book. | `id uuid`; `owner_id uuid`; `book_id uuid`; `definition_id text`; `pin_set text`; `acquisition_id uuid`; `interpretation text` (interpretation definition `name/version`); `interpretation_digest text` (§5 `configuration_digest` of that definition with the pinned table digest); `adapter text`; `selected_at timestamptz` | `id` | `(owner_id, id)` unique. No uniqueness on the choice: re-selecting an earlier choice appends a new row. | Owner. | **Append-only.** Each row is immutable. | `(owner_id, book_id)` → §4 Book–Reading unit association `ON DELETE CASCADE`; `(owner_id, acquisition_id)` → §5 Package acquisition `NO ACTION` (owner deletion cascades both); `owner_id` → `users(id)` `ON DELETE CASCADE` |
+
+Rules:
+
+- The Book's **current Local selection** is its row with the greatest
+  `(selected_at, id)`.
+- Registration appends a row only when the current Local selection differs
+  from the new one in `pin_set`, `acquisition_id` or `interpretation`. A
+  repeat registration appends nothing.
+- A Local selection names an acquisition whose `origin_kind` is
+  `operator_local` and whose `origin_ref` is the same `definition_id`. A
+  trigger enforces this.
+- §11's pinned choice for an initial request is built from the current Local
+  selection: `pin_set`; `origin_kind`, `origin_ref` and `package_release` from
+  its acquisition; `package_digest` from the acquisition and
+  `package_content_digest` from its blob; `reading_unit_id` from the Book's
+  association; `binding_declaration_digest` from the pin set;
+  `interpretation_digest` and `adapter` from the selection. Text and
+  annotation acquisitions are the same acquisition, because one package
+  carries both.
+- A Local selection never changes a running request, current evidence or a
+  disposition. When it differs from the Book's current evidence, Book
+  surfaces offer it as a Refresh candidate through §11's confirmation form.
+
+### Order of operations
+
+Every step before the registration transaction runs without a database
+connection. The command stops at the first failure.
+
+| step | check | failure code | exit |
+| --- | --- | --- | --- |
+| P-1 | Flags parse. Every required flag is present once. File flags match what the pin set and interpretation need. | `usage_invalid` | 2 |
+| P-2 | `MOUSEION_DATABASE_URL` is set, unless `-verify-only`. | `database_url_missing` | 2 |
+| P-3 | The pin set is compiled and not retired. | `pin_set_unknown`, `pin_set_retired` | 4 |
+| P-4 | The interpretation definition is compiled, its slots, contract version and adapter are registered, and the pin set supports it. | `interpretation_version_unknown`, `contract_version_unknown`, `adapter_version_unsupported`, `interpretation_not_pinned` | 4 |
+| P-5 | The compiled rights-gate state permits the operator-local import operation (#2054). | `rights_gate_closed` | 4 |
+| P-6 | Pin file: opened, a regular file, at most 1 MiB + 1 bytes read, digest equal to the commitment, then parsed strictly (`pin-file/1`: UTF-8 JSON, unknown and duplicate keys rejected, identifier and version equal `-pin-set`, only local fields). | `local_file_missing`, `local_file_unreadable`, `pin_file_mismatch`, `pin_file_invalid` | 3, 3, 4, 4 |
+| P-7 | Exception table: opened, a regular file, at most 16 MiB + 1 bytes read, digest equal to the pinned table digest. | `local_file_missing`, `local_file_unreadable`, `interpretation_table_mismatch` | 3, 3, 4 |
+| P-8 | Package: opened, a regular file. At most 16 MiB + 1 bytes are read into memory. | `local_file_missing`, `local_file_unreadable` | 3 |
+| ADM-1 to ADM-10 | [Admission checks](#admission-checks), in order. | as listed there | 5 |
+| T | [Registration transaction](#registration-transaction). | `owner_not_found`; `storage_unavailable` | 6; 1 |
+
+No package byte is read before P-3 to P-5 pass. So an unknown version or a
+closed gate is reported even when the package file is absent or hostile.
+
+### Admission checks
+
+Admission is a pure function over the package bytes and one resolved pin set.
+It lives in a new package, `internal/evidencepackage`. That package may
+import `archive/zip`, `compress/flate`, `crypto/sha256`, `encoding/xml`
+through the shared safe XML reader (OD-61), and `golang.org/x/text/unicode/norm`.
+It must not import `os`, `net/...`, `os/exec`, `plugin`, persistence or River.
+The command calls it, and §11's `verify` stage calls the same function on the
+stored blob.
+
+It runs on in-memory bytes, outside every transaction, under the 5-minute
+local import stage timeout (handoff "Initial operational envelope"). Every
+check is permanent: a retry gives the same result. A failure stops admission
+at that check and writes nothing.
+
+| rule | check | codes (§10 family) |
+| --- | --- | --- |
+| ADM-1 | **Size.** The file is at most 16,777,216 bytes. P-8 read at most one byte more, so a larger file is detected without reading it all. The configured limit can only be lower (OD-16). | `package_too_large` |
+| ADM-2 | **Transport pin.** The SHA-256 of the whole file is one of the pin set's accepted transport digests. Nothing is parsed before this. | `package_transport_unpinned` (`package_inventory_mismatch`) |
+| ADM-3 | **Central-directory sanity.** Exactly one end-of-central-directory record, at the end of the file, with no trailing bytes. No ZIP64 records, no multi-disk fields, no archive comment. The declared entry count equals the entries actually parsed. The central directory and every local header lie inside the file, start where declared, and do not overlap. Nothing precedes the first local header. Each local header's name, method, flags and sizes equal its central entry's. | `package_archive_malformed` (`package_entry_unsafe`) |
+| ADM-4 | **Member count.** The reader counts central-directory entries and stops at entry 129. | `package_too_many_members` |
+| ADM-5 | **Exact member set.** No two entries have the same path, byte for byte or after NFC normalization. Every entry path is a pinned path, and every pinned path is present. | `package_member_duplicate`, `package_member_unlisted`, `package_member_missing` (`package_inventory_mismatch`) |
+| ADM-6 | **Safe paths and entry types.** No absolute path, drive letter, backslash, `.` or `..` segment, empty segment, control character or non-NFC path. Every entry is a regular file: no directory entries, no symbolic link (Unix mode `S_IFLNK` in the external attributes), no hard link, device or other special type, and no extra field outside a compiled allowlist (extended timestamp only), so link and owner extensions are refused. No encrypted entry. Compression is stored or deflate only. | `package_path_unsafe`, `package_entry_link`, `package_entry_unsafe` (`package_entry_unsafe`) |
+| ADM-7 | **No executable payload.** No entry has an execute bit in its Unix mode. Every path's extension is in the compiled allowlist for its pinned role. The first 16 decompressed bytes of every member carry no executable or archive signature: ELF, PE (`MZ`), Mach-O, WebAssembly, a `#!` interpreter line, or a nested ZIP. This check decompresses at most 16 bytes per member, so it runs before the full pass. | `package_member_executable` (`package_entry_unsafe`) |
+| ADM-8 | **Streamed expansion bound.** One pass decompresses the members in central-directory order, with a running total across all members. Declared sizes are never trusted and never used to size a buffer. The pass stops when the total would exceed 67,108,864 bytes, and also when one member's output exceeds its pinned size by one byte. | `package_expanded_too_large` |
+| ADM-9 | **Exact pins.** In the same pass, each member's actual size and SHA-256 equal its pin. After the pass, the `inventory/1` serialization of the actual members (§5 Package content) hashes to the pinned Package content digest. The manifest member is checked here like any other member. | `package_member_size_mismatch`, `package_member_digest_mismatch`, `package_content_digest_mismatch` (`package_inventory_mismatch`) |
+| ADM-10 | **Safe XML.** Every member whose pinned format is XML is scanned to the end with the shared safe XML reader. It accepts only UTF-8, runs in strict mode, and knows only the five predefined entities and numeric character references. It refuses any document type declaration with an internal subset, and any `ENTITY` declaration, with `xml_dtd_forbidden`. A document type declaration with only an external identifier is a token: the identifier is never resolved and no DTD or schema is loaded. The reader has no resolver that can open a file or a network connection, and bounds element depth at 256. Processing instructions are tokens, never acted on. | `xml_malformed`, `xml_encoding_unsupported`, `xml_dtd_forbidden`, `xml_entity_reference`, `xml_depth_exceeded` (`package_entry_unsafe`) |
+
+ADM-2 hashes the transport bytes before any parsing. A matching digest proves
+the bytes are the reviewed build, so ADM-3 to ADM-10 then cannot fail for a
+correct pin set. They still run in full on every admission. They protect
+against a wrong or hostile pin set, and they are what §11's `verify` stage
+re-runs on stored bytes. Each test for ADM-3 to ADM-10 uses a synthetic
+test-only pin set that pins the hostile build, so that every check is
+reachable (LOC rows).
+
+Each admission diagnostic uses §10's shape with `scope = request`, the rule ID
+above, and `count` set to the 1-based central-directory entry ordinal where one
+applies (or to the member count for ADM-4). It never names a member path,
+digest or byte value. The operator can find the entry from the ordinal in the
+file they hold.
+
+Errors from `archive/zip`, `compress/flate` or `encoding/xml` are mapped to
+the codes above and never printed, because their text can contain entry
+names or content. A panic inside admission is recovered and reported as
+`package_archive_malformed`.
+
+### Registration transaction
+
+One short PostgreSQL transaction, after admission has passed. It contains no
+file, network or NLP I/O. Every insert is insert-if-absent on the key named in
+§4, §5 or this section, so a repeat or a concurrent run converges.
+
+1. Read the owner by username `FOR SHARE`. If there is none, roll back with
+   `owner_not_found` (exit 6). The shared lock fences a concurrent owner
+   deletion.
+2. Insert the Installed pin set, if this pin set has local fields.
+3. Insert the shared §5 evidence for the verified package: Package content and
+   members, the Package blob, notices and Notice coverage, Text and Annotation
+   Source revisions with their members, and provenance claims. Insert the
+   exception table as a Package blob of kind `interpretation_table`. The
+   deferred §5 count and sum triggers check the inventory at commit.
+4. Run §4 **Local registration**: ensure the shared Work, Edition, unit and
+   verified aliases; **Ensure Book for Reading unit** with origin
+   `operator_local` (a new Book is Inbox, with active membership, Work title,
+   author and language, and `metadata_provenance = operator_local`); insert
+   the Local registration if absent.
+5. Insert the owner's Package acquisition: `origin_kind = operator_local`,
+   `origin_ref = definition_id`, `package_release` and `pin_set` from the pin
+   set. Its §5 unique tuple makes a repeat a no-op.
+6. Lock the Book row `FOR UPDATE`, then append a Local selection if the
+   current one differs.
+7. Insert `supported_languages(language, display_name)` from reviewed code if
+   no row exists for the Work language. An existing row is never changed.
+8. Commit.
+
+It never writes a Preparation request, a River job, a disposition, a
+visibility change, a Reading, a snapshot, Known, history, a decision, a deck
+record or an Interpretation configuration. The `interpret` stage writes the
+configuration (§11).
+
+Lock order: user row → §4 identity lock (`owner:root`) → Book row. §11's lock
+order starts at the Book row, so the two orders do not conflict.
+
+Any database error, including at commit, rolls everything back and exits 1
+with `storage_unavailable`. A re-run is safe.
+
+### Output and exit codes
+
+| exit | outcome | stdout | stderr |
+| --- | --- | --- | --- |
+| 0 | `created`: the Book was created | One line: `local registration complete: outcome=created book=<book id> members=<n> package_bytes=<n> expanded_bytes=<n>` | — |
+| 0 | `added`: the Book existed, and a new acquisition or Local selection was added | Same line with `outcome=added` | — |
+| 0 | `unchanged`: every row already existed | Same line with `outcome=unchanged` | — |
+| 0 | `verified` (`-verify-only`) | `local registration verified: members=<n> package_bytes=<n> expanded_bytes=<n>` | — |
+| 1 | Infrastructure failure. Nothing committed. Safe to re-run. | — | `localregistration: failed: storage_unavailable: <message>` |
+| 2 | Usage or configuration | — | `localregistration: usage: <code>: <message>`, followed by the flag summary |
+| 3 | A local file is missing or unreadable | — | `localregistration: refused: <code>: <message>`. The message names the flag (`-package`, `-pin-file` or `-interpretation-table`), never the path. |
+| 4 | Refused by reviewed configuration: unknown or retired pin set, unknown or unsupported interpretation, closed rights gate, pin file or table not matching | — | `localregistration: refused: <code>: <message>` |
+| 5 | Package rejected by admission | — | `localregistration: rejected: <code>: rule=<ADM-n> entry=<ordinal>: <message>` |
+| 6 | Owner not found | — | `localregistration: refused: owner_not_found: <message>` |
+
+`<message>` is the registry's fixed English text for the code. Examples:
+
+- `package_too_many_members`: "The package has more than 128 members. Nothing
+  was registered. Supply the exact reviewed package."
+- `local_file_missing`: "The file named by -package does not exist. Nothing was
+  registered."
+- `interpretation_version_unknown`: "This release does not include the named
+  interpretation. Nothing was registered. Name an interpretation listed for
+  this pin set."
+- `pin_file_mismatch`: "The pin file is not the reviewed pin file for this pin
+  set. Nothing was registered."
+
+Every message says that nothing was registered, as the `Feedback` pattern
+requires ("what remains unchanged").
+
+The only values the command prints are the outcome, the Book ID (an owner
+record ID, which is not source content), counts, codes, rule IDs and entry
+ordinals. It prints no digest, no member path, no file path and no package
+content. The operator already holds every value it reports.
+
+### Safe failure
+
+- **Nothing partial.** Every refusal before T writes nothing, because no
+  database connection is open yet. A refusal or error in T rolls back the
+  whole transaction. No path leaves a blob without its Package content, a
+  Book without its Local registration, or an acquisition without its
+  selection.
+- **No fallback.** On any failure the command exits. It never tries another
+  pin-set version, interpretation, file, Edition, unit or source, never
+  downloads, and never contacts a catalogue connection. A failed admission
+  never changes the owner's existing Book, selection, request or evidence.
+- **Missing files** exit 3 before any write (P-6 to P-8).
+- **Unknown or retired versions** exit 4 before any package byte is read
+  (P-3, P-4).
+- **Pin mismatches** (transport, member, content, pin file, table) exit 4 or
+  5 before any write.
+- **Capacity.**
+  - Package bounds (ADM-1, ADM-4, ADM-8) exit 5 before any write.
+  - Installation queue capacity is not checked by the command, because it
+    admits no request. It applies when the learner moves the Book to To Read:
+    §11 records `failed` with `installation_queue_full`, and the Book row
+    shows "Not started: the installation's preparation queue is full" with
+    Retry. The registration is unaffected.
+  - Database storage exhaustion is a database error: exit 1, rollback.
+- **Server side.** For `origin_kind = operator_local`, §11's `verify` stage
+  reads the stored blob through the owner's acquisition, never a file. It
+  re-runs ADM-3 to ADM-10 on the stored bytes against the pin set, then links
+  the acquisition. A mismatch there is an integrity failure: the request is
+  `blocked` with the ADM code, and recovery is §9's exact restore. If the
+  owner holds no acquisition for the pinned digest, the request is `blocked`
+  with `local_package_not_registered`. Retry is offered once the operator has
+  registered it. A pin set that the interface reports unavailable (Installed
+  pin set missing or altered) gives `blocked` with `pin_file_missing` or
+  `pin_file_mismatch`.
+
+### Idempotency
+
+- **Same package, same owner, again.** The second run finds every shared row,
+  the Book, the Local registration, the acquisition and an equal current Local
+  selection. It writes nothing and reports `outcome=unchanged`. The command
+  never writes a Preparation request, so it can never add a second open
+  request, whatever the Book's state. A To Read on a Book with an open request
+  is already a no-op (§11 Admission step 3).
+- **Same package, second owner.** The shared Package blob, content, members,
+  revisions and claims are found, not inserted again. The second owner gets
+  their own Book, association, Local registration, acquisition and Local
+  selection (§4, §5 EVD-25). The first owner's rows are unchanged.
+- **Same owner, new pin-set version or interpretation.** The Book and Local
+  registration are reused (§4). A new acquisition (for a new transport build)
+  or only a new Local selection is added, and the outcome is `added`. A running
+  request, the current evidence and the disposition are unchanged. If the Book
+  has current evidence, the new selection is a Refresh candidate. If it has
+  none and an earlier initial request is `blocked`, see OD-59.
+- **Concurrent runs.** Two runs for the same owner and definition converge:
+  §4's identity lock serializes Ensure Book, the acquisition's unique tuple
+  absorbs the second insert, and the Book row lock serializes the Local
+  selection check.
+- **Hidden Book.** Registration never unhides a Book. The learner unhides it
+  through the existing More actions disclosure.
+
+### Learner-visible flow after registration
+
+The flow uses only existing destinations and patterns. "Book detail" in §11
+means these existing places: the My Books `AnnotatedBookRow`, Reading's To Read
+candidate row, and the `/jobs` `AsyncStatus` entry.
+
+1. **The Book appears in My Books.** Its language is the Work's (`grc`), shown
+   with the reviewed display name in the active-language switcher (ADR 0050).
+   The Book is an Inbox `AnnotatedBookRow`:
+   - Title and author come from the Work.
+   - Beneath them, in the same text column, the row adds the Edition label (or
+     "Unidentified edition", §4) and the unit's bounds label. Long text wraps
+     and is never truncated.
+   - One plain line states the annotation provenance at release scope, for
+     example "Automatic annotation, with reviewed repairs". It is taken from
+     the §5 provenance claims and the repair layer, and is never a badge or a
+     score.
+   - The margin carries the **Inbox** `StatusBadge`. There is no evidence note
+     yet, rather than `0%`.
+2. **To Read starts or continues the §11 request.** The primary action stays
+   **Move to To Read**.
+   - When any release-scope claim for a layer the analysis uses is
+     `automatic` or `unknown`, the action is a `Confirmation` disclosure. Its
+     summary is "Move to To Read". Its body uses a `MetadataList` to name the
+     Edition, unit, source release, provenance by layer and the repair layer.
+     It says that preparation runs in the background and does not need the
+     language service, and that Reading still starts only when the learner
+     chooses it. The final button reads "Move to To Read and prepare this
+     edition". This is ADR 0096's informed choice (OD-60). A POST without the
+     confirmation field changes nothing and returns the row with the
+     disclosure open.
+   - The POST is the existing To Read handler. For a classical Book, §11
+     Admission joins its disposition transaction and builds the pinned choice
+     from the current Local selection. If an open request exists, nothing new
+     is admitted.
+3. **Progress and failure use existing job and recovery states.**
+
+   | §11 request state | margin note on the row | adjacent recovery action |
+   | --- | --- | --- |
+   | `queued` | "Preparation queued" | — |
+   | `queued`, job snoozed for capacity | "Waiting for another preparation to finish" | — |
+   | `running` | "Preparing edition" | — |
+   | `failed` with a retryable code | "Preparation failed: " + the code's fixed explanation | **Retry** (submit button), as §11 "Outcomes and Retry" |
+   | `failed` with `installation_queue_full` | "Not started: the installation's preparation queue is full" | **Retry** |
+   | `blocked` with a retryable code | "Edition unavailable: " + explanation | **Retry**, only when §11 marks the code retryable |
+   | `blocked` otherwise | "Edition unavailable: " + explanation, plus "This release cannot prepare this edition." | None. No dead route. |
+   | `cancelled` | No note (the Book has left To Read) | — |
+   | `adopted` | The existing current-evidence note (Known coverage) | — |
+
+   The `/jobs` page shows the request with `AsyncStatus`: Book title, Edition
+   and unit lead; stage and attempt are supporting detail. Failure uses
+   `Feedback` inside the status region with the same recovery action.
+   Messages come from the code registry and never include source text.
+4. **Current reading is separate.** Adoption never starts a Reading. The
+   adopted Book appears among Reading's To Read candidates. The learner
+   starts it through the existing `ReadingChooser` confirmation.
+
+### NLP and network independence
+
+- The command's transitive dependencies exclude `internal/analyzer`, gRPC,
+  `net/http` and every provider package. A dependency test (`go list -deps`)
+  asserts this, alongside §10's layering test (OD-48).
+- The only connection the command opens is to PostgreSQL. The admission
+  package imports no `net` or `os` package. The safe XML reader has no
+  resolver.
+- The server needs no NLP for any step of this flow (§10 N-3, N-4).
+  `register → To Read → adopted` works with NLP stopped (LOC-20).
+
+### Logging and privacy
+
+- The command, the server and River job metadata never contain package bytes,
+  member content, member paths, Greek text, lemma or table values, digests,
+  file paths or pin-file content.
+- They contain only: outcome, codes, rule IDs, counts, entry ordinals, the
+  Book ID, the request ID and the owner's username (operator-supplied, on the
+  command's own output only).
+- §11's request `diagnostics` hold §10-shaped diagnostics, which carry no
+  input strings. River job arguments carry only owner, request, stage and
+  attempt (§11).
+- Library error text is never logged (see Admission checks). A test plants
+  unique sentinel strings in every synthetic member, path, lemma, table value
+  and pin field, and fails if any appears in command output, server logs, job
+  rows or request rows (LOC-21).
+
+### Invariants
+
+Each invariant is covered by the `LOC` rows in [§15](#15-acceptance-test-matrix).
+
+1. **Pins come from reviewed code.** Acceptance is decided only by the
+   compiled pin set and interpretation, and by a pin file whose digest equals
+   the compiled commitment. A package, a pin file that does not match, or an
+   operator flag never adds or changes a pin (LOC-13, LOC-18).
+2. **Admission order and completeness.** Every package passes ADM-1 to ADM-10,
+   in order, before any write and before any interpretation. A package that
+   fails any check writes no row in any table (LOC-01 to LOC-13).
+3. **Hostile archives.** Path traversal, links, duplicate and unlisted
+   members, more than 128 members, more than 16 MiB, expansion past 64 MiB
+   with lying headers, executable payloads, malformed central directories and
+   XML entity payloads are each refused with their code. No file outside the
+   process's inputs is read, and no network connection is attempted (LOC-01 to
+   LOC-12).
+4. **Versions first.** An unknown or retired pin set, an unknown or unsupported
+   interpretation, or a closed rights gate is refused before any package byte
+   is read (LOC-17).
+5. **Idempotent registration.** Registering the same package for the same
+   owner twice gives the same blob, Book, Local registration, acquisition and
+   selection, and writes nothing the second time, including under concurrency.
+   Registration never creates a Preparation request (LOC-14, LOC-24, LOC-28).
+6. **Shared bytes, separate owners.** A second owner gets their own Book,
+   acquisition and selection, and no new shared bytes. Neither owner can reach
+   the other's records (LOC-15).
+7. **Safe failure.** Missing files, unknown versions, pin mismatches and
+   capacity failures each give their documented exit code and message, write
+   nothing, and fall back to nothing (LOC-16, LOC-17, LOC-18, LOC-19, LOC-22,
+   LOC-23, LOC-29).
+8. **Learner intent.** Registration changes no disposition, Reading or learner
+   state. Preparation starts only from the learner's To Read, after the
+   informed choice when provenance is automatic or unknown. Reading starts only
+   from the learner's explicit Start (LOC-20, LOC-26).
+9. **Selection without disruption.** A new Local selection never changes a
+   running request or current evidence (LOC-25).
+10. **No file access in the server.** The server prepares and adopts a locally
+    registered package without the original file (LOC-27).
+11. **NLP and network independence.** Register, To Read, preparation and
+    adoption complete with NLP stopped and no outbound network. The command
+    cannot link NLP or network clients (LOC-20, LOC-30).
+12. **Privacy.** Output, logs, job metadata and request diagnostics contain no
+    package content, Greek text, table values, digests or paths (LOC-21).
+13. **Records.** A Local selection names only an acquisition of its own
+    definition. Local selections and Installed pin sets are immutable, and an
+    Installed pin set's digest matches its content (LOC-31).
+
+### Conflicts and dependencies noted
+
+- **§11 `verify` stage input.** §11 lists "the §12 local path" as the `verify`
+  stage's source. §12 never gives the server a path. For `operator_local`
+  origins the source is the stored blob that the command wrote, reached
+  through the owner's acquisition, and the stage re-runs admission on it.
+  §11 is not rewritten.
+- **§11 initial requests and approval.** §11 says an initial request needs no
+  approval. ADR 0096 requires an explicit informed choice for automatic or
+  unknown-provenance annotation. §12 makes To Read's confirmation that choice,
+  and records it as `approved_at` on the initial request, which §11's checks
+  permit (OD-60).
+- **§11 re-pinning.** §11's To Read reuses the most recent initial request's
+  pinned choice, and Refresh requires current evidence. A Book whose initial
+  choice is deterministically `blocked` therefore cannot reach a newer Local
+  selection (OD-59).
+- **§4 Local registration** is used unchanged. The pinned versions it leaves to
+  §11 are carried by the new Local selection.
+- **§5 "Pins" names one Interpretation configuration per pin set.** §12 lets a
+  pin-set version list one or more interpretation definitions, and the
+  operator names one with `-interpretation`. With a single listed
+  interpretation the two readings agree. §5 is not rewritten.
+- **§5 pin source (OD-15).** §12 is written against option (3), and adds the
+  compiled commitment and the Installed pin set (OD-57).
+- **§5 limit codes.** §5 names five families of package codes. §12's finer
+  codes each map to one of them, shown in the Admission checks table. §11 and
+  §10 continue to name the families.
+- **§10 registry.** §12 registers these codes in §10's registry, all
+  permanent: the ADM codes in the Admission checks table; for request outcomes,
+  `local_package_not_registered`, `pin_file_missing` and `pin_file_mismatch`;
+  and, for command output only, `usage_invalid`, `database_url_missing`,
+  `pin_set_unknown`, `pin_set_retired`, `interpretation_not_pinned`,
+  `pin_file_invalid`, `interpretation_table_mismatch`, `local_file_missing`,
+  `local_file_unreadable` and `owner_not_found`. §10's failure-class table is
+  not rewritten.
+- **Admission order.** The ticket lists nine checks, with central-directory
+  sanity second. §12 keeps that order and inserts one check, ADM-2 (the
+  whole-file transport digest), before it. ADM-2 parses nothing, and refuses
+  any unpinned build before a ZIP parser sees it. Every listed check still
+  runs, so each LOC row reaches its check with a test-only pin set that pins
+  the hostile build.
+- **§11 Admission's pinned choice.** §11 takes the initial candidate from
+  "the Book's Unit offering or Local registration (§4)". §4's Local
+  registration records no candidate. For local Books, §12's current Local
+  selection is that candidate. §11 is not rewritten.
+- **§11 "Outcomes and Retry" for byte mismatches.** §11 offers Retry "after the
+  operator supplies the exact bytes (§12)". On the local path, mismatched bytes
+  are refused by the command before any request exists. The only retryable
+  local case is `local_package_not_registered`, after the operator registers
+  the exact package. A mismatch found on bytes already stored is an integrity
+  failure, recovered by §9's exact restore, not by Retry.
+- **§5 "Limits".** §5 says the request records an admission failure. On the
+  local path no request exists yet, so the command's exit code and message
+  record it. A `verify` stage failure on stored bytes is recorded on the
+  request as §5 says.
+- **§10 placement.** The command may import adapters for `Supports` checks, as
+  §10 allows for "the §12 local entry command". `internal/evidencepackage` and
+  the shared safe XML reader are new packages, which need the ADR 0091
+  amendment (OD-43, OD-61).
+- **§9 retention.** The Installed pin set and Local selection are new
+  records. §9's delete guard on shared evidence must cover the Installed pin
+  set, and §9's referencer list must include Local selection, which references
+  an acquisition. §9 is not rewritten.
+- **`CONTEXT.md:355-357`.** The Book entry says Books enter "only through a
+  connected catalog, never by manual entry". OD-08 records the wording change.
+  A Book entered by an operator's reviewed registration is not manual entry by
+  a learner.
+- **Seams.** The command's rows use a command integration test against real
+  PostgreSQL, the operator-command form of seam (d) under OD-41 (1), combined
+  with seam (a) for what the learner sees, as the ticket asks ("seam (a), plus
+  a CLI test"). They are marked `(a) + CLI`. LOC-28 uses seam (d) for
+  concurrent transactions, as BIB-02 does. LOC-30 is a layering row and uses
+  the lint seam under OD-48 (1).
 
 ## 13. Migration sequence, preflight and recovery
 
@@ -4791,6 +5372,37 @@ rows use synthetic fixtures only.
 | ADP-27 | The database backs the request invariants. | (d) | A's classical Book with an open request, and a second Book with a `running` request. | Insert directly: a second open request for the first Book; a `replacement` without approval; a second `running` request; a fourth attempt for one stage; a change to a pinned-choice field; a transition out of a terminal state. | Each statement is rejected. | Valid inserts and the listed transitions succeed. |
 | ADP-28 | A job left over from an earlier attempt never skips backoff or consumes budget. | (a) | A's request whose `verify` attempt 1 failed transiently, so it is `queued` with attempt 2 scheduled after its backoff. The test re-delivers attempt 1's job at once. | Run River without advancing the clock, then advance it past the backoff. | The re-delivered job writes nothing. Attempt 2 runs only after the backoff. The history shows exactly two `verify` attempts. | A job naming attempt 3 delivered before attempt 2 also writes nothing. |
 | ADP-29 | A lost job is recovered without consuming budget. | (a) | A's request between stages, `running`, whose next stage's River job the test deletes. | Run the reconciler, then River. | The reconciler inserts the missing job. The next stage runs as attempt 1, and the request is adopted. | A request whose deadline has passed is set `failed` with `deadline_exceeded` by the reconciler, and no job is inserted. |
+| LOC-01 | Admission refuses path traversal, and the refused package writes nothing. | (a) + CLI | Owner A (username `owner-a`). Synthetic test-only pin set `example-hostile/1` pins the transport digest of a synthetic ZIP with one entry named `../escape.xml`. Row counts of every §4, §5 and §12 record, of Books and of Preparation requests are recorded. | Run `localregistration -owner owner-a -pin-set example-hostile/1 -interpretation example-interpretation/1 -package <zip>`. | Exit 5 with `package_path_unsafe`, `rule=ADM-6`, `entry=1`. Every recorded row count is unchanged. No file named `escape.xml` exists outside the test's input directory. | The same with an absolute path (`/escape.xml`), a backslash path and a non-NFC path each gives `package_path_unsafe`. A safe path in the same position passes ADM-6. |
+| LOC-02 | Admission refuses links. | (a) + CLI | As LOC-01, with a pinned synthetic ZIP whose entry has Unix mode `S_IFLNK` and target `/etc/passwd`. | Run the command. | Exit 5 with `package_entry_link`, `rule=ADM-6`. No rows written. The link target is never opened. | An entry carrying a link or owner extra field outside the allowlist gives `package_entry_unsafe`. A directory entry gives `package_entry_unsafe`. |
+| LOC-03 | Admission refuses duplicate members. | (a) + CLI | As LOC-01, with a pinned synthetic ZIP holding two entries with the same path. | Run the command. | Exit 5 with `package_member_duplicate`, `rule=ADM-5`, `entry=2`. No rows written. | Two paths equal only after NFC normalization also give `package_member_duplicate`. |
+| LOC-04 | Admission refuses unlisted members and missing members. | (a) + CLI | As LOC-01, with a pinned synthetic ZIP holding every pinned member plus `extra.xml`, and a synthetic manifest member that lists `extra.xml`. | Run the command. | Exit 5 with `package_member_unlisted`, `rule=ADM-5`. No rows written. The manifest's listing has no effect. | A ZIP that lacks one pinned member gives `package_member_missing`. |
+| LOC-05 | The expansion bound holds against lying headers. | (a) + CLI | As LOC-01, with a pinned synthetic ZIP whose one entry declares 1 KiB compressed and uncompressed in both headers but deflates to 1 GiB. The test wraps the decompressor to count output bytes. | Run the command. | Exit 5 with `package_expanded_too_large`, `rule=ADM-8`. At most 64 MiB plus one read buffer was decompressed. No buffer was sized from a header. No rows written. | An honest synthetic package expanding to exactly 67,108,864 bytes passes ADM-8. |
+| LOC-06 | Safe XML never resolves entities or fetches anything. | (a) + CLI | Synthetic pin set `example-xxe/1` pins a synthetic ZIP whose annotation member declares `<!DOCTYPE a [<!ENTITY x SYSTEM "file://<sentinel file>">]>` and an entity pointing at a local test listener, and references both. The sentinel file and listener record any access. | Run the command. | Exit 5 with `xml_dtd_forbidden`, `rule=ADM-10`. The sentinel file is not opened and the listener receives no connection. No rows written. | A billion-laughs payload, and an internal subset that declares no entity, each give `xml_dtd_forbidden`. A document type declaration with only a `SYSTEM` identifier naming the listener passes ADM-10, and the listener still receives no connection. An undeclared reference `&x;` with no DTD gives `xml_entity_reference`. A member in UTF-16 gives `xml_encoding_unsupported`. Element depth 257 gives `xml_depth_exceeded`. |
+| LOC-07 | At most 128 members. | (a) + CLI | As LOC-01, with a pinned synthetic ZIP of 129 small entries, all pinned. | Run the command. | Exit 5 with `package_too_many_members`, `rule=ADM-4`. No rows written. | The same package with 128 entries passes ADM-4 and registers. |
+| LOC-08 | At most 16 MiB, detected without reading the whole file. | (a) + CLI | A synthetic file of 16,777,217 bytes. The test counts bytes read from it. | Run the command. | Exit 5 with `package_too_large`, `rule=ADM-1`. At most 16,777,217 bytes were read. No rows written. | A pinned synthetic package of exactly 16,777,216 bytes passes ADM-1. |
+| LOC-09 | Malformed central directories are refused. | (a) + CLI | Pinned synthetic ZIPs: one with bytes prepended before the first local header; one with trailing bytes after the end record; one whose local and central names differ; one with a ZIP64 record. | Run the command for each. | Each exits 5 with `package_archive_malformed`, `rule=ADM-3`. No rows written. | The unmodified valid package passes ADM-3. |
+| LOC-10 | Executable payloads are refused. | (a) + CLI | Pinned synthetic ZIPs: one whose `text` member begins with the ELF signature; one with an entry whose Unix mode has an execute bit; one with an entry whose extension is not allowed for its role; one with a nested ZIP member. | Run the command for each. | Each exits 5 with `package_member_executable`, `rule=ADM-7`. No rows written. | The valid synthetic package, whose members are XML and plain text with mode 0644, passes ADM-7. |
+| LOC-11 | Encrypted entries and unsupported compression are refused. | (a) + CLI | Pinned synthetic ZIPs: one with an encrypted entry, one using a compression method other than stored or deflate. | Run the command for each. | Each exits 5 with `package_entry_unsafe`, `rule=ADM-6`. No rows written. | Stored and deflate entries both pass. |
+| LOC-12 | The transport pin is checked before any parsing. | (a) + CLI | A synthetic malformed ZIP whose transport digest no pin set lists. | Run the command with `example-def/1`. | Exit 5 with `package_transport_unpinned`, `rule=ADM-2`, not `package_archive_malformed`. No rows written. | The same bytes, pinned in `example-hostile/1`, reach ADM-3 and give `package_archive_malformed`. |
+| LOC-13 | Exact member and content pins are enforced, and pins never come from the package. | (a) + CLI | Synthetic pin sets whose transport digest matches but which pin one member with a different size, one with a different digest, and one with a different content digest. A fourth package's manifest member claims different digests. | Run the command for each. | Exits 5 with `package_member_size_mismatch`, `package_member_digest_mismatch` and `package_content_digest_mismatch` (`rule=ADM-9`). The fourth is decided by the pins only. No rows written for the failures. | A repacked build of the same members, listed as a second transport digest in `example-def/2`, registers and resolves to the same Package content as the first build. |
+| LOC-14 | A valid package registers once, and a repeat writes nothing. | (a) + CLI | Owner A, no classical Book. Valid synthetic package for `example-def/1` (unit `example-work / ed-1 / book 1`) and synthetic exception table. | Run the command twice with the same flags. | First run: exit 0, `outcome=created`. A has one Inbox Book with metadata provenance `operator_local`, one association, one Local registration, one acquisition and one Local selection. One blob of each kind exists. No Preparation request or River job exists. Second run: exit 0, `outcome=unchanged`, the same Book ID, and every row count and row is unchanged. My Books for A lists the Book with its Edition, unit and provenance line. | A Book that A moved to To Read between the runs keeps its disposition and request after the second run. |
+| LOC-15 | A second owner gets a separate Book with shared bytes. | (a) + CLI | Owner A registered as in LOC-14. Owner B exists. | Run the command for `owner-b` with the same files. | Exit 0, `outcome=created`. B has a new Book, association, Local registration, acquisition and Local selection. The blob, Package content, members and revisions have one row each. A's rows are unchanged. | B's GET of A's Book anchor and B's To Read POST with A's Book ID return the existing not-found response. A's My Books does not list B's Book. |
+| LOC-16 | A missing file is an explained failure that writes nothing. | (a) + CLI | Owner A. Row counts recorded as in LOC-01. | Run the command with `-package` naming a path that does not exist. Repeat with a directory, and with an unreadable file. | Exit 3 with `local_file_missing`, then `local_file_unreadable` twice. stderr names `-package`, never the path. Every row count is unchanged. | The same for `-pin-file` and `-interpretation-table` names those flags. |
+| LOC-17 | Unknown versions and closed gates are refused before the package is read. | (a) + CLI | Owner A. `-package` names a path that does not exist. A test rights-gate state can be closed. | Run the command with `-pin-set example-def/9`; with `-interpretation example-interpretation/9`; with an interpretation that `example-def/1` does not list; with a retired pin set; with the gate closed. | Exits 4 with `pin_set_unknown`, `interpretation_version_unknown`, `interpretation_not_pinned`, `pin_set_retired` and `rights_gate_closed`. None reports `local_file_missing`, which shows the package was not opened. No rows written. | The same flags with a compiled, listed, unretired version and an open gate proceed to P-6. |
+| LOC-18 | A pin file is accepted only when its digest equals the compiled commitment. | (a) + CLI | Synthetic test pin set `example-local/1` with local fields and a compiled commitment. A synthetic pin file with that digest. | Run the command with the pin file changed by one byte; with a pin file that repeats a compiled field; with no `-pin-file`. | Exit 4 `pin_file_mismatch`; exit 4 `pin_file_invalid`; exit 2 `usage_invalid`. No rows written. | The exact pin file registers, and its Installed pin set row has the compiled digest. A later run with the same file writes no second row. |
+| LOC-19 | The exception table must match its pinned digest. | (a) + CLI | Owner A. Valid package for `example-def/1`. | Run the command without `-interpretation-table`; with a table changed by one byte; with a table of 16 MiB + 1 bytes. | Exit 2 `usage_invalid`; exit 4 `interpretation_table_mismatch` twice. No rows written. | The exact table registers and is stored once as an `interpretation_table` blob. |
+| LOC-20 | The full flow works with NLP stopped and no outbound network. | (a) + CLI | NLP service not running; `MOUSEION_NLP_ADDR` points at a test listener that records connections. The command and the server run with a dialer guard that fails the test on any connection other than PostgreSQL. Owner A. | Register `example-def/1` for A; A POSTs To Read with the informed-choice confirmation; run River to completion; A Starts the Book from the Reading chooser. | The request is `adopted`. The Book is Reading-ready, appears among Reading's To Read candidates, and the Start creates a Reading. The NLP listener and the dialer guard record no connection. | Before Start, no Reading exists: adoption alone never starts one. An EPUB Book's To Read in the same run still reports that analysis needs the language service. |
+| LOC-21 | Output, logs and job metadata contain no content. | (a) + CLI | Synthetic package, pin file and table whose every member, path, lemma, table value and digest field contains a unique sentinel string. Server and command output captured. | Run LOC-14, LOC-20 and each failure in LOC-01 to LOC-13 and LOC-16 to LOC-19. | No sentinel appears in command stdout or stderr, server logs, River job arguments or metadata, or Preparation request `reason` and `diagnostics`. | A test-only diagnostic that embeds a member path fails this row, which shows the check is effective. |
+| LOC-22 | Queue capacity is explained at To Read, and the registration is unaffected. | (a) + CLI | 32 pending requests from other owners. Owner A registered as in LOC-14. | A POSTs To Read with the confirmation. | A's Book is To Read. Its request is `failed` with `installation_queue_full`, with no job. The row shows "Not started: the installation's preparation queue is full" with Retry. A's registration rows are unchanged. | After one other request finishes, Retry admits a `queued` request with the same pinned choice. |
+| LOC-23 | A failure falls back to nothing. | (a) + CLI | Owner A with a registered Book on `example-def/1` and current evidence. `example-def/2` is compiled. A test hook fails the registration transaction at commit. | Run the command with a hostile package for `example-def/2`; then with the valid `example-def/2` package and the commit hook set. | First: exit 5, and A has no acquisition or Local selection for any pin-set version other than `example-def/1`. Second: exit 1 `storage_unavailable`, and no row from the run exists. A's current evidence, selection and requests are unchanged after both. | Re-running the second command without the hook exits 0 with `outcome=added`. |
+| LOC-24 | Re-registering during an open request adds no request. | (a) + CLI | Owner A's Book in To Read with a `running` request, held before `adopt`. | Run the command again with the same flags, then POST To Read again. | `outcome=unchanged`. The Book has exactly one open request, with an unchanged pinned choice and attempt counters. | Releasing the request adopts it normally. |
+| LOC-25 | A new Local selection never changes running work or current evidence. | (a) + CLI | Owner A's Book with current evidence from `example-def/1` and `example-interpretation/1`. `example-interpretation/2` is listed by `example-def/2`. | Register `example-def/2` with `example-interpretation/2`. | `outcome=added`. A new acquisition and Local selection exist. The current analysis and every request are unchanged. The row offers the new selection as a Refresh candidate. | Approving the Refresh confirmation admits a `replacement` request that adopts the new analysis. Registering the old selection again appends a selection row and changes nothing else. |
+| LOC-26 | Registration leaves learner state alone, and To Read needs the informed choice. | (a) + CLI | Owner A with a current Reading on another Book. The synthetic provenance claims are `automatic`. | Register `example-def/1` for A. POST To Read without the confirmation field, then with it. | After registration, the new Book is Inbox and A's Reading, dispositions, Known and history are unchanged. The first POST changes nothing and returns the row with the confirmation open. The second moves the Book to To Read and admits an `initial` request with `approved_at` set. | With all release-scope claims `human`, To Read needs no confirmation. |
+| LOC-27 | The server never reads the package file. | (a) + CLI | Owner A registered as in LOC-14. The test deletes every input file after registration. | A POSTs To Read with the confirmation, and River runs. | The request is `adopted`. | Changing one byte of the stored Installed pin set row (test-only, with its update trigger disabled) makes the `verify` stage `blocked` with `pin_file_mismatch`, and nothing is adopted. |
+| LOC-28 | Concurrent registrations converge. | (d) | Owner A, no classical Book. | Two registration transactions for the same owner, pin set and package run concurrently. | Both commit. A has one Book, one Local registration, one acquisition and one Local selection. | Two concurrent runs for owners A and B give two Books and one blob. |
+| LOC-29 | An unknown owner writes nothing, and verify-only writes nothing. | (a) + CLI | Row counts recorded as in LOC-01. | Run the command with `-owner nobody`. Then run it with `-verify-only` and no `MOUSEION_DATABASE_URL`. | Exit 6 `owner_not_found`, with every row count unchanged. Verify-only exits 0 with `outcome=verified` and opens no database connection. | Verify-only on a hostile package gives the same exit 5 code as a full run. |
+| LOC-30 | The command and admission package cannot reach NLP or the network. | lint (OD-48) | The module at the change under test. | `make lint-go` and the transitive dependency test. | `cmd/localregistration` does not depend on `internal/analyzer`, gRPC, `net/http` or a provider package. `internal/evidencepackage` and the safe XML reader depend on no `net`, `os`, `os/exec`, `plugin`, persistence or River package. | Adding such an import to either fails the test. |
+| LOC-31 | The database backs the §12 records. | (d) | Owner A with a Local registration on `example-def`, and an acquisition on another definition. | Insert directly: a Local selection naming the other definition's acquisition; an update to a Local selection; an update to an Installed pin set; an Installed pin set whose digest does not match its content. | Each statement is rejected. | Valid inserts succeed. |
 
 ## 16. Requirement traceability
 
@@ -4810,14 +5422,14 @@ decisions (see §1) are not reopened here.
 | OD-05 | Does Evidence adoption publish through the existing analysis-run anchor that every Reading gate checks (B-23 to B-26), or through a new anchor? | (1) Adoption produces an exact analysis that the existing classification recognizes, so the six call sites stay unchanged. (2) A new adopted-analysis anchor, with every gate changed together. | (2), decided by #2072 (§11 "OD-05 resolution") for #2068 and #2072, consistent with §5's OD-12 (2) and §8. The adopted anchor is the parallel Book current classical analysis record. The single domain classification (ADR 0052) reads it, and every B-26 call site moves to that classification in one change. EPUB verdicts are unchanged. | (1) reuses existing anchors, as the handoff requires, but `book_current_analyses` references a source material and run. (2) needs an atomic change across all gates. | #2064 | open |
 | OD-06 | Are Work, Edition and Reading unit records global or owner-scoped (§4)? | (1) All shared. (2) All owner-scoped. (3) Shared when created from a reviewed identity definition; private to one owner when derived only from that owner's unverified catalogue advertisement. | (3). §4 is written against it. | (1) puts one learner's connection-supplied descriptions in rows other owners can resolve to. Sync then needs a write ban that the schema cannot express. (2) gives the simplest authorization (composite owner keys everywhere), but every owner duplicates descriptions, and §5 evidence cannot cite a shared unit. (3) keeps reviewed identity and its evidence shareable, and lets no learner input reach another owner. Its cost is a nullable `owner_id` and a trigger checking that associated units are shared or same-owner. It narrows issue item 7's "shared descriptions" for advertised rows. | #2065 | open |
 | OD-07 | Does a Reading unit need its own stable external citation scheme field? | (1) The unit stores an internal reviewed `citation_scheme` name with its bounds. External citation identifiers, such as a CTS passage URN, are verified aliases only. (2) Add a stable external citation identifier column to the unit. (3) No scheme field; bounds are opaque text. | (1). | (1) makes `extent_key` comparable within a scheme without trusting external identifiers. (2) makes an external alias a de facto key, against ADR 0093. (3) cannot tell `1` in one scheme from `1` in another, so uniqueness on (Edition, extent) is unsafe. | #2065 | open |
-| OD-08 | How does the operator-local path fit `CONTEXT.md:355-357` ("Books … enter the library only through a connected catalog, never by manual entry") and the closed provenance values at `internal/domain/books.go:14-19` and `:252-256`? | (1) A reviewed, compiled definition is an offering origin. Add a provenance value such as `operator_local`, and amend the `CONTEXT.md` wording in a separately reviewed change. (2) Require a synthetic local connection row, so that every Book still has a connection. | (1). Final interface decided by #2073. | (1) keeps the path free of connections, as #2065 requires, but needs a glossary change outside this ticket. (2) keeps the wording but invents a connection that has no feed, credentials or sync, and would be visible in Catalogs. | #2065 | open |
+| OD-08 | How does the operator-local path fit `CONTEXT.md:355-357` ("Books … enter the library only through a connected catalog, never by manual entry") and the closed provenance values at `internal/domain/books.go:14-19` and `:252-256`? | (1) A reviewed, compiled definition is an offering origin. Add a provenance value such as `operator_local`, and amend the `CONTEXT.md` wording in a separately reviewed change. (2) Require a synthetic local connection row, so that every Book still has a connection. | (1). Final interface decided by #2073 (§12): the operator command creates Books with provenance `operator_local`, and no connection row is invented. | (1) keeps the path free of connections, as #2065 requires, but needs a glossary change outside this ticket. (2) keeps the wording but invents a connection that has no feed, credentials or sync, and would be visible in Catalogs. | #2065 | open |
 | OD-09 | Where do classical catalogue connections live, given that `opds_connections.owner_id` is nullable and has no unique `(owner_id, id)` (`migrations/000001_initialize.up.sql:1267-1277`, `:1960`)? | (1) Generalize `opds_connections` with a connection kind, and add a unique `(owner_id, id)`. (2) A separate classical connection record, owner-scoped with `(owner_id, id)` unique. | (2), decided in the spec for handoff stage 3 ([catalog release and durable acquisition](annotation-backed-ancient-greek.md#3-authorize-catalog-release-and-implement-durable-acquisitionadoption)). The local route needs neither. | (1) shares one Catalogs list but carries the OPDS single-`language` and `url` columns, which ADR 0096 says classical data must not be forced through. (2) lets a Unit offering use a composite owner and connection key, but adds a second connection kind to Catalogs. | #2065 | open |
 | OD-10 | Does later sync update a classical Book's `title`, `author` and `language`? | (1) They are set once at creation from the Work. Advertised metadata is stored on the Unit offering, and display reads Work, Edition and unit descriptions. (2) Follow OPDS: sync overwrites them, and a language change ends an incompatible Current reading (`internal/persistence/books.go:832-847`). | (1). | (1) means sync can never end a reading or rename a Book shared by several offerings. A changed description reaches the Book only through a reviewed definition. (2) lets two offerings of one Book overwrite each other. | #2065 | open |
 | OD-11 | New terms used in §4. | Add to `CONTEXT.md`: **Unit offering**, **Local registration**, **Verified identity alias**, **Claimed alias**, **Identity conflict**, **Edition reconciliation**, **Reconciliation class**, **Book–Reading unit association**, **Named Edition** / **Unidentified Edition**, and **classical Book** (a Book with a Book–Reading unit association). Or keep them as design-local names. | Add them in a separately reviewed `CONTEXT.md` change. **Unit offering** is defined as one declared Reading unit that a Catalog entry offers. | Adding them gives implementation and UI one vocabulary. Keeping them local leaves "offering" ambiguous: `CONTEXT.md:273-274` already calls a Catalog entry "an offering", and "alias" is ambiguous against the OPDS `catalog_entry` alias. | #2065 | open |
 | OD-12 | How does an Exact analysis relate to `analysis_runs` and `book_current_analyses` (§5)? | (1) Extend additively: make `book_current_analyses.source_material_id` and `analysis_run_id` nullable, and add a nullable classical-analysis column with a check that exactly one side is set. (2) A parallel owner-scoped "Book current classical analysis" record keyed `(owner_id, book_id)` and referencing the §4 association, plus an additive trigger on `book_current_analyses` that rejects classical Books. | (2). §5 is written against it. | (1) keeps one physical anchor, but it relaxes `NOT NULL` columns and foreign keys on a shipped table (`migrations/000001_initialize.up.sql:239-245`, `:2613`, `:2629`). It also changes the meaning of `current_analysis_identity` (`:433-444`), which code and queries reference in 61 places, and of the upsert at `internal/analysis/jobs.go:1736-1739`. (2) leaves every EPUB structure, view and query unchanged. Its cost is that the single domain classification must read two anchors, which is OD-05's gate question, and a cross-table exclusion trigger. | #2066 | open |
 | OD-13 | Which identifier fills the source-decoding slot for the retained candidate? The handoff names lemma, POS, repair, terminal and normalization identifiers, but no decoding identifier. | (1) Source decoding is a separate slot, and the Stage 1 reviewed definition names its own `name/version` identifier. (2) Treat the decoding as part of `oga-greta-lemma/2` and fill the slot with that identifier. | (1). | (1) keeps decoding revisions visibly separate from mapping and normalization, as the #2033 resolution requires, but needs one more reviewed public identifier at Stage 1. (2) adds no identifier, but a decoding-only change then cannot be versioned without also versioning the lemma mapping. | #2066 | open |
 | OD-14 | Is the selection policy (`grc-earliest-capped/1`) part of the analysis-affecting interpretation identity? Issue #2066 item 6 lists it there. The handoff says a card-selection policy change applies to a newly prepared specification, not to an analysis rewrite. | (1) Pin it in the same reviewed definition, but keep it out of the Interpretation configuration. It is recorded with the specifications it governs (§8). (2) Include it as a slot, so a policy change creates a new interpretation and analysis. | (1). §5 is written against it. | (1) matches the handoff, and a policy change needs no re-adoption or new counts. (2) forces a new analysis, adoption and count projection for a change that alters no occurrence. That contradicts the handoff. | #2066 | open |
-| OD-15 | Where does the private retained pin set live, including transport, content and member digests and the exception-table digest? | (1) Compiled into reviewed application code, which publishes the private digests in the public repository. (2) A reviewed operator-local pin file, loaded through the same pin-set interface. Its identifier and version are recorded on every acquisition. (3) Synthetic pin sets in code for CI, and the retained pin set operator-local. | (3), decided by #2075 (§14) with #2073 (§12). | (1) gives one review path, but exposes values this design keeps private. (2) keeps them local, but the file's review happens outside the repository. (3) keeps CI public and synthetic and the retained values local, at the cost of two pin sources behind one interface. All three keep the rule that pins never come from the package. | #2066 | open |
+| OD-15 | Where does the private retained pin set live, including transport, content and member digests and the exception-table digest? | (1) Compiled into reviewed application code, which publishes the private digests in the public repository. (2) A reviewed operator-local pin file, loaded through the same pin-set interface. Its identifier and version are recorded on every acquisition. (3) Synthetic pin sets in code for CI, and the retained pin set operator-local. | (3), decided by #2075 (§14) with #2073 (§12). §12 is written against (3), and authenticates the operator-local pin file with a compiled commitment (OD-57). | (1) gives one review path, but exposes values this design keeps private. (2) keeps them local, but the file's review happens outside the repository. (3) keeps CI public and synthetic and the retained values local, at the cost of two pin sources behind one interface. All three keep the rule that pins never come from the package. | #2066 | open |
 | OD-16 | Are the package bounds (16 MiB, 128 members, 64 MiB) configurable above the handoff values? | (1) The application enforces configured values that default to the handoff values and can only be lowered. The database checks the handoff values as ceilings, and raising one needs a reviewed change. (2) Fully configurable at runtime, with no database ceiling. (3) Fixed constants. | (1). | (1) follows "Deliberately review any required limit change" (handoff Stage 1) and keeps a backstop against application bugs. (2) lets an operator setting silently admit larger packages, with no backstop. (3) contradicts "configurable engineering defaults". | #2066 | open |
 | OD-17 | Can a Text–annotation binding reference a private (advertised-only) Reading unit? | (1) No. Bindings reference shared units only, and the Stage 3 spec decides private-unit evidence. (2) Yes. A binding inherits the unit's `owner_id`, and private bindings and analyses cascade on owner deletion. | (1). | (1) keeps every evidence row shared and immutable, and is enough for the local path, which uses reviewed definitions and so shared units (§4 OD-06). It defers evidence for unverified advertised units. (2) supports that case now, but adds owner-scoped cascades to otherwise shared immutable evidence. | #2066 | open |
 | OD-18 | New terms used in §5. | Add to `CONTEXT.md`: **Package acquisition** (an owner's verified acquisition of exact package bytes; their provenance and evidence access), **Capability diagnostic** and **Usability restriction**. Keep Package blob, Package content (source-content identity, as against a blob's transport identity), Package member, pin set, Evidence notice, Notice coverage, Extracted text, Interpretation configuration, Exact analysis, Diagnostic finding, Provenance claim and Book current classical analysis as design-local names. "Owner evidence access" is the role that Package acquisition plays, not a separate record. | Add the three in a separately reviewed `CONTEXT.md` change. | The three appear in learner-facing explanations and in other sections. The rest are storage detail. "Exact analysis" stays design-local, so that it does not compete with the existing "analysis". | #2066 | open |
@@ -4858,6 +5470,13 @@ decisions (see §1) are not reopened here.
 | OD-53 | Is a `blocked` request terminal, and a non-root holder under OD-39? §9's illustrative query lists only `adopted`, `cancelled`, `failed` and `superseded` as terminal. | (1) Yes. `blocked` is terminal, and a new request (Retry or Refresh) is the only way forward, so OD-39 option (1) treats it as a non-root holder. (2) `blocked` is live, so its evidence is never reported as unreferenced. | (1). | (1) makes every state other than `queued` and `running` terminal, and reports evidence that only a blocked request touched. §9's query must add `blocked` when implemented. (2) keeps a blocked import's bytes out of the report forever, which OD-39 (1) rejects for cancelled requests. | #2072 | open |
 | OD-54 | Does §11 store a validated analysis that is not Vocabulary-ready (OD-47)? | (1) Store it, with its diagnostics and §7 rows, for owner inspection. Never adopt it. The request is `blocked`. (2) Store nothing. The request carries the diagnostics only. | (1). | (1) lets the owner see which occurrences or code points failed, through §5's access rule. The cost is retained rows that no root keeps live, which the unreferenced report then lists. (2) stores less, but the owner can see only counts per code. | #2072 | open |
 | OD-55 | New terms used in §11. | Add to `CONTEXT.md`: **Preparation request** (an owner's durable, bounded intent to prepare one pinned choice for one Book) **Refresh** (an owner's explicit approval of a named replacement candidate for a Book) and **Retry** (an explicit owner action that creates a new bounded request for the same pinned choice). Keep stage, stage attempt, attempt number, Preparation attempt, Staged count row, admission, capacity gate, reconciler, expected evidence, pending, active and lease as design-local names. | Add the three in a separately reviewed `CONTEXT.md` change. | All three appear in learner-facing Book detail states and in ADR 0097's wording ("refresh request", "explicit Retry"). The rest are worker detail. | #2072 | open |
+| OD-56 | Which operator-local entry point selects the retained package and frozen interpretation (§12)? | (i) An operator command registers the package, creates the Book, sets To Read and admits the initial request. (ii) An operator-configured local directory, plus a learner-visible "Add local edition" action in the web app. (iii) Hybrid: the operator command registers the package and the owner's Inbox Book; the learner moves it to To Read through the existing My Books action, which admits the request. | (iii). §12 is written against it. | (i) needs no learner step, but the operator changes a learner's disposition and makes the informed choice ADR 0096 reserves for the learner, and admission gains a second caller outside the disposition transaction §11 requires. (ii) needs no operator step per owner, but the web process reads and parses package files on a request path, the directory needs its own owner scoping, and "Add local edition" is a new UI pattern. (iii) keeps file access in an operator process and learner intent in the existing flow. Its cost is one command run per owner. | #2073 | open |
+| OD-57 | How does the application authenticate the operator-local pin file (OD-15 (3)), and how does the server read private pins without file access? | (1) Reviewed code compiles a commitment, the SHA-256 of the exact pin-file bytes, into each retained pin-set entry. The command accepts the file only when its digest matches, and stores it as an immutable Installed pin set. The server reads pins only from that row, re-checking the commitment on every load. (2) Trust the pin file as reviewed, and let the server load it at start-up from an environment path, as it loads `MOUSEION_DICTIONARY_INDEX` (`cmd/server/main.go:377-401`). (3) Only the command reads the pin file; the server trusts the persisted §5 inventory rows instead of pins. | (1). | (1) makes reviewed code the authority for every pin while keeping private digests out of the public repository; a changed file or row is detected. Its cost is one shared record, and a release for every new retained pin-set version. It publishes the commitment, which reveals no package or member hash; §14 (#2075) confirms that. (2) needs no new record, but the pin file's review happens outside the repository, and the server reads an operator file on every start. (3) has no second pin source in the server, but `verify` and `interpret` would check stored bytes against rows written by the same path, not against pins. | #2073 | open |
+| OD-58 | Can a release remove a pin-set or interpretation version that existing acquisitions, selections or requests name? | (1) The compiled registries are append-only. A superseded version is marked retired: the command refuses it for new registrations (`pin_set_retired`), and §11 and §9 can still resolve and verify it. (2) Versions may be removed. Requests that name one become `blocked` with `pin_set_unknown`, and retained evidence can no longer be re-verified. | (1). | (1) keeps every retained acquisition verifiable and every request resolvable, as ADR 0097's retention requires. The registry grows by one entry per release. (2) keeps the registry small, but strands retained evidence and makes a restore unverifiable. | #2073 | open |
+| OD-59 | How does a Book with no current evidence reach a newer Local selection, when its initial request is `blocked` for a deterministic reason? §11 makes To Read reuse the most recent initial request's pinned choice, and Refresh requires current evidence. | (1) Allow Refresh on a Book with no current evidence. It creates an `initial` request for the named candidate with `approved_at` set and no expected evidence, which §11's checks permit. (2) To Read re-selects from the current Local selection when the most recent initial request is `blocked` with a non-retryable code. (3) No path. The Book stays unavailable. | (1). | (1) keeps "To Read never re-pins" and makes every new choice an explicit owner approval. It needs §11 to allow Refresh without current evidence. (2) needs no new action, but To Read then selects a new candidate implicitly, which the handoff forbids ("repeated To Read never select a new revision implicitly"). (3) leaves a Book permanently unusable after a reviewed fix. | #2073 | open |
+| OD-60 | How is ADR 0096's "explicit informed choice" for automatic or unknown-provenance annotation made on the local path? §11 says an initial request needs no approval. | (1) To Read on a classical Book whose release-scope claims include `automatic` or `unknown` is a `Confirmation` disclosure that states provenance by layer. Confirming records `approved_at` on the initial request. (2) The operator's registration is the informed choice. (3) Show provenance on the row only, with an ordinary To Read. | (1). §12 is written against it. | (1) puts the choice with the owner, on an existing pattern, and leaves a durable record. Its cost is one extra disclosure step for these Books. (2) needs no learner step, but the operator chooses for the learner. (3) is informative, but nothing shows the learner made the choice. | #2073 | open |
+| OD-61 | Where does the safe XML reader live, so that admission (ADM-10) and adapters parse XML under the same rules? §10 lets adapters import only `internal/canonical`, `internal/domain` and `internal/canonicalization`. | (1) A new leaf package, `internal/safexml`, importing only the standard library. Adapters and `internal/evidencepackage` may import it, through the ADR 0091 amendment (OD-43). (2) Put the reader in `internal/canonical`. (3) Each user configures `encoding/xml` itself, checked by tests. | (1). | (1) gives one implementation and one test suite for entity, DTD, encoding and depth rules, at the cost of one more allow-list entry. (2) needs no new allow-list entry, but puts parsing into the validation package, which §10 keeps pure of input formats. (3) lets the two copies drift, so admission could accept what an adapter would parse differently. | #2073 | open |
+| OD-62 | New terms used in §12. | Keep **Local selection**, **Installed pin set**, pin file, pin-set commitment, admission check and interpretation definition (a compiled, named Interpretation configuration) as design-local names. Amend the `CONTEXT.md` **Book** entry as OD-08 says. | Keep them design-local. | None of them appears to learners: learners see the Edition, unit, provenance and request states. Adding them would grow the glossary with operator detail. | #2073 | open |
 
 ## 18. Approval record
 
