@@ -3234,7 +3234,619 @@ Each invariant is covered by the `RET` rows in [§15](#15-acceptance-test-matrix
 
 ## 10. Module interfaces and validation
 
-_Pending: owned by the module interfaces ticket._
+Verified at commit `f84003451246cef53c52fe246284dd4a801ea145` (`main`). Every
+`path:line` in this section refers to that commit.
+
+### Summary
+
+- ADR 0098 names four modules, and this section gives each one an interface:
+  - A **source interpretation adapter** turns verified package contents into a
+    **canonical-analysis candidate**.
+  - **Shared canonical validation** turns a candidate into either a **validated
+    analysis**, with one state per capability, or a rejection.
+  - **Shared preparation and adoption** (§11) persists and adopts only validated
+    analyses.
+  - The **shared learner core** reads only validated analyses, through the §7
+    analysis read interface.
+- Validation is one pure Go function in one package. Classical adapters and the
+  Stanza compatibility adapter feed the same function. A producer's capability
+  claim never raises a state.
+- Only validation can construct a validated analysis, and adoption accepts
+  nothing else.
+- Each rule is **structural** (it rejects the candidate), **required** (it
+  denies Vocabulary-ready) or **optional** (it withholds one capability at one
+  scope).
+- Diagnostics carry codes, rule IDs, integer references and counts. They never
+  carry source text, learner input or digests, so they are safe to log.
+- Every validation failure is permanent. Optional-layer findings are not
+  failures. Only infrastructure failures are transient.
+- The Stanza compatibility adapter observes parity after today's publication
+  commit. It writes nothing, changes nothing and switches nothing.
+- Annotation-backed adapters, validation, adoption and Reading never need the
+  NLP service. NLP readiness gates producer-backed analysis only.
+
+New names are proposed terms (OD-46). Package and type names are proposals, not
+prescriptions.
+
+### Current anchors
+
+| fact | evidence (path:line) | consequence here |
+| --- | --- | --- |
+| `analyzer.Result` carries the language, the normalization profile and analyzer provenance. Its sentences carry text and a location. Its tokens carry surface, raw and canonical lemma, UPOS, dependency, head, morphology and location. | `internal/analyzer/analyzer.go:35-98` | The Stanza compatibility adapter maps exactly these fields. Stanza output has no container, empty node, discriminator or accounting class to map. |
+| The analysis job checks NLP dependency-parsing readiness before it calls the analyzer, then calls the analyzer once per chunk. | `internal/analysis/jobs.go:1256`, `:1909-1921`, `:1345` | B-05. These are the only NLP gates on analysis. They stay, and apply to producer-backed analysis only. |
+| One transaction persists the corpus and its tokens. Selection runs after that commit. | `internal/analysis/jobs.go:1467-1500`, `:1362-1394` | The parity observation runs after `persistSnapshotWork` commits, outside every transaction. |
+| `validateCorpusToken` is the only structural check on Stanza output today. | `internal/analysis/jobs.go:1849-1862`, called at `:1800` | Unchanged (B-03). The compatibility adapter's validation never replaces it. |
+| Today's counts come from `selection.AnalyzableStatistics` and `selection.Project`. A candidate's sentence evidence is `SentenceReference{SentenceIndex, Text, Location}`. | `internal/analysis/jobs.go:1319`; `internal/selection/selection.go:28-43`, `:89-106`, `:198-227` | Parity compares against these functions' output, field by field. |
+| `OccurrenceEligible` reads the dependency. | `internal/selection/selection.go:281-285` | The eligibility interface below applies OD-03. |
+| Catalogue sync records the NLP-ready languages and keeps only the OPDS language feeds that NLP reports ready. | `internal/cataloguesync/sync.go:1018-1034`, `:897-910`, `:494-498`, `:553-557`; `internal/analyzer/capabilities.go:50-58` | B-27, B-28. OPDS only. Classical paths never call them. |
+| The server creates its NLP client lazily and caches capabilities. Startup never probes NLP. | `cmd/server/main.go:94`, `:171`; `internal/analyzer/grpc.go:23-38` (`grpc.NewClient` does not connect) | With NLP stopped, the server still starts. That must stay true. |
+| `supported_languages` supplies only display names to the My Books and Known language lists, and the code is the fallback. | `sqlc/queries/book_aliases.sql:5-15`, `sqlc/queries/core.sql:229-236` | Not a gate. A `grc` Book is listed under `grc` unless a display name comes from elsewhere (§12). |
+| depguard enforces ADR 0091 with one rule per file glob. | `.golangci.yml:86-192` | The import rules below become depguard rules (OD-43). |
+| The store-contract package imports only the domain and fixes `Language = "de"`. | `internal/storecontract/harness.go:7-18`, `:44-49`, `:99-143` | OD-04, resolved below. |
+| Stanza characterization fixtures: one German protobuf corpus, Italian and Greek regression JSON, and inline Italian and Greek corpora. | `internal/analyzer/testdata/stanza_python_corpus.pb.b64` and `nlp/tests/testdata/{italian,greek}_stanza_expected.json`, loaded at `internal/analyzer/python_fixture_test.go:16-71`; `internal/selection/selection_test.go:194-270` | These are the parity fixtures. The JSON fixtures carry no document text. Their inputs exist only in the Python tests, for example `nlp/tests/test_producer.py:952-954`. |
+
+### Package placement
+
+Layering, with arrows meaning "may import":
+
+```text
+cmd/server, §12 local entry command        (composition only)
+  │  registers adapters, wires the parity observer
+  ├─► internal/interpretation/<adapter>     source interpretation adapters
+  │     e.g. internal/interpretation/oga, internal/interpretation/stanzacompat
+  │     └─► internal/canonical ─► internal/domain ─► internal/canonicalization
+  ├─► internal/parity                       Stanza parity observation
+  │     └─► internal/interpretation/stanzacompat, internal/selection, internal/canonical
+  └─► internal/adoption                     preparation and adoption job package (§11)
+        └─► internal/canonical, internal/persistence
+
+learner core: internal/webapp, internal/lemmareview, internal/prepareddeck,
+  internal/analysisinsights, internal/selection, internal/persistence,
+  internal/fixtures, internal/storecontract
+  └─► internal/canonical ─► internal/domain ─► internal/canonicalization
+```
+
+| package | role | may import (internal) | must not import |
+| --- | --- | --- | --- |
+| `internal/canonical` (new) | Candidate and validated-analysis types, `Validate`, the compiled registries (contract versions, adapters, interpretation slots, reason codes, discriminator schemes), the diagnostic type, the adapter interface, and the §7 read-interface shapes. | `internal/domain`, `internal/canonicalization` | Every other internal package, pgx, River, gRPC, generated code, `net/...`, `os/exec`, `plugin`. It is a pure leaf above the domain. |
+| `internal/interpretation/oga` (new) | The classical adapter for the retained candidate's evidence family. | `internal/canonical`, `internal/domain`, `internal/canonicalization` | persistence, sqlc, pgx, River, `internal/analysis`, `internal/adoption`, learner-core packages, `net/...`, `os`, `os/exec`, `plugin`, `syscall`, `unsafe`, `archive/zip` (OD-43). |
+| `internal/interpretation/stanzacompat` (new) | The Stanza compatibility adapter. Its input is its own plain value type mirroring the `analyzer.Result` fields it maps. | as `oga` | as `oga`, and also `internal/analyzer`, which transitively links gRPC and `net` (`internal/analyzer/grpc.go:23-38`) |
+| `internal/parity` (new) | Converts an `analyzer.Result` into the compatibility adapter's input, compares the Stanza path with the canonical path, and reports mismatches. | `internal/interpretation/stanzacompat`, `internal/canonical`, `internal/selection`, `internal/analyzer`, `internal/domain` | persistence, sqlc, pgx, River |
+| `internal/adoption` (new, §11) | Durable preparation and atomic adoption. It holds adapters through the registry interface in `internal/canonical`, never by import. | `internal/canonical`, `internal/domain`, `internal/persistence`, `internal/txcleanup`, pgx and River (an ADR 0091 §3 amendment, OD-43) | `internal/interpretation/...`, `internal/analyzer`, `internal/analysis` |
+| learner core (existing) | Consumers listed under [Shared learner core](#shared-learner-core). | `internal/canonical` for read shapes and capability states, plus their existing imports | `internal/interpretation/...`, `internal/parity` |
+| `internal/domain` (existing) | Gains the shared value types: rich identity, capability, capability state, analysis reference (OD-44). | unchanged (ADR 0091 §1) | `internal/canonical`. The domain stays below it. |
+
+Only `cmd/server`, the §12 local entry command, `internal/parity`, and test
+files may import `internal/interpretation/...`. A depguard rule enforces this,
+with a message that cites the ADR 0091 amendment (VAL-13, VAL-14). The rule does
+not name individual learner-core packages, so a new consumer is covered
+automatically.
+
+depguard checks direct imports only. A dependency test therefore walks the
+transitive graph (`go list -deps -test`) and fails when:
+
+- any package outside the allowed importers depends on
+  `internal/interpretation/...`;
+- any `internal/interpretation/...` package depends on `internal/persistence`,
+  `gen/sqlc`, pgx, River, gRPC, `net`, `os/exec` or `plugin`.
+
+Verified package members reach adapters through a read-only interface. The
+acquisition stage (§11, §12) implements it after the §5 inventory and limit
+checks. Adapters never open the package archive themselves.
+
+### Source interpretation adapter
+
+| aspect | specification |
+| --- | --- |
+| Responsibilities | Read the pinned members. Apply the reviewed projection and correspondence check to produce the Extracted text and verify `source_bounds` against the unit (§5 binding). Decode native lemma data (§6 source decoding). Apply the pinned lemma, POS, repair and reading-terminal mappings and the frozen exception table. Assign `node_id` in canonical node order. Map native spans into the Extracted text (SPAN-4). Classify accounting (§7). Emit the native lineage and adapter diagnostics. |
+| Inputs | The verified members (read-only, already checked against the pins); the binding declaration from the reviewed definition (Reading unit, `source_bounds`, projection and correspondence identifiers); the pinned Interpretation configuration (§5); and the frozen exception table's bytes, verified against the pinned digest before the call. Nothing else: no clock, environment, network, database or learner state. |
+| Outputs | Either a **candidate** (the §7 shape: sentences, nodes, spans, containers, occurrences, morphology, basic and secondary syntax) with its Extracted text, native lineage (native member, document, sentence and node references, and the native attributes that justify each derived value) and adapter diagnostics, or an adapter rejection with diagnostics. |
+| Must not | Publish or persist anything. Change learner state. Invent defaults: no `X` for an unknown POS, no root for a headless tree, no offset from a length, no guessed metadata. Approve its own output: it never sets `vocabulary_ready` or a capability state. Execute package-supplied code: no plugins, no subprocesses, no evaluation of expressions, regular expressions, templates, stylesheets or schemas taken from package bytes; XML is parsed with DTDs and external entities disabled and with bounded depth and token counts. Fetch network resources. Read the wall clock, environment or randomness. |
+| Invariants | Deterministic: the same inputs give a byte-identical candidate under the canonical serialization (EVD-14 relies on it). Every node the source attests in the extent appears in the candidate (ACC-1). Native evidence is copied, never edited. |
+| Version support | Each adapter declares one adapter identifier (`name/version`, for example `example-adapter/1`) and the exact set of slot identifiers it implements. Both are compiled into the reviewed release. A configuration naming any other version is refused before any member is read, with `adapter_version_unsupported` (permanent). A new mapping version needs a reviewed release. |
+| Diagnostics | Adapter-scope codes: `native_parse_failed`, `projection_failed`, `correspondence_failed` (each rejects). Node-scope mapping findings: `mapping_unsupported`, `upos_mapping_ambiguous`, `lemma_absent`, `discriminator_unmapped`, `native_class_unresolved` (they leave the node `unresolved` or `non_vocabulary` with an `ambiguous` UPOS, as §7 allows). All use the shape under [Diagnostic shape](#diagnostic-shape). |
+| Failure classes | Every adapter failure is permanent. The adapter performs no I/O that can fail transiently, because its members are already in memory. |
+| Ownership | One package per adapter under `internal/interpretation/`. It owns its decoding fixtures (`source-decoding/1`, §6) and its mapping fixtures. It owns no records. Changes ship only in reviewed releases, never in packages (ADR 0098). |
+
+Illustrative signature:
+
+```go
+// illustrative signature — not an implementation
+package canonical
+
+type SourceInterpretationAdapter interface {
+	ID() string                                         // "example-adapter/1"
+	Supports(cfg InterpretationConfig) error            // ErrAdapterVersionUnsupported
+	Interpret(ctx context.Context, in AdapterInput) (AdapterOutput, error)
+}
+
+type AdapterInput struct {
+	Members        VerifiedMembers       // read-only; bytes already verified against pins
+	Binding        BindingDeclaration    // unit, source_bounds, projection, correspondence
+	Interpretation InterpretationConfig  // the pinned slots, contract version, table digest
+	ExceptionTable []byte                // verified against Interpretation's table digest
+}
+
+type VerifiedMembers interface {
+	Member(path string) ([]byte, error)  // only pinned paths; bounded by §5 limits
+}
+
+type AdapterOutput struct {
+	ExtractedText string                 // the binding's text (§5)
+	Candidate     Candidate              // §7 shape, unvalidated
+	Lineage       NativeLineage
+	Diagnostics   []Diagnostic
+}
+```
+
+### Shared canonical validation
+
+| aspect | specification |
+| --- | --- |
+| Responsibilities | Decide whether a candidate is admissible, and derive each capability's state from the candidate's content alone, by the rules below. |
+| Inputs | The candidate; the declared Reading unit and binding (unit ID, language, binding ID and status, Extracted text and its digest and code-point length); the Interpretation configuration; and the adapter ID. |
+| Outputs | Either **Rejected**, with diagnostics and no analysis, or **Validated**: a validated analysis carrying one state and reason-code set per capability (§5's five), sentence- and node-scoped findings, and `VocabularyReady`. |
+| Must not | Write anything. Read learner state, restrictions, the database or the network. Repair, reorder or fill in candidate content. Read producer claims as proof. Branch on adapter, producer or language, except where a rule names one: the dedicated-profile check (§6) and a registry lookup keyed by adapter ID. |
+| Invariants | Pure and deterministic: equal inputs give equal outputs, including diagnostic order (sorted by rule, scope, sentence, node). Only `Validate` can construct a validated analysis, because its fields are unexported. A producer claim never raises a state: a claim with no support produces only a `claim_not_supported` notice. Optional failures never change `VocabularyReady`. |
+| Version support | The compiled registries say what this release supports: contract versions (initially `canonical/1`), adapter identifiers, slot identifiers and table digests, normalization profiles (through `canonicalization.Lookup`), discriminator schemes, and reason codes per contract version. Anything else fails VER-1 to VER-4. |
+| Diagnostics | As under [Diagnostic shape](#diagnostic-shape). |
+| Failure classes | All validation outcomes are permanent, because validation is deterministic and a retry would give the same result. |
+| Ownership | `internal/canonical`. It owns the rule catalogue, the capability-derivation rules and the registries. It owns no records: §11 writes the §5 diagnostics and §7 rows from a validated analysis. |
+
+Illustrative signature:
+
+```go
+// illustrative signature — not an implementation
+package canonical
+
+func Validate(in ValidationInput) Result
+
+type ValidationInput struct {
+	Candidate      Candidate
+	Declared       DeclaredScope         // unit, language, binding (or legacy scope), Extracted text
+	Interpretation InterpretationConfig
+	AdapterID      string
+}
+
+type Result struct {
+	Outcome     Outcome                  // Rejected | Validated
+	Analysis    *ValidatedAnalysis       // nil exactly when Rejected
+	Diagnostics []Diagnostic
+}
+
+// ValidatedAnalysis has only unexported fields; Validate is its only constructor.
+func (v *ValidatedAnalysis) VocabularyReady() bool
+func (v *ValidatedAnalysis) Capability(c domain.Capability) CapabilityResult // state + reason codes
+func (v *ValidatedAnalysis) Findings() []Diagnostic
+```
+
+#### Rule catalogue
+
+Rules owned by this section have new IDs: `VER-*`, `SCOPE-*`, `COR-*`, `IDV-*`
+and `BND-1`. Every other ID is §7's, used unchanged.
+
+| rule | checks | source | class | codes |
+| --- | --- | --- | --- | --- |
+| VER-1 | `contract_version` is registered. | §5 | structural | `contract_version_unknown` |
+| VER-2 | Every interpretation slot and the table digest are registered. | §5 "Unknown versions stop import" | structural | `interpretation_version_unknown` (names the slot, never its value) |
+| VER-3 | The adapter ID is registered and supports the configuration. | this section | structural | `adapter_version_unsupported` |
+| VER-4 | Every reason code in the candidate (non-vocabulary reasons, adapter findings) is registered for the contract version. | §7 ACC-2 | structural | `reason_code_unknown` |
+| SCOPE-1 | The candidate names the declared binding, Reading unit, Extracted text digest and code-point length. | §5 binding | structural | `scope_mismatch` |
+| SCOPE-2 | The declared binding's status is `validated`. | §5 (EVD-15) | structural | `binding_rejected` |
+| SCOPE-3 | The candidate's language equals the declared language, and every identity's language equals it. | §4, §6 | structural | `language_mismatch` |
+| ACC-4 | **Full declared scope:** every non-`White_Space` code point of the extent lies in a printed node's span. | §7 | **required** | `coverage_gap` (count = uncovered code points) |
+| COR-1 | The supplied Extracted text hashes to the declared digest, and its length equals the declared code-point length. | §5 | structural | `extracted_text_mismatch` |
+| COR-2 | **Exact text correspondence:** when the adapter declares verbatim surfaces, each printed node's surface equals the concatenation of its Extracted-text slices. A component that references exactly its container's spans (CONT-2) is exempt. | §7 SPAN-4 | structural | `surface_span_mismatch` |
+| SPAN-1, -2, -3, -5 | Spans lie within bounds, are ordered, disjoint and non-adjacent, are present exactly for printed kinds, and lie within their sentence. | §7 | structural | `span_out_of_bounds`, `span_order`, `span_presence`, `span_outside_sentence` |
+| SENT-1, -2, -4 | Sentences are dense, ordered and disjoint, and not empty. Supplied sentence text is bound to the spans. | §7 | structural | `sentence_order`, `sentence_empty`, `sentence_text_unbound` |
+| BND-1 | **Sentence boundaries:** only the first and the last sentence of the extent may be `incomplete`. | §7 SENT-3 | structural | `boundary_incomplete_interior` |
+| SENT-3 | `complete`, `incomplete` or `unknown`, as declared. | §7 | optional (`sentence_target`) | `unit_extent_cuts_sentence`, `source_boundary_undeclared` |
+| CONT-1, CONT-2 | **Container well-formedness.** | §7 | structural | `container_malformed`, `component_outside_container` |
+| OCC-ID-1, OCC-ID-2 | **Node well-formedness and occurrence accounting:** dense canonical node order, and exactly one occurrence per word or component classed `vocabulary` or `unresolved`. | §7 | structural | `node_order`, `occurrence_set_mismatch` |
+| ACC-1, ACC-2 | Every node has one accounting class. A `non_vocabulary` node has a registered reason and native evidence, and a non-structural reason has a reviewed mapping. | §7 | structural | `accounting_missing`, `non_vocabulary_unsupported` |
+| ACC-3 | **Occurrence accounting:** zero `unresolved` occurrences. | §7 | **required** | `occurrence_unresolved` (count = occurrences) |
+| ACC-5, IDV-1 | **Identity validity:** a `vocabulary` node has an identity, a citation form and a resolved UPOS. The identity's UPOS and discriminator equal the node's. UPOS is one of the 17 UD tags. | §6, §7 | structural | `identity_upos_mismatch`, `upos_invalid` |
+| IDV-2 | **Profile applied:** the interpretation's normalization profile resolves through `canonicalization.Lookup` for the candidate's language. A dedicated-profile language (`grc`) requires `ancient-greek/1`. | §6 I-2, I-4 | structural | `normalization_profile_rejected` |
+| IDV-3 | Every citation form passes the §6 admission check. | §6 | structural | `citation_form_invalid`, `discriminator_in_lemma` |
+| IDV-4 | Every identity's canonical lemma equals the profile key recomputed from the citation form. | §6 I-4 | structural | `canonical_key_mismatch` |
+| IDV-5 | **Discriminator pairs:** scheme and value are both set or both null. The scheme is registered, and the value matches the scheme's pattern. | §6 | structural | `discriminator_half_set`, `discriminator_scheme_unknown`, `discriminator_value_invalid` |
+| TREE-2 (malformed case), SYN-1, SYN-2 | A self-headed edge that is not `root`, or a `root` that is not self-headed, and invalid syntax endpoints. | §7 | structural | `root_malformed`, `syntax_endpoint_invalid` |
+| TREE-1 to TREE-4 | **Tree validity per optional layer**, per sentence. | §7 | optional (`basic_syntax`) | `head_unresolved`, `root_missing`, `root_multiple`, `tree_cycle`, `tree_disconnected`, `syntax_absent`, `relation_unmapped` |
+| morphology, secondary syntax | As §7 "Optional layers and availability". | §7 | optional | `morphology_unmapped`, `morphology_ambiguous`, `secondary_unmapped` |
+| SPAN-4, TREE-5 | No span from a length, and no fabricated root, head or relation. | §7 | adapter obligation | — |
+
+Rules marked **required** are the ones that deny Vocabulary-ready. A
+structural failure denies it too, because nothing is validated. Optional rules
+withhold only their capability, only at the scope of the finding.
+
+SPAN-4 and TREE-5 constrain how an adapter produced its output. A candidate
+alone cannot show that they were broken: a fabricated root looks like a real
+one. They are enforced by each adapter's reviewed fixtures and by COR-2, not by
+`Validate` (see Conflicts).
+
+#### Capability derivation and readiness
+
+For each capability, `Validate` derives the release-scope state and its
+findings:
+
+| capability | release-scope state | sentence or node findings |
+| --- | --- | --- |
+| `vocabulary` | `usable` when ACC-3 and ACC-4 hold. `missing` (`lemma_layer_absent`) when no node carries native lemma data. Otherwise `invalid`, with the failing codes among `occurrence_unresolved` and `coverage_gap`. | One node finding per unresolved occurrence, with its cause (`mapping_unsupported` → `unsupported`, `upos_mapping_ambiguous` → `ambiguous`, `lemma_absent` → `missing`, `discriminator_unmapped` → `unsupported`). |
+| `sentence_target` | `usable` when at least one sentence is `complete`. `unsupported` when every sentence is `unknown`. Otherwise `missing`. | `incomplete` gives a `missing` finding (`unit_extent_cuts_sentence`). `unknown` gives an `unsupported` finding (`source_boundary_undeclared`). Whether a sentence is a good card target belongs to the #2034 rules. |
+| `morphology`, `basic_syntax`, `secondary_syntax` | As §7 "Optional layers and availability". | As §7. |
+
+Readiness:
+
+- A **Vocabulary-ready analysis** is a validated analysis whose `vocabulary`
+  state is `usable`. §5's `vocabulary_ready` stores exactly this.
+- An analysis is **adoptable** (§11) when it is Vocabulary-ready and no
+  Usability restriction (§5) names `vocabulary` on it or on any transitive
+  input. Restrictions are applied at adoption and at read time, never by
+  `Validate`. Validation never sees them, so its result is fixed.
+- A classical Book is **Reading-ready** when its current classical analysis is
+  adoptable at read time. A restriction appended after adoption makes the Book
+  not Reading-ready for a new Start (VAL-21). Start also needs the §8 count
+  readiness when the 3/15 rule reads library totals.
+- The **effective state** a consumer sees for a capability at a scope is the
+  narrowest validated finding, or the release-scope state if no finding
+  applies, forced to not usable by any restriction that names the capability.
+  The read interface computes it. Consumers never do.
+
+#### Diagnostic shape
+
+| field | type | meaning |
+| --- | --- | --- |
+| `code` | text, registered | Reason code, `^[a-z][a-z0-9_]*$`, from the registry for the contract version. |
+| `rule` | text, nullable | Rule ID from the catalogue above, for example `TREE-3`. Null for adapter and version codes. |
+| `severity` | `reject`, `blocks_vocabulary`, `withholds`, `notice` | `reject` makes the outcome Rejected. `blocks_vocabulary` denies Vocabulary-ready. `withholds` withholds one capability at one scope. `notice` changes nothing. |
+| `capability` | one of the five, or `none` | The capability affected. `none` for structural, version and scope codes. |
+| `scope` | `request`, `binding`, `analysis`, `sentence`, `node` | The narrowest scope the fact holds for. |
+| `sentence_ordinal` | integer, nullable | §7 key, set for `sentence` and `node` scope. |
+| `node_id` | integer, nullable | §7 key, set for `node` scope. |
+| `count` | integer ≥ 1 | How many items the diagnostic aggregates, for example uncovered code points or unresolved occurrences. |
+| `message` | text | The registry's fixed English text for `code` in this contract version. It is never built from candidate, package, request or learner strings. |
+
+**Safe to log.** The Go type has no string field whose value comes from input.
+`code`, `rule` and `message` come from the compiled registry, and every other
+field is an enum or an integer. A diagnostic never contains a surface, lemma,
+citation form, discriminator value, native attribute value, native ID or
+citation, sentence text, member path, digest, owner ID or Book title. A slot is
+named by its slot name (`lemma_mapping`), never by the rejected identifier.
+Logs carry the request ID and a summary of counts per code. The diagnostics
+themselves are readable only through the owner's evidence detail (§5 access
+rule), where the UI may resolve integer references to the owner's evidence.
+
+**Where diagnostics go.** `withholds` and `blocks_vocabulary` diagnostics with
+sentence or node scope become §5 Diagnostic findings. Analysis-scope ones become
+the §5 Capability diagnostic's `reason_codes`. `reject` diagnostics and notices
+are recorded only on the §11 request, because no analysis exists.
+
+### Shared preparation and adoption
+
+Interface name only. The transaction, durable stages, expected-state checks and
+recovery belong to §11.
+
+| aspect | specification |
+| --- | --- |
+| Responsibilities | ADR 0098's row: authorize and durably pin intent, coordinate bounded work, retain evidence, prepare exact count projections, and adopt atomically against the expected owner, Book and request state. |
+| Inputs | An owner, a Book, a reviewed definition (§4, §12) and expected state, then a validated analysis produced from them. |
+| Outputs | An adopted Book current classical analysis (§5) with count readiness (§8), or a request outcome with diagnostics. |
+| Must not | Accept anything but a `*canonical.ValidatedAnalysis` from `Validate`. Adopt an analysis that is not adoptable. Import an adapter package. Call NLP. |
+| Failure classes | As in [Failure classes](#failure-classes). |
+| Ownership | `internal/adoption` (§11). It writes the §5 shared rows, the §7 rows and the owner's current record. |
+
+```go
+// illustrative signature — not an implementation; §11 owns the semantics
+package adoption
+
+type Service interface {
+	Prepare(ctx context.Context, owner, bookID string, req PreparationRequest) (RequestID, error)
+	Adopt(ctx context.Context, owner, bookID string, expected ExpectedState, analysis *canonical.ValidatedAnalysis) (Outcome, error)
+}
+```
+
+### Shared learner core
+
+The learner core reads only validated analyses, through the §7 analysis read
+interface (`canonical.AnalysisReader`, implemented by the exact and legacy
+adapters in persistence and by the fixtures store). It decides from two things
+only:
+
+- the **representation**: the analysis reference kind (`exact` or `legacy`)
+  and the record representations in §8 "Representation selection";
+- the **effective capability state** of what it reads.
+
+Read shapes expose no adapter, producer or analyzer name. That provenance is
+available only to the owner's evidence-detail view, which displays it and
+decides nothing (VAL-20).
+
+| consumer | capability it requires | when that capability is not usable |
+| --- | --- | --- |
+| Browse and Book vocabulary | `vocabulary` (Book Reading-ready), plus §8 count readiness `ready` for the current analysis | Updating or Unavailable, as §8. Never zero counts. |
+| Counts: My Books coverage, Reading chooser bands, library totals | `vocabulary`. The contributing-Book rule is §8's. | Pending or unavailable, never zero (§8). |
+| Concordance lemma and form lookup | `vocabulary` | The Book is left out, and its name and reason are listed. |
+| Concordance sentence context and highlighting | sentence spans (always present, SENT-2); `sentence_target` only for the boundary label | — |
+| Concordance role filter, dependents, sentence-study relations | `basic_syntax`, per sentence | Unavailable with the reason (§7). Never an empty result. |
+| Morphology display | `morphology`, per node | "Morphology unavailable" with the reason. |
+| Lemma review: preview, confirm and flags | `vocabulary` on the Book's current analysis | Refused with the existing not-ready response. The rich preview fingerprint covers the current analysis ID and the Book's exact decisions and flags, so an adoption makes a preview stale (§8, LRN-18). |
+| Reading Start and Switch | Reading-ready target Book, and count readiness when 3/15 needs library totals | The existing ineligible verdict (`internal/domain/current_reading_start.go:58-76`). |
+| Reading End | none | — |
+| Reading Finish | none at Finish time. It reads the frozen Rich snapshot membership (§8). | A restriction appended after Start does not block an explicit Finish from intact frozen records (ADR 0097 "Durable bounded work and recovery"; §9 OD-42, RET-17). |
+| Deck admission | none from the analysis. It reads the frozen snapshot (ADR 0085). Card-sentence choice reads `sentence_target` per sentence (#2034, #2063). | Card rules are #2063's. |
+| Eligibility (`selection`) | `basic_syntax` per occurrence, only for syntax-based exclusions | The exclusion is not applied (OD-03 (1)). |
+
+**Eligibility interface (OD-03).** §7 assigns it here. `selection` gains one
+entry point that takes the occurrence's identity, UPOS and basic relation as a
+layer value:
+
+```go
+// illustrative signature — not an implementation
+package selection
+
+type OccurrenceView struct {
+	Lemma, UPOS string
+	Relation    canonical.Layer[string] // State + Value; Value only when usable
+}
+
+// EligibleOccurrence applies the language rules. A syntax-based exclusion such as
+// compound:prt applies only when Relation.State is usable.
+func EligibleOccurrence(cfg SelectionConfig, o OccurrenceView) bool
+```
+
+The §7 legacy adapter reports legacy basic syntax as `usable` with the stored
+relation (OD-29). So for every legacy occurrence, `EligibleOccurrence` returns
+exactly what `OccurrenceEligible(cfg, lemma, upos, dependency)` returns today
+(`internal/selection/selection.go:281-285`), and the characterization OCC-11
+holds. `OccurrenceEligible` becomes a wrapper over the new function. No consumer
+calls it with an exact occurrence.
+
+### Failure classes
+
+| family | example codes | class | raised by | consequence |
+| --- | --- | --- | --- | --- |
+| Package integrity and limits | `package_too_large`, `package_too_many_members`, `package_expanded_too_large`, `package_inventory_mismatch`, `package_entry_unsafe` | permanent | acquisition (§5, §11, §12) | The request fails and no evidence row is written. |
+| Hash and inventory | transport-digest or content-digest mismatch against the pins | permanent | acquisition | As above. |
+| Rights | closed operation gate (#2054–#2056) | permanent | §11 | The request fails before acquisition. |
+| Binding and scope | `binding_rejected`, `binding_nondeterministic`, `scope_mismatch`, `extracted_text_mismatch`, `language_mismatch`, `correspondence_failed`, `projection_failed` | permanent | adapter, validation, §5 | No analysis. |
+| Required scope | `coverage_gap`, `occurrence_unresolved` | permanent for that analysis | validation | Validated but not Vocabulary-ready. Never adopted. A new interpretation or evidence is a new request. |
+| Unsupported mapping or version | `contract_version_unknown`, `interpretation_version_unknown`, `adapter_version_unsupported`, `normalization_profile_rejected`, `discriminator_scheme_unknown`, `reason_code_unknown` | permanent | adapter, validation | Nothing is written (EVD-16, EVD-33). |
+| Structure and identity | `span_*`, `sentence_*`, `boundary_incomplete_interior`, `container_malformed`, `component_outside_container`, `node_order`, `occurrence_set_mismatch`, `accounting_missing`, `non_vocabulary_unsupported`, `identity_upos_mismatch`, `upos_invalid`, `citation_form_invalid`, `discriminator_in_lemma`, `discriminator_half_set`, `discriminator_value_invalid`, `canonical_key_mismatch`, `surface_span_mismatch`, `root_malformed`, `syntax_endpoint_invalid`, `native_parse_failed` | permanent | adapter, validation | Rejected. No analysis. |
+| Node mapping findings | `mapping_unsupported`, `upos_mapping_ambiguous`, `lemma_absent`, `discriminator_unmapped`, `native_class_unresolved` | no failure in itself | adapter | They lead to `occurrence_unresolved` (permanent) only when they leave an occurrence unresolved. |
+| Optional layers | `syntax_absent`, `root_missing`, `root_multiple`, `tree_cycle`, `tree_disconnected`, `head_unresolved`, `relation_unmapped`, `morphology_unmapped`, `morphology_ambiguous`, `secondary_unmapped`, `unit_extent_cuts_sentence`, `source_boundary_undeclared`, `claim_not_supported` | no failure | validation | The capability is withheld at that scope. Vocabulary-ready is unaffected. |
+| Infrastructure | `storage_unavailable` (connection loss, serialization failure, lock timeout), `worker_interrupted` (shutdown, job timeout) | **transient** | §11 worker | Retried within the §11 budget. When the budget is exhausted, the request fails with `retry_budget_exhausted`, which is permanent for that request only. |
+| Stale request | `expected_state_changed` | no failure | §11 | A stale outcome. Nothing changes (§11). |
+
+A permanent failure stops at once and consumes no transient retry (handoff
+"Initial operational envelope"). `Validate` and adapters never return a
+transient class. The Stanza path keeps its own failures unchanged, including
+`ErrDependencyParsingUnavailable` (`internal/analysis/jobs.go:42`, `:1902-1907`).
+
+### Stanza compatibility adapter
+
+**Purpose.** Run Stanza output through the same validation interface as an
+**observation only**, so that parity between the two paths can be measured. It
+is not a publication path.
+
+**Mapping** (`internal/interpretation/stanzacompat`, adapter ID
+`stanza-compat/1`). It produces one candidate per source document of the run,
+because `SourceLocation` offsets are per document
+(`internal/analyzer/analyzer.go:90-98`). The extent is the document text the
+job sent to the analyzer (`internal/analysis/jobs.go:1176-1180`, offsets made
+document-relative at `:1345-1350`).
+
+| `analyzer.Result` | candidate |
+| --- | --- |
+| `Language` | language. The declared scope is `legacy(run, source document)`, not a binding. `internal/parity` builds it from the run and from the document text the job analyzed, computing that text's digest and code-point length. SCOPE-1 compares the candidate with this declaration, and COR-1 checks the digest. SCOPE-2 does not apply, because there is no binding. |
+| `NormalizationProfile` | The normalization slot of a fixed compiled compatibility interpretation. That interpretation is never persisted as an Interpretation configuration. IDV-2 resolves it with `Lookup`. |
+| `Analysis` (analyzer name and version) | Lineage only. It never reaches consumers. |
+| `Sentence` | An Analysis sentence with one span from its `Location`, boundary `complete` (as §7's legacy adapter), and `Text` checked by SENT-4. |
+| `Token` | A node of kind `punctuation` when `UPOS = PUNCT`, otherwise `word`. Raw lemma and citation form are `RawLemma`. The identity is `(Language, CanonicalLemma, UPOS)` with no discriminator. Class `vocabulary` for words, `non_vocabulary(punctuation)` for punctuation. One span from `Location`. Surfaces are declared **not verbatim**, because the producer strips punctuation (`internal/analyzer/analyzer.go:51-53`), so COR-2 does not apply. |
+| `Dependency`, `Head` | One basic syntax edge per token. The relation is `Dependency`, and the head is the token at `Head` in the same sentence. A token whose `Head` is its own ordinal and whose `Dependency` is `root` maps to a self-headed `root` edge. The observation runs only after `persistSnapshotWork` has committed, so every token has passed `validateCorpusToken`: a non-empty dependency and an in-range head (`internal/analysis/jobs.go:1851-1862`). No token without a dependency reaches the adapter. If one did, it would get no edge, never a default. |
+| `Morphology` | Native morphology, and FEATS as given (as §7's legacy adapter). |
+| Multiword tokens | None. The producer flattens them into words that share the token's span (`nlp/src/mouseion_nlp/producer.py:255-262`). They become `word` nodes with a shared span and no container. |
+
+**Hook.** `internal/analysis` defines a `PublicationObserver` interface that
+takes the merged `analyzer.Result`, the run reference and the document extents.
+`cmd/server` wires `internal/parity` into it. `internal/parity` converts the
+`Result` into the compatibility adapter's own input type, so the adapter never
+imports `internal/analyzer`. The worker calls it once, after
+`persistSnapshotWork` has committed and before `selectSnapshotRun`
+(`internal/analysis/jobs.go:1491-1498`):
+
+- on a context detached from cancellation, with its own time budget;
+- with every error and panic recovered and reported, never returned;
+- only when observation is enabled (OD-45).
+
+The job's return value, retries, run state, transactions and every row it
+writes are identical whether observation is on, off, failing or timing out
+(VAL-09).
+
+**What stays unchanged.**
+
+- `persistSnapshotWork`, `corpusTokenInserter`, `validateCorpusToken`,
+  `publishEligibleAnalysis` and the Browse projection build are unchanged
+  (`internal/analysis/jobs.go:1362-1394`, `:1713-1743`, `:1789-1862`).
+- Every `corpus_tokens`, `corpus_sentences`, `analysis_runs`, `corpora` and
+  `book_current_analyses` row is written exactly as today.
+- **No stored analysis is rewritten.** The observer and the parity test write
+  no row anywhere: no Exact analysis, no §7 row, no diagnostic, no restriction.
+- **No cutover happens in this design.** No Book changes representation, and
+  no setting routes Stanza output into Exact analyses or changes which adapter
+  the learner core reads for a modern-language Book. Any cutover needs its own
+  approved design.
+
+The §7 legacy *read* adapter and this compatibility adapter are different
+things. The legacy read adapter serves stored `corpus_*` rows to consumers. The
+compatibility adapter maps a fresh `analyzer.Result` into a candidate for
+observation. Neither writes.
+
+**Parity comparison.** Both sides start from the same `analyzer.Result` and the
+same `selection.DefaultConfig`, with no learner decisions.
+
+| # | compares | legacy side | canonical side | equal when |
+| --- | --- | --- | --- | --- |
+| P-1 | Vocabulary identities | identities of `selection.Project(result, cfg, nil)` | identities of the validated analysis's contributing occurrences (EFF-2) | the sets are equal under §6's legacy-to-rich comparison (null discriminator, byte-equal fields) |
+| P-2 | Eligible count per identity | `Candidate.OccurrenceCount` | occurrences counted through `selection.EligibleOccurrence` with the read interface's relation layer | equal for every identity |
+| P-3 | Coverage denominator | `AnalyzableStatistics(...).AnalyzableTokenCount` | EFF-3 denominator | equal |
+| P-4 | Sentence evidence per identity | `SentenceReferences`: index, document, sentence span, sentence text | the occurrences' sentences: ordinal, document, span, text sliced from the extent | equal as ordered lists, field by field |
+
+Parity compares Go values field by field, never serialized JSON. Observed forms,
+morphology and diagnostics are not parity fields.
+
+**Mismatch categories.** These are reported, never acted on:
+`candidate_rejected` (with the rejection codes), `vocabulary_not_ready` (with
+codes), `identity_only_legacy`, `identity_only_canonical`, `count_differs`,
+`denominator_differs`, `sentence_differs`, and `syntax_withheld_changed_eligibility`.
+The last one counts identities whose P-2 difference comes only from a sentence
+whose basic syntax validation withheld, where OD-03 then skipped a syntax-based
+exclusion.
+
+**Reporting.** A mismatch is reported as:
+
+- one structured log event per observed run: the run ID, the language, the
+  outcome, and a count per category and per code;
+- a counter metric per category.
+
+No lemma, surface, sentence text, document ID or title appears in either. The
+detailed list (which identities differ) exists only in memory and in test
+failure messages. The observer writes no row, raises no error, changes no
+status and shows nothing to learners. A mismatch therefore cannot change
+publication, counts, selection or any learner outcome.
+
+**Parity test** (`internal/parity`, plain `go test`, no database or NLP). For
+each characterization fixture (Current anchors), with the exact document text
+the producer received:
+
+- The German protobuf corpus, the Italian and Greek regression JSON, and the
+  inline Italian and Greek corpora in `internal/selection/selection_test.go`.
+- Fixtures that carry no document text get a sibling text file holding the
+  producer test's exact input, for example `first + " " + second` at
+  `nlp/tests/test_producer.py:952-954`. A fixture whose input cannot be
+  recovered exactly is left out and listed in the test with the reason. Text is
+  never reconstructed from token surfaces.
+
+The test asserts that P-1 to P-4 are equal and that the outcome is Validated and
+Vocabulary-ready, with no mismatch category reported (VAL-08). A fixture that
+legitimately diverges, for example because its tree fails TREE-3, does not get
+an exception. Its expectation names the category and count, and changing it
+needs review. The test also asserts that the legacy-side values equal the
+fixture's existing expectations, so parity can never pass by changing the
+legacy path.
+
+### NLP independence
+
+These are the §3 entry points that gate on NLP, or are reachable on the Reading
+path:
+
+| # | entry point | evidence (path:line) | gate today | required change |
+| --- | --- | --- | --- | --- |
+| N-1 | Analysis worker readiness check | `internal/analysis/jobs.go:1256`, `:1909-1921` | NLP depparse capability for the language | None. Only `analyze_corpus` jobs reach it, and only EPUB source materials enqueue them (`:158`, `:422`). Adoption (§11) never enqueues one, and never constructs an `analyzer.AnalyzeRequest`. The gate applies only to producer-backed analysis. |
+| N-2 | Analyzer call (B-05) | `internal/analysis/jobs.go:1345` | NLP service answering | None. Producer-backed only. The parity observer runs after it and never calls NLP. |
+| N-3 | Catalogue sync language scope and supported languages (B-27, B-28) | `internal/cataloguesync/sync.go:1018-1034`, `:897-910`, `:494-498`, `:553-557` | NLP capability readiness | None for OPDS. Classical discovery (handoff Stage 3, OD-09) and the §12 local entry point never call `GetCapabilities`, `ReadySupportedLanguages` or `eligibleLanguages`. A classical Book's availability is its reviewed definition and its validated analysis. |
+| N-4 | Reading gates (B-25, B-26) | `internal/webapp/analysis_evidence.go:58-60` and the call sites in B-26 | A published analysis run and corpus (§3 correction: not an NLP check, but there is no annotation-backed path) | Legacy-representation Books: unchanged. Classical Books gate on validated capability: the Book is Reading-ready (above), decided by the single domain classification (ADR 0052) from the §5 current record. No gate reads NLP capabilities. How the call sites reach that classification is OD-05 (§11). |
+| N-5 | Server start-up | `cmd/server/main.go:94`, `:171`; `internal/analyzer/grpc.go:33` | None: the client connects lazily | Must stay that way. No readiness probe of NLP may block serving or block the River workers that adoption uses. |
+| N-6 | Lemma review language support | `internal/lemmareview/lemmareview.go:466-469` | The canonicalization registry, not NLP | None for NLP. §6 I-5 governs the profile. |
+
+An annotation-backed Book is therefore acquired, validated, adopted, read,
+started, ended and finished with the NLP service stopped (VAL-11). A
+modern-language Book still needs NLP readiness to be analyzed, exactly as today
+(VAL-12).
+
+### Store-contract harness (OD-04)
+
+OD-04 is resolved as option (1) for the **harness**, combined with §8's
+separate **rich scenario list**. As with every recommendation in §17, its
+status stays open until §18 records approval.
+
+- `storecontract.Run` takes the harness factory as today and runs `Scenarios()`
+  (unchanged, `Language = "de"`, tuple seeds). It then runs §8's
+  `richScenarios(v)` once for each variant in `RichVariants()`. Those are
+  `Variant{Language: "grc"}`, and a synthetic `Variant{Language: "xx"}` that
+  uses the casefold fallback, so the same verdicts are shown not to depend on
+  the language (VAL-20).
+- `Harness` gains `RichSeeds() RichSeeder`. A rich Book is seeded from a
+  synthetic `canonical.Candidate` built by a test-only builder in
+  `internal/storecontract`. Each adapter passes it through `canonical.Validate`,
+  and seeding fails the test unless the result is Validated. The PostgreSQL
+  adapter then adopts it through the §11 interface. The fixtures adapter stores
+  the validated analysis in memory. So both adapters hold only validated
+  analyses, as production does.
+- `internal/storecontract` may import `internal/canonical`. It may not import
+  `internal/interpretation/...`: seeds never run a real adapter.
+- The existing `de` scenarios do not run against `grc`. Their seeds are tuples,
+  and running them under a rich variant would test the tuple path twice. The
+  rich list covers the same verdicts (LRN-19).
+
+### Invariants
+
+Each invariant is covered by the `VAL` rows in [§15](#15-acceptance-test-matrix).
+
+1. **One validator.** Every candidate, imported or model-produced, is decided by
+   the same `Validate`. Equal defects give equal diagnostics (VAL-01). Validation
+   is deterministic (VAL-15).
+2. **Claims are not proof.** A producer claim never raises a capability state
+   (VAL-02, VAL-03). Only a validated, Vocabulary-ready, unrestricted analysis is
+   adopted (VAL-22).
+3. **Optional failures are local.** A failed optional rule withholds only its
+   capability at its scope. Vocabulary readiness is unchanged (VAL-02).
+4. **Scope.** A candidate that does not cover its declared unit is not
+   Vocabulary-ready, with a `coverage_gap` diagnostic. A candidate for another
+   unit, binding or language is rejected (VAL-04, VAL-05).
+5. **Rules.** Identity, boundary and correspondence rules reject as catalogued
+   (VAL-16, VAL-17, VAL-18).
+6. **Versions.** An unknown contract, interpretation or adapter version is a
+   permanent failure that writes nothing and is not retried (VAL-06).
+7. **Failure classes.** Only infrastructure failures are retried, within budget
+   (VAL-19).
+8. **Diagnostics.** No diagnostic contains source text or any other input
+   string (VAL-07).
+9. **Stanza compatibility.** Parity holds on the characterization fixtures
+   (VAL-08). Observation never changes behaviour (VAL-09), rewrites no stored
+   analysis, and switches nothing (VAL-10).
+10. **NLP independence.** An annotation-backed Book becomes Reading-ready and
+    completes a reading with NLP stopped (VAL-11). A modern-language Book still
+    requires NLP readiness (VAL-12).
+11. **Layering.** No learner-core or adoption package imports an adapter
+    package, and adapters cannot reach the database, network, subprocesses or
+    plugins (VAL-13, VAL-14).
+12. **Consumers.** Consumers decide from representation and effective capability
+    state only. Producer and language never change a verdict (VAL-20), and a
+    restriction makes a capability unavailable at read time (VAL-21).
+13. **Adapters.** An adapter is deterministic, keeps every attested node, and
+    never invents a default (VAL-23).
+
+### Conflicts and dependencies noted
+
+- **SPAN-4 and TREE-5.** §7 lists TREE-5 among the rules that reject a
+  candidate. A candidate alone cannot show that a span came from a length or
+  that a root was fabricated, so `Validate` cannot enforce either rule. This
+  section treats both as adapter obligations, enforced by each adapter's
+  reviewed fixtures and, for spans, partly by COR-2. §7 is not rewritten.
+- **"Missing scope gives a rejection."** Issue #2071 asks for a rejection. §7
+  makes a coverage gap (ACC-4) deny Vocabulary-ready instead of rejecting the
+  candidate. This section follows §7: the analysis is validated but not
+  Vocabulary-ready, carries `coverage_gap`, and is never adopted. A candidate
+  declaring a different unit or binding is rejected outright (SCOPE-1). VAL-04
+  and VAL-05 assert both. The choice is recorded as OD-47.
+- **New rule IDs.** VER-1 to VER-4, SCOPE-1 to SCOPE-3, COR-1, COR-2, IDV-1 to
+  IDV-5 and BND-1 are added here. They do not change any §7 rule.
+- **B-25 and B-26 are not NLP gates** (§3 correction). They are still listed
+  under NLP independence, because they are the gates an annotation-backed Book
+  must pass with NLP stopped. Their mechanism is OD-05 (§11).
+- **VAL-13 and VAL-14 use a lint seam.** The ticket requires a dependency test
+  or lint rule for the layering. That is not one of seams (a) to (d), so those
+  two rows name `make lint-go` (depguard) and the transitive dependency test
+  (see Package placement) as their seam. The deviation is OD-48.
+- **ADR 0091.** New package groups, the adapter allow-list and a new pgx
+  importer (`internal/adoption`) need an ADR 0091 amendment (OD-43). That
+  amendment needs human review under CODEOWNERS.
+- §8's "the preview interface is §10's" is answered in the learner-core table:
+  the rich preview fingerprint covers the current analysis ID and the exact
+  decisions and flags.
+- §5 `vocabulary_ready` equals this section's Vocabulary-ready definition.
+  Restrictions are §5's and are applied at adoption and read time.
+- The rich store-contract scenario names in §8 apply unchanged under the OD-04
+  resolution above.
 
 ## 11. Durable preparation and atomic adoption
 
@@ -3467,6 +4079,29 @@ rows use synthetic fixtures only.
 | RET-15 | The post-restore integrity check detects an altered blob and marks affected Books unavailable, without changing frozen records. | (a) | A dump of an installation where A's To Read Book G1 adopted X, with an ended snapshot, decisions and a completion. It is restored into a test database. One package blob's bytes are then altered at the storage level (the test drops the digest check for that one write). | Run the integrity check. Then, through the handlers, request G1's Book detail and Reading page, Start G1, and confirm a lemma decision on G1. | One `integrity_failure` restriction naming `blob_digest_mismatch` is appended on the blob's Package content. G1 shows "Evidence unavailable" with that reason. Start and the lemma decision are refused with the reason. The snapshot, membership, decisions, completion, Known, Adopted evidence records and current rows are byte-identical to before the check. | A clean restore of the same dump passes every check and appends no restriction. |
 | RET-16 | The integrity check detects an unresolved reference. | (d) | A restored database where data was loaded with triggers and constraints disabled, and one Node span and one Extracted text row of X are missing. | Run the integrity check. | The check reports `evidence_reference_missing` for both (IC-7 for the span, IC-6 for the Extracted text), and appends restrictions on X and on X's binding. No frozen record changes. | When a root names an analysis that does not exist, the check reports the restore as failed and appends nothing. |
 | RET-17 | A restricted Book is never ended, finished or substituted automatically. | (b) | G1 is the current reading on X. A second, intact build P2 of the same Package content exists, from another acquisition of A. An `integrity_failure` restriction is on that content. | Read the current reading. Then End it. Then, in a second run, Finish it. | Before any action, G1 is still the current reading. Explicit End succeeds. Explicit Finish succeeds from the frozen snapshot. No analysis, acquisition or blob is adopted or read for G1 in place of X, including through P2. | Start of G1 is refused with the restriction reason. |
+| VAL-01 | Imported and Stanza candidates both go through one validator, and equal defects give equal diagnostics. | (c) | Two synthetic candidates over one 40-code-point extent: one from a test adapter declaring `example-adapter/1`, and one produced by the Stanza compatibility adapter from a synthetic `analyzer.Result`. Each has one node span `[38,41)`. | Validate each through the shared interface. | Both are Rejected with one `reject` diagnostic, code `span_out_of_bounds`, rule `SPAN-1`, scope `node`, and the same `node_id`. Neither yields a validated analysis. | With the span corrected to `[37,40)`, both are Validated and Vocabulary-ready. |
+| VAL-02 | A producer claiming syntax gets `invalid` for a cyclic tree, while vocabulary stays usable. | (c) | A candidate whose producer claim marks `basic_syntax` usable. In every sentence, the basic heads form a cycle (for example node 2 → 3 → 2), and no other rule fails. | Validate, then read basic syntax for each sentence through the read interface. | Validated. `basic_syntax` is `invalid` with `tree_cycle`. `vocabulary` is `usable`, and `VocabularyReady` is true. A `claim_not_supported` notice is returned. The read interface returns no edges. The validated analysis holds exactly the candidate's edges: none added, none dropped. | The same candidate with a complete tree in one sentence gives release-scope `usable` and an `invalid` finding for each other sentence. The claim never makes `basic_syntax` `usable` on its own. |
+| VAL-03 | A capability claim is not proof. | (c) | A candidate whose claim marks `morphology` and `secondary_syntax` usable, but which has no morphology rows and no secondary edges. | Validate. | `morphology` is `missing` and `secondary_syntax` is `missing`, each with a `claim_not_supported` notice. `VocabularyReady` is unchanged. | Adding morphology rows with no reviewed FEATS mapping gives `unsupported`, never `usable`. |
+| VAL-04 | A candidate that does not cover its declared unit is denied Vocabulary-ready and is never adopted, with a diagnostic (OD-47). | (c) | A declared unit whose Extracted text is 200 code points. The candidate's printed nodes cover only `[0,120)`. Everything else is well formed. | Validate. | Validated, with `vocabulary` `invalid`, code `coverage_gap`, rule `ACC-4`, severity `blocks_vocabulary`, and a count equal to the uncovered non-`White_Space` code points. `VocabularyReady` is false. The analysis is not adoptable. | A candidate covering the full extent is Vocabulary-ready. A coverage gap never shows as a smaller unit or as a ready analysis. |
+| VAL-05 | A candidate for another unit, binding or language is rejected. | (c) | Declared binding B1 for unit `book 1`, language `grc`. Candidates naming (i) binding B2, (ii) the right binding with a different Extracted text digest, and (iii) the right binding with language `el`. | Validate each. | Each is Rejected: (i) `scope_mismatch` (`SCOPE-1`), (ii) `extracted_text_mismatch` (`COR-1`), (iii) `language_mismatch` (`SCOPE-3`). | The candidate naming B1, the right digest and `grc` validates. |
+| VAL-06 | An unknown version is a permanent failure that writes nothing and is never retried. | (a) | Owner A has a classical Book. A synthetic reviewed definition names `example-lemma/9`, which is absent from the compiled registry. A second definition names adapter `example-adapter/2`, which no registered adapter declares. | Submit a preparation request for each through the web handler, and run the River jobs to completion. | Each request is failed with a permanent class, code `interpretation_version_unknown` or `adapter_version_unsupported` respectively, after exactly one attempt. No Exact analysis, Interpretation configuration, diagnostic or current record exists for either. The Book's state is unchanged. | The same definitions with `example-lemma/1` and `example-adapter/1` prepare successfully. A transient fault (VAL-19) is the only thing that retries. |
+| VAL-07 | Diagnostics contain no source text or other input string. | (c) | Synthetic candidates in which every input string (surface, raw lemma, citation form, discriminator value, native references, sentence text, member path, request and Book labels) contains the sentinel `QQSENTINELQQ`. Together they trigger at least one diagnostic of every registered code. | Validate each, and serialize every diagnostic and the log summary. | No serialized diagnostic or log line contains `QQSENTINELQQ`. Every `code`, `rule` and `message` equals a registry entry. Every other field is an enum or an integer. | A rejected slot is named by its slot name only, never by the unknown identifier. |
+| VAL-08 | Stanza parity: equal identities, counts and sentences on the characterization fixtures. | (c) | Each characterization fixture (§10 Current anchors) with its exact producer input text. | Run the legacy projection (`selection.Project`, `AnalyzableStatistics`) and the compatibility adapter plus shared validation, then compare P-1 to P-4. | Each fixture is Validated and Vocabulary-ready. Identity sets, per-identity eligible counts, the denominator and per-identity sentence evidence are equal, compared field by field and never as JSON. The legacy values equal the fixtures' existing expectations. | A test copy with one token's canonical lemma changed reports exactly one `identity_only_legacy`, one `identity_only_canonical` and the affected `count_differs`, and leaves the legacy projection's output unchanged. |
+| VAL-09 | Parity observation never changes behaviour. | (a) | Two cloned databases with the same EPUB `de` Book and a fake analyzer whose result fails `canonical_key_mismatch` under validation. Observation is on in one and off in the other. In a third run, the observer is forced to panic and then to exceed its time budget. | Run the analysis job to completion in each. | The jobs return the same result. `analysis_runs`, `corpora`, `corpus_tokens`, `corpus_sentences`, `book_current_analyses` and the Browse counts are row-for-row equal across all runs, apart from generated IDs and timestamps. With observation on, one parity log event with `candidate_rejected` and the code is emitted. | The panic and timeout runs publish the analysis exactly as the off run does and record no failure. |
+| VAL-10 | Compatibility observation rewrites no stored analysis and switches nothing. | (a) | An installation with a published legacy `de` analysis and an `it` analysis created before observation existed. | Enable observation, analyze a new `de` Book, and read every Book's vocabulary, Concordance and Reading pages. | Every pre-existing legacy row is unchanged. No Exact analysis, §7 row, Capability diagnostic or Book current classical analysis row exists for any EPUB Book. Every EPUB Book still reads through the legacy representation, with OCC-11's characterized output. | Turning observation off and on again changes no row and no page output. |
+| VAL-11 | An annotation-backed Book is Reading-ready with NLP stopped. | (a) | The server is composed with an NLP address that refuses connections and a capability provider that errors. Owner A has a classical Book prepared from a synthetic package and definition. | Run preparation and adoption, then request the Reading chooser, Start a reading, open the Reading page, End, Start again and Finish. | Every step succeeds. The Book is Reading-ready and its snapshot is rich. Finish writes a completion and Rich Known. No `analysis_runs` row and no `analyze_corpus` job exists for the Book. The erroring capability provider and the analyzer receive zero requests during the flow. | The same flow with NLP running gives identical results. |
+| VAL-12 | A modern-language Book still requires NLP readiness. | (a) | The same NLP-stopped server. Owner A also has an EPUB `de` Book with acquired content and no analysis. | Request its analysis, run the job, then request Start. | The run fails with the existing dependency-parsing message (`ErrDependencyParsingUnavailable`). The Book is not Reading-ready, and Start returns the existing ineligible verdict. | The classical Book from VAL-11 in the same installation stays Reading-ready. |
+| VAL-13 | No learner-core or adoption package imports an adapter package. | lint: `make lint-go` (depguard), plus the transitive dependency test in §10 "Package placement" (OD-48) | A scratch file in `internal/selection`, one in `internal/webapp` and one in `internal/adoption`, each importing `internal/interpretation/stanzacompat`. | Run `make lint-go`, and the dependency test that walks `go list -deps -test` for every learner-core and adoption package. | Lint fails on each file with the ADR 0091 amendment message. The dependency test lists the violating package. | The same import from `cmd/server` or `internal/parity` passes. |
+| VAL-14 | Adapters cannot reach the database, network, subprocesses or plugins, directly or transitively. | lint: `make lint-go` (depguard), plus the transitive dependency test (OD-48) | Scratch files in `internal/interpretation/oga` and `internal/interpretation/stanzacompat` importing `internal/persistence`, pgx, `net/http`, `os/exec`, `plugin` and `internal/analyzer` in turn. | Run `make lint-go` and the dependency test. | Each direct import fails with the adapter rule's message. The `internal/analyzer` import also fails the dependency test, because it links gRPC and `net`. | Importing `internal/canonical`, `internal/domain` or `internal/canonicalization` passes both. |
+| VAL-15 | Validation is deterministic. | (c) | One synthetic candidate with findings in several capabilities and sentences. | Validate it 100 times, in separate goroutines and with different `GOMAXPROCS`. | Every result is equal, including the order of diagnostics and findings. | A candidate whose node order differs is Rejected with `node_order`, never silently re-sorted. |
+| VAL-16 | Identity validity is enforced. | (c) | `grc` candidates that differ from a valid one in one respect each: (i) normalization slot `unicode-casefold/1.2.0`; (ii) one identity key `λέξις` where the recomputed key is `λέξισ`; (iii) scheme `example` with a null value; (iv) scheme `unregistered`; (v) citation form `λέξις#ex:1`; (vi) an identity whose UPOS differs from its node's. | Validate each. | Each is Rejected: (i) `normalization_profile_rejected`, (ii) `canonical_key_mismatch`, (iii) `discriminator_half_set`, (iv) `discriminator_scheme_unknown`, (v) `discriminator_in_lemma`, (vi) `identity_upos_mismatch`. | The valid candidate, with `λέξις` NOUN `example:ex:1` and `example:ex:2`, validates with two distinct identities. |
+| VAL-17 | Sentence boundaries are checked, and boundary state affects only the sentence-target capability. | (c) | A three-sentence candidate. Variants: (i) the middle sentence is `incomplete`; (ii) the first is `incomplete` and the rest `complete`; (iii) all are `unknown`. | Validate each. | (i) Rejected, `boundary_incomplete_interior` (`BND-1`). (ii) Validated, `sentence_target` `usable` with a `missing` finding on sentence 0. (iii) Validated, `sentence_target` `unsupported`. In (ii) and (iii), `vocabulary` and `VocabularyReady` equal those of the all-`complete` variant. | An adapter never upgrades `unknown` to `complete`: the all-`unknown` variant never yields `usable`. |
+| VAL-18 | Exact text correspondence holds for verbatim surfaces. | (c) | A candidate declaring verbatim surfaces, in which one word's surface is `λέξις` while its span slices `λεξις` (no accent) from the Extracted text. A multiword container's components reference exactly the container's span. | Validate. | Rejected, `surface_span_mismatch` (`COR-2`), naming only the word's `node_id`. The components raise no correspondence diagnostic. | With the surface matching the slice, the candidate validates. |
+| VAL-19 | Only infrastructure failures are transient, and they retry within budget. | (a) | A preparation request whose persistence is wrapped to fail the first adoption commit with a serialization failure. A second request whose candidate is rejected `coverage_gap`. | Run both River jobs to completion. | The first retries, succeeds once, and leaves exactly one current record and one Exact analysis. The second fails permanently after one attempt, with `coverage_gap`. | A fault that persists past the §11 budget ends with `retry_budget_exhausted` and leaves the Book's previous current analysis unchanged. |
+| VAL-20 | Consumers never branch on producer or language. | (b) | The rich scenarios run under `Variant{grc}` and `Variant{xx}`. In each, the same synthetic analysis content is seeded twice: once labelled `example-adapter/1` and once labelled `stanza-compat/1`. | Run Start, counts, lemma review preview and Finish for each Book. | Verdicts, counts, snapshot membership and Known are equal across both adapters and both variants, up to the language field. | Changing the adapter label alone never changes a verdict or a count. |
+| VAL-21 | A restriction makes a capability unavailable to consumers at read time. | (b) | A Reading-ready classical Book with no current reading. Then an operator Usability restriction naming `vocabulary` is appended to its analysis's binding. | Request Start, Browse counts and Concordance lemma lookup. | Start returns the ineligible verdict. Browse reports Unavailable, and Concordance lists the Book as unavailable with the restriction's reason. The validated states and diagnostics stored for the analysis are unchanged. | A restriction naming only `basic_syntax` leaves Start, counts and lemma lookup unchanged, and withholds only syntax. |
+| VAL-22 | Only a validated, Vocabulary-ready, unrestricted analysis is adopted. | (a) | Owner A's classical Book with current analysis X. A new preparation produces a validated analysis Y with `VocabularyReady` false (`occurrence_unresolved`). | Run preparation through adoption. | The request ends with `occurrence_unresolved`. X remains current, with its counts, decisions and snapshots unchanged. | A Vocabulary-ready Y is adopted. A Y with a `vocabulary` restriction is not. |
+| VAL-23 | An adapter is deterministic and invents no defaults. | (c) | A synthetic package for `example-adapter/1`, in which one native sentence has no heads, one native token has no POS, and one native token has a POS with no reviewed mapping. | Run the adapter twice on the same inputs, then validate its candidate. | The two candidates are equal under the canonical serialization. The headless sentence has no basic-syntax edge and gets a `basic_syntax` `missing` finding (`syntax_absent`), not a fabricated root. The token without a POS has `upos_state` `missing`, and the unmapped POS gives `mapping_unsupported`. Neither has UPOS `X`. Every native node in the extent appears in the candidate (ACC-1). | A test adapter that adds a root to the headless sentence is caught by the adapter's own reviewed fixture, not by `Validate` (SPAN-4 and TREE-5 are adapter obligations). |
 
 ## 16. Requirement traceability
 
@@ -3482,7 +4117,7 @@ decisions (see §1) are not reopened here.
 | OD-01 | Must rich identities reach the tuple-keyed Browse selection and Custom deck stores (B-17), whose UI is being retired? | (1) Greek identities are never written there; a test asserts it. (2) Add a discriminator to those stores. | (1), decided by #2069. §8 is written against it, and LRN-25 asserts it. | (1) adds no structure, but a Greek identity cannot be selected for a Custom deck. (2) changes stores outside the Reading path for a retiring UI. | #2064 | open |
 | OD-02 | Where is the generic casefold fallback rejected for `grc` (B-18, B-19)? | (1) The registry refuses `grc` unless a dedicated profile is registered, for both `For` and `Lookup`. (2) Only the shared validation interface rejects casefold-normalized `grc` identities. | (1), decided by #2067. §6 is written against it: `grc` is a dedicated-profile language, and every other unregistered language keeps the fallback. | (1) fails closed for every caller, including lemma review, but changes registry behaviour for an unregistered language. (2) leaves other callers able to normalize `grc` with casefold. | #2064 | open |
 | OD-03 | How does Reading eligibility treat an occurrence whose optional syntax is unavailable, given that `OccurrenceEligible` reads the dependency (B-10)? | (1) Unavailable syntax never makes an occurrence ineligible; syntax-based exclusions apply only when syntax is present. (2) Language-specific eligibility rules come from the canonical interpretation. | (1). §7 is written against it: a syntax-based exclusion applies only where the occurrence's basic syntax is usable. #2071 (§10) owns the eligibility interface that applies it. | (1) keeps one rule but needs explicit "unavailable" semantics. (2) moves eligibility into producer data. | #2064 | open |
-| OD-04 | How do store-contract scenarios cover Greek when the harness is fixed to `de` and seeds only tuples (B-30)? | (1) Parameterize the scenario language and extend the seeds with discriminators, span references and optional syntax. (2) Add a separate Greek scenario set beside the existing one. | (1), decided by #2071. | (1) runs every existing scenario against rich identities, but changes the harness interface for both adapters. (2) duplicates scenarios and lets them drift. | #2064 | open |
+| OD-04 | How do store-contract scenarios cover Greek when the harness is fixed to `de` and seeds only tuples (B-30)? | (1) Parameterize the scenario language and extend the seeds with discriminators, span references and optional syntax. (2) Add a separate Greek scenario set beside the existing one. | (1) for the harness, decided by #2071 (§10 "Store-contract harness"). The harness takes a language variant and gains a rich seeder that seeds only validated synthetic candidates. The rich scenarios are §8's separate list, run for `grc` and a synthetic casefold language `xx`. The existing `de` scenarios and their tuple seeds are unchanged. | (1) runs every existing scenario against rich identities, but changes the harness interface for both adapters. (2) duplicates scenarios and lets them drift. The chosen form changes the harness once for both adapters, and does not re-run tuple scenarios under a rich variant, where they would test the tuple path twice. Rich coverage is §8's named list. | #2064 | open |
 | OD-05 | Does Evidence adoption publish through the existing analysis-run anchor that every Reading gate checks (B-23 to B-26), or through a new anchor? | (1) Adoption produces an exact analysis that the existing classification recognizes, so the six call sites stay unchanged. (2) A new adopted-analysis anchor, with every gate changed together. | Decided by #2068 and #2072, with §8 compatibility. | (1) reuses existing anchors, as the handoff requires, but `book_current_analyses` references a source material and run. (2) needs an atomic change across all gates. | #2064 | open |
 | OD-06 | Are Work, Edition and Reading unit records global or owner-scoped (§4)? | (1) All shared. (2) All owner-scoped. (3) Shared when created from a reviewed identity definition; private to one owner when derived only from that owner's unverified catalogue advertisement. | (3). §4 is written against it. | (1) puts one learner's connection-supplied descriptions in rows other owners can resolve to. Sync then needs a write ban that the schema cannot express. (2) gives the simplest authorization (composite owner keys everywhere), but every owner duplicates descriptions, and §5 evidence cannot cite a shared unit. (3) keeps reviewed identity and its evidence shareable, and lets no learner input reach another owner. Its cost is a nullable `owner_id` and a trigger checking that associated units are shared or same-owner. It narrows issue item 7's "shared descriptions" for advertised rows. | #2065 | open |
 | OD-07 | Does a Reading unit need its own stable external citation scheme field? | (1) The unit stores an internal reviewed `citation_scheme` name with its bounds. External citation identifiers, such as a CTS passage URN, are verified aliases only. (2) Add a stable external citation identifier column to the unit. (3) No scheme field; bounds are opaque text. | (1). | (1) makes `extent_key` comparable within a scheme without trusting external identifiers. (2) makes an external alias a de facto key, against ADR 0093. (3) cannot tell `1` in one scheme from `1` in another, so uniqueness on (Edition, extent) is unsafe. | #2065 | open |
@@ -3521,6 +4156,12 @@ decisions (see §1) are not reopened here.
 | OD-40 | New terms used in §9. | Add **Retention reference** to `CONTEXT.md`: the reference by which a retained learner, request, deck or restriction record protects the exact evidence it depends on, transitively, without granting access. A record that holds one is a retention root. Keep retention root, evidence closure, Adopted evidence record, delete guard, owner guard, unreferenced-evidence report and evidence integrity check as design-local names. | Add **Retention reference** in a separately reviewed `CONTEXT.md` change, and keep the rest design-local. | Adding it gives implementation, ADR 0097 and UI copy one word for "why this cannot be deleted". Keeping everything design-local avoids a glossary change, but leaves ADR 0097's "retained reference" undefined in `CONTEXT.md`. | #2070 | open |
 | OD-41 | Which §15 seam covers the operator commands in §9 (the evidence integrity check and the unreferenced-evidence report)? Neither has a web handler or a store-contract operation, and §15's seam (d) is for constraints. | (1) Use seam (d), widened to cover operator commands run against a real, restored PostgreSQL database, as RET-14 and RET-16 do. RET-15 still observes the Book through seam (a). (2) Add a seam (e) for operator-command integration tests. | (1). | (1) keeps four seams and reuses `testutil.Postgres` (B-32), but widens (d)'s wording. (2) names the seam exactly, but changes §15's shared seam list for every ticket. | #2070 | open |
 | OD-42 | Issue #2070 says a Book that fails the integrity check shows "unavailable with a reason, with no End or Finish". ADR 0097 "Durable bounded work and recovery" says "do not automatically End or Finish a Reading. Operations wholly supported by intact frozen records may continue, including explicit End/Finish". | (1) Follow the ADR: no automatic End or Finish, and explicit End and Finish stay available. (2) Follow the ticket wording: refuse explicit End and Finish too. | (1). The ADR is binding (§1), and §9 and RET-17 are written against it. | (1) lets a learner close a reading whose frozen snapshot is intact, without touching evidence. (2) traps the learner in a current reading until an operator restores the evidence, which contradicts a binding ADR. | #2070 | open |
+| OD-43 | How does ADR 0091 take in the new packages (§10 "Package placement")? `internal/adoption` needs pgx and River, and ADR 0091 §3 lists pgx importers exhaustively. The web app's allow list (§6) does not name `internal/canonical`, and no rule isolates adapters. | (1) Amend ADR 0091: add `internal/adoption` to the §3 pgx list as a job package; add `internal/canonical` to the web-app allow list; add rules that keep `internal/canonical` a leaf above the domain, allow `internal/interpretation/...` only in `cmd/server`, the §12 command, `internal/parity` and test files, and deny adapters persistence, pgx, sqlc, River, `net/...`, `os`, `os/exec`, `plugin`, `syscall`, `unsafe` and `archive/zip`. Express each as depguard rules. (2) Put adoption inside `internal/analysis`, which already holds pgx, and enforce adapter isolation only with a `go list -deps` test. | (1). | (1) needs a reviewed ADR change (CODEOWNERS), but keeps every rule in the place ADR 0091 already uses, with lint messages that cite it. ADR 0091 names a new job package as a valid reason to amend §3. (2) needs no ADR change, but ties annotation-backed adoption to the NLP analysis package that NLP independence separates it from, and leaves adapter isolation outside `make lint-go`. | #2071 | open |
+| OD-44 | Where do the shared value types (rich identity, capability, capability state, analysis reference) live, given that ADR 0091 §1 lets the domain import only the standard library and `internal/canonicalization`? | (1) In `internal/domain`, as plain value types. `internal/canonical` imports the domain, and the domain never imports `internal/canonical`. (2) In `internal/canonical`, as a leaf that the domain may import, which amends ADR 0091 §1. | (1). | (1) keeps the domain's ADR 0091 rule unchanged, and lets domain decisions (Start, Finish, evidence classification) name capability states without seeing candidates or validation. (2) puts candidate and validator types within the domain's reach, and widens the domain's allow list for types it does not need. | #2071 | open |
+| OD-45 | Is Stanza parity observation on by default in production (§10 "Stanza compatibility adapter")? | (1) Off by default. Tests always run it, and an operator setting turns it on. (2) Always on. (3) Tests only, with no production hook. | (1). | (1) keeps today's analysis cost and logs unchanged unless the operator asks, and still allows real-data evidence before any future cutover. (2) adds validation time and a log event to every EPUB analysis, which ADR 0098 does not require. (3) gives no evidence beyond the fixtures. In every option, observation writes nothing and changes nothing. | #2071 | open |
+| OD-46 | New terms used in §10. | Add to `CONTEXT.md`: **Canonical-analysis candidate** (an adapter's unvalidated output) and **Validated analysis** (shared validation's verdict, the only thing adoption and the learner core accept). Keep source interpretation adapter, shared canonical validation, learner core, compatibility adapter, parity observation, failure class, effective capability state, adoptable (analysis), Reading-ready (Book) and the rule IDs as design-local names. | Add the two in a separately reviewed `CONTEXT.md` change. | Both appear in other sections and in diagnostics shown to owners. Without them, "analysis" is ambiguous between a candidate, a validated analysis and a stored Exact analysis. The rest are module or storage detail. | #2071 | open |
+| OD-47 | Issue #2071 says "missing scope gives a rejection with a diagnostic". §7 makes a coverage gap (ACC-4) deny Vocabulary-ready instead of rejecting the candidate. Which applies? | (1) Follow §7: the candidate is Validated, `vocabulary` is `invalid` with `coverage_gap`, `vocabulary_ready` is false, and §11 never adopts it. A candidate declaring a different unit, binding or Extracted text is Rejected outright (SCOPE-1, COR-1). (2) Make ACC-4 structural, so a coverage gap rejects the candidate and nothing is stored. | (1). §10 is written against it. | (1) keeps §7 unchanged and lets §11 retain a partial analysis for owner inspection, if §11 chooses to store it. It never reaches learners, so the learner-visible outcome is the rejection the issue asks for. (2) matches the issue's wording literally, but rewrites a §7 rule, and an owner then cannot inspect which part of the unit was uncovered. | #2071 | open |
+| OD-48 | The layering rows VAL-13 and VAL-14 need a lint rule or dependency test, which the ground rules' seams (a)–(d) do not include. | (1) Allow a lint seam for layering rows only: `make lint-go` (depguard) plus a transitive `go list -deps -test` test. (2) Express layering through seam (c) by asserting only behaviour, with no import check. | (1). | (1) is the only way to test a package-import invariant, and it matches how ADR 0091 is already enforced. It adds a fifth seam kind, limited to two rows. (2) cannot observe an import, so the invariant would go untested. | #2071 | open |
 
 ## 18. Approval record
 
