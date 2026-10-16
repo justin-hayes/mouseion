@@ -60,12 +60,18 @@ func (v readingBrowseView) rowOrigin(row domain.VocabularyBrowseRow) browseOrigi
 	}
 	return browseOrigin{
 		BookID: v.Query.CurrentBookID, SnapshotID: v.SnapshotID, Prefix: v.Prefix, IncludeAll: v.Query.IncludeAll,
-		Page: v.Page.Page, Revision: v.Page.CorpusRevision, Row: browseRowKey(row.UPOS, row.CanonicalLemma),
+		Page: v.Page.Page, Revision: v.Page.CorpusRevision, Row: browseRowKey(row.UPOS, row.CanonicalLemma, row.LexicalDiscriminator),
 	}
 }
 
-func vocabularyBrowseDisplayLemma(language, lemma, upos string) string {
-	return lemmadisplay.Format(language, lemma, upos)
+// vocabularyBrowseRowLemma is the learner-facing form of a Browse row. An
+// imported classical identity shows its citation headword, never the stored
+// canonical key; every other identity shows the language-formatted lemma.
+func vocabularyBrowseRowLemma(language string, row domain.VocabularyBrowseRow) string {
+	if row.Headword != "" {
+		return row.Headword
+	}
+	return lemmadisplay.Format(language, row.CanonicalLemma, row.UPOS)
 }
 
 func vocabularyBrowseOccurrenceCounts(row domain.VocabularyBrowseRow) string {
@@ -174,7 +180,7 @@ func readingBrowseHasRow(rows []domain.VocabularyBrowseRow, focusRow string) boo
 		return false
 	}
 	for _, row := range rows {
-		if browseRowKey(row.UPOS, row.CanonicalLemma) == focusRow {
+		if browseRowKey(row.UPOS, row.CanonicalLemma, row.LexicalDiscriminator) == focusRow {
 			return true
 		}
 	}

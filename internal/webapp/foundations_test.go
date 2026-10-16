@@ -510,14 +510,14 @@ func (rowVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, _, _
 }
 
 func TestVocabularyBrowseRestoresAFocusRowOnlyWhenThePageHasIt(t *testing.T) {
-	row := browseRowKey("NOUN", "haus")
+	row := browseRowKey("NOUN", "haus", "")
 	view, status, _ := loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/reading?q=ha&row="+url.QueryEscape(row), "book-1")
 	require.Equal(t, http.StatusOK, status)
 	assert.Equal(t, row, view.FocusRow)
 	assert.True(t, view.FocusRowFound, "the loaded page contains the named row")
 	assert.False(t, view.FocusRowMissing())
 
-	view, status, _ = loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/reading?q=ha&row="+url.QueryEscape(browseRowKey("VERB", "gehen")), "book-1")
+	view, status, _ = loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/reading?q=ha&row="+url.QueryEscape(browseRowKey("VERB", "gehen", "")), "book-1")
 	require.Equal(t, http.StatusOK, status)
 	assert.False(t, view.FocusRowFound, "a row the page lacks is not reported as found")
 	assert.True(t, view.FocusRowMissing())

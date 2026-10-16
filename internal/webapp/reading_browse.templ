@@ -116,7 +116,11 @@ templ readingBrowseResults(view readingBrowseView) {
 					@ResponsiveTable("Current effective vocabulary") {
 						<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th></tr></thead><tbody>
 						for _, row := range page.Rows {
-							<tr id={ browseRowElementID(browseRowKey(row.UPOS, row.CanonicalLemma)) } tabindex="-1" autofocus?={ view.FocusRowFound && view.FocusRow == browseRowKey(row.UPOS, row.CanonicalLemma) }><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(view.rowOrigin(row).Apply(vocabularyConcordanceURL(view.Language, row.CanonicalLemma, row.UPOS))) }>{ vocabularyBrowseDisplayLemma(view.Language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
+							<tr id={ browseRowElementID(browseRowKey(row.UPOS, row.CanonicalLemma, row.LexicalDiscriminator)) } tabindex="-1" autofocus?={ view.FocusRowFound && view.FocusRow == browseRowKey(row.UPOS, row.CanonicalLemma, row.LexicalDiscriminator) }><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(view.rowOrigin(row).Apply(vocabularyConcordanceURL(view.Language, row.CanonicalLemma, row.UPOS))) }>{ vocabularyBrowseRowLemma(view.Language, row) }</a>
+								if row.BareLemmaWithNumberedSibling {
+									<small>the source gives no homograph number</small>
+								}
+							</th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
 								if row.InBookDeck {
 									<small>In a Book deck</small>
 								}

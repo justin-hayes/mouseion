@@ -1,0 +1,13 @@
+# source = Xenophon, Xen. Anab._1.1.1
+# text = λόγος δέω λέγει
+# sent_id = 1
+1	λόγος	λόγος1	n	n-s---mn-	Case=n|Gender=m|Number=s	0	PRED	_	t_1|0|ref=Xen. Anab._1.1.1
+2	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_2|0|ref=Xen. Anab._1.1.1
+3	λέγει	λέγω	v	v3spia---	Mood=i|Number=s|Person=3|Tense=p|Voice=a	0	PRED	_	t_3|0|ref=Xen. Anab._1.1.1
+
+# source = Xenophon, Xen. Anab._1.1.2
+# text = λόγος δέω Κῦρος
+# sent_id = 2
+1	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	0	PRED	_	t_4|0|ref=Xen. Anab._1.1.2
+2	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_5|0|ref=Xen. Anab._1.1.2
+3	Κῦρος	κῦρος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_6|t_5|ref=Xen. Anab._1.1.2

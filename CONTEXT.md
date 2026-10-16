@@ -470,6 +470,14 @@ classical text, the source lemma with any trailing homograph number removed
 stored canonical lemma is the language profile's key.
 _Avoid_: canonical lemma, dictionary key.
 
+**Bare lemma with a numbered sibling**:
+An imported classical vocabulary identity whose source lemma carries no
+homograph number while its work numbers another form of the same lemma. It stays
+a separate identity, and learner-facing views label it "the source gives no
+homograph number" so the learner knows why it is listed apart from the numbered
+form.
+_Avoid_: unnumbered homograph, null discriminator.
+
 **Imported analysis**:
 Reading a pinned pre-annotated source file through one bounded, checked adapter
 and writing it as an ordinary analysis run, without the NLP service. The run

@@ -75,25 +75,53 @@ WITH all_books AS (
        WHERE ready.owner_id=r.owner_id AND ready.book_id=r.book_id
          AND ready.analysis_run_id=r.analysis_run_id AND ready.corpus_id=r.corpus_id
          AND ready.language=$2 AND ready.builder_version=3)
- ), current_evidence AS (
-  SELECT p.book_id::text AS book_id,c.upos,c.canonical_lemma AS lemma,c.corrected,c.occurrence_count
+ ), identity_headwords AS MATERIALIZED (
+  -- The citation headword is display-only evidence, not part of the identity,
+  -- so it is read once from the analysis tokens that carry one (imported
+  -- classical analyses) rather than stored on the count. Modern-language tokens
+  -- carry an empty headword, so this set is empty for them and Browse is
+  -- unchanged.
+  SELECT t.owner_id,t.analysis_run_id,t.corpus_id,t.canonical_lemma,t.upos,t.lexical_discriminator,min(t.headword) AS headword
+  FROM corpus_tokens t JOIN projection_ready p
+    ON p.owner_id=t.owner_id AND p.analysis_run_id=t.analysis_run_id AND p.corpus_id=t.corpus_id
+  WHERE t.language=$2 AND t.headword <> ''
+  GROUP BY t.owner_id,t.analysis_run_id,t.corpus_id,t.canonical_lemma,t.upos,t.lexical_discriminator
+ ), current_evidence AS MATERIALIZED (
+  SELECT p.book_id::text AS book_id,c.upos,c.canonical_lemma AS lemma,c.lexical_discriminator AS discriminator,c.corrected,c.occurrence_count,
+    COALESCE(h.headword,'') AS headword
   FROM vocabulary_browse_counts c JOIN projection_ready p
     ON p.owner_id=c.owner_id AND p.book_id=c.book_id AND p.analysis_run_id=c.analysis_run_id AND p.corpus_id=c.corpus_id
+  LEFT JOIN identity_headwords h
+    ON h.owner_id=c.owner_id AND h.analysis_run_id=c.analysis_run_id AND h.corpus_id=c.corpus_id
+    AND h.canonical_lemma=c.canonical_lemma AND h.upos=c.upos AND h.lexical_discriminator=c.lexical_discriminator
  ), book_identities AS MATERIALIZED (
-   SELECT book_id,lemma,upos,sum(occurrence_count)::bigint AS occurrences,bool_or(corrected) AS corrected
-   FROM current_evidence GROUP BY book_id,lemma,upos
+   SELECT book_id,lemma,upos,discriminator,sum(occurrence_count)::bigint AS occurrences,bool_or(corrected) AS corrected,min(headword) AS headword
+   FROM current_evidence GROUP BY book_id,lemma,upos,discriminator
+), numbered_siblings AS MATERIALIZED (
+   -- A numbered form of an identity in the same Book, so a bare identity can be
+   -- labelled as one the source gives no homograph number for.
+   SELECT DISTINCT book_id,lemma,upos FROM book_identities WHERE discriminator <> ''
+), annotated_books AS MATERIALIZED (
+   SELECT bi.book_id,bi.lemma,bi.upos,bi.discriminator,bi.occurrences,bi.corrected,bi.headword,
+     (bi.discriminator='' AND ns.lemma IS NOT NULL) AS bare_with_numbered_sibling
+   FROM book_identities bi LEFT JOIN numbered_siblings ns
+     ON ns.book_id=bi.book_id AND ns.lemma=bi.lemma AND ns.upos=bi.upos
 ), grouped AS (
-  SELECT lemma,upos,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books,bool_or(corrected) AS corrected
-  FROM book_identities GROUP BY lemma,upos
+  SELECT lemma,upos,discriminator,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books,bool_or(corrected) AS corrected,
+    COALESCE(min(headword) FILTER (WHERE headword<>''),'') AS headword,
+    bool_or(bare_with_numbered_sibling) AS bare_with_numbered_sibling
+  FROM annotated_books GROUP BY lemma,upos,discriminator
 ), scoped_grouped AS (
-  SELECT lemma,upos,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books,bool_or(corrected) AS corrected
-  FROM book_identities JOIN scope_books ON scope_books.id=book_identities.book_id
+  SELECT lemma,upos,discriminator,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books,bool_or(corrected) AS corrected,
+    COALESCE(min(headword) FILTER (WHERE headword<>''),'') AS headword,
+    bool_or(bare_with_numbered_sibling) AS bare_with_numbered_sibling
+  FROM annotated_books JOIN scope_books ON scope_books.id=annotated_books.book_id
   WHERE (COALESCE(cardinality($5::text[]),0)=0 OR upos=ANY($5::text[]))
-  GROUP BY lemma,upos
+  GROUP BY lemma,upos,discriminator
  ), annotated AS MATERIALIZED (
   -- The eligibility filter reads several annotated learner-state columns.
   -- Inlining repeats correlated lookups and can exceed the Browse deadline.
-  SELECT g.lemma,g.upos,g.occurrences,g.books,g.corrected,
+  SELECT g.lemma,g.upos,g.discriminator,g.headword,g.bare_with_numbered_sibling,g.occurrences,g.books,g.corrected,
     COALESCE(all_grouped.occurrences,g.occurrences) AS across_books_occurrences,
     EXISTS (SELECT 1 FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2 AND k.canonical_lemma=g.lemma AND (k.upos=g.upos OR k.upos='')) AS known,
     EXISTS (SELECT 1 FROM primary_goal_snapshots ps
@@ -106,9 +134,9 @@ WITH all_books AS (
       JOIN deck_preparation_manifest_items mi ON mi.owner_id=p.owner_id AND mi.preparation_id=p.id
       WHERE p.owner_id=$1 AND p.book_id=$12::uuid AND p.state='ready'
         AND mi.disposition='accepted' AND mi.language=$2 AND mi.canonical_lemma=g.lemma AND mi.upos=g.upos) AS in_book_deck
-  FROM scoped_grouped g LEFT JOIN grouped all_grouped USING (lemma,upos)
+  FROM scoped_grouped g LEFT JOIN grouped all_grouped USING (lemma,upos,discriminator)
 ), eligible AS (
-  SELECT a.lemma,a.upos,a.occurrences,a.across_books_occurrences,a.books,a.corrected,a.known,a.reserved,a.generated,a.in_book_deck
+  SELECT a.lemma,a.upos,a.discriminator,a.headword,a.bare_with_numbered_sibling,a.occurrences,a.across_books_occurrences,a.books,a.corrected,a.known,a.reserved,a.generated,a.in_book_deck
   FROM annotated a
   WHERE ($3='' OR left(lower(lemma),length(lower($3)))=lower($3))
 	    AND ($6='any' OR ($6='known' AND a.known) OR ($6='not-known' AND NOT a.known) OR $6='not-known-or-reserved')
@@ -119,7 +147,7 @@ WITH all_books AS (
   SELECT * FROM eligible
   ORDER BY CASE WHEN $8='occurrences' THEN occurrences END DESC,
              CASE WHEN $10<>'' THEN across_books_occurrences END DESC,
-	           CASE WHEN $8='books' THEN books END DESC, lemma, upos
+	           CASE WHEN $8='books' THEN books END DESC, lemma, upos, discriminator
 	  LIMIT 25 OFFSET (($9::bigint-1)*25)
 ), summary AS (
    SELECT (SELECT count(*)::bigint FROM eligible) AS total,
@@ -164,7 +192,7 @@ WITH all_books AS (
          AND mi.disposition='accepted' AND mi.language=$2),'')
   ) AS value
 )
-SELECT p.lemma,p.upos,p.occurrences,p.across_books_occurrences,p.books,p.corrected,p.known,p.reserved,p.generated,p.in_book_deck,
+SELECT p.lemma,p.upos,p.discriminator,p.headword,p.bare_with_numbered_sibling,p.occurrences,p.across_books_occurrences,p.books,p.corrected,p.known,p.reserved,p.generated,p.in_book_deck,
    summary.total,summary.scoped_total,summary.inventory_total,coverage.analyzed,coverage.contributing,
    coverage.total-coverage.contributing,coverage.total-coverage.analyzed,
    summary.browse_counts_updating,summary.browse_counts_unavailable,
@@ -173,7 +201,7 @@ SELECT p.lemma,p.upos,p.occurrences,p.across_books_occurrences,p.books,p.correct
 FROM summary CROSS JOIN coverage CROSS JOIN revision LEFT JOIN page_rows p ON true
 ORDER BY CASE WHEN $8='occurrences' THEN p.occurrences END DESC,
              CASE WHEN $10<>'' THEN p.across_books_occurrences END DESC,
-	         CASE WHEN $8='books' THEN p.books END DESC,p.lemma,p.upos`
+	         CASE WHEN $8='books' THEN p.books END DESC,p.lemma,p.upos,p.discriminator`
 	var deckBookID any
 	if queryParams.CurrentBookID != "" {
 		deckBookID = queryParams.CurrentBookID
@@ -197,10 +225,10 @@ func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowse
 	var corpusRevision string
 	for rows.Next() {
 		var row domain.VocabularyBrowseRow
-		var lemma, pos *string
+		var lemma, pos, discriminator, headword *string
 		var occurrences, acrossBooksOccurrences, books *int64
-		var corrected, isKnown, isReserved, generated, inBookDeck *bool
-		if err := rows.Scan(&lemma, &pos, &occurrences, &acrossBooksOccurrences, &books, &corrected, &isKnown, &isReserved, &generated, &inBookDeck,
+		var corrected, isKnown, isReserved, generated, inBookDeck, bareWithNumberedSibling *bool
+		if err := rows.Scan(&lemma, &pos, &discriminator, &headword, &bareWithNumberedSibling, &occurrences, &acrossBooksOccurrences, &books, &corrected, &isKnown, &isReserved, &generated, &inBookDeck,
 			&result.Total, &result.ScopedInventoryTotal, &result.InventoryTotal, &result.AnalyzedBooks,
 			&result.ContributingBooks, &result.NoncontributingBooks, &result.BooksWithoutCurrentAnalysis, &result.BrowseCountsUpdating, &result.BrowseCountsUnavailable, &bookStatus, &corpusRevision); err != nil {
 			return domain.VocabularyBrowsePage{}, err
@@ -208,6 +236,7 @@ func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowse
 		result.CorpusRevision = corpusRevision
 		if lemma != nil {
 			row.CanonicalLemma, row.UPOS = *lemma, *pos
+			row.LexicalDiscriminator, row.Headword, row.BareLemmaWithNumberedSibling = *discriminator, *headword, *bareWithNumberedSibling
 			row.OccurrenceCount, row.AcrossBooksOccurrenceCount, row.BookCount = *occurrences, *acrossBooksOccurrences, *books
 			row.Corrected, row.Known, row.Reserved, row.Generated, row.InBookDeck = *corrected, *isKnown, *isReserved, *generated, *inBookDeck
 			result.Rows = append(result.Rows, row)
