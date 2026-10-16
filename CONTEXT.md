@@ -50,8 +50,9 @@ _Avoid_: study-language scope, synced languages.
 Words the learner already knows in a language, owned per learner and language,
 populated only by acceptance of a completed current reading's frozen vocabulary
 snapshot. Identities are discriminated, so δέω 1 and δέω 2 are separate Known
-words. This is modeled learner knowledge, not a claim of
-verified mastery; card generation never marks vocabulary as known.
+words, and each row carries the citation headword its snapshot showed. This is
+modeled learner knowledge, not a claim of verified mastery; card generation never
+marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 
 **Recurring vocabulary**:

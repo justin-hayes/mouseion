@@ -620,7 +620,7 @@ func (q *Queries) InsertCurrentReading(ctx context.Context, arg InsertCurrentRea
 
 const insertCurrentReadingKnownVocabulary = `-- name: InsertCurrentReadingKnownVocabulary :one
 WITH eligible AS (
-    SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator,
+    SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator, pv.headword,
            s.book_id, s.source_material_id, s.analysis_run_id,
            s.content_revision_id, s.content_snapshot_id, s.corpus_id,
            s.id AS snapshot_id, $1::timestamptz AS completed_at,
@@ -663,7 +663,7 @@ WITH eligible AS (
       )
 ), inserted AS (
     INSERT INTO known_vocabulary(
-        owner_id, language, canonical_lemma, upos, lexical_discriminator,
+        owner_id, language, canonical_lemma, upos, lexical_discriminator, headword,
         completion_book_id, completion_at, completion_goal_snapshot_id,
         completion_source_material_id, completion_analysis_run_id,
         completion_content_revision_id, completion_content_snapshot_id,
@@ -671,7 +671,7 @@ WITH eligible AS (
         generated_first_deck_id, generated_first_source_material_id,
         generated_first_at
     )
-    SELECT owner_id, language, canonical_lemma, upos, lexical_discriminator,
+    SELECT owner_id, language, canonical_lemma, upos, lexical_discriminator, headword,
            book_id, completed_at, snapshot_id, source_material_id, analysis_run_id,
            content_revision_id, content_snapshot_id, corpus_id, deck_preparation_id,
            first_deck_id, first_source_material_id, first_generated_at

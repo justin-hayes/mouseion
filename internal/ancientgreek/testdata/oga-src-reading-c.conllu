@@ -1,0 +1,50 @@
+# source = Xenophon, Xen. Anab._1.3.1
+# text = δέω λόγος
+# sent_id = 1
+1	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_1|0|ref=Xen. Anab._1.3.1
+2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_2|t_1|ref=Xen. Anab._1.3.1
+
+# source = Xenophon, Xen. Anab._1.3.2
+# text = δέω λόγος
+# sent_id = 2
+1	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_3|0|ref=Xen. Anab._1.3.2
+2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_4|t_3|ref=Xen. Anab._1.3.2
+
+# source = Xenophon, Xen. Anab._1.3.3
+# text = δέω λόγος
+# sent_id = 3
+1	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_5|0|ref=Xen. Anab._1.3.3
+2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_6|t_5|ref=Xen. Anab._1.3.3
+
+# source = Xenophon, Xen. Anab._1.3.4
+# text = δέω λόγος
+# sent_id = 4
+1	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_7|0|ref=Xen. Anab._1.3.4
+2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_8|t_7|ref=Xen. Anab._1.3.4
+
+# source = Xenophon, Xen. Anab._1.3.5
+# text = δέω λόγος
+# sent_id = 5
+1	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_9|0|ref=Xen. Anab._1.3.5
+2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_10|t_9|ref=Xen. Anab._1.3.5
+
+# source = Xenophon, Xen. Anab._1.3.6
+# text = δέω λόγος
+# sent_id = 6
+1	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_11|0|ref=Xen. Anab._1.3.6
+2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_12|t_11|ref=Xen. Anab._1.3.6
+
+# source = Xenophon, Xen. Anab._1.3.7
+# text = νέος
+# sent_id = 7
+1	νέος	νέος	a	a-s---mn-	Case=n|Gender=m|Number=s	0	PRED	_	t_13|0|ref=Xen. Anab._1.3.7
+
+# source = Xenophon, Xen. Anab._1.3.8
+# text = νέος
+# sent_id = 8
+1	νέος	νέος	a	a-s---mn-	Case=n|Gender=m|Number=s	0	PRED	_	t_14|0|ref=Xen. Anab._1.3.8
+
+# source = Xenophon, Xen. Anab._1.3.9
+# text = νέος
+# sent_id = 9
+1	νέος	νέος	a	a-s---mn-	Case=n|Gender=m|Number=s	0	PRED	_	t_15|0|ref=Xen. Anab._1.3.9

@@ -660,6 +660,7 @@ type KnownVocabulary struct {
 	GeneratedFirstSourceMaterialID pgtype.UUID
 	GeneratedFirstAt               pgtype.Timestamptz
 	LexicalDiscriminator           string
+	Headword                       string
 }
 
 type MyBooksEvidence struct {

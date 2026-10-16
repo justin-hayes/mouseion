@@ -335,6 +335,7 @@ SELECT kv.id::text,
        kv.canonical_lemma,
        kv.upos,
        kv.lexical_discriminator,
+       kv.headword,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.id = $2
 `
@@ -351,6 +352,7 @@ type GetKnownVocabularyRow struct {
 	CanonicalLemma       string
 	Upos                 string
 	LexicalDiscriminator string
+	Headword             string
 	CreatedAt            time.Time
 }
 
@@ -364,13 +366,14 @@ func (q *Queries) GetKnownVocabulary(ctx context.Context, arg GetKnownVocabulary
 		&i.CanonicalLemma,
 		&i.Upos,
 		&i.LexicalDiscriminator,
+		&i.Headword,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getKnownVocabularyByIdentity = `-- name: GetKnownVocabularyByIdentity :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, created_at
+SELECT id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, created_at
 FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 AND lexical_discriminator = $5 ORDER BY id LIMIT 1
 `
 
@@ -389,6 +392,7 @@ type GetKnownVocabularyByIdentityRow struct {
 	CanonicalLemma       string
 	Upos                 string
 	LexicalDiscriminator string
+	Headword             string
 	CreatedAt            time.Time
 }
 
@@ -408,6 +412,7 @@ func (q *Queries) GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnown
 		&i.CanonicalLemma,
 		&i.Upos,
 		&i.LexicalDiscriminator,
+		&i.Headword,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -889,6 +894,7 @@ SELECT kv.id::text,
        kv.canonical_lemma,
        kv.upos,
        kv.lexical_discriminator,
+       kv.headword,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.lexical_discriminator, kv.id
 `
@@ -905,6 +911,7 @@ type ListKnownVocabularyRow struct {
 	CanonicalLemma       string
 	Upos                 string
 	LexicalDiscriminator string
+	Headword             string
 	CreatedAt            time.Time
 }
 
@@ -924,6 +931,7 @@ func (q *Queries) ListKnownVocabulary(ctx context.Context, arg ListKnownVocabula
 			&i.CanonicalLemma,
 			&i.Upos,
 			&i.LexicalDiscriminator,
+			&i.Headword,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -1710,10 +1718,10 @@ func (q *Queries) UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSe
 }
 
 const upsertKnownVocabulary = `-- name: UpsertKnownVocabulary :one
-INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator, headword)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO UPDATE SET canonical_lemma = excluded.canonical_lemma
-RETURNING id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, created_at
+RETURNING id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, created_at
 `
 
 type UpsertKnownVocabularyParams struct {
@@ -1722,6 +1730,7 @@ type UpsertKnownVocabularyParams struct {
 	CanonicalLemma       string
 	Upos                 string
 	LexicalDiscriminator string
+	Headword             string
 }
 
 type UpsertKnownVocabularyRow struct {
@@ -1731,6 +1740,7 @@ type UpsertKnownVocabularyRow struct {
 	CanonicalLemma       string
 	Upos                 string
 	LexicalDiscriminator string
+	Headword             string
 	CreatedAt            time.Time
 }
 
@@ -1741,6 +1751,7 @@ func (q *Queries) UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVoca
 		arg.CanonicalLemma,
 		arg.Upos,
 		arg.LexicalDiscriminator,
+		arg.Headword,
 	)
 	var i UpsertKnownVocabularyRow
 	err := row.Scan(
@@ -1750,6 +1761,7 @@ func (q *Queries) UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVoca
 		&i.CanonicalLemma,
 		&i.Upos,
 		&i.LexicalDiscriminator,
+		&i.Headword,
 		&i.CreatedAt,
 	)
 	return i, err
