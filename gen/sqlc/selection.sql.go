@@ -339,6 +339,7 @@ func (q *Queries) HasCurrentLemmaCorrectionsForAnalysis(ctx context.Context, arg
 const listAnalysisTokenEvidence = `-- name: ListAnalysisTokenEvidence :many
 SELECT t.language, t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.dependency, t.head, t.morphology,
+       t.lexical_discriminator, t.headword,
        t.start_offset, t.end_offset, s.unit_id, s.sentence_text
 FROM corpora c
 JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
@@ -357,20 +358,22 @@ type ListAnalysisTokenEvidenceParams struct {
 }
 
 type ListAnalysisTokenEvidenceRow struct {
-	Language        string
-	SentenceOrdinal int64
-	TokenOrdinal    int64
-	Surface         string
-	RawLemma        string
-	CanonicalLemma  string
-	Upos            string
-	Dependency      string
-	Head            int64
-	Morphology      []byte
-	StartOffset     int64
-	EndOffset       int64
-	UnitID          string
-	SentenceText    string
+	Language             string
+	SentenceOrdinal      int64
+	TokenOrdinal         int64
+	Surface              string
+	RawLemma             string
+	CanonicalLemma       string
+	Upos                 string
+	Dependency           string
+	Head                 int64
+	Morphology           []byte
+	LexicalDiscriminator string
+	Headword             string
+	StartOffset          int64
+	EndOffset            int64
+	UnitID               string
+	SentenceText         string
 }
 
 func (q *Queries) ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error) {
@@ -393,6 +396,8 @@ func (q *Queries) ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysi
 			&i.Dependency,
 			&i.Head,
 			&i.Morphology,
+			&i.LexicalDiscriminator,
+			&i.Headword,
 			&i.StartOffset,
 			&i.EndOffset,
 			&i.UnitID,

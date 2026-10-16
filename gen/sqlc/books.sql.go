@@ -539,6 +539,7 @@ WITH ready AS (
                SELECT 1 FROM known_vocabulary kv
                WHERE kv.owner_id = c.owner_id AND kv.language = c.language
                  AND kv.canonical_lemma = btrim(c.canonical_lemma)
+                 AND kv.lexical_discriminator = btrim(c.lexical_discriminator)
                  AND (kv.upos = upper(btrim(c.upos)) OR kv.upos = '')
            ) AS is_known
     FROM ready

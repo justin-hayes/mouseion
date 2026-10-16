@@ -222,6 +222,7 @@ func decodeTokenEvidence(row sqlcgen.ListAnalysisTokenEvidenceRow) (analyzer.Tok
 	return analyzer.Token{
 		Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
 		UPOS: row.Upos, Dependency: row.Dependency, Head: head, Morphology: morphology,
+		LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword,
 		Location: analyzer.SourceLocation{SourceDocumentID: row.UnitID, StartOffset: uint64(row.StartOffset), EndOffset: uint64(row.EndOffset)},
 	}, nil
 }
@@ -470,7 +471,7 @@ func listKnownVocabulary(ctx context.Context, q sqlcgen.DBTX, owner, language st
 	}
 	result := make([]domain.KnownVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, domain.KnownVocabulary{ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, CreatedAt: row.CreatedAt})
+		result = append(result, domain.KnownVocabulary{ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator, CreatedAt: row.CreatedAt})
 	}
 	return result, nil
 }
@@ -497,6 +498,7 @@ func listReservedVocabulary(ctx context.Context, q sqlcgen.DBTX, owner, language
 		result = append(result, domain.DeckPreparationVocabulary{
 			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
 			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword,
 			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
 		})
 	}

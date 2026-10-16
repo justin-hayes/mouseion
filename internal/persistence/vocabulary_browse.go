@@ -123,12 +123,12 @@ WITH all_books AS (
   -- Inlining repeats correlated lookups and can exceed the Browse deadline.
   SELECT g.lemma,g.upos,g.discriminator,g.headword,g.bare_with_numbered_sibling,g.occurrences,g.books,g.corrected,
     COALESCE(all_grouped.occurrences,g.occurrences) AS across_books_occurrences,
-    EXISTS (SELECT 1 FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2 AND k.canonical_lemma=g.lemma AND (k.upos=g.upos OR k.upos='')) AS known,
+    EXISTS (SELECT 1 FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2 AND k.canonical_lemma=g.lemma AND (k.upos=g.upos OR k.upos='') AND k.lexical_discriminator=g.discriminator) AS known,
     EXISTS (SELECT 1 FROM primary_goal_snapshots ps
       JOIN primary_goals pg ON pg.owner_id=ps.owner_id AND pg.snapshot_id=ps.id
       JOIN primary_goal_snapshot_vocabulary pv ON pv.owner_id=ps.owner_id AND pv.snapshot_id=ps.id
       WHERE ps.owner_id=$1 AND ps.language=$2 AND pv.language=$2
-        AND pv.canonical_lemma=g.lemma AND pv.upos=g.upos AND ps.released_at IS NULL) AS reserved,
+        AND pv.canonical_lemma=g.lemma AND pv.upos=g.upos AND pv.lexical_discriminator=g.discriminator AND ps.released_at IS NULL) AS reserved,
     EXISTS (SELECT 1 FROM generated_vocabulary v WHERE v.owner_id=$1 AND v.language=$2 AND v.canonical_lemma=g.lemma AND v.upos=g.upos) AS generated,
     EXISTS (SELECT 1 FROM deck_preparations p
       JOIN deck_preparation_manifest_items mi ON mi.owner_id=p.owner_id AND mi.preparation_id=p.id

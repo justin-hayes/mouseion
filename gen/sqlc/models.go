@@ -659,6 +659,7 @@ type KnownVocabulary struct {
 	GeneratedFirstDeckID           pgtype.UUID
 	GeneratedFirstSourceMaterialID pgtype.UUID
 	GeneratedFirstAt               pgtype.Timestamptz
+	LexicalDiscriminator           string
 }
 
 type MyBooksEvidence struct {
@@ -785,6 +786,8 @@ type PrimaryGoalSnapshotVocabulary struct {
 	Provenance           []byte
 	FirstEncounter       int64
 	SelectedAt           time.Time
+	LexicalDiscriminator string
+	Headword             string
 }
 
 type ProcessingHistory struct {

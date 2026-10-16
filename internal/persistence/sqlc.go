@@ -168,10 +168,10 @@ func catalogueSyncStatusFromRow(ownerID, connectionID, state string, lastSyncedA
 	}
 }
 
-func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos string, createdAt time.Time) domain.KnownVocabulary {
+func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos, discriminator string, createdAt time.Time) domain.KnownVocabulary {
 	return domain.KnownVocabulary{
 		ID: id, OwnerID: ownerID, Language: language, CanonicalLemma: canonicalLemma,
-		UPOS: upos, CreatedAt: createdAt,
+		UPOS: upos, LexicalDiscriminator: discriminator, CreatedAt: createdAt,
 	}
 }
 
@@ -200,6 +200,15 @@ func selectionCandidateFromFields(ownerID, corpusID, language, canonicalLemma, u
 		OccurrenceCount: occurrenceCount, ObservedForms: observedForms, SentenceReferences: sentenceReferences,
 		Provenance: provenance, SelectedAt: selectedAt, FirstEncounter: firstEncounter,
 	}
+}
+
+// snapshotCandidateFromFields maps one frozen snapshot row onto the candidate
+// shape its consumers read. The discriminator and headword are the imported
+// identity's display evidence, empty for every modern-language row.
+func snapshotCandidateFromFields(ownerID, corpusID, language, canonicalLemma, upos, discriminator, headword string, occurrenceCount int, observedForms, sentenceReferences, provenance []byte, selectedAt time.Time, firstEncounter int64) domain.SelectionCandidate {
+	candidate := selectionCandidateFromFields(ownerID, corpusID, language, canonicalLemma, upos, occurrenceCount, observedForms, sentenceReferences, provenance, selectedAt, firstEncounter)
+	candidate.LexicalDiscriminator, candidate.Headword = discriminator, headword
+	return candidate
 }
 
 func curatedSentenceFromFields(id, ownerID, exampleSentenceID, language, canonicalLemma, upos, notes string, createdAt time.Time) domain.CuratedSentence {
@@ -291,15 +300,18 @@ func analysisSignalsFromView(sourceID, mediaType, revisionID, snapshotID, status
 }
 
 func contentSignalFromView(sourceID, mediaType, revisionID, snapshotID string) domain.ContentSignal {
+	mediaType = strings.TrimSpace(mediaType)
 	switch {
 	case sourceID == "":
 		return domain.ContentNotAcquired
 	case revisionID == "" || snapshotID == "":
 		return domain.ContentNoCurrentRevision
-	case !strings.EqualFold(strings.TrimSpace(mediaType), "application/epub+zip"):
-		return domain.ContentNonEPUB
-	default:
+	case strings.EqualFold(mediaType, "application/epub+zip"):
 		return domain.ContentCurrentEPUB
+	case strings.EqualFold(mediaType, domain.ImportedSourceMediaType):
+		return domain.ContentCurrentImported
+	default:
+		return domain.ContentNonEPUB
 	}
 }
 

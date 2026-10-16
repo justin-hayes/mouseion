@@ -42,6 +42,12 @@ func TestClassifyBookEvidenceReproducesPresentationStates(t *testing.T) {
 			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingNeedsCurrentContent, recovery: RecoveryNone,
 		},
 		{
+			name:        "imported current content admits a reading",
+			signals:     AnalysisSignals{Content: ContentCurrentImported, Published: PublishedCurrent, LatestRun: RunCompleted},
+			disposition: BookDispositionToRead, language: "grc",
+			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingEligible, recovery: RecoveryNone,
+		},
+		{
 			name:        "queued analysis",
 			signals:     with(PublishedNone, RunQueued),
 			disposition: BookDispositionToRead, language: "de",
@@ -169,7 +175,7 @@ func TestClassifyBookEvidenceReproducesPresentationStates(t *testing.T) {
 }
 
 func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
-	contents := []ContentSignal{ContentNotAcquired, ContentNoCurrentRevision, ContentNonEPUB, ContentCurrentEPUB}
+	contents := []ContentSignal{ContentNotAcquired, ContentNoCurrentRevision, ContentNonEPUB, ContentCurrentEPUB, ContentCurrentImported}
 	publications := []PublishedAnalysisSignal{PublishedNone, PublishedCurrent, PublishedStale}
 	runs := []LatestRunSignal{RunNone, RunQueued, RunRunning, RunPublicationPending, RunPublicationFailed, RunFailed, RunJobFailed, RunCancelled, RunCompleted}
 	dispositions := []BookDisposition{BookDispositionInbox, BookDispositionToRead}
@@ -189,7 +195,7 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 							// such a shadowed run makes the analysis usable for Reading.
 							newerShadowed := published == PublishedCurrent && (run == RunQueued || run == RunRunning || run == RunFailed || run == RunJobFailed || run == RunCancelled)
 							analyzed := got.Phase == PhaseAnalyzed && (run == RunCompleted || newerShadowed)
-							ready := content == ContentCurrentEPUB && analyzed && disposition == BookDispositionToRead && language != ""
+							ready := content.IsCurrentContent() && analyzed && disposition == BookDispositionToRead && language != ""
 							assert.Equal(t, ready, got.Eligibility == CurrentReadingEligible, "eligibility for %+v %v %q", signals, disposition, language)
 
 							switch content {
@@ -198,7 +204,7 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 								assert.Equal(t, RecoveryNone, got.Recovery, "%+v", signals)
 							case ContentNoCurrentRevision:
 								assert.Equal(t, BookUnavailable, got.Evidence, "%+v", signals)
-							case ContentNonEPUB, ContentCurrentEPUB:
+							case ContentNonEPUB, ContentCurrentEPUB, ContentCurrentImported:
 							}
 
 							shadowedRetry := published == PublishedCurrent && !current && (run == RunFailed || run == RunJobFailed || run == RunCancelled)
@@ -206,7 +212,7 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 							if content != ContentNotAcquired {
 								assert.Equal(t, retryAnalysis, got.Recovery == RecoveryRetryAnalysis, "recovery for %+v", signals)
 							}
-							hasRevision := content == ContentNonEPUB || content == ContentCurrentEPUB
+							hasRevision := content != ContentNotAcquired && content != ContentNoCurrentRevision
 							assert.Equal(t, got.Phase == PhaseAnalyzed && hasRevision, got.Evidence == BookAnalyzed, "evidence for %+v", signals)
 							assert.False(t, got.Eligibility == CurrentReadingEligible && got.Phase != PhaseAnalyzed, "eligible without analysis for %+v", signals)
 						}

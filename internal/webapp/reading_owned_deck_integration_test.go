@@ -79,7 +79,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	// allowed to reselect the identities for this Reading's deck.
 	_, err = store.Pool().Exec(ctx, `UPDATE selection_candidates SET occurrence_count=1 WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID)
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,'de','haus','NOUN') ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, owner.ID)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos,lexical_discriminator) VALUES($1,'de','haus','NOUN','') ON CONFLICT(owner_id,language,canonical_lemma,upos,lexical_discriminator) DO NOTHING`, owner.ID)
 	require.NoError(t, err)
 
 	missing := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies)

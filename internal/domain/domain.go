@@ -92,8 +92,11 @@ type PreparedDeckRerenderWork struct {
 type DeckPreparationVocabulary struct {
 	OwnerID, DeckPreparationID, Language, CanonicalLemma, UPOS string
 	LexicalDiscriminator                                       string
-	GeneratedAt                                                time.Time
-	GraduatedAt                                                *time.Time
+	// Headword is the imported citation form shown to learners, empty for
+	// modern-language vocabulary.
+	Headword    string
+	GeneratedAt time.Time
+	GraduatedAt *time.Time
 }
 
 type User struct {
@@ -579,10 +582,13 @@ type ProcessingHistory struct {
 type SelectionCandidate struct {
 	OwnerID, CorpusID, Language, CanonicalLemma, UPOS string
 	LexicalDiscriminator                              string
-	OccurrenceCount                                   int
-	FirstEncounter                                    int64
-	ObservedForms, SentenceReferences, Provenance     []byte
-	SelectedAt                                        time.Time
+	// Headword is the imported citation form shown to learners, empty for
+	// modern-language vocabulary.
+	Headword                                      string
+	OccurrenceCount                               int
+	FirstEncounter                                int64
+	ObservedForms, SentenceReferences, Provenance []byte
+	SelectedAt                                    time.Time
 }
 
 // ProjectedCorpusVocabulary is the per-Book effective vocabulary of one

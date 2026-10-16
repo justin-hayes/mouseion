@@ -44,7 +44,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id, language, book_id, reading_finished_at) VALUES ($1, 'de', $3, $6), ($1, 'it', $4, NULL), ($2, 'de', $5, NULL)`, owner.ID, otherOwner.ID, finishedBook.ID, activeBook.ID, otherBook.ID, completedAt)
 	require.NoError(t, err)
-	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "Haus", "NOUN")
+	_, err = pool.Exec(ctx, `INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos) VALUES ($1, 'de', 'Haus', 'NOUN')`, owner.ID)
 	require.NoError(t, err)
 
 	moveApplicationMigrationsTo(t, databaseURL, 5)

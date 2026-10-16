@@ -154,7 +154,7 @@ func reservedVocabularySummary(count int) string {
 func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 	bookID := readingBookID(item)
 	classification := item.Book.EvidenceClassification()
-	if classification.Content != domain.ContentCurrentEPUB {
+	if !classification.Content.IsCurrentContent() {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
 			Description: "No current EPUB content is available for this book in Reading. Retry acquisition when the catalog can provide it.",
