@@ -95,17 +95,17 @@ func applyVocabularyBrowseDecisionDeltasTx(ctx context.Context, tx pgx.Tx, ready
 		count, ok := projected[identity]
 		if !ok {
 			if _, err := tx.Exec(ctx, `DELETE FROM vocabulary_browse_counts
-				WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND corpus_id=$4 AND canonical_lemma=$5 AND upos=$6`,
-				ready.owner, ready.book, ready.run, ready.corpus, identity.lemma, identity.upos); err != nil {
+				WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND corpus_id=$4 AND canonical_lemma=$5 AND upos=$6 AND lexical_discriminator=$7`,
+				ready.owner, ready.book, ready.run, ready.corpus, identity.lemma, identity.upos, identity.discriminator); err != nil {
 				return fmt.Errorf("remove empty effective Browse identity: %w", err)
 			}
 			continue
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count,corrected)
-			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
-			ON CONFLICT(owner_id,book_id,analysis_run_id,canonical_lemma,upos)
+		if _, err := tx.Exec(ctx, `INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count,corrected,lexical_discriminator)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+			ON CONFLICT(owner_id,book_id,analysis_run_id,canonical_lemma,upos,lexical_discriminator)
 			DO UPDATE SET occurrence_count=excluded.occurrence_count,corrected=excluded.corrected`,
-			ready.owner, ready.book, ready.language, ready.run, ready.corpus, identity.lemma, identity.upos, count.occurrences, count.corrected); err != nil {
+			ready.owner, ready.book, ready.language, ready.run, ready.corpus, identity.lemma, identity.upos, count.occurrences, count.corrected, identity.discriminator); err != nil {
 			return fmt.Errorf("write effective Browse count: %w", err)
 		}
 	}
@@ -161,7 +161,7 @@ func loadBrowseCountFacts(ctx context.Context, tx pgx.Tx, scope browseCountReadi
 // or corrected lemma.
 func queryBrowseCountFacts(ctx context.Context, tx pgx.Tx, scope browseCountReadiness, lemmas []string) (pgx.Rows, error) {
 	rows, err := tx.Query(ctx, `
-SELECT s.sentence_ordinal,s.unit_id,t.canonical_lemma,t.upos,t.dependency,t.start_offset,t.end_offset,d.canonical_lemma,COALESCE(d.excluded,false)
+SELECT s.sentence_ordinal,s.unit_id,t.canonical_lemma,t.upos,t.dependency,t.start_offset,t.end_offset,d.canonical_lemma,COALESCE(d.excluded,false),t.lexical_discriminator
 FROM corpus_tokens t
 JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.analysis_run_id=t.analysis_run_id
  AND s.corpus_id=t.corpus_id AND s.sentence_ordinal=t.sentence_ordinal
@@ -183,20 +183,21 @@ ORDER BY s.sentence_ordinal,t.token_ordinal`,
 // browseCountFact is one persisted token fact with the correction persisted for
 // its occurrence, if any.
 type browseCountFact struct {
-	ordinal     int64
-	unit        string
-	lemma, upos string
-	dependency  string
-	start, end  int64
-	correction  *string
-	excluded    bool
+	ordinal       int64
+	unit          string
+	lemma, upos   string
+	dependency    string
+	start, end    int64
+	correction    *string
+	excluded      bool
+	discriminator string
 }
 
 // scanBrowseCountFact reads one token fact row, wrapping a scan failure with the
 // same message the scan used to report.
 func scanBrowseCountFact(rows pgx.Rows) (browseCountFact, error) {
 	var fact browseCountFact
-	if err := rows.Scan(&fact.ordinal, &fact.unit, &fact.lemma, &fact.upos, &fact.dependency, &fact.start, &fact.end, &fact.correction, &fact.excluded); err != nil {
+	if err := rows.Scan(&fact.ordinal, &fact.unit, &fact.lemma, &fact.upos, &fact.dependency, &fact.start, &fact.end, &fact.correction, &fact.excluded, &fact.discriminator); err != nil {
 		return browseCountFact{}, fmt.Errorf("scan Browse count facts: %w", err)
 	}
 	return fact, nil
@@ -227,7 +228,7 @@ func scanBrowseCountFacts(rows pgx.Rows, scope browseCountReadiness, proposed []
 		}
 		location := analyzer.SourceLocation{SourceDocumentID: fact.unit, StartOffset: startOffset, EndOffset: endOffset}
 		last := &analysis.Sentences[len(analysis.Sentences)-1]
-		last.Tokens = append(last.Tokens, analyzer.Token{CanonicalLemma: fact.lemma, UPOS: fact.upos, Dependency: fact.dependency, Location: location})
+		last.Tokens = append(last.Tokens, analyzer.Token{CanonicalLemma: fact.lemma, UPOS: fact.upos, Dependency: fact.dependency, Location: location, LexicalDiscriminator: fact.discriminator})
 		switch {
 		case fact.excluded:
 			decisions = append(decisions, selection.OccurrenceDecision{Occurrence: selection.OccurrenceIdentity{SourceDocumentID: fact.unit, StartOffset: startOffset, EndOffset: endOffset}, Excluded: true})
@@ -315,16 +316,18 @@ func BuildVocabularyBrowseCountsTx(ctx context.Context, tx pgx.Tx, owner, book, 
 		return fmt.Errorf("clear previous Browse counts: %w", err)
 	}
 	lemmas, uposes := make([]string, 0, len(projected)), make([]string, 0, len(projected))
+	discriminators := make([]string, 0, len(projected))
 	counts, flags := make([]int64, 0, len(projected)), make([]bool, 0, len(projected))
 	for identity, value := range projected {
 		lemmas, uposes = append(lemmas, identity.lemma), append(uposes, identity.upos)
+		discriminators = append(discriminators, identity.discriminator)
 		counts, flags = append(counts, value.occurrences), append(flags, value.corrected)
 	}
 	if _, err := tx.Exec(ctx, `
-INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count,corrected)
-SELECT $1,$2,$3,$4,$5,i.lemma,i.upos,i.occurrences,i.corrected
-FROM unnest($6::text[],$7::text[],$8::bigint[],$9::boolean[]) AS i(lemma,upos,occurrences,corrected)`,
-		owner, book, language, run, corpus, lemmas, uposes, counts, flags); err != nil {
+INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count,corrected,lexical_discriminator)
+SELECT $1,$2,$3,$4,$5,i.lemma,i.upos,i.occurrences,i.corrected,i.discriminator
+FROM unnest($6::text[],$7::text[],$8::bigint[],$9::boolean[],$10::text[]) AS i(lemma,upos,occurrences,corrected,discriminator)`,
+		owner, book, language, run, corpus, lemmas, uposes, counts, flags, discriminators); err != nil {
 		return fmt.Errorf("write effective Browse counts: %w", err)
 	}
 	// Match occurrence decisions' per-Book advisory lock only for this short

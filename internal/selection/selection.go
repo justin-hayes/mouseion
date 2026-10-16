@@ -251,7 +251,7 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[
 			if learner, ok := decisions[occurrenceIdentity(token)]; ok {
 				decision = &learner
 			}
-			id, counts := Effective(cfg, corpus.Language, OccurrenceFact{Lemma: token.CanonicalLemma, UPOS: token.UPOS, Dependency: token.Dependency}, decision)
+			id, counts := Effective(cfg, corpus.Language, OccurrenceFact{Lemma: token.CanonicalLemma, UPOS: token.UPOS, Dependency: token.Dependency, LexicalDiscriminator: token.LexicalDiscriminator}, decision)
 			if !counts {
 				continue
 			}

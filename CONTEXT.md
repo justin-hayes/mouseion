@@ -463,6 +463,21 @@ empty for vocabulary with no source discriminator. A learner correction never
 sets or clears it.
 _Avoid_: homograph id, sense id.
 
+**Citation headword**:
+The learner-facing citation form of a vocabulary identity: for an imported
+classical text, the source lemma with any trailing homograph number removed
+(for example δέω for δέω2). Learner-facing views show the headword, while the
+stored canonical lemma is the language profile's key.
+_Avoid_: canonical lemma, dictionary key.
+
+**Imported analysis**:
+Reading a pinned pre-annotated source file through one bounded, checked adapter
+and writing it as an ordinary analysis run, without the NLP service. The run
+records its versioned interpretation and its syntax state: `ud`, `native_agdt`
+or `absent`. Consumers show "Syntax unavailable" for a `native_agdt` or
+`absent` run.
+_Avoid_: NLP analysis, corpus sync.
+
 **Vocabulary Browse inventory**:
 The collection of effective vocabulary identities evidenced by the Book in
 the active study language's Current reading, including single occurrences and

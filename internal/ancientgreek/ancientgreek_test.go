@@ -52,7 +52,7 @@ func TestRegisterCreatesUnpreparedBookAndDisplayName(t *testing.T) {
 	}
 	report, err := NewService(store).Register(context.Background(), " learner ", AnabasisBook1)
 	require.NoError(t, err)
-	assert.Equal(t, Report{Username: "learner", BookID: "book-1", Created: true}, report)
+	assert.Equal(t, Report{Username: "learner", OwnerID: "owner-1", BookID: "book-1", Created: true}, report)
 	assert.Equal(t, Language, store.putLanguage, "language display name is ensured")
 	assert.Equal(t, DisplayName, store.putName)
 	assert.Equal(t, "owner-1", store.registeredFor)

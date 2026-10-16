@@ -54,15 +54,23 @@ type Sentence struct {
 // Result.NormalizationProfile. UPOS contains a coarse Universal Dependencies
 // part-of-speech tag. Dependency is the basic Universal Dependencies relation
 // and Head is the 0-based ordinal of the token's head within its sentence.
+//
+// Headword and LexicalDiscriminator are set only by imported classical
+// analyses: Headword is the learner-facing citation form (the trimmed lemma
+// with the source homograph number removed) and LexicalDiscriminator is the
+// scheme-qualified discriminator (for example morpheus:2). Both are empty for
+// every modern-language token.
 type Token struct {
-	Surface        string            `json:"Surface"`
-	RawLemma       string            `json:"RawLemma"`
-	CanonicalLemma string            `json:"CanonicalLemma"`
-	UPOS           string            `json:"UPOS"`
-	Dependency     string            `json:"Dependency"`
-	Head           uint32            `json:"Head"`
-	Morphology     map[string]string `json:"Morphology"`
-	Location       SourceLocation    `json:"Location"`
+	Surface              string            `json:"Surface"`
+	RawLemma             string            `json:"RawLemma"`
+	CanonicalLemma       string            `json:"CanonicalLemma"`
+	UPOS                 string            `json:"UPOS"`
+	Dependency           string            `json:"Dependency"`
+	Head                 uint32            `json:"Head"`
+	Morphology           map[string]string `json:"Morphology"`
+	Location             SourceLocation    `json:"Location"`
+	Headword             string            `json:"Headword,omitempty"`
+	LexicalDiscriminator string            `json:"LexicalDiscriminator,omitempty"`
 }
 
 // SourceDocumentMetadata describes a source referenced by SourceLocation.

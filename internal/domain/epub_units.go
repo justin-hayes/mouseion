@@ -43,6 +43,13 @@ func EPUBUnitID(spineIndex uint64, manifestID string) string {
 	return "epub-unit-v1:" + strconv.FormatUint(spineIndex, 10) + ":" + manifestID
 }
 
+// ClassicalUnitID is the unit identity of an operator-imported classical text.
+// One imported Reading unit is carried by one unit, so there is no EPUB spine
+// index; the definition key names the Reading unit.
+func ClassicalUnitID(definitionKey string) string {
+	return "classical-unit-v1:" + definitionKey
+}
+
 // ValidateOffsets checks that e is a self-consistent snapshot of fullText: a
 // supported schema version, at least one unit, and a contiguous sequence of
 // units whose identity, offsets, separator and text all agree with fullText.
@@ -87,7 +94,7 @@ func validateExtractedUnit(index uint64, unit ExtractedUnit, previousEnd uint64,
 	if unit.Order != index {
 		return fmt.Errorf("epub: unit %d has non-contiguous order %d", index, unit.Order)
 	}
-	if unit.ID != EPUBUnitID(unit.SpineIndex, unit.ManifestID) {
+	if unit.ID != EPUBUnitID(unit.SpineIndex, unit.ManifestID) && unit.ID != ClassicalUnitID(unit.ManifestID) {
 		return fmt.Errorf("epub: unit %d has invalid identity", index)
 	}
 	if _, ok := seen[unit.ID]; ok {
