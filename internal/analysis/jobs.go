@@ -1745,10 +1745,12 @@ func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID s
 }
 
 const (
+	// corpusTokenParameterCount is the number of bind parameters in one
+	// corpus-token INSERT row. The token batch below derives from it so the
+	// batch stays under PostgreSQL's 65,535-parameter protocol limit.
+	corpusTokenParameterCount               = 18
 	normalizedCorpusSentenceInsertBatchSize = 500
-	// The token INSERT carries 17 value parameters per row. Keeping the batch
-	// at 3,800 rows stays under PostgreSQL's 65,535-parameter protocol limit.
-	normalizedCorpusTokenInsertBatchSize = 3_800
+	normalizedCorpusTokenInsertBatchSize    = 65535 / corpusTokenParameterCount
 )
 
 // persistNormalizedCorpus writes the normalized sentences and then the tokens
@@ -1810,7 +1812,7 @@ func (b *corpusTokenInserter) add(ctx context.Context, tx pgx.Tx, ownerID, langu
 		}
 	}
 	if b.count == 0 {
-		b.query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset,lexical_discriminator,headword) VALUES `)
+		b.query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset,lexical_discriminator,headword,search_key) VALUES `)
 	} else {
 		b.query.WriteString(",")
 	}
@@ -1886,8 +1888,8 @@ func corpusTokenRow(ownerID, language, runID, corpusID string, sentenceOrdinal, 
 		return "", nil, fmt.Errorf("persist normalized corpus token %d in sentence %d: end offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
 	}
 	var tuple strings.Builder
-	fmt.Fprintf(&tuple, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", firstArg, firstArg+1, firstArg+2, firstArg+3, firstArg+4, firstArg+5, firstArg+6, firstArg+7, firstArg+8, firstArg+9, firstArg+10, firstArg+11, firstArg+12, firstArg+13, firstArg+14, firstArg+15, firstArg+16)
-	args := []any{ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset, token.LexicalDiscriminator, token.Headword}
+	fmt.Fprintf(&tuple, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", firstArg, firstArg+1, firstArg+2, firstArg+3, firstArg+4, firstArg+5, firstArg+6, firstArg+7, firstArg+8, firstArg+9, firstArg+10, firstArg+11, firstArg+12, firstArg+13, firstArg+14, firstArg+15, firstArg+16, firstArg+17)
+	args := []any{ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset, token.LexicalDiscriminator, token.Headword, token.SearchKey}
 	return tuple.String(), args, nil
 }
 

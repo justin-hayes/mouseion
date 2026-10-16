@@ -333,6 +333,9 @@ func TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete(t *testing.T) 
 		`dependency <code>nsubj</code>, head steht (token 4)`,
 		`Corrected for this occurrence.`,
 		`Excluded from effective vocabulary; retained as syntax evidence.`,
+		// The full evidence line is locked so a modern-language token keeps its
+		// exact wording and spacing.
+		`<strong>Das</strong> <span>(token 1)</span> : <code>DET</code>, analyzer lemma <code>der</code>, effective lemma <code>der</code>; morphology <code>Case=Nom, Number=Sing</code>; dependency <code>det</code>, head Haus (token 2).`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("sentence study text alternative missing %q", want)

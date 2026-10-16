@@ -250,6 +250,7 @@ type CorpusToken struct {
 	Head                 int64
 	LexicalDiscriminator string
 	Headword             string
+	SearchKey            string
 }
 
 type CuratedSentence struct {

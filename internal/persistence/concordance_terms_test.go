@@ -23,6 +23,13 @@ func TestConcordanceTermsUsesDedicatedProfileForGreek(t *testing.T) {
 	finalSigma, _, err := concordanceTerms("grc", "\u03BB\u03AD\u03BE\u03B9\u03C2")
 	require.NoError(t, err)
 	assert.Equal(t, "\u03BB\u03AD\u03BE\u03B9\u03C3", finalSigma)
+
+	// The form key is the same profile key that is stored on the token, so form
+	// search never depends on SQL case folding for grc.
+	lemma, form, err := concordanceTerms("grc", "\u03BB\u03CC\u03B3\u03BF\u03C2")
+	require.NoError(t, err)
+	assert.Equal(t, "\u03BB\u03CC\u03B3\u03BF\u03C3", lemma)
+	assert.Equal(t, lemma, form, "the grc form key is the profile key")
 }
 
 func TestConcordanceTermsFallsBackForUnregisteredLanguage(t *testing.T) {

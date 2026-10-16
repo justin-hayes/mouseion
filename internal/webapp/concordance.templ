@@ -127,6 +127,9 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 			<h2 id="sentence-study-heading">{ study.BookTitle }</h2>
 			<p>{ study.ChapterTitle } · sentence { fmt.Sprintf("%d", study.SentenceOrdinal+1) }</p>
 			<p>Identified target: <strong>{ sentenceStudyTarget(study) }</strong></p>
+			if sentenceStudySyntaxUnavailable(study) {
+				<p class="sentence-study-note" id="sentence-study-syntax-unavailable">Syntax unavailable for this analysis. The sentence and its morphology are shown; relation and head are not available.</p>
+			}
 			<p class="reading-text sentence-study-text">
 				{ study.SentenceText }
 			</p>
@@ -182,8 +185,11 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 									<strong>{ token.Surface }</strong>
 								}
 								<span>(token { fmt.Sprintf("%d", token.Ordinal+1) })</span>
-								: <code>{ token.UPOS }</code>, analyzer lemma <code>{ token.RawLemma }</code>, effective lemma <code>{ token.EffectiveLemma }</code>;
-								morphology <code>{ sentenceStudyMorphology(token.Morphology) }</code>; dependency <code>{ token.Dependency }</code>, head { token.HeadSurface } (token { fmt.Sprintf("%d", token.HeadOrdinal+1) }).
+								: <code>{ token.UPOS }</code>if sentenceStudySyntaxUnavailable(study) {
+									@sentenceStudyImportedTokenEvidence(token)
+								} else {
+									@sentenceStudyModernTokenEvidence(token)
+								}
 								if token.Corrected {
 									<span>Corrected for this occurrence.</span>
 								}
@@ -226,6 +232,23 @@ templ sentenceStudyWordUnit(word sentenceStudyWord) {
 	</span>
 }
 
+// sentenceStudyModernTokenEvidence renders one ordinary analyzed word's evidence
+// after its part-of-speech code in the complete text alternative. The literal
+// separators are expression nodes so the line keeps its exact wording and
+// spacing.
+templ sentenceStudyModernTokenEvidence(token domain.SentenceStudyToken) {
+	{ ", analyzer lemma " }<code>{ token.RawLemma }</code>{ ", effective lemma " }<code>{ token.EffectiveLemma }</code>{ "; morphology " }<code>{ sentenceStudyMorphology(token.Morphology) }</code>{ "; dependency " }<code>{ token.Dependency }</code>{ ", head " }{ token.HeadSurface }{ " (token " }{ fmt.Sprintf("%d", token.HeadOrdinal+1) }{ ")." }
+}
+
+// sentenceStudyImportedTokenEvidence renders one imported token's evidence: the
+// learner-facing citation headword replaces the stored canonical key, and the
+// run records no UD syntax, so its non-committal relation and head are never
+// shown. The body is one line because a newline next to a templ control node
+// becomes separator whitespace.
+templ sentenceStudyImportedTokenEvidence(token domain.SentenceStudyToken) {
+	{{ lemma, headword := sentenceStudyDisplayLemma(token) }}{{ separator := ", effective lemma " }}{{ if headword { separator = ", citation headword " } }}{ ", analyzer lemma " }<code>{ token.RawLemma }</code>{ separator }<code>{ lemma }</code>{ "; morphology " }<code>{ sentenceStudyMorphology(token.Morphology) }</code>{ "." }
+}
+
 // vocabularyConcordanceURL links a Browse identity to its exact effective
 // lemma/POS lookup; it never goes through lemma-or-form recognition.
 func vocabularyConcordanceURL(language, lemma, upos string) string {
@@ -254,13 +277,65 @@ func concordanceAppliedSummary(lookup domain.ConcordanceLookup, result domain.Co
 	if term == "" {
 		term = lookup.Term
 	}
+	// An imported occurrence stores a citation headword; a dedicated-profile
+	// language's canonical lemma is a key, so show the headword the view would
+	// show rather than the key.
+	if headword := concordanceOccurrenceHeadword(result); headword != "" {
+		term = headword
+	}
 	if result.Match == domain.ConcordanceMatchLemma {
-		if lookup.UPOS != "" {
-			return "Forms of " + term + " · " + concordancePartOfSpeechName(lookup.UPOS)
+		if part := concordanceResultPartOfSpeech(lookup, result); part != "" {
+			return "Forms of " + term + " · " + part
 		}
 		return "Forms of " + term
 	}
 	return "Word form " + term
+}
+
+// concordanceOccurrenceHeadword returns the shared citation headword of the
+// result's occurrences, or "" when they do not all carry the same non-empty
+// headword (every modern-language occurrence, and any mixed set).
+func concordanceOccurrenceHeadword(result domain.ConcordanceResult) string {
+	headword := ""
+	for _, occurrence := range result.Occurrences {
+		if occurrence.Headword == "" {
+			return ""
+		}
+		if headword == "" {
+			headword = occurrence.Headword
+		} else if occurrence.Headword != headword {
+			return ""
+		}
+	}
+	return headword
+}
+
+// concordanceResultPartOfSpeech names the exact part of speech the lookup or the
+// matched occurrences carry. A dedicated-profile language labels its uniform
+// results (for example a proper name) even for an independent lookup; every
+// other language labels only an explicit Browse identity.
+func concordanceResultPartOfSpeech(lookup domain.ConcordanceLookup, result domain.ConcordanceResult) string {
+	if lookup.UPOS != "" {
+		return concordancePartOfSpeechName(lookup.UPOS)
+	}
+	if !dedicatedProfileLanguage(lookup.Language) {
+		return ""
+	}
+	upos := ""
+	for _, occurrence := range result.Occurrences {
+		if occurrence.UPOS == "" {
+			return ""
+		}
+		if upos == "" {
+			upos = occurrence.UPOS
+		} else if occurrence.UPOS != upos {
+			return ""
+		}
+	}
+	if upos == "" {
+		return ""
+	}
+	return concordancePartOfSpeechName(upos)
 }
 
 func concordanceMatchNoun(result domain.ConcordanceResult) string {

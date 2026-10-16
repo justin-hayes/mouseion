@@ -162,6 +162,8 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.end_offset, -1)::bigint AS end_offset,
        COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
        COALESCE(t.canonical_lemma, '')::text AS canonical_lemma,
+       COALESCE(t.headword, '')::text AS headword,
+       ar.syntax_state,
        s.sentence_text,
        s.start_offset::bigint AS sentence_start_offset,
        s.end_offset::bigint AS sentence_end_offset,
@@ -172,6 +174,7 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        b.title AS book_title,
        u.title AS chapter_title
   FROM current_analysis_identity ca
+  JOIN analysis_runs ar ON ar.owner_id=ca.owner_id AND ar.id=ca.analysis_run_id
   JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
   JOIN corpus_sentences s ON s.owner_id=ca.owner_id AND s.analysis_run_id=ca.analysis_run_id
        AND s.corpus_id=ca.corpus_id AND s.unit_id=$2
@@ -210,6 +213,8 @@ type GetVocabularySentenceStudyRow struct {
 	EndOffset           int64
 	Morphology          []byte
 	CanonicalLemma      string
+	Headword            string
+	SyntaxState         string
 	SentenceText        string
 	SentenceStartOffset int64
 	SentenceEndOffset   int64
@@ -254,6 +259,8 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.EndOffset,
 			&i.Morphology,
 			&i.CanonicalLemma,
+			&i.Headword,
+			&i.SyntaxState,
 			&i.SentenceText,
 			&i.SentenceStartOffset,
 			&i.SentenceEndOffset,
@@ -299,6 +306,7 @@ SELECT o.surface,
        o.sentence_ordinal,
        o.token_ordinal,
        t.raw_lemma,
+       COALESCE(t.headword, '')::text AS headword,
        COALESCE(d.canonical_lemma, o.canonical_lemma)::text AS effective_lemma,
        (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
        COALESCE(d.excluded, false)::boolean AS excluded,
@@ -319,13 +327,19 @@ SELECT o.surface,
          AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$5::text
          AND ($6::text='' OR o.upos=$6))
      OR ($4::text='form'
-         AND translate(lower(o.surface), 'ς', 'σ')=$5::text))
+         -- A dedicated-profile language (the Go side's DedicatedProfileLanguage)
+         -- matches its stored Go-computed ancient-greek/1 search key, never SQL
+         -- lower(), so NFC/NFD, case and final-sigma variants unify while
+         -- accents stay significant. Every other language keeps today's
+         -- case-and-final-sigma form matching.
+         AND (($7::boolean AND t.search_key = $5::text)
+           OR (NOT $7::boolean AND translate(lower(o.surface), 'ς', 'σ') = $5::text))))
  ORDER BY (o.book_id=$1::text) DESC,
           lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
  -- The caller starts one row early on later pages and reads one row past the
  -- page: the first row decides "continued", the last decides "next".
- LIMIT 27 OFFSET $7::bigint
+ LIMIT 27 OFFSET $8::bigint
 `
 
 type ListVocabularyConcordanceParams struct {
@@ -335,6 +349,7 @@ type ListVocabularyConcordanceParams struct {
 	Match        string
 	Term         string
 	Upos         string
+	FormOnKey    bool
 	Offset       int64
 }
 
@@ -363,6 +378,7 @@ type ListVocabularyConcordanceRow struct {
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
 	RawLemma            string
+	Headword            string
 	EffectiveLemma      string
 	Corrected           bool
 	Excluded            bool
@@ -377,6 +393,7 @@ func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabul
 		arg.Match,
 		arg.Term,
 		arg.Upos,
+		arg.FormOnKey,
 		arg.Offset,
 	)
 	if err != nil {
@@ -411,6 +428,7 @@ func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabul
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
 			&i.RawLemma,
+			&i.Headword,
 			&i.EffectiveLemma,
 			&i.Corrected,
 			&i.Excluded,
