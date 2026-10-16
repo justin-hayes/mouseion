@@ -370,7 +370,11 @@ type AnalysisCoverage struct {
 // analysis. Sentence and unit offsets are relative to their respective
 // containers; book offsets and chapter identity are derived from unit metadata.
 type ConcordanceOccurrence struct {
-	Surface, CanonicalLemma, UPOS             string
+	Surface, CanonicalLemma, UPOS string
+	// Headword is the imported source's learner-facing citation form, empty for
+	// modern-language occurrences. A learner-facing summary shows it instead of
+	// the stored canonical key.
+	Headword                                  string
 	Dependency, HeadSurface                   string
 	HeadOrdinal                               int64
 	SentenceText                              string
@@ -466,7 +470,12 @@ type SentenceStudy struct {
 	// before aligning any word.
 	UnitText                               string
 	SentenceStartOffset, SentenceEndOffset int64
-	Tokens                                 []SentenceStudyToken
+	// SyntaxState is the analysis run's recorded syntax state: "ud" for an
+	// ordinary run, or "native_agdt"/"absent" for an imported run whose stored
+	// dependency and head are a non-committal skeleton. An empty state is an
+	// ordinary run for callers that construct a study without a run.
+	SyntaxState string
+	Tokens      []SentenceStudyToken
 	// UnresolvedDecisions are stored occurrence decisions that address this
 	// sentence but cannot be attributed to exactly one persisted analyzed word.
 	// They are shown separately and are never applied to a word.
@@ -475,7 +484,11 @@ type SentenceStudy struct {
 
 type SentenceStudyToken struct {
 	Surface, RawLemma, EffectiveLemma, UPOS, Dependency, HeadSurface string
-	Ordinal, HeadOrdinal                                             int64
+	// Headword is the imported source's learner-facing citation form, empty for
+	// modern-language tokens. A learner-facing view shows it instead of the
+	// stored canonical key.
+	Headword             string
+	Ordinal, HeadOrdinal int64
 	// StartOffset and EndOffset are the word's half-open source span within its
 	// source unit; they match a decision's span when it addresses this word, and
 	// a reader aligns the word only when they are valid, non-overlapping with

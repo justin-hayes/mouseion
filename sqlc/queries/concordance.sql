@@ -15,6 +15,8 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.end_offset, -1)::bigint AS end_offset,
        COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
        COALESCE(t.canonical_lemma, '')::text AS canonical_lemma,
+       COALESCE(t.headword, '')::text AS headword,
+       ar.syntax_state,
        s.sentence_text,
        s.start_offset::bigint AS sentence_start_offset,
        s.end_offset::bigint AS sentence_end_offset,
@@ -25,6 +27,7 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        b.title AS book_title,
        u.title AS chapter_title
   FROM current_analysis_identity ca
+  JOIN analysis_runs ar ON ar.owner_id=ca.owner_id AND ar.id=ca.analysis_run_id
   JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
   JOIN corpus_sentences s ON s.owner_id=ca.owner_id AND s.analysis_run_id=ca.analysis_run_id
        AND s.corpus_id=ca.corpus_id AND s.unit_id=sqlc.arg('unit_id')
@@ -92,6 +95,7 @@ SELECT o.surface,
        o.sentence_ordinal,
        o.token_ordinal,
        t.raw_lemma,
+       COALESCE(t.headword, '')::text AS headword,
        COALESCE(d.canonical_lemma, o.canonical_lemma)::text AS effective_lemma,
        (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
        COALESCE(d.excluded, false)::boolean AS excluded,
@@ -112,7 +116,13 @@ SELECT o.surface,
          AND COALESCE(d.canonical_lemma, o.canonical_lemma)=sqlc.arg('term')::text
          AND (sqlc.arg('upos')::text='' OR o.upos=sqlc.arg('upos')))
      OR (sqlc.arg('match')::text='form'
-         AND translate(lower(o.surface), 'ς', 'σ')=sqlc.arg('term')::text))
+         -- A dedicated-profile language (the Go side's DedicatedProfileLanguage)
+         -- matches its stored Go-computed ancient-greek/1 search key, never SQL
+         -- lower(), so NFC/NFD, case and final-sigma variants unify while
+         -- accents stay significant. Every other language keeps today's
+         -- case-and-final-sigma form matching.
+         AND ((sqlc.arg('form_on_key')::boolean AND t.search_key = sqlc.arg('term')::text)
+           OR (NOT sqlc.arg('form_on_key')::boolean AND translate(lower(o.surface), 'ς', 'σ') = sqlc.arg('term')::text))))
  ORDER BY (o.book_id=sqlc.arg('priority_book')::text) DESC,
           lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal

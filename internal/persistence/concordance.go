@@ -20,18 +20,24 @@ import (
 // stored effective lemmas; the form key only folds case (and Greek final
 // sigma) so accents and other spelling distinctions stay meaningful. A
 // dedicated-profile language never falls back to the language-neutral profile:
-// an unresolved one is reported as unsupported instead.
+// an unresolved one is reported as unsupported instead, and its form key is the
+// profile key that is compared against the stored Go-computed search key rather
+// than SQL case folding.
 func concordanceTerms(language, term string) (lemma, form string, err error) {
 	term = norm.NFC.String(strings.TrimSpace(term))
 	profile, err := canonicalization.For(language)
+	dedicated := canonicalization.DedicatedProfileLanguage(language)
 	if err != nil {
-		if canonicalization.DedicatedProfileLanguage(language) {
+		if dedicated {
 			return "", "", err
 		}
 		profile = canonicalization.LanguageNeutral()
 	}
 	lemma = profile.Canonical(term)
 	form = strings.ReplaceAll(strings.ToLower(term), "ς", "σ")
+	if dedicated {
+		form = profile.Canonical(term)
+	}
 	return lemma, form, nil
 }
 
@@ -123,12 +129,14 @@ func concordanceRevision(ctx context.Context, tx pgx.Tx, owner, language string)
 }
 
 // concordanceInterpretation is a resolved lookup interpretation: the match mode,
-// the UPOS filter (empty unless the match is the lemma), and the term the query
-// matches on.
+// the UPOS filter (empty unless the match is the lemma), the term the query
+// matches on, and whether a form match uses the stored dedicated-profile search
+// key rather than SQL case folding.
 type concordanceInterpretation struct {
-	match string
-	upos  string
-	term  string
+	match     string
+	upos      string
+	term      string
+	formOnKey bool
 }
 
 // recognizeConcordanceMatch resolves the requested interpretation. An explicit
@@ -139,7 +147,10 @@ func recognizeConcordanceMatch(ctx context.Context, queries *sqlcgen.Queries, ow
 	if err != nil {
 		return concordanceInterpretation{}, err
 	}
-	interpretation := concordanceInterpretation{match: lookup.Match, upos: lookup.UPOS}
+	interpretation := concordanceInterpretation{
+		match: lookup.Match, upos: lookup.UPOS,
+		formOnKey: canonicalization.DedicatedProfileLanguage(language),
+	}
 	if interpretation.match == "" {
 		evidenced, matchErr := queries.ConcordanceLemmaEvidenced(ctx, sqlcgen.ConcordanceLemmaEvidencedParams{
 			Owner: owner, Language: language, Term: lemmaTerm,
@@ -204,7 +215,7 @@ func loadConcordanceRows(ctx context.Context, queries *sqlcgen.Queries, owner, l
 	}
 	return queries.ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
 		Owner: owner, Language: language, Match: interpretation.match, Term: interpretation.term, Upos: interpretation.upos,
-		PriorityBook: priorityBook, Offset: offset,
+		PriorityBook: priorityBook, FormOnKey: interpretation.formOnKey, Offset: offset,
 	})
 }
 
@@ -243,7 +254,7 @@ func projectConcordanceOccurrences(rows []sqlcgen.ListVocabularyConcordanceRow) 
 	for _, row := range rows {
 		occurrences = append(occurrences, domain.ConcordanceResultOccurrence{
 			ConcordanceOccurrence: concordanceOccurrenceFromFields(
-				row.Surface, row.CanonicalLemma, row.Upos, row.Dependency,
+				row.Surface, row.CanonicalLemma, row.Upos, row.Headword, row.Dependency,
 				row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText,
 				row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset,
 				row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset,
@@ -299,7 +310,11 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 		SentenceEndOffset:   first.SentenceEndOffset,
 		SentenceOrdinal:     first.SentenceOrdinal, TargetOrdinal: first.TargetOrdinal,
 		TargetSurface: targetSurface,
-		Tokens:        make([]domain.SentenceStudyToken, 0, len(rows))}
+		// SyntaxState carries the run's recorded syntax state. An imported run
+		// records native_agdt or absent; consumers show "Syntax unavailable"
+		// for either and never the stored non-committal skeleton.
+		SyntaxState: first.SyntaxState,
+		Tokens:      make([]domain.SentenceStudyToken, 0, len(rows))}
 	for _, row := range rows {
 		if row.TokenOrdinal < 0 {
 			continue // A sentence may be valid source text with no syntax tokens.
@@ -318,6 +333,7 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 			Dependency: row.Dependency, HeadSurface: row.HeadSurface,
 			Ordinal: row.TokenOrdinal, HeadOrdinal: row.Head,
 			StartOffset: row.StartOffset, EndOffset: row.EndOffset,
+			Headword:   row.Headword,
 			Morphology: morphology})
 	}
 	decisions, err := s.queries().GetSentenceStudyDecisions(ctx, sqlcgen.GetSentenceStudyDecisionsParams{
@@ -365,7 +381,7 @@ func attributeSentenceStudyDecisions(study *domain.SentenceStudy, decisions []sq
 }
 
 func concordanceOccurrenceFromFields(
-	surface, canonicalLemma, upos, dependency string,
+	surface, canonicalLemma, upos, headword, dependency string,
 	headOrdinal int64, headSurface, sentenceText string,
 	sentenceStartOffset, sentenceEndOffset, unitStartOffset, unitEndOffset,
 	bookStartOffset, bookEndOffset int64,
@@ -373,7 +389,7 @@ func concordanceOccurrenceFromFields(
 	unitOrder, sentenceOrdinal, tokenOrdinal int64,
 ) domain.ConcordanceOccurrence {
 	return domain.ConcordanceOccurrence{
-		Surface: surface, CanonicalLemma: canonicalLemma, UPOS: upos,
+		Surface: surface, CanonicalLemma: canonicalLemma, UPOS: upos, Headword: headword,
 		Dependency: dependency, HeadOrdinal: headOrdinal, HeadSurface: headSurface,
 		SentenceText:        sentenceText,
 		SentenceStartOffset: sentenceStartOffset, SentenceEndOffset: sentenceEndOffset,

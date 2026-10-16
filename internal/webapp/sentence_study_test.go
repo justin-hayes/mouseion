@@ -297,7 +297,13 @@ func TestSentenceStudyLabelsApplyTheAbbreviationTable(t *testing.T) {
 	tests := map[string]sentenceStudyLabelPart{
 		"Case\x00Gen":      {Abbreviation: "GEN", Expansion: "genitive case, the case of possession or belonging"},
 		"Number\x00Plur":   {Abbreviation: "PL", Expansion: "plural"},
+		"Number\x00Dual":   {Abbreviation: "DU", Expansion: "dual"},
 		"Gender\x00Masc":   {Abbreviation: "M", Expansion: "masculine"},
+		"Case\x00Loc":      {Abbreviation: "LOC", Expansion: "locative case, the case of a place where"},
+		"Mood\x00Opt":      {Abbreviation: "OPT", Expansion: "optative mood, for a wish or a possibility"},
+		"Voice\x00Mid":     {Abbreviation: "MID", Expansion: "middle voice, where the subject acts on itself or for its own interest"},
+		"Degree\x00Cmp":    {Abbreviation: "CMP", Expansion: "comparative degree, more or -er"},
+		"Degree\x00Sup":    {Abbreviation: "SUP", Expansion: "superlative degree, most or -est"},
 		"Tense\x00Pqp":     {Abbreviation: "pluperfect", Expansion: "pluperfect tense, a past situation before another past situation"},
 		"Mood\x00Sub":      {Abbreviation: "SBJV", Expansion: "subjunctive mood, for possibility, wish or doubt"},
 		"Voice\x00Pass":    {Abbreviation: "PASS", Expansion: "passive voice, where the subject is acted on"},
@@ -740,4 +746,67 @@ func TestSentenceStudyPageLocalFallbackNamesTheTextAlternative(t *testing.T) {
 	t.Run("shows the degraded source region unannotated", func(t *testing.T) {
 		require.Contains(t, body, `<span class="sentence-study-source">zum </span>`)
 	})
+}
+
+func TestSentenceStudyCoreLabelsIncludeDegree(t *testing.T) {
+	labels := sentenceStudyCoreLabels(map[string]string{"Case": "Acc", "Degree": "Cmp", "Gender": "Neut", "Number": "Sing"})
+	assert.Equal(t, "SG.N.ACC.CMP", sentenceStudyWordLabels(sentenceStudyWord{Labels: labels}))
+}
+
+func TestSentenceStudySyntaxUnavailableForImportedRuns(t *testing.T) {
+	for _, test := range []struct {
+		state string
+		want  bool
+	}{
+		{state: "", want: false},
+		{state: "ud", want: false},
+		{state: "native_agdt", want: true},
+		{state: "absent", want: true},
+	} {
+		assert.Equal(t, test.want, sentenceStudySyntaxUnavailable(domain.SentenceStudy{SyntaxState: test.state}), "state %q", test.state)
+	}
+}
+
+// TestSentenceStudyPageShowsSyntaxUnavailableAndTheCitationHeadword covers the
+// imported-run presentation without a database: the sentence and morphology
+// line are shown, the relation and head are replaced by the syntax-unavailable
+// state, and a token shows its citation headword rather than the canonical key.
+func TestSentenceStudyPageShowsSyntaxUnavailableAndTheCitationHeadword(t *testing.T) {
+	target := studyWord(3, 16, 19, "δέω", "VERB", map[string]string{"Person": "1", "Number": "Sing", "Tense": "Pres", "Mood": "Ind", "Voice": "Act"})
+	target.Headword = "δέω"
+	target.EffectiveLemma = "δεω"
+	study := studySentence("λέγει τὸν λόγον δέω", studyEnd("λέγει τὸν λόγον δέω"),
+		studyWord(0, 0, 5, "λέγει", "VERB", map[string]string{"Person": "3", "Number": "Sing", "Tense": "Pres", "Mood": "Ind", "Voice": "Act"}),
+		studyWord(1, 6, 9, "τὸν", "DET", map[string]string{"Case": "Acc", "Gender": "Masc", "Number": "Sing"}),
+		studyWord(2, 10, 15, "λόγον", "NOUN", map[string]string{"Case": "Acc", "Gender": "Masc", "Number": "Sing"}),
+		target,
+	)
+	study.SyntaxState = "absent"
+	study.TargetOrdinal = 3
+
+	body := renderSentenceStudy(t, study)
+	require.Contains(t, body, "Syntax unavailable for this analysis.")
+	require.Contains(t, body, `<strong class="sentence-study-word">δέω</strong>`)
+	require.Contains(t, body, `citation headword <code>δέω</code>`)
+	require.Contains(t, body, `<span class="sentence-study-labels">1SG.PRS.IND.active</span>`)
+	require.NotContains(t, body, "dependency <code>")
+	require.NotContains(t, body, "<code>δεω</code>")
+}
+
+func TestSentenceStudyDisplayLemmaPrefersTheCitationHeadword(t *testing.T) {
+	imported := domain.SentenceStudyToken{EffectiveLemma: "δεω", Headword: "δέω"}
+	lemma, headword := sentenceStudyDisplayLemma(imported)
+	assert.Equal(t, "δέω", lemma)
+	assert.True(t, headword)
+
+	corrected := imported
+	corrected.Corrected = true
+	lemma, headword = sentenceStudyDisplayLemma(corrected)
+	assert.Equal(t, "δεω", lemma, "a confirmed correction is shown as the effective lemma")
+	assert.False(t, headword)
+
+	modern := domain.SentenceStudyToken{EffectiveLemma: "haus"}
+	lemma, headword = sentenceStudyDisplayLemma(modern)
+	assert.Equal(t, "haus", lemma)
+	assert.False(t, headword)
 }

@@ -41,6 +41,10 @@ const (
 	FeatsMappingVersion   = "oga-agdt-feats/1"
 	NormalizationVersion  = "ancient-greek/1"
 	ProperNameRuleVersion = "oga-anabasis-proper-name/1"
+	// SearchKeyRuleVersion names the stored surface-form search key derivation.
+	// It is part of the run's version so a run written before the key existed is
+	// superseded by a re-import that writes keys.
+	SearchKeyRuleVersion  = "oga-form-search-key/1"
 	ImportContractVersion = "greek-import/1"
 )
 
@@ -196,6 +200,7 @@ func InterpretationVersion(definition domain.ReadingUnitDefinition) string {
 		FeatsMappingVersion,
 		NormalizationVersion,
 		ProperNameRuleVersion,
+		SearchKeyRuleVersion,
 	}, "+")
 }
 

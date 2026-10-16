@@ -327,6 +327,11 @@ func (s *interpretState) buildToken(token sourceToken, profile canonicalization.
 		Morphology:           morphology,
 		Headword:             headword,
 		LexicalDiscriminator: discriminator,
+		// The form search key is the profile key of the surface form: NFC,
+		// simple lowercase, final sigma to sigma, NFC. Concordance form search
+		// matches this stored key for grc, never SQL lower(), so NFD, case and
+		// final-sigma variants unify while accents stay significant.
+		SearchKey: profile.Canonical(token.surface),
 	}, upos, nil
 }
 

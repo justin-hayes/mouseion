@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -305,6 +306,35 @@ func sentenceStudySpansOverlap(a, b domain.SentenceStudyToken) bool {
 	return a.StartOffset < b.EndOffset && b.StartOffset < a.EndOffset
 }
 
+// sentenceStudySyntaxUnavailable reports whether the analysis run recorded no
+// UD syntax: an imported run's native_agdt or absent state. Relation and head
+// are then never shown, and the stored non-committal skeleton is never read as
+// UD. An empty state is an ordinary run for callers that construct a study
+// without a run.
+func sentenceStudySyntaxUnavailable(study domain.SentenceStudy) bool {
+	return study.SyntaxState == "native_agdt" || study.SyntaxState == "absent"
+}
+
+// dedicatedProfileLanguage reports whether language resolves through its own
+// normalization profile rather than the language-neutral fallback. Such a
+// language's canonical lemma is a stored key, so learner-facing views show
+// citation forms instead.
+func dedicatedProfileLanguage(language string) bool {
+	return canonicalization.DedicatedProfileLanguage(language)
+}
+
+// sentenceStudyDisplayLemma names the learner-facing lemma for one analyzed
+// word. An imported token shows its citation headword rather than the stored
+// canonical key; a confirmed correction and every modern-language token show
+// the effective lemma. The boolean reports whether the value is a citation
+// headword.
+func sentenceStudyDisplayLemma(token domain.SentenceStudyToken) (string, bool) {
+	if !token.Corrected && token.Headword != "" {
+		return token.Headword, true
+	}
+	return token.EffectiveLemma, false
+}
+
 // sentenceStudyTokenIsWord reports whether an analyzed token should appear as a
 // labelled interlinear unit. Punctuation and symbols stay as source text.
 func sentenceStudyTokenIsWord(token domain.SentenceStudyToken) bool {
@@ -312,8 +342,9 @@ func sentenceStudyTokenIsWord(token domain.SentenceStudyToken) bool {
 }
 
 // sentenceStudyCoreLabels renders the curated core features the analyzer
-// supplied, in one consistent order: fused person+number, gender, case, tense,
-// aspect, mood, voice, verb form. A word with no core features has no labels.
+// supplied, in one consistent order: fused person+number, gender, case, degree,
+// tense, aspect, mood, voice, verb form. A word with no core features has no
+// labels.
 func sentenceStudyCoreLabels(morphology map[string]string) []sentenceStudyLabel {
 	var labels []sentenceStudyLabel
 	person, number := morphology["Person"], morphology["Number"]
@@ -329,7 +360,7 @@ func sentenceStudyCoreLabels(morphology map[string]string) []sentenceStudyLabel 
 			}
 		}
 	}
-	for _, feature := range []string{"Gender", "Case", "Tense", "Aspect", "Mood", "Voice", "VerbForm"} {
+	for _, feature := range []string{"Gender", "Case", "Degree", "Tense", "Aspect", "Mood", "Voice", "VerbForm"} {
 		if label, ok := sentenceStudyFeatureLabel(feature, morphology[feature]); ok {
 			labels = append(labels, label)
 		}
@@ -403,6 +434,7 @@ Person 2 2 second person
 Person 3 3 third person
 Number Sing SG singular
 Number Plur PL plural
+Number Dual DU dual
 Gender Masc M masculine
 Gender Fem F feminine
 Gender Neut N neuter
@@ -411,6 +443,9 @@ Case Acc ACC accusative case, the case of the direct object
 Case Dat DAT dative case, the case of the indirect object or recipient
 Case Gen GEN genitive case, the case of possession or belonging
 Case Voc VOC vocative case, the case used when addressing someone
+Case Loc LOC locative case, the case of a place where
+Degree Cmp CMP comparative degree, more or -er
+Degree Sup SUP superlative degree, most or -est
 Tense Pres PRS present tense, for what happens now or is generally true
 Tense Past PST past tense, for what happened before now
 Tense Fut FUT future tense, for what has not happened yet
@@ -420,10 +455,12 @@ Aspect Imp IPFV imperfective aspect, an ongoing or repeated situation without a 
 Aspect Perf PFV perfective aspect, a situation viewed as a complete whole
 Mood Ind IND indicative mood, stating what is the case
 Mood Sub SBJV subjunctive mood, for possibility, wish or doubt
+Mood Opt OPT optative mood, for a wish or a possibility
 Mood Imp IMP imperative mood, giving a command or request
 Mood Cnd COND conditional mood, for what depends on a condition
 Voice Act active active voice, where the subject performs the action
 Voice Pass PASS passive voice, where the subject is acted on
+Voice Mid MID middle voice, where the subject acts on itself or for its own interest
 VerbForm Fin finite finite verb form, carrying tense and agreeing with the subject
 VerbForm Inf INF infinitive, the verb's dictionary form
 VerbForm Part PTCP participle, a verb form used like an adjective or in compound tenses

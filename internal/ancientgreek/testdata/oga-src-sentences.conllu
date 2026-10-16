@@ -1,0 +1,18 @@
+# source = Xenophon, Xen. Anab._1.1.1
+# text = ὁ λόγος Κῦρος λέγει .
+# sent_id = 1
+1	ὁ	ὁ	l	l--------	_	4	DET	_	t_1|t_4|ref=Xen. Anab._1.1.1
+2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	4	SBJ	_	t_2|t_4|ref=Xen. Anab._1.1.1
+3	Κῦρος	κῦρος	n	n-s---mn-	Case=n|Gender=m|Number=s	4	SBJ	_	t_3|t_4|ref=Xen. Anab._1.1.1
+4	λέγει	λέγω	v	v3spia---	Mood=i|Number=s|Person=3|Tense=p|Voice=a	0	PRED	_	t_4|0|ref=Xen. Anab._1.1.1
+5	.	.	u	u--------	_	4	AuxK	_	t_5|t_4|ref=Xen. Anab._1.1.1
+
+# source = Xenophon, Xen. Anab._1.1.2
+# text = λέγει [0] τὸν λόγον δέω
+# sent_id = 2
+1	λέγει	λέγω	v	v3spia---	Mood=i|Number=s|Person=3|Tense=p|Voice=a	0	PRED	_	t_6|0|ref=Xen. Anab._1.1.2
+2	[0]	[0]	-	---------	_	1	PRED	_	e_1|t_6|ref=Xen. Anab._1.1.2
+3	τὸν	ὁ	l	l-s---ma-	Case=a|Gender=m|Number=s	4	DET	_	t_7|t_6|ref=Xen. Anab._1.1.2
+4	λόγον	λόγος	n	n-s---ma-	Case=a|Gender=m|Number=s	4	OBJ	_	t_8|t_6|ref=Xen. Anab._1.1.2
+5	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	4	OBJ	_	t_9|t_6|ref=Xen. Anab._1.1.2
+
