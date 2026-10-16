@@ -18,16 +18,21 @@ import (
 // concordanceTerms normalizes one submitted term for lemma and form matching.
 // The lemma key follows the language's canonical-lemma profile so it equals
 // stored effective lemmas; the form key only folds case (and Greek final
-// sigma) so accents and other spelling distinctions stay meaningful.
-func concordanceTerms(language, term string) (lemma, form string) {
+// sigma) so accents and other spelling distinctions stay meaningful. A
+// dedicated-profile language never falls back to the language-neutral profile:
+// an unresolved one is reported as unsupported instead.
+func concordanceTerms(language, term string) (lemma, form string, err error) {
 	term = norm.NFC.String(strings.TrimSpace(term))
 	profile, err := canonicalization.For(language)
 	if err != nil {
+		if canonicalization.DedicatedProfileLanguage(language) {
+			return "", "", err
+		}
 		profile = canonicalization.LanguageNeutral()
 	}
 	lemma = profile.Canonical(term)
 	form = strings.ReplaceAll(strings.ToLower(term), "ς", "σ")
-	return lemma, form
+	return lemma, form, nil
 }
 
 // ListVocabularyConcordance returns one page of effective-lemma or literal
@@ -130,14 +135,17 @@ type concordanceInterpretation struct {
 // match is honored; an unspecified one is recognized from evidence, preferring
 // an evidenced effective lemma over the literal source form.
 func recognizeConcordanceMatch(ctx context.Context, queries *sqlcgen.Queries, owner, language string, lookup domain.ConcordanceLookup) (concordanceInterpretation, error) {
-	lemmaTerm, formTerm := concordanceTerms(language, lookup.Term)
+	lemmaTerm, formTerm, err := concordanceTerms(language, lookup.Term)
+	if err != nil {
+		return concordanceInterpretation{}, err
+	}
 	interpretation := concordanceInterpretation{match: lookup.Match, upos: lookup.UPOS}
 	if interpretation.match == "" {
-		evidenced, err := queries.ConcordanceLemmaEvidenced(ctx, sqlcgen.ConcordanceLemmaEvidencedParams{
+		evidenced, matchErr := queries.ConcordanceLemmaEvidenced(ctx, sqlcgen.ConcordanceLemmaEvidencedParams{
 			Owner: owner, Language: language, Term: lemmaTerm,
 		})
-		if err != nil {
-			return concordanceInterpretation{}, err
+		if matchErr != nil {
+			return concordanceInterpretation{}, matchErr
 		}
 		interpretation.match = domain.ConcordanceMatchForm
 		if evidenced {

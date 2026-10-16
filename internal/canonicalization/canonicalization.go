@@ -71,6 +71,20 @@ func (r *Registry) Register(profile Profile, active bool) error {
 	return nil
 }
 
+// dedicatedProfileLanguages require a profile of their own. The registry never
+// substitutes the language-neutral fallback for them: resolution returns either
+// the registered dedicated profile or an error.
+var dedicatedProfileLanguages = map[string]struct{}{ancientGreekLanguage: {}}
+
+// DedicatedProfileLanguage reports whether language requires a dedicated
+// normalization profile and therefore never uses the language-neutral fallback.
+// A caller with its own fallback branch must report such a language as
+// unsupported instead of normalizing it with the fallback.
+func DedicatedProfileLanguage(language string) bool {
+	_, ok := dedicatedProfileLanguages[normalizeLanguage(language)]
+	return ok
+}
+
 // For returns the active profile. Locales first use an exact registration and
 // then fall back to their base language (for example, de-DE to de).
 func (r *Registry) For(language string) (Profile, error) {
@@ -80,6 +94,9 @@ func (r *Registry) For(language string) (Profile, error) {
 		if version, ok := r.active[candidate]; ok {
 			return r.profiles[profileKey{candidate, version}], nil
 		}
+	}
+	if DedicatedProfileLanguage(language) {
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedLanguage, language)
 	}
 	if language != "" && r.fallback != nil {
 		return r.fallback, nil
@@ -95,6 +112,9 @@ func (r *Registry) Lookup(language, version string) (Profile, error) {
 		if profile, ok := r.profiles[profileKey{candidate, version}]; ok {
 			return profile, nil
 		}
+	}
+	if DedicatedProfileLanguage(language) {
+		return nil, fmt.Errorf("%w: %s version %s", ErrProfileNotFound, language, version)
 	}
 	if language != "" && r.fallback != nil && r.fallback.Version() == version {
 		return r.fallback, nil
@@ -117,6 +137,9 @@ var defaultRegistry = func() *Registry {
 		panic(err)
 	}
 	if err := r.Register(ModernGreek(), true); err != nil {
+		panic(err)
+	}
+	if err := r.Register(AncientGreek(), true); err != nil {
 		panic(err)
 	}
 	if err := r.Register(GermanPost1996(), true); err != nil {

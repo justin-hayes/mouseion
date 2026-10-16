@@ -98,8 +98,20 @@ deliberately **accent-sensitive**: the tonos distinguishes words in Greek
 (*πότε* "when?" vs. *ποτέ* "never"), so stripping accents would merge distinct
 lexemes.
 
-**Italian** and other languages use Unicode NFC normalization with case
-folding.
+**Ancient Greek.** The `ancient-greek` profile (version 1) keeps accents,
+breathings, diaeresis and iota subscript significant: Unicode NFC, then *simple*
+Unicode lowercase (not full case folding), then final *ς* → *σ*, then NFC
+again. Simple lowercase is deliberate, because full case folding would expand
+an iota subscript into an adscript *ι* and merge distinct words. Only canonical
+equivalence unifies spellings, so oxia and tonos, or NFC and NFD input, give
+one key while acute and grave stay apart. The profile is pinned to Unicode
+17.0.0. It is a **dedicated-profile language**: profile resolution and version
+lookup never fall back to the generic case-fold profile, and a caller with its
+own fallback branch reports *grc* as unsupported instead. *grc* and Modern
+Greek *el* stay separate.
+
+**Italian** and other unregistered languages use Unicode NFC normalization with
+case folding.
 
 **Learner corrections.** Analyzers make mistakes, and the corpus is
 immutable, so corrections are stored as an owner-scoped layer of decisions
