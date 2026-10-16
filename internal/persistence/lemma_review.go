@@ -145,7 +145,9 @@ func listLemmaReviewOccurrences(ctx context.Context, q *sqlcgen.Queries, owner, 
 			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
 			Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
 			UPOS: row.Upos, Dependency: row.Dependency, SentenceText: row.SentenceText, CorrectedLemma: row.CorrectedLemma, Excluded: row.Excluded,
-			ReviewFlagReason: row.ReviewFlagReason, ReviewFlagResolution: row.ReviewFlagResolution,
+			LexicalDiscriminator: row.LexicalDiscriminator,
+			ReviewFlagReason:     row.ReviewFlagReason, ReviewFlagResolution: row.ReviewFlagResolution,
+			NormalizationProfile: row.NormalizationProfile, NormalizationVersion: row.NormalizationVersion,
 		}
 		if err := json.Unmarshal([]byte(row.ReviewFlagProvenance), &occurrence.ReviewFlagProvenance); err != nil {
 			return nil, err

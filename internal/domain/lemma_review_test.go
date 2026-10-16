@@ -58,3 +58,36 @@ func TestLemmaReviewProposalDecisionsPerAction(t *testing.T) {
 		}
 	})
 }
+
+// Two homographs that share a spelling, part of speech and counts but differ in
+// their lexical discriminator must not share a review fingerprint: the states
+// the proposal moves carry the discriminator, so a change to one is not mistaken
+// for the other.
+func TestLemmaReviewFingerprintSeparatesDiscriminatedStates(t *testing.T) {
+	occurrence := LemmaReviewOccurrence{
+		AnalysisRunID: "run", SourceDocumentID: "doc", StartOffset: 0, EndOffset: 3,
+		Surface: "δέω", RawLemma: "δέω", CanonicalLemma: "δέω", UPOS: "VERB",
+	}
+	proposal := LemmaReviewProposal{
+		OwnerID: "owner", BookID: "book", Language: "grc", Surface: "δέω",
+		Action: "correct", Lemma: "λύω", Occurrences: []LemmaReviewOccurrence{occurrence},
+	}
+	state := func(discriminator string) []LemmaReviewIdentityState {
+		return []LemmaReviewIdentityState{{
+			Identity: LemmaReviewIdentity{Language: "grc", CanonicalLemma: "δέω", UPOS: "VERB", LexicalDiscriminator: discriminator},
+			InBook:   1, AfterInBook: 0,
+		}}
+	}
+	first := LemmaReviewFingerprint(proposal, proposal.Occurrences, state("morpheus:1"))
+	second := LemmaReviewFingerprint(proposal, proposal.Occurrences, state("morpheus:2"))
+	assert.NotEqual(t, first, second, "identical counts for two homographs must not share a fingerprint")
+
+	bare := occurrence
+	bare.LexicalDiscriminator = "morpheus:1"
+	discriminated := occurrence
+	discriminated.LexicalDiscriminator = "morpheus:2"
+	assert.NotEqual(t,
+		LemmaReviewFingerprint(proposal, []LemmaReviewOccurrence{bare}, state("morpheus:1")),
+		LemmaReviewFingerprint(proposal, []LemmaReviewOccurrence{discriminated}, state("morpheus:1")),
+		"the reviewed occurrence's discriminator is part of the fingerprint")
+}

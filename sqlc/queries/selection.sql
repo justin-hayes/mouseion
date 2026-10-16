@@ -19,12 +19,15 @@ LIMIT 1;
 SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.dependency, t.start_offset, t.end_offset,
+       t.lexical_discriminator,
        s.sentence_text, s.unit_id,
        COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
        COALESCE(d.excluded, false)::boolean AS excluded,
        COALESCE(f.reason, '')::text AS review_flag_reason,
        COALESCE(f.evidence_provenance::text, '{}')::text AS review_flag_provenance,
-       COALESCE(f.resolution, '')::text AS review_flag_resolution
+       COALESCE(f.resolution, '')::text AS review_flag_resolution,
+       COALESCE(a.normalization_profile, '')::text AS normalization_profile,
+       COALESCE(a.normalization_version, '')::text AS normalization_version
 FROM book_current_analyses cai
 JOIN source_materials source ON source.owner_id = cai.owner_id
   AND source.id = cai.source_material_id AND source.book_id = cai.book_id
@@ -33,6 +36,7 @@ JOIN analysis_runs r ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
 JOIN corpora c ON c.owner_id = r.owner_id AND c.id = r.corpus_id
   AND c.source_material_id = r.source_material_id AND c.analysis_run_id = r.id
   AND c.status = 'complete'
+LEFT JOIN normalized_corpus_artifacts a ON a.content_hash = c.artifact_hash
 JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
   AND t.analysis_run_id = c.analysis_run_id
 JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
