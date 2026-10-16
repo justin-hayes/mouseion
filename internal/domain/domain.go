@@ -91,6 +91,7 @@ type PreparedDeckRerenderWork struct {
 
 type DeckPreparationVocabulary struct {
 	OwnerID, DeckPreparationID, Language, CanonicalLemma, UPOS string
+	LexicalDiscriminator                                       string
 	GeneratedAt                                                time.Time
 	GraduatedAt                                                *time.Time
 }
@@ -287,6 +288,7 @@ type LemmaReviewOccurrence struct {
 	StartOffset, EndOffset                   int64
 	SentenceOrdinal, TokenOrdinal            int64
 	Surface, RawLemma, CanonicalLemma, UPOS  string
+	LexicalDiscriminator                     string
 	Dependency                               string
 	SentenceText, CorrectedLemma             string
 	Excluded                                 bool
@@ -518,6 +520,7 @@ type SharedLemma struct {
 }
 type KnownVocabulary struct {
 	ID, OwnerID, Language, CanonicalLemma, UPOS string
+	LexicalDiscriminator                        string
 	CreatedAt                                   time.Time
 }
 type GeneratedVocabulary struct {
@@ -555,6 +558,7 @@ type ProcessingHistory struct {
 }
 type SelectionCandidate struct {
 	OwnerID, CorpusID, Language, CanonicalLemma, UPOS string
+	LexicalDiscriminator                              string
 	OccurrenceCount                                   int
 	FirstEncounter                                    int64
 	ObservedForms, SentenceReferences, Provenance     []byte

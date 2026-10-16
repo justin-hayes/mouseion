@@ -34,11 +34,6 @@ func ReviewImpact(states []domain.LemmaReviewIdentityState) []Impact {
 			BeforeEligible: eligible(state.InBook), AfterEligible: eligible(state.AfterInBook),
 		})
 	}
-	sort.Slice(impacts, func(i, j int) bool {
-		if impacts[i].Identity.CanonicalLemma != impacts[j].Identity.CanonicalLemma {
-			return impacts[i].Identity.CanonicalLemma < impacts[j].Identity.CanonicalLemma
-		}
-		return impacts[i].Identity.UPOS < impacts[j].Identity.UPOS
-	})
+	sort.Slice(impacts, func(i, j int) bool { return identityLess(impacts[i].Identity, impacts[j].Identity) })
 	return impacts
 }

@@ -61,7 +61,7 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 	}
 	vocabulary := make([]domain.DeckPreparationVocabulary, 0, len(seed.Vocabulary))
 	for _, identity := range seed.Vocabulary {
-		vocabulary = append(vocabulary, domain.DeckPreparationVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS})
+		vocabulary = append(vocabulary, domain.DeckPreparationVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator})
 	}
 	h.store.bookSnapshotVocabulary[bookID] = vocabulary
 	h.store.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] = contractReviewOccurrences(owner, bookID, seed.Occurrences)
@@ -79,7 +79,7 @@ func contractReviewOccurrences(owner, bookID string, seeds []storecontract.Occur
 			OwnerID: owner, BookID: bookID, CorpusID: bookID + "-corpus", AnalysisRunID: bookID + "-run",
 			SourceDocumentID: "contract-unit", StartOffset: start, EndOffset: end,
 			SentenceOrdinal: int64(ordinal), TokenOrdinal: 0, Surface: seed.Surface, RawLemma: seed.Lemma,
-			CanonicalLemma: seed.Lemma, UPOS: seed.UPOS, Dependency: "root", SentenceText: seed.Surface,
+			CanonicalLemma: seed.Lemma, UPOS: seed.UPOS, LexicalDiscriminator: seed.LexicalDiscriminator, Dependency: "root", SentenceText: seed.Surface,
 		})
 		start = end + 1
 	}
@@ -90,7 +90,7 @@ func (h *contractHarness) SeedKnownVocabulary(_ *testing.T, owner string, identi
 	h.store.mu.Lock()
 	defer h.store.mu.Unlock()
 	for _, identity := range identities {
-		h.store.known = append(h.store.known, domain.KnownVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, CreatedAt: time.Now()})
+		h.store.known = append(h.store.known, domain.KnownVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, CreatedAt: time.Now()})
 	}
 }
 

@@ -51,7 +51,7 @@ func appendReservedVocabulary(result []domain.DeckPreparationVocabulary, seen ma
 		}
 		item.GraduatedAt = nil
 		result = append(result, item)
-		seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS] = struct{}{}
+		seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS+"\x00"+item.LexicalDiscriminator] = struct{}{}
 	}
 	return result
 }
@@ -67,7 +67,7 @@ func (s *Store) fixtureSnapshotIdentitiesLocked(owner, language string) []domain
 	snapshot := s.goalSnapshotVocabularyLocked(owner, language)
 	identities := make([]domain.SnapshotIdentity, 0, len(snapshot))
 	for _, item := range snapshot {
-		identities = append(identities, domain.SnapshotIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS})
+		identities = append(identities, domain.SnapshotIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, LexicalDiscriminator: item.LexicalDiscriminator})
 	}
 	return identities
 }

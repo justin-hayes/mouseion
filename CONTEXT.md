@@ -449,11 +449,18 @@ canonical lemma. Not to be confused with the full lemma of a separable verb.
 _Avoid_: root (morphology), base form (ambiguous).
 
 **Effective vocabulary identity**:
-The language, canonical lemma, and part-of-speech identity attributed to an
-analyzed occurrence in learner-facing vocabulary after any confirmed
-correction. It can differ from the preserved analyzer assignment; an excluded
-occurrence contributes none.
+The language, canonical lemma, part-of-speech and lexical discriminator
+attributed to an analyzed occurrence in learner-facing vocabulary after any
+confirmed correction. It can differ from the preserved analyzer assignment; an
+excluded occurrence contributes none.
 _Avoid_: edited analyzer lemma, global corrected lemma.
+
+**Lexical discriminator**:
+A scheme-qualified string that keeps two vocabulary identities with the same
+language, canonical lemma and part of speech apart, such as `morpheus:2`. It is
+empty for vocabulary with no source discriminator. A learner correction never
+sets or clears it.
+_Avoid_: homograph id, sense id.
 
 **Vocabulary Browse inventory**:
 The collection of effective vocabulary identities evidenced by the Book in

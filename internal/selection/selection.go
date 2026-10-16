@@ -19,12 +19,21 @@ var (
 	ErrInvalidDecision = errors.New("selection: invalid occurrence decision")
 )
 
+// Store is the selection service's learner-state seam. Its identity arguments
+// are the persisted tuple without the lexical discriminator: the discriminator
+// column arrives with the slices that first write Greek rows, so the seam stays
+// exact on language, canonical lemma and UPOS until then.
 type Store interface {
 	IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error)
 	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
 	PutSelectionCandidate(context.Context, domain.SelectionCandidate) (bool, error)
 }
-type Identity struct{ Language, CanonicalLemma, UPOS string }
+
+// Identity is one vocabulary identity: the study language, the canonical
+// lemma, its part of speech, and a scheme-qualified lexical discriminator.
+// The discriminator is empty for modern-language vocabulary and distinguishes
+// source homographs such as morpheus:2. Comparison is exact on all four fields.
+type Identity struct{ Language, CanonicalLemma, UPOS, LexicalDiscriminator string }
 type SentenceReference struct {
 	SentenceIndex int                     `json:"sentence_index"`
 	Text          string                  `json:"text"`
@@ -165,20 +174,28 @@ func requireUniqueOccurrences(corpus analyzer.Result, byOccurrence map[Occurrenc
 	return nil
 }
 
-// sortedIdentities orders aggregate identities by lemma then part of speech,
-// the deterministic candidate order Project returns.
+// sortedIdentities orders aggregate identities by lemma, then part of speech,
+// then discriminator, the deterministic candidate order Project returns.
 func sortedIdentities(aggs map[Identity]*aggregate) []Identity {
 	ids := make([]Identity, 0, len(aggs))
 	for id := range aggs {
 		ids = append(ids, id)
 	}
-	sort.Slice(ids, func(i, j int) bool {
-		if ids[i].CanonicalLemma != ids[j].CanonicalLemma {
-			return ids[i].CanonicalLemma < ids[j].CanonicalLemma
-		}
-		return ids[i].UPOS < ids[j].UPOS
-	})
+	sort.Slice(ids, func(i, j int) bool { return identityLess(ids[i], ids[j]) })
 	return ids
+}
+
+// identityLess orders identities by canonical lemma, then part of speech, then
+// lexical discriminator. It is the deterministic order every identity list
+// keeps.
+func identityLess(a, b Identity) bool {
+	if a.CanonicalLemma != b.CanonicalLemma {
+		return a.CanonicalLemma < b.CanonicalLemma
+	}
+	if a.UPOS != b.UPOS {
+		return a.UPOS < b.UPOS
+	}
+	return a.LexicalDiscriminator < b.LexicalDiscriminator
 }
 
 // projectCandidate materializes one aggregate's deterministic candidate facts,
@@ -252,24 +269,30 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[
 }
 
 // OccurrenceFact is the analyzer evidence for one analyzed token, the inputs
-// Effective reads alongside a learner decision.
-type OccurrenceFact struct{ Lemma, UPOS, Dependency string }
+// Effective reads alongside a learner decision. LexicalDiscriminator is empty
+// for modern-language tokens.
+type OccurrenceFact struct{ Lemma, UPOS, Dependency, LexicalDiscriminator string }
 
 // Effective is the one per-occurrence step that decides an analyzed token's
 // effective vocabulary identity (ADR 0081, ADR 0087). The learner decision, when
 // present, replaces the analyzer lemma; an excluded occurrence has no identity.
-// It returns the identity and whether the occurrence counts at all. An
-// occurrence that OccurrenceEligible rejects keeps its identity but does not
-// count.
+// A decision that really changes the lemma is a learner correction, whose
+// identity carries no discriminator; a keep preserves the analyzer identity. It
+// returns the identity and whether the occurrence counts at all. An occurrence
+// that OccurrenceEligible rejects keeps its identity but does not count.
 func Effective(cfg SelectionConfig, language string, fact OccurrenceFact, decision *OccurrenceDecision) (Identity, bool) {
 	lemma := fact.Lemma
+	discriminator := fact.LexicalDiscriminator
 	if decision != nil {
 		if decision.Excluded {
 			return Identity{}, false
 		}
+		if strings.TrimSpace(decision.Lemma) != strings.TrimSpace(fact.Lemma) {
+			discriminator = ""
+		}
 		lemma = decision.Lemma
 	}
-	id := Identity{language, strings.TrimSpace(lemma), strings.ToUpper(strings.TrimSpace(fact.UPOS))}
+	id := Identity{language, strings.TrimSpace(lemma), strings.ToUpper(strings.TrimSpace(fact.UPOS)), strings.TrimSpace(discriminator)}
 	return id, OccurrenceEligible(cfg, lemma, fact.UPOS, fact.Dependency)
 }
 
@@ -331,7 +354,7 @@ func (s *Service) selectCandidate(ctx context.Context, owner string, cfg Selecti
 	if err != nil {
 		return false, err
 	}
-	kept, err := s.store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: cfg.CorpusID, Language: id.Language, CanonicalLemma: id.CanonicalLemma, UPOS: id.UPOS, OccurrenceCount: candidate.OccurrenceCount, ObservedForms: formsJSON, SentenceReferences: refsJSON, Provenance: provenanceJSON})
+	kept, err := s.store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: cfg.CorpusID, Language: id.Language, CanonicalLemma: id.CanonicalLemma, UPOS: id.UPOS, LexicalDiscriminator: id.LexicalDiscriminator, OccurrenceCount: candidate.OccurrenceCount, ObservedForms: formsJSON, SentenceReferences: refsJSON, Provenance: provenanceJSON})
 	if err != nil {
 		return false, fmt.Errorf("persist candidate: %w", err)
 	}

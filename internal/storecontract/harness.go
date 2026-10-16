@@ -33,9 +33,11 @@ type BookSeed struct {
 	LanguageUnknown bool
 }
 
-// OccurrenceSeed is one observed token of a Book's analysis.
+// OccurrenceSeed is one observed token of a Book's analysis. LexicalDiscriminator
+// is empty for modern-language tokens and scheme-qualified for source homographs
+// such as morpheus:2.
 type OccurrenceSeed struct {
-	Surface, Lemma, UPOS string
+	Surface, Lemma, UPOS, LexicalDiscriminator string
 }
 
 // Harness is what an adapter implements to run the scenarios. Store exposes the

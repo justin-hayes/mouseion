@@ -1,9 +1,11 @@
 package domain
 
 // SnapshotIdentity is one study-language vocabulary identity: a canonical
-// lemma with its analyzed part of speech.
+// lemma with its analyzed part of speech and its scheme-qualified lexical
+// discriminator. The discriminator is empty for modern-language vocabulary and
+// distinguishes source homographs such as morpheus:2.
 type SnapshotIdentity struct {
-	Language, CanonicalLemma, UPOS string
+	Language, CanonicalLemma, UPOS, LexicalDiscriminator string
 }
 
 // CurrentReadingFinishFacts is everything Finish reads, loaded by an adapter
@@ -126,7 +128,8 @@ func PlanSnapshotAcceptance(snapshot []SnapshotIdentity, known []KnownVocabulary
 
 func knownContains(known []KnownVocabulary, identity SnapshotIdentity) bool {
 	for _, item := range known {
-		if item.Language == identity.Language && item.CanonicalLemma == identity.CanonicalLemma && (item.UPOS == identity.UPOS || item.UPOS == "") {
+		if item.Language == identity.Language && item.CanonicalLemma == identity.CanonicalLemma &&
+			item.LexicalDiscriminator == identity.LexicalDiscriminator && (item.UPOS == identity.UPOS || item.UPOS == "") {
 			return true
 		}
 	}

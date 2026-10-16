@@ -29,7 +29,7 @@ func ReviewIdentityAfter(language string, occurrence domain.LemmaReviewOccurrenc
 }
 
 func reviewIdentity(language string, occurrence domain.LemmaReviewOccurrence, decision *OccurrenceDecision) Identity {
-	id, counts := Effective(DefaultConfig(""), language, OccurrenceFact{Lemma: occurrence.CanonicalLemma, UPOS: occurrence.UPOS, Dependency: occurrence.Dependency}, decision)
+	id, counts := Effective(DefaultConfig(""), language, OccurrenceFact{Lemma: occurrence.CanonicalLemma, UPOS: occurrence.UPOS, Dependency: occurrence.Dependency, LexicalDiscriminator: occurrence.LexicalDiscriminator}, decision)
 	if !counts {
 		return Identity{}
 	}
@@ -55,11 +55,6 @@ func ProposalIdentities(proposal domain.LemmaReviewProposal) []domain.LemmaRevie
 	for identity := range seen {
 		result = append(result, identity)
 	}
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].CanonicalLemma != result[j].CanonicalLemma {
-			return result[i].CanonicalLemma < result[j].CanonicalLemma
-		}
-		return result[i].UPOS < result[j].UPOS
-	})
+	sort.Slice(result, func(i, j int) bool { return identityLess(Identity(result[i]), Identity(result[j])) })
 	return result
 }

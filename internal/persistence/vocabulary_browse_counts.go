@@ -31,8 +31,9 @@ type browseCountReadiness struct {
 }
 
 type browseCountIdentity struct {
-	lemma string
-	upos  string
+	lemma         string
+	upos          string
+	discriminator string
 }
 
 // browseCountReadinessForDecision is called under the same per-Book advisory
@@ -275,7 +276,7 @@ func browseCountValues(candidates []selection.Candidate, decisions []selection.O
 	}
 	result := make(map[browseCountIdentity]browseCountValue, len(candidates))
 	for _, candidate := range candidates {
-		result[browseCountIdentity{lemma: candidate.Identity.CanonicalLemma, upos: candidate.Identity.UPOS}] = browseCountValueForCandidate(candidate, corrected)
+		result[browseCountIdentity{lemma: candidate.Identity.CanonicalLemma, upos: candidate.Identity.UPOS, discriminator: candidate.Identity.LexicalDiscriminator}] = browseCountValueForCandidate(candidate, corrected)
 	}
 	return result
 }
