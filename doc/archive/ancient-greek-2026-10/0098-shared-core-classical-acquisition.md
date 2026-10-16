@@ -1,6 +1,6 @@
 # ADR 0098: Shared-core classical acquisition and automatic-evidence admission
 
-Status: **Direction accepted; human documentation review pending; implementation pending** · Date: 2026-10-15 · Author: Justin + OpenCode
+Status: **Withdrawn, never implemented. Superseded by spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098); background in [#2097](https://github.com/justin-hayes/mouseion/issues/2097).** · Date: 2026-10-15 · Author: Justin + OpenCode
 
 Recorded through the live discussion in
 [Validate the shared-core architecture and staged implementation handoff](https://github.com/justin-hayes/mouseion/issues/2031).
@@ -8,7 +8,7 @@ Justin accepted the architectural recommendations and authorized a documentation
 PR. Final handoff remains open until that documentation is human-reviewed. This
 decision authorizes no implementation, SQL, backfill, acquisition, provider call,
 hosting, publication or deployment. The
-[staged handoff](../features/annotation-backed-ancient-greek.md) owns rollout gates
+[staged handoff](annotation-backed-ancient-greek.md) owns rollout gates
 and acceptance tests; the linked prior decisions retain their detailed contracts.
 
 ## Context and alternatives

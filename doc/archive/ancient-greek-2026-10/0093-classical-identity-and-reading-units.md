@@ -1,6 +1,6 @@
 # ADR 0093: Classical identity and stable reading units
 
-Status: **Accepted; implementation pending** · Date: 2026-10-14 · Author: Justin + OpenCode
+Status: **Withdrawn, never implemented. Superseded by spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098); background in [#2097](https://github.com/justin-hayes/mouseion/issues/2097).** · Date: 2026-10-14 · Author: Justin + OpenCode
 
 Recorded through the live decision in
 [Choose classical identity and reading units within the Book domain](https://github.com/justin-hayes/mouseion/issues/2026).

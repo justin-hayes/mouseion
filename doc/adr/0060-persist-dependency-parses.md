@@ -2,12 +2,6 @@
 
 Status: **Accepted** · Date: 2026-09-12 · Author: Justin + opencode
 
-Amended for the future source-independent contract by
-[ADR 0094](0094-source-independent-annotation-and-provenance.md): dependency
-requirements become capability-specific and native secondary syntax is retained
-as evidence. Existing production processing and persistence remain unchanged
-until that contract is implemented.
-
 ## Context
 
 ADR 0059 persisted the normalized sentence/token stream at analysis time so a

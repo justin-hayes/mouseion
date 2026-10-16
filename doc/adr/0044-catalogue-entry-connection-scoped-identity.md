@@ -2,11 +2,6 @@
 
 Status: **Accepted** · Date: 2026-09-05 · Author: Justin + opencode
 
-For future classical support, [ADR 0096](0096-classical-catalogue-discovery-and-acquisition.md)
-permits one connection-scoped entry to offer several edition/unit Books, rather
-than treating the unique Book alias as that relationship. Implementation is
-pending; existing alias constraints and connection-scoped identity are unchanged.
-
 ## Context
 
 ADR 0035 defines a catalogue-entry alias as *catalogue connection plus stable

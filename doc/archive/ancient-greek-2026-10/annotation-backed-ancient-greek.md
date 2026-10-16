@@ -1,10 +1,10 @@
 # Annotation-backed Ancient Greek: staged implementation handoff
 
-Status: **Direction accepted; human documentation review pending; not implemented** · Date: 2026-10-15
+Status: **Withdrawn, never implemented. Superseded by spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098); background in [#2097](https://github.com/justin-hayes/mouseion/issues/2097).** · Date: 2026-10-15
 
 Owning decision:
 [Validate the shared-core architecture and staged implementation handoff](https://github.com/justin-hayes/mouseion/issues/2031).
-[ADR 0098](../adr/0098-shared-core-classical-acquisition.md) owns architectural
+[ADR 0098](0098-shared-core-classical-acquisition.md) owns architectural
 trade-offs, interfaces, additive storage and the automatic-evidence amendment.
 This document owns staged acceptance, not authorization to build, change schema,
 investigate rights, acquire data, call providers or publish anything. Human review
@@ -306,7 +306,7 @@ review and recovery tests pass. Greek cards may be explicitly unavailable.
   including keyboard, narrow-screen, no-JavaScript and failed-enhancement paths.
 - Discovery, acquisition, other owners and nonselected whole-work bytes contribute
   no personal counts. Test exact owner/`grc`/`el` isolation, effective occurrence
-  decisions and [ADR 0095](../adr/0095-greek-personal-counts-and-external-frequency.md)'s
+  decisions and [ADR 0095](0095-greek-personal-counts-and-external-frequency.md)'s
   3/15 rules, pending projections and intentionally separate overlapping Books.
   Retain current eligible POS rules; do not expand the vocabulary pool by admitting
   every annotation node. No external statistical-corpus ingestion or weighting.

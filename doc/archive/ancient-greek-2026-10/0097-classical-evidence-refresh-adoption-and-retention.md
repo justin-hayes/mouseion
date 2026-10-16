@@ -1,6 +1,6 @@
 # ADR 0097: Classical evidence refresh, adoption and retention
 
-Status: **Accepted; implementation pending** · Date: 2026-10-14 · Author: Justin + OpenCode
+Status: **Withdrawn, never implemented. Superseded by spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098); background in [#2097](https://github.com/justin-hayes/mouseion/issues/2097).** · Date: 2026-10-14 · Author: Justin + OpenCode
 
 Recorded through three live decision rounds and explicit confirmation in
 [Choose classical evidence refresh, adoption and retention](https://github.com/justin-hayes/mouseion/issues/2036).

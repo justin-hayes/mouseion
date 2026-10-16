@@ -1,6 +1,6 @@
 # ADR 0096: Classical catalogue discovery and intent-driven acquisition
 
-Status: **Accepted; implementation pending** · Date: 2026-10-14 · Author: Justin + OpenCode
+Status: **Withdrawn, never implemented. Superseded by spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098); background in [#2097](https://github.com/justin-hayes/mouseion/issues/2097).** · Date: 2026-10-14 · Author: Justin + OpenCode
 
 **Candidate-scope amendment:** [ADR 0098](0098-shared-core-classical-acquisition.md)
 reconciles the historical human-reviewed Greek MVP requirement below with the

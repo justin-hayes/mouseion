@@ -4,11 +4,6 @@ Status: **Accepted** · Date: 2026-09-02 · Author: Justin + Codex · Learner li
 
 ## Context
 
-For future classical support, [ADR 0097](0097-classical-evidence-refresh-adoption-and-retention.md)
-qualifies automatic completed-run replacement with explicit owner-authorized
-adoption, preserving the single-current-analysis rule. Implementation is pending;
-existing EPUB publication behavior is unchanged.
-
 Mouseion currently gives a completed analysis two learner-facing surfaces: the
 book page summarizes lifecycle and analysis history, while a run-specific page
 at `/books/{id}/analyses/{runID}` presents detailed insights, provenance, and
