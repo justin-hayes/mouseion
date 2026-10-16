@@ -213,10 +213,10 @@ func TestItalianFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("italian-corpus"))
 	require.NoError(t, err)
 	want := []Candidate{
-		{Identity: Identity{"it", "acqua", "NOUN"}, OccurrenceCount: 1},
-		{Identity: Identity{"it", "bere", "VERB"}, OccurrenceCount: 2},
-		{Identity: Identity{"it", "dare", "VERB"}, OccurrenceCount: 1},
-		{Identity: Identity{"it", "uomo", "NOUN"}, OccurrenceCount: 2},
+		{Identity: Identity{"it", "acqua", "NOUN", ""}, OccurrenceCount: 1},
+		{Identity: Identity{"it", "bere", "VERB", ""}, OccurrenceCount: 2},
+		{Identity: Identity{"it", "dare", "VERB", ""}, OccurrenceCount: 1},
+		{Identity: Identity{"it", "uomo", "NOUN", ""}, OccurrenceCount: 2},
 	}
 	require.Len(t, got, len(want))
 	for i := range want {

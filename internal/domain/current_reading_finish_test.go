@@ -139,3 +139,21 @@ func TestPlanCurrentReadingFinishAcceptsLegacyReadingWithoutSnapshot(t *testing.
 	require.Equal(t, CurrentReadingFinishPlanned, decision.Outcome)
 	assert.Equal(t, CurrentReadingFinishPlan{}, decision.Plan)
 }
+
+// A Known identity with no discriminator never marks a discriminated sibling
+// Known, and two empty discriminators match.
+func TestPlanSnapshotAcceptanceKeepsDiscriminatedIdentitiesDistinct(t *testing.T) {
+	snapshot := []SnapshotIdentity{
+		{Language: "grc", CanonicalLemma: "lexis", UPOS: "NOUN", LexicalDiscriminator: "morpheus:2"},
+		{Language: "grc", CanonicalLemma: "lexis", UPOS: "NOUN"},
+	}
+	known := []KnownVocabulary{{Language: "grc", CanonicalLemma: "lexis", UPOS: "NOUN"}}
+
+	plan := PlanSnapshotAcceptance(snapshot, known)
+
+	assert.Equal(t, 2, plan.SnapshotCount)
+	assert.Equal(t, 1, plan.AlreadyKnownCount)
+	assert.Equal(t, 1, plan.NewlyKnownCount)
+	require.Len(t, plan.Accept, 1)
+	assert.Equal(t, "morpheus:2", plan.Accept[0].LexicalDiscriminator)
+}

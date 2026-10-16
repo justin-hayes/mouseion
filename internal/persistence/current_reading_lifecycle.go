@@ -90,8 +90,9 @@ func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Que
 }
 
 type currentReadingVocabularyIdentity struct {
-	lemma string
-	upos  string
+	lemma         string
+	upos          string
+	discriminator string
 }
 
 // eligibleCurrentReadingCandidates applies the common learner-state exclusions
@@ -124,7 +125,7 @@ func requestedCurrentReadingIdentities(candidates []domain.SelectionCandidate, e
 		if candidate.OccurrenceCount >= selection.DefaultRecurringMinOccurrences || eligibility.ExcludesLearnerState(candidate) {
 			continue
 		}
-		identity := currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}
+		identity := currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS, discriminator: candidate.LexicalDiscriminator}
 		if _, ok := seen[identity]; !ok {
 			seen[identity] = struct{}{}
 			identities = append(identities, identity)
@@ -157,7 +158,7 @@ func filterCurrentReadingCandidates(ctx context.Context, q *sqlcgen.Queries, own
 // candidate below the in-Book floor.
 func currentReadingCandidateFrequency(candidate domain.SelectionCandidate, acrossBooks map[currentReadingVocabularyIdentity]int64) int64 {
 	if candidate.OccurrenceCount < selection.DefaultRecurringMinOccurrences {
-		return acrossBooks[currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}]
+		return acrossBooks[currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS, discriminator: candidate.LexicalDiscriminator}]
 	}
 	return 0
 }
@@ -174,7 +175,8 @@ func currentReadingCandidateReserved(ctx context.Context, q *sqlcgen.Queries, ow
 // learner's currently analyzed Books in a language, optionally leaving one Book
 // out. Counts and readiness share one SQL statement snapshot; the totals are
 // withheld with a pending or unavailable error while any such Book lacks a
-// ready projection.
+// ready projection. The persisted projection carries no lexical discriminator
+// yet, so its totals are keyed by the empty discriminator.
 func currentAcrossBookCounts(ctx context.Context, q interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, owner, language, excludeBook string, identities []currentReadingVocabularyIdentity) (map[currentReadingVocabularyIdentity]int64, error) {

@@ -341,7 +341,7 @@ func (s *Store) applyCurrentReadingFinishPlanLocked(owner, language, expectedBoo
 	for _, identity := range plan.Accept {
 		s.known = append(s.known, domain.KnownVocabulary{
 			OwnerID: owner, Language: language, CanonicalLemma: identity.CanonicalLemma,
-			UPOS: identity.UPOS, CreatedAt: now,
+			UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, CreatedAt: now,
 		})
 	}
 	completion := domain.ReadingCompletion{

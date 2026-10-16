@@ -218,14 +218,14 @@ func (s *Store) ReadLemmaReviewProposal(ctx context.Context, proposal domain.Lem
 	}
 	knownSet := make(map[domain.LemmaReviewIdentity]bool, len(known))
 	for _, item := range known {
-		knownSet[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = true
+		knownSet[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, LexicalDiscriminator: item.LexicalDiscriminator}] = true
 	}
 	affected := selection.ProposalIdentities(proposal)
 	states := make([]domain.LemmaReviewIdentityState, 0, len(affected))
 	for _, identity := range affected {
 		states = append(states, domain.LemmaReviewIdentityState{
 			Identity: identity, InBook: before[identity], AfterInBook: after[identity],
-			Known: knownSet[identity] || knownSet[domain.LemmaReviewIdentity{Language: identity.Language, CanonicalLemma: identity.CanonicalLemma}],
+			Known: knownSet[identity] || knownSet[domain.LemmaReviewIdentity{Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, LexicalDiscriminator: identity.LexicalDiscriminator}],
 		})
 	}
 	return domain.LemmaReviewPreview{States: states, Fingerprint: domain.LemmaReviewFingerprint(proposal, occurrences, states)}, nil

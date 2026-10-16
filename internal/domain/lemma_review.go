@@ -44,7 +44,7 @@ func (o LemmaReviewOccurrence) ID() string {
 }
 
 type LemmaReviewIdentity struct {
-	Language, CanonicalLemma, UPOS string
+	Language, CanonicalLemma, UPOS, LexicalDiscriminator string
 }
 
 // LemmaReviewIdentityState is everything a lemma review preview reads about one
@@ -125,6 +125,8 @@ func (d LemmaReviewDecision) StoredCorrection() string {
 // previewed against: the surface form's occurrences, the states of the
 // identities the proposal moves, and the proposal's action, lemma and selected
 // occurrences. Confirming is rejected as stale whenever any of them changed.
+// The lexical discriminator enters the identity states and their fingerprint
+// once the persisted identity carries it; modern identities stay byte-identical.
 func LemmaReviewFingerprint(proposal LemmaReviewProposal, occurrences []LemmaReviewOccurrence, states []LemmaReviewIdentityState) string {
 	h := sha256.New()
 	for _, occurrence := range occurrences {

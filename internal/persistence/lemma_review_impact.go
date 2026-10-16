@@ -61,6 +61,7 @@ func lemmaReviewIdentityStates(ctx context.Context, tx pgx.Tx, scope browseCount
 	identities := make([]currentReadingVocabularyIdentity, 0, len(affected))
 	for _, identity := range affected {
 		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
+		normalized.discriminator = identity.LexicalDiscriminator
 		lemmaSet[normalized.lemma] = struct{}{}
 		identities = append(identities, currentReadingVocabularyIdentity(normalized))
 	}
@@ -88,6 +89,7 @@ func lemmaReviewIdentityStates(ctx context.Context, tx pgx.Tx, scope browseCount
 	states := make([]domain.LemmaReviewIdentityState, 0, len(affected))
 	for _, identity := range affected {
 		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
+		normalized.discriminator = identity.LexicalDiscriminator
 		reserved, err := q.ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
 			OwnerID: proposal.OwnerID, Language: identity.Language, CanonicalLemma: normalized.lemma, Upos: normalized.upos,
 		})

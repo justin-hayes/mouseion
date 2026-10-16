@@ -22,19 +22,20 @@ func NewEligibility(known []domain.KnownVocabulary, reserved []domain.DeckPrepar
 		reserved: make(map[Identity]struct{}, len(reserved)),
 	}
 	for _, word := range known {
-		result.known[Identity{Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS}] = struct{}{}
+		result.known[Identity{Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator}] = struct{}{}
 	}
 	for _, word := range reserved {
-		result.reserved[Identity{Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS}] = struct{}{}
+		result.reserved[Identity{Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator}] = struct{}{}
 	}
 	return result
 }
 
 // Allows applies the recurring-vocabulary frequency floor and learner-state
-// exclusions. An empty Known UPOS is the lemma wildcard; reservations remain
-// exact lemma-plus-UPOS identities.
+// exclusions. An empty Known UPOS is the lemma wildcard within the same
+// discriminator; reservations remain exact lemma-plus-UPOS-plus-discriminator
+// identities.
 func (e Eligibility) Allows(candidate domain.SelectionCandidate, minOccurrences int) bool {
-	identity := Identity{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS}
+	identity := Identity{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, LexicalDiscriminator: candidate.LexicalDiscriminator}
 	return allowsIdentity(candidate.OccurrenceCount, minOccurrences, e.knownContains(identity), e.reservedContains(identity))
 }
 
@@ -56,7 +57,7 @@ func readingFrequencyEligible(inBook, acrossBooks int64) bool {
 // ExcludesLearnerState reports whether Known or Reserved state excludes an
 // identity, independently of its occurrence count.
 func (e Eligibility) ExcludesLearnerState(candidate domain.SelectionCandidate) bool {
-	identity := Identity{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS}
+	identity := Identity{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, LexicalDiscriminator: candidate.LexicalDiscriminator}
 	return e.knownContains(identity) || e.reservedContains(identity)
 }
 
@@ -64,7 +65,7 @@ func (e Eligibility) knownContains(identity Identity) bool {
 	if _, ok := e.known[identity]; ok {
 		return true
 	}
-	_, ok := e.known[Identity{Language: identity.Language, CanonicalLemma: identity.CanonicalLemma}]
+	_, ok := e.known[Identity{Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, LexicalDiscriminator: identity.LexicalDiscriminator}]
 	return ok
 }
 
