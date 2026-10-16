@@ -398,11 +398,80 @@ func TestIndexAncientGreekUnavailableOnOlderIndex(t *testing.T) {
 	assert.False(t, found)
 	assert.Empty(t, result.Senses)
 
+	exists, err := index.LemmaExists(t.Context(), "grc", "δέω", "VERB")
+	require.NoError(t, err)
+	assert.False(t, exists, "an unavailable index reports no Ancient Greek lemma")
+
 	// Modern-language lookups are unchanged by the Ancient Greek additions.
 	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, "house", result.Senses[0].Gloss)
+}
+
+func TestIndexAncientGreekLowerOrNonNumericFormatIsUnavailable(t *testing.T) {
+	for _, format := range []string{"1", "not-a-number"} {
+		path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+		db, err := sql.Open("sqlite", path)
+		require.NoError(t, err)
+		_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', ?)`, format)
+		require.NoError(t, err)
+		require.NoError(t, db.Close())
+
+		index, err := OpenIndex(t.Context(), path)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, index.Close()) })
+		assert.False(t, index.AncientGreekAvailable(), "index format %q does not carry Ancient Greek entries", format)
+	}
+}
+
+func TestIndexAncientGreekFormatWithoutTableIsInvalid(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '2')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	index, err := OpenIndex(t.Context(), path)
+
+	require.Error(t, err)
+	assert.Nil(t, index)
+	require.ErrorIs(t, err, ErrInvalidIndex)
+}
+
+func TestIndexAncientGreekRejectsMalformedRows(t *testing.T) {
+	// A nullable greek_entries table lets a NULL headword reach the row scan,
+	// and a non-JSON senses value reaches the senses decode.
+	const schema = `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT, upos TEXT, senses_json TEXT); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '2')`
+	for name, row := range map[string]string{
+		"null headword": `INSERT INTO greek_entries VALUES (NULL, 'NOUN', '[{"Gloss":"x"}]')`,
+		"bad senses":    `INSERT INTO greek_entries VALUES ('δέω', 'VERB', 'not-json')`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+			db, err := sql.Open("sqlite", path)
+			require.NoError(t, err)
+			_, err = db.ExecContext(t.Context(), schema)
+			require.NoError(t, err)
+			_, err = db.ExecContext(t.Context(), row)
+			require.NoError(t, err)
+			require.NoError(t, db.Close())
+
+			index, err := OpenIndex(t.Context(), path)
+
+			require.Error(t, err)
+			assert.Nil(t, index)
+			require.ErrorIs(t, err, ErrInvalidIndex)
+		})
+	}
+}
+
+func TestIndexAncientGreekAccessorsOnNilIndex(t *testing.T) {
+	var absent *Index
+
+	assert.False(t, absent.AncientGreekAvailable())
+	assert.Zero(t, absent.SkippedGreekHeadwords())
 }
 
 func TestIndexModernLookupsUnchangedWithAncientGreekEntries(t *testing.T) {
@@ -426,12 +495,13 @@ func TestIndexModernLookupsUnchangedWithAncientGreekEntries(t *testing.T) {
 func TestIndexAncientGreekSkipsInadmissibleHeadwords(t *testing.T) {
 	index := newGreekTestIndex(t,
 		`INSERT INTO greek_entries VALUES ('λόγος', 'NOUN', '', '[{"Gloss":"word"}]', '[]')`,
+		`INSERT INTO greek_entries VALUES ('', 'NOUN', '', '[{"Gloss":"empty"}]', '[]')`,
 		`INSERT INTO greek_entries VALUES ('   ', 'NOUN', '', '[{"Gloss":"blank"}]', '[]')`,
 		`INSERT INTO greek_entries VALUES ('·', 'PUNCT', '', '[{"Gloss":"punctuation"}]', '[]')`,
 	)
 
 	assert.True(t, index.AncientGreekAvailable())
-	assert.Equal(t, 2, index.SkippedGreekHeadwords(), "blank and letterless headwords fail admission")
+	assert.Equal(t, 3, index.SkippedGreekHeadwords(), "empty, blank, and letterless headwords fail admission")
 
 	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN"})
 	require.NoError(t, err)

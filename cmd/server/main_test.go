@@ -177,6 +177,24 @@ func TestOpenDictionaryIndexOpensValidIndex(t *testing.T) {
 	assert.Equal(t, "fixture-v1", index.Version())
 }
 
+func TestOpenDictionaryIndexOpensAnAncientGreekIndex(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '2'); INSERT INTO greek_entries VALUES ('·', 'PUNCT', '', '[{"Gloss":"punctuation"}]', '[]')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	index, found, err := openDictionaryIndex(t.Context(), path)
+
+	require.NoError(t, err)
+	require.True(t, found)
+	require.NotNil(t, index)
+	testutil.Cleanup(t, "dictionary index", index.Close)
+	assert.True(t, index.AncientGreekAvailable())
+	assert.Equal(t, 1, index.SkippedGreekHeadwords(), "opening an index with an inadmissible headword logs the skip count")
+}
+
 func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
 	workers := river.NewWorkers()
 	registerPreparedDeckWorkers(workers, nil, nil, nil, nil, 0, nil)

@@ -109,3 +109,27 @@ func TestRunPropagatesOpenStoreIndexAndLookupErrors(t *testing.T) {
 	store = &fakeIdentityStore{identities: []persistence.AncientGreekVocabularyIdentity{{CanonicalLemma: "δέω", UPOS: "VERB"}}}
 	require.ErrorIs(t, run(context.Background(), nil, &bytes.Buffer{}, storeOpener(store, nil), indexOpener(&fakeIndex{available: true, lookupErr: lookupErr}, nil)), lookupErr)
 }
+
+func TestRunPropagatesIdentityListError(t *testing.T) {
+	setEnv(t)
+	listErr := errors.New("list failed")
+
+	err := run(context.Background(), nil, &bytes.Buffer{}, storeOpener(&fakeIdentityStore{err: listErr}, nil), indexOpener(&fakeIndex{available: true}, nil))
+
+	require.ErrorIs(t, err, listErr)
+}
+
+func TestOpenIndexRejectsAnInvalidPath(t *testing.T) {
+	_, err := openIndex(context.Background(), t.TempDir())
+	require.Error(t, err)
+}
+
+func TestWriteReportPropagatesWriterErrors(t *testing.T) {
+	report := hitRateReport{Total: 1, WithEntry: 1, ByUPOS: []uposHitRate{{UPOS: "VERB", Total: 1, WithEntry: 1}}}
+
+	require.Error(t, writeReport(failingWriter{}, report))
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
