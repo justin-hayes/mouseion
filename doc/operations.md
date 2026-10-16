@@ -211,7 +211,16 @@ These commands run against `MOUSEION_DATABASE_URL`.
   Book–Reading unit association, and ensures "Ancient Greek" appears in the
   language drop-down. It is idempotent, and refuses without writing when any
   pre-existing `grc` rows exist, naming their owners, surfaces and counts. It
-  prints no Greek text. Importing the pinned annotation is a separate step.
+  prints no Greek text.
+- `go run ./cmd/greekregister <learner-username> <pinned-source-file>` —
+  registers as above and then imports the file's annotation into an ordinary
+  analysis run, so My Books shows the Book as prepared with its word count and
+  coverage. The file must match the reviewed size and SHA-256 pin exactly, and
+  the import never calls the NLP service or enqueues EPUB analysis. It refuses
+  a malformed or unknown-tag file before writing anything, and re-running the
+  same pin and interpretation version is a no-op. It prints a report of counts
+  (sentences, tokens, ellipsis tokens skipped, proper names derived,
+  bare-versus-numbered lemmas, unmapped feature values) and no Greek text.
 
 Dated one-time cutover records are kept in
 [`archive/operations/`](archive/operations/).

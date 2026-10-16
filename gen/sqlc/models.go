@@ -42,6 +42,7 @@ type AnalysisRun struct {
 	UpdatedAt         time.Time
 	StartedAt         pgtype.Timestamptz
 	CompletedAt       pgtype.Timestamptz
+	SyntaxState       string
 }
 
 type AnalysisRunAttempt struct {
@@ -231,22 +232,24 @@ type CorpusSentence struct {
 }
 
 type CorpusToken struct {
-	OwnerID         string
-	Language        string
-	AnalysisRunID   string
-	CorpusID        string
-	SentenceOrdinal int64
-	TokenOrdinal    int64
-	Surface         string
-	RawLemma        string
-	CanonicalLemma  string
-	Upos            string
-	Morphology      []byte
-	NamedEntity     pgtype.Text
-	StartOffset     int64
-	EndOffset       int64
-	Dependency      string
-	Head            int64
+	OwnerID              string
+	Language             string
+	AnalysisRunID        string
+	CorpusID             string
+	SentenceOrdinal      int64
+	TokenOrdinal         int64
+	Surface              string
+	RawLemma             string
+	CanonicalLemma       string
+	Upos                 string
+	Morphology           []byte
+	NamedEntity          pgtype.Text
+	StartOffset          int64
+	EndOffset            int64
+	Dependency           string
+	Head                 int64
+	LexicalDiscriminator string
+	Headword             string
 }
 
 type CuratedSentence struct {
@@ -959,15 +962,16 @@ type User struct {
 }
 
 type VocabularyBrowseCount struct {
-	OwnerID         string
-	BookID          string
-	Language        string
-	AnalysisRunID   string
-	CorpusID        string
-	CanonicalLemma  string
-	Upos            string
-	OccurrenceCount int64
-	Corrected       bool
+	OwnerID              string
+	BookID               string
+	Language             string
+	AnalysisRunID        string
+	CorpusID             string
+	CanonicalLemma       string
+	Upos                 string
+	OccurrenceCount      int64
+	Corrected            bool
+	LexicalDiscriminator string
 }
 
 type VocabularyBrowseCountReadiness struct {

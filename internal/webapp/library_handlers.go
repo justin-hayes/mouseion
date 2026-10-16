@@ -305,7 +305,10 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	message := "Book moved to To Read."
-	if applied && !wasToRead && h.services.Analysis != nil {
+	// An imported classical Book already carries its analysis, so To Read only
+	// changes the disposition: it never acquires a source or submits EPUB
+	// analysis.
+	if applied && !wasToRead && h.services.Analysis != nil && detail.ReadingUnit == nil {
 		handle, target, title, acquisitionFailed, analysisErr := h.ensureToReadAnalysis(r.Context(), owner, bookID)
 		if analysisErr != nil {
 			message = toReadAnalysisError(r.Context(), h.services.Store.Catalogs, owner, bookID, title, target, acquisitionFailed, analysisErr)

@@ -59,6 +59,7 @@ func NewService(store Store) *Service {
 // identifiers, never text from the definition.
 type Report struct {
 	Username string
+	OwnerID  string
 	BookID   string
 	Created  bool
 }
@@ -93,7 +94,7 @@ func (s *Service) Register(ctx context.Context, username string, definition doma
 	if err != nil {
 		return Report{}, fmt.Errorf("ancientgreek: register book: %w", err)
 	}
-	return Report{Username: username, BookID: registration.BookID, Created: registration.Created}, nil
+	return Report{Username: username, OwnerID: learner.ID, BookID: registration.BookID, Created: registration.Created}, nil
 }
 
 // legacyRowsError refuses registration, naming each owner, surface and count.

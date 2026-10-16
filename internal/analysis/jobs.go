@@ -1539,7 +1539,7 @@ func (w *Worker) generateSelection(ctx context.Context, args JobArgs, riverJobID
 
 func loadNormalizedCorpusForSelection(ctx context.Context, pool *pgxpool.Pool, owner, corpusID, language string) (analyzer.Result, error) {
 	rows, err := pool.Query(ctx, `SELECT s.sentence_ordinal,s.sentence_text,s.unit_id,s.start_offset,s.end_offset,
-		COALESCE(t.token_ordinal,-1),COALESCE(t.surface,''),COALESCE(t.raw_lemma,''),COALESCE(t.canonical_lemma,''),COALESCE(t.upos,''),COALESCE(t.dependency,''),COALESCE(t.head,0),COALESCE(t.morphology,'{}'::jsonb),COALESCE(t.start_offset,0),COALESCE(t.end_offset,0)
+		COALESCE(t.token_ordinal,-1),COALESCE(t.surface,''),COALESCE(t.raw_lemma,''),COALESCE(t.canonical_lemma,''),COALESCE(t.upos,''),COALESCE(t.dependency,''),COALESCE(t.head,0),COALESCE(t.morphology,'{}'::jsonb),COALESCE(t.start_offset,0),COALESCE(t.end_offset,0),COALESCE(t.lexical_discriminator,''),COALESCE(t.headword,'')
 		FROM corpus_sentences s LEFT JOIN corpus_tokens t
 		 ON t.owner_id=s.owner_id AND t.analysis_run_id=s.analysis_run_id AND t.corpus_id=s.corpus_id AND t.sentence_ordinal=s.sentence_ordinal
 		WHERE s.owner_id=$1 AND s.corpus_id=$2 ORDER BY s.sentence_ordinal,t.token_ordinal`, owner, corpusID)
@@ -1576,6 +1576,7 @@ type persistedCorpusRow struct {
 	sentenceText, unitID                                string
 	tokenOrdinal, head, tokenStart, tokenEnd            int64
 	surface, rawLemma, canonicalLemma, upos, dependency string
+	lexicalDiscriminator, headword                      string
 	morphologyJSON                                      []byte
 }
 
@@ -1583,7 +1584,7 @@ type persistedCorpusRow struct {
 // sentence with no token rows so its token ordinal stays -1.
 func scanPersistedCorpusRow(rows pgx.Rows) (persistedCorpusRow, error) {
 	var row persistedCorpusRow
-	if err := rows.Scan(&row.sentenceOrdinal, &row.sentenceText, &row.unitID, &row.sentenceStart, &row.sentenceEnd, &row.tokenOrdinal, &row.surface, &row.rawLemma, &row.canonicalLemma, &row.upos, &row.dependency, &row.head, &row.morphologyJSON, &row.tokenStart, &row.tokenEnd); err != nil {
+	if err := rows.Scan(&row.sentenceOrdinal, &row.sentenceText, &row.unitID, &row.sentenceStart, &row.sentenceEnd, &row.tokenOrdinal, &row.surface, &row.rawLemma, &row.canonicalLemma, &row.upos, &row.dependency, &row.head, &row.morphologyJSON, &row.tokenStart, &row.tokenEnd, &row.lexicalDiscriminator, &row.headword); err != nil {
 		return persistedCorpusRow{}, fmt.Errorf("read persisted corpus for selection: %w", err)
 	}
 	return row, nil
@@ -1632,7 +1633,8 @@ func appendPersistedToken(result *analyzer.Result, row persistedCorpusRow) error
 	result.Sentences[len(result.Sentences)-1].Tokens = append(result.Sentences[len(result.Sentences)-1].Tokens, analyzer.Token{
 		Surface: row.surface, RawLemma: row.rawLemma, CanonicalLemma: row.canonicalLemma, UPOS: row.upos,
 		Dependency: row.dependency, Head: checkedHead, Morphology: morphology,
-		Location: analyzer.SourceLocation{SourceDocumentID: row.unitID, StartOffset: tokenStartOffset, EndOffset: tokenEndOffset},
+		Location:             analyzer.SourceLocation{SourceDocumentID: row.unitID, StartOffset: tokenStartOffset, EndOffset: tokenEndOffset},
+		LexicalDiscriminator: row.lexicalDiscriminator, Headword: row.headword,
 	})
 	return nil
 }
@@ -1744,7 +1746,9 @@ func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID s
 
 const (
 	normalizedCorpusSentenceInsertBatchSize = 500
-	normalizedCorpusTokenInsertBatchSize    = 4_000
+	// The token INSERT carries 17 value parameters per row. Keeping the batch
+	// at 3,800 rows stays under PostgreSQL's 65,535-parameter protocol limit.
+	normalizedCorpusTokenInsertBatchSize = 3_800
 )
 
 // persistNormalizedCorpus writes the normalized sentences and then the tokens
@@ -1806,7 +1810,7 @@ func (b *corpusTokenInserter) add(ctx context.Context, tx pgx.Tx, ownerID, langu
 		}
 	}
 	if b.count == 0 {
-		b.query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES `)
+		b.query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset,lexical_discriminator,headword) VALUES `)
 	} else {
 		b.query.WriteString(",")
 	}
@@ -1882,8 +1886,8 @@ func corpusTokenRow(ownerID, language, runID, corpusID string, sentenceOrdinal, 
 		return "", nil, fmt.Errorf("persist normalized corpus token %d in sentence %d: end offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
 	}
 	var tuple strings.Builder
-	fmt.Fprintf(&tuple, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", firstArg, firstArg+1, firstArg+2, firstArg+3, firstArg+4, firstArg+5, firstArg+6, firstArg+7, firstArg+8, firstArg+9, firstArg+10, firstArg+11, firstArg+12, firstArg+13, firstArg+14)
-	args := []any{ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset}
+	fmt.Fprintf(&tuple, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", firstArg, firstArg+1, firstArg+2, firstArg+3, firstArg+4, firstArg+5, firstArg+6, firstArg+7, firstArg+8, firstArg+9, firstArg+10, firstArg+11, firstArg+12, firstArg+13, firstArg+14, firstArg+15, firstArg+16)
+	args := []any{ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset, token.LexicalDiscriminator, token.Headword}
 	return tuple.String(), args, nil
 }
 
