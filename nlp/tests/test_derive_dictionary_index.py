@@ -40,11 +40,14 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
         "SELECT value FROM metadata WHERE key = 'provider_version'"
     ).fetchone() == ("dump-2026-09-14",)
     assert connection.execute("SELECT value FROM metadata WHERE key = 'license'").fetchone() == (
-        "Wiktionary-derived data: CC BY-SA 3.0 / GFDL",
+        "Wiktionary-derived data: CC BY-SA 4.0 / GFDL",
     )
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'attribution'"
-    ).fetchone() == ("Wiktionary contributors; CC BY-SA 3.0 / GFDL",)
+    ).fetchone() == ("Wiktionary contributors; CC BY-SA 4.0 / GFDL",)
+    assert connection.execute(
+        "SELECT value FROM metadata WHERE key = 'index_format'"
+    ).fetchone() == ("2",)
     row = connection.execute(
         "SELECT language, lemma, upos, senses_json, gender, article, plural FROM entries WHERE lemma = 'haus'"
     ).fetchone()
@@ -582,4 +585,73 @@ def test_entries_without_a_usable_word_are_skipped(tmp_path: Path):
 
     connection = sqlite3.connect(output)
     assert connection.execute("SELECT count(*) FROM entries").fetchone() == (0,)
+    assert connection.execute("SELECT count(*) FROM greek_entries").fetchone() == (0,)
     connection.close()
+
+
+def test_ancient_greek_entries_keep_source_entries_separate(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "greek.jsonl"
+    decomposed = "δε\u0301ω"  # NFC is δέω, so the two δέω entries must not merge
+    source.write_text(
+        "\n".join(
+            json.dumps(item, ensure_ascii=False)
+            for item in [
+                {
+                    "word": "δέω",
+                    "lang_code": "grc",
+                    "pos": "verb",
+                    "etymology_number": 1,
+                    "senses": [{"glosses": ["to bind"]}],
+                    "forms": [{"form": "δῶ", "tags": ["future"]}],
+                },
+                {
+                    "word": decomposed,
+                    "lang_code": "grc",
+                    "pos": "verb",
+                    "etymology_number": 2,
+                    "senses": [{"glosses": ["to lack"]}],
+                    "forms": [{"form": "δεη\u0301σω", "tags": ["future"]}],
+                },
+                {
+                    "word": "ἄνθρωπος",
+                    "lang_code": "grc",
+                    "pos": "noun",
+                    "tags": ["masculine"],
+                    "senses": [{"glosses": ["human being", "person"]}],
+                },
+                {
+                    "word": "Haus",
+                    "lang_code": "de",
+                    "pos": "noun",
+                    "senses": [{"glosses": ["house"]}],
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    greek = connection.execute(
+        "SELECT headword, upos, etymology_number, senses_json, forms_json "
+        "FROM greek_entries ORDER BY headword, etymology_number"
+    ).fetchall()
+    modern = connection.execute("SELECT language, lemma, upos FROM entries").fetchall()
+    connection.close()
+
+    # Modern-language rows are untouched; the grc entries are not in them.
+    assert modern == [("de", "haus", "NOUN")]
+    assert [(row[0], row[1], row[2]) for row in greek] == [
+        ("δέω", "VERB", "1"),
+        ("δέω", "VERB", "2"),
+        ("ἄνθρωπος", "NOUN", ""),
+    ]
+    # The headword and forms are NFC, and the homographs keep their own senses.
+    assert json.loads(greek[0][3])[0]["Gloss"] == "to bind"
+    assert json.loads(greek[1][3])[0]["Gloss"] == "to lack"
+    assert json.loads(greek[2][3])[0]["Gloss"] == "human being"
+    assert json.loads(greek[0][4]) == ["δῶ"]
+    assert json.loads(greek[1][4]) == ["δεήσω"]

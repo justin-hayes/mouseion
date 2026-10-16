@@ -141,7 +141,8 @@ a newly available language are blocked.
 ## Dictionary index
 
 The optional dictionary index supplies dictionary evidence and morphology (article, gender, plural, IPA,
-and German-first verb principal parts) for German, Italian, and Modern Greek
+and German-first verb principal parts) for German, Italian, Modern Greek, and
+Ancient Greek
 ([ADR 0064](adr/0064-dictionary-enrichment-provider.md)). It is a build
 artifact, not PostgreSQL state and not a service. After `make setup`, derive it
 from the current Kaikki raw Wiktextract dump:
@@ -157,7 +158,10 @@ make dictionary-index \
 omit it when rebuilding from the cached dump. `KAIKKI_INPUT` can instead point
 at an already downloaded raw JSONL or JSONL.GZ dump for an offline rebuild; do
 not combine it with `DICTIONARY_REFRESH=1`. The script filters the raw dump to
-the German, Italian, and Modern Greek entries Mouseion needs.
+the German, Italian, Modern Greek, and Ancient Greek entries Mouseion needs.
+Ancient Greek entries are stored one row per source entry with no normalization
+key; the server derives their keys when it opens the index, and an index older
+than the Ancient Greek format reports `grc` as unavailable.
 
 The command writes `dictionary/dictionary-index.sqlite` atomically with mode
 `0644`. The web container runs as an unprivileged user, so the artifact must be
@@ -179,7 +183,7 @@ database migration. Its SQLite metadata records the dump date, UTC extraction
 date, Wiktextract commit, source, license, and attribution.
 
 The index contains Wiktionary-derived data from [Kaikki.org](https://kaikki.org/)
-under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve the generated
+under the source's dual CC BY-SA 4.0 / GFDL terms. Preserve the generated
 metadata and attribution when shipping or sharing it; derived dictionary data
 remains subject to the share-alike requirements.
 
@@ -221,6 +225,13 @@ These commands run against `MOUSEION_DATABASE_URL`.
   same pin and interpretation version is a no-op. It prints a report of counts
   (sentences, tokens, ellipsis tokens skipped, proper names derived,
   bare-versus-numbered lemmas, unmapped feature values) and no Greek text.
+- `go run ./cmd/greekhitrate` — reports how many of the installation's Ancient
+  Greek vocabulary identities have at least one Wiktionary dictionary entry, so
+  the operator can judge how much meaning evidence cards will carry. It needs
+  both `MOUSEION_DATABASE_URL` and `MOUSEION_DICTIONARY_INDEX`, prints counts
+  only (overall and per part of speech) and never any Greek text, and fails
+  with a clear message when the index is older than the Ancient Greek format
+  and must be rebuilt with `make dictionary-index`.
 
 Dated one-time cutover records are kept in
 [`archive/operations/`](archive/operations/).

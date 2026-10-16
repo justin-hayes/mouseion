@@ -28,6 +28,18 @@ type Index struct {
 	db      *sql.DB
 	name    string
 	version string
+
+	// greekEntries maps each Ancient Greek entry's ancient-greek/1 key to the
+	// source entries that share it. The key is computed here rather than stored
+	// in the index, and the source entries are never merged: two homographs
+	// that share a key and part of speech both survive.
+	greekEntries map[string][]greekEntry
+	// greekAvailable is true when the index format carries greek_entries, so an
+	// older index reports grc as unavailable instead of merely empty.
+	greekAvailable bool
+	// skippedGreekHeadwords counts source headwords whose ancient-greek/1 key
+	// was not admissible and were therefore not indexed.
+	skippedGreekHeadwords int
 }
 
 type evidenceIdentity struct {
@@ -80,6 +92,9 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 	if _, err = db.ExecContext(ctx, `SELECT language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries LIMIT 0`); err != nil {
 		return nil, fmt.Errorf("%w: schema: %w", ErrInvalidIndex, errors.Join(err, db.Close()))
 	}
+	if err = index.loadGreekEntries(ctx); err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
 	return index, nil
 }
 
@@ -114,7 +129,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if language == "" || lemma == "" {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	exactSenses, weakSenses, morphology, foundExact, err := lookupEntryRows(ctx, i.db, language, lemma, upos)
+	exactSenses, weakSenses, morphology, foundExact, err := i.matchEntries(ctx, language, lemma, upos)
 	if err != nil {
 		return enrichment.LexicalEntry{}, false, err
 	}
@@ -134,6 +149,20 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 		result.Gender, result.Article, result.Plural = ordered[0].Gender, ordered[0].Article, ordered[0].Plural
 	}
 	return result, true, nil
+}
+
+// matchEntries resolves the candidate rows for one lookup. Ancient Greek uses
+// the in-memory key index; every other language uses the stored-normalized
+// entries query, unchanged.
+func (i *Index) matchEntries(ctx context.Context, language, lemma, upos string) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
+	if language == ancientGreekLanguage {
+		if !i.greekAvailable {
+			return nil, nil, lookupMorphology{}, false, nil
+		}
+		exact, weak, found := i.ancientGreekRows(lemma, upos)
+		return exact, weak, lookupMorphology{}, found, nil
+	}
+	return lookupEntryRows(ctx, i.db, language, lemma, upos)
 }
 
 // lookupMorphology carries the morphology columns of an exact-identity row.
@@ -266,6 +295,17 @@ func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (
 	lemma = normalizeLemma(language, lemma)
 	upos = strings.ToUpper(strings.TrimSpace(upos))
 	if language == "" || lemma == "" || upos == "" {
+		return false, nil
+	}
+	if language == ancientGreekLanguage {
+		if !i.greekAvailable {
+			return false, nil
+		}
+		for _, candidate := range i.greekEntries[lemma] {
+			if candidate.upos == upos {
+				return true, nil
+			}
+		}
 		return false, nil
 	}
 	var exists bool

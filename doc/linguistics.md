@@ -201,10 +201,13 @@ without re-running NLP.
 
 **Dictionary.** Glosses and morphology come from an index derived from
 [Kaikki.org](https://kaikki.org/)'s Wiktextract dumps of Wiktionary, filtered
-to German, Italian, and Modern Greek. Each entry carries senses, gender,
-article, plural, and IPA; German verbs also get principal parts
-(*geht · ging · gegangen*). The index records its provenance: dump date,
-extraction date, Wiktextract commit, source, and license (CC BY-SA 3.0 / GFDL).
+to German, Italian, Modern Greek, and Ancient Greek. Each entry carries senses,
+gender, article, plural, and IPA; German verbs also get principal parts
+(*geht · ging · gegangen*). Ancient Greek entries keep one row per source
+entry, and the server derives their `ancient-greek/1` key when it opens the
+index, so two homographs that share a lemma and part of speech both reach a
+card's meaning evidence. The index records its provenance: dump date,
+extraction date, Wiktextract commit, source, and license (CC BY-SA 4.0 / GFDL).
 That makes any card's dictionary evidence traceable to a dated source
 ([spec](features/dictionary-gloss-enrichment.md),
 [ADR 0064](adr/0064-dictionary-enrichment-provider.md),

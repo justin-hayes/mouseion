@@ -19,6 +19,13 @@ from pathlib import Path
 from urllib.request import urlopen
 
 LANGUAGES = {"de", "it", "el"}
+# Ancient Greek entries come from English Wiktionary too, but they are stored
+# differently: one row per source entry, with the NFC source headword and no
+# normalization key. Go derives the ancient-greek/1 key when it opens the
+# index. The index format version tells an older index apart so it can report
+# grc as unavailable.
+ANCIENT_GREEK_LANGUAGE = "grc"
+INDEX_FORMAT_VERSION = 2
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -80,11 +87,22 @@ CREATE TABLE entries (
     principal_parts TEXT NOT NULL,
     PRIMARY KEY (language, lemma, upos)
 );
+CREATE TABLE greek_entries (
+    headword TEXT NOT NULL,
+    upos TEXT NOT NULL,
+    etymology_number TEXT NOT NULL,
+    senses_json TEXT NOT NULL,
+    forms_json TEXT NOT NULL
+);
 """
 INSERT_ENTRIES_SQL = (
     "INSERT INTO entries"
     "(language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts) "
     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+)
+INSERT_GREEK_ENTRIES_SQL = (
+    "INSERT INTO greek_entries(headword, upos, etymology_number, senses_json, forms_json) "
+    "VALUES (?, ?, ?, ?, ?)"
 )
 
 
@@ -433,6 +451,60 @@ def collect_entries(input_path: Path) -> dict[tuple[str, str, str], dict]:
     return entries
 
 
+def greek_etymology_number(item: dict) -> str:
+    value = item.get("etymology_number")
+    if isinstance(value, bool):
+        return ""
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return ""
+
+
+def greek_forms(item: dict) -> list[str]:
+    forms = []
+    for form in item.get("forms", []):
+        value = form.get("form") if isinstance(form, dict) else form
+        if isinstance(value, str) and value.strip():
+            forms.append(unicodedata.normalize("NFC", value.strip()))
+    return forms
+
+
+def greek_rows_for_item(item: dict) -> list[tuple[str, str, str, str, str]]:
+    word = item.get("word")
+    if not isinstance(word, str) or not word.strip():
+        return []
+    headword = unicodedata.normalize("NFC", word.strip())
+    grouped: dict[str, list[dict]] = {}
+    for upos, sense in senses_for_item(item):
+        grouped.setdefault(upos, []).append(sense)
+    if not grouped:
+        return []
+    forms_json = json.dumps(greek_forms(item), ensure_ascii=False, separators=(",", ":"))
+    etymology_number = greek_etymology_number(item)
+    rows = []
+    for upos in sorted(grouped):
+        senses_json = json.dumps(grouped[upos], ensure_ascii=False, separators=(",", ":"))
+        rows.append((headword, upos, etymology_number, senses_json, forms_json))
+    return rows
+
+
+def collect_greek_entries(input_path: Path) -> list[tuple[str, str, str, str, str]]:
+    # One row per source entry (never merged by key): two Wiktionary homographs
+    # that share a headword and part of speech stay separate rows.
+    rows: list[tuple[str, str, str, str, str]] = []
+    with open_input(input_path) as source:
+        for line in source:
+            if not line.strip():
+                continue
+            item = json.loads(line)
+            if item.get("lang_code") != ANCIENT_GREEK_LANGUAGE:
+                continue
+            rows.extend(greek_rows_for_item(item))
+    return sorted(rows)
+
+
 @dataclass(frozen=True)
 class SourceMetadata:
     """The dump provenance recorded in the index's metadata table."""
@@ -444,11 +516,12 @@ class SourceMetadata:
 
 def metadata_rows(provider_version: str, source: SourceMetadata) -> dict[str, str]:
     return {
+        "index_format": str(INDEX_FORMAT_VERSION),
         "provider_version": provider_version,
-        "license": "Wiktionary-derived data: CC BY-SA 3.0 / GFDL",
+        "license": "Wiktionary-derived data: CC BY-SA 4.0 / GFDL",
         "generated_at": date.today().isoformat(),
         "source": "Kaikki.org Wiktextract enwiktionary JSONL",
-        "attribution": "Wiktionary contributors; CC BY-SA 3.0 / GFDL",
+        "attribution": "Wiktionary contributors; CC BY-SA 4.0 / GFDL",
         "dump_date": source.dump_date,
         "extraction_date": source.extraction_date,
         "wiktextract_commit": source.wiktextract_commit,
@@ -473,6 +546,7 @@ def entry_rows(entries: dict[tuple[str, str, str], dict]):
 def write_index(
     output_path: Path,
     entries: dict[tuple[str, str, str], dict],
+    greek_entries: list[tuple[str, str, str, str, str]],
     provider_version: str,
     source: SourceMetadata,
 ) -> None:
@@ -489,6 +563,7 @@ def write_index(
             metadata_rows(provider_version, source).items(),
         )
         connection.executemany(INSERT_ENTRIES_SQL, entry_rows(entries))
+        connection.executemany(INSERT_GREEK_ENTRIES_SQL, greek_entries)
         connection.commit()
         connection.execute("PRAGMA journal_mode = OFF")
         connection.close()
@@ -505,7 +580,11 @@ def derive(
     source: SourceMetadata | None = None,
 ) -> None:
     write_index(
-        output_path, collect_entries(input_path), provider_version, source or SourceMetadata()
+        output_path,
+        collect_entries(input_path),
+        collect_greek_entries(input_path),
+        provider_version,
+        source or SourceMetadata(),
     )
 
 

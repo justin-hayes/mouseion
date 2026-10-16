@@ -256,5 +256,5 @@ Bundled third-party assets keep their own licenses, recorded beside them in
 [`internal/webapp/static/vendor/`](internal/webapp/static/vendor/) (htmx under
 0BSD; Tailwind CSS and daisyUI under MIT; Literata and Commissioner under the SIL
 Open Font License). The optional dictionary index is not distributed with the
-source; when built, it is Wiktionary-derived data under CC BY-SA 3.0 / GFDL, as
+source; when built, it is Wiktionary-derived data under CC BY-SA 4.0 / GFDL, as
 described in the [operations guide](doc/operations.md#dictionary-index).

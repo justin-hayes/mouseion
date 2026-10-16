@@ -393,6 +393,10 @@ func openDictionaryIndex(ctx context.Context, path string) (index *dictionary.In
 	index, err = dictionary.OpenIndex(ctx, path)
 	if err == nil {
 		log.Print("dictionary index loaded")
+		if skipped := index.SkippedGreekHeadwords(); skipped > 0 {
+			//nolint:gosec // the count is an integer derived from the index, not user text.
+			log.Printf("dictionary index skipped %d Ancient Greek headwords that failed admission", skipped)
+		}
 		return index, true, nil
 	}
 	if errors.Is(err, os.ErrNotExist) {
