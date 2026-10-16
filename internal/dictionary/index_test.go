@@ -284,3 +284,157 @@ func TestIndexLookupIncludesMissingPOSOnlyAfterExactIdentity(t *testing.T) {
 	require.Len(t, result.CandidateSenses, 2)
 	assert.Equal(t, firstWeakEvidenceID, result.CandidateSenses[1].EvidenceID, "the lemma-only source identity is stable across requested POS")
 }
+
+// dictionaryGreekFixtureSchema is the read-only schema OpenIndex expects from
+// an index format that carries Ancient Greek entries.
+const dictionaryGreekFixtureSchema = `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '2')`
+
+// newGreekTestIndex opens a Greek-capable index seeded with seedStatements.
+func newGreekTestIndex(t *testing.T, seedStatements ...string) *Index {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), dictionaryGreekFixtureSchema)
+	require.NoError(t, err)
+	for _, statement := range seedStatements {
+		_, err = db.ExecContext(t.Context(), statement)
+		require.NoError(t, err)
+	}
+	require.NoError(t, db.Close())
+	index, err := OpenIndex(t.Context(), path)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, index.Close()) })
+	return index
+}
+
+func TestIndexAncientGreekMatchingReturnsEveryHomograph(t *testing.T) {
+	index := newGreekTestIndex(t,
+		`INSERT INTO greek_entries VALUES ('δέω', 'VERB', '1', '[{"Gloss":"to bind"}]', '[]')`,
+		`INSERT INTO greek_entries VALUES ('δέω', 'VERB', '2', '[{"Gloss":"to lack"}]', '[]')`,
+		`INSERT INTO greek_entries VALUES ('δέω', '', '3', '[{"Gloss":"δέω without a part of speech"}]', '[]')`,
+		`INSERT INTO greek_entries VALUES ('δέω', 'NOUN', '4', '[{"Gloss":"a binding"}]', '[]')`,
+		`INSERT INTO greek_entries VALUES ('ἄνθρωπος', 'NOUN', '', '[{"Gloss":"human being"}]', '[]')`,
+	)
+
+	require.True(t, index.AncientGreekAvailable())
+	assert.Zero(t, index.SkippedGreekHeadwords())
+
+	// Every matching source entry is returned: both δέω homographs for VERB,
+	// plus the lemma-only entry as weaker evidence. The discriminator is never
+	// used, so both homographs survive one lookup.
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "δέω", UPOS: "VERB"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 3)
+	glosses := []string{result.CandidateSenses[0].Gloss, result.CandidateSenses[1].Gloss, result.CandidateSenses[2].Gloss}
+	assert.ElementsMatch(t, []string{"to bind", "to lack", "δέω without a part of speech"}, glosses)
+	assert.Equal(t, "exact_lemma_pos", result.CandidateSenses[0].MatchStrength)
+	assert.Equal(t, "exact_lemma_pos", result.CandidateSenses[1].MatchStrength)
+	assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[2].MatchStrength, "the lemma-only entry is weaker evidence")
+
+	// A known different POS must not leak, but the lemma-only entry still does.
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "δέω", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 2)
+	assert.Equal(t, "a binding", result.CandidateSenses[0].Gloss)
+	assert.Equal(t, "exact_lemma_pos", result.CandidateSenses[0].MatchStrength)
+	assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[1].MatchStrength)
+
+	// With no matching POS at all, only the lemma-only entry remains.
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "δέω", UPOS: "ADJ"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 1)
+	assert.Equal(t, "δέω without a part of speech", result.CandidateSenses[0].Gloss)
+
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "ἄνθρωπος", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 1)
+	assert.Equal(t, "human being", result.CandidateSenses[0].Gloss)
+
+	_, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "ἄνθρωπος", UPOS: "VERB"})
+	require.NoError(t, err)
+	assert.False(t, found, "a non-matching POS with no lemma-only entry has no evidence")
+
+	exists, err := index.LemmaExists(t.Context(), "grc", "δέω", "VERB")
+	require.NoError(t, err)
+	assert.True(t, exists)
+	exists, err = index.LemmaExists(t.Context(), "grc", "δέω", "ADJ")
+	require.NoError(t, err)
+	assert.False(t, exists, "LemmaExists matches the exact part of speech only")
+}
+
+func TestIndexAncientGreekKeyNormalization(t *testing.T) {
+	decomposed := "δε\u0301ω" // NFD of δέω
+	index := newGreekTestIndex(t,
+		`INSERT INTO greek_entries VALUES ('`+decomposed+`', 'VERB', '1', '[{"Gloss":"to bind"}]', '[]')`,
+		`INSERT INTO greek_entries VALUES ('σοφός', 'ADJ', '', '[{"Gloss":"wise"}]', '[]')`,
+	)
+
+	// The stored headword and the request are both normalized to the same key.
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "δέω", UPOS: "VERB"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "to bind", result.CandidateSenses[0].Gloss)
+
+	// Final sigma is normalized to sigma, so the citation form with ς matches a
+	// request spelled with σ.
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "σοφόσ", UPOS: "ADJ"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "wise", result.CandidateSenses[0].Gloss)
+}
+
+func TestIndexAncientGreekUnavailableOnOlderIndex(t *testing.T) {
+	index := newTestIndex(t, `INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house"}]', '', '', '', '', '')`)
+
+	assert.False(t, index.AncientGreekAvailable(), "an index without the Ancient Greek format reports grc unavailable")
+
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "δέω", UPOS: "VERB"})
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Empty(t, result.Senses)
+
+	// Modern-language lookups are unchanged by the Ancient Greek additions.
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "house", result.Senses[0].Gloss)
+}
+
+func TestIndexModernLookupsUnchangedWithAncientGreekEntries(t *testing.T) {
+	index := newGreekTestIndex(t,
+		`INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house"}]', 'Neut', 'das', 'Häuser', '', '')`,
+		`INSERT INTO greek_entries VALUES ('δέω', 'VERB', '1', '[{"Gloss":"to bind"}]', '[]')`,
+	)
+
+	require.True(t, index.AncientGreekAvailable())
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "house", result.Senses[0].Gloss)
+
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "δέω", UPOS: "VERB"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "to bind", result.Senses[0].Gloss)
+}
+
+func TestIndexAncientGreekSkipsInadmissibleHeadwords(t *testing.T) {
+	index := newGreekTestIndex(t,
+		`INSERT INTO greek_entries VALUES ('λόγος', 'NOUN', '', '[{"Gloss":"word"}]', '[]')`,
+		`INSERT INTO greek_entries VALUES ('   ', 'NOUN', '', '[{"Gloss":"blank"}]', '[]')`,
+		`INSERT INTO greek_entries VALUES ('·', 'PUNCT', '', '[{"Gloss":"punctuation"}]', '[]')`,
+	)
+
+	assert.True(t, index.AncientGreekAvailable())
+	assert.Equal(t, 2, index.SkippedGreekHeadwords(), "blank and letterless headwords fail admission")
+
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "word", result.CandidateSenses[0].Gloss)
+}
