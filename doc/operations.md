@@ -205,6 +205,13 @@ These commands run against `MOUSEION_DATABASE_URL`.
 - `go run ./cmd/cataloguebackfill` — assigns legacy catalogue-entry aliases to
   their owning OPDS connection
   ([ADR 0044](adr/0044-catalogue-entry-connection-scoped-identity.md)).
+- `go run ./cmd/greekregister <learner-username>` — registers the compiled
+  Ancient Greek reading unit (Xenophon, *Anabasis* Book 1, Marchant 1904) for
+  one named learner. It creates the learner's unprepared Book and its
+  Book–Reading unit association, and ensures "Ancient Greek" appears in the
+  language drop-down. It is idempotent, and refuses without writing when any
+  pre-existing `grc` rows exist, naming their owners, surfaces and counts. It
+  prints no Greek text. Importing the pinned annotation is a separate step.
 
 Dated one-time cutover records are kept in
 [`archive/operations/`](archive/operations/).
