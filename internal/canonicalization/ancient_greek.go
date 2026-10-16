@@ -16,6 +16,10 @@ const (
 	// pinned to. The Go toolchain's case-mapping tables and golang.org/x/text's
 	// normalization tables must both report it.
 	AncientGreekUnicodeVersion = "17.0.0"
+
+	// ancientGreekLanguage is the base language tag the profile serves and the
+	// language the registry treats as a dedicated-profile language.
+	ancientGreekLanguage = "grc"
 )
 
 // AncientGreekProfile derives vocabulary identity keys for Ancient Greek.
@@ -28,7 +32,7 @@ type AncientGreekProfile struct{}
 func AncientGreek() Profile                  { return AncientGreekProfile{} }
 func (AncientGreekProfile) Name() string     { return AncientGreekProfileName }
 func (AncientGreekProfile) Version() string  { return AncientGreekProfileVersion }
-func (AncientGreekProfile) Language() string { return "grc" }
+func (AncientGreekProfile) Language() string { return ancientGreekLanguage }
 func (AncientGreekProfile) Canonical(value string) string {
 	value = norm.NFC.String(value)
 	value = strings.ToLower(value)

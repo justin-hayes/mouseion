@@ -47,7 +47,7 @@ func TestAncientGreekNormalizationFixture(t *testing.T) {
 	profile := AncientGreek()
 	outcomes := make(map[string]string, len(fixtures))
 	for _, fixture := range fixtures {
-		outcomes[fixture.Case] = exerciseAncientGreekFixture(t, profile, fixture)
+		outcomes[fixture.Case] = exerciseFixture(t, profile, fixture)
 	}
 	for _, fixture := range fixtures {
 		if fixture.EqualToCase != "" {
@@ -66,18 +66,23 @@ func TestAncientGreekUnicodePin(t *testing.T) {
 }
 
 func TestAncientGreekNeverCasefolds(t *testing.T) {
-	ancient, neutral := AncientGreek(), LanguageNeutral()
-	for _, name := range []string{"iota subscript", "capital ypogegrammeni", "capital I with dot"} {
-		var lemma string
-		switch name {
-		case "iota subscript":
-			lemma = "\u1FC4"
-		case "capital ypogegrammeni":
-			lemma = "\u1FBC"
-		default:
-			lemma = "\u0130"
-		}
-		assert.NotEqual(t, neutral.Canonical(lemma), ancient.Canonical(lemma), name)
+	for _, tc := range []struct{ name, lemma string }{
+		{"iota subscript", "\u1FC4"},
+		{"capital ypogegrammeni", "\u1FBC"},
+		{"capital I with dot", "\u0130"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			neutral := LanguageNeutral().Canonical(tc.lemma)
+			assert.NotEqual(t, neutral, AncientGreek().Canonical(tc.lemma))
+		})
+	}
+}
+
+func TestEveryDedicatedLanguageHasAnActiveProfile(t *testing.T) {
+	for language := range dedicatedProfileLanguages {
+		profile, err := For(language)
+		require.NoError(t, err)
+		assert.NotEqual(t, UnicodeCasefoldProfile, profile.Name(), language)
 	}
 }
 
@@ -87,7 +92,7 @@ func TestGrcAndElResolveToDifferentProfiles(t *testing.T) {
 	el, err := For("el")
 	require.NoError(t, err)
 	assert.Equal(t, AncientGreekProfileName, grc.Name())
-	assert.Equal(t, "grc", grc.Language())
+	assert.Equal(t, ancientGreekLanguage, grc.Language())
 	assert.Equal(t, ModernGreekProfileName, el.Name())
 	assert.NotEqual(t, grc.Name()+"/"+grc.Version(), el.Name()+"/"+el.Version())
 }
@@ -109,14 +114,14 @@ func TestDedicatedProfileLanguageNeverFallsBack(t *testing.T) {
 	assert.Equal(t, AncientGreekProfileVersion, grc.Version())
 }
 
-// exerciseAncientGreekFixture applies one fixture row and returns the observable
+// exerciseFixture applies one fixture row and returns the observable
 // outcome (a key, a resolved profile name/version, or a rejection) for relation
 // checks.
-func exerciseAncientGreekFixture(t *testing.T, profile Profile, fixture ancientGreekFixture) string {
+func exerciseFixture(t *testing.T, profile Profile, fixture ancientGreekFixture) string {
 	t.Helper()
 	assert.Equal(t, "ancient-greek-normalization/1", fixture.Format, "case %q format", fixture.Case)
 	if fixture.Call != nil {
-		name, rejected := resolveAncientGreekCall(t, *fixture.Call)
+		name, rejected := resolveFixtureCall(t, *fixture.Call)
 		if fixture.Expect.Rejected != "" {
 			assert.Equal(t, fixture.Expect.Rejected, rejected, "case %q rejection", fixture.Case)
 			assert.Empty(t, name, "case %q profile", fixture.Case)
@@ -127,13 +132,14 @@ func exerciseAncientGreekFixture(t *testing.T, profile Profile, fixture ancientG
 		return name
 	}
 	require.Equal(t, profile.Name()+"/"+profile.Version(), fixture.Profile, "case %q profile", fixture.Case)
+	assert.Equal(t, AncientGreekUnicodeVersion, fixture.Unicode, "case %q unicode", fixture.Case)
 	key := profile.Canonical(decodeAncientGreekCodePoints(t, fixture.Input))
 	assert.Equal(t, fixture.Expect.Key, encodeAncientGreekCodePoints(key), "case %q key", fixture.Case)
 	assert.Equal(t, key, profile.Canonical(key), "case %q is idempotent", fixture.Case)
 	return key
 }
 
-func resolveAncientGreekCall(t *testing.T, call ancientGreekFixtureCall) (name, rejected string) {
+func resolveFixtureCall(t *testing.T, call ancientGreekFixtureCall) (name, rejected string) {
 	t.Helper()
 	var profile Profile
 	var err error
@@ -145,10 +151,10 @@ func resolveAncientGreekCall(t *testing.T, call ancientGreekFixtureCall) (name, 
 	default:
 		require.FailNow(t, "unknown fixture call", call.Fn)
 	}
-	return ancientGreekOutcome(t, profile, err)
+	return fixtureOutcome(t, profile, err)
 }
 
-func ancientGreekOutcome(t *testing.T, profile Profile, err error) (name, rejected string) {
+func fixtureOutcome(t *testing.T, profile Profile, err error) (name, rejected string) {
 	t.Helper()
 	if err == nil {
 		require.NotNil(t, profile)

@@ -74,7 +74,7 @@ func (r *Registry) Register(profile Profile, active bool) error {
 // dedicatedProfileLanguages require a profile of their own. The registry never
 // substitutes the language-neutral fallback for them: resolution returns either
 // the registered dedicated profile or an error.
-var dedicatedProfileLanguages = map[string]struct{}{"grc": {}}
+var dedicatedProfileLanguages = map[string]struct{}{ancientGreekLanguage: {}}
 
 // DedicatedProfileLanguage reports whether language requires a dedicated
 // normalization profile and therefore never uses the language-neutral fallback.
