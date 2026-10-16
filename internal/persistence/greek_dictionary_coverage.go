@@ -17,8 +17,10 @@ type AncientGreekVocabularyIdentity struct {
 
 // ListAncientGreekVocabularyIdentities returns the distinct effective Ancient
 // Greek vocabulary identities across the installation's analyses. It reads the
-// Browse count projection, so confirmed lemma corrections and exclusions are
-// already applied.
+// Browse count projection, which holds each Book's current published analysis
+// (a newer publication replaces the previous run's rows), so confirmed lemma
+// corrections and exclusions are already applied and superseded runs are not
+// counted.
 func (s *PostgresStore) ListAncientGreekVocabularyIdentities(ctx context.Context) ([]AncientGreekVocabularyIdentity, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT canonical_lemma, upos, lexical_discriminator
