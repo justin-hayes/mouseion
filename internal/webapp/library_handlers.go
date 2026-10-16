@@ -286,6 +286,13 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	// An operator-registered Book cannot be read until its annotation is
+	// imported. Refuse before the disposition changes and before any analysis
+	// is submitted, so nothing starts that cannot finish.
+	if detail.AwaitingPreparation() {
+		redirect(w, r, myBooksScopedURL("", 1, false, detail.Disposition, false, detail.Hidden)+"&error="+url.QueryEscape(notPreparedYetNote))
+		return
+	}
 	wasToRead := detail.Disposition == domain.BookDispositionToRead
 	applied, transitionErr := h.services.Store.MyBooks.TransitionBookDisposition(r.Context(), owner, bookID, expectedRevision, domain.BookDispositionToRead)
 	if transitionErr != nil {

@@ -222,7 +222,10 @@ func (s *PostgresStore) collectMyBooksBrowsePage(ctx context.Context, owner, lan
 	if err := s.forEachMyBooksBrowseRow(ctx, owner, language, accumulator.visit); err != nil {
 		return err
 	}
-	return s.populateMyBooksCoverage(ctx, owner, accumulator.result.Items)
+	if err := s.populateMyBooksCoverage(ctx, owner, accumulator.result.Items); err != nil {
+		return err
+	}
+	return s.populateMyBooksReadingUnits(ctx, owner, accumulator.result.Items)
 }
 
 // myBooksDispositionCounts projects the workflow-bucket tallies onto the
@@ -369,7 +372,11 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 		book.LatestCompletionAt = completionTime(completion.LatestCompletedAt)
 	}
 	book.LatestCompletionSource = domain.ReadingCompletionSource(completion.LatestCompletionSource)
-	return book, nil
+	page := []domain.MyBook{book}
+	if err := s.populateMyBooksReadingUnits(ctx, owner, page); err != nil {
+		return domain.MyBook{}, err
+	}
+	return page[0], nil
 }
 
 // GetBookDetailForMyBooksRefresh loads the otherwise-expensive current margin

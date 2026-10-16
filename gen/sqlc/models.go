@@ -135,6 +135,13 @@ type BookMembership struct {
 	RemovedAt   pgtype.Timestamptz
 }
 
+type BookReadingUnit struct {
+	OwnerID       string
+	BookID        string
+	ReadingUnitID string
+	CreatedAt     time.Time
+}
+
 type BookVisibility struct {
 	OwnerID   string
 	BookID    string
@@ -543,6 +550,14 @@ type DeckPreparationVocabulary struct {
 	GraduatedAt       pgtype.Timestamptz
 }
 
+type Edition struct {
+	ID            string
+	WorkID        string
+	DefinitionKey string
+	Label         string
+	CreatedAt     time.Time
+}
+
 // Shared, language-scoped, immutable external enrichment results; contains no owner or source metadata
 type EnrichmentCache struct {
 	Language        string
@@ -793,6 +808,19 @@ type ReadingHistory struct {
 	CompletionSource            string
 }
 
+type ReadingUnit struct {
+	ID                    string
+	EditionID             string
+	DefinitionKey         string
+	CitationStart         string
+	CitationEnd           string
+	SourceFileName        string
+	SourceFileSize        int64
+	SourceFileSha256      string
+	InterpretationVersion string
+	CreatedAt             time.Time
+}
+
 type SelectionCandidate struct {
 	OwnerID              string
 	CorpusID             string
@@ -968,4 +996,12 @@ type VocabularyState struct {
 	Upos           string
 	State          string
 	UpdatedAt      time.Time
+}
+
+type Work struct {
+	ID            string
+	DefinitionKey string
+	Title         string
+	Author        string
+	CreatedAt     time.Time
 }

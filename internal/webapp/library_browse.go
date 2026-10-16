@@ -12,13 +12,30 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-const myBooksPageSize = 25
+const (
+	myBooksPageSize = 25
+	// notPreparedYetNote is shown while an operator-registered Book has no
+	// current analysis, and is the refusal To Read gives for it.
+	notPreparedYetNote = "Not prepared yet."
+)
+
+// myBookEditionLabel is the edition an operator-registered Book shows under its
+// author. It is empty for every other Book.
+func myBookEditionLabel(book domain.MyBook) string {
+	if book.ReadingUnit == nil {
+		return ""
+	}
+	return strings.TrimSpace(book.ReadingUnit.EditionLabel)
+}
 
 // myBookMarginEvidence summarizes facts for the current source analysis only.
 // Empty evidence stays empty; it is never converted into a failure or 0%.
 func myBookMarginEvidence(book domain.MyBook) string {
 	if book.WorkflowBucket() == domain.MyBookBucketRead && book.LatestCompletionAt != nil {
 		return "Finished " + myBooksCompletionDateLabel(book.LatestCompletionAt) + "."
+	}
+	if book.AwaitingPreparation() {
+		return notPreparedYetNote
 	}
 	if book.Acquired == nil {
 		return ""

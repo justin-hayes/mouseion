@@ -17,10 +17,14 @@ const (
 	AliasStrongBibliographic        = "strong_bibliographic"
 	NamespaceSourceIdentifier       = "source_identifier"
 	MetadataProvenanceBackfill      = "source_materials_backfill"
-	BookCoverNone                   = "none"
-	BookCoverPending                = "pending"
-	BookCoverAvailable              = "available"
-	BookCoverUnavailable            = "unavailable"
+	// MetadataProvenanceOperatorRegistration marks a Book an operator
+	// registered for a classical Reading unit, whose analysis comes from an
+	// import rather than EPUB acquisition.
+	MetadataProvenanceOperatorRegistration = "operator_registration"
+	BookCoverNone                          = "none"
+	BookCoverPending                       = "pending"
+	BookCoverAvailable                     = "available"
+	BookCoverUnavailable                   = "unavailable"
 )
 
 type CatalogueSyncState string
@@ -123,6 +127,7 @@ type BookCoverRetrieval struct {
 type MyBook struct {
 	Book                   Book
 	Cover                  BookCover
+	ReadingUnit            *BookReadingUnit
 	Acquired               *SourceMaterialSummary
 	Disposition            BookDisposition
 	DispositionRevision    int64
@@ -222,6 +227,14 @@ func (m MyBook) EvidenceState() BookEvidenceState {
 	return m.Classification().Evidence
 }
 
+// AwaitingPreparation reports an operator-registered Book whose imported
+// analysis is not yet in effect. Ordinary catalogue and acquisition Books are
+// never awaiting preparation, and a registered Book stops awaiting preparation
+// once its current analysis is published.
+func (m MyBook) AwaitingPreparation() bool {
+	return m.ReadingUnit != nil && !m.Classification().AnalysisInEffect()
+}
+
 func (d BookDisposition) Validate() error {
 	switch d {
 	case BookDispositionInbox, BookDispositionToRead:
@@ -250,7 +263,7 @@ func (b Book) Validate() error {
 		return errors.New("domain: book metadata provenance is required")
 	}
 	switch b.MetadataProvenance {
-	case MetadataProvenanceCatalogueSync, MetadataProvenanceAcquisition, MetadataProvenanceBackfill:
+	case MetadataProvenanceCatalogueSync, MetadataProvenanceAcquisition, MetadataProvenanceBackfill, MetadataProvenanceOperatorRegistration:
 	default:
 		return errors.New("domain: invalid book metadata provenance")
 	}

@@ -1562,6 +1562,13 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   overflow-wrap: anywhere;
 }
 
+.library-book__edition {
+  display: block;
+  color: var(--mouseion-color-text-muted);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
 .library-book__membership {
   margin: 0;
 }

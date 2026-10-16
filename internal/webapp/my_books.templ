@@ -22,6 +22,9 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 						if author := strings.TrimSpace(book.Book.Author); author != "" {
 							<span class="library-book__author">By { author }</span>
 						}
+						if edition := myBookEditionLabel(book); edition != "" {
+							<span class="library-book__edition">{ edition }</span>
+						}
 					</div>
 				</a>
 			} else {
@@ -31,6 +34,9 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
 						if author := strings.TrimSpace(book.Book.Author); author != "" {
 							<span class="library-book__author">By { author }</span>
+						}
+						if edition := myBookEditionLabel(book); edition != "" {
+							<span class="library-book__edition">{ edition }</span>
 						}
 					</div>
 				</div>

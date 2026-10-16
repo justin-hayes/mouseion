@@ -498,3 +498,29 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	assert.Contains(t, response.Body.String(), "Updated row title", "HTMX row refresh body=%s", response.Body.String())
 	assert.Contains(t, response.Body.String(), "Metadata refreshed.", "HTMX row refresh body=%s", response.Body.String())
 }
+
+func TestMyBookMarginEvidenceShowsRegisteredReadingUnit(t *testing.T) {
+	t.Parallel()
+	registered := domain.MyBook{
+		Book:        domain.Book{ID: "greek", Title: "Anabasis", Author: "Xenophon", LanguageState: domain.LanguageChosen, LanguageTag: "grc"},
+		ReadingUnit: &domain.BookReadingUnit{EditionLabel: "Marchant 1904"},
+	}
+	assert.Equal(t, notPreparedYetNote, myBookMarginEvidence(registered), "unprepared registered Book is called out")
+	assert.Equal(t, "Marchant 1904", myBookEditionLabel(registered))
+	assert.Empty(t, myBookEditionLabel(domain.MyBook{Book: domain.Book{ID: "ordinary", Title: "Ordinary"}}), "ordinary Book shows no edition")
+	assert.Empty(t, myBookMarginEvidence(domain.MyBook{Book: domain.Book{ID: "ordinary", Title: "Ordinary"}}), "ordinary metadata-only Book stays neutral")
+}
+
+func TestMyBookRowRendersRegisteredEditionAndPreparation(t *testing.T) {
+	t.Parallel()
+	book := domain.MyBook{
+		Book:        domain.Book{ID: "greek", Title: "Anabasis", Author: "Xenophon", LanguageState: domain.LanguageChosen, LanguageTag: "grc"},
+		ReadingUnit: &domain.BookReadingUnit{EditionLabel: "Marchant 1904"},
+	}
+	var output bytes.Buffer
+	require.NoError(t, MyBookRow("csrf", book, false, "", "").Render(context.Background(), &output))
+	html := output.String()
+	for _, want := range []string{"Anabasis", "By Xenophon", "Marchant 1904", notPreparedYetNote} {
+		assert.Contains(t, html, want, "registered My Books row missing %q: %s", want, html)
+	}
+}

@@ -182,6 +182,7 @@ type Querier interface {
 	GetPreparedDeckTranslationOutcomeForUpdate(ctx context.Context, arg GetPreparedDeckTranslationOutcomeForUpdateParams) (DeckPreparationTranslationOutcome, error)
 	GetPreviouslyReadImport(ctx context.Context, arg GetPreviouslyReadImportParams) (GetPreviouslyReadImportRow, error)
 	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
+	GetRegisteredBookID(ctx context.Context, arg GetRegisteredBookIDParams) (string, error)
 	// Stored occurrence decisions addressing the selected sentence, each with the
 	// number of persisted analyzed words its exact owner/Book/analysis/
 	// source-document/span addresses. The count spans the whole addressed scope,
@@ -216,6 +217,7 @@ type Querier interface {
 	InsertBookAlias(ctx context.Context, arg InsertBookAliasParams) (string, error)
 	InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) (int64, error)
 	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
+	InsertBookReadingUnit(ctx context.Context, arg InsertBookReadingUnitParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
 	InsertCurrentReading(ctx context.Context, arg InsertCurrentReadingParams) (InsertCurrentReadingRow, error)
 	// Inserts the identities the domain decided to accept, only where absent.
@@ -250,6 +252,7 @@ type Querier interface {
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
 	ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error)
 	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
+	ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentExtractedUnits(ctx context.Context, arg ListCurrentExtractedUnitsParams) ([]ListCurrentExtractedUnitsRow, error)
@@ -264,6 +267,10 @@ type Querier interface {
 	// POS). The domain decides which identities they cover.
 	ListKnownVocabularyForCurrentReadingSnapshot(ctx context.Context, arg ListKnownVocabularyForCurrentReadingSnapshotParams) ([]ListKnownVocabularyForCurrentReadingSnapshotRow, error)
 	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
+	// Rows carrying a language identity that predate the classical registration.
+	// A Book already associated with a Reading unit, and the source materials
+	// pointing at it, are this feature's own data and are not legacy.
+	ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error)
 	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
 	// Coverage comes from the durable Vocabulary Browse inventory counts joined to
 	// the learner's current Known vocabulary. A Book without ready counts for its
@@ -388,11 +395,18 @@ type Querier interface {
 	UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error)
 	UpsertBookDisposition(ctx context.Context, arg UpsertBookDispositionParams) error
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
+	UpsertEdition(ctx context.Context, arg UpsertEditionParams) (UpsertEditionRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error
 	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)
+	UpsertReadingUnit(ctx context.Context, arg UpsertReadingUnitParams) (UpsertReadingUnitRow, error)
 	UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error)
 	// Immutable source revisions and extracted EPUB-unit snapshots.
 	UpsertSourceMaterialForExtractedUnits(ctx context.Context, arg UpsertSourceMaterialForExtractedUnitsParams) (UpsertSourceMaterialForExtractedUnitsRow, error)
+	// Classical reading units and their Book association. Definitions are shared
+	// reference data upserted from reviewed application values; the association is
+	// insert-only. Domain-level identity and refusal decisions remain in
+	// persistence and the ancientgreek service.
+	UpsertWork(ctx context.Context, arg UpsertWorkParams) (UpsertWorkRow, error)
 	VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, arg VerifyPreparedDeckBatchSubmissionClaimParams) (bool, error)
 	WriteBookVisibility(ctx context.Context, arg WriteBookVisibilityParams) error
 }
