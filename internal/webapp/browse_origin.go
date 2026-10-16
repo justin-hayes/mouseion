@@ -151,8 +151,16 @@ func (o browseOrigin) ReturnURL(language string) string {
 	return "/reading?" + values.Encode()
 }
 
-// browseRowKey identifies a Browse row by its effective identity.
-func browseRowKey(upos, lemma string) string { return upos + ":" + lemma }
+// browseRowKey identifies a Browse row by its effective identity. The lexical
+// discriminator is appended only when present, so modern-language rows keep the
+// key and the links they already have.
+func browseRowKey(upos, lemma, discriminator string) string {
+	key := upos + ":" + lemma
+	if discriminator != "" {
+		key += ":" + discriminator
+	}
+	return key
+}
 
 // browseRowElementID is the stable anchor of a Browse row.
 func browseRowElementID(key string) string {

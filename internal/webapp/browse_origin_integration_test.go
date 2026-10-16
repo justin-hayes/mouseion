@@ -81,7 +81,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		require.NotNil(t, match, "no link matching %s", pattern)
 		return html.UnescapeString(match[1])
 	}
-	rowID := browseRowElementID(browseRowKey("NOUN", "wort26"))
+	rowID := browseRowElementID(browseRowKey("NOUN", "wort26", ""))
 
 	// Browse page 2 → exact Concordance for one row.
 	browse := get("/reading?page=2")

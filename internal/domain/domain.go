@@ -114,18 +114,25 @@ type StudyLanguage struct {
 }
 
 // VocabularyBrowseRow is one currently evidenced effective identity in a
-// learner's selected study language.
+// learner's selected study language. LexicalDiscriminator keeps source
+// homographs with the same canonical lemma and part of speech apart. Headword is
+// the imported citation form shown to learners, empty for modern languages;
+// BareLemmaWithNumberedSibling marks a bare identity whose work also numbers a
+// form of the same lemma.
 type VocabularyBrowseRow struct {
-	CanonicalLemma             string
-	UPOS                       string
-	OccurrenceCount            int64
-	AcrossBooksOccurrenceCount int64
-	BookCount                  int64
-	Known                      bool
-	Reserved                   bool
-	Generated                  bool
-	InBookDeck                 bool
-	Corrected                  bool
+	CanonicalLemma               string
+	UPOS                         string
+	LexicalDiscriminator         string
+	Headword                     string
+	OccurrenceCount              int64
+	AcrossBooksOccurrenceCount   int64
+	BookCount                    int64
+	Known                        bool
+	Reserved                     bool
+	Generated                    bool
+	InBookDeck                   bool
+	Corrected                    bool
+	BareLemmaWithNumberedSibling bool
 }
 
 type VocabularyBrowsePage struct {
