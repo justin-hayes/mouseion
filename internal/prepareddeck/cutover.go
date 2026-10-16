@@ -268,6 +268,9 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	if err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("assemble prepared deck inputs: %w", err)
 	}
+	if err := authorizeRecordedProviderCalls(projections, p.Codec); err != nil {
+		return persistence.FreezePreparedDeckRunParams{}, err
+	}
 
 	config := persistence.PreparedDeckRunConfig{
 		ExternalTranslationConsent:    true,
@@ -340,6 +343,19 @@ func pendingBatchWork(ctx context.Context, tx pgx.Tx, work []cardexport.WorkItem
 		pending = append(pending, item)
 	}
 	return pending, nil
+}
+
+// authorizeRecordedProviderCalls fails closed when any candidate's language
+// has no recorded provider-payload assessment for the frozen provider contract.
+// It runs before any request is frozen or transmitted.
+func authorizeRecordedProviderCalls(projections []cardexport.CandidateProjection, codec *enrichment.TranslationCodec) error {
+	fields := enrichment.ContextualGlossPayloadFields()
+	for _, projection := range projections {
+		if err := enrichment.AllowExternalProviderCall(projection.Candidate.Language, codec.ProviderName(), codec.ContextualGlossPromptContract(), fields); err != nil {
+			return fmt.Errorf("prepared deck preparation refused: %w", err)
+		}
+	}
+	return nil
 }
 
 // Worker owns only the short freeze operation. Provider calls are performed

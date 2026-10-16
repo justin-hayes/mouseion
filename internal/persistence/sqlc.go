@@ -104,13 +104,14 @@ func pgInt8(value pgtype.Int8) int64 {
 	return value.Int64
 }
 
-func generatedVocabularyFromFields(ownerID, language, lemma, upos, firstDeckID, firstSourceMaterialID string, firstGeneratedAt time.Time) domain.GeneratedVocabulary {
+func generatedVocabularyFromFields(ownerID, language, lemma, upos, discriminator, headword, firstDeckID, firstSourceMaterialID string, firstGeneratedAt time.Time) domain.GeneratedVocabulary {
 	var sourceMaterialID *string
 	if firstSourceMaterialID != "" {
 		sourceMaterialID = &firstSourceMaterialID
 	}
 	return domain.GeneratedVocabulary{
 		OwnerID: ownerID, Language: language, CanonicalLemma: lemma, UPOS: upos,
+		LexicalDiscriminator: discriminator, Headword: headword,
 		FirstDeckID: firstDeckID, FirstSourceMaterialID: sourceMaterialID,
 		FirstGeneratedAt: firstGeneratedAt,
 	}

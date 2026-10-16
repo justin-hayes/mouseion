@@ -184,7 +184,10 @@ func orderedProjections(owner, deckName string, projections []CandidateProjectio
 		if ordered[i].Candidate.FirstEncounter != ordered[j].Candidate.FirstEncounter {
 			return ordered[i].Candidate.FirstEncounter < ordered[j].Candidate.FirstEncounter
 		}
-		return candidateKey(ordered[i].Candidate) < candidateKey(ordered[j].Candidate)
+		if left, right := candidateKey(ordered[i].Candidate), candidateKey(ordered[j].Candidate); left != right {
+			return left < right
+		}
+		return ordered[i].Candidate.LexicalDiscriminator < ordered[j].Candidate.LexicalDiscriminator
 	})
 	return ordered, nil
 }

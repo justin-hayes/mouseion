@@ -10,6 +10,7 @@ import (
 // those fields; mutable assembly metadata is deliberately not part of it.
 type RenderInput struct {
 	Language, CanonicalLemma, UPOS                                            string
+	LexicalDiscriminator, Headword                                            string
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget     string
 	SentenceTranslationTargets                                                []string
 	TargetWord, Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion string
@@ -24,6 +25,7 @@ type RenderInput struct {
 func renderInputFromEntry(entry Entry) RenderInput {
 	return RenderInput{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
+		LexicalDiscriminator: entry.LexicalDiscriminator, Headword: entry.Headword,
 		Sentence: entry.Sentence, Translation: entry.Translation,
 		SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget,
 		TargetWord: entry.TargetWord, Gloss: entry.Gloss, Plural: entry.Plural, IPA: entry.IPA,

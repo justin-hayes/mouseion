@@ -467,11 +467,13 @@ type DeckPreparationManifestItem struct {
 	CandidateDigest string
 	CreatedAt       time.Time
 	// Frozen target language for this manifest item cache identity
-	TargetLanguage      string
-	QualityGdexScore    float64
-	CorpusID            pgtype.UUID
-	SentenceOrdinal     pgtype.Int8
-	MeaningEvidenceHash pgtype.Text
+	TargetLanguage       string
+	QualityGdexScore     float64
+	CorpusID             pgtype.UUID
+	SentenceOrdinal      pgtype.Int8
+	MeaningEvidenceHash  pgtype.Text
+	LexicalDiscriminator string
+	Headword             string
 }
 
 type DeckPreparationRun struct {
@@ -545,13 +547,15 @@ type DeckPreparationTranslationOutcome struct {
 }
 
 type DeckPreparationVocabulary struct {
-	OwnerID           string
-	DeckPreparationID string
-	Language          string
-	CanonicalLemma    string
-	Upos              string
-	GeneratedAt       time.Time
-	GraduatedAt       pgtype.Timestamptz
+	OwnerID              string
+	DeckPreparationID    string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	GeneratedAt          time.Time
+	GraduatedAt          pgtype.Timestamptz
+	LexicalDiscriminator string
+	Headword             string
 }
 
 type Edition struct {
@@ -638,6 +642,8 @@ type GeneratedVocabulary struct {
 	FirstDeckID           string
 	FirstSourceMaterialID pgtype.UUID
 	FirstGeneratedAt      time.Time
+	LexicalDiscriminator  string
+	Headword              string
 }
 
 type KnownVocabulary struct {

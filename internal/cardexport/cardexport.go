@@ -32,6 +32,7 @@ var ErrInvalidInput = errors.New("cardexport: invalid input")
 
 type Entry struct {
 	OwnerID, Language, CanonicalLemma, UPOS                                           string
+	LexicalDiscriminator, Headword                                                    string
 	CorpusID                                                                          string
 	SentenceOrdinal                                                                   int64
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
@@ -132,6 +133,18 @@ func DedupKey(language, lemma, upos, owner string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// DedupKeyWithDiscriminator includes the scheme-qualified lexical discriminator
+// so homographs that share a canonical lemma and part of speech (δέω 1 and
+// δέω 2) stay separate cards. The empty discriminator reproduces DedupKey
+// byte-for-byte, so modern-language card keys are unchanged.
+func DedupKeyWithDiscriminator(language, lemma, upos, discriminator, owner string) string {
+	if discriminator == "" {
+		return DedupKey(language, lemma, upos, owner)
+	}
+	sum := sha256.Sum256([]byte(language + " | " + lemma + " | " + upos + " | " + discriminator + " | " + owner))
+	return hex.EncodeToString(sum[:])
+}
+
 // CardIdentity returns the stable, owner-scoped identity exported as Anki's
 // sort and duplicate-detection field. It is deliberately separate from Key:
 // Key preserves the existing lemma-level note GUID and persistence semantics,
@@ -139,18 +152,20 @@ func DedupKey(language, lemma, upos, owner string) string {
 func CardIdentity(owner string, input RenderInput) string {
 	target := testedRenderTarget(input)
 	inputs := struct {
-		Version        int    `json:"version"`
-		Owner          string `json:"owner"`
-		Language       string `json:"language"`
-		CanonicalLemma string `json:"canonical_lemma"`
-		UPOS           string `json:"upos"`
-		Target         string `json:"target"`
-		SourceSentence string `json:"source_sentence"`
-		SourceDocument string `json:"source_document"`
-		FirstEncounter int64  `json:"first_encounter"`
+		Version              int    `json:"version"`
+		Owner                string `json:"owner"`
+		Language             string `json:"language"`
+		CanonicalLemma       string `json:"canonical_lemma"`
+		UPOS                 string `json:"upos"`
+		LexicalDiscriminator string `json:"lexical_discriminator,omitempty"`
+		Target               string `json:"target"`
+		SourceSentence       string `json:"source_sentence"`
+		SourceDocument       string `json:"source_document"`
+		FirstEncounter       int64  `json:"first_encounter"`
 	}{
 		Version: 1, Owner: owner, Language: input.Language,
-		CanonicalLemma: input.CanonicalLemma, UPOS: input.UPOS, Target: target,
+		CanonicalLemma: input.CanonicalLemma, UPOS: input.UPOS, LexicalDiscriminator: input.LexicalDiscriminator,
+		Target:         target,
 		SourceSentence: input.Sentence, SourceDocument: input.SourceDocument,
 		FirstEncounter: input.FirstEncounter,
 	}
@@ -385,7 +400,7 @@ func scoreSentenceQuality(language, sentence, target string, firstEncounter int6
 	scoreLengthQuality(&quality, text)
 	scoreTargetQuality(&quality, text, target)
 	scoreSourceLocationQuality(&quality, firstEncounter)
-	scoreBoundaryQuality(&quality, text)
+	scoreBoundaryQuality(&quality, language, text)
 	scoreStructuralNoiseQuality(&quality, text)
 	scoreGermanGDEXQuality(language, &quality, text, target, tokens)
 	quality.Accepted = quality.Score >= minimumSentenceScore && !containsRejection(quality.Reasons)
@@ -440,10 +455,10 @@ func scoreSourceLocationQuality(quality *SentenceQuality, firstEncounter int64) 
 	quality.award(15, "valid source location")
 }
 
-// scoreBoundaryQuality requires a capitalised or quoted start and a terminal
-// sentence boundary.
-func scoreBoundaryQuality(quality *SentenceQuality, text string) {
-	if !hasCompleteBoundary(text) {
+// scoreBoundaryQuality requires a terminal sentence boundary and, for
+// languages that capitalise sentences, a capitalised or quoted start.
+func scoreBoundaryQuality(quality *SentenceQuality, language, text string) {
+	if !hasCompleteBoundary(language, text) {
 		quality.reject("incomplete sentence boundaries")
 		return
 	}
@@ -516,12 +531,29 @@ func containsRejection(reasons []string) bool {
 	return false
 }
 
-func hasCompleteBoundary(text string) bool {
-	if text == "" || !strings.ContainsAny(text[len(text)-1:], ".!?") {
+func hasCompleteBoundary(language, text string) bool {
+	if text == "" {
+		return false
+	}
+	if isAncientGreek(language) {
+		// Greek editions start sentences in lowercase, so only the terminal
+		// boundary is required. The source terminators are the full stop, the
+		// semicolon / Greek question mark (U+037E) and the raised dot / ano
+		// teleia (U+00B7 / U+0387).
+		last, _ := utf8.DecodeLastRuneInString(text)
+		return strings.ContainsRune(".;\u037e·\u0387", last)
+	}
+	if !strings.ContainsAny(text[len(text)-1:], ".!?") {
 		return false
 	}
 	first, _ := utf8.DecodeRuneInString(text)
 	return unicode.IsUpper(first) || unicode.IsNumber(first) || strings.ContainsRune("\"'“„«", first)
+}
+
+// isAncientGreek reports whether a language tag is Ancient Greek, whose
+// editions do not capitalise sentence starts.
+func isAncientGreek(language string) bool {
+	return baseLanguageCode(language) == "grc"
 }
 
 func structuralNoise(text string) bool {
@@ -1016,9 +1048,14 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 	}
 	tags := uniqueTags("Mouseion", prefixedTag("lang", input.Language), prefixedTag("pos", input.UPOS), prefixedTag("source", input.SourceDocument))
 	displayLemma := lemmadisplay.Format(input.Language, input.CanonicalLemma, input.UPOS)
+	if strings.TrimSpace(input.Headword) != "" {
+		// An imported Book stores the reviewed citation form; it is the
+		// learner-facing headword, never the internal profile key.
+		displayLemma = input.Headword
+	}
 	article := nounArticle(input.Language, input.UPOS, displayLemma, input.Morphology)
 	note := Note{
-		Key: DedupKey(input.Language, input.CanonicalLemma, input.UPOS, owner), Identity: CardIdentity(owner, input),
+		Key: DedupKeyWithDiscriminator(input.Language, input.CanonicalLemma, input.UPOS, input.LexicalDiscriminator, owner), Identity: CardIdentity(owner, input),
 		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(input.UPOS),
 		Plural:         escapeField(nounPlural(input.UPOS, input.Plural)),
 		IPA:            escapeField(strings.TrimSpace(input.IPA)),
@@ -1549,7 +1586,7 @@ func renderAccepted(ctx context.Context, owner, deckName string, entries []Rende
 	for i := range accepted {
 		notes[i] = accepted[i].note
 	}
-	tsv, err := RenderTSV(notes, dictionaryAttribution(entries))
+	tsv, err := RenderTSV(notes, attributionNotices(entries))
 	if err != nil {
 		return Artifact{}, fmt.Errorf("render TSV: %w", err)
 	}
@@ -1571,10 +1608,24 @@ func renderAccepted(ctx context.Context, owner, deckName string, entries []Rende
 
 func deckDescription(entries []RenderInput) string {
 	description := "Generated by Mouseion"
-	if attribution := dictionaryAttribution(entries); attribution != "" {
+	if attribution := attributionNotices(entries); attribution != "" {
 		return description + "\n\n" + attribution
 	}
 	return description
+}
+
+// attributionNotices returns every attribution and licence notice the entries
+// require: Wiktionary whenever dictionary evidence was used, and the imported
+// Ancient Greek source notices whenever the deck is Ancient Greek.
+func attributionNotices(entries []RenderInput) string {
+	var notices []string
+	if dictionaryAttribution(entries) != "" {
+		notices = append(notices, dictionary.AttributionNotice)
+	}
+	if deckIsAncientGreek(entries) {
+		notices = append(notices, dictionary.AncientGreekSourceNotice)
+	}
+	return strings.Join(notices, "\n\n")
 }
 
 func dictionaryAttribution(entries []RenderInput) string {
@@ -1584,4 +1635,15 @@ func dictionaryAttribution(entries []RenderInput) string {
 		}
 	}
 	return ""
+}
+
+// deckIsAncientGreek reports whether any entry belongs to the dedicated Ancient
+// Greek language.
+func deckIsAncientGreek(entries []RenderInput) bool {
+	for _, entry := range entries {
+		if baseLanguageCode(entry.Language) == "grc" {
+			return true
+		}
+	}
+	return false
 }

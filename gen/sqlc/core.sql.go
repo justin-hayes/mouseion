@@ -1037,13 +1037,14 @@ func (q *Queries) ListSupportedLanguages(ctx context.Context) ([]SupportedLangua
 }
 
 const listUnattachedGeneratedVocabulary = `-- name: ListUnattachedGeneratedVocabulary :many
-SELECT owner_id::text, language, canonical_lemma, upos, (COALESCE(first_deck_id::text, ''))::text AS first_deck_id, first_source_material_id, first_generated_at
+SELECT owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, (COALESCE(first_deck_id::text, ''))::text AS first_deck_id, first_source_material_id, first_generated_at
 FROM generated_vocabulary gv
 WHERE gv.owner_id = $1 AND gv.language = $2 AND NOT EXISTS (
   SELECT 1 FROM deck_preparation_vocabulary dv
   WHERE dv.owner_id = gv.owner_id AND dv.language = gv.language
-    AND dv.canonical_lemma = gv.canonical_lemma AND dv.upos = gv.upos)
-ORDER BY gv.canonical_lemma, gv.upos
+    AND dv.canonical_lemma = gv.canonical_lemma AND dv.upos = gv.upos
+    AND dv.lexical_discriminator = gv.lexical_discriminator)
+ORDER BY gv.canonical_lemma, gv.upos, gv.lexical_discriminator
 `
 
 type ListUnattachedGeneratedVocabularyParams struct {
@@ -1056,6 +1057,8 @@ type ListUnattachedGeneratedVocabularyRow struct {
 	Language              string
 	CanonicalLemma        string
 	Upos                  string
+	LexicalDiscriminator  string
+	Headword              string
 	FirstDeckID           string
 	FirstSourceMaterialID pgtype.UUID
 	FirstGeneratedAt      time.Time
@@ -1075,6 +1078,8 @@ func (q *Queries) ListUnattachedGeneratedVocabulary(ctx context.Context, arg Lis
 			&i.Language,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.Headword,
 			&i.FirstDeckID,
 			&i.FirstSourceMaterialID,
 			&i.FirstGeneratedAt,

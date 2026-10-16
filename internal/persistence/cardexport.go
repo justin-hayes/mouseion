@@ -109,18 +109,18 @@ func (s *PostgresStore) RecordGeneratedVocabulary(ctx context.Context, value dom
 	if value.FirstSourceMaterialID != nil {
 		firstSourceMaterialID = *value.FirstSourceMaterialID
 	}
-	if err := s.queries().PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: value.OwnerID, Language: value.Language, CanonicalLemma: value.CanonicalLemma, Upos: value.UPOS, FirstDeckID: value.FirstDeckID, FirstSourceMaterialID: nullableUUIDArg(firstSourceMaterialID)}); err != nil {
+	if err := s.queries().PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: value.OwnerID, Language: value.Language, CanonicalLemma: value.CanonicalLemma, Upos: value.UPOS, LexicalDiscriminator: value.LexicalDiscriminator, Headword: value.Headword, FirstDeckID: value.FirstDeckID, FirstSourceMaterialID: nullableUUIDArg(firstSourceMaterialID)}); err != nil {
 		return domain.GeneratedVocabulary{}, err
 	}
-	return s.getGeneratedVocabulary(ctx, value.OwnerID, value.Language, value.CanonicalLemma, value.UPOS)
+	return s.getGeneratedVocabulary(ctx, value.OwnerID, value.Language, value.CanonicalLemma, value.UPOS, value.LexicalDiscriminator)
 }
 
-func (s *PostgresStore) getGeneratedVocabulary(ctx context.Context, owner, language, lemma, upos string) (value domain.GeneratedVocabulary, err error) {
-	row, err := s.queries().GetGeneratedVocabulary(ctx, sqlcgen.GetGeneratedVocabularyParams{OwnerID: owner, Language: language, CanonicalLemma: lemma, Upos: upos})
+func (s *PostgresStore) getGeneratedVocabulary(ctx context.Context, owner, language, lemma, upos, discriminator string) (value domain.GeneratedVocabulary, err error) {
+	row, err := s.queries().GetGeneratedVocabulary(ctx, sqlcgen.GetGeneratedVocabularyParams{OwnerID: owner, Language: language, CanonicalLemma: lemma, Upos: upos, LexicalDiscriminator: discriminator})
 	if err != nil {
 		return value, missing(err)
 	}
-	return generatedVocabularyFromFields(row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.FirstDeckID, row.FirstSourceMaterialID, row.FirstGeneratedAt), nil
+	return generatedVocabularyFromFields(row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.FirstDeckID, row.FirstSourceMaterialID, row.FirstGeneratedAt), nil
 }
 
 func (s *PostgresStore) ListGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
@@ -130,7 +130,7 @@ func (s *PostgresStore) ListGeneratedVocabulary(ctx context.Context, owner, lang
 	}
 	var result []domain.GeneratedVocabulary
 	for _, row := range rows {
-		result = append(result, generatedVocabularyFromFields(row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.FirstDeckID, row.FirstSourceMaterialID, row.FirstGeneratedAt))
+		result = append(result, generatedVocabularyFromFields(row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.FirstDeckID, row.FirstSourceMaterialID, row.FirstGeneratedAt))
 	}
 	return result, nil
 }

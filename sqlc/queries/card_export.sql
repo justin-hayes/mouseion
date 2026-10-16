@@ -48,15 +48,17 @@ ON CONFLICT(owner_id, dedup_key) DO UPDATE SET
   back = excluded.back;
 
 -- name: PutGeneratedVocabulary :exec
-INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id)
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING;
+INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator, headword, first_deck_id, first_source_material_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING;
 
 -- name: GetGeneratedVocabulary :one
 SELECT owner_id::text,
        language,
        canonical_lemma,
        upos,
+       lexical_discriminator,
+       headword,
        first_deck_id::text,
        (COALESCE(first_source_material_id::text, ''))::text AS first_source_material_id,
        first_generated_at
@@ -64,17 +66,20 @@ FROM generated_vocabulary
 WHERE owner_id = $1
   AND language = $2
   AND canonical_lemma = $3
-  AND upos = $4;
+  AND upos = $4
+  AND lexical_discriminator = $5;
 
 -- name: ListGeneratedVocabulary :many
 SELECT owner_id::text,
        language,
        canonical_lemma,
        upos,
+       lexical_discriminator,
+       headword,
        first_deck_id::text,
        (COALESCE(first_source_material_id::text, ''))::text AS first_source_material_id,
        first_generated_at
 FROM generated_vocabulary
 WHERE owner_id = $1
   AND language = $2
-ORDER BY canonical_lemma, upos;
+ORDER BY canonical_lemma, upos, lexical_discriminator;

@@ -13,20 +13,22 @@ import (
 )
 
 const attachDeckPreparationVocabulary = `-- name: AttachDeckPreparationVocabulary :exec
-INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at)
-SELECT gv.owner_id, $1, gv.language, gv.canonical_lemma, gv.upos, gv.first_generated_at
+INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, lexical_discriminator, headword, generated_at)
+SELECT gv.owner_id, $1, gv.language, gv.canonical_lemma, gv.upos, gv.lexical_discriminator, gv.headword, gv.first_generated_at
 FROM generated_vocabulary gv
 WHERE gv.owner_id = $2 AND gv.language = $3
   AND gv.canonical_lemma = $4 AND gv.upos = $5
+  AND gv.lexical_discriminator = $6
 ON CONFLICT DO NOTHING
 `
 
 type AttachDeckPreparationVocabularyParams struct {
-	Preparation    string
-	Owner          string
-	Language       string
-	CanonicalLemma string
-	Upos           string
+	Preparation          string
+	Owner                string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
 }
 
 func (q *Queries) AttachDeckPreparationVocabulary(ctx context.Context, arg AttachDeckPreparationVocabularyParams) error {
@@ -36,6 +38,7 @@ func (q *Queries) AttachDeckPreparationVocabulary(ctx context.Context, arg Attac
 		arg.Language,
 		arg.CanonicalLemma,
 		arg.Upos,
+		arg.LexicalDiscriminator,
 	)
 	return err
 }
@@ -872,20 +875,22 @@ func (q *Queries) InsertDeckPreparationHistory(ctx context.Context, arg InsertDe
 }
 
 const insertGeneratedVocabulary = `-- name: InsertGeneratedVocabulary :exec
-INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id)
-SELECT $1, $2, $3, $4, $5, source_material_id
+INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator, headword, first_deck_id, first_source_material_id)
+SELECT $1, $2, $3, $4, $5, $6, $7, source_material_id
 FROM deck_preparations
-WHERE owner_id = $1 AND id = $6
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING
+WHERE owner_id = $1 AND id = $8
+ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
 `
 
 type InsertGeneratedVocabularyParams struct {
-	Owner          string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	Deck           string
-	Preparation    string
+	Owner                string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	Headword             string
+	Deck                 string
+	Preparation          string
 }
 
 func (q *Queries) InsertGeneratedVocabulary(ctx context.Context, arg InsertGeneratedVocabularyParams) error {
@@ -894,6 +899,8 @@ func (q *Queries) InsertGeneratedVocabulary(ctx context.Context, arg InsertGener
 		arg.Language,
 		arg.CanonicalLemma,
 		arg.Upos,
+		arg.LexicalDiscriminator,
+		arg.Headword,
 		arg.Deck,
 		arg.Preparation,
 	)
@@ -901,10 +908,10 @@ func (q *Queries) InsertGeneratedVocabulary(ctx context.Context, arg InsertGener
 }
 
 const listDeckPreparationVocabulary = `-- name: ListDeckPreparationVocabulary :many
-SELECT owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at, graduated_at
+SELECT owner_id, deck_preparation_id, language, canonical_lemma, upos, lexical_discriminator, headword, generated_at, graduated_at
 FROM deck_preparation_vocabulary
 WHERE owner_id = $1 AND deck_preparation_id = $2
-ORDER BY language, canonical_lemma, upos
+ORDER BY language, canonical_lemma, upos, lexical_discriminator
 `
 
 type ListDeckPreparationVocabularyParams struct {
@@ -912,21 +919,35 @@ type ListDeckPreparationVocabularyParams struct {
 	Preparation string
 }
 
-func (q *Queries) ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]DeckPreparationVocabulary, error) {
+type ListDeckPreparationVocabularyRow struct {
+	OwnerID              string
+	DeckPreparationID    string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	Headword             string
+	GeneratedAt          time.Time
+	GraduatedAt          pgtype.Timestamptz
+}
+
+func (q *Queries) ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]ListDeckPreparationVocabularyRow, error) {
 	rows, err := q.db.Query(ctx, listDeckPreparationVocabulary, arg.Owner, arg.Preparation)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []DeckPreparationVocabulary{}
+	items := []ListDeckPreparationVocabularyRow{}
 	for rows.Next() {
-		var i DeckPreparationVocabulary
+		var i ListDeckPreparationVocabularyRow
 		if err := rows.Scan(
 			&i.OwnerID,
 			&i.DeckPreparationID,
 			&i.Language,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.Headword,
 			&i.GeneratedAt,
 			&i.GraduatedAt,
 		); err != nil {

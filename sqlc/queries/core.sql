@@ -256,13 +256,14 @@ SELECT EXISTS(
 );
 
 -- name: ListUnattachedGeneratedVocabulary :many
-SELECT owner_id::text, language, canonical_lemma, upos, (COALESCE(first_deck_id::text, ''))::text AS first_deck_id, first_source_material_id, first_generated_at
+SELECT owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, (COALESCE(first_deck_id::text, ''))::text AS first_deck_id, first_source_material_id, first_generated_at
 FROM generated_vocabulary gv
 WHERE gv.owner_id = $1 AND gv.language = $2 AND NOT EXISTS (
   SELECT 1 FROM deck_preparation_vocabulary dv
   WHERE dv.owner_id = gv.owner_id AND dv.language = gv.language
-    AND dv.canonical_lemma = gv.canonical_lemma AND dv.upos = gv.upos)
-ORDER BY gv.canonical_lemma, gv.upos;
+    AND dv.canonical_lemma = gv.canonical_lemma AND dv.upos = gv.upos
+    AND dv.lexical_discriminator = gv.lexical_discriminator)
+ORDER BY gv.canonical_lemma, gv.upos, gv.lexical_discriminator;
 
 -- name: PutSelectionCandidate :exec
 INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance)

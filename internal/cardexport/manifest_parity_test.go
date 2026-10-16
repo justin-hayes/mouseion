@@ -22,7 +22,7 @@ func TestManifestSnapshotRetainsHistoricalDigestAndRenderParity(t *testing.T) {
 	snapshot := bound.Snapshot()
 	digest, err := snapshot.Digest()
 	require.NoError(t, err)
-	assert.Equal(t, "4cc73202f6e94432db69ee0d638aaa90504cf70489ff493d9b962e09eddfbe2c", digest)
+	assert.Equal(t, "44c23bc1f640e6389c0cf995190a1bb46f09b22acc6f6c2a34d3c6a949153d80", digest)
 
 	rebuilt, err := manifestFromSnapshot(snapshot)
 	require.NoError(t, err)
