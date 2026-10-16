@@ -125,8 +125,8 @@ func (d LemmaReviewDecision) StoredCorrection() string {
 // previewed against: the surface form's occurrences, the states of the
 // identities the proposal moves, and the proposal's action, lemma and selected
 // occurrences. Confirming is rejected as stale whenever any of them changed.
-// The lexical discriminator enters the identity states and their fingerprint
-// once the persisted identity carries it; modern identities stay byte-identical.
+// The lexical discriminator is part of both an occurrence and a moved identity,
+// so a discriminated homograph cannot pass for its bare sibling.
 func LemmaReviewFingerprint(proposal LemmaReviewProposal, occurrences []LemmaReviewOccurrence, states []LemmaReviewIdentityState) string {
 	h := sha256.New()
 	for _, occurrence := range occurrences {
@@ -135,7 +135,7 @@ func LemmaReviewFingerprint(proposal LemmaReviewProposal, occurrences []LemmaRev
 	lines := make([]string, 0, len(states))
 	for _, state := range states {
 		lines = append(lines, strings.Join([]string{
-			state.Identity.Language, state.Identity.CanonicalLemma, state.Identity.UPOS,
+			state.Identity.Language, state.Identity.CanonicalLemma, state.Identity.UPOS, state.Identity.LexicalDiscriminator,
 			strconv.FormatInt(state.InBook, 10), strconv.FormatInt(state.AfterInBook, 10), strconv.FormatInt(state.OtherBooks, 10),
 			strconv.FormatBool(state.Known), strconv.FormatBool(state.Reserved),
 		}, "\x00"))
@@ -160,7 +160,7 @@ func occurrenceFingerprintLine(occurrence LemmaReviewOccurrence) string {
 	return strings.Join([]string{
 		occurrence.AnalysisRunID, occurrence.SourceDocumentID,
 		strconv.FormatInt(occurrence.StartOffset, 10), strconv.FormatInt(occurrence.EndOffset, 10),
-		occurrence.Surface, occurrence.RawLemma, occurrence.CanonicalLemma, occurrence.UPOS,
+		occurrence.Surface, occurrence.RawLemma, occurrence.CanonicalLemma, occurrence.UPOS, occurrence.LexicalDiscriminator,
 		occurrence.CorrectedLemma, strconv.FormatBool(occurrence.Excluded),
 	}, "\x00")
 }

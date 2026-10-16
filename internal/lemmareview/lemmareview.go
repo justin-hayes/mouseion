@@ -463,18 +463,8 @@ func (s *Service) rejectCurrentReading(ctx context.Context, owner, bookID, langu
 // resolve turns a requested proposal into the domain proposal the store
 // applies, selecting exactly the occurrences whose IDs were named.
 func (s *Service) resolve(ctx context.Context, owner, bookID string, p Proposal) (domain.LemmaReviewProposal, error) {
-	profile, err := canonicalization.For(p.Language)
-	if err != nil {
-		return domain.LemmaReviewProposal{}, domain.ErrLemmaReviewUnsupportedLanguage
-	}
-	lemma := ""
 	switch p.Action {
-	case "correct":
-		lemma = profile.Canonical(strings.TrimSpace(p.Lemma))
-		if !lexical.IsLemma(lemma) {
-			return domain.LemmaReviewProposal{}, domain.ErrLemmaReviewLemma
-		}
-	case "keep", "exclude":
+	case "correct", "keep", "exclude":
 	default:
 		return domain.LemmaReviewProposal{}, domain.ErrLemmaReviewDecision
 	}
@@ -495,11 +485,45 @@ func (s *Service) resolve(ctx context.Context, owner, bookID string, p Proposal)
 	if len(wanted) == 0 || len(chosen) != len(wanted) {
 		return domain.LemmaReviewProposal{}, domain.ErrLemmaReviewOccurrenceUnavailable
 	}
+	profile, err := normalizationProfile(p.Language, chosen)
+	if err != nil {
+		return domain.LemmaReviewProposal{}, domain.ErrLemmaReviewUnsupportedLanguage
+	}
+	lemma := ""
+	if p.Action == "correct" {
+		lemma = profile.Canonical(strings.TrimSpace(p.Lemma))
+		if !lexical.IsLemma(lemma) {
+			return domain.LemmaReviewProposal{}, domain.ErrLemmaReviewLemma
+		}
+	}
 	return domain.LemmaReviewProposal{
 		OwnerID: owner, BookID: bookID, Language: p.Language, Surface: p.Form,
 		Action: p.Action, Lemma: lemma, Occurrences: chosen,
 		NormalizationProfile: profile.Name(), NormalizationVersion: profile.Version(),
 	}, nil
+}
+
+// normalizationProfile resolves the profile a correction is normalized with. A
+// dedicated-profile language (Ancient Greek) is normalized by exactly the
+// profile its analysis recorded, looked up by version: a later active profile
+// never rewrites a decision on an earlier analysis, and an analysis that
+// recorded no resolvable profile is unsupported rather than quietly casefolded.
+// Every other language uses its active profile, so modern lemma review is
+// unchanged.
+func normalizationProfile(language string, occurrences []domain.LemmaReviewOccurrence) (canonicalization.Profile, error) {
+	if canonicalization.DedicatedProfileLanguage(language) {
+		for _, occurrence := range occurrences {
+			if occurrence.NormalizationProfile == "" || occurrence.NormalizationVersion == "" {
+				continue
+			}
+			profile, err := canonicalization.Lookup(language, occurrence.NormalizationVersion)
+			if err == nil && profile.Name() == occurrence.NormalizationProfile {
+				return profile, nil
+			}
+		}
+		return nil, canonicalization.ErrProfileNotFound
+	}
+	return canonicalization.For(language)
 }
 
 // EvidenceOf is the local-reference provenance a flag recorded on an occurrence,

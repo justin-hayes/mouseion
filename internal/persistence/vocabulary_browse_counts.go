@@ -66,22 +66,20 @@ func browseCountReadinessForDecision(ctx context.Context, tx pgx.Tx, owner, book
 func applyVocabularyBrowseDecisionDeltasTx(ctx context.Context, tx pgx.Tx, ready browseCountReadiness, decisions []domain.LemmaReviewDecision) error {
 	affected := make(map[browseCountIdentity]struct{}, len(decisions)*2)
 	lemmaSet := make(map[string]struct{}, len(decisions)*2)
-	touch := func(lemma, upos string) {
-		identity := normalizedBrowseCountIdentity(lemma, upos)
-		if identity.lemma == "" {
+	touch := func(identity selection.Identity) {
+		if identity == (selection.Identity{}) {
 			return
 		}
-		affected[identity] = struct{}{}
-		lemmaSet[identity.lemma] = struct{}{}
+		affected[browseCountIdentity{lemma: identity.CanonicalLemma, upos: identity.UPOS, discriminator: identity.LexicalDiscriminator}] = struct{}{}
+		lemmaSet[identity.CanonicalLemma] = struct{}{}
 	}
+	// The old identity is the occurrence's effective identity before the
+	// decision, including its lexical discriminator; the new identity is what
+	// the decision leaves. Reusing selection's occurrence rule keeps a
+	// discriminated homograph and its correction from touching each other.
 	for _, decision := range decisions {
-		o := decision.Occurrence
-		oldLemma := o.CorrectedLemma
-		if oldLemma == "" {
-			oldLemma = o.CanonicalLemma
-		}
-		touch(oldLemma, o.UPOS)
-		touch(decision.CanonicalLemma, o.UPOS)
+		touch(selection.ReviewIdentityNow(ready.language, decision.Occurrence))
+		touch(selection.ReviewIdentityAfter(ready.language, decision.Occurrence, decision))
 	}
 	lemmas := make([]string, 0, len(lemmaSet))
 	for lemma := range lemmaSet {

@@ -43,8 +43,13 @@ An occurrence has one effective vocabulary outcome: keep its analyzer-derived
 identity, replace its canonical lemma with a learner-confirmed correction while
 keeping the analyzed POS, or exclude it from vocabulary selection. A confirmed
 correction may be made without a dictionary entry and without an automatic
-review flag; the submitted citation form is validated and normalized by the
-study language's current profile. Exclusion does not remove source evidence,
+review flag; the submitted citation form is validated and normalized. For a
+dedicated-profile language such as Ancient Greek, the profile is the one the
+occurrence's analysis recorded, looked up by its exact version, so a later
+active profile never rewrites a decision on an earlier analysis; an analysis
+that recorded no resolvable profile is reported unsupported rather than
+casefolded. Every other language uses its current profile, so modern lemma
+review is unchanged. Exclusion does not remove source evidence,
 mark the identity Known, exclude other occurrences, or shrink the analyzable
 token denominator used for coverage. An excluded token contributes neither
 Known nor Reserved occurrences; exclusion does not artificially improve

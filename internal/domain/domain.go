@@ -301,6 +301,11 @@ type LemmaReviewOccurrence struct {
 	Excluded                                 bool
 	ReviewFlagReason, ReviewFlagResolution   string
 	ReviewFlagProvenance                     map[string]any
+	// NormalizationProfile and NormalizationVersion are the profile the
+	// occurrence's analysis recorded, so a correction is normalized by exactly
+	// that version rather than by whatever profile is active now. Both are empty
+	// when the store records no profile, and the active profile applies instead.
+	NormalizationProfile, NormalizationVersion string
 }
 
 type LemmaReviewDecision struct {
