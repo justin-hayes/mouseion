@@ -334,6 +334,7 @@ SELECT kv.id::text,
        kv.language,
        kv.canonical_lemma,
        kv.upos,
+       kv.lexical_discriminator,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.id = $2
 `
@@ -344,12 +345,13 @@ type GetKnownVocabularyParams struct {
 }
 
 type GetKnownVocabularyRow struct {
-	KvID           string
-	KvOwnerID      string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	CreatedAt      time.Time
+	KvID                 string
+	KvOwnerID            string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	CreatedAt            time.Time
 }
 
 func (q *Queries) GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error) {
@@ -361,30 +363,33 @@ func (q *Queries) GetKnownVocabulary(ctx context.Context, arg GetKnownVocabulary
 		&i.Language,
 		&i.CanonicalLemma,
 		&i.Upos,
+		&i.LexicalDiscriminator,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getKnownVocabularyByIdentity = `-- name: GetKnownVocabularyByIdentity :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, created_at
-FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 ORDER BY id LIMIT 1
+SELECT id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, created_at
+FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 AND lexical_discriminator = $5 ORDER BY id LIMIT 1
 `
 
 type GetKnownVocabularyByIdentityParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
+	OwnerID              string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
 }
 
 type GetKnownVocabularyByIdentityRow struct {
-	ID             string
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	CreatedAt      time.Time
+	ID                   string
+	OwnerID              string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	CreatedAt            time.Time
 }
 
 func (q *Queries) GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error) {
@@ -393,6 +398,7 @@ func (q *Queries) GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnown
 		arg.Language,
 		arg.CanonicalLemma,
 		arg.Upos,
+		arg.LexicalDiscriminator,
 	)
 	var i GetKnownVocabularyByIdentityRow
 	err := row.Scan(
@@ -401,6 +407,7 @@ func (q *Queries) GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnown
 		&i.Language,
 		&i.CanonicalLemma,
 		&i.Upos,
+		&i.LexicalDiscriminator,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -881,8 +888,9 @@ SELECT kv.id::text,
        kv.language,
        kv.canonical_lemma,
        kv.upos,
+       kv.lexical_discriminator,
        kv.created_at
-FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.id
+FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.lexical_discriminator, kv.id
 `
 
 type ListKnownVocabularyParams struct {
@@ -891,12 +899,13 @@ type ListKnownVocabularyParams struct {
 }
 
 type ListKnownVocabularyRow struct {
-	KvID           string
-	KvOwnerID      string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	CreatedAt      time.Time
+	KvID                 string
+	KvOwnerID            string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	CreatedAt            time.Time
 }
 
 func (q *Queries) ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error) {
@@ -914,6 +923,7 @@ func (q *Queries) ListKnownVocabulary(ctx context.Context, arg ListKnownVocabula
 			&i.Language,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.LexicalDiscriminator,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -1700,26 +1710,28 @@ func (q *Queries) UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSe
 }
 
 const upsertKnownVocabulary = `-- name: UpsertKnownVocabulary :one
-INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO UPDATE SET canonical_lemma = excluded.canonical_lemma
-RETURNING id::text, owner_id::text, language, canonical_lemma, upos, created_at
+INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO UPDATE SET canonical_lemma = excluded.canonical_lemma
+RETURNING id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, created_at
 `
 
 type UpsertKnownVocabularyParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
+	OwnerID              string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
 }
 
 type UpsertKnownVocabularyRow struct {
-	ID             string
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	CreatedAt      time.Time
+	ID                   string
+	OwnerID              string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	CreatedAt            time.Time
 }
 
 func (q *Queries) UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error) {
@@ -1728,6 +1740,7 @@ func (q *Queries) UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVoca
 		arg.Language,
 		arg.CanonicalLemma,
 		arg.Upos,
+		arg.LexicalDiscriminator,
 	)
 	var i UpsertKnownVocabularyRow
 	err := row.Scan(
@@ -1736,6 +1749,7 @@ func (q *Queries) UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVoca
 		&i.Language,
 		&i.CanonicalLemma,
 		&i.Upos,
+		&i.LexicalDiscriminator,
 		&i.CreatedAt,
 	)
 	return i, err

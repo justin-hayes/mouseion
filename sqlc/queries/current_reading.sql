@@ -65,19 +65,22 @@ RETURNING id::text, owner_id::text, language, book_id::text,
 -- name: InsertCurrentReadingSnapshotVocabulary :exec
 INSERT INTO primary_goal_snapshot_vocabulary(
     owner_id, snapshot_id, corpus_id, language, canonical_lemma, upos,
+    lexical_discriminator, headword,
     occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
 )
 VALUES (sqlc.arg('owner'), sqlc.arg('snapshot'), sqlc.arg('corpus'), sqlc.arg('language'),
-        sqlc.arg('canonical_lemma'), sqlc.arg('upos'), sqlc.arg('occurrence_count'),
+        sqlc.arg('canonical_lemma'), sqlc.arg('upos'),
+        sqlc.arg('lexical_discriminator'), sqlc.arg('headword'), sqlc.arg('occurrence_count'),
         sqlc.arg('observed_forms'), sqlc.arg('eligible_sentence_refs'), sqlc.arg('provenance'),
         sqlc.arg('first_encounter'), sqlc.arg('selected_at'));
 
 -- name: ListCurrentReadingSnapshotVocabulary :many
 SELECT owner_id::text, snapshot_id::text, corpus_id, language, canonical_lemma, upos,
+       lexical_discriminator, headword,
        occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
 FROM primary_goal_snapshot_vocabulary
 WHERE owner_id = sqlc.arg('owner') AND snapshot_id = sqlc.arg('snapshot')
-ORDER BY language, canonical_lemma, upos;
+ORDER BY language, canonical_lemma, upos, lexical_discriminator;
 
 -- name: ListCurrentReadingSnapshotCandidates :many
 SELECT sc.owner_id::text AS owner_id,
@@ -104,6 +107,7 @@ SELECT EXISTS (
   WHERE ps.owner_id = sqlc.arg('owner') AND ps.language = sqlc.arg('language')
     AND ps.released_at IS NULL AND pv.language = sqlc.arg('language')
     AND pv.canonical_lemma = sqlc.arg('canonical_lemma') AND pv.upos = sqlc.arg('upos')
+    AND pv.lexical_discriminator = sqlc.arg('lexical_discriminator')
 );
 
 -- name: GetActiveCurrentReadingSnapshotForPreparation :one
@@ -248,16 +252,16 @@ RETURNING owner_id::text, language, book_id::text, completed_at,
           graduated_vocabulary_count, already_known_vocabulary_count, completion_source;
 
 -- name: ListCurrentReadingSnapshotIdentities :many
-SELECT pv.language, pv.canonical_lemma, pv.upos
+SELECT pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator, pv.headword
 FROM primary_goal_snapshot_vocabulary pv
 WHERE pv.owner_id = sqlc.arg('owner')
   AND pv.snapshot_id = sqlc.arg('snapshot')
-ORDER BY pv.language, pv.canonical_lemma, pv.upos;
+ORDER BY pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator;
 
 -- name: ListKnownVocabularyForCurrentReadingSnapshot :many
 -- Known rows that can match a frozen identity (same language and lemma, any
--- POS). The domain decides which identities they cover.
-SELECT kv.language, kv.canonical_lemma, kv.upos
+-- POS and discriminator). The domain decides which identities they cover.
+SELECT kv.language, kv.canonical_lemma, kv.upos, kv.lexical_discriminator
 FROM known_vocabulary kv
 WHERE kv.owner_id = sqlc.arg('owner')
   AND EXISTS (
@@ -272,7 +276,7 @@ WHERE kv.owner_id = sqlc.arg('owner')
 -- Inserts the identities the domain decided to accept, only where absent.
 -- Which identities become Known is never decided here.
 WITH eligible AS (
-    SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos,
+    SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator,
            s.book_id, s.source_material_id, s.analysis_run_id,
            s.content_revision_id, s.content_snapshot_id, s.corpus_id,
            s.id AS snapshot_id, sqlc.arg('completed_at')::timestamptz AS completed_at,
@@ -306,15 +310,16 @@ WITH eligible AS (
     ) generated ON true
     WHERE pv.owner_id = sqlc.arg('owner')
       AND pv.snapshot_id = sqlc.arg('snapshot')
-      AND (pv.language, pv.canonical_lemma, pv.upos) IN (
-          SELECT l.value, c.value, u.value
+      AND (pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator) IN (
+          SELECT l.value, c.value, u.value, d.value
           FROM unnest(sqlc.arg('languages')::text[]) WITH ORDINALITY AS l(value, position)
           JOIN unnest(sqlc.arg('lemmas')::text[]) WITH ORDINALITY AS c(value, position) USING (position)
           JOIN unnest(sqlc.arg('uposes')::text[]) WITH ORDINALITY AS u(value, position) USING (position)
+          JOIN unnest(sqlc.arg('discriminators')::text[]) WITH ORDINALITY AS d(value, position) USING (position)
       )
 ), inserted AS (
     INSERT INTO known_vocabulary(
-        owner_id, language, canonical_lemma, upos,
+        owner_id, language, canonical_lemma, upos, lexical_discriminator,
         completion_book_id, completion_at, completion_goal_snapshot_id,
         completion_source_material_id, completion_analysis_run_id,
         completion_content_revision_id, completion_content_snapshot_id,
@@ -322,7 +327,7 @@ WITH eligible AS (
         generated_first_deck_id, generated_first_source_material_id,
         generated_first_at
     )
-    SELECT owner_id, language, canonical_lemma, upos,
+    SELECT owner_id, language, canonical_lemma, upos, lexical_discriminator,
            book_id, completed_at, snapshot_id, source_material_id, analysis_run_id,
            content_revision_id, content_snapshot_id, corpus_id, deck_preparation_id,
            first_deck_id, first_source_material_id, first_generated_at

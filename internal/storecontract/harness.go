@@ -17,8 +17,20 @@ import (
 // Language is the study language every scenario reads and writes.
 const Language = "de"
 
+// GreekLanguage is the imported classical study language whose discriminated
+// identities the grc scenarios exercise. It never shares readings, Reserved
+// vocabulary or counts with Language.
+const GreekLanguage = "grc"
+
 // BookSeed describes the analyzed Book a scenario needs.
 type BookSeed struct {
+	// Language is the Book's chosen study language. The empty value is
+	// Language, so every modern-language scenario is unchanged.
+	Language string
+	// Imported reports that the Book's analysis is an imported classical
+	// annotation rather than a modern analysis, so its vocabulary is seeded as
+	// analysis tokens and its run carries a non-UD syntax state.
+	Imported bool
 	// Vocabulary is the identities the Book's analysis contributes. A Start
 	// freezes the eligible ones into the reading's snapshot.
 	Vocabulary []domain.SnapshotIdentity
@@ -71,6 +83,9 @@ type Store interface {
 	EndCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) error
 	FinishCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) (domain.CurrentReadingFinishResult, error)
 	ListKnownVocabulary(owner, language string) ([]domain.KnownVocabulary, error)
+	// ListReservedVocabulary returns the vocabulary the owner's active reading
+	// reserves in language.
+	ListReservedVocabulary(owner, language string) ([]domain.DeckPreparationVocabulary, error)
 
 	// PrepareCurrentReadingDeck submits the Book's deck for the snapshot the
 	// request names and returns the resulting preparation.
@@ -130,6 +145,7 @@ func Scenarios() []Scenario {
 	}
 	scenarios = append(scenarios, admissionScenarios()...)
 	scenarios = append(scenarios, lemmaReviewScenarios()...)
+	scenarios = append(scenarios, greekScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }
 

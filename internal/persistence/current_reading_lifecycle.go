@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -38,7 +39,7 @@ func listCurrentReadingSnapshotVocabulary(ctx context.Context, q *sqlcgen.Querie
 	}
 	result := make([]domain.SelectionCandidate, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, selectionCandidateFromFields(row.OwnerID, row.CorpusID, row.Language, row.CanonicalLemma, row.Upos, row.OccurrenceCount, row.ObservedForms, row.EligibleSentenceRefs, row.Provenance, row.SelectedAt, row.FirstEncounter))
+		result = append(result, snapshotCandidateFromFields(row.OwnerID, row.CorpusID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.OccurrenceCount, row.ObservedForms, row.EligibleSentenceRefs, row.Provenance, row.SelectedAt, row.FirstEncounter))
 	}
 	return result, nil
 }
@@ -56,8 +57,16 @@ func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Que
 	if err != nil {
 		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 	}
+	imported, err := currentReadingImportedAnalysis(ctx, tx, owner, bookID)
+	if err != nil {
+		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
+	}
 	var candidates []domain.SelectionCandidate
-	if hasCorrections {
+	if hasCorrections || imported {
+		// An imported classical Book never writes the retiring Browse-selection
+		// store, and a corrected modern Book's stored counts are stale: both
+		// freeze the analysis projection itself, the same tokens, occurrence
+		// decisions and discriminated identities Browse reads.
 		candidates, err = correctedCurrentReadingCandidates(ctx, tx, q, owner, language, identity)
 	} else {
 		var rows []sqlcgen.ListCurrentReadingSnapshotCandidatesRow
@@ -79,14 +88,34 @@ func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Que
 	for _, candidate := range candidates {
 		if err := q.InsertCurrentReadingSnapshotVocabulary(ctx, sqlcgen.InsertCurrentReadingSnapshotVocabularyParams{
 			Owner: owner, Snapshot: snapshot.ID, Corpus: candidate.CorpusID, Language: candidate.Language,
-			CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS, OccurrenceCount: candidate.OccurrenceCount,
-			ObservedForms: candidate.ObservedForms, EligibleSentenceRefs: candidate.SentenceReferences,
+			CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+			LexicalDiscriminator: candidate.LexicalDiscriminator, Headword: candidate.Headword,
+			OccurrenceCount: candidate.OccurrenceCount,
+			ObservedForms:   candidate.ObservedForms, EligibleSentenceRefs: candidate.SentenceReferences,
 			Provenance: candidate.Provenance, FirstEncounter: candidate.FirstEncounter, SelectedAt: candidate.SelectedAt,
 		}); err != nil {
 			return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 		}
 	}
 	return snapshot, candidates, nil
+}
+
+// currentReadingImportedAnalysis reports whether the Book's current analysis is
+// an imported run. An imported run's tokens carry native or absent syntax rather
+// than UD, and the import never writes the retiring Browse-selection store, so
+// the Reading freeze must read the analysis projection directly.
+func currentReadingImportedAnalysis(ctx context.Context, tx pgx.Tx, owner, bookID string) (bool, error) {
+	var syntaxState string
+	err := tx.QueryRow(ctx, `SELECT r.syntax_state FROM current_analysis_identity cai
+		JOIN analysis_runs r ON r.owner_id=cai.owner_id AND r.id=cai.analysis_run_id
+		WHERE cai.owner_id=$1 AND cai.book_id=$2`, owner, bookID).Scan(&syntaxState)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return syntaxState != "ud", nil
 }
 
 type currentReadingVocabularyIdentity struct {
@@ -168,6 +197,7 @@ func currentReadingCandidateFrequency(candidate domain.SelectionCandidate, acros
 func currentReadingCandidateReserved(ctx context.Context, q *sqlcgen.Queries, owner, language string, candidate domain.SelectionCandidate) (bool, error) {
 	return q.IsCurrentReadingVocabularyReserved(ctx, sqlcgen.IsCurrentReadingVocabularyReservedParams{
 		Owner: owner, Language: language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+		LexicalDiscriminator: candidate.LexicalDiscriminator,
 	})
 }
 
@@ -175,8 +205,8 @@ func currentReadingCandidateReserved(ctx context.Context, q *sqlcgen.Queries, ow
 // learner's currently analyzed Books in a language, optionally leaving one Book
 // out. Counts and readiness share one SQL statement snapshot; the totals are
 // withheld with a pending or unavailable error while any such Book lacks a
-// ready projection. The persisted projection carries no lexical discriminator
-// yet, so its totals are keyed by the empty discriminator.
+// ready projection. The identity includes the lexical discriminator, so source
+// homographs are totalled separately.
 func currentAcrossBookCounts(ctx context.Context, q interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, owner, language, excludeBook string, identities []currentReadingVocabularyIdentity) (map[currentReadingVocabularyIdentity]int64, error) {
@@ -185,12 +215,14 @@ func currentAcrossBookCounts(ctx context.Context, q interface {
 		return acrossBooks, nil
 	}
 	lemmas, upos := make([]string, 0, len(identities)), make([]string, 0, len(identities))
+	discriminators := make([]string, 0, len(identities))
 	for _, identity := range identities {
 		lemmas, upos = append(lemmas, identity.lemma), append(upos, identity.upos)
+		discriminators = append(discriminators, identity.discriminator)
 	}
 	rows, err := q.Query(ctx, `
 WITH requested AS (
- SELECT lemma,upos FROM unnest($3::text[],$4::text[]) AS r(lemma,upos)
+ SELECT lemma,upos,discriminator FROM unnest($3::text[],$4::text[],$5::text[]) AS r(lemma,upos,discriminator)
 ), current_books AS MATERIALIZED (
  SELECT cai.owner_id,cai.book_id,cai.analysis_run_id,cai.corpus_id,b.language_tag AS language
  FROM current_analysis_identity cai
@@ -220,32 +252,32 @@ WITH requested AS (
          AND active.args->>'run_id'=cb.analysis_run_id::text)
  ) AS unavailable
 ), counts AS MATERIALIZED (
- SELECT c.canonical_lemma,c.upos,sum(c.occurrence_count)::bigint AS occurrences
+ SELECT c.canonical_lemma,c.upos,c.lexical_discriminator,sum(c.occurrence_count)::bigint AS occurrences
  FROM current_books cb
  JOIN vocabulary_browse_count_readiness r ON r.owner_id=cb.owner_id AND r.book_id=cb.book_id
    AND r.analysis_run_id=cb.analysis_run_id AND r.corpus_id=cb.corpus_id
    AND r.language=cb.language AND r.builder_version=3
  JOIN vocabulary_browse_counts c ON c.owner_id=cb.owner_id AND c.book_id=cb.book_id
    AND c.analysis_run_id=cb.analysis_run_id AND c.corpus_id=cb.corpus_id AND c.language=cb.language
- JOIN requested i ON i.lemma=c.canonical_lemma AND i.upos=c.upos
- WHERE $5::text='' OR c.book_id::text<>$5
- GROUP BY c.canonical_lemma,c.upos
+ JOIN requested i ON i.lemma=c.canonical_lemma AND i.upos=c.upos AND i.discriminator=c.lexical_discriminator
+ WHERE $6::text='' OR c.book_id::text<>$6
+ GROUP BY c.canonical_lemma,c.upos,c.lexical_discriminator
 )
-SELECT i.lemma,i.upos,COALESCE(c.occurrences,0)::bigint,s.ready,s.unavailable
+SELECT i.lemma,i.upos,i.discriminator,COALESCE(c.occurrences,0)::bigint,s.ready,s.unavailable
 FROM requested i CROSS JOIN projection_status s
-LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos`, owner, language, lemmas, upos, excludeBook)
+LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos AND c.lexical_discriminator=i.discriminator`, owner, language, lemmas, upos, discriminators, excludeBook)
 	if err != nil {
 		return nil, fmt.Errorf("load current across-Book vocabulary counts: %w", err)
 	}
 	ready, unavailable := true, false
 	for rows.Next() {
-		var lemma, pos string
+		var lemma, pos, discriminator string
 		var count int64
-		if err := rows.Scan(&lemma, &pos, &count, &ready, &unavailable); err != nil {
+		if err := rows.Scan(&lemma, &pos, &discriminator, &count, &ready, &unavailable); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		acrossBooks[currentReadingVocabularyIdentity{lemma: lemma, upos: pos}] = count
+		acrossBooks[currentReadingVocabularyIdentity{lemma: lemma, upos: pos, discriminator: discriminator}] = count
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
@@ -279,7 +311,26 @@ func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcge
 	if err != nil {
 		return nil, err
 	}
-	return projectedCurrentReadingCandidates(owner, language, identity.CaCorpusID, projected)
+	return projectedCurrentReadingCandidates(owner, language, identity.CaCorpusID, projected, tokenHeadwords(analysis))
+}
+
+// tokenHeadwords maps each analyzed token identity to its citation headword,
+// the minimum non-empty headword the analysis carries for that identity. The map
+// is empty for a modern-language analysis, whose tokens carry no headword.
+func tokenHeadwords(analysis analyzer.Result) map[selection.Identity]string {
+	headwords := make(map[selection.Identity]string)
+	for _, sentence := range analysis.Sentences {
+		for _, token := range sentence.Tokens {
+			if token.Headword == "" {
+				continue
+			}
+			identity := selection.Identity{Language: analysis.Language, CanonicalLemma: token.CanonicalLemma, UPOS: token.UPOS, LexicalDiscriminator: token.LexicalDiscriminator}
+			if headword, ok := headwords[identity]; !ok || token.Headword < headword {
+				headwords[identity] = token.Headword
+			}
+		}
+	}
+	return headwords
 }
 
 // currentReadingCorrectionDecisions translates persisted occurrence corrections
@@ -302,8 +353,9 @@ func currentReadingCorrectionDecisions(corrections []domain.OccurrenceLemmaCorre
 }
 
 // projectedCurrentReadingCandidates persists the projection as frozen selection
-// candidates, encoding each fact and its first encounter.
-func projectedCurrentReadingCandidates(owner, language, corpusID string, projected []selection.Candidate) ([]domain.SelectionCandidate, error) {
+// candidates, encoding each fact, its first encounter, and its citation
+// headword.
+func projectedCurrentReadingCandidates(owner, language, corpusID string, projected []selection.Candidate, headwords map[selection.Identity]string) ([]domain.SelectionCandidate, error) {
 	candidates := make([]domain.SelectionCandidate, 0, len(projected))
 	for _, candidate := range projected {
 		encoded, err := encodeProjectedCurrentReadingCandidate(candidate)
@@ -317,6 +369,7 @@ func projectedCurrentReadingCandidates(owner, language, corpusID string, project
 		candidates = append(candidates, domain.SelectionCandidate{
 			OwnerID: owner, CorpusID: corpusID, Language: language,
 			CanonicalLemma: candidate.Identity.CanonicalLemma, UPOS: candidate.Identity.UPOS,
+			LexicalDiscriminator: candidate.Identity.LexicalDiscriminator, Headword: headwords[candidate.Identity],
 			OccurrenceCount: candidate.OccurrenceCount, FirstEncounter: first,
 			ObservedForms: encoded.observedForms, SentenceReferences: encoded.sentenceReferences, Provenance: encoded.provenance, SelectedAt: time.Now().UTC(),
 		})

@@ -67,7 +67,7 @@ func (s *Store) fixtureSnapshotIdentitiesLocked(owner, language string) []domain
 	snapshot := s.goalSnapshotVocabularyLocked(owner, language)
 	identities := make([]domain.SnapshotIdentity, 0, len(snapshot))
 	for _, item := range snapshot {
-		identities = append(identities, domain.SnapshotIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, LexicalDiscriminator: item.LexicalDiscriminator})
+		identities = append(identities, domain.SnapshotIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, LexicalDiscriminator: item.LexicalDiscriminator, Headword: item.Headword})
 	}
 	return identities
 }
@@ -177,7 +177,7 @@ func (s *Store) ListCurrentReadingSnapshotVocabulary(_ context.Context, owner, s
 	}
 	result := make([]domain.SelectionCandidate, 0, len(goal))
 	for _, item := range goal {
-		result = append(result, domain.SelectionCandidate{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS})
+		result = append(result, domain.SelectionCandidate{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, LexicalDiscriminator: item.LexicalDiscriminator, Headword: item.Headword})
 	}
 	return result, nil
 }

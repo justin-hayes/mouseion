@@ -34,9 +34,7 @@ func TestKnownVocabularyCleanupDeletesOnlyImportsAndDiscardsPendingJobs(t *testi
 
 	// Imported rows have no completion provenance. Seed both a lemma-wide
 	// (POS-less) row and a per-POS row.
-	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "haus", "")
-	require.NoError(t, err)
-	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "gehen", "VERB")
+	_, err = pool.Exec(ctx, `INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos) VALUES ($1, 'de', 'haus', ''), ($1, 'de', 'gehen', 'VERB')`, owner.ID)
 	require.NoError(t, err)
 
 	// River holds live and finalized import jobs; only the live states may be
@@ -99,7 +97,7 @@ VALUES ($1, 'de', $2, now(), $3, 3, 2, 1, 1)`, owner.ID, book, snapshot)
 		// freshly imported row: the rerun still deletes it and leaves every
 		// retained fact alone.
 		moveApplicationMigrationsTo(t, databaseURL, 33)
-		_, err := store.PutKnownVocabulary(ctx, owner.ID, "de", "neu", "")
+		_, err := pool.Exec(ctx, `INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos) VALUES ($1, 'de', 'neu', '')`, owner.ID)
 		require.NoError(t, err)
 		moveApplicationMigrationsTo(t, databaseURL, 34)
 

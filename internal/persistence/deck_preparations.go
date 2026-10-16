@@ -325,6 +325,7 @@ func (s *PostgresStore) ListReservedVocabulary(ctx context.Context, owner, langu
 		result = append(result, domain.DeckPreparationVocabulary{
 			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
 			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword,
 			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
 		})
 	}

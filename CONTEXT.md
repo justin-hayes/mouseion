@@ -49,7 +49,8 @@ _Avoid_: study-language scope, synced languages.
 **Known vocabulary**:
 Words the learner already knows in a language, owned per learner and language,
 populated only by acceptance of a completed current reading's frozen vocabulary
-snapshot. This is modeled learner knowledge, not a claim of
+snapshot. Identities are discriminated, so δέω 1 and δέω 2 are separate Known
+words. This is modeled learner knowledge, not a claim of
 verified mastery; card generation never marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 
@@ -95,8 +96,10 @@ _Avoid_: difficult words, never generated vocabulary.
 
 **Current-reading vocabulary snapshot**:
 The immutable Book-vocabulary-candidate identity set frozen from the Book's exact
-source and current analysis when reading starts. Later evidence and deck changes
-cannot mutate it; rereading freezes a new snapshot.
+source and current analysis when reading starts. Each member carries its lexical
+discriminator and the citation headword it showed, so homographs stay separate.
+Later evidence and deck changes cannot mutate it; rereading freezes a new
+snapshot.
 _Avoid_: deck contents, generated vocabulary, study snapshot.
 
 **Generated vocabulary**:

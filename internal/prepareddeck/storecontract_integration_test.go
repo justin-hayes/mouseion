@@ -96,75 +96,121 @@ func (h *postgresHarness) exec(t *testing.T, sql string, args ...any) {
 
 // SeedBook creates a Book with a completed analysis and the given candidate
 // identities, as analysis and selection would, and marks it To Read when asked.
+// A modern-language Book's identities are seeded as selection candidates; an
+// imported classical Book's identities are seeded as analysis tokens, the shape
+// the import writer produces, so the Reading freeze reads the projection.
 func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontract.BookSeed) string {
 	t.Helper()
 	h.books++
 	identifier := fmt.Sprintf("contract-book-%d", h.books)
-	source, err := h.store.PutSourceMaterialWithExtractedUnits(h.ctx, domain.SourceMaterial{OwnerID: owner, Language: storecontract.Language, SourceIdentifier: identifier, Title: "Contract Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
+	language := seed.Language
+	if language == "" {
+		language = storecontract.Language
+	}
+	source, err := h.store.PutSourceMaterialWithExtractedUnits(h.ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: "Contract Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
 	require.NoError(t, err)
-	languageState, languageTag := domain.LanguageChosen, storecontract.Language
+	languageState, languageTag := domain.LanguageChosen, language
 	if seed.LanguageUnknown {
 		languageState, languageTag = domain.LanguageUnknown, ""
 	}
 	book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: languageState, LanguageTag: languageTag})
 	require.NoError(t, err)
 	require.NoError(t, h.store.LinkSourceToBook(h.ctx, owner, book.ID, source.ID))
-	runID, corpusID := h.completeAnalysis(t, owner, book.ID, source.ID, identifier)
+	runID, corpusID := h.completeAnalysis(t, owner, book.ID, source.ID, identifier, language, seed.Imported)
 	if len(seed.Occurrences) > 0 {
-		h.seedLemmaOccurrences(t, owner, book.ID, source.ID, runID, corpusID, seed.Occurrences)
+		h.seedLemmaOccurrences(t, owner, book.ID, source.ID, runID, corpusID, language, seed.Occurrences)
 	}
 	if seed.ToRead {
 		require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, book.ID, domain.BookDispositionToRead))
 	}
+	var imported []domain.SnapshotIdentity
 	for _, identity := range seed.Vocabulary {
+		if seed.Imported {
+			imported = append(imported, identity)
+			continue
+		}
 		_, err = h.store.PutSelectionCandidate(h.ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: corpusID, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)})
 		require.NoError(t, err)
+	}
+	if len(imported) > 0 {
+		h.seedImportedVocabulary(t, owner, book.ID, source.ID, runID, corpusID, imported)
 	}
 	return book.ID
 }
 
 // completeAnalysis runs the Book's analysis to completion as analysis does,
 // makes it the Book's current analysis, and returns its run and corpus IDs.
-func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID, identifier string) (string, string) {
+func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID, identifier, language string, imported bool) (string, string) {
 	t.Helper()
 	analysisRiver, err := analysis.NewClient(h.store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(h.store))
 	require.NoError(t, err)
 	handle, err := analysis.NewService(h.store.Pool(), analysisRiver).SubmitAnalysis(h.ctx, owner, sourceID)
 	require.NoError(t, err)
 	artifactHash := "sha256:" + identifier
-	h.exec(t, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','casefold','1','fake','1')`, artifactHash)
+	profile, version := "casefold", "1"
+	if imported {
+		profile, version = "ancient-greek/1", "1"
+	}
+	h.exec(t, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,$2,'1',$3,$4,'fake','1')`, artifactHash, language, profile, version)
 	corpusID := uuid.NewString()
 	h.exec(t, `INSERT INTO corpora(id,owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,$5,'complete',0,0,1,1,0,1,1,0)`, corpusID, owner, sourceID, artifactHash, handle.RunID)
 	h.exec(t, `UPDATE analysis_runs SET state='completed',corpus_id=$2,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$3`, owner, corpusID, handle.RunID)
 	h.exec(t, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, handle.RunID)
 	h.exec(t, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, owner, corpusID, handle.RunID)
+	if imported {
+		h.exec(t, `UPDATE analysis_runs SET syntax_state='absent' WHERE owner_id=$1 AND id=$2`, owner, handle.RunID)
+	}
 	h.exec(t, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner, bookID, sourceID, handle.RunID)
 	return handle.RunID, corpusID
+}
+
+// seedImportedVocabulary stores each imported identity as three analysis tokens
+// in the Book's single extracted unit, then builds the Book's vocabulary count
+// projection. Three in-Book occurrences qualify every identity for the Reading
+// freeze, and the tokens carry the identity's source discriminator and headword.
+func (h *postgresHarness) seedImportedVocabulary(t *testing.T, owner, bookID, sourceID, runID, corpusID string, identities []domain.SnapshotIdentity) {
+	t.Helper()
+	unitID := domain.EPUBUnitID(0, "unit")
+	ordinal, start := int64(0), int64(0)
+	language := identities[0].Language
+	for _, identity := range identities {
+		for range 3 {
+			surface := identity.CanonicalLemma
+			end := start + int64(utf8.RuneCountInString(surface))
+			h.exec(t, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, owner, runID, corpusID, unitID, ordinal, surface, start, end)
+			h.exec(t, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,lexical_discriminator,headword,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,0,$6,$7,$7,$8,'dep',0,'{}',$9,$10,$11,$12)`, owner, language, runID, corpusID, ordinal, surface, identity.CanonicalLemma, identity.UPOS, identity.LexicalDiscriminator, identity.Headword, start, end)
+			start, ordinal = end+1, ordinal+1
+		}
+	}
+	tx, err := h.store.Pool().Begin(h.ctx)
+	require.NoError(t, err)
+	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(h.ctx, tx, owner, bookID, sourceID, runID, corpusID, language))
+	require.NoError(t, tx.Commit(h.ctx))
 }
 
 // seedLemmaOccurrences stores the scenario's occurrences as analysis would, one
 // sentence each in the Book's extracted unit, then builds the Book's vocabulary
 // count projection so lemma review previews are ready.
-func (h *postgresHarness) seedLemmaOccurrences(t *testing.T, owner, bookID, sourceID, runID, corpusID string, seeds []storecontract.OccurrenceSeed) {
+func (h *postgresHarness) seedLemmaOccurrences(t *testing.T, owner, bookID, sourceID, runID, corpusID, language string, seeds []storecontract.OccurrenceSeed) {
 	t.Helper()
 	unitID := domain.EPUBUnitID(0, "unit")
 	start := int64(0)
 	for ordinal, seed := range seeds {
 		end := start + int64(utf8.RuneCountInString(seed.Surface))
 		h.exec(t, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, owner, runID, corpusID, unitID, ordinal, seed.Surface, start, end)
-		h.exec(t, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,0,$6,$7,$7,$8,'root',0,'{}',$9,$10)`, owner, storecontract.Language, runID, corpusID, ordinal, seed.Surface, seed.Lemma, seed.UPOS, start, end)
+		h.exec(t, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,0,$6,$7,$7,$8,'root',0,'{}',$9,$10)`, owner, language, runID, corpusID, ordinal, seed.Surface, seed.Lemma, seed.UPOS, start, end)
 		start = end + 1
 	}
 	tx, err := h.store.Pool().Begin(h.ctx)
 	require.NoError(t, err)
-	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(h.ctx, tx, owner, bookID, sourceID, runID, corpusID, storecontract.Language))
+	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(h.ctx, tx, owner, bookID, sourceID, runID, corpusID, language))
 	require.NoError(t, tx.Commit(h.ctx))
 }
 
 func (h *postgresHarness) SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity) {
 	t.Helper()
 	for _, identity := range identities {
-		_, err := h.store.PutKnownVocabulary(h.ctx, owner, identity.Language, identity.CanonicalLemma, identity.UPOS)
+		_, err := h.store.PutKnownVocabularyIdentity(h.ctx, owner, identity.Language, identity.CanonicalLemma, identity.UPOS, identity.LexicalDiscriminator)
 		require.NoError(t, err)
 	}
 }
@@ -206,6 +252,10 @@ func (h *postgresHarness) FinishCurrentReading(owner, language, expectedBookID, 
 
 func (h *postgresHarness) ListKnownVocabulary(owner, language string) ([]domain.KnownVocabulary, error) {
 	return h.store.ListKnownVocabulary(h.ctx, owner, language)
+}
+
+func (h *postgresHarness) ListReservedVocabulary(owner, language string) ([]domain.DeckPreparationVocabulary, error) {
+	return h.store.ListReservedVocabulary(h.ctx, owner, language)
 }
 
 func (h *postgresHarness) ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {

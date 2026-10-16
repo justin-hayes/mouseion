@@ -363,7 +363,7 @@ func loadCurrentReadingSnapshotFacts(ctx context.Context, q *sqlcgen.Queries, ow
 	}
 	snapshot := make([]domain.SnapshotIdentity, 0, len(rows))
 	for _, row := range rows {
-		snapshot = append(snapshot, domain.SnapshotIdentity{Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos})
+		snapshot = append(snapshot, domain.SnapshotIdentity{Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword})
 	}
 	knownRows, err := q.ListKnownVocabularyForCurrentReadingSnapshot(ctx, sqlcgen.ListKnownVocabularyForCurrentReadingSnapshotParams{Owner: owner, Snapshot: snapshotID})
 	if err != nil {
@@ -371,7 +371,7 @@ func loadCurrentReadingSnapshotFacts(ctx context.Context, q *sqlcgen.Queries, ow
 	}
 	known := make([]domain.KnownVocabulary, 0, len(knownRows))
 	for _, row := range knownRows {
-		known = append(known, domain.KnownVocabulary{OwnerID: owner, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos})
+		known = append(known, domain.KnownVocabulary{OwnerID: owner, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator})
 	}
 	return snapshot, known, nil
 }
@@ -382,6 +382,7 @@ func knownVocabularyInsertParams(owner, snapshotID string, completedAt time.Time
 		params.Languages = append(params.Languages, identity.Language)
 		params.Lemmas = append(params.Lemmas, identity.CanonicalLemma)
 		params.Uposes = append(params.Uposes, identity.UPOS)
+		params.Discriminators = append(params.Discriminators, identity.LexicalDiscriminator)
 	}
 	return params
 }

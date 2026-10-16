@@ -3,9 +3,10 @@ package domain
 // SnapshotIdentity is one study-language vocabulary identity: a canonical
 // lemma with its analyzed part of speech and its scheme-qualified lexical
 // discriminator. The discriminator is empty for modern-language vocabulary and
-// distinguishes source homographs such as morpheus:2.
+// distinguishes source homographs such as morpheus:2. Headword is the imported
+// citation form shown to learners, empty for modern-language vocabulary.
 type SnapshotIdentity struct {
-	Language, CanonicalLemma, UPOS, LexicalDiscriminator string
+	Language, CanonicalLemma, UPOS, LexicalDiscriminator, Headword string
 }
 
 // CurrentReadingFinishFacts is everything Finish reads, loaded by an adapter

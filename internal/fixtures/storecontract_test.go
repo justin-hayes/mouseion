@@ -42,7 +42,10 @@ func (h *contractHarness) OtherOwner() string { return otherLearnerID }
 func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontract.BookSeed) string {
 	h.books++
 	bookID := fmt.Sprintf("contract-book-%d", h.books)
-	language := storecontract.Language
+	language := seed.Language
+	if language == "" {
+		language = storecontract.Language
+	}
 	if seed.LanguageUnknown {
 		// An empty source language is how the fixtures shelf reports an unchosen language.
 		language = ""
@@ -61,7 +64,7 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 	}
 	vocabulary := make([]domain.DeckPreparationVocabulary, 0, len(seed.Vocabulary))
 	for _, identity := range seed.Vocabulary {
-		vocabulary = append(vocabulary, domain.DeckPreparationVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator})
+		vocabulary = append(vocabulary, domain.DeckPreparationVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, Headword: identity.Headword})
 	}
 	h.store.bookSnapshotVocabulary[bookID] = vocabulary
 	h.store.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] = contractReviewOccurrences(owner, bookID, seed.Occurrences)
@@ -139,6 +142,10 @@ func (h *contractHarness) FinishCurrentReading(owner, language, expectedBookID, 
 
 func (h *contractHarness) ListKnownVocabulary(owner, language string) ([]domain.KnownVocabulary, error) {
 	return h.store.ListKnownVocabulary(context.Background(), owner, language)
+}
+
+func (h *contractHarness) ListReservedVocabulary(owner, language string) ([]domain.DeckPreparationVocabulary, error) {
+	return h.store.ListReservedVocabulary(context.Background(), owner, language)
 }
 
 func (h *contractHarness) ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {

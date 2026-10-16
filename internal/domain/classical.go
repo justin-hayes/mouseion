@@ -8,6 +8,12 @@ import (
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
 
+// ImportedSourceMediaType is the media type of a pinned imported classical
+// annotation (a CoNLL-U file). It is deliberately not an EPUB type: the import
+// path never treats the source as an EPUB, but its current content admits a
+// Reading like an EPUB analysis does.
+const ImportedSourceMediaType = "application/x-conllu"
+
 // Work is the author and title of a classical text, independent of any edition
 // or learner. Operator registration stores it as shared reference data.
 type Work struct {

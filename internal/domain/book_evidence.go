@@ -9,7 +9,18 @@ const (
 	ContentNoCurrentRevision ContentSignal = "no-current-revision"
 	ContentNonEPUB           ContentSignal = "non-epub"
 	ContentCurrentEPUB       ContentSignal = "current-epub"
+	// ContentCurrentImported is a current imported classical source (a pinned
+	// CoNLL-U annotation) rather than an EPUB. Like a current EPUB, it is the
+	// acquired content analysis and Reading need, so it admits a Reading.
+	ContentCurrentImported ContentSignal = "current-imported"
 )
+
+// IsCurrentContent reports whether the signal names acquired current content
+// that analysis and Reading can use, whether it is an EPUB or an imported
+// classical source.
+func (c ContentSignal) IsCurrentContent() bool {
+	return c == ContentCurrentEPUB || c == ContentCurrentImported
+}
 
 // PublishedAnalysisSignal reports the analysis published for the Book's current
 // content, taken from the current-analysis identity.
@@ -189,7 +200,7 @@ func evidenceState(content ContentSignal, phase AnalysisPhase) BookEvidenceState
 		return BookNotAcquired
 	case ContentNoCurrentRevision:
 		return BookUnavailable
-	case ContentNonEPUB, ContentCurrentEPUB:
+	case ContentNonEPUB, ContentCurrentEPUB, ContentCurrentImported:
 	}
 	switch phase {
 	case PhaseStale:
@@ -208,7 +219,7 @@ func eligibilityReason(content ContentSignal, signals AnalysisSignals, phase Ana
 		return CurrentReadingNotToRead
 	case language == "":
 		return CurrentReadingNoChosenLanguage
-	case content != ContentCurrentEPUB:
+	case !content.IsCurrentContent():
 		return CurrentReadingNeedsCurrentContent
 	case phase == PhaseAnalyzed && (signals.LatestRun == RunCompleted || newerRun(signals.LatestRun)):
 		return CurrentReadingEligible

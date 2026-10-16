@@ -264,7 +264,7 @@ type Querier interface {
 	ListGeneratedVocabulary(ctx context.Context, arg ListGeneratedVocabularyParams) ([]ListGeneratedVocabularyRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
 	// Known rows that can match a frozen identity (same language and lemma, any
-	// POS). The domain decides which identities they cover.
+	// POS and discriminator). The domain decides which identities they cover.
 	ListKnownVocabularyForCurrentReadingSnapshot(ctx context.Context, arg ListKnownVocabularyForCurrentReadingSnapshotParams) ([]ListKnownVocabularyForCurrentReadingSnapshotRow, error)
 	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
 	// Rows carrying a language identity that predate the classical registration.

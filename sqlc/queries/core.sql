@@ -199,14 +199,14 @@ RETURNING id::text, owner_id::text, source_material_id::text, artifact_hash, sta
 UPDATE corpora SET artifact_hash = $3 WHERE owner_id = $1 AND id = $2;
 
 -- name: GetKnownVocabularyByIdentity :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, created_at
-FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 ORDER BY id LIMIT 1;
+SELECT id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, created_at
+FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 AND lexical_discriminator = $5 ORDER BY id LIMIT 1;
 
 -- name: UpsertKnownVocabulary :one
-INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO UPDATE SET canonical_lemma = excluded.canonical_lemma
-RETURNING id::text, owner_id::text, language, canonical_lemma, upos, created_at;
+INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO UPDATE SET canonical_lemma = excluded.canonical_lemma
+RETURNING id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, created_at;
 
 -- name: GetKnownVocabulary :one
 SELECT kv.id::text,
@@ -214,6 +214,7 @@ SELECT kv.id::text,
        kv.language,
        kv.canonical_lemma,
        kv.upos,
+       kv.lexical_discriminator,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.id = $2;
 
@@ -223,8 +224,9 @@ SELECT kv.id::text,
        kv.language,
        kv.canonical_lemma,
        kv.upos,
+       kv.lexical_discriminator,
        kv.created_at
-FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.id;
+FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.lexical_discriminator, kv.id;
 
 -- name: ListKnownVocabularyLanguages :many
 WITH known_languages AS (

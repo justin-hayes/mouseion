@@ -32,7 +32,7 @@ const ImportAnalyzerName = "mouseion-greek-import"
 // SourceMediaType is the media type of the pinned oga_src CoNLL-U file. It is
 // deliberately not an EPUB type: the import path never treats the source as an
 // EPUB.
-const SourceMediaType = "application/x-conllu"
+const SourceMediaType = domain.ImportedSourceMediaType
 
 // Interpretation slot versions recorded on an imported run. They are compiled
 // reviewed data; a new value produces a new analysis run.
