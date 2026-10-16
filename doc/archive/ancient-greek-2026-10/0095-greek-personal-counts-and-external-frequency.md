@@ -1,6 +1,6 @@
 # ADR 0095: Greek personal counts and deferred external frequency
 
-Status: **Accepted; Greek implementation pending** · Date: 2026-10-14 · Author: Justin + OpenCode
+Status: **Withdrawn, never implemented. Superseded by spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098); background in [#2097](https://github.com/justin-hayes/mouseion/issues/2097).** · Date: 2026-10-14 · Author: Justin + OpenCode
 
 **Candidate-scope amendment:** [ADR 0098](0098-shared-core-classical-acquisition.md)
 reconciles the historical human-reviewed Greek MVP requirement below with the
@@ -15,7 +15,7 @@ or deployment authorization. Repository promotion requires human review.
 
 ## Context
 
-[ADR 0090](0090-library-total-book-vocabulary-selection.md) selects vocabulary
+[ADR 0090](../../adr/0090-library-total-book-vocabulary-selection.md) selects vocabulary
 using the learner's currently analyzed same-language Books, not global frequency.
 Its 3/15 thresholds were measured on German and Italian, not Ancient Greek.
 [ADR 0093](0093-classical-identity-and-reading-units.md) permits distinct

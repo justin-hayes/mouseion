@@ -19,7 +19,7 @@ of document has one home:
 | Feature specifications | [`features/`](features/) | Behavior, motivation, and scope of individual features. |
 | Design | [`design/`](design/) | Principles, design system, and information architecture. |
 | Research and evidence | [`research/`](research/), [`evidence/`](evidence/), [`reviews/`](reviews/) | Source surveys and reproducible measurements that informed decisions. |
-| Archive | [`archive/`](archive/) | Retired features and dated operational records, kept for provenance. |
+| Archive | [`archive/`](archive/) | Retired decisions, features and dated operational records, kept for provenance. |
 
 Exploration, brainstorming, and session notes are kept outside the
 repository. They are working material, not a second source of truth, and they

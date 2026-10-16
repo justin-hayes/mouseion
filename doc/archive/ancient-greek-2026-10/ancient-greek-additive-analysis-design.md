@@ -1,6 +1,6 @@
 # Ancient Greek additive analysis: schema and module-interface design
 
-Status: **Changes requested (§18) — not approved. No SQL, migration or application implementation is authorized.** · Date: 2026-10-15
+Status: **Withdrawn, never implemented. Superseded by spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098); background in [#2097](https://github.com/justin-hayes/mouseion/issues/2097).** · Date: 2026-10-15
 
 Owning spec: [#2062 Design additive analysis for local annotation-backed Ancient Greek](https://github.com/justin-hayes/mouseion/issues/2062).
 
@@ -46,12 +46,12 @@ document is not approval.
 These documents override this one. If this design conflicts with any of them,
 they win, and the conflict is recorded under [§17](#17-open-decisions):
 
-- [ADR 0093: Classical identity and stable reading units](../adr/0093-classical-identity-and-reading-units.md)
-- [ADR 0094: Source-independent annotation and provenance](../adr/0094-source-independent-annotation-and-provenance.md)
-- [ADR 0095: Greek personal counts and deferred external frequency](../adr/0095-greek-personal-counts-and-external-frequency.md)
-- [ADR 0096: Classical catalogue discovery and intent-driven acquisition](../adr/0096-classical-catalogue-discovery-and-acquisition.md)
-- [ADR 0097: Classical evidence refresh, adoption and retention](../adr/0097-classical-evidence-refresh-adoption-and-retention.md)
-- [ADR 0098: Shared-core classical acquisition and automatic-evidence admission](../adr/0098-shared-core-classical-acquisition.md)
+- [ADR 0093: Classical identity and stable reading units](0093-classical-identity-and-reading-units.md)
+- [ADR 0094: Source-independent annotation and provenance](0094-source-independent-annotation-and-provenance.md)
+- [ADR 0095: Greek personal counts and deferred external frequency](0095-greek-personal-counts-and-external-frequency.md)
+- [ADR 0096: Classical catalogue discovery and intent-driven acquisition](0096-classical-catalogue-discovery-and-acquisition.md)
+- [ADR 0097: Classical evidence refresh, adoption and retention](0097-classical-evidence-refresh-adoption-and-retention.md)
+- [ADR 0098: Shared-core classical acquisition and automatic-evidence admission](0098-shared-core-classical-acquisition.md)
 - [Annotation-backed Ancient Greek: staged implementation handoff](annotation-backed-ancient-greek.md), including its operational envelope
 - [#2033 identity resolution](https://github.com/justin-hayes/mouseion/issues/2033#issuecomment-6163487386)
 - [#2058 learner minimum](https://github.com/justin-hayes/mouseion/issues/2058#issuecomment-6191383128)

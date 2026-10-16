@@ -18,29 +18,6 @@ records the historical Goal and ordered-Journey model.
 implemented contextual Gloss vocabulary below.
 The Book-scoped Vocabulary Browse inventory and Reading-owned Book vocabulary
 definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md).
-The Work, Edition, Reading unit, Text Source, Annotation Source, and
-Text–annotation binding terms record the accepted classical identity direction
-in [ADR 0093](doc/adr/0093-classical-identity-and-reading-units.md), not a shipped
-classical acquisition model. Existing EPUB Books retain their IDs and analysis
-scope; no Work/Edition backfill is implied.
-The Canonical interpretation, Vocabulary-ready analysis, Annotation provenance,
-and Annotation occurrence terms record the accepted source-independent contract
-in [ADR 0094](doc/adr/0094-source-independent-annotation-and-provenance.md), not
-shipped partial-annotation support or a migration of existing corrections.
-The Personal analyzed-Book occurrences and External frequency evidence terms
-distinguish the counting domains in
-[ADR 0095](doc/adr/0095-greek-personal-counts-and-external-frequency.md).
-That accepted Greek MVP direction does not deliver Ancient Greek support.
-Classical Catalog entry and Catalog sync scope qualifications below follow
-[ADR 0096](doc/adr/0096-classical-catalogue-discovery-and-acquisition.md), an
-accepted discovery/acquisition direction whose implementation is pending.
-Evidence adoption records the accepted operational direction in
-[ADR 0097](doc/adr/0097-classical-evidence-refresh-adoption-and-retention.md),
-not a shipped classical refresh workflow.
-The opt-in curated catalog and shared canonical-analysis direction follows
-[ADR 0098](doc/adr/0098-shared-core-classical-acquisition.md), whose documentation
-review and implementation are pending. It also reconciles the superseded
-candidate-specific human-only MVP wording; provenance does not certify quality.
 
 ## Language
 
@@ -66,10 +43,7 @@ _Avoid_: current language, mode, active profile.
 **Catalog sync scope**:
 The set of offerings eligible for discovery from a connected catalog. In the
 current OPDS flow, this is the non-English language feeds whose NLP service
-reports ready, independent of learner configuration. In the accepted classical
-direction, it is the explicitly advertised edition/unit offerings of supported
-sources, independent of Stanza readiness. Discovery does not establish permission
-to acquire, annotation validity, or personal vocabulary evidence.
+reports ready, independent of learner configuration.
 _Avoid_: study-language scope, synced languages.
 
 **Known vocabulary**:
@@ -224,9 +198,6 @@ content), analyzed, or acquired-but-unassessed (current content present,
 analysis not yet complete). It reflects the Book's published analysis: a newer
 analysis run that is still in progress, failed, or was cancelled does not
 change it while the published analysis still matches the current content.
-In the accepted classical direction, it concerns the owner's adopted evidence
-and usable capabilities; upstream freshness or disappearance alone does not
-invalidate a retained, permitted and valid copy.
 _Avoid_: book status, analysis state (the raw signal the classification reads,
 not the classification itself), deck readiness, evidence status.
 
@@ -275,9 +246,6 @@ An offering from a learner-owned catalog, identified by the catalog
 connection plus that connection's stable entry identifier. A Book may carry one
 catalog-entry alias per connection in the current OPDS flow; two connections may
 each offer the same entry identifier without identifying the same offering.
-In the accepted classical direction, one Catalog entry may offer several
-declared Reading units; its identity is distinct from each corresponding Book's
-edition/unit identity. It is not inherently a one-entry-to-one-Book relationship.
 _Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
 
 **Work**:
@@ -485,10 +453,6 @@ The language, canonical lemma, and part-of-speech identity attributed to an
 analyzed occurrence in learner-facing vocabulary after any confirmed
 correction. It can differ from the preserved analyzer assignment; an excluded
 occurrence contributes none.
-In the accepted classical direction, Ancient Greek additionally preserves an
-applicable scheme-qualified lexical homograph distinction. An unqualified identity
-is not a wildcard for those distinctions; existing learner facts are not
-automatically reconciled.
 _Avoid_: edited analyzer lemma, global corrected lemma.
 
 **Vocabulary Browse inventory**:
