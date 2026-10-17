@@ -241,6 +241,23 @@ func occurrenceLemmaCorrections(rows []sqlcgen.ListOccurrenceLemmaCorrectionsRow
 	return corrections, nil
 }
 
+// PreparedDeckLanguageTx reports the language of a preparation's source
+// material. A source that cannot be resolved reports the empty string so the
+// caller keeps its default policy.
+func (s *PostgresStore) PreparedDeckLanguageTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (string, error) {
+	if s == nil || tx == nil || preparation.OwnerID == "" || preparation.SourceMaterialID == "" {
+		return "", nil
+	}
+	source, err := sqlcgen.New(tx).GetSourceMaterial(ctx, sqlcgen.GetSourceMaterialParams{OwnerID: preparation.OwnerID, ID: preparation.SourceMaterialID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return source.Language, nil
+}
+
 // LoadPreparedDeckCandidateFactsTx loads render and sentence facts for the
 // selected candidates and rejects partially available persisted sentences. It
 // resolves the coverage scope once, then loads one fact kind at a time, so a

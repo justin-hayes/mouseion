@@ -225,9 +225,8 @@ func promptForRequest(input TranslationRequest) string {
 }
 
 // contextualGlossPayloadFields is the exact ordered field set a contextual
-// Gloss request transmits in its user message. The provider-payload assessment
-// pins this contract, so a change to the fields fails closed until the
-// assessment is re-recorded.
+// Gloss request transmits in its user message. It is the reviewed contract a
+// provider-payload assessment pins before any request is sent.
 var contextualGlossPayloadFields = []string{
 	"item_id", "language", "target_language", "canonical_lemma", "upos",
 	"target_word", "example_sentence", "candidate_senses",
