@@ -75,6 +75,7 @@ type preparedDeckRenderPayload struct {
 	IPA                       string                    `json:"ipa,omitempty"`
 	PrincipalParts            string                    `json:"principal_parts,omitempty"`
 	DictionaryProviderVersion string                    `json:"dictionary_provider_version,omitempty"`
+	DictionaryEntry           string                    `json:"dictionary_entry,omitempty"`
 	OmittedEvidenceCount      int                       `json:"omitted_evidence_count,omitempty"`
 	CandidateSenses           []enrichment.LexicalSense `json:"candidate_senses,omitempty"`
 	SentenceTokens            []analyzer.Token          `json:"sentence_tokens,omitempty"`
@@ -332,7 +333,7 @@ func insertPreparedDeckManifestItems(ctx context.Context, tx pgx.Tx, params Free
 }
 
 func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, params FreezePreparedDeckRunParams, config PreparedDeckRunConfig, candidateDigest, runID string, item cardexport.ManifestItem, pending map[int]cardexport.ManifestItem) error {
-	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
+	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, DictionaryEntry: item.Entry.DictionaryEntry, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
 	if err != nil {
 		return err
 	}
@@ -344,7 +345,7 @@ func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, par
 	if item.CacheKey != nil && item.CacheKey.MeaningEvidenceHash != "" {
 		meaningEvidenceHash = nullableTextArg(item.CacheKey.MeaningEvidenceHash)
 	}
-	if err := q.InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, LexicalDiscriminator: item.Entry.LexicalDiscriminator, Headword: item.Entry.Headword, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityGdexScore: item.Quality.GDEXScore, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest, CorpusID: nullableUUIDArg(item.CorpusID), SentenceOrdinal: nullableInt8Arg(item.CorpusID, item.SentenceOrdinal), MeaningEvidenceHash: meaningEvidenceHash, PassageContext: item.Entry.PassageContext, PassageCitation: item.Entry.PassageCitation, BrownsonPin: item.Entry.BrownsonPin}); err != nil {
+	if err := q.InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, LexicalDiscriminator: item.Entry.LexicalDiscriminator, Headword: item.Entry.Headword, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityGdexScore: item.Quality.GDEXScore, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest, CorpusID: nullableUUIDArg(item.CorpusID), SentenceOrdinal: nullableInt8Arg(item.CorpusID, item.SentenceOrdinal), MeaningEvidenceHash: meaningEvidenceHash, PassageContext: item.Entry.PassageContext, PassageCitation: item.Entry.PassageCitation, BrownsonPin: item.Entry.BrownsonPin, LsjEntryID: item.Entry.DictionaryEntryID, LsjPin: item.Entry.DictionaryPin}); err != nil {
 		return err
 	}
 	if item.Disposition != cardexport.ManifestAccepted {
@@ -603,6 +604,8 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 			return snapshot, "", fmt.Errorf("%w: decode durable manifest render payload: %w", ErrPreparedDeckIdentity, err)
 		}
 		item.Entry.Morphology, item.Entry.Gloss, item.Entry.Plural, item.Entry.IPA, item.Entry.PrincipalParts, item.Entry.DictionaryProviderVersion = render.Morphology, render.Gloss, render.Plural, render.IPA, render.PrincipalParts, render.DictionaryProviderVersion
+		item.Entry.DictionaryEntry = render.DictionaryEntry
+		item.Entry.DictionaryEntryID, item.Entry.DictionaryPin = model.LsjEntryID, model.LsjPin
 		item.Entry.CandidateSenses = render.CandidateSenses
 		item.Entry.OmittedEvidenceCount = render.OmittedEvidenceCount
 		item.Entry.SentenceTokens = render.SentenceTokens

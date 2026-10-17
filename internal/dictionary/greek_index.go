@@ -2,11 +2,8 @@ package dictionary
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"unicode"
 
@@ -35,16 +32,11 @@ type greekEntry struct {
 // without the Ancient Greek format leaves grc unavailable rather than merely
 // empty.
 func (i *Index) loadGreekEntries(ctx context.Context) error {
-	var format string
-	err := i.db.QueryRowContext(ctx, `SELECT value FROM metadata WHERE key = 'index_format'`).Scan(&format)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil
-	}
+	version, ok, err := i.indexFormat(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: index format: %w", ErrInvalidIndex, err)
+		return err
 	}
-	version, convErr := strconv.Atoi(strings.TrimSpace(format))
-	if convErr != nil || version < indexFormatWithAncientGreek {
+	if !ok || version < indexFormatWithAncientGreek {
 		return nil
 	}
 	rows, err := i.db.QueryContext(ctx, `SELECT headword, upos, senses_json FROM greek_entries`)

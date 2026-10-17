@@ -18,6 +18,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from urllib.request import urlopen
+from xml.etree import ElementTree
 
 LANGUAGES = {"de", "it", "el", "fr"}
 # Ancient Greek entries come from English Wiktionary too, but they are stored
@@ -27,7 +28,17 @@ LANGUAGES = {"de", "it", "el", "fr"}
 # grc as unavailable.
 ANCIENT_GREEK_LANGUAGE = "grc"
 FRENCH_LANGUAGE = "fr"
+# The LSJ (Perseus) derivation is optional: it is present only when an operator
+# points --lsj-dir at the pinned PerseusDL/lexica tree. Its table and the
+# metadata pin are what distinguish index format 4 from format 3.
+LSJ_PIN = "56061ca127f4a2844980baffc5f2b6d1332897b3"
+# tlg0032 is Xenophon in the Perseus/Cts URN space; only Xenophon citations are
+# kept on an LSJ sense.
+XENOPHON_URN_PREFIX = "urn:cts:greekLit:tlg0032"
+# index format 3 introduced the French h_status column (ticket #2163); format 4
+# adds the LSJ table and the lsj_pin metadata (ticket #2169).
 INDEX_FORMAT_VERSION = 3
+LSJ_INDEX_FORMAT_VERSION = 4
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -107,6 +118,11 @@ CREATE TABLE greek_entries (
     senses_json TEXT NOT NULL,
     forms_json TEXT NOT NULL
 );
+CREATE TABLE lsj_entries (
+    entry_id TEXT NOT NULL,
+    headword TEXT NOT NULL,
+    senses_json TEXT NOT NULL
+);
 """
 INSERT_ENTRIES_SQL = (
     "INSERT INTO entries"
@@ -117,6 +133,7 @@ INSERT_GREEK_ENTRIES_SQL = (
     "INSERT INTO greek_entries(headword, upos, etymology_number, senses_json, forms_json) "
     "VALUES (?, ?, ?, ?, ?)"
 )
+INSERT_LSJ_ENTRIES_SQL = "INSERT INTO lsj_entries(entry_id, headword, senses_json) VALUES (?, ?, ?)"
 
 
 def load_german_normalization_policy() -> dict:
@@ -595,6 +612,184 @@ def collect_greek_entries(input_path: Path) -> list[tuple[str, str, str, str, st
     return sorted(rows)
 
 
+# ---- LSJ (Perseus TEI P4) derivation --------------------------------------
+#
+# The Perseus LSJ files are TEI P4: each main entry is an <entryFree type="main">
+# whose key is Beta Code. Senses are nested <sense> elements carrying the source
+# numbering (n) and nesting level; English glosses are <tr> elements and passage
+# citations are <bibl> elements linked to a CTS URN. The native entry and sense
+# ids and the hierarchy are preserved; only Xenophon citations are kept.
+
+LSJ_LETTERS = {
+    "a": "α",
+    "b": "β",
+    "g": "γ",
+    "d": "δ",
+    "e": "ε",
+    "z": "ζ",
+    "h": "η",
+    "q": "θ",
+    "i": "ι",
+    "k": "κ",
+    "l": "λ",
+    "m": "μ",
+    "n": "ν",
+    "c": "ξ",
+    "o": "ο",
+    "p": "π",
+    "r": "ρ",
+    "s": "σ",
+    "t": "τ",
+    "u": "υ",
+    "f": "φ",
+    "x": "χ",
+    "y": "ψ",
+    "w": "ω",
+    "v": "ϝ",
+}
+LSJ_MARKS = {
+    ")": "\u0313",
+    "(": "\u0314",
+    "/": "\u0301",
+    "\\": "\u0300",
+    "=": "\u0342",
+    "+": "\u0308",
+    "|": "\u0345",
+}
+
+
+def strip_trailing_digits(value: str) -> str:
+    """Drop a Beta Code homograph's trailing digits from its key."""
+    end = len(value)
+    while end > 0 and value[end - 1] in "0123456789":
+        end -= 1
+    return value[:end]
+
+
+def beta_to_greek(value: str) -> tuple[str, list[str]]:
+    """Return (NFC Greek, unknown characters) for a Perseus Beta Code key."""
+    out: list[str] = []
+    unknown: list[str] = []
+    capital = False
+    pending = ""
+    for character in value:
+        if character == "*":
+            capital = True
+            continue
+        if character in LSJ_MARKS:
+            if out and not capital:
+                out[-1] = out[-1] + LSJ_MARKS[character]
+            else:
+                pending += LSJ_MARKS[character]
+            continue
+        base = LSJ_LETTERS.get(character.lower())
+        if base is None:
+            unknown.append(character)
+            continue
+        if capital or character.isupper():
+            base = base.upper()
+            capital = False
+        out.append(base + pending)
+        pending = ""
+    return unicodedata.normalize("NFC", "".join(out)), unknown
+
+
+def lsj_headword(key: str) -> tuple[str, bool]:
+    """Return (NFC headword, admitted). The trailing homograph digit is dropped;
+    the homograph is preserved by the row's native entry id, never by numbering."""
+    key = strip_trailing_digits(key)
+    greek, unknown = beta_to_greek(key)
+    headword = greek.strip()
+    return headword, bool(headword) and not unknown
+
+
+def element_text(element) -> str:
+    return " ".join("".join(element.itertext()).split())
+
+
+def lsj_citation(bibl) -> str:
+    """Return the Xenophon citation text for one <bibl>, or the empty string."""
+    urn = bibl.get("n") or ""
+    if not urn.startswith(XENOPHON_URN_PREFIX):
+        return ""
+    parts = []
+    for tag in ("author", "title", "biblScope"):
+        child = bibl.find(tag)
+        if child is not None:
+            text = element_text(child)
+            if text:
+                parts.append(text)
+    return " ".join(parts) if parts else urn
+
+
+def collect_sense_content(element, glosses: list[str], citations: list[str]) -> None:
+    for child in element:
+        if child.tag == "sense":
+            continue
+        if child.tag == "tr":
+            text = element_text(child)
+            if text:
+                glosses.append(text)
+            continue
+        if child.tag == "bibl":
+            citation = lsj_citation(child)
+            if citation:
+                citations.append(citation)
+            continue
+        collect_sense_content(child, glosses, citations)
+
+
+def dedupe(values: list[str]) -> list[str]:
+    return list(OrderedDict((value, None) for value in values).keys())
+
+
+def lsj_sense(element) -> dict:
+    glosses: list[str] = []
+    citations: list[str] = []
+    collect_sense_content(element, glosses, citations)
+    sense = {
+        "id": (element.get("id") or "").strip(),
+        "glosses": dedupe(glosses),
+        "citations": dedupe(citations),
+    }
+    if number := (element.get("n") or "").strip():
+        sense["n"] = number
+    try:
+        sense["level"] = int(element.get("level") or "0")
+    except ValueError:
+        sense["level"] = 0
+    children = [lsj_sense(child) for child in element if child.tag == "sense"]
+    if children:
+        sense["senses"] = children
+    return sense
+
+
+def lsj_rows_for_file(path: Path) -> list[tuple[str, str, str]]:
+    rows: list[tuple[str, str, str]] = []
+    # The LSJ files are operator-supplied and digest-pinned (ADR 0101), never
+    # fetched from an untrusted source, so entity-expansion attacks are out of
+    # scope here.
+    for _, element in ElementTree.iterparse(path, events=("end",)):  # noqa: S314
+        if element.tag not in ("entryFree", "entry") or element.get("type") != "main":
+            continue
+        entry_id = (element.get("id") or "").strip()
+        headword, admitted = lsj_headword(element.get("key") or "")
+        senses = [lsj_sense(child) for child in element if child.tag == "sense"]
+        element.clear()
+        if not admitted or not entry_id or not senses:
+            continue
+        senses_json = json.dumps(senses, ensure_ascii=False, separators=(",", ":"))
+        rows.append((entry_id, headword, senses_json))
+    return rows
+
+
+def collect_lsj_entries(lsj_dir: Path) -> list[tuple[str, str, str]]:
+    rows: list[tuple[str, str, str]] = []
+    for path in sorted(lsj_dir.glob("grc.lsj.perseus-eng*.xml")):
+        rows.extend(lsj_rows_for_file(path))
+    return sorted(rows)
+
+
 @dataclass(frozen=True)
 class SourceMetadata:
     """The dump provenance recorded in the index's metadata table."""
@@ -607,9 +802,26 @@ class SourceMetadata:
     source_sha256: str = ""
 
 
-def metadata_rows(provider_version: str, source: SourceMetadata) -> dict[str, str]:
-    return {
-        "index_format": str(INDEX_FORMAT_VERSION),
+@dataclass(frozen=True)
+class LsjSource:
+    """The pinned PerseusDL/lexica LSJ TEI directory and its revision pin."""
+
+    directory: Path
+    pin: str = LSJ_PIN
+
+
+@dataclass
+class DerivedRows:
+    """The three row sets a derivation collects before writing the index."""
+
+    entries: dict[tuple[str, str, str], dict]
+    greek_entries: list[tuple[str, str, str, str, str]]
+    lsj_entries: list[tuple[str, str, str]]
+
+
+def metadata_rows(provider_version: str, source: SourceMetadata, lsj_pin: str) -> dict[str, str]:
+    rows = {
+        "index_format": str(LSJ_INDEX_FORMAT_VERSION if lsj_pin else INDEX_FORMAT_VERSION),
         "provider_version": provider_version,
         "license": "Wiktionary-derived data: CC BY-SA 4.0 / GFDL",
         "generated_at": date.today().isoformat(),
@@ -620,6 +832,9 @@ def metadata_rows(provider_version: str, source: SourceMetadata) -> dict[str, st
         "wiktextract_commit": source.wiktextract_commit,
         "source_sha256": source.source_sha256,
     }
+    if lsj_pin:
+        rows["lsj_pin"] = lsj_pin
+    return rows
 
 
 def entry_rows(entries: dict[tuple[str, str, str], dict]):
@@ -640,10 +855,10 @@ def entry_rows(entries: dict[tuple[str, str, str], dict]):
 
 def write_index(
     output_path: Path,
-    entries: dict[tuple[str, str, str], dict],
-    greek_entries: list[tuple[str, str, str, str, str]],
+    rows: DerivedRows,
     provider_version: str,
     source: SourceMetadata,
+    lsj_pin: str,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
@@ -655,10 +870,11 @@ def write_index(
         connection.executescript(SCHEMA)
         connection.executemany(
             "INSERT INTO metadata(key, value) VALUES (?, ?)",
-            metadata_rows(provider_version, source).items(),
+            metadata_rows(provider_version, source, lsj_pin).items(),
         )
-        connection.executemany(INSERT_ENTRIES_SQL, entry_rows(entries))
-        connection.executemany(INSERT_GREEK_ENTRIES_SQL, greek_entries)
+        connection.executemany(INSERT_ENTRIES_SQL, entry_rows(rows.entries))
+        connection.executemany(INSERT_GREEK_ENTRIES_SQL, rows.greek_entries)
+        connection.executemany(INSERT_LSJ_ENTRIES_SQL, rows.lsj_entries)
         connection.commit()
         connection.execute("PRAGMA journal_mode = OFF")
         connection.close()
@@ -673,16 +889,22 @@ def derive(
     output_path: Path,
     provider_version: str,
     source: SourceMetadata | None = None,
+    lsj: LsjSource | None = None,
 ) -> None:
     source = source or SourceMetadata()
     if not source.source_sha256:
         source = replace(source, source_sha256=file_sha256(input_path))
+    rows = DerivedRows(
+        entries=collect_entries(input_path),
+        greek_entries=collect_greek_entries(input_path),
+        lsj_entries=collect_lsj_entries(lsj.directory) if lsj else [],
+    )
     write_index(
         output_path,
-        collect_entries(input_path),
-        collect_greek_entries(input_path),
+        rows,
         provider_version,
         source,
+        lsj.pin if lsj else "",
     )
 
 
@@ -699,9 +921,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dump-date", default="")
     parser.add_argument("--extraction-date", default=date.today().isoformat())
     parser.add_argument("--wiktextract-commit", default="")
+    parser.add_argument("--lsj-dir", type=Path, help="PerseusDL/lexica grc/lsj TEI directory")
+    parser.add_argument("--lsj-pin", default=LSJ_PIN, help="pinned PerseusDL/lexica revision")
     args = parser.parse_args(argv)
     if args.force_download and not args.download:
         parser.error("--force-download requires --download")
+    if args.lsj_dir and not args.lsj_dir.is_dir():
+        parser.error(f"--lsj-dir is not a directory: {args.lsj_dir}")
     input_path = args.input
     if args.download:
         try:
@@ -721,6 +947,7 @@ def main(argv: list[str] | None = None) -> int:
             extraction_date=args.extraction_date,
             wiktextract_commit=args.wiktextract_commit,
         ),
+        LsjSource(directory=args.lsj_dir, pin=args.lsj_pin) if args.lsj_dir else None,
     )
     print(f"Wrote {args.output}")
     return 0

@@ -133,7 +133,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	serializedFields := strings.Split(fields, "\x1f")
 	assert.Equal(t, stableID("note|"+note.Key), noteID)
-	require.Len(t, serializedFields, 14)
+	require.Len(t, serializedFields, 15)
 	assert.Equal(t, note.Identity, serializedFields[0])
 	assert.Equal(t, note.Text, serializedFields[1])
 	assert.Equal(t, note.Article, serializedFields[2])
@@ -148,6 +148,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	assert.Equal(t, note.BookTitle, serializedFields[11])
 	assert.Equal(t, note.PassageLabel, serializedFields[12])
 	assert.Equal(t, note.PassageText, serializedFields[13])
+	assert.Equal(t, note.DictionaryEntry, serializedFields[14])
 	assert.Equal(t, note.Identity, sortField)
 	assert.Equal(t, fieldChecksum(note.Identity), checksum)
 	assert.Contains(t, tags, " Mouseion ")
@@ -155,7 +156,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	err = db.QueryRowContext(t.Context(), `SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields)
 	require.NoError(t, err)
 	serializedFields = strings.Split(fields, "\x1f")
-	require.Len(t, serializedFields, 14)
+	require.Len(t, serializedFields, 15)
 	assert.Empty(t, serializedFields[10])
 	var distinctSortFields int64
 	err = db.QueryRowContext(t.Context(), `SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields)
@@ -458,7 +459,7 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 }
 
 func TestAnkiCardSchemaRegressionContract(t *testing.T) {
-	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText"}, fieldNames)
+	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry"}, fieldNames)
 	model := modelMetadata(1, 2)
 	modelFields, ok := model["flds"].([]map[string]any)
 	require.True(t, ok)
@@ -481,12 +482,14 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.Contains(t, template, `{{#IPA}} <span class="inflection pronunciation">{{IPA}}</span>{{/IPA}}`)
 	assert.Contains(t, template, `{{#PrincipalParts}} <span class="inflection principal-parts">{{PrincipalParts}}</span>{{/PrincipalParts}}`)
 	assert.Contains(t, template, `<div class="gloss meaning-block">{{Gloss}}</div>`)
+	assert.Contains(t, template, `<div class="dictionary-entry-block">{{DictionaryEntry}}</div>`)
 	assert.Contains(t, template, `<div class="sentence contextual-translation">{{EnglishSentence}}</div>`)
 	assert.NotContains(t, template, `<div class="english">{{English}}</div>`)
 	css, ok := model["css"].(string)
 	require.True(t, ok)
 	assert.Contains(t, css, `.article-space[data-article="l'"]`)
 	assert.Contains(t, css, `.inflection`)
+	assert.Contains(t, css, `.lsj-sense`)
 	assert.Contains(t, css, `--mouseion-color-text-muted`)
 	assert.NotContains(t, css, ".english")
 	assert.NotContains(t, template, "{{Morph}}")
@@ -531,7 +534,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 		err := rows.Scan(&fields, &sortField, &checksum)
 		require.NoError(t, err)
 		serialized := strings.Split(fields, "\x1f")
-		require.Len(t, serialized, 14)
+		require.Len(t, serialized, 15)
 		assert.Equal(t, sortField, serialized[0])
 		assert.Equal(t, fieldChecksum(sortField), checksum)
 		assert.True(t, sortField == first.Identity || sortField == second.Identity, "fields=%q sfld=%q csum=%d", fields, sortField, checksum)
@@ -649,9 +652,9 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
-	require.Len(t, rows[0], 15)
-	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:14], "\x1f"))
-	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][14])
+	require.Len(t, rows[0], 16)
+	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:15], "\x1f"))
+	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][15])
 }
 
 func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
@@ -664,7 +667,7 @@ func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
 	r.Comment = '#'
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
-	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}, rows)
+	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}, rows)
 }
 
 func TestEscapeFieldCannotInjectAnkiFieldSeparator(t *testing.T) {
@@ -765,8 +768,9 @@ func TestRenderFrozenManifestDerivesArticleFromSingularGenderEvidence(t *testing
 }
 
 func TestPresentationVersionAdvancesForArticleCorrection(t *testing.T) {
-	// 5 also folds in the elision-aware target anchor (ADR 0102).
-	assert.Equal(t, 5, PresentationVersion)
+	// 5 folds in the elision-aware target anchor (ADR 0102); 6 adds the
+	// hierarchical dictionary-entry block on the card back (ADR 0101).
+	assert.Equal(t, 6, PresentationVersion)
 }
 
 func TestMakeNoteDoesNotAddGreekArticleToNonNoun(t *testing.T) {

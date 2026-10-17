@@ -28,9 +28,11 @@ func (f *fakeIdentityStore) Close() error {
 }
 
 type fakeIndex struct {
-	available bool
-	entries   map[string]bool
-	lookupErr error
+	available    bool
+	entries      map[string]bool
+	lookupErr    error
+	lsjAvailable bool
+	lsjEntries   map[string]bool
 }
 
 func (f *fakeIndex) Lookup(_ context.Context, request enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
@@ -41,6 +43,15 @@ func (f *fakeIndex) Lookup(_ context.Context, request enrichment.LexicalLookupRe
 }
 
 func (f *fakeIndex) AncientGreekAvailable() bool { return f.available }
+
+func (f *fakeIndex) LookupAncientGreekLSJ(_ context.Context, lemma string) (enrichment.AncientGreekLSJEntry, bool) {
+	if !f.lsjAvailable || !f.lsjEntries[lemma] {
+		return enrichment.AncientGreekLSJEntry{}, false
+	}
+	return enrichment.AncientGreekLSJEntry{EntryID: "entry:" + lemma}, true
+}
+
+func (f *fakeIndex) AncientGreekLSJAvailable() bool { return f.lsjAvailable }
 
 func storeOpener(store identityStore, err error) identityStoreOpener {
 	return func(context.Context, string) (identityStore, error) { return store, err }
@@ -75,14 +86,17 @@ func TestRunReportsCountsOnly(t *testing.T) {
 		{CanonicalLemma: "ἄνθρωπος", UPOS: "NOUN"},
 		{CanonicalLemma: "λόγος", UPOS: "NOUN"},
 	}}
-	index := &fakeIndex{available: true, entries: map[string]bool{"δέω|VERB": true, "ἄνθρωπος|NOUN": true}}
+	index := &fakeIndex{available: true, lsjAvailable: true, entries: map[string]bool{"δέω|VERB": true, "ἄνθρωπος|NOUN": true}, lsjEntries: map[string]bool{"δέω": true, "λόγος": true}}
 	var output bytes.Buffer
 
 	require.NoError(t, run(context.Background(), nil, &output, storeOpener(store, nil), indexOpener(index, nil)))
 
 	assert.Equal(t, "greek dictionary hit rate: identities=4 with_entry=3 without_entry=1\n"+
 		"greek dictionary hit rate by upos: upos=NOUN identities=2 with_entry=1\n"+
-		"greek dictionary hit rate by upos: upos=VERB identities=2 with_entry=2\n", output.String())
+		"greek dictionary hit rate by upos: upos=VERB identities=2 with_entry=2\n"+
+		"greek lsj match rate: identities=4 unambiguous=3 ambiguous_or_missing=1\n"+
+		"greek lsj match rate by upos: upos=NOUN identities=2 unambiguous=1\n"+
+		"greek lsj match rate by upos: upos=VERB identities=2 unambiguous=2\n", output.String())
 	assert.True(t, store.closed, "the store is closed")
 	assert.NotContains(t, output.String(), "δέω", "the report prints counts only, never Greek text")
 }
@@ -97,6 +111,16 @@ func TestRunRefusesAnIndexWithoutAncientGreekEntries(t *testing.T) {
 	require.ErrorContains(t, err, "no Ancient Greek entries")
 }
 
+func TestRunRefusesAnIndexWithoutLSJEntries(t *testing.T) {
+	setEnv(t)
+	store := &fakeIdentityStore{identities: []persistence.AncientGreekVocabularyIdentity{{CanonicalLemma: "δέω", UPOS: "VERB"}}}
+	index := &fakeIndex{available: true, lsjAvailable: false}
+
+	err := run(context.Background(), nil, &bytes.Buffer{}, storeOpener(store, nil), indexOpener(index, nil))
+
+	require.ErrorContains(t, err, "no LSJ entries")
+}
+
 func TestRunPropagatesOpenStoreIndexAndLookupErrors(t *testing.T) {
 	setEnv(t)
 	store := &fakeIdentityStore{}
@@ -107,14 +131,14 @@ func TestRunPropagatesOpenStoreIndexAndLookupErrors(t *testing.T) {
 	require.ErrorIs(t, run(context.Background(), nil, &bytes.Buffer{}, storeOpener(store, nil), indexOpener(nil, indexErr)), indexErr)
 	lookupErr := errors.New("lookup failed")
 	store = &fakeIdentityStore{identities: []persistence.AncientGreekVocabularyIdentity{{CanonicalLemma: "δέω", UPOS: "VERB"}}}
-	require.ErrorIs(t, run(context.Background(), nil, &bytes.Buffer{}, storeOpener(store, nil), indexOpener(&fakeIndex{available: true, lookupErr: lookupErr}, nil)), lookupErr)
+	require.ErrorIs(t, run(context.Background(), nil, &bytes.Buffer{}, storeOpener(store, nil), indexOpener(&fakeIndex{available: true, lsjAvailable: true, lookupErr: lookupErr}, nil)), lookupErr)
 }
 
 func TestRunPropagatesIdentityListError(t *testing.T) {
 	setEnv(t)
 	listErr := errors.New("list failed")
 
-	err := run(context.Background(), nil, &bytes.Buffer{}, storeOpener(&fakeIdentityStore{err: listErr}, nil), indexOpener(&fakeIndex{available: true}, nil))
+	err := run(context.Background(), nil, &bytes.Buffer{}, storeOpener(&fakeIdentityStore{err: listErr}, nil), indexOpener(&fakeIndex{available: true, lsjAvailable: true}, nil))
 
 	require.ErrorIs(t, err, listErr)
 }

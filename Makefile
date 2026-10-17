@@ -27,6 +27,11 @@ DICTIONARY_WIKTEXTRACT_COMMIT ?= unknown
 DICTIONARY_VERSION ?= dump=$(DICTIONARY_DUMP_DATE);extraction=$(DICTIONARY_EXTRACTION_DATE);wiktextract=$(DICTIONARY_WIKTEXTRACT_COMMIT)
 DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
+# Optional: point DICTIONARY_LSJ_DIR at the pinned PerseusDL/lexica grc/lsj TEI
+# directory to derive the LSJ table (index format 4). The real files never enter
+# the repository or CI.
+DICTIONARY_LSJ_PIN ?= 56061ca127f4a2844980baffc5f2b6d1332897b3
+DICTIONARY_LSJ_ARGS := $(if $(strip $(DICTIONARY_LSJ_DIR)),--lsj-dir "$(DICTIONARY_LSJ_DIR)" --lsj-pin "$(DICTIONARY_LSJ_PIN)",)
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
 .PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
@@ -202,7 +207,7 @@ dictionary-index:
 	test -x $(VENV_BIN)/python
 	mkdir -p "$(dir $(DICTIONARY_OUTPUT))"
 	test -w "$(dir $(DICTIONARY_OUTPUT))" && test -x "$(dir $(DICTIONARY_OUTPUT))" || (printf '%s\n' "dictionary output directory '$(dir $(DICTIONARY_OUTPUT))' is not writable." "If Docker created it as root, run: sudo chown \"$$(id -u):$$(id -g)\" '$(dir $(DICTIONARY_OUTPUT))'" >&2; exit 1)
-	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py $(DICTIONARY_SOURCE_ARGS) --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)" --dump-date "$(DICTIONARY_DUMP_DATE)" --extraction-date "$(DICTIONARY_EXTRACTION_DATE)" --wiktextract-commit "$(DICTIONARY_WIKTEXTRACT_COMMIT)"
+	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py $(DICTIONARY_SOURCE_ARGS) --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)" --dump-date "$(DICTIONARY_DUMP_DATE)" --extraction-date "$(DICTIONARY_EXTRACTION_DATE)" --wiktextract-commit "$(DICTIONARY_WIKTEXTRACT_COMMIT)" $(DICTIONARY_LSJ_ARGS)
 
 # go-tmp runs first: make expands every recipe line before running any of them,
 # and the go tool plugin paths below need $(GOTMPDIR) to exist on a fresh checkout.
