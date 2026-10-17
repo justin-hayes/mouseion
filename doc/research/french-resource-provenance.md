@@ -1,413 +1,561 @@
 # French Resource Provenance and Permitted Uses
 
-**Research date:** 2026-10-17
+**Research date:** 2026-10-17 (revision 2 of the same day)
 
-**Tickets:** #2153 (this research), #2138 (map), #2141 (adoption decision gate).
+**Repository base:** `6e02d180b1015536127839e0a45953684c0e5a83` (`origin/main`,
+the commit this branch was cut from).
 
-**Scope:** Exact provenance, license evidence, and obligations for the two French
-resources in the provisional checkpoint agreed in #2141:
+**Tickets:**
+[#2153 Confirm French resource provenance and permitted uses](https://github.com/justin-hayes/mouseion/issues/2153) (this research),
+[#2138 Chart French study-language support and resource selection](https://github.com/justin-hayes/mouseion/issues/2138) (map),
+[#2141 Select the French launch resources and support boundary](https://github.com/justin-hayes/mouseion/issues/2141) (adoption decision gate),
+[#2139 Assess French NLP resources against the modern-language pipeline](https://github.com/justin-hayes/mouseion/issues/2139),
+[#2140 Assess French dictionary and learner-facing form resources](https://github.com/justin-hayes/mouseion/issues/2140),
+[#2152 Validate pinned French resources and pronominal identity](https://github.com/justin-hayes/mouseion/issues/2152).
+
+**Checkpoint agreed in #2141:** [comment 6234969922](https://github.com/justin-hayes/mouseion/issues/2141#issuecomment-6234969922) (justin-hayes, 2026-10-17).
+
+**Baseline research notes:**
+[`doc/research/french-nlp-resources.md`](https://github.com/justin-hayes/mouseion/blob/c44a35c014ba6d8f3c090f1abc38b63299101d1e/doc/research/french-nlp-resources.md)
+at `c44a35c0`;
+[`doc/research/french-lexical-resources.md`](https://github.com/justin-hayes/mouseion/blob/332251d44a4ad8f91fa45d39f1a1b3e5a5961d45/doc/research/french-lexical-resources.md)
+at `332251d4`.
+
+**Scope:** two inputs from the #2141 provisional checkpoint:
 
 1. The Stanza 1.15.0 French default package (`fr`, `combined` processors).
 2. Raw English Wiktionary as extracted by Wiktextract and published by Kaikki.org.
 
 Named-entity recognition (`ner`) and coreference (`coref`) are out of scope.
 
-**Status: BLOCKED for adoption.** This note records evidence and open questions.
-It does not grant permission to use, download, bundle, derive, or distribute
-either resource. Final adoption needs a human decision in #2141 that accepts a
-documented basis.
+## Status
 
-**Not done:** no model bundle or Kaikki dump was downloaded. No checksum of a
-downloaded file was computed. Only HTTP HEAD requests, small metadata files, and
-primary-source pages were read. Nothing in this note is legal advice.
+**BLOCKED. No intended use is accepted.** This note records evidence. It does not
+grant permission to use, download, run, bundle, derive, export, or distribute either
+resource. Final adoption needs a human decision in #2141 that accepts a documented
+basis.
+
+- **Private self-hosted execution is not cleared.** Self-hosting is not a license
+  grant. Where a source says nothing, this note treats the question as unresolved,
+  not as permitted. Ordinary private-use conditions are separated from the open
+  grant question in §4.
+- The Stanza code is Apache-2.0. The model artifacts' license is **not settled** by
+  the sources, which conflict (§2.2).
+- Wiktionary text is offered under CC BY-SA 4.0 or GFDL by the Wikimedia Terms of
+  Use. Kaikki's own terms for the raw dump were not found (§3.2).
+
+**Not done:** no model bundle or Kaikki dump was downloaded (the raw dump is about
+2.98 GB). No checksum of an artifact's bytes was computed. Legal interpretations
+are marked and need counsel or human review. Nothing here is legal advice.
 
 ## Evidence labels
 
 | Label | Meaning |
 |---|---|
-| **[V]** | Read or fetched from the primary source during this pass (2026-10-17). |
-| **[V-prior]** | Read in an earlier pass on this ticket (scratch notes); not re-fetched here. |
-| **[M]** | Metadata reported by a registry or API (manifest, Hugging Face tree, HTTP headers). Not verified against the file bytes. |
-| **[I]** | Inference: a mapping or reading the sources do not state directly. |
+| **[V]** | Read or fetched from the primary source in this pass (2026-10-17). |
+| **[V-prior]** | Read in an earlier pass on this ticket; not re-fetched in this revision. |
+| **[M]** | Registry or API metadata (GitHub or Hugging Face API, HTTP headers). Not verified against file bytes. |
+| **[I]** | Inference: a reading the sources do not state directly. |
 | **[L]** | Legal interpretation. Needs human or counsel review. |
-| **[G]** | Gap: evidence not found, not checked, or not resolvable from public sources. |
+| **[G]** | Gap: not found, not checked, or not resolvable from public sources. |
+
+## Sources
+
+Each `[S#]` tag in the text refers to this list. Pinned revisions are used
+wherever a source has one.
+
+| ID | Source | Pinned revision / access | Used for |
+|---|---|---|---|
+| S1 | Stanza tag `v1.15.0` → commit | [`git/ref/tags/v1.15.0`](https://api.github.com/repos/stanfordnlp/stanza/git/ref/tags/v1.15.0) → `c9a2158a87502dd63f757ab1aa933230b0acbce7` [V] | Source revision for code and files below |
+| S2 | Stanza `stanza/resources/common.py` | [blob at `c9a2158`](https://github.com/stanfordnlp/stanza/blob/c9a2158a87502dd63f757ab1aa933230b0acbce7/stanza/resources/common.py) [V] | Download and checksum behavior |
+| S3 | Stanza `stanza/resources/default_packages.py` | [blob at `c9a2158`](https://github.com/stanfordnlp/stanza/blob/c9a2158a87502dd63f757ab1aa933230b0acbce7/stanza/resources/default_packages.py) [V] | `newswiki` mapping for `fr` |
+| S4 | Stanza `scripts/download_vectors.sh` | [blob at `c9a2158`](https://github.com/stanfordnlp/stanza/blob/c9a2158a87502dd63f757ab1aa933230b0acbce7/scripts/download_vectors.sh) [V] | conll17 vector source URL |
+| S5 | Stanza `stanza/models/common/convert_pretrain.py` | [blob at `c9a2158`](https://github.com/stanfordnlp/stanza/blob/c9a2158a87502dd63f757ab1aa933230b0acbce7/stanza/models/common/convert_pretrain.py) [V] | What a `.pt` pretrain file is |
+| S6 | Stanza `LICENSE` | [blob at `c9a2158`](https://github.com/stanfordnlp/stanza/blob/c9a2158a87502dd63f757ab1aa933230b0acbce7/LICENSE) (603 bytes: copyright header and Apache URL, not the full text) [V] | Code license |
+| S7 | Stanza `stanza/_version.py` | [blob at `c9a2158`](https://github.com/stanfordnlp/stanza/blob/c9a2158a87502dd63f757ab1aa933230b0acbce7/stanza/_version.py) (`__resources_version__ = '1.15.0'`) [V] | Resources version |
+| S8 | stanza-resources manifest `resources_1.15.0.json` | [blob at `569db9d983a47931673d7d265361ca93af85d176`](https://github.com/stanfordnlp/stanza-resources/blob/569db9d983a47931673d7d265361ca93af85d176/resources_1.15.0.json) (committed 2026-10-01T02:51:50Z [M]) [V] | Artifact mapping, md5 values |
+| S9 | stanza-resources tags | [`/tags`](https://api.github.com/repos/stanfordnlp/stanza-resources/tags) returned `[]` (HTTP 200); [`git/ref/tags/v1.15.0`](https://api.github.com/repos/stanfordnlp/stanza-resources/git/ref/tags/v1.15.0) returned 404 [V] | No `v1.15.0` tag in stanza-resources |
+| S10 | Hugging Face `stanfordnlp/stanza-fr` tag `v1.15.0` | Resolves to commit `caeb7742148cb0368e4a0f2c68a0f7b09bc22880` [M] | Pinned model revision |
+| S11 | Hugging Face tree at `caeb7742…` | [`api/models/stanfordnlp/stanza-fr/tree/caeb7742…`](https://huggingface.co/api/models/stanfordnlp/stanza-fr/tree/caeb7742148cb0368e4a0f2c68a0f7b09bc22880?recursive=true) [M] | LFS sha256 and sizes |
+| S12 | Hugging Face model card at `caeb7742…` | [`README.md`](https://huggingface.co/stanfordnlp/stanza-fr/blob/caeb7742148cb0368e4a0f2c68a0f7b09bc22880/README.md) (679 bytes; `license: apache-2.0`; no dataset or training section) [V] | Model-card license |
+| S13 | Stanza combined models page | [`combined_models.html`](https://stanfordnlp.github.io/stanza/combined_models.html) (HTTP 200) [V] | French training treebanks |
+| S14 | Stanza performance page | [`performance.html`](https://stanfordnlp.github.io/stanza/performance.html) [V-prior] | "unclear" and ODC-By statements |
+| S15 | UD_French-GSD | [`LICENSE.txt` and `README.md` at `94d5b68e185fc22a9ef292040e84f476d36d9b0e`](https://github.com/UniversalDependencies/UD_French-GSD/tree/94d5b68e185fc22a9ef292040e84f476d36d9b0e) [V] | License, source note |
+| S16 | UD_French-ParisStories | [tree at `dec76f7a1731318b033c578d534410b0a3d4ea5c`](https://github.com/UniversalDependencies/UD_French-ParisStories/tree/dec76f7a1731318b033c578d534410b0a3d4ea5c) [V] | License |
+| S17 | UD_French-Rhapsodie | [tree at `6979888f619d58edbb8a2de5352c5297b0eff902`](https://github.com/UniversalDependencies/UD_French-Rhapsodie/tree/6979888f619d58edbb8a2de5352c5297b0eff902) [V] | License |
+| S18 | UD_French-Sequoia | [tree at `21e377f98e07109500618ea83f1deccd77670d8f`](https://github.com/UniversalDependencies/UD_French-Sequoia/tree/21e377f98e07109500618ea83f1deccd77670d8f) [V] | README metadata: `License: LGPL-LR`; `LICENSE.txt` is the LGPL-LR text |
+| S19 | LINDAT item "CoNLL 2017 word embeddings automatic annotation" | [`items/053071c7-84f7-4d0b-bdd7-f87cbafcd3a9`](https://lindat.mff.cuni.cz/repository/items/053071c7-84f7-4d0b-bdd7-f87cbafcd3a9) (HTTP 200) [V] | CC BY-NC-SA 4.0 statement |
+| S20 | LINDAT handle used by Stanza's script | [`11234/1-1989`](https://lindat.mff.cuni.cz/repository/xmlui/handle/11234/1-1989) [V] (URL in S4). **Not confirmed to be the same deposit as S19.** | Source link |
+| S21 | CC BY-NC-SA 4.0 legal code | [`legalcode.txt`](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt) [V] | §1(k) NonCommercial, §1(l) Share, §4 database rights |
+| S22 | CC BY-SA 4.0 legal code | [`legalcode`](https://creativecommons.org/licenses/by-sa/4.0/legalcode) [V-prior] | §1(k) Share, §3 conditions |
+| S23 | ODC-By 1.0 | [`opendatacommons.org/licenses/by/1-0/`](https://opendatacommons.org/licenses/by/1-0/) [V] | §4.2 notices; "Produced Work" definition |
+| S24 | LGPL-LR text | [`UD_French-Sequoia/LICENSE.txt` at `21e377f9`](https://github.com/UniversalDependencies/UD_French-Sequoia/blob/21e377f98e07109500618ea83f1deccd77670d8f/LICENSE.txt) [V] | §§0–7 |
+| S25 | Apache-2.0 full text | [`apache.org/licenses/LICENSE-2.0.txt`](https://www.apache.org/licenses/LICENSE-2.0.txt) (fetched; sha256 prefix `cfc7749b96f63bd3`) [V] | §4(a)–(d) |
+| S26 | Wikimedia Terms of Use, §7 "Licensing of Content" and attribution | [`Policy:Terms_of_Use`](https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use) [V] (effective date not found) | Wiktionary grant chain |
+| S27 | Wiktionary:Copyrights | [`en.wiktionary.org/wiki/Wiktionary:Copyrights`](https://en.wiktionary.org/wiki/Wiktionary:Copyrights) [V] for the "outdated" notice; other text [V-prior] | Secondary; outdated |
+| S28 | Wiktionary:Quotations, §Copyright | [`en.wiktionary.org/wiki/Wiktionary:Quotations`](https://en.wiktionary.org/wiki/Wiktionary:Quotations) [V] | Quotation policy |
+| S29 | Wiktextract `LICENSE` at `05f0d933cbadb94a20d63a7b2c5f865e45ed381b` | [blob](https://github.com/tatuylonen/wiktextract/blob/05f0d933cbadb94a20d63a7b2c5f865e45ed381b/LICENSE) [V] (MIT statement for code [V-prior]) | Extractor license |
+| S30 | Kaikki pages | [French index](https://kaikki.org/dictionary/French/index.html), [raw data](https://kaikki.org/dictionary/rawdata.html), raw dump [`raw-wiktextract-data.jsonl.gz`](https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz) (HEAD [M]) | Kaikki terms, dump headers |
+| S31 | Repo `nlp/scripts/derive_dictionary_index.py` at base `6e02d180` | [blob](https://github.com/justin-hayes/mouseion/blob/6e02d180b1015536127839e0a45953684c0e5a83/nlp/scripts/derive_dictionary_index.py) [V] | Derivation, metadata |
+| S32 | Repo `nlp/src/mouseion_nlp/provision.py` at base | [blob](https://github.com/justin-hayes/mouseion/blob/6e02d180b1015536127839e0a45953684c0e5a83/nlp/src/mouseion_nlp/provision.py) [V] | Provisioning path |
+| S33 | Repo `internal/dictionary/attribution.go`, `internal/cardexport/cardexport.go`, `internal/cardexport/presentation.go`, `cmd/server/main.go`, `internal/enrichment/llm_codec.go` at base | e.g. [`cardexport.go`](https://github.com/justin-hayes/mouseion/blob/6e02d180b1015536127839e0a45953684c0e5a83/internal/cardexport/cardexport.go) [V] | Export and gloss paths |
+| S34 | ADR 0079 (contextual glosses require LLM) | [`doc/adr/0079-contextual-glosses-require-llm.md`](https://github.com/justin-hayes/mouseion/blob/6e02d180b1015536127839e0a45953684c0e5a83/doc/adr/0079-contextual-glosses-require-llm.md) [V-prior] | Attribution placement |
 
 ## Bottom line
 
-- **Code and model metadata are not the whole picture.** The Stanza code is
-  Apache-2.0 [V]. The Hugging Face model card says `apache-2.0` with no
-  training-data notice [V-prior]. Stanza's own performance page says the
-  UD-derived model license is "unclear" and that, "to the extent" Stanford has
-  rights, the packs are ODC-By 1.0 [V-prior]. These statements conflict or are
-  unresolved. This note does not settle which one governs the weights.
-- **Two copyleft-style inputs need attention.** The French training treebanks
-  GSD, ParisStories, and Rhapsodie are CC BY-SA 4.0 [V-prior]. The conll17
-  pretrained vectors used by the French `pos` and `depparse` models trace to a
-  LINDAT item licensed CC BY-NC-SA 4.0 [V-prior]. Whether either license
-  reaches the Stanza weights is **not determined** here [L][G].
-- **Wiktionary text is CC BY-SA 4.0 and GFDL, with per-entry exclusions.**
-  Wiktionary's own page describing this is marked outdated and as an unofficial
-  draft [V]. Quotations and other third-party material keep their own terms
-  [V]. Wiktionary's quotation policy was not read [G].
-- **Kaikki has a citation request, not a found license declaration.** Searched
-  the French index, raw-data page, and home page: the only use terms found are
-  an academic-citation request [V]. That is evidence about these pages, not
-  proof that no resource-specific license exists elsewhere [G].
-- **Private single-user use is the least constrained case.** CC BY-SA 4.0
-  attaches its Attribution and ShareAlike conditions to "Sharing," which it
-  defines as making material available "to the public" [V]. Single-user private
-  use, and transfer to one's own device, may fall outside that definition [L].
-  Public distribution, public APKG sharing, and any hosted or distributed
-  artifact are different. So is any LLM-provider processing whose terms are
-  unreviewed [G].
+- **Stanza `fr` weights: license not settled.** The code is Apache-2.0 [S6]. The
+  model card says `apache-2.0` with no training-data notice [S12]. Stanza's
+  performance page says the UD-derived model license is "unclear" and that, "to the
+  extent" Stanford holds rights, the packs are ODC-By 1.0 [S14, V-prior]. These
+  conflict. This note does not decide which governs the `.pt` files.
+- **Copyleft and non-commercial inputs reach the French defaults.** The `combined`
+  `pos` and `depparse` models depend on the conll17 pretrained vectors [S3, S8] and
+  on `newswiki` character models whose training corpus is not identified [S3, G].
+  The conll17 vectors trace to a CC BY-NC-SA 4.0 LINDAT item [S19], which says that
+  license covers the embeddings, not the underlying data. The French treebanks are
+  CC BY-SA 4.0 (GSD, ParisStories, Rhapsodie) and LGPL-LR (Sequoia) [S15–S18].
+- **Wiktionary text: grant chain identified, Kaikki terms not found.** The Wikimedia
+  Terms of Use §7 requires contributors to license text under CC BY-SA 4.0 and GFDL,
+  and reusers "may comply with either license or both" [S26]. Kaikki's raw dump has
+  no resource-specific license statement in the pages searched [S30, G].
+- **Private use is not cleared.** Under CC BY-SA 4.0 the attribution and ShareAlike
+  conditions attach to "Share," defined as making material available "to the
+  public" [S22, §1(k)]. Under CC BY-NC-SA 4.0 the NonCommercial definition is
+  "not primarily intended for or directed towards commercial advantage or monetary
+  compensation" [S21, §1(k)]. Neither fact is a grant. See §4.
 
 ## 1. Exact dependency artifacts
 
-### 1.1 Pinned manifest
+### 1.1 Pinned manifest and revision
 
-| Field | Value | Label |
+| Field | Value | Source |
 |---|---|---|
-| Source | `stanfordnlp/stanza-resources`, file `resources_1.15.0.json` at commit `569db9d983a47931673d7d265361ca93af85d176` (main, committed 2026-10-01T02:51:50Z) | [V] (commit and date from the GitHub API) |
-| Manifest sha256 | `ae9741f2ac99fb004461dc764827b62786a438cdf651474e81778df673dd4463` | [V] (computed on the fetched copy) |
-| Manifest md5 | `462ea52f652d309152a102ca15ffd942` | [V] |
-| `fr` default md5 | `1d68653a7e1bbe220b3f1e1d0a2a07c6` | [V] (in the manifest) |
-| Tag check | The `stanza-resources` tags endpoint returned 404 (no tag found). Not checked: the manifest the 1.15.0 wheel uses. | [G] |
-| History | The `fr` section changed in commit `e8941fa8add` (2026-09-29): all French md5s regenerated and the default tokenizer changed from `combined` to `combined_nocharlm`. The `fr` section is identical from that commit to `569db9d`. | [V] (earlier pass) |
-| Fetch behavior | Stanza's default resources URL is `main`, so the manifest is a moving target unless a commit is pinned. | [V-prior] |
+| Stanza code and files | tag `v1.15.0` → `c9a2158a87502dd63f757ab1aa933230b0acbce7` | [S1] |
+| Resources version in code | `__resources_version__ = '1.15.0'` | [S7] |
+| Default resources URL | `STANZA_RESOURCES_GITHUB + 'main'`, overridable by env `STANZA_RESOURCES_URL` (`common.py:36`) | [S2] |
+| Manifest (examined) | `stanfordnlp/stanza-resources` `resources_1.15.0.json` at `569db9d983a47931673d7d265361ca93af85d176` | [S8] |
+| Manifest sha256 (of fetched copy) | `ae9741f2ac99fb004461dc764827b62786a438cdf651474e81778df673dd4463` | [V] |
+| Manifest md5 (of fetched copy) | `462ea52f652d309152a102ca15ffd942` | [V] |
+| `v1.15.0` tag in stanza-resources | **No.** The ref endpoint returned 404; the tags list returned an empty array (HTTP 200), so there are no tags. | [S9] |
+| HF model revision | tag `v1.15.0` → `caeb7742148cb0368e4a0f2c68a0f7b09bc22880` | [S10] |
+| Model URL template | `https://huggingface.co/stanfordnlp/stanza-{lang}/resolve/v{resources_version}/models/{filename}` (manifest `url` field) | [S8] |
 
-**Requirement:** the pin must record the stanza-resources commit SHA and the
-manifest's sha256 when a model is provisioned, not the name `main`.
+**Consequences [I].** The default resources URL is a branch (`main`), so the
+manifest that a provisioning run uses is whatever `main` holds at download time,
+unless `STANZA_RESOURCES_URL` is set. The model URL uses the mutable tag `v1.15.0`.
+A reproducible pin must record a stanza-resources commit and the manifest sha256,
+and the HF commit `caeb7742…` in place of the tag.
 
 ### 1.2 Default `fr` package → artifacts
 
-The mapping below is read from the manifest. The **HF sha256** column is the LFS
-oid from the Hugging Face tree for `stanfordnlp/stanza-fr` at revision `v1.15.0`
-[M]. The **md5** column is the manifest value [M]. Neither was computed from
-bytes here.
+Read from the manifest [S8]; the HF sha256 and size columns come from the HF tree
+at `caeb7742…` [S11]. **Neither the md5 nor the sha256 was computed from downloaded
+bytes in this pass.** Every md5 is 32 hex characters and every sha256 is 64, as
+checked by script.
 
-| Role | Processor | Artifact (path in `stanza-fr` @ v1.15.0) | Manifest md5 [M] | HF LFS sha256 [M] | Size (bytes) [M] | Dependencies |
+Manifest `fr.default_processors`: `tokenize: combined_nocharlm`, `mwt: combined`,
+`lemma: combined_nocharlm`, `pos: combined_charlm`, `depparse: combined_charlm`,
+`ner: wikinergold_charlm` (out of scope), `optional.coref: udcoref_xlm-roberta-lora`
+(out of scope) [S8].
+
+| Role | Processor | Artifact (`models/…` at `caeb7742…`) | md5 [S8] | sha256 (HF LFS oid) [S11] | Size [S11] | Declared dependencies [S8] |
 |---|---|---|---|---|---|---|
-| tokenize | `combined_nocharlm` | `models/tokenize/combined_nocharlm.pt` | `34ce2e674142753bb26d2bd66adc7742` | `622a7613d78623cda63e53fc72f84c49b2f64ad959c0f6aeb51355b963eda78f` | 665712 | none |
-| mwt | `combined` | `models/mwt/combined.pt` | `827fd37941d9bb51bdd7c473e0e80cf8` | `a46bc4149531762c2fd79d70eeaaff80479aa6852a08516ab0db567859c8cec0` | 544773 | none |
-| lemma | `combined_nocharlm` | `models/lemma/combined_nocharlm.pt` | `07f18945c29490c60ff3a9dfa18fbdc5` | `31dd152c13d1d713085127e7b30d91e70e88652da4c2ea33c4b6f7d34d810177` | 2813969 | none |
-| pos | `combined_charlm` | `models/pos/combined_charlm.pt` | `505cd655d0474c51d1e35312d49bceae` | `e40eb06786fa691e84aa6ee1ff2321b37f9ff9cb9bf3fe4de94b63793b626f89` | 34563706 | `pretrain/conll17`, `forward_charlm/newswiki`, `backward_charlm/newswiki` |
-| depparse | `combined_charlm` | `models/depparse/combined_charlm.pt` | `c0c8d747238802ee03c40953a8e4d101` | `5ad85cd10e385894152154863c14f621b7d747c67c84eb8597039da12832315a` | 148809357 | same as pos |
-| pretrain | `conll17` | `models/pretrain/conll17.pt` | `f74659129e2008c6b7b6ca0a2db693d7` | `c8c456c1a48fba32d4ab827ae7d3fec40457f58ead7e1977b6267afc37474a3c` | 106908071 | none |
-| charlm forward | `newswiki` | `models/forward_charlm/newswiki.pt` | `d98e6909619100c23b745cae4383eea2` | `a6874f7670f84c8bd9e57d5dcbafdfe7d7cbae2457c79975040709f1d69ca119` | 20094072 | none |
-| charlm backward | `newswiki` | `models/backward_charlm/newswiki.pt` | `42eba035046673e195274f45e713653c` | `3ae24cade5cdca7d68193196a942a177af81fbc5d3b5ebb4550ff7b89023b09c` | 20094073 | none |
+| tokenize | `combined_nocharlm` | `tokenize/combined_nocharlm.pt` | `34ce2e674142753bb26d2bd66adc7742` | `622a7613d78623cda63e53fc72f84c49b2f64ad959c0f6aeb51355b963eda78f` | 665712 | none |
+| mwt | `combined` | `mwt/combined.pt` | `827fd37941d9bb51bdd7c473e0e80cf8` | `a46bc4149531762c2fd79d70eeaaff80479aa6852a08516ab0db567859c8cec0` | 544773 | none |
+| lemma | `combined_nocharlm` | `lemma/combined_nocharlm.pt` | `07f18945c29490c60ff3a9dfa18fbdc5` | `31dd152c13d1d713085127e7b30d91e70e88652da4c2ea33c4b6f7d34d810177` | 2813969 | none |
+| pos | `combined_charlm` | `pos/combined_charlm.pt` | `505cd655d0474c51d1e35312d49bceae` | `e40eb06786fa691e84aa6ee1ff2321b37f9ff9cb9bf3fe4de94b63793b626f89` | 34563706 | `pretrain/conll17`, `forward_charlm/newswiki`, `backward_charlm/newswiki` |
+| depparse | `combined_charlm` | `depparse/combined_charlm.pt` | `c0c8d747238802ee03c40953a8e4d101` | `5ad85cd10e385894152154863c14f621b7d747c67c84eb8597039da12832315a` | 148809357 | same as pos |
+| pretrain | `conll17` | `pretrain/conll17.pt` | `f74659129e2008c6b7b6ca0a2db693d7` | `c8c456c1a48fba32d4ab827ae7d3fec40457f58ead7e1977b6267afc37474a3c` | 106908071 | none |
+| charlm fwd | `newswiki` | `forward_charlm/newswiki.pt` | `d98e6909619100c23b745cae4383eea2` | `a6874f7670f84c8bd9e57d5dcbafdfe7d7cbae2457c79975040709f1d69ca119` | 20094072 | none |
+| charlm bwd | `newswiki` | `backward_charlm/newswiki.pt` | `42eba035046673e195274f45e713653c` | `3ae24cade5cdca7d68193196a942a177af81fbc5d3b5ebb4550ff7b89023b09c` | 20094073 | none |
 
-Notes on this mapping:
+Other mapping facts:
 
-- **[V]** The manifest's default `fr` entry names these processors, and the
-  dependencies listed above are read directly from the manifest.
-- **[I]** The default French pipeline uses `combined_charlm` only for `pos` and
-  `depparse`. The `newswiki` character language models are therefore needed
-  because of those two processors, not because of tokenize, mwt, or lemma.
-  This follows from the manifest entries.
-- **[I]** The `conll17` pretrained vectors are a dependency of `pos` and
-  `depparse` in all their variants, including `nocharlm`. Dropping charlm does
-  not remove the conll17 dependency.
-- **[V-prior]** The `combined` training set is GSD, ParisStories, Rhapsodie,
-  and Sequoia. ParTUT is not in the default.
-- **[G]** The sha256 values above are from the Hugging Face tree API, not from
-  downloaded bytes. Recomputing them would require downloading about 300 MB. That
-  was deliberately not done in this pass.
-- **[G]** The mapping of `pretrain/conll17.pt` to the LINDAT vectors is not
-  verified. Stanza's documentation and the file name support the link [I], but
-  no byte-level comparison was made.
-- **[G]** The manifest's `ner` entry also depends on `conll17`. NER is out of
-  scope.
+- **[V]** The French default package's `default_md5` is `1d68653a7e1bbe220b3f1e1d0a2a07c6` [S8]. Stanza uses it when a `default.zip` is downloaded (`common.py:688–703`, md5 at 700) [S2].
+- **[V]** The `combined` French treebanks are GSD, ParisStories, Rhapsodie, and
+  Sequoia [S13]. ParTUT is not in the default [S13].
+- **[V]** `default_packages.py` maps `"fr": "newswiki"` in `default_charlms` [S3].
+- **[V]** Stanza's `download_vectors.sh` fetches the conll17 French vectors from the
+  LINDAT handle `11234/1-1989` [S4, S20].
+- **[I]** `conll17` is a dependency of `pos` and `depparse` in every variant the
+  manifest lists, including `combined_nocharlm`-style variants. Dropping the charlm
+  does not drop conll17.
+- **[G]** The `pretrain/conll17.pt` file is Stanza's `Pretrain` serialization (a
+  vocabulary and an embedding matrix) [S5]. Whether the hosted file was built from
+  the LINDAT tarball, and with what options, is not documented in Stanza's sources.
+  **Gap G1.**
+- **[G]** Whether S19 and S20 are the same deposit is not confirmed. S20 returned
+  a page this pass that was not inspected in full.
 
-## 2. Model and code license evidence
+## 2. License evidence
 
 ### 2.1 Notices found
 
-| Resource | What the source says | Label |
-|---|---|---|
-| Stanza code (`stanfordnlp/stanza`) | Apache-2.0 | [V] (repo LICENSE) |
-| Hugging Face `stanfordnlp/stanza-fr` model card | `license: apache-2.0`; no training-data notice (checked at tag `v1.15.0` and `main`) | [V-prior] |
-| Stanza performance page | UD-derived model license "unclear." To the extent Stanford has rights, the packs are under ODC-By 1.0. | [V-prior] |
-| GSD treebank | CC BY-SA 4.0 (`LICENSE.txt` and README). README says the underlying text was collected by Google "as is" and may be copyrighted. | [V-prior] |
-| ParisStories, Rhapsodie treebanks | CC BY-SA 4.0 | [V-prior] |
-| Sequoia treebank | LGPL-LR. Its sources, per the README, include Europarl, French Wikipedia, L'Est Républicain, and EMEA. | [V-prior] |
-| conll17 French vectors (LINDAT item `053071c7-84f7-4d0b-bdd7-f87cbafcd3a9`) | CC BY-NC-SA 4.0. The item says the license covers generated annotations and embeddings but not the underlying data. | [V-prior] |
-| NLPL repository | Lists French CoNLL17 as ID 43 | [V-prior] |
-| `newswiki` character language models | Training corpus **not identified** in Stanza 1.15.0 sources | [G] |
+| Artifact or input | Notice in source | Source | Label |
+|---|---|---|---|
+| Stanza code | Apache-2.0. The repo `LICENSE` is only the copyright header and a URL. Full text: Apache-2.0 | [S6, S25] | [V] |
+| Stanza tree | No file whose path contains "notice" (case-insensitive) at `c9a2158` | [S1] | [V] |
+| HF `stanfordnlp/stanza-fr` card | `license: apache-2.0`; no dataset or training section | [S12] | [V] |
+| Stanza performance page | UD-derived model license "unclear." "To the extent" Stanford has rights, ODC-By 1.0 | [S14] | [V-prior] |
+| GSD | CC BY-SA 4.0. Google dropped the NC restriction for UD annotations; the README says the underlying text is not Google's and may be copyrighted | [S15] | [V] |
+| ParisStories, Rhapsodie | CC BY-SA 4.0 | [S16, S17] | [V] |
+| Sequoia | LGPL-LR. README lists "French Europarl" among sources | [S18] | [V] |
+| conll17 (LINDAT item S19) | "This item is … licensed under CC BY-NC-SA 4.0." The item says the license applies to the generated annotations and word embeddings, "not to the underlying data, which may have different license and impose additional restrictions" | [S19] | [V] |
+| `newswiki` character models | No license notice found. Corpus not identified. Searched the source (see §2.4) | [S1, S3] | [G] |
 
 ### 2.2 Conflicts and unresolved points
 
-1. **Apache-2.0 (code and HF card) vs. "unclear" / ODC-By "to the extent"
-   (Stanza performance page).** These do not agree on the weights. The HF card
-   has no training-data notice. Neither source says which one governs the
-   packaged `.pt` files [G][L].
-2. **Share-alike from CC BY-SA treebanks.** Whether trained weights count as
-   "Adapted Material" under CC BY-SA 4.0 §1(a) is not settled [L]. The license
-   text ties ShareAlike to Sharing Adapted Material [V].
-3. **Non-commercial inheritance from the conll17 vectors.** [I] The `pos` and
-   `depparse` models use these vectors, so if the vectors' CC BY-NC-SA terms
-   reach the fine-tuned weights, they would restrict commercial use. [L] Whether
-   they reach the weights, or whether the LINDAT item's own "not the underlying
-   data" carve-out limits that, is not settled. Stanza's link from the `.pt` file
-   to the LINDAT item was not byte-verified [G].
-4. **Sequoia LGPL-LR.** Its applicability to weights trained on Sequoia data is
-   not analyzed here [L].
-5. **Underlying text rights.** The treebanks' text, not just their annotations,
-   may carry third-party rights (GSD README) [V-prior] [L].
+1. **Apache-2.0 vs. "unclear" / ODC-By "to the extent."** The model card and code
+   say Apache-2.0. The performance page says the UD-derived license is unclear and
+   points to ODC-By to the extent Stanford holds rights [S12, S14]. Neither source
+   says which governs the packaged `.pt` files. **[G][L]**
+2. **CC BY-SA 4.0 on the treebanks.** Whether trained weights are "Adapted Material"
+   (CC BY-SA §1(a), [S22]) is not settled. ShareAlike attaches to sharing adapted
+   material. **[L]**
+3. **CC BY-NC-SA on the conll17 vectors.** If the vectors' terms reach the fine-tuned
+   `pos` and `depparse` weights, the NonCommercial term applies to those weights.
+   Whether they do is not settled. The LINDAT item's carve-out for underlying data
+   does not answer it. Stanza's link from the `.pt` file to the LINDAT item is not
+   byte-verified [S19, G1]. **[L][G]**
+4. **Sequoia LGPL-LR.** Its effect on weights trained on Sequoia text is not analyzed
+   here. LGPL-LR §2 requires modified works to be under LGPL-LR "as a whole," and §5–§6
+   prohibit copying or distributing outside its terms [S24]. **[L]**
+5. **Underlying text rights.** The GSD README says the annotated sentences may be
+   copyrighted and were collected "as is" [S15]. This is separate from the annotation
+   license. **[V][L]**
 
-### 2.3 Use-level consequence for models
+### 2.3 Use-level status of the model artifacts
 
-Use-by-use obligations are in §4. In short: no model license conclusion is
-settled for any use beyond private execution.
+Not cleared for any use. The sources give no grant that covers the weights. The
+Apache-2.0 code license does not reach the separately licensed data inputs [I]. The
+ODC-By "to the extent" statement [S14] is not a grant for the weights the project
+would run.
+
+### 2.4 Searched for the `newswiki` source
+
+- Full-text search of the stanza tag at `c9a2158` for `newswiki` (blobs under 1 MB,
+  shallow clone): the only hit is `default_packages.py` [S3]. The mapping appears for
+  `de`, `es`, `fr`, and `ru` (lines 333, 335, 338, 351). **[V]**
+- Searched `stanza/utils/charlm/` (8 files, including `conll17_to_text.py`,
+  `make_lm_data.py`, `dump_oscar.py`, `oscar_to_text.py`) [S1]. No `newswiki` name
+  or corpus description. **[V]**
+- GitHub code search needs authentication (HTTP 401 unauthenticated). **[G]**
+- Files over 1 MB were excluded from the sweep. **[G]**
+
+### 2.5 Exact maintainer inquiry (for the Stanza team)
+
+> Which corpus was used to train the `newswiki` forward and backward character language
+> models for French (`forward_charlm/newswiki.pt`, `backward_charlm/newswiki.pt`, Stanza
+> 1.15.0 default `fr`, HF `stanfordnlp/stanza-fr` at `caeb7742…`)? Please give the source
+> dataset, its license or terms, and whether it is publicly redistributable.
+>
+> Was `models/pretrain/conll17.pt` built from the LINDAT deposit `11234/1-1989`
+> (`word-embeddings-conll17.tar`), and if so by which `convert_pretrain.py` command and
+> options? Please give the source file's checksum.
+>
+> Which license governs the `pos/combined_charlm.pt` and `depparse/combined_charlm.pt`
+> weights: Apache-2.0 (model card), ODC-By 1.0 "to the extent" (performance page), or
+> another? Please give the documented basis.
 
 ## 3. Wiktionary and Kaikki evidence
 
 ### 3.1 Wiktionary
 
-- **[V]** `Wiktionary:Copyrights` says original entry text is dual-licensed under
-  CC BY-SA 4.0 and GFDL, and that material from external sources keeps its own
-  terms and must be identified as external.
-- **[V]** The same page carries a notice that it is outdated, dates to 2002, and
-  is an unofficial draft. This note therefore cites the license text, not the
-  page, as the operative term.
-- **[V]** The en.wiktionary footer says definitions and other text are under
-  CC BY-SA, and that "additional terms may apply." Those additional terms are
-  not enumerated on the footer.
-- **[V]** The same page describes quotations of contemporary authors as fair use
-  that must still be identified by source. Quotations are therefore separate
-  third-party material, not CC BY-SA text by default [L].
-- **[G]** Wiktionary's quotation policy (`WT:QUOTE`) was **not read**. Per-entry
-  quotation handling is unverified.
-- **[G]** Imported external text and history-page attribution were not sampled
-  on individual entries.
-- **[V-prior]** Wiktextract's code is MIT-licensed. Its `tests/` files are under
-  Wiktionary's license.
+- **[V]** Wikimedia Terms of Use §7 requires contributors to license their text
+  under CC BY-SA 4.0 and GFDL (unversioned, no invariant sections), and says
+  "Reusers may comply with either license or both" [S26]. The same section sets
+  attribution by hyperlink or URL "to the article to which you contributed (since
+  each article has a history page that lists all contributors)," or to a stable
+  alternative copy, and requires an indication of modification and a license notice
+  for each distributed copy [S26]. **This is the grant chain for contributor text.**
+- **[V]** The Wiktionary:Copyrights page carries an "outdated" notice. It dates to
+  2002, was copied from Wikipedia, and may not apply [S27]. This note does not treat
+  that page as the grant. Its other statements are [V-prior] only.
+- **[V]** Wiktionary:Quotations, §Copyright: citation sentences "should not be added
+  … in a way that violates the copyright of the work." It says a citation is
+  "likely … a de minimis portion" or "a clear fair use," but that long citations from
+  short works, or multiple citations from one work, can infringe. Works published in
+  the US before 1931 and US government documents are listed as public domain [S28].
+  **Quotations are third-party material with their own status** [L].
+- **[V-prior]** The en.wiktionary footer says text is under CC BY-SA and that
+  "additional terms may apply." This was not re-fetched in this revision [G].
+- **[V-prior]** Wiktextract's code is MIT. Files under `tests/` are under the
+  Wiktionary license (CC BY-SA or GFDL) [S29].
+- **[G]** Per-entry quotation handling, imported external text, and per-entry
+  history attribution were not sampled on individual entries.
 
 ### 3.2 Kaikki.org
 
-- **[V]** Searched the French dictionary index, the raw-data page, and the home
-  page for "license," "copyright," "CC," "attribution," and "citation." Found
-  only an academic-citation request for Ylonen (LREC 2022), on each page. That is
-  a request, not a license condition [L].
-- **[G]** No resource-specific license declaration was found on these pages. The
-  search does not show that none exists anywhere; the rest of kaikki.org and the
-  Wiktextract repository were not exhaustively read for one.
-- **[V-prior]** The post-processed data includes "additional data merged from
-  other sources," so it is not purely Wiktionary-derived [V-prior]. The raw
-  English dump was the input of the repo script [V].
-- **[V]** HEAD on the raw English dump
-  `https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz`: HTTP 200,
-  `content-length: 2981058381`, `last-modified: Sat, 03 Oct 2026 08:24:38 GMT`,
-  `etag: "6ac0bbc6-b1af574d"`. These are headers only, not a content hash [M].
-- **[V]** The raw-data page lists the dump dated 2026-09-02 and extracted
-  2026-10-03. A raw French-edition extract is listed as work in progress.
-- **[G]** No sha256 of the raw dump was obtained. The `etag` is not a content
-  hash.
+- **[V]** Searched the French index, the raw-data page, and the home page for
+  license, copyright, and citation terms [S30]. The only use term found is an
+  academic citation request (Ylonen, LREC 2022). A citation request is not a license
+  condition [L].
+- **[G]** No resource-specific license declaration for the raw dump was found on the
+  pages searched. This is not proof that none exists; the rest of kaikki.org was
+  not read exhaustively.
+- **[V-prior]** The index page says the **displayed** (post-processed) data includes
+  "additional data merged from other sources" [S30]. The raw dump is unprocessed
+  Wiktextract output [S30]. The post-processing merge therefore does not establish
+  that the raw dump contains merged or contaminated text. It is a separate question.
+- **[V]** The derivation script downloads
+  `https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz` [S31, line 29].
+- **[M]** HEAD on the raw dump: HTTP 200, `content-length: 2981058381`,
+  `last-modified: Sat, 03 Oct 2026 08:24:38 GMT`, `etag: "6ac0bbc6-b1af574d"`
+  [S30]. The etag is not a content hash. No sha256 was computed.
+- **[V-prior]** The raw-data page lists the dump dated 2026-09-02 and extracted
+  2026-10-03 [S30].
 
-### 3.3 Repository facts (checked in this pass)
+### 3.3 Repository facts at base `6e02d180`
 
-- `nlp/scripts/derive_dictionary_index.py:21` `LANGUAGES = {"de", "it", "el"}`.
-  French is not a derivation target [V].
-- `nlp/scripts/derive_dictionary_index.py:29` `KAIKKI_DOWNLOAD_URL` is the raw
-  English dump (~2.8 GB compressed) [V].
-- `nlp/scripts/derive_dictionary_index.py:521` and `:524` hard-code the
-  metadata strings `license: "Wiktionary-derived data: CC BY-SA 4.0 / GFDL"` and
-  `attribution: "Wiktionary contributors; CC BY-SA 4.0 / GFDL"` [V]. These do not
-  record a snapshot.
-- `nlp/scripts/derive_dictionary_index.py:615` writes a version string of the
-  form `dump=…;extraction=…;wiktextract=…`. It can record the dump date, the
-  extraction date, and the wiktextract commit when supplied [V].
-- `nlp/scripts/derive_dictionary_index.py` `sense_from` keeps the first gloss,
-  the verbatim examples, IPA, plural, gender, and article [V-prior].
+- `nlp/scripts/derive_dictionary_index.py:21` `LANGUAGES = {"de", "it", "el"}`. French
+  is not a derivation target [S31] [V].
+- `nlp/scripts/derive_dictionary_index.py:521` and `:524` hard-code the license
+  string `"Wiktionary-derived data: CC BY-SA 4.0 / GFDL"` and the attribution string
+  [S31] [V].
+- `nlp/scripts/derive_dictionary_index.py:601–603` take `--dump-date` (default `""`),
+  `--extraction-date` (default today's date), and `--wiktextract-commit` (default
+  `""`) [S31] [V].
+- `nlp/scripts/derive_dictionary_index.py:615` writes the version string
+  `dump=…;extraction=…;wiktextract=…`, with `unknown` for an empty dump date or commit
+  [S31] [V].
+- **The script has no sha256, md5, or hashlib code** [S31] [V]. The dump's checksum is
+  not recorded anywhere.
 - `internal/dictionary/attribution.go:4` `AttributionNotice` names Wiktionary,
-  Wiktextract, and Kaikki.org, and says CC BY-SA 4.0 / GFDL with share-alike. It
-  has **no** dump date, extraction date, or wiktextract commit [V].
-- `internal/cardexport/cardexport.go:1609–1634` (`deckDescription`,
-  `attributionNotices`) adds `AttributionNotice` to APKG descriptions and TSV
-  headers when dictionary evidence is present [V].
-- `internal/cardexport/cardexport.go:1531` (`selectedSenseGloss`) can place a
-  verbatim, token-truncated Wiktionary sense gloss into card Gloss via
-  `enrichment.RenderGloss` [V].
-- `internal/cardexport/cardexport.go:1468` (`applyContextualGloss`) is the LLM
-  path, used when `MeaningEvidenceHash` is set [V]. Which path a given deck
-  uses is for maintainers to confirm [G].
-- `internal/enrichment/llm_codec.go:180–196` sends `CandidateSenses` (glosses and
-  examples) in the LLM request payload [V].
-- `doc/adr/0079-contextual-glosses-require-llm.md:55` says Wiktionary attribution
-  "stays in deck/export metadata, not on each card." Lines 72–74 say the existing
-  index "retains its attribution and redistribution terms" [V].
-- `README.md` §License (lines ~246–259) says the optional dictionary index is not
-  distributed with the source and is CC BY-SA 4.0 / GFDL when built [V].
+  Wiktextract, and Kaikki.org, and states CC BY-SA 4.0 / GFDL with share-alike. It
+  records **no** dump, extraction date, or commit [S33] [V].
+- `internal/cardexport/cardexport.go:1609–1631` (`deckDescription`,
+  `attributionNotices`) adds `AttributionNotice` to the APKG deck description and
+  to the TSV header when `dictionaryAttribution` finds dictionary evidence, meaning a
+  non-empty `DictionaryProviderVersion` and at least one candidate sense [S33] [V].
 
-## 4. Use-by-use analysis
+## 4. Use-by-use status
 
-The five uses below follow the original ticket. For each, "obligations" lists
-what the sources say must be done when that use occurs. "Gaps" lists what is
-unresolved.
+Each use is **not accepted**. The "conditions" lists what the sources say applies if
+the use occurs. "Grant gap" is what keeps the use from being cleared.
 
 ### Use 1: Personal self-hosted execution
 
-- **Model (Stanza fr):** running the pipeline privately on one's own machine,
-  without distribution. Obligations from the sources: none stated for private
-  use in Apache-2.0, ODC-By, or CC licenses [V][L]. The CC BY-NC-SA "non-commercial"
-  restriction is about commercial use [L]. Under CC BY-SA 4.0 §3 the attribution
-  and ShareAlike conditions attach only to Sharing [V].
-- **Dictionary (Wiktionary/Kaikki):** a private, local index. The same logic
-  applies [L].
-- **Gaps:** [G] whether any stated "unclear" or ODC-By term imposes use-level
-  obligations; [G] whether the project's public release (AGPL-3.0 README) affects
-  the analysis for a user who runs the software for others.
+**Status: not cleared.**
+
+- **Ordinary private-use conditions.** Apache-2.0 has no condition on private use
+  beyond its terms (§4 applies to redistribution) [S25]. ODC-By's notice duties apply
+  when one "Publicly Convey[s]" the database [S23 §4.2], and "Conveying" is defined
+  as transferring a copy [S23] [I]. CC BY-SA and CC BY-NC-SA conditions attach to
+  sharing or reproduction under the license [S21, S22] [L].
+- **Grant gap (the main issue).** Running a model on one's own hardware involves
+  copying the weights onto that hardware. A CC license covers that reproduction, and
+  so does the NonCommercial term. If the conll17-derived weights carry CC BY-NC-SA,
+  a private copy is a reproduction outside a grant unless some other basis permits it
+  [L]. The sources give no such basis. **Missing notice is not private permission.**
+  [G]
+- **Dictionary.** A private local index raises the same grant question, plus the
+  §3 uncertainty about Kaikki [G].
+- **Stanza and LGPL-LR.** Whether LGPL-LR conditions attach to a model trained on
+  Sequoia is not analyzed [L].
 
 ### Use 2: Automated provisioning and download
 
-- **Current state:** `nlp/src/mouseion_nlp/provision.py` contains no md5,
-  sha256, or checksum verification string, and no license-notice writing
-  [V]. `provision.py` also contains no reference to `stanza-resources` [V].
-  The provisioning path therefore has no pin and no integrity check in the code
-  reviewed here [G][I].
-- **Obligations:** pin the stanza-resources commit and manifest sha256; verify
-  each artifact's md5 (and sha256 where available) before use; write a notice
-  file per artifact recording the license evidence in §2 [I].
-- **Gaps:** [G] the Stanza loader's own checksum behavior was not read; [G] any
-  automated download of conll17 or the CC BY-NC-SA-linked artifact is not
-  cleared by this note.
+**Status: not cleared. The current code does not pin or record a basis.**
+
+Verified behavior, separated from proposals:
+
+- **[V] Stanza verifies a checksum per file.** `request_file` calls
+  `assert_file_exists(path, md5, alternate_md5)` after download [S2, `common.py:195–221`].
+  `assert_file_exists` raises `ValueError` on mismatch [S2, `common.py:126–135`].
+  Each model download passes the manifest md5 [S2, `download_models`, `common.py:609–640`, md5 at 637].
+  The `default.zip` path passes `default_md5` [S2, `common.py:688–703`, md5 at 700].
+- **[V] The manifest is not checked.** `download_resources_json` fetches the manifest
+  with `request_file(..., raise_for_status=True)` at `common.py:533–557`, and the call
+  passes no md5 argument [S2]. The per-file md5 values therefore show consistency with
+  the manifest that was fetched. They do not show that manifest is the one a version
+  pins [I].
+- **[V] The project's provisioning passes through Stanza.** `provision.py` assigns
+  `download = download or stanza.download` (line 216) [S32]. It has no md5, sha256, or
+  checksum string [S32]. Its Hugging Face dependencies use `snapshot_download` and
+  `external.download` (`ensure_external_dependency`) [S32].
+- **[V] No notice is written.** `provision.py` writes no license notice file [S32].
+
+**Proposed safeguards** (engineering recommendations, not license requirements):
+
+1. Pin the stanza-resources commit (or the `STANZA_RESOURCES_URL` value) and the
+   manifest sha256 in provisioning.
+2. Pin the HF model revision to the commit `caeb7742…`, not the tag `v1.15.0`.
+3. Verify each artifact's md5 against the manifest (Stanza already does this) and
+   also record sha256 from the HF tree. These proposals are not a license condition.
+4. Write a per-artifact notice file (§5).
+
+**Gaps:** [G] conll17 → LINDAT byte link (G1); the provenance of the Stanza tag's
+wheel manifest was not checked beyond the commit in §1.1.
 
 ### Use 3: Local dictionary derivation and refresh
 
-- **Current state:** the derivation script downloads the 2.8 GB raw dump,
-  derives an index, and writes hard-coded license metadata [V]. `fr` is not in
-  `LANGUAGES` [V].
-- **Obligations (for private use):** record the dump date, extraction date,
-  wiktextract commit, and dump sha256 in the index metadata for each refresh
-  [I]. Keep the attribution with the derived index [I].
-- **Gaps:** [G] the dump sha256 was not computed; [G] whether per-entry
-  quotations and imported text are excluded; [G] the `etag` is not a content hash.
+**Status: not cleared.**
+
+- **Source license conditions.** The Wiktionary grant chain in §3.1 [S26] applies to
+  the text the index contains. Its attribution, modification, and license-notice
+  conditions attach to distribution of the derived index [S26].
+- **Proposed safeguards:** record the dump filename, dump date, extraction date,
+  wiktextract commit, and dump sha256 in the index metadata. The script records the
+  first four when supplied, and not the sha256 [S31].
+- **Grant gap:** Kaikki's own terms for the raw dump were not found [G]. The
+  per-entry quotation status (§3.1) is unsampled [G].
 
 ### Use 4: Distribution of models, data, or derived dictionaries
 
-**Not a launch destination. This section records what would apply.**
+**Not a launch destination. Records what would apply, not a clearance.**
 
-- **Model weights:** possible obligations include Apache-2.0 notice (code, [V]),
-  ODC-By notice (if it applies, [V-prior][L]), CC BY-SA ShareAlike for adapted
-  material if the weights are adapted from GSD/ParisStories/Rhapsodie ([L]), and
-  CC BY-NC-SA non-commercial restriction if the conll17 terms reach the weights
-  ([L]). Sequoia LGPL-LR may apply ([L]).
-- **Dictionary-derived data:** CC BY-SA 4.0 Sharing requirements: attribution
-  (§3(a)(1)), indication of modification (§3(a)(1)(B)), license text or link
-  (§3(a)(1)(C)), and ShareAlike for the adapted index (§3(b)) [V][L]. Kaikki's own
-  terms, if any, are not found [G].
-- **Gaps:** [G] whether the derived index is "Adapted Material" under CC BY-SA;
-  [G] whether the Kaikki post-processing merge changes that; [G] whether the
-  raw dump's per-entry quotations fall under CC BY-SA at all.
+- **Model weights:** Apache-2.0 notice for the code [S25 §4(a)–(d)]. ODC-By notices, if
+  it applies [S23 §4.2; Produced Work notice in the same license, not re-read in this
+  pass]. CC BY-SA ShareAlike for adapted material, if the weights are adapted from
+  GSD, ParisStories, or Rhapsodie [L]. CC BY-NC-SA NonCommercial, if the conll17 terms
+  reach the weights [L]. LGPL-LR §5–§7 restrictions on copying and redistribution,
+  and the automatic license in §7, if Sequoia applies [S24] [L].
+- **Dictionary-derived data:** CC BY-SA 4.0 §3 attribution, indication of
+  modification, license notice or URI, and ShareAlike for adapted material [S22] [L].
+  Wikimedia ToU §7 attribution and notice duties also apply [S26].
+- **Gaps:** whether the derived index is adapted material; whether the post-processing
+  merge changes the raw dump's status [G]; whether quotations in the raw dump fall
+  under CC BY-SA at all [L][G].
 
 ### Use 5: Dictionary-derived material in APKG exports
 
-This use splits in two, and the two cases differ.
+**Not cleared.** Split into copied and generated fields.
 
-**5a. Copied fields.** Verbatim or near-verbatim Wiktionary text placed in
-exported card fields (for example, `selectedSenseGloss` in Gloss; verbatim
-examples; IPA; gender; plural) [V].
+**5a. Copied fields** (sense gloss, verbatim examples, IPA, gender, plural, article).
 
-- **Single-user private transfer** (the user exports an APKG and imports it on
-  their own device). CC BY-SA 4.0 §1(k) defines "Share" as making material
-  available "to the public" [V]. Attribution and ShareAlike apply under §3 when
-  one Shares [V]. Private transfer to oneself may fall outside Sharing [L]. This
-  is a reading of the definition, not a settled conclusion.
-- **Public sharing of the APKG** (for example, uploading it to a deck-sharing
-  site, or giving it to others). This is Sharing [L]. Attribution in a reasonable
-  manner is required (§3(a)(2)) [V]. The current per-deck description and TSV
-  header notice may or may not be "reasonable to the medium" [L][G]. Share-alike
-  for the APKG as adapted material is [L].
-- **Quotations and external material.** Verbatim examples that are quotations
-  from third-party works keep their own terms [V]. Their use in an export that is
-  Shared is not cleared [G].
+- **Copyrightable expression vs. facts.** Isolated facts such as an IPA transcription,
+  a gender, or a short form are not automatically copyrightable expression [L].
+  Longer glosses and example sentences can be [L]. The question is per-field, not per-deck [L].
+- **Database rights and repeated extraction.** CC BY-NC-SA §4 covers sui generis
+  database rights, including substantial extraction and reuse of a database [S21 §4].
+  Whether the Wiktionary extract is a protected database in the relevant jurisdiction
+  is [L][G].
+- **Attribution and ShareAlike.** The export "shares" only when the APKG leaves the
+  user's control. CC BY-SA §1(k) defines Share as making material available "to the
+  public by any means or process that requires permission" [S22] [L]. Giving the file
+  to a single known recipient is not clearly "to the public" [L]. That is a limited
+  recipient question, not a categorical answer: a deck handed to one person may still
+  be Shared under some readings [L].
+- **Whole-archive status.** The APKG does not become ShareAlike as a whole merely
+  because a copied field is in it [L]. Coexisting book text in the same deck does
+  not relicense the Wiktionary material [L]. Attribution must still be given for the
+  Wiktionary fields [S22 §3].
+- **Generated does not clear rights.** Generated fields do not automatically clear
+  the rights in the copied source material [L].
+- **What the code does [V].** `applySenseSelectionGloss` sets `input.Gloss`
+  (`cardexport.go:1480–1483`). `chooseSenseSelectionGloss` calls
+  `selectedSenseGloss` (`cardexport.go:1512`). `applyExactEnrichment` calls
+  `applySenseSelectionGloss` on the non-contextual path (`cardexport.go:1402`), and
+  `applyExactEnrichment` is called at `cardexport.go:1375`. The function that contains
+  line 1375 was not read, so **whether a production export reaches this path depends
+  on the caller and on whether sense selections exist for the deck [G]**. The
+  dictionary index's gloss also flows through `resolveLexicalEntry` (`cardexport.go:1175–1189`)
+  and into the render field `Gloss` (`cardexport.go:1063`), and that wiring is
+  live from `cmd/server/main.go:196` [S33].
+- **French scope.** `LANGUAGES` does not include `fr` [S31]. The current index
+  therefore does not contain French target-language senses derived from the English
+  dump. Whether a French deck can reach the Wiktionary path at all is [G].
 
-**5b. Generated or contextual fields.** LLM-generated glosses grounded in
-candidate Wiktionary senses (ADR 0079, `applyContextualGloss`) [V].
+**5b. Generated or contextual fields** (LLM output grounded in candidate senses,
+`applyContextualGloss`, ADR 0079) [S34].
 
-- Whether LLM output is "Adapted Material" based on Wiktionary text is [L]. The
-  answer depends on how much of the source text the output retains.
-- **LLM-provider transmission.** Candidate senses (glosses and examples) are sent
-  to the configured provider [V]. Whether that is Sharing under CC BY-SA is [L].
-  The sharing definition is "to provide material to the public" [V], and provider
-  processing for one user is not obviously "to the public," but the provider's
-  terms, retention, and training use were **not reviewed** [G].
-- **Attribution location.** ADR 0079 places Wiktionary attribution in deck/export
-  metadata, not on each card [V]. Whether that satisfies §3(a)(2) for generated
+- **Input transmission [V].** Candidate senses (glosses and examples) are sent in the
+  LLM request payload (`internal/enrichment/llm_codec.go:180–196`) [S33].
+- **Whether provider processing is Sharing is [L].** Provider processing for one user is
+  not obviously "to the public." Provider terms (retention, logging, training) were
+  **not reviewed** [G].
+- **Attribution placement.** ADR 0079 places Wiktionary attribution in deck or export
+  metadata, not per card [S34 §55]. Whether that meets CC BY-SA §3(a)(2) for generated
   fields is [L].
 
-## 5. Attribution path (feasible; not implemented)
+## 5. Attribution path (proposed; not implemented)
 
-1. **Per-artifact NOTICE for the Stanza bundle.** Provisioning writes a notice
-   file with each artifact's processor, path, md5, and (when available) sha256;
-   the stanza-resources commit; and the license evidence from §2 with source
-   links. Owner: NLP provisioning. Requires §2 conclusions before it is
-   authoritative.
-2. **Versioned dictionary notice.** Extend `AttributionNotice` so that it includes
-   the dump filename, dump date, extraction date, wiktextract commit, and dump
-   sha256. The script already has the fields to write this [V]. Owner: dictionary
-   and export.
-3. **CC BY-SA link.** Include the license URI and a Wiktionary URL for each entry
-   where practical. The entry URL can be constructed from the title; the raw data
-   field for that was **not verified** [G].
-4. **Exclusion list.** Drop or flag quotation examples, imported external text,
-   and any sense that the per-entry Wiktionary history marks as external [G]. This
-   needs a per-entry classifier that does not exist.
-5. **LLM path.** Record in the export that contextual glosses were produced by a
-   named provider from candidate senses, and link the notice [I].
+Each item is a proposal, not a license condition, except where marked.
 
-## 6. Human and maintainer questions
+1. **[License, sourced] Wikimedia attribution.** Keep author/source links: a hyperlink
+   or URL to the page, or to a stable alternative copy with history [S26]. The current
+   `AttributionNotice` (`attribution.go:4`) names the sources but has no link to the
+   entry or the history page [S33].
+2. **[License, sourced] Modification notice and license notice.** Mark modified
+   material and include the license name and URI for each distributed copy [S26][S22 §3].
+3. **[Proposed] Versioned dictionary notice.** Extend `AttributionNotice` with the dump
+   filename, dump date, extraction date, wiktextract commit, and sha256. The script
+   records the first four when supplied and not the sha256 [S31].
+4. **[Proposed] Per-artifact Stanza notice.** Provisioning writes the processor, path,
+   md5, sha256 from the HF tree, the stanza-resources commit, and the §2 evidence.
+   It is not authoritative until §2 is resolved.
+5. **[Proposed] LLM path.** Record that contextual glosses came from a named provider
+   from candidate senses, with a link to the notice [S34].
+6. **[Proposed] Exclusion list.** Drop or flag quotation examples and imported external
+   text [S28]. This needs a per-entry classifier that does not exist.
 
-These must be answered before #2141 can accept a basis.
+## 6. Human, maintainer, and legal questions
 
-1. **Stanza weights.** Does the project accept the Apache-2.0 code and HF card
-   as the basis for the packaged French weights, given the ODC-By "to the extent"
-   and "unclear" statements? Which Stanford statement is authoritative?
-2. **conll17 vectors.** Does the project accept the risk that CC BY-NC-SA 4.0
-   reaches `pos` and `depparse`? If not, which processor variant avoids conll17?
-   (`combined_nocharlm` for `pos` and `depparse` still depends on conll17 per §1.2.)
-3. **Treebank share-alike.** Does counsel conclude that CC BY-SA on GSD,
-   ParisStories, and Rhapsodie does or does not reach trained weights?
-4. **Sequoia.** Does LGPL-LR apply to weights trained on Sequoia data?
-5. **Newswiki charlm.** What is the training corpus for the `newswiki` character
-   language models? (Not identified in Stanza's 1.15.0 sources.)
-6. **Manifest pin.** Which stanza-resources commit should the project pin, and
-   should provisioning verify md5 or sha256 before loading?
-7. **Kaikki.** Does the Kaikki maintainer state a license for the raw dump or
-   the derived extracts? The citation request is not a license.
-8. **Kaikki merge.** Does "additional data merged from other sources" in the
-   post-processed data affect the raw English dump, which is the script's input?
-9. **Quotations.** Does the project exclude quoted third-party examples from
-   derived dictionary entries, and from exports?
-10. **Private vs. public APKG.** Does the project treat a user's private APKG
-    transfer as Sharing? Does it treat public deck sharing as Sharing?
-11. **LLM provider.** Which provider is in use, and what are its terms for
-    retention, logging, and training on submitted candidate senses?
-12. **Attribution placement.** Is a per-deck notice "reasonable to the medium"
-    under CC BY-SA 4.0 §3(a)(2) for generated fields, or is per-card attribution
-    required?
-13. **Scope.** Should French be held out of the dictionary index until 3 and 9 are
-    answered?
+Each item is a precise request for evidence or an interpretation, not a request to
+"accept risk." Adoption stays blocked until a human accepts a documented basis in
+#2141.
+
+**6a. Maintainer inquiries (evidence requests)**
+
+1. **Stanza team:** the `newswiki` corpus and its license (§2.5).
+2. **Stanza team:** the conversion of `pretrain/conll17.pt` from the LINDAT tarball,
+   with the command and source checksum (§2.5).
+3. **Stanza team:** which license governs the French `pos` and `depparse` weights, with
+   the documented basis (§2.5).
+4. **Stanza team:** which stanza-resources commit `main` points to, and whether a
+   stable tag will be created for 1.15.0 (S9).
+5. **LINDAT:** whether handle `11234/1-1989` and item `053071c7-…` are the same
+   deposit, and the license for each (S19, S20).
+6. **Kaikki:** whether the raw dump has a license or terms beyond the citation request,
+   and whether the raw dump includes text merged in post-processing (S30).
+
+**6b. Legal interpretation (counsel or human review)**
+
+1. Does CC BY-NC-SA §1(k) NonCommercial plus §2 grants reach weights trained on
+   conll17 vectors? (§2.2 item 3.)
+2. Does CC BY-SA 4.0 reach weights trained on the GSD, ParisStories, or Rhapsodie
+   text? (§2.2 item 2.)
+3. Does LGPL-LR reach weights trained on Sequoia? (§2.2 item 4.)
+4. Is a private reproduction of a licensed artifact on one's own host a reproduction
+   needing a grant? (Use 1.)
+5. Is a single-recipient APKG transfer "to the public"? (Use 5a.)
+6. Is LLM provider processing of candidate senses a Share? (Use 5b.)
+
+**6c. Optional distribution questions (not needed for private launch)**
+
+These apply only if the project distributes artifacts. They do not need answers for
+a private, self-hosted launch, and they do not mean every hypothetical distribution
+must be cleared now.
+
+1. ODC-By Produced Work notices, if the ODC-By term applies.
+2. Apache-2.0 §4 change notices and NOTICE handling, if redistributing Stanza code.
+3. Whether the Wikimedia ToU §7 attribution form is achievable for a derived index.
 
 ## 7. Gaps summary
 
 | # | Gap | Blocks |
 |---|---|---|
-| G1 | conll17 → LINDAT byte-level link not verified | Use 2, 4 |
-| G2 | `newswiki` training corpus not identified | Use 2, 4 |
-| G3 | Stanza 1.15.0 wheel manifest and tag not checked | Use 2 |
-| G4 | No downloaded bytes; sha256 values are HF metadata only | Use 2 |
-| G5 | Kaikki raw dump sha256 not computed | Use 3, 4 |
+| G1 | conll17 → LINDAT byte-level link not verified; S19 and S20 not confirmed to be the same deposit | Use 1, 2, 4 |
+| G2 | `newswiki` training corpus not identified (§2.4) | Use 1, 2, 4 |
+| G3 | Stanza's weight license conflict (Apache-2.0 vs. "unclear" / ODC-By) unresolved (§2.2) | Use 1, 4 |
+| G4 | No artifact bytes downloaded; sha256 values are HF API metadata, md5 values are manifest values | Use 2 |
+| G5 | Kaikki raw dump sha256 not computed; etag is not a hash | Use 3, 4 |
 | G6 | Kaikki: no resource-specific license found on three pages; not exhaustive | Use 3, 4, 5 |
-| G7 | Wiktionary quotation policy (`WT:QUOTE`) not read | Use 3, 4, 5 |
+| G7 | Wiktionary:Quotations read (§Copyright only); quotation handling in entries not sampled | Use 3, 4, 5 |
 | G8 | Per-entry Wiktionary history and external-source marking not sampled | Use 3, 4, 5 |
 | G9 | LLM provider terms not reviewed | Use 5b |
-| G10 | Attribution in `provision.py` and loader checksum behavior not read | Use 2 |
+| G10 | Whether a production export reaches `applySenseSelectionGloss` depends on the caller of `applyExactEnrichment` (`cardexport.go:1375`), not read | Use 5a |
+| G11 | Wiktionary footer text not re-fetched in this revision | Use 3 |
+| G12 | Wikimedia ToU effective date not found | Use 3 |
 
 ## 8. Status
 
-- **Stanza 1.15.0 French default package:** provenance mapped (§1); license
-  terms conflicting or unresolved (§2). **Not cleared.**
-- **Raw Wiktionary via Kaikki:** Wiktionary terms identified (CC BY-SA 4.0 /
-  GFDL); Kaikki-specific terms not found (§3). **Not cleared.**
-- **Adoption:** **BLOCKED.** Requires a human decision in #2141 that accepts a
+- **Stanza 1.15.0 French default:** provenance mapped from the pinned manifest and HF
+  tree (§1). License terms conflicting or unresolved (§2). **Not cleared.**
+- **Raw Wiktionary via Kaikki:** Wikimedia ToU §7 grant chain identified (§3.1). Kaikki
+  terms not found (§3.2). **Not cleared.**
+- **Private self-hosted execution:** **not cleared.** Self-hosting is not a grant (§4,
+  Use 1).
+- **Adoption:** **BLOCKED.** Requires a human decision in
+  [#2141](https://github.com/justin-hayes/mouseion/issues/2141) that accepts a
   documented basis for each use the project intends.
