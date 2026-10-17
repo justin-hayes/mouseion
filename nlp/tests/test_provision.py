@@ -1,3 +1,4 @@
+import hashlib
 import json
 from unittest.mock import patch
 
@@ -13,6 +14,7 @@ from mouseion_nlp.model_config import (
 )
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
+    ArtifactChecksumMismatchError,
     ExternalModels,
     ensure_external_dependency,
     main,
@@ -58,6 +60,10 @@ class RecordingExternalDownload:
 
     def __call__(self, repo_id: str, **kwargs) -> None:
         self.calls.append((repo_id, kwargs))
+
+
+def sha256_hex(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
 
 
 def test_empty_directory_provisions_every_configured_language(tmp_path) -> None:
@@ -253,6 +259,81 @@ def test_declared_pretrain_missing_after_download_aborts_without_writing_the_mar
     assert read_marker(tmp_path) is None
 
 
+def _provision_with_declared_artifact(
+    tmp_path, content: bytes, *, declared_checksum: str | None = None
+) -> LanguageModelConfig:
+    relative_artifact = "de/tokenize/package.pt"
+    checksum = sha256_hex(content) if declared_checksum is None else declared_checksum
+    config = LanguageModelConfig(language="de", artifact_checksums={relative_artifact: checksum})
+
+    def downloading(language: str, **kwargs) -> None:
+        artifact = tmp_path / relative_artifact
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_bytes(content)
+
+    with patch("mouseion_nlp.provision.model_config_for_language", return_value=config):
+        provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=downloading)
+    return config
+
+
+def test_matching_declared_artifact_checksums_succeed_and_are_marked(tmp_path) -> None:
+    config = _provision_with_declared_artifact(tmp_path, b"model bytes")
+
+    assert read_marker(tmp_path).model_configs == (config,)
+    payload = json.loads((tmp_path / MARKER_FILENAME).read_text(encoding="utf-8"))
+    assert payload["model_configs"][0]["artifact_checksums"] == config.artifact_checksums
+
+
+def test_mismatched_artifact_checksum_aborts_without_writing_the_marker(tmp_path) -> None:
+    with pytest.raises(ArtifactChecksumMismatchError, match="expected sha256"):
+        _provision_with_declared_artifact(
+            tmp_path,
+            b"tampered bytes",
+            declared_checksum=sha256_hex(b"expected bytes"),
+        )
+
+    assert read_marker(tmp_path) is None
+
+
+def test_missing_declared_artifact_aborts_without_writing_the_marker(tmp_path) -> None:
+    config = LanguageModelConfig(
+        language="de",
+        artifact_checksums={"de/tokenize/package.pt": sha256_hex(b"model bytes")},
+    )
+
+    with (
+        patch("mouseion_nlp.provision.model_config_for_language", return_value=config),
+        pytest.raises(FileNotFoundError, match="missing after download"),
+    ):
+        provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=lambda *a, **k: None)
+
+    assert read_marker(tmp_path) is None
+
+
+def test_changed_artifact_checksums_wipe_and_provision_from_scratch(tmp_path) -> None:
+    _provision_with_declared_artifact(tmp_path, b"first bytes")
+    sentinel = tmp_path / "de" / "tokenize" / "stale.pt"
+    sentinel.write_text("stale", encoding="utf-8")
+    downloads: list[str] = []
+
+    def downloading(language: str, **kwargs) -> None:
+        downloads.append(language)
+        artifact = tmp_path / "de" / "tokenize" / "package.pt"
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_bytes(b"second bytes")
+
+    config = LanguageModelConfig(
+        language="de",
+        artifact_checksums={"de/tokenize/package.pt": sha256_hex(b"second bytes")},
+    )
+    with patch("mouseion_nlp.provision.model_config_for_language", return_value=config):
+        provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=downloading)
+
+    assert not sentinel.exists()
+    assert downloads == ["de"]
+    assert read_marker(tmp_path).model_configs == (config,)
+
+
 def test_added_language_downloads_only_the_missing_language(tmp_path) -> None:
     provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload())
     grown = RecordingDownload()
@@ -388,6 +469,85 @@ def test_read_marker_ignores_an_invalid_model_package(tmp_path) -> None:
                         "package": 5,
                         "external_model_dependencies": [],
                         "model_version": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert read_marker(tmp_path) is None
+
+
+def test_marker_round_trips_declared_artifact_checksums(tmp_path) -> None:
+    config = LanguageModelConfig(
+        language="de",
+        artifact_checksums={
+            "de/tokenize/package.pt": "a" * 64,
+            "de/pretrain/conll17.pt": "b" * 64,
+        },
+    )
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps(
+            {
+                "stanza_version": STANZA_VERSION,
+                "languages": ["de"],
+                "model_configs": [config.marker_payload()],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    marker = read_marker(tmp_path)
+
+    assert marker is not None
+    assert marker.model_configs == (config,)
+
+
+def test_read_marker_accepts_a_marker_without_declared_artifact_checksums(tmp_path) -> None:
+    # Markers written before the field existed stay valid for languages that
+    # declare no checksums, so upgrading does not force a re-provision.
+    config = LanguageModelConfig(language="de")
+    payload = config.marker_payload()
+    assert "artifact_checksums" not in payload
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps(
+            {
+                "stanza_version": STANZA_VERSION,
+                "languages": ["de"],
+                "model_configs": [payload],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    marker = read_marker(tmp_path)
+
+    assert marker is not None
+    assert marker.model_configs == (config,)
+
+
+@pytest.mark.parametrize(
+    "invalid_checksums",
+    [5, ["de/tokenize/package.pt"], {"de/tokenize/package.pt": 5}],
+)
+def test_read_marker_ignores_an_invalid_artifact_checksum_shape(
+    tmp_path, invalid_checksums
+) -> None:
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps(
+            {
+                "stanza_version": STANZA_VERSION,
+                "languages": ["de"],
+                "model_configs": [
+                    {
+                        "language": "de",
+                        "processors": "tokenize,pos,lemma,depparse",
+                        "package": None,
+                        "pretrain_dependencies": None,
+                        "external_model_dependencies": [],
+                        "model_version": None,
+                        "artifact_checksums": invalid_checksums,
                     }
                 ],
             }

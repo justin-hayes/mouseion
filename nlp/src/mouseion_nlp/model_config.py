@@ -12,6 +12,7 @@ GREEK_BERT_MODEL = "nlpaueb/bert-base-greek-uncased-v1"
 GREEK_LEMMA_PRETRAIN = "conll17"
 Package = str | Mapping[str, str]
 PretrainDependencies = Mapping[str, str]
+ArtifactChecksums = Mapping[str, str]
 # Distinguishes an absent marker field from an explicit JSON null.
 _FIELD_ABSENT = object()
 
@@ -31,6 +32,7 @@ class LanguageModelConfig:
     pretrain_dependencies: PretrainDependencies | None = None
     external_model_dependencies: tuple[str, ...] = ()
     model_version: str | None = None
+    artifact_checksums: ArtifactChecksums | None = None
 
     def marker_payload(self) -> dict[str, Any]:
         """Return the stable, JSON-compatible marker representation."""
@@ -40,7 +42,10 @@ class LanguageModelConfig:
         pretrain_dependencies: PretrainDependencies | None = self.pretrain_dependencies
         if isinstance(pretrain_dependencies, Mapping):
             pretrain_dependencies = dict(sorted(pretrain_dependencies.items()))
-        return {
+        artifact_checksums: ArtifactChecksums | None = self.artifact_checksums
+        if isinstance(artifact_checksums, Mapping):
+            artifact_checksums = dict(sorted(artifact_checksums.items()))
+        payload: dict[str, Any] = {
             "external_model_dependencies": list(self.external_model_dependencies),
             "language": self.language,
             "model_version": self.model_version,
@@ -48,6 +53,11 @@ class LanguageModelConfig:
             "pretrain_dependencies": pretrain_dependencies,
             "processors": self.processors,
         }
+        # Declared checksums are recorded so changing them re-provisions. A
+        # language without them keeps the marker shape it had before.
+        if artifact_checksums is not None:
+            payload["artifact_checksums"] = artifact_checksums
+        return payload
 
     @classmethod
     def from_marker_payload(cls, payload: object) -> LanguageModelConfig | None:
@@ -64,6 +74,7 @@ class LanguageModelConfig:
         pretrain_dependencies = payload.get("pretrain_dependencies", _FIELD_ABSENT)
         dependencies = payload.get("external_model_dependencies")
         model_version = payload.get("model_version")
+        artifact_checksums = payload.get("artifact_checksums")
         if (
             not isinstance(language, str)
             or not language
@@ -78,6 +89,7 @@ class LanguageModelConfig:
             or not _valid_pretrain_dependencies(pretrain_dependencies)
             or not isinstance(dependencies, list)
             or not all(isinstance(dependency, str) for dependency in dependencies)
+            or not _valid_artifact_checksums(artifact_checksums)
         ):
             return None
         if model_version is not None and not isinstance(model_version, str):
@@ -89,6 +101,7 @@ class LanguageModelConfig:
             pretrain_dependencies=pretrain_dependencies,
             external_model_dependencies=tuple(dependencies),
             model_version=model_version,
+            artifact_checksums=artifact_checksums,
         )
 
 
@@ -107,6 +120,15 @@ def _valid_pretrain_dependencies(dependencies: object) -> bool:
         return True
     return isinstance(dependencies, dict) and all(
         isinstance(key, str) and isinstance(value, str) for key, value in dependencies.items()
+    )
+
+
+def _valid_artifact_checksums(checksums: object) -> bool:
+    """Accept an absent checksum set or an artifact-path-to-sha256 mapping."""
+    if checksums is None:
+        return True
+    return isinstance(checksums, dict) and all(
+        isinstance(path, str) and isinstance(checksum, str) for path, checksum in checksums.items()
     )
 
 

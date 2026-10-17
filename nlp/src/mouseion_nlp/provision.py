@@ -21,6 +21,7 @@ Run it as ``python -m mouseion_nlp.provision``.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -39,6 +40,10 @@ from .server import configured_languages
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
 DEFAULT_HF_HOME = Path("/opt/huggingface")
+
+
+class ArtifactChecksumMismatchError(RuntimeError):
+    """Raised when a fetched artifact's sha256 differs from its declaration."""
 
 
 def configured_hf_home() -> Path:
@@ -200,6 +205,29 @@ def ensure_stanza_pretrains(resources_dir: Path, config: LanguageModelConfig) ->
             )
 
 
+def verify_artifact_checksums(resources_dir: Path, config: LanguageModelConfig) -> None:
+    """Verify every artifact declared by a language configuration.
+
+    Declared paths are relative to the Stanza resource directory. A missing
+    artifact or a digest mismatch raises, so the marker stays unwritten and the
+    process exits non-zero instead of serving unverified weights.
+    """
+    for relative_path, expected in sorted((config.artifact_checksums or {}).items()):
+        artifact = resources_dir / relative_path
+        if not artifact.is_file():
+            raise FileNotFoundError(
+                f"Declared artifact for language '{config.language}' is missing "
+                f"after download: {artifact}"
+            )
+        with artifact.open("rb") as handle:
+            actual = hashlib.file_digest(handle, "sha256").hexdigest()
+        if actual != expected:
+            raise ArtifactChecksumMismatchError(
+                f"Artifact checksum mismatch for language '{config.language}': "
+                f"{artifact} expected sha256 {expected}, got {actual}"
+            )
+
+
 def provision(
     resources_dir: Path,
     languages: Iterable[str],
@@ -232,6 +260,7 @@ def provision(
             kwargs["package"] = config.package
         download(language, **kwargs)
         ensure_stanza_pretrains(resources_dir, config)
+        verify_artifact_checksums(resources_dir, config)
     dependencies = {
         dependency
         for language in plan.provisioned
