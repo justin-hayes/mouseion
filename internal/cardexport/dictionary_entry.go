@@ -13,22 +13,44 @@ import (
 // without the LSJ capability, or an identity whose headword is ambiguous or
 // missing: such a card shows no entry rather than a guess. The lexical
 // discriminator is never passed through, because an OGA morpheus:N number is not
-// LSJ's numbering.
-func resolveAncientGreekLSJ(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry) {
+// LSJ's numbering. It returns the matched entry so a caller can freeze it as
+// pass evidence.
+func resolveAncientGreekLSJ(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry) (enrichment.AncientGreekLSJEntry, bool) {
 	if entry == nil || !IsAncientGreek(entry.Language) || lexical == nil {
-		return
+		return enrichment.AncientGreekLSJEntry{}, false
 	}
 	provider, ok := lexical.(enrichment.AncientGreekLSJProvider)
 	if !ok {
-		return
+		return enrichment.AncientGreekLSJEntry{}, false
 	}
 	matched, found := provider.LookupAncientGreekLSJ(ctx, entry.CanonicalLemma)
 	if !found || matched.Empty() {
-		return
+		return enrichment.AncientGreekLSJEntry{}, false
 	}
 	entry.DictionaryEntryID = matched.EntryID
 	entry.DictionaryPin = matched.Pin
 	entry.DictionaryEntry = renderAncientGreekLSJEntry(matched)
+	return matched, true
+}
+
+// ancientGreekLSJPassSenses flattens a matched LSJ entry's sense hierarchy, in
+// source order, into the pinned LSJ meaning evidence the evidence-assisted pass
+// transmits. Each sense carries its native LSJ sense ID as its evidence ID, so
+// the provider cites a pinned sense and decoding maps the short handle back to
+// that exact ID. A sense with no native ID cannot be cited and is skipped.
+func ancientGreekLSJPassSenses(entry enrichment.AncientGreekLSJEntry) []enrichment.LexicalSense {
+	var senses []enrichment.LexicalSense
+	var walk func([]enrichment.AncientGreekLSJSense)
+	walk = func(level []enrichment.AncientGreekLSJSense) {
+		for _, sense := range level {
+			if strings.TrimSpace(sense.ID) != "" {
+				senses = append(senses, enrichment.LexicalSense{EvidenceID: sense.ID, Source: "lsj", Gloss: strings.Join(sense.Glosses, "; ")})
+			}
+			walk(sense.Senses)
+		}
+	}
+	walk(entry.Senses)
+	return senses
 }
 
 // renderAncientGreekLSJEntry renders the full LSJ sense hierarchy in source

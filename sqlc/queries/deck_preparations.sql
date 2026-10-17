@@ -9,7 +9,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
          book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id');
 
@@ -20,7 +20,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
          book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
 FOR UPDATE;
@@ -32,7 +32,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
          book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
@@ -46,7 +46,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
          book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND goal_snapshot_id = sqlc.arg('snapshot')
@@ -61,7 +61,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
          book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner') AND source_material_id = sqlc.arg('source_material')
 ORDER BY COALESCE(completed_at, created_at) DESC, id;
@@ -73,7 +73,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
          book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'ready';
 
@@ -84,7 +84,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
@@ -99,7 +99,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
@@ -114,7 +114,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
@@ -128,7 +128,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
+          presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
@@ -144,7 +144,7 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-        presentation_version, deck_revision, goal_snapshot_id;
+        presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass;
 
 -- name: RetireDeckPreparationsForBook :exec
 UPDATE deck_preparations
@@ -172,7 +172,7 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
            book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-           presentation_version, deck_revision, goal_snapshot_id;
+           presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass;
 
 -- name: CancelDeckPreparation :one
 UPDATE deck_preparations
@@ -184,7 +184,7 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
             book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-             presentation_version, deck_revision, goal_snapshot_id;
+             presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass;
 
 -- name: CompleteDeckPreparation :one
 UPDATE deck_preparations
@@ -204,7 +204,7 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
              book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision, goal_snapshot_id;
+            presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass;
 
 -- name: TransitionDeckPreparation :one
 UPDATE deck_preparations
@@ -221,7 +221,7 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
               book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision, goal_snapshot_id;
+            presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass;
 
 -- name: SupersedePreparedDeckArtifact :one
 WITH advanced_run AS (
@@ -250,7 +250,7 @@ RETURNING p.id, p.owner_id, p.source_material_id, p.state, p.artifact, p.filenam
           p.created_at, p.updated_at, p.started_at, p.completed_at, p.analysis_run_id,
           p.current_run_id, p.studying_at, p.reviewed_at, p.graduated_at, p.released_at,
           p.book_id, p.retired_at, p.cards_with_fallback_gloss, p.render_input_version,
-           p.presentation_version, p.deck_revision, p.goal_snapshot_id;
+           p.presentation_version, p.deck_revision, p.goal_snapshot_id, p.evidence_assisted_provider_pass;
 
 -- name: ListStalePreparedDecks :many
 SELECT p.owner_id::text, p.id::text AS preparation_id, p.current_run_id::text AS run_id,

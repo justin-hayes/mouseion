@@ -14,6 +14,12 @@ const DeckPreparationRequiresRepreparationError = "This deck's frozen render inp
 // provider gave an unusable answer.
 const DeckPreparationProviderOmissionReason = "the translation provider gave an unusable answer"
 
+// DeckPreparationEvidenceAssistedPassAbstentionReason is the internal outcome
+// reason an Ancient Greek evidence-assisted pass item records when the provider
+// added nothing. The pass only adds to the source-evidence card, so it is never
+// reported as a meaning or provider omission (ADR 0101).
+const DeckPreparationEvidenceAssistedPassAbstentionReason = "the evidence-assisted provider pass added nothing"
+
 const (
 	DeckPreparationQueued    DeckPreparationState = "queued"
 	DeckPreparationPreparing DeckPreparationState = "preparing"
@@ -55,8 +61,14 @@ type DeckPreparation struct {
 	ProviderOmissions                                     int
 	RenderInputVersion, PresentationVersion, DeckRevision int
 	VocabularyCount                                       int
-	EvidenceCoverage                                      []DeckPreparationEvidenceCoverage
-	MeaningOmissions                                      []DeckPreparationMeaningOmission
+	// EvidenceAssistedProviderPass records whether this Ancient Greek deck
+	// specification opts into the provider pass that adds provider-proposed
+	// fields on top of the source-evidence card. It is off by default and is
+	// offered only while a matching provider payload assessment is recorded
+	// (ADR 0101).
+	EvidenceAssistedProviderPass bool
+	EvidenceCoverage             []DeckPreparationEvidenceCoverage
+	MeaningOmissions             []DeckPreparationMeaningOmission
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.
