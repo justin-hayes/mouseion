@@ -1,0 +1,41 @@
+package cardexport
+
+import (
+	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"strings"
+	"testing"
+)
+
+func TestPoetryAuditCardGates(t *testing.T) {
+	text := "Der alte Baum steht heute still im Garten."
+	multiline := strings.Replace(text, "steht heute", "steht\nheute", 1)
+	plain := ScoreSentenceQuality(text, "Baum", 0)
+	verse := ScoreSentenceQuality(multiline, "Baum", 0)
+	if !plain.Accepted || verse.Accepted {
+		t.Fatalf("unexpected quality: %#v %#v", plain, verse)
+	}
+	t.Logf("single line=%+v; identical words with newline=%+v", plain, verse)
+	empty := scoreSentenceQuality("de", text, "Baum", 0, []analyzer.Token{})
+	absent := scoreSentenceQuality("de", text, "Baum", 0, nil)
+	if empty.Accepted || !absent.Accepted {
+		t.Fatal("nil vs empty parse behavior changed")
+	}
+	t.Logf("German nil parse accepted=%v; supplied empty parse accepted=%v", absent.Accepted, empty.Accepted)
+	tokens := []analyzer.Token{
+		{Surface: "steht", UPOS: "VERB", Dependency: "root", Head: 0, Morphology: map[string]string{"VerbForm": "Fin"}},
+		{Surface: "Baum", UPOS: "NOUN", Dependency: "nsubj", Head: 0},
+	}
+	finite := scoreSentenceQuality("de", text, "Baum", 0, tokens)
+	if !finite.Accepted {
+		t.Fatal("finite root+subject rejected")
+	}
+	t.Logf("synthetic finite-root/subject grade=%+v (not a model parse)", finite)
+	html, err := BoldTarget(multiline, "Baum")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(html, "\n") || strings.Contains(html, "<br") {
+		t.Fatal("unexpected newline HTML conversion")
+	}
+	t.Logf("bold renderer retains raw newline, adds no line-break markup: %q", html)
+}

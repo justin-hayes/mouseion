@@ -1,0 +1,48 @@
+package webapp
+
+import (
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"strings"
+	"testing"
+)
+
+func TestPoetryAuditStudyAndKWIC(t *testing.T) {
+	text := "Äpfel\n\nblühen."
+	study := domain.SentenceStudy{UnitText: text, SentenceText: text, SentenceEndOffset: int64(len([]rune(text))), Tokens: []domain.SentenceStudyToken{
+		{Surface: "Äpfel", UPOS: "NOUN", Ordinal: 0, StartOffset: 0, EndOffset: 5, Morphology: map[string]string{"Number": "Plur"}},
+		{Surface: "blühen", UPOS: "VERB", Ordinal: 1, StartOffset: 7, EndOffset: 13, Morphology: map[string]string{"VerbForm": "Fin"}},
+	}}
+	line := alignSentenceStudy(study)
+	if line.WholeLineFallback {
+		t.Fatal("exact source rejected")
+	}
+	annotated := 0
+	for _, segment := range line.Segments {
+		if segment.Word != nil {
+			annotated++
+		}
+	}
+	if annotated != 2 || line.Degraded {
+		t.Fatal("expected two safely aligned source words")
+	}
+	var out strings.Builder
+	for _, s := range line.Segments {
+		if s.Word != nil {
+			out.WriteString(s.Word.Text)
+		} else {
+			out.WriteString(s.Text)
+		}
+	}
+	if out.String() != text {
+		t.Fatal("source changed")
+	}
+	t.Logf("study segments retain exact source: %q", out.String())
+	study.SentenceText = "Äpfel blühen."
+	if !alignSentenceStudy(study).WholeLineFallback {
+		t.Fatal("normalization drift trusted")
+	}
+	t.Logf("KWIC helper collapses runs: %q -> %q", text, concordanceContextText(text))
+	if concordanceContextText(text) != "Äpfel blühen." {
+		t.Fatal("unexpected KWIC text")
+	}
+}

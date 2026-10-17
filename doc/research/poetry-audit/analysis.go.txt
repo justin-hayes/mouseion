@@ -1,0 +1,56 @@
+package analysis
+
+import (
+	"reflect"
+	"strings"
+	"testing"
+	"unicode/utf8"
+
+	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/selection"
+)
+
+func TestPoetryAuditChunksAndCounts(t *testing.T) {
+	text := "Äpfel\n\nblühen ohne Ende"
+	chunks := chunkText(text, 8)
+	if strings.Join(chunks, "") != text {
+		t.Fatal("chunk bytes changed")
+	}
+	for _, chunk := range chunks {
+		if !utf8.ValidString(chunk) || len([]rune(chunk)) > 8 {
+			t.Fatal("unsafe cut")
+		}
+	}
+	t.Logf("hard cuts retain bytes, not words/groups: %q", chunks)
+	abbrev := chunkText("Dr. Faust geht.", 5)
+	t.Logf("punctuation splitter has no abbreviation/closing-quote knowledge: %q", abbrev)
+	result := analyzer.Result{SchemaVersion: "1.1.0", Language: "de", Sentences: []analyzer.Sentence{{Text: text, Location: analyzer.SourceLocation{SourceDocumentID: "unit", EndOffset: uint64(len([]rune(text)))}}}}
+	mapped, err := analyzer.FromProto(analyzer.ToProto(result))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mapped.Sentences[0].Text != text {
+		t.Fatal("transport changed text")
+	}
+	offsetResultLocations(&mapped, 3)
+	if mapped.Sentences[0].Location.StartOffset != 3 || mapped.Sentences[0].Location.EndOffset != uint64(3+len([]rune(text))) {
+		t.Fatal("offset drift")
+	}
+	a := analyzer.Token{CanonicalLemma: "blühen", UPOS: "VERB", Dependency: "root"}
+	b := analyzer.Token{CanonicalLemma: "blühen", UPOS: "VERB", Dependency: "root"}
+	joined := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{a, b}}}}
+	split := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{a}}, {Tokens: []analyzer.Token{b}}}}
+	cfg := selection.DefaultConfig("probe")
+	x, err := selection.Project(joined, cfg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	y, err := selection.Project(split, cfg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(x) != 1 || len(y) != 1 || x[0].OccurrenceCount != 2 || y[0].OccurrenceCount != 2 || !reflect.DeepEqual(x[0].Identity, y[0].Identity) {
+		t.Fatal("count depends on segmentation")
+	}
+	t.Log("same supplied token identities: count=2 whether one or two sentences; real retokenization/reparsing is not measured")
+}
