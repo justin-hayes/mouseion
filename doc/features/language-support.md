@@ -1,6 +1,6 @@
 # Language Support
 
-Status: Implemented · Date: 2026-08-25 · Issues: #222, #223, #224, #225
+Status: Implemented; French vertical specified, implementation pending · Date: 2026-08-25 · Issues: #222, #223, #224, #225, #2156
 
 ## Runtime contract
 
@@ -108,12 +108,12 @@ deployment. This section is the acceptance contract.
 
 | Area | Check |
 |---|---|
-| Target anchoring | 108/108 eligible corpus targets are anchored, in both ASCII and curly apostrophe forms and before inversion hyphens, with byte-identical persisted sentences. Anchoring uses persisted token offsets and is language-generic. An Italian `L'uomo` elision regression is added, and German and Greek match results are unchanged. |
+| Target anchoring | 108/108 eligible corpus targets are anchored, in both ASCII and curly apostrophe forms and before inversion hyphens, with byte-identical persisted sentences. Targets the existing word-bounded matcher misses are anchored on persisted token offsets, for every language. An Italian `L'uomo` elision regression is added, and German and Greek match results are unchanged. |
 | Sentence boundaries | Each of these persists as one complete sentence: a sentence closed by `»` followed by an ordinary space, U+202F, a paragraph break or more text in the same paragraph; `« Tu viens ? » demanda-t-il.`; em-dash dialogue `— Tu viens ? demanda-t-il.` Plain-prose counts are unchanged on the corpus. German `„…“` and Italian segmentation do not regress. |
 | Eligibility | ADV `ne`/`n'` (lemma *ne*) and ADV `pas` are excluded from French vocabulary and coverage and added to the French context stopwords. NOUN *pas*, `près`, `là` and `où` stay eligible. |
 | Canonical identity | A dedicated French profile: NFC + casefold, accents preserved (`où`≠`ou`, `sûr`≠`sur`), U+2019 → U+0027 in the canonical lemma only, so `aujourd'hui` and `aujourd’hui` are one identity. It is applied identically in the producer, the dictionary derivation, Go lookup and the canonicalization registry. Source text is never rewritten. |
 | Pronominal identity | Pronominal and plain uses share the base verb: `je me lave` counts as *laver*, and Known *aller* covers `s'en aller`. Contraction components never become content-word identities. |
-| Articles and gender | Consonant-initial nouns with one supported gender get `le`/`la`. Vowel-initial nouns get `l'` plus a gender label. An h-initial noun gets `le`/`la` only with the aspirated-h category; otherwise it shows the bare headword with gender, so *héros* is shown bare. Conflicting or missing gender gives a bare headword with no gender. Gender appears only on NOUN rows. |
+| Articles and gender | Conflicting or missing gender always gives a bare headword with no gender; the rules below need one supported gender. Consonant-initial nouns get `le`/`la`. Vowel-initial nouns get `l'` plus a gender label. An h-initial noun gets `le`/`la` only with the aspirated-h category; otherwise it shows the bare headword with gender, so *héros* is shown bare. Gender appears only on NOUN rows. |
 | IPA and plurals | `(ə)` is preserved verbatim. Untagged transcriptions and those tagged France, Europe or Paris are accepted; IPA is omitted when only other regional transcriptions exist. "invariable" is shown when the head says so. A missing plural, conjugation summary or IPA is omitted, never invented. |
 | Contextual Gloss and translation | Requests are labelled "French". A card succeeds only with a defensible contextual Gloss and sentence translation; otherwise the [ADR 0100](../adr/0100-retryable-provider-omissions-preparation.md) retryable omission applies. `Il s'en va…` gets a "go away/leave" contextual Gloss. |
 | Provisioning and provenance | `fr` joins the Compose default `MOUSEION_NLP_WARM_LANGUAGES`. The provisioner fetches the eight pinned artifacts (manifest `569db9d`, Hugging Face `caeb7742`) and verifies their sha256, failing fatally on a mismatch. The mechanism is generic, but only French uses it at launch. The marker records the French package selection and checksums, and serving is offline. The dictionary index records the Kaikki dump date (2026-09-02), extraction date (2026-10-03) and source hash. |

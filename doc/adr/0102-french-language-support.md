@@ -12,8 +12,8 @@ derivation rules.
 
 ## Context
 
-French (`fr`, display name **French**) becomes the fourth provisioned modern
-study language. Like Italian and Modern Greek, it goes through the
+French (`fr`, display name **French**) becomes the fourth modern language that
+the standard deployment provisions. Like Italian and Modern Greek, it goes through the
 capability-driven, language-generic path: no language enum, no allowlist, no
 migration. The resource and policy decisions were settled before this ADR and
 are recorded here, not reopened:
@@ -96,7 +96,7 @@ deferred.
 - **French uses it at launch.** French declares the sha256 of all eight pinned
   artifacts and fetches them at the pinned manifest and Hugging Face revisions,
   never from a moving default. German, Italian and Greek declare no checksums
-  and are unaffected; they can adopt the mechanism later without a new decision.
+  and are unaffected.
 - **Marker.** The provision marker records the French package selection and its
   pinned checksums alongside the existing per-language model configuration. A
   change re-provisions in full instead of silently serving a stale model.
@@ -158,25 +158,33 @@ in its unchanged source sentence. This includes a target after an ASCII or curly
 apostrophe elision and before an inversion hyphen. The mechanism is the
 analyzer's **persisted token offsets**, not a changed word-boundary rule:
 
-- The target span is the matching sentence token's persisted source span,
-  relative to its sentence's persisted span. The matching token is the first, in
-  sentence order, whose cleaned surface (`CleanLexicalSurface`) case-folds equal
-  to the tested target.
-- The span is accepted only if the persisted sentence text, sliced at those
-  offsets, case-folds equal to the token surface. That check guards against stale
-  or inconsistent offsets.
-- The same anchor decides target presence everywhere card export uses it:
-  rendering the bolded front, the sentence-quality "target present" check, and
-  choosing a sentence's matching observed form. Otherwise elided sentences would
-  be rejected before rendering.
-- When a sentence has no persisted tokens, or no token yields a verified span,
-  card export falls back to the unchanged word-bounded matcher.
-  `FoldedWordSpan`, its word-rune set and its tests are not changed.
+- The unchanged word-bounded matcher (`FoldedWordSpan`) runs first. Any target
+  it already anchors keeps its current span, so German and Greek results are
+  unchanged by construction. `FoldedWordSpan`, its word-rune set and its tests
+  are not changed.
+- When the matcher finds no span, the target is anchored on the sentence's
+  persisted tokens. The anchor is the first token, in sentence order, whose
+  cleaned surface (`CleanLexicalSurface`) case-folds equal to the tested target.
+  Persisted offsets are document-absolute Unicode code points. The token's span
+  is taken relative to its sentence's persisted start offset and converted to
+  byte offsets in the sentence text.
+- The span is accepted only if the sentence text at that span, cleaned the same
+  way, case-folds equal to the tested target. That check guards against stale or
+  inconsistent offsets, and against multiword-token parts, which carry the whole
+  contraction's span.
+- The same anchor decides target presence everywhere card export matches a
+  target: rendering the bolded front, the sentence-quality "target present"
+  check, and choosing a sentence's matching observed form. Those call sites
+  receive the sentence's persisted tokens. Otherwise an elided sentence would be
+  rejected before rendering.
+- A sentence with no persisted tokens keeps today's word-bounded result.
 - Persisted source sentences are never rewritten. Normalizing apostrophes in
   source text is not a fix.
 
-The acceptance check is 108/108 eligible probe-corpus targets anchored, in both
-apostrophe forms, with byte-identical persisted sentences. An Italian `L'uomo`
+The acceptance target is 108/108 eligible probe-corpus targets anchored, in both
+apostrophe forms, with byte-identical persisted sentences. So far the probe has
+shown offset anchoring in scratch code on its first 72 targets, and that all 108
+persisted spans are exact. An Italian `L'uomo`
 elision regression is added, and German and Greek match results stay unchanged.
 
 ### Dictionary index (amends ADR 0064)
@@ -207,19 +215,20 @@ English glosses, gender, plural or "invariable", h-status evidence and IPA:
 
 ### Card export: the French article rule
 
-French nouns show an article only where the evidence supports it:
+French nouns show an article only where the evidence supports it. Rows are
+checked in order:
 
 | Noun | Card shows |
 |---|---|
-| Consonant-initial, one supported gender | `le`/`la` + headword |
-| Vowel-initial | `l'` + headword, plus a gender label |
-| h-initial, aspirated-h category present | `le`/`la` + headword |
-| Any other h-initial | bare headword + gender |
 | Conflicting or missing gender | bare headword, no gender |
+| Consonant-initial, one supported gender | `le`/`la` + headword |
+| Vowel-initial, one supported gender | `l'` + headword, plus a gender label |
+| h-initial, aspirated-h category present, one supported gender | `le`/`la` + headword |
+| Any other h-initial, one supported gender | bare headword + gender |
 
 Vowel-initial means a, e, i, o or u (accented or not), or the ligatures æ and
-œ. When the initial is uncertain (for example `y`), the card falls back to the
-bare headword with gender rather than risk a wrong article. Gender appears only
+œ. When the initial's elision behaviour is uncertain (for example `y`), the card
+shows the bare headword with gender rather than risk a wrong article. Gender appears only
 on NOUN rows. Lemma capitalization display (`lemmadisplay`) stays German-only.
 
 ### Other surfaces
@@ -252,8 +261,9 @@ public or commercial use, remain unsupported.
   morphology, lemmas and a dependency parse, served fully offline from
   byte-verified artifacts.
 - Every language gains elision- and hyphen-safe card targets where persisted
-  tokens exist. Italian `L'uomo`-style elided targets stop being lost. German and
-  Greek match results must stay unchanged, and regression tests assert it.
+  tokens exist. Italian `L'uomo`-style elided targets stop being lost. Targets
+  the word-bounded matcher already anchors keep their spans, so German and Greek
+  results are unchanged; regression tests assert it.
 - Spaced compounds and fixed expressions are split: `petit déjeuner` yields
   *déjeuner* and `d'accord` yields *accord*. This is a documented launch
   limitation; multiword-expression detection is a later refinement.
@@ -276,6 +286,10 @@ public or commercial use, remain unsupported.
   the tokenizer's knowledge. It also could not tell elision (`l'homme`) from a
   word-internal apostrophe (`aujourd'hui`) without that list. Persisted offsets
   are already exact and language-neutral.
+- **Anchoring on token offsets first, for every target.** Rejected: where a
+  surface occurs more than once in a sentence, it could select a different
+  occurrence than today. That would change German and Greek results, which must
+  stay unchanged.
 - **Normalizing apostrophes in source text.** Rejected: it rewrites the
   author's text, and curly-apostrophe elision still lacks a boundary.
 - **Blanket pronominal identities** (`se laver` distinct from `laver`).
