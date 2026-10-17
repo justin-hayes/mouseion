@@ -1,0 +1,10 @@
+{"raw":"où","canonical":"où","note":"grave accent is significant"}
+{"raw":"ou","canonical":"ou","note":"distinct from où"}
+{"raw":"sûr","canonical":"sûr","note":"circumflex is significant"}
+{"raw":"sur","canonical":"sur","note":"distinct from sûr"}
+{"raw":"ÉTÉ","canonical":"été","note":"full case folding, accents kept"}
+{"raw":"aujourd\u2019hui","canonical":"aujourd'hui","note":"U+2019 folds to U+0027 in the canonical lemma"}
+{"raw":"aujourd'hui","canonical":"aujourd'hui","note":"ASCII apostrophe is unchanged"}
+{"raw":"L\u2019","canonical":"l'","note":"elided article folds"}
+{"raw":"e\u0301te\u0301","canonical":"été","note":"NFC composes a decomposed accent"}
+{"raw":"  Maison  ","canonical":"maison","note":"surrounding whitespace is trimmed"}

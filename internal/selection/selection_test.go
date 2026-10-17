@@ -370,6 +370,138 @@ func TestReservedVocabularyIsOwnerScoped(t *testing.T) {
 	assert.Len(t, bob, 1)
 }
 
+// frenchFixture builds a French corpus, one sentence per token, so aggregation
+// is deterministic and language-scoped.
+func frenchFixture(tokens ...analyzer.Token) analyzer.Result {
+	sentences := make([]analyzer.Sentence, len(tokens))
+	for i, t := range tokens {
+		sentences[i] = analyzer.Sentence{Text: t.Surface, Tokens: []analyzer.Token{t}, Location: analyzer.SourceLocation{SourceDocumentID: "livre"}}
+	}
+	return analyzer.Result{Language: "fr", Sentences: sentences}
+}
+
+func TestFrenchFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
+	corpus := frenchFixture(
+		tok("L'", "le", "DET"),
+		tok("homme", "homme", "NOUN"),
+		tok("d'", "de", "ADP"),
+		tok("accord", "accord", "NOUN"),
+		tok("qu'", "que", "PRON"),
+		tok("s'", "se", "PRON"),
+		tok("habille", "habiller", "VERB"),
+		tok("va", "aller", "VERB"),
+		tok("t", "il", "PRON"),
+		tok("ne", "ne", "ADV"),
+		tok("pas", "pas", "ADV"),
+		tok("pas", "pas", "NOUN"),
+		tok("près", "près", "ADV"),
+		tok("là", "là", "ADV"),
+		tok("où", "où", "ADV"),
+		tok("au", "à", "ADP"),
+		tok("au", "le", "DET"),
+		tok("du", "de", "ADP"),
+		tok("du", "le", "DET"),
+		tok("des", "de", "ADP"),
+		tok("des", "les", "DET"),
+		tok("aux", "à", "ADP"),
+		tok("aux", "les", "DET"),
+	)
+	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("french-corpus"))
+	require.NoError(t, err)
+
+	counts := map[string]int{}
+	upos := map[string]string{}
+	for _, candidate := range got {
+		counts[candidate.Identity.CanonicalLemma] = candidate.OccurrenceCount
+		upos[candidate.Identity.CanonicalLemma] = candidate.Identity.UPOS
+	}
+	assert.Equal(t, map[string]int{
+		"accord": 1, "aller": 1, "habiller": 1, "homme": 1,
+		"pas": 1, "près": 1, "là": 1, "où": 1,
+	}, counts)
+	assert.Equal(t, "NOUN", upos["pas"], "NOUN pas stays eligible")
+	for _, candidate := range got {
+		if candidate.Identity.UPOS == "ADV" {
+			assert.NotContains(t, []string{"ne", "pas"}, candidate.Identity.CanonicalLemma, "ADV negation never becomes vocabulary")
+		}
+	}
+	for _, lemma := range []string{"le", "les", "de", "que", "se", "il", "à"} {
+		assert.NotContains(t, counts, lemma, "article, preposition and pronoun components are not content words")
+	}
+}
+
+func TestOccurrenceEligibleExcludesFrenchNegationAdverbs(t *testing.T) {
+	cfg := DefaultConfig("")
+	assert.False(t, OccurrenceEligible(cfg, "fr", "ne", "ADV", "advmod"))
+	assert.False(t, OccurrenceEligible(cfg, "fr-FR", "pas", "ADV", "advmod"))
+	assert.True(t, OccurrenceEligible(cfg, "fr", "pas", "NOUN", "obj"), "NOUN pas stays eligible")
+	assert.True(t, OccurrenceEligible(cfg, "fr", "près", "ADV", "advmod"))
+	assert.True(t, OccurrenceEligible(cfg, "fr", "où", "ADV", "advmod"))
+	assert.True(t, OccurrenceEligible(cfg, "de", "pas", "ADV", "advmod"), "other languages are unaffected")
+}
+
+func TestFrenchBaseLemmaGroupsPronominalAndPlainUses(t *testing.T) {
+	corpus := frenchFixture(
+		tok("lave", "laver", "VERB"),
+		tok("me", "moi", "PRON"),
+		tok("lave", "laver", "VERB"),
+		tok("s'", "se", "PRON"),
+		tok("en", "en", "PRON"),
+		tok("va", "aller", "VERB"),
+	)
+	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("french-corpus"))
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, "aller", got[0].Identity.CanonicalLemma)
+	assert.Equal(t, 1, got[0].OccurrenceCount)
+	assert.Equal(t, "laver", got[1].Identity.CanonicalLemma)
+	assert.Equal(t, 2, got[1].OccurrenceCount, "pronominal and plain uses share the base verb identity")
+	for _, candidate := range got {
+		assert.Empty(t, candidate.Identity.LexicalDiscriminator, "base-lemma grouping carries no discriminator")
+	}
+}
+
+func TestFrenchKnownAllerCoversReflexiveUse(t *testing.T) {
+	store := &memoryStore{
+		known:    map[string]bool{"alice/fr/aller/VERB": true},
+		reserved: map[string]bool{},
+	}
+	corpus := frenchFixture(tok("va", "aller", "VERB"))
+
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("french-corpus"))
+
+	require.NoError(t, err)
+	assert.Empty(t, got, "Known aller covers s'en aller")
+}
+
+func TestFrenchNegationAdverbsStayOutOfTheCoverageDenominator(t *testing.T) {
+	corpus := frenchFixture(tok("homme", "homme", "NOUN"), tok("ne", "ne", "ADV"), tok("pas", "pas", "ADV"))
+
+	statistics := AnalyzableStatistics(corpus, DefaultConfig("french-corpus"))
+
+	assert.Equal(t, int64(1), statistics.AnalyzableTokenCount, "excluded negation does not inflate the denominator")
+	assert.Equal(t, int64(1), statistics.DistinctLemmaCount)
+}
+
+func TestFrenchVocabularyIsOwnerAndLanguageScoped(t *testing.T) {
+	store := &memoryStore{
+		known: map[string]bool{
+			"alice/de/aller/VERB": true,
+			"bob/fr/aller/VERB":   true,
+		},
+		reserved: map[string]bool{"alice/it/aller/VERB": true},
+	}
+	corpus := frenchFixture(tok("va", "aller", "VERB"))
+
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("french-corpus"))
+
+	require.NoError(t, err)
+	require.Len(t, got, 1, "another owner's or language's vocabulary must not exclude a French identity")
+	assert.Equal(t, "aller", got[0].Identity.CanonicalLemma)
+}
+
 func TestInvalidConfig(t *testing.T) {
 	_, err := NewService(&memoryStore{}).Select(context.Background(), "", analyzer.Result{}, SelectionConfig{})
 	assert.ErrorIs(t, err, ErrInvalidConfig)

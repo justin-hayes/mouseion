@@ -1545,3 +1545,112 @@ def test_french_linguistic_regression_fixture() -> None:
         (Path(__file__).parent / "testdata" / "french_stanza_expected.json").read_text()
     )
     assert MessageToDict(artifact, preserving_proto_field_name=True) == expected
+
+
+def _french_parity_rows() -> list[dict]:
+    """The shared fixture the Go French profile reads in french_parity_test.go."""
+    text = (
+        Path(__file__).parent.parent / "testdata" / "french_normalization_parity.jsonl"
+    ).read_text(encoding="utf-8")
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def test_french_canonical_lemma_matches_the_shared_parity_fixture() -> None:
+    """Accents stay significant; only the canonical lemma folds U+2019."""
+    rows = _french_parity_rows()
+    assert rows, "the parity fixture must not be empty"
+    for row in rows:
+        assert Producer._canonical_lemma("fr", row["raw"]) == row["canonical"], row
+    canonical = {row["raw"]: row["canonical"] for row in rows}
+    assert canonical["où"] != canonical["ou"], "où and ou stay distinct"
+    assert canonical["sûr"] != canonical["sur"], "sûr and sur stay distinct"
+    assert canonical["aujourd\u2019hui"] == canonical["aujourd'hui"], (
+        "both apostrophes share one identity"
+    )
+
+
+def test_french_canonical_lemma_folds_apostrophe_but_keeps_the_raw_lemma() -> None:
+    text = "aujourd\u2019hui"
+    sentences = [
+        SimpleNamespace(
+            text=text,
+            tokens=[
+                SimpleNamespace(words=[word(text, text, "ADV", None, 0, len(text))]),
+            ],
+        )
+    ]
+    artifact = Producer(
+        pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=sentences)
+    ).analyze(text, "fr")
+
+    token = artifact.sentences[0].tokens[0]
+    assert token.raw_lemma == "aujourd\u2019hui", "the raw lemma keeps the typographic apostrophe"
+    assert token.canonical_lemma == "aujourd'hui", "only the canonical lemma folds U+2019"
+    assert artifact.sentences[0].text == text, "the source text is never rewritten"
+
+
+def test_french_normalization_profile_is_recorded() -> None:
+    artifact = Producer(
+        pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=[])
+    ).analyze("où", "fr")
+    assert artifact.normalization_profile.name == "french"
+    assert artifact.normalization_profile.version == "1"
+
+
+def test_french_elision_contraction_and_clitic_expansion() -> None:
+    """MWT expansion keeps each component and its dependency head."""
+    text = "L'homme s'habille, d'accord, va-t-il."
+    words = [
+        ("L'", "le", "DET", 0, 2, 1, 2, "det"),
+        ("homme", "homme", "NOUN", 2, 7, 2, 0, "root"),
+        ("s'", "se", "PRON", 8, 10, 3, 4, "expl:pv"),
+        ("habille", "habiller", "VERB", 10, 17, 4, 2, "acl"),
+        ("d'", "de", "ADP", 19, 21, 5, 6, "case"),
+        ("accord", "accord", "NOUN", 21, 27, 6, 2, "conj"),
+        ("va", "aller", "VERB", 29, 31, 7, 0, "root"),
+        # Edge punctuation is stripped from the surface, so -t- becomes t; the
+        # raw lemma and its span are preserved.
+        ("t", "il", "PRON", 31, 34, 8, 7, "expl"),
+        ("il", "lui", "PRON", 34, 36, 9, 7, "nsubj"),
+        (".", ".", "PUNCT", 36, 37, 10, 7, "punct"),
+    ]
+    sentences = [
+        SimpleNamespace(
+            text=text,
+            tokens=[
+                SimpleNamespace(
+                    words=[
+                        word(w[0], w[1], w[2], None, w[3], w[4], id=w[5], head=w[6], deprel=w[7])
+                    ]
+                )
+                for w in words
+            ],
+        )
+    ]
+    producer = Producer(
+        pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=sentences)
+    )
+
+    artifact = producer.analyze(text, "fr")
+
+    tokens = artifact.sentences[0].tokens
+    assert [token.surface for token in tokens] == [w[0] for w in words]
+    by_surface = {token.surface: token for token in tokens}
+    # Elision: the elided article and pronoun expand on the content word.
+    assert by_surface["L'"].pos == "DET"
+    assert by_surface["L'"].raw_lemma == "le"
+    assert (by_surface["L'"].location.start_offset, by_surface["L'"].location.end_offset) == (0, 2)
+    assert by_surface["s'"].raw_lemma == "se"
+    assert by_surface["habille"].canonical_lemma == "habiller"
+    # Contraction: d' + accord keep the preposition and the noun.
+    assert by_surface["d'"].pos == "ADP"
+    assert by_surface["accord"].canonical_lemma == "accord"
+    # Inversion clitic: the verb keeps aller and the clitic stays a PRON.
+    assert by_surface["va"].canonical_lemma == "aller"
+    assert by_surface["t"].pos == "PRON"
+    assert by_surface["il"].raw_lemma == "lui"
+    # Morphology and dependency heads survive the mapping.
+    assert tokens[1].head == 1, "homme is the root"
+    assert tokens[4].dependency == "case"
+    assert tokens[5].head == 1, "accord attaches to homme's ordinal"
+    assert artifact.normalization_profile.name == "french"

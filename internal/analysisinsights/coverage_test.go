@@ -207,6 +207,76 @@ func TestGreekCoverageUsesScopedLemmaOccurrencesAndExclusions(t *testing.T) {
 	assert.Equal(t, "γελάω", got.TopUnknownLemmas[1].CanonicalLemma)
 }
 
+func TestFrenchCoverageUsesLemmaOccurrencesAndThresholdInsights(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 6, DistinctLemmaCount: 4}
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: "livre", Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "fr", CanonicalLemma: "laver", UPOS: "VERB", OccurrenceCount: 2},
+			{Language: "fr", CanonicalLemma: "homme", UPOS: "NOUN", OccurrenceCount: 2},
+			{Language: "fr", CanonicalLemma: "maison", UPOS: "NOUN", OccurrenceCount: 1},
+			{Language: "fr", CanonicalLemma: "aller", UPOS: "VERB", OccurrenceCount: 1},
+		}},
+		known: []domain.KnownVocabulary{{OwnerID: "alice", Language: "fr", CanonicalLemma: "homme", UPOS: "NOUN"}},
+	}
+
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus-fr")
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), got.KnownTokenCount)
+	assert.Equal(t, int64(4), got.UnknownTokenCount)
+	assert.Equal(t, int64(1), got.KnownLemmaCount)
+	assert.Equal(t, int64(3), got.UnknownLemmaCount)
+	require.Len(t, got.Thresholds, 3)
+	assert.True(t, got.Thresholds[1].Reachable, "97%% threshold = %+v", got.Thresholds[1])
+	assert.Equal(t, int64(4), got.Thresholds[1].OccurrenceCount)
+	assert.Equal(t, int64(3), got.Thresholds[1].LemmaCount)
+	assert.Equal(t, int64(4), got.Thresholds[1].EligibleTokenCount)
+	require.Len(t, got.TopUnknownLemmas, 3)
+	assert.Equal(t, "laver", got.TopUnknownLemmas[0].CanonicalLemma)
+}
+
+func TestFrenchCoverageScopesKnownReservedAndGeneratedVocabulary(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 6, DistinctLemmaCount: 4}
+	otherBook := "autre-livre"
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: "livre", Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "fr", CanonicalLemma: "laver", UPOS: "VERB", OccurrenceCount: 2},
+			{Language: "fr", CanonicalLemma: "homme", UPOS: "NOUN", OccurrenceCount: 2},
+			{Language: "fr", CanonicalLemma: "maison", UPOS: "NOUN", OccurrenceCount: 1},
+			{Language: "fr", CanonicalLemma: "aller", UPOS: "VERB", OccurrenceCount: 1},
+		}},
+		known: []domain.KnownVocabulary{
+			{OwnerID: "alice", Language: "fr", CanonicalLemma: "homme", UPOS: "NOUN"},
+			{OwnerID: "alice", Language: "de", CanonicalLemma: "aller", UPOS: "VERB"},
+			{OwnerID: "bob", Language: "fr", CanonicalLemma: "laver", UPOS: "VERB"},
+			{OwnerID: "alice", Language: "it", CanonicalLemma: "homme", UPOS: "NOUN"},
+		},
+		reserved: []domain.DeckPreparationVocabulary{
+			{OwnerID: "alice", Language: "fr", CanonicalLemma: "laver", UPOS: "VERB"},
+			{OwnerID: "alice", Language: "el", CanonicalLemma: "maison", UPOS: "NOUN"},
+		},
+		generated: []domain.GeneratedVocabulary{
+			{OwnerID: "alice", Language: "fr", CanonicalLemma: "maison", UPOS: "NOUN", FirstSourceMaterialID: &otherBook},
+			{OwnerID: "alice", Language: "de", CanonicalLemma: "aller", UPOS: "VERB", FirstSourceMaterialID: &otherBook},
+		},
+	}
+
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus-fr")
+	require.NoError(t, err)
+	// Only alice's French Known counts: a German, Italian or another owner's row
+	// with the same lemma must not change French coverage.
+	assert.Equal(t, int64(2), got.KnownTokenCount)
+	assert.Equal(t, int64(1), got.KnownLemmaCount)
+	assert.Equal(t, int64(2), got.ReservedTokenCount)
+	assert.Equal(t, int64(1), got.ReservedLemmaCount)
+	assert.Equal(t, int64(4), got.UnknownTokenCount)
+	assert.Equal(t, int64(3), got.UnknownLemmaCount)
+	// maison is Generated from another Book, so it drops out of the pool; a
+	// German Generated row must not exclude the French aller.
+	require.Len(t, got.TopUnknownLemmas, 1)
+	assert.Equal(t, "aller", got.TopUnknownLemmas[0].CanonicalLemma)
+	assert.Equal(t, int64(1), got.Thresholds[0].EligibleTokenCount)
+}
+
 func TestCoverageSeparatesReservedProjectionAndReleasesReservation(t *testing.T) {
 	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 3}
 	store := &memoryStore{

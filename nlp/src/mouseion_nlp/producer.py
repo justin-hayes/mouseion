@@ -39,8 +39,13 @@ GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
 GERMAN_NORMALIZATION_VERSION = "6"
 GREEK_NORMALIZATION_PROFILE = "modern-greek"
 GREEK_NORMALIZATION_VERSION = "1"
+FRENCH_NORMALIZATION_PROFILE = "french"
+FRENCH_NORMALIZATION_VERSION = "1"
 DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
 DEFAULT_NORMALIZATION_VERSION = "1.2.0"
+# The typographic apostrophe French text uses for elision; the canonical lemma
+# folds it to the ASCII apostrophe, so aujourd'hui and aujourd’hui are one item.
+FRENCH_TYPOGRAPHIC_APOSTROPHE = "\u2019"
 
 logger = logging.getLogger(__name__)
 
@@ -319,6 +324,8 @@ class Producer:
             return GERMAN_NORMALIZATION_PROFILE, GERMAN_NORMALIZATION_VERSION
         if self._is_greek(language):
             return GREEK_NORMALIZATION_PROFILE, GREEK_NORMALIZATION_VERSION
+        if self._is_french(language):
+            return FRENCH_NORMALIZATION_PROFILE, FRENCH_NORMALIZATION_VERSION
         return DEFAULT_NORMALIZATION_PROFILE, DEFAULT_NORMALIZATION_VERSION
 
     @classmethod
@@ -348,11 +355,21 @@ class Producer:
         return language.lower().replace("_", "-").split("-", 1)[0] == "el"
 
     @staticmethod
+    def _is_french(language: str) -> bool:
+        return language.lower().replace("_", "-").split("-", 1)[0] == "fr"
+
+    @staticmethod
     def _canonical_lemma(language: str, lemma: str) -> str:
-        if not Producer._is_german(language):
-            return " ".join(unicodedata.normalize("NFC", lemma).casefold().split())
-        lowered = lemma.lower()
-        return GERMAN_POST_1996_EQUIVALENCES.get(lowered, lowered)
+        if Producer._is_german(language):
+            lowered = lemma.lower()
+            return GERMAN_POST_1996_EQUIVALENCES.get(lowered, lowered)
+        value = " ".join(unicodedata.normalize("NFC", lemma).casefold().split())
+        if Producer._is_french(language):
+            # NFC plus case folding keeps accents significant, so où≠ou and
+            # sûr≠sur. Only the canonical lemma folds the typographic
+            # apostrophe; the raw lemma and source text are untouched.
+            value = value.replace(FRENCH_TYPOGRAPHIC_APOSTROPHE, "'")
+        return value
 
     @staticmethod
     def _location(source: SourceDocument, start: int, end: int) -> Any:

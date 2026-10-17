@@ -150,6 +150,18 @@ func TestValidateSenseSelectionChecksCandidateRangeAndUniqueness(t *testing.T) {
 	assert.True(t, ValidateSenseSelection([]int{0, 1, 2, 3}, 4))
 }
 
+func TestIsContextWordUsesTheFrenchStopwordSet(t *testing.T) {
+	for _, word := range []string{"le", "de", "que", "ne", "pas", "n", "l", "d", "où"} {
+		assert.False(t, isContextWord("fr", word), word)
+	}
+	for _, word := range []string{"maison", "homme", "près", "là"} {
+		assert.True(t, isContextWord("fr", word), word)
+	}
+	// The French set is language-scoped: German and Italian are unchanged.
+	assert.True(t, isContextWord("de", "ne"), "German ne is not a French stopword")
+	assert.True(t, isContextWord("it", "pas"), "Italian pas is not a French stopword")
+}
+
 func TestCloneLexicalSensesDeepCopiesDictionaryMetadata(t *testing.T) {
 	original := []LexicalSense{{Examples: []string{"example"}, Topics: []string{"topic"}, Tags: []string{"tag"}}}
 	clone := CloneLexicalSenses(original)

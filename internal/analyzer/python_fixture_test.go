@@ -76,6 +76,8 @@ func TestGoConsumesFrenchStanzaRegressionFixture(t *testing.T) {
 	corpus := new(mouseionv1.NormalizedCorpus)
 	require.NoError(t, protojson.Unmarshal(payload, corpus), "unmarshal French Python fixture")
 	assert.Equal(t, "fr", corpus.GetLanguage())
+	assert.Equal(t, "french", corpus.GetNormalizationProfile().GetName(), "the producer records the French profile")
+	assert.Equal(t, "1", corpus.GetNormalizationProfile().GetVersion())
 	require.Len(t, corpus.GetSentences(), 2)
 	first := corpus.GetSentences()[0].GetTokens()
 	require.Len(t, first, 9)

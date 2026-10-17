@@ -119,7 +119,7 @@ func listEligibleLemmaReviewRows(ctx context.Context, q *sqlcgen.Queries, owner,
 	cfg := selection.DefaultConfig("")
 	eligible := rows[:0]
 	for _, row := range rows {
-		if selection.OccurrenceEligible(cfg, row.CanonicalLemma, row.Upos, row.Dependency) {
+		if selection.OccurrenceEligible(cfg, row.Language, row.CanonicalLemma, row.Upos, row.Dependency) {
 			eligible = append(eligible, row)
 		}
 	}
@@ -302,7 +302,7 @@ func validateLemmaDecision(ctx context.Context, q *sqlcgen.Queries, decision dom
 	if err != nil {
 		return false, pgtype.Text{}, err
 	}
-	if !selection.OccurrenceEligible(selection.DefaultConfig(""), evidence.CanonicalLemma, evidence.Upos, evidence.Dependency) {
+	if !selection.OccurrenceEligible(selection.DefaultConfig(""), evidence.Language, evidence.CanonicalLemma, evidence.Upos, evidence.Dependency) {
 		return false, pgtype.Text{}, ErrNotFound
 	}
 	current, err := q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{
