@@ -51,6 +51,11 @@ type Index struct {
 	// skippedLSJHeadwords counts LSJ source headwords whose ancient-greek/1 key
 	// was not admissible and were therefore not indexed.
 	skippedLSJHeadwords int
+
+	// hStatusAvailable is true when the index carries the French h_status
+	// column, so a lookup can report aspirated-h evidence rather than silently
+	// dropping it.
+	hStatusAvailable bool
 }
 
 type evidenceIdentity struct {
@@ -104,6 +109,9 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 	if _, err = db.ExecContext(ctx, `SELECT language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries LIMIT 0`); err != nil {
 		return nil, fmt.Errorf("%w: schema: %w", ErrInvalidIndex, errors.Join(err, db.Close()))
 	}
+	if err = index.loadHStatusAvailability(ctx); err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
 	if err = index.loadGreekEntries(ctx); err != nil {
 		return nil, errors.Join(err, db.Close())
 	}
@@ -111,6 +119,24 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 		return nil, errors.Join(err, db.Close())
 	}
 	return index, nil
+}
+
+// indexFormatWithFrenchHStatus is the index format that first carried the
+// French aspirated-h evidence column. A lower or missing format reports no
+// h-status, so an older index falls back to the conservative unknown-h rule
+// (ADR 0102) instead of failing to open.
+const indexFormatWithFrenchHStatus = 3
+
+// loadHStatusAvailability records whether the index carries the French
+// aspirated-h evidence column, so a lookup selects it only when the format
+// provides it and otherwise reports unknown h.
+func (i *Index) loadHStatusAvailability(ctx context.Context) error {
+	version, ok, err := i.indexFormat(ctx)
+	if err != nil {
+		return err
+	}
+	i.hStatusAvailable = ok && version >= indexFormatWithFrenchHStatus
+	return nil
 }
 
 func (i *Index) Name() string {
@@ -157,7 +183,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	}
 	orderedExact, orderedWeak := splitSensesByMatchStrength(senses)
 	ordered := combineSenses(enrichment.OrderSenses(request, orderedExact), enrichment.OrderSenses(request, orderedWeak))
-	result := enrichment.LexicalEntry{Senses: ordered, CandidateSenses: append([]enrichment.LexicalSense(nil), senses...), IPA: morphology.ipa, PrincipalParts: morphology.principalParts}
+	result := enrichment.LexicalEntry{Senses: ordered, CandidateSenses: append([]enrichment.LexicalSense(nil), senses...), IPA: morphology.ipa, PrincipalParts: morphology.principalParts, HStatus: morphology.hStatus}
 	if language == "el" {
 		result.Gender, result.Article, result.Plural = morphology.gender, morphology.article, morphology.plural
 	} else if len(ordered) > 0 {
@@ -177,26 +203,49 @@ func (i *Index) matchEntries(ctx context.Context, language, lemma, upos string) 
 		exact, weak, found := i.ancientGreekRows(lemma, upos)
 		return exact, weak, lookupMorphology{}, found, nil
 	}
-	return lookupEntryRows(ctx, i.db, language, lemma, upos)
+	return lookupEntryRows(ctx, i.db, language, lemma, upos, i.hStatusAvailable)
 }
 
 // lookupMorphology carries the morphology columns of an exact-identity row.
 type lookupMorphology struct {
-	gender, article, plural, ipa, principalParts string
+	gender, article, plural, ipa, principalParts, hStatus string
 }
 
 // lookupEntryRows runs the candidate query and separates rows that match the
 // requested part of speech from lemma-only fallbacks, keeping the exact row's
-// morphology.
-func lookupEntryRows(ctx context.Context, db *sql.DB, language, lemma, upos string) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
-	rows, err := db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, upos, upos)
+// morphology. withHStatus selects the French aspirated-h evidence column only
+// when the index format carries it.
+func lookupEntryRows(ctx context.Context, db *sql.DB, language, lemma, upos string, withHStatus bool) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
+	// Two constant queries rather than one assembled column list: the h_status
+	// column exists only in the newer index format, and a literal statement
+	// keeps the lookup free of any dynamically built SQL.
+	var rows *sql.Rows
+	if withHStatus {
+		rows, err = db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts, h_status FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, upos, upos)
+	} else {
+		rows, err = db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, upos, upos)
+	}
 	if err != nil {
 		return nil, nil, lookupMorphology{}, false, fmt.Errorf("dictionary lookup: %w", err)
 	}
 	defer rows.Close() //nolint:errcheck // Rows.Err below reports actionable lookup failures.
+	exactSenses, weakSenses, morphology, foundExact, err = scanEntryRows(rows, upos, withHStatus)
+	if err != nil {
+		return nil, nil, lookupMorphology{}, false, err
+	}
+	return exactSenses, weakSenses, morphology, foundExact, nil
+}
+
+// scanEntryRows reads the candidate rows and separates exact part-of-speech
+// matches from lemma-only fallbacks, keeping the exact row's morphology.
+func scanEntryRows(rows *sql.Rows, upos string, withHStatus bool) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
 	for rows.Next() {
-		var entryUPOS, sensesJSON, rowGender, rowArticle, rowPlural, rowIPA, rowPrincipalParts string
-		if err = rows.Scan(&entryUPOS, &sensesJSON, &rowGender, &rowArticle, &rowPlural, &rowIPA, &rowPrincipalParts); err != nil {
+		var entryUPOS, sensesJSON, rowGender, rowArticle, rowPlural, rowIPA, rowPrincipalParts, rowHStatus string
+		destinations := []any{&entryUPOS, &sensesJSON, &rowGender, &rowArticle, &rowPlural, &rowIPA, &rowPrincipalParts}
+		if withHStatus {
+			destinations = append(destinations, &rowHStatus)
+		}
+		if err = rows.Scan(destinations...); err != nil {
 			return nil, nil, lookupMorphology{}, false, fmt.Errorf("dictionary lookup row: %w", err)
 		}
 		var senses []enrichment.LexicalSense
@@ -205,7 +254,7 @@ func lookupEntryRows(ctx context.Context, db *sql.DB, language, lemma, upos stri
 		}
 		if entryUPOS == upos && upos != "" {
 			foundExact = true
-			morphology = lookupMorphology{gender: rowGender, article: rowArticle, plural: rowPlural, ipa: rowIPA, principalParts: rowPrincipalParts}
+			morphology = lookupMorphology{gender: rowGender, article: rowArticle, plural: rowPlural, ipa: rowIPA, principalParts: rowPrincipalParts, hStatus: rowHStatus}
 			exactSenses = append(exactSenses, senses...)
 			continue
 		}

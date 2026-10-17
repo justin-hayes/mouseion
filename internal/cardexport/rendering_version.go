@@ -8,6 +8,8 @@ const (
 	// identity and its source pin (ADR 0101).
 	RenderInputVersion = 3
 	// PresentationVersion identifies the current card presentation contract.
-	// Version 6 adds the hierarchical dictionary-entry block to the card back.
-	PresentationVersion = 6
+	// Version 6 adds the hierarchical dictionary-entry block to the card back
+	// (ADR 0101). Version 7 adds the French article rule, its gender label field,
+	// and the HStatus evidence the rule reads (ADR 0102).
+	PresentationVersion = 7
 )

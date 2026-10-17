@@ -279,6 +279,64 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	}
 }
 
+func TestFrenchDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, h_status TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '3')`)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `INSERT INTO entries VALUES ('fr', 'hache', 'NOUN', '[{"Gloss":"axe","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"","Plural":"haches","IPA":"/aʃ/"}]', 'Fem', '', 'haches', '/aʃ/', '', 'aspirated'); INSERT INTO entries VALUES ('fr', 'hôtel', 'NOUN', '[{"Gloss":"hotel","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"","Plural":"hôtels","IPA":"/otɛl/"}]', 'Masc', '', 'hôtels', '/otɛl/', '', ''); INSERT INTO entries VALUES ('fr', 'ami', 'NOUN', '[{"Gloss":"friend","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"","Plural":"amis","IPA":""}]', 'Masc', '', 'amis', '', '', ''); INSERT INTO entries VALUES ('fr', 'livre', 'NOUN', '[{"Gloss":"book","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"","Plural":"livres","IPA":""}]', 'Masc', '', 'livres', '', '', ''); INSERT INTO entries VALUES ('fr', 'prix', 'NOUN', '[{"Gloss":"price","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"","Plural":"invariable","IPA":"/pʁi/"}]', 'Masc', '', 'invariable', '/pʁi/', '', '')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	index, err := dictionary.OpenIndex(t.Context(), path)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := index.Close(); err != nil {
+			t.Errorf("dictionary index cleanup failed: %v", err)
+		}
+	})
+	service := &lexicalResolver{lexical: index}
+	for _, test := range []struct {
+		lemma, target, sentence, article, gender, plural, ipa string
+	}{
+		{lemma: "hache", target: "hache", sentence: "La hache est lourde.", article: "la", plural: "haches", ipa: "/aʃ/"},
+		{lemma: "hôtel", target: "hôtel", sentence: "Cet hôtel ouvre en mai.", gender: "m.", plural: "hôtels", ipa: "/otɛl/"},
+		{lemma: "ami", target: "ami", sentence: "Un ami arrive ce soir.", article: "l'", gender: "m.", plural: "amis"},
+		{lemma: "livre", target: "livre", sentence: "Le livre est sur la table.", article: "le", plural: "livres"},
+		{lemma: "prix", target: "prix", sentence: "Le prix du pain a augmenté.", article: "le", plural: "invariable", ipa: "/pʁi/"},
+	} {
+		t.Run(test.lemma, func(t *testing.T) {
+			entry := Entry{
+				Language: "fr", CanonicalLemma: test.lemma, UPOS: "NOUN",
+				Sentence: test.sentence, TargetWord: test.target,
+			}
+			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+
+			note, err := makeNote("owner", renderInputFromEntry(entry))
+			require.NoError(t, err)
+			assert.Equal(t, strings.ReplaceAll(test.article, "'", "&#39;"), note.Article)
+			assert.Equal(t, test.gender, note.Gender)
+			assert.Equal(t, test.plural, note.Plural)
+			assert.Equal(t, test.ipa, note.IPA)
+			if test.plural == "invariable" {
+				assert.Contains(t, note.BackExtra, "(Pl. invariable)")
+			}
+		})
+	}
+
+	verb := Entry{
+		Language: "fr", CanonicalLemma: "manger", UPOS: "VERB",
+		Sentence: "Ils mangent ensemble.", TargetWord: "mangent",
+	}
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &verb))
+	note, err := makeNote("owner", renderInputFromEntry(verb))
+	require.NoError(t, err)
+	assert.Empty(t, note.Article)
+	assert.Empty(t, note.Gender)
+	assert.Empty(t, note.PrincipalParts, "a French verb carries no conjugation summary")
+}
+
 func TestGreekDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)

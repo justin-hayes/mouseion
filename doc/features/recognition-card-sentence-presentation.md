@@ -3,8 +3,8 @@
 ## Product contract
 
 Mouseion generates **recognition cards**. The complete selected source sentence
-(German, Italian, or Modern Greek) appears on the front, and the word under test
-is bolded. The word is not hidden behind an Anki cloze deletion.
+(German, Italian, Modern Greek, or French) appears on the front, and the word
+under test is bolded. The word is not hidden behind an Anki cloze deletion.
 
 Long sentences are handled by deterministic quality policy and presentation:
 
@@ -27,13 +27,14 @@ information:
 The back does **not** show a second `SourceSentence` block. The card contract
 has one learner-facing German source sentence, not two copies of it.
 
-The generated note fields are `Identity`, `Text`, `Article`, `Lemma`, `Plural`,
-`IPA`, `PrincipalParts`, `POS`, `Gloss`, `English`, `EnglishSentence`, and
-`BookTitle`, in that order, followed by TSV tags. `Identity` is the Anki
+The generated note fields are `Identity`, `Text`, `Article`, `Lemma`, `Gender`,
+`Plural`, `IPA`, `PrincipalParts`, `POS`, `Gloss`, `English`, `EnglishSentence`,
+and `BookTitle`, in that order, followed by TSV tags. `Identity` is the Anki
 sort/deduplication field. `Text` is the complete source sentence with
 Mouseion-owned `<b>` markup around the target; `SourceSentence` is not a field
 in either export. `English` is retained in the contract but is not rendered: the
-card's meaning is the gloss.
+card's meaning is the gloss. `Gender` is empty for every language except French
+(see below).
 
 ## Target form and bolding
 
@@ -61,6 +62,27 @@ The noun morphology renders in the headword line as
 - The plural is not part of `Gloss`.
 
 See [ADR 0067](../adr/0067-recognition-card-morphology-presentation.md).
+
+### French article and gender label
+
+French resolves its definite article at render time from one supported gender
+and the headword's initial letter, because French articles elide (`l'`) and
+h-initial nouns differ (ADR 0102). French is the only language that populates
+the `Gender` field:
+
+- a consonant-initial noun with one supported gender gets `le`/`la` + headword;
+- a vowel-initial noun gets `l'` + headword plus a `(m.)`/`(f.)` gender label,
+  because the elided article hides the gender;
+- an h-initial noun gets `le`/`la` only when the index marks it aspirated h;
+  any other h-initial noun appears bare with its gender (`héros (m.)`), so a
+  wrong article is never taught;
+- a noun with conflicting, missing or plural-only gender appears bare with no
+  label;
+- an initial whose elision behaviour is uncertain, such as `y`, appears bare
+  with its gender.
+
+The `Gender` field stays empty on non-noun rows. German, Italian and Greek
+cards are unchanged.
 
 ## Pronunciation and principal parts
 
