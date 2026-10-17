@@ -161,14 +161,22 @@ func greekScenarios() []Scenario {
 			assert.Equal(t, 2, result.Completion.GraduatedVocabularyCount)
 			assert.Equal(t, 0, result.Completion.AlreadyKnownVocabularyCount)
 
+			// Each accepted identity is Known with the citation headword its
+			// snapshot showed; the pre-existing bare identity keeps its own.
 			known, err := h.Store().ListKnownVocabulary(owner, GreekLanguage)
 			require.NoError(t, err)
-			discriminators := make([]string, 0, len(known))
+			identities := make([]string, 0, len(known))
 			for _, item := range known {
-				discriminators = append(discriminators, item.CanonicalLemma+":"+item.LexicalDiscriminator)
+				identities = append(identities, knownHeadwordKey(item))
 			}
-			sort.Strings(discriminators)
-			assert.Equal(t, []string{"δέω:", "δέω:morpheus:1", "δέω:morpheus:2"}, discriminators)
+			sort.Strings(identities)
+			assert.Equal(t, []string{"δέω:=", "δέω:morpheus:1=δέω", "δέω:morpheus:2=δέω"}, identities)
 		},
 	}}
+}
+
+// knownHeadwordKey renders one Known row as "lemma:discriminator=headword", so a
+// scenario asserts the accepted headword without depending on row order.
+func knownHeadwordKey(item domain.KnownVocabulary) string {
+	return item.CanonicalLemma + ":" + item.LexicalDiscriminator + "=" + item.Headword
 }

@@ -168,10 +168,10 @@ func catalogueSyncStatusFromRow(ownerID, connectionID, state string, lastSyncedA
 	}
 }
 
-func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos, discriminator string, createdAt time.Time) domain.KnownVocabulary {
+func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos, discriminator, headword string, createdAt time.Time) domain.KnownVocabulary {
 	return domain.KnownVocabulary{
 		ID: id, OwnerID: ownerID, Language: language, CanonicalLemma: canonicalLemma,
-		UPOS: upos, LexicalDiscriminator: discriminator, CreatedAt: createdAt,
+		UPOS: upos, LexicalDiscriminator: discriminator, Headword: headword, CreatedAt: createdAt,
 	}
 }
 

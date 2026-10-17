@@ -40,14 +40,14 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	require.NoError(t, err)
 	// Current application code also reads and writes the successor identity
 	// columns (analysis syntax state, the frozen snapshot discriminator and
-	// headword, and the Known discriminator). Add empty stand-ins while seeding
-	// against this old schema, then drop them so the successor migrations that
-	// introduce them still run below.
+	// headword, and the Known discriminator and headword). Add empty stand-ins
+	// while seeding against this old schema, then drop them so the successor
+	// migrations that introduce them still run below.
 	_, err = pool.Exec(ctx, `ALTER TABLE analysis_runs ADD COLUMN syntax_state text NOT NULL DEFAULT 'ud'`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE primary_goal_snapshot_vocabulary ADD COLUMN lexical_discriminator text NOT NULL DEFAULT '', ADD COLUMN headword text NOT NULL DEFAULT ''`)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary ADD COLUMN lexical_discriminator text NOT NULL DEFAULT ''`)
+	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary ADD COLUMN lexical_discriminator text NOT NULL DEFAULT '', ADD COLUMN headword text NOT NULL DEFAULT ''`)
 	require.NoError(t, err)
 	owner, err := store.CreateUser(ctx, "reading-cutover-owner", false)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE primary_goal_snapshot_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary DROP COLUMN lexical_discriminator`)
+	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `DROP TABLE occurrence_lemma_corrections`)
 	require.NoError(t, err)

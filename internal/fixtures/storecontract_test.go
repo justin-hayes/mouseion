@@ -93,7 +93,7 @@ func (h *contractHarness) SeedKnownVocabulary(_ *testing.T, owner string, identi
 	h.store.mu.Lock()
 	defer h.store.mu.Unlock()
 	for _, identity := range identities {
-		h.store.known = append(h.store.known, domain.KnownVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, CreatedAt: time.Now()})
+		h.store.known = append(h.store.known, domain.KnownVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, Headword: identity.Headword, CreatedAt: time.Now()})
 	}
 }
 

@@ -471,7 +471,7 @@ func listKnownVocabulary(ctx context.Context, q sqlcgen.DBTX, owner, language st
 	}
 	result := make([]domain.KnownVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, domain.KnownVocabulary{ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator, CreatedAt: row.CreatedAt})
+		result = append(result, knownVocabularyFromFields(row.KvID, row.KvOwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.CreatedAt))
 	}
 	return result, nil
 }

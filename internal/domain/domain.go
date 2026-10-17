@@ -549,7 +549,11 @@ type SharedLemma struct {
 type KnownVocabulary struct {
 	ID, OwnerID, Language, CanonicalLemma, UPOS string
 	LexicalDiscriminator                        string
-	CreatedAt                                   time.Time
+	// Headword is the imported citation form the accepted snapshot showed,
+	// empty for modern-language vocabulary. Display-only; never part of the
+	// identity.
+	Headword  string
+	CreatedAt time.Time
 }
 type GeneratedVocabulary struct {
 	OwnerID, Language, CanonicalLemma, UPOS string

@@ -658,6 +658,7 @@ func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lem
 // PutKnownVocabularyIdentity records a Known identity with an explicit lexical
 // discriminator, so a discriminated identity (such as morpheus:2) is stored and
 // matched exactly. A modern-language identity carries the empty discriminator.
+// The caller has no headword, so the recorded row keeps the empty one.
 func (s *PostgresStore) PutKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos, discriminator string) (v domain.KnownVocabulary, err error) {
 	return s.putKnownVocabularyIdentity(ctx, owner, lang, lemma, upos, discriminator)
 }
@@ -671,7 +672,7 @@ func (s *PostgresStore) putKnownVocabularyIdentity(ctx context.Context, owner, l
 		q := sqlcgen.New(tx)
 		existing, lookupErr := q.GetKnownVocabularyByIdentity(ctx, sqlcgen.GetKnownVocabularyByIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, LexicalDiscriminator: discriminator})
 		if lookupErr == nil {
-			v = knownVocabularyFromFields(existing.ID, existing.OwnerID, existing.Language, existing.CanonicalLemma, existing.Upos, existing.LexicalDiscriminator, existing.CreatedAt)
+			v = knownVocabularyFromFields(existing.ID, existing.OwnerID, existing.Language, existing.CanonicalLemma, existing.Upos, existing.LexicalDiscriminator, existing.Headword, existing.CreatedAt)
 			return nil
 		}
 		if !errors.Is(lookupErr, pgx.ErrNoRows) {
@@ -681,7 +682,7 @@ func (s *PostgresStore) putKnownVocabularyIdentity(ctx context.Context, owner, l
 		if upsertErr != nil {
 			return upsertErr
 		}
-		v = knownVocabularyFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.CreatedAt)
+		v = knownVocabularyFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.CreatedAt)
 		return nil
 	})
 	return v, err
@@ -691,10 +692,7 @@ func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string
 	if err != nil {
 		return v, missing(err)
 	}
-	return domain.KnownVocabulary{
-		ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma,
-		UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator, CreatedAt: row.CreatedAt,
-	}, nil
+	return knownVocabularyFromFields(row.KvID, row.KvOwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.CreatedAt), nil
 }
 func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang string) ([]domain.KnownVocabulary, error) {
 	lang = canonicalization.NormalizeLanguage(lang)
@@ -704,10 +702,7 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 	}
 	var result []domain.KnownVocabulary
 	for _, row := range rows {
-		result = append(result, domain.KnownVocabulary{
-			ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma,
-			UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator, CreatedAt: row.CreatedAt,
-		})
+		result = append(result, knownVocabularyFromFields(row.KvID, row.KvOwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.CreatedAt))
 	}
 	return result, nil
 }
