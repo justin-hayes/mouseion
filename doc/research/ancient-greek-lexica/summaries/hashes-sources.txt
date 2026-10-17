@@ -1,0 +1,5 @@
+69d7185819de51cc746d96f8033eb6c3f3e2016a314c2ee640ec09ce80623029  dl/kaikki/kaikki-AncientGreek.jsonl
+8d5bb101f912a9b0a8e09ecaa622b6a31d0dc895803a36e926ddcb63d0dfa910  dl/perseus/lexica-56061ca1.zip
+1b0e2ed672ac23399fbdb031b06119e7736ccefc78c229f6c9302b7c6348c811  dl/ml/ml-blinskey-5db8d88a.xml
+70bef324ee4087a96f201aed97740ed04440b543b3e178c54047bf75366be351  dl/ml/ml-adiel-b492bdf2.xml
+152e26c48166bc9fea6062ee789a93e70a388c8dc3fcd2dafc8a2c61189ab35a  dl/oga/oga_src-v0.2.0.zip
