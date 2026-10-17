@@ -169,6 +169,7 @@ func (s *PostgresStore) ListUnattachedGeneratedVocabulary(ctx context.Context, o
 	for _, row := range rows {
 		result = append(result, domain.GeneratedVocabulary{
 			OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword,
 			FirstDeckID: row.FirstDeckID, FirstSourceMaterialID: uuidStringPtr(row.FirstSourceMaterialID),
 			FirstGeneratedAt: row.FirstGeneratedAt,
 		})

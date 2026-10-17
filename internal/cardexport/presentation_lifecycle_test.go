@@ -179,6 +179,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		6: "689341753a71cd9c14609d5337668cc7503f5233ca4396f35909d75e293ea6ca",
 		7: "e142c96d63e34e44c47330688a5f12ea5c710fbc5443ac1f15750ecef68c0b94",
 		8: "aef994b625a4f881e7d5af369f196ff259a583d4adc4fbe72b02061b1fc6f5e1",
+		9: "567090f6ca9d948c85d56770a93e7225cf80ecc26270d2a44035fc7d83b40f5d",
 	}
 	wantCandidateDigests := map[int]string{
 		1: "43552493d6d8cc96b17112bc9ee667bdd1a0379e38df85c4eb691aa6c788b1cf",
@@ -189,6 +190,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		6: "7f94e44ed363cbbcad66e81060a234507d3c2cb1bd2814802ea05c01721f5dc5",
 		7: "3beec077590b7a3d4ccc853022cb479baf80a809fcded5d34dbfa3dd56050dbf",
 		8: "ea1d876cf5e2992d99fd1761f2b9fdd8b59ee5392d4af29e6889cdc372384b75",
+		9: "50b56b2d0ce0c5e0602a0d7ae9807a37e3262eda665b47d36bb253181b91c63b",
 	}
 	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		snapshot := lifecycleRestoreSnapshot()

@@ -490,6 +490,16 @@ or `absent`. Consumers show "Syntax unavailable" for a `native_agdt` or
 `absent` run.
 _Avoid_: NLP analysis, corpus sync.
 
+**Provider payload assessment**:
+The reviewed, recorded disposition for sending one language's exact
+external-provider payload (contextual Glosses and translations) to the
+configured provider for personal use. It is compiled reviewed data, pinned to a
+provider, prompt contract and transmitted field set. A covered language whose
+assessment is unrecorded, or whose configured provider, prompt or fields no
+longer match the record, fails closed before any request is transmitted; a
+language the installation records no assessment for is unaffected.
+_Avoid_: consent flag, provider allowlist.
+
 **Vocabulary Browse inventory**:
 The collection of effective vocabulary identities evidenced by the Book in
 the active study language's Current reading, including single occurrences and

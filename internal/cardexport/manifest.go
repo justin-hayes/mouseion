@@ -24,7 +24,8 @@ const (
 	ManifestSchemaVersionV6       = 6
 	ManifestSchemaVersionV7       = 7
 	ManifestSchemaVersionV8       = 8
-	ManifestSchemaVersion         = ManifestSchemaVersionV8
+	ManifestSchemaVersionV9       = 9
+	ManifestSchemaVersion         = ManifestSchemaVersionV9
 )
 
 type ManifestDisposition string
@@ -130,8 +131,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v6\x00"
 	case ManifestSchemaVersionV7:
 		prefix = "mouseion-prepared-deck-manifest-v7\x00"
-	default:
+	case ManifestSchemaVersionV8:
 		prefix = "mouseion-prepared-deck-manifest-v8\x00"
+	default:
+		prefix = "mouseion-prepared-deck-manifest-v9\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -210,8 +213,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v6\x00"
 	case ManifestSchemaVersionV7:
 		prefix = "mouseion-prepared-deck-candidate-v7\x00"
-	default:
+	case ManifestSchemaVersionV8:
 		prefix = "mouseion-prepared-deck-candidate-v8\x00"
+	default:
+		prefix = "mouseion-prepared-deck-candidate-v9\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -277,6 +282,8 @@ type canonicalEntry struct {
 	Language                  string                    `json:"language"`
 	CanonicalLemma            string                    `json:"canonical_lemma"`
 	UPOS                      string                    `json:"upos"`
+	LexicalDiscriminator      string                    `json:"lexical_discriminator,omitempty"`
+	Headword                  string                    `json:"headword,omitempty"`
 	Sentence                  string                    `json:"sentence"`
 	TargetWord                string                    `json:"target_word"`
 	Morphology                string                    `json:"morphology"`
@@ -340,7 +347,7 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 // validateHeader rejects a snapshot whose schema version is unknown or whose
 // owner and deck identity are missing or inconsistent with the download name.
 func (s ManifestSnapshot) validateHeader() error {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	return nil
@@ -478,6 +485,10 @@ func canonicalizeManifestQuality(quality SentenceQuality, schemaVersion int) can
 // evidence counts introduced by v6 and v7.
 func canonicalizeManifestEntry(entry Entry, schemaVersion int) (canonicalEntry, error) {
 	entryCanonical := canonicalEntry{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Sentence: entry.Sentence, TargetWord: entry.TargetWord, Morphology: entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes, FirstEncounter: entry.FirstEncounter}
+	if schemaVersion >= ManifestSchemaVersionV9 {
+		entryCanonical.LexicalDiscriminator = entry.LexicalDiscriminator
+		entryCanonical.Headword = entry.Headword
+	}
 	if schemaVersion >= ManifestSchemaVersionV4 {
 		entryCanonical.Gloss = entry.Gloss
 		entryCanonical.DictionaryProviderVersion = entry.DictionaryProviderVersion

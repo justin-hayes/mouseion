@@ -78,6 +78,13 @@ func (c *TranslationCodec) ContextualGlossProviderVersion() string {
 	return version
 }
 
+// ContextualGlossPromptContract returns the versioned contextual-gloss prompt
+// contract alone, without the configured model. The provider-payload
+// assessment pins this contract, so it is stable across model changes.
+func (c *TranslationCodec) ContextualGlossPromptContract() string {
+	return contextualGlossPromptVersion
+}
+
 // PromptVersion identifies the request/validation contract frozen into this
 // codec. It is recorded by the operator validation report.
 func (c *TranslationCodec) PromptVersion() string { return llmPromptVersion }
@@ -201,6 +208,21 @@ func promptForRequest(input TranslationRequest) string {
 		return contextualGlossSystemPrompt
 	}
 	return llmSystemPrompt
+}
+
+// contextualGlossPayloadFields is the exact ordered field set a contextual
+// Gloss request transmits in its user message. The provider-payload assessment
+// pins this contract, so a change to the fields fails closed until the
+// assessment is re-recorded.
+var contextualGlossPayloadFields = []string{
+	"item_id", "language", "target_language", "canonical_lemma", "upos",
+	"target_word", "example_sentence", "candidate_senses",
+}
+
+// ContextualGlossPayloadFields returns a copy of the ordered field set a
+// contextual Gloss request transmits.
+func ContextualGlossPayloadFields() []string {
+	return slices.Clone(contextualGlossPayloadFields)
 }
 
 // DecodeResponse applies the shared Chat Completions and translation quality

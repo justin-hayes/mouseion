@@ -281,10 +281,10 @@ INSERT INTO processing_history(owner_id, operation, status, details, completed_a
 VALUES (sqlc.arg('owner'), 'prepared_deck', sqlc.arg('status'), sqlc.arg('details'), now());
 
 -- name: ListDeckPreparationVocabulary :many
-SELECT owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at, graduated_at
+SELECT owner_id, deck_preparation_id, language, canonical_lemma, upos, lexical_discriminator, headword, generated_at, graduated_at
 FROM deck_preparation_vocabulary
 WHERE owner_id = sqlc.arg('owner') AND deck_preparation_id = sqlc.arg('preparation')
-ORDER BY language, canonical_lemma, upos;
+ORDER BY language, canonical_lemma, upos, lexical_discriminator;
 
 -- name: ListReservedDeckVocabulary :many
 SELECT ps.owner_id, ps.id AS deck_preparation_id, pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator, pv.headword, ps.created_at AS generated_at, NULL::timestamptz AS graduated_at
@@ -296,11 +296,11 @@ WHERE ps.owner_id = sqlc.arg('owner') AND ps.language = sqlc.arg('language')
 ORDER BY canonical_lemma, upos, lexical_discriminator;
 
 -- name: InsertGeneratedVocabulary :exec
-INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id)
-SELECT sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('canonical_lemma'), sqlc.arg('upos'), sqlc.arg('deck'), source_material_id
+INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator, headword, first_deck_id, first_source_material_id)
+SELECT sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('canonical_lemma'), sqlc.arg('upos'), sqlc.arg('lexical_discriminator'), sqlc.arg('headword'), sqlc.arg('deck'), source_material_id
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('preparation')
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING;
+ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING;
 
 -- name: PutPreparedDeckCard :exec
 INSERT INTO cards(owner_id, deck_id, dedup_key, canonical_lemma, upos, front, back)
@@ -309,9 +309,10 @@ ON CONFLICT(owner_id, dedup_key) DO UPDATE
 SET deck_id = excluded.deck_id, front = excluded.front, back = excluded.back;
 
 -- name: AttachDeckPreparationVocabulary :exec
-INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at)
-SELECT gv.owner_id, sqlc.arg('preparation'), gv.language, gv.canonical_lemma, gv.upos, gv.first_generated_at
+INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, lexical_discriminator, headword, generated_at)
+SELECT gv.owner_id, sqlc.arg('preparation'), gv.language, gv.canonical_lemma, gv.upos, gv.lexical_discriminator, gv.headword, gv.first_generated_at
 FROM generated_vocabulary gv
 WHERE gv.owner_id = sqlc.arg('owner') AND gv.language = sqlc.arg('language')
   AND gv.canonical_lemma = sqlc.arg('canonical_lemma') AND gv.upos = sqlc.arg('upos')
+  AND gv.lexical_discriminator = sqlc.arg('lexical_discriminator')
 ON CONFLICT DO NOTHING;

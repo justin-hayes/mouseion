@@ -427,6 +427,7 @@ func projectedCandidateEntry(ctx context.Context, tx pgx.Tx, preparation domain.
 	return cardexport.Entry{
 		OwnerID: preparation.OwnerID, Language: candidate.Language,
 		CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS,
+		LexicalDiscriminator: candidate.LexicalDiscriminator, Headword: candidate.Headword,
 		Sentence: refs[0].Text, TargetWord: forms[0], Morphology: "[]",
 		SourceDocument: title, FirstEncounter: candidate.FirstEncounter,
 	}, nil
@@ -483,7 +484,7 @@ func listUnattachedGeneratedVocabulary(ctx context.Context, q sqlcgen.DBTX, owne
 	}
 	result := make([]domain.GeneratedVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, domain.GeneratedVocabulary{OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, FirstDeckID: row.FirstDeckID, FirstSourceMaterialID: uuidStringPtr(row.FirstSourceMaterialID), FirstGeneratedAt: row.FirstGeneratedAt})
+		result = append(result, domain.GeneratedVocabulary{OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword, FirstDeckID: row.FirstDeckID, FirstSourceMaterialID: uuidStringPtr(row.FirstSourceMaterialID), FirstGeneratedAt: row.FirstGeneratedAt})
 	}
 	return result, nil
 }

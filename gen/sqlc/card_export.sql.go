@@ -67,6 +67,8 @@ SELECT owner_id::text,
        language,
        canonical_lemma,
        upos,
+       lexical_discriminator,
+       headword,
        first_deck_id::text,
        (COALESCE(first_source_material_id::text, ''))::text AS first_source_material_id,
        first_generated_at
@@ -75,13 +77,15 @@ WHERE owner_id = $1
   AND language = $2
   AND canonical_lemma = $3
   AND upos = $4
+  AND lexical_discriminator = $5
 `
 
 type GetGeneratedVocabularyParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
+	OwnerID              string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
 }
 
 type GetGeneratedVocabularyRow struct {
@@ -89,6 +93,8 @@ type GetGeneratedVocabularyRow struct {
 	Language              string
 	CanonicalLemma        string
 	Upos                  string
+	LexicalDiscriminator  string
+	Headword              string
 	FirstDeckID           string
 	FirstSourceMaterialID string
 	FirstGeneratedAt      time.Time
@@ -100,6 +106,7 @@ func (q *Queries) GetGeneratedVocabulary(ctx context.Context, arg GetGeneratedVo
 		arg.Language,
 		arg.CanonicalLemma,
 		arg.Upos,
+		arg.LexicalDiscriminator,
 	)
 	var i GetGeneratedVocabularyRow
 	err := row.Scan(
@@ -107,6 +114,8 @@ func (q *Queries) GetGeneratedVocabulary(ctx context.Context, arg GetGeneratedVo
 		&i.Language,
 		&i.CanonicalLemma,
 		&i.Upos,
+		&i.LexicalDiscriminator,
+		&i.Headword,
 		&i.FirstDeckID,
 		&i.FirstSourceMaterialID,
 		&i.FirstGeneratedAt,
@@ -192,13 +201,15 @@ SELECT owner_id::text,
        language,
        canonical_lemma,
        upos,
+       lexical_discriminator,
+       headword,
        first_deck_id::text,
        (COALESCE(first_source_material_id::text, ''))::text AS first_source_material_id,
        first_generated_at
 FROM generated_vocabulary
 WHERE owner_id = $1
   AND language = $2
-ORDER BY canonical_lemma, upos
+ORDER BY canonical_lemma, upos, lexical_discriminator
 `
 
 type ListGeneratedVocabularyParams struct {
@@ -211,6 +222,8 @@ type ListGeneratedVocabularyRow struct {
 	Language              string
 	CanonicalLemma        string
 	Upos                  string
+	LexicalDiscriminator  string
+	Headword              string
 	FirstDeckID           string
 	FirstSourceMaterialID string
 	FirstGeneratedAt      time.Time
@@ -230,6 +243,8 @@ func (q *Queries) ListGeneratedVocabulary(ctx context.Context, arg ListGenerated
 			&i.Language,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.Headword,
 			&i.FirstDeckID,
 			&i.FirstSourceMaterialID,
 			&i.FirstGeneratedAt,
@@ -277,9 +292,9 @@ func (q *Queries) PutGeneratedCard(ctx context.Context, arg PutGeneratedCardPara
 }
 
 const putGeneratedVocabulary = `-- name: PutGeneratedVocabulary :exec
-INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id)
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING
+INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator, headword, first_deck_id, first_source_material_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
 `
 
 type PutGeneratedVocabularyParams struct {
@@ -287,6 +302,8 @@ type PutGeneratedVocabularyParams struct {
 	Language              string
 	CanonicalLemma        string
 	Upos                  string
+	LexicalDiscriminator  string
+	Headword              string
 	FirstDeckID           string
 	FirstSourceMaterialID pgtype.UUID
 }
@@ -297,6 +314,8 @@ func (q *Queries) PutGeneratedVocabulary(ctx context.Context, arg PutGeneratedVo
 		arg.Language,
 		arg.CanonicalLemma,
 		arg.Upos,
+		arg.LexicalDiscriminator,
+		arg.Headword,
 		arg.FirstDeckID,
 		arg.FirstSourceMaterialID,
 	)

@@ -274,10 +274,10 @@ func publishPreparedDeckArtifact(ctx context.Context, q *sqlcgen.Queries, owner,
 		if err != nil {
 			return err
 		}
-		if err := q.InsertGeneratedVocabulary(ctx, sqlcgen.InsertGeneratedVocabularyParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Deck: deckID, Preparation: id}); err != nil {
+		if err := q.InsertGeneratedVocabulary(ctx, sqlcgen.InsertGeneratedVocabularyParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, LexicalDiscriminator: entry.LexicalDiscriminator, Headword: entry.Headword, Deck: deckID, Preparation: id}); err != nil {
 			return err
 		}
-		if err := q.AttachDeckPreparationVocabulary(ctx, sqlcgen.AttachDeckPreparationVocabularyParams{Preparation: id, Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
+		if err := q.AttachDeckPreparationVocabulary(ctx, sqlcgen.AttachDeckPreparationVocabularyParams{Preparation: id, Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, LexicalDiscriminator: entry.LexicalDiscriminator}); err != nil {
 			return err
 		}
 	}
@@ -305,6 +305,7 @@ func (s *PostgresStore) ListDeckPreparationVocabulary(ctx context.Context, owner
 		result = append(result, domain.DeckPreparationVocabulary{
 			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
 			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword,
 			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
 		})
 	}

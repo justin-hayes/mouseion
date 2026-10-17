@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -160,27 +159,25 @@ func loadCompletedAnalysis(ctx context.Context, q queryRower, owner, analysisID 
 	var corpusOwner, corpusSource, corpusRun, corpusStatus string
 	var contentDigest string
 	var runID string
-	condition := "j.river_job_id=$2"
-	args := []any{owner}
-	if parsed, err := strconv.ParseInt(analysisID, 10, 64); err == nil && parsed > 0 {
-		args = append(args, parsed)
-	} else {
-		if _, err := uuid.Parse(strings.TrimSpace(analysisID)); err != nil {
-			return completedAnalysis{}, fmt.Errorf("%w: analysis result ID must be a result ID", ErrAnalysisUnavailable)
-		}
-		condition = "r.id=$2::uuid"
-		args = append(args, strings.TrimSpace(analysisID))
+	if _, err := uuid.Parse(strings.TrimSpace(analysisID)); err != nil {
+		return completedAnalysis{}, fmt.Errorf("%w: analysis result ID must be a result ID", ErrAnalysisUnavailable)
 	}
-	err := q.QueryRow(ctx, `SELECT COALESCE(j.analysis_run_id::text,''),s.id::text,s.owner_id::text,s.language,s.source_identifier,s.title,s.media_type,j.content_hash,COALESCE(j.corpus_id::text,''),
+	args := []any{owner, strings.TrimSpace(analysisID)}
+	err := q.QueryRow(ctx, `SELECT COALESCE(r.id::text,''),s.id::text,s.owner_id::text,s.language,s.source_identifier,s.title,s.media_type,
+		COALESCE(j.content_hash,s.content_hash),COALESCE(j.corpus_id::text,r.corpus_id::text,''),
 		COALESCE(rev.content_digest,''),
 		COALESCE(r.state,''),COALESCE(r.snapshot_id::text,''),COALESCE(r.content_revision_id::text,''),COALESCE(r.corpus_id::text,''),
 		COALESCE(c.owner_id::text,''),COALESCE(c.source_material_id::text,''),COALESCE(c.analysis_run_id::text,''),COALESCE(c.status,'')
-		FROM analysis_jobs j
-		JOIN source_materials s ON s.owner_id=j.owner_id AND s.id=j.source_material_id
-		LEFT JOIN analysis_runs r ON r.owner_id=j.owner_id AND r.id=j.analysis_run_id AND r.source_material_id=j.source_material_id
+		FROM analysis_runs r
+		JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id
+		LEFT JOIN LATERAL (
+			SELECT content_hash, corpus_id FROM analysis_jobs j
+			WHERE j.owner_id=r.owner_id AND j.analysis_run_id=r.id AND j.source_material_id=r.source_material_id
+			ORDER BY j.river_job_id DESC LIMIT 1
+		) j ON true
 		LEFT JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
 		LEFT JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id
-		WHERE j.owner_id=$1 AND `+condition, args...).Scan(&runID, &result.Source.ID, &result.Source.OwnerID, &result.Source.Language, &result.Source.SourceIdentifier, &result.Source.Title, &result.Source.MediaType, &jobContentHash, &jobCorpusID, &contentDigest, &runState, &snapshotID, &runRevisionID, &corpusID, &corpusOwner, &corpusSource, &corpusRun, &corpusStatus)
+		WHERE r.owner_id=$1 AND r.id=$2::uuid`, args...).Scan(&runID, &result.Source.ID, &result.Source.OwnerID, &result.Source.Language, &result.Source.SourceIdentifier, &result.Source.Title, &result.Source.MediaType, &jobContentHash, &jobCorpusID, &contentDigest, &runState, &snapshotID, &runRevisionID, &corpusID, &corpusOwner, &corpusSource, &corpusRun, &corpusStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return completedAnalysis{}, fmt.Errorf("%w: analysis result is missing or belongs to another owner", ErrAnalysisUnavailable)
 	}
