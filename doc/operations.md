@@ -49,7 +49,7 @@ export PYTHONPATH=nlp/src:gen/python
 # local directory. The marker makes reruns idempotent and refreshes on upgrades.
 export STANZA_RESOURCES_DIR="$PWD/.stanza_resources"
 export HF_HOME="$PWD/.huggingface"
-export MOUSEION_NLP_WARM_LANGUAGES=de,it,el
+export MOUSEION_NLP_WARM_LANGUAGES=de,it,el,fr
 .venv/bin/python -m mouseion_nlp.provision
 # Start only after provisioning succeeds.
 .venv/bin/python -m mouseion_nlp.server
@@ -110,10 +110,10 @@ cancellation, retrying failed deletion a bounded number of times.
 ## NLP language models
 
 The running NLP service is authoritative for analysis-language availability
-([ADR 0023](adr/0023-nlp-capabilities.md)). German (`de`), Italian (`it`), and
-Modern Greek (`el`) are the supported languages; Compose configures
-`MOUSEION_NLP_WARM_LANGUAGES=de,it,el` by default, while a manually launched
-service defaults to `de`.
+([ADR 0023](adr/0023-nlp-capabilities.md)). German (`de`), Italian (`it`),
+French (`fr`), and Modern Greek (`el`) are the supported languages; Compose
+configures `MOUSEION_NLP_WARM_LANGUAGES=de,it,el,fr` by default, while a
+manually launched service defaults to `de`.
 
 The init container provisions each language's configured Stanza package and
 processor set into the `stanza-data` volume, mounted at
@@ -137,6 +137,32 @@ start the NLP service, and a language whose resources are unavailable is not
 offered to learners. If capability discovery is temporarily unavailable,
 previously discovered language names remain visible while operations that need
 a newly available language are blocked.
+
+### French release gate
+
+French support is guarded by an opt-in pinned-model golden check, outside
+default CI. It replays the committed 42-string regression corpus
+(`nlp/tests/testdata/french_golden_corpus.json`) through the exact pinned
+Stanza 1.15.0 combined package and asserts the expected sentence boundaries,
+tokens, lemmas, and target anchors. The gate passes only when it anchors 108/108
+eligible corpus targets with byte-identical persisted sentences; 17 of those
+targets have no word-bounded match and are reached by the persisted-token
+anchor. Run it before releasing French support and after any Stanza, package,
+processor, or analysis change.
+
+```sh
+export STANZA_RESOURCES_DIR="$PWD/.stanza_resources"
+export HF_HOME="$PWD/.huggingface"
+export MOUSEION_NLP_WARM_LANGUAGES=fr
+PYTHONPATH=nlp/src:gen/python .venv/bin/python -m mouseion_nlp.provision
+MOUSEION_TEST_STANZA_RESOURCES_DIR="$STANZA_RESOURCES_DIR" make french-golden
+```
+
+`make french-golden` fails fast when `MOUSEION_TEST_STANZA_RESOURCES_DIR` is
+unset; `make test` collects the check but skips it, so default CI never needs
+the models. `HF_HOME` must be exported before the test process starts. A
+deterministic Go test (`internal/cardexport`) anchors the same committed corpus
+in default CI, so only the pinned-model replay is opt-in.
 
 ## Dictionary index
 

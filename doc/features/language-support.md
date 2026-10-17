@@ -1,6 +1,6 @@
 # Language Support
 
-Status: Implemented; French vertical specified, implementation pending · Date: 2026-08-25 · Issues: #222, #223, #224, #225, #2156
+Status: Implemented; French guarded by an opt-in pinned-model golden check · Date: 2026-08-25 · Issues: #222, #223, #224, #225, #2156
 
 ## Runtime contract
 
@@ -12,8 +12,9 @@ derive each learner's study-language set. The web application does not maintain
 a learner-selected language allowlist; the learner's active study language
 ([ADR 0050](../adr/0050-active-study-language.md)) is a context selection into
 the derived set, never an allowlist. German (`de`, display name **German**),
-Italian (`it`, display name **Italian**), and Modern Greek (`el`, display name
-**Greek**) are provisioned by the standard deployment.
+Italian (`it`, display name **Italian**), French (`fr`, display name
+**French**), and Modern Greek (`el`, display name **Greek**) are provisioned by
+the standard deployment.
 
 If discovery is unavailable, stored display-name references keep derived
 language labels legible, while sync and actions requiring a newly ready
@@ -79,8 +80,9 @@ legible and ready German and Italian capabilities remain available.
 French (`fr`, display name **French**) follows the same learner loop.
 [ADR 0102](../adr/0102-french-language-support.md) records its decisions, and
 [#2156](https://github.com/justin-hayes/mouseion/issues/2156) tracks the
-implementation, which is pending; French is not yet provisioned by the standard
-deployment. This section is the acceptance contract.
+implementation. French is provisioned by the standard deployment and guarded by
+the opt-in pinned-model golden check below. This section is the acceptance
+contract.
 
 ### Proof tiers
 
@@ -98,11 +100,24 @@ deployment. This section is the acceptance contract.
       Generated vocabulary;
    6. the prepared deck becomes an APKG in `Mouseion::fr::<book title>` with the
       `lang::fr` tag, and stays separate from Known vocabulary.
-2. **Pinned-model golden check, opt-in.** This is a recorded release gate, run
-   outside default CI. The 42 human-approved constructed diagnostic strings from
-   the probe (22 approved inputs plus 20 extended) are the committed French
-   regression corpus. The check asserts tokens, lemmas, sentence boundaries and
-   target anchors against the exact pinned models.
+2. **Pinned-model golden check, opt-in.** This is the recorded French release
+   gate, run outside default CI. The committed corpus is
+   `nlp/tests/testdata/french_golden_corpus.json`: the 42 human-approved
+   constructed diagnostic strings from the #2152 probe (17 approved inputs, 5
+   typographic-apostrophe copies, 20 extended inputs) with their reviewed
+   sentence boundaries, tokens, lemmas and target anchors. The check replays
+   them through the exact pinned Stanza 1.15.0 combined package and passes only
+   when every eligible target anchors with byte-identical persisted sentences:
+   108/108 targets, 17 of which only the persisted-token anchor reaches. The 108
+   are the probe's eligibility set, which predates the product's French negation
+   exclusion. Run it with
+   `MOUSEION_TEST_STANZA_RESOURCES_DIR=<provisioned dir> make
+   french-golden`; the [operations guide](../operations.md) has the provisioning
+   steps. `make test` skips it, so default CI never needs the models. A
+   deterministic companion test in `internal/cardexport` anchors the same
+   committed corpus in default CI, so the Go anchor implementation and the
+   corpus cannot drift; together, the deterministic anchor test and the opt-in
+   model replay cover the product path end to end.
 
 ### Acceptance checks
 

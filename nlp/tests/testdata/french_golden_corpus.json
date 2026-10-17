@@ -1,0 +1,983 @@
+{
+  "description": "Pinned-model golden corpus for French: the 42 human-approved constructed diagnostic strings from the #2152 probe (17 approved inputs, 5 typographic-apostrophe copies, 20 extended inputs). Expected sentences, tokens, lemmas and target anchors are the reviewed probe observations. Sentence boundaries include the ADR 0102 dialogue repairs that keep each string one complete sentence. Spans and sentence offsets are document-absolute Unicode code points. The 108 targets are the probe's eligible content tokens (NOUN/VERB/ADJ/ADV), including the ADV negation the product now excludes from vocabulary. 'word_bounded' and 'lemma_bounded' record whether the unchanged FoldedWordSpan matcher reached the target; 17 rely on the persisted-token anchor instead.",
+  "model": {
+    "model_version": "stanza-1.15.0-fr-combined",
+    "stanza_version": "1.15.0",
+    "processors": "tokenize,mwt,pos,lemma,depparse",
+    "package": {"tokenize": "combined_nocharlm", "mwt": "combined", "pos": "combined_charlm", "lemma": "combined_nocharlm", "depparse": "combined_charlm"}
+  },
+  "strings": [
+    {
+      "id": "S01",
+      "text": "Je vois l'homme près du marché.",
+      "sentences": [
+        {
+          "text": "Je vois l'homme près du marché.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "vois", "raw_lemma": "voir", "canonical_lemma": "voir", "pos": "VERB", "span": [3, 7]},
+            {"surface": "l'", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [8, 10]},
+            {"surface": "homme", "raw_lemma": "homme", "canonical_lemma": "homme", "pos": "NOUN", "span": [10, 15]},
+            {"surface": "près", "raw_lemma": "près", "canonical_lemma": "près", "pos": "ADV", "span": [16, 20]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [21, 23]},
+            {"surface": "le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [21, 23]},
+            {"surface": "marché", "raw_lemma": "marché", "canonical_lemma": "marché", "pos": "NOUN", "span": [24, 30]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [30, 31]}
+          ],
+          "targets": [
+            {"form": "vois", "lemma": "voir", "pos": "VERB", "span": [3, 7], "word_bounded": true, "lemma_bounded": false},
+            {"form": "homme", "lemma": "homme", "pos": "NOUN", "span": [10, 15], "word_bounded": false, "lemma_bounded": false},
+            {"form": "près", "lemma": "près", "pos": "ADV", "span": [16, 20], "word_bounded": true, "lemma_bounded": true},
+            {"form": "marché", "lemma": "marché", "pos": "NOUN", "span": [24, 30], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "text": "Nous sommes d'accord sur ce point.",
+      "sentences": [
+        {
+          "text": "Nous sommes d'accord sur ce point.",
+          "tokens": [
+            {"surface": "Nous", "raw_lemma": "nous", "canonical_lemma": "nous", "pos": "PRON", "span": [0, 4]},
+            {"surface": "sommes", "raw_lemma": "être", "canonical_lemma": "être", "pos": "AUX", "span": [5, 11]},
+            {"surface": "d'", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [12, 14]},
+            {"surface": "accord", "raw_lemma": "accord", "canonical_lemma": "accord", "pos": "NOUN", "span": [14, 20]},
+            {"surface": "sur", "raw_lemma": "sur", "canonical_lemma": "sur", "pos": "ADP", "span": [21, 24]},
+            {"surface": "ce", "raw_lemma": "ce", "canonical_lemma": "ce", "pos": "DET", "span": [25, 27]},
+            {"surface": "point", "raw_lemma": "point", "canonical_lemma": "point", "pos": "NOUN", "span": [28, 33]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [33, 34]}
+          ],
+          "targets": [
+            {"form": "accord", "lemma": "accord", "pos": "NOUN", "span": [14, 20], "word_bounded": false, "lemma_bounded": false},
+            {"form": "point", "lemma": "point", "pos": "NOUN", "span": [28, 33], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "text": "Elle s'habille avant de partir.",
+      "sentences": [
+        {
+          "text": "Elle s'habille avant de partir.",
+          "tokens": [
+            {"surface": "Elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 4]},
+            {"surface": "s'", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [5, 7]},
+            {"surface": "habille", "raw_lemma": "habiller", "canonical_lemma": "habiller", "pos": "VERB", "span": [7, 14]},
+            {"surface": "avant", "raw_lemma": "avant", "canonical_lemma": "avant", "pos": "ADV", "span": [15, 20]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [21, 23]},
+            {"surface": "partir", "raw_lemma": "partir", "canonical_lemma": "partir", "pos": "VERB", "span": [24, 30]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [30, 31]}
+          ],
+          "targets": [
+            {"form": "habille", "lemma": "habiller", "pos": "VERB", "span": [7, 14], "word_bounded": false, "lemma_bounded": false},
+            {"form": "avant", "lemma": "avant", "pos": "ADV", "span": [15, 20], "word_bounded": true, "lemma_bounded": true},
+            {"form": "partir", "lemma": "partir", "pos": "VERB", "span": [24, 30], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "text": "Il s'en va sans fermer la porte.",
+      "sentences": [
+        {
+          "text": "Il s'en va sans fermer la porte.",
+          "tokens": [
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 2]},
+            {"surface": "s'", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "en", "raw_lemma": "en", "canonical_lemma": "en", "pos": "PRON", "span": [5, 7]},
+            {"surface": "va", "raw_lemma": "aller", "canonical_lemma": "aller", "pos": "VERB", "span": [8, 10]},
+            {"surface": "sans", "raw_lemma": "sans", "canonical_lemma": "sans", "pos": "ADP", "span": [11, 15]},
+            {"surface": "fermer", "raw_lemma": "fermer", "canonical_lemma": "fermer", "pos": "VERB", "span": [16, 22]},
+            {"surface": "la", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [23, 25]},
+            {"surface": "porte", "raw_lemma": "porte", "canonical_lemma": "porte", "pos": "NOUN", "span": [26, 31]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [31, 32]}
+          ],
+          "targets": [
+            {"form": "va", "lemma": "aller", "pos": "VERB", "span": [8, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "fermer", "lemma": "fermer", "pos": "VERB", "span": [16, 22], "word_bounded": true, "lemma_bounded": true},
+            {"form": "porte", "lemma": "porte", "pos": "NOUN", "span": [26, 31], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S05",
+      "text": "Je le lui donne, mais elle ne m'en parle pas.",
+      "sentences": [
+        {
+          "text": "Je le lui donne, mais elle ne m'en parle pas.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "le", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [3, 5]},
+            {"surface": "lui", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [6, 9]},
+            {"surface": "donne", "raw_lemma": "donner", "canonical_lemma": "donner", "pos": "VERB", "span": [10, 15]},
+            {"surface": ",", "raw_lemma": ",", "canonical_lemma": ",", "pos": "PUNCT", "span": [15, 16]},
+            {"surface": "mais", "raw_lemma": "mais", "canonical_lemma": "mais", "pos": "CCONJ", "span": [17, 21]},
+            {"surface": "elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [22, 26]},
+            {"surface": "ne", "raw_lemma": "ne", "canonical_lemma": "ne", "pos": "ADV", "span": [27, 29]},
+            {"surface": "m'", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [30, 32]},
+            {"surface": "en", "raw_lemma": "en", "canonical_lemma": "en", "pos": "PRON", "span": [32, 34]},
+            {"surface": "parle", "raw_lemma": "parler", "canonical_lemma": "parler", "pos": "VERB", "span": [35, 40]},
+            {"surface": "pas", "raw_lemma": "pas", "canonical_lemma": "pas", "pos": "ADV", "span": [41, 44]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [44, 45]}
+          ],
+          "targets": [
+            {"form": "donne", "lemma": "donner", "pos": "VERB", "span": [10, 15], "word_bounded": true, "lemma_bounded": false},
+            {"form": "ne", "lemma": "ne", "pos": "ADV", "span": [27, 29], "word_bounded": true, "lemma_bounded": true},
+            {"form": "parle", "lemma": "parler", "pos": "VERB", "span": [35, 40], "word_bounded": true, "lemma_bounded": false},
+            {"form": "pas", "lemma": "pas", "pos": "ADV", "span": [41, 44], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S06",
+      "text": "Je lave la chemise après le repas.",
+      "sentences": [
+        {
+          "text": "Je lave la chemise après le repas.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "lave", "raw_lemma": "laver", "canonical_lemma": "laver", "pos": "VERB", "span": [3, 7]},
+            {"surface": "la", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [8, 10]},
+            {"surface": "chemise", "raw_lemma": "chemise", "canonical_lemma": "chemise", "pos": "NOUN", "span": [11, 18]},
+            {"surface": "après", "raw_lemma": "après", "canonical_lemma": "après", "pos": "ADP", "span": [19, 24]},
+            {"surface": "le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [25, 27]},
+            {"surface": "repas", "raw_lemma": "repas", "canonical_lemma": "repas", "pos": "NOUN", "span": [28, 33]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [33, 34]}
+          ],
+          "targets": [
+            {"form": "lave", "lemma": "laver", "pos": "VERB", "span": [3, 7], "word_bounded": true, "lemma_bounded": false},
+            {"form": "chemise", "lemma": "chemise", "pos": "NOUN", "span": [11, 18], "word_bounded": true, "lemma_bounded": true},
+            {"form": "repas", "lemma": "repas", "pos": "NOUN", "span": [28, 33], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S07",
+      "text": "Je me lave avant le petit déjeuner.",
+      "sentences": [
+        {
+          "text": "Je me lave avant le petit déjeuner.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "me", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "lave", "raw_lemma": "laver", "canonical_lemma": "laver", "pos": "VERB", "span": [6, 10]},
+            {"surface": "avant", "raw_lemma": "avant", "canonical_lemma": "avant", "pos": "ADP", "span": [11, 16]},
+            {"surface": "le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [17, 19]},
+            {"surface": "petit", "raw_lemma": "petit", "canonical_lemma": "petit", "pos": "ADJ", "span": [20, 25]},
+            {"surface": "déjeuner", "raw_lemma": "déjeuner", "canonical_lemma": "déjeuner", "pos": "NOUN", "span": [26, 34]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [34, 35]}
+          ],
+          "targets": [
+            {"form": "lave", "lemma": "laver", "pos": "VERB", "span": [6, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "petit", "lemma": "petit", "pos": "ADJ", "span": [20, 25], "word_bounded": true, "lemma_bounded": true},
+            {"form": "déjeuner", "lemma": "déjeuner", "pos": "NOUN", "span": [26, 34], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S08",
+      "text": "Elle se lave les mains avant de manger.",
+      "sentences": [
+        {
+          "text": "Elle se lave les mains avant de manger.",
+          "tokens": [
+            {"surface": "Elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 4]},
+            {"surface": "se", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [5, 7]},
+            {"surface": "lave", "raw_lemma": "laver", "canonical_lemma": "laver", "pos": "VERB", "span": [8, 12]},
+            {"surface": "les", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [13, 16]},
+            {"surface": "mains", "raw_lemma": "main", "canonical_lemma": "main", "pos": "NOUN", "span": [17, 22]},
+            {"surface": "avant", "raw_lemma": "avant", "canonical_lemma": "avant", "pos": "ADV", "span": [23, 28]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [29, 31]},
+            {"surface": "manger", "raw_lemma": "manger", "canonical_lemma": "manger", "pos": "VERB", "span": [32, 38]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [38, 39]}
+          ],
+          "targets": [
+            {"form": "lave", "lemma": "laver", "pos": "VERB", "span": [8, 12], "word_bounded": true, "lemma_bounded": false},
+            {"form": "mains", "lemma": "main", "pos": "NOUN", "span": [17, 22], "word_bounded": true, "lemma_bounded": false},
+            {"form": "avant", "lemma": "avant", "pos": "ADV", "span": [23, 28], "word_bounded": true, "lemma_bounded": true},
+            {"form": "manger", "lemma": "manger", "pos": "VERB", "span": [32, 38], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S09",
+      "text": "Il va au marché avec sa sœur.",
+      "sentences": [
+        {
+          "text": "Il va au marché avec sa sœur.",
+          "tokens": [
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 2]},
+            {"surface": "va", "raw_lemma": "aller", "canonical_lemma": "aller", "pos": "VERB", "span": [3, 5]},
+            {"surface": "à", "raw_lemma": "à", "canonical_lemma": "à", "pos": "ADP", "span": [6, 8]},
+            {"surface": "le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [6, 8]},
+            {"surface": "marché", "raw_lemma": "marché", "canonical_lemma": "marché", "pos": "NOUN", "span": [9, 15]},
+            {"surface": "avec", "raw_lemma": "avec", "canonical_lemma": "avec", "pos": "ADP", "span": [16, 20]},
+            {"surface": "sa", "raw_lemma": "son", "canonical_lemma": "son", "pos": "DET", "span": [21, 23]},
+            {"surface": "sœur", "raw_lemma": "sœur", "canonical_lemma": "sœur", "pos": "NOUN", "span": [24, 28]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [28, 29]}
+          ],
+          "targets": [
+            {"form": "va", "lemma": "aller", "pos": "VERB", "span": [3, 5], "word_bounded": true, "lemma_bounded": false},
+            {"form": "marché", "lemma": "marché", "pos": "NOUN", "span": [9, 15], "word_bounded": true, "lemma_bounded": true},
+            {"form": "sœur", "lemma": "sœur", "pos": "NOUN", "span": [24, 28], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "text": "Elle revient aux mêmes questions chaque soir.",
+      "sentences": [
+        {
+          "text": "Elle revient aux mêmes questions chaque soir.",
+          "tokens": [
+            {"surface": "Elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 4]},
+            {"surface": "revient", "raw_lemma": "revenir", "canonical_lemma": "revenir", "pos": "VERB", "span": [5, 12]},
+            {"surface": "à", "raw_lemma": "à", "canonical_lemma": "à", "pos": "ADP", "span": [13, 16]},
+            {"surface": "les", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [13, 16]},
+            {"surface": "mêmes", "raw_lemma": "même", "canonical_lemma": "même", "pos": "ADJ", "span": [17, 22]},
+            {"surface": "questions", "raw_lemma": "question", "canonical_lemma": "question", "pos": "NOUN", "span": [23, 32]},
+            {"surface": "chaque", "raw_lemma": "chaque", "canonical_lemma": "chaque", "pos": "DET", "span": [33, 39]},
+            {"surface": "soir", "raw_lemma": "soir", "canonical_lemma": "soir", "pos": "NOUN", "span": [40, 44]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [44, 45]}
+          ],
+          "targets": [
+            {"form": "revient", "lemma": "revenir", "pos": "VERB", "span": [5, 12], "word_bounded": true, "lemma_bounded": false},
+            {"form": "mêmes", "lemma": "même", "pos": "ADJ", "span": [17, 22], "word_bounded": true, "lemma_bounded": false},
+            {"form": "questions", "lemma": "question", "pos": "NOUN", "span": [23, 32], "word_bounded": true, "lemma_bounded": false},
+            {"form": "soir", "lemma": "soir", "pos": "NOUN", "span": [40, 44], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11",
+      "text": "Il revient du marché avec des pommes.",
+      "sentences": [
+        {
+          "text": "Il revient du marché avec des pommes.",
+          "tokens": [
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 2]},
+            {"surface": "revient", "raw_lemma": "revenir", "canonical_lemma": "revenir", "pos": "VERB", "span": [3, 10]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [11, 13]},
+            {"surface": "le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [11, 13]},
+            {"surface": "marché", "raw_lemma": "marché", "canonical_lemma": "marché", "pos": "NOUN", "span": [14, 20]},
+            {"surface": "avec", "raw_lemma": "avec", "canonical_lemma": "avec", "pos": "ADP", "span": [21, 25]},
+            {"surface": "des", "raw_lemma": "un", "canonical_lemma": "un", "pos": "DET", "span": [26, 29]},
+            {"surface": "pommes", "raw_lemma": "pomme", "canonical_lemma": "pomme", "pos": "NOUN", "span": [30, 36]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [36, 37]}
+          ],
+          "targets": [
+            {"form": "revient", "lemma": "revenir", "pos": "VERB", "span": [3, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "marché", "lemma": "marché", "pos": "NOUN", "span": [14, 20], "word_bounded": true, "lemma_bounded": true},
+            {"form": "pommes", "lemma": "pomme", "pos": "NOUN", "span": [30, 36], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "text": "Le prix des pommes a augmenté.",
+      "sentences": [
+        {
+          "text": "Le prix des pommes a augmenté.",
+          "tokens": [
+            {"surface": "Le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [0, 2]},
+            {"surface": "prix", "raw_lemma": "prix", "canonical_lemma": "prix", "pos": "NOUN", "span": [3, 7]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [8, 11]},
+            {"surface": "les", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [8, 11]},
+            {"surface": "pommes", "raw_lemma": "pomme", "canonical_lemma": "pomme", "pos": "NOUN", "span": [12, 18]},
+            {"surface": "a", "raw_lemma": "avoir", "canonical_lemma": "avoir", "pos": "AUX", "span": [19, 20]},
+            {"surface": "augmenté", "raw_lemma": "augmenter", "canonical_lemma": "augmenter", "pos": "VERB", "span": [21, 29]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [29, 30]}
+          ],
+          "targets": [
+            {"form": "prix", "lemma": "prix", "pos": "NOUN", "span": [3, 7], "word_bounded": true, "lemma_bounded": true},
+            {"form": "pommes", "lemma": "pomme", "pos": "NOUN", "span": [12, 18], "word_bounded": true, "lemma_bounded": false},
+            {"form": "augmenté", "lemma": "augmenter", "pos": "VERB", "span": [21, 29], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S13",
+      "text": "Elle boit du café et mange des fruits.",
+      "sentences": [
+        {
+          "text": "Elle boit du café et mange des fruits.",
+          "tokens": [
+            {"surface": "Elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 4]},
+            {"surface": "boit", "raw_lemma": "boire", "canonical_lemma": "boire", "pos": "VERB", "span": [5, 9]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [10, 12]},
+            {"surface": "le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [10, 12]},
+            {"surface": "café", "raw_lemma": "café", "canonical_lemma": "café", "pos": "NOUN", "span": [13, 17]},
+            {"surface": "et", "raw_lemma": "et", "canonical_lemma": "et", "pos": "CCONJ", "span": [18, 20]},
+            {"surface": "mange", "raw_lemma": "manger", "canonical_lemma": "manger", "pos": "VERB", "span": [21, 26]},
+            {"surface": "des", "raw_lemma": "un", "canonical_lemma": "un", "pos": "DET", "span": [27, 30]},
+            {"surface": "fruits", "raw_lemma": "fruit", "canonical_lemma": "fruit", "pos": "NOUN", "span": [31, 37]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [37, 38]}
+          ],
+          "targets": [
+            {"form": "boit", "lemma": "boire", "pos": "VERB", "span": [5, 9], "word_bounded": true, "lemma_bounded": false},
+            {"form": "café", "lemma": "café", "pos": "NOUN", "span": [13, 17], "word_bounded": true, "lemma_bounded": true},
+            {"form": "mange", "lemma": "manger", "pos": "VERB", "span": [21, 26], "word_bounded": true, "lemma_bounded": false},
+            {"form": "fruits", "lemma": "fruit", "pos": "NOUN", "span": [31, 37], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S14",
+      "text": "Où va-t-il quand le magasin est fermé ?",
+      "sentences": [
+        {
+          "text": "Où va-t-il quand le magasin est fermé ?",
+          "tokens": [
+            {"surface": "Où", "raw_lemma": "où", "canonical_lemma": "où", "pos": "ADV", "span": [0, 2]},
+            {"surface": "va", "raw_lemma": "aller", "canonical_lemma": "aller", "pos": "VERB", "span": [3, 5]},
+            {"surface": "t-il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [5, 10]},
+            {"surface": "quand", "raw_lemma": "quand", "canonical_lemma": "quand", "pos": "SCONJ", "span": [11, 16]},
+            {"surface": "le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [17, 19]},
+            {"surface": "magasin", "raw_lemma": "magasin", "canonical_lemma": "magasin", "pos": "NOUN", "span": [20, 27]},
+            {"surface": "est", "raw_lemma": "être", "canonical_lemma": "être", "pos": "AUX", "span": [28, 31]},
+            {"surface": "fermé", "raw_lemma": "fermer", "canonical_lemma": "fermer", "pos": "VERB", "span": [32, 37]},
+            {"surface": "?", "raw_lemma": "?", "canonical_lemma": "?", "pos": "PUNCT", "span": [38, 39]}
+          ],
+          "targets": [
+            {"form": "Où", "lemma": "où", "pos": "ADV", "span": [0, 2], "word_bounded": true, "lemma_bounded": true},
+            {"form": "va", "lemma": "aller", "pos": "VERB", "span": [3, 5], "word_bounded": false, "lemma_bounded": false},
+            {"form": "magasin", "lemma": "magasin", "pos": "NOUN", "span": [20, 27], "word_bounded": true, "lemma_bounded": true},
+            {"form": "fermé", "lemma": "fermer", "pos": "VERB", "span": [32, 37], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S15",
+      "text": "« Je suis sûr qu’il viendra ce soir. »",
+      "sentences": [
+        {
+          "text": "« Je suis sûr qu’il viendra ce soir. »",
+          "tokens": [
+            {"surface": "«", "raw_lemma": "«", "canonical_lemma": "«", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [2, 4]},
+            {"surface": "suis", "raw_lemma": "être", "canonical_lemma": "être", "pos": "AUX", "span": [5, 9]},
+            {"surface": "sûr", "raw_lemma": "sûr", "canonical_lemma": "sûr", "pos": "ADJ", "span": [10, 13]},
+            {"surface": "qu’", "raw_lemma": "que", "canonical_lemma": "que", "pos": "SCONJ", "span": [14, 17]},
+            {"surface": "il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [17, 19]},
+            {"surface": "viendra", "raw_lemma": "venir", "canonical_lemma": "venir", "pos": "VERB", "span": [20, 27]},
+            {"surface": "ce", "raw_lemma": "ce", "canonical_lemma": "ce", "pos": "DET", "span": [28, 30]},
+            {"surface": "soir", "raw_lemma": "soir", "canonical_lemma": "soir", "pos": "NOUN", "span": [31, 35]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [35, 36]},
+            {"surface": "»", "raw_lemma": "»", "canonical_lemma": "»", "pos": "PUNCT", "span": [37, 38]}
+          ],
+          "targets": [
+            {"form": "sûr", "lemma": "sûr", "pos": "ADJ", "span": [10, 13], "word_bounded": true, "lemma_bounded": true},
+            {"form": "viendra", "lemma": "venir", "pos": "VERB", "span": [20, 27], "word_bounded": true, "lemma_bounded": false},
+            {"form": "soir", "lemma": "soir", "pos": "NOUN", "span": [31, 35], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S16",
+      "text": "« Il est là », dit-elle, « mais il repart demain. »",
+      "sentences": [
+        {
+          "text": "« Il est là », dit-elle, « mais il repart demain. »",
+          "tokens": [
+            {"surface": "«", "raw_lemma": "«", "canonical_lemma": "«", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [2, 4]},
+            {"surface": "est", "raw_lemma": "être", "canonical_lemma": "être", "pos": "AUX", "span": [5, 8]},
+            {"surface": "là", "raw_lemma": "là", "canonical_lemma": "là", "pos": "ADV", "span": [9, 11]},
+            {"surface": "»", "raw_lemma": "»", "canonical_lemma": "»", "pos": "PUNCT", "span": [12, 13]},
+            {"surface": ",", "raw_lemma": ",", "canonical_lemma": ",", "pos": "PUNCT", "span": [13, 14]},
+            {"surface": "dit", "raw_lemma": "dire", "canonical_lemma": "dire", "pos": "VERB", "span": [15, 18]},
+            {"surface": "elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [18, 23]},
+            {"surface": ",", "raw_lemma": ",", "canonical_lemma": ",", "pos": "PUNCT", "span": [23, 24]},
+            {"surface": "«", "raw_lemma": "«", "canonical_lemma": "«", "pos": "PUNCT", "span": [25, 26]},
+            {"surface": "mais", "raw_lemma": "mais", "canonical_lemma": "mais", "pos": "CCONJ", "span": [27, 31]},
+            {"surface": "il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [32, 34]},
+            {"surface": "repart", "raw_lemma": "repartir", "canonical_lemma": "repartir", "pos": "VERB", "span": [35, 41]},
+            {"surface": "demain", "raw_lemma": "demain", "canonical_lemma": "demain", "pos": "ADV", "span": [42, 48]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [48, 49]},
+            {"surface": "»", "raw_lemma": "»", "canonical_lemma": "»", "pos": "PUNCT", "span": [50, 51]}
+          ],
+          "targets": [
+            {"form": "là", "lemma": "là", "pos": "ADV", "span": [9, 11], "word_bounded": true, "lemma_bounded": true},
+            {"form": "dit", "lemma": "dire", "pos": "VERB", "span": [15, 18], "word_bounded": false, "lemma_bounded": false},
+            {"form": "repart", "lemma": "repartir", "pos": "VERB", "span": [35, 41], "word_bounded": true, "lemma_bounded": false},
+            {"form": "demain", "lemma": "demain", "pos": "ADV", "span": [42, 48], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S17",
+      "text": "Il faut partir.",
+      "sentences": [
+        {
+          "text": "Il faut partir.",
+          "tokens": [
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 2]},
+            {"surface": "faut", "raw_lemma": "falloir", "canonical_lemma": "falloir", "pos": "VERB", "span": [3, 7]},
+            {"surface": "partir", "raw_lemma": "partir", "canonical_lemma": "partir", "pos": "VERB", "span": [8, 14]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [14, 15]}
+          ],
+          "targets": [
+            {"form": "faut", "lemma": "falloir", "pos": "VERB", "span": [3, 7], "word_bounded": true, "lemma_bounded": false},
+            {"form": "partir", "lemma": "partir", "pos": "VERB", "span": [8, 14], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S01c",
+      "text": "Je vois l’homme près du marché.",
+      "sentences": [
+        {
+          "text": "Je vois l’homme près du marché.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "vois", "raw_lemma": "voir", "canonical_lemma": "voir", "pos": "VERB", "span": [3, 7]},
+            {"surface": "l’", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [8, 10]},
+            {"surface": "homme", "raw_lemma": "homme", "canonical_lemma": "homme", "pos": "NOUN", "span": [10, 15]},
+            {"surface": "près", "raw_lemma": "près", "canonical_lemma": "près", "pos": "ADV", "span": [16, 20]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [21, 23]},
+            {"surface": "le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [21, 23]},
+            {"surface": "marché", "raw_lemma": "marché", "canonical_lemma": "marché", "pos": "NOUN", "span": [24, 30]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [30, 31]}
+          ],
+          "targets": [
+            {"form": "vois", "lemma": "voir", "pos": "VERB", "span": [3, 7], "word_bounded": true, "lemma_bounded": false},
+            {"form": "homme", "lemma": "homme", "pos": "NOUN", "span": [10, 15], "word_bounded": false, "lemma_bounded": false},
+            {"form": "près", "lemma": "près", "pos": "ADV", "span": [16, 20], "word_bounded": true, "lemma_bounded": true},
+            {"form": "marché", "lemma": "marché", "pos": "NOUN", "span": [24, 30], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02c",
+      "text": "Nous sommes d’accord sur ce point.",
+      "sentences": [
+        {
+          "text": "Nous sommes d’accord sur ce point.",
+          "tokens": [
+            {"surface": "Nous", "raw_lemma": "nous", "canonical_lemma": "nous", "pos": "PRON", "span": [0, 4]},
+            {"surface": "sommes", "raw_lemma": "être", "canonical_lemma": "être", "pos": "AUX", "span": [5, 11]},
+            {"surface": "d’", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [12, 14]},
+            {"surface": "accord", "raw_lemma": "accord", "canonical_lemma": "accord", "pos": "NOUN", "span": [14, 20]},
+            {"surface": "sur", "raw_lemma": "sur", "canonical_lemma": "sur", "pos": "ADP", "span": [21, 24]},
+            {"surface": "ce", "raw_lemma": "ce", "canonical_lemma": "ce", "pos": "DET", "span": [25, 27]},
+            {"surface": "point", "raw_lemma": "point", "canonical_lemma": "point", "pos": "NOUN", "span": [28, 33]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [33, 34]}
+          ],
+          "targets": [
+            {"form": "accord", "lemma": "accord", "pos": "NOUN", "span": [14, 20], "word_bounded": false, "lemma_bounded": false},
+            {"form": "point", "lemma": "point", "pos": "NOUN", "span": [28, 33], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S03c",
+      "text": "Elle s’habille avant de partir.",
+      "sentences": [
+        {
+          "text": "Elle s’habille avant de partir.",
+          "tokens": [
+            {"surface": "Elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 4]},
+            {"surface": "s’", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [5, 7]},
+            {"surface": "habille", "raw_lemma": "habiller", "canonical_lemma": "habiller", "pos": "VERB", "span": [7, 14]},
+            {"surface": "avant", "raw_lemma": "avant", "canonical_lemma": "avant", "pos": "ADV", "span": [15, 20]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [21, 23]},
+            {"surface": "partir", "raw_lemma": "partir", "canonical_lemma": "partir", "pos": "VERB", "span": [24, 30]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [30, 31]}
+          ],
+          "targets": [
+            {"form": "habille", "lemma": "habiller", "pos": "VERB", "span": [7, 14], "word_bounded": false, "lemma_bounded": false},
+            {"form": "avant", "lemma": "avant", "pos": "ADV", "span": [15, 20], "word_bounded": true, "lemma_bounded": true},
+            {"form": "partir", "lemma": "partir", "pos": "VERB", "span": [24, 30], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S04c",
+      "text": "Il s’en va sans fermer la porte.",
+      "sentences": [
+        {
+          "text": "Il s’en va sans fermer la porte.",
+          "tokens": [
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 2]},
+            {"surface": "s’", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "en", "raw_lemma": "en", "canonical_lemma": "en", "pos": "PRON", "span": [5, 7]},
+            {"surface": "va", "raw_lemma": "aller", "canonical_lemma": "aller", "pos": "VERB", "span": [8, 10]},
+            {"surface": "sans", "raw_lemma": "sans", "canonical_lemma": "sans", "pos": "ADP", "span": [11, 15]},
+            {"surface": "fermer", "raw_lemma": "fermer", "canonical_lemma": "fermer", "pos": "VERB", "span": [16, 22]},
+            {"surface": "la", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [23, 25]},
+            {"surface": "porte", "raw_lemma": "porte", "canonical_lemma": "porte", "pos": "NOUN", "span": [26, 31]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [31, 32]}
+          ],
+          "targets": [
+            {"form": "va", "lemma": "aller", "pos": "VERB", "span": [8, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "fermer", "lemma": "fermer", "pos": "VERB", "span": [16, 22], "word_bounded": true, "lemma_bounded": true},
+            {"form": "porte", "lemma": "porte", "pos": "NOUN", "span": [26, 31], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S05c",
+      "text": "Je le lui donne, mais elle ne m’en parle pas.",
+      "sentences": [
+        {
+          "text": "Je le lui donne, mais elle ne m’en parle pas.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "le", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [3, 5]},
+            {"surface": "lui", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [6, 9]},
+            {"surface": "donne", "raw_lemma": "donner", "canonical_lemma": "donner", "pos": "VERB", "span": [10, 15]},
+            {"surface": ",", "raw_lemma": ",", "canonical_lemma": ",", "pos": "PUNCT", "span": [15, 16]},
+            {"surface": "mais", "raw_lemma": "mais", "canonical_lemma": "mais", "pos": "CCONJ", "span": [17, 21]},
+            {"surface": "elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [22, 26]},
+            {"surface": "ne", "raw_lemma": "ne", "canonical_lemma": "ne", "pos": "ADV", "span": [27, 29]},
+            {"surface": "m’", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [30, 32]},
+            {"surface": "en", "raw_lemma": "en", "canonical_lemma": "en", "pos": "PRON", "span": [32, 34]},
+            {"surface": "parle", "raw_lemma": "parler", "canonical_lemma": "parler", "pos": "VERB", "span": [35, 40]},
+            {"surface": "pas", "raw_lemma": "pas", "canonical_lemma": "pas", "pos": "ADV", "span": [41, 44]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [44, 45]}
+          ],
+          "targets": [
+            {"form": "donne", "lemma": "donner", "pos": "VERB", "span": [10, 15], "word_bounded": true, "lemma_bounded": false},
+            {"form": "ne", "lemma": "ne", "pos": "ADV", "span": [27, 29], "word_bounded": true, "lemma_bounded": true},
+            {"form": "parle", "lemma": "parler", "pos": "VERB", "span": [35, 40], "word_bounded": true, "lemma_bounded": false},
+            {"form": "pas", "lemma": "pas", "pos": "ADV", "span": [41, 44], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X01",
+      "text": "Il me lave.",
+      "sentences": [
+        {
+          "text": "Il me lave.",
+          "tokens": [
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 2]},
+            {"surface": "me", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "lave", "raw_lemma": "laver", "canonical_lemma": "laver", "pos": "VERB", "span": [6, 10]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [10, 11]}
+          ],
+          "targets": [
+            {"form": "lave", "lemma": "laver", "pos": "VERB", "span": [6, 10], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X02",
+      "text": "Je m'aperçois qu'il pleut.",
+      "sentences": [
+        {
+          "text": "Je m'aperçois qu'il pleut.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "m'", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "aperçois", "raw_lemma": "apercevoir", "canonical_lemma": "apercevoir", "pos": "VERB", "span": [5, 13]},
+            {"surface": "qu'", "raw_lemma": "que", "canonical_lemma": "que", "pos": "SCONJ", "span": [14, 17]},
+            {"surface": "il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [17, 19]},
+            {"surface": "pleut", "raw_lemma": "pleuvoir", "canonical_lemma": "pleuvoir", "pos": "VERB", "span": [20, 25]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [25, 26]}
+          ],
+          "targets": [
+            {"form": "aperçois", "lemma": "apercevoir", "pos": "VERB", "span": [5, 13], "word_bounded": false, "lemma_bounded": false},
+            {"form": "pleut", "lemma": "pleuvoir", "pos": "VERB", "span": [20, 25], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X03",
+      "text": "Je me souviens de lui.",
+      "sentences": [
+        {
+          "text": "Je me souviens de lui.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "me", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "souviens", "raw_lemma": "souvenir", "canonical_lemma": "souvenir", "pos": "VERB", "span": [6, 14]},
+            {"surface": "de", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [15, 17]},
+            {"surface": "lui", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [18, 21]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [21, 22]}
+          ],
+          "targets": [
+            {"form": "souviens", "lemma": "souvenir", "pos": "VERB", "span": [6, 14], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X04",
+      "text": "Ils se parlent chaque jour.",
+      "sentences": [
+        {
+          "text": "Ils se parlent chaque jour.",
+          "tokens": [
+            {"surface": "Ils", "raw_lemma": "eux", "canonical_lemma": "eux", "pos": "PRON", "span": [0, 3]},
+            {"surface": "se", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [4, 6]},
+            {"surface": "parlent", "raw_lemma": "parler", "canonical_lemma": "parler", "pos": "VERB", "span": [7, 14]},
+            {"surface": "chaque", "raw_lemma": "chaque", "canonical_lemma": "chaque", "pos": "DET", "span": [15, 21]},
+            {"surface": "jour", "raw_lemma": "jour", "canonical_lemma": "jour", "pos": "NOUN", "span": [22, 26]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [26, 27]}
+          ],
+          "targets": [
+            {"form": "parlent", "lemma": "parler", "pos": "VERB", "span": [7, 14], "word_bounded": true, "lemma_bounded": false},
+            {"form": "jour", "lemma": "jour", "pos": "NOUN", "span": [22, 26], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X05",
+      "text": "Elle s'est levée tôt.",
+      "sentences": [
+        {
+          "text": "Elle s'est levée tôt.",
+          "tokens": [
+            {"surface": "Elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 4]},
+            {"surface": "s'", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [5, 7]},
+            {"surface": "est", "raw_lemma": "être", "canonical_lemma": "être", "pos": "AUX", "span": [7, 10]},
+            {"surface": "levée", "raw_lemma": "lever", "canonical_lemma": "lever", "pos": "VERB", "span": [11, 16]},
+            {"surface": "tôt", "raw_lemma": "tôt", "canonical_lemma": "tôt", "pos": "ADV", "span": [17, 20]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [20, 21]}
+          ],
+          "targets": [
+            {"form": "levée", "lemma": "lever", "pos": "VERB", "span": [11, 16], "word_bounded": true, "lemma_bounded": false},
+            {"form": "tôt", "lemma": "tôt", "pos": "ADV", "span": [17, 20], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X06",
+      "text": "Nous nous en allons.",
+      "sentences": [
+        {
+          "text": "Nous nous en allons.",
+          "tokens": [
+            {"surface": "Nous", "raw_lemma": "nous", "canonical_lemma": "nous", "pos": "PRON", "span": [0, 4]},
+            {"surface": "nous", "raw_lemma": "nous", "canonical_lemma": "nous", "pos": "PRON", "span": [5, 9]},
+            {"surface": "en", "raw_lemma": "en", "canonical_lemma": "en", "pos": "PRON", "span": [10, 12]},
+            {"surface": "allons", "raw_lemma": "aller", "canonical_lemma": "aller", "pos": "VERB", "span": [13, 19]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [19, 20]}
+          ],
+          "targets": [
+            {"form": "allons", "lemma": "aller", "pos": "VERB", "span": [13, 19], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X07",
+      "text": "Je m’en vais demain.",
+      "sentences": [
+        {
+          "text": "Je m’en vais demain.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "m’", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "en", "raw_lemma": "en", "canonical_lemma": "en", "pos": "PRON", "span": [5, 7]},
+            {"surface": "vais", "raw_lemma": "aller", "canonical_lemma": "aller", "pos": "VERB", "span": [8, 12]},
+            {"surface": "demain", "raw_lemma": "demain", "canonical_lemma": "demain", "pos": "ADV", "span": [13, 19]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [19, 20]}
+          ],
+          "targets": [
+            {"form": "vais", "lemma": "aller", "pos": "VERB", "span": [8, 12], "word_bounded": true, "lemma_bounded": false},
+            {"form": "demain", "lemma": "demain", "pos": "ADV", "span": [13, 19], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X08",
+      "text": "Va-t’en !",
+      "sentences": [
+        {
+          "text": "Va-t’en !",
+          "tokens": [
+            {"surface": "Va", "raw_lemma": "aller", "canonical_lemma": "aller", "pos": "VERB", "span": [0, 2]},
+            {"surface": "t’en", "raw_lemma": "von", "canonical_lemma": "von", "pos": "PRON", "span": [2, 7]},
+            {"surface": "!", "raw_lemma": "!", "canonical_lemma": "!", "pos": "PUNCT", "span": [8, 9]}
+          ],
+          "targets": [
+            {"form": "Va", "lemma": "aller", "pos": "VERB", "span": [0, 2], "word_bounded": false, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X09",
+      "text": "Tu te trompes.",
+      "sentences": [
+        {
+          "text": "Tu te trompes.",
+          "tokens": [
+            {"surface": "Tu", "raw_lemma": "toi", "canonical_lemma": "toi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "te", "raw_lemma": "toi", "canonical_lemma": "toi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "trompes", "raw_lemma": "tromper", "canonical_lemma": "tromper", "pos": "VERB", "span": [6, 13]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [13, 14]}
+          ],
+          "targets": [
+            {"form": "trompes", "lemma": "tromper", "pos": "VERB", "span": [6, 13], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X10",
+      "text": "Ils s'en vont ensemble.",
+      "sentences": [
+        {
+          "text": "Ils s'en vont ensemble.",
+          "tokens": [
+            {"surface": "Ils", "raw_lemma": "eux", "canonical_lemma": "eux", "pos": "PRON", "span": [0, 3]},
+            {"surface": "s'", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [4, 6]},
+            {"surface": "en", "raw_lemma": "en", "canonical_lemma": "en", "pos": "PRON", "span": [6, 8]},
+            {"surface": "vont", "raw_lemma": "aller", "canonical_lemma": "aller", "pos": "VERB", "span": [9, 13]},
+            {"surface": "ensemble", "raw_lemma": "ensemble", "canonical_lemma": "ensemble", "pos": "ADV", "span": [14, 22]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [22, 23]}
+          ],
+          "targets": [
+            {"form": "vont", "lemma": "aller", "pos": "VERB", "span": [9, 13], "word_bounded": true, "lemma_bounded": false},
+            {"form": "ensemble", "lemma": "ensemble", "pos": "ADV", "span": [14, 22], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X11",
+      "text": "Il se lave les mains.",
+      "sentences": [
+        {
+          "text": "Il se lave les mains.",
+          "tokens": [
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 2]},
+            {"surface": "se", "raw_lemma": "soi", "canonical_lemma": "soi", "pos": "PRON", "span": [3, 5]},
+            {"surface": "lave", "raw_lemma": "laver", "canonical_lemma": "laver", "pos": "VERB", "span": [6, 10]},
+            {"surface": "les", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [11, 14]},
+            {"surface": "mains", "raw_lemma": "main", "canonical_lemma": "main", "pos": "NOUN", "span": [15, 20]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [20, 21]}
+          ],
+          "targets": [
+            {"form": "lave", "lemma": "laver", "pos": "VERB", "span": [6, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "mains", "lemma": "main", "pos": "NOUN", "span": [15, 20], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X12",
+      "text": "J'aime l'huile d'olive.",
+      "sentences": [
+        {
+          "text": "J'aime l'huile d'olive.",
+          "tokens": [
+            {"surface": "J'", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "aime", "raw_lemma": "aimer", "canonical_lemma": "aimer", "pos": "VERB", "span": [2, 6]},
+            {"surface": "l'", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [7, 9]},
+            {"surface": "huile", "raw_lemma": "huile", "canonical_lemma": "huile", "pos": "NOUN", "span": [9, 14]},
+            {"surface": "d'", "raw_lemma": "de", "canonical_lemma": "de", "pos": "ADP", "span": [15, 17]},
+            {"surface": "olive", "raw_lemma": "olive", "canonical_lemma": "olive", "pos": "NOUN", "span": [17, 22]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [22, 23]}
+          ],
+          "targets": [
+            {"form": "aime", "lemma": "aimer", "pos": "VERB", "span": [2, 6], "word_bounded": false, "lemma_bounded": false},
+            {"form": "huile", "lemma": "huile", "pos": "NOUN", "span": [9, 14], "word_bounded": false, "lemma_bounded": false},
+            {"form": "olive", "lemma": "olive", "pos": "NOUN", "span": [17, 22], "word_bounded": false, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X13",
+      "text": "L'hôtel est fermé.",
+      "sentences": [
+        {
+          "text": "L'hôtel est fermé.",
+          "tokens": [
+            {"surface": "L'", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [0, 2]},
+            {"surface": "hôtel", "raw_lemma": "hôtel", "canonical_lemma": "hôtel", "pos": "NOUN", "span": [2, 7]},
+            {"surface": "est", "raw_lemma": "être", "canonical_lemma": "être", "pos": "AUX", "span": [8, 11]},
+            {"surface": "fermé", "raw_lemma": "fermer", "canonical_lemma": "fermer", "pos": "VERB", "span": [12, 17]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [17, 18]}
+          ],
+          "targets": [
+            {"form": "hôtel", "lemma": "hôtel", "pos": "NOUN", "span": [2, 7], "word_bounded": false, "lemma_bounded": false},
+            {"form": "fermé", "lemma": "fermer", "pos": "VERB", "span": [12, 17], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X14",
+      "text": "Le héros arrive.",
+      "sentences": [
+        {
+          "text": "Le héros arrive.",
+          "tokens": [
+            {"surface": "Le", "raw_lemma": "le", "canonical_lemma": "le", "pos": "DET", "span": [0, 2]},
+            {"surface": "héros", "raw_lemma": "héros", "canonical_lemma": "héros", "pos": "NOUN", "span": [3, 8]},
+            {"surface": "arrive", "raw_lemma": "arriver", "canonical_lemma": "arriver", "pos": "VERB", "span": [9, 15]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [15, 16]}
+          ],
+          "targets": [
+            {"form": "héros", "lemma": "héros", "pos": "NOUN", "span": [3, 8], "word_bounded": true, "lemma_bounded": true},
+            {"form": "arrive", "lemma": "arriver", "pos": "VERB", "span": [9, 15], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X15",
+      "text": "Qu'est-ce qu'il dit ?",
+      "sentences": [
+        {
+          "text": "Qu'est-ce qu'il dit ?",
+          "tokens": [
+            {"surface": "Qu'", "raw_lemma": "que", "canonical_lemma": "que", "pos": "PRON", "span": [0, 3]},
+            {"surface": "est", "raw_lemma": "être", "canonical_lemma": "être", "pos": "AUX", "span": [3, 6]},
+            {"surface": "ce", "raw_lemma": "ce", "canonical_lemma": "ce", "pos": "PRON", "span": [6, 9]},
+            {"surface": "qu'", "raw_lemma": "que", "canonical_lemma": "que", "pos": "PRON", "span": [10, 13]},
+            {"surface": "il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [13, 15]},
+            {"surface": "dit", "raw_lemma": "dire", "canonical_lemma": "dire", "pos": "VERB", "span": [16, 19]},
+            {"surface": "?", "raw_lemma": "?", "canonical_lemma": "?", "pos": "PUNCT", "span": [20, 21]}
+          ],
+          "targets": [
+            {"form": "dit", "lemma": "dire", "pos": "VERB", "span": [16, 19], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X16",
+      "text": "— Tu viens ? demanda-t-il.",
+      "sentences": [
+        {
+          "text": "— Tu viens ? demanda-t-il.",
+          "tokens": [
+            {"surface": "—", "raw_lemma": "—", "canonical_lemma": "—", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Tu", "raw_lemma": "toi", "canonical_lemma": "toi", "pos": "PRON", "span": [2, 4]},
+            {"surface": "viens", "raw_lemma": "venir", "canonical_lemma": "venir", "pos": "VERB", "span": [5, 10]},
+            {"surface": "?", "raw_lemma": "?", "canonical_lemma": "?", "pos": "PUNCT", "span": [11, 12]},
+            {"surface": "demanda", "raw_lemma": "demander", "canonical_lemma": "demander", "pos": "VERB", "span": [13, 20]},
+            {"surface": "t-il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [20, 25]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [25, 26]}
+          ],
+          "targets": [
+            {"form": "viens", "lemma": "venir", "pos": "VERB", "span": [5, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "demanda", "lemma": "demander", "pos": "VERB", "span": [13, 20], "word_bounded": false, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X17",
+      "text": "« Tu viens ? » demanda-t-il.",
+      "sentences": [
+        {
+          "text": "« Tu viens ? » demanda-t-il.",
+          "tokens": [
+            {"surface": "«", "raw_lemma": "«", "canonical_lemma": "«", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Tu", "raw_lemma": "toi", "canonical_lemma": "toi", "pos": "PRON", "span": [2, 4]},
+            {"surface": "viens", "raw_lemma": "venir", "canonical_lemma": "venir", "pos": "VERB", "span": [5, 10]},
+            {"surface": "?", "raw_lemma": "?", "canonical_lemma": "?", "pos": "PUNCT", "span": [11, 12]},
+            {"surface": "»", "raw_lemma": "»", "canonical_lemma": "»", "pos": "PUNCT", "span": [13, 14]},
+            {"surface": "demanda", "raw_lemma": "demander", "canonical_lemma": "demander", "pos": "VERB", "span": [15, 22]},
+            {"surface": "t-il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [22, 27]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [27, 28]}
+          ],
+          "targets": [
+            {"form": "viens", "lemma": "venir", "pos": "VERB", "span": [5, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "demanda", "lemma": "demander", "pos": "VERB", "span": [15, 22], "word_bounded": false, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X18",
+      "text": "Je n'en sais rien.",
+      "sentences": [
+        {
+          "text": "Je n'en sais rien.",
+          "tokens": [
+            {"surface": "Je", "raw_lemma": "moi", "canonical_lemma": "moi", "pos": "PRON", "span": [0, 2]},
+            {"surface": "n'", "raw_lemma": "ne", "canonical_lemma": "ne", "pos": "ADV", "span": [3, 5]},
+            {"surface": "en", "raw_lemma": "en", "canonical_lemma": "en", "pos": "PRON", "span": [5, 7]},
+            {"surface": "sais", "raw_lemma": "savoir", "canonical_lemma": "savoir", "pos": "VERB", "span": [8, 12]},
+            {"surface": "rien", "raw_lemma": "rien", "canonical_lemma": "rien", "pos": "PRON", "span": [13, 17]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [17, 18]}
+          ],
+          "targets": [
+            {"form": "n'", "lemma": "ne", "pos": "ADV", "span": [3, 5], "word_bounded": false, "lemma_bounded": false},
+            {"form": "sais", "lemma": "savoir", "pos": "VERB", "span": [8, 12], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X19",
+      "text": "Elle l'a vu hier.",
+      "sentences": [
+        {
+          "text": "Elle l'a vu hier.",
+          "tokens": [
+            {"surface": "Elle", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [0, 4]},
+            {"surface": "l'", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [5, 7]},
+            {"surface": "a", "raw_lemma": "avoir", "canonical_lemma": "avoir", "pos": "AUX", "span": [7, 8]},
+            {"surface": "vu", "raw_lemma": "voir", "canonical_lemma": "voir", "pos": "VERB", "span": [9, 11]},
+            {"surface": "hier", "raw_lemma": "hier", "canonical_lemma": "hier", "pos": "ADV", "span": [12, 16]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [16, 17]}
+          ],
+          "targets": [
+            {"form": "vu", "lemma": "voir", "pos": "VERB", "span": [9, 11], "word_bounded": true, "lemma_bounded": false},
+            {"form": "hier", "lemma": "hier", "pos": "ADV", "span": [12, 16], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X20",
+      "text": "Aujourd'hui, il prend son petit-déjeuner.",
+      "sentences": [
+        {
+          "text": "Aujourd'hui, il prend son petit-déjeuner.",
+          "tokens": [
+            {"surface": "Aujourd'hui", "raw_lemma": "aujourd'hui", "canonical_lemma": "aujourd'hui", "pos": "ADV", "span": [0, 11]},
+            {"surface": ",", "raw_lemma": ",", "canonical_lemma": ",", "pos": "PUNCT", "span": [11, 12]},
+            {"surface": "il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [13, 15]},
+            {"surface": "prend", "raw_lemma": "prendre", "canonical_lemma": "prendre", "pos": "VERB", "span": [16, 21]},
+            {"surface": "son", "raw_lemma": "son", "canonical_lemma": "son", "pos": "DET", "span": [22, 25]},
+            {"surface": "petit-déjeuner", "raw_lemma": "petit-déjeuner", "canonical_lemma": "petit-déjeuner", "pos": "NOUN", "span": [26, 40]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [40, 41]}
+          ],
+          "targets": [
+            {"form": "Aujourd'hui", "lemma": "aujourd'hui", "pos": "ADV", "span": [0, 11], "word_bounded": true, "lemma_bounded": true},
+            {"form": "prend", "lemma": "prendre", "pos": "VERB", "span": [16, 21], "word_bounded": true, "lemma_bounded": false},
+            {"form": "petit-déjeuner", "lemma": "petit-déjeuner", "pos": "NOUN", "span": [26, 40], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    }
+  ]
+}
