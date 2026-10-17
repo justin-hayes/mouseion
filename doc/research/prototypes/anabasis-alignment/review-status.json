@@ -64,5 +64,20 @@
   ],
   "fully_confirmed_source_sentence_ids": ["238", "428", "15", "177", "103", "536", "1", "3"],
   "remaining_full_link_review_source_sentence_ids": [],
-  "evaluation_status": "Human checkpoint complete before evaluation; reviewed gold asset may now be created. No measured reliability or final strategy acceptance yet."
+  "evaluation_status": "Human checkpoint committed before evaluation; both measured training regimes reviewed. Prototype conclusion and uncertainty rules accepted in the final live exchange; the overall Greek provider decision remains separate.",
+  "resolution": {
+    "status": "human_accepted",
+    "reviewer": "Justin Hayes",
+    "date": "2026-10-17",
+    "question_answered": "Do you accept that conclusion and those uncertainty rules for this prototype?",
+    "user_feedback": "Yes.\n\nMy thought is if this overall research project doesn't yield an LLM-free Anki card process for ancient Greek, we will at least be able to give the LLM much more context.",
+    "accepted_conclusion": "None of the tested cheap automatic baselines is reliable enough for unattended exact sentence translations and target highlights; use them as review suggestions only. This does not rule out stronger non-LLM approaches.",
+    "accepted_uncertainty_rules": [
+      "Uncertain word link: leave the confirmed English translation unhighlighted.",
+      "Uncertain sentence extent: show explicitly labelled wider-passage context without target emphasis, never assert it as the exact sentence translation.",
+      "Withhold English when even passage context is unreliable."
+    ],
+    "wider_project_observation": "Even if full LLM replacement fails, source research and evidence may provide substantially more context to the LLM. Carry into the existing final decision ticket; this is not approval of a provider/payload change or a claim of measured LLM improvement.",
+    "production_changes_authorised": false
+  }
 }

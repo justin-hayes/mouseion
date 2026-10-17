@@ -1,4 +1,4 @@
-# Book 1 alignment prototype — evidence ready for live review
+# Book 1 alignment prototype — human-accepted findings
 
 **Throwaway branch only. Do not merge or wire this into card preparation.**
 
@@ -12,12 +12,17 @@ Source selection and licence evidence:
 
 ## Current status
 
-The comparison is complete and **final live acceptance remains pending**. Start
+The comparison is complete and **the prototype conclusion and uncertainty rules
+were accepted by Justin in live review**. Start
 with [`findings.md`](findings.md) or open the standalone
 [`evidence.html`](evidence.html): measured outputs, confirmed references and
 uncertainty presentations. `results.json` excludes reviewed sections from
 statistical training; `results-transductive.json` uses all 205 unlabelled sections
-and is explicitly not held out. No prototype is accepted for production.
+and is explicitly not held out. No automatic baseline is accepted for unattended
+cards; no production changes are authorised. The overall Greek provider decision
+remains with its separately tracked decision ticket. Justin also identified
+evidence-assisted LLM context as valuable if full replacement does not work;
+that is not a provider/payload change accepted by this prototype.
 
 **The human checkpoint is complete.** [`review-status.json`](review-status.json)
 records Justin's feedback verbatim and its scope. All eight examples and all
@@ -170,7 +175,8 @@ alongside fractions; do not infer Book 1-wide reliability.
 
 This was the checkpoint's comparison plan. Results, data requirements, licence
 qualifications and concrete failures are now in [`findings.md`](findings.md).
-Final strategy/fallback acceptance still requires another live exchange.
+The later live exchange accepted the negative prototype conclusion and uncertainty
+rules recorded there. It did not resolve the overall provider decision.
 
 ## Checkpoint validation
 

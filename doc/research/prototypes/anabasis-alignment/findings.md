@@ -1,10 +1,11 @@
 # Book 1 non-LLM alignment: measured prototype findings
 
-2026-10-17. Throwaway evidence, **awaiting final live acceptance**. No production
+2026-10-17. Throwaway evidence; **prototype conclusion and uncertainty rules
+accepted by Justin in live review**. No production
 behaviour or accepted ADR changes. For
 [Prototype: aligning public-domain English to Book 1 without an LLM](https://github.com/justin-hayes/mouseion/issues/2129).
 
-## Recommendation for human review
+## Human-accepted prototype conclusion
 
 **Do not accept any of these cheap automatic baselines as an unattended source
 of exact sentence translations and target emphasis.** The reviewed examples look
@@ -24,7 +25,7 @@ expert-curated alignment could not work**. The sample cannot establish a safe
 confidence threshold. These methods can make review suggestions; the evidence
 does not justify advertising their unreviewed output as a sentence translation.
 
-Proposed uncertainty contract, **not yet accepted**:
+Uncertainty rules accepted for this prototype and the final decision's input:
 
 - With these prototypes, an unreviewed automatic alignment remains uncertain
   even when heuristics agree. There is no validated automatic acceptance gate.
@@ -32,8 +33,8 @@ Proposed uncertainty contract, **not yet accepted**:
   confirmed English translation **without target emphasis**.
 - Uncertain sentence extent: show an explicitly labelled **wider passage
   translation**, without target emphasis; never label the whole section as this
-  sentence's exact translation. The demo also offers withholding English for
-  Justin to compare. A neighbouring-section window may be necessary for a crossing.
+  sentence's exact translation. A neighbouring-section window may be necessary
+  for a crossing; withhold English if even that context is unreliable.
 - Known edition mismatch or no trustworthy passage: withhold exact translation
   and explain that it is unavailable. Do not silently rewrite Brownson or drop
   every bracketed passage.
@@ -44,6 +45,27 @@ Proposed uncertainty contract, **not yet accepted**:
 Open [`evidence.html`](evidence.html) directly in a browser for the measured
 strategy comparison, per-target reference/output, and uncertainty experiments.
 
+### Live resolution and value beyond full LLM replacement
+
+Asked whether he accepted the conclusion and uncertainty rules, Justin replied:
+
+> Yes.
+>
+> My thought is if this overall research project doesn't yield an LLM-free Anki
+> card process for ancient Greek, we will at least be able to give the LLM much
+> more context.
+
+The exact feedback and scope are in [`review-status.json`](review-status.json).
+The investigation can therefore still be valuable as evidence for an
+**evidence-assisted LLM path**, even if a fully LLM-free process is not supported.
+That is a possible outcome to consider in
+[Decision: ancient-language cards without the LLM provider](https://github.com/justin-hayes/mouseion/issues/2131),
+not a decision here to retain/remove the provider or alter its payload. Candidate
+alignments must not become asserted truth merely because they are supplied as
+context. Any future payload's fields, source rights and recorded personal-use
+assessment still need review. No LLM requests or evidence-assisted LLM evaluation
+were performed, so no improvement is claimed as measured.
+
 ## Human checkpoint and frozen assets
 
 Gold was committed at **`6455853e` before automatic evaluation**:
@@ -52,8 +74,9 @@ Gold was committed at **`6455853e` before automatic evaluation**:
 Justin explicitly confirmed all eight sentence-span sets and all 24 selected
 target highlights in four batches, after clarification and card-style examples.
 No corrections were requested. The comma-ending extent and cross-section extent
-were explicitly accepted for their examples. This does not accept a general
-fallback policy or an automatic system.
+were explicitly accepted for their examples. That initial checkpoint did not
+accept a general fallback policy or an automatic system; the later resolution
+above accepted the uncertainty rules and rejected unattended use of these baselines.
 
 The sample spans 6–39 printed words, sections containing 1–4 and 10 sentences,
 one crossing, an editorial mismatch and a Brownson-attributed existing alignment.
