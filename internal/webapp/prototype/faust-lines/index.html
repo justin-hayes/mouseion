@@ -1,0 +1,542 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, never merge. Issue #2149 (Faust I poetry map #2143).
+  Question: how should source line breaks, line groups, speaker/stage-direction
+  context, multi-line sentences, target emphasis and morphology alignment look
+  in Concordance, Sentence study and the Anki card, on narrow and wide screens?
+  Three variants on one page, switchable via ?variant=A|B|C; ?frame=compare
+  shows a 375px and a desktop frame side by side.
+  Run from the repo root:  python3 -m http.server 8149 --bind 0.0.0.0
+  then open /internal/webapp/prototype/faust-lines/
+  Source text: Gutenberg #21000 (SHA-256 93d5a2bd…1430b01) extracted under the
+  accepted #2147 break contract. Sentence segmentation, morphology labels,
+  glosses and translations are HAND-WRITTEN: no Stanza run, no provider call.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE · line-aware Faust excerpts</title>
+<link rel="stylesheet" href="../../static/app.css">
+<style>
+  /* ---------- prototype chrome (not part of the design under review) ---------- */
+  .proto-banner { margin-block: 0.75rem; padding: 0.5rem 0.75rem; border: 1px dashed var(--mouseion-color-warning); color: var(--mouseion-color-warning); font-size: var(--mouseion-font-size-metadata); }
+  .proto-surface { margin-block: 2.5rem 1rem; padding-top: 0.5rem; border-top: 3px double var(--mouseion-color-border); font: 600 0.8rem/1.2 var(--mouseion-font-application); letter-spacing: 0.06em; text-transform: uppercase; color: var(--mouseion-color-text-muted); }
+  .proto-samples { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-block: 0.5rem 1rem; font-size: var(--mouseion-font-size-metadata); }
+  .proto-samples a[aria-current] { font-weight: 700; text-decoration: none; color: var(--mouseion-color-text); }
+  .proto-notes { max-width: var(--mouseion-width-reading); font-size: var(--mouseion-font-size-metadata); }
+  .proto-notes li { margin-block: 0.35rem; }
+  .proto-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+  .proto-cards figure { margin: 0; }
+  .proto-cards figcaption { font-size: var(--mouseion-font-size-metadata); color: var(--mouseion-color-text-muted); margin-bottom: 0.25rem; }
+  .proto-cards iframe { width: 100%; height: 30rem; border: 1px solid var(--mouseion-color-border); border-radius: 6px; background: #fff; }
+  .proto-switcher { position: fixed; z-index: 100; bottom: 1rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; border-radius: 999px; background: #111; color: #fff; box-shadow: 0 4px 18px rgb(0 0 0 / 0.35); font: 600 13px/1 system-ui, sans-serif; white-space: nowrap; }
+  .proto-switcher button, .proto-switcher a { min-height: 32px; padding: 0 0.6rem; border: 0; border-radius: 999px; background: #333; color: #fff; font: inherit; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .proto-switcher a:hover, .proto-switcher button:hover { background: #555; }
+  body.proto-embed .proto-switcher, body.proto-embed .proto-banner { display: none; }
+  body.proto-compare { margin: 0; }
+  .proto-compare-frames { display: flex; gap: 12px; padding: 12px 12px 4rem; height: 100vh; box-sizing: border-box; overflow-x: auto; background: #777; }
+  .proto-compare-frames iframe { height: 100%; border: 0; background: #fff; flex: none; }
+
+  /* ---------- shared pieces the variants reuse ---------- */
+  .proto-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .proto-break-mark { color: var(--mouseion-color-text-muted); font-weight: 400; }
+  .proto-attribution { margin: 0 0 0.25rem; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); font-variant: small-caps; letter-spacing: 0.04em; }
+  .proto-attribution .proto-nested-sd { font-variant: normal; font-style: italic; letter-spacing: 0; }
+  .proto-role-label { margin: 0 0 0.25rem; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
+
+  /* Variant A + C: one block per source line; a soft wrap hangs under the line. */
+  .proto-line { display: block; padding-inline-start: 1.5em; text-indent: -1.5em; }
+
+  /* Interlinear rows: one row per source line (A, C). */
+  .proto-il-line { display: block; padding-inline-start: 1.5em; text-indent: -1.5em; margin-block-end: 0.35rem; }
+  .proto-il-line .sentence-study-unit { text-indent: 0; }
+  .proto-il-line + .proto-il-line { border-top: 1px dotted var(--mouseion-color-border); padding-top: 0.35rem; }
+
+  /* Variant C: the containing line group as orientation, with display-only numbers. */
+  .proto-group { margin: 0; padding: 0; list-style: none; font-family: var(--mouseion-font-reading); font-size: var(--mouseion-font-size-reading); line-height: 1.55; }
+  .proto-group li { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); align-items: baseline; }
+  .proto-group .proto-ln { color: var(--mouseion-color-text-muted); font: 0.75rem/1 var(--mouseion-font-application); font-variant-numeric: tabular-nums; text-align: end; padding-inline-end: 0.6rem; user-select: none; }
+  .proto-group .proto-orient { color: var(--mouseion-color-text-muted); }
+  .proto-group .proto-in-sentence { border-inline-start: 3px solid var(--mouseion-color-accent); padding-inline-start: calc(1.5em + 0.4rem); margin-inline-start: calc(-0.4rem - 3px); }
+  .proto-gap { margin: 0.25rem 0; font-size: var(--mouseion-font-size-metadata); color: var(--mouseion-color-text-muted); font-family: var(--mouseion-font-application); }
+  .proto-group .proto-gap { color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
+  .proto-script-speaker { margin: 0 0 0.35rem; text-align: center; font-variant: small-caps; letter-spacing: 0.08em; font-family: var(--mouseion-font-reading); }
+  .proto-script-speaker .proto-nested-sd { font-variant: normal; font-style: italic; letter-spacing: 0; }
+  .proto-stage { font-style: italic; }
+  .proto-il-ln { display: inline-block; width: 1.5em; text-indent: 0; color: var(--mouseion-color-text-muted); font: 0.7rem/1 var(--mouseion-font-application); vertical-align: top; padding-top: 0.35em; }
+</style>
+</head>
+<body class="vocabulary-shell">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context="vocabulary"><a class="site-header__brand" href="#"><strong>Mouseion</strong></a>
+<ul class="site-header__navigation"><li><a href="#">My Books</a></li><li><a href="#">Reading</a></li><li><a href="#" aria-current="page">Vocabulary</a></li><li><a href="#">Catalogs</a></li></ul>
+<div class="site-header__tools"><details class="site-header__account"><summary><span class="site-header__account-name">justin</span><span class="site-header__account-compact">Account</span></summary></details></div></nav></header>
+<main id="main-content" class="page-container" tabindex="-1">
+  <p class="proto-banner">PROTOTYPE for “Prototype: line-aware Faust excerpts” (#2149). Source text is the pinned Gutenberg #21000 extraction under the accepted break contract; sentence boundaries, morphology, glosses and translations are hand-written for illustration (no analyzer or provider ran).</p>
+  <div id="proto-root"></div>
+</main>
+<nav class="proto-switcher" aria-label="Prototype variant switcher">
+  <button type="button" data-step="-1" aria-label="Previous variant">←</button>
+  <span id="proto-label"></span>
+  <button type="button" data-step="1" aria-label="Next variant">→</button>
+  <a id="proto-compare" href="#">Compare widths</a>
+</nav>
+<script>
+"use strict";
+// ---------------------------------------------------------------- data
+// Line groups are verbatim contract output (\n = source line). Each sample's
+// sentence is a substring of its group; tokens are [surface, labels].
+const BOOK = "Faust: Eine Tragödie [erster Teil]";
+const GROUPS = {
+  director: "Ihr beyden die ihr mir so oft,\nIn Noth und Trübsal, beygestanden,\nSagt was ihr wohl, in deutschen Landen,\nVon unsrer Unternehmung hofft?\nIch wünschte sehr der Menge zu behagen,\nBesonders weil sie lebt und leben läßt.\nDie Pfosten sind, die Breter aufgeschlagen,\nUnd jedermann erwartet sich ein Fest.\nSie sitzen schon, mit hohen Augenbraunen,\nGelassen da und möchten gern erstaunen.\nIch weiß wie man den Geist des Volks versöhnt;\nDoch so verlegen bin ich nie gewesen;\nZwar sind sie an das Beste nicht gewöhnt,\nAllein sie haben schrecklich viel gelesen.\nWie machen wir’s? daß alles frisch und neu\nUnd mit Bedeutung auch gefällig sey.\nDenn freylich mag ich gern die Menge sehen,\nWenn sich der Strom nach unsrer Bude drängt,\nUnd mit gewaltig wiederholten Wehen,\nSich durch die enge Gnadenpforte zwängt;\nBey hellem Tage, schon vor Vieren,\nMit Stößen sich bis an die Kasse ficht\nUnd, wie in Hungersnoth um Brot an Beckerthüren,\nUm ein Billet sich fast die Hälse bricht.\nDieß Wunder wirkt auf so verschiedne Leute\nDer Dichter nur; mein Freund, o! thu es heute.",
+  mephisto: "Von Zeit zu Zeit seh’ ich den Alten gern,\nUnd hüte mich mit ihm zu brechen.\nEs ist gar hübsch von einem großen Herrn\nSo menschlich mit dem Teufel selbst zu sprechen.",
+  medicin: "Der Geist der Medicin ist leicht zu fassen;\nIhr durchstudirt die groß’ und kleine Welt,\nUm es am Ende gehn zu lassen,\nWie’s Gott gefällt.\nVergebens daß ihr ringsum wissenschaftlich schweift,\nEin jeder lernt nur was er lernen kann;\nDoch der den Augenblick ergreift,\nDas ist der rechte Mann.\nIhr seyd noch ziemlich wohlgebaut,\nAn Kühnheit wird’s euch auch nicht fehlen,\nUnd wenn ihr euch nur selbst vertraut,\nVertrauen euch die andern Seelen.\nBesonders lernt die Weiber führen;\nEs ist ihr ewig Weh und Ach\nSo tausendfach\nAus Einem Puncte zu curiren,\nUnd wenn ihr halbweg ehrbar thut,\nDann habt ihr sie all’ unter’m Hut.\nEin Titel muß sie erst vertraulich machen,\nDaß eure Kunst viel Künste übersteigt;\nZum Willkomm’ tappt ihr dann nach allen Siebensachen,\nUm die ein andrer viele Jahre streicht,\nVersteht das Pülslein wohl zu drücken,\nUnd fasset sie, mit feurig schlauen Blicken,\nWohl um die schlanke Hüfte frey,\nZu seh’n, wie fest geschnürt sie sey.",
+  flieh: "Flieh! auf! hinaus ins weite Land!\nUnd dieß geheimnißvolle Buch,\nVon Nostradamus eigner Hand,\nIst dir es nicht Geleit genug?\nErkennest dann der Sterne Lauf,\nUnd wenn Natur dich unterweist,\nDann geht die Seelenkraft dir auf,\nWie spricht ein Geist zum andern Geist.\nUmsonst, daß trocknes Sinnen hier\nDie heil’gen Zeichen dir erklärt,\nIhr schwebt, ihr Geister, neben mir,\nAntwortet mir, wenn ihr mich hört!",
+  stage: "Er schlägt das Buch auf und erblickt das Zeichen des Makrokosmus.",
+  trueb: "Im Elend! Verzweifelnd! Erbärmlich auf der Erde lange verirrt und nun gefangen! Als Missethäterinn im Kerker zu entsetzlichen Qualen eingesperrt das holde unselige Geschöpf! Bis dahin! dahin! – Verräthrischer, nichtswürdiger Geist, und das hast du mir verheimlicht! – Steh nur, steh! wälze die teuflischen Augen ingrimmend im Kopf herum! Steh und trutze mir durch deine unerträgliche Gegenwart! Gefangen! Im unwiederbringlichen Elend! Bösen Geistern übergeben und der richtenden gefühllosen Menschheit! Und mich wiegst du indeß in abgeschmackten Zerstreuungen, verbirgst mir ihren wachsenden Jammer und lässest sie hülflos verderben!",
+};
+const ATTR = {
+  director: { label: "Director.", sd: "" },
+  mephisto: { label: "Mephistopheles", sd: "allein." },
+  medicin: { label: "Mephistopheles", sd: "für sich." },
+  flieh: { label: "Faust.", sd: "" },
+  trueb: { label: "Faust.", sd: "" },
+};
+const SCENES = { director: "Vorspiel auf dem Theater", mephisto: "Prolog im Himmel", medicin: "Studirzimmer", flieh: "Nacht", stage: "Nacht", trueb: "Trüber Tag. Feld" };
+
+const SAMPLES = {
+  director: {
+    name: "Enjambed verse (4 lines)", group: "director", role: "speech",
+    sentence: "Ihr beyden die ihr mir so oft,\nIn Noth und Trübsal, beygestanden,\nSagt was ihr wohl, in deutschen Landen,\nVon unsrer Unternehmung hofft?",
+    targets: ["hofft"], lemma: "hoffen", pos: "verb", gloss: "to hope (for something)",
+    english: "You two, who have so often stood by me in need and trouble, tell me what you hope for from our undertaking in German lands?", englishTargets: ["hope for"],
+    tokens: [["Ihr","NOM.2PL"],["beyden","NOM.PL"],["die","NOM.PL"],["ihr","NOM.2PL"],["mir","DAT.1SG"],["so",""],["oft",""],["In",""],["Noth","DAT.SG.F"],["und",""],["Trübsal","DAT.SG.F"],["beygestanden","PTCP"],["Sagt","2PL.PRS.IMP"],["was","ACC.SG.N"],["ihr","NOM.2PL"],["wohl",""],["in",""],["deutschen","DAT.PL"],["Landen","DAT.PL.N"],["Von",""],["unsrer","DAT.SG.F"],["Unternehmung","DAT.SG.F"],["hofft","2PL.PRS.IND"]],
+  },
+  mephisto: {
+    name: "Speaker label with nested stage direction", group: "mephisto", role: "speech",
+    sentence: "Es ist gar hübsch von einem großen Herrn\nSo menschlich mit dem Teufel selbst zu sprechen.",
+    targets: ["Teufel"], lemma: "Teufel", article: "der", plural: "Teufel", pos: "noun", gloss: "devil",
+    english: "It is quite decent of so great a lord to speak so humanly with the devil himself.", englishTargets: ["devil"],
+    tokens: [["Es","NOM.SG.N"],["ist","3SG.PRS.IND"],["gar",""],["hübsch",""],["von",""],["einem","DAT.SG.M"],["großen","DAT.SG.M"],["Herrn","DAT.SG.M"],["So",""],["menschlich",""],["mit",""],["dem","DAT.SG.M"],["Teufel","DAT.SG.M"],["selbst",""],["zu",""],["sprechen","INF"]],
+  },
+  medicin: {
+    name: "Stale nested direction (für sich … Laut.)", group: "medicin", role: "speech",
+    sentence: "Der Geist der Medicin ist leicht zu fassen;\nIhr durchstudirt die groß’ und kleine Welt,\nUm es am Ende gehn zu lassen,\nWie’s Gott gefällt.",
+    targets: ["Geist"], lemma: "Geist", article: "der", plural: "Geister", pos: "noun", gloss: "essence, spirit (of a discipline)",
+    english: "The spirit of medicine is easy to grasp: you study the great and the little world through, only to let it go in the end as God pleases.", englishTargets: ["spirit"],
+    tokens: [["Der","NOM.SG.M"],["Geist","NOM.SG.M"],["der","GEN.SG.F"],["Medicin","GEN.SG.F"],["ist","3SG.PRS.IND"],["leicht",""],["zu",""],["fassen","INF"],["Ihr","NOM.2PL"],["durchstudirt","2PL.PRS.IND"],["die","ACC.SG.F"],["groß’","ACC.SG.F"],["und",""],["kleine","ACC.SG.F"],["Welt","ACC.SG.F"],["Um",""],["es","ACC.SG.N"],["am","DAT.SG.N"],["Ende","DAT.SG.N"],["gehn","INF"],["zu",""],["lassen","INF"],["Wie",""],["’s","NOM.SG.N"],["Gott","NOM.SG.M"],["gefällt","3SG.PRS.IND"]],
+  },
+  stage: {
+    name: "Stage direction (separable verb)", group: "stage", role: "stage",
+    sentence: "Er schlägt das Buch auf und erblickt das Zeichen des Makrokosmus.",
+    targets: ["schlägt", "auf"], lemma: "aufschlagen", pos: "verb", gloss: "to open (a book)",
+    english: "He opens the book and catches sight of the sign of the macrocosm.", englishTargets: ["opens"],
+    tokens: [["Er","NOM.SG.M.3"],["schlägt","3SG.PRS.IND"],["das","ACC.SG.N"],["Buch","ACC.SG.N"],["auf",""],["und",""],["erblickt","3SG.PRS.IND"],["das","ACC.SG.N"],["Zeichen","ACC.SG.N"],["des","GEN.SG.M"],["Makrokosmus","GEN.SG.M"]],
+  },
+  trueb: {
+    name: "Prose (unchanged)", group: "trueb", role: "speech",
+    sentence: "Und mich wiegst du indeß in abgeschmackten Zerstreuungen, verbirgst mir ihren wachsenden Jammer und lässest sie hülflos verderben!",
+    targets: ["verbirgst"], lemma: "verbergen", pos: "verb", gloss: "to hide, to conceal",
+    english: "And meanwhile you lull me with tasteless distractions, hide her growing misery from me, and let her perish helplessly!", englishTargets: ["hide"],
+    tokens: [["Und",""],["mich","ACC.1SG"],["wiegst","2SG.PRS.IND"],["du","NOM.2SG"],["indeß",""],["in",""],["abgeschmackten","DAT.PL"],["Zerstreuungen","DAT.PL.F"],["verbirgst","2SG.PRS.IND"],["mir","DAT.1SG"],["ihren","ACC.SG.M"],["wachsenden","ACC.SG.M"],["Jammer","ACC.SG.M"],["und",""],["lässest","2SG.PRS.IND"],["sie","ACC.SG.F"],["hülflos",""],["verderben","INF"]],
+  },
+};
+
+// Concordance for the noun Geist, in source order. `nth` picks which match of
+// the surface inside the sentence is the occurrence.
+const CONCORDANCE = [
+  { group: "director", sentence: "Ich weiß wie man den Geist des Volks versöhnt;\nDoch so verlegen bin ich nie gewesen;\nZwar sind sie an das Beste nicht gewöhnt,\nAllein sie haben schrecklich viel gelesen.", surface: "Geist" },
+  { group: "flieh", sentence: "Erkennest dann der Sterne Lauf,\nUnd wenn Natur dich unterweist,\nDann geht die Seelenkraft dir auf,\nWie spricht ein Geist zum andern Geist.", surface: "Geist" },
+  { group: "flieh", sentence: "Erkennest dann der Sterne Lauf,\nUnd wenn Natur dich unterweist,\nDann geht die Seelenkraft dir auf,\nWie spricht ein Geist zum andern Geist.", surface: "Geist", nth: 1 },
+  { group: "flieh", sentence: "Umsonst, daß trocknes Sinnen hier\nDie heil’gen Zeichen dir erklärt,\nIhr schwebt, ihr Geister, neben mir,\nAntwortet mir, wenn ihr mich hört!", surface: "Geister" },
+  { group: "medicin", sentence: SAMPLES.medicin.sentence, surface: "Geist", study: "medicin" },
+  { group: "trueb", sentence: "Verräthrischer, nichtswürdiger Geist, und das hast du mir verheimlicht!", surface: "Geist" },
+  { group: "trueb", sentence: "Bösen Geistern übergeben und der richtenden gefühllosen Menschheit!", surface: "Geistern" },
+];
+
+const VARIANTS = {
+  A: "Source lines",
+  B: "Inline line marks",
+  C: "Line-group orientation",
+};
+
+// ---------------------------------------------------------------- helpers
+// Every source string reaches the DOM through text nodes only.
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === false || v == null) continue;
+    if (k === "class") node.className = v; else node.setAttribute(k, v === true ? "" : v);
+  }
+  for (const child of children.flat()) {
+    if (child == null || child === false) continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return node;
+}
+function nthIndex(text, needle, n) {
+  let at = -1;
+  for (let i = 0; i <= (n || 0); i++) { at = text.indexOf(needle, at + 1); if (at < 0) return -1; }
+  return at;
+}
+// Pieces: [{text, bold}] over the sentence, from target surfaces.
+function pieces(sentence, targets) {
+  const ranges = [];
+  let from = 0;
+  for (const t of targets) {
+    const re = new RegExp("(^|[^\\p{L}])(" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")(?![\\p{L}])", "u");
+    const m = re.exec(sentence.slice(from));
+    if (!m) continue;
+    const s = from + m.index + m[1].length;
+    ranges.push([s, s + t.length]); from = s + t.length;
+  }
+  const out = []; let cur = 0;
+  for (const [s, e] of ranges) { if (s > cur) out.push({ text: sentence.slice(cur, s) }); out.push({ text: sentence.slice(s, e), bold: true }); cur = e; }
+  if (cur < sentence.length) out.push({ text: sentence.slice(cur) });
+  return out;
+}
+// Split pieces into lines on \n.
+function piecesToLines(ps) {
+  const lines = [[]];
+  for (const p of ps) {
+    const parts = p.text.split("\n");
+    parts.forEach((part, i) => { if (i > 0) lines.push([]); if (part) lines[lines.length - 1].push({ text: part, bold: p.bold }); });
+  }
+  return lines;
+}
+function inline(ps, boldClass) {
+  return ps.map(p => p.bold ? el("strong", { class: boldClass }, p.text) : document.createTextNode(p.text));
+}
+function slashMark() {
+  // Visible scholarly line mark; hidden from assistive tech, which hears one sentence.
+  return el("span", { class: "proto-break-mark", "aria-hidden": "true" }, " / ");
+}
+// Render sentence text in the variant's break style.
+function sourceText(ps, style, boldClass) {
+  if (style === "lines") {
+    return piecesToLines(ps).map(line => el("span", { class: "proto-line" }, inline(line, boldClass)));
+  }
+  const out = [];
+  piecesToLines(ps).forEach((line, i) => { if (i) out.push(style === "slash" ? slashMark() : document.createTextNode(" ")); out.push(...inline(line, boldClass)); });
+  return out;
+}
+function attributionText(a) { return a ? a.label + (a.sd ? " " + a.sd : "") : ""; }
+function attributionNode(a, cls) {
+  if (!a) return null;
+  return el("p", { class: cls }, a.label, a.sd ? [" ", el("span", { class: "proto-nested-sd" }, a.sd)] : null);
+}
+function lineOf(group, offset) { return group.slice(0, offset).split("\n").length; }
+
+// ---------------------------------------------------------------- concordance
+function renderConcordance(v) {
+  const rows = CONCORDANCE.map((occ, i) => {
+    const group = GROUPS[occ.group];
+    const at = nthIndex(occ.sentence, occ.surface, occ.nth);
+    const before = occ.sentence.slice(0, at), after = occ.sentence.slice(at + occ.surface.length);
+    // Summary: one line. A/B mark breaks with a slash; C keeps today's collapse to a space.
+    const summaryStyle = v === "C" ? "space" : "slash";
+    // Boundary spaces become no-break spaces, as concordanceContextText does,
+    // so bidi in the right-to-left left context cannot move them.
+    const sumPart = (t) => sourceText([{ text: t.replace(/^[ ]/, " ").replace(/[ ]$/, " ") }], summaryStyle);
+    const summary = el("summary", {},
+      el("span", { class: "concordance-before" }, el("span", {}, sumPart(before))),
+      el("strong", { class: "concordance-surface" }, occ.surface),
+      el("span", { class: "concordance-after" }, sumPart(after)));
+    const ps = [{ text: before }, { text: occ.surface, bold: true }, { text: after }];
+    let context;
+    const attr = ATTR[occ.group];
+    if (v === "A") {
+      context = el("div", { class: "concordance-context" },
+        attributionNode(attr, "proto-attribution"),
+        el("p", { class: "reading-text" }, sourceText(ps, "lines", "concordance-observed-target")));
+    } else if (v === "B") {
+      context = el("div", { class: "concordance-context" },
+        el("p", { class: "reading-text" }, sourceText(ps, "slash", "concordance-observed-target")),
+        el("p", { class: "metadata" }, SCENES[occ.group], attr ? " · spoken by " + attributionText(attr) : ""));
+    } else {
+      context = el("div", { class: "concordance-context" }, orientation(occ.group, occ.sentence, ps, "concordance-observed-target", 1));
+    }
+    const first = i === 0;
+    return el("li", { class: "concordance-result" },
+      first ? el("p", { class: "concordance-source" },
+        el("span", { class: "concordance-source-title" }, BOOK),
+        el("span", { class: "concordance-source-count" }, el("span", { class: "concordance-count-full" }, "7 occurrences on this page"), el("span", { class: "concordance-count-compact", "aria-hidden": "true" }, "7"))) : null,
+      el("details", { class: "concordance-row", name: "concordance-occurrences", open: occ.study === "medicin" }, summary, context),
+      occ.study ? el("a", { class: "concordance-study-link", "aria-label": "Study this sentence", href: link({ sample: occ.study }) + "#study" }, "Study")
+                : el("span", { class: "concordance-study-link metadata", title: "not wired in the prototype" }, "—"));
+  });
+  return [
+    el("header", { class: "vocabulary-page-header" }, el("h1", {}, "Vocabulary")),
+    el("p", { class: "concordance-results-summary" }, "Geist (noun) · 7 occurrences in your German Books, in source order."),
+    el("p", { class: "metadata" }, "The speaker labels “Geist.” in Nacht are display attribution, not vocabulary, so they never appear here."),
+    el("section", { id: "concordance-results" }, el("ol", { class: "concordance-results", role: "list" }, rows)),
+  ];
+}
+
+// Variant C: the containing line group as orientation; sentence lines marked.
+function orientation(groupKey, sentence, ps, boldClass, around) {
+  const group = GROUPS[groupKey];
+  const start = group.indexOf(sentence), end = start + sentence.length;
+  const firstLine = lineOf(group, start), lastLine = lineOf(group, end);
+  const lines = group.split("\n");
+  const sLines = piecesToLines(ps);
+  const attr = ATTR[groupKey];
+  const lo = Math.max(1, firstLine - around), hi = Math.min(lines.length, lastLine + around);
+  const items = [];
+  const makeItem = (n) => {
+    if (n >= firstLine && n <= lastLine) {
+      // A sentence may begin or end mid-line: orientation text around it stays muted.
+      const line = lines[n - 1];
+      const segIdx = n - firstLine;
+      const lineStart = group.split("\n").slice(0, n - 1).join("\n").length + (n > 1 ? 1 : 0);
+      const pre = n === firstLine ? group.slice(lineStart, start) : "";
+      const post = n === lastLine ? group.slice(end, lineStart + line.length) : "";
+      return el("li", {}, el("span", { class: "proto-ln", "aria-hidden": "true" }, n),
+        el("span", { class: "proto-in-sentence proto-line" }, pre ? el("span", { class: "proto-orient" }, pre) : null, inline(sLines[segIdx], boldClass), post ? el("span", { class: "proto-orient" }, post) : null));
+    }
+    return el("li", { class: "proto-orient-line" }, el("span", { class: "proto-ln", "aria-hidden": "true" }, n), el("span", { class: "proto-orient proto-line" }, lines[n - 1]));
+  };
+  for (let n = lo; n <= hi; n++) items.push(makeItem(n));
+  const role = groupKey === "stage";
+  const lead = role ? el("p", { class: "proto-script-speaker" }, el("span", { class: "proto-stage" }, "stage direction"))
+                    : attr ? el("p", { class: "proto-script-speaker" }, attr.label, attr.sd ? [" ", el("span", { class: "proto-nested-sd" }, attr.sd)] : null) : null;
+  const multi = lines.length > 1;
+  return el("div", { class: "proto-orientation" },
+    lead,
+    el("p", { class: "proto-sr" }, "The study sentence is marked with a bar; muted lines are the surrounding line group, shown for orientation only."),
+    lo > 1 ? el("p", { class: "proto-gap" }, "… ", lo - 1, " earlier line", lo - 1 === 1 ? "" : "s", " in this line group") : null,
+    el("ol", { class: "proto-group" + (role ? " proto-stage" : ""), role: "list" }, items),
+    hi < lines.length ? el("p", { class: "proto-gap" }, "… ", lines.length - hi, " later line", lines.length - hi === 1 ? "" : "s", " in this line group") : null,
+    multi ? null : el("p", { class: "proto-gap" }, "One source line: no authorial breaks in this group (prose wraps freely)."));
+}
+
+// ---------------------------------------------------------------- sentence study
+function alignTokens(sentence, tokens) {
+  // Sequential exact-match alignment over the sentence, like the real aligner.
+  const segs = []; let cur = 0;
+  for (const [surface, labels] of tokens) {
+    const at = sentence.indexOf(surface, cur);
+    if (at < 0) continue;
+    if (at > cur) segs.push({ text: sentence.slice(cur, at) });
+    segs.push({ word: surface, labels, at }); cur = at + surface.length;
+  }
+  if (cur < sentence.length) segs.push({ text: sentence.slice(cur) });
+  return segs;
+}
+function wordUnit(seg, targetSet) {
+  const isTarget = targetSet.has(seg.at);
+  return el("span", { class: "sentence-study-unit" },
+    isTarget ? el("strong", { class: "sentence-study-word" }, seg.word) : el("span", { class: "sentence-study-word" }, seg.word),
+    seg.labels ? el("span", { class: "sentence-study-labels" }, seg.labels) : null);
+}
+function targetOffsets(s) {
+  const set = new Set(); let off = 0;
+  for (const p of pieces(s.sentence, s.targets)) { if (p.bold) set.add(off); off += p.text.length; }
+  return set;
+}
+function renderInterlinear(s, v) {
+  const segs = alignTokens(s.sentence, s.tokens);
+  const targets = targetOffsets(s);
+  if (v === "B") {
+    const out = [];
+    for (const seg of segs) {
+      if (seg.word) { out.push(wordUnit(seg, targets)); continue; }
+      seg.text.split("\n").forEach((part, i) => { if (i) out.push(slashMark()); if (part) out.push(el("span", { class: "sentence-study-source" }, part)); });
+    }
+    return el("p", { class: "sentence-study-line" }, out);
+  }
+  // A / C: one row per source line.
+  const rows = [[]];
+  for (const seg of segs) {
+    if (seg.word) { rows[rows.length - 1].push(wordUnit(seg, targets)); continue; }
+    seg.text.split("\n").forEach((part, i) => { if (i) rows.push([]); if (part) rows[rows.length - 1].push(el("span", { class: "sentence-study-source" }, part)); });
+  }
+  const group = GROUPS[s.group];
+  const first = lineOf(group, group.indexOf(s.sentence));
+  return el("div", { class: "sentence-study-line" }, rows.map((r, i) =>
+    el("span", { class: "proto-il-line" }, v === "C" ? el("span", { class: "proto-il-ln", "aria-hidden": "true" }, first + i) : null, r)));
+}
+function renderStudy(key, v) {
+  const s = SAMPLES[key];
+  const attr = ATTR[s.group];
+  const ps = pieces(s.sentence, s.targets);
+  const picker = el("nav", { class: "proto-samples", "aria-label": "Prototype samples" },
+    Object.entries(SAMPLES).map(([k, x]) => el("a", { href: link({ sample: k }) + "#study", "aria-current": k === key ? "true" : null }, x.name)));
+  let text;
+  if (v === "A") {
+    text = [s.role === "stage" ? el("p", { class: "proto-role-label" }, "Stage direction") : attributionNode(attr, "proto-attribution"),
+      el("p", { class: "reading-text sentence-study-text" }, sourceText(ps, "lines"))];
+  } else if (v === "B") {
+    text = [el("p", { class: "reading-text sentence-study-text" }, sourceText(ps, "slash"))];
+  } else {
+    text = [el("div", { class: "reading-text sentence-study-text" }, orientation(s.group, s.sentence, ps, "", 2))];
+  }
+  const meta = v === "B"
+    ? [SCENES[s.group], " · sentence 12", s.role === "stage" ? " · stage direction" : attr ? " · spoken by " + attributionText(attr) : ""]
+    : [SCENES[s.group], " · sentence 12"];
+  const lineCount = s.sentence.split("\n").length;
+  return [
+    picker,
+    el("header", { class: "page-header" }, el("div", { class: "page-header__content" }, el("h1", {}, "Study this sentence"), el("p", {}, "The complete source sentence with a source-aligned morphology line and the complete analyzer evidence."))),
+    el("p", {}, el("a", { href: "#concordance" }, "Return to Concordance results")),
+    el("section", { class: "reading-width", "aria-labelledby": "sentence-study-heading" },
+      el("h2", { id: "sentence-study-heading" }, BOOK),
+      el("p", {}, meta),
+      el("p", {}, "Identified target: ", el("strong", {}, s.targets.join(" … "))),
+      text,
+      v !== "B" && lineCount > 1 ? el("p", { class: "sentence-study-note" }, "This sentence spans ", lineCount, " source lines; each starts a new row below. A row that wraps on a narrow screen continues indented.") : null,
+      renderInterlinear(s, v),
+      el("details", { class: "sentence-study-alternative" }, el("summary", {}, "Complete text alternative"),
+        el("ol", { class: "sentence-study-tokens" }, alignTokens(s.sentence, s.tokens).filter(x => x.word).map((x, i, all) => {
+          const nextAt = all[i + 1] ? all[i + 1].at : s.sentence.length;
+          const endsLine = v !== "B" && s.sentence.slice(x.at + x.word.length, nextAt).includes("\n");
+          return el("li", {}, el("strong", {}, x.word, targetOffsets(s).has(x.at) ? " — identified target" : ""), " (token ", i + 1, "): ", el("code", {}, x.labels || "—"), endsLine ? " · end of source line" : "");
+        })))),
+  ];
+}
+
+// ---------------------------------------------------------------- Anki
+// Mirrors cardexport.escapeField; breaks are inserted only between escaped lines.
+function escapeField(v) {
+  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&#34;").replace(/'/g, "&#39;").replace(/\x1f/g, "&#31;").replace(/{/g, "&#123;").replace(/}/g, "&#125;");
+}
+function fieldText(s, v) {
+  const lines = piecesToLines(pieces(s.sentence, s.targets)).map(line => line.map(p => p.bold ? "<b>" + escapeField(p.text) + "</b>" : escapeField(p.text)).join(""));
+  if (v === "B") return lines.join('<span class="line-mark"> / </span>');
+  return lines.map(l => '<span class="source-line">' + l + "</span>").join("");
+}
+function fieldAttribution(s, v) {
+  const a = ATTR[s.group];
+  if (s.role === "stage") return v === "B" ? "" : '<div class="attribution">' + (v === "C" ? "<i>stage direction</i>" : "Stage direction") + "</div>";
+  if (!a || v === "B") return "";
+  return '<div class="attribution' + (v === "C" ? " attribution--script" : "") + '">' + escapeField(a.label) + (a.sd ? ' <span class="nested-sd">' + escapeField(a.sd) + "</span>" : "") + "</div>";
+}
+function englishHTML(s) {
+  let out = escapeField(s.english);
+  for (const t of s.englishTargets) out = out.replace(escapeField(t), "<b>" + escapeField(t) + "</b>");
+  return out;
+}
+const CARD_EXTRA = `
+.source-line { display: block; padding-left: 1.5em; text-indent: -1.5em; }
+.line-mark { color: var(--mouseion-color-text-muted); font-weight: 400; }
+.attribution { margin-bottom: var(--mouseion-space-2); color: var(--mouseion-color-text-muted); font-size: 0.78em; font-variant: small-caps; letter-spacing: 0.04em; }
+.attribution--script { text-align: center; font-family: var(--mouseion-font-reading); letter-spacing: 0.08em; }
+.attribution .nested-sd { font-variant: normal; font-style: italic; letter-spacing: 0; }
+.stage-text { font-style: italic; }
+.source-note { margin-top: var(--mouseion-space-4); color: var(--mouseion-color-text-muted); font-size: 0.7em; }
+`;
+let cardCSS = "";
+function cardDoc(s, v, back, night) {
+  const front = fieldAttribution(s, v) + '<div class="sentence-text' + (v === "C" && s.role === "stage" ? " stage-text" : "") + '" lang="de">' + fieldText(s, v) + "</div>";
+  const a = ATTR[s.group];
+  const backNote = v === "B" ? '<div class="source-note">' + escapeField(BOOK) + " · " + escapeField(SCENES[s.group]) + (s.role === "stage" ? " · stage direction" : a ? " · " + escapeField(attributionText(a)) : "") + "</div>" : "";
+  const backHTML = '<hr id="answer"><div class="card-back"><div class="headword-line">' +
+    (s.article ? '<span class="article">' + s.article + '</span><span class="article-space"> </span>' : "") +
+    '<strong class="headword">' + escapeField(s.lemma) + "</strong>" + (s.plural ? ' <span class="inflection plural">(Pl. ' + escapeField(s.plural) + ")</span>" : "") +
+    ' <span class="part-of-speech">&middot; ' + s.pos + '</span></div><div class="gloss meaning-block">' + escapeField(s.gloss) +
+    '</div><div class="sentence contextual-translation">' + englishHTML(s) + "</div>" + backNote + "</div>";
+  return '<!doctype html><html><head><meta name="viewport" content="width=device-width"><style>html,body{margin:0;height:100%}' + cardCSS + CARD_EXTRA +
+    "</style></head><body><div class=\"card" + (night ? " nightMode" : "") + '">' + front + (back ? backHTML : "") + "</div></body></html>";
+}
+function renderAnki(key, v) {
+  const s = SAMPLES[key];
+  const frame = (title, back, night, short) => el("figure", {}, el("figcaption", {}, title), el("iframe", { title: "Anki card preview: " + title, srcdoc: cardDoc(s, v, back, night), style: short ? "height: 14rem" : null }));
+  return [
+    el("p", { class: "metadata" }, "Rendered with the real recognition_card.css inside an isolated frame, as Anki's webview would. Field HTML is shown under Notes."),
+    el("div", { class: "proto-cards" }, frame("Front", false, false, true), frame("Back", true, false), frame("Back · night mode", true, true)),
+    el("details", {}, el("summary", {}, "Exported field HTML"), el("pre", { style: "white-space: pre-wrap; font-size: 12px" },
+      "Attribution: " + (fieldAttribution(s, v) || "(empty)") + "\n\nText: " + fieldText(s, v))),
+  ];
+}
+
+// ---------------------------------------------------------------- notes
+const NOTES = {
+  A: [
+    "Breaks: every \\n is a block line; soft wraps hang 1.5em under their line, so a wrap never looks like a new source line. A \\n\\n never occurs inside a sentence, so no group spacing is needed in a study context.",
+    "Concordance summary stays one line and marks a break with a muted “ / ”; the expanded context restores real lines.",
+    "Interlinear: each source line is its own row of word units, which costs vertical space for 4-line sentences on phones.",
+    "Attribution: a small-caps label above the text (Mephistopheles allein.), never inside the sentence. Stage directions get a “Stage direction” label in the same slot.",
+    "Anki: Text field gets <span class=\"source-line\"> per line after escaping; a new Attribution field and template line; raw \\n alone would collapse to a space in Anki.",
+    "A11y: lines are spans inside one <p>, so a screen reader reads one sentence; the text alternative notes “end of source line”.",
+  ],
+  B: [
+    "Breaks: “ / ” everywhere (KWIC, context, interlinear, Anki): the classical quotation convention. Soft wraps happen anywhere, so wrapping and breaks are visually unrelated and never confused.",
+    "Shape is unchanged from today: smallest implementation diff; nothing grows taller on phones.",
+    "The slash is aria-hidden; assistive tech hears the sentence only and gets no line information.",
+    "Attribution as metadata (“spoken by Director.”), on the Anki back only, so the front is pure source text plus target emphasis.",
+    "Risk: a source text that itself contains “/” becomes ambiguous; verse shape (enjambment) is less felt.",
+  ],
+  C: [
+    "Breaks: numbered lines; the sentence is marked with a bar and full colour, surrounding lines of its line group in muted text (±1 in Concordance, ±2 in study, with “… n earlier lines”).",
+    "Orientation is presentation only: not the study context, not frozen, not sent to the provider — so Anki cannot show it, and the card falls back to A-style lines.",
+    "Line numbers are display-only ordinals within the line group (not citations, per the structure decision). They make soft wraps obvious: a wrapped continuation has no number.",
+    "Concordance summary keeps today’s whitespace collapse (no mark).",
+    "Speaker as a play-script heading (centred small caps); stage direction set in italic with a “stage direction” heading.",
+    "A11y: orientation lines are a list; muted text must still meet 4.5:1, and the sentence is distinguished by bar + colour + a screen-reader sentence, not colour alone.",
+  ],
+};
+const QUESTIONS = [
+  "Which break treatment for Concordance summary vs expanded context vs Sentence study vs Anki? They need not all match.",
+  "Attribution: label verbatim (“Director.”, “Mephistopheles allein.”) or name only? The Studirzimmer sample shows the nested direction “für sich.” going stale after the in-speech direction “Laut.”.",
+  "Is a line-group orientation (C) worth it in study surfaces, given it can never reach Anki?",
+  "Anki front: attribution on the front (A/C) or only on the back (B)?",
+  "Interlinear on phones: one row per source line (A/C) or continuous flow (B)?",
+];
+
+// ---------------------------------------------------------------- page
+const params = new URLSearchParams(location.search);
+const KEYS = Object.keys(VARIANTS);
+const variant = KEYS.includes(params.get("variant")) ? params.get("variant") : "A";
+const sample = SAMPLES[params.get("sample")] ? params.get("sample") : "director";
+function link(over) {
+  const p = new URLSearchParams(location.search);
+  for (const [k, v] of Object.entries(over)) v == null ? p.delete(k) : p.set(k, v);
+  return "?" + p.toString();
+}
+
+async function render() {
+  if (params.get("frame") === "compare") {
+    document.body.className = "proto-compare";
+    const inner = link({ frame: null, embed: "1" });
+    document.querySelector("main").replaceWith(el("div", { class: "proto-compare-frames" },
+      el("iframe", { title: "Narrow, 375px", src: inner, style: "width:375px" }),
+      el("iframe", { title: "Wide, 1200px", src: inner, style: "width:1200px" })));
+    document.querySelector(".site-header").remove();
+    document.querySelector(".skip-link").remove();
+  }
+  if (params.get("embed")) document.body.classList.add("proto-embed");
+  document.getElementById("proto-label").textContent = variant + " · " + VARIANTS[variant];
+  const cmp = document.getElementById("proto-compare");
+  cmp.textContent = params.get("frame") === "compare" ? "Single view" : "Compare widths";
+  cmp.href = link({ frame: params.get("frame") === "compare" ? null : "compare" });
+  const root = document.getElementById("proto-root");
+  if (!root) return;
+  try { cardCSS = await (await fetch("../../../cardexport/templates/recognition_card.css")).text(); } catch { cardCSS = ""; }
+  root.append(...[
+    el("h2", { class: "proto-surface", id: "concordance" }, "Surface 1 · Concordance (Geist)"), renderConcordance(variant),
+    el("h2", { class: "proto-surface", id: "study" }, "Surface 2 · Sentence study"), renderStudy(sample, variant),
+    el("h2", { class: "proto-surface", id: "anki" }, "Surface 3 · Anki recognition card"), renderAnki(sample, variant),
+    el("h2", { class: "proto-surface", id: "notes" }, "Notes · variant ", variant),
+    el("ul", { class: "proto-notes" }, NOTES[variant].map(n => el("li", {}, n))),
+    el("h2", { class: "proto-surface" }, "Questions for Justin"),
+    el("ol", { class: "proto-notes" }, QUESTIONS.map(n => el("li", {}, n)))].flat(3));
+  if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+}
+function go(step) {
+  const next = KEYS[(KEYS.indexOf(variant) + step + KEYS.length) % KEYS.length];
+  // Inside a compare frame, steer the top page so both frames follow.
+  const top = window.top;
+  const p = new URLSearchParams(top.location.search);
+  p.set("variant", next);
+  top.location.search = p.toString();
+}
+document.querySelectorAll(".proto-switcher [data-step]").forEach(b => b.addEventListener("click", () => go(+b.dataset.step)));
+document.addEventListener("keydown", e => {
+  if (e.target.closest("input, textarea, [contenteditable]")) return;
+  if (e.key === "ArrowLeft") go(-1); else if (e.key === "ArrowRight") go(1);
+});
+render();
+</script>
+</body>
+</html>
