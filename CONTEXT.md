@@ -264,6 +264,31 @@ main text — front matter, and back matter such as a bibliography, index, or
 glossary.
 _Avoid_: boilerplate, main_matter.
 
+**Source line**:
+Text of a readable unit bounded by authorial line breaks or line-group breaks.
+It is a fact of the source, not a line as wrapped on a screen, and it does not
+assert that the text is verse.
+_Avoid_: verse line (asserts a genre), display line.
+
+**Line group**:
+A run of source lines bounded by group breaks: a source block boundary or a
+blank line. It may be a stanza, part of a speech, or a prose paragraph; the
+source markup does not say which.
+_Avoid_: stanza (not established by markup), paragraph (as a generic term).
+
+**Structural role**:
+A declared, typed function of source text: a **speaker label** or a **stage
+direction**. It is recognized only from an accepted source markup convention
+and is never inferred from the text itself; unrecognized markup has no role.
+_Avoid_: speaker detection, drama mode.
+
+**Sentence**:
+The analyzer's linguistic segmentation of a readable unit's text. A sentence
+may span several source lines and may share a source line with other
+sentences, but it never crosses a line group. It is neither a source line nor
+a study excerpt.
+_Avoid_: line, verse.
+
 **Book language**:
 A book's chosen language tag, or its absence recorded as an unknown-language
 state. A chosen tag is stored in one canonical base form — lowercased, with `_`
