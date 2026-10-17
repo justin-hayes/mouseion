@@ -141,8 +141,8 @@ a newly available language are blocked.
 ## Dictionary index
 
 The optional dictionary index supplies dictionary evidence and morphology (article, gender, plural, IPA,
-and German-first verb principal parts) for German, Italian, Modern Greek, and
-Ancient Greek
+and German-first verb principal parts) for German, Italian, Modern Greek, French,
+and Ancient Greek
 ([ADR 0064](adr/0064-dictionary-enrichment-provider.md)). It is a build
 artifact, not PostgreSQL state and not a service. After `make setup`, derive it
 from the current Kaikki raw Wiktextract dump:
@@ -158,7 +158,8 @@ make dictionary-index \
 omit it when rebuilding from the cached dump. `KAIKKI_INPUT` can instead point
 at an already downloaded raw JSONL or JSONL.GZ dump for an offline rebuild; do
 not combine it with `DICTIONARY_REFRESH=1`. The script filters the raw dump to
-the German, Italian, Modern Greek, and Ancient Greek entries Mouseion needs.
+the German, Italian, Modern Greek, French, and Ancient Greek entries Mouseion
+needs.
 Ancient Greek entries are stored one row per source entry with no normalization
 key; the server derives their keys when it opens the index, and an index older
 than the Ancient Greek format reports `grc` as unavailable.
@@ -180,7 +181,7 @@ restart the web process after replacing the artifact. With no index, the server
 falls back to the morphology heuristic with a warning; a configured index that
 exists but is unreadable is a fatal startup error. Refreshing the index needs no
 database migration. Its SQLite metadata records the dump date, UTC extraction
-date, Wiktextract commit, source, license, and attribution.
+date, Wiktextract commit, source-file sha256, source, license, and attribution.
 
 The index contains Wiktionary-derived data from [Kaikki.org](https://kaikki.org/)
 under the source's dual CC BY-SA 4.0 / GFDL terms. Preserve the generated

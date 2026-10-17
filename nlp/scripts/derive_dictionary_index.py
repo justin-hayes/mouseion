@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import hashlib
 import json
 import os
 import re
@@ -13,19 +14,20 @@ import sqlite3
 import tempfile
 import unicodedata
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from urllib.request import urlopen
 
-LANGUAGES = {"de", "it", "el"}
+LANGUAGES = {"de", "it", "el", "fr"}
 # Ancient Greek entries come from English Wiktionary too, but they are stored
 # differently: one row per source entry, with the NFC source headword and no
 # normalization key. Go derives the ancient-greek/1 key when it opens the
 # index. The index format version tells an older index apart so it can report
 # grc as unavailable.
 ANCIENT_GREEK_LANGUAGE = "grc"
-INDEX_FORMAT_VERSION = 2
+FRENCH_LANGUAGE = "fr"
+INDEX_FORMAT_VERSION = 3
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -66,6 +68,16 @@ GENDERS = {
     "neut": "Neut",
 }
 IPA_ACCEPTED_TAGS = frozenset({"standard"})
+# French pronunciation evidence is only trustworthy when it is untagged or
+# explicitly France, Europe or Paris. Any other regional tag alone omits IPA
+# rather than presenting one region's pronunciation as the standard.
+FRENCH_IPA_ACCEPTED_TAGS = frozenset({"france", "europe", "paris"})
+# Wiktionary marks an aspirated h only through this maintenance category. Its
+# absence means unknown, never mute.
+FRENCH_ASPIRATED_H_CATEGORY = "french terms with aspirated h"
+# A French head template records an invariable noun in its expansion, for
+# example "prix m (invariable)" or "héros m (invariable, feminine héroïne)".
+FRENCH_INVARIABLE_PATTERN = re.compile(r"\binvariable\b")
 OPTIONAL_SEGMENT_PATTERN = re.compile(r"\([^()]*\)")
 PRINCIPAL_PARTS_PATTERN = re.compile(
     r"third-person singular present\s+(?P<present>[^,]+),\s*"
@@ -85,6 +97,7 @@ CREATE TABLE entries (
     plural TEXT NOT NULL,
     ipa TEXT NOT NULL,
     principal_parts TEXT NOT NULL,
+    h_status TEXT NOT NULL,
     PRIMARY KEY (language, lemma, upos)
 );
 CREATE TABLE greek_entries (
@@ -97,8 +110,8 @@ CREATE TABLE greek_entries (
 """
 INSERT_ENTRIES_SQL = (
     "INSERT INTO entries"
-    "(language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts) "
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "(language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts, h_status) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 INSERT_GREEK_ENTRIES_SQL = (
     "INSERT INTO greek_entries(headword, upos, etymology_number, senses_json, forms_json) "
@@ -152,7 +165,14 @@ def normalize(language: str, value: str) -> str:
         value = " ".join(clean_lemma_edges(primary_lemma(value)).strip().lower().split())
         equivalences = GERMAN_NORMALIZATION_POLICY["equivalences"]
         return GERMAN_V6_EQUIVALENCES.get(value, equivalences.get(value, value))
-    return " ".join(unicodedata.normalize("NFC", value.strip()).casefold().split())
+    normalized = " ".join(unicodedata.normalize("NFC", value.strip()).casefold().split())
+    if language == FRENCH_LANGUAGE:
+        # The French profile keeps accents significant (où≠ou, sûr≠sur) and
+        # folds the typographic apostrophe to ASCII in the canonical lemma
+        # only, so aujourd'hui and aujourd’hui share one identity. This
+        # mirrors Go's french profile and the producer.
+        return normalized.replace("\u2019", "'")
+    return normalized
 
 
 def values(value: object) -> list[str]:
@@ -194,6 +214,44 @@ def plural_for(item: dict) -> str:
     return ""
 
 
+def french_invariable(item: dict) -> bool:
+    """Report whether a French head template marks the noun invariable.
+
+    Wiktionary records invariability in the head-template expansion rather
+    than in an inflection form, for example "prix m (invariable)".
+    """
+    for template in item.get("head_templates", []):
+        if not isinstance(template, dict):
+            continue
+        expansion = template.get("expansion")
+        if isinstance(expansion, str) and FRENCH_INVARIABLE_PATTERN.search(expansion):
+            return True
+    return False
+
+
+def plural_or_invariable(language: str, upos: str, item: dict) -> str:
+    if upos != "NOUN":
+        return ""
+    if language == FRENCH_LANGUAGE and french_invariable(item):
+        return "invariable"
+    return plural_for(item)
+
+
+def h_status_for(language: str, upos: str, item: dict) -> str:
+    """Record French aspirated-h evidence for a noun, else nothing.
+
+    Only Wiktionary's "French terms with aspirated h" category is evidence of
+    an aspirated h. Its absence is unknown, never mute. The evidence serves the
+    noun article rule, so it is recorded on NOUN rows only.
+    """
+    if language != FRENCH_LANGUAGE or upos != "NOUN":
+        return ""
+    for category in values(item.get("categories")):
+        if category.casefold().strip() == FRENCH_ASPIRATED_H_CATEGORY:
+            return "aspirated"
+    return ""
+
+
 def article_for(language: str, word: str, gender: str, forms: object) -> str:
     supplied = supplied_article_for(language, forms)
     if supplied:
@@ -202,6 +260,9 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
         return {"Masc": "der", "Fem": "die", "Neut": "das"}.get(gender, "")
     if language == "el":
         return {"Masc": "ο", "Fem": "η", "Neut": "το"}.get(gender, "")
+    # French articles depend on the noun's initial letter and its aspirated-h
+    # evidence, so card export resolves them from the derived gender and
+    # h-status rather than storing a fixed article here (ADR 0102).
     if language != "it":
         return ""
     return italian_article_for(word, gender)
@@ -242,21 +303,35 @@ def supplied_article_for(language: str, forms: object) -> str:
     return ""
 
 
-def ipa_for(item: dict) -> str:
+def ipa_tags_acceptable(language: str, tags: set[str]) -> bool:
+    if language == FRENCH_LANGUAGE:
+        # Untagged, or carrying at least one of France, Europe or Paris. IPA
+        # that is only otherwise regional is omitted.
+        return not tags or bool(tags & FRENCH_IPA_ACCEPTED_TAGS)
+    return tags.issubset(IPA_ACCEPTED_TAGS)
+
+
+def sound_ipa(sound: object, language: str) -> str:
+    """Return one sound entry's acceptable IPA, or "" when it is not usable."""
+    candidate = ""
+    if isinstance(sound, dict):
+        if sound.get("note"):
+            return ""
+        raw = sound.get("ipa")
+        if isinstance(raw, str) and raw.strip():
+            tags = {tag.casefold() for tag in values(sound.get("tags"))}
+            if ipa_tags_acceptable(language, tags):
+                candidate = raw.strip()
+                if language != FRENCH_LANGUAGE:
+                    candidate = OPTIONAL_SEGMENT_PATTERN.sub("", candidate).strip()
+    return candidate
+
+
+def ipa_for(item: dict, language: str) -> str:
     best = ""
     best_rank = None
     for sound in item.get("sounds", []):
-        if not isinstance(sound, dict):
-            continue
-        raw = sound.get("ipa")
-        if not isinstance(raw, str) or not raw.strip():
-            continue
-        if sound.get("note"):
-            continue
-        tags = {tag.casefold() for tag in values(sound.get("tags"))}
-        if not tags.issubset(IPA_ACCEPTED_TAGS):
-            continue
-        candidate = OPTIONAL_SEGMENT_PATTERN.sub("", raw.strip()).strip()
+        candidate = sound_ipa(sound, language)
         if not candidate:
             continue
         rank = 0 if candidate.startswith("/") and candidate.endswith("/") else 1
@@ -267,7 +342,9 @@ def ipa_for(item: dict) -> str:
 
 
 def principal_parts_for(language: str, upos: str, item: dict) -> str:
-    if language == "el" or upos != "VERB":
+    # French verbs have no principal parts or conjugation summary in the
+    # index: the German extractor is not reused, and nothing is invented.
+    if language in {"el", FRENCH_LANGUAGE} or upos != "VERB":
         return ""
     for template in item.get("head_templates", []):
         if not isinstance(template, dict):
@@ -320,20 +397,22 @@ def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
     phrase = raw.get("phrase") if isinstance(raw.get("phrase"), str) else ""
     if not phrase and " " in item.get("word", ""):
         phrase = item["word"]
+    language = item["lang_code"]
+    # French page categories leak gender onto non-noun parts of speech, so the
+    # derivation records gender on NOUN rows only.
+    gender = "" if language == FRENCH_LANGUAGE and upos != "NOUN" else gender_for(item, raw)
     return {
         "Gloss": glosses[0].strip(),
         "Examples": examples,
         "Topics": values(raw.get("topics")),
         "Tags": tags,
         "Phrase": phrase.strip(),
-        "Gender": gender_for(item, raw),
-        "Article": article_for(
-            item["lang_code"], item["word"], gender_for(item, raw), item.get("forms")
-        )
+        "Gender": gender,
+        "Article": article_for(language, item["word"], gender, item.get("forms"))
         if upos == "NOUN"
         else "",
-        "Plural": plural_for(item) if upos == "NOUN" else "",
-        "IPA": ipa_for(item),
+        "Plural": plural_or_invariable(language, upos, item),
+        "IPA": ipa_for(item, language),
     }
 
 
@@ -341,6 +420,15 @@ def open_input(path: Path):
     if path.suffix == ".gz":
         return gzip.open(path, mode="rt", encoding="utf-8")
     return path.open(encoding="utf-8")
+
+
+def file_sha256(path: Path) -> str:
+    open_binary = gzip.open if path.suffix == ".gz" else Path.open
+    digest = hashlib.sha256()
+    with open_binary(path, "rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def download_cache_path() -> Path:
@@ -381,6 +469,7 @@ def new_entry() -> dict:
         "plural": "",
         "ipa": "",
         "principal_parts": "",
+        "h_status": "",
     }
 
 
@@ -411,8 +500,9 @@ def record_sense(
     if not entry["article_from_source"]:
         entry["article"] = entry["fallback_article"] if entry["gender"] else ""
     entry["plural"] = entry["plural"] or sense["Plural"]
-    entry["ipa"] = entry["ipa"] or ipa_for(item)
+    entry["ipa"] = entry["ipa"] or ipa_for(item, language)
     entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(language, upos, item)
+    entry["h_status"] = entry["h_status"] or h_status_for(language, upos, item)
 
 
 def senses_for_item(item: dict):
@@ -512,6 +602,9 @@ class SourceMetadata:
     dump_date: str = ""
     extraction_date: str = ""
     wiktextract_commit: str = ""
+    # The sha256 of the raw Kaikki/Wiktextract input file. `derive` computes it
+    # from the input when a caller does not supply one.
+    source_sha256: str = ""
 
 
 def metadata_rows(provider_version: str, source: SourceMetadata) -> dict[str, str]:
@@ -525,6 +618,7 @@ def metadata_rows(provider_version: str, source: SourceMetadata) -> dict[str, st
         "dump_date": source.dump_date,
         "extraction_date": source.extraction_date,
         "wiktextract_commit": source.wiktextract_commit,
+        "source_sha256": source.source_sha256,
     }
 
 
@@ -540,6 +634,7 @@ def entry_rows(entries: dict[tuple[str, str, str], dict]):
             entry["plural"],
             entry["ipa"],
             entry["principal_parts"],
+            entry["h_status"],
         )
 
 
@@ -579,12 +674,15 @@ def derive(
     provider_version: str,
     source: SourceMetadata | None = None,
 ) -> None:
+    source = source or SourceMetadata()
+    if not source.source_sha256:
+        source = replace(source, source_sha256=file_sha256(input_path))
     write_index(
         output_path,
         collect_entries(input_path),
         collect_greek_entries(input_path),
         provider_version,
-        source or SourceMetadata(),
+        source,
     )
 
 

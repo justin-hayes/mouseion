@@ -1,0 +1,11 @@
+{"word":"hache","lang_code":"fr","pos":"noun","tags":["feminine"],"categories":["French feminine nouns","French terms with aspirated h"],"senses":[{"glosses":["axe"]}],"forms":[{"form":"haches","tags":["plural"]}],"sounds":[{"ipa":"/aʃ/"},{"tags":["Louisiana"],"ipa":"/haʃ/"}]}
+{"word":"héros","lang_code":"fr","pos":"noun","tags":["masculine"],"senses":[{"glosses":["hero"]}],"head_templates":[{"name":"fr-noun","args":{"1":"m"},"expansion":"héros m (invariable, feminine héroïne)"}],"sounds":[{"ipa":"/e.ʁo/"}]}
+{"word":"prix","lang_code":"fr","pos":"noun","tags":["masculine"],"categories":["French masculine nouns"],"senses":[{"glosses":["prize","price"]}],"head_templates":[{"name":"fr-noun","args":{"1":"m"},"expansion":"prix m (invariable)"}],"sounds":[{"ipa":"/pʁi/"}]}
+{"word":"souvenir","lang_code":"fr","pos":"noun","tags":["masculine"],"senses":[{"glosses":["memory"]}],"forms":[{"form":"souvenirs","tags":["plural"]}],"sounds":[{"ipa":"/su.v(ə).niʁ/"}]}
+{"word":"char","lang_code":"fr","pos":"noun","tags":["masculine"],"senses":[{"glosses":["tank"]}],"forms":[{"form":"chars","tags":["plural"]}],"sounds":[{"tags":["Quebec"],"ipa":"/ʃɑʁ/"}]}
+{"word":"timbre","lang_code":"fr","pos":"noun","tags":["masculine"],"senses":[{"glosses":["stamp"]}],"forms":[{"form":"timbres","tags":["plural"]}],"sounds":[{"tags":["France","Quebec"],"ipa":"/tɛ̃bʁ/"}]}
+{"word":"café","lang_code":"fr","pos":"noun","tags":["masculine"],"categories":["French masculine nouns"],"senses":[{"glosses":["coffee"]}],"forms":[{"form":"cafés","tags":["plural"]}],"sounds":[{"tags":["France"],"ipa":"/ka.fe/"},{"tags":["Europe"],"ipa":"/kaˈfe/"}]}
+{"word":"aller","lang_code":"fr","pos":"verb","senses":[{"glosses":["to go"]}],"head_templates":[{"name":"fr-verb","args":{},"expansion":"aller (third-person singular present vais, past tense allai, past participle allé)"}]}
+{"word":"rapide","lang_code":"fr","pos":"adjective","categories":["French feminine adjectives"],"senses":[{"glosses":["fast"]}]}
+{"word":"héroïque","lang_code":"fr","pos":"adjective","categories":["French terms with aspirated h"],"senses":[{"glosses":["heroic"]}]}
+{"word":"aujourd’hui","lang_code":"fr","pos":"adv","senses":[{"glosses":["today"]}]}
