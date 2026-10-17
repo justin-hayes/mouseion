@@ -44,8 +44,13 @@ const (
 	// SearchKeyRuleVersion names the stored surface-form search key derivation.
 	// It is part of the run's version so a run written before the key existed is
 	// superseded by a re-import that writes keys.
-	SearchKeyRuleVersion  = "oga-form-search-key/1"
-	ImportContractVersion = "greek-import/1"
+	SearchKeyRuleVersion = "oga-form-search-key/1"
+	// SentenceCitationRuleVersion names the stored per-sentence citation
+	// derivation. It is part of the run's version so a run imported before the
+	// column existed is superseded by a re-import that writes the cited
+	// sections a representative sentence touches (ADR 0101).
+	SentenceCitationRuleVersion = "oga-sentence-citations/1"
+	ImportContractVersion       = "greek-import/1"
 )
 
 // SyntaxState records whether an analysis run's tokens carry UD syntax, native
@@ -201,6 +206,7 @@ func InterpretationVersion(definition domain.ReadingUnitDefinition) string {
 		NormalizationVersion,
 		ProperNameRuleVersion,
 		SearchKeyRuleVersion,
+		SentenceCitationRuleVersion,
 	}, "+")
 }
 
@@ -218,26 +224,33 @@ func ImportConfigIdentity(definition domain.ReadingUnitDefinition) string {
 // readPinnedFile reads SourcePath with a hard bound and refuses any file whose
 // size or SHA-256 differs from the reviewed pin. The read never loads more than
 // the pinned size plus one byte, so a hostile path cannot exhaust memory.
-func readPinnedFile(path string, definition domain.ReadingUnitDefinition) (data []byte, err error) {
+func readPinnedFile(path string, definition domain.ReadingUnitDefinition) ([]byte, error) {
+	return readPinnedBytes(path, definition.SourceFileSize, definition.SourceFileSHA256)
+}
+
+// readPinnedBytes reads path with a hard bound and refuses any file whose size
+// or SHA-256 differs from the reviewed pin. It carries no source text in its
+// refusals.
+func readPinnedBytes(path string, size int64, digest string) (data []byte, err error) {
 	//nolint:gosec // the operator names the pinned source file, and the read below is size-bounded.
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, &ImportError{Code: CodeReadFailed, Detail: "cannot open the source file"}
 	}
 	defer func() { err = errors.Join(err, file.Close()) }()
-	limit := definition.SourceFileSize + 1
+	limit := size + 1
 	data, err = io.ReadAll(io.LimitReader(file, limit))
 	if err != nil {
 		return nil, &ImportError{Code: CodeReadFailed, Detail: "cannot read the source file"}
 	}
-	if int64(len(data)) > definition.SourceFileSize {
+	if int64(len(data)) > size {
 		return nil, &ImportError{Code: CodeOversize}
 	}
-	if int64(len(data)) != definition.SourceFileSize {
+	if int64(len(data)) != size {
 		return nil, &ImportError{Code: CodePinMismatch}
 	}
 	sum := sha256.Sum256(data)
-	if hex.EncodeToString(sum[:]) != definition.SourceFileSHA256 {
+	if hex.EncodeToString(sum[:]) != digest {
 		return nil, &ImportError{Code: CodePinMismatch}
 	}
 	return data, nil

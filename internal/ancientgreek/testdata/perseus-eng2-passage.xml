@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <fileDesc>
+            <titleStmt><title>Anabasis</title><author>Xenophon</author></titleStmt>
+        </fileDesc>
+    </teiHeader>
+    <text>
+        <body>
+            <div n="urn:cts:greekLit:tlg0032.tlg006.perseus-eng2" type="translation" xml:lang="eng">
+                <div type="textpart" subtype="book" n="1">
+                    <div type="textpart" subtype="chapter" n="2">
+                        <div type="textpart" subtype="section" n="17">
+                            <p>He halted his chariot in front of the phalanx and gave the
+                                order to advance.<note anchored="true">A Perseus note that
+                                    must be removed.</note></p>
+                        </div>
+                        <div type="textpart" subtype="section" n="18">
+                            <p>As for the barbarians, they were frightened; the Cilician
+                                queen took to flight.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+    </text>
+</TEI>

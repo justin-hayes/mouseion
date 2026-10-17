@@ -21,6 +21,11 @@ type PreparedDeckCandidateFacts struct {
 	Candidate domain.SelectionCandidate
 	Entry     cardexport.Entry
 	Sentences map[int64]analyzer.Sentence
+	// ReferenceTranslations and ReferencePin are the operator-imported English
+	// translations of the cited sections, and the pin they came from. They are
+	// empty when no reference translation is imported.
+	ReferenceTranslations map[string]string
+	ReferencePin          string
 }
 
 // PreparedDeckInputFacts is the transaction-consistent read model used by the
@@ -282,13 +287,20 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	if err != nil {
 		return nil, err
 	}
+	referenceTranslations, referencePin, err := mergedReferenceTranslations(ctx, tx, preparation.OwnerID, candidateLanguages(selected))
+	if err != nil {
+		return nil, err
+	}
 	result := make([]PreparedDeckCandidateFacts, 0, len(selected))
 	for _, candidate := range selected {
 		entry, entryErr := loadPreparedDeckCandidateEntryTx(ctx, tx, preparation, corpusID, useProjectedEntry, candidate)
 		if entryErr != nil {
 			return nil, entryErr
 		}
-		result = append(result, PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID]})
+		result = append(result, PreparedDeckCandidateFacts{
+			Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID],
+			ReferenceTranslations: referenceTranslations, ReferencePin: referencePin,
+		})
 	}
 	return result, nil
 }

@@ -25,7 +25,8 @@ const (
 	ManifestSchemaVersionV7       = 7
 	ManifestSchemaVersionV8       = 8
 	ManifestSchemaVersionV9       = 9
-	ManifestSchemaVersion         = ManifestSchemaVersionV9
+	ManifestSchemaVersionV10      = 10
+	ManifestSchemaVersion         = ManifestSchemaVersionV10
 )
 
 type ManifestDisposition string
@@ -133,8 +134,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v7\x00"
 	case ManifestSchemaVersionV8:
 		prefix = "mouseion-prepared-deck-manifest-v8\x00"
-	default:
+	case ManifestSchemaVersionV9:
 		prefix = "mouseion-prepared-deck-manifest-v9\x00"
+	default:
+		prefix = "mouseion-prepared-deck-manifest-v10\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -215,8 +218,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v7\x00"
 	case ManifestSchemaVersionV8:
 		prefix = "mouseion-prepared-deck-candidate-v8\x00"
-	default:
+	case ManifestSchemaVersionV9:
 		prefix = "mouseion-prepared-deck-candidate-v9\x00"
+	default:
+		prefix = "mouseion-prepared-deck-candidate-v10\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -292,6 +297,9 @@ type canonicalEntry struct {
 	IPA                       string                    `json:"ipa,omitempty"`
 	PrincipalParts            string                    `json:"principal_parts,omitempty"`
 	DictionaryProviderVersion string                    `json:"dictionary_provider_version,omitempty"`
+	PassageContext            string                    `json:"passage_context,omitempty"`
+	PassageCitation           string                    `json:"passage_citation,omitempty"`
+	BrownsonPin               string                    `json:"brownson_pin,omitempty"`
 	OmittedEvidenceCount      int                       `json:"omitted_evidence_count,omitempty"`
 	CandidateSenses           []enrichment.LexicalSense `json:"candidate_senses,omitempty"`
 	SourceDocument            string                    `json:"source_document"`
@@ -347,7 +355,7 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 // validateHeader rejects a snapshot whose schema version is unknown or whose
 // owner and deck identity are missing or inconsistent with the download name.
 func (s ManifestSnapshot) validateHeader() error {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	return nil
@@ -509,6 +517,11 @@ func canonicalizeManifestEntry(entry Entry, schemaVersion int) (canonicalEntry, 
 			return canonicalEntry{}, fmt.Errorf("%w: invalid omitted evidence count", ErrInvalidInput)
 		}
 		entryCanonical.OmittedEvidenceCount = entry.OmittedEvidenceCount
+	}
+	if schemaVersion >= ManifestSchemaVersionV10 {
+		entryCanonical.PassageContext = entry.PassageContext
+		entryCanonical.PassageCitation = entry.PassageCitation
+		entryCanonical.BrownsonPin = entry.BrownsonPin
 	}
 	return entryCanonical, nil
 }

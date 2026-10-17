@@ -49,7 +49,7 @@ func corpusSentenceFromRow(result map[int64]analyzer.Sentence, row sqlcgen.ListC
 		if err != nil {
 			return analyzer.Sentence{}, fmt.Errorf("decode sentence start offset for sentence %d: %w", row.SentenceOrdinal, err)
 		}
-		sentence = analyzer.Sentence{Text: row.SentenceText, Tokens: make([]analyzer.Token, 0), Location: analyzer.SourceLocation{StartOffset: sentenceStartOffset}}
+		sentence = analyzer.Sentence{Text: row.SentenceText, Tokens: make([]analyzer.Token, 0), Location: analyzer.SourceLocation{StartOffset: sentenceStartOffset}, Citations: append([]string(nil), row.Citations...)}
 	}
 	if row.TokenOrdinal < 0 {
 		return sentence, nil

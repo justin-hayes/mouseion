@@ -111,6 +111,30 @@
   line-height: 1.6;
 }
 
+.passage-context {
+  max-width: var(--mouseion-width-reading);
+  margin: var(--mouseion-space-5) 0 0;
+  padding-top: var(--mouseion-space-4);
+  border-top: 1px solid var(--mouseion-color-border);
+}
+
+.passage-label {
+  margin: 0 0 var(--mouseion-space-2);
+  color: var(--mouseion-color-text-muted);
+  font-size: 0.74em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.passage-text {
+  margin: 0;
+  color: var(--mouseion-color-text);
+  font-family: var(--mouseion-font-reading);
+  font-size: 1.02em;
+  line-height: 1.65;
+}
+
 @media (max-width: 40rem) {
   .card {
     padding: var(--mouseion-space-4);

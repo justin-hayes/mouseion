@@ -292,6 +292,7 @@ type Querier interface {
 	// produces no row. A ready projection with no counts produces one row with an
 	// empty identity so the two cases stay distinguishable.
 	ListProjectedCorpusVocabulary(ctx context.Context, arg ListProjectedCorpusVocabularyParams) ([]ListProjectedCorpusVocabularyRow, error)
+	ListReferenceTranslations(ctx context.Context, arg ListReferenceTranslationsParams) ([]ListReferenceTranslationsRow, error)
 	ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]ListReservedDeckVocabularyRow, error)
 	ListReviewSentences(ctx context.Context, arg ListReviewSentencesParams) ([]ListReviewSentencesRow, error)
 	ListReviewSentencesForBook(ctx context.Context, arg ListReviewSentencesForBookParams) ([]ListReviewSentencesForBookRow, error)
@@ -399,6 +400,12 @@ type Querier interface {
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error
 	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)
 	UpsertReadingUnit(ctx context.Context, arg UpsertReadingUnitParams) (UpsertReadingUnitRow, error)
+	// Operator-imported reference translations (Brownson's Anabasis translation in
+	// the Perseus perseus-eng2 digitisation), keyed by citation. The prepared-deck
+	// planner joins them to the cited sections of a representative sentence; a
+	// re-import upserts the same citations, so it never changes an already-prepared
+	// deck.
+	UpsertReferenceTranslation(ctx context.Context, arg UpsertReferenceTranslationParams) error
 	UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error)
 	// Immutable source revisions and extracted EPUB-unit snapshots.
 	UpsertSourceMaterialForExtractedUnits(ctx context.Context, arg UpsertSourceMaterialForExtractedUnitsParams) (UpsertSourceMaterialForExtractedUnitsRow, error)

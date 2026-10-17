@@ -225,6 +225,18 @@ These commands run against `MOUSEION_DATABASE_URL`.
   same pin and interpretation version is a no-op. It prints a report of counts
   (sentences, tokens, ellipsis tokens skipped, proper names derived,
   bare-versus-numbered lemmas, unmapped feature values) and no Greek text.
+- `go run ./cmd/greekregister <learner-username> <pinned-source-file>
+  <brownson-translation-file>` — registers and imports as above, then imports the
+  operator-supplied Brownson translation of the *Anabasis* in the Perseus
+  `perseus-eng2` digitisation, storing each cited section keyed by citation so
+  prepared Greek cards can show passage context
+  ([ADR 0101](adr/0101-ancient-greek-cards-from-source-evidence.md)). The file
+  must match its reviewed size and SHA-256 pin exactly, the import removes
+  Perseus notes and otherwise keeps the text, and it refuses oversize, malformed
+  or unknown content before writing anything. Re-importing the same pin is
+  idempotent and never changes an already-prepared deck. It prints the pin and a
+  report of section and byte counts, never any English text. The pinned file
+  never enters the repository or CI.
 - `go run ./cmd/greekhitrate` — reports how many of the installation's Ancient
   Greek vocabulary identities have at least one Wiktionary dictionary entry, so
   the operator can judge how much meaning evidence cards will carry. It needs

@@ -14,10 +14,11 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-const usage = "usage: greekregister <learner-username> [pinned-source-file]"
+const usage = "usage: greekregister <learner-username> [pinned-source-file] [brownson-translation-file]"
 
 // registrationStore is the persistence the command needs, plus the lifecycle
 // run closes when it finishes so tests can supply a double.
@@ -26,8 +27,16 @@ type registrationStore interface {
 	Close() error
 }
 
+// pinnedSources names the reviewed annotation definition and the Brownson
+// reference source the operator imports. They are compiled data supplied by
+// main and injected in tests.
+type pinnedSources struct {
+	Annotation  domain.ReadingUnitDefinition
+	Translation ancientgreek.BrownsonSource
+}
+
 func main() {
-	if err := run(context.Background(), os.Args[1:], os.Stdout, openStore, storeImportWriter); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Stdout, openStore, storeImportWriter, storeReferenceWriter); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -45,11 +54,22 @@ func storeImportWriter(store registrationStore) (ancientgreek.ImportWriter, erro
 	return analysis.NewGreekImportWriter(postgres), nil
 }
 
-// run registers the Ancient Greek Book for one learner and, when a pinned
-// source file is named, imports its annotation. It prints reports of codes and
-// counts only, never any stored text.
-func run(ctx context.Context, args []string, output io.Writer, open func(context.Context, string) (registrationStore, error), newWriter func(registrationStore) (ancientgreek.ImportWriter, error)) (err error) {
-	if len(args) < 1 || len(args) > 2 {
+// storeReferenceWriter builds the Brownson translation writer from the
+// PostgreSQL store.
+func storeReferenceWriter(store registrationStore) (ancientgreek.BrownsonImportWriter, error) {
+	postgres, ok := store.(*persistence.PostgresStore)
+	if !ok {
+		return nil, errors.New("greekregister: the import requires the PostgreSQL store")
+	}
+	return analysis.NewReferenceTranslationWriter(postgres), nil
+}
+
+// run registers the Ancient Greek Book for one learner and, when pinned source
+// files are named, imports the annotation and the Brownson reference
+// translation. It prints reports of codes and counts only, never any stored
+// text.
+func run(ctx context.Context, args []string, output io.Writer, open func(context.Context, string) (registrationStore, error), newWriter func(registrationStore) (ancientgreek.ImportWriter, error), newReferenceWriter func(registrationStore) (ancientgreek.BrownsonImportWriter, error)) (err error) {
+	if len(args) < 1 || len(args) > 3 {
 		return errors.New(usage)
 	}
 	username := strings.TrimSpace(args[0])
@@ -57,9 +77,16 @@ func run(ctx context.Context, args []string, output io.Writer, open func(context
 		return errors.New(usage)
 	}
 	sourcePath := ""
-	if len(args) == 2 {
+	if len(args) >= 2 {
 		sourcePath = strings.TrimSpace(args[1])
 		if sourcePath == "" {
+			return errors.New(usage)
+		}
+	}
+	brownsonPath := ""
+	if len(args) == 3 {
+		brownsonPath = strings.TrimSpace(args[2])
+		if brownsonPath == "" {
 			return errors.New(usage)
 		}
 	}
@@ -82,6 +109,12 @@ func run(ctx context.Context, args []string, output io.Writer, open func(context
 	if sourcePath == "" {
 		return nil
 	}
+	return importPinnedSources(ctx, store, report, sourcePath, brownsonPath, pinnedSources{Annotation: ancientgreek.AnabasisBook1, Translation: ancientgreek.BrownsonAnabasisBook1}, output, newWriter, newReferenceWriter)
+}
+
+// importPinnedSources imports the pinned annotation and, when named, the pinned
+// Brownson translation. It prints reports of codes and counts only.
+func importPinnedSources(ctx context.Context, store registrationStore, report ancientgreek.Report, sourcePath, brownsonPath string, sources pinnedSources, output io.Writer, newWriter func(registrationStore) (ancientgreek.ImportWriter, error), newReferenceWriter func(registrationStore) (ancientgreek.BrownsonImportWriter, error)) error {
 	writer, err := newWriter(store)
 	if err != nil {
 		return err
@@ -90,12 +123,37 @@ func run(ctx context.Context, args []string, output io.Writer, open func(context
 		OwnerID:    report.OwnerID,
 		BookID:     report.BookID,
 		SourcePath: sourcePath,
-		Definition: ancientgreek.AnabasisBook1,
+		Definition: sources.Annotation,
 	}, writer)
 	if err != nil {
 		return err
 	}
-	return writeImportReport(output, importReport)
+	if err := writeImportReport(output, importReport); err != nil {
+		return err
+	}
+	if brownsonPath == "" {
+		return nil
+	}
+	referenceWriter, err := newReferenceWriter(store)
+	if err != nil {
+		return err
+	}
+	translationReport, err := ancientgreek.ImportBrownson(ctx, ancientgreek.BrownsonImportRequest{
+		OwnerID:    report.OwnerID,
+		SourcePath: brownsonPath,
+		Source:     sources.Translation,
+	}, referenceWriter)
+	if err != nil {
+		return err
+	}
+	return writeTranslationReport(output, translationReport)
+}
+
+// writeTranslationReport prints the Brownson import's pin and counts, never any
+// source text.
+func writeTranslationReport(output io.Writer, report ancientgreek.BrownsonImportReport) error {
+	_, err := fmt.Fprintf(output, "ancient greek translation import complete: pin=%s sections=%d bytes=%d\n", report.SourcePin, report.Sections, report.Bytes)
+	return err
 }
 
 // writeImportReport prints the import's codes and counts, never any source text.

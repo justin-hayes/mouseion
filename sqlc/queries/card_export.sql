@@ -1,6 +1,7 @@
 -- name: ListCorpusSentences :many
 SELECT s.sentence_ordinal,
        s.sentence_text,
+       s.citations,
        s.start_offset,
        COALESCE(t.token_ordinal, -1::bigint)::bigint AS token_ordinal,
        COALESCE(t.surface, '')::text AS surface,

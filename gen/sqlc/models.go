@@ -229,6 +229,7 @@ type CorpusSentence struct {
 	SentenceText    string
 	StartOffset     int64
 	EndOffset       int64
+	Citations       []string
 }
 
 type CorpusToken struct {
@@ -474,6 +475,9 @@ type DeckPreparationManifestItem struct {
 	MeaningEvidenceHash  pgtype.Text
 	LexicalDiscriminator string
 	Headword             string
+	PassageContext       string
+	PassageCitation      string
+	BrownsonPin          string
 }
 
 type DeckPreparationRun struct {
@@ -833,6 +837,15 @@ type ReadingUnit struct {
 	SourceFileSha256      string
 	InterpretationVersion string
 	CreatedAt             time.Time
+}
+
+type ReferenceTranslation struct {
+	OwnerID     string
+	Language    string
+	Citation    string
+	Translation string
+	SourcePin   string
+	UpdatedAt   time.Time
 }
 
 type SelectionCandidate struct {

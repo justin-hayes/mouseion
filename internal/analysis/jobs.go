@@ -1765,31 +1765,45 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 func insertCorpusSentences(ctx context.Context, tx pgx.Tx, ownerID, runID, corpusID string, sentences []analyzer.Sentence) error {
 	for start := 0; start < len(sentences); start += normalizedCorpusSentenceInsertBatchSize {
 		end := min(start+normalizedCorpusSentenceInsertBatchSize, len(sentences))
-		var query strings.Builder
-		query.WriteString(`INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES `)
-		args := make([]any, 0, (end-start)*8)
-		for ordinal := start; ordinal < end; ordinal++ {
-			if ordinal > start {
-				query.WriteString(",")
-			}
-			sentence := sentences[ordinal]
-			startOffset, offsetErr := checked.Int64FromUint64(sentence.Location.StartOffset)
-			if offsetErr != nil {
-				return fmt.Errorf("persist normalized corpus sentence %d: start offset overflows bigint: %w", ordinal, offsetErr)
-			}
-			endOffset, offsetErr := checked.Int64FromUint64(sentence.Location.EndOffset)
-			if offsetErr != nil {
-				return fmt.Errorf("persist normalized corpus sentence %d: end offset overflows bigint: %w", ordinal, offsetErr)
-			}
-			arg := len(args) + 1
-			fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7)
-			args = append(args, ownerID, runID, corpusID, sentence.Location.SourceDocumentID, int64(ordinal), sentence.Text, startOffset, endOffset)
+		query, args, err := corpusSentenceInsert(sentences, start, end, ownerID, runID, corpusID)
+		if err != nil {
+			return err
 		}
-		if _, err := tx.Exec(ctx, query.String(), args...); err != nil {
+		if _, err := tx.Exec(ctx, query, args...); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// corpusSentenceInsert builds one batched corpus-sentence INSERT for the
+// sentences in [start, end), including each sentence's cited sections.
+func corpusSentenceInsert(sentences []analyzer.Sentence, start, end int, ownerID, runID, corpusID string) (string, []any, error) {
+	var query strings.Builder
+	query.WriteString(`INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset,citations) VALUES `)
+	args := make([]any, 0, (end-start)*9)
+	for ordinal := start; ordinal < end; ordinal++ {
+		if ordinal > start {
+			query.WriteString(",")
+		}
+		sentence := sentences[ordinal]
+		startOffset, offsetErr := checked.Int64FromUint64(sentence.Location.StartOffset)
+		if offsetErr != nil {
+			return "", nil, fmt.Errorf("persist normalized corpus sentence %d: start offset overflows bigint: %w", ordinal, offsetErr)
+		}
+		endOffset, offsetErr := checked.Int64FromUint64(sentence.Location.EndOffset)
+		if offsetErr != nil {
+			return "", nil, fmt.Errorf("persist normalized corpus sentence %d: end offset overflows bigint: %w", ordinal, offsetErr)
+		}
+		citations := sentence.Citations
+		if citations == nil {
+			citations = []string{}
+		}
+		arg := len(args) + 1
+		fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7, arg+8)
+		args = append(args, ownerID, runID, corpusID, sentence.Location.SourceDocumentID, int64(ordinal), sentence.Text, startOffset, endOffset, citations)
+	}
+	return query.String(), args, nil
 }
 
 // corpusTokenInserter accumulates one batched corpus-token INSERT, flushing it

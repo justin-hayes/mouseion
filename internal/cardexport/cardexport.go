@@ -37,6 +37,7 @@ type Entry struct {
 	SentenceOrdinal                                                                   int64
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
 	Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion                     string
+	PassageContext, PassageCitation, BrownsonPin                                      string
 	OmittedEvidenceCount                                                              int
 	Morphology, SourceDocument, Notes                                                 string
 	CandidateSenses                                                                   []enrichment.LexicalSense
@@ -48,6 +49,7 @@ type Entry struct {
 
 type Note struct {
 	Key, Identity, Text, Article, Lemma, Plural, IPA, PrincipalParts, POS, Gloss, English, EnglishSentence, BookTitle string
+	PassageLabel, PassageText                                                                                         string
 	BackExtra                                                                                                         string
 	Tags                                                                                                              []string
 }
@@ -1126,6 +1128,10 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		Gloss:          escapeField(input.Gloss), English: escapeField(input.Translation),
 		EnglishSentence: HighlightEnglishTargets(input.SentenceTranslation, input.SentenceTranslationTargets, input.SentenceTranslationTarget), BookTitle: escapeField(input.SourceDocument), Tags: tags,
 	}
+	if strings.TrimSpace(input.PassageContext) != "" && strings.TrimSpace(input.PassageCitation) != "" {
+		note.PassageLabel = escapeField(passageContextLabel(input.PassageCitation))
+		note.PassageText = escapeField(input.PassageContext)
+	}
 	articleLemma := note.Lemma
 	if note.Article != "" {
 		separator := " "
@@ -1145,6 +1151,9 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		back = append(back, note.PrincipalParts)
 	}
 	back = append(back, note.POS, note.Gloss, note.EnglishSentence)
+	if note.PassageText != "" {
+		back = append(back, note.PassageLabel, note.PassageText)
+	}
 	note.BackExtra = strings.Join(back, "\n")
 	return note, nil
 }
@@ -1192,12 +1201,12 @@ func RenderTSV(notes []Note, attribution string) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}
+var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
@@ -1694,7 +1703,8 @@ func deckDescription(entries []RenderInput) string {
 
 // attributionNotices returns every attribution and licence notice the entries
 // require: Wiktionary whenever dictionary evidence was used, and the imported
-// Ancient Greek source notices whenever the deck is Ancient Greek.
+// Ancient Greek source notices whenever the deck is Ancient Greek. A deck that
+// froze a Brownson passage also names that translation and its pin.
 func attributionNotices(entries []RenderInput) string {
 	var notices []string
 	if dictionaryAttribution(entries) != "" {
@@ -1703,7 +1713,20 @@ func attributionNotices(entries []RenderInput) string {
 	if deckIsAncientGreek(entries) {
 		notices = append(notices, dictionary.AncientGreekSourceNotice)
 	}
+	if deckHasBrownsonPassage(entries) {
+		notices = append(notices, dictionary.BrownsonSourceNotice)
+	}
 	return strings.Join(notices, "\n\n")
+}
+
+// deckHasBrownsonPassage reports whether any entry froze a Brownson passage.
+func deckHasBrownsonPassage(entries []RenderInput) bool {
+	for _, entry := range entries {
+		if strings.TrimSpace(entry.BrownsonPin) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func dictionaryAttribution(entries []RenderInput) string {
