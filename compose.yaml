@@ -43,7 +43,7 @@ services:
         exec setpriv --reuid=10001 --regid=10001 --clear-groups python -m mouseion_nlp.provision
     environment:
       HOME: /home/mouseion
-      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it,el}
+      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it,el,fr}
       STANZA_RESOURCES_DIR: /opt/stanza_resources
       HF_HOME: /opt/huggingface
     volumes:
@@ -61,7 +61,7 @@ services:
         condition: service_completed_successfully
     environment:
       MOUSEION_NLP_ADDR: "[::]:50051"
-      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it,el}
+      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it,el,fr}
       STANZA_RESOURCES_DIR: /opt/stanza_resources
       HF_HOME: /opt/huggingface
     volumes:

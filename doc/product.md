@@ -44,7 +44,7 @@ legible from stored display names.
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
 - [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units, stable identity, provenance, and navigation data for analysis.
 - [Main text selection](features/main-text-selection.md) — derives the analyzed main-text run from declared EPUB structure with a whole-snapshot fallback.
-- [Language Support](features/language-support.md) — capability-driven German, Italian, and Modern Greek analysis, deployment, and end-to-end validation.
+- [Language Support](features/language-support.md) — capability-driven German, Italian, French, and Modern Greek analysis, deployment, and end-to-end validation.
 - [Catalog Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogs with lazy content acquisition.
 - [My Books Collection Browsing](features/collection-browsing.md) — paging and text search scoped to the active study language.
 - [Book Covers](features/book-covers.md) — implemented cover-led My Books grid, retained catalog-supplied images, and supporting Reading thumbnails.

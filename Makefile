@@ -29,7 +29,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight french-golden
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
@@ -68,6 +68,16 @@ python-test-preflight:
 test: python-test-preflight go-tmp
 	go test $(RACE_FLAG) ./...
 	PYTHONPATH=nlp/src:gen/python $(VENV_BIN)/pytest -q nlp/tests
+
+# Opt-in French release gate. The pinned-model golden check is excluded from
+# `make test` (CI saves no models); run it against a provisioned directory with
+# MOUSEION_TEST_STANZA_RESOURCES_DIR set. See doc/operations.md.
+french-golden: python-test-preflight
+	@test -n "$${MOUSEION_TEST_STANZA_RESOURCES_DIR:-}" || { \
+		printf '%s\n' "Set MOUSEION_TEST_STANZA_RESOURCES_DIR to a directory provisioned with the pinned French models (see doc/operations.md)." >&2; \
+		exit 1; \
+	}
+	PYTHONPATH=nlp/src:gen/python $(VENV_BIN)/pytest -q nlp/tests/test_french_golden.py
 
 # Targeted Go tests get a per-invocation build temp directory under .tmp, so
 # interrupted runs cannot leave build files in a RAM-backed system temp dir.

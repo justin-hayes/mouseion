@@ -6,7 +6,8 @@ books you actually want to read.**
 Mouseion connects to a personal ebook library, analyzes each book
 linguistically, tells a learner how much of its vocabulary they already know,
 and prepares the words worth learning, each with an example sentence from the
-book itself, as an Anki deck. It supports German, Italian, and Modern Greek.
+book itself, as an Anki deck. It supports German, Italian, French, and Modern
+Greek.
 
 The name recalls the Mouseion of Alexandria, the scholarly community that housed
 the Library.
@@ -232,8 +233,8 @@ Mouseion is a personal project in active use. It is built for a small,
 trusted, self-hosted deployment reachable only over a private network such as
 a Tailscale tailnet ([ADR 0009](doc/adr/0009-home-lab-auth-corpus-isolation.md)).
 It is not hardened for public internet exposure; see [SECURITY.md](SECURITY.md).
-German, Italian, and Modern Greek are the supported analysis languages. This is
-a personal project and is not seeking outside contributions.
+German, Italian, French, and Modern Greek are the supported analysis languages.
+This is a personal project and is not seeking outside contributions.
 
 ## Citation
 
