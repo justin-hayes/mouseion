@@ -40,13 +40,18 @@ type LexicalSense struct {
 // LexicalEntry is the structured result of a local lexical lookup. Senses are
 // ordered for display; the leading sense supplies the preferred morphology.
 type LexicalEntry struct {
-	Senses                []LexicalSense
-	CandidateSenses       []LexicalSense
-	Gender                string
-	Article               string
-	Plural                string
-	IPA                   string
-	PrincipalParts        string
+	Senses          []LexicalSense
+	CandidateSenses []LexicalSense
+	Gender          string
+	Article         string
+	Plural          string
+	IPA             string
+	PrincipalParts  string
+	// HStatus is the French aspirated-h evidence Wiktionary records ("aspirated"
+	// or empty for unknown). It is empty for every other language. Card export
+	// resolves a French noun's article from it and never treats absence as mute h
+	// (ADR 0102).
+	HStatus               string
 	OmittedCandidateCount int
 }
 

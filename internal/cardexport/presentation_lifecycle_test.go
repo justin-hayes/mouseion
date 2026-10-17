@@ -686,7 +686,7 @@ func TestPresentationLifecycleOmitsArticleOutsideSupportedNounRules(t *testing.T
 	for _, test := range []struct {
 		name, language, lemma, target, sentence, morphology string
 	}{
-		{name: "unsupported language", language: "fr", lemma: "maison", target: "maison", sentence: "La maison est grande.", morphology: `{"Gender":"Fem","Number":"Sing"}`},
+		{name: "unsupported language", language: "es", lemma: "casa", target: "casa", sentence: "La casa es grande.", morphology: `{"Gender":"Fem","Number":"Sing"}`},
 		{name: "empty variant list", language: "de", lemma: "haus", target: "Haus", sentence: "Das Haus steht dort.", morphology: `[]`},
 		{name: "invalid non-singular gender", language: "de", lemma: "gauner", target: "Gauner", sentence: "Viele Gauner wurden verhaftet.", morphology: `[{"Gender":"Masc","Number":"Plur"},{"Gender":"Common","Number":"Plur"}]`},
 	} {

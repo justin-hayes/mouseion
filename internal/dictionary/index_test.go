@@ -341,6 +341,60 @@ func newGreekTestIndex(t *testing.T, seedStatements ...string) *Index {
 	return index
 }
 
+// dictionaryFrenchFixtureSchema is the read-only schema of the index format
+// that carries both Ancient Greek entries and the French h_status evidence.
+const dictionaryFrenchFixtureSchema = `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, h_status TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '3')`
+
+// newFrenchTestIndex opens a format-3 index seeded with seedStatements.
+func newFrenchTestIndex(t *testing.T, seedStatements ...string) *Index {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), dictionaryFrenchFixtureSchema)
+	require.NoError(t, err)
+	for _, statement := range seedStatements {
+		_, err = db.ExecContext(t.Context(), statement)
+		require.NoError(t, err)
+	}
+	require.NoError(t, db.Close())
+	index, err := OpenIndex(t.Context(), path)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, index.Close()) })
+	return index
+}
+
+// A format-3 index exposes the French aspirated-h evidence column; its absence
+// on a row means unknown, never mute.
+func TestIndexLookupReadsFrenchHStatus(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'hache', 'NOUN', '[{"Gloss":"axe","Gender":"Fem"}]', 'Fem', '', 'haches', '/aʃ/', '', 'aspirated')`,
+		`INSERT INTO entries VALUES ('fr', 'hôtel', 'NOUN', '[{"Gloss":"hotel","Gender":"Masc"}]', 'Masc', '', 'hôtels', '/otɛl/', '', '')`,
+	)
+
+	aspirated, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "hache", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "aspirated", aspirated.HStatus)
+	assert.Equal(t, "Fem", aspirated.Gender)
+
+	unknown, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "hôtel", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Empty(t, unknown.HStatus, "an unmarked h is unknown, never mute")
+}
+
+// An older index format without the h_status column still opens and reports no
+// h-status rather than failing.
+func TestIndexLookupOmitsHStatusOnOlderIndexFormat(t *testing.T) {
+	index := newTestIndex(t, `INSERT INTO entries VALUES ('fr', 'hache', 'NOUN', '[{"Gloss":"axe"}]', '', '', '', '', '')`)
+
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "hache", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Empty(t, result.HStatus)
+}
+
 func TestIndexAncientGreekMatchingReturnsEveryHomograph(t *testing.T) {
 	index := newGreekTestIndex(t,
 		`INSERT INTO greek_entries VALUES ('δέω', 'VERB', '1', '[{"Gloss":"to bind"}]', '[]')`,

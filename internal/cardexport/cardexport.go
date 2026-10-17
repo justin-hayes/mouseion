@@ -53,11 +53,11 @@ type Entry struct {
 }
 
 type Note struct {
-	Key, Identity, Text, Article, Lemma, Plural, IPA, PrincipalParts, POS, Gloss, English, EnglishSentence, BookTitle string
-	PassageLabel, PassageText                                                                                         string
-	DictionaryEntry                                                                                                   string
-	BackExtra                                                                                                         string
-	Tags                                                                                                              []string
+	Key, Identity, Text, Article, Lemma, Gender, Plural, IPA, PrincipalParts, POS, Gloss, English, EnglishSentence, BookTitle string
+	PassageLabel, PassageText                                                                                                 string
+	DictionaryEntry                                                                                                           string
+	BackExtra                                                                                                                 string
+	Tags                                                                                                                      []string
 }
 
 type Artifact struct {
@@ -858,23 +858,122 @@ func tokenSpanBytes(sentence string, start, end, sentenceStartOffset uint64) (in
 	return byteOffsets[relativeStart], byteOffsets[relativeEnd], true
 }
 
-func nounArticle(language, upos, lemma, morphology string) string {
+func nounArticle(language, upos, lemma, morphology string) (article, genderLabel string) {
 	baseLanguage := baseLanguageCode(language)
 	if !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
-		return ""
+		return "", ""
 	}
 	variants, ok := morphologyVariants(morphology)
 	if !ok {
-		return ""
+		return "", ""
 	}
 	table, ok := nounArticleForms(baseLanguage)
 	if !ok || len(variants) == 0 {
-		return ""
+		return "", ""
 	}
 	if article, ok := explicitNounArticle(variants, table.validArticles); ok {
-		return article
+		return article, ""
+	}
+	if baseLanguage == "fr" {
+		return frenchNounArticle(table, variants, lemma)
 	}
 	return genderDerivedArticle(baseLanguage, table, variants, lemma)
+}
+
+// frenchNounArticle resolves the French definite article and its companion
+// gender label from one supported gender and the headword's initial letter
+// (ADR 0102). The elided article "l'" and any h-initial whose aspirated-h
+// category is absent hide the gender, so those rows carry a gender label. A
+// plural-only or otherwise undecided reading stays bare with no label.
+func frenchNounArticle(table nounArticleTable, variants []map[string]string, lemma string) (string, string) {
+	evidence, ok := collectGenderEvidence(variants, table.articles)
+	// A conflict, an unknown gender or a plural-only reading leaves the article
+	// undecided, so the headword stays bare with no label.
+	if !ok || evidence.invalidGender || evidence.allPlural {
+		return "", ""
+	}
+	if len(evidence.genders) != 1 {
+		return "", ""
+	}
+	return frenchNounPresentation(soleGender(evidence.genders), lemma, morphologyHStatus(variants))
+}
+
+// soleGender returns the only key of a gender set. Callers guarantee the set
+// holds exactly one entry.
+func soleGender(genders map[string]bool) string {
+	for gender := range genders {
+		return gender
+	}
+	return ""
+}
+
+// frenchNounPresentation renders one supported gender's French headword prefix
+// and gender label. Vowel-initial nouns take the elided "l'" and an h-initial
+// noun takes "le"/"la" only when the dictionary marks it aspirated; otherwise
+// the headword is bare. A leading "y" is treated as uncertain. The gender label
+// appears only where the article does not already reveal the gender.
+func frenchNounPresentation(gender, lemma, hStatus string) (string, string) {
+	first, _ := utf8.DecodeRuneInString(strings.ToLower(strings.TrimSpace(lemma)))
+	switch {
+	case first == utf8.RuneError:
+		return "", ""
+	case first == 'h':
+		if hStatus == frenchAspiratedHStatus {
+			return frenchDefiniteArticle(gender), ""
+		}
+		return "", frenchGenderLabel(gender)
+	case strings.ContainsRune(frenchElisionVowels, first):
+		return "l'", frenchGenderLabel(gender)
+	case unicode.IsLetter(first) && first != 'y':
+		return frenchDefiniteArticle(gender), ""
+	default:
+		return "", frenchGenderLabel(gender)
+	}
+}
+
+// frenchElisionVowels are the initial letters that always elide in French: the
+// plain and accented vowels plus the æ and œ ligatures.
+const frenchElisionVowels = "aeiouàâäæèéêëîïôöœùûü"
+
+// frenchAspiratedHStatus is the derivation's evidence value for a noun
+// Wiktionary marks in "French terms with aspirated h".
+const frenchAspiratedHStatus = "aspirated"
+
+// frenchDefiniteArticle renders the definite singular article for one supported
+// gender. An unknown gender yields no article.
+func frenchDefiniteArticle(gender string) string {
+	switch gender {
+	case "masc":
+		return "le"
+	case "fem":
+		return "la"
+	default:
+		return ""
+	}
+}
+
+// frenchGenderLabel renders the compact gender cue a French card shows when its
+// article cannot reveal the gender.
+func frenchGenderLabel(gender string) string {
+	switch gender {
+	case "masc":
+		return "m."
+	case "fem":
+		return "f."
+	default:
+		return ""
+	}
+}
+
+// morphologyHStatus returns the first aspirated-h evidence among a candidate's
+// morphology variants, or the empty string when none supplies it.
+func morphologyHStatus(variants []map[string]string) string {
+	for _, variant := range variants {
+		if status := morphologyValue(variant, "HStatus"); status != "" {
+			return status
+		}
+	}
+	return ""
 }
 
 // baseLanguageCode normalises a language tag to its lowercase base language.
@@ -886,24 +985,22 @@ func baseLanguageCode(language string) string {
 
 // genderDerivedArticle resolves the article from the candidate's gender
 // evidence when no dictionary article names an accepted form.
-func genderDerivedArticle(baseLanguage string, table nounArticleTable, variants []map[string]string, lemma string) string {
+func genderDerivedArticle(baseLanguage string, table nounArticleTable, variants []map[string]string, lemma string) (string, string) {
 	evidence, ok := collectGenderEvidence(variants, table.articles)
 	if !ok {
-		return ""
+		return "", ""
 	}
 	genders, ok := decisiveGenders(baseLanguage, evidence)
 	if !ok {
-		return ""
+		return "", ""
 	}
 	if len(genders) == 1 {
-		for article := range genders {
-			return singleGenderArticle(baseLanguage, article, lemma)
-		}
+		return singleGenderArticle(baseLanguage, soleGender(genders), lemma)
 	}
 	if len(evidence.genders) == 0 && evidence.allPlural {
-		return table.pluralArticle
+		return table.pluralArticle, ""
 	}
-	return ""
+	return "", ""
 }
 
 // decisiveGenders selects the gender set that decides the article. German
@@ -951,6 +1048,14 @@ func nounArticleForms(baseLanguage string) (nounArticleTable, bool) {
 		return nounArticleTable{
 			articles:      map[string]string{"masc": "ο", "masculine": "ο", "fem": "η", "feminine": "η", "neut": "το", "neuter": "το"},
 			validArticles: map[string]bool{"ο": true, "η": true, "το": true},
+		}, true
+	case "fr":
+		// A French article is never stored: it depends on the headword's initial
+		// letter and its aspirated-h evidence. The table maps the supported
+		// gender to a marker that frenchNounPresentation turns into the article
+		// and its gender label (ADR 0102).
+		return nounArticleTable{
+			articles: map[string]string{"masc": "masc", "masculine": "masc", "fem": "fem", "feminine": "fem"},
 		}, true
 	default:
 		return nounArticleTable{}, false
@@ -1029,12 +1134,13 @@ func isSingularNumber(number string) bool { return number == "sing" || number ==
 func isPluralNumber(number string) bool { return number == "plur" || number == "plural" }
 
 // singleGenderArticle renders one resolved gender, resolving the Italian
-// definite article from the lemma.
-func singleGenderArticle(baseLanguage, article, lemma string) string {
+// definite article from the lemma. Only German, Italian and Greek reach it;
+// French is resolved by frenchNounArticle.
+func singleGenderArticle(baseLanguage, article, lemma string) (string, string) {
 	if baseLanguage == "it" {
-		return italianDefiniteArticle(article, lemma)
+		return italianDefiniteArticle(article, lemma), ""
 	}
-	return article
+	return article, ""
 }
 
 func italianDefiniteArticle(gender, lemma string) string {
@@ -1124,10 +1230,10 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		// learner-facing headword, never the internal profile key.
 		displayLemma = input.Headword
 	}
-	article := nounArticle(input.Language, input.UPOS, displayLemma, input.Morphology)
+	article, genderLabel := nounArticle(input.Language, input.UPOS, displayLemma, input.Morphology)
 	note := Note{
 		Key: DedupKeyWithDiscriminator(input.Language, input.CanonicalLemma, input.UPOS, input.LexicalDiscriminator, owner), Identity: CardIdentity(owner, input),
-		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(input.UPOS),
+		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), Gender: escapeField(genderLabel), POS: escapeField(input.UPOS),
 		Plural:         escapeField(nounPlural(input.UPOS, input.Plural)),
 		IPA:            escapeField(strings.TrimSpace(input.IPA)),
 		PrincipalParts: escapeField(strings.TrimSpace(input.PrincipalParts)),
@@ -1148,6 +1254,9 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 			separator = ""
 		}
 		articleLemma = note.Article + separator + note.Lemma
+	}
+	if note.Gender != "" {
+		articleLemma += " (" + note.Gender + ")"
 	}
 	if note.Plural != "" {
 		articleLemma += " (Pl. " + note.Plural + ")"
@@ -1210,12 +1319,12 @@ func RenderTSV(notes []Note, attribution string) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText, n.DictionaryEntry}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Gender, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText, n.DictionaryEntry}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry"}
+var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Gender", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
@@ -1298,7 +1407,8 @@ func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry)
 	entry.Plural = plural
 	entry.IPA = strings.TrimSpace(result.IPA)
 	entry.PrincipalParts = strings.TrimSpace(result.PrincipalParts)
-	if result.Gender == "" && result.Article == "" && plural == "" {
+	hStatus := strings.TrimSpace(result.HStatus)
+	if result.Gender == "" && result.Article == "" && plural == "" && hStatus == "" {
 		return nil
 	}
 	morphology := map[string]string{}
@@ -1313,6 +1423,9 @@ func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry)
 	}
 	if plural != "" {
 		morphology["Plural"] = plural
+	}
+	if hStatus != "" {
+		morphology["HStatus"] = hStatus
 	}
 	encoded, err := json.Marshal(morphology)
 	if err != nil {

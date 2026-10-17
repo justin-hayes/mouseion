@@ -133,22 +133,23 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	serializedFields := strings.Split(fields, "\x1f")
 	assert.Equal(t, stableID("note|"+note.Key), noteID)
-	require.Len(t, serializedFields, 15)
+	require.Len(t, serializedFields, 16)
 	assert.Equal(t, note.Identity, serializedFields[0])
 	assert.Equal(t, note.Text, serializedFields[1])
 	assert.Equal(t, note.Article, serializedFields[2])
 	assert.Equal(t, note.Lemma, serializedFields[3])
-	assert.Equal(t, note.Plural, serializedFields[4])
-	assert.Equal(t, note.IPA, serializedFields[5])
-	assert.Equal(t, note.PrincipalParts, serializedFields[6])
-	assert.Equal(t, note.POS, serializedFields[7])
-	assert.Equal(t, note.Gloss, serializedFields[8])
-	assert.Equal(t, note.English, serializedFields[9])
-	assert.Equal(t, note.EnglishSentence, serializedFields[10])
-	assert.Equal(t, note.BookTitle, serializedFields[11])
-	assert.Equal(t, note.PassageLabel, serializedFields[12])
-	assert.Equal(t, note.PassageText, serializedFields[13])
-	assert.Equal(t, note.DictionaryEntry, serializedFields[14])
+	assert.Equal(t, note.Gender, serializedFields[4])
+	assert.Equal(t, note.Plural, serializedFields[5])
+	assert.Equal(t, note.IPA, serializedFields[6])
+	assert.Equal(t, note.PrincipalParts, serializedFields[7])
+	assert.Equal(t, note.POS, serializedFields[8])
+	assert.Equal(t, note.Gloss, serializedFields[9])
+	assert.Equal(t, note.English, serializedFields[10])
+	assert.Equal(t, note.EnglishSentence, serializedFields[11])
+	assert.Equal(t, note.BookTitle, serializedFields[12])
+	assert.Equal(t, note.PassageLabel, serializedFields[13])
+	assert.Equal(t, note.PassageText, serializedFields[14])
+	assert.Equal(t, note.DictionaryEntry, serializedFields[15])
 	assert.Equal(t, note.Identity, sortField)
 	assert.Equal(t, fieldChecksum(note.Identity), checksum)
 	assert.Contains(t, tags, " Mouseion ")
@@ -156,8 +157,8 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	err = db.QueryRowContext(t.Context(), `SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields)
 	require.NoError(t, err)
 	serializedFields = strings.Split(fields, "\x1f")
-	require.Len(t, serializedFields, 15)
-	assert.Empty(t, serializedFields[10])
+	require.Len(t, serializedFields, 16)
+	assert.Empty(t, serializedFields[11])
 	var distinctSortFields int64
 	err = db.QueryRowContext(t.Context(), `SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields)
 	require.NoError(t, err)
@@ -459,7 +460,7 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 }
 
 func TestAnkiCardSchemaRegressionContract(t *testing.T) {
-	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry"}, fieldNames)
+	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "Gender", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry"}, fieldNames)
 	model := modelMetadata(1, 2)
 	modelFields, ok := model["flds"].([]map[string]any)
 	require.True(t, ok)
@@ -478,6 +479,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	template, ok := templateMap["afmt"].(string)
 	require.True(t, ok)
 	assert.Contains(t, template, `{{#Article}}<span class="article">{{Article}}</span><span class="article-space" data-article="{{Article}}"> </span>{{/Article}}<strong class="headword">{{Lemma}}</strong>`)
+	assert.Contains(t, template, `{{#Gender}} <span class="inflection gender">({{Gender}})</span>{{/Gender}}`)
 	assert.Contains(t, template, `{{#Plural}} <span class="inflection plural">(Pl. {{Plural}})</span>{{/Plural}}`)
 	assert.Contains(t, template, `{{#IPA}} <span class="inflection pronunciation">{{IPA}}</span>{{/IPA}}`)
 	assert.Contains(t, template, `{{#PrincipalParts}} <span class="inflection principal-parts">{{PrincipalParts}}</span>{{/PrincipalParts}}`)
@@ -534,7 +536,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 		err := rows.Scan(&fields, &sortField, &checksum)
 		require.NoError(t, err)
 		serialized := strings.Split(fields, "\x1f")
-		require.Len(t, serialized, 15)
+		require.Len(t, serialized, 16)
 		assert.Equal(t, sortField, serialized[0])
 		assert.Equal(t, fieldChecksum(sortField), checksum)
 		assert.True(t, sortField == first.Identity || sortField == second.Identity, "fields=%q sfld=%q csum=%d", fields, sortField, checksum)
@@ -652,9 +654,9 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
-	require.Len(t, rows[0], 16)
-	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:15], "\x1f"))
-	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][15])
+	require.Len(t, rows[0], 17)
+	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:16], "\x1f"))
+	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][16])
 }
 
 func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
@@ -667,7 +669,7 @@ func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
 	r.Comment = '#'
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
-	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}, rows)
+	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}, rows)
 }
 
 func TestEscapeFieldCannotInjectAnkiFieldSeparator(t *testing.T) {
@@ -768,9 +770,10 @@ func TestRenderFrozenManifestDerivesArticleFromSingularGenderEvidence(t *testing
 }
 
 func TestPresentationVersionAdvancesForArticleCorrection(t *testing.T) {
-	// 5 folds in the elision-aware target anchor (ADR 0102); 6 adds the
-	// hierarchical dictionary-entry block on the card back (ADR 0101).
-	assert.Equal(t, 6, PresentationVersion)
+	// 5 folds in the elision-aware target anchor; 6 adds the hierarchical
+	// dictionary-entry block on the card back (ADR 0101); 7 adds the French
+	// article rule and its gender label (ADR 0102).
+	assert.Equal(t, 7, PresentationVersion)
 }
 
 func TestMakeNoteDoesNotAddGreekArticleToNonNoun(t *testing.T) {
