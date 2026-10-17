@@ -1212,3 +1212,336 @@ def test_greek_linguistic_regression_fixture() -> None:
         (Path(__file__).parent / "testdata" / "greek_stanza_expected.json").read_text()
     )
     assert MessageToDict(artifact, preserving_proto_field_name=True) == expected
+
+
+def test_french_model_configuration_uses_the_combined_package() -> None:
+    config = model_config_for_language("fr")
+
+    assert config.processors == "tokenize,mwt,pos,lemma,depparse"
+    assert config.package == {
+        "tokenize": "combined_nocharlm",
+        "mwt": "combined",
+        "pos": "combined_charlm",
+        "lemma": "combined_nocharlm",
+        "depparse": "combined_charlm",
+    }
+    assert config.model_version == "stanza-1.15.0-fr-combined"
+    assert config.pretrain_dependencies is None
+    assert config.external_model_dependencies == ()
+
+
+def test_french_model_version_identifies_the_combined_package() -> None:
+    producer = Producer(pipeline_factory=lambda _language: lambda _text: None)
+
+    assert producer.model_version("fr") == "stanza-1.15.0-fr-combined"
+
+
+def test_french_pipeline_builds_offline_with_the_combined_package() -> None:
+    config = model_config_for_language("fr")
+
+    with (
+        patch("mouseion_nlp.producer.model_config_for_language", return_value=config),
+        patch("mouseion_nlp.producer.stanza.Pipeline") as pipeline,
+    ):
+        from mouseion_nlp import producer as producer_module
+
+        producer_module._stanza_pipeline.cache_clear()
+        try:
+            Producer().warmup("fr")
+            assert Producer().model_version("fr") == config.model_version
+        finally:
+            producer_module._stanza_pipeline.cache_clear()
+
+    pipeline.assert_called_once_with(
+        lang="fr",
+        model_dir=stanza.resources.common.DEFAULT_MODEL_DIR,
+        processors=config.processors,
+        package=config.package,
+        download_method=DownloadMethod.NONE,
+        verbose=False,
+    )
+
+
+def test_french_multiword_tokens_expand_into_content_words() -> None:
+    """The `du` contraction expands to `de` + `le` on the shared token span."""
+    sentences = [
+        SimpleNamespace(
+            text="Du pain.",
+            tokens=[
+                SimpleNamespace(
+                    words=[
+                        word("de", "de", "ADP", None, 0, 2, id=1, head=3, deprel="det"),
+                        word(
+                            "le",
+                            "le",
+                            "DET",
+                            "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+                            0,
+                            2,
+                            id=2,
+                            head=3,
+                            deprel="det",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "pain",
+                            "pain",
+                            "NOUN",
+                            "Gender=Masc|Number=Sing",
+                            3,
+                            7,
+                            id=3,
+                            head=0,
+                            deprel="root",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word(".", ".", "PUNCT", None, 7, 8, id=4, head=3, deprel="punct")]
+                ),
+            ],
+        )
+    ]
+    producer = Producer(
+        pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=sentences)
+    )
+
+    artifact = producer.analyze("Du pain.", "fr")
+
+    tokens = artifact.sentences[0].tokens
+    assert [token.surface for token in tokens] == ["de", "le", "pain", "."]
+    assert tokens[0].pos == "ADP"
+    assert tokens[1].pos == "DET"
+    assert (tokens[0].location.start_offset, tokens[0].location.end_offset) == (0, 2)
+    assert (tokens[1].location.start_offset, tokens[1].location.end_offset) == (0, 2)
+    assert tokens[0].head == tokens[1].head == 2
+
+
+def test_french_linguistic_regression_fixture() -> None:
+    """Lock the normalized contract to representative French Stanza output."""
+    first = "Je vois l'homme près du marché."
+    second = "Il va au marché avec sa sœur."
+    text = first + " " + second
+    sentences = [
+        SimpleNamespace(
+            text=first,
+            tokens=[
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "Je",
+                            "moi",
+                            "PRON",
+                            "Case=Nom|Emph=No|Number=Sing|Person=1|PronType=Prs",
+                            0,
+                            2,
+                            id=1,
+                            head=2,
+                            deprel="nsubj",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "vois",
+                            "voir",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=1|Tense=Pres|VerbForm=Fin",
+                            3,
+                            7,
+                            id=2,
+                            head=0,
+                            deprel="root",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "l'",
+                            "le",
+                            "DET",
+                            "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+                            8,
+                            10,
+                            id=3,
+                            head=4,
+                            deprel="det",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "homme",
+                            "homme",
+                            "NOUN",
+                            "Gender=Masc|Number=Sing",
+                            10,
+                            15,
+                            id=4,
+                            head=2,
+                            deprel="obj",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word("près", "près", "ADV", None, 16, 20, id=5, head=2, deprel="advmod")]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word("de", "de", "ADP", None, 21, 23, id=6, head=8, deprel="case"),
+                        word(
+                            "le",
+                            "le",
+                            "DET",
+                            "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+                            21,
+                            23,
+                            id=7,
+                            head=8,
+                            deprel="det",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "marché",
+                            "marché",
+                            "NOUN",
+                            "Gender=Masc|Number=Sing",
+                            24,
+                            30,
+                            id=8,
+                            head=5,
+                            deprel="obl:arg",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word(".", ".", "PUNCT", None, 30, 31, id=9, head=2, deprel="punct")]
+                ),
+            ],
+        ),
+        SimpleNamespace(
+            text=second,
+            tokens=[
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "Il",
+                            "lui",
+                            "PRON",
+                            "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+                            32,
+                            34,
+                            id=1,
+                            head=2,
+                            deprel="nsubj",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "va",
+                            "aller",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+                            35,
+                            37,
+                            id=2,
+                            head=0,
+                            deprel="root",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word("à", "à", "ADP", None, 38, 40, id=3, head=5, deprel="case"),
+                        word(
+                            "le",
+                            "le",
+                            "DET",
+                            "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+                            38,
+                            40,
+                            id=4,
+                            head=5,
+                            deprel="det",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "marché",
+                            "marché",
+                            "NOUN",
+                            "Gender=Masc|Number=Sing",
+                            41,
+                            47,
+                            id=5,
+                            head=2,
+                            deprel="obl:arg",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word("avec", "avec", "ADP", None, 48, 52, id=6, head=8, deprel="case")]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "sa",
+                            "son",
+                            "DET",
+                            "Gender=Fem|Number=Sing|Number[psor]=Sing|Person[psor]=3|Poss=Yes|PronType=Prs",
+                            53,
+                            55,
+                            id=7,
+                            head=8,
+                            deprel="det",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "sœur",
+                            "sœur",
+                            "NOUN",
+                            "Gender=Fem|Number=Sing",
+                            56,
+                            60,
+                            id=8,
+                            head=2,
+                            deprel="obl:mod",
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word(".", ".", "PUNCT", None, 60, 61, id=9, head=2, deprel="punct")]
+                ),
+            ],
+        ),
+    ]
+    artifact = Producer(
+        pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=sentences)
+    ).analyze(
+        text,
+        "fr",
+        SourceDocument("french-book", "fixture:french", "French fixture"),
+        run_id="french-regression",
+        analyzed_at=datetime(2026, 8, 25, tzinfo=UTC),
+    )
+
+    expected = json.loads(
+        (Path(__file__).parent / "testdata" / "french_stanza_expected.json").read_text()
+    )
+    assert MessageToDict(artifact, preserving_proto_field_name=True) == expected

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -78,6 +79,47 @@ func TestCachedCapabilityProviderPreservesReadyGreekLabelsWhenDiscoveryFails(t *
 	assert.True(t, stale.Degraded)
 	require.Len(t, stale.Languages, 3)
 	assert.Equal(t, []string{"de", "it", "el"}, []string{stale.Languages[0].Language, stale.Languages[1].Language, stale.Languages[2].Language})
+}
+
+func TestCachedCapabilityProviderPreservesReadyFrenchLabelsWhenDiscoveryFails(t *testing.T) {
+	calls := 0
+	provider := NewCachedCapabilityProvider(capabilityProviderFunc(func(context.Context) (Capabilities, error) {
+		calls++
+		if calls > 1 {
+			return Capabilities{}, errors.New("French model unavailable")
+		}
+		return Capabilities{Languages: []LanguageCapability{
+			{Language: "de", DisplayName: "German", Ready: true},
+			{Language: "it", DisplayName: "Italian", Ready: true},
+			{Language: "el", DisplayName: "Greek", Ready: true},
+			{Language: "fr", DisplayName: "French", Ready: true},
+		}}, nil
+	}), time.Minute)
+	now := time.Date(2026, 8, 24, 0, 0, 0, 0, time.UTC)
+	provider.now = func() time.Time { return now }
+	first, err := provider.GetCapabilities(context.Background())
+	require.NoError(t, err)
+	require.Len(t, first.Languages, 4)
+	assert.Equal(t, "French", first.Languages[3].DisplayName)
+	now = now.Add(2 * time.Minute)
+	stale, err := provider.GetCapabilities(context.Background())
+	require.NoError(t, err)
+	assert.True(t, stale.Degraded)
+	require.Len(t, stale.Languages, 4)
+	assert.Equal(t, []string{"de", "it", "el", "fr"}, []string{stale.Languages[0].Language, stale.Languages[1].Language, stale.Languages[2].Language, stale.Languages[3].Language})
+	assert.Equal(t, "French", stale.Languages[3].DisplayName, "stored French label stays legible")
+}
+
+func TestReadySupportedLanguagesReportsFrenchDisplayName(t *testing.T) {
+	got := ReadySupportedLanguages(Capabilities{Languages: []LanguageCapability{
+		{Language: "de", DisplayName: "German", Ready: true},
+		{Language: "fr", DisplayName: "French", Ready: true},
+		{Language: "it", DisplayName: "Italian", Ready: false},
+	}})
+
+	require.Len(t, got, 2)
+	assert.Equal(t, domain.SupportedLanguage{Language: "de", DisplayName: "German"}, got[0])
+	assert.Equal(t, domain.SupportedLanguage{Language: "fr", DisplayName: "French"}, got[1])
 }
 
 func TestCachedCapabilityProviderSharesInFlightLookup(t *testing.T) {

@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.1.0",
+  "language": "fr",
+  "sentences": [
+    {
+      "text": "Je vois l'homme près du marché.",
+      "tokens": [
+        {"surface":"Je","raw_lemma":"moi","pos":"PRON","canonical_lemma":"moi","morphology":{"Case":"Nom","Person":"1","Number":"Sing","Emph":"No","PronType":"Prs"},"location":{"source_document_id":"french-book","end_offset":"2"},"dependency":"nsubj","head":1},
+        {"surface":"vois","raw_lemma":"voir","pos":"VERB","canonical_lemma":"voir","morphology":{"Tense":"Pres","Mood":"Ind","Person":"1","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"3","end_offset":"7"},"dependency":"root","head":1},
+        {"surface":"l'","raw_lemma":"le","pos":"DET","canonical_lemma":"le","morphology":{"Definite":"Def","Gender":"Masc","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"french-book","start_offset":"8","end_offset":"10"},"dependency":"det","head":3},
+        {"surface":"homme","raw_lemma":"homme","pos":"NOUN","canonical_lemma":"homme","morphology":{"Gender":"Masc","Number":"Sing"},"location":{"source_document_id":"french-book","start_offset":"10","end_offset":"15"},"dependency":"obj","head":1},
+        {"surface":"près","raw_lemma":"près","pos":"ADV","canonical_lemma":"près","location":{"source_document_id":"french-book","start_offset":"16","end_offset":"20"},"dependency":"advmod","head":1},
+        {"surface":"de","raw_lemma":"de","pos":"ADP","canonical_lemma":"de","location":{"source_document_id":"french-book","start_offset":"21","end_offset":"23"},"dependency":"case","head":7},
+        {"surface":"le","raw_lemma":"le","pos":"DET","canonical_lemma":"le","morphology":{"Definite":"Def","Gender":"Masc","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"french-book","start_offset":"21","end_offset":"23"},"dependency":"det","head":7},
+        {"surface":"marché","raw_lemma":"marché","pos":"NOUN","canonical_lemma":"marché","morphology":{"Gender":"Masc","Number":"Sing"},"location":{"source_document_id":"french-book","start_offset":"24","end_offset":"30"},"dependency":"obl:arg","head":4},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"30","end_offset":"31"},"dependency":"punct","head":1}
+      ],
+      "location": {"source_document_id":"french-book","end_offset":"31"}
+    },
+    {
+      "text": "Il va au marché avec sa sœur.",
+      "tokens": [
+        {"surface":"Il","raw_lemma":"lui","pos":"PRON","canonical_lemma":"lui","morphology":{"Case":"Nom","Person":"3","Gender":"Masc","Emph":"No","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"32","end_offset":"34"},"dependency":"nsubj","head":1},
+        {"surface":"va","raw_lemma":"aller","pos":"VERB","canonical_lemma":"aller","morphology":{"Tense":"Pres","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"35","end_offset":"37"},"dependency":"root","head":1},
+        {"surface":"à","raw_lemma":"à","pos":"ADP","canonical_lemma":"à","location":{"source_document_id":"french-book","start_offset":"38","end_offset":"40"},"dependency":"case","head":4},
+        {"surface":"le","raw_lemma":"le","pos":"DET","canonical_lemma":"le","morphology":{"Definite":"Def","Gender":"Masc","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"french-book","start_offset":"38","end_offset":"40"},"dependency":"det","head":4},
+        {"surface":"marché","raw_lemma":"marché","pos":"NOUN","canonical_lemma":"marché","morphology":{"Gender":"Masc","Number":"Sing"},"location":{"source_document_id":"french-book","start_offset":"41","end_offset":"47"},"dependency":"obl:arg","head":1},
+        {"surface":"avec","raw_lemma":"avec","pos":"ADP","canonical_lemma":"avec","location":{"source_document_id":"french-book","start_offset":"48","end_offset":"52"},"dependency":"case","head":7},
+        {"surface":"sa","raw_lemma":"son","pos":"DET","canonical_lemma":"son","morphology":{"Person[psor]":"3","Poss":"Yes","Number[psor]":"Sing","Gender":"Fem","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"53","end_offset":"55"},"dependency":"det","head":7},
+        {"surface":"sœur","raw_lemma":"sœur","pos":"NOUN","canonical_lemma":"sœur","morphology":{"Gender":"Fem","Number":"Sing"},"location":{"source_document_id":"french-book","start_offset":"56","end_offset":"60"},"dependency":"obl:mod","head":1},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"60","end_offset":"61"},"dependency":"punct","head":1}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"32","end_offset":"61"}
+    }
+  ],
+  "source_documents": [{"id":"french-book","source_identifier":"fixture:french","title":"French fixture"}],
+  "analysis": {"run_id":"french-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.15.0"},
+  "normalization_profile": {"name":"unicode-casefold","version":"1.2.0"}
+}
