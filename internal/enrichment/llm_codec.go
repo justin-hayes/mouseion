@@ -10,12 +10,13 @@ import (
 	"io"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 )
 
 var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target language. Return exactly one JSON object using only these eight field names, with no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_targets (an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists), sense_order (an optional array of distinct 0-based integer indices into the frozen candidate_senses list, in best-fit order; return at most %d indices, capped at the display limit of %d; omit it, or return an empty array, when no candidate sense fits), and fallback_gloss (an optional concise English gloss only when no candidate sense fits or the candidate list is empty). Do not include the whole sentence or unrelated words in an alignment. Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_targets must be empty. Do not return HTML or markup in any field.", DefaultMaxSenses, DefaultMaxSenses)
 
-var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only exact evidence_id values from candidate_senses that support the gloss. If no defensible contextual meaning can be given, return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
+var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only the exact short evidence_id handles (for example e1 or e2) shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
 const (
 	maxTranslationResponseBytes = 1 << 20
@@ -131,8 +132,10 @@ type chatMessage struct {
 	Content string `json:"content"`
 }
 
-// TranslationItemID returns the stable opaque identity used by synchronous
-// requests. It contains no owner identity or source text.
+// TranslationItemID returns the stable opaque identity of one translation
+// input. It contains no owner identity or source text. A contextual Gloss
+// request transmits the short ContextualGlossItemHandle in the payload and
+// resolves back to this stable ID when decoding.
 func TranslationItemID(input TranslationRequest) string {
 	// The digest is deliberately opaque and contains no owner or source text.
 	// Hashing the sentence keeps distinct contextual items distinct without
@@ -157,7 +160,8 @@ func (c *TranslationCodec) EncodeRequest(input TranslationRequest) ([]byte, erro
 }
 
 // EncodeBatchRequestForValidation is used by the offline harness to reproduce
-// the exact request body whose echoed item ID is the Batch custom ID.
+// the exact request body for one Batch item. A contextual Gloss request carries
+// the short per-request item handle rather than itemID.
 func (c *TranslationCodec) EncodeBatchRequestForValidation(input TranslationRequest, itemID string) ([]byte, error) {
 	return c.encodeRequest(input, itemID)
 }
@@ -169,6 +173,16 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 	if strings.TrimSpace(input.Language) == "" || strings.TrimSpace(translationTargetLanguage(input)) == "" || strings.TrimSpace(input.CanonicalLemma) == "" || strings.TrimSpace(input.UPOS) == "" || strings.TrimSpace(itemID) == "" {
 		return nil, errors.New("encode LLM translation input: required identity or language field is empty")
 	}
+	candidateSenses := CloneLexicalSenses(input.CandidateSenses)
+	if input.RequireContextualGloss {
+		handles := newContextualGlossHandles(input)
+		itemID = ContextualGlossItemHandle
+		for i := range candidateSenses {
+			if handle, ok := handles.toHandle[candidateSenses[i].EvidenceID]; ok {
+				candidateSenses[i].EvidenceID = handle
+			}
+		}
+	}
 	privateInput, err := json.Marshal(struct {
 		ItemID          string         `json:"item_id"`
 		Language        string         `json:"language"`
@@ -178,7 +192,7 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 		TargetWord      string         `json:"target_word,omitempty"`
 		ExampleSentence string         `json:"example_sentence,omitempty"`
 		CandidateSenses []LexicalSense `json:"candidate_senses,omitempty"`
-	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, CloneLexicalSenses(input.CandidateSenses)})
+	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, candidateSenses})
 	if err != nil {
 		return nil, fmt.Errorf("encode LLM translation input: %w", err)
 	}
@@ -223,6 +237,69 @@ var contextualGlossPayloadFields = []string{
 // contextual Gloss request transmits.
 func ContextualGlossPayloadFields() []string {
 	return slices.Clone(contextualGlossPayloadFields)
+}
+
+// ContextualGlossItemHandle is the short handle a contextual Gloss payload
+// transmits as item_id in place of the long stable translation item ID. Every
+// contextual Gloss request carries exactly one item, so the handle is the same
+// short token for each request; the decoder still rejects an echoed value that
+// does not match the frozen request.
+const ContextualGlossItemHandle = "i1"
+
+// evidenceHandlePrefix prefixes each citable candidate sense's short handle.
+const evidenceHandlePrefix = "e"
+
+// contextualGlossHandles is the per-request mapping between the stable evidence
+// identifiers a contextual Gloss request freezes and the short handles the
+// provider sees. The transmitted payload carries only the handles; decoding
+// maps an echoed handle back to its stable identifier and rejects a handle the
+// request never issued.
+type contextualGlossHandles struct {
+	toHandle   map[string]string
+	toEvidence map[string]string
+}
+
+// newContextualGlossHandles assigns each citable candidate sense a short
+// evidence handle in candidate order (e1, e2, …). A sense without a stable
+// evidence ID cannot be cited and receives no handle.
+func newContextualGlossHandles(input TranslationRequest) contextualGlossHandles {
+	handles := contextualGlossHandles{
+		toHandle:   make(map[string]string, len(input.CandidateSenses)),
+		toEvidence: make(map[string]string, len(input.CandidateSenses)),
+	}
+	for _, sense := range input.CandidateSenses {
+		if sense.EvidenceID == "" {
+			continue
+		}
+		if _, assigned := handles.toHandle[sense.EvidenceID]; assigned {
+			continue
+		}
+		handle := evidenceHandlePrefix + strconv.Itoa(len(handles.toHandle)+1)
+		handles.toHandle[sense.EvidenceID] = handle
+		handles.toEvidence[handle] = sense.EvidenceID
+	}
+	return handles
+}
+
+// mapContextualEvidenceHandles replaces the short handles a contextual Gloss
+// response echoed with the stable evidence IDs the request froze. Every other
+// response already carries stable identifiers, so it is returned unchanged.
+func mapContextualEvidenceHandles(input TranslationRequest, response *TranslationResponse) error {
+	if !input.RequireContextualGloss {
+		return nil
+	}
+	handles := newContextualGlossHandles(input)
+	for i, handle := range response.EvidenceIDs {
+		if handle == "" {
+			return errors.New("decode LLM translation: empty evidence ID")
+		}
+		stable, ok := handles.toEvidence[handle]
+		if !ok {
+			return errors.New("decode LLM translation: unknown evidence ID")
+		}
+		response.EvidenceIDs[i] = stable
+	}
+	return nil
 }
 
 // DecodeResponse applies the shared Chat Completions and translation quality
@@ -283,6 +360,11 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	result, err := decodeTranslationFields(decoded.Choices[0].Message.Content)
 	if err != nil {
 		return TranslationResponse{}, TranslationUsage{}, err
+	}
+	if input.RequireContextualGloss {
+		// A contextual Gloss request transmits the short per-request item
+		// handle, not the stable item ID, so the echo is validated against it.
+		expectedItemID = ContextualGlossItemHandle
 	}
 	if err := validateTranslationIdentity(input, expectedItemID, result); err != nil {
 		return TranslationResponse{}, TranslationUsage{}, err
@@ -376,6 +458,9 @@ func buildTranslationResponse(input TranslationRequest, result decodedTranslatio
 	if err := decodeMeaningFields(result, &response); err != nil {
 		return TranslationResponse{}, err
 	}
+	if err := mapContextualEvidenceHandles(input, &response); err != nil {
+		return TranslationResponse{}, err
+	}
 	if order, warning := decodeSenseOrder(result.SenseOrder); warning != "" {
 		response.Warnings = append(response.Warnings, warning)
 	} else {
@@ -385,6 +470,11 @@ func buildTranslationResponse(input TranslationRequest, result decodedTranslatio
 		response.Warnings = append(response.Warnings, warning)
 	} else {
 		response.FallbackGloss = fallback
+	}
+	if input.RequireContextualGloss {
+		// The transmitted payload carried a short per-request handle in place
+		// of the stable item ID; the decoded response reports the stable ID.
+		response.ItemID = TranslationItemID(input)
 	}
 	return NormalizeTranslationResponse(input, response)
 }

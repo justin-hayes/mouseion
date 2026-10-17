@@ -248,7 +248,7 @@ func TestConfiguredLLMProviderRetainsSharedCacheIdentity(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, codec.ProviderName(), provider.Name())
 	assert.Equal(t, codec.ProviderVersion(), provider.Version())
-	assert.Equal(t, "gpt-test/translation-v14-structured-target-alignment", codec.ContextualGlossProviderVersion())
+	assert.Equal(t, "gpt-test/translation-v15-short-handles", codec.ContextualGlossProviderVersion())
 	assert.NotEqual(t, codec.ProviderVersion(), codec.ContextualGlossProviderVersion())
 }
 

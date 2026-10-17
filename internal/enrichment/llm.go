@@ -19,7 +19,7 @@ const (
 	defaultLLMTimeout            = 30 * time.Second
 	defaultReasoningEffort       = "low"
 	llmPromptVersion             = "translation-v12-structured-target-alignment"
-	contextualGlossPromptVersion = "translation-v14-structured-target-alignment"
+	contextualGlossPromptVersion = "translation-v15-short-handles"
 	llmReasoningEffortEnv        = "MOUSEION_LLM_REASONING_EFFORT"
 	llmReasoningSupportEnv       = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )

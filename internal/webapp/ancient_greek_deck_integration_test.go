@@ -40,6 +40,7 @@ import (
 // vocabulary Known.
 func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "ancient-greek-deck-integration-secret-0123456789")
+	recordAncientGreekAssessmentForTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -202,6 +203,18 @@ func (greekDeckLexicon) Lookup(_ context.Context, request enrichment.LexicalLook
 	default:
 		return enrichment.LexicalEntry{}, false, nil
 	}
+}
+
+// recordAncientGreekAssessmentForTest simulates Justin's #2125 human
+// checkpoint: the short-handle contextual Gloss payload has been reviewed and
+// recorded for personal use, so the provider-assessment gate admits it. The
+// compiled assessment deliberately stays unrecorded (see
+// enrichment.AncientGreekProviderAssessment) so production fails closed.
+func recordAncientGreekAssessmentForTest(t *testing.T) {
+	t.Helper()
+	previous := enrichment.AncientGreekProviderAssessment
+	enrichment.AncientGreekProviderAssessment.Recorded = true
+	t.Cleanup(func() { enrichment.AncientGreekProviderAssessment = previous })
 }
 
 // startGreekDeckWorkers wires the full durable prepared-deck pipeline with the

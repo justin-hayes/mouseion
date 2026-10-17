@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAncientGreekProviderAssessmentIsRecorded(t *testing.T) {
+func TestAncientGreekProviderAssessmentAwaitsTheShortHandleReview(t *testing.T) {
 	assessment := AncientGreekProviderAssessment
-	assert.True(t, assessment.Recorded, "the reviewed personal-use disposition is recorded on #2110")
+	assert.False(t, assessment.Recorded, "the short-handle payload awaits Justin's review on #2125")
 	assert.Equal(t, "grc", assessment.Language)
 	assert.Equal(t, "openai-compatible", assessment.Provider)
 	assert.Equal(t, contextualGlossPromptVersion, assessment.PromptVersion)
-	assert.Equal(t, "#2110", assessment.Ticket)
+	assert.Equal(t, "#2125", assessment.Ticket)
 	assert.Equal(t, ContextualGlossPayloadFields(), assessment.Fields, "the recorded field set is the codec's contextual Gloss contract")
 }
 
@@ -53,40 +53,57 @@ func TestProviderAssessmentGateAllowsOtherLanguages(t *testing.T) {
 	require.NoError(t, AllowExternalProviderCall("el", "anything", "anything", []string{"anything"}))
 }
 
-func TestProviderAssessmentGateAllowsTheRecordedContract(t *testing.T) {
-	require.NoError(t, AllowExternalProviderCall(AncientGreekProviderAssessment.Language, AncientGreekProviderAssessment.Provider, AncientGreekProviderAssessment.PromptVersion, ContextualGlossPayloadFields()))
+// TestProviderAssessmentGateRejectsUntilTheNewContractIsRecorded covers the
+// #2125 human checkpoint: Greek preparation fails closed while the recorded
+// assessment still describes the superseded contract.
+func TestProviderAssessmentGateRejectsUntilTheNewContractIsRecorded(t *testing.T) {
+	err := AllowExternalProviderCall("grc", AncientGreekProviderAssessment.Provider, contextualGlossPromptVersion, ContextualGlossPayloadFields())
+	require.ErrorIs(t, err, ErrProviderAssessmentNotRecorded)
+	assert.Contains(t, err.Error(), "#2125")
+
+	// The assessment that Justin will record for the short-handle contract
+	// admits the new contract.
+	rerecorded := AncientGreekProviderAssessment
+	rerecorded.Recorded = true
+	require.NoError(t, rerecorded.Gate("grc", rerecorded.Provider, contextualGlossPromptVersion, ContextualGlossPayloadFields()))
+
+	// Even once recorded, the superseded prompt contract stays rejected.
+	err = rerecorded.Gate("grc", rerecorded.Provider, "translation-v14-structured-target-alignment", ContextualGlossPayloadFields())
+	require.ErrorIs(t, err, ErrProviderAssessmentNotRecorded)
 }
 
 func TestProviderAssessmentGateFailsClosedWhenUnrecorded(t *testing.T) {
 	unrecorded := AncientGreekProviderAssessment
 	unrecorded.Recorded = false
-	err := unrecorded.Gate("grc", AncientGreekProviderAssessment.Provider, AncientGreekProviderAssessment.PromptVersion, ContextualGlossPayloadFields())
+	err := unrecorded.Gate("grc", unrecorded.Provider, unrecorded.PromptVersion, ContextualGlossPayloadFields())
 	require.ErrorIs(t, err, ErrProviderAssessmentNotRecorded)
-	assert.Contains(t, err.Error(), "#2110")
+	assert.Contains(t, err.Error(), "#2125")
 }
 
 func TestProviderAssessmentGateFailsClosedOnContractDrift(t *testing.T) {
-	assessment := AncientGreekProviderAssessment
+	recorded := AncientGreekProviderAssessment
+	recorded.Recorded = true
 	for _, tc := range []struct {
 		name, provider, prompt string
 		fields                 []string
 	}{
-		{name: "provider", provider: "self-hosted", prompt: assessment.PromptVersion, fields: ContextualGlossPayloadFields()},
-		{name: "prompt", provider: assessment.Provider, prompt: "translation-v15", fields: ContextualGlossPayloadFields()},
-		{name: "fields", provider: assessment.Provider, prompt: assessment.PromptVersion, fields: append(ContextualGlossPayloadFields(), "learner_id")},
+		{name: "provider", provider: "self-hosted", prompt: recorded.PromptVersion, fields: ContextualGlossPayloadFields()},
+		{name: "prompt", provider: recorded.Provider, prompt: "translation-v16", fields: ContextualGlossPayloadFields()},
+		{name: "fields", provider: recorded.Provider, prompt: recorded.PromptVersion, fields: append(ContextualGlossPayloadFields(), "learner_id")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := assessment.Gate("grc", tc.provider, tc.prompt, tc.fields)
+			err := recorded.Gate("grc", tc.provider, tc.prompt, tc.fields)
 			assert.ErrorIs(t, err, ErrProviderAssessmentNotRecorded)
 		})
 	}
 }
 
 func TestAllowExternalProviderCallUsesTheRecordedAssessment(t *testing.T) {
-	err := AllowExternalProviderCall("grc", AncientGreekProviderAssessment.Provider, AncientGreekProviderAssessment.PromptVersion, ContextualGlossPayloadFields())
-	require.NotErrorIs(t, err, ErrProviderAssessmentNotRecorded)
+	recorded := AncientGreekProviderAssessment
+	recorded.Recorded = true
+	require.NoError(t, recorded.Gate("grc", recorded.Provider, recorded.PromptVersion, recorded.Fields))
 
-	unrecorded := AncientGreekProviderAssessment
+	unrecorded := recorded
 	unrecorded.Recorded = false
 	assert.ErrorIs(t, unrecorded.Gate("grc", unrecorded.Provider, unrecorded.PromptVersion, ContextualGlossPayloadFields()), ErrProviderAssessmentNotRecorded)
 }

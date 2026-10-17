@@ -56,7 +56,7 @@ func TestMultilingualAlignmentProviderFixturesPreserveTheEnglishCardContract(t *
 				ContextOnly    bool     `json:"context_only"`
 				Unresolved     string   `json:"unresolved_reason"`
 			}{
-				ItemID: enrichment.TranslationItemID(request), SourceLanguage: fixture.Language, TargetLanguage: "en",
+				ItemID: enrichment.ContextualGlossItemHandle, SourceLanguage: fixture.Language, TargetLanguage: "en",
 				Translation: fixture.Translation, Sentence: fixture.SentenceTranslation, Targets: fixture.SentenceTargets,
 				Gloss: fixture.Gloss, EvidenceIDs: []string{}, ContextOnly: true, Unresolved: "",
 			})

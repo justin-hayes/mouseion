@@ -73,6 +73,12 @@ type TranslationRequest struct {
 	RequireContextualGloss                                                      bool `json:"-"`
 }
 type TranslationResponse struct {
+	// ItemID is the stable translation item identity a contextual Gloss
+	// response resolves back to. The transmitted payload carries a short
+	// per-request handle instead, so the field is empty for responses that were
+	// never transmitted under that contract. It is never part of the provider
+	// wire format.
+	ItemID                     string   `json:"-"`
 	Translation                string   `json:"translation"`
 	SentenceTranslation        string   `json:"sentence_translation"`
 	SentenceTranslationTargets []string `json:"sentence_translation_targets"`
