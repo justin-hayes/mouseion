@@ -180,6 +180,20 @@ correspondence can be discontinuous; an uncertain one leaves the translation
 unemphasised.
 _Avoid_: English bolding (the presentation of an alignment, not the alignment).
 
+**Passage context**:
+The labelled English of the cited section or sections that contain a
+representative sentence, from a source translation. It is explicitly not a
+translation of the sentence and carries no English target alignment.
+_Avoid_: sentence translation, wider translation.
+
+**Evidence-assisted provider pass**:
+The optional Ancient Greek preparation layer that sends the representative
+sentence, its passage context and its meaning evidence to the provider. Its
+contextual Gloss, sentence translation and English target alignment are
+provider-proposed and labelled as such. It only adds to a card built from source
+evidence; a failed or abstaining answer leaves that card as it was.
+_Avoid_: LLM card, fallback, provider path.
+
 **Presentation version**:
 Identifies the card-presentation rules a deck was built with, so a deck that
 presents an older version can be recognised and rebuilt.
@@ -608,8 +622,9 @@ reject) and the gradual score (ranking among accepted candidates).
 _Avoid_: sentence score (fine in prose), readability.
 
 **Dictionary index**:
-The local, read-only collection of Wiktionary-derived entries used as meaning
-evidence and dictionary-form evidence for cards. It is not learner or Book state.
+The local, read-only collection of dictionary entries (Wiktionary-derived, and
+LSJ-derived for Ancient Greek) used as meaning evidence and dictionary-form
+evidence for cards. It is not learner or Book state.
 _Avoid_: dictionary database, lexicon service.
 
 **Sense**:
@@ -633,10 +648,23 @@ for a card's contextual Gloss rather than necessarily displayed verbatim.
 _Avoid_: local gloss, definition.
 
 **Meaning evidence**:
-Source-attributed Wiktionary senses relevant to a target in its representative
-sentence. Meaning evidence informs the contextual Gloss without dictating its
-wording; the sentence itself may support a context-only gloss when no sense fits.
+Source-attributed dictionary senses relevant to a target in its representative
+sentence: Wiktionary for modern languages, LSJ for Ancient Greek. Meaning
+evidence informs the contextual Gloss without dictating its wording; the
+sentence itself may support a context-only gloss when no sense fits.
 _Avoid_: card Gloss, undifferentiated definitions.
+
+**Dictionary entry display**:
+The whole sense hierarchy of the target's dictionary entry, in source order,
+shown on a card when no contextual Gloss is supported. It abstains from
+choosing a sense rather than ranking or truncating the entry.
+_Avoid_: definition, first sense, Gloss.
+
+**Sense summary**:
+A provider-written, context-free condensation of one dictionary entry, each part
+citing the entry's senses. It is shown above the entry it condenses, never
+instead of it, and never chooses a sense for the representative sentence.
+_Avoid_: Gloss, contextual meaning, definition.
 
 **Fallback gloss**:
 A historical label for a card's English meaning cue supplied when dictionary

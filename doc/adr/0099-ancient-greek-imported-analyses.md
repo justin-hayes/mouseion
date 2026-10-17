@@ -95,3 +95,6 @@ analysis.
 - [ADR 0087: Vocabulary counts come only from selection](0087-vocabulary-counts-come-only-from-selection.md)
   — the Browse projection runs `selection.Project`; the discriminator is part of
   the projected identity.
+- [ADR 0101: Ancient Greek cards from source evidence](0101-ancient-greek-cards-from-source-evidence.md)
+  — how cards are prepared from the imported analysis; this ADR is unchanged by
+  it.

@@ -1,6 +1,6 @@
 # ADR 0080: LLM-proposed English target alignment on recognition cards
 
-Status: **Accepted (implemented)** · Date: 2026-09-28 · Author: Justin + OpenCode
+Status: **Accepted (implemented); amended for Ancient Greek by [ADR 0101](0101-ancient-greek-cards-from-source-evidence.md)** · Date: 2026-09-28 · Author: Justin + OpenCode
 
 Amends the distributed-correspondence fallback of
 [ADR 0029](0029-recognition-card-sentence-presentation.md). Preserves its
