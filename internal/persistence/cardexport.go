@@ -31,27 +31,61 @@ func listCorpusSentences(ctx context.Context, q sqlcgen.DBTX, owner, corpusID st
 		return nil, err
 	}
 	for _, row := range rows {
-		sentence, ok := result[row.SentenceOrdinal]
-		if !ok {
-			sentence = analyzer.Sentence{Text: row.SentenceText, Tokens: make([]analyzer.Token, 0)}
-		}
-		if row.TokenOrdinal >= 0 {
-			head, err := checked.Uint32FromInt64(row.Head)
-			if err != nil {
-				return nil, fmt.Errorf("decode head ordinal for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
-			}
-			morphology := make(map[string]string)
-			if err := json.Unmarshal(row.Morphology, &morphology); err != nil {
-				return nil, fmt.Errorf("decode morphology for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
-			}
-			sentence.Tokens = append(sentence.Tokens, analyzer.Token{
-				Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
-				UPOS: row.Upos, Dependency: row.Dependency, Head: head, Morphology: morphology,
-			})
+		sentence, err := corpusSentenceFromRow(result, row)
+		if err != nil {
+			return nil, err
 		}
 		result[row.SentenceOrdinal] = sentence
 	}
 	return result, nil
+}
+
+// corpusSentenceFromRow folds one sentence/token row into the accumulating
+// result, keeping the sentence's own start offset and each token's location.
+func corpusSentenceFromRow(result map[int64]analyzer.Sentence, row sqlcgen.ListCorpusSentencesRow) (analyzer.Sentence, error) {
+	sentence, ok := result[row.SentenceOrdinal]
+	if !ok {
+		sentenceStartOffset, err := checked.Uint64FromInt64(row.StartOffset)
+		if err != nil {
+			return analyzer.Sentence{}, fmt.Errorf("decode sentence start offset for sentence %d: %w", row.SentenceOrdinal, err)
+		}
+		sentence = analyzer.Sentence{Text: row.SentenceText, Tokens: make([]analyzer.Token, 0), Location: analyzer.SourceLocation{StartOffset: sentenceStartOffset}}
+	}
+	if row.TokenOrdinal < 0 {
+		return sentence, nil
+	}
+	token, err := corpusTokenFromRow(row)
+	if err != nil {
+		return analyzer.Sentence{}, err
+	}
+	sentence.Tokens = append(sentence.Tokens, token)
+	return sentence, nil
+}
+
+// corpusTokenFromRow decodes one persisted token, including the document
+// absolute offsets the card-export anchor uses.
+func corpusTokenFromRow(row sqlcgen.ListCorpusSentencesRow) (analyzer.Token, error) {
+	head, err := checked.Uint32FromInt64(row.Head)
+	if err != nil {
+		return analyzer.Token{}, fmt.Errorf("decode head ordinal for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
+	}
+	startOffset, err := checked.Uint64FromInt64(row.TokenStartOffset)
+	if err != nil {
+		return analyzer.Token{}, fmt.Errorf("decode start offset for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
+	}
+	endOffset, err := checked.Uint64FromInt64(row.TokenEndOffset)
+	if err != nil {
+		return analyzer.Token{}, fmt.Errorf("decode end offset for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
+	}
+	morphology := make(map[string]string)
+	if err := json.Unmarshal(row.Morphology, &morphology); err != nil {
+		return analyzer.Token{}, fmt.Errorf("decode morphology for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
+	}
+	return analyzer.Token{
+		Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
+		UPOS: row.Upos, Dependency: row.Dependency, Head: head, Morphology: morphology,
+		Location: analyzer.SourceLocation{StartOffset: startOffset, EndOffset: endOffset},
+	}, nil
 }
 
 func listSelectionCandidatesForBook(ctx context.Context, q sqlcgen.DBTX, owner, bookID string) ([]domain.SelectionCandidate, error) {

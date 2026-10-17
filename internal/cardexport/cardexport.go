@@ -41,6 +41,7 @@ type Entry struct {
 	Morphology, SourceDocument, Notes                                                 string
 	CandidateSenses                                                                   []enrichment.LexicalSense
 	SentenceTokens                                                                    []analyzer.Token
+	SentenceStartOffset                                                               uint64
 	FirstEncounter                                                                    int64
 	fallbackGlossApplied                                                              bool
 }
@@ -122,6 +123,9 @@ type SentenceEvidence struct {
 	SentenceOrdinal  int64
 	Quality          SentenceQuality
 	Tokens           []analyzer.Token
+	// SentenceStartOffset is the persisted sentence's document-absolute start
+	// offset in Unicode code points, used to anchor a target on token offsets.
+	SentenceStartOffset uint64
 }
 
 type lexicalResolver struct {
@@ -178,14 +182,15 @@ func CardIdentity(owner string, input RenderInput) string {
 }
 
 func BoldTarget(sentence, target string) (string, error) {
-	return boldTargets(sentence, []string{target})
+	return boldTargets(sentence, []string{target}, nil, 0)
 }
 
 // boldTargets renders sentence with each target bolded at its first
-// case-insensitive, word-bounded occurrence. Targets that do not occur in the
-// sentence, or that overlap an earlier matched span, are ignored. At least one
-// target must match or ErrInvalidInput is returned.
-func boldTargets(sentence string, targets []string) (string, error) {
+// case-insensitive occurrence. Targets that do not occur in the sentence, or
+// that overlap an earlier matched span, are ignored. At least one target must
+// match or ErrInvalidInput is returned. The persisted tokens and sentence start
+// offset select the fallback anchor for a target no word-bounded match reaches.
+func boldTargets(sentence string, targets []string, tokens []analyzer.Token, sentenceStartOffset uint64) (string, error) {
 	if strings.TrimSpace(sentence) == "" {
 		return "", ErrInvalidInput
 	}
@@ -196,7 +201,7 @@ func boldTargets(sentence string, targets []string) (string, error) {
 		if target == "" {
 			continue
 		}
-		start, end, ok := textmatch.FoldedWordSpan(sentence, target)
+		start, end, ok := targetSpan(sentence, target, tokens, sentenceStartOffset)
 		if !ok {
 			continue
 		}
@@ -391,14 +396,14 @@ const (
 // ScoreSentenceQuality applies a deliberately small, explainable export gate
 // using only sentence text, the selected target form, and source location.
 func ScoreSentenceQuality(sentence, target string, firstEncounter int64) SentenceQuality {
-	return scoreSentenceQuality("", sentence, target, firstEncounter, nil)
+	return scoreSentenceQuality("", sentence, target, firstEncounter, nil, 0)
 }
 
-func scoreSentenceQuality(language, sentence, target string, firstEncounter int64, tokens []analyzer.Token) SentenceQuality {
+func scoreSentenceQuality(language, sentence, target string, firstEncounter int64, tokens []analyzer.Token, sentenceStartOffset uint64) SentenceQuality {
 	text := strings.TrimSpace(sentence)
 	quality := SentenceQuality{Reasons: make([]string, 0, 8)}
 	scoreLengthQuality(&quality, text)
-	scoreTargetQuality(&quality, text, target)
+	scoreTargetQuality(&quality, text, target, tokens, sentenceStartOffset)
 	scoreSourceLocationQuality(&quality, firstEncounter)
 	scoreBoundaryQuality(&quality, language, text)
 	scoreStructuralNoiseQuality(&quality, text)
@@ -438,8 +443,8 @@ func scoreLengthQuality(quality *SentenceQuality, text string) {
 }
 
 // scoreTargetQuality requires the selected target to appear as a whole word.
-func scoreTargetQuality(quality *SentenceQuality, text, target string) {
-	if targetIndex(text, strings.TrimSpace(target)) < 0 {
+func scoreTargetQuality(quality *SentenceQuality, text, target string, tokens []analyzer.Token, sentenceStartOffset uint64) {
+	if targetIndex(text, strings.TrimSpace(target), tokens, sentenceStartOffset) < 0 {
 		quality.reject("target not present as a word")
 		return
 	}
@@ -688,7 +693,7 @@ func rankSentenceEvidence(language string, refs []sentenceReference, forms []str
 // target, quality and tokens. It reports false when a persisted run cannot
 // resolve the reference's sentence.
 func sentenceEvidenceForReference(language string, ref sentenceReference, forms []string, persisted map[int64]analyzer.Sentence) (rankedSentenceEvidence, bool) {
-	text, tokens, ok := persistedSentence(persisted, ref)
+	text, tokens, sentenceStartOffset, ok := persistedSentence(persisted, ref)
 	if !ok {
 		return rankedSentenceEvidence{}, false
 	}
@@ -696,41 +701,41 @@ func sentenceEvidenceForReference(language string, ref sentenceReference, forms 
 	if !valid {
 		location = -1
 	}
-	target := matchingSentenceTarget(text, forms)
-	quality := scoreSentenceQuality(language, text, target, location, tokens)
+	target := matchingSentenceTarget(text, forms, tokens, sentenceStartOffset)
+	quality := scoreSentenceQuality(language, text, target, location, tokens, sentenceStartOffset)
 	var evidenceTokens []analyzer.Token
 	if persisted != nil {
 		evidenceTokens = append([]analyzer.Token{}, tokens...)
 	}
 	return rankedSentenceEvidence{
-		evidence: SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens},
+		evidence: SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens, SentenceStartOffset: sentenceStartOffset},
 		sentence: ref.SentenceIndex,
 	}, true
 }
 
 // persistedSentence resolves a reference against the persisted corpus. Without
-// a persisted run it returns the reference's own text and no tokens; with one,
-// an unresolvable reference reports false.
-func persistedSentence(persisted map[int64]analyzer.Sentence, ref sentenceReference) (string, []analyzer.Token, bool) {
+// a persisted run it returns the reference's own text, no tokens and no start
+// offset; with one, an unresolvable reference reports false.
+func persistedSentence(persisted map[int64]analyzer.Sentence, ref sentenceReference) (string, []analyzer.Token, uint64, bool) {
 	if persisted == nil {
-		return ref.Text, nil, true
+		return ref.Text, nil, 0, true
 	}
 	sentence, ok := persisted[int64(ref.SentenceIndex)]
 	if !ok {
-		return "", nil, false
+		return "", nil, 0, false
 	}
 	if sentence.Tokens == nil {
-		return sentence.Text, []analyzer.Token{}, true
+		return sentence.Text, []analyzer.Token{}, sentence.Location.StartOffset, true
 	}
-	return sentence.Text, sentence.Tokens, true
+	return sentence.Text, sentence.Tokens, sentence.Location.StartOffset, true
 }
 
 // matchingSentenceTarget returns the first observed form that appears as a
-// whole word in text, or the empty string when none does.
-func matchingSentenceTarget(text string, forms []string) string {
+// whole word or a persisted token in text, or the empty string when none does.
+func matchingSentenceTarget(text string, forms []string, tokens []analyzer.Token, sentenceStartOffset uint64) string {
 	for _, form := range forms {
 		cleanForm := textmatch.CleanLexicalSurface(form)
-		if targetIndex(text, cleanForm) >= 0 {
+		if targetIndex(text, cleanForm, tokens, sentenceStartOffset) >= 0 {
 			return cleanForm
 		}
 	}
@@ -778,13 +783,71 @@ func structuralHeading(text, marker string) bool {
 	return rest == "" || strings.ContainsRune(":.-–—0123456789", []rune(rest)[0])
 }
 
-func targetIndex(sentence, target string) int {
+func targetIndex(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) int {
 	target = textmatch.CleanLexicalSurface(target)
-	start, _, ok := textmatch.FoldedWordSpan(sentence, target)
+	start, _, ok := targetSpan(sentence, target, tokens, sentenceStartOffset)
 	if ok {
 		return start
 	}
 	return -1
+}
+
+// targetSpan returns the byte span of a cleaned target within sentence. The
+// unchanged word-bounded matcher runs first, so a target it already anchors
+// keeps its span; only when it finds none does the persisted token anchor run.
+func targetSpan(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) (int, int, bool) {
+	if start, end, ok := textmatch.FoldedWordSpan(sentence, target); ok {
+		return start, end, true
+	}
+	return tokenAnchorSpan(sentence, target, tokens, sentenceStartOffset)
+}
+
+// tokenAnchorSpan anchors target on the first persisted token, in sentence
+// order, whose cleaned surface case-folds equal to it. Token offsets are
+// document-absolute Unicode code points; the span is taken relative to the
+// sentence's persisted start offset and converted to byte offsets in the
+// sentence text. An elided or inversion-hyphen target (l'homme, d'accord,
+// va-t-il) has no word boundary for the word-bounded matcher, but its own token
+// does carry the exact span (ADR 0102).
+//
+// The span is accepted only when the sentence text at that span, cleaned the
+// same way, case-folds equal to the target. That check rejects stale or
+// inconsistent offsets and multiword-token parts, which carry the whole
+// contraction's span.
+func tokenAnchorSpan(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) (int, int, bool) {
+	if target == "" || len(tokens) == 0 {
+		return 0, 0, false
+	}
+	for _, token := range tokens {
+		if !strings.EqualFold(textmatch.CleanLexicalSurface(token.Surface), target) {
+			continue
+		}
+		start, end, ok := tokenSpanBytes(sentence, token.Location.StartOffset, token.Location.EndOffset, sentenceStartOffset)
+		if !ok || !strings.EqualFold(textmatch.CleanLexicalSurface(sentence[start:end]), target) {
+			return 0, 0, false
+		}
+		return start, end, true
+	}
+	return 0, 0, false
+}
+
+// tokenSpanBytes converts a token's document-absolute code-point span to byte
+// offsets within sentence, relative to sentenceStartOffset. It reports false
+// when the offsets do not describe a span inside the sentence text.
+func tokenSpanBytes(sentence string, start, end, sentenceStartOffset uint64) (int, int, bool) {
+	if start < sentenceStartOffset || end < start {
+		return 0, 0, false
+	}
+	byteOffsets := make([]int, 0, utf8.RuneCountInString(sentence)+1)
+	for offset := range sentence {
+		byteOffsets = append(byteOffsets, offset)
+	}
+	byteOffsets = append(byteOffsets, len(sentence))
+	relativeStart, relativeEnd := start-sentenceStartOffset, end-sentenceStartOffset
+	if relativeStart >= uint64(len(byteOffsets)) || relativeEnd >= uint64(len(byteOffsets)) {
+		return 0, 0, false
+	}
+	return byteOffsets[relativeStart], byteOffsets[relativeEnd], true
 }
 
 func nounArticle(language, upos, lemma, morphology string) string {
@@ -1042,7 +1105,7 @@ func testedTarget(targetWord, canonicalLemma string) string {
 
 func makeNote(owner string, input RenderInput) (Note, error) {
 	target := testedRenderTarget(input)
-	front, err := boldTargets(input.Sentence, targetSurfaces(target, input.SentenceTokens))
+	front, err := boldTargets(input.Sentence, targetSurfaces(target, input.SentenceTokens), input.SentenceTokens, input.SentenceStartOffset)
 	if err != nil {
 		return Note{}, err
 	}
@@ -1240,11 +1303,13 @@ func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, pe
 		entry.FirstEncounter = evidence.FirstEncounter
 		entry.SentenceOrdinal = evidence.SentenceOrdinal
 		entry.SentenceTokens = evidence.Tokens
+		entry.SentenceStartOffset = evidence.SentenceStartOffset
 	} else {
-		entry.TargetWord = targetWord(entry.Sentence, candidate)
+		entry.TargetWord = targetWord(entry.Sentence, candidate, nil, 0)
 		if persisted != nil {
 			// An unavailable persisted sentence is not eligible for syntax scoring.
 			entry.SentenceTokens = []analyzer.Token{}
+			entry.SentenceStartOffset = 0
 		}
 	}
 }
@@ -1262,7 +1327,7 @@ func newManifest(owner, deckName string, entries []Entry) manifest {
 		decisionEntry := cloneEntry(entry)
 		clearExternalFields(&decisionEntry)
 		decisionEntry.OwnerID = ""
-		quality := scoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens)
+		quality := scoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens, entry.SentenceStartOffset)
 		if !quality.Accepted {
 			manifest.omitted = append(manifest.omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)})
 			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
@@ -1536,10 +1601,10 @@ func selectedSenseGloss(input *RenderInput, selection []int) string {
 	return enrichment.RenderGloss(selected, enrichment.DefaultMaxSenses, enrichment.DefaultMaxTokens)
 }
 
-func targetWord(sentence string, candidate domain.SelectionCandidate) string {
+func targetWord(sentence string, candidate domain.SelectionCandidate, tokens []analyzer.Token, sentenceStartOffset uint64) string {
 	var forms []string
 	if json.Unmarshal(candidate.ObservedForms, &forms) == nil {
-		if target := matchingSentenceTarget(sentence, forms); target != "" {
+		if target := matchingSentenceTarget(sentence, forms, tokens, sentenceStartOffset); target != "" {
 			return target
 		}
 	}

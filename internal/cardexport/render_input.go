@@ -18,6 +18,7 @@ type RenderInput struct {
 	Morphology, SourceDocument, Notes                                         string
 	CandidateSenses                                                           []enrichment.LexicalSense
 	SentenceTokens                                                            []analyzer.Token
+	SentenceStartOffset                                                       uint64
 	FirstEncounter                                                            int64
 	fallbackGlossApplied                                                      bool
 }
@@ -33,7 +34,8 @@ func renderInputFromEntry(entry Entry) RenderInput {
 		OmittedEvidenceCount: entry.OmittedEvidenceCount,
 		Morphology:           entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes,
 		CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
-		SentenceTokens:  cloneTokens(entry.SentenceTokens), FirstEncounter: entry.FirstEncounter,
+		SentenceTokens:  cloneTokens(entry.SentenceTokens), SentenceStartOffset: entry.SentenceStartOffset,
+		FirstEncounter:       entry.FirstEncounter,
 		fallbackGlossApplied: entry.fallbackGlossApplied,
 	}
 }

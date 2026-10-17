@@ -78,6 +78,7 @@ type preparedDeckRenderPayload struct {
 	OmittedEvidenceCount      int                       `json:"omitted_evidence_count,omitempty"`
 	CandidateSenses           []enrichment.LexicalSense `json:"candidate_senses,omitempty"`
 	SentenceTokens            []analyzer.Token          `json:"sentence_tokens,omitempty"`
+	SentenceStartOffset       uint64                    `json:"sentence_start_offset,omitempty"`
 	SourceDocument            string                    `json:"source_document"`
 	Notes                     string                    `json:"notes"`
 }
@@ -331,7 +332,7 @@ func insertPreparedDeckManifestItems(ctx context.Context, tx pgx.Tx, params Free
 }
 
 func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, params FreezePreparedDeckRunParams, config PreparedDeckRunConfig, candidateDigest, runID string, item cardexport.ManifestItem, pending map[int]cardexport.ManifestItem) error {
-	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
+	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
 	if err != nil {
 		return err
 	}
@@ -605,6 +606,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		item.Entry.CandidateSenses = render.CandidateSenses
 		item.Entry.OmittedEvidenceCount = render.OmittedEvidenceCount
 		item.Entry.SentenceTokens = render.SentenceTokens
+		item.Entry.SentenceStartOffset = render.SentenceStartOffset
 		item.Entry.SourceDocument, item.Entry.Notes = render.SourceDocument, render.Notes
 		item.CorpusID = uuidString(model.CorpusID)
 		item.SentenceOrdinal = pgInt8(model.SentenceOrdinal)

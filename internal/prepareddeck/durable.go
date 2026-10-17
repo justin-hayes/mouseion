@@ -423,7 +423,7 @@ func recoverCorpusRenderInputs(ctx context.Context, corpusStore durableRerenderC
 			if !found || strings.TrimSpace(sentence.Text) == "" || sentence.Text != item.Entry.Sentence || !hasDependencyParse(sentence) {
 				return nil, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
 			}
-			recovered = append(recovered, cardexport.RecoveredRenderInput{ManifestOrdinal: item.Ordinal, Sentence: sentence.Text, SentenceTokens: sentence.Tokens})
+			recovered = append(recovered, cardexport.RecoveredRenderInput{ManifestOrdinal: item.Ordinal, Sentence: sentence.Text, SentenceTokens: sentence.Tokens, SentenceStartOffset: sentence.Location.StartOffset})
 		}
 	}
 	return recovered, nil

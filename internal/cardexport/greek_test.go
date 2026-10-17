@@ -27,7 +27,7 @@ func TestAncientGreekSentenceBoundariesAcceptSourceTerminators(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			quality := scoreSentenceQuality("grc", tc.sentence, "δῆσαι", 10, nil)
+			quality := scoreSentenceQuality("grc", tc.sentence, "δῆσαι", 10, nil, 0)
 			assert.Equal(t, tc.accepted, quality.Accepted, "quality=%+v", quality)
 			if tc.accepted {
 				assert.NotContains(t, quality.Reasons, "incomplete sentence boundaries")
@@ -39,7 +39,7 @@ func TestAncientGreekSentenceBoundariesAcceptSourceTerminators(t *testing.T) {
 // The capitalised-start requirement stays in force for every other language.
 func TestLowercaseStartStillRejectedOutsideAncientGreek(t *testing.T) {
 	const sentence = "unter dem alten haus spielen heute viele fröhliche kinder."
-	quality := scoreSentenceQuality("de", sentence, "haus", 10, nil)
+	quality := scoreSentenceQuality("de", sentence, "haus", 10, nil, 0)
 	assert.False(t, quality.Accepted)
 	assert.Contains(t, quality.Reasons, "incomplete sentence boundaries")
 }

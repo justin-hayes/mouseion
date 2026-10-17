@@ -115,9 +115,10 @@ type FinalArtifact = Artifact
 // RecoveredRenderInput supplies a render input read from the immutable corpus
 // for a legacy manifest that did not freeze its dependency parse.
 type RecoveredRenderInput struct {
-	ManifestOrdinal int
-	Sentence        string
-	SentenceTokens  []analyzer.Token
+	ManifestOrdinal     int
+	Sentence            string
+	SentenceTokens      []analyzer.Token
+	SentenceStartOffset uint64
 }
 
 // Presentation owns the prepared-deck presentation lifecycle. The lexical
@@ -287,7 +288,9 @@ func applyRecoveredRenderInputs(manifest *manifest, recovered []RecoveredRenderI
 			return err
 		}
 		manifest.decisions[decisionIndex].Entry.SentenceTokens = cloneTokens(input.SentenceTokens)
+		manifest.decisions[decisionIndex].Entry.SentenceStartOffset = input.SentenceStartOffset
 		manifest.accepted[acceptedIndex].SentenceTokens = cloneTokens(input.SentenceTokens)
+		manifest.accepted[acceptedIndex].SentenceStartOffset = input.SentenceStartOffset
 	}
 	return nil
 }
