@@ -2,8 +2,8 @@
   "schema": "anabasis-word-sense-live-review/1",
   "status": "live_human_sense_review_in_progress",
   "reviewer": "Justin Hayes",
-  "confirmed_sense_pairs": 12,
-  "confirmed_target_occurrences": 6,
+  "confirmed_sense_pairs": 24,
+  "confirmed_target_occurrences": 12,
   "events": [
     {
       "date": "2026-10-17",
@@ -13,6 +13,16 @@
       "human_response_verbatim": "Looks good. Yes, in context the word means the \"older\" son, not old. I think that's clear from Kaikki's sense plus morphology",
       "scope": "Confirms the first six occurrence sense proposals in the linked checkpoint; explicitly accepts Kaikki adjective evidence plus comparative morphology for older in both occurrences. Does not approve verbatim elderly/aged as the contextual cue, other sample labels, an automatic strategy, or production changes.",
       "method": "Live confirmation of agent-proposed source sense choices, not independent annotation or expert certification"
+    },
+    {
+      "date": "2026-10-17",
+      "checkpoint_commit": "2a348a5a",
+      "proposal_asset": "review-batch-2.json",
+      "target_ids": ["15:7", "15:3", "15:20", "177:26", "177:20", "177:34"],
+      "assistant_prompt_verbatim": "Recorded: **6/24 occurrences reviewed**, including “older” supported by Kaikki plus morphology.\n\n### Next six\n\nContexts: Cyrus orders recruitment for his garrisons, alleging hostile designs by Tissaphernes; later, speakers discuss staying or leaving without Cyrus’s consent.\n\n| Target | Proposed contextual sense |\n|---|---|\n| **παρήγγειλε** | **give orders**—not merely transmit a message, recommend or summon |\n| **φυλακὰς** | **garrisons/guards**—not custody or a night watch |\n| **ἐπιβουλεύοντος** | **plot against / have hostile designs upon** the cities—not “be plotted against” |\n| **ἀπορία** | **practical difficulty/impossibility**—not physical impassability, poverty or a philosophical puzzle |\n| **ἐγκέλευστοι** | **prompted/urged on** by Clearchus; LSJ explicitly cites this passage |\n| **ἀπιέναι** | **depart/go away**, used absolutely—not “depart from life” |\n\nFor the retained inputs, LSJ retrieved no **φυλακή** candidate, and Kaikki none for **ἐγκέλευστος**. Those remain lookup abstentions, not invented mappings.\n\n**Do these six sense distinctions look right?**",
+      "human_response_verbatim": "Looks good",
+      "scope": "Confirms the second six occurrence sense proposals and the explicitly described lookup abstentions. Does not establish lexicographical absence, approve remaining labels, accept a strategy, or change production behaviour.",
+      "method": "Live confirmation of agent-proposed sense distinctions, not independent annotation or expert certification"
     }
   ],
   "representation_revisions": [

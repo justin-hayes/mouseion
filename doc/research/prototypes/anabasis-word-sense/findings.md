@@ -1,6 +1,6 @@
 # Book 1 sense prototype — pre-evaluation checkpoint
 
-**Live dictionary-sense review in progress (6/24 occurrences). No chosen-sense accuracy has been
+**Live dictionary-sense review in progress (12/24 occurrences). No chosen-sense accuracy has been
 measured; no strategy, lexicon or abstention policy has been accepted.**
 
 For [Prototype: word sense in context for Ancient Greek without an LLM](https://github.com/justin-hayes/mouseion/issues/2130).
@@ -20,7 +20,7 @@ the additional live checkpoint. Do not read the alignment review as sense labels
 - [`predict.py`](predict.py) and [`predictions.json`](predictions.json): fixed
   non-LLM baselines, with source and code digests. No sense labels are read.
 - [`review-proposals.json`](review-proposals.json): original agent proposals.
-  [`review-confirmed.json`](review-confirmed.json) records the first six confirmed
+  [`review-confirmed.json`](review-confirmed.json) records the first twelve confirmed
   occurrences; [`review-status.json`](review-status.json) preserves the exact
   live exchange. Justin explicitly accepted Kaikki adjective evidence plus
   comparative morphology for “older,” not “old/elderly” as the contextual cue.

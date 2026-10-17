@@ -3,8 +3,9 @@
   "status": "partially_human_confirmed_not_ready_for_scoring",
   "reviewer": "Justin Hayes",
   "review_ledger": "review-status.json",
-  "reviewed_against_commit": "03207830",
-  "reviewed_against_inputs_sha256": "f69e750eefd26be663379e46443c5ae6b03bf5659a7eeef046c59109beaa3763",
+  "initial_review_checkpoint": "03207830",
+  "initial_review_inputs_sha256": "f69e750eefd26be663379e46443c5ae6b03bf5659a7eeef046c59109beaa3763",
+  "current_inputs_sha256": "3720debd3340c711599787f8fb8143ae1ca19f401fb3aa5edaeea552761d78d4",
   "labels": [
     {"target_id": "1:4", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-902:sense-1:path-2"], "meaning": "be born", "status": "human_confirmed", "ledger_event": 0},
     {"target_id": "1:4", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n22209.2"], "meaning": "be born", "status": "human_confirmed", "ledger_event": 0},
@@ -17,6 +18,18 @@
     {"target_id": "3:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8800:sense-1:path-1", "kaikki:grc-row-8800:sense-2:path-2"], "meaning": "be present/by him, not pass by", "status": "human_confirmed", "ledger_event": 0},
     {"target_id": "3:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n79223.0", "lsj:n79223.1"], "meaning": "be present/by him, not pass by", "status": "human_confirmed", "ledger_event": 0},
     {"target_id": "3:6", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-60:sense-2:path-2"], "meaning": "happen to be, with the participle", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "3:6", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n105829.9"], "meaning": "happen to be, with the participle", "status": "human_confirmed", "ledger_event": 0}
+    {"target_id": "3:6", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n105829.9"], "meaning": "happen to be, with the participle", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "15:7", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-3837:sense-2:path-1", "kaikki:grc-row-3837:sense-3:path-1"], "meaning": "give orders, without selecting narrower recommend/exhort or summon children", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "15:7", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n77837.1"], "meaning": "give orders, give the word of command", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "15:3", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4499:sense-3:path-1"], "meaning": "guards/garrisons", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "15:3", "lexicon": "lsj", "acceptable_sense_ids": [], "meaning": "garrisons; no candidate retrieved in this bounded LSJ extraction", "evidence_status": "no_retrieved_candidate_not_lexicographical_absence", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "15:20", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-18181:sense-1:path-1"], "meaning": "plot against / have hostile designs upon the cities", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "15:20", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n38965.0", "lsj:n38965.1"], "meaning": "hostile plot/contrive against, including dative-only construction", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "177:26", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4013:sense-2:path-1"], "meaning": "practical difficulty/impossibility", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "177:26", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n13579.2"], "meaning": "difficulty/straits/impossibility of things", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "177:20", "lexicon": "kaikki", "acceptable_sense_ids": [], "meaning": "prompted/urged on; no Kaikki candidate retrieved", "evidence_status": "no_retrieved_candidate", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "177:20", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n30251.0"], "meaning": "urged on by someone", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "177:34", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8504:sense-3:path-1"], "meaning": "depart/go away, absolute use, not depart from life", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "177:34", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n11970.0", "lsj:n11970.2"], "meaning": "depart/go away, including absolute use; be off! is not proposed card wording", "status": "human_confirmed", "ledger_event": 1}
   ]
 }

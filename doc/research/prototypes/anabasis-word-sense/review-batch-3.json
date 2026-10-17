@@ -1,0 +1,18 @@
+{
+  "status": "agent_proposed_not_human_reviewed",
+  "scope": "Next six occurrences: sentences 238 and 103. Two Kaikki evidence judgments remain explicit questions; no scoring.",
+  "labels": [
+    {"target_id": "238:3", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4924:sense-1:path-1"], "meaning": "triremes/warships, not ship-shaped drinking vessels or the adjective three-storeyed"},
+    {"target_id": "238:3", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n104949.0"], "meaning": "triremes/warships, not ship-shaped drinking vessels"},
+    {"target_id": "238:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8859:sense-1:path-1"], "meaning": "PROPOSED, REQUIRES CONFIRMATION: take/grasp/seize supplies physical catch/capture context for the ship, even though it does not explicitly gloss overtake. Not choose, understand, convict or figurative taking."},
+    {"target_id": "238:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n2654.3", "lsj:n2654.4"], "meaning": "capture/get into one's power (explicit ship example), or catch/overtake; not take by the hand, choose, understand or convict"},
+    {"target_id": "238:8", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8587:sense-1:path-1"], "meaning": "vessel/ship/boat; Brownson craft is a watercraft, not a skill"},
+    {"target_id": "238:8", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n83928.0"], "meaning": "vessel/ship/boat, without forcing an unsupported merchant-versus-warship subtype"},
+    {"target_id": "103:22", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-81:sense-1:path-1"], "meaning": "fear/fright/panic as the barbarians' emotion, not the act of fleeing, the object causing terror, awe/reverence or the god Phobos"},
+    {"target_id": "103:22", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n111908.2"], "meaning": "panic fear/fear/terror, not Homeric panic flight; this sense includes a citation to Anabasis 1.2.18"},
+    {"target_id": "103:29", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-826:sense-1:path-1"], "meaning": "flee/take flight, intransitive; not exile, being accused/prosecuted, or transitive avoid an object"},
+    {"target_id": "103:29", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n110606.1"], "meaning": "flee/take flight, absolute/intransitive; not exile or being prosecuted"},
+    {"target_id": "103:40", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-7545:sense-1:path-1"], "meaning": "PROPOSED, REQUIRES CONFIRMATION: for sale supports wares/goods for sale via nominal use of the adjective. OGA labels this occurrence NOUN; Kaikki labels the entry adj. Approving semantic evidence would not change the frozen strict-POS matcher's abstention.", "matching_limitation": "source POS mismatch; no automatic cross-POS mapping authorized"},
+    {"target_id": "103:40", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n116256.0"], "meaning": "goods for sale/marketwares, explicitly discussed as ta onia in the full source sense text; not venal/corrupt officials"}
+  ]
+}
