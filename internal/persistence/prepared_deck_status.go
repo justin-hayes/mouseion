@@ -53,6 +53,9 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	}
 	appendMeaningOmissions(&p, outcomes, projection.Items)
 	applyRunProgress(&p, run, progress, chunks)
+	if p.State == domain.DeckPreparationReady {
+		p.ProviderOmissions = countProviderOmissions(outcomes)
+	}
 	if err := s.applyActiveRunCompleteness(ctx, &p, owner, preparationID, run, progress); err != nil {
 		return p, err
 	}
@@ -123,6 +126,20 @@ func appendMeaningOmissions(p *domain.DeckPreparation, outcomes []domain.Prepare
 			}
 		}
 	}
+}
+
+// countProviderOmissions counts the accepted identities a ready deck left out
+// because the provider answered unusably. A ready deck that carries a
+// non-response failure (possible only outside the standard fail-closed path)
+// still reports that failure as a translation failure, not as an omission.
+func countProviderOmissions(outcomes []domain.PreparedDeckTranslationOutcome) int {
+	count := 0
+	for _, outcome := range outcomes {
+		if outcome.State == domain.PreparedDeckOutcomeFailed && tolerableProviderOmission(outcome.ErrorClass, outcome.ErrorCode) {
+			count++
+		}
+	}
+	return count
 }
 
 func applyRunProgress(p *domain.DeckPreparation, run domain.PreparedDeckRun, progress domain.PreparedDeckRunProgress, chunks []domain.PreparedDeckBatchChunk) {

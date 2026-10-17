@@ -2,6 +2,16 @@
 
 Status: **Implemented** · Date: 2026-08-29 · Owner: Mouseion
 
+Amended by [ADR 0100](../adr/0100-retryable-provider-omissions-preparation.md)
+(2026-10-17): a standard run now finishes `ready` with the successful cards when
+a few items exhaust their provider attempts on unusable answers, reports the
+omissions (count and fixed reason) on the Reading page and the deck page, never
+records the omitted identities as generated or reserved vocabulary, and retries
+only the omitted items by reusing every other cached result. Every other failure
+class, and a run where every item fails, still fails the preparation. Clauses
+below that state a strict "any failed item fails the run" rule are superseded
+for the tolerated response-validation classes.
+
 ## Summary
 
 Make bounded standard OpenAI-compatible Chat Completions requests the default
@@ -129,8 +139,11 @@ without returning to one long, in-memory preparation attempt.
 - Each standard request contains one manifest item.
 - The current configured model and Chat Completions compatibility rules are reused.
 - The shared cache remains cross-user.
-- A consented standard run fails clearly after bounded item exhaustion and does not
-  publish an incomplete translated APKG.
+- A consented standard run tolerates per-item provider response failures as
+  retryable omissions: it becomes `ready` with the successful cards and reports
+  the omissions honestly. Transport, authentication, configuration,
+  cancellation, and other non-response failures still fail the run, and a run
+  where every item fails still fails.
 - A preparation without translation consent preserves current local-only behavior.
 - No exact ETA is displayed; users see persisted counts and phase.
 
@@ -146,7 +159,8 @@ queued -> preparing -> ready
 
 A standard translated run reports phase `translating` with aggregate
 `completed`, `running`, `retrying`, `pending`, and `failed` counts. It reports
-`finalizing` only after the required completed count equals the eligible count.
+`finalizing` once every eligible item is terminal and no failure forbids a
+usable artifact (a tolerated response failure becomes a reported omission).
 Batch-only phases and request counts remain available for explicit Batch runs.
 
 ## Architecture
@@ -189,7 +203,9 @@ It:
 7. commits the immutable cache result and completed outcome atomically;
 8. on a retryable failure, persists bounded class/code and jittered
    `next_attempt_at`, releases the claim, and schedules the next generation;
-9. on exhaustion or terminal failure, marks the item failed and fails a consented
+9. on exhaustion or terminal failure, marks the item failed. A
+   response-validation failure is tolerated as a retryable omission when the
+   run can still publish a deck; every other failure class fails a consented
    standard run without scheduling finalization.
 
 A stale generation can never write a cache row or outcome after cancellation,
@@ -235,17 +251,14 @@ Both standard and Batch fixtures must exercise the new schema.
 
 ### Completeness and APKG boundary
 
-For a consented `standard` run:
-
-```text
-completed outcomes == eligible outcomes
-```
-
-is a prerequisite for finalization. Any exhausted or terminal item failure fails the
-run/preparation. No APKG is published. Local-only runs and explicit Batch runs retain
-their separately documented policies. The finalizer, deterministic card order,
-provenance writes, completeness accounting, artifact bytes, and download routes do
-not otherwise change.
+For a consented `standard` run, every eligible item must reach a terminal
+outcome. An item whose provider answered unusably is rendered as an explicit
+omission and the run may finalize; every other terminal failure fails the
+run/preparation, and a run with no successful eligible item also fails, so no
+APKG is published for it. Local-only runs and explicit Batch runs retain their
+separately documented policies. The finalizer, deterministic card order,
+provenance writes, completeness accounting, artifact bytes, and download routes
+do not otherwise change.
 
 ### Observability
 
@@ -269,7 +282,7 @@ current operational logging policy permits it.
 |---|---|---|
 | Decision/docs | `doc/adr/0031-*`, `doc/features/openai-batch-translation.md`, `doc/archive/features/llm-translation-performance.md`, `doc/product.md` | Accept ADR 0032, then mark conflicting Batch-only statements superseded and update current operations after code lands. |
 | Schema/domain | `migrations/000001_initialize.up.sql`, successor migrations; `internal/domain/prepared_deck_run.go`; `internal/enrichment/enrichment.go` | Add frozen execution mode and target language; extend exact cache identity and constraints. |
-| Persistence | `internal/persistence/enrichment.go`, `prepared_deck_runs.go`, `prepared_deck_run_transitions.go`, `prepared_deck_status.go`, `prepared_deck_batch_reconciliation.go` | Read/write the expanded identity, enforce mode-specific transitions, atomically persist standard results, recover scalar jobs, and fail incomplete standard runs. |
+| Persistence | `internal/persistence/enrichment.go`, `prepared_deck_runs.go`, `prepared_deck_run_transitions.go`, `prepared_deck_status.go`, `prepared_deck_batch_reconciliation.go` | Read/write the expanded identity, enforce mode-specific transitions, atomically persist standard results, recover scalar jobs, and fail standard runs that have a non-response failure or no successful item (per-item response failures become retryable omissions). |
 | Codec/provider | `internal/enrichment/llm_codec.go`, `llm.go`, `openai_batch_jsonl.go` and tests/fixtures | Add opaque item/language schema fields, strict validation, and a prompt/schema version bump shared by both transports. |
 | Planning/dispatch | `internal/prepareddeck/cutover.go`, `durable.go`, new mode/planner files | Select a frozen mode; retain Batch planner; create standard per-item jobs. |
 | Standard worker | new `internal/prepareddeck/standard_*.go`; `recovery.go` | One claimed item and provider attempt per River job; cache hit, strict request, persisted retry, terminal failure, and restart repair. |
@@ -285,7 +298,7 @@ current operational logging policy permits it.
 | 1 | [#404](https://github.com/justin-hayes/mouseion/issues/404) | Version the strict item-correlated translation codec. | ADR 0032 acceptance |
 | 2 | [#405](https://github.com/justin-hayes/mouseion/issues/405) | Select standard by default and dispatch durable scalar work. | #403, #404 |
 | 3 | [#406](https://github.com/justin-hayes/mouseion/issues/406) | Execute standard item requests with persisted retries/recovery. | #403, #404, #405 |
-| 4 | [#407](https://github.com/justin-hayes/mouseion/issues/407) | Enforce complete translated APKGs and expose honest progress. | #403, #405, #406 |
+| 4 | [#407](https://github.com/justin-hayes/mouseion/issues/407) | Publish a usable translated APKG when only a few items exhaust their provider attempts on unusable answers, and expose honest progress and omissions. | #403, #405, #406 |
 | 5 | [#408](https://github.com/justin-hayes/mouseion/issues/408) | Add mode-neutral telemetry, safe validation tooling, and reconcile current-state docs. | #404, #406, #407 |
 | 6 | [#409](https://github.com/justin-hayes/mouseion/issues/409) | Run the paid real-provider smoke and validate the APKG. | #404, #406, #407, #408 |
 
@@ -333,8 +346,10 @@ the planner issue.
   jobs without duplicate cards or stale writes.
 - [x] Cache identity explicitly includes target language and versioned provider/model/
   prompt/schema semantics; existing rows backfill safely to English.
-- [x] A consented standard run cannot become ready with a failed/missing required
-  translation.
+- [x] A consented standard run becomes ready with the successful cards when a
+  few items exhaust their provider attempts on unusable answers, reports the
+  omissions with a fixed reason, and still fails when every item fails or any
+  item hits a non-response failure class.
 - [x] The ready APKG and download contract remain immutable, owner-scoped, and
   importable.
 - [x] Status distinguishes standard translating from Batch waiting and reports
@@ -390,7 +405,7 @@ must be committed with template changes.
 | Bad structured output | Shared strict schema, opaque item correlation, bounded retry, no success write |
 | Worker restart | Existing leased outcomes and recovery projection; one attempt/job |
 | Duplicate billing after ambiguous timeout | Generation fencing and no automatic Batch fallback; acknowledge that provider timeouts cannot make billing exactly-once |
-| Incomplete translated deck | Standard-mode completeness gate fails before APKG publication |
+| Incomplete translated deck | A standard run with a non-response failure, or with no successful item, fails before APKG publication; only tolerated per-item response failures become reported omissions. |
 | Cache collision across future target languages | Explicit target-language migration and prompt/schema version |
 | Multiple worker replicas exceed provider limit | Document per-process bound; calculate aggregate replicas; add global permit design before scale-out |
 | Batch regresses while no longer default | Keep shared codec and explicit Batch integration/regression tests |

@@ -510,6 +510,108 @@ func TestStandardWorkerPersistsRetryGenerationAndTerminalValidationFailures(t *t
 	assert.Equal(t, 5, calls, "provider calls, want one retry for the transient error and one bounded retry for the malformed response")
 }
 
+func TestStandardWorkerToleratesProviderResponseFailuresAsOmissions(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 3, 1)
+	failedLemma := run.keys[1].CanonicalLemma
+	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		if request.CanonicalLemma == failedLemma {
+			return enrichment.TranslationResponse{}, nil
+		}
+		return validTranslationResponse(request), nil
+	}
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider, AttemptTimeout: time.Second}
+	for ordinal := range run.keys {
+		require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: ordinal, Generation: 0}))
+	}
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 3)
+	require.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[1].State)
+	assert.Equal(t, "validation", outcomes[1].ErrorClass)
+	assert.Equal(t, "invalid_response", outcomes[1].ErrorCode)
+
+	currentRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Equal(t, domain.PreparedDeckRunFinalizing, currentRun.State, "a tolerated response failure must still finalize")
+	require.Equal(t, 1, currentRun.FailedCount)
+	require.Equal(t, 2, currentRun.CompletedCount)
+
+	ready, err := (&DurableFinalizer{Store: run.store, Renderer: cardexport.NewPresentation(nil)}).Finalize(ctx, run.owner, run.prep.ID, run.run.ID, currentRun.FinalizationDispatchGeneration)
+	require.NoError(t, err)
+	require.Equal(t, domain.DeckPreparationReady, ready.State)
+	require.Equal(t, 2, ready.TotalCards)
+
+	t.Run("status reports the omission count", func(t *testing.T) {
+		status, statusErr := run.store.GetDeckPreparationStatus(ctx, run.owner, run.prep.ID)
+		require.NoError(t, statusErr)
+		require.Equal(t, domain.DeckPreparationReady, status.State)
+		assert.Equal(t, 1, status.ProviderOmissions)
+	})
+	t.Run("omitted identity is not generated vocabulary", func(t *testing.T) {
+		generated, generatedErr := run.store.ListGeneratedVocabulary(ctx, run.owner, "de")
+		require.NoError(t, generatedErr)
+		require.Len(t, generated, 2)
+		for _, item := range generated {
+			assert.NotEqual(t, failedLemma, item.CanonicalLemma)
+		}
+	})
+	t.Run("omitted identity is not attached deck vocabulary", func(t *testing.T) {
+		var attached int
+		require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparation_vocabulary WHERE owner_id=$1 AND deck_preparation_id=$2`, run.owner, run.prep.ID).Scan(&attached))
+		assert.Equal(t, 2, attached)
+	})
+	t.Run("preparation does not invent reserved vocabulary", func(t *testing.T) {
+		reserved, reservedErr := run.store.ListReservedVocabulary(ctx, run.owner, "de")
+		require.NoError(t, reservedErr)
+		assert.Empty(t, reserved)
+	})
+}
+
+func TestStandardWorkerNonResponseFailureStillFailsPreparation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 2, 1)
+	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		if request.CanonicalLemma == run.keys[1].CanonicalLemma {
+			return enrichment.TranslationResponse{}, &enrichment.LLMHTTPError{StatusCode: 401}
+		}
+		return validTranslationResponse(request), nil
+	}
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider, AttemptTimeout: time.Second}
+	for ordinal := range run.keys {
+		require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: ordinal, Generation: 0}))
+	}
+	currentRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.PreparedDeckRunFailed, currentRun.State, "an authentication failure must fail the run")
+	preparation, err := run.store.GetDeckPreparation(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, preparation.State)
+	assert.Empty(t, preparation.Artifact)
+}
+
+func TestStandardWorkerAllInvalidResponsesFailsPreparation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 2, 1)
+	provider.onCall = func(_ int, _ enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		return enrichment.TranslationResponse{}, nil
+	}
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider, AttemptTimeout: time.Second}
+	for ordinal := range run.keys {
+		require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: ordinal, Generation: 0}))
+	}
+	currentRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.PreparedDeckRunFailed, currentRun.State, "a run where every item fails must still fail")
+	preparation, err := run.store.GetDeckPreparation(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, preparation.State)
+	assert.Empty(t, preparation.Artifact)
+}
+
 func TestStandardWorkerPersistsValidUnresolvedMeaningAndFinalizesMixedDeck(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()

@@ -567,7 +567,7 @@ func deckPreparationSummary(preparation domain.DeckPreparation) string {
 }
 
 func deckPreparationEmpty(preparation domain.DeckPreparation) bool {
-	return preparation.State == domain.DeckPreparationReady && preparation.TotalCards == 0 && preparation.QualityOmissions == 0
+	return preparation.State == domain.DeckPreparationReady && preparation.TotalCards == 0 && preparation.QualityOmissions == 0 && preparation.ProviderOmissions == 0
 }
 
 func deckPreparationHasNewerRevision(preparation domain.DeckPreparation) bool {

@@ -9,6 +9,11 @@ type DeckPreparationState string
 
 const DeckPreparationRequiresRepreparationError = "This deck's frozen render inputs are unavailable, so its presentation cannot be updated. Re-prepare the deck from the book's current analysis."
 
+// DeckPreparationProviderOmissionReason is the fixed, learner-facing reason for
+// an accepted identity a ready deck had to leave out because the translation
+// provider gave an unusable answer.
+const DeckPreparationProviderOmissionReason = "the translation provider gave an unusable answer"
+
 const (
 	DeckPreparationQueued    DeckPreparationState = "queued"
 	DeckPreparationPreparing DeckPreparationState = "preparing"
@@ -44,10 +49,14 @@ type DeckPreparation struct {
 	ContextualGlosses, ContextOnlyGlosses                                                                                  int
 	ContextualGlossesReported                                                                                              bool
 	QualityOmissions                                                                                                       int
-	RenderInputVersion, PresentationVersion, DeckRevision                                                                  int
-	VocabularyCount                                                                                                        int
-	EvidenceCoverage                                                                                                       []DeckPreparationEvidenceCoverage
-	MeaningOmissions                                                                                                       []DeckPreparationMeaningOmission
+	// ProviderOmissions counts accepted identities the translation provider
+	// could not answer usably. They were left out of the ready deck and can be
+	// retried; unlike QualityOmissions they would otherwise have produced cards.
+	ProviderOmissions                                     int
+	RenderInputVersion, PresentationVersion, DeckRevision int
+	VocabularyCount                                       int
+	EvidenceCoverage                                      []DeckPreparationEvidenceCoverage
+	MeaningOmissions                                      []DeckPreparationMeaningOmission
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.

@@ -156,9 +156,12 @@ templ CurrentReadingDeckPreparationStatus(csrf, bookID, snapshotID string, prepa
 			} else if deckPreparationEmpty(preparation) {
 				<p>No cards were created from this snapshot.</p>
 			} else {
+				if summary := providerOmissionSummary(preparation); summary != "" {
+					<p role="status"><strong>Omissions:</strong> { summary }</p>
+				}
 				<a class="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 				if actions.Reprepare {
-					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
+					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button type="submit" class="button button--outline">{ deckPreparationRetryLabel(preparation) }</button></form>
 				}
 			}
 		} else if deckPreparationActive(preparation) {
