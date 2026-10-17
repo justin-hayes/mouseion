@@ -4,12 +4,14 @@ Research date: 2026-10-17. Throwaway research asset, not an accepted product dec
 
 For [Research: openly licensed English translations of Anabasis and existing alignments](https://github.com/justin-hayes/mouseion/issues/2128), under [Ancient-language cards without an LLM: public-domain translations, alignment and word sense](https://github.com/justin-hayes/mouseion/issues/2127).
 
+**Investigation constraint clarification (Justin, 2026-10-17):** “I'm fine with treebanks and treebank inputs if we can confirm the license is not NC.” Treebank provenance alone is therefore **not** an exclusion for this investigation. The model and the identified input datasets need separate non-NC checks; an unresolved input licence is not affirmative clearance. This clarifies the investigation only, not the production import's accepted source contract.
+
 ## Answer
 
 - **Use Brownson's Perseus `perseus-eng2` as the English input to the prototypes**, with the exact commit and digest below. Its TEI explicitly licenses the digitisation CC BY-SA 4.0; its 205 Book 1 section keys match the pinned OGA citations. This is **section correspondence, not sentence or word alignment**. [B][O]
 - **Dakyns is the secondary candidate**, but correct the bibliographic starting point: *Anabasis* appeared in volume 1 of *The Works of Xenophon* in **1890**; 1897 belongs to volume 3. Gutenberg supplies the translation, but its exact print exemplar and a complete section mapping are not established. [D][DA]
 - **Existing Book 1 word alignments do exist on Ugarit.** Three verified public records cover 1.5.12, 1.9.17–19 and 1.9.24. These are partial, contributor-created resources, not a verified complete Book 1 corpus or Justin's gold set. Their rights/provenance qualifications are below. [U1][U2][U3]
-- **Do not adopt a pretrained aligner or a nominally “Anabasis” dataset on name/licence alone.** The Ugarit model's authors explicitly report treebank training inputs; another alignment repository has misleading Anabasis filenames and synthetic/model-oriented material. Neither is a cleared prototype input. [M][MP][N]
+- **Do not adopt a pretrained aligner or a nominally “Anabasis” dataset on name/licence alone.** Ugarit's identified training sources carry NC notices (PROIEL and UD Perseus) or conflicting notices (Gorman); another alignment repository has misleading Anabasis filenames and synthetic/model-oriented material. Neither is a cleared prototype input. Treebank provenance alone is not the exclusion: see the licence audit in §4. [M][MP][TP][TU][GR][GL][N]
 - **Textual mismatch matters even with identical section numbers:** Brownson includes bracketed English passages translating Greek that OGA omits, notably 1.7.15 and 1.8.6. Removing XML notes alone does not remove these passages. [B][G][O]
 
 “Verified” below means inspected primary metadata/content or a reproducible measurement of the pinned files. Recommendations and legal assessments are identified as assessments, not human acceptance or legal advice. No provider/deck behaviour is changed.
@@ -121,15 +123,29 @@ The creators' [data paper][UGP] identifies expert manual word alignments from **
 
 The repository says **CC BY-SA**, with a 4.0 licence file; [Zenodo 7362097][UGZ] and the data paper say **CC BY 4.0**. These are differing distribution notices, not permission to erase the pinned repository's SA condition. Conservative assessment: follow BY-SA for that repository distribution, attribute the annotators and underlying text producers, and verify underlying excerpt editions if redistributing. This resource is **method/evaluation background**, not Book 1 card content or Justin's gold. It does not itself label dictionary senses; word links cannot be scored as contextual-sense truth without additional labels. [UG][UGZ][UGP][CC]
 
-### Pretrained Ugarit model — do not use under this investigation's constraints
+### Pretrained Ugarit model — non-NC input condition not established
 
-`UGARIT/grc-alignment`, revision `d1a6280cd4bd1911fee8751cd4fa64f4f5a16abf`, is a CC BY 4.0 XLM-RoBERTa-based word aligner. Its model card reports monolingual and parallel training, including Perseus Xenophon. **Its authors' paper §4.2 (p.104) explicitly includes PROIEL, PERSEUS and Gorman treebank datasets in the monolingual training phase.** The open model licence does not establish that the training provenance passes the MVP's restrictions. Exclude it from recommended inputs; this research does not authorize a restriction exception. [M][MP][SPEC]
+**Follow-up audit, 2026-10-17:** Justin allows treebanks and treebank inputs if their applicable licences can be confirmed non-NC. The model remains **not cleared**, but because of the input notices below, **not because treebanks are categorically prohibited**.
+
+`UGARIT/grc-alignment`, revision `d1a6280cd4bd1911fee8751cd4fa64f4f5a16abf`, is an XLM-RoBERTa-based word aligner whose model card declares **CC BY 4.0**. Its card reports monolingual and parallel training, including Perseus Xenophon, but does not mention the treebanks. **The authors' paper §4.2 (p.104) explicitly names PROIEL, PERSEUS and Gorman treebanking datasets** alongside Perseus Digital Library and First1KGreek as sources for the 12-million-token masked-language-model training phase. Footnote 10 points to Universal Dependencies and footnote 11 to Gorman's site. The paper gives no exact training-data versions. [M][MP]
+
+| Identified input | Verified primary licence notice | Assessment under the clarified condition |
+| --- | --- | --- |
+| PROIEL | UD Ancient Greek PROIEL `LICENSE.txt` at `8d53a43f6a7ddb380e02f61daa3744f4e43296b3` says **Attribution-NonCommercial-ShareAlike**. Its name says 3.0 while its URL says 4.0; both are NC. Upstream `proiel-treebank` README at `8e388967a1335ed12335ddc655fe46993ee7d57a` independently says **BY-NC-SA 3.0 US**. [TP][TPU] | **Not non-NC**, regardless of whether upstream or UD packaging was used. |
+| PERSEUS via UD | UD Ancient Greek Perseus `LICENSE.txt` at `09cdc6f4d19f5fd31cc92ab7918e77c3b5551ea6` explicitly says **BY-NC-SA 2.5**. [TU] | **Not non-NC** under the distribution the paper links to. Exact training revision remains undocumented. |
+| Gorman | README at `7e28185ff4a8eebb3a325f2c95ad13717d9db8e1` says **BY-NC-SA 4.0**, but `TREEBANK LICENSE` at `b690fad297c556d74f7dd6738e7c0619e349fcc5` is **BY-SA 4.0**, with no NonCommercial term. [GR][GL] | **Unresolved conflict**, not affirmative clearance. Obtain an authoritative clarification before using this dataset under the condition. |
+
+**Important distinction:** original AGDT/Perseus `treebank_data` has a root README declaring **BY-SA 3.0 US**, not NC, at `1afdc9c2017a00f0022f08712c671acdfcf2dd1f`. It should not be blanket-labelled NC. That notice does not remove the separate UD conversion's NC notice or establish which exact bytes Ugarit used. Original AGDT is consequently a potential non-NC treebank lead for separate source-level review, **not a way to retroactively clear this checkpoint**. [TA][TU][MP]
+
+**Conclusion:** the published input notices prevent confirming Justin's non-NC condition. Do not use this checkpoint in the recommended prototype without further evidence resolving the NC/provenance issue. This is **not** a legal conclusion that training was unlawful, that NC necessarily attaches to trained weights, or that the authors' model grant is invalid. Those are separate legal questions. The model card's CC BY grant and the input datasets' licence notices answer different questions. The paper's own publication licence is not a licence for its training data. [M][MP][TP][TPU][TU][GR][GL]
+
+**Audit limits:** no weights or treebank annotation content were downloaded or used as input, repair witness or oracle. Only paper/licence/provenance metadata were inspected. Exact training revisions were not established, and this follow-up did not attempt a complete rights audit of First1KGreek, DFHG or every Ugarit contributor record: the identified NC treebank notices already prevent clearance. No positively documented alternative non-NC-trained Ugarit checkpoint was established.
 
 The same paper reports 32,500 Perseus Greek–English sentence pairs, but the inspected model card/paper do **not** provide an independently pinned Anabasis Book 1 sentence-pair dataset with a source-specific rights manifest. Do not equate that training-data description with an available reusable corpus. [M][MP]
 
 ### Other Perseus-derived, treebank-linked and aligned-text searches
 
-- **Alpheios:** its [enhanced-texts index][A] lists no Xenophon. This is a bounded negative for that index, not proof no Alpheios user ever aligned Anabasis. Treebank-linked resources remain excluded as data or evaluation oracles by the spec, regardless of discoverability. [A][SPEC]
+- **Alpheios:** its [enhanced-texts index][A] lists no Xenophon. This is a bounded negative for that index, not proof no Alpheios user ever aligned Anabasis. Under Justin's clarified investigation constraint, any newly discovered treebank-linked resource is eligible for review if its applicable data licence can be confirmed non-NC; discoverability alone is not clearance. [A]
 - **Scaife ATLAS:** the full [text-alignment index][S], fetched on the research date, lists no Anabasis; it includes Iliad/Odyssey alignments and other works. The pinned canonical-greekLit Anabasis directory has the Greek/English editions and CTS metadata, not a sentence/word-link file. [S][PC]
 - **Dynamic Lexicon:** the project's own [README][DL] describes 104 Greek–English documents, about 210,000 sentence pairs, Moore sentence alignment and Giza++ word alignment. Its pinned repository `c72abbb0ef391f7d3b3154013702cb1fab29f465` is a web application; the inspected tree provides no Anabasis alignment dump or corpus-specific licence/version. The linked live `dynamiclexicon.com` currently serves unrelated dog-name pages. Thus the historical corpus is a lead, **not a verified downloadable/licensed Book 1 candidate**. [DL][DLTREE][DLSITE]
 - **Peter Nadel's `word-level-alignment`:** pinned commit `a2e5135fa428f1d7c2513d3f2a39ca85d3cffac0`, repository licence Apache-2.0. Despite the folder name `anabasis_sent_align_grc`, its four files are `0003-001`, `0016-001`, `0032-001` and `0032-007` — no `0032-006` Anabasis witness. The inspected `0032-001` opens with Hellenica's Thymochares passage; `0032-007` opens with Cyropaedia. `synthdata_anabasis_1219_data.jsonl` has 500 instruction/input/output rows, and its first output concerns Sicily, not Anabasis' opening. Repository title and code are explicitly LLM-alignment-oriented. **No reliable Book 1 extent, original-translation identity or human-gold provenance established; not recommended**, regardless of the permissive code/repo licence. No pickles/notebooks were executed. [N]
@@ -231,7 +247,7 @@ Expected: 607 / 10,462 / 110; the three cross-section ranges above; 31 / 32; 205
 For [Prototype: aligning public-domain English to Book 1 without an LLM](https://github.com/justin-hayes/mouseion/issues/2129):
 
 1. Start from **[B] + [O] at the full pins in §1**. Use all citation keys touched by a Greek sentence, not its first key alone. Extract Brownson without notes, but explicitly inspect the bracketed/deleted-material mismatches in §3.
-2. Maintain source English spans; do not rewrite English to force a one-to-one sentence fit. Record many-to-many/unaligned cases. Use no prohibited treebank as a segmentation repair witness or evaluation oracle. [SPEC]
+2. Maintain source English spans; do not rewrite English to force a one-to-one sentence fit. Record many-to-many/unaligned cases. Under the clarified investigation constraint, use no NC-licensed or licence-uncleared resource as a segmentation repair witness or evaluation oracle. The production import contract remains unchanged. [SPEC]
 3. Ugarit's Book 1 records are partial candidate comparisons subject to provenance clearance. Its expert gold is a methodological reference from other works, not a substitute for the ticket's **live Justin-reviewed Book 1 sample**. [U1][U2][U3][UGP][PROTO]
 4. If statistical alignment needs more parallel text, the pinned Brownson TEI contains all seven books, but **only Book 1 coverage/correspondence was checked here**. Wider training extraction and every tool/model licence need their own checks; historical corpus/model descriptions are not downloadable data licences. [B][MP]
 
@@ -284,3 +300,9 @@ These limits do not block a Brownson + OGA prototype. They do block claiming a r
 [DLSITE]: https://www.dynamiclexicon.com/
 [N]: https://github.com/pnadelofficial/word-level-alignment/tree/a2e5135fa428f1d7c2513d3f2a39ca85d3cffac0
 [CR]: https://sites.tufts.edu/perseusupdates/2026/03/10/towards-corpus-based-learning-exercises-with-ancient-greek/
+[TP]: https://github.com/UniversalDependencies/UD_Ancient_Greek-PROIEL/blob/8d53a43f6a7ddb380e02f61daa3744f4e43296b3/LICENSE.txt
+[TPU]: https://github.com/proiel/proiel-treebank/blob/8e388967a1335ed12335ddc655fe46993ee7d57a/README.md
+[TU]: https://github.com/UniversalDependencies/UD_Ancient_Greek-Perseus/blob/09cdc6f4d19f5fd31cc92ab7918e77c3b5551ea6/LICENSE.txt
+[TA]: https://github.com/PerseusDL/treebank_data/blob/1afdc9c2017a00f0022f08712c671acdfcf2dd1f/README.md
+[GR]: https://github.com/vgorman1/Greek-Dependency-Trees/blob/7e28185ff4a8eebb3a325f2c95ad13717d9db8e1/README.md
+[GL]: https://github.com/vgorman1/Greek-Dependency-Trees/blob/b690fad297c556d74f7dd6738e7c0619e349fcc5/TREEBANK%20LICENSE
