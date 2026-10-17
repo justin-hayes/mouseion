@@ -1,4 +1,4 @@
--- Reverse 000039_greek_deck_identity. The discriminator and headword columns
+-- Reverse 000040_greek_deck_identity. The discriminator and headword columns
 -- are dropped and the original keys restored. Because every migrated row keeps
 -- the empty discriminator, collapsing the keys cannot merge two distinct rows.
 ALTER TABLE public.deck_preparation_manifest_items
