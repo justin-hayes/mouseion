@@ -1,6 +1,6 @@
 {
   "schema": "anabasis-word-sense-predictions/1",
-  "inputs_sha256": "f69e750eefd26be663379e46443c5ae6b03bf5659a7eeef046c59109beaa3763",
+  "inputs_sha256": "3720debd3340c711599787f8fb8143ae1ca19f401fb3aa5edaeea552761d78d4",
   "predictor_sha256": "3cef4cfbb7b2721465e5f4c3e8a3e001d1b6b51e4cccd1a82e2f062e45e16c62",
   "alignment_assumption": "human-confirmed target links supplied as oracle input; not an automatic alignment result",
   "evaluation_status": "unscored; dictionary sense labels require a separate live human checkpoint",
@@ -51,6 +51,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-902:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-902",
+          "gloss": "to come into being",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-902:sense-2:path-2",
           "entry_id": "kaikki:grc-row-902",
           "gloss": "to be produced",
@@ -58,7 +70,19 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-902:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-902",
+          "gloss": "to come into being",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -70,7 +94,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -82,7 +106,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -136,6 +160,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-902:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-902",
+          "gloss": "to come into being",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-902:sense-2:path-2",
           "entry_id": "kaikki:grc-row-902",
           "gloss": "to be produced",
@@ -143,7 +179,19 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-902:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-902",
+          "gloss": "to come into being",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -155,7 +203,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -167,7 +215,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -221,6 +269,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-902:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-902",
+          "gloss": "to come into being",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-902:sense-2:path-2",
           "entry_id": "kaikki:grc-row-902",
           "gloss": "to be produced",
@@ -228,7 +288,19 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-902:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-902",
+          "gloss": "to come into being",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -240,7 +312,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -252,7 +324,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -293,6 +365,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-902:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-902",
+          "gloss": "to come into being",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-902:sense-2:path-2",
           "entry_id": "kaikki:grc-row-902",
           "gloss": "to be produced",
@@ -300,7 +384,19 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-902:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-902",
+          "gloss": "to come into being",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -312,7 +408,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -324,7 +420,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -2658,6 +2754,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-60:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "Expressing coincidence: to happen (to be)",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-60:sense-2:path-2",
           "entry_id": "kaikki:grc-row-60",
           "gloss": "to happen",
@@ -2665,7 +2773,7 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2677,7 +2785,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2689,7 +2797,19 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2701,7 +2821,19 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 8,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 9,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2713,7 +2845,7 @@
             0,
             0
           ],
-          "ordinal": 7,
+          "ordinal": 10,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -2752,6 +2884,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-60:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "Expressing coincidence: to happen (to be)",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-60:sense-2:path-2",
           "entry_id": "kaikki:grc-row-60",
           "gloss": "to happen",
@@ -2759,7 +2903,7 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2771,7 +2915,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2783,7 +2927,19 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2795,7 +2951,19 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 8,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 9,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2807,7 +2975,7 @@
             0,
             0
           ],
-          "ordinal": 7,
+          "ordinal": 10,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -2846,6 +3014,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-60:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "Expressing coincidence: to happen (to be)",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-60:sense-2:path-2",
           "entry_id": "kaikki:grc-row-60",
           "gloss": "to happen",
@@ -2853,7 +3033,7 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2865,7 +3045,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2877,7 +3057,19 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2889,7 +3081,19 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 8,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 9,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2901,7 +3105,7 @@
             0,
             0
           ],
-          "ordinal": 7,
+          "ordinal": 10,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -2940,6 +3144,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-60:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "Expressing coincidence: to happen (to be)",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-60:sense-2:path-2",
           "entry_id": "kaikki:grc-row-60",
           "gloss": "to happen",
@@ -2947,7 +3163,7 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2959,7 +3175,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2971,7 +3187,19 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2983,7 +3211,19 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 8,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-60",
+          "gloss": "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 9,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -2995,7 +3235,7 @@
             0,
             0
           ],
-          "ordinal": 7,
+          "ordinal": 10,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -3926,6 +4166,20 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-3837:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-3837",
+          "gloss": "to give orders",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 4,
+          "overlap": [
+            "order"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-3837:sense-3:path-2",
           "entry_id": "kaikki:grc-row-3837",
           "gloss": "to summon",
@@ -3933,7 +4187,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -3945,7 +4199,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -4011,6 +4265,20 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-3837:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-3837",
+          "gloss": "to give orders",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 4,
+          "overlap": [
+            "order"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-3837:sense-3:path-2",
           "entry_id": "kaikki:grc-row-3837",
           "gloss": "to summon",
@@ -4018,7 +4286,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -4030,7 +4298,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -4041,21 +4309,8 @@
       "lexicon": "kaikki",
       "strategy": "unique-projection",
       "identity_status": "one explicit POS-compatible source entry",
-      "chosen": {
-        "id": "kaikki:grc-row-3837:sense-2:path-1",
-        "entry_id": "kaikki:grc-row-3837",
-        "gloss": "to give orders",
-        "morphology_label_rank": [
-          0,
-          0
-        ],
-        "ordinal": 2,
-        "overlap": [
-          "order"
-        ],
-        "pos_evidence": "verb"
-      },
-      "reason": "exactly one sense has positive lexical overlap",
+      "chosen": null,
+      "reason": "more than one sense has lexical overlap; not uniquely supported",
       "candidates": [
         {
           "id": "kaikki:grc-row-3837:sense-1:path-1",
@@ -4096,6 +4351,20 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-3837:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-3837",
+          "gloss": "to give orders",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 4,
+          "overlap": [
+            "order"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-3837:sense-3:path-2",
           "entry_id": "kaikki:grc-row-3837",
           "gloss": "to summon",
@@ -4103,7 +4372,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -4115,7 +4384,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -4168,6 +4437,20 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-3837:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-3837",
+          "gloss": "to give orders",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 4,
+          "overlap": [
+            "order"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-3837:sense-3:path-2",
           "entry_id": "kaikki:grc-row-3837",
           "gloss": "to summon",
@@ -4175,7 +4458,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -4187,7 +4470,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -6750,6 +7033,62 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-8504:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 2,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 4,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-8504:sense-5:path-2",
           "entry_id": "kaikki:grc-row-8504",
           "gloss": "to depart from life",
@@ -6757,7 +7096,7 @@
             0,
             0
           ],
-          "ordinal": 2,
+          "ordinal": 6,
           "overlap": [
             "depart"
           ],
@@ -6801,6 +7140,62 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-8504:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 2,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 4,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-8504:sense-5:path-2",
           "entry_id": "kaikki:grc-row-8504",
           "gloss": "to depart from life",
@@ -6808,7 +7203,7 @@
             0,
             0
           ],
-          "ordinal": 2,
+          "ordinal": 6,
           "overlap": [
             "depart"
           ],
@@ -6839,6 +7234,62 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-8504:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 2,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 4,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-8504:sense-5:path-2",
           "entry_id": "kaikki:grc-row-8504",
           "gloss": "to depart from life",
@@ -6846,7 +7297,7 @@
             0,
             0
           ],
-          "ordinal": 2,
+          "ordinal": 6,
           "overlap": [
             "depart"
           ],
@@ -6877,6 +7328,62 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-8504:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 2,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 4,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-8504",
+          "gloss": "to go away from, depart from",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [
+            "depart"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-8504:sense-5:path-2",
           "entry_id": "kaikki:grc-row-8504",
           "gloss": "to depart from life",
@@ -6884,7 +7391,7 @@
             0,
             0
           ],
-          "ordinal": 2,
+          "ordinal": 6,
           "overlap": [
             "depart"
           ],
@@ -7632,6 +8139,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-8859:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-8859",
+          "gloss": "to take, grasp, seize",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 2,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-8859:sense-3:path-1",
           "entry_id": "kaikki:grc-row-8859",
           "gloss": "to win, gain",
@@ -7639,7 +8158,7 @@
             0,
             0
           ],
-          "ordinal": 2,
+          "ordinal": 3,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7651,7 +8170,7 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7663,7 +8182,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7675,7 +8194,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7687,7 +8206,7 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -7714,6 +8233,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-8859:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-8859",
+          "gloss": "to take, grasp, seize",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 2,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-8859:sense-3:path-1",
           "entry_id": "kaikki:grc-row-8859",
           "gloss": "to win, gain",
@@ -7721,7 +8252,7 @@
             0,
             0
           ],
-          "ordinal": 2,
+          "ordinal": 3,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7733,7 +8264,7 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7745,7 +8276,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7757,7 +8288,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7769,7 +8300,7 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -7796,6 +8327,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-8859:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-8859",
+          "gloss": "to take, grasp, seize",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 2,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-8859:sense-3:path-1",
           "entry_id": "kaikki:grc-row-8859",
           "gloss": "to win, gain",
@@ -7803,7 +8346,7 @@
             0,
             0
           ],
-          "ordinal": 2,
+          "ordinal": 3,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7815,7 +8358,7 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7827,7 +8370,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7839,7 +8382,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7851,7 +8394,7 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -7878,6 +8421,18 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-8859:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-8859",
+          "gloss": "to take, grasp, seize",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 2,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-8859:sense-3:path-1",
           "entry_id": "kaikki:grc-row-8859",
           "gloss": "to win, gain",
@@ -7885,7 +8440,7 @@
             0,
             0
           ],
-          "ordinal": 2,
+          "ordinal": 3,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7897,7 +8452,7 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7909,7 +8464,7 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7921,7 +8476,7 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -7933,7 +8488,7 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 7,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -9866,6 +10421,18 @@
           "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-826:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-826",
+          "gloss": "to leave the country, go into exile",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [],
+          "pos_evidence": "verb"
         }
       ]
     },
@@ -9922,6 +10489,18 @@
             0
           ],
           "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-826:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-826",
+          "gloss": "to leave the country, go into exile",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -9982,6 +10561,18 @@
           "ordinal": 4,
           "overlap": [],
           "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-826:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-826",
+          "gloss": "to leave the country, go into exile",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [],
+          "pos_evidence": "verb"
         }
       ]
     },
@@ -10038,6 +10629,18 @@
             0
           ],
           "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-826:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-826",
+          "gloss": "to leave the country, go into exile",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
           "overlap": [],
           "pos_evidence": "verb"
         }
@@ -10985,6 +11588,20 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-27164:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-27164:sense-2:path-2",
           "entry_id": "kaikki:grc-row-27164",
           "gloss": "to prolong, protract",
@@ -10992,7 +11609,33 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-2",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to prolong, protract",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -11004,8 +11647,22 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 7,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 8,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11016,8 +11673,22 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 9,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 10,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11028,8 +11699,22 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 11,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-6:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 12,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11040,8 +11725,22 @@
             0,
             0
           ],
-          "ordinal": 7,
+          "ordinal": 13,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-7:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 14,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11052,7 +11751,7 @@
             0,
             0
           ],
-          "ordinal": 8,
+          "ordinal": 15,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -11064,10 +11763,36 @@
             0,
             0
           ],
-          "ordinal": 9,
+          "ordinal": 16,
           "overlap": [
             "extend"
           ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 17,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-2",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch or lie beside or along",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 18,
+          "overlap": [],
           "pos_evidence": "verb"
         },
         {
@@ -11078,7 +11803,7 @@
             0,
             0
           ],
-          "ordinal": 10,
+          "ordinal": 19,
           "overlap": [
             "extend"
           ],
@@ -11134,6 +11859,20 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-27164:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-27164:sense-2:path-2",
           "entry_id": "kaikki:grc-row-27164",
           "gloss": "to prolong, protract",
@@ -11141,7 +11880,33 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-2",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to prolong, protract",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -11153,8 +11918,22 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 7,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 8,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11165,8 +11944,22 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 9,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 10,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11177,8 +11970,22 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 11,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-6:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 12,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11189,8 +11996,22 @@
             0,
             0
           ],
-          "ordinal": 7,
+          "ordinal": 13,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-7:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 14,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11201,7 +12022,7 @@
             0,
             0
           ],
-          "ordinal": 8,
+          "ordinal": 15,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -11213,10 +12034,36 @@
             0,
             0
           ],
-          "ordinal": 9,
+          "ordinal": 16,
           "overlap": [
             "extend"
           ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 17,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-2",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch or lie beside or along",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 18,
+          "overlap": [],
           "pos_evidence": "verb"
         },
         {
@@ -11227,7 +12074,7 @@
             0,
             0
           ],
-          "ordinal": 10,
+          "ordinal": 19,
           "overlap": [
             "extend"
           ],
@@ -11270,6 +12117,20 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-27164:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-27164:sense-2:path-2",
           "entry_id": "kaikki:grc-row-27164",
           "gloss": "to prolong, protract",
@@ -11277,7 +12138,33 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-2",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to prolong, protract",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -11289,8 +12176,22 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 7,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 8,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11301,8 +12202,22 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 9,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 10,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11313,8 +12228,22 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 11,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-6:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 12,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11325,8 +12254,22 @@
             0,
             0
           ],
-          "ordinal": 7,
+          "ordinal": 13,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-7:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 14,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11337,7 +12280,7 @@
             0,
             0
           ],
-          "ordinal": 8,
+          "ordinal": 15,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -11349,10 +12292,36 @@
             0,
             0
           ],
-          "ordinal": 9,
+          "ordinal": 16,
           "overlap": [
             "extend"
           ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 17,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-2",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch or lie beside or along",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 18,
+          "overlap": [],
           "pos_evidence": "verb"
         },
         {
@@ -11363,7 +12332,7 @@
             0,
             0
           ],
-          "ordinal": 10,
+          "ordinal": 19,
           "overlap": [
             "extend"
           ],
@@ -11406,6 +12375,20 @@
           "pos_evidence": "verb"
         },
         {
+          "id": "kaikki:grc-row-27164:sense-2:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 3,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
           "id": "kaikki:grc-row-27164:sense-2:path-2",
           "entry_id": "kaikki:grc-row-27164",
           "gloss": "to prolong, protract",
@@ -11413,7 +12396,33 @@
             0,
             0
           ],
-          "ordinal": 3,
+          "ordinal": 4,
+          "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 5,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-2",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to prolong, protract",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 6,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -11425,8 +12434,22 @@
             0,
             0
           ],
-          "ordinal": 4,
+          "ordinal": 7,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-4:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 8,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11437,8 +12460,22 @@
             0,
             0
           ],
-          "ordinal": 5,
+          "ordinal": 9,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-5:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 10,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11449,8 +12486,22 @@
             0,
             0
           ],
-          "ordinal": 6,
+          "ordinal": 11,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-6:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 12,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11461,8 +12512,22 @@
             0,
             0
           ],
-          "ordinal": 7,
+          "ordinal": 13,
           "overlap": [],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-7:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 14,
+          "overlap": [
+            "extend"
+          ],
           "pos_evidence": "verb"
         },
         {
@@ -11473,7 +12538,7 @@
             0,
             0
           ],
-          "ordinal": 8,
+          "ordinal": 15,
           "overlap": [],
           "pos_evidence": "verb"
         },
@@ -11485,10 +12550,36 @@
             0,
             0
           ],
-          "ordinal": 9,
+          "ordinal": 16,
           "overlap": [
             "extend"
           ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-1",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 17,
+          "overlap": [
+            "extend"
+          ],
+          "pos_evidence": "verb"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-2",
+          "entry_id": "kaikki:grc-row-27164",
+          "gloss": "to stretch or lie beside or along",
+          "morphology_label_rank": [
+            0,
+            0
+          ],
+          "ordinal": 18,
+          "overlap": [],
           "pos_evidence": "verb"
         },
         {
@@ -11499,7 +12590,7 @@
             0,
             0
           ],
-          "ordinal": 10,
+          "ordinal": 19,
           "overlap": [
             "extend"
           ],

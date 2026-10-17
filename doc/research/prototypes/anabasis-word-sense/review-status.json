@@ -1,13 +1,34 @@
 {
   "schema": "anabasis-word-sense-live-review/1",
-  "status": "awaiting_live_human_sense_review",
-  "reviewer": null,
-  "confirmed_sense_pairs": 0,
-  "events": [],
+  "status": "live_human_sense_review_in_progress",
+  "reviewer": "Justin Hayes",
+  "confirmed_sense_pairs": 12,
+  "confirmed_target_occurrences": 6,
+  "events": [
+    {
+      "date": "2026-10-17",
+      "checkpoint_commit": "03207830",
+      "target_ids": ["1:4", "1:5", "1:8", "3:4", "3:5", "3:6"],
+      "assistant_prompt_verbatim": "The [prototype is ready](https://github.com/justin-hayes/mouseion/tree/03207830/doc/research/prototypes/anabasis-word-sense), with predictions frozen but **not scored**.\n\n### First sense-review batch\n\nFrom the opening:\n> Darius and Parysatis had two sons born to them, of whom the elder was Artaxerxes and the younger Cyrus.\n\nAnd:\n> The elder, as it chanced, was with him already.\n\nPlease confirm or correct these specific dictionary-sense distinctions:\n\n| Greek target | Proposed contextual sense |\n|---|---|\n| **γίγνονται** | **be born**, rather than generic becoming/happening |\n| **παῖδες** | **children/offspring**, here sons—not slaves or servants |\n| **παρὼν** | **be present/by him**, not the separate “pass by” homograph |\n| **ἐτύγχανε** | **happen to be**, with the participle—not attain something or hit a target |\n\n**One additional judgment:** both occurrences of **πρεσβύτερος** mean **older**, not necessarily elderly. LSJ explicitly documents that comparative use. Kaikki’s adjective sense only says **“elderly, aged.”**\n\nShould we count that Kaikki sense as supporting **older when combined with comparative morphology**, or mark it **insufficient for this context**?",
+      "human_response_verbatim": "Looks good. Yes, in context the word means the \"older\" son, not old. I think that's clear from Kaikki's sense plus morphology",
+      "scope": "Confirms the first six occurrence sense proposals in the linked checkpoint; explicitly accepts Kaikki adjective evidence plus comparative morphology for older in both occurrences. Does not approve verbatim elderly/aged as the contextual cue, other sample labels, an automatic strategy, or production changes.",
+      "method": "Live confirmation of agent-proposed source sense choices, not independent annotation or expert certification"
+    }
+  ],
+  "representation_revisions": [
+    {
+      "date": "2026-10-17",
+      "from_checkpoint": "03207830",
+      "timing": "After first-six human confirmation, before any chosen-sense scoring",
+      "reason": "Second-batch source inspection found identical depart gloss paths with distinct raw construction notes (absolute, with eis, with participle).",
+      "change": "Keep every Kaikki raw source-row/depth path distinct; never treat equal gloss text as a supported sense-equivalence mapping. Rebuild solely from retained unchanged source_senses. The original frozen checkpoint remains available.",
+      "first_batch_effect": "All 12 confirmed source-path/native IDs and their source meanings remain unchanged. No new human labels inferred and no measured accuracy improvement claimed."
+    }
+  ],
   "notes": [
     "The separate alignment checkpoint was confirmed previously, not in this sense review.",
     "Justin's instruction to continue after research completion is not sense annotation or acceptance of a strategy.",
-    "review-proposals.json contains unreviewed agent proposals and an explicit unresolved comparative-age question.",
-    "Do not create sense-gold.json or score chosen-sense accuracy before actual live confirmation."
+    "review-proposals.json preserves the originally unreviewed first-batch proposals; review-confirmed.json records the actual partial confirmation.",
+    "Do not create sense-gold.json or score chosen-sense accuracy before all required labels have actual live confirmation."
   ]
 }

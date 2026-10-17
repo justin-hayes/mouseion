@@ -1,0 +1,22 @@
+{
+  "schema": "anabasis-word-sense-partial-reference/1",
+  "status": "partially_human_confirmed_not_ready_for_scoring",
+  "reviewer": "Justin Hayes",
+  "review_ledger": "review-status.json",
+  "reviewed_against_commit": "03207830",
+  "reviewed_against_inputs_sha256": "f69e750eefd26be663379e46443c5ae6b03bf5659a7eeef046c59109beaa3763",
+  "labels": [
+    {"target_id": "1:4", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-902:sense-1:path-2"], "meaning": "be born", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "1:4", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n22209.2"], "meaning": "be born", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "1:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-87:sense-1:path-1"], "meaning": "children/offspring, here sons", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "1:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n76703.1"], "meaning": "children/offspring, here sons", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "1:8", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-6531:sense-1:path-1"], "meaning": "older son, supported by adjective sense plus comparative morphology; not old/elderly as the contextual cue", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "1:8", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n86305.0"], "meaning": "older son", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "3:4", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-6531:sense-1:path-1"], "meaning": "older son, supported by adjective sense plus comparative morphology; not old/elderly as the contextual cue", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "3:4", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n86305.0"], "meaning": "older son", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "3:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8800:sense-1:path-1", "kaikki:grc-row-8800:sense-2:path-2"], "meaning": "be present/by him, not pass by", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "3:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n79223.0", "lsj:n79223.1"], "meaning": "be present/by him, not pass by", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "3:6", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-60:sense-2:path-2"], "meaning": "happen to be, with the participle", "status": "human_confirmed", "ledger_event": 0},
+    {"target_id": "3:6", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n105829.9"], "meaning": "happen to be, with the participle", "status": "human_confirmed", "ledger_event": 0}
+  ]
+}

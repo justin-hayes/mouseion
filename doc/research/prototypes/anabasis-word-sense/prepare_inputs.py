@@ -18,6 +18,7 @@ import zipfile
 from pathlib import Path
 
 from betacode import beta_to_greek
+from source_paths import candidate_paths
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
@@ -148,28 +149,8 @@ with (SCRATCH / "grc.jsonl").open("rb") as stream:
             )
         # A raw record often omits a separate row for a parent dictionary sense:
         # e.g. “give orders” survives only as the common breadcrumb of children.
-        # Retain exact prefix paths as separate source-grounded candidate nodes.
-        # Never infer that a supported parent makes a particular child correct.
-        paths = {}
-        for source in source_senses:
-            for depth in range(1, len(source.get("glosses", [])) + 1):
-                prefix = tuple(source["glosses"][:depth])
-                if prefix not in paths:
-                    paths[prefix] = {
-                        "id": source["id"] + f":path-{depth}",
-                        "ordinal": len(paths) + 1,
-                        "glosses": list(prefix),
-                        "source_paths": [],
-                        "tags": [],
-                        "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID",
-                    }
-                paths[prefix]["source_paths"].append(
-                    {"source_sense_id": source["id"], "depth": depth}
-                )
-                if depth == len(source["glosses"]):
-                    # Only a leaf has unambiguous source-row tags. Parent tags
-                    # must not inherit a particular child's construction label.
-                    paths[prefix]["tags"] = source.get("tags", [])
+        # Keep each raw row/depth distinct, including repeated glosses with
+        # different construction notes. A supported parent never selects a child.
         kaikki_rows.append(
             {
                 "id": f"kaikki:grc-row-{grc_ordinal}",
@@ -185,7 +166,7 @@ with (SCRATCH / "grc.jsonl").open("rb") as stream:
                     if k in data
                 },
                 "source_senses": source_senses,
-                "senses": list(paths.values()),
+                "senses": candidate_paths(source_senses),
             }
         )
 assert grc_ordinal == 68196

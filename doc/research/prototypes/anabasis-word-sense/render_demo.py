@@ -9,9 +9,13 @@ for marker, name in (
     ("INPUTS", "inputs.json"),
     ("PREDICTIONS", "predictions.json"),
     ("PROPOSALS", "review-proposals.json"),
+    ("CONFIRMED", "review-confirmed.json"),
 ):
     path = HERE / name
     payload = json.loads(path.read_text()) if path.exists() else None
+    if marker == "PROPOSALS":
+        for batch in sorted(HERE.glob("review-batch-*.json")):
+            payload["labels"].extend(json.loads(batch.read_text())["labels"])
     safe = (
         json.dumps(payload, ensure_ascii=False)
         .replace("<", "\\u003c")

@@ -4,7 +4,7 @@ For [Prototype: word sense in context for Ancient Greek without an LLM](https://
 on the **unmerged** `prototype/anabasis-word-sense` branch. No production changes,
 LLM calls, model weights, database, queue, or NLP service. No PR or merge intended.
 
-**Status: awaiting live human sense review; no sense accuracy measured.**
+**Status: live human sense review in progress (6/24 occurrences); no sense accuracy measured.**
 
 Open [`evidence.html`](evidence.html) directly in a browser. It contains all inputs,
 fixed baseline outputs, native dictionary senses and memory-only review controls.
@@ -55,16 +55,18 @@ candidate identity, not proof of semantic equivalence.
    English realization and the candidate node's gloss (LSJ own glosses), with a
    small generic suffix heuristic. No overlap → abstain. More overlap wins;
    morphology and source order break ties. No hand-made bilingual synonyms.
-3. **Unique projection:** require exactly one compatible sense with positive
-   overlap. This is an explicit abstention heuristic, **not calibrated confidence**.
+3. **Unique projection:** require exactly one compatible source-sense/path candidate
+   with positive overlap. Repeated Kaikki paths can make this conservative gate
+   abstain; they are not claimed to be distinct meanings. This is an explicit
+   abstention heuristic, **not calibrated confidence**.
 4. **Evidence only / no contextual Gloss:** always abstain from contextual sense
    choice. Source-attributed dictionary evidence may be displayed separately;
    whether that is useful on cards remains a human decision.
 
 Kaikki preserves every raw source sense row and creates candidate nodes for exact
 gloss-prefix paths, including parents otherwise present only as breadcrumbs.
-Identical prefix paths are shared only within a single pinned record; their
-original source-row/depth locations remain explicit. Their local IDs are **not**
+Every source-row/depth path remains distinct even when gloss text repeats: raw
+construction notes may differ. Their local IDs are **not**
 source-provided universal sense IDs. A supported parent does not select one of its
 narrower children. Child-only tags are not imposed on parent candidates.
 
@@ -115,6 +117,14 @@ Open the committed HTML without installing anything. Rebuild predictions/demo:
 python3 doc/research/prototypes/anabasis-word-sense/predict.py
 python3 doc/research/prototypes/anabasis-word-sense/render_demo.py
 ```
+
+`source_paths.py` can rebuild just the derived Kaikki candidate paths from the
+retained raw `source_senses`, without downloading or changing dictionary sources.
+The original checkpoint `03207830` shared identical gloss prefixes; source review
+for the second batch revealed distinct “depart” construction rows. Before any
+scoring, this was corrected to retain every raw row/depth. The first six confirmed
+IDs and their source meanings are unchanged. Original predictions remain available
+at that commit; the revised checkpoint is exploratory, not a held-out improvement.
 
 Optional re-extraction needs the exact pinned source files in
 `~/.cache/scratch/anabasis-word-sense-2130/{oga.conllu,lexica.zip,raw.jsonl.gz}`.

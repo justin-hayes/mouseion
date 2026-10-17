@@ -1011,14 +1011,13 @@
             {
               "source_sense_id": "kaikki:grc-row-60:sense-1",
               "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-60:sense-2",
-              "depth": 1
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "Expressing coincidence: to happen (to be)"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-60:sense-1:path-2",
@@ -1034,11 +1033,33 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "Expressing coincidence: to happen (to be)",
+            "(of events) to happen, occur [with dative ‘to someone’]"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-2:path-1",
+          "ordinal": 3,
+          "glosses": [
+            "Expressing coincidence: to happen (to be)"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-60:sense-2",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "Expressing coincidence: to happen (to be)"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-60:sense-2:path-2",
-          "ordinal": 3,
+          "ordinal": 4,
           "glosses": [
             "Expressing coincidence: to happen (to be)",
             "to happen"
@@ -1050,11 +1071,15 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "Expressing coincidence: to happen (to be)",
+            "(of a person) to happen [with participle ‘to do something’]"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-60:sense-3:path-1",
-          "ordinal": 4,
+          "ordinal": 5,
           "glosses": [
             "to succeed [with participle or infinitive ‘at doing’]; to go successfully"
           ],
@@ -1062,22 +1087,17 @@
             {
               "source_sense_id": "kaikki:grc-row-60:sense-3",
               "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-60:sense-4",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-60:sense-5",
-              "depth": 1
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to succeed [with participle or infinitive ‘at doing’]; to go successfully"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-60:sense-3:path-2",
-          "ordinal": 5,
+          "ordinal": 6,
           "glosses": [
             "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
             "to hit a target"
@@ -1089,11 +1109,33 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+            "to hit a target [with genitive]"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-4:path-1",
+          "ordinal": 7,
+          "glosses": [
+            "to succeed [with participle or infinitive ‘at doing’]; to go successfully"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-60:sense-4",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "to succeed [with participle or infinitive ‘at doing’]; to go successfully"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-60:sense-4:path-2",
-          "ordinal": 6,
+          "ordinal": 8,
           "glosses": [
             "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
             "to meet someone"
@@ -1105,11 +1147,33 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+            "to meet someone [with genitive]"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-60:sense-5:path-1",
+          "ordinal": 9,
+          "glosses": [
+            "to succeed [with participle or infinitive ‘at doing’]; to go successfully"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-60:sense-5",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "to succeed [with participle or infinitive ‘at doing’]; to go successfully"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-60:sense-5:path-2",
-          "ordinal": 7,
+          "ordinal": 10,
           "glosses": [
             "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
             "to get or attain something"
@@ -1121,7 +1185,11 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to succeed [with participle or infinitive ‘at doing’]; to go successfully",
+            "to get or attain something [with genitive]"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -1196,7 +1264,8 @@
             "declension-2",
             "masculine"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-81:sense-2:path-1",
@@ -1214,7 +1283,8 @@
             "declension-2",
             "masculine"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-81:sense-3:path-1",
@@ -1232,7 +1302,8 @@
             "declension-2",
             "masculine"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-81:sense-4:path-1",
@@ -1250,7 +1321,8 @@
             "declension-2",
             "masculine"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -1318,7 +1390,8 @@
             "feminine",
             "masculine"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-87:sense-2:path-1",
@@ -1337,7 +1410,8 @@
             "feminine",
             "masculine"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-87:sense-3:path-1",
@@ -1356,7 +1430,8 @@
             "feminine",
             "masculine"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -1476,7 +1551,10 @@
           "tags": [
             "intransitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(intransitive) to flee, run off, go a certain direction with haste (often with prepositions)"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-826:sense-2:path-1",
@@ -1493,7 +1571,10 @@
           "tags": [
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(transitive) to flee, escape, avoid, get away from (danger or trouble)"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-826:sense-3:path-1",
@@ -1505,14 +1586,13 @@
             {
               "source_sense_id": "kaikki:grc-row-826:sense-3",
               "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-826:sense-4",
-              "depth": 1
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(transitive or intransitive) to leave the country, go into exile"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-826:sense-3:path-2",
@@ -1531,11 +1611,33 @@
             "intransitive",
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(transitive or intransitive) to leave the country, go into exile",
+            "(intransitive) to be exiled, banished, driven out of the country [with ὑπό (hupó, + genitive) ‘by someone’]"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-826:sense-4:path-1",
+          "ordinal": 5,
+          "glosses": [
+            "to leave the country, go into exile"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-826:sense-4",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "(transitive or intransitive) to leave the country, go into exile"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-826:sense-4:path-2",
-          "ordinal": 5,
+          "ordinal": 6,
           "glosses": [
             "to leave the country, go into exile",
             "to be in exile, live in banishment"
@@ -1552,11 +1654,15 @@
             "present",
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(transitive or intransitive) to leave the country, go into exile",
+            "(intransitive, present and imperfect) to be in exile, live in banishment"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-826:sense-5:path-1",
-          "ordinal": 6,
+          "ordinal": 7,
           "glosses": [
             "to have escaped, be safe from"
           ],
@@ -1569,11 +1675,14 @@
           "tags": [
             "perfect"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(perfect) to have escaped, be safe from"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-826:sense-6:path-1",
-          "ordinal": 7,
+          "ordinal": 8,
           "glosses": [
             "to be accused of a crime; often with δίκην (díkēn) and genitive of the crime"
           ],
@@ -1587,7 +1696,10 @@
             "imperfect",
             "present"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(law, chiefly present and imperfect) to be accused of a crime; often with δίκην (díkēn) and genitive of the crime"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -1700,18 +1812,13 @@
             {
               "source_sense_id": "kaikki:grc-row-902:sense-1",
               "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-902:sense-2",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-902:sense-3",
-              "depth": 1
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to come into being"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-902:sense-1:path-2",
@@ -1727,11 +1834,33 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to come into being",
+            "(of people) to be born"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-902:sense-2:path-1",
+          "ordinal": 3,
+          "glosses": [
+            "to come into being"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-902:sense-2",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "to come into being"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-902:sense-2:path-2",
-          "ordinal": 3,
+          "ordinal": 4,
           "glosses": [
             "to come into being",
             "to be produced"
@@ -1743,11 +1872,33 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to come into being",
+            "(of things) to be produced"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-902:sense-3:path-1",
+          "ordinal": 5,
+          "glosses": [
+            "to come into being"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-902:sense-3",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "to come into being"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-902:sense-3:path-2",
-          "ordinal": 4,
+          "ordinal": 6,
           "glosses": [
             "to come into being",
             "to take place"
@@ -1759,11 +1910,15 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to come into being",
+            "(of events) to take place"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-902:sense-4:path-1",
-          "ordinal": 5,
+          "ordinal": 7,
           "glosses": [
             "to become"
           ],
@@ -1774,11 +1929,14 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(followed by a predicate) to become"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-902:sense-5:path-1",
-          "ordinal": 6,
+          "ordinal": 8,
           "glosses": [
             "having ceased to be: former, ex-"
           ],
@@ -1792,11 +1950,14 @@
             "aorist",
             "participle"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(aorist participle) having ceased to be: former, ex-"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-902:sense-6:path-1",
-          "ordinal": 7,
+          "ordinal": 9,
           "glosses": [
             "something that is due (of payments); regular, normal, usual"
           ],
@@ -1810,11 +1971,14 @@
             "participle",
             "present"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(present participle) something that is due (of payments); regular, normal, usual"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-902:sense-7:path-1",
-          "ordinal": 8,
+          "ordinal": 10,
           "glosses": [
             "used as past of εἰμί (eimí, “was, have been”)"
           ],
@@ -1828,7 +1992,10 @@
             "aorist",
             "perfect"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(aorist, perfect) used as past of εἰμί (eimí, “was, have been”)"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -1886,7 +2053,8 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-3837:sense-2:path-1",
@@ -1898,14 +2066,11 @@
             {
               "source_sense_id": "kaikki:grc-row-3837:sense-2",
               "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-3837:sense-3",
-              "depth": 1
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-3837:sense-2:path-2",
@@ -1921,11 +2086,28 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-3837:sense-3:path-1",
+          "ordinal": 4,
+          "glosses": [
+            "to give orders"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-3837:sense-3",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-3837:sense-3:path-2",
-          "ordinal": 4,
+          "ordinal": 5,
           "glosses": [
             "to give orders",
             "to summon"
@@ -1937,11 +2119,12 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-3837:sense-4:path-1",
-          "ordinal": 5,
+          "ordinal": 6,
           "glosses": [
             "to encourage"
           ],
@@ -1952,7 +2135,8 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2035,7 +2219,10 @@
           "tags": [
             "declension-1"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(of places) a difficulty in passage"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4013:sense-2:path-1",
@@ -2052,7 +2239,8 @@
           "tags": [
             "declension-1"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4013:sense-3:path-1",
@@ -2069,7 +2257,8 @@
           "tags": [
             "declension-1"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4013:sense-4:path-1",
@@ -2086,7 +2275,8 @@
           "tags": [
             "declension-1"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4013:sense-5:path-1",
@@ -2103,7 +2293,8 @@
           "tags": [
             "declension-1"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2163,7 +2354,8 @@
           "tags": [
             "declension-1"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4499:sense-2:path-1",
@@ -2180,7 +2372,8 @@
           "tags": [
             "declension-1"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4499:sense-3:path-1",
@@ -2197,7 +2390,8 @@
           "tags": [
             "declension-1"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2261,7 +2455,8 @@
             "declension-2",
             "neuter"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4824:sense-2:path-1",
@@ -2279,7 +2474,8 @@
             "declension-2",
             "neuter"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4824:sense-3:path-1",
@@ -2297,7 +2493,8 @@
             "declension-2",
             "neuter"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2337,7 +2534,8 @@
           "tags": [
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2387,7 +2585,8 @@
           "tags": [
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-4924:sense-2:path-1",
@@ -2404,7 +2603,8 @@
           "tags": [
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2444,7 +2644,8 @@
           "tags": [
             "declension-2"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2486,7 +2687,8 @@
             "declension-3",
             "neuter"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2521,7 +2723,8 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2629,7 +2832,8 @@
           "tags": [
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-6532:sense-2:path-1",
@@ -2646,7 +2850,8 @@
           "tags": [
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-6532:sense-3:path-1",
@@ -2664,7 +2869,10 @@
             "declension-3",
             "superlative"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(superlative) revered, honored"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-6532:sense-4:path-1",
@@ -2681,7 +2889,8 @@
           "tags": [
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-6532:sense-5:path-1",
@@ -2699,7 +2908,10 @@
             "Laconian",
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(Laconian) a political title, higher than γέρων (gérōn, “senator”): chief, president"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-6532:sense-6:path-1",
@@ -2716,7 +2928,8 @@
           "tags": [
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-6532:sense-7:path-1",
@@ -2733,7 +2946,8 @@
           "tags": [
             "declension-3"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2787,7 +3001,10 @@
             "declension-2",
             "masculine"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(Greek mythology) Phobos (the Greek god of fear)"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2829,7 +3046,8 @@
             "declension-1",
             "declension-2"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -2925,32 +3143,98 @@
             {
               "source_sense_id": "kaikki:grc-row-8504:sense-1",
               "depth": 1
-            },
+            }
+          ],
+          "tags": [
+            "with-genitive"
+          ],
+          "raw_glosses": [
+            "(with genitive) to go away from, depart from"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-2:path-1",
+          "ordinal": 2,
+          "glosses": [
+            "to go away from, depart from"
+          ],
+          "source_paths": [
             {
               "source_sense_id": "kaikki:grc-row-8504:sense-2",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-8504:sense-3",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-8504:sense-4",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-8504:sense-5",
               "depth": 1
             }
           ],
           "tags": [
             "with-genitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(with genitive) to go away from, depart from"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-3:path-1",
+          "ordinal": 3,
+          "glosses": [
+            "to go away from, depart from"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-8504:sense-3",
+              "depth": 1
+            }
+          ],
+          "tags": [
+            "absolute",
+            "with-genitive"
+          ],
+          "raw_glosses": [
+            "(with genitive) to go away from, depart from"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-4:path-1",
+          "ordinal": 4,
+          "glosses": [
+            "to go away from, depart from"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-8504:sense-4",
+              "depth": 1
+            }
+          ],
+          "tags": [
+            "with-genitive"
+          ],
+          "raw_glosses": [
+            "(with genitive) to go away from, depart from"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8504:sense-5:path-1",
+          "ordinal": 5,
+          "glosses": [
+            "to go away from, depart from"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-8504:sense-5",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "(with genitive) to go away from, depart from"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8504:sense-5:path-2",
-          "ordinal": 2,
+          "ordinal": 6,
           "glosses": [
             "to go away from, depart from",
             "to depart from life"
@@ -2964,7 +3248,11 @@
           "tags": [
             "with-genitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(with genitive) to go away from, depart from",
+            "to depart from life"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -3006,7 +3294,8 @@
             "declension-2",
             "neuter"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -3130,34 +3419,31 @@
             {
               "source_sense_id": "kaikki:grc-row-8800:sense-1",
               "depth": 1
-            },
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8800:sense-2:path-1",
+          "ordinal": 2,
+          "glosses": [
+            "to be by or present"
+          ],
+          "source_paths": [
             {
               "source_sense_id": "kaikki:grc-row-8800:sense-2",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-8800:sense-3",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-8800:sense-4",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-8800:sense-5",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-8800:sense-6",
               "depth": 1
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-2:path-2",
-          "ordinal": 2,
+          "ordinal": 3,
           "glosses": [
             "to be by or present",
             "to be by or near one"
@@ -3169,11 +3455,28 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8800:sense-3:path-1",
+          "ordinal": 4,
+          "glosses": [
+            "to be by or present"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-8800:sense-3",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-3:path-2",
-          "ordinal": 3,
+          "ordinal": 5,
           "glosses": [
             "to be by or present",
             "to be present in or at"
@@ -3185,11 +3488,28 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8800:sense-4:path-1",
+          "ordinal": 6,
+          "glosses": [
+            "to be by or present"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-8800:sense-4",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-4:path-2",
-          "ordinal": 4,
+          "ordinal": 7,
           "glosses": [
             "to be by or present",
             "to be present so as to help, stand by"
@@ -3201,11 +3521,28 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8800:sense-5:path-1",
+          "ordinal": 8,
+          "glosses": [
+            "to be by or present"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-8800:sense-5",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-5:path-2",
-          "ordinal": 5,
+          "ordinal": 9,
           "glosses": [
             "to be by or present",
             "to arrive at, to have arrived at"
@@ -3217,11 +3554,28 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8800:sense-6:path-1",
+          "ordinal": 10,
+          "glosses": [
+            "to be by or present"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-8800:sense-6",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-6:path-2",
-          "ordinal": 6,
+          "ordinal": 11,
           "glosses": [
             "to be by or present",
             "to have come from"
@@ -3233,11 +3587,12 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-7:path-1",
-          "ordinal": 7,
+          "ordinal": 12,
           "glosses": [
             "to be by, to be ready or at hand"
           ],
@@ -3245,18 +3600,35 @@
             {
               "source_sense_id": "kaikki:grc-row-8800:sense-7",
               "depth": 1
-            },
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "(of things) to be by, to be ready or at hand"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8800:sense-8:path-1",
+          "ordinal": 13,
+          "glosses": [
+            "to be by, to be ready or at hand"
+          ],
+          "source_paths": [
             {
               "source_sense_id": "kaikki:grc-row-8800:sense-8",
               "depth": 1
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(of things) to be by, to be ready or at hand"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-8:path-2",
-          "ordinal": 8,
+          "ordinal": 14,
           "glosses": [
             "to be by, to be ready or at hand",
             "in store, at command"
@@ -3268,11 +3640,15 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(of things) to be by, to be ready or at hand",
+            "in store, at command"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-9:path-1",
-          "ordinal": 9,
+          "ordinal": 15,
           "glosses": [
             "it depends on me, is in one's power to do"
           ],
@@ -3280,20 +3656,37 @@
             {
               "source_sense_id": "kaikki:grc-row-8800:sense-9",
               "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-8800:sense-10",
-              "depth": 1
             }
           ],
           "tags": [
             "impersonal"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(impersonal) it depends on me, is in one's power to do"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8800:sense-10:path-1",
+          "ordinal": 16,
+          "glosses": [
+            "it depends on me, is in one's power to do"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-8800:sense-10",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "(impersonal) it depends on me, is in one's power to do"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8800:sense-10:path-2",
-          "ordinal": 10,
+          "ordinal": 17,
           "glosses": [
             "it depends on me, is in one's power to do",
             "it being possible or easy, since it is allowed"
@@ -3308,7 +3701,11 @@
             "impersonal",
             "participle"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(impersonal) it depends on me, is in one's power to do",
+            "(participle) it being possible or easy, since it is allowed"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -3355,7 +3752,10 @@
             "masculine",
             "participle"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(masculine participle, at the end of a verse, like an expletive to round off the sentence)"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -3474,7 +3874,23 @@
             {
               "source_sense_id": "kaikki:grc-row-8859:sense-1",
               "depth": 1
-            },
+            }
+          ],
+          "tags": [
+            "transitive"
+          ],
+          "raw_glosses": [
+            "(transitive) to take, grasp, seize"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-8859:sense-2:path-1",
+          "ordinal": 2,
+          "glosses": [
+            "to take, grasp, seize"
+          ],
+          "source_paths": [
             {
               "source_sense_id": "kaikki:grc-row-8859:sense-2",
               "depth": 1
@@ -3484,11 +3900,14 @@
             "figuratively",
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(transitive) to take, grasp, seize"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8859:sense-3:path-1",
-          "ordinal": 2,
+          "ordinal": 3,
           "glosses": [
             "to win, gain"
           ],
@@ -3501,11 +3920,14 @@
           "tags": [
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(transitive) to win, gain"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8859:sense-4:path-1",
-          "ordinal": 3,
+          "ordinal": 4,
           "glosses": [
             "to convict, win a conviction"
           ],
@@ -3518,11 +3940,14 @@
           "tags": [
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(transitive) to convict, win a conviction"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8859:sense-5:path-1",
-          "ordinal": 4,
+          "ordinal": 5,
           "glosses": [
             "to grasp with the mind, understand"
           ],
@@ -3536,11 +3961,14 @@
             "figuratively",
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(figuratively, transitive) to grasp with the mind, understand"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8859:sense-6:path-1",
-          "ordinal": 5,
+          "ordinal": 6,
           "glosses": [
             "to take for oneself, choose, select"
           ],
@@ -3553,11 +3981,14 @@
           "tags": [
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(middle voice, transitive) to take for oneself, choose, select"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-8859:sense-7:path-1",
-          "ordinal": 6,
+          "ordinal": 7,
           "glosses": [
             "to prefer"
           ],
@@ -3570,7 +4001,10 @@
           "tags": [
             "transitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(middle voice, transitive) to prefer"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -3641,7 +4075,10 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to plot against; to contrive a plan against [with dative]"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-18181:sense-2:path-1",
@@ -3656,7 +4093,10 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to plan upon something; to plan to do something [with accusative or infinitive]"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-18181:sense-3:path-1",
@@ -3673,7 +4113,10 @@
           "tags": [
             "intransitive"
           ],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(intransitive) to be harmful"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-18181:sense-4:path-1",
@@ -3688,7 +4131,10 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "(passive voice or future middle voice) to be plotted against"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     },
@@ -3789,38 +4235,11 @@
             {
               "source_sense_id": "kaikki:grc-row-27164:sense-1",
               "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-27164:sense-2",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-27164:sense-3",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-27164:sense-4",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-27164:sense-5",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-27164:sense-6",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-27164:sense-7",
-              "depth": 1
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-27164:sense-8",
-              "depth": 1
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-1:path-2",
@@ -3836,11 +4255,28 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-2:path-1",
+          "ordinal": 3,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-27164:sense-2",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-2:path-2",
-          "ordinal": 3,
+          "ordinal": 4,
           "glosses": [
             "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
             "to prolong, protract"
@@ -3849,18 +4285,48 @@
             {
               "source_sense_id": "kaikki:grc-row-27164:sense-2",
               "depth": 2
-            },
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-1",
+          "ordinal": 5,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-27164:sense-3",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-3:path-2",
+          "ordinal": 6,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+            "to prolong, protract"
+          ],
+          "source_paths": [
             {
               "source_sense_id": "kaikki:grc-row-27164:sense-3",
               "depth": 2
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-3:path-3",
-          "ordinal": 4,
+          "ordinal": 7,
           "glosses": [
             "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
             "to prolong, protract",
@@ -3873,11 +4339,28 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-4:path-1",
+          "ordinal": 8,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-27164:sense-4",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-4:path-2",
-          "ordinal": 5,
+          "ordinal": 9,
           "glosses": [
             "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
             "to apply a figure to a straight line"
@@ -3889,11 +4372,30 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-5:path-1",
+          "ordinal": 10,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-27164:sense-5",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-5:path-2",
-          "ordinal": 6,
+          "ordinal": 11,
           "glosses": [
             "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
             "to relax"
@@ -3905,11 +4407,31 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+            "(of the bowels) to relax"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-6:path-1",
+          "ordinal": 12,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-27164:sense-6",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-6:path-2",
-          "ordinal": 7,
+          "ordinal": 13,
           "glosses": [
             "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
             "to lengthen in pronunciation; (of sound, of echo) to prolong"
@@ -3921,11 +4443,28 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-7:path-1",
+          "ordinal": 14,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-27164:sense-7",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-7:path-2",
-          "ordinal": 8,
+          "ordinal": 15,
           "glosses": [
             "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
             "to stretch or lie beside or along"
@@ -3934,18 +4473,15 @@
             {
               "source_sense_id": "kaikki:grc-row-27164:sense-7",
               "depth": 2
-            },
-            {
-              "source_sense_id": "kaikki:grc-row-27164:sense-8",
-              "depth": 2
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-7:path-3",
-          "ordinal": 9,
+          "ordinal": 16,
           "glosses": [
             "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
             "to stretch or lie beside or along",
@@ -3958,11 +4494,50 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-1",
+          "ordinal": 17,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-27164:sense-8",
+              "depth": 1
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
+        },
+        {
+          "id": "kaikki:grc-row-27164:sense-8:path-2",
+          "ordinal": 18,
+          "glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+            "to stretch or lie beside or along"
+          ],
+          "source_paths": [
+            {
+              "source_sense_id": "kaikki:grc-row-27164:sense-8",
+              "depth": 2
+            }
+          ],
+          "tags": [],
+          "raw_glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+            "to stretch or lie beside or along"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         },
         {
           "id": "kaikki:grc-row-27164:sense-8:path-3",
-          "ordinal": 10,
+          "ordinal": 19,
           "glosses": [
             "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
             "to stretch or lie beside or along",
@@ -3975,7 +4550,12 @@
             }
           ],
           "tags": [],
-          "identity_kind": "derived exact gloss-prefix path, not a source-provided sense ID"
+          "raw_glosses": [
+            "to stretch out along, beside, or near; to extend, deploy; to extend along; to be stretched at length, laid low",
+            "to stretch or lie beside or along",
+            "(of time) to extend; to continue one's life"
+          ],
+          "identity_kind": "distinct pinned raw-row/depth path, not a source-provided sense ID"
         }
       ]
     }

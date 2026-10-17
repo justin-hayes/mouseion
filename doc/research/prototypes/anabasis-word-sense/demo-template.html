@@ -18,7 +18,7 @@ pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}small{color:#5261
 <main>
 <h1>Can a dictionary choose this word’s meaning?</h1>
 <p>Throwaway Book 1 logic/evidence prototype. Compare dictionary order, morphology and English-gloss overlap; explore when to withhold a contextual Gloss rather than guess. No production behaviour changes.</p>
-<p class="notice"><strong>Not sense gold yet.</strong> The English spans and target links were confirmed by Justin, but no dictionary-sense label is confirmed until a separate live review. Projections here receive those approved links: they are not automatic alignment results. No measured sense accuracy is claimed before review.</p>
+<p class="notice" id="checkpoint"><strong>Sense review in progress.</strong> Projections receive human-approved English links: they are not automatic alignment results. No measured sense accuracy is claimed before the full live checkpoint.</p>
 <section aria-label="Guided walkthroughs">
 <h2>Guided walkthroughs</h2>
 <div role="tablist" aria-label="Evidence scenarios">
@@ -59,7 +59,7 @@ pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}small{color:#5261
 <label><input type="checkbox" id="reviewed"> I have reviewed this occurrence in this dictionary</label>
 <p id="progress"></p>
 <button id="export">Download review draft for the live checkpoint</button>
-<p><small>Selections are memory-only and disappear on reload. Downloading records a draft, not automatic human confirmation or ticket acceptance.</small></p>
+<p><small>New draft selections are memory-only and disappear on reload; previously confirmed choices reload from the committed live ledger. Downloading records a draft, not automatic human confirmation or ticket acceptance.</small></p>
 </section>
 <section>
 <h2>Provenance and limitations</h2>
@@ -87,9 +87,10 @@ whenever possible.</pre><p>Modifications: bounded record/sense extraction, Beta 
 const DATA = /*INPUTS*/null;
 const PREDICTIONS = /*PREDICTIONS*/null;
 const PROPOSALS = /*PROPOSALS*/null;
+const CONFIRMED = /*CONFIRMED*/null;
 // Pure replay/state logic. Fixed Python algorithms and all their candidate
 // scores are embedded, not a hidden API; see predict.py for the decision rule.
-const initial = () => ({target:DATA.targets[0].id,lexicon:'kaikki',strategy:'morphology-order',alignment:true,reveal:false,review:{},scenario:'opening'});
+const initial = () => ({target:DATA.targets[0].id,lexicon:'kaikki',strategy:'morphology-order',alignment:true,reveal:false,review:Object.fromEntries((CONFIRMED?.labels||[]).map(r=>[`${r.target_id}|${r.lexicon}`,{acceptable_sense_ids:r.acceptable_sense_ids,reviewed:true}])),scenario:'opening'});
 const key = s => `${s.target}|${s.lexicon}`;
 function outcome(state) {
   const prediction = PREDICTIONS.predictions.find(p=>p.target_id===state.target&&p.lexicon===state.lexicon&&p.strategy===state.strategy);
@@ -120,6 +121,7 @@ function dispatch(action){state=reduce(state,action);render();}
 for(const target of DATA.targets){const o=document.createElement('option');o.value=target.id;o.textContent=`${target.section} · ${target.surface} (${target.id})`;$('target').append(o);}
 function render(){
  const target=DATA.targets.find(t=>t.id===state.target), result=outcome(state);
+ $('checkpoint').textContent=`Sense review in progress: ${CONFIRMED?.labels.length||0}/48 dictionary/occurrence pairs confirmed in the committed live ledger. Projection uses approved English links, not automatic alignment. No accuracy scored yet.`;
  for(const f of ['target','lexicon','strategy'])$(f).value=state[f];
  $('alignment').checked=state.alignment;
  $('scenario').textContent=scenarios[state.scenario].text;
@@ -130,8 +132,9 @@ function render(){
  const current=state.review[key(state)]||{acceptable_sense_ids:[],reviewed:false};
  const rows=DATA[state.lexicon].filter(e=>e.key===target.canonical_lemma);
  const citationWord=e=>e.word.replace(/σ$/, 'ς'); // Beta Code has one sigma; display final ς, never an identity key.
- const proposal=PROPOSALS?.labels?.find(r=>r.target_id===state.target&&r.lexicon===state.lexicon);
- $('senses').innerHTML=(proposal?`<p class="notice">Unreviewed agent proposal: ${esc(proposal.acceptable_sense_ids.join(', ')||'none')} — ${esc(proposal.meaning)}</p>`:'')+(rows.length?rows.map(e=>`<h3>${esc(citationWord(e))} <code>${esc(e.id)}</code></h3><p>Source POS: ${esc(e.pos||JSON.stringify(e.entry_pos)||'unknown')}. <a href="${esc(e.source_url)}" target="_blank" rel="noreferrer">Pinned source / attribution</a></p>${e.senses.map(s=>`<label class="sense"><input type="checkbox" data-sense="${esc(s.id)}" ${current.acceptable_sense_ids.includes(s.id)?'checked':''}><strong>${esc((s.glosses||[]).join(' → ')||'(no standalone English gloss)')}</strong><br><code>${esc(s.id)}</code> ${esc(JSON.stringify(s.tags||s.labels||[]))}<details><summary>Native context / hierarchy</summary><pre>${esc(JSON.stringify(s,null,2))}</pre></details></label>`).join('')}`).join(''):'<p>No retrieved source entry at this headword.</p>');
+ const confirmation=CONFIRMED?.labels?.find(r=>r.target_id===state.target&&r.lexicon===state.lexicon);
+ const proposal=confirmation||PROPOSALS?.labels?.find(r=>r.target_id===state.target&&r.lexicon===state.lexicon);
+ $('senses').innerHTML=(proposal?`<p class="notice">${confirmation?'Confirmed in the live review':'Unreviewed agent proposal'}: ${esc(proposal.acceptable_sense_ids.join(', ')||'none')} — ${esc(proposal.meaning)}</p>`:'')+(rows.length?rows.map(e=>`<h3>${esc(citationWord(e))} <code>${esc(e.id)}</code></h3><p>Source POS: ${esc(e.pos||JSON.stringify(e.entry_pos)||'unknown')}. <a href="${esc(e.source_url)}" target="_blank" rel="noreferrer">Pinned source / attribution</a></p>${e.senses.map(s=>`<label class="sense"><input type="checkbox" data-sense="${esc(s.id)}" ${current.acceptable_sense_ids.includes(s.id)?'checked':''}><strong>${esc((s.glosses||[]).join(' → ')||'(no standalone English gloss)')}</strong><br><code>${esc(s.id)}</code> ${esc(JSON.stringify(s.tags||s.labels||[]))}<details><summary>Native context / hierarchy</summary><pre>${esc(JSON.stringify(s,null,2))}</pre></details></label>`).join('')}`).join(''):'<p>No retrieved source entry at this headword.</p>');
  $('reviewed').checked=current.reviewed;
  $('progress').textContent=`${Object.values(state.review).filter(r=>r.reviewed).length} / ${DATA.targets.length*2} dictionary/occurrence pairs marked reviewed in this draft. No accuracy computed.`;
  for(const box of document.querySelectorAll('[data-sense]'))box.onchange=()=>dispatch({type:'review',value:{...current,reviewed:false,acceptable_sense_ids:[...document.querySelectorAll('[data-sense]:checked')].map(e=>e.dataset.sense)}});

@@ -1,0 +1,18 @@
+{
+  "status": "agent_proposed_not_human_reviewed",
+  "scope": "Next six occurrences: sentences 15 and 177. No sense accuracy measured.",
+  "labels": [
+    {"target_id": "15:7", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-3837:sense-2:path-1", "kaikki:grc-row-3837:sense-3:path-1"], "meaning": "give orders; each retained parent path supports this, without selecting the narrower recommend/exhort or summon children"},
+    {"target_id": "15:7", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n77837.1"], "meaning": "give orders, give the word of command (II); not merely transmit a message"},
+    {"target_id": "15:3", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4499:sense-3:path-1"], "meaning": "guards/garrisons; not detention/custody or a watch of the night"},
+    {"target_id": "15:3", "lexicon": "lsj", "acceptable_sense_ids": [], "meaning": "Contextual meaning is garrisons, but this bounded LSJ extraction retrieved no source-key candidate; abstain. This is not a claim that LSJ lacks the word/sense.", "evidence_status": "no_retrieved_candidate_not_lexicographical_absence"},
+    {"target_id": "15:20", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-18181:sense-1:path-1"], "meaning": "plot/contrive against the cities, have hostile designs upon them; not passive be plotted against or a generic plan to do something"},
+    {"target_id": "15:20", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n38965.0", "lsj:n38965.1"], "meaning": "hostile plot/contrive against, including the dative-only construction subsection; do not equate Brownson designs upon with a different aim-at sense solely by English overlap"},
+    {"target_id": "177:26", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4013:sense-2:path-1"], "meaning": "practical difficulty/impossibility of remaining or departing without Cyrus consent; not physical difficulty of passage, poverty or a philosophical puzzle"},
+    {"target_id": "177:26", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n13579.2"], "meaning": "II: difficulty/straits/impossibility of things, rather than impassability of places or a dialectical puzzle"},
+    {"target_id": "177:20", "lexicon": "kaikki", "acceptable_sense_ids": [], "meaning": "prompted/urged on by Clearchus, but no Kaikki entry retrieved for this source lemma; abstain", "evidence_status": "no_retrieved_candidate"},
+    {"target_id": "177:20", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n30251.0"], "meaning": "urged on by someone; the entry explicitly cites Anabasis 1.3.13"},
+    {"target_id": "177:34", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8504:sense-3:path-1"], "meaning": "go away/depart, absolute use (raw row explicitly says absolute); not depart from life. Other same-text rows retain different construction notes and are not silently merged."},
+    {"target_id": "177:34", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n11970.0", "lsj:n11970.2"], "meaning": "go away/depart, including the absolute-use subsection; not depart from life. The subsection cue be off! is not proposed as the card wording."}
+  ]
+}

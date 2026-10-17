@@ -1,6 +1,6 @@
 # Book 1 sense prototype — pre-evaluation checkpoint
 
-**Awaiting live human dictionary-sense review. No chosen-sense accuracy has been
+**Live dictionary-sense review in progress (6/24 occurrences). No chosen-sense accuracy has been
 measured; no strategy, lexicon or abstention policy has been accepted.**
 
 For [Prototype: word sense in context for Ancient Greek without an LLM](https://github.com/justin-hayes/mouseion/issues/2130).
@@ -19,9 +19,11 @@ the additional live checkpoint. Do not read the alignment review as sense labels
   confirmed Greek/English extents and target links only.
 - [`predict.py`](predict.py) and [`predictions.json`](predictions.json): fixed
   non-LLM baselines, with source and code digests. No sense labels are read.
-- [`review-proposals.json`](review-proposals.json): **unreviewed** proposals for
-  the first six occurrences, including an explicitly open comparative-age
-  question. [`review-status.json`](review-status.json) has no fabricated approvals.
+- [`review-proposals.json`](review-proposals.json): original agent proposals.
+  [`review-confirmed.json`](review-confirmed.json) records the first six confirmed
+  occurrences; [`review-status.json`](review-status.json) preserves the exact
+  live exchange. Justin explicitly accepted Kaikki adjective evidence plus
+  comparative morphology for “older,” not “old/elderly” as the contextual cue.
 - [`evaluate.py`](evaluate.py): deliberately refuses to score without complete
   confirmed sense labels. No `sense-gold.json` or `results.json` exists yet.
 - [`README.md`](README.md) and [`NOTICE.md`](NOTICE.md): pins, exact comparison
@@ -38,7 +40,13 @@ or validate the automatic alignment methods rejected by the separate prototype.
    only as the breadcrumb of narrower children (“recommend, exhort” / “summon”).
    Extracting just the first gloss merges children; extracting just the last
    discards the parent. This prototype preserves exact prefix nodes with their
-   pinned raw-row/depth provenance, without claiming universal native sense IDs.
+  pinned raw-row/depth provenance, without claiming universal native sense IDs.
+   Before scoring, second-batch source review also exposed repeated “depart”
+   glosses with different construction notes. The original `03207830` prefix
+   grouping was corrected: each raw row/depth now stays separate. The first six
+   confirmed IDs/meanings remain unchanged, no scores had been computed, and no
+   improvement on held-out data is claimed. A unique-path gate may consequently
+   abstain on repetitions; repeated paths are not asserted to be different senses.
 2. **Equal spelling is not a homograph crosswalk.** The sample's πάρειμι has two
    verbal entries in each lexicon. Automatic methods retain the identity gate
    rather than merging “be present” with “pass by”. A human reference sense may
@@ -49,8 +57,9 @@ or validate the automatic alignment methods rejected by the separate prototype.
 4. **Source order and contextual wording differ.** In the first six occurrences,
    birth versus generic becoming, children as offspring versus servants, the
    comparative older versus elderly, and participial coincidence versus hitting
-   a target are useful human-review distinctions. They remain proposals, not
-   confirmed errors or scored labels.
+   a target are useful human-review distinctions. These first-six reference
+   meanings are now confirmed in the live ledger, but no prediction has been
+   scored against them yet.
 
 No exact-match source-key candidate was retrieved for φυλακή from this bounded
 LSJ extraction; this is a retrieval observation, **not a claim that the complete
