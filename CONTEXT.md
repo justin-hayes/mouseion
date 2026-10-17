@@ -241,12 +241,22 @@ standing, owned per Book and derived from raw acquisition and analysis signals
 rather than stored by hand or persisted as learner state. It is the single
 state every surface presents: not acquired, unavailable (content present but no
 current revision), stale (a prior analysis no longer matches the current
-content), analyzed, or acquired-but-unassessed (current content present,
-analysis not yet complete). It reflects the Book's published analysis: a newer
-analysis run that is still in progress, failed, or was cancelled does not
-change it while the published analysis still matches the current content.
+content or its current extraction), analyzed, or acquired-but-unassessed
+(current content present, analysis not yet complete). It reflects the Book's
+published analysis: a newer analysis run that is still in progress, failed, or
+was cancelled does not change it while the published analysis still matches
+the current content.
 _Avoid_: book status, analysis state (the raw signal the classification reads,
 not the classification itself), deck readiness, evidence status.
+
+**Source structure update**:
+The learner-confirmed re-extraction of a Book's unchanged acquired content
+under a newer extraction contract, offered only when that contract would
+record different text or structural roles. It adds a new extraction of the
+same content and makes the Book's analysis evidence stale until reanalysis; it
+never rewrites earlier extractions, analyses, Lemma corrections, current-reading
+snapshots or prepared decks, which keep the evidence they froze.
+_Avoid_: re-import, reacquisition, migration, backfill.
 
 **Vocabulary coverage band**:
 A neutral grouping of trustworthy analyzed To Read Books by current
