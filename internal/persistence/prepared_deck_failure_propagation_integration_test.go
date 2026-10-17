@@ -38,6 +38,40 @@ func newPreparedDeckInputsFixture(t *testing.T, ctx context.Context, suffix stri
 	return store, preparation
 }
 
+// TestPreparedDeckLanguageTxReportsSourceLanguage resolves a preparation's
+// source language and reports the empty string when the source or transaction
+// is unavailable, so the planner keeps its default policy.
+func TestPreparedDeckLanguageTxReportsSourceLanguage(t *testing.T) {
+	ctx := context.Background()
+	store, preparation := newPreparedDeckInputsFixture(t, ctx, "deck-language")
+	tx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tx.Rollback(ctx)) }()
+
+	t.Run("the source language is reported", func(t *testing.T) {
+		language, err := store.PreparedDeckLanguageTx(ctx, tx, preparation)
+		require.NoError(t, err)
+		require.Equal(t, "de", language)
+	})
+	t.Run("an unknown source reports no language", func(t *testing.T) {
+		missing := preparation
+		missing.SourceMaterialID = "00000000-0000-0000-0000-000000000000"
+		language, err := store.PreparedDeckLanguageTx(ctx, tx, missing)
+		require.NoError(t, err)
+		require.Empty(t, language)
+	})
+	t.Run("an incomplete preparation reports no language", func(t *testing.T) {
+		language, err := store.PreparedDeckLanguageTx(ctx, tx, domain.DeckPreparation{})
+		require.NoError(t, err)
+		require.Empty(t, language)
+	})
+	t.Run("a nil transaction reports no language", func(t *testing.T) {
+		language, err := store.PreparedDeckLanguageTx(ctx, nil, preparation)
+		require.NoError(t, err)
+		require.Empty(t, language)
+	})
+}
+
 // TestLoadPreparedDeckInputFactsPropagatesPersistenceFailures drops one table
 // behind each input step so a database failure reaches the caller instead of
 // being read as an absent fact set.

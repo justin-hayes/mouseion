@@ -24,9 +24,17 @@ type inputAssembler interface {
 	AssemblePreparedDeckInputs(context.Context, pgx.Tx, domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error)
 }
 
+// preparedDeckFactStore is the transaction-scoped read model the planner uses.
 type preparedDeckFactStore interface {
 	LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.PreparedDeckInputFacts, error)
 	LoadPreparedDeckCandidateFactsTx(context.Context, pgx.Tx, domain.DeckPreparation, []domain.SelectionCandidate) ([]persistence.PreparedDeckCandidateFacts, error)
+}
+
+// deckLanguageReader is an optional input-assembler capability that reports a
+// preparation's language before its projections are assembled. It lets a
+// source-evidence deck be planned without a configured provider.
+type deckLanguageReader interface {
+	DeckLanguage(context.Context, pgx.Tx, domain.DeckPreparation) (string, error)
 }
 
 // InputAssembler applies recurring-vocabulary selection to transaction-scoped
@@ -37,6 +45,21 @@ type InputAssembler struct {
 
 func NewInputAssembler(store preparedDeckFactStore) *InputAssembler {
 	return &InputAssembler{Store: store}
+}
+
+// DeckLanguage reports the language of the preparation's source material when
+// the store can resolve it, and the empty string otherwise.
+func (a *InputAssembler) DeckLanguage(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (string, error) {
+	if a == nil || a.Store == nil {
+		return "", nil
+	}
+	reader, ok := a.Store.(interface {
+		PreparedDeckLanguageTx(context.Context, pgx.Tx, domain.DeckPreparation) (string, error)
+	})
+	if !ok {
+		return "", nil
+	}
+	return reader.PreparedDeckLanguageTx(ctx, tx, preparation)
 }
 
 func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error) {
@@ -257,21 +280,45 @@ func (p *StandardPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, pr
 	return p.planPreparedDeckRun(ctx, tx, preparation, domain.PreparedDeckExecutionStandard, p.StandardConfig.StandardMaxAttempts)
 }
 
+// errTranslationProviderRequired reports a deck that needs the contextual-gloss
+// provider but has none configured.
+var errTranslationProviderRequired = errors.New("prepareddeck: a configured translation provider is required for contextual Glosses")
+
 func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
 	if p == nil || p.Assembler == nil || p.Presentation == nil || strings.TrimSpace(preparation.OwnerID) == "" || strings.TrimSpace(preparation.ID) == "" {
 		return persistence.FreezePreparedDeckRunParams{}, ErrInvalidInput
 	}
-	if !p.ExternalEnabled || p.Codec == nil {
-		return persistence.FreezePreparedDeckRunParams{}, errors.New("prepareddeck: a configured translation provider is required for contextual Glosses")
+	providerConfigured := p.ExternalEnabled && p.Codec != nil
+	sourceEvidence := false
+	if !providerConfigured {
+		// Without a configured provider only a source-evidence Greek deck can be
+		// planned, and its language must be resolved before any input work so a
+		// modern deck keeps its existing failure.
+		language, err := p.deckLanguage(ctx, tx, preparation)
+		if err != nil {
+			return persistence.FreezePreparedDeckRunParams{}, err
+		}
+		sourceEvidence = cardexport.IsAncientGreek(language)
+		if !sourceEvidence {
+			return persistence.FreezePreparedDeckRunParams{}, errTranslationProviderRequired
+		}
 	}
 	projections, deckName, err := p.Assembler.AssemblePreparedDeckInputs(ctx, tx, preparation)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("assemble prepared deck inputs: %w", err)
 	}
-	if err := authorizeRecordedProviderCalls(projections, p.Codec); err != nil {
-		return persistence.FreezePreparedDeckRunParams{}, err
+	if sourceEvidence || sourceEvidenceDeck(projections) {
+		return p.planSourceEvidenceRun(ctx, preparation, deckName, projections, mode)
 	}
+	if !providerConfigured {
+		return persistence.FreezePreparedDeckRunParams{}, errTranslationProviderRequired
+	}
+	return p.planExternalRun(ctx, tx, preparation, projections, deckName, mode, standardAttempts)
+}
 
+// planExternalRun freezes a deck whose contextual Glosses come from the
+// configured provider, exactly as before the source-evidence path existed.
+func (p *BatchPlanner) planExternalRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, projections []cardexport.CandidateProjection, deckName string, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
 	config := persistence.PreparedDeckRunConfig{
 		ExternalTranslationConsent:    true,
 		ExternalTranslationConfigured: true,
@@ -315,6 +362,56 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: deck.StorageProjection(), Config: config, Chunks: chunks}, nil
 }
 
+// deckLanguage resolves the preparation's source language when the assembler
+// can report it before its projections are assembled, and the empty string
+// otherwise.
+func (p *BatchPlanner) deckLanguage(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (string, error) {
+	reader, ok := p.Assembler.(deckLanguageReader)
+	if !ok {
+		return "", nil
+	}
+	language, err := reader.DeckLanguage(ctx, tx, preparation)
+	if err != nil {
+		return "", fmt.Errorf("resolve prepared deck language: %w", err)
+	}
+	return language, nil
+}
+
+// sourceEvidenceDeck reports whether every selected candidate is Ancient Greek,
+// whose default deck is built from the Reading snapshot and representative
+// sentences alone. Such a deck makes no provider call and uses no meaning
+// evidence. An empty deck carries no language and keeps the provider contract.
+func sourceEvidenceDeck(projections []cardexport.CandidateProjection) bool {
+	if len(projections) == 0 {
+		return false
+	}
+	for _, projection := range projections {
+		if !cardexport.IsAncientGreek(projection.Candidate.Language) {
+			return false
+		}
+	}
+	return true
+}
+
+// planSourceEvidenceRun freezes a providerless deck: no candidate carries a
+// provider, cache identity, contextual Gloss or local meaning evidence, so the
+// durable run has no provider work and advances straight to finalization.
+func (p *BatchPlanner) planSourceEvidenceRun(ctx context.Context, preparation domain.DeckPreparation, deckName string, projections []cardexport.CandidateProjection, mode domain.PreparedDeckExecutionMode) (persistence.FreezePreparedDeckRunParams, error) {
+	for i := range projections {
+		projections[i].Provider = ""
+		projections[i].ProviderVersion = ""
+		projections[i].TargetLanguage = ""
+		projections[i].RequireContextualGloss = false
+		projections[i].SkipMeaningEvidence = true
+	}
+	deck, _, err := p.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections)
+	if err != nil {
+		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("freeze prepared deck presentation: %w", err)
+	}
+	config := persistence.PreparedDeckRunConfig{ExecutionMode: string(mode), TargetLanguage: "en"}
+	return persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Projection: deck.StorageProjection(), Config: config}, nil
+}
+
 type glossCoverageEvent struct {
 	Event  string                     `json:"event"`
 	Groups []cardexport.GlossCoverage `json:"groups"`
@@ -343,19 +440,6 @@ func pendingBatchWork(ctx context.Context, tx pgx.Tx, work []cardexport.WorkItem
 		pending = append(pending, item)
 	}
 	return pending, nil
-}
-
-// authorizeRecordedProviderCalls fails closed when any candidate's language
-// has no recorded provider-payload assessment for the frozen provider contract.
-// It runs before any request is frozen or transmitted.
-func authorizeRecordedProviderCalls(projections []cardexport.CandidateProjection, codec *enrichment.TranslationCodec) error {
-	fields := enrichment.ContextualGlossPayloadFields()
-	for _, projection := range projections {
-		if err := enrichment.AllowExternalProviderCall(projection.Candidate.Language, codec.ProviderName(), codec.ContextualGlossPromptContract(), fields); err != nil {
-			return fmt.Errorf("prepared deck preparation refused: %w", err)
-		}
-	}
-	return nil
 }
 
 // Worker owns only the short freeze operation. Provider calls are performed

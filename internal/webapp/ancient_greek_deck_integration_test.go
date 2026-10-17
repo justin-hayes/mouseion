@@ -5,6 +5,7 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -33,14 +34,14 @@ import (
 )
 
 // TestAncientGreekBookOneDeckPreparationAndExport extends the complete loop to
-// Ancient Greek: a Reading snapshot of the imported Book 1 is prepared into a
-// deck and exported with a fake provider. Lowercase-initial Greek sentences
+// Ancient Greek with no provider configured: a Reading snapshot of the
+// imported Book 1 is prepared from its representative sentences alone and
+// exported. No provider request is made, lowercase-initial Greek sentences
 // ending in the source terminators are accepted, the δέω homographs stay
-// separate cards, the source notices are exported, and preparation never marks
-// vocabulary Known.
+// separate cards, the source notices are exported without any Wiktionary
+// meaning evidence, and preparation never marks vocabulary Known.
 func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "ancient-greek-deck-integration-secret-0123456789")
-	recordAncientGreekAssessmentForTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -56,7 +57,7 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
-	provider := &greekDeckTranslationProvider{}
+	provider := &greekDeckRecordingProvider{}
 	client := startGreekDeckWorkers(t, ctx, store, pool, provider)
 	deckService := prepareddeck.NewService(store, client)
 	webAuth := auth.New(store, time.Hour)
@@ -81,6 +82,13 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	preparation := waitForPreparedDeck(t, ctx, store, learner.ID, reading.SnapshotID)
 	require.Equal(t, domain.DeckPreparationReady, preparation.State, "preparation error=%q", preparation.Error)
 	assert.Equal(t, 3, preparation.TotalCards, "one card per frozen identity")
+
+	// A Greek deck makes no provider call and produces no meaning or provider
+	// omissions; only the sentence-quality gate can leave an item out.
+	assert.Zero(t, provider.calls, "no provider request is made for a Greek deck")
+	status, err := store.GetDeckPreparationStatus(ctx, learner.ID, preparation.ID)
+	require.NoError(t, err)
+	requireGreekDeckOmissionKinds(t, status, 0)
 
 	// Homographs stay separate cards with separate deduplication keys.
 	cards := queryGreekDeckCards(t, ctx, pool, learner.ID)
@@ -113,11 +121,11 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	assert.Contains(t, sentences, "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ δέω βραδέως;", "a lowercase Greek sentence ending in ';' is accepted")
 	assert.Contains(t, sentences, "ἀνὴρ ἀκούει τὸν λόγον μέγαν καὶ δέω νῦν·", "a lowercase Greek sentence ending in '·' is accepted")
 
-	// Every matching dictionary entry reached the contextual Gloss step.
-	provider.mu.Lock()
-	senses := provider.sensesByLemma["δέω"]
-	provider.mu.Unlock()
-	assert.Equal(t, []string{"wikt:deo-bind", "wikt:deo-lack"}, senses, "both δέω entries are passed as meaning evidence")
+	// The frozen deck carries no Wiktionary meaning evidence.
+	for _, item := range items {
+		assert.Empty(t, item.gloss, "a Greek deck resolves no local dictionary gloss")
+		assert.Zero(t, item.senses)
+	}
 
 	// Generated and deck-preparation vocabulary carry the discriminated
 	// identities and the frozen headword.
@@ -130,10 +138,11 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	assert.Equal(t, generated, prepared)
 
 	// The exported APKG carries the OGA, Perseus/canonical-greekLit and oga_src
-	// notices alongside the Wiktionary notice.
-	for _, notice := range []string{"OGA", "Perseus/canonical-greekLit", "oga_src", "Wiktionary"} {
+	// notices, and no Wiktionary notice because no meaning evidence was used.
+	for _, notice := range []string{"OGA", "Perseus/canonical-greekLit", "oga_src"} {
 		assert.True(t, bytes.Contains(preparation.Artifact, []byte(notice)), "exported deck is missing notice %q", notice)
 	}
+	assert.False(t, bytes.Contains(preparation.Artifact, []byte("Wiktionary")), "a providerless Greek deck carries no Wiktionary meaning evidence")
 
 	// Card preparation never writes Known.
 	var known int
@@ -141,92 +150,111 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	assert.Zero(t, known, "preparing a deck never marks vocabulary Known")
 }
 
-// greekDeckTranslationProvider is the fake configured provider. It records the
-// candidate senses each request carried and returns a valid contextual Gloss
-// drawn from the frozen evidence.
-type greekDeckTranslationProvider struct {
-	mu            sync.Mutex
-	sensesByLemma map[string][]string
+// TestAncientGreekDeckSentenceQualityOmissionWithoutProvider proves a Greek deck
+// item whose sentences all fail the gate is a sentence-quality omission and that
+// no other omission kind is produced for grc.
+func TestAncientGreekDeckSentenceQualityOmissionWithoutProvider(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "ancient-greek-deck-integration-secret-0123456789")
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	require.NoError(t, analysis.MigrateRiver(ctx, pool))
+
+	learner := createAccount(t, ctx, store, "greek-omission-learner", "learner-password")
+	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	require.NoError(t, err)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-deck-omission.conllu", ancientgreek.AnabasisBook1)
+	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
+
+	provider := &greekDeckRecordingProvider{}
+	client := startGreekDeckWorkers(t, ctx, store, pool, provider)
+	deckService := prepareddeck.NewService(store, client)
+	webAuth := auth.New(store, time.Hour)
+	h := New(Services{
+		Auth: webAuth, WebAuth: webauth.New(webAuth, false, time.Hour), Store: storeDependencies(store),
+		Analysis: analysis.NewService(store.Pool(), client), PreparedDeck: deckService,
+		Capabilities: readyGerman(), SessionLifetime: time.Hour,
+	})
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+
+	started := perform(t, h, http.MethodPost, "/reading/books/"+registration.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, started.Code, "start body=%s", started.Body.String())
+	reading, err := store.GetCurrentReading(ctx, learner.ID, "grc")
+	require.NoError(t, err)
+	require.Equal(t, 2, reading.SnapshotSize, "the recurring δέω and λόγος identities are frozen")
+
+	submitted := perform(t, h, http.MethodPost, "/reading/books/"+registration.BookID+"/deck/retry", url.Values{
+		"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, submitted.Code, "prepare body=%s", submitted.Body.String())
+	preparation := waitForPreparedDeck(t, ctx, store, learner.ID, reading.SnapshotID)
+	require.Equal(t, domain.DeckPreparationReady, preparation.State, "preparation error=%q", preparation.Error)
+	assert.Equal(t, 1, preparation.TotalCards, "λόγος is the only accepted card")
+
+	assert.Zero(t, provider.calls, "no provider request is made for a Greek deck")
+	status, err := store.GetDeckPreparationStatus(ctx, learner.ID, preparation.ID)
+	require.NoError(t, err)
+	requireGreekDeckOmissionKinds(t, status, 1)
 }
 
-func (p *greekDeckTranslationProvider) Name() string    { return "openai-compatible" }
-func (p *greekDeckTranslationProvider) Version() string { return "greek-deck" }
-func (p *greekDeckTranslationProvider) Enabled() bool   { return true }
+// requireGreekDeckOmissionKinds asserts a Greek deck produces only
+// sentence-quality omissions: no meaning and no provider omissions.
+func requireGreekDeckOmissionKinds(t *testing.T, status domain.DeckPreparation, wantQuality int) {
+	t.Helper()
+	require.Equal(t, wantQuality, status.QualityOmissions, "a Greek item whose sentences all fail the gate is a sentence-quality omission")
+	require.Zero(t, status.ProviderOmissions, "a Greek deck produces no provider omissions")
+	require.Empty(t, status.MeaningOmissions, "a Greek deck produces no meaning omissions")
+}
 
-func (p *greekDeckTranslationProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+// greekDeckRecordingProvider is a configured provider that records every call.
+// A providerless Greek deck must never reach it.
+type greekDeckRecordingProvider struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (p *greekDeckRecordingProvider) Name() string    { return "openai-compatible" }
+func (p *greekDeckRecordingProvider) Version() string { return "greek-deck" }
+func (p *greekDeckRecordingProvider) Enabled() bool   { return true }
+
+func (p *greekDeckRecordingProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.mu.Lock()
-	if p.sensesByLemma == nil {
-		p.sensesByLemma = map[string][]string{}
-	}
-	ids := make([]string, 0, len(request.CandidateSenses))
-	for _, sense := range request.CandidateSenses {
-		ids = append(ids, sense.EvidenceID)
-	}
-	if len(ids) > 0 {
-		p.sensesByLemma[request.CanonicalLemma] = ids
-	}
+	p.calls++
 	p.mu.Unlock()
-
-	response := enrichment.TranslationResponse{Translation: "word", SentenceTranslation: "The man sees the word."}
-	if !request.RequireContextualGloss {
-		response.FallbackGloss = "word"
-		return response, nil
-	}
-	if len(request.CandidateSenses) > 0 && request.CandidateSenses[0].EvidenceID != "" {
-		response.Gloss = request.CandidateSenses[0].Gloss
-		response.EvidenceIDs = []string{request.CandidateSenses[0].EvidenceID}
-		return response, nil
-	}
-	response.Gloss = "word"
-	response.ContextOnly = true
-	return response, nil
+	return enrichment.TranslationResponse{}, errors.New("a providerless Greek deck must make no provider request")
 }
 
-// greekDeckLexicon is the fake local dictionary index. Every matching entry for
-// an identity is returned, so the contextual Gloss step chooses from context.
+// greekDeckLexicon is the fake local dictionary index. A providerless Greek deck
+// must not consult it, so any resolved evidence would show up as a Wiktionary
+// notice in the export.
 type greekDeckLexicon struct{}
 
 func (greekDeckLexicon) Name() string    { return "greek-deck-dictionary" }
 func (greekDeckLexicon) Version() string { return "kaikki-grc-test" }
 
 func (greekDeckLexicon) Lookup(_ context.Context, request enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+	senses := []enrichment.LexicalSense{{EvidenceID: "wikt:logos", Source: "wiktionary", Gloss: "word, speech", MatchStrength: "exact"}}
 	switch request.CanonicalLemma {
 	case "δέω":
-		senses := []enrichment.LexicalSense{
+		senses = []enrichment.LexicalSense{
 			{EvidenceID: "wikt:deo-bind", Source: "wiktionary", Gloss: "bind, tie", MatchStrength: "exact"},
 			{EvidenceID: "wikt:deo-lack", Source: "wiktionary", Gloss: "lack, need", MatchStrength: "lemma_only_missing_pos"},
 		}
-		return enrichment.LexicalEntry{Senses: senses, CandidateSenses: senses}, true, nil
-	case "λόγοσ":
-		senses := []enrichment.LexicalSense{{EvidenceID: "wikt:logos", Source: "wiktionary", Gloss: "word, speech", MatchStrength: "exact"}}
-		return enrichment.LexicalEntry{Senses: senses, CandidateSenses: senses}, true, nil
-	default:
-		return enrichment.LexicalEntry{}, false, nil
 	}
+	return enrichment.LexicalEntry{Senses: senses, CandidateSenses: senses}, true, nil
 }
 
-// recordAncientGreekAssessmentForTest simulates Justin's #2125 human
-// checkpoint: the short-handle contextual Gloss payload has been reviewed and
-// recorded for personal use, so the provider-assessment gate admits it. The
-// compiled assessment deliberately stays unrecorded (see
-// enrichment.AncientGreekProviderAssessment) so production fails closed.
-func recordAncientGreekAssessmentForTest(t *testing.T) {
-	t.Helper()
-	previous := enrichment.AncientGreekProviderAssessment
-	enrichment.AncientGreekProviderAssessment.Recorded = true
-	t.Cleanup(func() { enrichment.AncientGreekProviderAssessment = previous })
-}
-
-// startGreekDeckWorkers wires the full durable prepared-deck pipeline with the
-// fake provider and starts the River client. The Greek import never runs an
-// analysis job, but the client is created through the shared analysis helper so
-// the queue configuration matches production.
+// startGreekDeckWorkers wires the full durable prepared-deck pipeline with no
+// configured provider. The standard-translation worker is registered with a
+// recording spy so a leaked request fails the deck rather than the test.
 func startGreekDeckWorkers(t *testing.T, ctx context.Context, store *persistence.PostgresStore, pool *pgxpool.Pool, provider enrichment.TranslationProvider) *river.Client[pgx.Tx] {
 	t.Helper()
 	workers := river.NewWorkers()
 	presentation := cardexport.NewPresentation(greekDeckLexicon{})
-	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "greek-deck-model", BaseURL: "http://example.invalid/v1"})
-	require.NoError(t, err)
 	preparedConfig := prepareddeck.PreparedDeckConfig{
 		TranslationMode:        prepareddeck.DefaultTranslationMode,
 		StandardMaxConcurrency: 1,
@@ -244,7 +272,7 @@ func startGreekDeckWorkers(t *testing.T, ctx context.Context, store *persistence
 	require.NoError(t, err)
 	testutil.StopOnCleanup(t, "analysis River client", client.Stop)
 
-	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, client, codec, batchConfig, preparedConfig, true)
+	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, client, nil, batchConfig, preparedConfig, false)
 	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, client, provider, preparedConfig, time.Second, metrics)
 	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, nil, nil, metrics)
 	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: client, PollInterval: batchConfig.PollInterval, Metrics: metrics})
@@ -294,17 +322,26 @@ func queryGreekDeckCards(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 
 type greekDeckManifestItem struct {
 	lemma, upos, discriminator, headword, sentence string
+	gloss                                          string
+	senses                                         int
 }
 
 func queryGreekManifestItems(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ownerID string) []greekDeckManifestItem {
 	t.Helper()
-	rows, err := pool.Query(ctx, `SELECT canonical_lemma, upos, lexical_discriminator, headword, source_sentence FROM deck_preparation_manifest_items WHERE owner_id=$1 ORDER BY ordinal`, ownerID)
+	rows, err := pool.Query(ctx, `SELECT canonical_lemma, upos, lexical_discriminator, headword, source_sentence, render_payload FROM deck_preparation_manifest_items WHERE owner_id=$1 ORDER BY ordinal`, ownerID)
 	require.NoError(t, err)
 	defer rows.Close()
 	var items []greekDeckManifestItem
 	for rows.Next() {
 		var item greekDeckManifestItem
-		require.NoError(t, rows.Scan(&item.lemma, &item.upos, &item.discriminator, &item.headword, &item.sentence))
+		var payload []byte
+		require.NoError(t, rows.Scan(&item.lemma, &item.upos, &item.discriminator, &item.headword, &item.sentence, &payload))
+		var decoded struct {
+			Gloss           string            `json:"gloss"`
+			CandidateSenses []json.RawMessage `json:"candidate_senses"`
+		}
+		require.NoError(t, json.Unmarshal(payload, &decoded))
+		item.gloss, item.senses = decoded.Gloss, len(decoded.CandidateSenses)
 		items = append(items, item)
 	}
 	require.NoError(t, rows.Err())

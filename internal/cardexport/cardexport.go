@@ -540,7 +540,7 @@ func hasCompleteBoundary(language, text string) bool {
 	if text == "" {
 		return false
 	}
-	if isAncientGreek(language) {
+	if IsAncientGreek(language) {
 		// Greek editions start sentences in lowercase, so only the terminal
 		// boundary is required. The source terminators are the full stop, the
 		// semicolon / Greek question mark (U+037E) and the raised dot / ano
@@ -555,9 +555,9 @@ func hasCompleteBoundary(language, text string) bool {
 	return unicode.IsUpper(first) || unicode.IsNumber(first) || strings.ContainsRune("\"'“„«", first)
 }
 
-// isAncientGreek reports whether a language tag is Ancient Greek, whose
+// IsAncientGreek reports whether a language tag is Ancient Greek, whose
 // editions do not capitalise sentence starts.
-func isAncientGreek(language string) bool {
+func IsAncientGreek(language string) bool {
 	return baseLanguageCode(language) == "grc"
 }
 
@@ -1235,6 +1235,19 @@ func clearExternalFields(entry *Entry) {
 	entry.SentenceTranslationTarget = ""
 }
 
+// clearDictionaryFacts removes every local dictionary fact, both meaning
+// evidence and dictionary-form evidence, from an entry built from source
+// evidence alone.
+func clearDictionaryFacts(entry *Entry) {
+	entry.Gloss = ""
+	entry.Plural = ""
+	entry.IPA = ""
+	entry.PrincipalParts = ""
+	entry.DictionaryProviderVersion = ""
+	entry.OmittedEvidenceCount = 0
+	entry.CandidateSenses = nil
+}
+
 func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	if r == nil || r.lexical == nil || entry == nil {
 		return nil
@@ -1706,7 +1719,7 @@ func dictionaryAttribution(entries []RenderInput) string {
 // Greek language.
 func deckIsAncientGreek(entries []RenderInput) bool {
 	for _, entry := range entries {
-		if baseLanguageCode(entry.Language) == "grc" {
+		if IsAncientGreek(entry.Language) {
 			return true
 		}
 	}

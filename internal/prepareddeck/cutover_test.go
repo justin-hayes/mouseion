@@ -21,6 +21,8 @@ import (
 type cutoverAssembler struct {
 	projections []cardexport.CandidateProjection
 	deckName    string
+	language    string
+	languageErr error
 }
 
 type inputFactsStore struct {
@@ -29,6 +31,26 @@ type inputFactsStore struct {
 	requested      []domain.SelectionCandidate
 	inputErr       error
 	candidateErr   error
+}
+
+// languageFactsStore adds the optional language capability to an input-facts
+// store.
+type languageFactsStore struct {
+	*inputFactsStore
+	language    string
+	languageErr error
+}
+
+func (s languageFactsStore) PreparedDeckLanguageTx(context.Context, pgx.Tx, domain.DeckPreparation) (string, error) {
+	return s.language, s.languageErr
+}
+
+// plainAssembler is an input assembler without the optional language
+// capability.
+type plainAssembler struct{}
+
+func (plainAssembler) AssemblePreparedDeckInputs(context.Context, pgx.Tx, domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error) {
+	return nil, "", nil
 }
 
 type plannerDictionary struct{}
@@ -70,6 +92,10 @@ func (s *inputFactsStore) LoadPreparedDeckCandidateFactsTx(_ context.Context, _ 
 
 func (a *cutoverAssembler) AssemblePreparedDeckInputs(context.Context, pgx.Tx, domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error) {
 	return a.projections, a.deckName, nil
+}
+
+func (a *cutoverAssembler) DeckLanguage(context.Context, pgx.Tx, domain.DeckPreparation) (string, error) {
+	return a.language, a.languageErr
 }
 
 func cutoverProjection() cardexport.CandidateProjection {
@@ -122,6 +148,115 @@ func TestInputAssemblerFreezesOccurrenceCorrectionIntoRecurringDeckIdentity(t *t
 	require.Len(t, projections, 1, "corrected identity merges into the two-occurrence canonical lemma and crosses the recurring floor")
 	assert.Equal(t, "drache", projections[0].Candidate.CanonicalLemma)
 	assert.Equal(t, 3, projections[0].Candidate.OccurrenceCount)
+}
+
+// cutoverGreekProjection is a valid Ancient Greek projection whose sentence
+// passes the Greek quality gate.
+func cutoverGreekProjection() cardexport.CandidateProjection {
+	return cardexport.CandidateProjection{
+		OwnerID: "alice", DeckName: "Book",
+		Candidate: domain.SelectionCandidate{OwnerID: "alice", CorpusID: "corpus", Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", ObservedForms: []byte(`["λόγον"]`), SentenceReferences: []byte(`[{"sentence_index":0,"location":{"start_offset":12}}]`), FirstEncounter: 10, OccurrenceCount: 3},
+		Entry:     cardexport.Entry{OwnerID: "alice", Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", Headword: "λόγος", SourceDocument: "Book"},
+		Sentences: map[int64]analyzer.Sentence{0: {Text: "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ δέω βραδέως;"}},
+	}
+}
+
+func TestSourceEvidenceDeckDetectsEveryGreekCandidate(t *testing.T) {
+	cases := []struct {
+		name        string
+		projections []cardexport.CandidateProjection
+		want        bool
+	}{
+		{name: "no candidates is not source evidence by projection", want: false},
+		{name: "an Ancient Greek candidate is source evidence", projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, want: true},
+		{name: "a modern candidate keeps the provider", projections: []cardexport.CandidateProjection{cutoverProjection()}, want: false},
+		{name: "a mixed deck is not source evidence", projections: []cardexport.CandidateProjection{cutoverGreekProjection(), cutoverProjection()}, want: false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, sourceEvidenceDeck(test.projections))
+		})
+	}
+}
+
+func TestInputAssemblerDeckLanguage(t *testing.T) {
+	var nilAssembler *InputAssembler
+	cases := []struct {
+		name     string
+		assember *InputAssembler
+		want     string
+	}{
+		{name: "a nil assembler reports no language", assember: nilAssembler},
+		{name: "a nil store reports no language", assember: NewInputAssembler(nil)},
+		{name: "a store without the capability reports no language", assember: NewInputAssembler(&inputFactsStore{})},
+		{name: "a store with the capability reports its language", assember: NewInputAssembler(languageFactsStore{inputFactsStore: &inputFactsStore{}, language: "grc"}), want: "grc"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			language, err := test.assember.DeckLanguage(context.Background(), nil, domain.DeckPreparation{})
+			require.NoError(t, err)
+			assert.Equal(t, test.want, language)
+		})
+	}
+}
+
+func TestPlannerResolvesDeckLanguage(t *testing.T) {
+	cases := []struct {
+		name      string
+		assembler inputAssembler
+		want      string
+		wantErr   string
+	}{
+		{name: "the assembler language is reported", assembler: &cutoverAssembler{language: "grc"}, want: "grc"},
+		{name: "a modern language is reported", assembler: &cutoverAssembler{language: "de"}, want: "de"},
+		{name: "an assembler without the capability reports no language", assembler: plainAssembler{}},
+		{name: "an assembler failure is surfaced", assembler: &cutoverAssembler{languageErr: errors.New("language lookup failed")}, wantErr: "resolve prepared deck language"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			planner := NewBatchPlanner(test.assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{})
+			language, err := planner.deckLanguage(context.Background(), nil, domain.DeckPreparation{})
+			if test.wantErr != "" {
+				require.ErrorContains(t, err, test.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, test.want, language)
+		})
+	}
+}
+
+// A Greek deck is planned with no provider, no cache identity, no contextual
+// Gloss and no local meaning evidence, so it freezes directly to finalization.
+func TestBatchPlannerPlansProviderlessSourceEvidenceDeck(t *testing.T) {
+	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, deckName: "Book", language: "grc"}
+	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), nil, false, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+	require.NoError(t, err)
+
+	assert.False(t, plan.Config.ExternalTranslationConsent)
+	assert.False(t, plan.Config.ExternalTranslationConfigured)
+	assert.Empty(t, plan.Config.Provider)
+	assert.Empty(t, plan.Config.ProviderVersion)
+	assert.Empty(t, plan.Chunks)
+	require.Len(t, plan.Projection.Items, 1)
+	assert.Nil(t, plan.Projection.Items[0].CacheKey)
+	assert.Empty(t, plan.Projection.Items[0].Entry.Gloss, "a source-evidence deck resolves no local dictionary entry")
+	assert.Empty(t, plan.Projection.Items[0].Entry.CandidateSenses)
+
+	frozen, err := cardexport.NewPresentation(nil).Restore(plan.Projection)
+	require.NoError(t, err)
+	assert.Empty(t, frozen.WorkProjection(), "a source-evidence deck freezes no external work")
+}
+
+// An Ancient Greek deck with no selected identity is still planned locally: its
+// language, not its projection count, decides the provider requirement.
+func TestBatchPlannerPlansEmptySourceEvidenceDeck(t *testing.T) {
+	assembler := &cutoverAssembler{deckName: "Book", language: "grc"}
+	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+	require.NoError(t, err)
+	assert.Empty(t, plan.Projection.Items)
+	assert.False(t, plan.Config.ExternalTranslationConsent)
+	assert.Empty(t, plan.Chunks)
 }
 
 func TestBatchPlannerSetsContextualGlossAsRequired(t *testing.T) {
@@ -381,21 +516,4 @@ func TestInputAssemblerRejectsSourceOffsetBeyondPostgresRange(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "source offset exceeds PostgreSQL range")
-}
-
-// TestAuthorizeRecordedProviderCallsFailsClosedForGreekUntilRecorded covers the
-// #2125 gate at the planner seam: Greek preparation is refused while the
-// recorded assessment still describes the superseded payload contract.
-func TestAuthorizeRecordedProviderCallsFailsClosedForGreekUntilRecorded(t *testing.T) {
-	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model", BaseURL: "https://api.openai.com/v1"})
-	require.NoError(t, err)
-	projections := []cardexport.CandidateProjection{
-		{Candidate: domain.SelectionCandidate{Language: "grc"}},
-		{Candidate: domain.SelectionCandidate{Language: "de"}},
-	}
-	err = authorizeRecordedProviderCalls(projections, codec)
-	require.ErrorIs(t, err, enrichment.ErrProviderAssessmentNotRecorded)
-	assert.Contains(t, err.Error(), "prepared deck preparation refused")
-
-	require.NoError(t, authorizeRecordedProviderCalls(projections[1:], codec), "modern languages keep working")
 }

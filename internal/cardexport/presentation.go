@@ -25,6 +25,10 @@ type CandidateProjection struct {
 	Provider, ProviderVersion string
 	TargetLanguage            string
 	RequireContextualGloss    bool
+	// SkipMeaningEvidence marks a projection whose deck is built from source
+	// evidence alone. It resolves no local dictionary entry and freezes no
+	// candidate senses, so a source-evidence deck carries no meaning evidence.
+	SkipMeaningEvidence bool
 }
 
 // WorkItem is one exact external request derived from a frozen deck.
@@ -195,7 +199,8 @@ func orderedProjections(owner, deckName string, projections []CandidateProjectio
 
 // freezeEntries turns each projection into a render entry: it clones the entry,
 // clears external fields, applies the frozen sentence decision and resolves
-// local lexical facts.
+// local lexical facts. A source-evidence projection resolves no local lexical
+// facts, so its entry keeps the representative sentence alone.
 func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, ordered []CandidateProjection) ([]Entry, error) {
 	resolver := &lexicalResolver{lexical: lexical}
 	entries := make([]Entry, 0, len(ordered))
@@ -203,6 +208,11 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, orde
 		entry := cloneEntry(projection.Entry)
 		clearExternalFields(&entry)
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
+		if projection.SkipMeaningEvidence {
+			clearDictionaryFacts(&entry)
+			entries = append(entries, entry)
+			continue
+		}
 		if err := resolver.resolveLexicalEntry(ctx, &entry); err != nil {
 			return nil, fmt.Errorf("%w: resolve lexical entry %s: %w", ErrInvalidInput, candidateKey(projection.Candidate), err)
 		}
