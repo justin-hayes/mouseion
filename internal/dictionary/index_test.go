@@ -248,6 +248,39 @@ func TestIndexLookupUsesMorphologyFromRankedSense(t *testing.T) {
 	assert.Equal(t, "Meere", result.Plural)
 }
 
+func TestIndexLookupUsesFrenchCanonicalProfile(t *testing.T) {
+	index := newTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'aujourd''hui', 'ADV', '[{"Gloss":"today"}]', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'hache', 'NOUN', '[{"Gloss":"axe","Gender":"Fem","Plural":"haches"}]', 'Fem', '', 'haches', '/aʃ/', '')`,
+	)
+
+	// The request carries the typographic apostrophe a French book uses; the
+	// stored entry carries the ASCII apostrophe Wiktionary uses. The French
+	// profile folds them to one canonical lemma, so both spellings resolve.
+	for _, apostrophe := range []struct {
+		name    string
+		request enrichment.LexicalLookupRequest
+	}{
+		{"typographic apostrophe", enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "aujourd\u2019hui", UPOS: "ADV"}},
+		{"ASCII apostrophe and locale", enrichment.LexicalLookupRequest{Language: "fr-FR", CanonicalLemma: "aujourd'hui", UPOS: "ADV"}},
+	} {
+		t.Run(apostrophe.name, func(t *testing.T) {
+			result, found, err := index.Lookup(t.Context(), apostrophe.request)
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, "today", result.Senses[0].Gloss)
+		})
+	}
+
+	t.Run("accented French morphology still resolves", func(t *testing.T) {
+		result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "Hache", UPOS: "NOUN"})
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, "Fem", result.Gender)
+		require.Equal(t, "haches", result.Plural)
+	})
+}
+
 func TestIndexLookupIncludesMissingPOSOnlyAfterExactIdentity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)

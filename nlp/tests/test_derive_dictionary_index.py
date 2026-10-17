@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
 import importlib.util
 import io
 import json
@@ -47,7 +48,7 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
     ).fetchone() == ("Wiktionary contributors; CC BY-SA 4.0 / GFDL",)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("2",)
+    ).fetchone() == ("3",)
     row = connection.execute(
         "SELECT language, lemma, upos, senses_json, gender, article, plural FROM entries WHERE lemma = 'haus'"
     ).fetchone()
@@ -300,6 +301,112 @@ def test_german_fixture_keys_match_runtime_lookup_keys(tmp_path: Path):
     actual = dict(connection.execute("SELECT lemma, senses_json FROM entries").fetchall())
     connection.close()
     assert set(actual) == set(expected.values())
+
+
+def test_french_normalization_matches_the_committed_parity_fixture():
+    module = load_script()
+    fixture = Path(__file__).parents[1] / "testdata" / "french_normalization_parity.jsonl"
+
+    rows = 0
+    for line in fixture.read_text(encoding="utf-8").splitlines():
+        item = json.loads(line)
+        rows += 1
+        assert module.normalize("fr", item["raw"]) == item["canonical"]
+    assert rows > 0
+    # The same profile Go's runtime lookup applies, so a curly-apostrophe
+    # lemma finds the ASCII-apostrophe entry.
+    assert module.normalize("fr", "aujourd\u2019hui") == "aujourd'hui"
+
+
+def test_french_fixture_derives_gender_h_status_plural_and_ipa(tmp_path: Path):
+    module = load_script()
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(
+        Path(__file__).parents[1] / "testdata" / "dictionary_french_fixture.jsonl",
+        output,
+        "dump-2026-09-02",
+    )
+
+    connection = sqlite3.connect(output)
+    rows = {
+        (lemma, upos): (gender, plural, ipa, h_status, principal_parts)
+        for lemma, upos, gender, plural, ipa, h_status, principal_parts in connection.execute(
+            "SELECT lemma, upos, gender, plural, ipa, h_status, principal_parts FROM entries"
+        )
+    }
+    connection.close()
+
+    # Aspirated-h evidence is recorded, and the noun keeps its regular plural.
+    assert rows[("hache", "NOUN")] == ("Fem", "haches", "/aʃ/", "aspirated", "")
+    # A missing aspirated-h category is unknown, never mute; the head template
+    # marks the noun invariable.
+    assert rows[("héros", "NOUN")] == ("Masc", "invariable", "/e.ʁo/", "", "")
+    assert rows[("prix", "NOUN")] == ("Masc", "invariable", "/pʁi/", "", "")
+    # The optional schwa is preserved verbatim.
+    assert rows[("souvenir", "NOUN")][2] == "/su.v(ə).niʁ/"
+    # IPA tagged only with a non-European region is omitted.
+    assert rows[("char", "NOUN")][2] == ""
+    # A transcription carrying France among other regional tags is kept.
+    assert rows[("timbre", "NOUN")][2] == "/tɛ̃bʁ/"
+    # France and Europe tags are accepted; the first accepted transcription wins.
+    assert rows[("café", "NOUN")][2] == "/ka.fe/"
+    # No French principal parts, even where a German-shaped head expansion
+    # would have matched.
+    assert rows[("aller", "VERB")][4] == ""
+    assert rows[("aller", "VERB")][2] == ""
+    # Gender and aspirated-h evidence are recorded on NOUN rows only.
+    assert rows[("rapide", "ADJ")][0] == ""
+    assert rows[("héroïque", "ADJ")][3] == ""
+    # The canonical lemma folds the typographic apostrophe.
+    assert ("aujourd'hui", "ADV") in rows
+
+
+def test_french_invariable_reads_head_template_expansions():
+    module = load_script()
+
+    # Non-mapping templates are skipped, and only a whole-word "invariable"
+    # marker counts.
+    assert module.french_invariable(
+        {"head_templates": ["not a mapping", {"expansion": "prix m (invariable)"}]}
+    )
+    assert module.french_invariable(
+        {"head_templates": [{"expansion": "héros m (invariable, feminine héroïne)"}]}
+    )
+    assert not module.french_invariable(
+        {"head_templates": [{"expansion": "hache f (plural haches)"}]}
+    )
+    assert not module.french_invariable({"head_templates": [{"expansion": "invariables"}]})
+
+
+def test_sound_ipa_skips_unusable_sounds():
+    module = load_script()
+
+    assert module.sound_ipa("not a mapping", "fr") == ""
+    assert module.sound_ipa({"ipa": "   "}, "fr") == ""
+    assert module.sound_ipa({"ipa": "/a/", "note": "before a vowel"}, "fr") == ""
+    assert module.sound_ipa({"ipa": "/haʃ/", "tags": ["Louisiana"]}, "fr") == ""
+    assert module.sound_ipa({"ipa": "/su.v(ə).niʁ/"}, "fr") == "/su.v(ə).niʁ/"
+    # Non-French languages still strip optional segments.
+    assert module.sound_ipa({"ipa": "/ˈɡeː(h)ən/", "tags": ["standard"]}, "de") == "/ˈɡeːən/"
+
+
+def test_derivation_records_dump_extraction_and_source_hash(tmp_path: Path):
+    module = load_script()
+    source = Path(__file__).parents[1] / "testdata" / "dictionary_french_fixture.jsonl"
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(
+        source,
+        output,
+        "dump=2026-09-02;extraction=2026-10-03",
+        module.SourceMetadata(dump_date="2026-09-02", extraction_date="2026-10-03"),
+    )
+
+    connection = sqlite3.connect(output)
+    provenance = dict(connection.execute("SELECT key, value FROM metadata").fetchall())
+    connection.close()
+    assert provenance["dump_date"] == "2026-09-02"
+    assert provenance["extraction_date"] == "2026-10-03"
+    assert provenance["source_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
 
 
 def test_modern_greek_keys_use_nfc_casefold_normalization(tmp_path: Path):
