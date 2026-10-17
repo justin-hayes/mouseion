@@ -184,7 +184,7 @@ _Avoid_: English bolding (the presentation of an alignment, not the alignment).
 The labelled English of the cited section or sections that contain a
 representative sentence, from a source translation. It is explicitly not a
 translation of the sentence and carries no English target alignment.
-_Avoid_: sentence translation, wider translation.
+_Avoid_: sentence translation, wider translation, study context.
 
 **Evidence-assisted provider pass**:
 The optional Ancient Greek preparation layer that sends the representative
@@ -299,9 +299,27 @@ _Avoid_: speaker detection, drama mode.
 **Sentence**:
 The analyzer's linguistic segmentation of a readable unit's text. A sentence
 may span several source lines and may share a source line with other
-sentences, but it never crosses a line group. It is neither a source line nor
-a study excerpt.
+sentences, but it never crosses a line group. It is not itself a source line or
+a line group.
 _Avoid_: line, verse.
+
+**Study context**:
+The complete source sentence a learner studies for one occurrence, exactly as
+it appears in the readable unit, including any authorial line breaks. It is
+always one analyzer sentence within one line group; a source line, a line
+group, or a larger passage is never the study context, and it is never
+truncated, paraphrased, modernized, or padded with adjacent text. The same
+complete sentence supplies the representative sentence, the contextual Gloss,
+the translation, and the English target alignment.
+_Avoid_: study excerpt, verse line, passage, snippet.
+
+**Speaker attribution**:
+The speaker label a study context is attributed to, derived from the nearest
+preceding speaker label in the same readable unit and reset at a heading. It is
+display metadata shown beside the study context: it is not part of the context's
+source text, is never counted as vocabulary, translated, emphasised, or sent to
+a provider, and is absent rather than guessed when no label precedes.
+_Avoid_: speaker detection, dialogue tag, character id.
 
 **Book language**:
 A book's chosen language tag, or its absence recorded as an unknown-language
@@ -635,7 +653,8 @@ _Avoid_: hard rule, gate reason.
 **Representative sentence**:
 The sentence chosen for a lemma's recognition card: the highest-scoring accepted
 candidate sentence, with source order breaking ties. It is always the learner's
-complete source sentence, never truncated or paraphrased.
+complete source sentence — the occurrence's study context — never truncated or
+paraphrased.
 _Avoid_: example sentence (ambiguous with the historical
 `example_sentences` store), best sentence.
 
