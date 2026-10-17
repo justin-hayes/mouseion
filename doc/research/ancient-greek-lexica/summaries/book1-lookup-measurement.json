@@ -1,7 +1,19 @@
 {
- "counts": {
-  "book1_tokens_matched": 10572,
-  "letters": {
+ "oga": {
+  "native_book1_tokens_all": 10572,
+  "pos_dash_empty_nodes_excluded": 110,
+  "printed_book1_tokens": 10462,
+  "vocabulary_occurrences_after_pos_and_eimi": 6017,
+  "excluded": {
+   "pos=c": 756,
+   "pos=u": 1157,
+   "pos=l": 1047,
+   "pos=r": 579,
+   "pos=p": 721,
+   "pos=i": 7,
+   "eimi (exact lemma)": 178
+  },
+  "pos_letter_counts": {
    "n": 1810,
    "c": 756,
    "v": 1966,
@@ -14,107 +26,71 @@
    "p": 721,
    "i": 7
   },
-  "excluded": {
-   "c": 756,
-   "u": 1157,
-   "-": 110,
-   "l": 1047,
-   "r": 579,
-   "p": 721,
-   "eimi": 181,
-   "i": 7
-  },
-  "identities": 1428,
-  "numbered": 21
+  "identities": 1429,
+  "numbered_identities": 21,
+  "plain_identities": 1408,
+  "capitalised_only_identities": 152
  },
- "results": {
-  "kaikki": {
-   "identities": 1428,
+ "kaikki_grc": {
+  "top_level_entries": 68196,
+  "distinct_canonical_headwords": 63448,
+  "headwords_with_more_than_one_entry": 4377,
+  "anabasis_example_refs_any_book": 35,
+  "anabasis_book1_example_refs": 17,
+  "anabasis_book1_distinct_headwords": 17,
+  "identities_whose_headword_has_book1_example": 17
+ },
+ "lsj": {
+  "main_entries_indexed": 111584,
+  "keys_excluded_unknown_chars": 311,
+  "urn_book1_strings_all_lsj_files": 580
+ },
+ "middle_liddell": {
+  "main_entries_indexed": 30658,
+  "keys_excluded_unknown_chars": 18
+ },
+ "candidate_sets": {
+  "kaikki_grc": {
+   "identities": 1429,
    "headword_any_entry": 1185,
-   "headword_pos_compatible": 1062,
-   "numbered_identities_with_same_digit_entry": 0,
-   "identities_with_book1_xen_anab_cites": 17
+   "headword_pos_compatible_entry": 1062,
+   "plain_identities": 1408,
+   "capitalised_only_identities": 152,
+   "capitalised_only_any_entry": 112,
+   "headword_multi_entry_candidate_set": 156,
+   "numbered_identities": 21,
+   "occurrences": 6017,
+   "occurrences_with_any_entry": 5707
   },
   "lsj": {
-   "identities": 1428,
-   "headword_any_entry": 1304,
-   "headword_pos_compatible": 0,
-   "numbered_identities_with_same_digit_entry": 17,
-   "identities_with_book1_xen_anab_cites": 410
+   "identities": 1429,
+   "headword_any_entry": 1291,
+   "plain_identities": 1408,
+   "plain_identity_unnumbered_key_present": 1182,
+   "capitalised_only_identities": 152,
+   "capitalised_only_any_entry": 71,
+   "identity_with_book1_urn_candidate": 436,
+   "headword_multi_entry_candidate_set": 70,
+   "only_excluded_unknown_char_key": 13,
+   "numbered_identities": 21,
+   "numbered_identity_any_homograph_candidate": 18,
+   "numbered_identity_equal_digit_UNVERIFIED": 17,
+   "occurrences": 6017,
+   "occurrences_with_any_entry": 5674
   },
   "middle_liddell": {
-   "identities": 1428,
+   "identities": 1429,
    "headword_any_entry": 1094,
-   "headword_pos_compatible": 0,
-   "numbered_identities_with_same_digit_entry": 12,
-   "identities_with_book1_xen_anab_cites": 0
-  },
-  "plain_key": {
-   "lsj": {
-    "plain_identities": 1407,
-    "exact_unnumbered_key": 1195,
-    "only_numbered_homograph_keys": 89,
-    "multiple_numbered_homograph_keys": 47
-   },
-   "middle_liddell": {
-    "plain_identities": 1407,
-    "exact_unnumbered_key": 1033,
-    "only_numbered_homograph_keys": 48,
-    "multiple_numbered_homograph_keys": 20
-   }
-  },
-  "plain_only": {
-   "kaikki": {
-    "plain_identities": 1407,
-    "any_entry": 1165,
-    "pos_compatible": 1043,
-    "book1_anab_cites": 17
-   },
-   "lsj": {
-    "plain_identities": 1407,
-    "any_entry": 1284,
-    "pos_compatible": 0,
-    "book1_anab_cites": 405
-   },
-   "middle_liddell": {
-    "plain_identities": 1407,
-    "any_entry": 1081,
-    "pos_compatible": 0,
-    "book1_anab_cites": 0
-   }
-  },
-  "token_weighted": {
-   "kaikki": {
-    "occurrences": 6014,
-    "occurrences_with_any_entry": 5707,
-    "share": 0.949
-   },
-   "lsj": {
-    "occurrences": 6014,
-    "occurrences_with_any_entry": 5711,
-    "share": 0.9496
-   },
-   "middle_liddell": {
-    "occurrences": 6014,
-    "occurrences_with_any_entry": 5303,
-    "share": 0.8818
-   }
-  },
-  "capitalised_only": {
-   "kaikki": {
-    "capitalised_only_identities": 152,
-    "any_entry": 112
-   },
-   "lsj": {
-    "capitalised_only_identities": 152,
-    "any_entry": 71
-   }
-  },
-  "kaikki_homograph_headwords_among_book1": 156,
-  "kaikki_book1_anab_cited_headwords": 17,
-  "lsj_headword_count": 111043,
-  "ml_headword_count": 30440,
-  "lsj_unknown_beta_chars": 311,
-  "ml_unknown_beta_chars": 18
+   "plain_identities": 1408,
+   "plain_identity_unnumbered_key_present": 1033,
+   "capitalised_only_identities": 152,
+   "capitalised_only_any_entry": 64,
+   "headword_multi_entry_candidate_set": 35,
+   "numbered_identities": 21,
+   "numbered_identity_any_homograph_candidate": 13,
+   "numbered_identity_equal_digit_UNVERIFIED": 12,
+   "occurrences": 6017,
+   "occurrences_with_any_entry": 5303
+  }
  }
 }

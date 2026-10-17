@@ -1,0 +1,19 @@
+{
+ "identities": 1429,
+ "kaikki_pos_tiers": {
+  "entry_but_no_pos_match": 123,
+  "multi_pos_match_homograph_ambiguous": 73,
+  "no_entry": 244,
+  "unique_pos_match": 989
+ },
+ "lsj_headword_tiers": {
+  "multi_headword_entry_homograph_ambiguous": 70,
+  "no_entry": 138,
+  "unique_headword_entry": 1221
+ },
+ "ml_headword_tiers": {
+  "multi_headword_entry_homograph_ambiguous": 35,
+  "no_entry": 335,
+  "unique_headword_entry": 1059
+ }
+}

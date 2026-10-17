@@ -41,7 +41,12 @@ def beta_to_greek(s):
     return unicodedata.normalize('NFC', ''.join(out)), num, unknown
 
 def canonical(greek):
-    """ancient-greek/1 as recorded in ADR 0099: NFC, lowercase, final sigma folded, NFC."""
+    """Approximates ADR 0099's ancient-greek/1 identity: NFC, lowercase, final sigma folded, NFC.
+
+    Uses Python str.lower(), which is not the Go simple-case mapping the ADR
+    names, and its Unicode version depends on the Python build. Treat results
+    as approximate.
+    """
     x = unicodedata.normalize('NFC', greek).lower()
     x = x.replace('ς', 'σ')
     return unicodedata.normalize('NFC', x)
