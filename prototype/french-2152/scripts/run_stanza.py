@@ -1,6 +1,7 @@
 """Run the approved French sample through pinned Stanza 1.15.0 and Mouseion's producer.
 
-Usage: python -I run_stanza.py <repo_root> <stanza_resources_dir> <out_dir>
+Usage: python -I run_stanza.py <repo_root> <stanza_resources_dir> <out_dir> [sentences.json prefix]
+With a sentences file (a JSON list of strings), runs those instead and prefixes output names.
 """
 
 import json
@@ -10,6 +11,8 @@ import time
 from pathlib import Path
 
 repo, model_dir, out_dir = (Path(a) for a in sys.argv[1:4])
+extra = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8")) if len(sys.argv) > 4 else None
+prefix = sys.argv[5] if len(sys.argv) > 5 else ""
 sys.path[:0] = [str(repo / "nlp" / "src"), str(repo / "gen" / "python")]
 
 import stanza  # noqa: E402
@@ -40,6 +43,9 @@ BASE = [
 ]
 SAMPLE = [(f"S{i + 1:02d}", s) for i, s in enumerate(BASE)]
 SAMPLE += [(f"S{i + 1:02d}c", s.replace("'", "’")) for i, s in enumerate(BASE[:5])]
+
+if extra is not None:
+    SAMPLE = [(f"X{i + 1:02d}", s) for i, s in enumerate(extra)]
 
 PACKAGE = {
     "tokenize": "combined_nocharlm",
@@ -152,6 +158,6 @@ metrics = {
     "paragraph_sentences": [s.text for s in paragraph_doc.sentences],
 }
 out_dir.mkdir(parents=True, exist_ok=True)
-(out_dir / "stanza_results.json").write_text(json.dumps(results, ensure_ascii=False, indent=1))
-(out_dir / "stanza_metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=1))
+(out_dir / f"{prefix}stanza_results.json").write_text(json.dumps(results, ensure_ascii=False, indent=1))
+(out_dir / f"{prefix}stanza_metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=1))
 print(json.dumps(metrics, ensure_ascii=False, indent=1))

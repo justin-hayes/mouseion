@@ -1,0 +1,47 @@
+{
+ "stanza_version": "1.15.0",
+ "torch_version": "2.14.1+cpu",
+ "torch_threads": 4,
+ "package": {
+  "tokenize": "combined_nocharlm",
+  "mwt": "combined",
+  "pos": "combined_charlm",
+  "lemma": "combined_nocharlm",
+  "depparse": "combined_charlm"
+ },
+ "pipeline_load_seconds": 1.62,
+ "max_rss_mb_before_load": 272.1,
+ "max_rss_mb_after_load": 851.8,
+ "max_rss_mb_after_runs": 895.1,
+ "per_sentence_seconds": {
+  "min": 0.026,
+  "median": 0.029,
+  "max": 0.038,
+  "first_call": 0.033
+ },
+ "paragraph_chars": 441,
+ "paragraph_seconds": 0.136,
+ "paragraph_sentences": [
+  "Il me lave.",
+  "Je m'aperçois qu'il pleut.",
+  "Je me souviens de lui.",
+  "Ils se parlent chaque jour.",
+  "Elle s'est levée tôt.",
+  "Nous nous en allons.",
+  "Je m’en vais demain.",
+  "Va-t’en !",
+  "Tu te trompes.",
+  "Ils s'en vont ensemble.",
+  "Il se lave les mains.",
+  "J'aime l'huile d'olive.",
+  "L'hôtel est fermé.",
+  "Le héros arrive.",
+  "Qu'est-ce qu'il dit ?",
+  "— Tu viens ?",
+  "demanda-t-il.",
+  "« Tu viens ? » demanda-t-il.",
+  "Je n'en sais rien.",
+  "Elle l'a vu hier.",
+  "Aujourd'hui, il prend son petit-déjeuner."
+ ]
+}

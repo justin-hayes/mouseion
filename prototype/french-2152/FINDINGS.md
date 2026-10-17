@@ -197,3 +197,45 @@ resource-selection ticket.
 
 See `README.md`. Scripts take every path as an argument and are run with `python -I`, outside downloaded
 directories.
+
+## 8. Extended diagnostics (human-requested, 20 more strings)
+
+These strings were added after review: `extra_sentences.json`; outputs in `out/extra_stanza_results.json` and `out/extra_match.tsv`.
+
+- **Base lemmas for pronominal forms [O] [R]:** all correct. `m'aperçois→apercevoir`,
+  `me souviens→souvenir`, `s'est levée→lever`, `nous en allons` / `m’en vais` / `s'en vont` / `Va-t’en→aller`,
+  `te trompes→tromper`, `se lave→laver`.
+- **Pronominal relations are inconsistent [O]:**
+  - `expl:pv` appeared on `souviens`, `levée`, `allons`, `vais` and `vont`.
+  - Reciprocal `se parlent` also got `expl:pv`.
+  - `m'aperçois` got `iobj`, and reflexive `te trompes` / `se lave` got `obj` / `iobj`.
+  - Non-reflexive `Il me lave` got `obj`, the same relation as reflexive `Je me lave`.
+
+  So the relation alone separates neither lexicalized nor reflexive use.
+- **Elision and hyphenation [O]:**
+  - `j'`, `l'` (DET and PRON, *Elle l'a vu*), `d'`, `qu'` and `n'` all tokenized correctly.
+  - `Aujourd'hui` and `petit-déjeuner` stayed single tokens. Only the spaced `petit déjeuner` splits.
+  - `Va-t’en` gave the token `-t’en` the nonsense lemma *von* (PRON, so not vocabulary).
+- **Dialogue [O]:**
+  - Em-dash dialogue `— Tu viens ? demanda-t-il.` split the incise into its own sentence.
+  - `« Tu viens ? » demanda-t-il.` stayed whole when analyzed alone, though it split inside a paragraph (§3). Segmentation depends on context.
+- **Matching [O]:**
+  - 9 of 36 eligible targets failed under the unchanged matcher: `aperçois`, `aime`, `huile`, `olive`, `hôtel` after elision; `Va`, `demanda` ×2 before hyphens; and `n'`.
+  - All 36 persisted spans slice exactly to their surfaces.
+  - Across both runs, **17 of 108 targets failed and 108 of 108 spans were exact.**
+- **Function words as vocabulary [O]:** `n'` (ADV, lemma *ne*) is an eligible content token, which confirms the
+  `ne`/`pas` risk in §3.
+
+## 9. Human review outcome
+
+- **Reviewed readings:** the human confirmed the agent's readings of the observed output (§3–§5).
+- **Pronominal identity:** the human chose **A, base-lemma grouping**. French pronominal and non-pronominal uses share
+  the base verb's identity (`laver`, `aller`), with no pronominal discriminator. Consequences accepted with this choice:
+  - Known *aller* covers *s'en aller* occurrences.
+  - Counts and Reserved vocabulary do not grow.
+  - Snapshots keep the current identity shape.
+  - Dictionary lookup uses the base headword, so lexicalized meanings that exist only under their own headword (*s'en aller* "go away") are not
+    reached by lookup.
+- **Supporting evidence:** the extended run supports A's prerequisite, correct base lemmas, and undercuts selective detection.
+- **Where the decision lands:** final resource adoption and recording this identity policy belong to
+  [Select the French launch resources and support boundary](https://github.com/justin-hayes/mouseion/issues/2141).
