@@ -3,6 +3,7 @@ package enrichment
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -235,6 +236,12 @@ func TestTranslationCodecRequestsFallbackWhenCandidateSensesAreEmpty(t *testing.
 	assert.NotContains(t, response.Warnings, "invalid sense selection; using deterministic order")
 }
 
+// contextualEvidenceHandle returns the short handle a contextual Gloss request
+// transmits for a stable evidence ID.
+func contextualEvidenceHandle(input TranslationRequest, evidenceID string) string {
+	return newContextualGlossHandles(input).toHandle[evidenceID]
+}
+
 func TestTranslationCodecAcceptsContextualGlossOnlyWithFrozenEvidenceReferences(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
@@ -242,7 +249,8 @@ func TestTranslationCodecAcceptsContextualGlossOnlyWithFrozenEvidenceReferences(
 		{EvidenceID: "wikt:seat", Gloss: "bench"},
 		{EvidenceID: "wikt:finance", Gloss: "financial institution"},
 	}}
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["wikt:seat"],"context_only":false}`
+	seat := contextualEvidenceHandle(input, "wikt:seat")
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["` + seat + `"],"context_only":false}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
@@ -251,7 +259,7 @@ func TestTranslationCodecAcceptsContextualGlossOnlyWithFrozenEvidenceReferences(
 	assert.False(t, response.ContextOnly)
 
 	for name, invalid := range map[string]string{
-		"unknown evidence":                  strings.Replace(content, `wikt:seat`, `wikt:unknown`, 1),
+		"unknown evidence":                  strings.Replace(content, seat, "e99", 1),
 		"context flag contradicts evidence": strings.Replace(content, `"context_only":false`, `"context_only":true`, 1),
 		"missing contextual gloss":          strings.Replace(content, `"gloss":"bench",`, ``, 1),
 	} {
@@ -266,7 +274,8 @@ func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOm
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
 	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", TargetWord: "Bank", ExampleSentence: "Sie sieht die Bank.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:seat", Gloss: "bench"}}}
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She sees the bank.","sentence_translation_targets":["bank"],"gloss":"","evidence_ids":[],"context_only":true,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."}`
+	seat := contextualEvidenceHandle(input, "wikt:seat")
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She sees the bank.","sentence_translation_targets":["bank"],"gloss":"","evidence_ids":[],"context_only":true,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
@@ -276,7 +285,7 @@ func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOm
 
 	for name, invalid := range map[string]string{
 		"missing reason":             strings.Replace(content, `,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."`, "", 1),
-		"abstention with evidence":   strings.Replace(content, `"evidence_ids":[]`, `"evidence_ids":["wikt:seat"]`, 1),
+		"abstention with evidence":   strings.Replace(content, `"evidence_ids":[]`, `"evidence_ids":["`+seat+`"]`, 1),
 		"abstention without context": strings.Replace(content, `"context_only":true`, `"context_only":false`, 1),
 		"markup reason":              strings.Replace(content, "does not provide enough context", "<b>unsafe</b>", 1),
 	} {
@@ -294,7 +303,8 @@ func TestTranslationCodecDiscardsStrayUnresolvedReasonFromResolvedGloss(t *testi
 		{EvidenceID: "wikt:seat", Gloss: "bench"},
 		{EvidenceID: "wikt:finance", Gloss: "financial institution"},
 	}}
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["wikt:seat"],"context_only":false,"unresolved_reason":"The gloss may be wrong."}`
+	seat := contextualEvidenceHandle(input, "wikt:seat")
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["` + seat + `"],"context_only":false,"unresolved_reason":"The gloss may be wrong."}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
@@ -308,7 +318,7 @@ func TestTranslationCodecDiscardsInvalidAlignmentWithoutLosingTranslationOrGloss
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
 	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "umhauen", UPOS: "VERB", TargetWord: "haut", ExampleSentence: "Und dann haut das Motorrad Piero um.", RequireContextualGloss: true}
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"knock over","sentence_translation":"And then the motorcycle knocks Piero over.","sentence_translation_targets":["Piero","knocks"],"gloss":"knock down","evidence_ids":[],"context_only":true,"unresolved_reason":""}`
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"knock over","sentence_translation":"And then the motorcycle knocks Piero over.","sentence_translation_targets":["Piero","knocks"],"gloss":"knock down","evidence_ids":[],"context_only":true,"unresolved_reason":""}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
@@ -316,6 +326,116 @@ func TestTranslationCodecDiscardsInvalidAlignmentWithoutLosingTranslationOrGloss
 	assert.Equal(t, "knock down", response.Gloss)
 	assert.Equal(t, "And then the motorcycle knocks Piero over.", response.SentenceTranslation)
 	assert.Empty(t, response.SentenceTranslationTargets)
+}
+
+// TestTranslationCodecTransmitsShortHandlesAndResolvesThemBack covers the
+// #2125 contract: the contextual Gloss payload carries short per-request
+// handles, and decoding maps the echoed handles back to the stable evidence ID.
+func TestTranslationCodecTransmitsShortHandlesAndResolvesThemBack(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	bindID := "wiktionary:" + strings.Repeat("a", 64)
+	lackID := "wiktionary:" + strings.Repeat("b", 64)
+	input := TranslationRequest{Language: "grc", TargetLanguage: "en", CanonicalLemma: "δέω", UPOS: "VERB", TargetWord: "δέω", ExampleSentence: "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ δέω βραδέως;", RequireContextualGloss: true, CandidateSenses: []LexicalSense{
+		{EvidenceID: bindID, Gloss: "bind"},
+		{EvidenceID: lackID, Gloss: "lack"},
+		{Gloss: "no evidence id"},
+	}}
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"grc","target_language":"en","translation":"I bind","sentence_translation":"A man sees the word and I bind slowly.","sentence_translation_targets":["bind"],"gloss":"bind","evidence_ids":["e1"],"context_only":false}`
+
+	t.Run("payload carries short handles", func(t *testing.T) {
+		body, err := codec.EncodeRequest(input)
+		require.NoError(t, err)
+		user := encodedUserContent(t, body)
+		for _, want := range []string{`"item_id":"` + ContextualGlossItemHandle + `"`, `"evidence_id":"e1"`, `"evidence_id":"e2"`, `"gloss":"no evidence id"`} {
+			require.Contains(t, user, want)
+		}
+		require.NotContains(t, user, "wiktionary:", "the stable evidence IDs are not transmitted")
+		require.NotContains(t, user, TranslationItemID(input), "the stable item ID is not transmitted")
+	})
+
+	t.Run("decoded response carries the original stable IDs", func(t *testing.T) {
+		response, err := codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(content)+`}}]}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{bindID}, response.EvidenceIDs)
+		require.Equal(t, TranslationItemID(input), response.ItemID)
+	})
+
+	for name, invalid := range map[string]string{
+		"unknown handle":    strings.Replace(content, `"e1"`, `"e3"`, 1),
+		"duplicate handle":  strings.Replace(content, `"evidence_ids":["e1"]`, `"evidence_ids":["e1","e1"]`, 1),
+		"stable evidence":   strings.Replace(content, `"e1"`, `"`+bindID+`"`, 1),
+		"wrong item handle": strings.Replace(content, `"item_id":"`+ContextualGlossItemHandle+`"`, `"item_id":"i2"`, 1),
+		"stable item ID":    strings.Replace(content, `"item_id":"`+ContextualGlossItemHandle+`"`, `"item_id":"`+TranslationItemID(input)+`"`, 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, decodeErr := codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(invalid)+`}}]}`))
+			require.ErrorIs(t, decodeErr, ErrInvalidTranslationResponse)
+		})
+	}
+}
+
+// TestTranslationCodecKeepsStableIdentifiersOutsideContextualGloss guards the
+// other provider path: only the contextual Gloss payload shortens IDs.
+func TestTranslationCodecKeepsStableIdentifiersOutsideContextualGloss(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", CandidateSenses: []LexicalSense{{EvidenceID: "wikt:house", Gloss: "building"}}}
+	body, err := codec.EncodeRequest(input)
+	require.NoError(t, err)
+	user := encodedUserContent(t, body)
+	assert.Contains(t, user, `"item_id":"`+TranslationItemID(input)+`"`)
+	assert.Contains(t, user, `"evidence_id":"wikt:house"`)
+}
+
+// encodedUserContent returns the user message content of an encoded request.
+func encodedUserContent(t *testing.T, body []byte) string {
+	t.Helper()
+	var request chatRequest
+	require.NoError(t, json.Unmarshal(body, &request))
+	require.Len(t, request.Messages, 2)
+	return request.Messages[1].Content
+}
+
+// TestTranslationCodecBatchContextualHandlesKeepTheCustomIDCorrelation covers
+// the Batch acceptance criterion: correlation still uses the request's custom
+// ID while the body carries short handles that decode back to stable IDs.
+func TestTranslationCodecBatchContextualHandlesKeepTheCustomIDCorrelation(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	item := BatchTranslationItem{Ordinal: 2, Request: TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", TargetWord: "Bank", ExampleSentence: "Sie sitzt auf der Bank.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:seat", Gloss: "bench"}}}}
+	customID, err := BatchCustomID(testBatchRunID, item.Ordinal, 1)
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	_, err = codec.WriteBatchJSONL(&buf, testBatchRunID, 1, []BatchTranslationItem{item})
+	require.NoError(t, err)
+
+	var line struct {
+		CustomID string `json:"custom_id"`
+		Body     struct {
+			Messages []struct {
+				Content string `json:"content"`
+			} `json:"messages"`
+		} `json:"body"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(buf.String())), &line))
+	assert.Equal(t, customID, line.CustomID)
+	var payload struct {
+		ItemID          string         `json:"item_id"`
+		CandidateSenses []LexicalSense `json:"candidate_senses"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(line.Body.Messages[1].Content), &payload))
+	assert.Equal(t, ContextualGlossItemHandle, payload.ItemID)
+	require.Len(t, payload.CandidateSenses, 1)
+	assert.Equal(t, "e1", payload.CandidateSenses[0].EvidenceID)
+
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["e1"],"context_only":false}`
+	output := fmt.Sprintf(`{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, content)
+	outcomes, err := codec.DecodeBatchResults(testBatchRunID, 1, []BatchTranslationItem{item}, strings.NewReader(output), nil)
+	require.NoError(t, err)
+	require.True(t, outcomes[item.Ordinal].Successful())
+	assert.Equal(t, []string{"wikt:seat"}, outcomes[item.Ordinal].Response.EvidenceIDs)
+	assert.Equal(t, TranslationItemID(item.Request), outcomes[item.Ordinal].Response.ItemID)
 }
 
 // codecTranslationContent builds the strict provider content object from the

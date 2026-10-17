@@ -34,25 +34,28 @@ type ProviderAssessment struct {
 	Recorded bool
 }
 
-// AncientGreekProviderAssessment is the recorded personal-use assessment of the
-// exact Ancient Greek contextual-gloss and translation payload, recorded by
-// Justin on #2110. The transport is the configured OpenAI-compatible Chat
-// Completions endpoint; the transmitted fields are exactly the frozen
-// TranslationRequest (language, target language, canonical lemma, part of
-// speech, tested form, one representative sentence, and the bounded dictionary
-// candidate senses). No learner identity, Book title, raw annotation, or
-// lexical discriminator is transmitted.
+// AncientGreekProviderAssessment is the reviewed personal-use disposition for
+// the exact Ancient Greek contextual-gloss and translation payload. Justin
+// recorded the original assessment on #2110, but #2125 replaced the long opaque
+// item and evidence IDs with short per-request handles, so that assessment no
+// longer matches. Recorded stays false and Greek card preparation fails closed
+// with an explanation until Justin reviews the new exact payload and records a
+// new disposition on #2125. Until then no Greek provider call is transmitted.
+//
+// The transport is the configured OpenAI-compatible Chat Completions endpoint;
+// the transmitted fields are exactly the frozen TranslationRequest (language,
+// target language, canonical lemma, part of speech, tested form, one
+// representative sentence, and the bounded dictionary candidate senses). No
+// learner identity, Book title, raw annotation, or lexical discriminator is
+// transmitted.
 var AncientGreekProviderAssessment = ProviderAssessment{
 	Language:      "grc",
 	Provider:      "openai-compatible",
 	PromptVersion: contextualGlossPromptVersion,
-	Fields: []string{
-		"item_id", "language", "target_language", "canonical_lemma", "upos",
-		"target_word", "example_sentence", "candidate_senses",
-	},
-	Disposition: "approved for personal use of the locally produced deck",
-	Ticket:      "#2110",
-	Recorded:    true,
+	Fields:        ContextualGlossPayloadFields(),
+	Disposition:   "awaiting Justin's review of the short per-request handles (#2125)",
+	Ticket:        "#2125",
+	Recorded:      false,
 }
 
 // Gate reports whether a language's provider call may proceed. A language the

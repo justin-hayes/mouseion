@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"path/filepath"
 	"strconv"
@@ -82,6 +83,11 @@ func (p *contextualBatchFixtureProvider) CreateBatch(_ context.Context, request 
 		}
 		var input struct {
 			CustomID string `json:"custom_id"`
+			Body     struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			} `json:"body"`
 		}
 		if err := json.Unmarshal([]byte(line), &input); err != nil {
 			return enrichment.Batch{}, err
@@ -90,8 +96,17 @@ func (p *contextualBatchFixtureProvider) CreateBatch(_ context.Context, request 
 		if err != nil {
 			return enrichment.Batch{}, err
 		}
+		var payload struct {
+			ItemID string `json:"item_id"`
+		}
+		if len(input.Body.Messages) < 2 {
+			return enrichment.Batch{}, errors.New("contextual Batch request has no user message")
+		}
+		if err := json.Unmarshal([]byte(input.Body.Messages[1].Content), &payload); err != nil {
+			return enrichment.Batch{}, err
+		}
 		response := map[string]any{
-			"item_id": input.CustomID, "source_language": "de", "target_language": "en",
+			"item_id": payload.ItemID, "source_language": "de", "target_language": "en",
 			"translation": "translated", "sentence_translation": "The translated sentence.",
 			"sentence_translation_targets": []string{"translated"}, "evidence_ids": []string{}, "context_only": true,
 		}

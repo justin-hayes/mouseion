@@ -382,3 +382,20 @@ func TestInputAssemblerRejectsSourceOffsetBeyondPostgresRange(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "source offset exceeds PostgreSQL range")
 }
+
+// TestAuthorizeRecordedProviderCallsFailsClosedForGreekUntilRecorded covers the
+// #2125 gate at the planner seam: Greek preparation is refused while the
+// recorded assessment still describes the superseded payload contract.
+func TestAuthorizeRecordedProviderCallsFailsClosedForGreekUntilRecorded(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	projections := []cardexport.CandidateProjection{
+		{Candidate: domain.SelectionCandidate{Language: "grc"}},
+		{Candidate: domain.SelectionCandidate{Language: "de"}},
+	}
+	err = authorizeRecordedProviderCalls(projections, codec)
+	require.ErrorIs(t, err, enrichment.ErrProviderAssessmentNotRecorded)
+	assert.Contains(t, err.Error(), "prepared deck preparation refused")
+
+	require.NoError(t, authorizeRecordedProviderCalls(projections[1:], codec), "modern languages keep working")
+}
