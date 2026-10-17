@@ -1,0 +1,18 @@
+{
+  "status": "agent_proposed_not_human_reviewed",
+  "scope": "Final six occurrences: sentences 428 and 536. Kaikki gain/profit plus monthly context is an explicit evidence question; no scoring.",
+  "labels": [
+    {"target_id": "428:1", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-27164:sense-1:path-1", "kaikki:grc-row-27164:sense-2:path-1", "kaikki:grc-row-27164:sense-3:path-1", "kaikki:grc-row-27164:sense-4:path-1", "kaikki:grc-row-27164:sense-5:path-1", "kaikki:grc-row-27164:sense-6:path-1", "kaikki:grc-row-27164:sense-7:path-1", "kaikki:grc-row-27164:sense-8:path-1", "kaikki:grc-row-27164:sense-7:path-2", "kaikki:grc-row-27164:sense-7:path-3", "kaikki:grc-row-27164:sense-8:path-2"], "meaning": "stretch/extend along spatially, of the trench; repeated parent paths retained separately, not selecting torture, delay, pronunciation, or prolonging life"},
+    {"target_id": "428:1", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n78904.0", "lsj:n78904.7", "lsj:n78904.8"], "meaning": "stretch/extend along spatially; the first sense explicitly cites this trench passage. Not torture, delay, or extending one's life."},
+    {"target_id": "428:4", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-5345:sense-1:path-1"], "meaning": "ditch/trench, not a narrower unsupported irrigation function"},
+    {"target_id": "428:4", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n102663.0"], "meaning": "ditch/trench; no need to force a subtype within the source's broad sense"},
+    {"target_id": "428:8", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4824:sense-1:path-1"], "meaning": "plain/open country, not anatomical senses"},
+    {"target_id": "428:8", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n80240.0"], "meaning": "plain/open country, not anatomical senses or specifically the plain of Attica"},
+    {"target_id": "536:15", "lexicon": "kaikki", "acceptable_sense_ids": [], "meaning": "more profitable/advantageous, but no candidate retrieved in this bounded Kaikki extraction; abstain", "evidence_status": "no_retrieved_candidate_not_lexicographical_absence"},
+    {"target_id": "536:15", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n56825.2"], "meaning": "profitable plus comparative morphology supports more profitable/worth more, not crafty/cunning"},
+    {"target_id": "536:19", "lexicon": "kaikki", "acceptable_sense_ids": [], "meaning": "obey someone in authority, here Cyrus, but no candidate retrieved in this bounded Kaikki extraction; abstain", "evidence_status": "no_retrieved_candidate_not_lexicographical_absence"},
+    {"target_id": "536:19", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n80318.0"], "meaning": "obey one in authority, here Cyrus; English nominal obedience renders a Greek infinitive"},
+    {"target_id": "536:24", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-5530:sense-1:path-1"], "meaning": "PROPOSED, REQUIRES CONFIRMATION: gain/profit plus monthly context supports earnings/pay, without claiming the dictionary explicitly says salary"},
+    {"target_id": "536:24", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n56840.0"], "meaning": "gain/profit, here monthly earnings/pay, not greed or cunning arts/wiles"}
+  ]
+}

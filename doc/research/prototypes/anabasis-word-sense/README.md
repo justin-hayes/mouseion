@@ -4,7 +4,7 @@ For [Prototype: word sense in context for Ancient Greek without an LLM](https://
 on the **unmerged** `prototype/anabasis-word-sense` branch. No production changes,
 LLM calls, model weights, database, queue, or NLP service. No PR or merge intended.
 
-**Status: live human sense review in progress (12/24 occurrences); no sense accuracy measured.**
+**Status: live human sense review in progress (18/24 occurrences); no sense accuracy measured.**
 
 Open [`evidence.html`](evidence.html) directly in a browser. It contains all inputs,
 fixed baseline outputs, native dictionary senses and memory-only review controls.

@@ -30,6 +30,18 @@
     {"target_id": "177:20", "lexicon": "kaikki", "acceptable_sense_ids": [], "meaning": "prompted/urged on; no Kaikki candidate retrieved", "evidence_status": "no_retrieved_candidate", "status": "human_confirmed", "ledger_event": 1},
     {"target_id": "177:20", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n30251.0"], "meaning": "urged on by someone", "status": "human_confirmed", "ledger_event": 1},
     {"target_id": "177:34", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8504:sense-3:path-1"], "meaning": "depart/go away, absolute use, not depart from life", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "177:34", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n11970.0", "lsj:n11970.2"], "meaning": "depart/go away, including absolute use; be off! is not proposed card wording", "status": "human_confirmed", "ledger_event": 1}
+    {"target_id": "177:34", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n11970.0", "lsj:n11970.2"], "meaning": "depart/go away, including absolute use; be off! is not proposed card wording", "status": "human_confirmed", "ledger_event": 1},
+    {"target_id": "238:3", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4924:sense-1:path-1"], "meaning": "triremes/warships, not ship-shaped drinking vessels", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "238:3", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n104949.0"], "meaning": "triremes/warships, not ship-shaped drinking vessels", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "238:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8859:sense-1:path-1"], "meaning": "take/grasp/seize supports catching/capturing this vessel, without explicitly glossing overtake", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "238:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n2654.3", "lsj:n2654.4"], "meaning": "capture/get into one's power, or catch/overtake", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "238:8", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8587:sense-1:path-1"], "meaning": "ship/vessel, the watercraft meaning of craft", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "238:8", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n83928.0"], "meaning": "ship/vessel, without forcing merchant-versus-warship subtype", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "103:22", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-81:sense-1:path-1"], "meaning": "fear/fright/panic as the barbarians' emotion, not flight/retreat", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "103:22", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n111908.2"], "meaning": "panic fear/fear/terror, not Homeric panic flight", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "103:29", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-826:sense-1:path-1"], "meaning": "flee/take flight, intransitive; not exile or prosecution", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "103:29", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n110606.1"], "meaning": "flee/take flight, absolute/intransitive; not exile or prosecution", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "103:40", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-7545:sense-1:path-1"], "meaning": "for sale supports wares/goods for sale via nominal adjective use; strict-POS baseline still abstains", "matching_limitation": "source POS mismatch; no automatic cross-POS mapping authorized", "status": "human_confirmed", "ledger_event": 2},
+    {"target_id": "103:40", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n116256.0"], "meaning": "goods for sale/marketwares, not venal/corrupt officials", "status": "human_confirmed", "ledger_event": 2}
   ]
 }

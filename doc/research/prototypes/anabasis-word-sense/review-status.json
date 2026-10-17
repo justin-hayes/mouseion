@@ -2,8 +2,8 @@
   "schema": "anabasis-word-sense-live-review/1",
   "status": "live_human_sense_review_in_progress",
   "reviewer": "Justin Hayes",
-  "confirmed_sense_pairs": 24,
-  "confirmed_target_occurrences": 12,
+  "confirmed_sense_pairs": 36,
+  "confirmed_target_occurrences": 18,
   "events": [
     {
       "date": "2026-10-17",
@@ -22,6 +22,16 @@
       "assistant_prompt_verbatim": "Recorded: **6/24 occurrences reviewed**, including “older” supported by Kaikki plus morphology.\n\n### Next six\n\nContexts: Cyrus orders recruitment for his garrisons, alleging hostile designs by Tissaphernes; later, speakers discuss staying or leaving without Cyrus’s consent.\n\n| Target | Proposed contextual sense |\n|---|---|\n| **παρήγγειλε** | **give orders**—not merely transmit a message, recommend or summon |\n| **φυλακὰς** | **garrisons/guards**—not custody or a night watch |\n| **ἐπιβουλεύοντος** | **plot against / have hostile designs upon** the cities—not “be plotted against” |\n| **ἀπορία** | **practical difficulty/impossibility**—not physical impassability, poverty or a philosophical puzzle |\n| **ἐγκέλευστοι** | **prompted/urged on** by Clearchus; LSJ explicitly cites this passage |\n| **ἀπιέναι** | **depart/go away**, used absolutely—not “depart from life” |\n\nFor the retained inputs, LSJ retrieved no **φυλακή** candidate, and Kaikki none for **ἐγκέλευστος**. Those remain lookup abstentions, not invented mappings.\n\n**Do these six sense distinctions look right?**",
       "human_response_verbatim": "Looks good",
       "scope": "Confirms the second six occurrence sense proposals and the explicitly described lookup abstentions. Does not establish lexicographical absence, approve remaining labels, accept a strategy, or change production behaviour.",
+      "method": "Live confirmation of agent-proposed sense distinctions, not independent annotation or expert certification"
+    },
+    {
+      "date": "2026-10-17",
+      "checkpoint_commit": "21d5c2ce",
+      "proposal_asset": "review-batch-3.json",
+      "target_ids": ["238:3", "238:5", "238:8", "103:22", "103:29", "103:40"],
+      "assistant_prompt_verbatim": "**12/24 occurrences confirmed.** Next six:\n\n> “for I have men-of-war with which I can overtake their craft.”\n\nThen the soldiers’ charge frightens the barbarians; the queen flees, and market traders abandon their wares.\n\n| Target | Proposed contextual sense |\n|---|---|\n| **τριήρεις** | **triremes/warships**, not ship-shaped drinking vessels |\n| **ἑλεῖν** | **catch/capture the vessel**, here translated “overtake”—not choose, understand or convict |\n| **πλοῖον** | **ship/vessel**, the meaning of “craft” here |\n| **φόβος** | **fear/fright**, not the separate sense “flight/retreat” |\n| **ἔφυγεν** | **flee/take flight**, not exile or prosecution |\n| **ὤνια** | **wares/goods for sale**, not “venal/corrupt” |\n\nTwo dictionary-evidence judgments need your approval:\n\n- **ἑλεῖν:** LSJ explicitly supports “overtake.” I propose counting Kaikki’s **“take, grasp, seize”** as supporting catching/capturing this vessel, without claiming it explicitly says “overtake.”\n- **ὤνια:** I propose accepting Kaikki’s adjective **“for sale”** as evidence for **“goods for sale”** through nominal use. OGA labels this occurrence a noun, so the frozen strict-POS baseline still abstains.\n\n**Do you agree with these six readings and both evidence judgments?**",
+      "human_response_verbatim": "Looks good",
+      "scope": "Confirms the third six contextual readings and both explicit Kaikki evidence judgments: physical take/seize for catching the ship, and nominal adjective for wares. Does not change the frozen POS matcher, approve remaining labels, accept a strategy, or authorize production changes.",
       "method": "Live confirmation of agent-proposed sense distinctions, not independent annotation or expert certification"
     }
   ],
