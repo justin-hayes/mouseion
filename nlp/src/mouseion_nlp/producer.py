@@ -34,6 +34,15 @@ class SourceDocument:
 
 
 PipelineFactory = Callable[[str], Any]
+# Stanza's tokenizer callback hands each sentence as token texts, wrapping a
+# multiword token as ``(text, expansion)``.
+TokenizerToken = str | tuple[str, object]
+
+
+def _language_family(language: str) -> str:
+    """Return the base language code, ignoring any region or script subtag."""
+    return language.lower().replace("_", "-").split("-", 1)[0]
+
 
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
 GERMAN_NORMALIZATION_VERSION = "6"
@@ -46,6 +55,16 @@ DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 # The typographic apostrophe French text uses for elision; the canonical lemma
 # folds it to the ASCII apostrophe, so aujourd'hui and aujourd’hui are one item.
 FRENCH_TYPOGRAPHIC_APOSTROPHE = "\u2019"
+
+# French dialogue typography. Stanza's tokenizer splits a closing guillemet off
+# the sentence it closes, splits an em-dash incise from the spoken sentence, and
+# sometimes emits a leading em-dash as its own sentence. The producer rejoins
+# these at the tokenizer boundary, before the syntactic processors run, so each
+# representative sentence stays whole (ADR 0102). Tokens and source text are
+# never rewritten.
+FRENCH_CLOSING_GUILLEMET = "»"
+FRENCH_DIALOGUE_DASH = "—"
+FRENCH_INCISE_BOUNDARY = frozenset({"?", "!", "…", FRENCH_CLOSING_GUILLEMET})
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +146,91 @@ GERMAN_SEPARABLE_PREFIXES = frozenset(
 )
 
 
+def _dialogue_token_text(token: TokenizerToken) -> str:
+    """Return a Stanza tokenizer token's text, unwrapping a multiword token."""
+    if isinstance(token, tuple):
+        return str(token[0])
+    return str(token)
+
+
+def _dialogue_begins_lowercase(token: TokenizerToken) -> bool:
+    text = _dialogue_token_text(token)
+    return bool(text) and text[0].islower()
+
+
+def _is_dialogue_dash(token: TokenizerToken) -> bool:
+    return _dialogue_token_text(token) == FRENCH_DIALOGUE_DASH
+
+
+def _continues_french_incise(previous: list[TokenizerToken], current: list[TokenizerToken]) -> bool:
+    """Detect an em-dash dialogue incise split from the spoken sentence."""
+    if not previous or not current:
+        return False
+    boundary = _dialogue_token_text(previous[-1])
+    return boundary in FRENCH_INCISE_BOUNDARY and _dialogue_begins_lowercase(current[0])
+
+
+def _rejoin_leading_dashes(
+    sentences: list[list[TokenizerToken]],
+) -> list[list[TokenizerToken]]:
+    """Rejoin a leading em-dash emitted as its own sentence with the next one."""
+    rejoined: list[list[TokenizerToken]] = []
+    index = 0
+    while index < len(sentences):
+        tokens = list(sentences[index])
+        if (
+            tokens
+            and all(_is_dialogue_dash(token) for token in tokens)
+            and index + 1 < len(sentences)
+        ):
+            rejoined.append(tokens + list(sentences[index + 1]))
+            index += 2
+            continue
+        rejoined.append(tokens)
+        index += 1
+    return rejoined
+
+
+def merge_french_dialogue_sentences(
+    sentences: list[list[TokenizerToken]],
+) -> list[list[TokenizerToken]]:
+    """Rejoin French dialogue sentences that Stanza's tokenizer splits.
+
+    Stanza splits a closing guillemet off the sentence it closes, splits an
+    em-dash incise such as ``demanda-t-il`` from the spoken sentence, and
+    sometimes emits a leading em-dash as its own sentence. Rejoining them here,
+    at the tokenizer boundary, keeps each representative sentence whole and
+    leaves the downstream processors to analyze one complete sentence.
+    """
+    merged: list[list[TokenizerToken]] = []
+    for tokens in _rejoin_leading_dashes(sentences):
+        leading_closers = 0
+        while (
+            leading_closers < len(tokens)
+            and _dialogue_token_text(tokens[leading_closers]) == FRENCH_CLOSING_GUILLEMET
+        ):
+            leading_closers += 1
+        if not merged:
+            merged.append(tokens)
+            continue
+        if leading_closers:
+            remainder = tokens[leading_closers:]
+            # A close that stands alone, or one followed by a lower-case
+            # continuation such as ``» demanda-t-il.``, closes the previous
+            # sentence. A close followed by a capital opens the next one.
+            if not remainder or _dialogue_begins_lowercase(remainder[0]):
+                merged[-1].extend(tokens)
+            else:
+                merged[-1].extend(tokens[:leading_closers])
+                merged.append(remainder)
+            continue
+        if _continues_french_incise(merged[-1], tokens):
+            merged[-1].extend(tokens)
+            continue
+        merged.append(tokens)
+    return merged
+
+
 @cache
 def _stanza_pipeline(language: str) -> Any:
     config = model_config_for_language(language)
@@ -140,6 +244,9 @@ def _stanza_pipeline(language: str) -> Any:
     }
     if config.package is not None:
         kwargs["package"] = config.package
+    if Producer._is_french(config.language):
+        # Rejoin French dialogue before the syntactic processors run (ADR 0102).
+        kwargs["tokenize_postprocessor"] = merge_french_dialogue_sentences
     for processor, package in (config.pretrain_dependencies or {}).items():
         # Stanza declares no pretrain dependency for the Greek lemma package, so
         # its checkpoint would otherwise fall back to the absolute path from the
@@ -348,15 +455,15 @@ class Producer:
 
     @staticmethod
     def _is_german(language: str) -> bool:
-        return language.lower().replace("_", "-").split("-", 1)[0] == "de"
+        return _language_family(language) == "de"
 
     @staticmethod
     def _is_greek(language: str) -> bool:
-        return language.lower().replace("_", "-").split("-", 1)[0] == "el"
+        return _language_family(language) == "el"
 
     @staticmethod
     def _is_french(language: str) -> bool:
-        return language.lower().replace("_", "-").split("-", 1)[0] == "fr"
+        return _language_family(language) == "fr"
 
     @staticmethod
     def _canonical_lemma(language: str, lemma: str) -> str:
