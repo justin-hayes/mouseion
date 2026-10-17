@@ -40,14 +40,16 @@ is `scripts/segment_body.py`, which mirrors the production unit selection in
 | stanza | 1.15.0 (`nlp/uv.lock`) |
 | torch | 2.14.1+cpu (`nlp/uv.lock`, CPU index) |
 | Go | go1.27.2 linux/amd64 |
+| Stanza resource manifest source | `stanfordnlp/stanza-resources` commit `569db9d983a47931673d7d265361ca93af85d176`, `resources_1.15.0.json` |
+| German model source | `stanfordnlp/stanza-de` commit `6b928a48d4c8d8096b9dc75c887da3652f8ef671` (the measured `v1.15.0` revision), `models/` |
 | `nlp/uv.lock` | SHA256 `89fe4f40ec67a643a0f42aa6183d6b86fa5081bd5058bcf4fa4fdb3caa729e1a` |
 | `nlp/src/mouseion_nlp/model_config.py` | SHA256 `b6187f65fc819b74300fb4f6f9637097ad6fc9269270245b177bddcdb35adfe7` |
 | `nlp/src/mouseion_nlp/producer.py` | SHA256 `e8d9bdbcc93419ccd9e3e79c13ae1f65882ad30c7cd219d3e0ce964b90789ed1` |
 | `HEAD:internal/cardexport/cardexport.go` (ablation target) | SHA256 `34e79d1a8ef50be64ac79fba74e47bcf400aba1ad4155cf554bda4f98071207f` |
 | `nlp/testdata/german_prose_werther_excerpt.txt` | SHA256 `e066b0ee1c3fff0bfca6a7f4a45fedf0c9148e7bbea6106df19110aaf9865a1e` (repo file) |
 
-Stanza artifacts, pinned in the `STANZA_RESOURCES_DIR` directory (checked with the block below;
-no script downloads models):
+Stanza artifacts, pinned in the `STANZA_RESOURCES_DIR` directory (downloaded only
+by the explicit prerequisite commands below, never by a probe script):
 
 ```
 447e419d87d0623f6ae5a84021472ea8024d6a4b6803566aa8a4f5a80ef598e4  de/backward_charlm/newswiki.pt
@@ -74,21 +76,57 @@ Run from a checkout of this branch. Each variable is set explicitly; nothing is 
 
 ```sh
 # 0. Environment (set once per shell)
+set -eu
 export REPO="$(git rev-parse --show-toplevel)"          # research branch checkout
 export S="$REPO/doc/research/faust-pinned-model-validation/scripts"
-export EPUB="$HOME/.cache/scratch/poetry-faust-source/dl-21000-noimg/pg21000.epub"
 export WORK="$HOME/.cache/scratch/faust-2151-repro"      # all outputs go here
-export STANZA_RESOURCES_DIR="$HOME/.cache/scratch/poetry-2151/stanza"
-export PY="$HOME/.cache/scratch/poetry-2151/venv/bin/python"   # locked venv, see note below
+export EPUB="$WORK/pg21000.epub"
+export STANZA_RESOURCES_DIR="$WORK/stanza"
+export PY="$WORK/venv/bin/python"
 export OMP_NUM_THREADS=2
-export GOTMPDIR="$HOME/.cache/gotmp" GOPROXY=off       # go1.27.2 must already be on PATH
-mkdir -p "$WORK" "$GOTMPDIR"
+export GOTMPDIR="$HOME/.cache/gotmp"                   # go1.27.2 must already be on PATH
+mkdir -p "$WORK" "$GOTMPDIR" "$STANZA_RESOURCES_DIR"
+
+# Locked environment and Go module prerequisites (uv 0.13.0 on PATH).
+UV_PROJECT_ENVIRONMENT="$WORK/venv" uv sync --project "$REPO/nlp" --python 3.13 --locked --no-build --group dev
+"$PY" -c 'import stanza, torch; assert stanza.__version__ == "1.15.0"; assert torch.__version__ == "2.14.1+cpu"'
+(cd "$REPO" && go mod download)
+export GOPROXY=off
+
+# Explicit network prerequisite: about 315 MiB of model downloads if absent.
+# Existing verified bytes may be placed at these exact paths instead.
+if ! test -f "$EPUB"; then
+  curl --fail --location --retry 3 https://www.gutenberg.org/ebooks/21000.epub.noimages --output "$EPUB"
+fi
+if ! test -f "$STANZA_RESOURCES_DIR/resources.json"; then
+  curl --fail --location --retry 3 https://raw.githubusercontent.com/stanfordnlp/stanza-resources/569db9d983a47931673d7d265361ca93af85d176/resources_1.15.0.json --output "$STANZA_RESOURCES_DIR/resources.json"
+fi
+while IFS= read -r model; do
+  dest="$STANZA_RESOURCES_DIR/de/$model"
+  mkdir -p "$(dirname "$dest")"
+  if ! test -f "$dest"; then
+    curl --fail --location --retry 3 "https://huggingface.co/stanfordnlp/stanza-de/resolve/6b928a48d4c8d8096b9dc75c887da3652f8ef671/models/$model" --output "$dest"
+  fi
+done <<'MODELS'
+backward_charlm/newswiki.pt
+depparse/combined_charlm.pt
+forward_charlm/newswiki.pt
+lemma/combined_nocharlm.pt
+mwt/combined.pt
+pos/combined_charlm.pt
+pretrain/conll17.pt
+tokenize/combined_nocharlm.pt
+MODELS
 ```
 
-Venv note: build it from the lock, not with `pip`:
-`UV_PROJECT_ENVIRONMENT="$HOME/.cache/scratch/poetry-2151/venv" uv sync --project "$REPO/nlp" --locked --no-build --group dev`
-(uv 0.13.0, as pinned in `AGENTS.md`). Then check `"$PY" -c "import stanza, torch; print(stanza.__version__, torch.__version__)"`
-prints `1.15.0 2.14.1+cpu`.
+The verification run reused the previously provisioned locked Python 3.13
+environment and checksum-matching models; it did not repeat a cold environment
+installation or model download. All probe commands below ran successfully from
+the published scripts. The pinned manifest URL was fetched and its SHA-256
+verified; the eight model source-revision LFS SHA-256 values were checked against
+the downloaded runtime artifacts without downloading them a second time. A
+partial/wrong download fails the following checksum gate: remove only that
+task-local bad file and fetch again, never silently continue on a mismatch.
 
 ```sh
 # 1. Verify inputs
@@ -146,8 +184,8 @@ WERTHER="$REPO/nlp/testdata/german_prose_werther_excerpt.txt"
 "$PY" -I "$S/tok_feat_identity.py" "$REPO" "$WERTHER"
 "$PY" -I "$S/tok_variants.py" "$REPO" "$WERTHER"
 
-# 10. Canonical digests of the Producer outputs (compare with the table below)
-for f in "$WORK/out1/producer_results.json" "$WORK/out2/producer_results_rebased.json" "$WORK/out2/werther_paragraphs_kept.json"; do
+# 10. Canonical digests (compare with the table below)
+for f in "$WORK/out1/producer_results.json" "$WORK/out2/producer_results_rebased.json" "$WORK/out2/werther_paragraphs_kept.json" "$WORK/seg_candidate.json" "$WORK/seg_body.json"; do
   "$PY" -I "$S/canonical_digest.py" "$f"
 done
 ```
@@ -155,7 +193,8 @@ done
 ## Expected results (verification run for this asset)
 
 Canonical digests (`canonical_digest.py`) from the verification run for this asset. A
-mismatch means the environment differs from the pins above, not that the scripts are wrong:
+mismatch requires investigation of inputs, environment and scripts; it is not a
+passing rerun:
 
 ```
 bf674799ce59eb2f91419e230da512546bb00e972357998f463f969229a541a8  out1/producer_results.json
@@ -195,6 +234,11 @@ newline clause does not change contract-shaped prose.
 
 - Per-line list detection, the role filter, and the full pipeline are not exercised.
 - The `Was fällt euch an? Entzückung oder Schmerzen?` sentence is one Stanza sentence.
-  `Valentin fällt.` is a speaker label with nested `fällt`, which the #2148 contract excludes
-  while the accepted example lists `fällt` as an eligible VERB. Those are parent decisions.
-- Lemma and dependency risks (`sag’`, `schwanken`, `fängt … an`, `hatt’`) were not verified here.
+  `Valentin fällt.` is a speaker label with nested `fällt`, which the policy excludes
+  while its earlier example called `fällt` eligible. The parent acceptance decision
+  resolved these by respecting measured analyzer boundaries and the enclosing
+  speaker role, not by changing the core rules; this asset supplies measurements,
+  not an independent product decision.
+- Lemma and dependency risks (`sag’`, `schwanken`, `fängt … an`, `hatt’`) were not
+  separately re-reviewed during this reproduction run. The parent evidence report
+  retains its earlier reviewed observations and accepted limitations.
