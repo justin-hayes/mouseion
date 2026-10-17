@@ -1,0 +1,13 @@
+{
+  "schema": "anabasis-word-sense-live-review/1",
+  "status": "awaiting_live_human_sense_review",
+  "reviewer": null,
+  "confirmed_sense_pairs": 0,
+  "events": [],
+  "notes": [
+    "The separate alignment checkpoint was confirmed previously, not in this sense review.",
+    "Justin's instruction to continue after research completion is not sense annotation or acceptance of a strategy.",
+    "review-proposals.json contains unreviewed agent proposals and an explicit unresolved comparative-age question.",
+    "Do not create sense-gold.json or score chosen-sense accuracy before actual live confirmation."
+  ]
+}

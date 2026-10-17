@@ -1,0 +1,18 @@
+{
+  "status": "agent_proposed_not_human_reviewed",
+  "scope": "First six occurrences only; these are neither gold labels nor baseline predictions.",
+  "labels": [
+    {"target_id": "1:4", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-902:sense-1:path-2"], "meaning": "to be born; not generic becoming or happening"},
+    {"target_id": "1:4", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n22209.2"], "meaning": "to be born (I.1); not the broad state-of-being umbrella"},
+    {"target_id": "1:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-87:sense-1:path-1"], "meaning": "child/offspring, here sons; not slaves or servants"},
+    {"target_id": "1:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n76703.1"], "meaning": "child/son/daughter as offspring (I); not boy by age or a slave"},
+    {"target_id": "1:8", "lexicon": "kaikki", "acceptable_sense_ids": [], "meaning": "OPEN QUESTION: adjective elderly/aged is the only POS-compatible sense; does comparative morphology adequately support older here, or is this too misleading? This empty list is unresolved, not a reviewed rejection.", "alternative_ids": ["kaikki:grc-row-6531:sense-1:path-1"]},
+    {"target_id": "1:8", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n86305.0"], "meaning": "older/elder of the two brothers; this source sense explicitly discusses the comparative, not necessarily an elderly man"},
+    {"target_id": "3:4", "lexicon": "kaikki", "acceptable_sense_ids": [], "meaning": "Same OPEN QUESTION as 1:8: older brother, not necessarily elderly. Empty is pending, not human-confirmed.", "alternative_ids": ["kaikki:grc-row-6531:sense-1:path-1"]},
+    {"target_id": "3:4", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n86305.0"], "meaning": "the older brother; explicit comparative-age discussion"},
+    {"target_id": "3:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8800:sense-1:path-1", "kaikki:grc-row-8800:sense-2:path-2"], "meaning": "to be present/by or near him; reference identifies the be-present entry from context, without authorizing an automatic OGA-number crosswalk"},
+    {"target_id": "3:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n79223.0", "lsj:n79223.1"], "meaning": "be present/by or near him in the sum entry, not pass by/overtake in the ibo entry; automatic identity gate still abstains"},
+    {"target_id": "3:6", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-60:sense-2:path-2"], "meaning": "of a person: happen to do/be, with a participle; not hit a target or obtain, nor an event merely occurring"},
+    {"target_id": "3:6", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n105829.9"], "meaning": "II: joined with the participle of another verb to express coincidence; happened to be present"}
+  ]
+}

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Throwaway: Book 1 word sense evidence</title>
+<style>
+body{font:17px/1.55 system-ui,sans-serif;color:#202a28;background:#f8f7f3;margin:0}
+main{max-width:1000px;margin:auto;padding:32px 20px 60px}h1{font:2rem/1.2 Georgia,serif}
+h2{font:1.5rem Georgia,serif}section{background:white;border:1px solid #d6dcd8;padding:20px;margin:20px 0}
+button,select{font:inherit;padding:8px;margin:4px 8px 4px 0;max-width:100%;white-space:normal}
+button{border:1px solid #527165;border-radius:3px;background:white;cursor:pointer;color:#234c3a}
+.notice{border-left:4px solid #98762a;padding:12px;background:#faf1d9}.greek{font:1.25rem/1.6 Georgia,serif}
+dt{font-weight:650}dd{margin:0 0 12px;overflow-wrap:anywhere}code{font-size:.85em;overflow-wrap:anywhere}
+.sense{display:block;padding:12px 0;border-bottom:1px solid #ddd}.sense input{margin-right:12px}
+pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}small{color:#52615a}
+[role=tab][aria-selected=true]{background:#234c3a;color:white}.controls{display:flex;flex-wrap:wrap;gap:8px}
+</style>
+<main>
+<h1>Can a dictionary choose this word’s meaning?</h1>
+<p>Throwaway Book 1 logic/evidence prototype. Compare dictionary order, morphology and English-gloss overlap; explore when to withhold a contextual Gloss rather than guess. No production behaviour changes.</p>
+<p class="notice"><strong>Not sense gold yet.</strong> The English spans and target links were confirmed by Justin, but no dictionary-sense label is confirmed until a separate live review. Projections here receive those approved links: they are not automatic alignment results. No measured sense accuracy is claimed before review.</p>
+<section aria-label="Guided walkthroughs">
+<h2>Guided walkthroughs</h2>
+<div role="tablist" aria-label="Evidence scenarios">
+<button role="tab" data-scenario="opening">Birth and children</button>
+<button role="tab" data-scenario="ambiguity">A homograph trap</button>
+<button role="tab" data-scenario="wording">Different English wording</button>
+<button role="tab" data-scenario="missing">Missing dictionary evidence</button>
+</div>
+<p id="scenario"></p>
+<button id="step1">1. Inspect dictionary evidence</button>
+<button id="step2">2. Reveal the fixed baseline’s choice</button>
+<button id="step3">3. Withhold the unreviewed English link</button>
+</section>
+<section>
+<h2>Free play</h2>
+<label>Occurrence <select id="target"></select></label>
+<label>Dictionary <select id="lexicon"><option value="kaikki">Raw Kaikki / Wiktionary</option><option value="lsj">Perseus LSJ</option></select></label>
+<label>Strategy <select id="strategy">
+<option value="morphology-order">Morphology, labels, dictionary order</option>
+<option value="projection">Translation projection (overlap)</option>
+<option value="unique-projection">Projection only if exactly one sense overlaps</option>
+<option value="no-contextual-gloss">Evidence only; no contextual Gloss</option>
+</select></label>
+<div><label><input type="checkbox" id="alignment" checked> Supply the human-approved English target links</label></div>
+<button id="reveal">Reveal / hide baseline suggestion</button>
+<button id="reset">Reset all in-memory review choices</button>
+</section>
+<section>
+<h2>Current evidence</h2>
+<p class="greek" id="greek"></p><p id="english"></p>
+<dl id="state"></dl>
+<div id="outcome"></div>
+</section>
+<section>
+<h2>Source-grounded dictionary senses — live review</h2>
+<p>Select every sense you consider acceptable <em>at its displayed specificity</em>. LSJ has native IDs; Kaikki paths have local IDs tied to exact raw record/row/depth, not universal source sense IDs. A broad umbrella is not automatically correct just because it contains a narrower use. Uncheck guesses; multiple acceptable senses are allowed. Do not equate Kaikki and LSJ IDs. Leave unresolved identity or absent meanings unselected, then explicitly mark this dictionary reviewed.</p>
+<div id="senses"></div>
+<label><input type="checkbox" id="reviewed"> I have reviewed this occurrence in this dictionary</label>
+<p id="progress"></p>
+<button id="export">Download review draft for the live checkpoint</button>
+<p><small>Selections are memory-only and disappear on reload. Downloading records a draft, not automatic human confirmation or ticket acceptance.</small></p>
+</section>
+<section>
+<h2>Provenance and limitations</h2>
+<p>24 purposively chosen occurrences in eight sentences; no random or held-out sample. Justin confirmed agent-proposed alignments, not independent expert annotations. Sense proposals, if present, are also unreviewed agent proposals. No LLM or pretrained model is called by these baselines.</p>
+<p>Kaikki: raw extract SHA-256 <code>3dac8a09e57827bef493e2e6b552fe917bf3b1fc55dee05c4e4a3702aff5dbdb</code>, English Wiktionary contributors, CC BY-SA 4.0; no example translations retained. LSJ: PerseusDL/lexica <code>56061ca127f4a2844980baffc5f2b6d1332897b3</code>, Liddell/Scott/Jones/McKenzie 1940, Tufts/Perseus digitisation; component BY-SA 4.0 grant with additional preservation/credit/offer-back wording. Research use is not final worldwide shipping clearance.</p>
+<p>Greek: OGA / oga_src / Perseus, CC BY-SA 4.0. English: Xenophon, translated by Carleton L. Brownson (1921–22), Perseus/Tufts digitisation, CC BY-SA 4.0. Bounded extracted/adapted data shared under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>; preserve contributor/source attribution. See README.md for exact sources, obligations and exclusions. Prototype code uses the repository licence.</p>
+<p>LSJ bibliographic header: <em>A Greek-English Lexicon</em>, Henry George Liddell, Robert Scott; revised and augmented throughout by Sir Henry Stuart Jones with the assistance of Roderick McKenzie. Oxford, Clarendon Press, 1940. Tufts/Perseus digitisation, Gregory Crane; supervisors Lisa Cerrato and David Smith.</p>
+<p>Text provided under a CC BY-SA license by Perseus Digital Library, http://www.perseus.tufts.edu, with funding from The National Endowment for the Humanities. Data accessed from https://github.com/PerseusDL/lexica/ 2026-10-17.</p>
+<details><summary>Preserved LSJ availability statement and modifications</summary><pre>This text may be freely distributed under a CC BY-SA 4.0 license, subject to the following restrictions:
+
+You credit Perseus, as follows, whenever you use the document:
+
+    Text provided under a CC BY-SA license by Perseus Digital Library, http://www.perseus.tufts.edu, with funding from The National Endowment for the Humanities.
+    Data accessed from https://github.com/PerseusDL/lexica/ [date of access].
+
+You leave this availability statement intact
+
+You offer Perseus any modifications you make.
+
+Please include file header information found in &lt;fileDesc&gt; or &lt;sourceDesc&gt; tags: particularly title, authors, publisher, ISBN, etc.
+whenever possible.</pre><p>Modifications: bounded record/sense extraction, Beta Code key conversion, reconstructed sibling-level paths and local source-path identities, ranking and live-review scaffolding. No source corrections or Perseus endorsement. Preserve the notice and offer modifications to Perseus when reusing/distributing under these terms.</p></details>
+</section>
+</main>
+<script>
+const DATA = /*INPUTS*/null;
+const PREDICTIONS = /*PREDICTIONS*/null;
+const PROPOSALS = /*PROPOSALS*/null;
+// Pure replay/state logic. Fixed Python algorithms and all their candidate
+// scores are embedded, not a hidden API; see predict.py for the decision rule.
+const initial = () => ({target:DATA.targets[0].id,lexicon:'kaikki',strategy:'morphology-order',alignment:true,reveal:false,review:{},scenario:'opening'});
+const key = s => `${s.target}|${s.lexicon}`;
+function outcome(state) {
+  const prediction = PREDICTIONS.predictions.find(p=>p.target_id===state.target&&p.lexicon===state.lexicon&&p.strategy===state.strategy);
+  if (!state.alignment && ['projection','unique-projection'].includes(state.strategy))
+    return {...prediction,chosen:null,reason:'English link withheld; no translation projection is supported'};
+  return prediction;
+}
+const scenarios = {
+ opening:{target:'1:4',lexicon:'kaikki',text:'A birth is not just any becoming. Compare the source’s fine-grained meanings with a first-entry choice.'},
+ ambiguity:{target:'3:5',lexicon:'lsj',text:'Being present and going past may share a spelling. Different dictionaries’ homograph numbers are not an OGA crosswalk.'},
+ wording:{target:'238:8',lexicon:'kaikki',text:'Brownson says “craft”; a dictionary may say “ship” or “boat”. No overlap does not prove the meaning is absent.'},
+ missing:{target:'536:19',lexicon:'kaikki',text:'When no compatible entry is present, the safe output is no contextual Gloss, not a guessed translation.'}
+};
+function reduce(state,action) {
+ if(action.type==='reset')return initial();
+ if(action.type==='scenario')return {...initial(),...scenarios[action.name],scenario:action.name,strategy:'projection',review:state.review};
+ if(action.type==='select')return {...state,[action.field]:action.value,reveal:false};
+ if(action.type==='reveal')return {...state,reveal:!state.reveal};
+ if(action.type==='alignment')return {...state,alignment:action.value};
+ if(action.type==='review')return {...state,review:{...state.review,[key(state)]:action.value}};
+ return state;
+}
+let state=initial();
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const field=(name,value)=>`<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`;
+function dispatch(action){state=reduce(state,action);render();}
+for(const target of DATA.targets){const o=document.createElement('option');o.value=target.id;o.textContent=`${target.section} · ${target.surface} (${target.id})`;$('target').append(o);}
+function render(){
+ const target=DATA.targets.find(t=>t.id===state.target), result=outcome(state);
+ for(const f of ['target','lexicon','strategy'])$(f).value=state[f];
+ $('alignment').checked=state.alignment;
+ $('scenario').textContent=scenarios[state.scenario].text;
+ for(const b of document.querySelectorAll('[data-scenario]'))b.setAttribute('aria-selected',String(b.dataset.scenario===state.scenario));
+ $('greek').textContent=target.greek;$('english').textContent=target.english.join(' ');
+ $('state').innerHTML=field('Target / OGA lemma',`${target.surface} / ${target.oga_lemma}`)+field('Full identity',`grc · ${target.canonical_lemma} · ${target.import_upos} · ${target.lexical_discriminator||'(no discriminator)'}`)+field('Native morphology',target.native_postag)+field('Approved English target links',state.alignment?target.aligned_english.join(' … '):'Withheld')+field('Identity gate',result.identity_status)+field('Eligible gloss-bearing sense count',result.candidates.length);
+ $('outcome').innerHTML=state.reveal?`<h3>${result.chosen?'Candidate dictionary cue — not an accepted card Gloss':'Abstain: no contextual Gloss'}</h3><p>${esc(result.chosen?.gloss||'Show attributable dictionary evidence separately, or leave the Gloss absent.')}</p><p>${esc(result.reason)}</p>${result.chosen?`<p><code>${esc(result.chosen.id)}</code>; matching words: ${esc(result.chosen.overlap.join(', ')||'(none)')}</p>`:''}<details><summary>All baseline candidates and scores</summary><pre>${esc(JSON.stringify(result.candidates,null,2))}</pre></details>`:'<p>Suggestion hidden during sense review.</p>';
+ const current=state.review[key(state)]||{acceptable_sense_ids:[],reviewed:false};
+ const rows=DATA[state.lexicon].filter(e=>e.key===target.canonical_lemma);
+ const citationWord=e=>e.word.replace(/σ$/, 'ς'); // Beta Code has one sigma; display final ς, never an identity key.
+ const proposal=PROPOSALS?.labels?.find(r=>r.target_id===state.target&&r.lexicon===state.lexicon);
+ $('senses').innerHTML=(proposal?`<p class="notice">Unreviewed agent proposal: ${esc(proposal.acceptable_sense_ids.join(', ')||'none')} — ${esc(proposal.meaning)}</p>`:'')+(rows.length?rows.map(e=>`<h3>${esc(citationWord(e))} <code>${esc(e.id)}</code></h3><p>Source POS: ${esc(e.pos||JSON.stringify(e.entry_pos)||'unknown')}. <a href="${esc(e.source_url)}" target="_blank" rel="noreferrer">Pinned source / attribution</a></p>${e.senses.map(s=>`<label class="sense"><input type="checkbox" data-sense="${esc(s.id)}" ${current.acceptable_sense_ids.includes(s.id)?'checked':''}><strong>${esc((s.glosses||[]).join(' → ')||'(no standalone English gloss)')}</strong><br><code>${esc(s.id)}</code> ${esc(JSON.stringify(s.tags||s.labels||[]))}<details><summary>Native context / hierarchy</summary><pre>${esc(JSON.stringify(s,null,2))}</pre></details></label>`).join('')}`).join(''):'<p>No retrieved source entry at this headword.</p>');
+ $('reviewed').checked=current.reviewed;
+ $('progress').textContent=`${Object.values(state.review).filter(r=>r.reviewed).length} / ${DATA.targets.length*2} dictionary/occurrence pairs marked reviewed in this draft. No accuracy computed.`;
+ for(const box of document.querySelectorAll('[data-sense]'))box.onchange=()=>dispatch({type:'review',value:{...current,reviewed:false,acceptable_sense_ids:[...document.querySelectorAll('[data-sense]:checked')].map(e=>e.dataset.sense)}});
+ $('reviewed').onchange=e=>dispatch({type:'review',value:{...current,reviewed:e.target.checked}});
+}
+for(const f of ['target','lexicon','strategy'])$(f).onchange=e=>dispatch({type:'select',field:f,value:e.target.value});
+$('alignment').onchange=e=>dispatch({type:'alignment',value:e.target.checked});
+$('reveal').onclick=()=>dispatch({type:'reveal'});$('reset').onclick=()=>dispatch({type:'reset'});
+for(const b of document.querySelectorAll('[data-scenario]'))b.onclick=()=>dispatch({type:'scenario',name:b.dataset.scenario});
+$('step1').onclick=()=>{state={...state,reveal:false};render();$('senses').scrollIntoView();};
+$('step2').onclick=()=>{state={...state,reveal:true};render();$('outcome').scrollIntoView();};
+$('step3').onclick=()=>{state={...state,alignment:false,reveal:true};render();$('outcome').scrollIntoView();};
+$('export').onclick=()=>{const payload={status:'draft_requires_live_confirmation',inputs_sha256:PREDICTIONS.inputs_sha256,labels:Object.entries(state.review).map(([k,v])=>({target_id:k.split('|')[0],lexicon:k.split('|')[1],...v}))};const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)+'\n'],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='sense-review-draft.json';a.click();URL.revokeObjectURL(url);};
+render();
+</script>
+</html>
