@@ -253,7 +253,10 @@ func derivePreparedDeckStoredResult(item cardexport.ManifestItem, byOrdinal map[
 	}
 	key := *item.CacheKey
 	if outcome.State == domain.PreparedDeckOutcomeFailed {
-		return cardexport.StoredResult{}, false, nil
+		if !tolerableProviderOmission(outcome.ErrorClass, outcome.ErrorCode) {
+			return cardexport.StoredResult{}, false, nil
+		}
+		return cardexport.StoredResult{CacheKey: key, OmissionReason: domain.DeckPreparationProviderOmissionReason}, true, nil
 	}
 	if outcome.OmissionReason != "" {
 		return cardexport.StoredResult{CacheKey: key, OmissionReason: outcome.OmissionReason}, true, nil
@@ -263,6 +266,22 @@ func derivePreparedDeckStoredResult(item cardexport.ManifestItem, byOrdinal map[
 		return cardexport.StoredResult{}, false, ErrPreparedDeckIdentity
 	}
 	return cardexport.StoredResult{CacheKey: key, Record: record.Entry}, true, nil
+}
+
+// tolerableProviderOmission reports whether a failed item is a per-item
+// provider response failure that a ready deck may leave out. The bounded
+// classes and codes are the only response-validation outcomes the provider
+// layer produces; widening them is a deliberate change.
+func tolerableProviderOmission(errorClass, errorCode string) bool {
+	if errorClass != "validation" {
+		return false
+	}
+	switch errorCode {
+	case "invalid_response", "invalid_translation_response", "malformed_response", "response_too_large":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner, preparationID string) (result domain.DeckPreparation, err error) {

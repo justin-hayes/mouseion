@@ -303,3 +303,33 @@ func TestReadyDeckRendersTruthfulReadingStates(t *testing.T) {
 		})
 	}
 }
+
+func TestReadyDeckReportsProviderOmissionsAndRetriesOnlyThem(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-provider-omitted", SourceMaterialID: "book-omitted", State: domain.DeckPreparationReady,
+		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg", TotalCards: 3, ProviderOmissions: 2,
+	}
+	var output bytes.Buffer
+	action := deckReadingActionView{BookID: "book-omitted", State: deckIsCurrentReading, Actions: deckPreparationActions{BookID: "book-omitted", OnCurrentReading: true, Reprepare: true}}
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "2 words left out: "+domain.DeckPreparationProviderOmissionReason+".", "deck page must name the omission count and reason: %s", html)
+	assert.Contains(t, html, "Retry 2 omitted cards")
+	assert.Contains(t, html, `action="/deck-preparations/prep-provider-omitted/reprepare"`)
+	assert.NotContains(t, html, "No recurring vocabulary", "omissions must not be presented as missing vocabulary: %s", html)
+}
+
+func TestCurrentReadingDeckStatusReportsProviderOmissions(t *testing.T) {
+	preparation := domain.DeckPreparation{ID: "prep-reading-omitted", State: domain.DeckPreparationReady, TotalCards: 3, ProviderOmissions: 1}
+	var output bytes.Buffer
+	require.NoError(t, CurrentReadingDeckPreparationStatus("csrf", "book-reading", "snapshot-reading", preparation, deckPreparationActions{BookID: "book-reading", OnCurrentReading: true, Reprepare: true}).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "1 word left out: "+domain.DeckPreparationProviderOmissionReason+".", "Reading page must name the omission count and reason: %s", html)
+	assert.Contains(t, html, "Retry 1 omitted card")
+}
+
+func TestPreparationResponseExposesProviderOmissions(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{ID: "prep-omitted-json", State: domain.DeckPreparationReady, ProviderOmissions: 2})
+	assert.Equal(t, 2, response.Completeness.ProviderOmissions)
+	assert.Equal(t, domain.DeckPreparationProviderOmissionReason, response.Completeness.ProviderOmissionReason)
+}

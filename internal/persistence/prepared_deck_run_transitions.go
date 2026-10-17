@@ -199,6 +199,23 @@ func preparedDeckRunAcceptsOutcome(run domain.PreparedDeckRun) bool {
 	return run.State == domain.PreparedDeckRunTranslating && (run.TranslationState == domain.PreparedDeckTranslationPending || run.TranslationState == domain.PreparedDeckTranslationRunning)
 }
 
+// standardRunMustFailForOutcomes reports whether a standard run's terminal
+// outcomes prevent publishing a deck. A per-item provider response failure is
+// tolerated as an omission, but every other failure class fails the run, as
+// does a run where no accepted item produced a usable card.
+func standardRunMustFailForOutcomes(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, run domain.PreparedDeckRun) (bool, error) {
+	outcomes, err := q.ListPreparedDeckTranslationOutcomes(ctx, sqlcgen.ListPreparedDeckTranslationOutcomesParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})
+	if err != nil {
+		return false, err
+	}
+	for _, outcome := range outcomes {
+		if outcome.State == string(domain.PreparedDeckOutcomeFailed) && !tolerableProviderOmission(outcome.ErrorClass, outcome.ErrorCode) {
+			return true, nil
+		}
+	}
+	return run.FailedCount > 0 && run.CompletedCount == 0, nil
+}
+
 func resolvePreparedDeckOutcomeReplay(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, ordinal int, state domain.PreparedDeckOutcomeState, fallback error) (domain.PreparedDeckTranslationOutcome, bool, error) {
 	existing, err := getPreparedDeckTranslationOutcomeTx(ctx, q, owner, preparationID, runID, ordinal)
 	if err == nil && existing.State == state {
@@ -230,14 +247,11 @@ func advancePreparedDeckRunAfterOutcomeTx(ctx context.Context, q *sqlcgen.Querie
 		}
 		return preparedDeckRunFromModel(model), nil
 	}
-	if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && run.FailedCount > 0 {
-		model, failErr := q.FailPreparedDeckRunWithCounts(ctx, sqlcgen.FailPreparedDeckRunWithCountsParams{OwnerID: owner, PreparationID: preparationID, ID: runID, CompletedCount: run.CompletedCount, FailedCount: run.FailedCount, ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode})
-		if failErr != nil {
-			return run, failErr
+	if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured {
+		failed, handled, failErr := failStandardRunForOutcomes(ctx, q, owner, preparationID, runID, run, update)
+		if handled || failErr != nil {
+			return failed, failErr
 		}
-		run = preparedDeckRunFromModel(model)
-		_, err = q.FailDeckPreparationTranslation(ctx, sqlcgen.FailDeckPreparationTranslationParams{OwnerID: owner, ID: preparationID, CurrentRunID: uuidArg(runID), Error: "prepared-deck translation was incomplete"})
-		return run, err
 	}
 	model, err := q.FinalizePreparedDeckRun(ctx, sqlcgen.FinalizePreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID, CompletedCount: run.CompletedCount, FailedCount: run.FailedCount})
 	if err != nil {
@@ -250,6 +264,23 @@ func advancePreparedDeckRunAfterOutcomeTx(ctx context.Context, q *sqlcgen.Querie
 		}
 	}
 	return run, nil
+}
+
+// failStandardRunForOutcomes fails a standard run whose terminal outcomes
+// cannot publish a usable deck. handled reports that the run was failed and
+// the caller must return its result.
+func failStandardRunForOutcomes(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, run domain.PreparedDeckRun, update PreparedDeckOutcomeTerminalUpdate) (domain.PreparedDeckRun, bool, error) {
+	mustFail, err := standardRunMustFailForOutcomes(ctx, q, owner, preparationID, runID, run)
+	if err != nil || !mustFail {
+		return run, false, err
+	}
+	model, err := q.FailPreparedDeckRunWithCounts(ctx, sqlcgen.FailPreparedDeckRunWithCountsParams{OwnerID: owner, PreparationID: preparationID, ID: runID, CompletedCount: run.CompletedCount, FailedCount: run.FailedCount, ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode})
+	if err != nil {
+		return run, true, err
+	}
+	run = preparedDeckRunFromModel(model)
+	_, err = q.FailDeckPreparationTranslation(ctx, sqlcgen.FailDeckPreparationTranslationParams{OwnerID: owner, ID: preparationID, CurrentRunID: uuidArg(runID), Error: "prepared-deck translation was incomplete"})
+	return run, true, err
 }
 
 func getPreparedDeckTranslationOutcomeTx(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, ordinal int) (domain.PreparedDeckTranslationOutcome, error) {

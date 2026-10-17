@@ -51,6 +51,9 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 					@Feedback(FeedbackInfo, "Updated deck revision available", fmt.Sprintf("Download deck revision %d to update your existing Anki notes in place.", preparation.DeckRevision))
 				}
 				<p><strong>Completeness:</strong> { deckCompletenessSummary(preparation) }</p>
+				if summary := providerOmissionSummary(preparation); summary != "" {
+					<p role="status"><strong>Omissions:</strong> { summary }</p>
+				}
 				for _, evidence := range preparation.EvidenceCoverage {
 					if evidence.Configured {
 						<p><strong>Meaning evidence:</strong> { fmt.Sprintf("%s matched %d of %d targets; %d candidates frozen, %d omitted by the candidate bound", evidence.Source, evidence.Matched, evidence.Selected, evidence.Candidates, evidence.Omitted) }</p>
@@ -64,12 +67,16 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 						<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/>
 							<input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/>
-							<button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button>
+							<button type="submit" class="button button--outline">{ deckPreparationRetryLabel(preparation) }</button>
 						</form>
 					}
 				}
 				if readingAction.Actions.Reprepare {
-					<p>Re-preparation remains bound to this snapshot while using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
+					if preparation.ProviderOmissions > 0 {
+						<p>Retrying re-requests only the omitted cards. Cached results for the other cards are reused, and the existing deck remains available for download.</p>
+					} else {
+						<p>Re-preparation remains bound to this snapshot while using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
+					}
 				} else if !readingAction.Actions.OnCurrentReading {
 					<p role="note">This deck is no longer for the Current reading. Its ready artifact remains available for download, but no new preparation can be submitted.</p>
 				}
@@ -93,6 +100,30 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 func readingDeckPreparationTaskURL(bookID string) string { return "/reading/books/" + url.PathEscape(bookID) + "/deck/preparations/new" }
 
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
+
+func deckPreparationRetryLabel(preparation domain.DeckPreparation) string {
+	switch {
+	case preparation.ProviderOmissions == 1:
+		return "Retry 1 omitted card"
+	case preparation.ProviderOmissions > 1:
+		return fmt.Sprintf("Retry %d omitted cards", preparation.ProviderOmissions)
+	default:
+		return "Re-prepare with current Meaning evidence"
+	}
+}
+
+// providerOmissionSummary names the omission count and constant reason, or
+// returns an empty string when the preparation omitted nothing.
+func providerOmissionSummary(preparation domain.DeckPreparation) string {
+	switch {
+	case preparation.ProviderOmissions == 1:
+		return fmt.Sprintf("1 word left out: %s.", domain.DeckPreparationProviderOmissionReason)
+	case preparation.ProviderOmissions > 1:
+		return fmt.Sprintf("%d words left out: %s.", preparation.ProviderOmissions, domain.DeckPreparationProviderOmissionReason)
+	default:
+		return ""
+	}
+}
 
 func deckCompletenessSummary(preparation domain.DeckPreparation) string {
 	glossSummary := fmt.Sprintf("%d with fallback gloss", preparation.CardsWithFallbackGloss)
