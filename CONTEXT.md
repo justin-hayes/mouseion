@@ -18,6 +18,9 @@ records the historical Goal and ordered-Journey model.
 implemented contextual Gloss vocabulary below.
 The Book-scoped Vocabulary Browse inventory and Reading-owned Book vocabulary
 definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md).
+[ADR 0100](doc/adr/0100-retryable-provider-omissions-preparation.md) records how
+a standard preparation finishes with the successful cards and reports retryable
+provider omissions instead of failing the whole run.
 
 ## Language
 
@@ -108,6 +111,41 @@ Immutable provenance that an identity was included in a prepared deck, including
 its Book/deck origin. Generation is neither Known nor Reserved and does not by
 itself exclude an identity from a later current reading.
 _Avoid_: assigned knowledge, known vocabulary, reserved vocabulary.
+
+**Omission** (from a prepared deck):
+A selected vocabulary identity that does not become a card in the ready deck.
+The kinds are distinct: a sentence-quality omission (its candidate sentence
+failed the quality gate before presentation), a meaning omission (the provider
+validated but explicitly could not defend one meaning in context), and a
+provider omission (the provider repeatedly gave an unusable answer). Every
+omission keeps the identity out of generated vocabulary and never marks it
+Known; only a provider omission is retryable.
+_Avoid_: failure, dropped card, excluded word (an Occurrence exclusion is a
+different, analysis-time decision).
+
+**Sentence-quality omission**:
+A selected identity whose candidate sentences were all rejected by the
+sentence-quality gate, so no representative sentence and no card could be built
+for it. It is counted in the deck's quality omissions.
+_Avoid_: quality failure, invalid sentence.
+
+**Meaning omission**:
+A selected identity the provider answered with an explicit unresolved reason,
+so no contextual Gloss could be defended and the card is left out. The deck
+reports the target word and the provider's reason; it is not a retryable
+provider omission.
+_Avoid_: unresolved gloss, unknown word.
+
+**Provider omission**:
+A selected identity whose provider answers were unusable — malformed,
+mis-correlated, or otherwise unvalidatable — through its bounded attempts. The
+ready deck leaves it out, reports the count and the fixed reason, records it as
+neither generated nor reserved vocabulary, and offers a retry that re-requests
+only the omitted identities while reusing every cached result. A run with a
+non-response failure, or in which every item fails, still fails the preparation.
+See [ADR 0100](doc/adr/0100-retryable-provider-omissions-preparation.md).
+_Avoid_: failed card, provider failure, partial deck, retryable omission (the
+retryability, not the concept).
 
 **Separable particle**:
 The prefix component of a separable verb that detaches from the finite form in
