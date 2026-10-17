@@ -599,11 +599,16 @@ func TestListCorpusSentencesReturnsBatchedTokenDependencyData(t *testing.T) {
 			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "nsubj", Head: 2, Morphology: map[string]string{"Case": "Nom", "Number": "Sing"}, Start: 4, End: 8},
 			{Surface: "steht", Lemma: "stehen", Upos: "VERB", Dependency: "root", Head: 2, Start: 9, End: 14},
 		}},
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 5, Text: "Der Mann geht.", Start: 40, End: 54, Tokens: []concordanceToken{
+			{Surface: "Der", Lemma: "der", Upos: "DET", Dependency: "det", Head: 1, Start: 40, End: 43},
+			{Surface: "Mann", Lemma: "mann", Upos: "NOUN", Dependency: "nsubj", Head: 2, Start: 44, End: 48},
+			{Surface: "geht", Lemma: "gehen", Upos: "VERB", Dependency: "root", Head: 2, Start: 49, End: 53},
+		}},
 	})
 
-	got, err := store.ListCorpusSentences(ctx, owner.ID, corpusIDForSource(t, ctx, store, owner.ID, source.ID), []int64{4, 99, 4})
+	got, err := store.ListCorpusSentences(ctx, owner.ID, corpusIDForSource(t, ctx, store, owner.ID, source.ID), []int64{4, 5, 99, 4})
 	require.NoError(t, err)
-	require.Len(t, got, 1)
+	require.Len(t, got, 2)
 	sentence, ok := got[4]
 	require.True(t, ok)
 	require.Len(t, sentence.Tokens, 3)
@@ -618,6 +623,13 @@ func TestListCorpusSentencesReturnsBatchedTokenDependencyData(t *testing.T) {
 	assert.Equal(t, "nsubj", sentence.Tokens[1].Dependency)
 	assert.Equal(t, uint32(2), sentence.Tokens[1].Head)
 	assert.Equal(t, map[string]string{"Case": "Nom", "Number": "Sing"}, sentence.Tokens[1].Morphology)
+
+	later, ok := got[5]
+	require.True(t, ok)
+	assert.Equal(t, uint64(40), later.Location.StartOffset, "a sentence later in the document keeps its document-absolute start")
+	require.Len(t, later.Tokens, 3)
+	assert.Equal(t, uint64(44), later.Tokens[1].Location.StartOffset)
+	assert.Equal(t, uint64(48), later.Tokens[1].Location.EndOffset)
 }
 
 func corpusIDForSource(t *testing.T, ctx context.Context, store *PostgresStore, ownerID, sourceID string) string {

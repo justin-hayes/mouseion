@@ -361,11 +361,14 @@ func TestBestSentenceEvidenceCarriesTokenAnchor(t *testing.T) {
 		Location: analyzer.SourceLocation{StartOffset: 0, EndOffset: 40},
 	}}
 
+	const source = "Je vois l'homme qui marche vers la gare."
 	evidence, ok := BestSentenceEvidenceFromCorpus(candidate, sentences)
 	require.True(t, ok)
 	assert.Equal(t, "homme", evidence.Target)
 	assert.Equal(t, uint64(0), evidence.SentenceStartOffset)
 	assert.Len(t, evidence.Tokens, 10)
+	assert.Equal(t, source, evidence.Sentence)
+	assert.Equal(t, source, sentences[3].Text, "the persisted source sentence is byte-identical after export")
 
 	note, err := makeNote("owner", renderInputFromEntry(Entry{
 		Language: "fr", CanonicalLemma: "homme", UPOS: "NOUN",
