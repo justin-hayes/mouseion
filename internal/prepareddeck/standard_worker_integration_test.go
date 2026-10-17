@@ -261,6 +261,44 @@ func TestStandardWorkerPersistsAndRendersDiscontinuousTargetAlignment(t *testing
 	assert.Equal(t, "knock down", artifact.Generated[0].Note.Gloss)
 }
 
+func TestStandardWorkerDiscardsStrayUnresolvedReasonFromResolvedGloss(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	provider.onCall = func(_ int, _ enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		return enrichment.TranslationResponse{
+			Translation: "translated", Gloss: "contextual integration gloss", ContextOnly: true,
+			SentenceTranslation:        "The translated sentence.",
+			SentenceTranslationTargets: []string{"translated"},
+			UnresolvedReason:           "The meaning is uncertain.",
+		}, nil
+	}
+	require.NoError(t, client.Start(ctx))
+	testutil.StopOnCleanup(t, "River client", client.Stop)
+	outcomes := waitStandardOutcomes(t, ctx, run, 1)
+	require.Len(t, outcomes, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	assert.Empty(t, outcomes[0].OmissionReason, "a resolved gloss must not record the stray reason")
+	entry, found, err := run.store.Get(ctx, run.keys[0])
+	require.NoError(t, err)
+	require.True(t, found, "resolved gloss must enter the shared translation cache")
+	assert.Equal(t, "contextual integration gloss", entry.FallbackGloss)
+
+	finalRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	frozen, stored, err := run.store.LoadPreparedDeckFinalization(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	deck, err := cardexport.NewPresentation(nil).Restore(frozen)
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, preparedDeckRunFacts(finalRun))
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "contextual integration gloss", artifact.Generated[0].Note.Gloss)
+	status, err := run.store.GetDeckPreparationStatus(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Empty(t, status.MeaningOmissions, "the stray reason must not become a reported omission")
+}
+
 func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()

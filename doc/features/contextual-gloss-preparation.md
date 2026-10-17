@@ -54,8 +54,10 @@ one-to-three-word cue would mislead, especially for function words or idioms.
 - Validate response shape, English text/markup/length bounds, and referenced
   candidate IDs; validation does not claim to verify meaning. The LLM may infer
   a gloss from sentence context when no supplied meaning fits, and must record
-  that distinction. If meaning is still uncertain, omit the item rather than
-  guessing. A malformed/invalid provider outcome or transport failure follows
+  that distinction. A response that supplies a resolved gloss and also a stray
+  unresolved reason is accepted as resolved; the stray reason is discarded and
+  never stored, cached, or rendered. If meaning is still uncertain, omit the
+  item rather than guessing. A malformed/invalid provider outcome or transport failure follows
   durable retry and fails the run without a dictionary-only fallback. A valid
   outcome with an unresolved gloss omits only that card; an all-omitted run
   fails rather than producing an empty deck.

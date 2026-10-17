@@ -276,7 +276,8 @@ func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOm
 
 	for name, invalid := range map[string]string{
 		"missing reason":             strings.Replace(content, `,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."`, "", 1),
-		"resolved gloss with reason": strings.Replace(strings.Replace(content, `"gloss":""`, `"gloss":"bench"`, 1), `"evidence_ids":[]`, `"evidence_ids":["wikt:seat"]`, 1),
+		"abstention with evidence":   strings.Replace(content, `"evidence_ids":[]`, `"evidence_ids":["wikt:seat"]`, 1),
+		"abstention without context": strings.Replace(content, `"context_only":true`, `"context_only":false`, 1),
 		"markup reason":              strings.Replace(content, "does not provide enough context", "<b>unsafe</b>", 1),
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -284,6 +285,23 @@ func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOm
 			assert.ErrorIs(t, decodeErr, ErrInvalidTranslationResponse)
 		})
 	}
+}
+
+func TestTranslationCodecDiscardsStrayUnresolvedReasonFromResolvedGloss(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", TargetWord: "Bank", ExampleSentence: "Sie sitzt auf der Bank.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{
+		{EvidenceID: "wikt:seat", Gloss: "bench"},
+		{EvidenceID: "wikt:finance", Gloss: "financial institution"},
+	}}
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["wikt:seat"],"context_only":false,"unresolved_reason":"The gloss may be wrong."}`
+	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
+	response, err := codec.DecodeResponse(input, []byte(body))
+	require.NoError(t, err)
+	assert.Equal(t, "bench", response.Gloss)
+	assert.Equal(t, []string{"wikt:seat"}, response.EvidenceIDs)
+	assert.False(t, response.ContextOnly)
+	assert.Empty(t, response.UnresolvedReason)
 }
 
 func TestTranslationCodecDiscardsInvalidAlignmentWithoutLosingTranslationOrGloss(t *testing.T) {
@@ -441,11 +459,6 @@ func TestNormalizeTranslationResponseRejectsMalformedMeaningFields(t *testing.T)
 			response.Gloss, response.EvidenceIDs, response.ContextOnly = "", nil, true
 			return response
 		}, "unresolved meaning is incomplete"},
-		{"resolved meaning with unresolved reason", contextual, func() TranslationResponse {
-			response := contextualResponse()
-			response.UnresolvedReason = "why"
-			return response
-		}, "resolved meaning includes unresolved reason"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := NormalizeTranslationResponse(test.input, test.build())
@@ -453,6 +466,18 @@ func TestNormalizeTranslationResponseRejectsMalformedMeaningFields(t *testing.T)
 			assert.Contains(t, err.Error(), test.message)
 		})
 	}
+}
+
+func TestNormalizeTranslationResponseDiscardsStrayUnresolvedReasonFromResolvedGloss(t *testing.T) {
+	contextual := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:seat", Gloss: "bench"}}}
+	response, err := NormalizeTranslationResponse(contextual, TranslationResponse{
+		Translation: "bank", SentenceTranslation: "She sits on the bench.", Gloss: "bench",
+		EvidenceIDs: []string{"wikt:seat"}, UnresolvedReason: "The gloss may be wrong.",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "bench", response.Gloss)
+	assert.False(t, response.ContextOnly)
+	assert.Empty(t, response.UnresolvedReason)
 }
 
 func TestNormalizeTranslationResponseAppliesSelectionAndFallbackRules(t *testing.T) {
