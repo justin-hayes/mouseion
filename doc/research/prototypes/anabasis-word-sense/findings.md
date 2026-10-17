@@ -1,8 +1,21 @@
-# Book 1 sense prototype — first scored run
+# Book 1 sense prototype — result
 
 **All 24 occurrences (48 dictionary/occurrence labels) live-confirmed and frozen
-in [`sense-gold.json`](sense-gold.json) before the first `evaluate.py` run. No
-strategy, lexicon or abstention policy has been accepted yet.**
+in [`sense-gold.json`](sense-gold.json) before the first `evaluate.py` run.**
+
+## Accepted answer
+
+Justin accepted ("Agreed", recorded in [`review-status.json`](review-status.json)):
+
+- **Lexicon:** LSJ.
+- **No unattended contextual glosses.** Source order without human alignment
+  gets about one chosen sense in three wrong.
+- **Contextual gloss only** where a human has approved the alignment link and
+  exactly one LSJ sense overlaps it (the unique-projection rule).
+- **Otherwise abstain:** show the full dictionary entry rather than guess.
+
+This answers the prototype question only; it does not accept an ADR,
+implementation design, card wording or production change.
 
 For [Prototype: word sense in context for Ancient Greek without an LLM](https://github.com/justin-hayes/mouseion/issues/2130).
 Do not read the alignment review as sense labels.

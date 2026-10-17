@@ -88,5 +88,12 @@
     "Justin's instruction to continue after research completion is not sense annotation or acceptance of a strategy.",
     "review-proposals.json preserves the originally unreviewed first-batch proposals; review-confirmed.json records the actual partial confirmation.",
     "All 48 labels were live-confirmed; sense-gold.json freezes them before the first evaluate.py run. Confirmation is not acceptance of a lexicon or strategy."
-  ]
+  ],
+  "strategy_decision": {
+    "date": "2026-10-17",
+    "scored_commit": "6c3aed82",
+    "assistant_recommendation": "Lexicon: LSJ. No unattended contextual glosses. Contextual gloss only where a human has approved the alignment link and exactly one LSJ sense overlaps it (unique-projection rule). In every other case, show the full dictionary entry instead.",
+    "human_response_verbatim": "Agreed",
+    "scope": "Accepts LSJ, no unattended selection, the unique-overlap rule with human-approved links, and full-entry fallback as the prototype answer. Does not accept an ADR, implementation design, card wording, or production changes."
+  }
 }

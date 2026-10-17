@@ -4,7 +4,7 @@ For [Prototype: word sense in context for Ancient Greek without an LLM](https://
 on the **unmerged** `prototype/anabasis-word-sense` branch. No production changes,
 LLM calls, model weights, database, queue, or NLP service. No PR or merge intended.
 
-**Status: sense review complete (24/24 occurrences); initial frozen run scored in [`findings.md`](findings.md). No lexicon or strategy accepted yet.**
+**Status: sense review complete (24/24 occurrences); initial frozen run scored; accepted answer (LSJ, unique overlap with approved links, otherwise full entry) in [`findings.md`](findings.md).**
 
 Open [`evidence.html`](evidence.html) directly in a browser. It contains all inputs,
 fixed baseline outputs, native dictionary senses and memory-only review controls.
