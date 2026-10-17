@@ -12,18 +12,24 @@ Source selection and licence evidence:
 
 ## Current status
 
-Live review is now in progress; [`review-status.json`](review-status.json) records
-Justin's feedback verbatim and its scope. Source sentences **238 and 428** have
-confirmed spans and three target highlights each; the latter's comma-ending
-excerpt is accepted. The other six examples still need full target-link review.
-This does not establish a general uncertainty policy or automatic reliability.
+**The human checkpoint is complete.** [`review-status.json`](review-status.json)
+records Justin's feedback verbatim and its scope. All eight examples and all
+24 target highlights were explicitly confirmed in live batches. No corrections
+were requested. Sentence 428's comma-ending excerpt and sentence 103's two-section
+extent are accepted. This is confirmation of agent proposals, not independent
+annotation or expert certification, and establishes neither a general uncertainty
+policy nor automatic reliability.
 
-**No human-checked gold set exists here yet. No alignment accuracy was measured.**
+[`gold.json`](gold.json) is the separate human-confirmed asset, materialised with
+`python3 doc/research/prototypes/anabasis-alignment/finalise_gold.py`. **No
+alignment accuracy was measured before that confirmation.**
+
+The original proposal snapshot remains unchanged:
 `review-candidates.json` has `is_gold: false`, `reviewer: null` and per-sentence
 `human_review: null`. The proposals are agent-drafted discussion material,
 not outputs of the comparison algorithms and not evidence of reliability.
 The original JSON/demo remain a frozen proposal snapshot; follow the separate
-review ledger for current progress until a distinct gold asset is created.
+review ledger and gold asset for the completed checkpoint.
 
 Open **`review.html` directly in a browser**; no server, network or installation
 is needed. The example selector is the guided walkthrough: ordinary spans,
@@ -32,13 +38,13 @@ mismatch. The three buttons explore proposed-span, wider-passage and withheld
 English presentation; word emphasis can be previewed separately. All state is
 in memory. Nothing in the demo marks a record reviewed or exports gold.
 
-Justin must correct/confirm every candidate span and all three selected target
+The checkpoint required Justin to correct/confirm every candidate span and all three selected target
 correspondences per example in a live exchange. Allow discontinuous spans,
 NULL (no English counterpart), or uncertain alternatives; do not force a link.
 Ask whether each target has additional English realizations. Preserve source
 wording and punctuation rather than rewriting a translation to fit.
 
-Only after review: commit a **separate** `gold.json`, retaining candidate/history
+After review: commit a **separate** `gold.json`, retaining candidate/history
 provenance, reviewer, live-review reference, approved sentence spans, and complete
 links for the selected targets. Exclude unresolved targets from sure-link scoring
 and report them separately, rather than silently treating them as NULL. Link the
