@@ -443,6 +443,13 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.RequireContextualGloss {
+		// A resolved meaning and an unresolved reason are mutually exclusive.
+		// Keep the resolved meaning and discard the stray reason without
+		// validating it: it is never stored, cached, or rendered, and failing
+		// the response would spend an item's retry budget on an irrelevant field.
+		if response.Gloss != "" {
+			response.UnresolvedReason = ""
+		}
 		if err := validateContextualMeaning(input, response); err != nil {
 			return TranslationResponse{}, err
 		}
@@ -535,17 +542,14 @@ func validateEvidenceID(id string, knownEvidence, seenEvidence map[string]struct
 	return nil
 }
 
-// validateContextualOutcome requires either a resolved gloss or a complete
-// unresolved meaning, and never both.
+// validateContextualOutcome requires a complete abstention when there is no
+// gloss. A resolved gloss's stray unresolved reason is discarded during
+// normalization, so only the abstention branch remains here.
 func validateContextualOutcome(response TranslationResponse) error {
 	if response.Gloss == "" {
 		if !response.ContextOnly || len(response.EvidenceIDs) != 0 || response.UnresolvedReason == "" {
 			return errors.New("decode LLM translation: unresolved meaning is incomplete")
 		}
-		return nil
-	}
-	if response.UnresolvedReason != "" {
-		return errors.New("decode LLM translation: resolved meaning includes unresolved reason")
 	}
 	return nil
 }
