@@ -763,7 +763,8 @@ func TestRenderFrozenManifestDerivesArticleFromSingularGenderEvidence(t *testing
 }
 
 func TestPresentationVersionAdvancesForArticleCorrection(t *testing.T) {
-	assert.Equal(t, 4, PresentationVersion)
+	// 5 also folds in the elision-aware target anchor (ADR 0102).
+	assert.Equal(t, 5, PresentationVersion)
 }
 
 func TestMakeNoteDoesNotAddGreekArticleToNonNoun(t *testing.T) {
