@@ -19,7 +19,7 @@ Not for merge; no PR.
 - **Agent recommendation (not acceptance):** Project Gutenberg eBook **#21000**,
   *Faust: Eine Tragödie [erster Teil]*, transcribed by Distributed Proofreaders
   (PGDP) from Klassik Stiftung Weimar scans. Its transcriber's note names the
-  printed basis (the 1808 first print edition). Its EPUB 2 "no images" package
+  printed basis (an 1808 first edition, per the transcriber's note; quoted under *Printed-edition statements*). Its EPUB 2 "no images" package
   is the smallest variant, and its XHTML is byte-identical to the "with images"
   EPUB 2 package.
 - Its markup is explicit: 922 `<p class="speaker">` paragraphs, 194
@@ -92,8 +92,35 @@ Caveats:
 
 - The public-domain status of the *text* is well supported for the US and for the German author's term. The status of the **specific Gutenberg transcription**, its proofreading, and its markup is Gutenberg's claim (PG says it claims no copyright in markup and formatting; see item 3).
 - Scans come from Klassik Stiftung Weimar / Herzogin Anna Amalia Bibliothek (per the #21000 metadata). I did not examine whether any separate scan, edition, or database right applies in Germany or elsewhere. Scholarly-edition protection (§ 70 UrhG) was not examined.
-- I read the Project Gutenberg licence page (`gutenberg.org/license`) only through section 1.D, and skimmed the rest. The §1.E display and redistribution obligations (for example, keeping the licence and PG notice attached to copies) were **not** reviewed in full, and the EPUB's embedded licence text was not diffed against the web text. Read §1.E before any use that copies, displays, or redistributes the text.
+- The Project Gutenberg licence was read in full in this pass, §1.E included, from the web page (`gutenberg.org/policy/license.html`) and from the EPUB's embedded footer (see *Licence text* below). That is a factual reading, not a legal certification. Read it again before any use that copies, displays, or redistributes the text.
 - Nothing here is legal advice. The owning human decision should confirm rights for the intended use.
+
+## Licence text (§1.E and the embedded copy)
+
+Read in full in this pass. This is a factual reading of the text, not a legal opinion.
+
+- **Web:** <https://www.gutenberg.org/policy/license.html>, saved as `meta/license-web.html` (scratch, not committed). <https://www.gutenberg.org/license> returned identical bytes. The top block reads, in part: "by using or distributing this work (or any other work associated in any way with the phrase 'Project Gutenberg'), you agree to comply with all the terms of the Full Project Gutenberg-tm License". §1.A: "By reading or using any part of this Project Gutenberg-tm electronic work, you indicate that you have read, understand, agree to and accept all the terms of this license".
+- **Embedded:** #21000 EPUB 2 no-images, `OEBPS/8980964947130898904_21000-h-6.htm.html`, from the heading "THE FULL PROJECT GUTENBERG™ LICENSE" to the end of the licence. The #2229 EPUB 2 footer (`…2229-h-28.htm.html`) has the same licence text; in a word-level diff, the only difference is #21000's transcriber-note block, which sits between that heading and the licence.
+
+§1.E as written in the web text. It applies "Unless you have removed all references to Project Gutenberg". The embedded text has the same paragraph structure and the same substance, except for the differences listed below.
+
+- **§1.E.1:** a fixed sentence ("This eBook is for the use of anyone anywhere in the United States …") must "appear prominently whenever any copy of a Project Gutenberg-tm work … is accessed, displayed, performed, viewed, copied or distributed".
+- **§1.E.2:** for a work with "Project Gutenberg" associated with or appearing on it, redistribution or providing access requires compliance with §§1.E.1–1.E.7, or permission under §1.E.8 or §1.E.9.
+- **§1.E.4:** "Do not unlink or detach or remove the full Project Gutenberg-tm License terms from this work, or any files containing a part of this work or any other work associated with Project Gutenberg-tm."
+- **§1.E.5:** "Do not copy, display, perform, distribute or redistribute this electronic work, or any part of this electronic work, without prominently displaying the sentence set forth in paragraph 1.E.1 with active links or immediate access to the full terms".
+- **§1.E.6:** a format other than "Plain Vanilla ASCII" or the official format requires, "at no additional cost, fee or expense to the user", "a copy, a means of exporting a copy, or a means of obtaining a copy upon request" of the work in the original form. "Any alternate format must include the full Project Gutenberg-tm License as specified in paragraph 1.E.1."
+- **§1.E.7:** no fee for access, viewing, display, copying, or distribution unless §1.E.8 or §1.E.9 applies.
+- **§1.E.8:** a reasonable fee is allowed on conditions: a 20% royalty of gross profits to the trademark owner (donated to the Foundation), a full refund on written notice within 30 days, a refund for defects reported within 90 days, and the other free-distribution terms.
+- **§1.E.9:** different fee or distribution terms need permission in writing. **The web text names "both the Project Gutenberg Literary Archive Foundation and The Project Gutenberg Trademark LLC, the owner of the Project Gutenberg-tm trademark". The embedded text names "the Project Gutenberg Literary Archive Foundation, the manager of the Project Gutenberg™ trademark".** The two name different permission-givers. Which one applies is not resolved here.
+
+Other differences between the two copies (word-level diff after normalising ™/-tm and quote marks):
+
+- §1.C and §1.E.2: "unrestricted" and "restricted" (web) against "unprotected" and "protected" (embedded).
+- The web copy has a conditional paragraph beginning "[*] This particular work is one of the few individual works restricted by copyright law … included in the Project Gutenberg collection with the permission of the copyright holder". The embedded copy does not contain it. Whether it bears on this work is for the owning decision.
+- The contact block differs: the web copy names an executive director and gives "in Montclair, New Jersey"; the embedded copy gives a street address, Montclair NJ 07042, and a telephone number.
+- §1.E.1: "you'll have to check" (web) against "you will have to check" (embedded).
+
+So the embedded copy is not the same text as the web page fetched on 2026-10-17. Which revision governs a given copy is not established.
 
 ## Package structure
 
@@ -168,9 +195,53 @@ differs in the conversion timestamp and an image-size comment, and the cover ima
 differs. The no-images variant is therefore the same text and markup without
 illustrations.
 
+## Packaged CSS
+
+Paths are relative to `OEBPS/`. Each EPUB 2 chunk links `0.css` and `pgepub.css`. #21000 EPUB 3 links `0.css`, `pgepub.css`, and `1.css`. I read `pgepub.css` and `0.css` in full for #21000 EPUB 2 and #2229 EPUB 2, and `pgepub.css` and `0.css` in full for #21000 EPUB 3. EPUB 3 `1.css` was read in part (lines 1–60, 130–246) and by its selector list; its lines 61–129 were not read, and nothing below relies on them. #21000 and #2229 EPUB 2 `pgepub.css` are byte-identical. Line numbers below refer to #21000 EPUB 2 `0.css` unless marked otherwise. I did not diff EPUB 3 against EPUB 2 line by line.
+
+Rules that match this source's classes (exact selectors and declarations, summarised):
+
+| Selector (lines) | Declarations | Use in the content (census) |
+| --- | --- | --- |
+| `p` (1–5) | `margin-top`/`margin-bottom` 0.75em; `text-align: justify` | every `<p>` |
+| `p.speaker` (6–12) | centred; `letter-spacing: 0.35ex`; `font-size: large`; margin-top 1em, margin-bottom 0.4em (EPUB 3 `1.css:6`) | 922 |
+| `span.speaker` (13–16) | `letter-spacing: 0.35ex`; `font-size: large`; no alignment (EPUB 3 `1.css:13`) | inside paragraphs |
+| `p.entrance` (17–22), `p.sdcenter` (23–28), `p.sdsetting` (29–35) | centred; `x-large`, `small`, and `small` with letter-spacing | 56, 128, 3 |
+| `p.dirlong` (36–39), `p.dirlongind` (40–44) | `font-size: small`; `dirlongind` adds `text-indent: 1.5em` | 2, 5 |
+| `.sd` (50–53) | `font-size: small`; `letter-spacing: 0` (EPUB 3 `1.css:50`) | 125 spans |
+| `.person` (45–49) | `font-size: x-large`; letter-spacing; padding-left | 74 spans |
+| `p.indent` (54–56) | `text-indent: 1.5em` (EPUB 3 `1.css:54`) | 69 |
+| `.i4` … `.i34` (186–233) | `margin-left: Nex`; `.i12` is `margin-left: 12ex` (198–200; EPUB 3 `1.css:205`) | `p.i12` 21, `span.i12` 4 |
+| `em.gesperrt` (134–138) | letter-spacing; padding-left; `font-style: normal` | 13 |
+| `ins.correction` (182–185) | `text-decoration: none`; `border-bottom: thin dotted red` (EPUB 3 `1.css:189`) | 25 |
+| `div.note` (126–133) | dashed 1px border; green background; `font-size: smaller` | transcriber notes, `-h-6` |
+| `.pagenum` (173–181) | `font-size: x-small`; grey; right-aligned (EPUB 3 `1.css:180`) | none |
+
+From `pgepub.css` (EPUB 2 and EPUB 3): `div, p, pre, h1`–`h6` are `display: block` with zero side margins (lines 9–13). EPUB 3 adds `section.pgheader` and `section.pgfooter` page-break rules (lines 14–19) and `body.x-ebookmaker.x-ebookmaker-3 .pgshow { visibility: visible; display: inline }` (lines 51–53). No content element carries `pgshow`.
+
+Absent from every CSS file I read (checked by grep): a selector for `span.x-ebookmaker-pageno` (301 uses in #21000), any `br` rule, any `white-space` declaration, and any `display: none` or `visibility: hidden` rule.
+
+What this CSS does and does not establish:
+
+- **Class semantics (this source).** The names `speaker`, `sd`, `person`, the paragraph classes listed above, `indent`, `i<N>`, `gesperrt`, `correction`, and `x-ebookmaker-pageno` are in the XHTML. Grouping the five paragraph classes `entrance`, `sdcenter`, `sdsetting`, `dirlong`, and `dirlongind` as stage directions is my reading of their names. The CSS gives them centring and sizes only.
+- **CSS rendering (not universal).** These rules are what the packaged stylesheet asks for. A reader may override them.
+- **Line and group boundaries.** The CSS adds no line breaks. Each `<p>` is a block, so a paragraph boundary is a block boundary. `<br/>` is the only forced line break in the markup. Newlines in the source after a `<br/>` are XHTML whitespace, which collapses under the default `white-space: normal`; they do not create lines. Whether a reader stretches a justified line that ends in `<br/>` is reader-dependent, and I did not check a reader.
+- **Stanza appearance.** In the *Thule* song, the indent comes from `.i12` (`margin-left: 12ex`) together with `p.indent` (`text-indent: 1.5em`). The vertical gap between stanzas comes from the 0.75em `p` margins, not from any stanza class.
+- **Speaker alignment.** `p.speaker` is a centred block; `span.speaker` is inline with no alignment. The same speaker word looks different when it opens its own paragraph.
+- **Transcriber corrections.** The CSS shows the older visible reading with a dotted red bottom border. The note says hovering shows the corrected version. No selector in the package implements hover or a tooltip, so any tooltip depends on the reader's use of the `title` attribute.
+- **Page markers.** No rule hides `x-ebookmaker-pageno`, so the stylesheet leaves each marker as an empty span wrapping an empty anchor. Its visible effect depends on the reader.
+
 ## Markup samples
 
 Sample lines are quoted for structure only. Each is a short fragment of the packaged file, with the path relative to `OEBPS/`. Full text is not reproduced.
+
+### Printed-edition statements (#21000)
+
+- Transcriber's note, German, `OEBPS/8980964947130898904_21000-h-6.htm.html` lines 12–13: "Dieses elektronische Buch wurde auf / Grundlage der 1808 erschienenen Erstausgabe erstellt." ("This electronic book was made on the basis of the 1808 first edition.") Lines 14–15 say corrections from later print editions are marked "rot unterstrichen" (red underline).
+- Transcriber's note, English, same file, lines 20–21: "This ebook has been prepared from the first print / edition published in 1808."
+- Printed title page, `…-h-0.htm.html` lines 46–48: `Tübingen.` / `in der J. G. Cotta’schen Buchhandlung.` / `1808.`
+
+The notes say the base text is the 1808 first edition, and the title page prints 1808. I did not compare the transcription with a scan or a catalogue record of that edition in this pass, so "1808 first edition" is the transcriber's claim, supported by the printed title page, and not verified against the edition itself. The note's hover statement is discussed under *Packaged CSS*.
 
 ### Verse lines, `<br/>`, and incidental source newlines (#21000)
 
@@ -199,7 +270,7 @@ Sagt was ihr wohl, in deutschen Landen,<br/>
 ### Stanza grouping (#21000 song, and the un-marked Vorspiel)
 
 - The *Es war ein König in Thule* song (`…-h-3.htm.html`, first verse line at line 141) is six `<p class="i12 indent">` blocks, **one per stanza**, each with four `<br/>`-delimited lines. Stanza boundaries are paragraph boundaries here.
-- The Vorspiel's Director speech (`…-h-0.htm.html` lines 90–147) is **one `<p>`** with no class. It contains several groups of verse lines, and nothing in the markup shows where the groups end. Paragraph boundaries are therefore not a reliable stanza signal in general.
+- The Director speech in the Vorspiel (`…-h-0.htm.html` lines 90–147) is **one `<p>`** with no class, made of `<br/>`-delimited lines. The markup gives no segment boundary inside it, so I classify it as one source-speech block. I do not assert hidden or missing stanzas; that would need textual evidence. Paragraph boundaries are therefore not a reliable stanza signal in general.
 
 ### Verse lines as paragraphs, and unmarked prose (#21000)
 
@@ -226,14 +297,16 @@ Sagt was ihr wohl, in deutschen Landen,<br/>
 ## Catalog and acquisition route
 
 All statements in this section are **static reading** of the code at commit
-`218d3368` (this branch's base). Nothing was executed: no Go test, sync, or
-download of Mouseion code was run in this pass.
+`218d336859f66cefd3e56480004710eee4856077` (this branch's base; `6e02d180b1015536127839e0a45953684c0e5a83` has byte-identical `internal/`, checked with `git diff --quiet`). Links below use `218d3368…`. Nothing was executed: no Go test, sync, or
+download of Mouseion code was run in this pass (the parent's route test attempt failed to start; see *Limits*).
 
-- **Entry selection.** `FindEPUBs` (`internal/opds/client.go:209`) keeps links whose `rel` is the OPDS acquisition relation and whose type is `application/epub+zip`. `resolveAcquisitionEntry` (`internal/cataloguesync/sync.go:611`) matches the alias to an entry by `entry.ID` (`strings.TrimSpace(entry.ID) != alias.Value`), and `acquisitionHref` (`sync.go:649`) takes the first matching link. `Service.acquire` (`internal/opds/service.go:171`) uses the first link from `FindEPUBs` (`service.go:175`).
-- **Feed route.** The sync lookup does not read a book's own feed. It reads the Calibre-Web language feed: `resolveAcquisitionEntry` calls `Languages` and `BrowseLanguage` (`sync.go:611–647`), which call `ListLanguages` and `ListLanguage` (`client.go:93–103`) at `<catalog>/language` and `<catalog>/language/<positive numeric id>` (`catalogEndpoint`, `client.go:581`). The per-book Gutenberg feeds fetched in this pass (`/ebooks/21000.opds`, `/ebooks/2229.opds`) list only the two entries and their acquisition links, with no language navigation. **So a Gutenberg per-number OPDS URL is not, by static reading, a usable sync connection.** The Gutenberg `urn:gutenberg:…` IDs are upstream identifiers, and a Calibre-Web library would assign its own IDs. The route that this reading supports is: obtain the pinned bytes, place them in a learner's Calibre/Calibre-Web library that the connection can browse, then sync and move the book to To Read. This is an inference from the code and was not tested.
-- **Two entries, two Books?** `ReconcileCatalogueEntry` (`internal/persistence/books.go:759`) and `resolveCatalogueEntryBook` (`books.go:791`) key on owner, connection, and source identifier. If two entries with different IDs (for example `urn:gutenberg:21000:2` and `:3`) both reached reconciliation on one connection, the static reading gives two Book records. Whether a connected feed would expose both entries is not established, so this is a conditional, not a finding that the catalog duplicates the work.
-- **Redirects.** `httpClient` (`client.go:531`) follows redirects through `validateTarget` (`client.go:517`). That check enforces same origin only when `c.Auth.Origin` is set. A same-origin redirect (for example, `www.gutenberg.org/ebooks/21000.epub.noimages` → `…/cache/epub/21000/pg21000.epub`) would be followed for a connection whose origin is `www.gutenberg.org`. A cross-origin redirect is not followed: the custom policy returns `http.ErrUseLastResponse` (`client.go:534–547`).
-- **Download checks.** `Download` (`client.go:370`) checks the HTTP status and the response media type (EPUB or `application/octet-stream`), and caps the body at `maxResponse` = 100 MiB (`client.go:26`). It takes **no expected SHA-256**, so the digests in this document are research pins, not a runtime check.
+- **Entry selection.** [`FindEPUBs`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L209) keeps links whose `rel` is the OPDS acquisition relation and whose type is `application/epub+zip`. [`resolveAcquisitionEntry`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L611) matches the alias to an entry by `entry.ID` (`strings.TrimSpace(entry.ID) != alias.Value`), and [`acquisitionHref`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L649) takes the first matching link. [`Service.acquire`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/service.go#L171) uses the first link from `FindEPUBs` ([line 175](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/service.go#L175)).
+- **Feed route.** The sync lookup does not read a book's own feed. It reads the Calibre-Web language feed: [`resolveAcquisitionEntry`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L611-L647) calls `Languages` and `BrowseLanguage`, which call `ListLanguages` and `ListLanguage` ([`client.go#L93–L103`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L93-L103)) at `<catalog>/language` and `<catalog>/language/<positive numeric id>` ([`catalogEndpoint`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L581)). The per-book Gutenberg feeds fetched in this pass (`/ebooks/21000.opds`, `/ebooks/2229.opds`) list only the two entries and their acquisition links, with no language navigation. **So a Gutenberg per-number OPDS URL is not, by static reading, a usable sync connection.** The Gutenberg `urn:gutenberg:…` IDs are upstream identifiers, and a Calibre-Web library would assign its own IDs. The route that this reading supports is: obtain the pinned bytes, place them in a learner's Calibre/Calibre-Web library that the connection can browse, then sync and move the book to To Read. This is an inference from the code and was not tested.
+- **Language prerequisites (static).** [`eligibleLanguages`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L900) skips any capability that is not `Ready` or is English. The supported-language table is written from [`analyzer.ReadySupportedLanguages`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/analyzer/capabilities.go#L50) at [`sync.go#L1026`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L1026). In [`resolveAcquisitionEntry`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L619), the book's language is looked up in `ListSupportedLanguages` ([`sync.go#L619`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L619)), and then in the Calibre-Web language feed through `opds.LanguageID` ([`sync.go#L628`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L628)); an empty ID returns `ErrNotFound` ([`sync.go#L630`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/cataloguesync/sync.go#L630)). So German needs a `Ready` capability from the running NLP service and a German entry in the connected library. Neither was checked against a running service.
+- **Origin scope for a Calibre-Web connection (static).** A connection client is built with `Auth.Origin` set to the connection URL ([`service.go#L257`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/service.go#L257)). For an acquisition, [`Download`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L370) calls [`withOrigin`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L430-L431), which returns the client unchanged when `Origin` is already set, so it does not scope a new origin. [`get`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L503) then calls `validateTarget` before any request, and [`validateTarget`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L517-L527) returns `opds: URL is outside the catalog origin` for a target whose origin differs from `Origin`. So a `www.gutenberg.org` acquisition link on a Calibre-Web connection is refused before any request is sent. The pinned bytes would have to be served from the Calibre-Web library's own origin. This is a reading of the code, not an executed result.
+- **Two entries, two Books?** [`ReconcileCatalogueEntry`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/persistence/books.go#L759) and [`resolveCatalogueEntryBook`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/persistence/books.go#L791) key on owner, connection, and source identifier. If two entries with different IDs (for example `urn:gutenberg:21000:2` and `:3`) both reached reconciliation on one connection, the static reading gives two Book records. Whether a connected feed would expose both entries is not established, so this is a conditional, not a finding that the catalog duplicates the work.
+- **Redirects.** [`httpClient`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L531) installs a redirect check that calls [`validateTarget`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L540) on each hop. On refusal it removes the `Authorization` header and returns `http.ErrUseLastResponse` ([`client.go#L534–L547`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L534-L547)). The check enforces same origin only when `Auth.Origin` is set, which is the case for every connection client (see above). A same-origin redirect (for example, `www.gutenberg.org/ebooks/21000.epub.noimages` → `…/cache/epub/21000/pg21000.epub`) is followed only on a connection whose origin is `www.gutenberg.org`, which is not a Calibre-Web route.
+- **Download checks.** [`Download`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L370) checks the HTTP status and the response media type (EPUB or `application/octet-stream`), and caps the body at `maxResponse` = 100 MiB ([`client.go#L26`](https://github.com/justin-hayes/mouseion/blob/218d336859f66cefd3e56480004710eee4856077/internal/opds/client.go#L26)). It takes **no expected SHA-256**, so the digests in this document are research pins, not a runtime check.
 - **Lazy acquisition.** Sync is metadata-first, and content is acquired on "Move to To Read" (see [catalog sync feature](../features/catalog-sync.md), "Lazy content acquisition").
 - **Precedent.** `e2e/screenshot/manifest.json` pins Gutenberg numbers and SHA-256 values for the My Books screenshot. Its `$comment` describes those sources as Project Gutenberg **plain-text** editions, so it is not EPUB precedent. `doc/development.md` (around line 226) and `e2e/README.md` (around line 211) mention network access to Gutenberg for that first run. I did not change either file.
 
@@ -244,7 +317,8 @@ download of Mouseion code was run in this pass.
 - **Speaker detection in #2229 is a heuristic.** A regex for all-caps run-in labels (`FAUST.`) found roughly 800 matches, with about 100 distinct labels. That is not an exact count, and the regex may also miss labels.
 - **Verse vs. prose is not established.** The prose cases above are text-based inferences; I did not verify them against a printed critical edition.
 - **Stanza structure is not established for the whole text.** Only the Thule song (in #21000 and #2229) and the Vorspiel speech were examined closely. Other songs and speeches were sampled, not exhaustively checked.
-- **Not checked:** Projekt Gutenberg-DE's EPUB; any scan or edition-level rights outside the US and Germany; the §1.E licence terms in full; a phrase-by-phrase comparison of the embedded licence against the web text; whether any extractor path uses the EPUB 3 "Page List" nav.
+- **Not checked:** Projekt Gutenberg-DE's EPUB; scan or edition-level rights outside the US and Germany; whether any extractor path uses the EPUB 3 "Page List" nav; the cause of the EPUB 2 vs. EPUB 3 heading-token difference; whether a running NLP service reports `de` as ready. Which licence revision (web or embedded) governs a given copy is not established (see *Licence text*).
+- **Parent's route test:** an attempted run of the existing route test failed to start with `go: command not found`. That is not a test result, and no Go test has run in this pass.
 - **Not run:** the NLP service, the EPUB extractor (`internal/epub/`), the catalog sync, or the downloader. The statements about what the repo would do are static.
 - **Gutenberg files change.** Pin by digest, and re-verify the digest when pinning (see the provenance table).
 - **No full text is reproduced here.** Samples are short fragments, and sentences are quoted only where they illustrate structure.
@@ -256,19 +330,26 @@ For the MVP acceptance source, the **agent-preferred candidate** is Gutenberg #2
 1. It carries explicit speaker and stage-direction markup (922 speaker paragraphs, 194 stage-direction paragraphs), which the map's fidelity target needs. #2229 has none.
 2. Verse lines are explicit `<br/>` breaks, and stanza boundaries are paragraph boundaries in the song examined (Thule, six `i12 indent` blocks).
 3. Its no-images package is byte-identical in XHTML to the with-images package. The EPUB 3 package has the same class and `<br/>` counts but different chunking, a `toc.xhtml` nav, and about nine tokens of heading-text difference. The EPUB 2 vs. EPUB 3 choice is therefore mostly packaging, with that text difference still unexplained.
-4. Its transcriber's note names the printed basis (the 1808 first print edition), and the transcriber's corrections are explicit in the markup.
+4. Its transcriber's notes name an 1808 first edition as the base text (quoted under *Printed-edition statements*), and the transcriber's corrections are explicit in the markup.
 
 The owning human decision should weigh the following before accepting this:
 
-- Verse vs. prose and stanza grouping are not marked and need a text-based or structural rule. The Vorspiel Director speech is one unclassed `<p>` across several verse groups.
-- Transcriber corrections (`<ins class="correction">`, 23 in text) show the older 1808 reading in visible text. The newer reading is only in the `title`.
+- Verse vs. prose and stanza grouping are not marked and need a text-based or structural rule. The Vorspiel Director speech is one unclassed `<p>` of `<br/>` lines, with no marked segmentation.
+- Transcriber corrections (`<ins class="correction">`, 23 in text) show the older reading in visible text. The newer reading is only in the `title`.
 - The front matter and Gutenberg licence text are in the spine and fall into the whole-snapshot fallback under ADR 0066.
 - Whether the catalog would list one or two Books depends on which OPDS entries a connected feed exposes (see the catalog section). The per-book Gutenberg feed alone is not a sync connection by static reading.
-- The licence obligations in §1.E have not been reviewed in full (see Rights).
+- The §1.E licence obligations are now read in full (see *Licence text*). Whether they bind a given Mouseion use, such as showing, transmitting, exporting, or labelling a fragment with the Project Gutenberg name, is for the owning decision and is not decided here.
 
 Gutenberg #2229 is the comparison candidate. Its verse breaks are explicit too, but it has no speaker or stage-direction `class` markup, and its text uses modern spelling and no printed-edition statement. It would need text-based inference for the speaker and stage-direction features.
 
 This recommendation is a research input. It is not human acceptance of the source, of the structural model, or of the rights position.
+
+## Questions for the owning decision
+
+1. Which connection would browse the Gutenberg-sourced files: a Calibre-Web library (the static route above), or a direct Gutenberg OPDS connection? By static reading, a per-book Gutenberg feed is not a sync connection.
+2. Is the ADR 0066 whole-snapshot fallback acceptable for the front matter (title page and transcriber notes) and the licence footer, or should the acceptance case exclude them?
+3. Does §1.E require any Mouseion display or export attribution? That is a legal question. The web and embedded texts differ in §1.E.9 about who gives permission for different terms, and which text governs is open.
+4. Is the transcriber's "1808 first edition" claim enough for the acceptance case? It has not been checked against a scan or catalogue record.
 
 ## Asset links
 
@@ -280,6 +361,7 @@ This recommendation is a research input. It is not human acceptance of the sourc
 - Gutenberg #2229 landing page: <https://www.gutenberg.org/ebooks/2229>
 - Gutenberg #2229 OPDS: <https://www.gutenberg.org/ebooks/2229.opds>
 - Gutenberg #2229 EPUB 3 with images: <https://www.gutenberg.org/ebooks/2229.epub3.images>
+- Gutenberg licence (web): <https://www.gutenberg.org/policy/license.html>
 - Gutenberg permissions policy: <https://www.gutenberg.org/policy/permission.html>
 - § 64 UrhG: <https://www.gesetze-im-internet.de/urhg/__64.html>
 - § 69 UrhG: <https://www.gesetze-im-internet.de/urhg/__69.html>
