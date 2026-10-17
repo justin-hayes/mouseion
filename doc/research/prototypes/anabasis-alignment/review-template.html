@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book 1 alignment: unreviewed candidates</title>
+<style>
+:root { color-scheme: light; --ink:#182e3d; --paper:#f6f9fc; --blue:#245d96; --muted:#465c6b; --mark:#d6e8f9; }
+body { max-width:76ch; margin:2rem auto; padding:0 1.2rem 3rem; background:var(--paper); color:var(--ink); font:18px/1.65 Georgia,'Times New Roman',serif; }
+h1 { font-size:1.8rem; line-height:1.2; } h2 { font-size:1.3rem; margin-top:1.8rem; }
+button,select { font:inherit; color:var(--ink); background:white; border:1px solid var(--muted); padding:.3rem .6rem; margin:.25rem .1rem; max-width:100%; }
+button[aria-pressed=true] { background:var(--blue); color:white; } :focus-visible { outline:3px solid var(--blue); outline-offset:3px; }
+.greek { font-size:1.25rem; } small,.note { color:var(--muted); } mark { background:var(--mark); color:var(--ink); }
+li { margin-bottom:.6rem; } summary { cursor:pointer; } blockquote { margin:1rem 0; padding-left:1rem; border-left:3px solid var(--blue); }
+</style>
+<h1>Can this English serve this Greek sentence?</h1>
+<p>Throwaway logic prototype. These are <strong>unreviewed proposals, not gold</strong>.
+Compare exact-span and uncertain-alignment card behaviour, then correct the spans and links in our live exchange. No scores or human acceptance are recorded here.</p>
+<label for="sample">Guided examples</label> <select id="sample"></select>
+<p id="reason"></p><small id="location"></small>
+<h2>Greek sentence</h2><p class="greek" id="greek" lang="grc"></p>
+<h2>Card back experiment</h2>
+<div id="modes" role="group" aria-label="English presentation">
+<button data-mode="candidate">Proposed exact span</button>
+<button data-mode="passage">Uncertain: wider passage</button>
+<button data-mode="withhold">Uncertain: withhold English</button>
+</div>
+<p id="status" role="status"></p><blockquote id="english"></blockquote>
+<label><input type="checkbox" id="highlight"> Preview proposed word emphasis (not a confidence claim)</label>
+<h2>Word links to correct</h2><ul id="links"></ul>
+<details><summary>Complete Brownson context</summary><div id="context"></div></details>
+<details><summary>Full relevant state</summary><dl id="state"></dl></details>
+<h2>Review instructions</h2>
+<p>For each example, correct the English extent and each selected word link. Keep Brownson's actual wording; allow multiple spans, no counterpart (NULL), or uncertainty. Say whether each selected target has any other English realization. English correspondences do not establish a dictionary sense or a card Gloss.</p>
+<p>The wider-passage experiment deliberately removes word emphasis and labels the English as context, not the sentence's exact translation. The withhold experiment leaves the uncertainty visible. Neither fallback is an accepted decision.</p>
+<p id="licence" class="note"></p>
+<script>
+const asset = /*CANDIDATES*/null;
+// Pure, inspectable presentation logic; never updates review/gold status.
+function present(sample, mode, highlight) {
+  if (mode === 'withhold') return {label:'No reliable sentence translation. English withheld.', pieces:[]};
+  if (mode === 'passage') return {label:'Wider passage translation. Not an exact translation of this sentence; no word emphasis.', pieces:Object.entries(sample.english_context).map(([section,quote])=>({section,quote,span:[0,quote.length],marks:[]}))};
+  return {label:'Proposed sentence span. Unreviewed; punctuation and boundaries preserved.', pieces:sample.candidate_spans.map(span=>({...span,marks:highlight ? sample.candidate_word_links.flatMap(link=>link.destinations.filter(d=>d.section===span.section && d.span[0]>=span.span[0] && d.span[1]<=span.span[1])):[]}))};
+}
+const state = {sample:0, mode:'candidate', highlight:false};
+const $ = id => document.getElementById(id);
+function para(text) { const p=document.createElement('p'); p.textContent=text; return p; }
+function render() {
+  const s=asset.samples[state.sample], display=present(s,state.mode,state.highlight);
+  $('reason').textContent=s.reason;
+  $('location').textContent=`Sections ${s.sections.join(' + ')}; source sentence ${s.source_sentence_id}; ${s.tokens.filter(t=>t.native_pos!=='u').length} printed words. Section sizes (touching): ${Object.entries(s.section_sizes_touching).map(([r,n])=>r+': '+n).join(', ')}.`;
+  $('greek').textContent=s.greek; $('status').textContent=display.label;
+  $('english').replaceChildren();
+  for(const piece of display.pieces) {
+    const p=document.createElement('p'); let end=0;
+    // JSON offsets are codepoints; JS string offsets are UTF-16. Use arrays.
+    const chars=Array.from(piece.quote);
+    const marks=piece.marks.map(m=>[m.span[0]-piece.span[0],m.span[1]-piece.span[0]]).sort((a,b)=>a[0]-b[0]);
+    for(const [start,stop] of marks) {
+      if(start<end) continue;
+      p.append(document.createTextNode(chars.slice(end,start).join('')));
+      const mark=document.createElement('mark'); mark.textContent=chars.slice(start,stop).join(''); p.append(mark); end=stop;
+    }
+    p.append(document.createTextNode(chars.slice(end).join(''))); $('english').append(p);
+  }
+  $('links').replaceChildren(...s.candidate_word_links.map(link=>{
+    const li=document.createElement('li'); li.textContent=`${link.surface} (OGA lemma: ${link.oga_lemma}; token ${link.source_token_id}) ↔ ${link.destinations.map(d=>'“'+d.quote+'”').join(' + ')} — proposed`; return li;
+  }));
+  $('context').replaceChildren(...Object.entries(s.english_context).map(([r,t])=>para(r+': '+t)));
+  $('state').replaceChildren();
+  for(const [key,value] of Object.entries({'Human review':'Not reviewed','Gold set':'No','Presentation':state.mode,'Proposed emphasis':state.highlight && state.mode==='candidate' ? 'On':'Off','Sentence identifier':s.source_sentence_id,'Candidate span offsets':s.candidate_spans.map(x=>x.section+' ['+x.span.join(', ')+')').join('; '),'Word-link scope':'Three selected vocabulary occurrences; not all sentence words','Reliability':'Not measured'})) {
+    const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key;dd.textContent=value;$('state').append(dt,dd);
+  }
+  document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===state.mode)));
+}
+asset.samples.forEach((s,i)=>{const o=document.createElement('option');o.value=i;o.textContent=s.sections.join(' + ')+' (sentence '+s.source_sentence_id+')';$('sample').append(o)});
+$('sample').onchange=event=>{state.sample=Number(event.target.value);state.mode='candidate';render()};
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;render()});
+$('highlight').onchange=event=>{state.highlight=event.target.checked;render()};
+$('licence').textContent=asset.licence; render();
+</script>
+</html>
