@@ -1,3 +1,4 @@
+import dataclasses
 import hashlib
 import json
 from unittest.mock import patch
@@ -332,6 +333,90 @@ def test_changed_artifact_checksums_wipe_and_provision_from_scratch(tmp_path) ->
     assert not sentinel.exists()
     assert downloads == ["de"]
     assert read_marker(tmp_path).model_configs == (config,)
+
+
+EXPECTED_FRENCH_ARTIFACTS = {
+    "fr/tokenize/combined_nocharlm.pt": (
+        "622a7613d78623cda63e53fc72f84c49b2f64ad959c0f6aeb51355b963eda78f"
+    ),
+    "fr/mwt/combined.pt": "a46bc4149531762c2fd79d70eeaaff80479aa6852a08516ab0db567859c8cec0",
+    "fr/lemma/combined_nocharlm.pt": (
+        "31dd152c13d1d713085127e7b30d91e70e88652da4c2ea33c4b6f7d34d810177"
+    ),
+    "fr/pos/combined_charlm.pt": (
+        "e40eb06786fa691e84aa6ee1ff2321b37f9ff9cb9bf3fe4de94b63793b626f89"
+    ),
+    "fr/depparse/combined_charlm.pt": (
+        "5ad85cd10e385894152154863c14f621b7d747c67c84eb8597039da12832315a"
+    ),
+    "fr/pretrain/conll17.pt": "c8c456c1a48fba32d4ab827ae7d3fec40457f58ead7e1977b6267afc37474a3c",
+    "fr/forward_charlm/newswiki.pt": (
+        "a6874f7670f84c8bd9e57d5dcbafdfe7d7cbae2457c79975040709f1d69ca119"
+    ),
+    "fr/backward_charlm/newswiki.pt": (
+        "3ae24cade5cdca7d68193196a942a177af81fbc5d3b5ebb4550ff7b89023b09c"
+    ),
+}
+
+
+def test_french_declares_the_eight_pinned_artifact_checksums() -> None:
+    config = model_config_for_language("fr")
+
+    assert config.artifact_checksums == EXPECTED_FRENCH_ARTIFACTS
+
+
+def test_french_provisioning_verifies_artifacts_and_records_the_selection(tmp_path) -> None:
+    base = model_config_for_language("fr")
+    assert base.artifact_checksums is not None
+    contents = {path: f"bytes for {path}".encode() for path in base.artifact_checksums}
+    config = dataclasses.replace(
+        base,
+        artifact_checksums={path: sha256_hex(content) for path, content in contents.items()},
+    )
+
+    def downloading(language: str, **kwargs) -> None:
+        assert language == "fr"
+        for path, content in contents.items():
+            artifact = tmp_path / path
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            artifact.write_bytes(content)
+
+    with patch("mouseion_nlp.provision.model_config_for_language", return_value=config):
+        provision(tmp_path, ["fr"], stanza_version=STANZA_VERSION, download=downloading)
+
+    marker = read_marker(tmp_path)
+    assert marker is not None
+    assert marker.languages == ("fr",)
+    assert marker.model_configs == (config,)
+    assert marker.model_configs[0].package == {
+        "tokenize": "combined_nocharlm",
+        "mwt": "combined",
+        "pos": "combined_charlm",
+        "lemma": "combined_nocharlm",
+        "depparse": "combined_charlm",
+    }
+    assert marker.model_configs[0].model_version == "stanza-1.15.0-fr-combined"
+
+
+def test_french_artifact_checksum_mismatch_aborts_without_writing_the_marker(tmp_path) -> None:
+    artifact_path = "fr/pos/combined_charlm.pt"
+    config = dataclasses.replace(
+        model_config_for_language("fr"),
+        artifact_checksums={artifact_path: sha256_hex(b"pinned bytes")},
+    )
+
+    def downloading(language: str, **kwargs) -> None:
+        artifact = tmp_path / artifact_path
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_bytes(b"tampered bytes")
+
+    with (
+        patch("mouseion_nlp.provision.model_config_for_language", return_value=config),
+        pytest.raises(ArtifactChecksumMismatchError, match="expected sha256"),
+    ):
+        provision(tmp_path, ["fr"], stanza_version=STANZA_VERSION, download=downloading)
+
+    assert read_marker(tmp_path) is None
 
 
 def test_added_language_downloads_only_the_missing_language(tmp_path) -> None:

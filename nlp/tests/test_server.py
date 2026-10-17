@@ -14,10 +14,15 @@ from mouseion_nlp.server import (
 
 class StubProducer:
     def model_version(self, language):
-        return {"de": "de-fixture-1", "el": "el-fixture-accurate", "it": "it-fixture-2"}[language]
+        return {
+            "de": "de-fixture-1",
+            "el": "el-fixture-accurate",
+            "fr": "fr-fixture-combined",
+            "it": "it-fixture-2",
+        }[language]
 
     def warmup(self, language):
-        assert language in {"de", "el", "it"}
+        assert language in {"de", "el", "fr", "it"}
 
     def analyze(self, text, language, document):
         assert (text, language) == ("Goethe", "de")
@@ -147,3 +152,43 @@ def test_greek_warmup_failure_preserves_other_ready_languages(capsys) -> None:
     assert capabilities["it"].ready
     assert capabilities["el"].model_version == ""
     assert "GreekBERT unavailable" in capsys.readouterr().err
+
+
+def test_french_capability_uses_public_features_and_combined_model_version() -> None:
+    with patch.dict(os.environ, {"MOUSEION_NLP_WARM_LANGUAGES": "fr"}, clear=True):
+        servicer = AnalyzerServicer(StubProducer())
+
+    servicer.warmup("fr")
+    capability = servicer.GetCapabilities(None, None).languages[0]
+
+    assert (capability.language, capability.display_name, capability.model_version) == (
+        "fr",
+        "French",
+        "fr-fixture-combined",
+    )
+    assert capability.supported_features == ["tokenize", "pos", "lemma", "depparse"]
+    assert capability.ready
+
+
+def test_french_warmup_failure_preserves_other_ready_languages(capsys) -> None:
+    class FrenchFailingProducer(StubProducer):
+        def warmup(self, language):
+            if language == "fr":
+                raise RuntimeError("French model unavailable")
+            super().warmup(language)
+
+    with patch.dict(os.environ, {"MOUSEION_NLP_WARM_LANGUAGES": "de,it,el,fr"}, clear=True):
+        servicer = AnalyzerServicer(FrenchFailingProducer())
+
+    warm_configured_languages(servicer)
+    capabilities = {
+        capability.language: capability
+        for capability in servicer.GetCapabilities(None, None).languages
+    }
+
+    assert capabilities["de"].ready
+    assert capabilities["it"].ready
+    assert capabilities["el"].ready
+    assert not capabilities["fr"].ready
+    assert capabilities["fr"].model_version == ""
+    assert "French model unavailable" in capsys.readouterr().err

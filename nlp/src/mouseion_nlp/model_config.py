@@ -10,6 +10,33 @@ from typing import Any
 DEFAULT_PROCESSORS = "tokenize,pos,lemma,depparse"
 GREEK_BERT_MODEL = "nlpaueb/bert-base-greek-uncased-v1"
 GREEK_LEMMA_PRETRAIN = "conll17"
+FRENCH_MODEL_VERSION = "stanza-1.15.0-fr-combined"
+# sha256 of the eight pinned French runtime artifacts, fetched at the manifest
+# ``stanfordnlp/stanza-resources@569db9d`` and Hugging Face
+# ``stanfordnlp/stanza-fr@caeb7742`` revisions (ADR 0102). Paths are relative to
+# the Stanza resource directory.
+FRENCH_ARTIFACT_CHECKSUMS = {
+    "fr/tokenize/combined_nocharlm.pt": (
+        "622a7613d78623cda63e53fc72f84c49b2f64ad959c0f6aeb51355b963eda78f"
+    ),
+    "fr/mwt/combined.pt": "a46bc4149531762c2fd79d70eeaaff80479aa6852a08516ab0db567859c8cec0",
+    "fr/lemma/combined_nocharlm.pt": (
+        "31dd152c13d1d713085127e7b30d91e70e88652da4c2ea33c4b6f7d34d810177"
+    ),
+    "fr/pos/combined_charlm.pt": (
+        "e40eb06786fa691e84aa6ee1ff2321b37f9ff9cb9bf3fe4de94b63793b626f89"
+    ),
+    "fr/depparse/combined_charlm.pt": (
+        "5ad85cd10e385894152154863c14f621b7d747c67c84eb8597039da12832315a"
+    ),
+    "fr/pretrain/conll17.pt": "c8c456c1a48fba32d4ab827ae7d3fec40457f58ead7e1977b6267afc37474a3c",
+    "fr/forward_charlm/newswiki.pt": (
+        "a6874f7670f84c8bd9e57d5dcbafdfe7d7cbae2457c79975040709f1d69ca119"
+    ),
+    "fr/backward_charlm/newswiki.pt": (
+        "3ae24cade5cdca7d68193196a942a177af81fbc5d3b5ebb4550ff7b89023b09c"
+    ),
+}
 Package = str | Mapping[str, str]
 PretrainDependencies = Mapping[str, str]
 ArtifactChecksums = Mapping[str, str]
@@ -147,6 +174,19 @@ _LANGUAGE_MODEL_CONFIGS = {
         pretrain_dependencies={"lemma": GREEK_LEMMA_PRETRAIN},
         external_model_dependencies=(GREEK_BERT_MODEL,),
         model_version="stanza-1.15.0-gdt-accurate",
+    ),
+    "fr": LanguageModelConfig(
+        language="fr",
+        processors="tokenize,mwt,pos,lemma,depparse",
+        package={
+            "tokenize": "combined_nocharlm",
+            "mwt": "combined",
+            "pos": "combined_charlm",
+            "lemma": "combined_nocharlm",
+            "depparse": "combined_charlm",
+        },
+        model_version=FRENCH_MODEL_VERSION,
+        artifact_checksums=FRENCH_ARTIFACT_CHECKSUMS,
     ),
     "it": LanguageModelConfig(language="it"),
 }

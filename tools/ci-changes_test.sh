@@ -88,6 +88,8 @@ expect "Go lint configuration runs Go only" "build go" \
   .golangci.yml
 expect "NLP expectation read by Go tests runs Go and python" "build go python" \
   nlp/tests/testdata/italian_stanza_expected.json
+expect "French NLP expectation read by Go tests runs Go and python" "build go python" \
+  nlp/tests/testdata/french_stanza_expected.json
 expect "NLP data read by Go canonicalization tests runs Go and python" "build go python" \
   nlp/testdata/german_normalization_parity.jsonl
 expect "migration runs generated, Go, and browser checks" "browser build generated go" \
