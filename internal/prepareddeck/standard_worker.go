@@ -82,12 +82,23 @@ func (w *StandardTranslationWorker) translateClaimed(ctx context.Context, args S
 	request := work.Request
 	response, providerLatency, callErr := w.translate(ctx, request)
 	if callErr != nil {
+		if request.RequireEvidenceAssistedPass {
+			// The pass only adds, so a failed provider call completes with no
+			// provider output rather than retrying, omitting, or failing.
+			observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderErrors, Phase: "provider", State: "failed", ErrorClass: "provider_error", Provider: "openai", Value: 1})
+			return w.completeEvidenceAssistedPass(ctx, args, token, providerLatency)
+		}
 		class, code, retryable := classifyStandardProviderError(callErr, ctx)
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderErrors, Phase: "provider", State: "failed", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
 		return w.retryOrFail(ctx, args, token, claimed, retryable, class, code, providerLatency)
 	}
 	response, callErr = enrichment.NormalizeTranslationResponse(request, response)
 	if callErr != nil {
+		if request.RequireEvidenceAssistedPass {
+			// A malformed pass response leaves the source-evidence card.
+			observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchValidationFailures, Phase: "provider", State: "failed", ErrorClass: "validation", Provider: "openai", Value: 1})
+			return w.completeEvidenceAssistedPass(ctx, args, token, providerLatency)
+		}
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchValidationFailures, Phase: "provider", State: "failed", ErrorClass: "validation", Provider: "openai", Value: 1})
 		return w.retryOrFail(ctx, args, token, claimed, true, "validation", "invalid_response", providerLatency)
 	}
@@ -170,11 +181,59 @@ func (w *StandardTranslationWorker) retryOrFail(ctx context.Context, args Standa
 	return w.failWithLatency(ctx, args, token, class, code, true, providerLatency)
 }
 
+// completeEvidenceAssistedPass finishes an evidence-assisted pass item that
+// added nothing. The pass only adds to a source-evidence card, so a failed,
+// malformed or abstaining answer is a completed item with no provider output
+// rather than a provider or meaning omission (ADR 0101).
+func (w *StandardTranslationWorker) completeEvidenceAssistedPass(ctx context.Context, args StandardTranslationJobArgs, token string, providerLatency time.Duration) error {
+	_, _, err := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{
+		State: domain.PreparedDeckOutcomeCompleted, OmissionReason: domain.DeckPreparationEvidenceAssistedPassAbstentionReason,
+		ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency,
+	}, w.finalizer)
+	return err
+}
+
+// persistEvidenceAssistedPass completes one pass item. A resolved contextual
+// Gloss stores its cache entry; an abstaining answer, a cache write failure or an
+// incomplete entry leaves the source-evidence card rather than failing, retrying
+// or omitting the item (ADR 0101).
+func (w *StandardTranslationWorker) persistEvidenceAssistedPass(ctx context.Context, args StandardTranslationJobArgs, token string, work cardexport.WorkItem, response enrichment.TranslationResponse, providerLatency time.Duration) error {
+	request := work.Request
+	if response.Gloss == "" {
+		return w.completeEvidenceAssistedPass(ctx, args, token, providerLatency)
+	}
+	cacheEntry := enrichment.CacheEntry{
+		CacheKey: work.CacheKey, Translation: response.Translation, FallbackGloss: response.Gloss,
+		SenseSelection:             evidenceSelectionIndices(request.CandidateSenses, response.EvidenceIDs),
+		SentenceTranslation:        response.SentenceTranslation,
+		SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
+		CachedAt:                   w.now(),
+	}
+	stored, err := w.Store.PutPreparedDeckTranslationIfClaimed(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, cacheEntry)
+	if err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+			return nil
+		}
+		return w.completeEvidenceAssistedPass(ctx, args, token, providerLatency)
+	}
+	if !enrichment.HasRequiredTranslationFields(stored, request.ExampleSentence) {
+		return w.completeEvidenceAssistedPass(ctx, args, token, providerLatency)
+	}
+	_, _, err = w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency}, w.finalizer)
+	if err == nil {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchProviderTransitions, Phase: "translating", State: "completed", Provider: "openai", Value: 1})
+	}
+	return err
+}
+
 // persistTranslation completes the item from a validated provider response:
 // as an explicit omission when the meaning is unresolved, otherwise by
 // storing the claimed cache entry.
 func (w *StandardTranslationWorker) persistTranslation(ctx context.Context, args StandardTranslationJobArgs, token string, work cardexport.WorkItem, response enrichment.TranslationResponse, providerLatency time.Duration) error {
 	request := work.Request
+	if request.RequireEvidenceAssistedPass {
+		return w.persistEvidenceAssistedPass(ctx, args, token, work, response, providerLatency)
+	}
 	if request.RequireContextualGloss && response.Gloss == "" {
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{
 			State: domain.PreparedDeckOutcomeCompleted, OmissionReason: response.UnresolvedReason,

@@ -38,6 +38,12 @@ type CandidateProjection struct {
 	// them (ADR 0101).
 	ReferenceTranslations map[string]string
 	ReferencePin          string
+	// EvidenceAssistedPass marks a source-evidence projection that also opts
+	// into the Ancient Greek provider pass. The projection still freezes its
+	// LSJ entry and passage context, and the pass adds provider-proposed
+	// fields on top only when the provider resolves a contextual Gloss
+	// (ADR 0101).
+	EvidenceAssistedPass bool
 }
 
 // WorkItem is one exact external request derived from a frozen deck.
@@ -218,9 +224,16 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, orde
 		clearExternalFields(&entry)
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
 		applyPassageContext(&entry, projection)
+		entry.ProviderProposed = projection.EvidenceAssistedPass
 		if projection.SkipMeaningEvidence {
 			clearDictionaryFacts(&entry)
-			resolveAncientGreekLSJ(ctx, lexical, &entry)
+			matched, found := resolveAncientGreekLSJ(ctx, lexical, &entry)
+			if projection.EvidenceAssistedPass && found {
+				// The pass transmits the pinned LSJ senses with their native IDs
+				// as its meaning evidence; the displayed entry is the frozen
+				// entry above (ADR 0101).
+				entry.CandidateSenses = ancientGreekLSJPassSenses(matched)
+			}
 			entries = append(entries, entry)
 			continue
 		}
@@ -261,7 +274,7 @@ func bindFrozenCacheKeys(built manifest, ordered []CandidateProjection) (manifes
 	keys := make([]enrichment.CacheKey, len(candidates))
 	contextualGlossByCandidate := make(map[string]bool, len(ordered))
 	for _, projection := range ordered {
-		contextualGlossByCandidate[candidateKey(projection.Candidate)] = projection.RequireContextualGloss
+		contextualGlossByCandidate[candidateKey(projection.Candidate)] = projection.RequireContextualGloss || projection.EvidenceAssistedPass
 	}
 	for i, candidate := range candidates {
 		keys[i] = enrichment.CacheKey{
@@ -399,8 +412,13 @@ func (d FrozenDeck) workItem(acceptedIndex int) WorkItem {
 			Language: entry.Language, TargetLanguage: targetLanguage,
 			CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 			TargetWord: testedRenderTarget(entry), ExampleSentence: entry.Sentence,
-			CandidateSenses:        enrichment.CloneLexicalSenses(entry.CandidateSenses),
-			RequireContextualGloss: key.MeaningEvidenceHash != "",
+			PassageContext:  entry.PassageContext,
+			CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
+			// A pass entry resolves its contextual Gloss through the
+			// evidence-assisted contract, not the modern-language
+			// contextual-gloss contract.
+			RequireContextualGloss:      key.MeaningEvidenceHash != "" && !entry.ProviderProposed,
+			RequireEvidenceAssistedPass: entry.ProviderProposed,
 		},
 		CacheKey: key, DictionaryProviderVersion: entry.DictionaryProviderVersion,
 	}
@@ -522,7 +540,8 @@ type finalizeAlignment struct {
 // is tolerated only when the run does not require one.
 func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredResult, facts RunFacts) (finalizeAlignment, error) {
 	keys := manifest.cacheKeys
-	required, contextualIdentity := externalResultRequirements(keys, facts)
+	providerProposed := manifestHasProviderProposed(manifest)
+	required, contextualIdentity := externalResultRequirements(keys, facts, providerProposed)
 	alignment := finalizeAlignment{
 		enrichments:      make([]ExactEnrichment, 0, len(keys)),
 		accepted:         make([]RenderInput, 0, len(manifest.accepted)),
@@ -535,6 +554,15 @@ func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredR
 			return finalizeAlignment{}, err
 		}
 		if stored.OmissionReason != "" {
+			if providerProposed {
+				// The evidence-assisted pass only adds: a recorded abstention
+				// or tolerated provider failure leaves the source-evidence card
+				// exactly as it was rather than dropping the item (ADR 0101).
+				alignment.enrichments = append(alignment.enrichments, exactEnrichmentFromStoredResult(stored, manifest, i))
+				alignment.accepted = append(alignment.accepted, manifest.accepted[i])
+				alignment.cacheKeys = append(alignment.cacheKeys, key)
+				continue
+			}
 			omission, err := unresolvedOmission(stored, manifest.accepted[i].TargetWord)
 			if err != nil {
 				return finalizeAlignment{}, err
@@ -549,10 +577,18 @@ func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredR
 		alignment.accepted = append(alignment.accepted, manifest.accepted[i])
 		alignment.cacheKeys = append(alignment.cacheKeys, key)
 	}
-	if len(keys) > 0 && len(alignment.meaningOmissions) == len(keys) {
+	if !providerProposed && len(keys) > 0 && len(alignment.meaningOmissions) == len(keys) {
 		return finalizeAlignment{}, ErrAllMeaningsUnresolved
 	}
 	return alignment, nil
+}
+
+// manifestHasProviderProposed reports whether the frozen deck is an Ancient
+// Greek evidence-assisted pass deck. Its accepted entries alone carry the
+// provider-proposed flag, so a missing result never drops the source-evidence
+// card.
+func manifestHasProviderProposed(manifest manifest) bool {
+	return slices.ContainsFunc(manifest.accepted, func(input RenderInput) bool { return input.ProviderProposed })
 }
 
 // storedResultFor resolves the exact stored result for one frozen key. A missing
@@ -592,12 +628,14 @@ func requiredResultIncomplete(stored StoredResult, entry RenderInput, required, 
 
 // externalResultRequirements reports whether a missing stored result is an error
 // for this run, and whether any frozen identity carries contextual evidence that
-// makes a contextual Gloss mandatory.
-func externalResultRequirements(keys []enrichment.CacheKey, facts RunFacts) (required, contextualIdentity bool) {
+// makes a contextual Gloss mandatory. An evidence-assisted pass never requires a
+// stored result: the pass only adds, so a missing one leaves the source-evidence
+// card (ADR 0101).
+func externalResultRequirements(keys []enrichment.CacheKey, facts RunFacts, providerProposed bool) (required, contextualIdentity bool) {
 	mode := strings.TrimSpace(facts.ExecutionMode)
 	contextualIdentity = slices.ContainsFunc(keys, func(key enrichment.CacheKey) bool { return key.MeaningEvidenceHash != "" })
 	contextualBatch := strings.EqualFold(mode, "batch") && contextualIdentity
-	required = facts.Consent && facts.Configured && (strings.EqualFold(mode, "standard") || contextualBatch)
+	required = facts.Consent && facts.Configured && !providerProposed && (strings.EqualFold(mode, "standard") || contextualBatch)
 	return required, contextualIdentity
 }
 

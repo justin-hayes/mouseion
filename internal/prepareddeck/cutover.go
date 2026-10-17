@@ -239,6 +239,10 @@ type BatchPlanner struct {
 	Codec           *enrichment.TranslationCodec
 	ExternalEnabled bool
 	BatchConfig     BatchConfig
+	// Assessments are the recorded personal-use payload assessments the pass is
+	// gated against. They default to the compiled reviewed set; a caller may
+	// install a recorded assessment to exercise the pass.
+	Assessments []enrichment.ProviderAssessment
 }
 
 // StandardPlanner freezes the same manifest and cache identity as BatchPlanner
@@ -284,6 +288,11 @@ func (p *StandardPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, pr
 // provider but has none configured.
 var errTranslationProviderRequired = errors.New("prepareddeck: a configured translation provider is required for contextual Glosses")
 
+// errEvidenceAssistedPassUnsupported reports a deck specification that requests
+// the evidence-assisted pass for a deck that is not a source-evidence Ancient
+// Greek deck. The pass is only ever an optional layer on top of one.
+var errEvidenceAssistedPassUnsupported = errors.New("prepareddeck: the evidence-assisted provider pass is only available for Ancient Greek decks")
+
 func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
 	if p == nil || p.Assembler == nil || p.Presentation == nil || strings.TrimSpace(preparation.OwnerID) == "" || strings.TrimSpace(preparation.ID) == "" {
 		return persistence.FreezePreparedDeckRunParams{}, ErrInvalidInput
@@ -293,13 +302,14 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	if !providerConfigured {
 		// Without a configured provider only a source-evidence Greek deck can be
 		// planned, and its language must be resolved before any input work so a
-		// modern deck keeps its existing failure.
+		// modern deck keeps its existing failure. The pass is a provider layer
+		// and cannot run without one.
 		language, err := p.deckLanguage(ctx, tx, preparation)
 		if err != nil {
 			return persistence.FreezePreparedDeckRunParams{}, err
 		}
 		sourceEvidence = cardexport.IsAncientGreek(language)
-		if !sourceEvidence {
+		if !sourceEvidence || preparation.EvidenceAssistedProviderPass {
 			return persistence.FreezePreparedDeckRunParams{}, errTranslationProviderRequired
 		}
 	}
@@ -307,13 +317,28 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	if err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("assemble prepared deck inputs: %w", err)
 	}
-	if sourceEvidence || sourceEvidenceDeck(projections) {
-		return p.planSourceEvidenceRun(ctx, preparation, deckName, projections, mode)
+	sourceEvidence = sourceEvidence || sourceEvidenceDeck(projections)
+	if sourceEvidence {
+		return p.planGreekDeck(ctx, preparation, deckName, projections, mode, standardAttempts)
+	}
+	if preparation.EvidenceAssistedProviderPass {
+		// The pass only exists on top of a source-evidence Ancient Greek deck.
+		return persistence.FreezePreparedDeckRunParams{}, errEvidenceAssistedPassUnsupported
 	}
 	if !providerConfigured {
 		return persistence.FreezePreparedDeckRunParams{}, errTranslationProviderRequired
 	}
 	return p.planExternalRun(ctx, tx, preparation, projections, deckName, mode, standardAttempts)
+}
+
+// planGreekDeck freezes the selected plan for a source-evidence Ancient Greek
+// deck: the evidence-assisted pass when the specification opts in, and the
+// providerless default otherwise.
+func (p *BatchPlanner) planGreekDeck(ctx context.Context, preparation domain.DeckPreparation, deckName string, projections []cardexport.CandidateProjection, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
+	if preparation.EvidenceAssistedProviderPass {
+		return p.planEvidenceAssistedRun(ctx, preparation, deckName, projections, standardAttempts)
+	}
+	return p.planSourceEvidenceRun(ctx, preparation, deckName, projections, mode)
 }
 
 // planExternalRun freezes a deck whose contextual Glosses come from the
@@ -413,6 +438,69 @@ func (p *BatchPlanner) planSourceEvidenceRun(ctx context.Context, preparation do
 	return persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Projection: deck.StorageProjection(), Config: config}, nil
 }
 
+// planEvidenceAssistedRun freezes a source-evidence Ancient Greek deck that also
+// opts into the provider pass. The base card is unchanged: the projection still
+// skips Wiktionary meaning evidence and freezes its LSJ entry and passage
+// context. The pass adds an exact provider cache identity, so the durable run
+// makes one bounded standard provider call per accepted item with the
+// representative sentence, its passage context and the pinned LSJ senses. The
+// pass always uses the standard executor, because its best-effort per-item
+// semantics do not fit the Batch omission machinery.
+//
+// The pass is offered only while a matching provider payload assessment is
+// recorded. The gate crosses before the presentation is frozen, so an
+// unrecorded payload fails closed and nothing is sent (ADR 0101, #2171).
+func (p *BatchPlanner) planEvidenceAssistedRun(ctx context.Context, preparation domain.DeckPreparation, deckName string, projections []cardexport.CandidateProjection, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
+	if p == nil || p.Codec == nil || len(projections) == 0 {
+		return persistence.FreezePreparedDeckRunParams{}, errTranslationProviderRequired
+	}
+	provider := p.Codec.ProviderName()
+	if !enrichment.EvidenceAssistedPassOffered(p.assessments()) {
+		// The pass is offered only while its exact payload assessment is
+		// recorded: with nothing offered, no request is transmitted.
+		return persistence.FreezePreparedDeckRunParams{}, enrichment.ErrProviderAssessmentNotRecorded
+	}
+	if err := enrichment.AllowExternalProviderCall(p.assessments(), projections[0].Candidate.Language, provider, p.Codec.EvidenceAssistedPassPromptContract(), enrichment.EvidenceAssistedPassPayloadFields()); err != nil {
+		return persistence.FreezePreparedDeckRunParams{}, err
+	}
+	config := persistence.PreparedDeckRunConfig{
+		ExternalTranslationConsent:    true,
+		ExternalTranslationConfigured: true,
+		ExecutionMode:                 string(domain.PreparedDeckExecutionStandard),
+		TargetLanguage:                "en",
+		ContextMode:                   string(enrichment.SentenceContext),
+		Provider:                      provider,
+		ProviderVersion:               p.Codec.EvidenceAssistedPassProviderVersion(),
+		Endpoint:                      enrichment.OpenAIChatCompletionsEndpoint,
+		Model:                         p.Codec.Model(),
+	}
+	if standardAttempts > 0 {
+		config.MaxProviderAttempts = standardAttempts
+	}
+	for i := range projections {
+		projections[i].Provider = config.Provider
+		projections[i].ProviderVersion = config.ProviderVersion
+		projections[i].TargetLanguage = config.TargetLanguage
+		projections[i].RequireContextualGloss = false
+		projections[i].SkipMeaningEvidence = true
+		projections[i].EvidenceAssistedPass = true
+	}
+	deck, _, err := p.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections)
+	if err != nil {
+		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("freeze prepared deck presentation: %w", err)
+	}
+	return persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Projection: deck.StorageProjection(), Config: config}, nil
+}
+
+// assessments resolves the recorded personal-use payload assessments this
+// planner gates the pass against.
+func (p *BatchPlanner) assessments() []enrichment.ProviderAssessment {
+	if p == nil || p.Assessments == nil {
+		return enrichment.ProviderAssessments()
+	}
+	return p.Assessments
+}
+
 type glossCoverageEvent struct {
 	Event  string                     `json:"event"`
 	Groups []cardexport.GlossCoverage `json:"groups"`
@@ -491,6 +579,27 @@ func (w *Worker) fail(ctx context.Context, args JobArgs, cause error) error {
 }
 
 func AddPreparedDeckWorker(workers *river.Workers, store *persistence.PostgresStore, presentation *cardexport.Presentation, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, preparedConfig PreparedDeckConfig, externalEnabled bool) {
+	AddPreparedDeckWorkerWithAssessments(workers, store, presentation, client, codec, batchConfig, preparedConfig, externalEnabled, enrichment.ProviderAssessments())
+}
+
+// AddPreparedDeckWorkerWithAssessments registers the freeze worker with an
+// explicit set of recorded personal-use payload assessments. Production uses
+// the compiled reviewed set through AddPreparedDeckWorker; a caller installs a
+// recorded assessment here to exercise a gated payload.
+func AddPreparedDeckWorkerWithAssessments(workers *river.Workers, store *persistence.PostgresStore, presentation *cardexport.Presentation, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, preparedConfig PreparedDeckConfig, externalEnabled bool, assessments []enrichment.ProviderAssessment) {
 	planner := NewPreparedDeckPlanner(NewInputAssembler(store), presentation, codec, externalEnabled, batchConfig, preparedConfig)
+	if setter, ok := planner.(interface {
+		SetAssessments([]enrichment.ProviderAssessment)
+	}); ok {
+		setter.SetAssessments(assessments)
+	}
 	river.AddWorker(workers, &Worker{Coordinator: NewDurableCoordinator(store, client, planner), Store: store})
+}
+
+// SetAssessments installs the recorded personal-use payload assessments the
+// pass is gated against.
+func (p *BatchPlanner) SetAssessments(assessments []enrichment.ProviderAssessment) {
+	if p != nil {
+		p.Assessments = assessments
+	}
 }

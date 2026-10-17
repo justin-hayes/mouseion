@@ -23,6 +23,11 @@ type RenderInput struct {
 	SentenceStartOffset                                                       uint64
 	FirstEncounter                                                            int64
 	fallbackGlossApplied                                                      bool
+	// ProviderProposed marks a render input whose optional Gloss, sentence
+	// translation and English target alignment come from the Ancient Greek
+	// evidence-assisted pass and must be labelled provider-proposed. The pass
+	// only adds to the source-evidence card (ADR 0101).
+	ProviderProposed bool
 }
 
 func renderInputFromEntry(entry Entry) RenderInput {
@@ -41,6 +46,7 @@ func renderInputFromEntry(entry Entry) RenderInput {
 		SentenceTokens:  cloneTokens(entry.SentenceTokens), SentenceStartOffset: entry.SentenceStartOffset,
 		FirstEncounter:       entry.FirstEncounter,
 		fallbackGlossApplied: entry.fallbackGlossApplied,
+		ProviderProposed:     entry.ProviderProposed,
 	}
 }
 
