@@ -12,10 +12,18 @@ Source selection and licence evidence:
 
 ## Current status
 
+Live review is now in progress; [`review-status.json`](review-status.json) records
+Justin's feedback verbatim and its scope. Source sentences **238 and 428** have
+confirmed spans and three target highlights each; the latter's comma-ending
+excerpt is accepted. The other six examples still need full target-link review.
+This does not establish a general uncertainty policy or automatic reliability.
+
 **No human-checked gold set exists here yet. No alignment accuracy was measured.**
 `review-candidates.json` has `is_gold: false`, `reviewer: null` and per-sentence
 `human_review: null`. The proposals are agent-drafted discussion material,
 not outputs of the comparison algorithms and not evidence of reliability.
+The original JSON/demo remain a frozen proposal snapshot; follow the separate
+review ledger for current progress until a distinct gold asset is created.
 
 Open **`review.html` directly in a browser**; no server, network or installation
 is needed. The example selector is the guided walkthrough: ordinary spans,
