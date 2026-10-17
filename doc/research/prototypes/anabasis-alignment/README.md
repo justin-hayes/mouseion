@@ -1,4 +1,4 @@
-# Book 1 alignment prototype — human checkpoint pending
+# Book 1 alignment prototype — evidence ready for live review
 
 **Throwaway branch only. Do not merge or wire this into card preparation.**
 
@@ -11,6 +11,13 @@ Source selection and licence evidence:
 [Research: openly licensed English translations of Anabasis and existing alignments](https://github.com/justin-hayes/mouseion/issues/2128).
 
 ## Current status
+
+The comparison is complete and **final live acceptance remains pending**. Start
+with [`findings.md`](findings.md) or open the standalone
+[`evidence.html`](evidence.html): measured outputs, confirmed references and
+uncertainty presentations. `results.json` excludes reviewed sections from
+statistical training; `results-transductive.json` uses all 205 unlabelled sections
+and is explicitly not held out. No prototype is accepted for production.
 
 **The human checkpoint is complete.** [`review-status.json`](review-status.json)
 records Justin's feedback verbatim and its scope. All eight examples and all
@@ -132,7 +139,7 @@ English spans index that **extracted section string**, not raw XML byte offsets.
 Greek offsets follow the actual import reconstruction. JSON documents the fixed
 tokenisation and zero-based half-open codepoint convention.
 
-## Comparison to run only after live review
+## Comparison plan, executed after the human checkpoint
 
 1. Punctuation splitting, length-based allocation and anchors: compare separately
    and as a combined monotonic heuristic; permit many-to-many/partial spans and
@@ -161,8 +168,9 @@ Keep sure, possible and unresolved links separate. Broader-passage presentation
 does not count as an exact sentence success. With eight sentences, show counts
 alongside fractions; do not infer Book 1-wide reliability.
 
-This is a comparison plan, not completed evidence. Final strategy/fallback
-acceptance requires another live exchange after the evidence is available.
+This was the checkpoint's comparison plan. Results, data requirements, licence
+qualifications and concrete failures are now in [`findings.md`](findings.md).
+Final strategy/fallback acceptance still requires another live exchange.
 
 ## Checkpoint validation
 
@@ -170,6 +178,11 @@ acceptance requires another live exchange after the evidence is available.
 - Generated JSON/HTML regeneration is byte-identical: passed.
 - Standalone Chromium check of all eight examples, all three presentation modes,
   emphasis suppression under uncertainty, and 390px mobile overflow: passed.
+- Evidence-demo Chromium check: 432 training-regime/example/method/target
+  combinations, uncertainty actions, no page errors or mobile overflow: passed.
+- Independent token-set metric recount for all nine strategies in both training
+  regimes; gold unchanged from its pre-evaluation commit; input/source hashes:
+  passed. Both comparisons and the evidence demo regenerate byte-identically.
 - `go test ./...`, complete Go lint, explicit Ruff check of the preparation
   script, and `gofmt -d` of the build-ignored probe: passed.
 - Full `make lint` reached/passed Go lint but cannot run Python lint because

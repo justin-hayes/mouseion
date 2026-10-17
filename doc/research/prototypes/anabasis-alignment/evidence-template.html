@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book 1 alignment: measured evidence</title>
+<style>
+:root { color-scheme:light; --ink:#182e3d; --paper:#f6f9fc; --blue:#245d96; --muted:#465c6b; --mark:#d6e8f9; }
+body { max-width:90ch; margin:2rem auto; padding:0 1.2rem 3rem; color:var(--ink); background:var(--paper); font:17px/1.65 Georgia,'Times New Roman',serif; }
+h1 { font-size:1.8rem; line-height:1.2; } h2 { font-size:1.3rem; margin-top:1.8rem; }
+button,select { font:inherit; color:var(--ink); background:white; border:1px solid var(--muted); padding:.3rem .6rem; margin:.25rem .1rem; max-width:100%; }
+label { display:block; margin-top:.8rem; } button[aria-pressed=true] { background:var(--blue); color:white; }
+:focus-visible { outline:3px solid var(--blue); outline-offset:3px; } mark { background:var(--mark); color:var(--ink); }
+.greek { font-size:1.2rem; } .note { color:var(--muted); } blockquote { margin:1rem 0; padding-left:1rem; border-left:3px solid var(--blue); }
+.table { overflow:auto; } table { width:100%; border-collapse:collapse; font-size:.9rem; } th,td { text-align:left; padding:.45rem; border-bottom:1px solid #c1ced9; vertical-align:top; }
+summary { cursor:pointer; } pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:.8rem; }
+</style>
+<h1>Good examples are not yet a reliable aligner</h1>
+<p>Throwaway evidence prototype. Eight sentence spans and 24 target highlights were confirmed by Justin <strong>before evaluation</strong>. Compare automatic outputs with those annotations, then try explicit uncertainty presentations. No production behaviour has changed.</p>
+<label for="regime">Statistical training data</label><select id="regime">
+<option value="held_out">196 section pairs; reviewed sections excluded</option>
+<option value="all_sections">All 205 unlabelled section pairs; not held out</option>
+</select>
+<p id="training" class="note"></p>
+<h2>Measured results on the small reviewed sample</h2>
+<p>Sentence matches require exactly the approved source spans, including punctuation. Word precision/recall count the <strong>41 English-token links</strong> for the 24 selected targets, not every word in these sentences. Missing predictions still count against recall.</p>
+<div class="table"><table><thead><tr><th>Strategy</th><th>Exact sentences</th><th>Word precision</th><th>Word recall</th><th>Complete target highlights</th></tr></thead><tbody id="metrics"></tbody></table></div>
+<p class="note">The splitting-only strategies do not propose bilingual word links. Ugarit covers only one reviewed sentence; its missing coverage is not an observed alignment error. A high precision on two or four predicted links is not calibrated confidence.</p>
+<h2>Inspect a card</h2>
+<label for="sample">Guided example</label><select id="sample"></select>
+<label for="method">Automatic strategy</label><select id="method"></select>
+<label for="target">Word under study</label><select id="target"></select>
+<p class="greek" id="greek" lang="grc"></p>
+<p id="case-status" role="status"></p>
+<h2>Automatic card back / uncertainty experiment</h2>
+<div role="group" aria-label="English presentation">
+<button data-mode="automatic">Raw automatic span and emphasis</button>
+<button data-mode="passage">Wider passage, no emphasis</button>
+<button data-mode="withhold">Withhold English</button>
+</div>
+<p id="presentation-status" role="status"></p><blockquote id="automatic"></blockquote>
+<p class="note">These buttons manually choose the uncertainty presentation. They are <strong>not</strong> a tested uncertainty detector; no threshold has been calibrated.</p>
+<h2>Justin-confirmed reference</h2><blockquote id="reference"></blockquote>
+<details><summary>Full relevant state and failures</summary><pre id="state"></pre></details>
+<h2>Limits and decision still open</h2>
+<p>Purposive, proposal-biased sample; no independent annotation or untouched test set. The statistical comparison is a small from-scratch IBM Model 1 baseline, not fast_align/eflomal itself. The dictionary method matches words from all compatible glosses, not contextual senses. Existing Ugarit links are partial, contributor records with provenance qualifications.</p>
+<p>Question for live review: use these methods only as review suggestions, or investigate further before accepting any unattended replacement? When a sentence span is uncertain, should a card show labelled wider-passage context or withhold English? Uncertain word links can leave a confirmed translation unemphasised.</p>
+<p id="licence" class="note"></p>
+<script>
+const asset = /*EVIDENCE*/null;
+const names = {section_context:'Whole section as sentence (control)',punctuation_order:'Punctuation + sentence order',length:'Punctuation + length allocation',length_names:'Length + proper-name anchors',dictionary:'Length + dictionary anchors',ibm1_forward:'Length + statistical top word',ibm1_mutual:'Length + statistical mutual links',agreement:'Dictionary/statistical agreement',existing_ugarit:'Existing Ugarit contributor links'};
+const state={regime:'held_out',sample:5,method:'dictionary',target:0,mode:'automatic'};
+const $=id=>document.getElementById(id);
+function textElement(tag,text){const e=document.createElement(tag);e.textContent=text;return e}
+function fraction(n,d){return d ? `${n}/${d} (${Math.round(n/d*100)}%)`:'— (no links)'}
+function paint(container,sample,extent,links){
+  container.replaceChildren();
+  for(const piece of extent){
+    const p=document.createElement('p'), chars=Array.from(piece.quote);
+    const marks=links.filter(([ref])=>ref===piece.section).map(([,index])=>sample.english_tokens[piece.section]?.find(t=>t.index===index)).filter(Boolean).map(t=>[t.span[0]-piece.span[0],t.span[1]-piece.span[0]]).filter(([a,b])=>a>=0&&b<=chars.length).sort((a,b)=>a[0]-b[0]);
+    let end=0;for(const [start,stop] of marks){if(start<end)continue;p.append(document.createTextNode(chars.slice(end,start).join('')));p.append(textElement('mark',chars.slice(start,stop).join('')));end=stop}
+    p.append(document.createTextNode(chars.slice(end).join('')));container.append(p);
+  }
+}
+function render(){
+  const data=asset[state.regime],s=asset.gold.samples[state.sample],method=data.methods[state.method],c=method.cases[state.sample],t=c.targets[state.target];
+  $('training').textContent=`${data.training.section_pairs} coarse section pairs; ${data.training.greek_tokens} Greek / ${data.training.english_tokens} English word occurrences; ${data.training.unseen_target_occurrences}/24 selected targets unseen in training. No pretrained weights.`;
+  $('metrics').replaceChildren(...Object.entries(data.methods).map(([name,m])=>{const tr=document.createElement('tr');for(const value of [names[name],`${m.sentence_exact}/8 (${m.sentence_coverage}/8 have a prediction)`,fraction(m.tp,m.tp+m.fp),fraction(m.tp,m.tp+m.fn),`${m.target_exact}/24 (${m.target_coverage}/24 attempted)`])tr.append(textElement('td',value));return tr}));
+  $('target').replaceChildren(...s.gold_word_links.map((link,i)=>{const o=textElement('option',`${link.surface} (${link.oga_lemma})`);o.value=i;return o}));$('target').value=state.target;
+  const g=s.tokens.find(token=>token.source_token_id===t.source_token_id),chars=Array.from(s.greek);
+  $('greek').replaceChildren(document.createTextNode(chars.slice(0,g.span[0]).join('')),textElement('mark',chars.slice(...g.span).join('')),document.createTextNode(chars.slice(g.span[1]).join('')));
+  $('case-status').textContent=`Source sentence ${s.source_sentence_id}: sentence span ${c.sentence_exact?'matches':'does not match'} the reviewed reference. Selected highlight: ${t.tp} correct / ${t.fp} extra / ${t.fn} missing English-token links.`;
+  let extent=c.predicted_spans,links=t.predicted,label='Raw automatic output. Not asserted reliable.';
+  if(state.mode==='passage'){extent=Object.entries(s.english_context).map(([section,quote])=>({section,quote,span:[0,Array.from(quote).length]}));links=[];label='Wider passage translation — not an exact translation of this Greek sentence. No target emphasis.'}
+  if(state.mode==='withhold'){extent=[];links=[];label='No reliable sentence translation. English withheld.'}
+  if(state.mode==='automatic'&&!extent.length)label='This method has no sentence-span prediction for this example.';
+  $('presentation-status').textContent=label;paint($('automatic'),s,extent,links);paint($('reference'),s,s.gold_spans,t.gold);
+  $('state').textContent=JSON.stringify({regime:data.training.regime,strategy:names[state.method],presentation:state.mode,review:s.human_review,selected_target:t,sentence_prediction:c.predicted_spans,sentence_reference:c.gold_spans,confidence:'Not calibrated'},null,2);
+  document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===state.mode)));
+}
+asset.gold.samples.forEach((s,i)=>{const o=textElement('option',`${s.sections.join(' + ')} (source sentence ${s.source_sentence_id})`);o.value=i;$('sample').append(o)});
+Object.entries(names).forEach(([id,name])=>{const o=textElement('option',name);o.value=id;$('method').append(o)});
+$('sample').value=state.sample;$('method').value=state.method;
+$('sample').onchange=e=>{state.sample=Number(e.target.value);state.target=0;state.mode='automatic';render()};
+$('method').onchange=e=>{state.method=e.target.value;render()};$('target').onchange=e=>{state.target=Number(e.target.value);render()};$('regime').onchange=e=>{state.regime=e.target.value;render()};
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;render()});
+$('licence').textContent=asset.gold.licence+' Dictionary gloss evidence: English Wiktionary contributors, extracted by Kaikki/Wiktextract; CC BY-SA 4.0 and GFDL. Ugarit record: Jacob Schwartz, Brownson-attributed English; site-level CC BY-SA 4.0, contributor authority not independently verified.';render();
+</script>
+</html>

@@ -1,8 +1,10 @@
 """THROWAWAY standard-library comparison, not a production aligner.
 
-Usage: python3 compare.py SCRATCH
+Usage: python3 compare.py SCRATCH [--transductive]
 Gold sections are excluded from statistical training. Labels are used only in
 the scoring pass (plus separately labelled oracle-boundary diagnostics).
+The optional transductive diagnostic trains on all 205 UNLABELLED sections,
+including evaluation text, never gold links. It is not a held-out evaluation.
 """
 
 import collections
@@ -21,7 +23,8 @@ gold = json.loads((ROOT / "gold.json").read_text())
 assert gold["is_gold"] and all(s["human_review"]["status"] == "confirmed" for s in gold["samples"])
 sentences, sections = corpus["sentences"], corpus["sections"]
 byid = {s["source_sentence_id"]: s for s in sentences}
-holdout = {ref for s in gold["samples"] for ref in s["sections"]}
+transductive = "--transductive" in sys.argv[2:]
+holdout = set() if transductive else {ref for s in gold["samples"] for ref in s["sections"]}
 STOP = {
     "a", "an", "the", "and", "or", "but", "for", "of", "to", "in", "on", "at", "by", "as", "with", "from",
     "into", "through", "over", "under", "out", "up", "down", "off", "than", "that", "this", "these", "those",
@@ -368,7 +371,8 @@ asset = {
     "input_pins": corpus["pins"],
     "dictionary_subset_sha256": hashlib.sha256((ROOT / "dictionary-subset.json").read_bytes()).hexdigest(),
     "existing_subset_sha256": hashlib.sha256((ROOT / "existing-ugarit.json").read_bytes()).hexdigest(),
-    "training": {"section_pairs": len(training), "excluded_sections": sorted(holdout, key=ref_order.get),
+    "training": {"regime": "all unlabelled Book 1 sections, including evaluation text; not held out" if transductive else "gold sections excluded",
+                 "section_pairs": len(training), "excluded_sections": sorted(holdout, key=ref_order.get),
                  "greek_tokens": sum(train_g.values()), "english_tokens": sum(train_e.values()),
                  "greek_types": len(train_g), "english_types": len(train_e), "iterations_each_direction": 20,
                  "english_characters_per_greek_printed_letter": ratio,
@@ -379,9 +383,10 @@ asset = {
                          "tuning": "No parameter search or post-result tuning; developer saw reviewed examples. These are cheap baselines, not fast_align/eflomal packages or their published performance."},
     "metrics": "Exact source-relative span sets (punctuation included); micro token links for 24 selected Greek occurrences only. Abstentions retain gold links in recall. No predictions means undefined precision, not 0 or 100%. Target-exact counts require all and only the approved English tokens.",
     "methods": results, "oracle_boundary_diagnostics": oracles,
-    "limitations": "8 purposive, proposal-biased live-confirmed examples, no independent annotator or untouched test set. Development was not blinded. Only 196 coarse section pairs, not clean sentence pairs. Statistical model uses no external training inputs. Lexicon matches union all POS-compatible gloss words, not contextual senses. Ugarit contributes only one gold sentence; partial coverage must not be generalised. No uncertainty threshold is calibrated.",
+    "limitations": "8 purposive, proposal-biased live-confirmed examples, no independent annotator or untouched test set. Development was not blinded. Coarse section pairs, not clean sentence pairs. Statistical model uses no external training inputs. Lexicon matches union all POS-compatible gloss words, not contextual senses. Ugarit contributes only one gold sentence; partial coverage must not be generalised. No uncertainty threshold is calibrated. All-section training is a separately labelled post-initial-run data-availability diagnostic; no scoring/algorithm parameters were tuned.",
 }
-(ROOT / "results.json").write_text(json.dumps(asset, ensure_ascii=False, indent=2) + "\n")
+output = "results-transductive.json" if transductive else "results.json"
+(ROOT / output).write_text(json.dumps(asset, ensure_ascii=False, indent=2) + "\n")
 print(json.dumps({"training": {k: v for k, v in asset["training"].items() if k != "target_support"},
                   "methods": {m: {k: v for k, v in r.items() if k != "cases"} for m, r in results.items()},
                   "oracle_boundary_diagnostics": {m: {k: v for k, v in r.items() if k != "cases"} for m, r in oracles.items()}}, indent=2))
