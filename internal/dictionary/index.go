@@ -40,6 +40,17 @@ type Index struct {
 	// skippedGreekHeadwords counts source headwords whose ancient-greek/1 key
 	// was not admissible and were therefore not indexed.
 	skippedGreekHeadwords int
+
+	// lsjEntries maps each LSJ main entry's ancient-greek/1 key to the source
+	// entries that share it. A key with exactly one entry is an unambiguous
+	// match; a key with none or several is never matched.
+	lsjEntries map[string][]enrichment.AncientGreekLSJEntry
+	// lsjAvailable is true when the index format carries the LSJ table, so an
+	// older index reports no LSJ entry rather than an empty dictionary.
+	lsjAvailable bool
+	// skippedLSJHeadwords counts LSJ source headwords whose ancient-greek/1 key
+	// was not admissible and were therefore not indexed.
+	skippedLSJHeadwords int
 }
 
 type evidenceIdentity struct {
@@ -54,6 +65,7 @@ type evidenceIdentity struct {
 }
 
 var _ enrichment.LexicalProvider = (*Index)(nil)
+var _ enrichment.AncientGreekLSJProvider = (*Index)(nil)
 
 var germanEvidenceStopwords = map[string]bool{"aber": true, "alle": true, "allem": true, "allen": true, "aller": true, "alles": true, "als": true, "also": true, "am": true, "an": true, "and": true, "auf": true, "aus": true, "bei": true, "bin": true, "bis": true, "bist": true, "das": true, "dass": true, "dein": true, "dem": true, "den": true, "der": true, "des": true, "die": true, "dies": true, "diese": true, "dieser": true, "dieses": true, "doch": true, "du": true, "durch": true, "ein": true, "eine": true, "einem": true, "einen": true, "einer": true, "eines": true, "er": true, "es": true, "für": true, "hat": true, "hatte": true, "ich": true, "im": true, "in": true, "ist": true, "mit": true, "nach": true, "nicht": true, "oder": true, "sein": true, "seine": true, "seinem": true, "seinen": true, "seiner": true, "sich": true, "sie": true, "sind": true, "so": true, "und": true, "vom": true, "von": true, "vor": true, "war": true, "waren": true, "was": true, "wie": true, "wird": true, "zu": true, "zum": true, "zur": true}
 
@@ -93,6 +105,9 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 		return nil, fmt.Errorf("%w: schema: %w", ErrInvalidIndex, errors.Join(err, db.Close()))
 	}
 	if err = index.loadGreekEntries(ctx); err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
+	if err = index.loadAncientGreekLSJ(ctx); err != nil {
 		return nil, errors.Join(err, db.Close())
 	}
 	return index, nil

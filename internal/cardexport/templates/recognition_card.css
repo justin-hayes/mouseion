@@ -135,6 +135,60 @@
   line-height: 1.65;
 }
 
+.dictionary-entry-block {
+  max-width: var(--mouseion-width-reading);
+  margin: var(--mouseion-space-5) 0 0;
+  color: var(--mouseion-color-text);
+}
+
+.dictionary-entry-source {
+  margin-bottom: var(--mouseion-space-2);
+  color: var(--mouseion-color-text-muted);
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lsj-headword {
+  font-family: var(--mouseion-font-reading);
+  font-size: 1.1em;
+  text-transform: none;
+}
+
+.lsj-sense {
+  margin-top: var(--mouseion-space-2);
+  line-height: 1.5;
+}
+
+.lsj-level-1 {
+  margin-top: var(--mouseion-space-4);
+}
+
+.lsj-level-2,
+.lsj-level-3,
+.lsj-level-4,
+.lsj-level-5 {
+  margin-left: var(--mouseion-space-4);
+  padding-left: var(--mouseion-space-4);
+  border-left: 2px solid var(--mouseion-color-border);
+}
+
+.lsj-number {
+  color: var(--mouseion-color-accent);
+  font-weight: 600;
+}
+
+.lsj-gloss {
+  color: var(--mouseion-color-text);
+}
+
+.lsj-citation {
+  color: var(--mouseion-color-text-muted);
+  font-size: 0.82em;
+  font-style: italic;
+}
+
 @media (max-width: 40rem) {
   .card {
     padding: var(--mouseion-space-4);

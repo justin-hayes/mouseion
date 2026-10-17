@@ -1,5 +1,7 @@
 package dictionary
 
+import "strings"
+
 // AttributionNotice is retained wherever dictionary-derived data is surfaced.
 const AttributionNotice = "Dictionary data is derived from Wiktionary, extracted by Wiktextract and published by Kaikki.org. It is licensed under CC BY-SA 4.0 / GFDL; derived data remains share-alike."
 
@@ -12,3 +14,17 @@ const AncientGreekSourceNotice = "Ancient Greek text and annotation: OGA v0.2.0 
 // exported. It names the translation, its Perseus digitisation and pin, and its
 // licence. The digest is the reviewed SHA-256 of the operator-supplied file.
 const BrownsonSourceNotice = "Passage context: Xenophon, Anabasis, translated by Carleton L. Brownson (1921-22), Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0032/tlg006/tlg0032.tlg006.perseus-eng2.xml, SHA-256 f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7). CC BY-SA 4.0; derived data remains share-alike."
+
+// lsjSourceName is the pinned LSJ source without its revision.
+const lsjSourceName = "Ancient Greek dictionary entry: LSJ (Liddell-Scott-Jones, A Greek-English Lexicon) in the PerseusDL/lexica digitisation (CC BY-SA 4.0)"
+
+// AncientGreekLSJNotice is retained wherever a matched LSJ dictionary entry is
+// exported. It names the pinned LSJ revision the entry was derived from, when
+// the deck froze one, and restates the licence.
+func AncientGreekLSJNotice(pin string) string {
+	pin = strings.TrimSpace(pin)
+	if pin == "" {
+		return lsjSourceName + ". Derived data remains share-alike under the same licence."
+	}
+	return lsjSourceName + ", PerseusDL/lexica@" + pin + ". Derived data remains share-alike under the same licence."
+}

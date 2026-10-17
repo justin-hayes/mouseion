@@ -26,8 +26,10 @@ type CandidateProjection struct {
 	TargetLanguage            string
 	RequireContextualGloss    bool
 	// SkipMeaningEvidence marks a projection whose deck is built from source
-	// evidence alone. It resolves no local dictionary entry and freezes no
-	// candidate senses, so a source-evidence deck carries no meaning evidence.
+	// evidence alone. It resolves no Wiktionary local dictionary entry and
+	// freezes no candidate senses, so a source-evidence deck carries no
+	// Wiktionary meaning evidence. An Ancient Greek projection still freezes its
+	// matched LSJ entry, which is the Greek meaning evidence (ADR 0101).
 	SkipMeaningEvidence bool
 	// ReferenceTranslations maps a cited section to its imported English
 	// translation, and ReferencePin is the pin it was imported from. They are
@@ -218,6 +220,7 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, orde
 		applyPassageContext(&entry, projection)
 		if projection.SkipMeaningEvidence {
 			clearDictionaryFacts(&entry)
+			resolveAncientGreekLSJ(ctx, lexical, &entry)
 			entries = append(entries, entry)
 			continue
 		}

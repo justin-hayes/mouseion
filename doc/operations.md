@@ -190,6 +190,22 @@ Ancient Greek entries are stored one row per source entry with no normalization
 key; the server derives their keys when it opens the index, and an index older
 than the Ancient Greek format reports `grc` as unavailable.
 
+Greek cards use the Perseus LSJ dictionary entry, not Wiktionary. To derive it,
+point `DICTIONARY_LSJ_DIR` at the pinned `PerseusDL/lexica`
+`CTS_XML_TEI/perseus/pdllex/grc/lsj` directory:
+
+```sh
+make dictionary-index \
+  KAIKKI_INPUT=/path/to/raw-wiktextract-data.jsonl.gz \
+  DICTIONARY_DUMP_DATE=YYYY-MM-DD \
+  DICTIONARY_LSJ_DIR=/path/to/perseus/lexica/grc/lsj
+```
+
+The derivation preserves each LSJ entry's native id and sense hierarchy, keeps
+only Xenophon citations, and records the revision pin (`DICTIONARY_LSJ_PIN`,
+default commit `56061ca…`) in the index metadata. The real LSJ files never enter
+the repository or CI; both use synthetic fixtures.
+
 The command writes `dictionary/dictionary-index.sqlite` atomically with mode
 `0644`. The web container runs as an unprivileged user, so the artifact must be
 world-readable; an index built before this was fixed needs a one-time
@@ -265,12 +281,13 @@ These commands run against `MOUSEION_DATABASE_URL`.
   report of section and byte counts, never any English text. The pinned file
   never enters the repository or CI.
 - `go run ./cmd/greekhitrate` — reports how many of the installation's Ancient
-  Greek vocabulary identities have at least one Wiktionary dictionary entry, so
-  the operator can judge how much meaning evidence cards will carry. It needs
-  both `MOUSEION_DATABASE_URL` and `MOUSEION_DICTIONARY_INDEX`, prints counts
-  only (overall and per part of speech) and never any Greek text, and fails
-  with a clear message when the index is older than the Ancient Greek format
-  and must be rebuilt with `make dictionary-index`.
+  Greek vocabulary identities resolve an unambiguous LSJ dictionary entry (the
+  entry a Greek card shows) alongside the Wiktionary hit rate, so the operator
+  can judge how much meaning evidence cards will carry. It needs both
+  `MOUSEION_DATABASE_URL` and `MOUSEION_DICTIONARY_INDEX`, prints counts only
+  (overall and per part of speech) and never any Greek text, and fails with a
+  clear message when the index is older than the Ancient Greek or LSJ format and
+  must be rebuilt with `make dictionary-index`.
 
 Dated one-time cutover records are kept in
 [`archive/operations/`](archive/operations/).

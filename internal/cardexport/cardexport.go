@@ -38,18 +38,24 @@ type Entry struct {
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
 	Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion                     string
 	PassageContext, PassageCitation, BrownsonPin                                      string
-	OmittedEvidenceCount                                                              int
-	Morphology, SourceDocument, Notes                                                 string
-	CandidateSenses                                                                   []enrichment.LexicalSense
-	SentenceTokens                                                                    []analyzer.Token
-	SentenceStartOffset                                                               uint64
-	FirstEncounter                                                                    int64
-	fallbackGlossApplied                                                              bool
+	// DictionaryEntry is the rendered hierarchical dictionary-entry display for
+	// the matched source entry (currently the LSJ entry), DictionaryEntryID is
+	// that source's native entry identity, and DictionaryPin is the pinned
+	// revision it was derived from. All three are frozen on the deck item.
+	DictionaryEntry, DictionaryEntryID, DictionaryPin string
+	OmittedEvidenceCount                              int
+	Morphology, SourceDocument, Notes                 string
+	CandidateSenses                                   []enrichment.LexicalSense
+	SentenceTokens                                    []analyzer.Token
+	SentenceStartOffset                               uint64
+	FirstEncounter                                    int64
+	fallbackGlossApplied                              bool
 }
 
 type Note struct {
 	Key, Identity, Text, Article, Lemma, Plural, IPA, PrincipalParts, POS, Gloss, English, EnglishSentence, BookTitle string
 	PassageLabel, PassageText                                                                                         string
+	DictionaryEntry                                                                                                   string
 	BackExtra                                                                                                         string
 	Tags                                                                                                              []string
 }
@@ -1126,7 +1132,10 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		IPA:            escapeField(strings.TrimSpace(input.IPA)),
 		PrincipalParts: escapeField(strings.TrimSpace(input.PrincipalParts)),
 		Gloss:          escapeField(input.Gloss), English: escapeField(input.Translation),
-		EnglishSentence: HighlightEnglishTargets(input.SentenceTranslation, input.SentenceTranslationTargets, input.SentenceTranslationTarget), BookTitle: escapeField(input.SourceDocument), Tags: tags,
+		EnglishSentence: HighlightEnglishTargets(input.SentenceTranslation, input.SentenceTranslationTargets, input.SentenceTranslationTarget), BookTitle: escapeField(input.SourceDocument),
+		// DictionaryEntry is Mouseion-composed HTML whose text pieces are already
+		// escaped, so it is embedded as is rather than escaped again.
+		DictionaryEntry: input.DictionaryEntry, Tags: tags,
 	}
 	if strings.TrimSpace(input.PassageContext) != "" && strings.TrimSpace(input.PassageCitation) != "" {
 		note.PassageLabel = escapeField(passageContextLabel(input.PassageCitation))
@@ -1201,12 +1210,12 @@ func RenderTSV(notes []Note, attribution string) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText, n.DictionaryEntry}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText"}
+var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
@@ -1255,6 +1264,9 @@ func clearDictionaryFacts(entry *Entry) {
 	entry.DictionaryProviderVersion = ""
 	entry.OmittedEvidenceCount = 0
 	entry.CandidateSenses = nil
+	entry.DictionaryEntry = ""
+	entry.DictionaryEntryID = ""
+	entry.DictionaryPin = ""
 }
 
 func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
@@ -1702,13 +1714,17 @@ func deckDescription(entries []RenderInput) string {
 }
 
 // attributionNotices returns every attribution and licence notice the entries
-// require: Wiktionary whenever dictionary evidence was used, and the imported
-// Ancient Greek source notices whenever the deck is Ancient Greek. A deck that
-// froze a Brownson passage also names that translation and its pin.
+// require: Wiktionary whenever dictionary evidence was used, the LSJ/Perseus
+// notice whenever a matched LSJ entry was frozen, the imported Ancient Greek
+// source notices whenever the deck is Ancient Greek, and the Brownson notice
+// whenever a passage was frozen.
 func attributionNotices(entries []RenderInput) string {
 	var notices []string
 	if dictionaryAttribution(entries) != "" {
 		notices = append(notices, dictionary.AttributionNotice)
+	}
+	if pin, ok := ancientGreekLSJPin(entries); ok {
+		notices = append(notices, dictionary.AncientGreekLSJNotice(pin))
 	}
 	if deckIsAncientGreek(entries) {
 		notices = append(notices, dictionary.AncientGreekSourceNotice)
@@ -1727,6 +1743,17 @@ func deckHasBrownsonPassage(entries []RenderInput) bool {
 		}
 	}
 	return false
+}
+
+// ancientGreekLSJPin reports the pinned LSJ revision named by any entry that
+// carries a matched LSJ dictionary entry.
+func ancientGreekLSJPin(entries []RenderInput) (string, bool) {
+	for _, entry := range entries {
+		if strings.TrimSpace(entry.DictionaryEntryID) != "" {
+			return strings.TrimSpace(entry.DictionaryPin), true
+		}
+	}
+	return "", false
 }
 
 func dictionaryAttribution(entries []RenderInput) string {

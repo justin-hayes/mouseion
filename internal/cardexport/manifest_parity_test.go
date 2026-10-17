@@ -22,7 +22,20 @@ func TestManifestSnapshotRetainsHistoricalDigestAndRenderParity(t *testing.T) {
 	snapshot := bound.Snapshot()
 	digest, err := snapshot.Digest()
 	require.NoError(t, err)
-	assert.Equal(t, "6740c332e8166497cb2edb3965ad7b6d668d6ad567b1088cd892226133f90a9a", digest)
+	assert.Equal(t, "5bc3277c895ce3491ae737750b29c86c0baa26ce3629d83fd0afd6e0e2d655c2", digest)
+
+	historicalV10 := snapshot
+	historicalV10.SchemaVersion = ManifestSchemaVersionV10
+	v10Digest, err := historicalV10.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, "6740c332e8166497cb2edb3965ad7b6d668d6ad567b1088cd892226133f90a9a", v10Digest, "the v10 digest stays stable")
+
+	historicalV9 := snapshot
+	historicalV9.SchemaVersion = ManifestSchemaVersionV9
+	v9Digest, err := historicalV9.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, "44c23bc1f640e6389c0cf995190a1bb46f09b22acc6f6c2a34d3c6a949153d80", v9Digest, "the v9 digest stays stable")
+	assert.NotEqual(t, v9Digest, digest, "v11 adds the frozen dictionary-entry fields")
 
 	rebuilt, err := manifestFromSnapshot(snapshot)
 	require.NoError(t, err)

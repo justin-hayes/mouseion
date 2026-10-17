@@ -478,6 +478,8 @@ type DeckPreparationManifestItem struct {
 	PassageContext       string
 	PassageCitation      string
 	BrownsonPin          string
+	LsjEntryID           string
+	LsjPin               string
 }
 
 type DeckPreparationRun struct {

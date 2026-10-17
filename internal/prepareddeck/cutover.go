@@ -394,8 +394,9 @@ func sourceEvidenceDeck(projections []cardexport.CandidateProjection) bool {
 }
 
 // planSourceEvidenceRun freezes a providerless deck: no candidate carries a
-// provider, cache identity, contextual Gloss or local meaning evidence, so the
-// durable run has no provider work and advances straight to finalization.
+// provider, cache identity, contextual Gloss or Wiktionary meaning evidence, so
+// the durable run has no provider work and advances straight to finalization. An
+// Ancient Greek candidate still freezes its matched LSJ dictionary entry.
 func (p *BatchPlanner) planSourceEvidenceRun(ctx context.Context, preparation domain.DeckPreparation, deckName string, projections []cardexport.CandidateProjection, mode domain.PreparedDeckExecutionMode) (persistence.FreezePreparedDeckRunParams, error) {
 	for i := range projections {
 		projections[i].Provider = ""

@@ -762,3 +762,98 @@ def test_ancient_greek_entries_keep_source_entries_separate(tmp_path: Path):
     assert json.loads(greek[2][3])[0]["Gloss"] == "human being"
     assert json.loads(greek[0][4]) == ["δῶ"]
     assert json.loads(greek[1][4]) == ["δεήσω"]
+
+
+SYNTHETIC_LSJ = """<?xml version="1.0" encoding="UTF-8"?>
+<TEI.2>
+<text><body>
+<entryFree id="n1" key="lo/gos" type="main">
+  <orth>lo/gos</orth>
+  <sense id="n1.0" n="A" level="1"><tr>word</tr>, <cit><quote>e)n a)rxh=|</quote>
+    <bibl n="urn:cts:greekLit:tlg0032.tlg006.perseus-grc1:1:1:1" default="NO">
+      <author>X.</author><title>An.</title><biblScope>1.1.1</biblScope></bibl></cit>
+    <sense id="n1.0.1" n="2" level="3"><tr>account</tr></sense></sense>
+  <sense id="n1.1" n="B" level="1"><tr>speech</tr>, <cit><quote>y</quote>
+    <bibl n="urn:cts:greekLit:tlg0012.tlg001.perseus-grc1:1:1" default="NO">
+      <author>Il.</author><biblScope>1.1</biblScope></bibl></cit></sense>
+</entryFree>
+<entryFree id="n2" key="de/w" type="main"><sense id="n2.0" n="A" level="1"><tr>bind</tr></sense></entryFree>
+<entryFree id="n3" key="de/w1" type="main"><sense id="n3.0" n="A" level="1"><tr>lack</tr></sense></entryFree>
+</body></text>
+</TEI.2>
+"""
+
+
+def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        json.dumps(
+            {"word": "Haus", "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["house"]}]}
+        ),
+        encoding="utf-8",
+    )
+    lsj_dir = tmp_path / "lsj"
+    lsj_dir.mkdir()
+    (lsj_dir / "grc.lsj.perseus-eng1.xml").write_text(SYNTHETIC_LSJ, encoding="utf-8")
+    output = tmp_path / "dictionary.sqlite"
+
+    module.derive(
+        source, output, "fixture-v1", lsj=module.LsjSource(directory=lsj_dir, pin="pin123")
+    )
+
+    connection = sqlite3.connect(output)
+    assert connection.execute(
+        "SELECT value FROM metadata WHERE key = 'index_format'"
+    ).fetchone() == ("4",)
+    assert connection.execute("SELECT value FROM metadata WHERE key = 'lsj_pin'").fetchone() == (
+        "pin123",
+    )
+    rows = connection.execute(
+        "SELECT entry_id, headword, senses_json FROM lsj_entries ORDER BY entry_id"
+    ).fetchall()
+    connection.close()
+
+    # Native entry ids are preserved and the homographs keep separate rows under
+    # the same NFC headword (their trailing Beta Code digit is dropped).
+    assert [(row[0], row[1]) for row in rows] == [
+        ("n1", "λόγοσ"),
+        ("n2", "δέω"),
+        ("n3", "δέω"),
+    ]
+
+    senses = json.loads(rows[0][2])
+    assert [sense["id"] for sense in senses] == ["n1.0", "n1.1"]
+    assert senses[0]["n"] == "A"
+    assert senses[0]["glosses"] == ["word"]
+    # Only the Xenophon citation is kept; the Homer one is dropped.
+    assert senses[0]["citations"] == ["X. An. 1.1.1"]
+    assert senses[1]["citations"] == []
+    # The nested sense keeps its native id, level and gloss.
+    assert senses[0]["senses"][0]["id"] == "n1.0.1"
+    assert senses[0]["senses"][0]["level"] == 3
+    assert senses[0]["senses"][0]["glosses"] == ["account"]
+
+
+def test_without_lsj_dir_the_index_stays_at_the_french_format(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        json.dumps(
+            {"word": "Haus", "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["house"]}]}
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute(
+        "SELECT value FROM metadata WHERE key = 'index_format'"
+    ).fetchone() == ("3",)
+    assert connection.execute("SELECT count(*) FROM lsj_entries").fetchone() == (0,)
+    assert connection.execute("SELECT count(*) FROM metadata WHERE key = 'lsj_pin'").fetchone() == (
+        0,
+    )
+    connection.close()

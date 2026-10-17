@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -121,11 +122,32 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	assert.Contains(t, sentences, "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ δέω βραδέως;", "a lowercase Greek sentence ending in ';' is accepted")
 	assert.Contains(t, sentences, "ἀνὴρ ἀκούει τὸν λόγον μέγαν καὶ δέω νῦν·", "a lowercase Greek sentence ending in '·' is accepted")
 
-	// The frozen deck carries no Wiktionary meaning evidence.
+	// The frozen deck carries no Wiktionary meaning evidence, but each matched
+	// identity freezes its LSJ entry: λόγος resolves one entry, while the two
+	// δέω homographs are ambiguous and freeze no entry rather than borrowing one.
+	byIdentity := make(map[string]greekDeckManifestItem, len(items))
 	for _, item := range items {
-		assert.Empty(t, item.gloss, "a Greek deck resolves no local dictionary gloss")
-		assert.Zero(t, item.senses)
+		byIdentity[item.lemma+"|"+item.discriminator] = item
 	}
+	lsjEntryID := make(map[string]string, len(byIdentity))
+	lsjPin := make(map[string]string, len(byIdentity))
+	gloss := make(map[string]string, len(byIdentity))
+	senses := make(map[string]int, len(byIdentity))
+	for identity, item := range byIdentity {
+		lsjEntryID[identity], lsjPin[identity] = item.lsjEntryID, item.lsjPin
+		gloss[identity], senses[identity] = item.gloss, item.senses
+	}
+	assert.Equal(t, map[string]string{"δέω|morpheus:1": "", "δέω|morpheus:2": "", "λόγοσ|": "lsj-logos"}, lsjEntryID, "only the unambiguous identity freezes an LSJ entry")
+	assert.Equal(t, map[string]string{"δέω|morpheus:1": "", "δέω|morpheus:2": "", "λόγοσ|": greekDeckLSJPin}, lsjPin, "the matched identity freezes the LSJ pin")
+	assert.Equal(t, map[string]string{"δέω|morpheus:1": "", "δέω|morpheus:2": "", "λόγοσ|": ""}, gloss, "a Greek deck resolves no local Wiktionary gloss")
+	assert.Equal(t, map[string]int{"δέω|morpheus:1": 0, "δέω|morpheus:2": 0, "λόγοσ|": 0}, senses, "a Greek deck freezes no Wiktionary candidate senses")
+
+	logos := byIdentity["λόγοσ|"].dictionaryEntry
+	assert.Contains(t, logos, `<span class="lsj-gloss">word</span>`)
+	assert.Contains(t, logos, `<span class="lsj-gloss">account</span>`)
+	assert.Less(t, strings.Index(logos, "word"), strings.Index(logos, "account"), "senses keep source order")
+	assert.Contains(t, logos, `<span class="lsj-citation">X. An. 1.1.1</span>`)
+	assert.Empty(t, byIdentity["δέω|morpheus:1"].dictionaryEntry, "an ambiguous homograph freezes no LSJ entry")
 
 	// Generated and deck-preparation vocabulary carry the discriminated
 	// identities and the frozen headword.
@@ -137,12 +159,24 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	prepared := queryRows(t, ctx, pool, `SELECT canonical_lemma, upos, lexical_discriminator, headword FROM deck_preparation_vocabulary WHERE owner_id=$1 ORDER BY canonical_lemma, lexical_discriminator`, learner.ID)
 	assert.Equal(t, generated, prepared)
 
-	// The exported APKG carries the OGA, Perseus/canonical-greekLit and oga_src
-	// notices, and no Wiktionary notice because no meaning evidence was used.
-	for _, notice := range []string{"OGA", "Perseus/canonical-greekLit", "oga_src"} {
+	// The exported APKG carries the OGA, Perseus/canonical-greekLit, oga_src and
+	// LSJ notices, and no Wiktionary notice because no meaning evidence was used.
+	for _, notice := range []string{"OGA", "Perseus/canonical-greekLit", "oga_src", "LSJ", "PerseusDL/lexica@" + greekDeckLSJPin} {
 		assert.True(t, bytes.Contains(preparation.Artifact, []byte(notice)), "exported deck is missing notice %q", notice)
 	}
 	assert.False(t, bytes.Contains(preparation.Artifact, []byte("Wiktionary")), "a providerless Greek deck carries no Wiktionary meaning evidence")
+
+	// Re-deriving the dictionary index does not change an already-prepared deck:
+	// the frozen projection re-renders byte-identically without consulting any
+	// index, because the LSJ entry id, pin and rendered entry are frozen.
+	projection, digest, err := store.LoadPreparedDeckStorageProjection(ctx, learner.ID, preparation.ID, preparation.CurrentRunID)
+	require.NoError(t, err)
+	require.NotEmpty(t, digest)
+	restored, err := cardexport.NewPresentation(nil).Restore(projection)
+	require.NoError(t, err)
+	rerendered, _, err := cardexport.NewPresentation(nil).Finalize(ctx, restored, nil, cardexport.RunFacts{})
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(preparation.Artifact, rerendered.APKG), "a prepared deck re-renders unchanged without the index")
 
 	// Card preparation never writes Known.
 	var known int
@@ -229,9 +263,13 @@ func (p *greekDeckRecordingProvider) Translate(context.Context, enrichment.Trans
 }
 
 // greekDeckLexicon is the fake local dictionary index. A providerless Greek deck
-// must not consult it, so any resolved evidence would show up as a Wiktionary
-// notice in the export.
+// must not consult it for Wiktionary meaning evidence, so any resolved meaning
+// would show up as a Wiktionary notice in the export. It answers the LSJ
+// capability with exactly-one-entry-per-headword semantics: λόγος has a single
+// entry, while the two δέω entries make that headword ambiguous.
 type greekDeckLexicon struct{}
+
+const greekDeckLSJPin = "56061ca127f4a2844980baffc5f2b6d1332897b3"
 
 func (greekDeckLexicon) Name() string    { return "greek-deck-dictionary" }
 func (greekDeckLexicon) Version() string { return "kaikki-grc-test" }
@@ -246,6 +284,27 @@ func (greekDeckLexicon) Lookup(_ context.Context, request enrichment.LexicalLook
 		}
 	}
 	return enrichment.LexicalEntry{Senses: senses, CandidateSenses: senses}, true, nil
+}
+
+func (greekDeckLexicon) LookupAncientGreekLSJ(_ context.Context, lemma string) (enrichment.AncientGreekLSJEntry, bool) {
+	entries := map[string][]enrichment.AncientGreekLSJEntry{
+		"λόγοσ": {{
+			EntryID: "lsj-logos", Headword: "λόγοσ", Pin: greekDeckLSJPin,
+			Senses: []enrichment.AncientGreekLSJSense{
+				{ID: "lsj-logos.0", Number: "A", Level: 1, Glosses: []string{"word", "speech"}, Citations: []string{"X. An. 1.1.1"},
+					Senses: []enrichment.AncientGreekLSJSense{{ID: "lsj-logos.0.1", Number: "2", Level: 2, Glosses: []string{"account"}}}},
+			},
+		}},
+		"δέω": {
+			{EntryID: "lsj-deo-bind", Headword: "δέω", Pin: greekDeckLSJPin, Senses: []enrichment.AncientGreekLSJSense{{ID: "lsj-deo-bind.0", Number: "A", Level: 1, Glosses: []string{"bind"}}}},
+			{EntryID: "lsj-deo-lack", Headword: "δέω", Pin: greekDeckLSJPin, Senses: []enrichment.AncientGreekLSJSense{{ID: "lsj-deo-lack.0", Number: "A", Level: 1, Glosses: []string{"lack"}}}},
+		},
+	}
+	candidates := entries[lemma]
+	if len(candidates) != 1 {
+		return enrichment.AncientGreekLSJEntry{}, false
+	}
+	return candidates[0], true
 }
 
 // startGreekDeckWorkers wires the full durable prepared-deck pipeline with no
@@ -324,24 +383,26 @@ type greekDeckManifestItem struct {
 	lemma, upos, discriminator, headword, sentence string
 	gloss                                          string
 	senses                                         int
+	lsjEntryID, lsjPin, dictionaryEntry            string
 }
 
 func queryGreekManifestItems(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ownerID string) []greekDeckManifestItem {
 	t.Helper()
-	rows, err := pool.Query(ctx, `SELECT canonical_lemma, upos, lexical_discriminator, headword, source_sentence, render_payload FROM deck_preparation_manifest_items WHERE owner_id=$1 ORDER BY ordinal`, ownerID)
+	rows, err := pool.Query(ctx, `SELECT canonical_lemma, upos, lexical_discriminator, headword, source_sentence, render_payload, lsj_entry_id, lsj_pin FROM deck_preparation_manifest_items WHERE owner_id=$1 ORDER BY ordinal`, ownerID)
 	require.NoError(t, err)
 	defer rows.Close()
 	var items []greekDeckManifestItem
 	for rows.Next() {
 		var item greekDeckManifestItem
 		var payload []byte
-		require.NoError(t, rows.Scan(&item.lemma, &item.upos, &item.discriminator, &item.headword, &item.sentence, &payload))
+		require.NoError(t, rows.Scan(&item.lemma, &item.upos, &item.discriminator, &item.headword, &item.sentence, &payload, &item.lsjEntryID, &item.lsjPin))
 		var decoded struct {
 			Gloss           string            `json:"gloss"`
+			DictionaryEntry string            `json:"dictionary_entry"`
 			CandidateSenses []json.RawMessage `json:"candidate_senses"`
 		}
 		require.NoError(t, json.Unmarshal(payload, &decoded))
-		item.gloss, item.senses = decoded.Gloss, len(decoded.CandidateSenses)
+		item.gloss, item.senses, item.dictionaryEntry = decoded.Gloss, len(decoded.CandidateSenses), decoded.DictionaryEntry
 		items = append(items, item)
 	}
 	require.NoError(t, rows.Err())
