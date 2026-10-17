@@ -1,14 +1,21 @@
 {
   "schema": "anabasis-word-sense-live-review/1",
-  "status": "live_human_sense_review_in_progress",
+  "status": "live_human_sense_review_complete",
   "reviewer": "Justin Hayes",
-  "confirmed_sense_pairs": 36,
-  "confirmed_target_occurrences": 18,
+  "confirmed_sense_pairs": 48,
+  "confirmed_target_occurrences": 24,
   "events": [
     {
       "date": "2026-10-17",
       "checkpoint_commit": "03207830",
-      "target_ids": ["1:4", "1:5", "1:8", "3:4", "3:5", "3:6"],
+      "target_ids": [
+        "1:4",
+        "1:5",
+        "1:8",
+        "3:4",
+        "3:5",
+        "3:6"
+      ],
       "assistant_prompt_verbatim": "The [prototype is ready](https://github.com/justin-hayes/mouseion/tree/03207830/doc/research/prototypes/anabasis-word-sense), with predictions frozen but **not scored**.\n\n### First sense-review batch\n\nFrom the opening:\n> Darius and Parysatis had two sons born to them, of whom the elder was Artaxerxes and the younger Cyrus.\n\nAnd:\n> The elder, as it chanced, was with him already.\n\nPlease confirm or correct these specific dictionary-sense distinctions:\n\n| Greek target | Proposed contextual sense |\n|---|---|\n| **γίγνονται** | **be born**, rather than generic becoming/happening |\n| **παῖδες** | **children/offspring**, here sons—not slaves or servants |\n| **παρὼν** | **be present/by him**, not the separate “pass by” homograph |\n| **ἐτύγχανε** | **happen to be**, with the participle—not attain something or hit a target |\n\n**One additional judgment:** both occurrences of **πρεσβύτερος** mean **older**, not necessarily elderly. LSJ explicitly documents that comparative use. Kaikki’s adjective sense only says **“elderly, aged.”**\n\nShould we count that Kaikki sense as supporting **older when combined with comparative morphology**, or mark it **insufficient for this context**?",
       "human_response_verbatim": "Looks good. Yes, in context the word means the \"older\" son, not old. I think that's clear from Kaikki's sense plus morphology",
       "scope": "Confirms the first six occurrence sense proposals in the linked checkpoint; explicitly accepts Kaikki adjective evidence plus comparative morphology for older in both occurrences. Does not approve verbatim elderly/aged as the contextual cue, other sample labels, an automatic strategy, or production changes.",
@@ -18,7 +25,14 @@
       "date": "2026-10-17",
       "checkpoint_commit": "2a348a5a",
       "proposal_asset": "review-batch-2.json",
-      "target_ids": ["15:7", "15:3", "15:20", "177:26", "177:20", "177:34"],
+      "target_ids": [
+        "15:7",
+        "15:3",
+        "15:20",
+        "177:26",
+        "177:20",
+        "177:34"
+      ],
       "assistant_prompt_verbatim": "Recorded: **6/24 occurrences reviewed**, including “older” supported by Kaikki plus morphology.\n\n### Next six\n\nContexts: Cyrus orders recruitment for his garrisons, alleging hostile designs by Tissaphernes; later, speakers discuss staying or leaving without Cyrus’s consent.\n\n| Target | Proposed contextual sense |\n|---|---|\n| **παρήγγειλε** | **give orders**—not merely transmit a message, recommend or summon |\n| **φυλακὰς** | **garrisons/guards**—not custody or a night watch |\n| **ἐπιβουλεύοντος** | **plot against / have hostile designs upon** the cities—not “be plotted against” |\n| **ἀπορία** | **practical difficulty/impossibility**—not physical impassability, poverty or a philosophical puzzle |\n| **ἐγκέλευστοι** | **prompted/urged on** by Clearchus; LSJ explicitly cites this passage |\n| **ἀπιέναι** | **depart/go away**, used absolutely—not “depart from life” |\n\nFor the retained inputs, LSJ retrieved no **φυλακή** candidate, and Kaikki none for **ἐγκέλευστος**. Those remain lookup abstentions, not invented mappings.\n\n**Do these six sense distinctions look right?**",
       "human_response_verbatim": "Looks good",
       "scope": "Confirms the second six occurrence sense proposals and the explicitly described lookup abstentions. Does not establish lexicographical absence, approve remaining labels, accept a strategy, or change production behaviour.",
@@ -28,10 +42,34 @@
       "date": "2026-10-17",
       "checkpoint_commit": "21d5c2ce",
       "proposal_asset": "review-batch-3.json",
-      "target_ids": ["238:3", "238:5", "238:8", "103:22", "103:29", "103:40"],
+      "target_ids": [
+        "238:3",
+        "238:5",
+        "238:8",
+        "103:22",
+        "103:29",
+        "103:40"
+      ],
       "assistant_prompt_verbatim": "**12/24 occurrences confirmed.** Next six:\n\n> “for I have men-of-war with which I can overtake their craft.”\n\nThen the soldiers’ charge frightens the barbarians; the queen flees, and market traders abandon their wares.\n\n| Target | Proposed contextual sense |\n|---|---|\n| **τριήρεις** | **triremes/warships**, not ship-shaped drinking vessels |\n| **ἑλεῖν** | **catch/capture the vessel**, here translated “overtake”—not choose, understand or convict |\n| **πλοῖον** | **ship/vessel**, the meaning of “craft” here |\n| **φόβος** | **fear/fright**, not the separate sense “flight/retreat” |\n| **ἔφυγεν** | **flee/take flight**, not exile or prosecution |\n| **ὤνια** | **wares/goods for sale**, not “venal/corrupt” |\n\nTwo dictionary-evidence judgments need your approval:\n\n- **ἑλεῖν:** LSJ explicitly supports “overtake.” I propose counting Kaikki’s **“take, grasp, seize”** as supporting catching/capturing this vessel, without claiming it explicitly says “overtake.”\n- **ὤνια:** I propose accepting Kaikki’s adjective **“for sale”** as evidence for **“goods for sale”** through nominal use. OGA labels this occurrence a noun, so the frozen strict-POS baseline still abstains.\n\n**Do you agree with these six readings and both evidence judgments?**",
       "human_response_verbatim": "Looks good",
       "scope": "Confirms the third six contextual readings and both explicit Kaikki evidence judgments: physical take/seize for catching the ship, and nominal adjective for wares. Does not change the frozen POS matcher, approve remaining labels, accept a strategy, or authorize production changes.",
+      "method": "Live confirmation of agent-proposed sense distinctions, not independent annotation or expert certification"
+    },
+    {
+      "date": "2026-10-17",
+      "checkpoint_commit": "d597ba9e",
+      "proposal_asset": "review-batch-4.json",
+      "target_ids": [
+        "428:1",
+        "428:4",
+        "428:8",
+        "536:15",
+        "536:19",
+        "536:24"
+      ],
+      "assistant_prompt_verbatim": "**18/24 occurrences confirmed.** Final six:\n\n> “This trench extended up through the plain …”\n\nAnd generals judged that loyal obedience to Cyrus was worth more than their monthly pay.\n\n| Target | Proposed contextual sense |\n|---|---|\n| **παρετέτατο** | **extended/stretched along**, spatially—not torture, delay or prolonging life |\n| **τάφρος** | **trench/ditch** |\n| **πεδίου** | **plain/open country**, not anatomical senses |\n| **κερδαλεώτερον** | **more profitable/advantageous**, not crafty or cunning |\n| **πειθαρχεῖν** | **obey someone in authority**, here Cyrus |\n| **κέρδος** | **earnings/gain**, here monthly pay—not greed or cunning |\n\nKaikki retrieved no candidates for **κερδαλεώτερον** or **πειθαρχεῖν**; those remain lookup abstentions.\n\nOne evidence judgment: I propose counting Kaikki’s **“gain, profit”** plus the monthly context as supporting **pay**, without claiming the dictionary explicitly says “salary.”\n\n**Do these six readings and that evidence judgment look right?**",
+      "human_response_verbatim": "Yes",
+      "scope": "Confirms the final six contextual readings, the two stated Kaikki lookup abstentions, and the Kaikki gain/profit plus monthly-context evidence judgment for pay. Does not establish lexicographical absence, accept a strategy, or authorize production changes.",
       "method": "Live confirmation of agent-proposed sense distinctions, not independent annotation or expert certification"
     }
   ],
@@ -49,6 +87,6 @@
     "The separate alignment checkpoint was confirmed previously, not in this sense review.",
     "Justin's instruction to continue after research completion is not sense annotation or acceptance of a strategy.",
     "review-proposals.json preserves the originally unreviewed first-batch proposals; review-confirmed.json records the actual partial confirmation.",
-    "Do not create sense-gold.json or score chosen-sense accuracy before all required labels have actual live confirmation."
+    "All 48 labels were live-confirmed; sense-gold.json freezes them before the first evaluate.py run. Confirmation is not acceptance of a lexicon or strategy."
   ]
 }

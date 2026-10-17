@@ -1,47 +1,506 @@
 {
   "schema": "anabasis-word-sense-partial-reference/1",
-  "status": "partially_human_confirmed_not_ready_for_scoring",
+  "status": "human_confirmed_complete",
   "reviewer": "Justin Hayes",
   "review_ledger": "review-status.json",
   "initial_review_checkpoint": "03207830",
   "initial_review_inputs_sha256": "f69e750eefd26be663379e46443c5ae6b03bf5659a7eeef046c59109beaa3763",
   "current_inputs_sha256": "3720debd3340c711599787f8fb8143ae1ca19f401fb3aa5edaeea552761d78d4",
   "labels": [
-    {"target_id": "1:4", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-902:sense-1:path-2"], "meaning": "be born", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "1:4", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n22209.2"], "meaning": "be born", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "1:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-87:sense-1:path-1"], "meaning": "children/offspring, here sons", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "1:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n76703.1"], "meaning": "children/offspring, here sons", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "1:8", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-6531:sense-1:path-1"], "meaning": "older son, supported by adjective sense plus comparative morphology; not old/elderly as the contextual cue", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "1:8", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n86305.0"], "meaning": "older son", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "3:4", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-6531:sense-1:path-1"], "meaning": "older son, supported by adjective sense plus comparative morphology; not old/elderly as the contextual cue", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "3:4", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n86305.0"], "meaning": "older son", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "3:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8800:sense-1:path-1", "kaikki:grc-row-8800:sense-2:path-2"], "meaning": "be present/by him, not pass by", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "3:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n79223.0", "lsj:n79223.1"], "meaning": "be present/by him, not pass by", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "3:6", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-60:sense-2:path-2"], "meaning": "happen to be, with the participle", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "3:6", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n105829.9"], "meaning": "happen to be, with the participle", "status": "human_confirmed", "ledger_event": 0},
-    {"target_id": "15:7", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-3837:sense-2:path-1", "kaikki:grc-row-3837:sense-3:path-1"], "meaning": "give orders, without selecting narrower recommend/exhort or summon children", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "15:7", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n77837.1"], "meaning": "give orders, give the word of command", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "15:3", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4499:sense-3:path-1"], "meaning": "guards/garrisons", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "15:3", "lexicon": "lsj", "acceptable_sense_ids": [], "meaning": "garrisons; no candidate retrieved in this bounded LSJ extraction", "evidence_status": "no_retrieved_candidate_not_lexicographical_absence", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "15:20", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-18181:sense-1:path-1"], "meaning": "plot against / have hostile designs upon the cities", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "15:20", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n38965.0", "lsj:n38965.1"], "meaning": "hostile plot/contrive against, including dative-only construction", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "177:26", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4013:sense-2:path-1"], "meaning": "practical difficulty/impossibility", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "177:26", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n13579.2"], "meaning": "difficulty/straits/impossibility of things", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "177:20", "lexicon": "kaikki", "acceptable_sense_ids": [], "meaning": "prompted/urged on; no Kaikki candidate retrieved", "evidence_status": "no_retrieved_candidate", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "177:20", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n30251.0"], "meaning": "urged on by someone", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "177:34", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8504:sense-3:path-1"], "meaning": "depart/go away, absolute use, not depart from life", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "177:34", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n11970.0", "lsj:n11970.2"], "meaning": "depart/go away, including absolute use; be off! is not proposed card wording", "status": "human_confirmed", "ledger_event": 1},
-    {"target_id": "238:3", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-4924:sense-1:path-1"], "meaning": "triremes/warships, not ship-shaped drinking vessels", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "238:3", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n104949.0"], "meaning": "triremes/warships, not ship-shaped drinking vessels", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "238:5", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8859:sense-1:path-1"], "meaning": "take/grasp/seize supports catching/capturing this vessel, without explicitly glossing overtake", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "238:5", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n2654.3", "lsj:n2654.4"], "meaning": "capture/get into one's power, or catch/overtake", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "238:8", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-8587:sense-1:path-1"], "meaning": "ship/vessel, the watercraft meaning of craft", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "238:8", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n83928.0"], "meaning": "ship/vessel, without forcing merchant-versus-warship subtype", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "103:22", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-81:sense-1:path-1"], "meaning": "fear/fright/panic as the barbarians' emotion, not flight/retreat", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "103:22", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n111908.2"], "meaning": "panic fear/fear/terror, not Homeric panic flight", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "103:29", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-826:sense-1:path-1"], "meaning": "flee/take flight, intransitive; not exile or prosecution", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "103:29", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n110606.1"], "meaning": "flee/take flight, absolute/intransitive; not exile or prosecution", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "103:40", "lexicon": "kaikki", "acceptable_sense_ids": ["kaikki:grc-row-7545:sense-1:path-1"], "meaning": "for sale supports wares/goods for sale via nominal adjective use; strict-POS baseline still abstains", "matching_limitation": "source POS mismatch; no automatic cross-POS mapping authorized", "status": "human_confirmed", "ledger_event": 2},
-    {"target_id": "103:40", "lexicon": "lsj", "acceptable_sense_ids": ["lsj:n116256.0"], "meaning": "goods for sale/marketwares, not venal/corrupt officials", "status": "human_confirmed", "ledger_event": 2}
+    {
+      "target_id": "1:4",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-902:sense-1:path-2"
+      ],
+      "meaning": "be born",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "1:4",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n22209.2"
+      ],
+      "meaning": "be born",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "1:5",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-87:sense-1:path-1"
+      ],
+      "meaning": "children/offspring, here sons",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "1:5",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n76703.1"
+      ],
+      "meaning": "children/offspring, here sons",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "1:8",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-6531:sense-1:path-1"
+      ],
+      "meaning": "older son, supported by adjective sense plus comparative morphology; not old/elderly as the contextual cue",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "1:8",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n86305.0"
+      ],
+      "meaning": "older son",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "3:4",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-6531:sense-1:path-1"
+      ],
+      "meaning": "older son, supported by adjective sense plus comparative morphology; not old/elderly as the contextual cue",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "3:4",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n86305.0"
+      ],
+      "meaning": "older son",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "3:5",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-8800:sense-1:path-1",
+        "kaikki:grc-row-8800:sense-2:path-2"
+      ],
+      "meaning": "be present/by him, not pass by",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "3:5",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n79223.0",
+        "lsj:n79223.1"
+      ],
+      "meaning": "be present/by him, not pass by",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "3:6",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-60:sense-2:path-2"
+      ],
+      "meaning": "happen to be, with the participle",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "3:6",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n105829.9"
+      ],
+      "meaning": "happen to be, with the participle",
+      "status": "human_confirmed",
+      "ledger_event": 0
+    },
+    {
+      "target_id": "15:7",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-3837:sense-2:path-1",
+        "kaikki:grc-row-3837:sense-3:path-1"
+      ],
+      "meaning": "give orders, without selecting narrower recommend/exhort or summon children",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "15:7",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n77837.1"
+      ],
+      "meaning": "give orders, give the word of command",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "15:3",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-4499:sense-3:path-1"
+      ],
+      "meaning": "guards/garrisons",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "15:3",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [],
+      "meaning": "garrisons; no candidate retrieved in this bounded LSJ extraction",
+      "evidence_status": "no_retrieved_candidate_not_lexicographical_absence",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "15:20",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-18181:sense-1:path-1"
+      ],
+      "meaning": "plot against / have hostile designs upon the cities",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "15:20",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n38965.0",
+        "lsj:n38965.1"
+      ],
+      "meaning": "hostile plot/contrive against, including dative-only construction",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "177:26",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-4013:sense-2:path-1"
+      ],
+      "meaning": "practical difficulty/impossibility",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "177:26",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n13579.2"
+      ],
+      "meaning": "difficulty/straits/impossibility of things",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "177:20",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [],
+      "meaning": "prompted/urged on; no Kaikki candidate retrieved",
+      "evidence_status": "no_retrieved_candidate",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "177:20",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n30251.0"
+      ],
+      "meaning": "urged on by someone",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "177:34",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-8504:sense-3:path-1"
+      ],
+      "meaning": "depart/go away, absolute use, not depart from life",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "177:34",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n11970.0",
+        "lsj:n11970.2"
+      ],
+      "meaning": "depart/go away, including absolute use; be off! is not proposed card wording",
+      "status": "human_confirmed",
+      "ledger_event": 1
+    },
+    {
+      "target_id": "238:3",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-4924:sense-1:path-1"
+      ],
+      "meaning": "triremes/warships, not ship-shaped drinking vessels",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "238:3",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n104949.0"
+      ],
+      "meaning": "triremes/warships, not ship-shaped drinking vessels",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "238:5",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-8859:sense-1:path-1"
+      ],
+      "meaning": "take/grasp/seize supports catching/capturing this vessel, without explicitly glossing overtake",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "238:5",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n2654.3",
+        "lsj:n2654.4"
+      ],
+      "meaning": "capture/get into one's power, or catch/overtake",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "238:8",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-8587:sense-1:path-1"
+      ],
+      "meaning": "ship/vessel, the watercraft meaning of craft",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "238:8",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n83928.0"
+      ],
+      "meaning": "ship/vessel, without forcing merchant-versus-warship subtype",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "103:22",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-81:sense-1:path-1"
+      ],
+      "meaning": "fear/fright/panic as the barbarians' emotion, not flight/retreat",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "103:22",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n111908.2"
+      ],
+      "meaning": "panic fear/fear/terror, not Homeric panic flight",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "103:29",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-826:sense-1:path-1"
+      ],
+      "meaning": "flee/take flight, intransitive; not exile or prosecution",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "103:29",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n110606.1"
+      ],
+      "meaning": "flee/take flight, absolute/intransitive; not exile or prosecution",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "103:40",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-7545:sense-1:path-1"
+      ],
+      "meaning": "for sale supports wares/goods for sale via nominal adjective use; strict-POS baseline still abstains",
+      "matching_limitation": "source POS mismatch; no automatic cross-POS mapping authorized",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "103:40",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n116256.0"
+      ],
+      "meaning": "goods for sale/marketwares, not venal/corrupt officials",
+      "status": "human_confirmed",
+      "ledger_event": 2
+    },
+    {
+      "target_id": "428:1",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-27164:sense-1:path-1",
+        "kaikki:grc-row-27164:sense-2:path-1",
+        "kaikki:grc-row-27164:sense-3:path-1",
+        "kaikki:grc-row-27164:sense-4:path-1",
+        "kaikki:grc-row-27164:sense-5:path-1",
+        "kaikki:grc-row-27164:sense-6:path-1",
+        "kaikki:grc-row-27164:sense-7:path-1",
+        "kaikki:grc-row-27164:sense-8:path-1",
+        "kaikki:grc-row-27164:sense-7:path-2",
+        "kaikki:grc-row-27164:sense-7:path-3",
+        "kaikki:grc-row-27164:sense-8:path-2"
+      ],
+      "meaning": "stretch/extend along spatially, of the trench; repeated parent paths retained separately, not selecting torture, delay, pronunciation, or prolonging life",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "428:1",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n78904.0",
+        "lsj:n78904.7",
+        "lsj:n78904.8"
+      ],
+      "meaning": "stretch/extend along spatially; the first sense explicitly cites this trench passage. Not torture, delay, or extending one's life.",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "428:4",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-5345:sense-1:path-1"
+      ],
+      "meaning": "ditch/trench, not a narrower unsupported irrigation function",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "428:4",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n102663.0"
+      ],
+      "meaning": "ditch/trench; no need to force a subtype within the source's broad sense",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "428:8",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-4824:sense-1:path-1"
+      ],
+      "meaning": "plain/open country, not anatomical senses",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "428:8",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n80240.0"
+      ],
+      "meaning": "plain/open country, not anatomical senses or specifically the plain of Attica",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "536:15",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [],
+      "meaning": "more profitable/advantageous, but no candidate retrieved in this bounded Kaikki extraction; abstain",
+      "evidence_status": "no_retrieved_candidate_not_lexicographical_absence",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "536:15",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n56825.2"
+      ],
+      "meaning": "profitable plus comparative morphology supports more profitable/worth more, not crafty/cunning",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "536:19",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [],
+      "meaning": "obey someone in authority, here Cyrus, but no candidate retrieved in this bounded Kaikki extraction; abstain",
+      "evidence_status": "no_retrieved_candidate_not_lexicographical_absence",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "536:19",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n80318.0"
+      ],
+      "meaning": "obey one in authority, here Cyrus; English nominal obedience renders a Greek infinitive",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "536:24",
+      "lexicon": "kaikki",
+      "acceptable_sense_ids": [
+        "kaikki:grc-row-5530:sense-1:path-1"
+      ],
+      "meaning": "gain/profit plus monthly context supports earnings/pay, without claiming the dictionary explicitly says salary",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    },
+    {
+      "target_id": "536:24",
+      "lexicon": "lsj",
+      "acceptable_sense_ids": [
+        "lsj:n56840.0"
+      ],
+      "meaning": "gain/profit, here monthly earnings/pay, not greed or cunning arts/wiles",
+      "status": "human_confirmed",
+      "ledger_event": 3
+    }
   ]
 }

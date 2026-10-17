@@ -121,7 +121,8 @@ function dispatch(action){state=reduce(state,action);render();}
 for(const target of DATA.targets){const o=document.createElement('option');o.value=target.id;o.textContent=`${target.section} · ${target.surface} (${target.id})`;$('target').append(o);}
 function render(){
  const target=DATA.targets.find(t=>t.id===state.target), result=outcome(state);
- $('checkpoint').textContent=`Sense review in progress: ${CONFIRMED?.labels.length||0}/48 dictionary/occurrence pairs confirmed in the committed live ledger. Projection uses approved English links, not automatic alignment. No accuracy scored yet.`;
+ const n=CONFIRMED?.labels.length||0;
+ $('checkpoint').textContent=n===48?'Sense review complete: 48/48 dictionary/occurrence pairs confirmed; measured results are in findings.md. Projection uses approved English links, not automatic alignment.':`Sense review in progress: ${n}/48 dictionary/occurrence pairs confirmed in the committed live ledger. Projection uses approved English links, not automatic alignment. No accuracy scored yet.`;
  for(const f of ['target','lexicon','strategy'])$(f).value=state[f];
  $('alignment').checked=state.alignment;
  $('scenario').textContent=scenarios[state.scenario].text;
@@ -136,7 +137,7 @@ function render(){
  const proposal=confirmation||PROPOSALS?.labels?.find(r=>r.target_id===state.target&&r.lexicon===state.lexicon);
  $('senses').innerHTML=(proposal?`<p class="notice">${confirmation?'Confirmed in the live review':'Unreviewed agent proposal'}: ${esc(proposal.acceptable_sense_ids.join(', ')||'none')} — ${esc(proposal.meaning)}</p>`:'')+(rows.length?rows.map(e=>`<h3>${esc(citationWord(e))} <code>${esc(e.id)}</code></h3><p>Source POS: ${esc(e.pos||JSON.stringify(e.entry_pos)||'unknown')}. <a href="${esc(e.source_url)}" target="_blank" rel="noreferrer">Pinned source / attribution</a></p>${e.senses.map(s=>`<label class="sense"><input type="checkbox" data-sense="${esc(s.id)}" ${current.acceptable_sense_ids.includes(s.id)?'checked':''}><strong>${esc((s.glosses||[]).join(' → ')||'(no standalone English gloss)')}</strong><br><code>${esc(s.id)}</code> ${esc(JSON.stringify(s.tags||s.labels||[]))}<details><summary>Native context / hierarchy</summary><pre>${esc(JSON.stringify(s,null,2))}</pre></details></label>`).join('')}`).join(''):'<p>No retrieved source entry at this headword.</p>');
  $('reviewed').checked=current.reviewed;
- $('progress').textContent=`${Object.values(state.review).filter(r=>r.reviewed).length} / ${DATA.targets.length*2} dictionary/occurrence pairs marked reviewed in this draft. No accuracy computed.`;
+ $('progress').textContent=`${Object.values(state.review).filter(r=>r.reviewed).length} / ${DATA.targets.length*2} dictionary/occurrence pairs marked reviewed in this draft. The page computes no accuracy; see results.json.`;
  for(const box of document.querySelectorAll('[data-sense]'))box.onchange=()=>dispatch({type:'review',value:{...current,reviewed:false,acceptable_sense_ids:[...document.querySelectorAll('[data-sense]:checked')].map(e=>e.dataset.sense)}});
  $('reviewed').onchange=e=>dispatch({type:'review',value:{...current,reviewed:e.target.checked}});
 }

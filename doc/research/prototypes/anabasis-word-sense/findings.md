@@ -1,11 +1,49 @@
-# Book 1 sense prototype — pre-evaluation checkpoint
+# Book 1 sense prototype — first scored run
 
-**Live dictionary-sense review in progress (18/24 occurrences). No chosen-sense accuracy has been
-measured; no strategy, lexicon or abstention policy has been accepted.**
+**All 24 occurrences (48 dictionary/occurrence labels) live-confirmed and frozen
+in [`sense-gold.json`](sense-gold.json) before the first `evaluate.py` run. No
+strategy, lexicon or abstention policy has been accepted yet.**
 
 For [Prototype: word sense in context for Ancient Greek without an LLM](https://github.com/justin-hayes/mouseion/issues/2130).
-This file will capture measured results and the actual human verdict only after
-the additional live checkpoint. Do not read the alignment review as sense labels.
+Do not read the alignment review as sense labels.
+
+## Measured results (initial frozen run, [`results.json`](results.json))
+
+| Lexicon | Strategy | Correct / chosen | Abstain | Correct yield |
+|---|---|---|---|---|
+| Kaikki | morphology-order | 13/19 (68%) | 5/24 | 13/24 |
+| Kaikki | projection | 6/9 (67%) | 15/24 | 6/24 |
+| Kaikki | unique-projection | 4/5 (80%) | 19/24 | 4/24 |
+| Kaikki | no-contextual-gloss | 0/0 | 24/24 | 0/24 |
+| LSJ | morphology-order | 15/22 (68%) | 2/24 | 15/24 |
+| LSJ | projection | 13/15 (87%) | 9/24 | 13/24 |
+| LSJ | unique-projection | **7/7** | 17/24 | 7/24 |
+| LSJ | no-contextual-gloss | 0/0 | 24/24 | 0/24 |
+
+Representative failures:
+
+- **Source order picks the first sense.** Morphology-order errs on γίγνονται
+  (“come into being” / LSJ umbrella, not “be born”), ἐτύγχανε, παρήγγειλε
+  (“transmit a message”), ἀπορία, and for LSJ φόβος (“panic flight”), ἑλεῖν
+  (“take with the hand”) and κερδαλεώτερον (“crafty, cunning”); Kaikki φυλακάς
+  becomes “detention; custody”.
+- **English overlap is lured by translator wording.** Brownson's “designs upon”
+  pulls ἐπιβουλεύοντος to LSJ “form designs upon, aim at” and Kaikki “plan to do
+  something”; ἀπορία goes to “difficulty of passing” for both lexica.
+- **Kaikki coverage gaps:** five occurrences have no identity-safe, gloss-bearing,
+  compatible candidate (lookup misses for ἐγκέλευστος, κερδαλέος, πειθαρχέω,
+  the πάρειμι identity gate, and ὤνια's adjective/noun POS mismatch). LSJ has two.
+- **Unique gate is conservative:** LSJ unique-projection abstains on 8 targets
+  because several senses overlap, and on 7 with no overlap at all.
+
+Interpretation, bounded by the limits below: LSJ beats Kaikki under every
+strategy on this sample. No strategy available **without** human alignment
+(morphology-order) is accurate enough for unattended contextual glosses: about
+one chosen gloss in three is wrong. Projection's gains depend on approved
+human links; the earlier prototype rejected automatic alignment, so these
+projection figures are an oracle upper bound, not a deployable result. 7/7 is
+too small to imply a calibrated precision (a 95% Wilson interval still reaches
+down to about 65%).
 
 ## Concrete artifact and evidence
 
@@ -20,12 +58,15 @@ the additional live checkpoint. Do not read the alignment review as sense labels
 - [`predict.py`](predict.py) and [`predictions.json`](predictions.json): fixed
   non-LLM baselines, with source and code digests. No sense labels are read.
 - [`review-proposals.json`](review-proposals.json): original agent proposals.
-  [`review-confirmed.json`](review-confirmed.json) records the first eighteen confirmed
+  [`review-confirmed.json`](review-confirmed.json) records all 24 confirmed
   occurrences; [`review-status.json`](review-status.json) preserves the exact
-  live exchange. Justin explicitly accepted Kaikki adjective evidence plus
-  comparative morphology for “older,” not “old/elderly” as the contextual cue.
-- [`evaluate.py`](evaluate.py): deliberately refuses to score without complete
-  confirmed sense labels. No `sense-gold.json` or `results.json` exists yet.
+  live exchange in four batches. Justin explicitly accepted four Kaikki evidence
+  judgments: adjective plus comparative morphology for “older”, “take, grasp,
+  seize” for catching the ship, adjectival “for sale” for wares, and “gain,
+  profit” plus the monthly context for pay.
+- [`evaluate.py`](evaluate.py): scores only a complete confirmed label set;
+  [`sense-gold.json`](sense-gold.json) froze it before the first run, which
+  wrote [`results.json`](results.json). No algorithm changed after scoring.
 - [`README.md`](README.md) and [`NOTICE.md`](NOTICE.md): pins, exact comparison
   contract, reproduction commands, source rights and limitations.
 
@@ -57,9 +98,8 @@ or validate the automatic alignment methods rejected by the separate prototype.
 4. **Source order and contextual wording differ.** In the first six occurrences,
    birth versus generic becoming, children as offspring versus servants, the
    comparative older versus elderly, and participial coincidence versus hitting
-   a target are useful human-review distinctions. These first-six reference
-   meanings are now confirmed in the live ledger, but no prediction has been
-   scored against them yet.
+   a target are useful human-review distinctions; the scored run confirms that
+   source order misses most of them.
 
 No exact-match source-key candidate was retrieved for φυλακή from this bounded
 LSJ extraction; this is a retrieval observation, **not a claim that the complete
