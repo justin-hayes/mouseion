@@ -236,7 +236,7 @@ func (q *Queries) GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverage
 }
 
 const getCurrentAnalysisOccurrenceEvidence = `-- name: GetCurrentAnalysisOccurrenceEvidence :one
-SELECT t.canonical_lemma, t.upos, t.dependency
+SELECT t.language, t.canonical_lemma, t.upos, t.dependency
 FROM current_analysis_identity cai
 JOIN corpus_tokens t ON t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id
   AND t.analysis_run_id = cai.analysis_run_id
@@ -258,6 +258,7 @@ type GetCurrentAnalysisOccurrenceEvidenceParams struct {
 }
 
 type GetCurrentAnalysisOccurrenceEvidenceRow struct {
+	Language       string
 	CanonicalLemma string
 	Upos           string
 	Dependency     string
@@ -273,7 +274,12 @@ func (q *Queries) GetCurrentAnalysisOccurrenceEvidence(ctx context.Context, arg 
 		arg.EndOffset,
 	)
 	var i GetCurrentAnalysisOccurrenceEvidenceRow
-	err := row.Scan(&i.CanonicalLemma, &i.Upos, &i.Dependency)
+	err := row.Scan(
+		&i.Language,
+		&i.CanonicalLemma,
+		&i.Upos,
+		&i.Dependency,
+	)
 	return i, err
 }
 
@@ -415,6 +421,7 @@ func (q *Queries) ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysi
 
 const listLemmaReviewOccurrences = `-- name: ListLemmaReviewOccurrences :many
 SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
+       t.language,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.dependency, t.start_offset, t.end_offset,
        t.lexical_discriminator,
@@ -461,6 +468,7 @@ type ListLemmaReviewOccurrencesParams struct {
 type ListLemmaReviewOccurrencesRow struct {
 	CorpusID             string
 	AnalysisRunID        string
+	Language             string
 	SentenceOrdinal      int64
 	TokenOrdinal         int64
 	Surface              string
@@ -494,6 +502,7 @@ func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaR
 		if err := rows.Scan(
 			&i.CorpusID,
 			&i.AnalysisRunID,
+			&i.Language,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
 			&i.Surface,

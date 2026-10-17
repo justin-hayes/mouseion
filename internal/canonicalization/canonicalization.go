@@ -142,6 +142,9 @@ var defaultRegistry = func() *Registry {
 	if err := r.Register(AncientGreek(), true); err != nil {
 		panic(err)
 	}
+	if err := r.Register(French(), true); err != nil {
+		panic(err)
+	}
 	if err := r.Register(GermanPost1996(), true); err != nil {
 		panic(err)
 	}

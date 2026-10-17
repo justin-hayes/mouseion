@@ -320,19 +320,37 @@ var greekContextStopWords = map[string]struct{}{
 	"ένας": {}, "ενας": {}, "ένα": {}, "ενα": {}, "μια": {}, "μία": {}, "μιας": {},
 }
 
+// frenchContextStopWords are basic French function words plus the negation
+// adverbs ne/n' and pas, which are not useful Lesk signal (ADR 0102).
+var frenchContextStopWords = map[string]struct{}{
+	"a": {}, "ai": {}, "as": {}, "au": {}, "aux": {}, "avec": {}, "ce": {}, "ces": {},
+	"cet": {}, "cette": {}, "comme": {}, "d": {}, "dans": {}, "de": {}, "des": {}, "du": {},
+	"elle": {}, "elles": {}, "en": {}, "est": {}, "et": {}, "eux": {}, "il": {}, "ils": {},
+	"je": {}, "l": {}, "la": {}, "le": {}, "les": {}, "leur": {}, "leurs": {}, "lui": {},
+	"ma": {}, "mais": {}, "me": {}, "mes": {}, "moi": {}, "mon": {}, "n": {}, "ne": {},
+	"nos": {}, "notre": {}, "nous": {}, "on": {}, "ont": {}, "ou": {}, "où": {}, "par": {},
+	"pas": {}, "pour": {}, "qu": {}, "que": {}, "qui": {}, "sa": {}, "se": {}, "ses": {},
+	"si": {}, "son": {}, "sont": {}, "sur": {}, "ta": {}, "te": {}, "tes": {}, "toi": {},
+	"ton": {}, "tu": {}, "un": {}, "une": {}, "vos": {}, "votre": {}, "vous": {}, "y": {},
+}
+
 func isContextWord(language, word string) bool {
 	if word == "" {
 		return false
 	}
-	_, stop := contextStopWords[word]
-	if stop {
+	if _, stop := contextStopWords[word]; stop {
 		return false
 	}
-	if baseLanguage(language) != "el" {
+	switch baseLanguage(language) {
+	case "el":
+		_, stop := greekContextStopWords[word]
+		return !stop
+	case "fr":
+		_, stop := frenchContextStopWords[word]
+		return !stop
+	default:
 		return true
 	}
-	_, stop = greekContextStopWords[word]
-	return !stop
 }
 
 func baseLanguage(language string) string {

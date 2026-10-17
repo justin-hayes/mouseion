@@ -293,18 +293,20 @@ func Effective(cfg SelectionConfig, language string, fact OccurrenceFact, decisi
 		lemma = decision.Lemma
 	}
 	id := Identity{language, strings.TrimSpace(lemma), strings.ToUpper(strings.TrimSpace(fact.UPOS)), strings.TrimSpace(discriminator)}
-	return id, OccurrenceEligible(cfg, lemma, fact.UPOS, fact.Dependency)
+	return id, OccurrenceEligible(cfg, language, lemma, fact.UPOS, fact.Dependency)
 }
 
 // OccurrenceEligible is the per-occurrence test that decides whether an
 // analyzed token can count as vocabulary at all: it needs a valid lemma, an
-// allowed part of speech (trimmed and upper-cased), and must not be a
-// separable verb particle. Project and lemma review share it so neither
-// duplicates the rule in SQL.
-func OccurrenceEligible(cfg SelectionConfig, lemma, upos, dependency string) bool {
+// allowed part of speech (trimmed and upper-cased), must not be a separable
+// verb particle, and must not be a language stopword whose part of speech is
+// otherwise eligible (French ADV ne/n' and pas, ADR 0102). Project and lemma
+// review share it so neither duplicates the rule in SQL.
+func OccurrenceEligible(cfg SelectionConfig, language, lemma, upos, dependency string) bool {
 	return dependency != "compound:prt" &&
 		lexical.IsLemma(strings.TrimSpace(lemma)) &&
-		cfg.AllowedPOS[strings.ToUpper(strings.TrimSpace(upos))]
+		cfg.AllowedPOS[strings.ToUpper(strings.TrimSpace(upos))] &&
+		!lexical.IsVocabularyStopword(language, lemma, upos)
 }
 
 func occurrenceIdentity(token analyzer.Token) OccurrenceIdentity {

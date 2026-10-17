@@ -17,6 +17,7 @@ LIMIT 1;
 
 -- name: ListLemmaReviewOccurrences :many
 SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
+       t.language,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.dependency, t.start_offset, t.end_offset,
        t.lexical_discriminator,
@@ -101,7 +102,7 @@ WHERE c.owner_id = sqlc.arg('owner') AND c.id = sqlc.arg('corpus')
 ORDER BY t.sentence_ordinal, t.token_ordinal;
 
 -- name: GetCurrentAnalysisOccurrenceEvidence :one
-SELECT t.canonical_lemma, t.upos, t.dependency
+SELECT t.language, t.canonical_lemma, t.upos, t.dependency
 FROM current_analysis_identity cai
 JOIN corpus_tokens t ON t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id
   AND t.analysis_run_id = cai.analysis_run_id
