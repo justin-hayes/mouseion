@@ -39,6 +39,10 @@ ones rather than rewriting them. A short path through the most representative:
   example-sentence scoring over the persisted corpus.
 - [ADR 0081](adr/0081-learner-owned-occurrence-lemma-corrections.md) — learner
   corrections layered over immutable analyzer output.
+- [Basic poetry support](features/basic-poetry-support.md) and
+  [ADR 0103](adr/0103-source-structure-and-poetry-evidence.md) — accepted,
+  implementation-pending source-line/role evidence, Faust I acceptance and
+  explicit adoption without rewriting frozen Reading/deck evidence.
 
 **System architecture**
 
