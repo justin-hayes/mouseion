@@ -1,0 +1,3682 @@
+{
+  "schema": "anabasis-existing-alignment/1",
+  "url": "https://www.ugarit.ialigner.com/text.php?id=34674",
+  "html_sha256": "e5d891142483c7243fbf1869896cb4668eed8ceb9f57ca8c75d62025a36e0995",
+  "sections": [
+    "1.9.17",
+    "1.9.18",
+    "1.9.19"
+  ],
+  "creator": "Jacob Schwartz, 2022-12-23; translation attributed to Carleton L. Brownson",
+  "licence": "Ugarit site-level CC BY-SA 4.0; retain attribution to Jacob Schwartz, Brownson and Perseus. Derived extraction shared under CC BY-SA 4.0. Site notice is not independent proof of contributor authority. Used only as a bounded candidate comparison, not blanket source acceptance.",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "binding": "All Greek and English NFC letter/digit streams match the pinned OGA/Brownson sections, retaining Greek diacritics and treating U+02BC as an elision mark rather than a lexical letter (Ugarit has U+1FBD at the corresponding location). Native token IDs map by occurrence, punctuation excluded from links. Group correspondence expands many-to-many; it is not a hand-checked gold set.",
+  "greek": [
+    {
+      "id": "token_1_34674_1-1",
+      "group": "sen_34674_sen_25",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "535",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-2",
+      "group": "sen_34674_sen_24",
+      "text": "γὰρ",
+      "bound_occurrences": [
+        [
+          "535",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-3",
+      "group": "sen_34674_sen_24",
+      "text": "οὖν",
+      "bound_occurrences": [
+        [
+          "535",
+          "3"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-4",
+      "group": "sen_34674_sen_1",
+      "text": "ἄλλα",
+      "bound_occurrences": [
+        [
+          "535",
+          "4"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-5",
+      "group": "sen_34674_sen_2",
+      "text": "τε",
+      "bound_occurrences": [
+        [
+          "535",
+          "5"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-6",
+      "group": "sen_34674_sen_3",
+      "text": "πολλὰ",
+      "bound_occurrences": [
+        [
+          "535",
+          "6"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-7",
+      "group": "sen_34674_sen_6",
+      "text": "δικαίως",
+      "bound_occurrences": [
+        [
+          "535",
+          "7"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-8",
+      "group": "sen_34674_sen_4",
+      "text": "αὐτῷ",
+      "bound_occurrences": [
+        [
+          "535",
+          "8"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-9",
+      "group": "sen_34674_sen_27",
+      "text": "διεχειρίζετο",
+      "bound_occurrences": [
+        [
+          "535",
+          "9"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-10",
+      "group": "sen_34674_sen_84",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "535",
+          "10"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-11",
+      "group": "sen_34674_sen_51",
+      "text": "στρατεύματι",
+      "bound_occurrences": [
+        [
+          "535",
+          "11"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-12",
+      "group": "sen_34674_sen_52",
+      "text": "ἀληθινῷ",
+      "bound_occurrences": [
+        [
+          "535",
+          "12"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-13",
+      "group": "sen_34674_sen_28",
+      "text": "ἐχρήσατο",
+      "bound_occurrences": [
+        [
+          "535",
+          "13"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-14",
+      "group": "sen_34674_sen_32",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-15",
+      "group": "sen_34674_sen_7",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "536",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-16",
+      "group": "sen_34674_sen_7",
+      "text": "γὰρ",
+      "bound_occurrences": [
+        [
+          "536",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-17",
+      "group": "sen_34674_sen_8",
+      "text": "στρατηγοὶ",
+      "bound_occurrences": [
+        [
+          "536",
+          "3"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-18",
+      "group": "sen_34674_sen_9",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "536",
+          "4"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-19",
+      "group": "sen_34674_sen_10",
+      "text": "λοχαγοί",
+      "bound_occurrences": [
+        [
+          "536",
+          "5"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-20",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-21",
+      "group": "sen_34674_sen_16",
+      "text": "οἳ",
+      "bound_occurrences": [
+        [
+          "536",
+          "7"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-22",
+      "group": "sen_34674_sen_15",
+      "text": "χρημάτων",
+      "bound_occurrences": [
+        [
+          "536",
+          "8"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-23",
+      "group": "sen_34674_sen_14",
+      "text": "ἕνεκα",
+      "bound_occurrences": [
+        [
+          "536",
+          "9"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-24",
+      "group": "sen_34674_sen_97",
+      "text": "πρὸς",
+      "bound_occurrences": [
+        [
+          "536",
+          "10"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-25",
+      "group": "sen_34674_sen_93",
+      "text": "ἐκεῖνον",
+      "bound_occurrences": [
+        [
+          "536",
+          "11"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-26",
+      "group": "sen_34674_sen_97",
+      "text": "ἔπλευσαν",
+      "bound_occurrences": [
+        [
+          "536",
+          "12"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-27",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-28",
+      "group": "sen_34674_sen_86",
+      "text": "ἔγνωσαν",
+      "bound_occurrences": [
+        [
+          "536",
+          "14"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-29",
+      "group": "sen_34674_sen_23",
+      "text": "κερδαλεώτερον",
+      "bound_occurrences": [
+        [
+          "536",
+          "15"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-30",
+      "group": "sen_34674_sen_22",
+      "text": "εἶναι",
+      "bound_occurrences": [
+        [
+          "536",
+          "16"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-31",
+      "group": "sen_34674_sen_21",
+      "text": "Κύρῳ",
+      "bound_occurrences": [
+        [
+          "536",
+          "17"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-32",
+      "group": "sen_34674_sen_20",
+      "text": "καλῶς",
+      "bound_occurrences": [
+        [
+          "536",
+          "18"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-33",
+      "group": "sen_34674_sen_19",
+      "text": "πειθαρχεῖν",
+      "bound_occurrences": [
+        [
+          "536",
+          "19"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-34",
+      "group": "sen_34674_sen_85",
+      "text": "ἢ",
+      "bound_occurrences": [
+        [
+          "536",
+          "20"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-35",
+      "group": "sen_34674_sen_89",
+      "text": "τὸ",
+      "bound_occurrences": [
+        [
+          "536",
+          "21"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-36",
+      "group": "sen_34674_sen_87",
+      "text": "κατὰ",
+      "bound_occurrences": [
+        [
+          "536",
+          "22"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-37",
+      "group": "sen_34674_sen_87",
+      "text": "μῆνα",
+      "bound_occurrences": [
+        [
+          "536",
+          "23"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-38",
+      "group": "sen_34674_sen_89",
+      "text": "κέρδος",
+      "bound_occurrences": [
+        [
+          "536",
+          "24"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-39",
+      "group": "sen_34674_sen_31",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-40",
+      "group": "sen_34674_sen_94",
+      "text": "ἀλλὰ",
+      "bound_occurrences": [
+        [
+          "537",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-41",
+      "group": "sen_34674_sen_94",
+      "text": "μὴν",
+      "bound_occurrences": [
+        [
+          "537",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-42",
+      "group": "sen_34674_sen_95",
+      "text": "εἴ",
+      "bound_occurrences": [
+        [
+          "537",
+          "3"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-43",
+      "group": "sen_34674_sen_96",
+      "text": "τίς",
+      "bound_occurrences": [
+        [
+          "537",
+          "4"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-44",
+      "group": "notAligned",
+      "text": "γέ",
+      "bound_occurrences": [
+        [
+          "537",
+          "5"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-45",
+      "group": "sen_34674_sen_100",
+      "text": "τι",
+      "bound_occurrences": [
+        [
+          "537",
+          "6"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-46",
+      "group": "sen_34674_sen_101",
+      "text": "αὐτῷ",
+      "bound_occurrences": [
+        [
+          "537",
+          "7"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-47",
+      "group": "sen_34674_sen_102",
+      "text": "προστάξαντι",
+      "bound_occurrences": [
+        [
+          "537",
+          "8"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-48",
+      "group": "sen_34674_sen_99",
+      "text": "καλῶς",
+      "bound_occurrences": [
+        [
+          "537",
+          "9"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-49",
+      "group": "sen_34674_sen_98",
+      "text": "ὑπηρετήσειεν",
+      "bound_occurrences": [
+        [
+          "537",
+          "10"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-50",
+      "group": "sen_34674_sen_103",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-51",
+      "group": "sen_34674_sen_108",
+      "text": "οὐδενὶ",
+      "bound_occurrences": [
+        [
+          "537",
+          "12"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-52",
+      "group": "sen_34674_sen_108",
+      "text": "πώποτε",
+      "bound_occurrences": [
+        [
+          "537",
+          "13"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-53",
+      "group": "sen_34674_sen_107",
+      "text": "ἀχάριστον",
+      "bound_occurrences": [
+        [
+          "537",
+          "14"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-54",
+      "group": "sen_34674_sen_105",
+      "text": "εἴασε",
+      "bound_occurrences": [
+        [
+          "537",
+          "15"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-55",
+      "group": "sen_34674_sen_34",
+      "text": "τὴν",
+      "bound_occurrences": [
+        [
+          "537",
+          "16"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-56",
+      "group": "sen_34674_sen_34",
+      "text": "προθυμίαν",
+      "bound_occurrences": [
+        [
+          "537",
+          "17"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-57",
+      "group": "sen_34674_sen_106",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-58",
+      "group": "sen_34674_sen_109",
+      "text": "τοιγαροῦν",
+      "bound_occurrences": [
+        [
+          "538",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-59",
+      "group": "sen_34674_sen_109",
+      "text": "δὴ",
+      "bound_occurrences": [
+        [
+          "538",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-60",
+      "group": "sen_34674_sen_36",
+      "text": "κράτιστοι",
+      "bound_occurrences": [
+        [
+          "538",
+          "3"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-61",
+      "group": "sen_34674_sen_37",
+      "text": "ὑπηρέται",
+      "bound_occurrences": [
+        [
+          "538",
+          "4"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-62",
+      "group": "sen_34674_sen_41",
+      "text": "παντὸς",
+      "bound_occurrences": [
+        [
+          "538",
+          "5"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-63",
+      "group": "sen_34674_sen_42",
+      "text": "ἔργου",
+      "bound_occurrences": [
+        [
+          "538",
+          "6"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-64",
+      "group": "sen_34674_sen_43",
+      "text": "Κύρῳ",
+      "bound_occurrences": [
+        [
+          "538",
+          "7"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-65",
+      "group": "sen_34674_sen_38",
+      "text": "ἐλέχθησαν",
+      "bound_occurrences": [
+        [
+          "538",
+          "8"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-66",
+      "group": "sen_34674_sen_39",
+      "text": "γενέσθαι",
+      "bound_occurrences": [
+        [
+          "538",
+          "9"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-67",
+      "group": "sen_34674_sen_40",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-68",
+      "group": "sen_34674_sen_119",
+      "text": "εἰ",
+      "bound_occurrences": [
+        [
+          "539",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-69",
+      "group": "sen_34674_sen_118",
+      "text": "δέ",
+      "bound_occurrences": [
+        [
+          "539",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-70",
+      "group": "sen_34674_sen_112",
+      "text": "τινα",
+      "bound_occurrences": [
+        [
+          "539",
+          "3"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-71",
+      "group": "sen_34674_sen_117",
+      "text": "ὁρῴη",
+      "bound_occurrences": [
+        [
+          "539",
+          "4"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-72",
+      "group": "sen_34674_sen_115",
+      "text": "δεινὸν",
+      "bound_occurrences": [
+        [
+          "539",
+          "5"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-73",
+      "group": "sen_34674_sen_116",
+      "text": "ὄντα",
+      "bound_occurrences": [
+        [
+          "539",
+          "6"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-74",
+      "group": "sen_34674_sen_45",
+      "text": "οἰκονόμον",
+      "bound_occurrences": [
+        [
+          "539",
+          "7"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-75",
+      "group": "notAligned",
+      "text": "ἐκ",
+      "bound_occurrences": [
+        [
+          "539",
+          "8"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-76",
+      "group": "sen_34674_sen_113",
+      "text": "τοῦ",
+      "bound_occurrences": [
+        [
+          "539",
+          "9"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-77",
+      "group": "sen_34674_sen_113",
+      "text": "δικαίου",
+      "bound_occurrences": [
+        [
+          "539",
+          "10"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-78",
+      "group": "sen_34674_sen_121",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "539",
+          "11"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-79",
+      "group": "sen_34674_sen_122",
+      "text": "κατασκευάζοντά",
+      "bound_occurrences": [
+        [
+          "539",
+          "12"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-80",
+      "group": "sen_34674_sen_121",
+      "text": "τε",
+      "bound_occurrences": [
+        [
+          "539",
+          "13"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-81",
+      "group": "sen_34674_sen_123",
+      "text": "ἧς",
+      "bound_occurrences": [
+        [
+          "539",
+          "14"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-82",
+      "group": "sen_34674_sen_124",
+      "text": "ἄρχοι",
+      "bound_occurrences": [
+        [
+          "539",
+          "15"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-83",
+      "group": "sen_34674_sen_125",
+      "text": "χώρας",
+      "bound_occurrences": [
+        [
+          "539",
+          "16"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-84",
+      "group": "sen_34674_sen_81",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "539",
+          "17"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-85",
+      "group": "sen_34674_sen_80",
+      "text": "προσόδους",
+      "bound_occurrences": [
+        [
+          "539",
+          "18"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-86",
+      "group": "sen_34674_sen_79",
+      "text": "ποιοῦντα",
+      "bound_occurrences": [
+        [
+          "539",
+          "19"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-87",
+      "group": "sen_34674_sen_82",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-88",
+      "group": "sen_34674_sen_127",
+      "text": "οὐδένα",
+      "bound_occurrences": [
+        [
+          "539",
+          "21"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-89",
+      "group": "notAligned",
+      "text": "ἂν",
+      "bound_occurrences": [
+        [
+          "539",
+          "22"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-90",
+      "group": "sen_34674_sen_127",
+      "text": "πώποτε",
+      "bound_occurrences": [
+        [
+          "539",
+          "23"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-91",
+      "group": "sen_34674_sen_126",
+      "text": "ἀφείλετο",
+      "bound_occurrences": [
+        [
+          "539",
+          "24"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-92",
+      "group": "sen_34674_sen_148",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-93",
+      "group": "sen_34674_sen_128",
+      "text": "ἀλλ᾽",
+      "bound_occurrences": [
+        [
+          "539",
+          "26"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-94",
+      "group": "sen_34674_sen_131",
+      "text": "ἀεὶ",
+      "bound_occurrences": [
+        [
+          "539",
+          "27"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-95",
+      "group": "sen_34674_sen_132",
+      "text": "πλείω",
+      "bound_occurrences": [
+        [
+          "539",
+          "28"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-96",
+      "group": "sen_34674_sen_129",
+      "text": "προσεδίδου",
+      "bound_occurrences": [
+        [
+          "539",
+          "29"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-97",
+      "group": "sen_34674_sen_130",
+      "text": ":",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-98",
+      "group": "sen_34674_sen_59",
+      "text": "ὥστε",
+      "bound_occurrences": [
+        [
+          "540",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-99",
+      "group": "sen_34674_sen_138",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "540",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-100",
+      "group": "sen_34674_sen_60",
+      "text": "ἡδέως",
+      "bound_occurrences": [
+        [
+          "540",
+          "3"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-101",
+      "group": "sen_34674_sen_61",
+      "text": "ἐπόνουν",
+      "bound_occurrences": [
+        [
+          "540",
+          "4"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-102",
+      "group": "sen_34674_sen_138",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "540",
+          "5"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-103",
+      "group": "sen_34674_sen_63",
+      "text": "θαρραλέως",
+      "bound_occurrences": [
+        [
+          "540",
+          "6"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-104",
+      "group": "sen_34674_sen_64",
+      "text": "ἐκτῶντο",
+      "bound_occurrences": [
+        [
+          "540",
+          "7"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-105",
+      "group": "sen_34674_sen_65",
+      "text": "καὶ",
+      "bound_occurrences": [
+        [
+          "540",
+          "8"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-106",
+      "group": "sen_34674_sen_134",
+      "text": "ὃ",
+      "bound_occurrences": [
+        [
+          "540",
+          "9"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-107",
+      "group": "sen_34674_sen_67",
+      "text": "ἐπέπατο",
+      "bound_occurrences": [
+        [
+          "540",
+          "10"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-108",
+      "group": "sen_34674_sen_66",
+      "text": "αὖ",
+      "bound_occurrences": [
+        [
+          "540",
+          "11"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-109",
+      "group": "sen_34674_sen_135",
+      "text": "τις",
+      "bound_occurrences": [
+        [
+          "540",
+          "12"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-110",
+      "group": "sen_34674_sen_136",
+      "text": "ἥκιστα",
+      "bound_occurrences": [
+        [
+          "540",
+          "13"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-111",
+      "group": "sen_34674_sen_137",
+      "text": "Κῦρον",
+      "bound_occurrences": [
+        [
+          "540",
+          "14"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-112",
+      "group": "sen_34674_sen_68",
+      "text": "ἔκρυπτεν",
+      "bound_occurrences": [
+        [
+          "540",
+          "15"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-113",
+      "group": "sen_34674_sen_70",
+      "text": ":",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-114",
+      "group": "sen_34674_sen_71",
+      "text": "οὐ",
+      "bound_occurrences": [
+        [
+          "541",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-115",
+      "group": "sen_34674_sen_69",
+      "text": "γὰρ",
+      "bound_occurrences": [
+        [
+          "541",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-116",
+      "group": "sen_34674_sen_140",
+      "text": "φθονῶν",
+      "bound_occurrences": [
+        [
+          "541",
+          "3"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-117",
+      "group": "sen_34674_sen_75",
+      "text": "τοῖς",
+      "bound_occurrences": [
+        [
+          "541",
+          "4"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-118",
+      "group": "sen_34674_sen_139",
+      "text": "φανερῶς",
+      "bound_occurrences": [
+        [
+          "541",
+          "5"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-119",
+      "group": "sen_34674_sen_76",
+      "text": "πλουτοῦσιν",
+      "bound_occurrences": [
+        [
+          "541",
+          "6"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-120",
+      "group": "sen_34674_sen_140",
+      "text": "ἐφαίνετο",
+      "bound_occurrences": [
+        [
+          "541",
+          "7"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-121",
+      "group": "sen_34674_sen_141",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_1_34674_1-122",
+      "group": "sen_34674_sen_53",
+      "text": "ἀλλὰ",
+      "bound_occurrences": [
+        [
+          "541",
+          "9"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-123",
+      "group": "sen_34674_sen_142",
+      "text": "πειρώμενος",
+      "bound_occurrences": [
+        [
+          "541",
+          "10"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-124",
+      "group": "sen_34674_sen_83",
+      "text": "χρῆσθαι",
+      "bound_occurrences": [
+        [
+          "541",
+          "11"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-125",
+      "group": "sen_34674_sen_144",
+      "text": "τοῖς",
+      "bound_occurrences": [
+        [
+          "541",
+          "12"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-126",
+      "group": "sen_34674_sen_143",
+      "text": "τῶν",
+      "bound_occurrences": [
+        [
+          "541",
+          "13"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-127",
+      "group": "sen_34674_sen_145",
+      "text": "ἀποκρυπτομένων",
+      "bound_occurrences": [
+        [
+          "541",
+          "14"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-128",
+      "group": "sen_34674_sen_146",
+      "text": "χρήμασι",
+      "bound_occurrences": [
+        [
+          "541",
+          "15"
+        ]
+      ]
+    },
+    {
+      "id": "token_1_34674_1-129",
+      "group": "sen_34674_sen_147",
+      "text": ".",
+      "bound_occurrences": []
+    }
+  ],
+  "english": [
+    {
+      "id": "token_2_34674_2-1",
+      "group": "sen_34674_sen_24",
+      "text": "Hence",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-2",
+      "group": "sen_34674_sen_27",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-3",
+      "group": "sen_34674_sen_25",
+      "text": "not",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-4",
+      "group": "sen_34674_sen_25",
+      "text": "only",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          3
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-5",
+      "group": "sen_34674_sen_27",
+      "text": "had",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          4
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-6",
+      "group": "sen_34674_sen_3",
+      "text": "many",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          5
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-7",
+      "group": "sen_34674_sen_2",
+      "text": "and",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-8",
+      "group": "sen_34674_sen_1",
+      "text": "various",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          7
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-9",
+      "group": "notAligned",
+      "text": "functions",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          8
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-10",
+      "group": "notAligned",
+      "text": "performed",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-11",
+      "group": "sen_34674_sen_4",
+      "text": "for",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          10
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-12",
+      "group": "sen_34674_sen_4",
+      "text": "him",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-13",
+      "group": "sen_34674_sen_6",
+      "text": "with",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          12
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-14",
+      "group": "sen_34674_sen_6",
+      "text": "fidelity",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          13
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-15",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-16",
+      "group": "sen_34674_sen_84",
+      "text": "but",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          15
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-17",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-18",
+      "group": "notAligned",
+      "text": "in",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          17
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-19",
+      "group": "notAligned",
+      "text": "particular",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          18
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-20",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-21",
+      "group": "sen_34674_sen_28",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          20
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-22",
+      "group": "sen_34674_sen_28",
+      "text": "secured",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          21
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-23",
+      "group": "sen_34674_sen_51",
+      "text": "the",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          22
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-24",
+      "group": "sen_34674_sen_51",
+      "text": "services",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          23
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-25",
+      "group": "sen_34674_sen_51",
+      "text": "of",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          24
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-26",
+      "group": "sen_34674_sen_51",
+      "text": "an",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          25
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-27",
+      "group": "sen_34674_sen_51",
+      "text": "army",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          26
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-28",
+      "group": "sen_34674_sen_52",
+      "text": "worthy",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          27
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-29",
+      "group": "sen_34674_sen_52",
+      "text": "of",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          28
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-30",
+      "group": "sen_34674_sen_52",
+      "text": "the",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          29
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-31",
+      "group": "sen_34674_sen_52",
+      "text": "name",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          30
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-32",
+      "group": "sen_34674_sen_32",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-33",
+      "group": "sen_34674_sen_7",
+      "text": "For",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          32
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-34",
+      "group": "sen_34674_sen_8",
+      "text": "generals",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          33
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-35",
+      "group": "sen_34674_sen_9",
+      "text": "and",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          34
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-36",
+      "group": "sen_34674_sen_10",
+      "text": "captains",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          35
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-37",
+      "group": "sen_34674_sen_16",
+      "text": "who",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          36
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-38",
+      "group": "sen_34674_sen_97",
+      "text": "came",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          37
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-39",
+      "group": "sen_34674_sen_97",
+      "text": "overseas",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          38
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-40",
+      "group": "sen_34674_sen_97",
+      "text": "to",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          39
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-41",
+      "group": "notAligned",
+      "text": "serve",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          40
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-42",
+      "group": "sen_34674_sen_93",
+      "text": "him",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          41
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-43",
+      "group": "sen_34674_sen_14",
+      "text": "for",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          42
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-44",
+      "group": "sen_34674_sen_14",
+      "text": "the",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          43
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-45",
+      "group": "sen_34674_sen_14",
+      "text": "sake",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          44
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-46",
+      "group": "sen_34674_sen_15",
+      "text": "of",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          45
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-47",
+      "group": "sen_34674_sen_15",
+      "text": "money",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          46
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-48",
+      "group": "sen_34674_sen_86",
+      "text": "judged",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          47
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-49",
+      "group": "sen_34674_sen_86",
+      "text": "that",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          48
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-50",
+      "group": "sen_34674_sen_20",
+      "text": "loyal",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          49
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-51",
+      "group": "sen_34674_sen_19",
+      "text": "obedience",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          50
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-52",
+      "group": "sen_34674_sen_21",
+      "text": "to",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          51
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-53",
+      "group": "sen_34674_sen_21",
+      "text": "Cyrus",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          52
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-54",
+      "group": "sen_34674_sen_22",
+      "text": "was",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          53
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-55",
+      "group": "sen_34674_sen_23",
+      "text": "worth",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          54
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-56",
+      "group": "sen_34674_sen_23",
+      "text": "more",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          55
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-57",
+      "group": "notAligned",
+      "text": "to",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          56
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-58",
+      "group": "notAligned",
+      "text": "them",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          57
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-59",
+      "group": "sen_34674_sen_85",
+      "text": "than",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          58
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-60",
+      "group": "sen_34674_sen_89",
+      "text": "their",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          59
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-61",
+      "group": "notAligned",
+      "text": "mere",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          60
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-62",
+      "group": "sen_34674_sen_87",
+      "text": "monthly",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          61
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-63",
+      "group": "sen_34674_sen_89",
+      "text": "pay",
+      "bound_occurrences": [
+        [
+          "1.9.17",
+          62
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-64",
+      "group": "sen_34674_sen_31",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-65",
+      "group": "sen_34674_sen_94",
+      "text": "Again",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-66",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-67",
+      "group": "sen_34674_sen_95",
+      "text": "so",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-68",
+      "group": "sen_34674_sen_95",
+      "text": "surely",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          3
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-69",
+      "group": "sen_34674_sen_95",
+      "text": "as",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          4
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-70",
+      "group": "sen_34674_sen_96",
+      "text": "a",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          5
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-71",
+      "group": "sen_34674_sen_96",
+      "text": "man",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-72",
+      "group": "sen_34674_sen_98",
+      "text": "performed",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          7
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-73",
+      "group": "sen_34674_sen_99",
+      "text": "with",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          8
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-74",
+      "group": "sen_34674_sen_99",
+      "text": "credit",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-75",
+      "group": "sen_34674_sen_100",
+      "text": "any",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          10
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-76",
+      "group": "sen_34674_sen_98",
+      "text": "service",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-77",
+      "group": "sen_34674_sen_102",
+      "text": "that",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          12
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-78",
+      "group": "sen_34674_sen_102",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          13
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-79",
+      "group": "sen_34674_sen_102",
+      "text": "assigned",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          14
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-80",
+      "group": "sen_34674_sen_101",
+      "text": "him",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          15
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-81",
+      "group": "sen_34674_sen_103",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-82",
+      "group": "notAligned",
+      "text": "Cyrus",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          17
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-83",
+      "group": "sen_34674_sen_108",
+      "text": "never",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          18
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-84",
+      "group": "sen_34674_sen_105",
+      "text": "let",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          19
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-85",
+      "group": "sen_34674_sen_34",
+      "text": "his",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          20
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-86",
+      "group": "sen_34674_sen_34",
+      "text": "zeal",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          21
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-87",
+      "group": "sen_34674_sen_107",
+      "text": "go",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          22
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-88",
+      "group": "sen_34674_sen_107",
+      "text": "unrewarded",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          23
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-89",
+      "group": "sen_34674_sen_106",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-90",
+      "group": "sen_34674_sen_109",
+      "text": "In",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          25
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-91",
+      "group": "sen_34674_sen_109",
+      "text": "consequence",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          26
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-92",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-93",
+      "group": "sen_34674_sen_43",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          28
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-94",
+      "group": "sen_34674_sen_38",
+      "text": "was",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          29
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-95",
+      "group": "sen_34674_sen_38",
+      "text": "said",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          30
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-96",
+      "group": "sen_34674_sen_39",
+      "text": "to",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          31
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-97",
+      "group": "sen_34674_sen_39",
+      "text": "have",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          32
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-98",
+      "group": "sen_34674_sen_39",
+      "text": "gained",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          33
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-99",
+      "group": "sen_34674_sen_36",
+      "text": "the",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          34
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-100",
+      "group": "sen_34674_sen_36",
+      "text": "very",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          35
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-101",
+      "group": "sen_34674_sen_36",
+      "text": "best",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          36
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-102",
+      "group": "sen_34674_sen_37",
+      "text": "supporters",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          37
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-103",
+      "group": "sen_34674_sen_41",
+      "text": "for",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          38
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-104",
+      "group": "sen_34674_sen_41",
+      "text": "every",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          39
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-105",
+      "group": "sen_34674_sen_42",
+      "text": "undertaking",
+      "bound_occurrences": [
+        [
+          "1.9.18",
+          40
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-106",
+      "group": "sen_34674_sen_40",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-109",
+      "group": "sen_34674_sen_118",
+      "text": "Furthermore",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-110",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-111",
+      "group": "sen_34674_sen_119",
+      "text": "whenever",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-112",
+      "group": "sen_34674_sen_117",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          3
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-113",
+      "group": "sen_34674_sen_117",
+      "text": "saw",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          4
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-114",
+      "group": "sen_34674_sen_117",
+      "text": "that",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          5
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-115",
+      "group": "sen_34674_sen_112",
+      "text": "a",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-116",
+      "group": "sen_34674_sen_112",
+      "text": "man",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          7
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-117",
+      "group": "sen_34674_sen_116",
+      "text": "was",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          8
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-118",
+      "group": "sen_34674_sen_115",
+      "text": "a",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-119",
+      "group": "sen_34674_sen_115",
+      "text": "skilful",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          10
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-120",
+      "group": "notAligned",
+      "text": "and",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-121",
+      "group": "sen_34674_sen_113",
+      "text": "just",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          12
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-122",
+      "group": "sen_34674_sen_45",
+      "text": "administrator",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          13
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-123",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-124",
+      "group": "sen_34674_sen_121",
+      "text": "not",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          15
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-125",
+      "group": "sen_34674_sen_121",
+      "text": "only",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          16
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-126",
+      "group": "sen_34674_sen_122",
+      "text": "organizing",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          17
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-127",
+      "group": "sen_34674_sen_122",
+      "text": "well",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          18
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-128",
+      "group": "sen_34674_sen_125",
+      "text": "the",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          19
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-129",
+      "group": "sen_34674_sen_125",
+      "text": "country",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          20
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-130",
+      "group": "sen_34674_sen_123",
+      "text": "over",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          21
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-131",
+      "group": "sen_34674_sen_123",
+      "text": "which",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          22
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-132",
+      "group": "sen_34674_sen_124",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          23
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-133",
+      "group": "sen_34674_sen_124",
+      "text": "ruled",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          24
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-134",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-135",
+      "group": "sen_34674_sen_81",
+      "text": "but",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          26
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-136",
+      "group": "sen_34674_sen_79",
+      "text": "producing",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          27
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-137",
+      "group": "sen_34674_sen_80",
+      "text": "revenues",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          28
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-138",
+      "group": "sen_34674_sen_82",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-139",
+      "group": "sen_34674_sen_126",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          30
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-140",
+      "group": "sen_34674_sen_126",
+      "text": "would",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          31
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-141",
+      "group": "sen_34674_sen_127",
+      "text": "never",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          32
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-142",
+      "group": "sen_34674_sen_126",
+      "text": "deprive",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          33
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-143",
+      "group": "notAligned",
+      "text": "such",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          34
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-144",
+      "group": "notAligned",
+      "text": "a",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          35
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-145",
+      "group": "notAligned",
+      "text": "man",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          36
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-146",
+      "group": "notAligned",
+      "text": "of",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          37
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-147",
+      "group": "notAligned",
+      "text": "territory",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          38
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-148",
+      "group": "sen_34674_sen_148",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-149",
+      "group": "sen_34674_sen_128",
+      "text": "but",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          40
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-150",
+      "group": "sen_34674_sen_129",
+      "text": "would",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          41
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-151",
+      "group": "sen_34674_sen_131",
+      "text": "always",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          42
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-152",
+      "group": "sen_34674_sen_129",
+      "text": "give",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          43
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-153",
+      "group": "notAligned",
+      "text": "him",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          44
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-154",
+      "group": "sen_34674_sen_132",
+      "text": "more",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          45
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-155",
+      "group": "notAligned",
+      "text": "besides",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          46
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-156",
+      "group": "sen_34674_sen_130",
+      "text": ".",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-157",
+      "group": "sen_34674_sen_59",
+      "text": "The",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          48
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-158",
+      "group": "sen_34674_sen_59",
+      "text": "result",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          49
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-159",
+      "group": "sen_34674_sen_59",
+      "text": "was",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          50
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-160",
+      "group": "sen_34674_sen_59",
+      "text": "that",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          51
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-161",
+      "group": "sen_34674_sen_61",
+      "text": "they",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          52
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-162",
+      "group": "sen_34674_sen_61",
+      "text": "toiled",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          53
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-163",
+      "group": "sen_34674_sen_60",
+      "text": "with",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          54
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-164",
+      "group": "sen_34674_sen_60",
+      "text": "pleasure",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          55
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-165",
+      "group": "sen_34674_sen_138",
+      "text": "and",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          56
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-166",
+      "group": "sen_34674_sen_64",
+      "text": "accumulated",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          57
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-167",
+      "group": "sen_34674_sen_63",
+      "text": "with",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          58
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-168",
+      "group": "sen_34674_sen_63",
+      "text": "confidence",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          59
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-169",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-170",
+      "group": "sen_34674_sen_65",
+      "text": "and",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          61
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-171",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-172",
+      "group": "sen_34674_sen_66",
+      "text": "more",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          63
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-173",
+      "group": "sen_34674_sen_66",
+      "text": "than",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          64
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-174",
+      "group": "sen_34674_sen_66",
+      "text": "that",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          65
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-175",
+      "group": "notAligned",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-176",
+      "group": "sen_34674_sen_136",
+      "text": "no",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          67
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-177",
+      "group": "sen_34674_sen_135",
+      "text": "one",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          68
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-178",
+      "group": "sen_34674_sen_68",
+      "text": "would",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          69
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-179",
+      "group": "sen_34674_sen_68",
+      "text": "conceal",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          70
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-180",
+      "group": "sen_34674_sen_137",
+      "text": "from",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          71
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-181",
+      "group": "sen_34674_sen_137",
+      "text": "Cyrus",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          72
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-182",
+      "group": "sen_34674_sen_134",
+      "text": "the",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          73
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-183",
+      "group": "sen_34674_sen_134",
+      "text": "store",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          74
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-184",
+      "group": "sen_34674_sen_134",
+      "text": "which",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          75
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-185",
+      "group": "sen_34674_sen_67",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          76
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-186",
+      "group": "sen_34674_sen_67",
+      "text": "had",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          77
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-187",
+      "group": "sen_34674_sen_67",
+      "text": "acquired",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          78
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-188",
+      "group": "sen_34674_sen_70",
+      "text": ";",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-189",
+      "group": "sen_34674_sen_69",
+      "text": "for",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          80
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-190",
+      "group": "notAligned",
+      "text": "it",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          81
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-191",
+      "group": "notAligned",
+      "text": "was",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          82
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-192",
+      "group": "notAligned",
+      "text": "clear",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          83
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-193",
+      "group": "notAligned",
+      "text": "that",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          84
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-194",
+      "group": "sen_34674_sen_140",
+      "text": "he",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          85
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-195",
+      "group": "sen_34674_sen_140",
+      "text": "did",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          86
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-196",
+      "group": "sen_34674_sen_71",
+      "text": "not",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          87
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-197",
+      "group": "sen_34674_sen_140",
+      "text": "envy",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          88
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-198",
+      "group": "sen_34674_sen_75",
+      "text": "those",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          89
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-199",
+      "group": "sen_34674_sen_75",
+      "text": "who",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          90
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-200",
+      "group": "sen_34674_sen_76",
+      "text": "were",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          91
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-201",
+      "group": "sen_34674_sen_139",
+      "text": "frankly",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          92
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-202",
+      "group": "sen_34674_sen_139",
+      "text": "and",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          93
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-203",
+      "group": "sen_34674_sen_139",
+      "text": "openly",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          94
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-204",
+      "group": "sen_34674_sen_76",
+      "text": "rich",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          95
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-205",
+      "group": "sen_34674_sen_141",
+      "text": ",",
+      "bound_occurrences": []
+    },
+    {
+      "id": "token_2_34674_2-206",
+      "group": "sen_34674_sen_53",
+      "text": "but",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          97
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-207",
+      "group": "sen_34674_sen_142",
+      "text": "strove",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          98
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-208",
+      "group": "sen_34674_sen_83",
+      "text": "to",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          99
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-209",
+      "group": "sen_34674_sen_83",
+      "text": "make",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          100
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-210",
+      "group": "sen_34674_sen_83",
+      "text": "use",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          101
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-211",
+      "group": "sen_34674_sen_143",
+      "text": "of",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          102
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-212",
+      "group": "sen_34674_sen_143",
+      "text": "the",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          103
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-213",
+      "group": "sen_34674_sen_143",
+      "text": "possessions",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          104
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-214",
+      "group": "sen_34674_sen_144",
+      "text": "of",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          105
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-215",
+      "group": "sen_34674_sen_144",
+      "text": "such",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          106
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-216",
+      "group": "sen_34674_sen_144",
+      "text": "as",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          107
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-217",
+      "group": "notAligned",
+      "text": "tried",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          108
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-218",
+      "group": "sen_34674_sen_145",
+      "text": "to",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          109
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-219",
+      "group": "sen_34674_sen_145",
+      "text": "conceal",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          110
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-220",
+      "group": "sen_34674_sen_146",
+      "text": "their",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          111
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-221",
+      "group": "sen_34674_sen_146",
+      "text": "wealth",
+      "bound_occurrences": [
+        [
+          "1.9.19",
+          112
+        ]
+      ]
+    },
+    {
+      "id": "token_2_34674_2-222",
+      "group": "sen_34674_sen_147",
+      "text": ".",
+      "bound_occurrences": []
+    }
+  ]
+}
