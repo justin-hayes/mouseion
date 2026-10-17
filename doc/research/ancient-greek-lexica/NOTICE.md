@@ -1,166 +1,131 @@
-# Attribution, rights and modification notice
+# Rights, attribution and modification notice
 
-This directory holds derived counts, scripts, and hashes. It contains no copies
-of the source texts or dictionary entries. The Kaikki, LSJ, Middle Liddell, and
-OGA files were fetched into scratch space and are not committed. Entry fragments
-in the research file are short quotations used to show structure.
+This asset contains original research scripts, aggregate counts, source hashes and
+short structural quotations. Full lexica and OGA text are not committed. Research
+quotations are published here; this is not a redistribution of whole dictionaries.
+No legal clearance for production data or decks is implied.
 
-Nothing here is a licence clearance for the app or for any deck. Each row gives the
-licence the source states, where it was read, and the status for this research.
-Print-edition status and digital-text rights are separate rows.
+## Text versus digitisation
 
-## Source by source
+### English Wiktionary → Wiktextract → Kaikki
 
-### Wiktionary text, via Kaikki/Wiktextract (`grc`)
+- **Text:** [WMF Terms of Use §7](https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use#7._Licensing_of_Content)
+  require original textual contributions to be licensed CC BY-SA 4.0 and GFDL
+  (unversioned, no invariant sections or cover texts). Reusers can choose either
+  **where both apply**. The same section warns that imported text may be CC-only,
+  carry additional attribution, or be quoted under an exception rather than licensed
+  for unrestricted reuse. A generic dual-licence notice is not proof for every quote.
+- **Digitisation:** [Kaikki](https://kaikki.org/dictionary/rawdata.html) identifies
+  Wiktionary and the extractor; no independent grant overriding source rights was
+  found there. It asks academic users to cite Tatu Ylonen, *Wiktextract: Wiktionary
+  as Machine-Readable Structured Data*, LREC 2022, pp. 1317–1325, and appreciates links.
+- **Software:** [Wiktextract's pinned licence](https://github.com/tatuylonen/wiktextract/blob/1a05e46f9efbccda6a2b2f8e21b30a9c0c46513a/LICENSE)
+  is MIT with a Wiktionary-data exception for tests. Code licensing does not relicense
+  the extracted definitions.
+- **Personal use:** covered local lookup is permitted. **Redistribution:** prefer the
+  CC BY-SA 4.0 route for covered text, retain additional notices, credit Wiktionary
+  contributors with source-entry URLs (the page history identifies contributors),
+  link the licence and identify extraction/adaptation. English translations quoted
+  in examples remain excluded until their own provenance/rights are established.
 
-- Wiktionary text: the WMF Terms of Use, section "Licensing of Content"
-  (`https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use`), says contributed text
-  is licensed under CC BY-SA 4.0 and GFDL (unversioned), and "Reusers may comply with
-  either license or both." Attribution by hyperlink or URL to the page history.
-- Kaikki raw-data page (`https://kaikki.org/dictionary/rawdata.html`): gives no licence
-  for the extract. It asks academic users to cite Tatu Ylonen's Wiktextract work.
-- Wiktextract code: MIT (`tatuylonen/wiktextract` LICENSE), with a carve-out for files
-  under `tests/`, which are Wiktionary-licensed.
-- Quoted third-party translations: 36 Anabasis example objects in the `grc` extract
-  contain "Anabasis" (35 in the `Xenophon, Anabasis` form, one in a different form).
-  Of the 35, 27 carry a real translation, 6 carry a placeholder ("please add an English
-  translation"), and 2 name a translator in the text (Dakyns; Carleton L. Brownson). Book 1
-  has 17 examples: 13 real translations, 2 placeholders, 1 Brownson-attributed. The rights
-  in quoted translations are not established by the Wiktionary licence. Excluded from
-  shipped output until checked.
-- Status for this research: candidate for lookup and attribution. Quoted translations
-  excluded.
+### Perseus LSJ, 1940 ninth-edition witness
 
-### LSJ, Perseus `pdllex/grc/lsj` (commit `56061ca1`)
+- **Print:** Liddell, Scott, Jones and McKenzie, *A Greek-English Lexicon*, Clarendon
+  Press, 1940, ISBN 0198642261, per the [pinned TEI header](https://github.com/PerseusDL/lexica/blob/56061ca127f4a2844980baffc5f2b6d1332897b3/CTS_XML_TEI/perseus/pdllex/grc/lsj/grc.lsj.perseus-eng1.xml).
+  This is not automatically public domain worldwide because it describes ancient
+  words. No separate print-edition open licence or completed US renewal/rights-chain
+  search was established. An inspected Perseus MODS record lists McKenzie 1887–1937
+  and Jones 1867–1939; the earlier draft's claim that McKenzie's date was entirely
+  absent is withdrawn. Those catalogue dates are not a worldwide rights determination.
+- **Digitisation:** the [component README](https://github.com/PerseusDL/lexica/blob/56061ca127f4a2844980baffc5f2b6d1332897b3/CTS_XML_TEI/perseus/pdllex/grc/lsj/README.md)
+  explicitly says the text may be **freely distributed under CC BY-SA 4.0**. Credit:
 
-- Print edition: Liddell, Scott, Jones and McKenzie, *A Greek-English Lexicon*, Oxford:
-  Clarendon Press, 1940 (ninth edition). The TEI header of
-  `grc.lsj.perseus-eng1.xml` gives ISBN 0198642261.
-- Component licence: `lsj/README.md` in the pinned repo is a component-specific statement.
-  It says the text is "provided under a CC BY-SA license by Perseus Digital Library,
-  http://www.perseus.tufts.edu, with funding from The National Endowment for the
-  Humanities", and asks that the data be cited as "Data accessed from
-  https://github.com/PerseusDL/lexica/ [date of access]". The repo-level `README.md`
-  also says CC BY-SA 4.0 and must be offered back as modifications.
-- Tufts wording: the repo-level README says "Tufts University holds the overall copyright
-  to the Perseus Digital Library; the materials therein … are provided for the personal use
-  of students, scholars, and the public." That is general wording and is not reconciled
-  with the component statement.
-- Print-edition public-domain status, separate from the digitisation:
-  - Henry Stuart Jones (1867–1939) is confirmed (`en.wikipedia.org/wiki/Henry_Stuart_Jones`).
-  - Roderick McKenzie's death date was not confirmed. The search result for "Roderick
-    McKenzie" that turned up died 1940 and is a sociologist with a different career. Do
-    not conflate the two. The LSJ co-author's dates are unverified.
-  - The EU term is life plus 70 years from the death of the last-dying co-author. Jones
-    died in 1939, so the term runs at least to 2009. The print is public domain in the EU
-    from 2026 only if McKenzie died before 1956. The US position depends on renewal
-    records not checked here.
-  - Result: unresolved in both jurisdictions.
-- Status for this research: candidate for personal and research use. Excluded from shipped
-  decks until the print status and the Tufts clause are settled.
+  > Text provided under a CC BY-SA license by Perseus Digital Library,
+  > http://www.perseus.tufts.edu, with funding from The National Endowment for the Humanities.
+  > Data accessed from https://github.com/PerseusDL/lexica/ [date of access].
 
-### Middle Liddell, Perseus `1999.04.0058` (*An Intermediate Greek-English Lexicon*)
+  Keep the availability statement intact, offer Perseus modifications, and include
+  title/authors/publisher/ISBN from the header wherever possible.
+- The [repository README](https://github.com/PerseusDL/lexica/blob/56061ca127f4a2844980baffc5f2b6d1332897b3/README.md)
+  has both general personal-use/varying-component-status language and a default
+  BY-SA 4.0 grant; [full licence](https://github.com/PerseusDL/lexica/blob/56061ca127f4a2844980baffc5f2b6d1332897b3/license.md).
+  Do not misquote the component's express distribution grant as personal-use-only.
+  The offer-back wording is additional to standard CC attribution/share-alike terms;
+  preserve and address it rather than silently deleting it.
+- **Disposition:** research/personal-use candidate, and a plausible redistribution
+  candidate under the express grant with its notices. Final shipping review should
+  record the applicable jurisdiction, underlying-edition rights and treatment of
+  the extra wording. This survey does not accept new export behaviour.
 
-- Print edition: Liddell and Scott, Oxford: Clarendon Press, 1889. ISBN 0199102066 and
-  HathiTrust `hvd.32044041126962` (per the MODS record).
-- Authors' dates: Henry George Liddell (1811–1898) is confirmed from
-  `en.wikipedia.org/wiki/Henry_George_Liddell`. Robert Scott (1811–1887) is confirmed
-  by the Rochester Cathedral dean page (`rochestercathedral.org/forc/deanscott`) and
-  the MODS authority record.
-- Print status: the last-dying co-author is Liddell (1898), so the EU term ran to the
-  end of 1968 and the print has been in the public domain there since 1969. In the US,
-  an 1889 publication is public domain. The print is not the issue.
-- Digital text, TEI header (`dl/ml/ml-blinskey.xml`, fork `blinskey/middle-liddell@5db8d88a`):
-  `<availability status="free">`, with conditions to credit Perseus, keep the statement
-  intact, use it "for non-commercial purposes only", and "offer Perseus any modifications
-  you make."
-- Digital text, Perseus hopper page (`https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.04.0058`):
-  "licensed under a Creative Commons Attribution-ShareAlike 3.0 United States License",
-  with the Perseus-modifications restriction.
-- Fork `LICENSE.md` (`blinskey/middle-liddell@5db8d88a`): CC BY-SA 3.0 US with the
-  Perseus-modifications restriction. The second copy (`adiel-mittmann/middle-liddell@b492bdf2`)
-  has no LICENSE file in its root listing.
-- Conflict: the TEI header says non-commercial. The hopper and fork say CC BY-SA 3.0 US.
-  Not resolved here.
-- Status for this research: excluded from shipped decks until Perseus says which
-  statement governs the XML. If it is CC BY-SA 3.0 US, adaptations may be relicensed under
-  BY-SA 4.0 (see deck scope, point 3), but that does not resolve the conflict.
+### Perseus Middle Liddell, 1889
 
-### DGE, Diccionario Griego-Español (CSIC)
+- **Print:** Liddell/Scott, *An Intermediate Greek-English Lexicon*, Clarendon Press,
+  1889, ISBN 0199102066, per [Perseus](https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.04.0058).
+  The old print is distinct from rights in the modern digital witness. Its US
+  publication age supports public-domain status; no claim is made that this removes
+  the digital witness's licence conditions.
+- **Digital conflict:** [pinned XML](https://github.com/blinskey/middle-liddell/blob/5db8d88a20066e182ca3fc6ee758c9f61ac60603/Perseus_text_1999.04.0058.xml)
+  says non-commercial only, with Perseus credit, preservation and offer-back.
+  The institutional web page and [fork licence](https://github.com/blinskey/middle-liddell/blob/5db8d88a20066e182ca3fc6ee758c9f61ac60603/LICENSE.md)
+  say BY-SA 3.0 US plus offer-back. An unrelated unlicensed copy is not a new grant.
+- **Disposition:** an inspectable research comparison, not cleared for the non-NC
+  path or redistributed decks until the rights holder reconciles those statements.
 
-- Licence (DGE's licence page, `http://dge.cchs.csic.es/xdge/doc/licencia.html`, fetched
-  2026-10-17): "distribuidos bajo la licencia Creative Commons: 'Reconocimiento - No
-  Comercial - Compartir Igual; 3.0 España'". The non-commercial term applies.
-- Machine-readable access: `http://dge.cchs.csic.es/xdge/xml/` returned HTTP 401. No open
-  XML download was verified. The HTTPS host failed to connect from this environment.
-- Status: excluded. Non-commercial, and no verified open machine-readable copy.
+### Other candidates
 
-### Bailly (Dictionnaire grec-français, 1895; 2020 digital edition)
+- **DGE:** [first-party online licence](http://dge.cchs.csic.es/xdge/doc/licencia.html)
+  is CC BY-NC-SA 3.0 Spain; it asks for a link to the latest resource and consultation
+  date. Personal non-commercial consultation is different from unrestricted reuse.
+  No separate open print licence or accessible XML release was established. Excluded
+  by this map's non-NC boundary, not because scholarly quality was evaluated.
+- **Bailly 2020:** [originating project](http://gerardgreco.free.fr/spip.php?article52)
+  identifies a corrected modern digitisation of the 1935 edition and its contributors.
+  [StarDict producer](https://chaerephon.e-monsite.com/pages/litterature/grec-ancien/bailly2020.html)
+  offers files. No unrestricted grant for these modern contributions was established.
+  The [Latin-dict conversion](https://latin-dict.github.io/dictionaries/Bailly2020.html)
+  explicitly licenses its work BY-NC-ND 4.0. This excludes that derivative; it does
+  **not** establish the licence of every other Bailly transcription or the old print.
+  No adapted deck reuse or blanket original-public-domain claim is made.
+- **OGA/oga_src v0.2.0:** [Zenodo source](https://zenodo.org/records/15199546), CC BY-SA
+  4.0, with OGA, Perseus/canonical-greekLit and oga_src provenance retained under the
+  existing import contract. Used here only as the pinned measurement input. The
+  scheme-qualified OGA discriminator is not a separate licence grant from Morpheus.
+- Pape/Passow and further platform contents remain unassessed, not declared non-open.
 
-- Print edition: Anatole Bailly, Hachette, first edition 1895. Bailly's dates are
-  16 December 1833 – 12 December 1911 (`en.wikipedia.org/wiki/Anatole_Bailly` and
-  `fr.wikipedia.org/wiki/Anatole_Bailly`). The earlier draft's 1916 death year is wrong
-  and is withdrawn.
-- Digital derivative: `https://latin-dict.github.io/dictionaries/Bailly2020.html` says
-  "licensed under a Attribution-NonCommercial-NoDerivatives 4.0 International License."
-  The Gréco author page gives no licence line in the fetched text.
-- Status: excluded. The derivative is NC and ND, whatever the print status.
+## Redistributed deck checklist
 
-### Scaife / OpenGreekAndLatin 19th-century lexica
+The [CC BY-SA 4.0 legal code](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en),
+especially §§2, 3 and 4, and [WMF reuse terms](https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use#7._Licensing_of_Content)
+are the basis, not Mouseion's existing attribution string.
 
-- `https://scaife.perseus.org/library/` fetched as a shell page with no lexicon list.
-  `github.com/OpenGreekAndLatin/lexica` returned 404 through the GitHub API.
-- Status: not assessed. No claim is made about these texts.
+1. Export to one's own Anki is not necessarily sharing with the public. Licence
+   attribution/share-alike requirements triggered by public sharing are distinct
+   from private use. Nevertheless retain source and licence metadata so later
+   redistribution can comply. Personal use does not erase NC conditions or other
+   applicable rights.
+2. When covered material is shared, retain supplied creator/attribution and copyright
+   notices, source URI, licence link, and disclaimer where supplied; indicate actual
+   modifications (for example extraction, abridgment, Beta Code conversion). Do not
+   state an unchanged quotation was modified when it was not. Meet the explicit
+   Perseus preservation/credit/offer-back wording if using that witness.
+3. License **adapted covered material** under the required BY-SA version or a permitted
+   compatible licence; unchanged excerpts retain their licence. Mere aggregation
+   does not automatically relicense all unrelated deck fields or the AGPL app.
+   The [CC compatibility guidance](https://creativecommons.org/share-your-work/licensing-considerations/compatible-licenses)
+   permits BY-SA 3.0 adaptations to use later BY-SA versions, not the reverse.
+   That does not resolve Middle Liddell's NC conflict.
+4. Preserve per-entry/sense provenance alongside aggregate deck notices. A bare
+   "Wiktionary/Perseus, share alike" string is not a substitute for source URLs,
+   applicable terms and change indications. Existing export metadata was not certified
+   compliant by this investigation.
+5. Do not ship quoted third-party translations or unresolved witnesses on the strength
+   of their host's blanket licence. No source acceptance, legal advice or permission
+   to modify the production import/provider/export contracts is implied.
 
-### Logeion
+## Changes made by this research
 
-- `https://logeion.uchicago.edu/` returned a JavaScript shell. Ownership and licence were
-  not retrieved.
-- Status: not assessed.
-
-### Open Greek and Latin OGA `oga_src` v0.2.0 (Zenodo 10.5281/zenodo.15199546)
-
-- `license.md` in the zip: the OGA corpus and this repository's CoNLL-U files are archived
-  under CC BY-SA 4.0. The README says the data derives from Perseus/canonical-greekLit and
-  First1KGreek and follows the AGDT annotation scheme.
-- The Anabasis file's SHA-256 is pinned in `internal/ancientgreek/ancientgreek.go:23-39`.
-- Status: candidate for the identity and POS import. The `ref=Xen. Anab._…` MISC labels
-  are OGA's own labels, not a separate source.
-
-### Pape, Passow, Autenrieth, Cunliffe, Lewis & Short
-
-- Not assessed in this pass. Autenrieth and Cunliffe are Homeric, and Lewis & Short is
-  Latin. Passow (1786–1833) is confirmed by HathiTrust authority data, but the later
-  editors' dates were not, and Pape's dates were not checked. No licence is claimed.
-
-## Deck licence scope
-
-These statements apply to the data in the research and to output derived from it. They
-are not a clearance for the app.
-
-1. **Personal use.** Reading material in one's own account is not redistribution, and
-   attribution is not a condition of private use. Non-commercial statements (Middle
-   Liddell TEI, DGE, Bailly 2020) still bar commercial use. Those sources are excluded
-   from shipping.
-2. **Redistributed excerpts in decks.** An excerpt that is shipped or exported must
-   credit the author or editor names, the title, the source URI, the licence name and
-   a link to the licence text, and state that it was changed. For CC BY-SA 4.0 material,
-   adaptations must be licensed under CC BY-SA 4.0 or a later version. For Wiktionary
-   text, the WMF terms allow CC BY-SA 4.0 or GFDL, with a hyperlink or URL credit.
-3. **BY-SA 3.0 to 4.0.** Creative Commons' compatibility list says adaptations of
-   BY-SA 3.0 material may be licensed under BY-SA 4.0. The reverse is not allowed. This
-   applies only to adaptations. Unadapted excerpts keep their original licence.
-4. **Data versus the app.** The app's own LICENSE at `6e02d180` is GNU AGPL v3
-   (`git show 6e02d180:LICENSE`). It covers the code and not the dictionary data.
-   `internal/dictionary/attribution.go` says CC BY-SA 4.0 / GFDL for Wiktionary data and
-   CC BY-SA 4.0 for OGA. Those are attribution strings, not a clearance.
-5. **Unresolved status is excluded.** LSJ print and Tufts wording, Middle Liddell digital
-   text, Scaife and Logeion are not used in shipped decks.
-
-## Modifications
-
-- The scripts in `scripts/` are written for this research and read sources read-only.
-- `summaries/` contains counts, tier counts and hashes only. It holds no headword-level
-  excerpts from LSJ, Middle Liddell, or Kaikki text.
-- The research file quotes short fragments (single glosses and references) to show
-  structure. These are not redistributed beyond the research file.
+Downloaded input data was read only. Scripts filter raw `grc`, approximate lookup
+keys, exclude unsupported Beta Code keys and count candidate presence. Summaries
+contain aggregates and hashes, not full entries or resolved senses. The main report
+quotes short glosses/IDs solely to explain entry structure; the original availability
+statements are linked above. Source and digest manifest: [SOURCES.md](SOURCES.md).

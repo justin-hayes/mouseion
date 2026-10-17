@@ -55,7 +55,7 @@ with open(KAIKKI, encoding='utf-8') as f:
         if d.get('lang_code') == 'grc':
             kaikki[canonical(d['word'])].append(KAIKKI_CLASS.get(d.get('pos')))
 
-# LSJ / ML: headword key only (no POS field in these dictionaries)
+# LSJ / ML: headword key only. Sparse, locally scoped POS tags are not mapped here.
 def perseus_heads(paths):
     heads = collections.Counter()
     for path in paths:

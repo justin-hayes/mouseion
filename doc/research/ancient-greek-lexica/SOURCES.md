@@ -20,14 +20,14 @@ bytes measured. Re-fetch and compare before reusing a result.
 - The derived subset has no immutable upstream URL. Its pin is the gzip hash plus the
   filter script. The filter is deterministic, but the subset was derived once. The
   single derivation is what every number in this file uses.
-- A separate local file `x/kaikki-grc/grc.jsonl` (SHA-256 `38a02793…`) has a different
-  hash from the derived subset above. Its provenance is not recorded and it was not used
-  for any figure. Do not mix the two.
 - Upstream identity, as the raw-data page states: "extracted on 2026-10-03 from the
   enwiktionary dump dated 2026-09-02 using wiktextract (1a05e46 and e3d6d4e)." The commit
-  `1a05e46f9efbccda6a2b2f8e21b30a9c0c46513a` resolves in `tatuylonen/wiktextract`
-  (committer date 2026-09-21). `e3d6d4e` did not resolve through the GitHub API (HTTP
-  422), so it is recorded as stated by the page and not verified.
+  [1a05e46f9efbccda6a2b2f8e21b30a9c0c46513a](https://github.com/tatuylonen/wiktextract/commit/1a05e46f9efbccda6a2b2f8e21b30a9c0c46513a)
+  resolves in `tatuylonen/wiktextract` (committer date 2026-09-21).
+  The page's **second link is to a different repository**:
+  [wikitextprocessor e3d6d4edb77618f4d6680edc66e3f774bea59820](https://github.com/tatuylonen/wikitextprocessor/commit/e3d6d4edb77618f4d6680edc66e3f774bea59820),
+  verified via the GitHub API, committer date 2026-09-18. The earlier failed lookup
+  searched the wrong repository and is not evidence of missing provenance.
 - The per-language postprocessed file `kaikki.org-dictionary-AncientGreek.jsonl`
   (SHA-256 `69d7185819de51cc746d96f8033eb6c3f3e2016a314c2ee640ec09ce80623029`, 403,924,438
   bytes) is marked DEPRECATED on the raw-data page. The first draft measured it. Both
@@ -47,10 +47,13 @@ not in it: a full-zip search (44 entries, all paths and text headers) found no
 `1999.04.0058` file and no "Intermediate Greek-English" header. The Middle Liddell TEI
 used here is the fork copy above.
 
-Web pages used for print-edition and licence statements (Perseus hopper pages, DGE,
-Bailly 2020, WMF Terms of Use, wiktextract LICENSE, Wikipedia and HathiTrust authority
-pages) are cited by URL in the research file. They were fetched on 2026-10-17. Some were
-reachable only over HTTP.
+Primary pages used for edition/licence/structure claims are linked in the main report
+and NOTICE: pinned Perseus README/TEI/licence files, the institutional hopper page,
+Kaikki's raw-data page, WMF terms, CSIC DGE licence/credits, and the Bailly project,
+StarDict producer and derivative publisher. Checked 2026-10-17; some were reachable
+only over HTTP. A derivative publisher's licence is not asserted to govern all
+other witnesses. Unverified global public-domain claims from preliminary drafts
+are not a basis for the final recommendations.
 
 ## Crosswalk-tier output
 
@@ -85,11 +88,24 @@ z.extract('mgbilby-oga_src-223d225/data/tlg0032.tlg006.perseus-grc2_oga020_src.c
 LSJ=x/perseus/lexica-56061ca127f4a2844980baffc5f2b6d1332897b3/CTS_XML_TEI/perseus/pdllex/grc/lsj
 CONLLU=x/oga/mgbilby-oga_src-223d225/data/tlg0032.tlg006.perseus-grc2_oga020_src.conllu
 
-python3 -I -B $R/scripts/measure.py $CONLLU x/grc-top.jsonl $LSJ dl/ml/ml-blinskey.xml summaries-out.json
-python3 -I -B $R/scripts/crosswalk_tiers.py $CONLLU x/grc-top.jsonl $LSJ dl/ml/ml-blinskey.xml crosswalk-out.json
+python3 -I -B "$R/scripts/measure.py" "$CONLLU" x/grc-top.jsonl "$LSJ" dl/ml/ml-blinskey.xml summaries-out.json
+python3 -I -B "$R/scripts/crosswalk_tiers.py" "$CONLLU" x/grc-top.jsonl "$LSJ" dl/ml/ml-blinskey.xml crosswalk-out.json
+python3 -I -B "$R/scripts/test_research_scripts.py"
 ```
 
 `measure.py` and `crosswalk_tiers.py` find `betacode.py` from their own directory
 (`os.path.abspath(__file__)`), so `-I` works from any working directory with an
 absolute script path. Diff `summaries-out.json` against
-`summaries/book1-lookup-measurement.json`. A rerun in this pass produced identical JSON.
+`summaries/book1-lookup-measurement.json`, and compare `crosswalk-out.json` with
+`summaries/crosswalk-tiers.json`. Independent reruns reproduced both JSON objects.
+Three synthetic test cases check filtering and measurement plumbing, not semantic
+correctness, the XML parser's completeness, or production-equivalent coverage.
+Input hashes for the OGA member, derived Kaikki subset, LSJ archive and Middle
+Liddell XML were also independently checked against this manifest.
+Runtime used for the independent rerun: CPython 3.13.5, `unicodedata` 15.1.0.
+This is not the production Go Unicode 17.0.0 implementation; normalization and
+identity matching are explicitly approximate.
+
+Repository-wide `make lint GOTMPDIR="$HOME/.cache/gotmp"` was attempted but blocked:
+the pinned `golangci-lint` 2.14.0 is not installed. The worktree has no `.venv` either.
+No production-code or production-test changes were made.
