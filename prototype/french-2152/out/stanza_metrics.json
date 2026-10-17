@@ -1,0 +1,48 @@
+{
+ "stanza_version": "1.15.0",
+ "torch_version": "2.14.1+cpu",
+ "torch_threads": 4,
+ "package": {
+  "tokenize": "combined_nocharlm",
+  "mwt": "combined",
+  "pos": "combined_charlm",
+  "lemma": "combined_nocharlm",
+  "depparse": "combined_charlm"
+ },
+ "pipeline_load_seconds": 2.76,
+ "max_rss_mb_before_load": 272.1,
+ "max_rss_mb_after_load": 867.5,
+ "max_rss_mb_after_runs": 938.3,
+ "per_sentence_seconds": {
+  "min": 0.029,
+  "median": 0.036,
+  "max": 0.049,
+  "first_call": 0.049
+ },
+ "paragraph_chars": 797,
+ "paragraph_seconds": 0.227,
+ "paragraph_sentences": [
+  "Je vois l'homme près du marché.",
+  "Nous sommes d'accord sur ce point.",
+  "Elle s'habille avant de partir.",
+  "Il s'en va sans fermer la porte.",
+  "Je le lui donne, mais elle ne m'en parle pas.",
+  "Je lave la chemise après le repas.",
+  "Je me lave avant le petit déjeuner.",
+  "Elle se lave les mains avant de manger.",
+  "Il va au marché avec sa sœur.",
+  "Elle revient aux mêmes questions chaque soir.",
+  "Il revient du marché avec des pommes.",
+  "Le prix des pommes a augmenté.",
+  "Elle boit du café et mange des fruits.",
+  "Où va-t-il quand le magasin est fermé ?",
+  "« Je suis sûr qu’il viendra ce soir.",
+  "» « Il est là », dit-elle, « mais il repart demain.",
+  "» Il faut partir.",
+  "Je vois l’homme près du marché.",
+  "Nous sommes d’accord sur ce point.",
+  "Elle s’habille avant de partir.",
+  "Il s’en va sans fermer la porte.",
+  "Je le lui donne, mais elle ne m’en parle pas."
+ ]
+}

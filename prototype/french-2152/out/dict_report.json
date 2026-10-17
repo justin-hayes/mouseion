@@ -1,0 +1,4405 @@
+{
+ "absent_titles": [
+  "se laver",
+  "s'habiller",
+  "en aller",
+  "s'apercevoir",
+  "se lever"
+ ],
+ "words": {
+  "laver": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "to wash",
+     "to wash oneself"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "lavons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "lavez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "lavent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "lavions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 125,
+    "reflexive_forms_sample": [
+     "se laver",
+     "s'être + past participle",
+     "se lavant",
+     "ayant"
+    ],
+    "reflexive_senses": [
+     {
+      "gloss": "to wash oneself",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": []
+     }
+    ],
+    "sounds": [
+     [
+      "/la.ve/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "laver"
+    ],
+    "derived_or_related_pronominal": [
+     "se laver les mains"
+    ]
+   }
+  ],
+  "habiller": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 3,
+    "first_glosses": [
+     "to dress",
+     "to get dressed",
+     "to dress in a certain fashion"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "habillons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "habillez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "habillent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "habillions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 125,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [
+     {
+      "gloss": "to get dressed",
+      "tags": [
+       "pronominal"
+      ],
+      "raw_tags": []
+     },
+     {
+      "gloss": "to dress in a certain fashion",
+      "tags": [
+       "pronominal"
+      ],
+      "raw_tags": []
+     }
+    ],
+    "sounds": [
+     [
+      "/a.bi.je/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "habiller"
+    ],
+    "derived_or_related_pronominal": [
+     "s'habiller comme la chienne à Jacques"
+    ]
+   }
+  ],
+  "aller": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 7,
+    "first_glosses": [
+     "to go",
+     "to attend (school, church regularly)",
+     "to be going (to); will soon; forms a near-future tense",
+     "to be (feeling)",
+     "to go well",
+     "to suit"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "allons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "allez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "vont",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "allions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 63,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/a.le/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "aller"
+    ],
+    "derived_or_related_pronominal": [
+     "s'en aller"
+    ]
+   },
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "outward trip; journey out; trip away"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "allers",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/a.le/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "aller m (plural allers)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "s'en aller": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "to go away, to leave"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "nous en allons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "vous en allez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "s'en vont",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "nous en allions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 62,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/s‿ɑ̃.n‿a.le/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "s'en aller"
+    ],
+    "derived_or_related_pronominal": [
+     "s'en être"
+    ]
+   }
+  ],
+  "apercevoir": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "to see, to glimpse, to catch sight of",
+     "to realize, to become aware (of), to notice"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "apercevons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "apercevez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "aperçoivent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "apercevions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 62,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [
+     {
+      "gloss": "to realize, to become aware (of), to notice",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": []
+     }
+    ],
+    "sounds": [
+     [
+      "/a.pɛʁ.sə.vwaʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "apercevoir"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "souvenir": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "to remember"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "nous souvenons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present",
+       "reflexive"
+      ]
+     ],
+     [
+      "vous souvenez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "reflexive",
+       "second-person"
+      ]
+     ],
+     [
+      "se souviennent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "reflexive",
+       "third-person"
+      ]
+     ],
+     [
+      "nous souvenions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural",
+       "reflexive"
+      ]
+     ]
+    ],
+    "form_count": 63,
+    "reflexive_forms_sample": [
+     "se souvenir",
+     "s'être + past participle",
+     "se souvenant",
+     "ayant"
+    ],
+    "reflexive_senses": [
+     {
+      "gloss": "to remember",
+      "tags": [
+       "pronominal"
+      ],
+      "raw_tags": []
+     }
+    ],
+    "sounds": [
+     [
+      "/su.v(ə).niʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "souvenir"
+    ],
+    "derived_or_related_pronominal": [
+     "se souvenir"
+    ]
+   },
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "memory (mental picture)",
+     "souvenir"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "souvenirs",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/su.v(ə).niʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "souvenir m (plural souvenirs)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "se souvenir": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "remember (to recall one's memory)"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "nous souvenons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present",
+       "reflexive"
+      ]
+     ],
+     [
+      "vous souvenez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "reflexive",
+       "second-person"
+      ]
+     ],
+     [
+      "se souviennent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "reflexive",
+       "third-person"
+      ]
+     ],
+     [
+      "nous souvenions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural",
+       "reflexive"
+      ]
+     ]
+    ],
+    "form_count": 63,
+    "reflexive_forms_sample": [
+     "se souvenir",
+     "s'être + past participle",
+     "se souvenant",
+     "ayant"
+    ],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/sə suv.niʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "se souvenir"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "falloir": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 3,
+    "first_glosses": [
+     "to need, have to, to be necessary (that)",
+     "to take (time)",
+     "to be missing"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "-",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "-",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "-",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "-",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 125,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [
+     {
+      "gloss": "to be missing",
+      "tags": [
+       "defective",
+       "reflexive"
+      ],
+      "raw_tags": [
+       "with en"
+      ]
+     }
+    ],
+    "sounds": [
+     [
+      "/fa.lwaʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "falloir (defective)"
+    ],
+    "derived_or_related_pronominal": [
+     "s'en falloir"
+    ]
+   }
+  ],
+  "lever": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 5,
+    "first_glosses": [
+     "to raise, lift",
+     "to rise, stand up",
+     "to rise, come up",
+     "to get up (out of bed)",
+     "to clear, lift"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "levons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "levez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "lèvent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "levions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 74,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [
+     {
+      "gloss": "to rise, stand up",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": []
+     },
+     {
+      "gloss": "to rise, come up",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": [
+       "of celestial bodies"
+      ]
+     },
+     {
+      "gloss": "to get up (out of bed)",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": []
+     },
+     {
+      "gloss": "to clear, lift",
+      "tags": [
+       "reflexive",
+       "usually"
+      ],
+      "raw_tags": [
+       "of fog"
+      ]
+     }
+    ],
+    "sounds": [
+     [
+      "/lə.ve/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "lever"
+    ],
+    "derived_or_related_pronominal": [
+     "se lever",
+     "se lever du mauvais pied",
+     "se lever du pied gauche"
+    ]
+   },
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "the act of getting up in the morning"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "levers",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/lə.ve/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "lever m (plural levers)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "du": [
+   {
+    "pos": "contraction",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "contraction of de + le, literally “of the”"
+    ],
+    "form_of": [
+     "de"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/dy/",
+      null,
+      null
+     ],
+     [
+      "[d͡zy]",
+      [
+       "Quebec"
+      ],
+      null
+     ],
+     [
+      "[d͡zʏ]",
+      [
+       "Quebec"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "du"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "article",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "Forms the partitive article."
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "des",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/dy/",
+      null,
+      null
+     ],
+     [
+      "[d͡zy]",
+      [
+       "Quebec"
+      ],
+      null
+     ],
+     [
+      "[d͡zʏ]",
+      [
+       "Quebec"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "du m sg (feminine singular de la, plural des)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "au": [
+   {
+    "pos": "contraction",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "contraction of à + le, literally “to the, for the, at the”"
+    ],
+    "form_of": [
+     "à"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/o/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "au (used with a singular masculine noun)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "aux": [
+   {
+    "pos": "contraction",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "Contraction of à + les ('to the' or 'of the')"
+    ],
+    "form_of": [
+     "à"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/o/",
+      null,
+      null
+     ],
+     [
+      "/o.z‿/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "aux"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "des": [
+   {
+    "pos": "article",
+    "etymology_number": null,
+    "sense_count": 5,
+    "first_glosses": [
+     "plural of un (“some”, the plural indefinite article)",
+     "plural of une (“some”, the plural indefinite article)",
+     "plural of du (“some”, the plural partitive article)",
+     "plural of de la (“some”, the plural partitive article)",
+     "plural of de l' (“some”, the plural partitive article)"
+    ],
+    "form_of": [
+     "de l'",
+     "de la",
+     "du",
+     "un",
+     "une"
+    ],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine",
+     "masculine"
+    ],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/de/",
+      null,
+      null
+     ],
+     [
+      "/de.z‿/",
+      null,
+      null
+     ],
+     [
+      "/dɛ/",
+      null,
+      null
+     ],
+     [
+      "/dɛ.z‿/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "des m pl or f pl"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "contraction",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "contraction of de + les, literally “of the, from the, some”"
+    ],
+    "form_of": [
+     "de"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/de/",
+      null,
+      null
+     ],
+     [
+      "/de.z‿/",
+      null,
+      null
+     ],
+     [
+      "/dɛ/",
+      null,
+      null
+     ],
+     [
+      "/dɛ.z‿/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "des"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "le": [
+   {
+    "pos": "article",
+    "etymology_number": null,
+    "sense_count": 4,
+    "first_glosses": [
+     "the (definite article)",
+     "the; my, your, etc.",
+     "a, an, per",
+     "on"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "les",
+      [
+       "feminine",
+       "masculine",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/lə/",
+      null,
+      null
+     ],
+     [
+      "/l‿/",
+      null,
+      "before a word starting with a vowel"
+     ],
+     [
+      "/lø/",
+      [
+       "Paris"
+      ],
+      null
+     ],
+     [
+      "/l(ə)/",
+      [
+       "Louisiana"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "le m (feminine la, masculine and feminine plural les, prevocalic masculine or feminine singular l')"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "pron",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "him, her, it, them",
+     "replaces the argument of a copular verb, especially être; often not translated in English"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "les",
+      [
+       "feminine",
+       "masculine",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/lə/",
+      null,
+      null
+     ],
+     [
+      "/l‿/",
+      null,
+      "before a word starting with a vowel"
+     ],
+     [
+      "/lø/",
+      [
+       "Paris"
+      ],
+      null
+     ],
+     [
+      "/l(ə)/",
+      [
+       "Louisiana"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "le m (feminine la, masculine and feminine plural les)"
+    ],
+    "derived_or_related_pronominal": [
+     "s’5"
+    ]
+   }
+  ],
+  "de": [
+   {
+    "pos": "prep",
+    "etymology_number": "1",
+    "sense_count": 17,
+    "first_glosses": [
+     "from (used to indicate origin)",
+     "of (indicates possession, association or relationship)",
+     "of (used to indicate cause)",
+     "of (indicates an amount)",
+     "used attributively, often translated into English as a compound word",
+     "from (used to indicate the start of a time or range)"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/də/",
+      null,
+      null
+     ],
+     [
+      "/dø/",
+      [
+       "Paris"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "de"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "article",
+    "etymology_number": "1",
+    "sense_count": 2,
+    "first_glosses": [
+     "Used in the plural with prepositioned adjectives.",
+     "Used in negated sentences with the grammatical object."
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/də/",
+      null,
+      null
+     ],
+     [
+      "/dø/",
+      [
+       "Paris"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "de (indefinite)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "noun",
+    "etymology_number": "2",
+    "sense_count": 1,
+    "first_glosses": [
+     "abbreviation of dame"
+    ],
+    "form_of": [
+     "dame"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "dᵉˢ",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/dam/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "dᵉ f (plural dᵉˢ)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "l'": [
+   {
+    "pos": "article",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "apocopic form of le, la: the",
+     "apocopic form of le: the"
+    ],
+    "form_of": [
+     "la",
+     "le"
+    ],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine",
+     "masculine"
+    ],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/l‿/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "l' m or f (singular, definite)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "pron",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "apocopic form of le, la: him, her, it",
+     "apocopic form of le: him, it"
+    ],
+    "form_of": [
+     "la",
+     "le"
+    ],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine",
+     "masculine"
+    ],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/l‿/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "l' m or f (third-person singular)"
+    ],
+    "derived_or_related_pronominal": [
+     "s’5"
+    ]
+   }
+  ],
+  "d'accord": [
+   {
+    "pos": "adv",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "in agreement"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/da.kɔʁ/",
+      [
+       "Europe"
+      ],
+      null
+     ],
+     [
+      "/da.kɑɔ̯ʁ/",
+      [
+       "Canada"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "d'accord"
+    ],
+    "derived_or_related_pronominal": [
+     "se mettre d'accord"
+    ]
+   },
+   {
+    "pos": "intj",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "sure!, OK!, of course!, naturally!"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/da.kɔʁ/",
+      [
+       "Europe"
+      ],
+      null
+     ],
+     [
+      "/da.kɑɔ̯ʁ/",
+      [
+       "Canada"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "homme": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 5,
+    "first_glosses": [
+     "man (adult male human)",
+     "man, Man (species)",
+     "man (employee)",
+     "husband",
+     "boyfriend"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "hommes",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ɔm/",
+      null,
+      null
+     ],
+     [
+      "[ɔ̃m]",
+      [
+       "Louisiana"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "homme m (plural hommes)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "chemise": [
+   {
+    "pos": "noun",
+    "etymology_number": "1",
+    "sense_count": 3,
+    "first_glosses": [
+     "shirt (that opens in the front)",
+     "folder (office supplies)",
+     "chemise (wall-enforcing earthwork)"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine"
+    ],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "chemises",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ʃə.miz/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "chemise f (plural chemises)"
+    ],
+    "derived_or_related_pronominal": [
+     "se moquer comme de sa première chemise de"
+    ]
+   },
+   {
+    "pos": "verb",
+    "etymology_number": "2",
+    "sense_count": 2,
+    "first_glosses": [
+     "inflection of chemiser:",
+     "inflection of chemiser:"
+    ],
+    "form_of": [
+     "chemiser"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ʃə.miz/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "chemise"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "marché": [
+   {
+    "pos": "noun",
+    "etymology_number": "1",
+    "sense_count": 2,
+    "first_glosses": [
+     "market",
+     "deal, contract"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "marchés",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/maʁ.ʃe/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "marché m (plural marchés)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "verb",
+    "etymology_number": "2",
+    "sense_count": 1,
+    "first_glosses": [
+     "past participle of marcher"
+    ],
+    "form_of": [
+     "marcher"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "marchés",
+      [
+       "masculine",
+       "plural"
+      ]
+     ],
+     [
+      "marchées",
+      [
+       "feminine",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 3,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/maʁ.ʃe/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "marché (feminine marchée, masculine plural marchés, feminine plural marchées)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "pomme": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 10,
+    "first_glosses": [
+     "apple (fruit)",
+     "any of several objects of approximately the same shape and size",
+     "the faucet or nozzle of a watering can or showerhead",
+     "a decorative motif in the shape of an apple",
+     "the fruit part of several vegetables, such as the heart of a cabbage or lettuce",
+     "the head or face"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine"
+    ],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "pommes",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/pɔm/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "pomme f (plural pommes)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 3,
+    "first_glosses": [
+     "first-person singular present indicative/subjunctive of pommer",
+     "second-person singular present imperative of pommer",
+     "third-person singular present indicative/subjunctive of pommer"
+    ],
+    "form_of": [
+     "pommer"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/pɔm/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "pomme"
+    ],
+    "derived_or_related_pronominal": [
+     "se payer la pomme"
+    ]
+   }
+  ],
+  "sœur": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "sister (a daughter of the same parents as another person; a female sibling)",
+     "nun"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine"
+    ],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "sœurs",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/sœʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "sœur f (plural sœurs)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "main": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 4,
+    "first_glosses": [
+     "hand",
+     "handball",
+     "hand",
+     "quire"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine"
+    ],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "mains",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/mɛ̃/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "main f (plural mains)"
+    ],
+    "derived_or_related_pronominal": [
+     "se faire la main",
+     "se frotter les mains",
+     "se laver les mains",
+     "se salir les mains"
+    ]
+   }
+  ],
+  "porte": [
+   {
+    "pos": "noun",
+    "etymology_number": "1",
+    "sense_count": 3,
+    "first_glosses": [
+     "door",
+     "gate (to a city, at airport)",
+     "gateway, means, door"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine"
+    ],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "portes",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/pɔʁt/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "porte f (plural portes)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "verb",
+    "etymology_number": "2",
+    "sense_count": 2,
+    "first_glosses": [
+     "inflection of porter:",
+     "inflection of porter:"
+    ],
+    "form_of": [
+     "porter"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/pɔʁt/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "porte"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "café": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 4,
+    "first_glosses": [
+     "coffee (drink)",
+     "coffee colour",
+     "public house",
+     "cafe, coffee shop"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "cafés",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ka.fe/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "café m (usually uncountable, plural cafés)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "adj",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "of the colour of coffee"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "cafés",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ka.fe/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "café (plural cafés)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "prix": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "prize",
+     "price"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/pʁi/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "prix m (invariable)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "œil": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 3,
+    "first_glosses": [
+     "eye, organ that is sensitive to light, helping organisms to see",
+     "glyph, rendering of a single character",
+     "eye (of a needle)"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "yeux",
+      [
+       "plural"
+      ]
+     ],
+     [
+      "œils",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 3,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/œj/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "œil m (plural yeux or œils)"
+    ],
+    "derived_or_related_pronominal": [
+     "se fourrer le doigt dans l'œil",
+     "se mettre le doigt dans l'œil",
+     "se regarder dans le blanc des yeux",
+     "se rincer l'œil"
+    ]
+   }
+  ],
+  "cheval": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 4,
+    "first_glosses": [
+     "horse",
+     "ellipsis of cheval-vapeur (“horsepower”)",
+     "ellipsis of cheval fiscal (“tax horsepower”)",
+     "horse, H (narcotic)"
+    ],
+    "form_of": [
+     "cheval fiscal",
+     "cheval-vapeur"
+    ],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "chevaux",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ʃə.val/",
+      null,
+      null
+     ],
+     [
+      "/ʃval/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "cheval m (plural chevaux, feminine jument)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "travail": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 3,
+    "first_glosses": [
+     "work; labor",
+     "job",
+     "workplace"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "travaux",
+      [
+       "plural"
+      ]
+     ],
+     [
+      "travails",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/tʁa.vaj/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "travail m (plural travaux or travails)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "ciel": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "sky",
+     "heaven"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "cieux",
+      [
+       "plural"
+      ]
+     ],
+     [
+      "ciels",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/sjɛl/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "ciel m (plural cieux or ciels)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "canopy (of a bed, etc.)"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "ciels",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/sjɛl/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "ciel m (plural ciels)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "intj",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "heavens!"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/sjɛl/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "héros": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "hero"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/e.ʁo/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "héros m (invariable, feminine héroïne)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "hache": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "axe"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine"
+    ],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [
+     "French terms with aspirated h"
+    ],
+    "plural_forms": [
+     [
+      "haches",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/aʃ/",
+      null,
+      null
+     ],
+     [
+      "/haʃ/",
+      [
+       "Louisiana"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "hache f (plural haches)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "inflection of hacher:",
+     "inflection of hacher:"
+    ],
+    "form_of": [
+     "hacher"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [
+     "French terms with aspirated h"
+    ],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/aʃ/",
+      null,
+      null
+     ],
+     [
+      "/haʃ/",
+      [
+       "Louisiana"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "hache"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "haricot": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 4,
+    "first_glosses": [
+     "A stew of lamb and vegetables.",
+     "A bean; a green bean (also known as a string bean or snap bean).",
+     "The plant from which the green bean is cultivated: the common bean (Phaseolus vulgaris).",
+     "A kidney dish."
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [
+     "French terms with aspirated h"
+    ],
+    "plural_forms": [
+     [
+      "haricots",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 3,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/a.ʁi.ko/",
+      null,
+      null
+     ],
+     [
+      "/a.ri.ko/",
+      [
+       "Louisiana"
+      ],
+      null
+     ],
+     [
+      "[a.ɾi.ko]",
+      [
+       "Louisiana"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "haricot m (plural haricots)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "hôtel": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "mansion, town house, hotel (in the sense of a town house or mansion)",
+     "hotel (modern sense)"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "hôtels",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/o.tɛl/",
+      null,
+      null
+     ],
+     [
+      "/ɔ.tɛl/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "hôtel m (plural hôtels)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "hasard": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 4,
+    "first_glosses": [
+     "(random) chance",
+     "a coincidence",
+     "hazard",
+     "hazard"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [
+     "French terms with aspirated h"
+    ],
+    "plural_forms": [
+     [
+      "hasards",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/a.zaʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "hasard m (plural hasards)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "huile": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "oil (liquid fat)",
+     "big gun, big cheese (person of consequence)"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine"
+    ],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "huiles",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ɥil/",
+      null,
+      null
+     ],
+     [
+      "/wil/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "huile f (plural huiles)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "inflection of huiler:",
+     "inflection of huiler:"
+    ],
+    "form_of": [
+     "huiler"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ɥil/",
+      null,
+      null
+     ],
+     [
+      "/wil/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "huile"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "petit déjeuner": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "breakfast (morning meal)",
+     "a small or light breakfast"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "petits déjeuners",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 2,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/pə.ti de.ʒœ.ne/",
+      null,
+      null
+     ],
+     [
+      "/pə.ti deʒ.ne/",
+      null,
+      null
+     ],
+     [
+      "/pə.ti dɛʒ.ne/",
+      null,
+      null
+     ],
+     [
+      "[p(ə)t͡si de.ʒœ.ne]",
+      [
+       "Quebec"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "petit déjeuner m (plural petits déjeuners)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "petit-déjeuner": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "alternative form of petit déjeuner"
+    ],
+    "form_of": [
+     "petit déjeuner"
+    ],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "petits-déjeuners",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [],
+    "head_expansions": [
+     "petit-déjeuner m (plural petits-déjeuners)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "sûr": [
+   {
+    "pos": "adj",
+    "etymology_number": null,
+    "sense_count": 3,
+    "first_glosses": [
+     "sure, certain",
+     "trustworthy",
+     "safe"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "sûrs",
+      [
+       "masculine",
+       "plural"
+      ]
+     ],
+     [
+      "surs",
+      [
+       "masculine",
+       "plural"
+      ]
+     ],
+     [
+      "sûres",
+      [
+       "feminine",
+       "plural"
+      ]
+     ],
+     [
+      "sures",
+      [
+       "feminine",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 6,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/syʁ/",
+      [
+       "Europe"
+      ],
+      null
+     ],
+     [
+      "/sʏʁ/",
+      [
+       "Canada"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "sûr (feminine sûre or sure, masculine plural sûrs or surs, feminine plural sûres or sures)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "sur": [
+   {
+    "pos": "prep",
+    "etymology_number": "1",
+    "sense_count": 8,
+    "first_glosses": [
+     "on, upon",
+     "on top of",
+     "from on top of",
+     "above",
+     "out of",
+     "in the case of"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/syʁ/",
+      [
+       "Europe"
+      ],
+      null
+     ],
+     [
+      "/sʏʁ/",
+      [
+       "Canada"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "sur"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "adj",
+    "etymology_number": "2",
+    "sense_count": 1,
+    "first_glosses": [
+     "sour"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "surs",
+      [
+       "masculine",
+       "plural"
+      ]
+     ],
+     [
+      "sures",
+      [
+       "feminine",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 3,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/syʁ/",
+      [
+       "Europe"
+      ],
+      null
+     ],
+     [
+      "/sʏʁ/",
+      [
+       "Canada"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "sur (feminine sure, masculine plural surs, feminine plural sures)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "côte": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 3,
+    "first_glosses": [
+     "rib (bone)",
+     "hill, slope",
+     "coast"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "feminine"
+    ],
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "côtes",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/kot/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "côte f (plural côtes)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "côté": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 2,
+    "first_glosses": [
+     "side",
+     "way, direction"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "côtés",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ko.te/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "côté m (plural côtés)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "prep",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "as for, in terms of"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [],
+    "form_count": 0,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ko.te/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "côté"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "dû": [
+   {
+    "pos": "noun",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "what is owed, what is due, money's worth"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [
+     "masculine"
+    ],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "dus",
+      [
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 1,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/dy/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "dû m (plural dus)"
+    ],
+    "derived_or_related_pronominal": []
+   },
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "past participle of devoir"
+    ],
+    "form_of": [
+     "devoir"
+    ],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "dus",
+      [
+       "masculine",
+       "plural"
+      ]
+     ],
+     [
+      "dues",
+      [
+       "feminine",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 3,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/dy/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "dû (feminine due, masculine plural dus, feminine plural dues)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "venir": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 3,
+    "first_glosses": [
+     "to come (to move from one place to another that is nearer the speaker)",
+     "used in venir de with the meaning of \"originate from\" or \"have just done\"",
+     "to cum, to come, to orgasm"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "venons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "venez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "viennent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "venions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 62,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/və.niʁ/",
+      null,
+      null
+     ],
+     [
+      "/vniʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "venir",
+     "(intransitive)"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "faire": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 14,
+    "first_glosses": [
+     "to do",
+     "to make",
+     "to say (of a person), to go (of an animal or device)",
+     "to make (cause someone or something to do something)",
+     "to act like (something)",
+     "to be (of the weather or various situations)"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "faisons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "faites",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "font",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "faisions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 125,
+    "reflexive_forms_sample": [
+     "se faire",
+     "s'être + past participle",
+     "se faisant",
+     "ayant"
+    ],
+    "reflexive_senses": [
+     {
+      "gloss": "to do, to make (oneself)",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": []
+     },
+     {
+      "gloss": "to be, to get (used for a passive action)",
+      "tags": [
+       "reflexive",
+       "with-infinitive"
+      ],
+      "raw_tags": []
+     },
+     {
+      "gloss": "to ripen (of fruit), to mature",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": []
+     },
+     {
+      "gloss": "to become used to, to get used to",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": [
+       "~ à"
+      ]
+     },
+     {
+      "gloss": "to do (to have sex with)",
+      "tags": [
+       "reflexive",
+       "slang",
+       "transitive"
+      ],
+      "raw_tags": []
+     },
+     {
+      "gloss": "to become, to get",
+      "tags": [
+       "reflexive"
+      ],
+      "raw_tags": []
+     }
+    ],
+    "sounds": [
+     [
+      "/fɛʁ/",
+      null,
+      null
+     ],
+     [
+      "/fæɪ̯ʁ/",
+      [
+       "Quebec"
+      ],
+      null
+     ]
+    ],
+    "head_expansions": [
+     "faire"
+    ],
+    "derived_or_related_pronominal": [
+     "s'en faire"
+    ]
+   }
+  ],
+  "boire": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 1,
+    "first_glosses": [
+     "to drink"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "buvons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "buvez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "boivent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "buvions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 62,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/bwaʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "boire"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ],
+  "revenir": [
+   {
+    "pos": "verb",
+    "etymology_number": null,
+    "sense_count": 8,
+    "first_glosses": [
+     "to come back, to return",
+     "to grow back",
+     "to recur, to be mentioned repeatedly",
+     "to come to mind, to be remembered",
+     "to recant, to go back on",
+     "to brown"
+    ],
+    "form_of": [],
+    "word_tags": [],
+    "gender_tags": [],
+    "gender_categories": [],
+    "h_categories": [],
+    "plural_forms": [
+     [
+      "revenons",
+      [
+       "first-person",
+       "indicative",
+       "plural",
+       "present"
+      ]
+     ],
+     [
+      "revenez",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "second-person"
+      ]
+     ],
+     [
+      "reviennent",
+      [
+       "indicative",
+       "plural",
+       "present",
+       "third-person"
+      ]
+     ],
+     [
+      "revenions",
+      [
+       "first-person",
+       "imperfect",
+       "indicative",
+       "plural"
+      ]
+     ]
+    ],
+    "form_count": 62,
+    "reflexive_forms_sample": [],
+    "reflexive_senses": [],
+    "sounds": [
+     [
+      "/ʁə.v(ə).niʁ/",
+      null,
+      null
+     ]
+    ],
+    "head_expansions": [
+     "revenir"
+    ],
+    "derived_or_related_pronominal": []
+   }
+  ]
+ },
+ "derived_rows": {
+  "fr|aller|NOUN": {
+   "gloss_count": 1,
+   "glosses": [
+    "outward trip; journey out; trip away"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "allers",
+   "ipa": "/a.le/",
+   "principal_parts": ""
+  },
+  "fr|aller|VERB": {
+   "gloss_count": 7,
+   "glosses": [
+    "to go",
+    "to attend (school, church regularly)",
+    "to be going (to); will soon; forms a near-future tense",
+    "to be (feeling)",
+    "to go well"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/a.le/",
+   "principal_parts": ""
+  },
+  "fr|apercevoir|VERB": {
+   "gloss_count": 2,
+   "glosses": [
+    "to see, to glimpse, to catch sight of",
+    "to realize, to become aware (of), to notice"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/a.pɛʁ.sə.vwaʁ/",
+   "principal_parts": ""
+  },
+  "fr|au|": {
+   "gloss_count": 1,
+   "glosses": [
+    "contraction of à + le, literally “to the, for the, at the”"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/o/",
+   "principal_parts": ""
+  },
+  "fr|aux|": {
+   "gloss_count": 1,
+   "glosses": [
+    "Contraction of à + les ('to the' or 'of the')"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/o/",
+   "principal_parts": ""
+  },
+  "fr|boire|VERB": {
+   "gloss_count": 1,
+   "glosses": [
+    "to drink"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/bwaʁ/",
+   "principal_parts": ""
+  },
+  "fr|café|ADJ": {
+   "gloss_count": 1,
+   "glosses": [
+    "of the colour of coffee"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/ka.fe/",
+   "principal_parts": ""
+  },
+  "fr|café|NOUN": {
+   "gloss_count": 4,
+   "glosses": [
+    "coffee (drink)",
+    "coffee colour",
+    "public house",
+    "cafe, coffee shop"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "cafés",
+   "ipa": "/ka.fe/",
+   "principal_parts": ""
+  },
+  "fr|chemise|NOUN": {
+   "gloss_count": 3,
+   "glosses": [
+    "shirt (that opens in the front)",
+    "folder (office supplies)",
+    "chemise (wall-enforcing earthwork)"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "chemises",
+   "ipa": "/ʃə.miz/",
+   "principal_parts": ""
+  },
+  "fr|chemise|VERB": {
+   "gloss_count": 2,
+   "glosses": [
+    "inflection of chemiser:",
+    "inflection of chemiser:"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/ʃə.miz/",
+   "principal_parts": ""
+  },
+  "fr|cheval|NOUN": {
+   "gloss_count": 4,
+   "glosses": [
+    "horse",
+    "ellipsis of cheval-vapeur (“horsepower”)",
+    "ellipsis of cheval fiscal (“tax horsepower”)",
+    "horse, H (narcotic)"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "chevaux",
+   "ipa": "/ʃə.val/",
+   "principal_parts": ""
+  },
+  "fr|ciel|INTJ": {
+   "gloss_count": 1,
+   "glosses": [
+    "heavens!"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/sjɛl/",
+   "principal_parts": ""
+  },
+  "fr|ciel|NOUN": {
+   "gloss_count": 3,
+   "glosses": [
+    "sky",
+    "heaven",
+    "canopy (of a bed, etc.)"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "cieux",
+   "ipa": "/sjɛl/",
+   "principal_parts": ""
+  },
+  "fr|côte|NOUN": {
+   "gloss_count": 3,
+   "glosses": [
+    "rib (bone)",
+    "hill, slope",
+    "coast"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "côtes",
+   "ipa": "/kot/",
+   "principal_parts": ""
+  },
+  "fr|côté|ADP": {
+   "gloss_count": 1,
+   "glosses": [
+    "as for, in terms of"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/ko.te/",
+   "principal_parts": ""
+  },
+  "fr|côté|NOUN": {
+   "gloss_count": 2,
+   "glosses": [
+    "side",
+    "way, direction"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "côtés",
+   "ipa": "/ko.te/",
+   "principal_parts": ""
+  },
+  "fr|d'accord|ADV": {
+   "gloss_count": 1,
+   "glosses": [
+    "in agreement"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "",
+   "principal_parts": ""
+  },
+  "fr|d'accord|INTJ": {
+   "gloss_count": 1,
+   "glosses": [
+    "sure!, OK!, of course!, naturally!"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "",
+   "principal_parts": ""
+  },
+  "fr|de|ADP": {
+   "gloss_count": 17,
+   "glosses": [
+    "from (used to indicate origin)",
+    "of (indicates possession, association or relationship)",
+    "of (used to indicate cause)",
+    "of (indicates an amount)",
+    "used attributively, often translated into English as a compound word"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "",
+   "ipa": "/də/",
+   "principal_parts": ""
+  },
+  "fr|de|DET": {
+   "gloss_count": 2,
+   "glosses": [
+    "Used in the plural with prepositioned adjectives.",
+    "Used in negated sentences with the grammatical object."
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "",
+   "ipa": "/də/",
+   "principal_parts": ""
+  },
+  "fr|de|NOUN": {
+   "gloss_count": 1,
+   "glosses": [
+    "abbreviation of dame"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "dᵉˢ",
+   "ipa": "/dam/",
+   "principal_parts": ""
+  },
+  "fr|des|": {
+   "gloss_count": 1,
+   "glosses": [
+    "contraction of de + les, literally “of the, from the, some”"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/de/",
+   "principal_parts": ""
+  },
+  "fr|des|DET": {
+   "gloss_count": 5,
+   "glosses": [
+    "plural of un (“some”, the plural indefinite article)",
+    "plural of une (“some”, the plural indefinite article)",
+    "plural of du (“some”, the plural partitive article)",
+    "plural of de la (“some”, the plural partitive article)",
+    "plural of de l' (“some”, the plural partitive article)"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/de/",
+   "principal_parts": ""
+  },
+  "fr|du|": {
+   "gloss_count": 1,
+   "glosses": [
+    "contraction of de + le, literally “of the”"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/dy/",
+   "principal_parts": ""
+  },
+  "fr|du|DET": {
+   "gloss_count": 1,
+   "glosses": [
+    "Forms the partitive article."
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/dy/",
+   "principal_parts": ""
+  },
+  "fr|dû|NOUN": {
+   "gloss_count": 1,
+   "glosses": [
+    "what is owed, what is due, money's worth"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "dus",
+   "ipa": "/dy/",
+   "principal_parts": ""
+  },
+  "fr|dû|VERB": {
+   "gloss_count": 1,
+   "glosses": [
+    "past participle of devoir"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/dy/",
+   "principal_parts": ""
+  },
+  "fr|faire|VERB": {
+   "gloss_count": 14,
+   "glosses": [
+    "to do",
+    "to make",
+    "to say (of a person), to go (of an animal or device)",
+    "to make (cause someone or something to do something)",
+    "to act like (something)"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/fɛʁ/",
+   "principal_parts": ""
+  },
+  "fr|falloir|VERB": {
+   "gloss_count": 3,
+   "glosses": [
+    "to need, have to, to be necessary (that)",
+    "to take (time)",
+    "to be missing"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/fa.lwaʁ/",
+   "principal_parts": ""
+  },
+  "fr|habiller|VERB": {
+   "gloss_count": 3,
+   "glosses": [
+    "to dress",
+    "to get dressed",
+    "to dress in a certain fashion"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/a.bi.je/",
+   "principal_parts": ""
+  },
+  "fr|hache|NOUN": {
+   "gloss_count": 1,
+   "glosses": [
+    "axe"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "haches",
+   "ipa": "/aʃ/",
+   "principal_parts": ""
+  },
+  "fr|hache|VERB": {
+   "gloss_count": 2,
+   "glosses": [
+    "inflection of hacher:",
+    "inflection of hacher:"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "",
+   "ipa": "/aʃ/",
+   "principal_parts": ""
+  },
+  "fr|haricot|NOUN": {
+   "gloss_count": 4,
+   "glosses": [
+    "A stew of lamb and vegetables.",
+    "A bean; a green bean (also known as a string bean or snap bean).",
+    "The plant from which the green bean is cultivated: the common bean (Phaseolus vulgaris).",
+    "A kidney dish."
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "haricots",
+   "ipa": "/a.ʁi.ko/",
+   "principal_parts": ""
+  },
+  "fr|hasard|NOUN": {
+   "gloss_count": 4,
+   "glosses": [
+    "(random) chance",
+    "a coincidence",
+    "hazard",
+    "hazard"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "hasards",
+   "ipa": "/a.zaʁ/",
+   "principal_parts": ""
+  },
+  "fr|homme|NOUN": {
+   "gloss_count": 5,
+   "glosses": [
+    "man (adult male human)",
+    "man, Man (species)",
+    "man (employee)",
+    "husband",
+    "boyfriend"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "hommes",
+   "ipa": "/ɔm/",
+   "principal_parts": ""
+  },
+  "fr|huile|NOUN": {
+   "gloss_count": 2,
+   "glosses": [
+    "oil (liquid fat)",
+    "big gun, big cheese (person of consequence)"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "huiles",
+   "ipa": "/ɥil/",
+   "principal_parts": ""
+  },
+  "fr|huile|VERB": {
+   "gloss_count": 2,
+   "glosses": [
+    "inflection of huiler:",
+    "inflection of huiler:"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "",
+   "ipa": "/ɥil/",
+   "principal_parts": ""
+  },
+  "fr|héros|NOUN": {
+   "gloss_count": 1,
+   "glosses": [
+    "hero"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/e.ʁo/",
+   "principal_parts": ""
+  },
+  "fr|hôtel|NOUN": {
+   "gloss_count": 2,
+   "glosses": [
+    "mansion, town house, hotel (in the sense of a town house or mansion)",
+    "hotel (modern sense)"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "hôtels",
+   "ipa": "/o.tɛl/",
+   "principal_parts": ""
+  },
+  "fr|l'|DET": {
+   "gloss_count": 2,
+   "glosses": [
+    "apocopic form of le, la: the",
+    "apocopic form of le: the"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/l‿/",
+   "principal_parts": ""
+  },
+  "fr|l'|PRON": {
+   "gloss_count": 2,
+   "glosses": [
+    "apocopic form of le, la: him, her, it",
+    "apocopic form of le: him, it"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/l‿/",
+   "principal_parts": ""
+  },
+  "fr|laver|VERB": {
+   "gloss_count": 2,
+   "glosses": [
+    "to wash",
+    "to wash oneself"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/la.ve/",
+   "principal_parts": ""
+  },
+  "fr|le|DET": {
+   "gloss_count": 4,
+   "glosses": [
+    "the (definite article)",
+    "the; my, your, etc.",
+    "a, an, per",
+    "on"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/lə/",
+   "principal_parts": ""
+  },
+  "fr|le|PRON": {
+   "gloss_count": 2,
+   "glosses": [
+    "him, her, it, them",
+    "replaces the argument of a copular verb, especially être; often not translated in English"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/lə/",
+   "principal_parts": ""
+  },
+  "fr|lever|NOUN": {
+   "gloss_count": 1,
+   "glosses": [
+    "the act of getting up in the morning"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "levers",
+   "ipa": "/lə.ve/",
+   "principal_parts": ""
+  },
+  "fr|lever|VERB": {
+   "gloss_count": 5,
+   "glosses": [
+    "to raise, lift",
+    "to rise, stand up",
+    "to rise, come up",
+    "to get up (out of bed)",
+    "to clear, lift"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/lə.ve/",
+   "principal_parts": ""
+  },
+  "fr|main|NOUN": {
+   "gloss_count": 4,
+   "glosses": [
+    "hand",
+    "handball",
+    "hand",
+    "quire"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "mains",
+   "ipa": "/mɛ̃/",
+   "principal_parts": ""
+  },
+  "fr|marché|NOUN": {
+   "gloss_count": 2,
+   "glosses": [
+    "market",
+    "deal, contract"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "marchés",
+   "ipa": "/maʁ.ʃe/",
+   "principal_parts": ""
+  },
+  "fr|marché|VERB": {
+   "gloss_count": 1,
+   "glosses": [
+    "past participle of marcher"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/maʁ.ʃe/",
+   "principal_parts": ""
+  },
+  "fr|petit déjeuner|NOUN": {
+   "gloss_count": 2,
+   "glosses": [
+    "breakfast (morning meal)",
+    "a small or light breakfast"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "petits déjeuners",
+   "ipa": "/pə.ti de.ʒœ.ne/",
+   "principal_parts": ""
+  },
+  "fr|petit-déjeuner|NOUN": {
+   "gloss_count": 1,
+   "glosses": [
+    "alternative form of petit déjeuner"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "petits-déjeuners",
+   "ipa": "",
+   "principal_parts": ""
+  },
+  "fr|pomme|NOUN": {
+   "gloss_count": 10,
+   "glosses": [
+    "apple (fruit)",
+    "any of several objects of approximately the same shape and size",
+    "the faucet or nozzle of a watering can or showerhead",
+    "a decorative motif in the shape of an apple",
+    "the fruit part of several vegetables, such as the heart of a cabbage or lettuce"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "pommes",
+   "ipa": "/pɔm/",
+   "principal_parts": ""
+  },
+  "fr|pomme|VERB": {
+   "gloss_count": 3,
+   "glosses": [
+    "first-person singular present indicative/subjunctive of pommer",
+    "second-person singular present imperative of pommer",
+    "third-person singular present indicative/subjunctive of pommer"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "",
+   "ipa": "/pɔm/",
+   "principal_parts": ""
+  },
+  "fr|porte|NOUN": {
+   "gloss_count": 3,
+   "glosses": [
+    "door",
+    "gate (to a city, at airport)",
+    "gateway, means, door"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "portes",
+   "ipa": "/pɔʁt/",
+   "principal_parts": ""
+  },
+  "fr|porte|VERB": {
+   "gloss_count": 2,
+   "glosses": [
+    "inflection of porter:",
+    "inflection of porter:"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/pɔʁt/",
+   "principal_parts": ""
+  },
+  "fr|prix|NOUN": {
+   "gloss_count": 2,
+   "glosses": [
+    "prize",
+    "price"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/pʁi/",
+   "principal_parts": ""
+  },
+  "fr|revenir|VERB": {
+   "gloss_count": 8,
+   "glosses": [
+    "to come back, to return",
+    "to grow back",
+    "to recur, to be mentioned repeatedly",
+    "to come to mind, to be remembered",
+    "to recant, to go back on"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/ʁə.v.niʁ/",
+   "principal_parts": ""
+  },
+  "fr|s'en aller|VERB": {
+   "gloss_count": 1,
+   "glosses": [
+    "to go away, to leave"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/s‿ɑ̃.n‿a.le/",
+   "principal_parts": ""
+  },
+  "fr|se souvenir|VERB": {
+   "gloss_count": 1,
+   "glosses": [
+    "remember (to recall one's memory)"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/sə suv.niʁ/",
+   "principal_parts": ""
+  },
+  "fr|souvenir|NOUN": {
+   "gloss_count": 2,
+   "glosses": [
+    "memory (mental picture)",
+    "souvenir"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "souvenirs",
+   "ipa": "/su.v.niʁ/",
+   "principal_parts": ""
+  },
+  "fr|souvenir|VERB": {
+   "gloss_count": 1,
+   "glosses": [
+    "to remember"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "",
+   "ipa": "/su.v.niʁ/",
+   "principal_parts": ""
+  },
+  "fr|sur|ADJ": {
+   "gloss_count": 1,
+   "glosses": [
+    "sour"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "",
+   "principal_parts": ""
+  },
+  "fr|sur|ADP": {
+   "gloss_count": 8,
+   "glosses": [
+    "on, upon",
+    "on top of",
+    "from on top of",
+    "above",
+    "out of"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "",
+   "principal_parts": ""
+  },
+  "fr|sûr|ADJ": {
+   "gloss_count": 3,
+   "glosses": [
+    "sure, certain",
+    "trustworthy",
+    "safe"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "",
+   "principal_parts": ""
+  },
+  "fr|sœur|NOUN": {
+   "gloss_count": 2,
+   "glosses": [
+    "sister (a daughter of the same parents as another person; a female sibling)",
+    "nun"
+   ],
+   "gender": "Fem",
+   "article": "",
+   "plural": "sœurs",
+   "ipa": "/sœʁ/",
+   "principal_parts": ""
+  },
+  "fr|travail|NOUN": {
+   "gloss_count": 3,
+   "glosses": [
+    "work; labor",
+    "job",
+    "workplace"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "travaux",
+   "ipa": "/tʁa.vaj/",
+   "principal_parts": ""
+  },
+  "fr|venir|VERB": {
+   "gloss_count": 3,
+   "glosses": [
+    "to come (to move from one place to another that is nearer the speaker)",
+    "used in venir de with the meaning of \"originate from\" or \"have just done\"",
+    "to cum, to come, to orgasm"
+   ],
+   "gender": "",
+   "article": "",
+   "plural": "",
+   "ipa": "/və.niʁ/",
+   "principal_parts": ""
+  },
+  "fr|œil|NOUN": {
+   "gloss_count": 3,
+   "glosses": [
+    "eye, organ that is sensitive to light, helping organisms to see",
+    "glyph, rendering of a single character",
+    "eye (of a needle)"
+   ],
+   "gender": "Masc",
+   "article": "",
+   "plural": "yeux",
+   "ipa": "/œj/",
+   "principal_parts": ""
+  }
+ }
+}

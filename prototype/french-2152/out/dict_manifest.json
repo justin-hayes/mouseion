@@ -1,0 +1,597 @@
+[
+ {
+  "word": "laver",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/l/la/laver.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/l/la/laver.jsonl",
+  "file": "11f8ebc475.jsonl",
+  "bytes": 25221,
+  "sha256": "a03147560a1d2cbd7f9bcb18a8dd8c8222282061e93faa1f116a160b1139196f",
+  "entries": 1
+ },
+ {
+  "word": "se laver",
+  "search_hits": [],
+  "status": "no French page in search index"
+ },
+ {
+  "word": "habiller",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/h/ha/habiller.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/h/ha/habiller.jsonl",
+  "file": "8b15113ecb.jsonl",
+  "bytes": 22048,
+  "sha256": "aaf3a60d5bb33bb45208abad9e6fa3aa4645afdb8e54b91fa2ee84813577d792",
+  "entries": 1
+ },
+ {
+  "word": "s'habiller",
+  "search_hits": [],
+  "status": "no French page in search index"
+ },
+ {
+  "word": "aller",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/a/al/aller.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/a/al/aller.jsonl",
+  "file": "3f7a5e6185.jsonl",
+  "bytes": 27219,
+  "sha256": "a42576e50b995867692496da1aa5a097d2bbd979019560d2d4d08094d890c7af",
+  "entries": 2
+ },
+ {
+  "word": "s'en aller",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/s/s'/s'en aller.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/s/s%27/s%27en%20aller.jsonl",
+  "file": "e3c583f437.jsonl",
+  "bytes": 13584,
+  "sha256": "3633de6a87b30b4023e6a2b66336275cfb2b9ca18cf7cca6439aefb42b72cd18",
+  "entries": 1
+ },
+ {
+  "word": "en aller",
+  "search_hits": [],
+  "status": "no French page in search index"
+ },
+ {
+  "word": "apercevoir",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/a/ap/apercevoir.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/a/ap/apercevoir.jsonl",
+  "file": "338e265011.jsonl",
+  "bytes": 17197,
+  "sha256": "5bfb5150e521d92e5e8ea7e497d8188f902f96050dffeca15ebb8cb83545c548",
+  "entries": 1
+ },
+ {
+  "word": "s'apercevoir",
+  "search_hits": [],
+  "status": "no French page in search index"
+ },
+ {
+  "word": "souvenir",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/s/so/souvenir.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/s/so/souvenir.jsonl",
+  "file": "e59e3db393.jsonl",
+  "bytes": 26153,
+  "sha256": "7306d32c60a6fce04a0cc9413c9fdf4105152b3235bec8b770df9df4eff4a0fb",
+  "entries": 2
+ },
+ {
+  "word": "se souvenir",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/s/se/se souvenir.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/s/se/se%20souvenir.jsonl",
+  "file": "2bc90df003.jsonl",
+  "bytes": 12442,
+  "sha256": "22bebf4d54d80bf8bbbd63e2f7f076e76a3535f3fbbdb79748bae7aeca48ea65",
+  "entries": 1
+ },
+ {
+  "word": "falloir",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/f/fa/falloir.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/f/fa/falloir.jsonl",
+  "file": "c2b5dc4ebc.jsonl",
+  "bytes": 26484,
+  "sha256": "800cc417ce457c91e56abb833017c773d8f63b2440b6d24bc341aa93b7642f4d",
+  "entries": 1
+ },
+ {
+  "word": "lever",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/l/le/lever.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/l/le/lever.jsonl",
+  "file": "e546786d1e.jsonl",
+  "bytes": 23034,
+  "sha256": "d880dbafcf9bcc4c6aa0e0d822560a4afb98883ec63dc99b4c1fc652c0ef6a1c",
+  "entries": 2
+ },
+ {
+  "word": "se lever",
+  "search_hits": [],
+  "status": "no French page in search index"
+ },
+ {
+  "word": "du",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/d/du/du.html",
+   "https://kaikki.org/dictionary/All languages combined/meaning/d/du/du.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/d/du/du.jsonl",
+  "file": "fa114377ef.jsonl",
+  "bytes": 14259,
+  "sha256": "0f25cb6d0fe26dc9d30e89339407207fb17f5ed641f37a21707ecd8c00911e52",
+  "entries": 2
+ },
+ {
+  "word": "au",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/a/au/au.html",
+   "https://kaikki.org/dictionary/All languages combined/meaning/a/au/au.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/a/au/au.jsonl",
+  "file": "f095160c09.jsonl",
+  "bytes": 2503,
+  "sha256": "ac0599ce3de413b6a9a25d44c82c950776b20008fdfb10967054f6aaaccc2c1a",
+  "entries": 1
+ },
+ {
+  "word": "aux",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/a/au/aux.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/a/au/aux.jsonl",
+  "file": "2288e3ab3d.jsonl",
+  "bytes": 2776,
+  "sha256": "6f8fa50d52f979ef84818a5e7784f781fb31b4c13d7ca85b25b3a8d15c0651fe",
+  "entries": 1
+ },
+ {
+  "word": "des",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/d/de/des.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/d/de/des.jsonl",
+  "file": "e9d596e780.jsonl",
+  "bytes": 6472,
+  "sha256": "c749d25f77f5d54c4e97bfbd0dd154e01ef06be3cb469be6d20ce65e5d05d1fb",
+  "entries": 2
+ },
+ {
+  "word": "le",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/l/le/le.html",
+   "https://kaikki.org/dictionary/All languages combined/meaning/l/le/le.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/l/le/le.jsonl",
+  "file": "593b743b20.jsonl",
+  "bytes": 15045,
+  "sha256": "3e3a0f8b11989c4a8459122848a8c0996ada998a4c90cb91c20d10b3044641ac",
+  "entries": 2
+ },
+ {
+  "word": "de",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/d/de/de.html",
+   "https://kaikki.org/dictionary/All languages combined/meaning/d/de/de.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/d/de/de.jsonl",
+  "file": "600ccd1b71.jsonl",
+  "bytes": 24833,
+  "sha256": "6b38af4937ede78c43c866f73d2ea5337b85e4e190c6149c9ab834df6ea796e9",
+  "entries": 3
+ },
+ {
+  "word": "l'",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/l/l'/l'.html",
+   "https://kaikki.org/dictionary/All languages combined/meaning/l/l'/l'.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/l/l%27/l%27.jsonl",
+  "file": "8bb896e73b.jsonl",
+  "bytes": 6278,
+  "sha256": "354b767a8d42a1f7c2de5de3402a5b36323b2c0ffc8f59e03393d586aa90aec9",
+  "entries": 2
+ },
+ {
+  "word": "d'accord",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/d/d'/d'accord.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/d/d%27/d%27accord.jsonl",
+  "file": "8ca9661f3c.jsonl",
+  "bytes": 5463,
+  "sha256": "022bd84d8cb3b246db8e4bcd3c938758713d984295c4f99b39507d71a8bc4c8b",
+  "entries": 2
+ },
+ {
+  "word": "homme",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/h/ho/homme.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/h/ho/homme.jsonl",
+  "file": "f008f75738.jsonl",
+  "bytes": 17991,
+  "sha256": "27970b955c009d8834706022a3d0768cb30d1491dcba0fb5eaec655ed8e87872",
+  "entries": 1
+ },
+ {
+  "word": "chemise",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/c/ch/chemise.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/c/ch/chemise.jsonl",
+  "file": "32c10e7724.jsonl",
+  "bytes": 15813,
+  "sha256": "1da7d3106dc41af7e9b0c8153d0402009be1b3c33e0ff30f94c0f499152bdf8c",
+  "entries": 2
+ },
+ {
+  "word": "marché",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/m/ma/marché.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/m/ma/march%C3%A9.jsonl",
+  "file": "a93ab3534e.jsonl",
+  "bytes": 9582,
+  "sha256": "1bc72986836473dc476521d207caf5a556593d7952379f58047a47727c5a65d6",
+  "entries": 2
+ },
+ {
+  "word": "pomme",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/p/po/pomme.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/p/po/pomme.jsonl",
+  "file": "752c14ea19.jsonl",
+  "bytes": 26826,
+  "sha256": "d944af59bc83beaf2ad2bcc2765f5638901ae7c867527ce3d467d993437dcef1",
+  "entries": 2
+ },
+ {
+  "word": "sœur",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/s/sœ/sœur.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/s/s%C5%93/s%C5%93ur.jsonl",
+  "file": "5f49e229d8.jsonl",
+  "bytes": 7521,
+  "sha256": "a5db5428716db5945802753e13066a01d2cbbbd1049224bf7d9465aa0d304718",
+  "entries": 1
+ },
+ {
+  "word": "main",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/m/ma/main.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/m/ma/main.jsonl",
+  "file": "b28b7af693.jsonl",
+  "bytes": 12339,
+  "sha256": "9d40a7b15c5bb1c9e4e5df39695f9920bb4ac459170d0ea00b67ed681307a45e",
+  "entries": 1
+ },
+ {
+  "word": "porte",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/p/po/porte.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/p/po/porte.jsonl",
+  "file": "675c421010.jsonl",
+  "bytes": 11182,
+  "sha256": "b9d17445663c2bfc7ba182ef0acac29355f030a9a74b15431cadf6ee17dad278",
+  "entries": 2
+ },
+ {
+  "word": "café",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/c/ca/café.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/c/ca/caf%C3%A9.jsonl",
+  "file": "f424452a96.jsonl",
+  "bytes": 24528,
+  "sha256": "3a5462203de6bf6e9e38a1eebe54690d07e249b7759176bc53d42d0934501103",
+  "entries": 2
+ },
+ {
+  "word": "prix",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/p/pr/prix.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/p/pr/prix.jsonl",
+  "file": "9352ee4da5.jsonl",
+  "bytes": 7118,
+  "sha256": "b6cff74e3ed631b7fe1fb48d89ade9261064723c449be325ae459c7f265a6e28",
+  "entries": 1
+ },
+ {
+  "word": "œil",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/œ/œi/œil.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/%C5%93/%C5%93i/%C5%93il.jsonl",
+  "file": "ac5818831d.jsonl",
+  "bytes": 15466,
+  "sha256": "d98e627da92a6f9b17b22ba080c06d732a5a016450332caf039a99dc64fb662b",
+  "entries": 1
+ },
+ {
+  "word": "cheval",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/c/ch/cheval.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/c/ch/cheval.jsonl",
+  "file": "042ebebbb4.jsonl",
+  "bytes": 11661,
+  "sha256": "d32a848307e9c072190f3573056d8b8e3236aeede51b1d9fa5c0285f57076f07",
+  "entries": 1
+ },
+ {
+  "word": "travail",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/t/tr/travail.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/t/tr/travail.jsonl",
+  "file": "8c577c0b70.jsonl",
+  "bytes": 16439,
+  "sha256": "9f508dca1a28fbc90ce3614a27e28bcf9f607237e7a977496055bc618909e837",
+  "entries": 1
+ },
+ {
+  "word": "ciel",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/c/ci/ciel.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/c/ci/ciel.jsonl",
+  "file": "80939dab2e.jsonl",
+  "bytes": 27299,
+  "sha256": "33dc06872f8aec30d1471aaed7774d55cdd30d46c668d8ff3224c597ce88e3c6",
+  "entries": 3
+ },
+ {
+  "word": "héros",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/h/hé/héros.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/h/h%C3%A9/h%C3%A9ros.jsonl",
+  "file": "76e66b9dc1.jsonl",
+  "bytes": 4187,
+  "sha256": "36079231c76b3e1b6fcf05b170b21057a72d7f8281d49b9770a57abb36c76e3e",
+  "entries": 1
+ },
+ {
+  "word": "hache",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/h/ha/hache.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/h/ha/hache.jsonl",
+  "file": "ed01695c41.jsonl",
+  "bytes": 14626,
+  "sha256": "875b30be48331f954411852b4f38f1f3f95c350186f8a41f725caaaafe28fd2a",
+  "entries": 2
+ },
+ {
+  "word": "haricot",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/h/ha/haricot.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/h/ha/haricot.jsonl",
+  "file": "97d35c2dcd.jsonl",
+  "bytes": 9242,
+  "sha256": "5e66f3b223adbf0bd94751411f4877d47853576e7d3b5d2f2368f00ba1312748",
+  "entries": 1
+ },
+ {
+  "word": "hôtel",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/h/hô/hôtel.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/h/h%C3%B4/h%C3%B4tel.jsonl",
+  "file": "cb00b3bdc9.jsonl",
+  "bytes": 18043,
+  "sha256": "90c6f3691032f0813be7ffa66f44ce03dcc6a00727e6da156ab503fda93258cd",
+  "entries": 1
+ },
+ {
+  "word": "hasard",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/h/ha/hasard.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/h/ha/hasard.jsonl",
+  "file": "b19e74c43f.jsonl",
+  "bytes": 4795,
+  "sha256": "380a3d033f98c3bdb585d8e60d2f10e01a32717c88e0121b93d0e0624c1839e6",
+  "entries": 1
+ },
+ {
+  "word": "huile",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/h/hu/huile.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/h/hu/huile.jsonl",
+  "file": "174aa7a181.jsonl",
+  "bytes": 11380,
+  "sha256": "1a09cc89af961034f8c64016dbd716efafd6e0b8fd817b5e399b147dcdba2101",
+  "entries": 2
+ },
+ {
+  "word": "petit déjeuner",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/p/pe/petit déjeuner.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/p/pe/petit%20d%C3%A9jeuner.jsonl",
+  "file": "f312770e41.jsonl",
+  "bytes": 2960,
+  "sha256": "6da22bbc1ae9da68faea246244af9b5c8db0bd8118bd88e8eea61b1e4db32c5d",
+  "entries": 1
+ },
+ {
+  "word": "petit-déjeuner",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/p/pe/petit-déjeuner.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/p/pe/petit-d%C3%A9jeuner.jsonl",
+  "file": "725e1e5db1.jsonl",
+  "bytes": 2573,
+  "sha256": "6341718e04aca67a9c43de6c36c34d495587029b057593e07184c1e30f78820c",
+  "entries": 1
+ },
+ {
+  "word": "sûr",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/s/sû/sûr.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/s/s%C3%BB/s%C3%BBr.jsonl",
+  "file": "341b755f98.jsonl",
+  "bytes": 4110,
+  "sha256": "1a4c0f6e3f49208cf745f7782f136ccc9d72cca7361d0e91461ceff77ead2b68",
+  "entries": 1
+ },
+ {
+  "word": "sur",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/s/su/sur.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/s/su/sur.jsonl",
+  "file": "3d54fd66df.jsonl",
+  "bytes": 13412,
+  "sha256": "8847aa15a1e2ad900b4fe8bbf4bc9040233bc4901c24c19b3f31416f1e9d7915",
+  "entries": 2
+ },
+ {
+  "word": "côte",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/c/cô/côte.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/c/c%C3%B4/c%C3%B4te.jsonl",
+  "file": "a8eaa34626.jsonl",
+  "bytes": 6002,
+  "sha256": "4deb64887b4c5b41feadf53d3acece5535af490a3c2a670069a6a09cde2f231a",
+  "entries": 1
+ },
+ {
+  "word": "côté",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/c/cô/côté.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/c/c%C3%B4/c%C3%B4t%C3%A9.jsonl",
+  "file": "b6b15e11bf.jsonl",
+  "bytes": 6689,
+  "sha256": "3e9b0a30806d5014f6ac99409eca1207e2d82cdad833096de2c5f9117c9c4b86",
+  "entries": 2
+ },
+ {
+  "word": "dû",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/d/dû/dû.html",
+   "https://kaikki.org/dictionary/All languages combined/meaning/d/dû/dû.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/d/d%C3%BB/d%C3%BB.jsonl",
+  "file": "7788c46fb7.jsonl",
+  "bytes": 11330,
+  "sha256": "ba7aac66c8d37367fe1a79c5495a995ab7ea89afb8293b6847036316b6229bbd",
+  "entries": 2
+ },
+ {
+  "word": "venir",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/v/ve/venir.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/v/ve/venir.jsonl",
+  "file": "2b89b88600.jsonl",
+  "bytes": 19311,
+  "sha256": "7d6783fb7d356a206d77de661118b99c2d9164b0c5fe7edde0d2d578bc93c5ee",
+  "entries": 1
+ },
+ {
+  "word": "faire",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/f/fa/faire.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/f/fa/faire.jsonl",
+  "file": "9d62f39f91.jsonl",
+  "bytes": 36965,
+  "sha256": "3bf91770ab3e215281c9b9ee6673e69d14d7ede83e7d6de2b65c54c77c9c283b",
+  "entries": 1
+ },
+ {
+  "word": "boire",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/b/bo/boire.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/b/bo/boire.jsonl",
+  "file": "6a3aec9821.jsonl",
+  "bytes": 18440,
+  "sha256": "21bdcf547ce51de31f8ed6e43f3b672f3a14bcaf9dc7decbbc287bb2aff66578",
+  "entries": 1
+ },
+ {
+  "word": "revenir",
+  "search_hits": [
+   "https://kaikki.org/dictionary/All languages combined/meaning/r/re/revenir.html"
+  ],
+  "status": "fetched",
+  "url": "https://kaikki.org/dictionary/French/meaning/r/re/revenir.jsonl",
+  "file": "0f3ee410b2.jsonl",
+  "bytes": 18614,
+  "sha256": "4c9bb4ee0f0b44a88d18f338a9871b3bdada4e3d6594ad0d55e71afd6b72a12e",
+  "entries": 1
+ }
+]

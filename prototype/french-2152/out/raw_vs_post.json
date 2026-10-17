@@ -1,0 +1,1024 @@
+{
+ "livre": {
+  "raw": [
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "related",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "category_count": 28,
+    "glosses": [
+     "book"
+    ],
+    "sense_tags": [
+     [
+      "masculine"
+     ]
+    ],
+    "plural_forms": [
+     "livres"
+    ],
+    "form_count": 1,
+    "ipa": [
+     [
+      "/livʁ/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "livre m (plural livres)"
+    ]
+   },
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "related",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "category_count": 22,
+    "glosses": [
+     "pound (unit of weight)",
+     "pound (unit of weight)",
+     "pound (unit of weight)",
+     "pound (unit of currency)",
+     "grade (level)"
+    ],
+    "sense_tags": [
+     [
+      "Europe",
+      "feminine",
+      "informal"
+     ],
+     [
+      "North-America",
+      "feminine"
+     ],
+     [
+      "feminine",
+      "historical"
+     ],
+     [
+      "feminine"
+     ],
+     [
+      "Louisiana",
+      "feminine"
+     ]
+    ],
+    "plural_forms": [
+     "livres"
+    ],
+    "form_count": 1,
+    "ipa": [
+     [
+      "/livʁ/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "livre f (plural livres)"
+    ]
+   },
+   {
+    "keys": [
+     "categories",
+     "etymology_number",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "verb",
+    "tags": null,
+    "gender_categories": [],
+    "category_count": 12,
+    "glosses": [
+     "inflection of livrer:",
+     "inflection of livrer:"
+    ],
+    "sense_tags": [
+     [
+      "first-person",
+      "form-of",
+      "indicative",
+      "present",
+      "singular",
+      "subjunctive",
+      "third-person"
+     ],
+     [
+      "form-of",
+      "imperative",
+      "second-person",
+      "singular"
+     ]
+    ],
+    "plural_forms": [],
+    "form_count": 0,
+    "ipa": [
+     [
+      "/livʁ/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "livre"
+    ]
+   }
+  ],
+  "post": [
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "related",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "category_count": 28,
+    "glosses": [
+     "book"
+    ],
+    "sense_tags": [
+     [
+      "masculine"
+     ]
+    ],
+    "plural_forms": [
+     "livres"
+    ],
+    "form_count": 1,
+    "ipa": [
+     [
+      "/livʁ/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "livre m (plural livres)"
+    ]
+   },
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "related",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "category_count": 22,
+    "glosses": [
+     "pound (unit of weight)",
+     "pound (unit of weight)",
+     "pound (unit of weight)",
+     "pound (unit of currency)",
+     "grade (level)"
+    ],
+    "sense_tags": [
+     [
+      "Europe",
+      "feminine",
+      "informal"
+     ],
+     [
+      "North-America",
+      "feminine"
+     ],
+     [
+      "feminine",
+      "historical"
+     ],
+     [
+      "feminine"
+     ],
+     [
+      "Louisiana",
+      "feminine"
+     ]
+    ],
+    "plural_forms": [
+     "livres"
+    ],
+    "form_count": 1,
+    "ipa": [
+     [
+      "/livʁ/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "livre f (plural livres)"
+    ]
+   },
+   {
+    "keys": [
+     "categories",
+     "etymology_number",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "verb",
+    "tags": null,
+    "gender_categories": [],
+    "category_count": 12,
+    "glosses": [
+     "inflection of livrer:",
+     "inflection of livrer:"
+    ],
+    "sense_tags": [
+     [
+      "first-person",
+      "form-of",
+      "indicative",
+      "present",
+      "singular",
+      "subjunctive",
+      "third-person"
+     ],
+     [
+      "form-of",
+      "imperative",
+      "second-person",
+      "singular"
+     ]
+    ],
+    "plural_forms": [],
+    "form_count": 0,
+    "ipa": [
+     [
+      "/livʁ/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "livre"
+    ]
+   }
+  ]
+ },
+ "chien": {
+  "raw": [
+   {
+    "keys": [
+     "categories",
+     "etymology_links",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "category_count": 27,
+    "glosses": [
+     "dog",
+     "cock, hammer (of a firearm)"
+    ],
+    "sense_tags": [
+     [
+      "masculine"
+     ],
+     [
+      "masculine"
+     ]
+    ],
+    "plural_forms": [
+     "chiens"
+    ],
+    "form_count": 2,
+    "ipa": [
+     [
+      "/ʃjɛ̃/",
+      [
+       "Belgium",
+       "France"
+      ]
+     ],
+     [
+      "/ʃjẽ/",
+      [
+       "Quebec"
+      ]
+     ]
+    ],
+    "head_expansions": [
+     "chien m (plural chiens, feminine chienne)"
+    ]
+   },
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "related",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "adj",
+    "tags": null,
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "category_count": 27,
+    "glosses": [
+     "greedy, stingy"
+    ],
+    "sense_tags": [
+     [
+      "Louisiana"
+     ]
+    ],
+    "plural_forms": [
+     "chiens",
+     "chiennes"
+    ],
+    "form_count": 3,
+    "ipa": [
+     [
+      "/ʃjɛ̃/",
+      [
+       "Belgium",
+       "France"
+      ]
+     ],
+     [
+      "/ʃjẽ/",
+      [
+       "Quebec"
+      ]
+     ]
+    ],
+    "head_expansions": [
+     "chien (feminine chienne, masculine plural chiens, feminine plural chiennes)"
+    ]
+   }
+  ],
+  "post": [
+   {
+    "keys": [
+     "categories",
+     "etymology_links",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "category_count": 27,
+    "glosses": [
+     "dog",
+     "cock, hammer (of a firearm)"
+    ],
+    "sense_tags": [
+     [
+      "masculine"
+     ],
+     [
+      "masculine"
+     ]
+    ],
+    "plural_forms": [
+     "chiens"
+    ],
+    "form_count": 2,
+    "ipa": [
+     [
+      "/ʃjɛ̃/",
+      [
+       "Belgium",
+       "France"
+      ]
+     ],
+     [
+      "/ʃjẽ/",
+      [
+       "Quebec"
+      ]
+     ]
+    ],
+    "head_expansions": [
+     "chien m (plural chiens, feminine chienne)"
+    ]
+   },
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "related",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "adj",
+    "tags": null,
+    "gender_categories": [
+     "French masculine nouns"
+    ],
+    "category_count": 27,
+    "glosses": [
+     "greedy, stingy"
+    ],
+    "sense_tags": [
+     [
+      "Louisiana"
+     ]
+    ],
+    "plural_forms": [
+     "chiens",
+     "chiennes"
+    ],
+    "form_count": 3,
+    "ipa": [
+     [
+      "/ʃjɛ̃/",
+      [
+       "Belgium",
+       "France"
+      ]
+     ],
+     [
+      "/ʃjẽ/",
+      [
+       "Quebec"
+      ]
+     ]
+    ],
+    "head_expansions": [
+     "chien (feminine chienne, masculine plural chiens, feminine plural chiennes)"
+    ]
+   }
+  ]
+ },
+ "minute": {
+  "raw": [
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "category_count": 23,
+    "glosses": [
+     "minute (etymology 1, time unit, all same senses)"
+    ],
+    "sense_tags": [
+     [
+      "feminine"
+     ]
+    ],
+    "plural_forms": [
+     "minutes"
+    ],
+    "form_count": 1,
+    "ipa": [
+     [
+      "/mi.nyt/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "minute f (plural minutes)"
+    ]
+   },
+   {
+    "keys": [
+     "categories",
+     "etymology_links",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "intj",
+    "tags": null,
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "category_count": 23,
+    "glosses": [
+     "wait a sec!"
+    ],
+    "sense_tags": [
+     null
+    ],
+    "plural_forms": [],
+    "form_count": 0,
+    "ipa": [
+     [
+      "/mi.nyt/",
+      null
+     ]
+    ],
+    "head_expansions": []
+   },
+   {
+    "keys": [
+     "categories",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "verb",
+    "tags": null,
+    "gender_categories": [],
+    "category_count": 9,
+    "glosses": [
+     "inflection of minuter:",
+     "inflection of minuter:"
+    ],
+    "sense_tags": [
+     [
+      "first-person",
+      "form-of",
+      "indicative",
+      "present",
+      "singular",
+      "subjunctive",
+      "third-person"
+     ],
+     [
+      "form-of",
+      "imperative",
+      "second-person",
+      "singular"
+     ]
+    ],
+    "plural_forms": [],
+    "form_count": 0,
+    "ipa": [
+     [
+      "/mi.nyt/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "minute"
+    ]
+   }
+  ],
+  "post": [
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "category_count": 23,
+    "glosses": [
+     "minute (etymology 1, time unit, all same senses)"
+    ],
+    "sense_tags": [
+     [
+      "feminine"
+     ]
+    ],
+    "plural_forms": [
+     "minutes"
+    ],
+    "form_count": 1,
+    "ipa": [
+     [
+      "/mi.nyt/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "minute f (plural minutes)"
+    ]
+   },
+   {
+    "keys": [
+     "categories",
+     "etymology_links",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "intj",
+    "tags": null,
+    "gender_categories": [
+     "French feminine nouns"
+    ],
+    "category_count": 23,
+    "glosses": [
+     "wait a sec!"
+    ],
+    "sense_tags": [
+     null
+    ],
+    "plural_forms": [],
+    "form_count": 0,
+    "ipa": [
+     [
+      "/mi.nyt/",
+      null
+     ]
+    ],
+    "head_expansions": []
+   },
+   {
+    "keys": [
+     "categories",
+     "etymology_number",
+     "etymology_templates",
+     "etymology_text",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "verb",
+    "tags": null,
+    "gender_categories": [],
+    "category_count": 9,
+    "glosses": [
+     "inflection of minuter:",
+     "inflection of minuter:"
+    ],
+    "sense_tags": [
+     [
+      "first-person",
+      "form-of",
+      "indicative",
+      "present",
+      "singular",
+      "subjunctive",
+      "third-person"
+     ],
+     [
+      "form-of",
+      "imperative",
+      "second-person",
+      "singular"
+     ]
+    ],
+    "plural_forms": [],
+    "form_count": 0,
+    "ipa": [
+     [
+      "/mi.nyt/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "minute"
+    ]
+   }
+  ]
+ },
+ "abdomen": {
+  "raw": [
+   {
+    "keys": [
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [],
+    "category_count": 0,
+    "glosses": [
+     "abdomen"
+    ],
+    "sense_tags": [
+     [
+      "masculine"
+     ]
+    ],
+    "plural_forms": [
+     "abdomens"
+    ],
+    "form_count": 1,
+    "ipa": [
+     [
+      "/ab.dɔ.mɛn/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "abdomen m (plural abdomens)"
+    ]
+   }
+  ],
+  "post": [
+   {
+    "keys": [
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "noun",
+    "tags": null,
+    "gender_categories": [],
+    "category_count": 0,
+    "glosses": [
+     "abdomen"
+    ],
+    "sense_tags": [
+     [
+      "masculine"
+     ]
+    ],
+    "plural_forms": [
+     "abdomens"
+    ],
+    "form_count": 1,
+    "ipa": [
+     [
+      "/ab.dɔ.mɛn/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "abdomen m (plural abdomens)"
+    ]
+   }
+  ]
+ },
+ "gratuit": {
+  "raw": [
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "hyphenations",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "adj",
+    "tags": null,
+    "gender_categories": [],
+    "category_count": 15,
+    "glosses": [
+     "free of charge",
+     "gratuitous, for no reason"
+    ],
+    "sense_tags": [
+     null,
+     null
+    ],
+    "plural_forms": [
+     "gratuits",
+     "gratuites"
+    ],
+    "form_count": 3,
+    "ipa": [
+     [
+      "/ɡʁa.tɥi/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "gratuit (feminine gratuite, masculine plural gratuits, feminine plural gratuites)"
+    ]
+   }
+  ],
+  "post": [
+   {
+    "keys": [
+     "categories",
+     "derived",
+     "descendants",
+     "etymology_links",
+     "etymology_templates",
+     "etymology_text",
+     "forms",
+     "head_templates",
+     "hyphenations",
+     "lang",
+     "lang_code",
+     "pos",
+     "senses",
+     "sounds",
+     "word"
+    ],
+    "pos": "adj",
+    "tags": null,
+    "gender_categories": [],
+    "category_count": 15,
+    "glosses": [
+     "free of charge",
+     "gratuitous, for no reason"
+    ],
+    "sense_tags": [
+     null,
+     null
+    ],
+    "plural_forms": [
+     "gratuits",
+     "gratuites"
+    ],
+    "form_count": 3,
+    "ipa": [
+     [
+      "/ɡʁa.tɥi/",
+      null
+     ]
+    ],
+    "head_expansions": [
+     "gratuit (feminine gratuite, masculine plural gratuits, feminine plural gratuites)"
+    ]
+   }
+  ]
+ }
+}

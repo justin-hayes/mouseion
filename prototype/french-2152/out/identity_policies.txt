@@ -1,0 +1,27 @@
+{"sentence": "S01", "surface": "vois", "clitics": ["Je/moi/nsubj"], "A_base": "voir", "B_blanket": "voir", "B_lookup": "base entry", "C_selective": "voir", "C_lookup": "base entry"}
+{"sentence": "S03", "surface": "habille", "clitics": ["Elle/lui/nsubj", "s'/soi/obj"], "A_base": "habiller", "B_blanket": "s'habiller", "B_lookup": "no entry -> needs base-entry fallback", "C_selective": "habiller", "C_lookup": "own entry"}
+{"sentence": "S03", "surface": "partir", "clitics": [], "A_base": "partir", "B_blanket": "partir", "B_lookup": "base entry", "C_selective": "partir", "C_lookup": "base entry"}
+{"sentence": "S04", "surface": "va", "clitics": ["Il/lui/nsubj", "s'/soi/expl:pv", "en/en/expl:comp"], "A_base": "aller", "B_blanket": "s'en aller", "B_lookup": "own entry", "C_selective": "s'en aller", "C_lookup": "own entry"}
+{"sentence": "S04", "surface": "fermer", "clitics": [], "A_base": "fermer", "B_blanket": "fermer", "B_lookup": "base entry", "C_selective": "fermer", "C_lookup": "base entry"}
+{"sentence": "S05", "surface": "donne", "clitics": ["Je/moi/nsubj", "le/lui/obj", "lui/lui/iobj"], "A_base": "donner", "B_blanket": "donner", "B_lookup": "base entry", "C_selective": "donner", "C_lookup": "base entry"}
+{"sentence": "S05", "surface": "parle", "clitics": ["elle/lui/nsubj", "m'/moi/obj", "en/en/iobj"], "A_base": "parler", "B_blanket": "se parler", "B_lookup": "no entry -> needs base-entry fallback", "C_selective": "parler", "C_lookup": "base entry"}
+{"sentence": "S06", "surface": "lave", "clitics": ["Je/moi/nsubj"], "A_base": "laver", "B_blanket": "laver", "B_lookup": "own entry", "C_selective": "laver", "C_lookup": "own entry"}
+{"sentence": "S07", "surface": "lave", "clitics": ["Je/moi/nsubj", "me/moi/obj"], "A_base": "laver", "B_blanket": "se laver", "B_lookup": "no entry -> needs base-entry fallback", "C_selective": "laver", "C_lookup": "own entry"}
+{"sentence": "S08", "surface": "lave", "clitics": ["Elle/lui/nsubj", "se/soi/iobj"], "A_base": "laver", "B_blanket": "se laver", "B_lookup": "no entry -> needs base-entry fallback", "C_selective": "laver", "C_lookup": "own entry"}
+{"sentence": "S08", "surface": "manger", "clitics": [], "A_base": "manger", "B_blanket": "manger", "B_lookup": "base entry", "C_selective": "manger", "C_lookup": "base entry"}
+{"sentence": "S09", "surface": "va", "clitics": ["Il/lui/nsubj"], "A_base": "aller", "B_blanket": "aller", "B_lookup": "own entry", "C_selective": "aller", "C_lookup": "own entry"}
+{"sentence": "S10", "surface": "revient", "clitics": ["Elle/lui/nsubj"], "A_base": "revenir", "B_blanket": "revenir", "B_lookup": "own entry", "C_selective": "revenir", "C_lookup": "own entry"}
+{"sentence": "S11", "surface": "revient", "clitics": ["Il/lui/nsubj"], "A_base": "revenir", "B_blanket": "revenir", "B_lookup": "own entry", "C_selective": "revenir", "C_lookup": "own entry"}
+{"sentence": "S12", "surface": "augmenté", "clitics": [], "A_base": "augmenter", "B_blanket": "augmenter", "B_lookup": "base entry", "C_selective": "augmenter", "C_lookup": "base entry"}
+{"sentence": "S13", "surface": "boit", "clitics": ["Elle/lui/nsubj"], "A_base": "boire", "B_blanket": "boire", "B_lookup": "own entry", "C_selective": "boire", "C_lookup": "own entry"}
+{"sentence": "S13", "surface": "mange", "clitics": [], "A_base": "manger", "B_blanket": "manger", "B_lookup": "base entry", "C_selective": "manger", "C_lookup": "base entry"}
+{"sentence": "S14", "surface": "va", "clitics": ["t-il/lui/nsubj"], "A_base": "aller", "B_blanket": "aller", "B_lookup": "own entry", "C_selective": "aller", "C_lookup": "own entry"}
+{"sentence": "S14", "surface": "fermé", "clitics": [], "A_base": "fermer", "B_blanket": "fermer", "B_lookup": "base entry", "C_selective": "fermer", "C_lookup": "base entry"}
+{"sentence": "S15", "surface": "viendra", "clitics": ["il/lui/nsubj"], "A_base": "venir", "B_blanket": "venir", "B_lookup": "own entry", "C_selective": "venir", "C_lookup": "own entry"}
+{"sentence": "S16", "surface": "dit", "clitics": ["elle/lui/nsubj"], "A_base": "dire", "B_blanket": "dire", "B_lookup": "base entry", "C_selective": "dire", "C_lookup": "base entry"}
+{"sentence": "S16", "surface": "repart", "clitics": ["il/lui/nsubj"], "A_base": "repartir", "B_blanket": "repartir", "B_lookup": "base entry", "C_selective": "repartir", "C_lookup": "base entry"}
+{"sentence": "S17", "surface": "faut", "clitics": ["Il/lui/expl:subj"], "A_base": "falloir", "B_blanket": "falloir", "B_lookup": "own entry", "C_selective": "falloir", "C_lookup": "own entry"}
+{"sentence": "S17", "surface": "partir", "clitics": [], "A_base": "partir", "B_blanket": "partir", "B_lookup": "base entry", "C_selective": "partir", "C_lookup": "base entry"}
+A_base distinct verb identities: 16 ['aller', 'augmenter', 'boire', 'dire', 'donner', 'falloir', 'fermer', 'habiller', 'laver', 'manger', 'parler', 'partir', 'repartir', 'revenir', 'venir', 'voir']
+B_blanket distinct verb identities: 18 ['aller', 'augmenter', 'boire', 'dire', 'donner', 'falloir', 'fermer', 'laver', 'manger', 'partir', 'repartir', 'revenir', "s'en aller", "s'habiller", 'se laver', 'se parler', 'venir', 'voir']
+C_selective distinct verb identities: 17 ['aller', 'augmenter', 'boire', 'dire', 'donner', 'falloir', 'fermer', 'habiller', 'laver', 'manger', 'parler', 'partir', 'repartir', 'revenir', "s'en aller", 'venir', 'voir']

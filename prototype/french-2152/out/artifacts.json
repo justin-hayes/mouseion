@@ -1,0 +1,100 @@
+[
+ {
+  "file": "tokenize/combined_nocharlm",
+  "bytes": 665712,
+  "sha256": "622a7613d78623cda63e53fc72f84c49b2f64ad959c0f6aeb51355b963eda78f",
+  "md5": "34ce2e674142753bb26d2bd66adc7742",
+  "sha256_ok": true,
+  "md5_ok": true,
+  "deps": null
+ },
+ {
+  "file": "mwt/combined",
+  "bytes": 544773,
+  "sha256": "a46bc4149531762c2fd79d70eeaaff80479aa6852a08516ab0db567859c8cec0",
+  "md5": "827fd37941d9bb51bdd7c473e0e80cf8",
+  "sha256_ok": true,
+  "md5_ok": true,
+  "deps": null
+ },
+ {
+  "file": "lemma/combined_nocharlm",
+  "bytes": 2813969,
+  "sha256": "31dd152c13d1d713085127e7b30d91e70e88652da4c2ea33c4b6f7d34d810177",
+  "md5": "07f18945c29490c60ff3a9dfa18fbdc5",
+  "sha256_ok": true,
+  "md5_ok": true,
+  "deps": null
+ },
+ {
+  "file": "pos/combined_charlm",
+  "bytes": 34563706,
+  "sha256": "e40eb06786fa691e84aa6ee1ff2321b37f9ff9cb9bf3fe4de94b63793b626f89",
+  "md5": "505cd655d0474c51d1e35312d49bceae",
+  "sha256_ok": true,
+  "md5_ok": true,
+  "deps": [
+   {
+    "model": "pretrain",
+    "package": "conll17"
+   },
+   {
+    "model": "forward_charlm",
+    "package": "newswiki"
+   },
+   {
+    "model": "backward_charlm",
+    "package": "newswiki"
+   }
+  ]
+ },
+ {
+  "file": "depparse/combined_charlm",
+  "bytes": 148809357,
+  "sha256": "5ad85cd10e385894152154863c14f621b7d747c67c84eb8597039da12832315a",
+  "md5": "c0c8d747238802ee03c40953a8e4d101",
+  "sha256_ok": true,
+  "md5_ok": true,
+  "deps": [
+   {
+    "model": "pretrain",
+    "package": "conll17"
+   },
+   {
+    "model": "forward_charlm",
+    "package": "newswiki"
+   },
+   {
+    "model": "backward_charlm",
+    "package": "newswiki"
+   }
+  ]
+ },
+ {
+  "file": "pretrain/conll17",
+  "bytes": 106908071,
+  "sha256": "c8c456c1a48fba32d4ab827ae7d3fec40457f58ead7e1977b6267afc37474a3c",
+  "md5": "f74659129e2008c6b7b6ca0a2db693d7",
+  "sha256_ok": true,
+  "md5_ok": true,
+  "deps": null
+ },
+ {
+  "file": "forward_charlm/newswiki",
+  "bytes": 20094072,
+  "sha256": "a6874f7670f84c8bd9e57d5dcbafdfe7d7cbae2457c79975040709f1d69ca119",
+  "md5": "d98e6909619100c23b745cae4383eea2",
+  "sha256_ok": true,
+  "md5_ok": true,
+  "deps": null
+ },
+ {
+  "file": "backward_charlm/newswiki",
+  "bytes": 20094073,
+  "sha256": "3ae24cade5cdca7d68193196a942a177af81fbc5d3b5ebb4550ff7b89023b09c",
+  "md5": "42eba035046673e195274f45e713653c",
+  "sha256_ok": true,
+  "md5_ok": true,
+  "deps": null
+ }
+]

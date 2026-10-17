@@ -1,0 +1,7388 @@
+[
+ {
+  "id": "S01",
+  "text": "Je vois l'homme près du marché.",
+  "sentence_count": 1,
+  "sentences": [
+   "Je vois l'homme près du marché."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Je",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Je",
+    "words": [
+     {
+      "id": 1,
+      "text": "Je",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 2,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "vois",
+    "token_span": [
+     3,
+     7
+    ],
+    "source_slice": "vois",
+    "words": [
+     {
+      "id": 2,
+      "text": "vois",
+      "lemma": "voir",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       3,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "l'",
+    "token_span": [
+     8,
+     10
+    ],
+    "source_slice": "l'",
+    "words": [
+     {
+      "id": 3,
+      "text": "l'",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 4,
+      "deprel": "det",
+      "word_span": [
+       8,
+       10
+      ]
+     }
+    ]
+   },
+   {
+    "token": "homme",
+    "token_span": [
+     10,
+     15
+    ],
+    "source_slice": "homme",
+    "words": [
+     {
+      "id": 4,
+      "text": "homme",
+      "lemma": "homme",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 2,
+      "deprel": "obj",
+      "word_span": [
+       10,
+       15
+      ]
+     }
+    ]
+   },
+   {
+    "token": "près",
+    "token_span": [
+     16,
+     20
+    ],
+    "source_slice": "près",
+    "words": [
+     {
+      "id": 5,
+      "text": "près",
+      "lemma": "près",
+      "upos": "ADV",
+      "feats": null,
+      "head": 2,
+      "deprel": "advmod",
+      "word_span": [
+       16,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "du",
+    "token_span": [
+     21,
+     23
+    ],
+    "source_slice": "du",
+    "words": [
+     {
+      "id": 6,
+      "text": "de",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 8,
+      "deprel": "case",
+      "word_span": [
+       null,
+       null
+      ]
+     },
+     {
+      "id": 7,
+      "text": "le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 8,
+      "deprel": "det",
+      "word_span": [
+       null,
+       null
+      ]
+     }
+    ]
+   },
+   {
+    "token": "marché",
+    "token_span": [
+     24,
+     30
+    ],
+    "source_slice": "marché",
+    "words": [
+     {
+      "id": 8,
+      "text": "marché",
+      "lemma": "marché",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 5,
+      "deprel": "obl:arg",
+      "word_span": [
+       24,
+       30
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     30,
+     31
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 9,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       30,
+       31
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Je vois l'homme près du marché.",
+    "tokens": [
+     {
+      "surface": "Je",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Je",
+      "dependency": "nsubj",
+      "head": 1
+     },
+     {
+      "surface": "vois",
+      "canonical_lemma": "voir",
+      "pos": "VERB",
+      "span": [
+       3,
+       7
+      ],
+      "source_slice": "vois",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "l'",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       8,
+       10
+      ],
+      "source_slice": "l'",
+      "dependency": "det",
+      "head": 3
+     },
+     {
+      "surface": "homme",
+      "canonical_lemma": "homme",
+      "pos": "NOUN",
+      "span": [
+       10,
+       15
+      ],
+      "source_slice": "homme",
+      "dependency": "obj",
+      "head": 1
+     },
+     {
+      "surface": "près",
+      "canonical_lemma": "près",
+      "pos": "ADV",
+      "span": [
+       16,
+       20
+      ],
+      "source_slice": "près",
+      "dependency": "advmod",
+      "head": 1
+     },
+     {
+      "surface": "de",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       21,
+       23
+      ],
+      "source_slice": "du",
+      "dependency": "case",
+      "head": 7
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       21,
+       23
+      ],
+      "source_slice": "du",
+      "dependency": "det",
+      "head": 7
+     },
+     {
+      "surface": "marché",
+      "canonical_lemma": "marché",
+      "pos": "NOUN",
+      "span": [
+       24,
+       30
+      ],
+      "source_slice": "marché",
+      "dependency": "obl:arg",
+      "head": 4
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       30,
+       31
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S02",
+  "text": "Nous sommes d'accord sur ce point.",
+  "sentence_count": 1,
+  "sentences": [
+   "Nous sommes d'accord sur ce point."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Nous",
+    "token_span": [
+     0,
+     4
+    ],
+    "source_slice": "Nous",
+    "words": [
+     {
+      "id": 1,
+      "text": "Nous",
+      "lemma": "nous",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Plur|Person=1|PronType=Prs",
+      "head": 3,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sommes",
+    "token_span": [
+     5,
+     11
+    ],
+    "source_slice": "sommes",
+    "words": [
+     {
+      "id": 2,
+      "text": "sommes",
+      "lemma": "être",
+      "upos": "AUX",
+      "feats": "Mood=Ind|Number=Plur|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 3,
+      "deprel": "cop",
+      "word_span": [
+       5,
+       11
+      ]
+     }
+    ]
+   },
+   {
+    "token": "d'",
+    "token_span": [
+     12,
+     14
+    ],
+    "source_slice": "d'",
+    "words": [
+     {
+      "id": 3,
+      "text": "d'",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       12,
+       14
+      ]
+     }
+    ]
+   },
+   {
+    "token": "accord",
+    "token_span": [
+     14,
+     20
+    ],
+    "source_slice": "accord",
+    "words": [
+     {
+      "id": 4,
+      "text": "accord",
+      "lemma": "accord",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 3,
+      "deprel": "fixed",
+      "word_span": [
+       14,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sur",
+    "token_span": [
+     21,
+     24
+    ],
+    "source_slice": "sur",
+    "words": [
+     {
+      "id": 5,
+      "text": "sur",
+      "lemma": "sur",
+      "upos": "ADP",
+      "feats": null,
+      "head": 7,
+      "deprel": "case",
+      "word_span": [
+       21,
+       24
+      ]
+     }
+    ]
+   },
+   {
+    "token": "ce",
+    "token_span": [
+     25,
+     27
+    ],
+    "source_slice": "ce",
+    "words": [
+     {
+      "id": 6,
+      "text": "ce",
+      "lemma": "ce",
+      "upos": "DET",
+      "feats": "Gender=Masc|Number=Sing|PronType=Dem",
+      "head": 7,
+      "deprel": "det",
+      "word_span": [
+       25,
+       27
+      ]
+     }
+    ]
+   },
+   {
+    "token": "point",
+    "token_span": [
+     28,
+     33
+    ],
+    "source_slice": "point",
+    "words": [
+     {
+      "id": 7,
+      "text": "point",
+      "lemma": "point",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 3,
+      "deprel": "obl:mod",
+      "word_span": [
+       28,
+       33
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     33,
+     34
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 8,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 3,
+      "deprel": "punct",
+      "word_span": [
+       33,
+       34
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Nous sommes d'accord sur ce point.",
+    "tokens": [
+     {
+      "surface": "Nous",
+      "canonical_lemma": "nous",
+      "pos": "PRON",
+      "span": [
+       0,
+       4
+      ],
+      "source_slice": "Nous",
+      "dependency": "nsubj",
+      "head": 2
+     },
+     {
+      "surface": "sommes",
+      "canonical_lemma": "être",
+      "pos": "AUX",
+      "span": [
+       5,
+       11
+      ],
+      "source_slice": "sommes",
+      "dependency": "cop",
+      "head": 2
+     },
+     {
+      "surface": "d'",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       12,
+       14
+      ],
+      "source_slice": "d'",
+      "dependency": "root",
+      "head": 2
+     },
+     {
+      "surface": "accord",
+      "canonical_lemma": "accord",
+      "pos": "NOUN",
+      "span": [
+       14,
+       20
+      ],
+      "source_slice": "accord",
+      "dependency": "fixed",
+      "head": 2
+     },
+     {
+      "surface": "sur",
+      "canonical_lemma": "sur",
+      "pos": "ADP",
+      "span": [
+       21,
+       24
+      ],
+      "source_slice": "sur",
+      "dependency": "case",
+      "head": 6
+     },
+     {
+      "surface": "ce",
+      "canonical_lemma": "ce",
+      "pos": "DET",
+      "span": [
+       25,
+       27
+      ],
+      "source_slice": "ce",
+      "dependency": "det",
+      "head": 6
+     },
+     {
+      "surface": "point",
+      "canonical_lemma": "point",
+      "pos": "NOUN",
+      "span": [
+       28,
+       33
+      ],
+      "source_slice": "point",
+      "dependency": "obl:mod",
+      "head": 2
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       33,
+       34
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 2
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S03",
+  "text": "Elle s'habille avant de partir.",
+  "sentence_count": 1,
+  "sentences": [
+   "Elle s'habille avant de partir."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Elle",
+    "token_span": [
+     0,
+     4
+    ],
+    "source_slice": "Elle",
+    "words": [
+     {
+      "id": 1,
+      "text": "Elle",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+      "head": 3,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "s'",
+    "token_span": [
+     5,
+     7
+    ],
+    "source_slice": "s'",
+    "words": [
+     {
+      "id": 2,
+      "text": "s'",
+      "lemma": "soi",
+      "upos": "PRON",
+      "feats": "Person=3|PronType=Prs|Reflex=Yes",
+      "head": 3,
+      "deprel": "obj",
+      "word_span": [
+       5,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "habille",
+    "token_span": [
+     7,
+     14
+    ],
+    "source_slice": "habille",
+    "words": [
+     {
+      "id": 3,
+      "text": "habille",
+      "lemma": "habiller",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       7,
+       14
+      ]
+     }
+    ]
+   },
+   {
+    "token": "avant",
+    "token_span": [
+     15,
+     20
+    ],
+    "source_slice": "avant",
+    "words": [
+     {
+      "id": 4,
+      "text": "avant",
+      "lemma": "avant",
+      "upos": "ADV",
+      "feats": null,
+      "head": 3,
+      "deprel": "advmod",
+      "word_span": [
+       15,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "de",
+    "token_span": [
+     21,
+     23
+    ],
+    "source_slice": "de",
+    "words": [
+     {
+      "id": 5,
+      "text": "de",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 6,
+      "deprel": "mark",
+      "word_span": [
+       21,
+       23
+      ]
+     }
+    ]
+   },
+   {
+    "token": "partir",
+    "token_span": [
+     24,
+     30
+    ],
+    "source_slice": "partir",
+    "words": [
+     {
+      "id": 6,
+      "text": "partir",
+      "lemma": "partir",
+      "upos": "VERB",
+      "feats": "VerbForm=Inf",
+      "head": 4,
+      "deprel": "xcomp",
+      "word_span": [
+       24,
+       30
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     30,
+     31
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 7,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 3,
+      "deprel": "punct",
+      "word_span": [
+       30,
+       31
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Elle s'habille avant de partir.",
+    "tokens": [
+     {
+      "surface": "Elle",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       4
+      ],
+      "source_slice": "Elle",
+      "dependency": "nsubj",
+      "head": 2
+     },
+     {
+      "surface": "s'",
+      "canonical_lemma": "soi",
+      "pos": "PRON",
+      "span": [
+       5,
+       7
+      ],
+      "source_slice": "s'",
+      "dependency": "obj",
+      "head": 2
+     },
+     {
+      "surface": "habille",
+      "canonical_lemma": "habiller",
+      "pos": "VERB",
+      "span": [
+       7,
+       14
+      ],
+      "source_slice": "habille",
+      "dependency": "root",
+      "head": 2
+     },
+     {
+      "surface": "avant",
+      "canonical_lemma": "avant",
+      "pos": "ADV",
+      "span": [
+       15,
+       20
+      ],
+      "source_slice": "avant",
+      "dependency": "advmod",
+      "head": 2
+     },
+     {
+      "surface": "de",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       21,
+       23
+      ],
+      "source_slice": "de",
+      "dependency": "mark",
+      "head": 5
+     },
+     {
+      "surface": "partir",
+      "canonical_lemma": "partir",
+      "pos": "VERB",
+      "span": [
+       24,
+       30
+      ],
+      "source_slice": "partir",
+      "dependency": "xcomp",
+      "head": 3
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       30,
+       31
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 2
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S04",
+  "text": "Il s'en va sans fermer la porte.",
+  "sentence_count": 1,
+  "sentences": [
+   "Il s'en va sans fermer la porte."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Il",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Il",
+    "words": [
+     {
+      "id": 1,
+      "text": "Il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "s'",
+    "token_span": [
+     3,
+     5
+    ],
+    "source_slice": "s'",
+    "words": [
+     {
+      "id": 2,
+      "text": "s'",
+      "lemma": "soi",
+      "upos": "PRON",
+      "feats": "Person=3|PronType=Prs|Reflex=Yes",
+      "head": 4,
+      "deprel": "expl:pv",
+      "word_span": [
+       3,
+       5
+      ]
+     }
+    ]
+   },
+   {
+    "token": "en",
+    "token_span": [
+     5,
+     7
+    ],
+    "source_slice": "en",
+    "words": [
+     {
+      "id": 3,
+      "text": "en",
+      "lemma": "en",
+      "upos": "PRON",
+      "feats": "Emph=No|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "expl:comp",
+      "word_span": [
+       5,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "va",
+    "token_span": [
+     8,
+     10
+    ],
+    "source_slice": "va",
+    "words": [
+     {
+      "id": 4,
+      "text": "va",
+      "lemma": "aller",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       8,
+       10
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sans",
+    "token_span": [
+     11,
+     15
+    ],
+    "source_slice": "sans",
+    "words": [
+     {
+      "id": 5,
+      "text": "sans",
+      "lemma": "sans",
+      "upos": "ADP",
+      "feats": null,
+      "head": 6,
+      "deprel": "mark",
+      "word_span": [
+       11,
+       15
+      ]
+     }
+    ]
+   },
+   {
+    "token": "fermer",
+    "token_span": [
+     16,
+     22
+    ],
+    "source_slice": "fermer",
+    "words": [
+     {
+      "id": 6,
+      "text": "fermer",
+      "lemma": "fermer",
+      "upos": "VERB",
+      "feats": "VerbForm=Inf",
+      "head": 4,
+      "deprel": "advcl",
+      "word_span": [
+       16,
+       22
+      ]
+     }
+    ]
+   },
+   {
+    "token": "la",
+    "token_span": [
+     23,
+     25
+    ],
+    "source_slice": "la",
+    "words": [
+     {
+      "id": 7,
+      "text": "la",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Fem|Number=Sing|PronType=Art",
+      "head": 8,
+      "deprel": "det",
+      "word_span": [
+       23,
+       25
+      ]
+     }
+    ]
+   },
+   {
+    "token": "porte",
+    "token_span": [
+     26,
+     31
+    ],
+    "source_slice": "porte",
+    "words": [
+     {
+      "id": 8,
+      "text": "porte",
+      "lemma": "porte",
+      "upos": "NOUN",
+      "feats": "Gender=Fem|Number=Sing",
+      "head": 6,
+      "deprel": "obj",
+      "word_span": [
+       26,
+       31
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     31,
+     32
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 9,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       31,
+       32
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Il s'en va sans fermer la porte.",
+    "tokens": [
+     {
+      "surface": "Il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Il",
+      "dependency": "nsubj",
+      "head": 3
+     },
+     {
+      "surface": "s'",
+      "canonical_lemma": "soi",
+      "pos": "PRON",
+      "span": [
+       3,
+       5
+      ],
+      "source_slice": "s'",
+      "dependency": "expl:pv",
+      "head": 3
+     },
+     {
+      "surface": "en",
+      "canonical_lemma": "en",
+      "pos": "PRON",
+      "span": [
+       5,
+       7
+      ],
+      "source_slice": "en",
+      "dependency": "expl:comp",
+      "head": 3
+     },
+     {
+      "surface": "va",
+      "canonical_lemma": "aller",
+      "pos": "VERB",
+      "span": [
+       8,
+       10
+      ],
+      "source_slice": "va",
+      "dependency": "root",
+      "head": 3
+     },
+     {
+      "surface": "sans",
+      "canonical_lemma": "sans",
+      "pos": "ADP",
+      "span": [
+       11,
+       15
+      ],
+      "source_slice": "sans",
+      "dependency": "mark",
+      "head": 5
+     },
+     {
+      "surface": "fermer",
+      "canonical_lemma": "fermer",
+      "pos": "VERB",
+      "span": [
+       16,
+       22
+      ],
+      "source_slice": "fermer",
+      "dependency": "advcl",
+      "head": 3
+     },
+     {
+      "surface": "la",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       23,
+       25
+      ],
+      "source_slice": "la",
+      "dependency": "det",
+      "head": 7
+     },
+     {
+      "surface": "porte",
+      "canonical_lemma": "porte",
+      "pos": "NOUN",
+      "span": [
+       26,
+       31
+      ],
+      "source_slice": "porte",
+      "dependency": "obj",
+      "head": 5
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       31,
+       32
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 3
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S05",
+  "text": "Je le lui donne, mais elle ne m'en parle pas.",
+  "sentence_count": 1,
+  "sentences": [
+   "Je le lui donne, mais elle ne m'en parle pas."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Je",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Je",
+    "words": [
+     {
+      "id": 1,
+      "text": "Je",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 4,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "le",
+    "token_span": [
+     3,
+     5
+    ],
+    "source_slice": "le",
+    "words": [
+     {
+      "id": 2,
+      "text": "le",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Acc|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "obj",
+      "word_span": [
+       3,
+       5
+      ]
+     }
+    ]
+   },
+   {
+    "token": "lui",
+    "token_span": [
+     6,
+     9
+    ],
+    "source_slice": "lui",
+    "words": [
+     {
+      "id": 3,
+      "text": "lui",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Dat|Emph=No|Number=Sing|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "iobj",
+      "word_span": [
+       6,
+       9
+      ]
+     }
+    ]
+   },
+   {
+    "token": "donne",
+    "token_span": [
+     10,
+     15
+    ],
+    "source_slice": "donne",
+    "words": [
+     {
+      "id": 4,
+      "text": "donne",
+      "lemma": "donner",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       10,
+       15
+      ]
+     }
+    ]
+   },
+   {
+    "token": ",",
+    "token_span": [
+     15,
+     16
+    ],
+    "source_slice": ",",
+    "words": [
+     {
+      "id": 5,
+      "text": ",",
+      "lemma": ",",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 11,
+      "deprel": "punct",
+      "word_span": [
+       15,
+       16
+      ]
+     }
+    ]
+   },
+   {
+    "token": "mais",
+    "token_span": [
+     17,
+     21
+    ],
+    "source_slice": "mais",
+    "words": [
+     {
+      "id": 6,
+      "text": "mais",
+      "lemma": "mais",
+      "upos": "CCONJ",
+      "feats": null,
+      "head": 11,
+      "deprel": "cc",
+      "word_span": [
+       17,
+       21
+      ]
+     }
+    ]
+   },
+   {
+    "token": "elle",
+    "token_span": [
+     22,
+     26
+    ],
+    "source_slice": "elle",
+    "words": [
+     {
+      "id": 7,
+      "text": "elle",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+      "head": 11,
+      "deprel": "nsubj",
+      "word_span": [
+       22,
+       26
+      ]
+     }
+    ]
+   },
+   {
+    "token": "ne",
+    "token_span": [
+     27,
+     29
+    ],
+    "source_slice": "ne",
+    "words": [
+     {
+      "id": 8,
+      "text": "ne",
+      "lemma": "ne",
+      "upos": "ADV",
+      "feats": "Polarity=Neg",
+      "head": 11,
+      "deprel": "advmod",
+      "word_span": [
+       27,
+       29
+      ]
+     }
+    ]
+   },
+   {
+    "token": "m'",
+    "token_span": [
+     30,
+     32
+    ],
+    "source_slice": "m'",
+    "words": [
+     {
+      "id": 9,
+      "text": "m'",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Dat|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 11,
+      "deprel": "obj",
+      "word_span": [
+       30,
+       32
+      ]
+     }
+    ]
+   },
+   {
+    "token": "en",
+    "token_span": [
+     32,
+     34
+    ],
+    "source_slice": "en",
+    "words": [
+     {
+      "id": 10,
+      "text": "en",
+      "lemma": "en",
+      "upos": "PRON",
+      "feats": "Emph=No|Person=3|PronType=Prs",
+      "head": 11,
+      "deprel": "iobj",
+      "word_span": [
+       32,
+       34
+      ]
+     }
+    ]
+   },
+   {
+    "token": "parle",
+    "token_span": [
+     35,
+     40
+    ],
+    "source_slice": "parle",
+    "words": [
+     {
+      "id": 11,
+      "text": "parle",
+      "lemma": "parler",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 4,
+      "deprel": "conj",
+      "word_span": [
+       35,
+       40
+      ]
+     }
+    ]
+   },
+   {
+    "token": "pas",
+    "token_span": [
+     41,
+     44
+    ],
+    "source_slice": "pas",
+    "words": [
+     {
+      "id": 12,
+      "text": "pas",
+      "lemma": "pas",
+      "upos": "ADV",
+      "feats": "Polarity=Neg",
+      "head": 11,
+      "deprel": "advmod",
+      "word_span": [
+       41,
+       44
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     44,
+     45
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 13,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       44,
+       45
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Je le lui donne, mais elle ne m'en parle pas.",
+    "tokens": [
+     {
+      "surface": "Je",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Je",
+      "dependency": "nsubj",
+      "head": 3
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       3,
+       5
+      ],
+      "source_slice": "le",
+      "dependency": "obj",
+      "head": 3
+     },
+     {
+      "surface": "lui",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       6,
+       9
+      ],
+      "source_slice": "lui",
+      "dependency": "iobj",
+      "head": 3
+     },
+     {
+      "surface": "donne",
+      "canonical_lemma": "donner",
+      "pos": "VERB",
+      "span": [
+       10,
+       15
+      ],
+      "source_slice": "donne",
+      "dependency": "root",
+      "head": 3
+     },
+     {
+      "surface": ",",
+      "canonical_lemma": ",",
+      "pos": "PUNCT",
+      "span": [
+       15,
+       16
+      ],
+      "source_slice": ",",
+      "dependency": "punct",
+      "head": 10
+     },
+     {
+      "surface": "mais",
+      "canonical_lemma": "mais",
+      "pos": "CCONJ",
+      "span": [
+       17,
+       21
+      ],
+      "source_slice": "mais",
+      "dependency": "cc",
+      "head": 10
+     },
+     {
+      "surface": "elle",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       22,
+       26
+      ],
+      "source_slice": "elle",
+      "dependency": "nsubj",
+      "head": 10
+     },
+     {
+      "surface": "ne",
+      "canonical_lemma": "ne",
+      "pos": "ADV",
+      "span": [
+       27,
+       29
+      ],
+      "source_slice": "ne",
+      "dependency": "advmod",
+      "head": 10
+     },
+     {
+      "surface": "m'",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       30,
+       32
+      ],
+      "source_slice": "m'",
+      "dependency": "obj",
+      "head": 10
+     },
+     {
+      "surface": "en",
+      "canonical_lemma": "en",
+      "pos": "PRON",
+      "span": [
+       32,
+       34
+      ],
+      "source_slice": "en",
+      "dependency": "iobj",
+      "head": 10
+     },
+     {
+      "surface": "parle",
+      "canonical_lemma": "parler",
+      "pos": "VERB",
+      "span": [
+       35,
+       40
+      ],
+      "source_slice": "parle",
+      "dependency": "conj",
+      "head": 3
+     },
+     {
+      "surface": "pas",
+      "canonical_lemma": "pas",
+      "pos": "ADV",
+      "span": [
+       41,
+       44
+      ],
+      "source_slice": "pas",
+      "dependency": "advmod",
+      "head": 10
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       44,
+       45
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 3
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S06",
+  "text": "Je lave la chemise après le repas.",
+  "sentence_count": 1,
+  "sentences": [
+   "Je lave la chemise après le repas."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Je",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Je",
+    "words": [
+     {
+      "id": 1,
+      "text": "Je",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 2,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "lave",
+    "token_span": [
+     3,
+     7
+    ],
+    "source_slice": "lave",
+    "words": [
+     {
+      "id": 2,
+      "text": "lave",
+      "lemma": "laver",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       3,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "la",
+    "token_span": [
+     8,
+     10
+    ],
+    "source_slice": "la",
+    "words": [
+     {
+      "id": 3,
+      "text": "la",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Fem|Number=Sing|PronType=Art",
+      "head": 4,
+      "deprel": "det",
+      "word_span": [
+       8,
+       10
+      ]
+     }
+    ]
+   },
+   {
+    "token": "chemise",
+    "token_span": [
+     11,
+     18
+    ],
+    "source_slice": "chemise",
+    "words": [
+     {
+      "id": 4,
+      "text": "chemise",
+      "lemma": "chemise",
+      "upos": "NOUN",
+      "feats": "Gender=Fem|Number=Sing",
+      "head": 2,
+      "deprel": "obj",
+      "word_span": [
+       11,
+       18
+      ]
+     }
+    ]
+   },
+   {
+    "token": "après",
+    "token_span": [
+     19,
+     24
+    ],
+    "source_slice": "après",
+    "words": [
+     {
+      "id": 5,
+      "text": "après",
+      "lemma": "après",
+      "upos": "ADP",
+      "feats": null,
+      "head": 7,
+      "deprel": "case",
+      "word_span": [
+       19,
+       24
+      ]
+     }
+    ]
+   },
+   {
+    "token": "le",
+    "token_span": [
+     25,
+     27
+    ],
+    "source_slice": "le",
+    "words": [
+     {
+      "id": 6,
+      "text": "le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 7,
+      "deprel": "det",
+      "word_span": [
+       25,
+       27
+      ]
+     }
+    ]
+   },
+   {
+    "token": "repas",
+    "token_span": [
+     28,
+     33
+    ],
+    "source_slice": "repas",
+    "words": [
+     {
+      "id": 7,
+      "text": "repas",
+      "lemma": "repas",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 2,
+      "deprel": "obl:mod",
+      "word_span": [
+       28,
+       33
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     33,
+     34
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 8,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       33,
+       34
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Je lave la chemise après le repas.",
+    "tokens": [
+     {
+      "surface": "Je",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Je",
+      "dependency": "nsubj",
+      "head": 1
+     },
+     {
+      "surface": "lave",
+      "canonical_lemma": "laver",
+      "pos": "VERB",
+      "span": [
+       3,
+       7
+      ],
+      "source_slice": "lave",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "la",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       8,
+       10
+      ],
+      "source_slice": "la",
+      "dependency": "det",
+      "head": 3
+     },
+     {
+      "surface": "chemise",
+      "canonical_lemma": "chemise",
+      "pos": "NOUN",
+      "span": [
+       11,
+       18
+      ],
+      "source_slice": "chemise",
+      "dependency": "obj",
+      "head": 1
+     },
+     {
+      "surface": "après",
+      "canonical_lemma": "après",
+      "pos": "ADP",
+      "span": [
+       19,
+       24
+      ],
+      "source_slice": "après",
+      "dependency": "case",
+      "head": 6
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       25,
+       27
+      ],
+      "source_slice": "le",
+      "dependency": "det",
+      "head": 6
+     },
+     {
+      "surface": "repas",
+      "canonical_lemma": "repas",
+      "pos": "NOUN",
+      "span": [
+       28,
+       33
+      ],
+      "source_slice": "repas",
+      "dependency": "obl:mod",
+      "head": 1
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       33,
+       34
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S07",
+  "text": "Je me lave avant le petit déjeuner.",
+  "sentence_count": 1,
+  "sentences": [
+   "Je me lave avant le petit déjeuner."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Je",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Je",
+    "words": [
+     {
+      "id": 1,
+      "text": "Je",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 3,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "me",
+    "token_span": [
+     3,
+     5
+    ],
+    "source_slice": "me",
+    "words": [
+     {
+      "id": 2,
+      "text": "me",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 3,
+      "deprel": "obj",
+      "word_span": [
+       3,
+       5
+      ]
+     }
+    ]
+   },
+   {
+    "token": "lave",
+    "token_span": [
+     6,
+     10
+    ],
+    "source_slice": "lave",
+    "words": [
+     {
+      "id": 3,
+      "text": "lave",
+      "lemma": "laver",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       6,
+       10
+      ]
+     }
+    ]
+   },
+   {
+    "token": "avant",
+    "token_span": [
+     11,
+     16
+    ],
+    "source_slice": "avant",
+    "words": [
+     {
+      "id": 4,
+      "text": "avant",
+      "lemma": "avant",
+      "upos": "ADP",
+      "feats": null,
+      "head": 7,
+      "deprel": "case",
+      "word_span": [
+       11,
+       16
+      ]
+     }
+    ]
+   },
+   {
+    "token": "le",
+    "token_span": [
+     17,
+     19
+    ],
+    "source_slice": "le",
+    "words": [
+     {
+      "id": 5,
+      "text": "le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 7,
+      "deprel": "det",
+      "word_span": [
+       17,
+       19
+      ]
+     }
+    ]
+   },
+   {
+    "token": "petit",
+    "token_span": [
+     20,
+     25
+    ],
+    "source_slice": "petit",
+    "words": [
+     {
+      "id": 6,
+      "text": "petit",
+      "lemma": "petit",
+      "upos": "ADJ",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 7,
+      "deprel": "amod",
+      "word_span": [
+       20,
+       25
+      ]
+     }
+    ]
+   },
+   {
+    "token": "déjeuner",
+    "token_span": [
+     26,
+     34
+    ],
+    "source_slice": "déjeuner",
+    "words": [
+     {
+      "id": 7,
+      "text": "déjeuner",
+      "lemma": "déjeuner",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 3,
+      "deprel": "obl:mod",
+      "word_span": [
+       26,
+       34
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     34,
+     35
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 8,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 3,
+      "deprel": "punct",
+      "word_span": [
+       34,
+       35
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Je me lave avant le petit déjeuner.",
+    "tokens": [
+     {
+      "surface": "Je",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Je",
+      "dependency": "nsubj",
+      "head": 2
+     },
+     {
+      "surface": "me",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       3,
+       5
+      ],
+      "source_slice": "me",
+      "dependency": "obj",
+      "head": 2
+     },
+     {
+      "surface": "lave",
+      "canonical_lemma": "laver",
+      "pos": "VERB",
+      "span": [
+       6,
+       10
+      ],
+      "source_slice": "lave",
+      "dependency": "root",
+      "head": 2
+     },
+     {
+      "surface": "avant",
+      "canonical_lemma": "avant",
+      "pos": "ADP",
+      "span": [
+       11,
+       16
+      ],
+      "source_slice": "avant",
+      "dependency": "case",
+      "head": 6
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       17,
+       19
+      ],
+      "source_slice": "le",
+      "dependency": "det",
+      "head": 6
+     },
+     {
+      "surface": "petit",
+      "canonical_lemma": "petit",
+      "pos": "ADJ",
+      "span": [
+       20,
+       25
+      ],
+      "source_slice": "petit",
+      "dependency": "amod",
+      "head": 6
+     },
+     {
+      "surface": "déjeuner",
+      "canonical_lemma": "déjeuner",
+      "pos": "NOUN",
+      "span": [
+       26,
+       34
+      ],
+      "source_slice": "déjeuner",
+      "dependency": "obl:mod",
+      "head": 2
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       34,
+       35
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 2
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S08",
+  "text": "Elle se lave les mains avant de manger.",
+  "sentence_count": 1,
+  "sentences": [
+   "Elle se lave les mains avant de manger."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Elle",
+    "token_span": [
+     0,
+     4
+    ],
+    "source_slice": "Elle",
+    "words": [
+     {
+      "id": 1,
+      "text": "Elle",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+      "head": 3,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "se",
+    "token_span": [
+     5,
+     7
+    ],
+    "source_slice": "se",
+    "words": [
+     {
+      "id": 2,
+      "text": "se",
+      "lemma": "soi",
+      "upos": "PRON",
+      "feats": "Person=3|PronType=Prs|Reflex=Yes",
+      "head": 3,
+      "deprel": "iobj",
+      "word_span": [
+       5,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "lave",
+    "token_span": [
+     8,
+     12
+    ],
+    "source_slice": "lave",
+    "words": [
+     {
+      "id": 3,
+      "text": "lave",
+      "lemma": "laver",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       8,
+       12
+      ]
+     }
+    ]
+   },
+   {
+    "token": "les",
+    "token_span": [
+     13,
+     16
+    ],
+    "source_slice": "les",
+    "words": [
+     {
+      "id": 4,
+      "text": "les",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Number=Plur|PronType=Art",
+      "head": 5,
+      "deprel": "det",
+      "word_span": [
+       13,
+       16
+      ]
+     }
+    ]
+   },
+   {
+    "token": "mains",
+    "token_span": [
+     17,
+     22
+    ],
+    "source_slice": "mains",
+    "words": [
+     {
+      "id": 5,
+      "text": "mains",
+      "lemma": "main",
+      "upos": "NOUN",
+      "feats": "Gender=Fem|Number=Plur",
+      "head": 3,
+      "deprel": "obj",
+      "word_span": [
+       17,
+       22
+      ]
+     }
+    ]
+   },
+   {
+    "token": "avant",
+    "token_span": [
+     23,
+     28
+    ],
+    "source_slice": "avant",
+    "words": [
+     {
+      "id": 6,
+      "text": "avant",
+      "lemma": "avant",
+      "upos": "ADV",
+      "feats": null,
+      "head": 3,
+      "deprel": "advmod",
+      "word_span": [
+       23,
+       28
+      ]
+     }
+    ]
+   },
+   {
+    "token": "de",
+    "token_span": [
+     29,
+     31
+    ],
+    "source_slice": "de",
+    "words": [
+     {
+      "id": 7,
+      "text": "de",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 8,
+      "deprel": "mark",
+      "word_span": [
+       29,
+       31
+      ]
+     }
+    ]
+   },
+   {
+    "token": "manger",
+    "token_span": [
+     32,
+     38
+    ],
+    "source_slice": "manger",
+    "words": [
+     {
+      "id": 8,
+      "text": "manger",
+      "lemma": "manger",
+      "upos": "VERB",
+      "feats": "VerbForm=Inf",
+      "head": 6,
+      "deprel": "xcomp",
+      "word_span": [
+       32,
+       38
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     38,
+     39
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 9,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 3,
+      "deprel": "punct",
+      "word_span": [
+       38,
+       39
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Elle se lave les mains avant de manger.",
+    "tokens": [
+     {
+      "surface": "Elle",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       4
+      ],
+      "source_slice": "Elle",
+      "dependency": "nsubj",
+      "head": 2
+     },
+     {
+      "surface": "se",
+      "canonical_lemma": "soi",
+      "pos": "PRON",
+      "span": [
+       5,
+       7
+      ],
+      "source_slice": "se",
+      "dependency": "iobj",
+      "head": 2
+     },
+     {
+      "surface": "lave",
+      "canonical_lemma": "laver",
+      "pos": "VERB",
+      "span": [
+       8,
+       12
+      ],
+      "source_slice": "lave",
+      "dependency": "root",
+      "head": 2
+     },
+     {
+      "surface": "les",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       13,
+       16
+      ],
+      "source_slice": "les",
+      "dependency": "det",
+      "head": 4
+     },
+     {
+      "surface": "mains",
+      "canonical_lemma": "main",
+      "pos": "NOUN",
+      "span": [
+       17,
+       22
+      ],
+      "source_slice": "mains",
+      "dependency": "obj",
+      "head": 2
+     },
+     {
+      "surface": "avant",
+      "canonical_lemma": "avant",
+      "pos": "ADV",
+      "span": [
+       23,
+       28
+      ],
+      "source_slice": "avant",
+      "dependency": "advmod",
+      "head": 2
+     },
+     {
+      "surface": "de",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       29,
+       31
+      ],
+      "source_slice": "de",
+      "dependency": "mark",
+      "head": 7
+     },
+     {
+      "surface": "manger",
+      "canonical_lemma": "manger",
+      "pos": "VERB",
+      "span": [
+       32,
+       38
+      ],
+      "source_slice": "manger",
+      "dependency": "xcomp",
+      "head": 5
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       38,
+       39
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 2
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S09",
+  "text": "Il va au marché avec sa sœur.",
+  "sentence_count": 1,
+  "sentences": [
+   "Il va au marché avec sa sœur."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Il",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Il",
+    "words": [
+     {
+      "id": 1,
+      "text": "Il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 2,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "va",
+    "token_span": [
+     3,
+     5
+    ],
+    "source_slice": "va",
+    "words": [
+     {
+      "id": 2,
+      "text": "va",
+      "lemma": "aller",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       3,
+       5
+      ]
+     }
+    ]
+   },
+   {
+    "token": "au",
+    "token_span": [
+     6,
+     8
+    ],
+    "source_slice": "au",
+    "words": [
+     {
+      "id": 3,
+      "text": "à",
+      "lemma": "à",
+      "upos": "ADP",
+      "feats": null,
+      "head": 5,
+      "deprel": "case",
+      "word_span": [
+       null,
+       null
+      ]
+     },
+     {
+      "id": 4,
+      "text": "le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 5,
+      "deprel": "det",
+      "word_span": [
+       null,
+       null
+      ]
+     }
+    ]
+   },
+   {
+    "token": "marché",
+    "token_span": [
+     9,
+     15
+    ],
+    "source_slice": "marché",
+    "words": [
+     {
+      "id": 5,
+      "text": "marché",
+      "lemma": "marché",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 2,
+      "deprel": "obl:arg",
+      "word_span": [
+       9,
+       15
+      ]
+     }
+    ]
+   },
+   {
+    "token": "avec",
+    "token_span": [
+     16,
+     20
+    ],
+    "source_slice": "avec",
+    "words": [
+     {
+      "id": 6,
+      "text": "avec",
+      "lemma": "avec",
+      "upos": "ADP",
+      "feats": null,
+      "head": 8,
+      "deprel": "case",
+      "word_span": [
+       16,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sa",
+    "token_span": [
+     21,
+     23
+    ],
+    "source_slice": "sa",
+    "words": [
+     {
+      "id": 7,
+      "text": "sa",
+      "lemma": "son",
+      "upos": "DET",
+      "feats": "Gender=Fem|Number=Sing|Number[psor]=Sing|Person[psor]=3|Poss=Yes|PronType=Prs",
+      "head": 8,
+      "deprel": "det",
+      "word_span": [
+       21,
+       23
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sœur",
+    "token_span": [
+     24,
+     28
+    ],
+    "source_slice": "sœur",
+    "words": [
+     {
+      "id": 8,
+      "text": "sœur",
+      "lemma": "sœur",
+      "upos": "NOUN",
+      "feats": "Gender=Fem|Number=Sing",
+      "head": 2,
+      "deprel": "obl:mod",
+      "word_span": [
+       24,
+       28
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     28,
+     29
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 9,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       28,
+       29
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Il va au marché avec sa sœur.",
+    "tokens": [
+     {
+      "surface": "Il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Il",
+      "dependency": "nsubj",
+      "head": 1
+     },
+     {
+      "surface": "va",
+      "canonical_lemma": "aller",
+      "pos": "VERB",
+      "span": [
+       3,
+       5
+      ],
+      "source_slice": "va",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "à",
+      "canonical_lemma": "à",
+      "pos": "ADP",
+      "span": [
+       6,
+       8
+      ],
+      "source_slice": "au",
+      "dependency": "case",
+      "head": 4
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       6,
+       8
+      ],
+      "source_slice": "au",
+      "dependency": "det",
+      "head": 4
+     },
+     {
+      "surface": "marché",
+      "canonical_lemma": "marché",
+      "pos": "NOUN",
+      "span": [
+       9,
+       15
+      ],
+      "source_slice": "marché",
+      "dependency": "obl:arg",
+      "head": 1
+     },
+     {
+      "surface": "avec",
+      "canonical_lemma": "avec",
+      "pos": "ADP",
+      "span": [
+       16,
+       20
+      ],
+      "source_slice": "avec",
+      "dependency": "case",
+      "head": 7
+     },
+     {
+      "surface": "sa",
+      "canonical_lemma": "son",
+      "pos": "DET",
+      "span": [
+       21,
+       23
+      ],
+      "source_slice": "sa",
+      "dependency": "det",
+      "head": 7
+     },
+     {
+      "surface": "sœur",
+      "canonical_lemma": "sœur",
+      "pos": "NOUN",
+      "span": [
+       24,
+       28
+      ],
+      "source_slice": "sœur",
+      "dependency": "obl:mod",
+      "head": 1
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       28,
+       29
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S10",
+  "text": "Elle revient aux mêmes questions chaque soir.",
+  "sentence_count": 1,
+  "sentences": [
+   "Elle revient aux mêmes questions chaque soir."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Elle",
+    "token_span": [
+     0,
+     4
+    ],
+    "source_slice": "Elle",
+    "words": [
+     {
+      "id": 1,
+      "text": "Elle",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+      "head": 2,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "revient",
+    "token_span": [
+     5,
+     12
+    ],
+    "source_slice": "revient",
+    "words": [
+     {
+      "id": 2,
+      "text": "revient",
+      "lemma": "revenir",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       5,
+       12
+      ]
+     }
+    ]
+   },
+   {
+    "token": "aux",
+    "token_span": [
+     13,
+     16
+    ],
+    "source_slice": "aux",
+    "words": [
+     {
+      "id": 3,
+      "text": "à",
+      "lemma": "à",
+      "upos": "ADP",
+      "feats": null,
+      "head": 6,
+      "deprel": "case",
+      "word_span": [
+       null,
+       null
+      ]
+     },
+     {
+      "id": 4,
+      "text": "les",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Number=Plur|PronType=Art",
+      "head": 6,
+      "deprel": "det",
+      "word_span": [
+       null,
+       null
+      ]
+     }
+    ]
+   },
+   {
+    "token": "mêmes",
+    "token_span": [
+     17,
+     22
+    ],
+    "source_slice": "mêmes",
+    "words": [
+     {
+      "id": 5,
+      "text": "mêmes",
+      "lemma": "même",
+      "upos": "ADJ",
+      "feats": "Gender=Fem|Number=Plur",
+      "head": 6,
+      "deprel": "amod",
+      "word_span": [
+       17,
+       22
+      ]
+     }
+    ]
+   },
+   {
+    "token": "questions",
+    "token_span": [
+     23,
+     32
+    ],
+    "source_slice": "questions",
+    "words": [
+     {
+      "id": 6,
+      "text": "questions",
+      "lemma": "question",
+      "upos": "NOUN",
+      "feats": "Gender=Fem|Number=Plur",
+      "head": 2,
+      "deprel": "obl:arg",
+      "word_span": [
+       23,
+       32
+      ]
+     }
+    ]
+   },
+   {
+    "token": "chaque",
+    "token_span": [
+     33,
+     39
+    ],
+    "source_slice": "chaque",
+    "words": [
+     {
+      "id": 7,
+      "text": "chaque",
+      "lemma": "chaque",
+      "upos": "DET",
+      "feats": "Number=Sing|PronType=Ind",
+      "head": 8,
+      "deprel": "det",
+      "word_span": [
+       33,
+       39
+      ]
+     }
+    ]
+   },
+   {
+    "token": "soir",
+    "token_span": [
+     40,
+     44
+    ],
+    "source_slice": "soir",
+    "words": [
+     {
+      "id": 8,
+      "text": "soir",
+      "lemma": "soir",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 2,
+      "deprel": "obl:mod",
+      "word_span": [
+       40,
+       44
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     44,
+     45
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 9,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       44,
+       45
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Elle revient aux mêmes questions chaque soir.",
+    "tokens": [
+     {
+      "surface": "Elle",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       4
+      ],
+      "source_slice": "Elle",
+      "dependency": "nsubj",
+      "head": 1
+     },
+     {
+      "surface": "revient",
+      "canonical_lemma": "revenir",
+      "pos": "VERB",
+      "span": [
+       5,
+       12
+      ],
+      "source_slice": "revient",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "à",
+      "canonical_lemma": "à",
+      "pos": "ADP",
+      "span": [
+       13,
+       16
+      ],
+      "source_slice": "aux",
+      "dependency": "case",
+      "head": 5
+     },
+     {
+      "surface": "les",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       13,
+       16
+      ],
+      "source_slice": "aux",
+      "dependency": "det",
+      "head": 5
+     },
+     {
+      "surface": "mêmes",
+      "canonical_lemma": "même",
+      "pos": "ADJ",
+      "span": [
+       17,
+       22
+      ],
+      "source_slice": "mêmes",
+      "dependency": "amod",
+      "head": 5
+     },
+     {
+      "surface": "questions",
+      "canonical_lemma": "question",
+      "pos": "NOUN",
+      "span": [
+       23,
+       32
+      ],
+      "source_slice": "questions",
+      "dependency": "obl:arg",
+      "head": 1
+     },
+     {
+      "surface": "chaque",
+      "canonical_lemma": "chaque",
+      "pos": "DET",
+      "span": [
+       33,
+       39
+      ],
+      "source_slice": "chaque",
+      "dependency": "det",
+      "head": 7
+     },
+     {
+      "surface": "soir",
+      "canonical_lemma": "soir",
+      "pos": "NOUN",
+      "span": [
+       40,
+       44
+      ],
+      "source_slice": "soir",
+      "dependency": "obl:mod",
+      "head": 1
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       44,
+       45
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S11",
+  "text": "Il revient du marché avec des pommes.",
+  "sentence_count": 1,
+  "sentences": [
+   "Il revient du marché avec des pommes."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Il",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Il",
+    "words": [
+     {
+      "id": 1,
+      "text": "Il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 2,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "revient",
+    "token_span": [
+     3,
+     10
+    ],
+    "source_slice": "revient",
+    "words": [
+     {
+      "id": 2,
+      "text": "revient",
+      "lemma": "revenir",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       3,
+       10
+      ]
+     }
+    ]
+   },
+   {
+    "token": "du",
+    "token_span": [
+     11,
+     13
+    ],
+    "source_slice": "du",
+    "words": [
+     {
+      "id": 3,
+      "text": "de",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 5,
+      "deprel": "case",
+      "word_span": [
+       null,
+       null
+      ]
+     },
+     {
+      "id": 4,
+      "text": "le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 5,
+      "deprel": "det",
+      "word_span": [
+       null,
+       null
+      ]
+     }
+    ]
+   },
+   {
+    "token": "marché",
+    "token_span": [
+     14,
+     20
+    ],
+    "source_slice": "marché",
+    "words": [
+     {
+      "id": 5,
+      "text": "marché",
+      "lemma": "marché",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 2,
+      "deprel": "obl:arg",
+      "word_span": [
+       14,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "avec",
+    "token_span": [
+     21,
+     25
+    ],
+    "source_slice": "avec",
+    "words": [
+     {
+      "id": 6,
+      "text": "avec",
+      "lemma": "avec",
+      "upos": "ADP",
+      "feats": null,
+      "head": 8,
+      "deprel": "case",
+      "word_span": [
+       21,
+       25
+      ]
+     }
+    ]
+   },
+   {
+    "token": "des",
+    "token_span": [
+     26,
+     29
+    ],
+    "source_slice": "des",
+    "words": [
+     {
+      "id": 7,
+      "text": "des",
+      "lemma": "un",
+      "upos": "DET",
+      "feats": "Definite=Ind|Number=Plur|PronType=Art",
+      "head": 8,
+      "deprel": "det",
+      "word_span": [
+       26,
+       29
+      ]
+     }
+    ]
+   },
+   {
+    "token": "pommes",
+    "token_span": [
+     30,
+     36
+    ],
+    "source_slice": "pommes",
+    "words": [
+     {
+      "id": 8,
+      "text": "pommes",
+      "lemma": "pomme",
+      "upos": "NOUN",
+      "feats": "Gender=Fem|Number=Plur",
+      "head": 2,
+      "deprel": "obl:mod",
+      "word_span": [
+       30,
+       36
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     36,
+     37
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 9,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       36,
+       37
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Il revient du marché avec des pommes.",
+    "tokens": [
+     {
+      "surface": "Il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Il",
+      "dependency": "nsubj",
+      "head": 1
+     },
+     {
+      "surface": "revient",
+      "canonical_lemma": "revenir",
+      "pos": "VERB",
+      "span": [
+       3,
+       10
+      ],
+      "source_slice": "revient",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "de",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       11,
+       13
+      ],
+      "source_slice": "du",
+      "dependency": "case",
+      "head": 4
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       11,
+       13
+      ],
+      "source_slice": "du",
+      "dependency": "det",
+      "head": 4
+     },
+     {
+      "surface": "marché",
+      "canonical_lemma": "marché",
+      "pos": "NOUN",
+      "span": [
+       14,
+       20
+      ],
+      "source_slice": "marché",
+      "dependency": "obl:arg",
+      "head": 1
+     },
+     {
+      "surface": "avec",
+      "canonical_lemma": "avec",
+      "pos": "ADP",
+      "span": [
+       21,
+       25
+      ],
+      "source_slice": "avec",
+      "dependency": "case",
+      "head": 7
+     },
+     {
+      "surface": "des",
+      "canonical_lemma": "un",
+      "pos": "DET",
+      "span": [
+       26,
+       29
+      ],
+      "source_slice": "des",
+      "dependency": "det",
+      "head": 7
+     },
+     {
+      "surface": "pommes",
+      "canonical_lemma": "pomme",
+      "pos": "NOUN",
+      "span": [
+       30,
+       36
+      ],
+      "source_slice": "pommes",
+      "dependency": "obl:mod",
+      "head": 1
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       36,
+       37
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S12",
+  "text": "Le prix des pommes a augmenté.",
+  "sentence_count": 1,
+  "sentences": [
+   "Le prix des pommes a augmenté."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Le",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Le",
+    "words": [
+     {
+      "id": 1,
+      "text": "Le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 2,
+      "deprel": "det",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "prix",
+    "token_span": [
+     3,
+     7
+    ],
+    "source_slice": "prix",
+    "words": [
+     {
+      "id": 2,
+      "text": "prix",
+      "lemma": "prix",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 7,
+      "deprel": "nsubj",
+      "word_span": [
+       3,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "des",
+    "token_span": [
+     8,
+     11
+    ],
+    "source_slice": "des",
+    "words": [
+     {
+      "id": 3,
+      "text": "de",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 5,
+      "deprel": "case",
+      "word_span": [
+       null,
+       null
+      ]
+     },
+     {
+      "id": 4,
+      "text": "les",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Number=Plur|PronType=Art",
+      "head": 5,
+      "deprel": "det",
+      "word_span": [
+       null,
+       null
+      ]
+     }
+    ]
+   },
+   {
+    "token": "pommes",
+    "token_span": [
+     12,
+     18
+    ],
+    "source_slice": "pommes",
+    "words": [
+     {
+      "id": 5,
+      "text": "pommes",
+      "lemma": "pomme",
+      "upos": "NOUN",
+      "feats": "Gender=Fem|Number=Plur",
+      "head": 2,
+      "deprel": "nmod",
+      "word_span": [
+       12,
+       18
+      ]
+     }
+    ]
+   },
+   {
+    "token": "a",
+    "token_span": [
+     19,
+     20
+    ],
+    "source_slice": "a",
+    "words": [
+     {
+      "id": 6,
+      "text": "a",
+      "lemma": "avoir",
+      "upos": "AUX",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 7,
+      "deprel": "aux:tense",
+      "word_span": [
+       19,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "augmenté",
+    "token_span": [
+     21,
+     29
+    ],
+    "source_slice": "augmenté",
+    "words": [
+     {
+      "id": 7,
+      "text": "augmenté",
+      "lemma": "augmenter",
+      "upos": "VERB",
+      "feats": "Gender=Masc|Number=Sing|VerbForm=Part|Voice=Act",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       21,
+       29
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     29,
+     30
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 8,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 7,
+      "deprel": "punct",
+      "word_span": [
+       29,
+       30
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Le prix des pommes a augmenté.",
+    "tokens": [
+     {
+      "surface": "Le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Le",
+      "dependency": "det",
+      "head": 1
+     },
+     {
+      "surface": "prix",
+      "canonical_lemma": "prix",
+      "pos": "NOUN",
+      "span": [
+       3,
+       7
+      ],
+      "source_slice": "prix",
+      "dependency": "nsubj",
+      "head": 6
+     },
+     {
+      "surface": "de",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       8,
+       11
+      ],
+      "source_slice": "des",
+      "dependency": "case",
+      "head": 4
+     },
+     {
+      "surface": "les",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       8,
+       11
+      ],
+      "source_slice": "des",
+      "dependency": "det",
+      "head": 4
+     },
+     {
+      "surface": "pommes",
+      "canonical_lemma": "pomme",
+      "pos": "NOUN",
+      "span": [
+       12,
+       18
+      ],
+      "source_slice": "pommes",
+      "dependency": "nmod",
+      "head": 1
+     },
+     {
+      "surface": "a",
+      "canonical_lemma": "avoir",
+      "pos": "AUX",
+      "span": [
+       19,
+       20
+      ],
+      "source_slice": "a",
+      "dependency": "aux:tense",
+      "head": 6
+     },
+     {
+      "surface": "augmenté",
+      "canonical_lemma": "augmenter",
+      "pos": "VERB",
+      "span": [
+       21,
+       29
+      ],
+      "source_slice": "augmenté",
+      "dependency": "root",
+      "head": 6
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       29,
+       30
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 6
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S13",
+  "text": "Elle boit du café et mange des fruits.",
+  "sentence_count": 1,
+  "sentences": [
+   "Elle boit du café et mange des fruits."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Elle",
+    "token_span": [
+     0,
+     4
+    ],
+    "source_slice": "Elle",
+    "words": [
+     {
+      "id": 1,
+      "text": "Elle",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+      "head": 2,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "boit",
+    "token_span": [
+     5,
+     9
+    ],
+    "source_slice": "boit",
+    "words": [
+     {
+      "id": 2,
+      "text": "boit",
+      "lemma": "boire",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       5,
+       9
+      ]
+     }
+    ]
+   },
+   {
+    "token": "du",
+    "token_span": [
+     10,
+     12
+    ],
+    "source_slice": "du",
+    "words": [
+     {
+      "id": 3,
+      "text": "de",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 5,
+      "deprel": "det",
+      "word_span": [
+       null,
+       null
+      ]
+     },
+     {
+      "id": 4,
+      "text": "le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 3,
+      "deprel": "fixed",
+      "word_span": [
+       null,
+       null
+      ]
+     }
+    ]
+   },
+   {
+    "token": "café",
+    "token_span": [
+     13,
+     17
+    ],
+    "source_slice": "café",
+    "words": [
+     {
+      "id": 5,
+      "text": "café",
+      "lemma": "café",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 2,
+      "deprel": "obl:arg",
+      "word_span": [
+       13,
+       17
+      ]
+     }
+    ]
+   },
+   {
+    "token": "et",
+    "token_span": [
+     18,
+     20
+    ],
+    "source_slice": "et",
+    "words": [
+     {
+      "id": 6,
+      "text": "et",
+      "lemma": "et",
+      "upos": "CCONJ",
+      "feats": null,
+      "head": 7,
+      "deprel": "cc",
+      "word_span": [
+       18,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "mange",
+    "token_span": [
+     21,
+     26
+    ],
+    "source_slice": "mange",
+    "words": [
+     {
+      "id": 7,
+      "text": "mange",
+      "lemma": "manger",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 2,
+      "deprel": "conj",
+      "word_span": [
+       21,
+       26
+      ]
+     }
+    ]
+   },
+   {
+    "token": "des",
+    "token_span": [
+     27,
+     30
+    ],
+    "source_slice": "des",
+    "words": [
+     {
+      "id": 8,
+      "text": "des",
+      "lemma": "un",
+      "upos": "DET",
+      "feats": "Definite=Ind|Number=Plur|PronType=Art",
+      "head": 9,
+      "deprel": "det",
+      "word_span": [
+       27,
+       30
+      ]
+     }
+    ]
+   },
+   {
+    "token": "fruits",
+    "token_span": [
+     31,
+     37
+    ],
+    "source_slice": "fruits",
+    "words": [
+     {
+      "id": 9,
+      "text": "fruits",
+      "lemma": "fruit",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Plur",
+      "head": 7,
+      "deprel": "obj",
+      "word_span": [
+       31,
+       37
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     37,
+     38
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 10,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       37,
+       38
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Elle boit du café et mange des fruits.",
+    "tokens": [
+     {
+      "surface": "Elle",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       4
+      ],
+      "source_slice": "Elle",
+      "dependency": "nsubj",
+      "head": 1
+     },
+     {
+      "surface": "boit",
+      "canonical_lemma": "boire",
+      "pos": "VERB",
+      "span": [
+       5,
+       9
+      ],
+      "source_slice": "boit",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "de",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       10,
+       12
+      ],
+      "source_slice": "du",
+      "dependency": "det",
+      "head": 4
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       10,
+       12
+      ],
+      "source_slice": "du",
+      "dependency": "fixed",
+      "head": 2
+     },
+     {
+      "surface": "café",
+      "canonical_lemma": "café",
+      "pos": "NOUN",
+      "span": [
+       13,
+       17
+      ],
+      "source_slice": "café",
+      "dependency": "obl:arg",
+      "head": 1
+     },
+     {
+      "surface": "et",
+      "canonical_lemma": "et",
+      "pos": "CCONJ",
+      "span": [
+       18,
+       20
+      ],
+      "source_slice": "et",
+      "dependency": "cc",
+      "head": 6
+     },
+     {
+      "surface": "mange",
+      "canonical_lemma": "manger",
+      "pos": "VERB",
+      "span": [
+       21,
+       26
+      ],
+      "source_slice": "mange",
+      "dependency": "conj",
+      "head": 1
+     },
+     {
+      "surface": "des",
+      "canonical_lemma": "un",
+      "pos": "DET",
+      "span": [
+       27,
+       30
+      ],
+      "source_slice": "des",
+      "dependency": "det",
+      "head": 8
+     },
+     {
+      "surface": "fruits",
+      "canonical_lemma": "fruit",
+      "pos": "NOUN",
+      "span": [
+       31,
+       37
+      ],
+      "source_slice": "fruits",
+      "dependency": "obj",
+      "head": 6
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       37,
+       38
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S14",
+  "text": "Où va-t-il quand le magasin est fermé ?",
+  "sentence_count": 1,
+  "sentences": [
+   "Où va-t-il quand le magasin est fermé ?"
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Où",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Où",
+    "words": [
+     {
+      "id": 1,
+      "text": "Où",
+      "lemma": "où",
+      "upos": "ADV",
+      "feats": "PronType=Int",
+      "head": 2,
+      "deprel": "obl:arg",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "va",
+    "token_span": [
+     3,
+     5
+    ],
+    "source_slice": "va",
+    "words": [
+     {
+      "id": 2,
+      "text": "va",
+      "lemma": "aller",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       3,
+       5
+      ]
+     }
+    ]
+   },
+   {
+    "token": "-t-il",
+    "token_span": [
+     5,
+     10
+    ],
+    "source_slice": "-t-il",
+    "words": [
+     {
+      "id": 3,
+      "text": "-t-il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 2,
+      "deprel": "nsubj",
+      "word_span": [
+       5,
+       10
+      ]
+     }
+    ]
+   },
+   {
+    "token": "quand",
+    "token_span": [
+     11,
+     16
+    ],
+    "source_slice": "quand",
+    "words": [
+     {
+      "id": 4,
+      "text": "quand",
+      "lemma": "quand",
+      "upos": "SCONJ",
+      "feats": null,
+      "head": 8,
+      "deprel": "mark",
+      "word_span": [
+       11,
+       16
+      ]
+     }
+    ]
+   },
+   {
+    "token": "le",
+    "token_span": [
+     17,
+     19
+    ],
+    "source_slice": "le",
+    "words": [
+     {
+      "id": 5,
+      "text": "le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 6,
+      "deprel": "det",
+      "word_span": [
+       17,
+       19
+      ]
+     }
+    ]
+   },
+   {
+    "token": "magasin",
+    "token_span": [
+     20,
+     27
+    ],
+    "source_slice": "magasin",
+    "words": [
+     {
+      "id": 6,
+      "text": "magasin",
+      "lemma": "magasin",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 8,
+      "deprel": "nsubj:pass",
+      "word_span": [
+       20,
+       27
+      ]
+     }
+    ]
+   },
+   {
+    "token": "est",
+    "token_span": [
+     28,
+     31
+    ],
+    "source_slice": "est",
+    "words": [
+     {
+      "id": 7,
+      "text": "est",
+      "lemma": "être",
+      "upos": "AUX",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 8,
+      "deprel": "aux:pass",
+      "word_span": [
+       28,
+       31
+      ]
+     }
+    ]
+   },
+   {
+    "token": "fermé",
+    "token_span": [
+     32,
+     37
+    ],
+    "source_slice": "fermé",
+    "words": [
+     {
+      "id": 8,
+      "text": "fermé",
+      "lemma": "fermer",
+      "upos": "VERB",
+      "feats": "Gender=Masc|Number=Sing|VerbForm=Part|Voice=Pass",
+      "head": 2,
+      "deprel": "advcl",
+      "word_span": [
+       32,
+       37
+      ]
+     }
+    ]
+   },
+   {
+    "token": "?",
+    "token_span": [
+     38,
+     39
+    ],
+    "source_slice": "?",
+    "words": [
+     {
+      "id": 9,
+      "text": "?",
+      "lemma": "?",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       38,
+       39
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Où va-t-il quand le magasin est fermé ?",
+    "tokens": [
+     {
+      "surface": "Où",
+      "canonical_lemma": "où",
+      "pos": "ADV",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Où",
+      "dependency": "obl:arg",
+      "head": 1
+     },
+     {
+      "surface": "va",
+      "canonical_lemma": "aller",
+      "pos": "VERB",
+      "span": [
+       3,
+       5
+      ],
+      "source_slice": "va",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "t-il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       5,
+       10
+      ],
+      "source_slice": "-t-il",
+      "dependency": "nsubj",
+      "head": 1
+     },
+     {
+      "surface": "quand",
+      "canonical_lemma": "quand",
+      "pos": "SCONJ",
+      "span": [
+       11,
+       16
+      ],
+      "source_slice": "quand",
+      "dependency": "mark",
+      "head": 7
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       17,
+       19
+      ],
+      "source_slice": "le",
+      "dependency": "det",
+      "head": 5
+     },
+     {
+      "surface": "magasin",
+      "canonical_lemma": "magasin",
+      "pos": "NOUN",
+      "span": [
+       20,
+       27
+      ],
+      "source_slice": "magasin",
+      "dependency": "nsubj:pass",
+      "head": 7
+     },
+     {
+      "surface": "est",
+      "canonical_lemma": "être",
+      "pos": "AUX",
+      "span": [
+       28,
+       31
+      ],
+      "source_slice": "est",
+      "dependency": "aux:pass",
+      "head": 7
+     },
+     {
+      "surface": "fermé",
+      "canonical_lemma": "fermer",
+      "pos": "VERB",
+      "span": [
+       32,
+       37
+      ],
+      "source_slice": "fermé",
+      "dependency": "advcl",
+      "head": 1
+     },
+     {
+      "surface": "?",
+      "canonical_lemma": "?",
+      "pos": "PUNCT",
+      "span": [
+       38,
+       39
+      ],
+      "source_slice": "?",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S15",
+  "text": "« Je suis sûr qu’il viendra ce soir. »",
+  "sentence_count": 2,
+  "sentences": [
+   "« Je suis sûr qu’il viendra ce soir.",
+   "»"
+  ],
+  "stanza_tokens": [
+   {
+    "token": "«",
+    "token_span": [
+     0,
+     1
+    ],
+    "source_slice": "«",
+    "words": [
+     {
+      "id": 1,
+      "text": "«",
+      "lemma": "«",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       0,
+       1
+      ]
+     }
+    ]
+   },
+   {
+    "token": "Je",
+    "token_span": [
+     2,
+     4
+    ],
+    "source_slice": "Je",
+    "words": [
+     {
+      "id": 2,
+      "text": "Je",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 4,
+      "deprel": "nsubj",
+      "word_span": [
+       2,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "suis",
+    "token_span": [
+     5,
+     9
+    ],
+    "source_slice": "suis",
+    "words": [
+     {
+      "id": 3,
+      "text": "suis",
+      "lemma": "être",
+      "upos": "AUX",
+      "feats": "Mood=Ind|Number=Sing|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 4,
+      "deprel": "cop",
+      "word_span": [
+       5,
+       9
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sûr",
+    "token_span": [
+     10,
+     13
+    ],
+    "source_slice": "sûr",
+    "words": [
+     {
+      "id": 4,
+      "text": "sûr",
+      "lemma": "sûr",
+      "upos": "ADJ",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       10,
+       13
+      ]
+     }
+    ]
+   },
+   {
+    "token": "qu’",
+    "token_span": [
+     14,
+     17
+    ],
+    "source_slice": "qu’",
+    "words": [
+     {
+      "id": 5,
+      "text": "qu’",
+      "lemma": "que",
+      "upos": "SCONJ",
+      "feats": null,
+      "head": 7,
+      "deprel": "mark",
+      "word_span": [
+       14,
+       17
+      ]
+     }
+    ]
+   },
+   {
+    "token": "il",
+    "token_span": [
+     17,
+     19
+    ],
+    "source_slice": "il",
+    "words": [
+     {
+      "id": 6,
+      "text": "il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 7,
+      "deprel": "nsubj",
+      "word_span": [
+       17,
+       19
+      ]
+     }
+    ]
+   },
+   {
+    "token": "viendra",
+    "token_span": [
+     20,
+     27
+    ],
+    "source_slice": "viendra",
+    "words": [
+     {
+      "id": 7,
+      "text": "viendra",
+      "lemma": "venir",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Fut|VerbForm=Fin",
+      "head": 4,
+      "deprel": "csubj",
+      "word_span": [
+       20,
+       27
+      ]
+     }
+    ]
+   },
+   {
+    "token": "ce",
+    "token_span": [
+     28,
+     30
+    ],
+    "source_slice": "ce",
+    "words": [
+     {
+      "id": 8,
+      "text": "ce",
+      "lemma": "ce",
+      "upos": "DET",
+      "feats": "Gender=Masc|Number=Sing|PronType=Dem",
+      "head": 9,
+      "deprel": "det",
+      "word_span": [
+       28,
+       30
+      ]
+     }
+    ]
+   },
+   {
+    "token": "soir",
+    "token_span": [
+     31,
+     35
+    ],
+    "source_slice": "soir",
+    "words": [
+     {
+      "id": 9,
+      "text": "soir",
+      "lemma": "soir",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 7,
+      "deprel": "obl:mod",
+      "word_span": [
+       31,
+       35
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     35,
+     36
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 10,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       35,
+       36
+      ]
+     }
+    ]
+   },
+   {
+    "token": "»",
+    "token_span": [
+     37,
+     38
+    ],
+    "source_slice": "»",
+    "words": [
+     {
+      "id": 1,
+      "text": "»",
+      "lemma": "»",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       37,
+       38
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "« Je suis sûr qu’il viendra ce soir.",
+    "tokens": [
+     {
+      "surface": "«",
+      "canonical_lemma": "«",
+      "pos": "PUNCT",
+      "span": [
+       0,
+       1
+      ],
+      "source_slice": "«",
+      "dependency": "punct",
+      "head": 3
+     },
+     {
+      "surface": "Je",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       2,
+       4
+      ],
+      "source_slice": "Je",
+      "dependency": "nsubj",
+      "head": 3
+     },
+     {
+      "surface": "suis",
+      "canonical_lemma": "être",
+      "pos": "AUX",
+      "span": [
+       5,
+       9
+      ],
+      "source_slice": "suis",
+      "dependency": "cop",
+      "head": 3
+     },
+     {
+      "surface": "sûr",
+      "canonical_lemma": "sûr",
+      "pos": "ADJ",
+      "span": [
+       10,
+       13
+      ],
+      "source_slice": "sûr",
+      "dependency": "root",
+      "head": 3
+     },
+     {
+      "surface": "qu’",
+      "canonical_lemma": "que",
+      "pos": "SCONJ",
+      "span": [
+       14,
+       17
+      ],
+      "source_slice": "qu’",
+      "dependency": "mark",
+      "head": 6
+     },
+     {
+      "surface": "il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       17,
+       19
+      ],
+      "source_slice": "il",
+      "dependency": "nsubj",
+      "head": 6
+     },
+     {
+      "surface": "viendra",
+      "canonical_lemma": "venir",
+      "pos": "VERB",
+      "span": [
+       20,
+       27
+      ],
+      "source_slice": "viendra",
+      "dependency": "csubj",
+      "head": 3
+     },
+     {
+      "surface": "ce",
+      "canonical_lemma": "ce",
+      "pos": "DET",
+      "span": [
+       28,
+       30
+      ],
+      "source_slice": "ce",
+      "dependency": "det",
+      "head": 8
+     },
+     {
+      "surface": "soir",
+      "canonical_lemma": "soir",
+      "pos": "NOUN",
+      "span": [
+       31,
+       35
+      ],
+      "source_slice": "soir",
+      "dependency": "obl:mod",
+      "head": 6
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       35,
+       36
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 3
+     }
+    ]
+   },
+   {
+    "text": "»",
+    "tokens": [
+     {
+      "surface": "»",
+      "canonical_lemma": "»",
+      "pos": "PUNCT",
+      "span": [
+       37,
+       38
+      ],
+      "source_slice": "»",
+      "dependency": "root",
+      "head": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S16",
+  "text": "« Il est là », dit-elle, « mais il repart demain. »",
+  "sentence_count": 2,
+  "sentences": [
+   "« Il est là », dit-elle, « mais il repart demain.",
+   "»"
+  ],
+  "stanza_tokens": [
+   {
+    "token": "«",
+    "token_span": [
+     0,
+     1
+    ],
+    "source_slice": "«",
+    "words": [
+     {
+      "id": 1,
+      "text": "«",
+      "lemma": "«",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       0,
+       1
+      ]
+     }
+    ]
+   },
+   {
+    "token": "Il",
+    "token_span": [
+     2,
+     4
+    ],
+    "source_slice": "Il",
+    "words": [
+     {
+      "id": 2,
+      "text": "Il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "nsubj",
+      "word_span": [
+       2,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "est",
+    "token_span": [
+     5,
+     8
+    ],
+    "source_slice": "est",
+    "words": [
+     {
+      "id": 3,
+      "text": "est",
+      "lemma": "être",
+      "upos": "AUX",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 4,
+      "deprel": "cop",
+      "word_span": [
+       5,
+       8
+      ]
+     }
+    ]
+   },
+   {
+    "token": "là",
+    "token_span": [
+     9,
+     11
+    ],
+    "source_slice": "là",
+    "words": [
+     {
+      "id": 4,
+      "text": "là",
+      "lemma": "là",
+      "upos": "ADV",
+      "feats": null,
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       9,
+       11
+      ]
+     }
+    ]
+   },
+   {
+    "token": "»",
+    "token_span": [
+     12,
+     13
+    ],
+    "source_slice": "»",
+    "words": [
+     {
+      "id": 5,
+      "text": "»",
+      "lemma": "»",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       12,
+       13
+      ]
+     }
+    ]
+   },
+   {
+    "token": ",",
+    "token_span": [
+     13,
+     14
+    ],
+    "source_slice": ",",
+    "words": [
+     {
+      "id": 6,
+      "text": ",",
+      "lemma": ",",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 13,
+      "deprel": "punct",
+      "word_span": [
+       13,
+       14
+      ]
+     }
+    ]
+   },
+   {
+    "token": "dit",
+    "token_span": [
+     15,
+     18
+    ],
+    "source_slice": "dit",
+    "words": [
+     {
+      "id": 7,
+      "text": "dit",
+      "lemma": "dire",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 4,
+      "deprel": "parataxis:insert",
+      "word_span": [
+       15,
+       18
+      ]
+     }
+    ]
+   },
+   {
+    "token": "-elle",
+    "token_span": [
+     18,
+     23
+    ],
+    "source_slice": "-elle",
+    "words": [
+     {
+      "id": 8,
+      "text": "-elle",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+      "head": 7,
+      "deprel": "nsubj",
+      "word_span": [
+       18,
+       23
+      ]
+     }
+    ]
+   },
+   {
+    "token": ",",
+    "token_span": [
+     23,
+     24
+    ],
+    "source_slice": ",",
+    "words": [
+     {
+      "id": 9,
+      "text": ",",
+      "lemma": ",",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 13,
+      "deprel": "punct",
+      "word_span": [
+       23,
+       24
+      ]
+     }
+    ]
+   },
+   {
+    "token": "«",
+    "token_span": [
+     25,
+     26
+    ],
+    "source_slice": "«",
+    "words": [
+     {
+      "id": 10,
+      "text": "«",
+      "lemma": "«",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 13,
+      "deprel": "punct",
+      "word_span": [
+       25,
+       26
+      ]
+     }
+    ]
+   },
+   {
+    "token": "mais",
+    "token_span": [
+     27,
+     31
+    ],
+    "source_slice": "mais",
+    "words": [
+     {
+      "id": 11,
+      "text": "mais",
+      "lemma": "mais",
+      "upos": "CCONJ",
+      "feats": null,
+      "head": 13,
+      "deprel": "cc",
+      "word_span": [
+       27,
+       31
+      ]
+     }
+    ]
+   },
+   {
+    "token": "il",
+    "token_span": [
+     32,
+     34
+    ],
+    "source_slice": "il",
+    "words": [
+     {
+      "id": 12,
+      "text": "il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 13,
+      "deprel": "nsubj",
+      "word_span": [
+       32,
+       34
+      ]
+     }
+    ]
+   },
+   {
+    "token": "repart",
+    "token_span": [
+     35,
+     41
+    ],
+    "source_slice": "repart",
+    "words": [
+     {
+      "id": 13,
+      "text": "repart",
+      "lemma": "repartir",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 4,
+      "deprel": "conj",
+      "word_span": [
+       35,
+       41
+      ]
+     }
+    ]
+   },
+   {
+    "token": "demain",
+    "token_span": [
+     42,
+     48
+    ],
+    "source_slice": "demain",
+    "words": [
+     {
+      "id": 14,
+      "text": "demain",
+      "lemma": "demain",
+      "upos": "ADV",
+      "feats": null,
+      "head": 13,
+      "deprel": "advmod",
+      "word_span": [
+       42,
+       48
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     48,
+     49
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 15,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       48,
+       49
+      ]
+     }
+    ]
+   },
+   {
+    "token": "»",
+    "token_span": [
+     50,
+     51
+    ],
+    "source_slice": "»",
+    "words": [
+     {
+      "id": 1,
+      "text": "»",
+      "lemma": "»",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       50,
+       51
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "« Il est là », dit-elle, « mais il repart demain.",
+    "tokens": [
+     {
+      "surface": "«",
+      "canonical_lemma": "«",
+      "pos": "PUNCT",
+      "span": [
+       0,
+       1
+      ],
+      "source_slice": "«",
+      "dependency": "punct",
+      "head": 3
+     },
+     {
+      "surface": "Il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       2,
+       4
+      ],
+      "source_slice": "Il",
+      "dependency": "nsubj",
+      "head": 3
+     },
+     {
+      "surface": "est",
+      "canonical_lemma": "être",
+      "pos": "AUX",
+      "span": [
+       5,
+       8
+      ],
+      "source_slice": "est",
+      "dependency": "cop",
+      "head": 3
+     },
+     {
+      "surface": "là",
+      "canonical_lemma": "là",
+      "pos": "ADV",
+      "span": [
+       9,
+       11
+      ],
+      "source_slice": "là",
+      "dependency": "root",
+      "head": 3
+     },
+     {
+      "surface": "»",
+      "canonical_lemma": "»",
+      "pos": "PUNCT",
+      "span": [
+       12,
+       13
+      ],
+      "source_slice": "»",
+      "dependency": "punct",
+      "head": 3
+     },
+     {
+      "surface": ",",
+      "canonical_lemma": ",",
+      "pos": "PUNCT",
+      "span": [
+       13,
+       14
+      ],
+      "source_slice": ",",
+      "dependency": "punct",
+      "head": 12
+     },
+     {
+      "surface": "dit",
+      "canonical_lemma": "dire",
+      "pos": "VERB",
+      "span": [
+       15,
+       18
+      ],
+      "source_slice": "dit",
+      "dependency": "parataxis:insert",
+      "head": 3
+     },
+     {
+      "surface": "elle",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       18,
+       23
+      ],
+      "source_slice": "-elle",
+      "dependency": "nsubj",
+      "head": 6
+     },
+     {
+      "surface": ",",
+      "canonical_lemma": ",",
+      "pos": "PUNCT",
+      "span": [
+       23,
+       24
+      ],
+      "source_slice": ",",
+      "dependency": "punct",
+      "head": 12
+     },
+     {
+      "surface": "«",
+      "canonical_lemma": "«",
+      "pos": "PUNCT",
+      "span": [
+       25,
+       26
+      ],
+      "source_slice": "«",
+      "dependency": "punct",
+      "head": 12
+     },
+     {
+      "surface": "mais",
+      "canonical_lemma": "mais",
+      "pos": "CCONJ",
+      "span": [
+       27,
+       31
+      ],
+      "source_slice": "mais",
+      "dependency": "cc",
+      "head": 12
+     },
+     {
+      "surface": "il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       32,
+       34
+      ],
+      "source_slice": "il",
+      "dependency": "nsubj",
+      "head": 12
+     },
+     {
+      "surface": "repart",
+      "canonical_lemma": "repartir",
+      "pos": "VERB",
+      "span": [
+       35,
+       41
+      ],
+      "source_slice": "repart",
+      "dependency": "conj",
+      "head": 3
+     },
+     {
+      "surface": "demain",
+      "canonical_lemma": "demain",
+      "pos": "ADV",
+      "span": [
+       42,
+       48
+      ],
+      "source_slice": "demain",
+      "dependency": "advmod",
+      "head": 12
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       48,
+       49
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 3
+     }
+    ]
+   },
+   {
+    "text": "»",
+    "tokens": [
+     {
+      "surface": "»",
+      "canonical_lemma": "»",
+      "pos": "PUNCT",
+      "span": [
+       50,
+       51
+      ],
+      "source_slice": "»",
+      "dependency": "root",
+      "head": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S17",
+  "text": "Il faut partir.",
+  "sentence_count": 1,
+  "sentences": [
+   "Il faut partir."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Il",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Il",
+    "words": [
+     {
+      "id": 1,
+      "text": "Il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 2,
+      "deprel": "expl:subj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "faut",
+    "token_span": [
+     3,
+     7
+    ],
+    "source_slice": "faut",
+    "words": [
+     {
+      "id": 2,
+      "text": "faut",
+      "lemma": "falloir",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       3,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "partir",
+    "token_span": [
+     8,
+     14
+    ],
+    "source_slice": "partir",
+    "words": [
+     {
+      "id": 3,
+      "text": "partir",
+      "lemma": "partir",
+      "upos": "VERB",
+      "feats": "VerbForm=Inf",
+      "head": 2,
+      "deprel": "ccomp",
+      "word_span": [
+       8,
+       14
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     14,
+     15
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 4,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       14,
+       15
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Il faut partir.",
+    "tokens": [
+     {
+      "surface": "Il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Il",
+      "dependency": "expl:subj",
+      "head": 1
+     },
+     {
+      "surface": "faut",
+      "canonical_lemma": "falloir",
+      "pos": "VERB",
+      "span": [
+       3,
+       7
+      ],
+      "source_slice": "faut",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "partir",
+      "canonical_lemma": "partir",
+      "pos": "VERB",
+      "span": [
+       8,
+       14
+      ],
+      "source_slice": "partir",
+      "dependency": "ccomp",
+      "head": 1
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       14,
+       15
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S01c",
+  "text": "Je vois l’homme près du marché.",
+  "sentence_count": 1,
+  "sentences": [
+   "Je vois l’homme près du marché."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Je",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Je",
+    "words": [
+     {
+      "id": 1,
+      "text": "Je",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 2,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "vois",
+    "token_span": [
+     3,
+     7
+    ],
+    "source_slice": "vois",
+    "words": [
+     {
+      "id": 2,
+      "text": "vois",
+      "lemma": "voir",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       3,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "l’",
+    "token_span": [
+     8,
+     10
+    ],
+    "source_slice": "l’",
+    "words": [
+     {
+      "id": 3,
+      "text": "l’",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 4,
+      "deprel": "det",
+      "word_span": [
+       8,
+       10
+      ]
+     }
+    ]
+   },
+   {
+    "token": "homme",
+    "token_span": [
+     10,
+     15
+    ],
+    "source_slice": "homme",
+    "words": [
+     {
+      "id": 4,
+      "text": "homme",
+      "lemma": "homme",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 2,
+      "deprel": "obj",
+      "word_span": [
+       10,
+       15
+      ]
+     }
+    ]
+   },
+   {
+    "token": "près",
+    "token_span": [
+     16,
+     20
+    ],
+    "source_slice": "près",
+    "words": [
+     {
+      "id": 5,
+      "text": "près",
+      "lemma": "près",
+      "upos": "ADV",
+      "feats": null,
+      "head": 2,
+      "deprel": "advmod",
+      "word_span": [
+       16,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "du",
+    "token_span": [
+     21,
+     23
+    ],
+    "source_slice": "du",
+    "words": [
+     {
+      "id": 6,
+      "text": "de",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 8,
+      "deprel": "case",
+      "word_span": [
+       null,
+       null
+      ]
+     },
+     {
+      "id": 7,
+      "text": "le",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Masc|Number=Sing|PronType=Art",
+      "head": 8,
+      "deprel": "det",
+      "word_span": [
+       null,
+       null
+      ]
+     }
+    ]
+   },
+   {
+    "token": "marché",
+    "token_span": [
+     24,
+     30
+    ],
+    "source_slice": "marché",
+    "words": [
+     {
+      "id": 8,
+      "text": "marché",
+      "lemma": "marché",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 5,
+      "deprel": "obl:arg",
+      "word_span": [
+       24,
+       30
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     30,
+     31
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 9,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 2,
+      "deprel": "punct",
+      "word_span": [
+       30,
+       31
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Je vois l’homme près du marché.",
+    "tokens": [
+     {
+      "surface": "Je",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Je",
+      "dependency": "nsubj",
+      "head": 1
+     },
+     {
+      "surface": "vois",
+      "canonical_lemma": "voir",
+      "pos": "VERB",
+      "span": [
+       3,
+       7
+      ],
+      "source_slice": "vois",
+      "dependency": "root",
+      "head": 1
+     },
+     {
+      "surface": "l’",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       8,
+       10
+      ],
+      "source_slice": "l’",
+      "dependency": "det",
+      "head": 3
+     },
+     {
+      "surface": "homme",
+      "canonical_lemma": "homme",
+      "pos": "NOUN",
+      "span": [
+       10,
+       15
+      ],
+      "source_slice": "homme",
+      "dependency": "obj",
+      "head": 1
+     },
+     {
+      "surface": "près",
+      "canonical_lemma": "près",
+      "pos": "ADV",
+      "span": [
+       16,
+       20
+      ],
+      "source_slice": "près",
+      "dependency": "advmod",
+      "head": 1
+     },
+     {
+      "surface": "de",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       21,
+       23
+      ],
+      "source_slice": "du",
+      "dependency": "case",
+      "head": 7
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       21,
+       23
+      ],
+      "source_slice": "du",
+      "dependency": "det",
+      "head": 7
+     },
+     {
+      "surface": "marché",
+      "canonical_lemma": "marché",
+      "pos": "NOUN",
+      "span": [
+       24,
+       30
+      ],
+      "source_slice": "marché",
+      "dependency": "obl:arg",
+      "head": 4
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       30,
+       31
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S02c",
+  "text": "Nous sommes d’accord sur ce point.",
+  "sentence_count": 1,
+  "sentences": [
+   "Nous sommes d’accord sur ce point."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Nous",
+    "token_span": [
+     0,
+     4
+    ],
+    "source_slice": "Nous",
+    "words": [
+     {
+      "id": 1,
+      "text": "Nous",
+      "lemma": "nous",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Plur|Person=1|PronType=Prs",
+      "head": 3,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sommes",
+    "token_span": [
+     5,
+     11
+    ],
+    "source_slice": "sommes",
+    "words": [
+     {
+      "id": 2,
+      "text": "sommes",
+      "lemma": "être",
+      "upos": "AUX",
+      "feats": "Mood=Ind|Number=Plur|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 3,
+      "deprel": "cop",
+      "word_span": [
+       5,
+       11
+      ]
+     }
+    ]
+   },
+   {
+    "token": "d’",
+    "token_span": [
+     12,
+     14
+    ],
+    "source_slice": "d’",
+    "words": [
+     {
+      "id": 3,
+      "text": "d’",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       12,
+       14
+      ]
+     }
+    ]
+   },
+   {
+    "token": "accord",
+    "token_span": [
+     14,
+     20
+    ],
+    "source_slice": "accord",
+    "words": [
+     {
+      "id": 4,
+      "text": "accord",
+      "lemma": "accord",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 3,
+      "deprel": "fixed",
+      "word_span": [
+       14,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sur",
+    "token_span": [
+     21,
+     24
+    ],
+    "source_slice": "sur",
+    "words": [
+     {
+      "id": 5,
+      "text": "sur",
+      "lemma": "sur",
+      "upos": "ADP",
+      "feats": null,
+      "head": 7,
+      "deprel": "case",
+      "word_span": [
+       21,
+       24
+      ]
+     }
+    ]
+   },
+   {
+    "token": "ce",
+    "token_span": [
+     25,
+     27
+    ],
+    "source_slice": "ce",
+    "words": [
+     {
+      "id": 6,
+      "text": "ce",
+      "lemma": "ce",
+      "upos": "DET",
+      "feats": "Gender=Masc|Number=Sing|PronType=Dem",
+      "head": 7,
+      "deprel": "det",
+      "word_span": [
+       25,
+       27
+      ]
+     }
+    ]
+   },
+   {
+    "token": "point",
+    "token_span": [
+     28,
+     33
+    ],
+    "source_slice": "point",
+    "words": [
+     {
+      "id": 7,
+      "text": "point",
+      "lemma": "point",
+      "upos": "NOUN",
+      "feats": "Gender=Masc|Number=Sing",
+      "head": 3,
+      "deprel": "obl:mod",
+      "word_span": [
+       28,
+       33
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     33,
+     34
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 8,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 3,
+      "deprel": "punct",
+      "word_span": [
+       33,
+       34
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Nous sommes d’accord sur ce point.",
+    "tokens": [
+     {
+      "surface": "Nous",
+      "canonical_lemma": "nous",
+      "pos": "PRON",
+      "span": [
+       0,
+       4
+      ],
+      "source_slice": "Nous",
+      "dependency": "nsubj",
+      "head": 2
+     },
+     {
+      "surface": "sommes",
+      "canonical_lemma": "être",
+      "pos": "AUX",
+      "span": [
+       5,
+       11
+      ],
+      "source_slice": "sommes",
+      "dependency": "cop",
+      "head": 2
+     },
+     {
+      "surface": "d’",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       12,
+       14
+      ],
+      "source_slice": "d’",
+      "dependency": "root",
+      "head": 2
+     },
+     {
+      "surface": "accord",
+      "canonical_lemma": "accord",
+      "pos": "NOUN",
+      "span": [
+       14,
+       20
+      ],
+      "source_slice": "accord",
+      "dependency": "fixed",
+      "head": 2
+     },
+     {
+      "surface": "sur",
+      "canonical_lemma": "sur",
+      "pos": "ADP",
+      "span": [
+       21,
+       24
+      ],
+      "source_slice": "sur",
+      "dependency": "case",
+      "head": 6
+     },
+     {
+      "surface": "ce",
+      "canonical_lemma": "ce",
+      "pos": "DET",
+      "span": [
+       25,
+       27
+      ],
+      "source_slice": "ce",
+      "dependency": "det",
+      "head": 6
+     },
+     {
+      "surface": "point",
+      "canonical_lemma": "point",
+      "pos": "NOUN",
+      "span": [
+       28,
+       33
+      ],
+      "source_slice": "point",
+      "dependency": "obl:mod",
+      "head": 2
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       33,
+       34
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 2
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S03c",
+  "text": "Elle s’habille avant de partir.",
+  "sentence_count": 1,
+  "sentences": [
+   "Elle s’habille avant de partir."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Elle",
+    "token_span": [
+     0,
+     4
+    ],
+    "source_slice": "Elle",
+    "words": [
+     {
+      "id": 1,
+      "text": "Elle",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+      "head": 3,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       4
+      ]
+     }
+    ]
+   },
+   {
+    "token": "s’",
+    "token_span": [
+     5,
+     7
+    ],
+    "source_slice": "s’",
+    "words": [
+     {
+      "id": 2,
+      "text": "s’",
+      "lemma": "soi",
+      "upos": "PRON",
+      "feats": "Person=3|PronType=Prs|Reflex=Yes",
+      "head": 3,
+      "deprel": "obj",
+      "word_span": [
+       5,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "habille",
+    "token_span": [
+     7,
+     14
+    ],
+    "source_slice": "habille",
+    "words": [
+     {
+      "id": 3,
+      "text": "habille",
+      "lemma": "habiller",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       7,
+       14
+      ]
+     }
+    ]
+   },
+   {
+    "token": "avant",
+    "token_span": [
+     15,
+     20
+    ],
+    "source_slice": "avant",
+    "words": [
+     {
+      "id": 4,
+      "text": "avant",
+      "lemma": "avant",
+      "upos": "ADV",
+      "feats": null,
+      "head": 3,
+      "deprel": "advmod",
+      "word_span": [
+       15,
+       20
+      ]
+     }
+    ]
+   },
+   {
+    "token": "de",
+    "token_span": [
+     21,
+     23
+    ],
+    "source_slice": "de",
+    "words": [
+     {
+      "id": 5,
+      "text": "de",
+      "lemma": "de",
+      "upos": "ADP",
+      "feats": null,
+      "head": 6,
+      "deprel": "mark",
+      "word_span": [
+       21,
+       23
+      ]
+     }
+    ]
+   },
+   {
+    "token": "partir",
+    "token_span": [
+     24,
+     30
+    ],
+    "source_slice": "partir",
+    "words": [
+     {
+      "id": 6,
+      "text": "partir",
+      "lemma": "partir",
+      "upos": "VERB",
+      "feats": "VerbForm=Inf",
+      "head": 4,
+      "deprel": "xcomp",
+      "word_span": [
+       24,
+       30
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     30,
+     31
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 7,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 3,
+      "deprel": "punct",
+      "word_span": [
+       30,
+       31
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Elle s’habille avant de partir.",
+    "tokens": [
+     {
+      "surface": "Elle",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       4
+      ],
+      "source_slice": "Elle",
+      "dependency": "nsubj",
+      "head": 2
+     },
+     {
+      "surface": "s’",
+      "canonical_lemma": "soi",
+      "pos": "PRON",
+      "span": [
+       5,
+       7
+      ],
+      "source_slice": "s’",
+      "dependency": "obj",
+      "head": 2
+     },
+     {
+      "surface": "habille",
+      "canonical_lemma": "habiller",
+      "pos": "VERB",
+      "span": [
+       7,
+       14
+      ],
+      "source_slice": "habille",
+      "dependency": "root",
+      "head": 2
+     },
+     {
+      "surface": "avant",
+      "canonical_lemma": "avant",
+      "pos": "ADV",
+      "span": [
+       15,
+       20
+      ],
+      "source_slice": "avant",
+      "dependency": "advmod",
+      "head": 2
+     },
+     {
+      "surface": "de",
+      "canonical_lemma": "de",
+      "pos": "ADP",
+      "span": [
+       21,
+       23
+      ],
+      "source_slice": "de",
+      "dependency": "mark",
+      "head": 5
+     },
+     {
+      "surface": "partir",
+      "canonical_lemma": "partir",
+      "pos": "VERB",
+      "span": [
+       24,
+       30
+      ],
+      "source_slice": "partir",
+      "dependency": "xcomp",
+      "head": 3
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       30,
+       31
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 2
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S04c",
+  "text": "Il s’en va sans fermer la porte.",
+  "sentence_count": 1,
+  "sentences": [
+   "Il s’en va sans fermer la porte."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Il",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Il",
+    "words": [
+     {
+      "id": 1,
+      "text": "Il",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "s’",
+    "token_span": [
+     3,
+     5
+    ],
+    "source_slice": "s’",
+    "words": [
+     {
+      "id": 2,
+      "text": "s’",
+      "lemma": "soi",
+      "upos": "PRON",
+      "feats": "Person=3|PronType=Prs|Reflex=Yes",
+      "head": 4,
+      "deprel": "expl:pv",
+      "word_span": [
+       3,
+       5
+      ]
+     }
+    ]
+   },
+   {
+    "token": "en",
+    "token_span": [
+     5,
+     7
+    ],
+    "source_slice": "en",
+    "words": [
+     {
+      "id": 3,
+      "text": "en",
+      "lemma": "en",
+      "upos": "PRON",
+      "feats": "Emph=No|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "expl:comp",
+      "word_span": [
+       5,
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "token": "va",
+    "token_span": [
+     8,
+     10
+    ],
+    "source_slice": "va",
+    "words": [
+     {
+      "id": 4,
+      "text": "va",
+      "lemma": "aller",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       8,
+       10
+      ]
+     }
+    ]
+   },
+   {
+    "token": "sans",
+    "token_span": [
+     11,
+     15
+    ],
+    "source_slice": "sans",
+    "words": [
+     {
+      "id": 5,
+      "text": "sans",
+      "lemma": "sans",
+      "upos": "ADP",
+      "feats": null,
+      "head": 6,
+      "deprel": "mark",
+      "word_span": [
+       11,
+       15
+      ]
+     }
+    ]
+   },
+   {
+    "token": "fermer",
+    "token_span": [
+     16,
+     22
+    ],
+    "source_slice": "fermer",
+    "words": [
+     {
+      "id": 6,
+      "text": "fermer",
+      "lemma": "fermer",
+      "upos": "VERB",
+      "feats": "VerbForm=Inf",
+      "head": 4,
+      "deprel": "advcl",
+      "word_span": [
+       16,
+       22
+      ]
+     }
+    ]
+   },
+   {
+    "token": "la",
+    "token_span": [
+     23,
+     25
+    ],
+    "source_slice": "la",
+    "words": [
+     {
+      "id": 7,
+      "text": "la",
+      "lemma": "le",
+      "upos": "DET",
+      "feats": "Definite=Def|Gender=Fem|Number=Sing|PronType=Art",
+      "head": 8,
+      "deprel": "det",
+      "word_span": [
+       23,
+       25
+      ]
+     }
+    ]
+   },
+   {
+    "token": "porte",
+    "token_span": [
+     26,
+     31
+    ],
+    "source_slice": "porte",
+    "words": [
+     {
+      "id": 8,
+      "text": "porte",
+      "lemma": "porte",
+      "upos": "NOUN",
+      "feats": "Gender=Fem|Number=Sing",
+      "head": 6,
+      "deprel": "obj",
+      "word_span": [
+       26,
+       31
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     31,
+     32
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 9,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       31,
+       32
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Il s’en va sans fermer la porte.",
+    "tokens": [
+     {
+      "surface": "Il",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Il",
+      "dependency": "nsubj",
+      "head": 3
+     },
+     {
+      "surface": "s’",
+      "canonical_lemma": "soi",
+      "pos": "PRON",
+      "span": [
+       3,
+       5
+      ],
+      "source_slice": "s’",
+      "dependency": "expl:pv",
+      "head": 3
+     },
+     {
+      "surface": "en",
+      "canonical_lemma": "en",
+      "pos": "PRON",
+      "span": [
+       5,
+       7
+      ],
+      "source_slice": "en",
+      "dependency": "expl:comp",
+      "head": 3
+     },
+     {
+      "surface": "va",
+      "canonical_lemma": "aller",
+      "pos": "VERB",
+      "span": [
+       8,
+       10
+      ],
+      "source_slice": "va",
+      "dependency": "root",
+      "head": 3
+     },
+     {
+      "surface": "sans",
+      "canonical_lemma": "sans",
+      "pos": "ADP",
+      "span": [
+       11,
+       15
+      ],
+      "source_slice": "sans",
+      "dependency": "mark",
+      "head": 5
+     },
+     {
+      "surface": "fermer",
+      "canonical_lemma": "fermer",
+      "pos": "VERB",
+      "span": [
+       16,
+       22
+      ],
+      "source_slice": "fermer",
+      "dependency": "advcl",
+      "head": 3
+     },
+     {
+      "surface": "la",
+      "canonical_lemma": "le",
+      "pos": "DET",
+      "span": [
+       23,
+       25
+      ],
+      "source_slice": "la",
+      "dependency": "det",
+      "head": 7
+     },
+     {
+      "surface": "porte",
+      "canonical_lemma": "porte",
+      "pos": "NOUN",
+      "span": [
+       26,
+       31
+      ],
+      "source_slice": "porte",
+      "dependency": "obj",
+      "head": 5
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       31,
+       32
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 3
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "S05c",
+  "text": "Je le lui donne, mais elle ne m’en parle pas.",
+  "sentence_count": 1,
+  "sentences": [
+   "Je le lui donne, mais elle ne m’en parle pas."
+  ],
+  "stanza_tokens": [
+   {
+    "token": "Je",
+    "token_span": [
+     0,
+     2
+    ],
+    "source_slice": "Je",
+    "words": [
+     {
+      "id": 1,
+      "text": "Je",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 4,
+      "deprel": "nsubj",
+      "word_span": [
+       0,
+       2
+      ]
+     }
+    ]
+   },
+   {
+    "token": "le",
+    "token_span": [
+     3,
+     5
+    ],
+    "source_slice": "le",
+    "words": [
+     {
+      "id": 2,
+      "text": "le",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Acc|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "obj",
+      "word_span": [
+       3,
+       5
+      ]
+     }
+    ]
+   },
+   {
+    "token": "lui",
+    "token_span": [
+     6,
+     9
+    ],
+    "source_slice": "lui",
+    "words": [
+     {
+      "id": 3,
+      "text": "lui",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Dat|Emph=No|Number=Sing|Person=3|PronType=Prs",
+      "head": 4,
+      "deprel": "iobj",
+      "word_span": [
+       6,
+       9
+      ]
+     }
+    ]
+   },
+   {
+    "token": "donne",
+    "token_span": [
+     10,
+     15
+    ],
+    "source_slice": "donne",
+    "words": [
+     {
+      "id": 4,
+      "text": "donne",
+      "lemma": "donner",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=1|Tense=Pres|VerbForm=Fin",
+      "head": 0,
+      "deprel": "root",
+      "word_span": [
+       10,
+       15
+      ]
+     }
+    ]
+   },
+   {
+    "token": ",",
+    "token_span": [
+     15,
+     16
+    ],
+    "source_slice": ",",
+    "words": [
+     {
+      "id": 5,
+      "text": ",",
+      "lemma": ",",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 11,
+      "deprel": "punct",
+      "word_span": [
+       15,
+       16
+      ]
+     }
+    ]
+   },
+   {
+    "token": "mais",
+    "token_span": [
+     17,
+     21
+    ],
+    "source_slice": "mais",
+    "words": [
+     {
+      "id": 6,
+      "text": "mais",
+      "lemma": "mais",
+      "upos": "CCONJ",
+      "feats": null,
+      "head": 11,
+      "deprel": "cc",
+      "word_span": [
+       17,
+       21
+      ]
+     }
+    ]
+   },
+   {
+    "token": "elle",
+    "token_span": [
+     22,
+     26
+    ],
+    "source_slice": "elle",
+    "words": [
+     {
+      "id": 7,
+      "text": "elle",
+      "lemma": "lui",
+      "upos": "PRON",
+      "feats": "Case=Nom|Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+      "head": 11,
+      "deprel": "nsubj",
+      "word_span": [
+       22,
+       26
+      ]
+     }
+    ]
+   },
+   {
+    "token": "ne",
+    "token_span": [
+     27,
+     29
+    ],
+    "source_slice": "ne",
+    "words": [
+     {
+      "id": 8,
+      "text": "ne",
+      "lemma": "ne",
+      "upos": "ADV",
+      "feats": "Polarity=Neg",
+      "head": 11,
+      "deprel": "advmod",
+      "word_span": [
+       27,
+       29
+      ]
+     }
+    ]
+   },
+   {
+    "token": "m’",
+    "token_span": [
+     30,
+     32
+    ],
+    "source_slice": "m’",
+    "words": [
+     {
+      "id": 9,
+      "text": "m’",
+      "lemma": "moi",
+      "upos": "PRON",
+      "feats": "Case=Dat|Emph=No|Number=Sing|Person=1|PronType=Prs",
+      "head": 11,
+      "deprel": "obj",
+      "word_span": [
+       30,
+       32
+      ]
+     }
+    ]
+   },
+   {
+    "token": "en",
+    "token_span": [
+     32,
+     34
+    ],
+    "source_slice": "en",
+    "words": [
+     {
+      "id": 10,
+      "text": "en",
+      "lemma": "en",
+      "upos": "PRON",
+      "feats": "Emph=No|Person=3|PronType=Prs",
+      "head": 11,
+      "deprel": "iobj",
+      "word_span": [
+       32,
+       34
+      ]
+     }
+    ]
+   },
+   {
+    "token": "parle",
+    "token_span": [
+     35,
+     40
+    ],
+    "source_slice": "parle",
+    "words": [
+     {
+      "id": 11,
+      "text": "parle",
+      "lemma": "parler",
+      "upos": "VERB",
+      "feats": "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+      "head": 4,
+      "deprel": "conj",
+      "word_span": [
+       35,
+       40
+      ]
+     }
+    ]
+   },
+   {
+    "token": "pas",
+    "token_span": [
+     41,
+     44
+    ],
+    "source_slice": "pas",
+    "words": [
+     {
+      "id": 12,
+      "text": "pas",
+      "lemma": "pas",
+      "upos": "ADV",
+      "feats": "Polarity=Neg",
+      "head": 11,
+      "deprel": "advmod",
+      "word_span": [
+       41,
+       44
+      ]
+     }
+    ]
+   },
+   {
+    "token": ".",
+    "token_span": [
+     44,
+     45
+    ],
+    "source_slice": ".",
+    "words": [
+     {
+      "id": 13,
+      "text": ".",
+      "lemma": ".",
+      "upos": "PUNCT",
+      "feats": null,
+      "head": 4,
+      "deprel": "punct",
+      "word_span": [
+       44,
+       45
+      ]
+     }
+    ]
+   }
+  ],
+  "producer_sentences": [
+   {
+    "text": "Je le lui donne, mais elle ne m’en parle pas.",
+    "tokens": [
+     {
+      "surface": "Je",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       0,
+       2
+      ],
+      "source_slice": "Je",
+      "dependency": "nsubj",
+      "head": 3
+     },
+     {
+      "surface": "le",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       3,
+       5
+      ],
+      "source_slice": "le",
+      "dependency": "obj",
+      "head": 3
+     },
+     {
+      "surface": "lui",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       6,
+       9
+      ],
+      "source_slice": "lui",
+      "dependency": "iobj",
+      "head": 3
+     },
+     {
+      "surface": "donne",
+      "canonical_lemma": "donner",
+      "pos": "VERB",
+      "span": [
+       10,
+       15
+      ],
+      "source_slice": "donne",
+      "dependency": "root",
+      "head": 3
+     },
+     {
+      "surface": ",",
+      "canonical_lemma": ",",
+      "pos": "PUNCT",
+      "span": [
+       15,
+       16
+      ],
+      "source_slice": ",",
+      "dependency": "punct",
+      "head": 10
+     },
+     {
+      "surface": "mais",
+      "canonical_lemma": "mais",
+      "pos": "CCONJ",
+      "span": [
+       17,
+       21
+      ],
+      "source_slice": "mais",
+      "dependency": "cc",
+      "head": 10
+     },
+     {
+      "surface": "elle",
+      "canonical_lemma": "lui",
+      "pos": "PRON",
+      "span": [
+       22,
+       26
+      ],
+      "source_slice": "elle",
+      "dependency": "nsubj",
+      "head": 10
+     },
+     {
+      "surface": "ne",
+      "canonical_lemma": "ne",
+      "pos": "ADV",
+      "span": [
+       27,
+       29
+      ],
+      "source_slice": "ne",
+      "dependency": "advmod",
+      "head": 10
+     },
+     {
+      "surface": "m’",
+      "canonical_lemma": "moi",
+      "pos": "PRON",
+      "span": [
+       30,
+       32
+      ],
+      "source_slice": "m’",
+      "dependency": "obj",
+      "head": 10
+     },
+     {
+      "surface": "en",
+      "canonical_lemma": "en",
+      "pos": "PRON",
+      "span": [
+       32,
+       34
+      ],
+      "source_slice": "en",
+      "dependency": "iobj",
+      "head": 10
+     },
+     {
+      "surface": "parle",
+      "canonical_lemma": "parler",
+      "pos": "VERB",
+      "span": [
+       35,
+       40
+      ],
+      "source_slice": "parle",
+      "dependency": "conj",
+      "head": 3
+     },
+     {
+      "surface": "pas",
+      "canonical_lemma": "pas",
+      "pos": "ADV",
+      "span": [
+       41,
+       44
+      ],
+      "source_slice": "pas",
+      "dependency": "advmod",
+      "head": 10
+     },
+     {
+      "surface": ".",
+      "canonical_lemma": ".",
+      "pos": "PUNCT",
+      "span": [
+       44,
+       45
+      ],
+      "source_slice": ".",
+      "dependency": "punct",
+      "head": 3
+     }
+    ]
+   }
+  ]
+ }
+]
