@@ -4,7 +4,9 @@ Status: **Established implementation components plus shipped learner-facing
 patterns.** My Books compact-list and Reading title-page/chooser patterns are shipped. The
 JourneyOrder, JourneyForecast, and PrimaryGoalSummary sections below are
 historical contracts, not current Reading UI. Current behavior is defined by the
-[Reading workflow](../features/reading-workflow.md).
+[Reading workflow](../features/reading-workflow.md). The explicitly marked
+[source-line target](#accepted-source-line-presentation-target) is accepted but
+not implemented.
 
 This document defines Mouseion's reusable server-rendered interface patterns.
 Established patterns are the durable contract between product design, Templ
@@ -269,12 +271,74 @@ matched form sits directly between its right-aligned left context and
 left-aligned right context. On narrow screens closed rows stay compact and the
 expanded sentence takes the full row width; under severe enlargement the source
 label moves after the example. One sentence names the applied lookup,
-Book scope, grammar filter, and result range. Every occurrence has a visible
-“Study” link; sentence study remains a separate named link, and return navigation keeps
-its occurrence/results-summary focus contract. Playwright role/name assertions
+Book scope, grammar filter, and result range. In the shipped implementation,
+every occurrence has a visible “Study” link; the accepted source-line target
+below adds the speaker-overlap exception. Sentence study remains a separate
+named link, and return navigation keeps its occurrence/results-summary focus
+contract. Playwright role/name assertions
 are automated browser accessibility-tree evidence only; they are not real
 VoiceOver verification. No manual VoiceOver verification is claimed by this
 slice.
+
+### Accepted source-line presentation target
+
+Status: **Accepted — implementation pending.** Promoted from the human-reviewed
+[Prototype: line-aware Faust excerpts in sentence study and Anki](https://github.com/justin-hayes/mouseion/issues/2149#issuecomment-6239826608),
+variant A at `d01dfe62`, through
+[Decision: accept the Faust I poetry specification and handoff](https://github.com/justin-hayes/mouseion/issues/2151).
+[Basic poetry support](../features/basic-poetry-support.md) owns behavior and
+release checks; [ADR 0103](../adr/0103-source-structure-and-poetry-evidence.md)
+owns exact-snapshot roles and frozen inputs. Do not copy the throwaway prototype
+into production or treat it as analyzer/provider/browser acceptance evidence.
+
+Reuse the current disclosure, focus/return, text-alignment and safe-fallback
+patterns. This changes source presentation, not navigation or the study-context
+unit:
+
+- A one-line Concordance summary substitutes a muted ` / ` for each authorial
+  break; retain existing boundary-space handling. Literal source `/` remains
+  ambiguous until expansion.
+- Expanded context, sentence-study source text and the Anki front show actual
+  source lines, with hanging indentation for viewport soft wraps. No-break prose
+  keeps its shipped layout. Do not show containing-group orientation, surrounding
+  lines or line numbers.
+- Sentence-study morphology uses one row of aligned word units per source line
+  at every width, with hanging wraps. Preserve gaps, punctuation and existing
+  local/whole-line alignment fallback. Its complete text alternative says
+  **end of source line** after the last word of each line; never fabricate a word
+  for an unaligned gap. Other source text is heard as a continuous sentence.
+- Quiet small-caps metadata above the sentence shows the **speaker name only**,
+  omitting nested directions and optionally the terminal period. A direction
+  sentence uses **Stage direction** instead. Unknown attribution leaves the slot
+  absent without a warning. Escape metadata as text; it is neither sentence text
+  nor emphasized target content.
+- Keep raw speaker-label Concordance evidence searchable and identify it as such.
+  An entire sentence overlapping a speaker label has no Study action, even when
+  some direction words are eligible vocabulary. Do not visually remove a label
+  to make a sentence appear studyable; server-side access follows the same rule.
+- Anki puts frozen attribution on the front in its separate appended
+  `Attribution` field. `Text` uses explicit per-source-line markup, escaping
+  segments before adding markup; raw LF collapses in HTML. Keep target and
+  separable-particle emphasis within the correct source lines. Old manifests
+  have no attribution and never fetch it from newer evidence.
+- Translation stays one complete English prose paragraph, without line pairing.
+  No attribution, source notice or orientation enters the provider payload.
+
+Use existing typography and semantic colors, not a script/facsimile treatment.
+Check 375px and 1200px, both themes, enlarged text, no horizontal page overflow,
+native keyboard/disclosure operation and no-JavaScript operation. Automated
+role/name assertions are not manual screen-reader verification. Actual Anki
+import/re-import and line/field compatibility are release checks, not claims
+established by prototype HTML.
+
+**Source structure update** is a Book-level notice and existing native
+`Confirmation`, not a per-occurrence/card banner or a new destination. Before
+submission, explain the source switch/reanalysis, the number of confirmed
+corrections/exclusions that will not apply, and that active Reading/decks remain
+pinned until explicit End/restart/re-preparation. Reuse existing asynchronous
+status and retry patterns. No-change checks are quiet; original-unavailable and
+failed-check states must not masquerade as unchanged or promise an automatic
+repair. Source lifecycle belongs to the feature/ADR, not this component guide.
 
 ### Content hierarchy
 

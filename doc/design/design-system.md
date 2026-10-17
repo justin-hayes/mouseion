@@ -189,6 +189,21 @@ losing their meaningful control boundary.
 | `.metadata`                   | Dates, language, media type, provenance summary, and secondary labels          |
 | `.numeric`                    | Values that need stable comparison through tabular numerals                    |
 
+### Accepted source-line typography target
+
+**Accepted, not implemented:** [Basic poetry support](../features/basic-poetry-support.md)
+and the [component target](components.md#accepted-source-line-presentation-target)
+extend source reading typography to meaningful authorial lines. Use the existing
+Literata reading role, measure, line height and themes. Render each source line
+separately and indent its soft-wrap continuations, so viewport wrapping cannot
+be mistaken for an authorial break. No-break prose retains today's layout;
+printed-page indentation, exact fonts and facsimile composition are not goals.
+One-line Concordance summaries alone use muted ` / ` marks. Speaker-name metadata
+is quiet small caps outside the source; direction sentences use **Stage direction**.
+Do not introduce a new palette, genre styling, script heading, line numbering or
+surrounding-group orientation. Anki implements the same line/soft-wrap distinction
+with escaped explicit HTML, not CSS whitespace assumptions about raw LF.
+
 ### Approved Margin notes direction
 
 The approved shared visual direction is **Margin notes**, based on variant A in

@@ -58,6 +58,10 @@ and surface a material conflict rather than silently choosing one.
   — accepted, partially implemented Reading-owned freeze and Book-deck rule;
   [the former combined spec](../features/vocabulary-browse-concordance-and-custom-decks.md)
   is historical.
+- [`../features/basic-poetry-support.md`](../features/basic-poetry-support.md)
+  — accepted, implementation-pending source-line, attribution and explicit
+  source-update contract; reusable presentation target in
+  [`components.md`](components.md#accepted-source-line-presentation-target).
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — historical
   record of the retired Reading Journey / Primary Goal model; not current product
   behavior.
