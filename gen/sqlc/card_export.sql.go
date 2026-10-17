@@ -126,6 +126,7 @@ func (q *Queries) GetGeneratedVocabulary(ctx context.Context, arg GetGeneratedVo
 const listCorpusSentences = `-- name: ListCorpusSentences :many
 SELECT s.sentence_ordinal,
        s.sentence_text,
+       s.citations,
        s.start_offset,
        COALESCE(t.token_ordinal, -1::bigint)::bigint AS token_ordinal,
        COALESCE(t.surface, '')::text AS surface,
@@ -158,6 +159,7 @@ type ListCorpusSentencesParams struct {
 type ListCorpusSentencesRow struct {
 	SentenceOrdinal  int64
 	SentenceText     string
+	Citations        []string
 	StartOffset      int64
 	TokenOrdinal     int64
 	Surface          string
@@ -183,6 +185,7 @@ func (q *Queries) ListCorpusSentences(ctx context.Context, arg ListCorpusSentenc
 		if err := rows.Scan(
 			&i.SentenceOrdinal,
 			&i.SentenceText,
+			&i.Citations,
 			&i.StartOffset,
 			&i.TokenOrdinal,
 			&i.Surface,

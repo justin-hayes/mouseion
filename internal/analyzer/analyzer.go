@@ -46,6 +46,10 @@ type Sentence struct {
 	Text     string
 	Tokens   []Token
 	Location SourceLocation
+	// Citations lists every cited source section the sentence touches, in
+	// citation order. It is empty for an analysis that carries no citation
+	// evidence (every modern-language run).
+	Citations []string
 }
 
 // Token is one analyzed token. Surface removes surrounding Unicode punctuation

@@ -344,7 +344,7 @@ func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, par
 	if item.CacheKey != nil && item.CacheKey.MeaningEvidenceHash != "" {
 		meaningEvidenceHash = nullableTextArg(item.CacheKey.MeaningEvidenceHash)
 	}
-	if err := q.InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, LexicalDiscriminator: item.Entry.LexicalDiscriminator, Headword: item.Entry.Headword, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityGdexScore: item.Quality.GDEXScore, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest, CorpusID: nullableUUIDArg(item.CorpusID), SentenceOrdinal: nullableInt8Arg(item.CorpusID, item.SentenceOrdinal), MeaningEvidenceHash: meaningEvidenceHash}); err != nil {
+	if err := q.InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, LexicalDiscriminator: item.Entry.LexicalDiscriminator, Headword: item.Entry.Headword, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityGdexScore: item.Quality.GDEXScore, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest, CorpusID: nullableUUIDArg(item.CorpusID), SentenceOrdinal: nullableInt8Arg(item.CorpusID, item.SentenceOrdinal), MeaningEvidenceHash: meaningEvidenceHash, PassageContext: item.Entry.PassageContext, PassageCitation: item.Entry.PassageCitation, BrownsonPin: item.Entry.BrownsonPin}); err != nil {
 		return err
 	}
 	if item.Disposition != cardexport.ManifestAccepted {
@@ -608,6 +608,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		item.Entry.SentenceTokens = render.SentenceTokens
 		item.Entry.SentenceStartOffset = render.SentenceStartOffset
 		item.Entry.SourceDocument, item.Entry.Notes = render.SourceDocument, render.Notes
+		item.Entry.PassageContext, item.Entry.PassageCitation, item.Entry.BrownsonPin = model.PassageContext, model.PassageCitation, model.BrownsonPin
 		item.CorpusID = uuidString(model.CorpusID)
 		item.SentenceOrdinal = pgInt8(model.SentenceOrdinal)
 		item.Entry.CorpusID = item.CorpusID

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <fileDesc>
+            <titleStmt><title>Anabasis</title><author>Xenophon</author></titleStmt>
+        </fileDesc>
+        <notesStmt>
+            <note anchored="true">A header note that is never part of a section.</note>
+        </notesStmt>
+    </teiHeader>
+    <text>
+        <body>
+            <div n="urn:cts:greekLit:tlg0032.tlg006.perseus-eng2" type="translation" xml:lang="eng">
+                <div type="textpart" subtype="book" n="1">
+                    <div type="textpart" subtype="chapter" n="1">
+                        <div type="textpart" subtype="section" n="1">
+                            <p>The men <persName>Cyrus</persName> led [into the country]
+                                were Greeks, and <placeName key="perseus,Tarsus">Tarsus</placeName>
+                                was their goal.</p>
+                        </div>
+                    </div>
+                    <div type="textpart" subtype="chapter" n="2">
+                        <div type="textpart" subtype="section" n="16">
+                            <p>A section the reading unit still keeps.</p>
+                        </div>
+                        <div type="textpart" subtype="section" n="17">
+                            <p>He halted his chariot<note anchored="true" resp="Loeb">An
+                                    editor's note that must be removed.</note> in front of the
+                                phalanx and gave orders.</p>
+                        </div>
+                        <div type="textpart" subtype="section" n="18">
+                            <p>As for the barbarians, they were frightened; the Cilician
+                                queen took to flight.</p>
+                        </div>
+                    </div>
+                </div>
+                <div type="textpart" subtype="book" n="2">
+                    <div type="textpart" subtype="chapter" n="1">
+                        <div type="textpart" subtype="section" n="1">
+                            <p>Outside the pinned reading unit.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+    </text>
+</TEI>

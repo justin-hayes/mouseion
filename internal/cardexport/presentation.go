@@ -29,6 +29,13 @@ type CandidateProjection struct {
 	// evidence alone. It resolves no local dictionary entry and freezes no
 	// candidate senses, so a source-evidence deck carries no meaning evidence.
 	SkipMeaningEvidence bool
+	// ReferenceTranslations maps a cited section to its imported English
+	// translation, and ReferencePin is the pin it was imported from. They are
+	// empty for a deck that has no imported reference translation; a Greek
+	// projection resolves its representative sentence's passage context from
+	// them (ADR 0101).
+	ReferenceTranslations map[string]string
+	ReferencePin          string
 }
 
 // WorkItem is one exact external request derived from a frozen deck.
@@ -208,6 +215,7 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, orde
 		entry := cloneEntry(projection.Entry)
 		clearExternalFields(&entry)
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
+		applyPassageContext(&entry, projection)
 		if projection.SkipMeaningEvidence {
 			clearDictionaryFacts(&entry)
 			entries = append(entries, entry)
@@ -219,6 +227,21 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, orde
 		entries = append(entries, entry)
 	}
 	return entries, nil
+}
+
+// applyPassageContext freezes the imported Brownson passage of the sections a
+// representative sentence touches onto an Ancient Greek entry. A deck without
+// imported translations, and every modern-language entry, is left unchanged; a
+// sentence whose touched sections are not all translated keeps no English.
+func applyPassageContext(entry *Entry, projection CandidateProjection) {
+	if !IsAncientGreek(entry.Language) || len(projection.ReferenceTranslations) == 0 {
+		return
+	}
+	sentence, ok := projection.Sentences[entry.SentenceOrdinal]
+	if !ok {
+		return
+	}
+	entry.PassageContext, entry.PassageCitation, entry.BrownsonPin = resolvePassage(sentence.Citations, projection.ReferenceTranslations, projection.ReferencePin)
 }
 
 // bindFrozenCacheKeys gives an externally enriched manifest its exact cache

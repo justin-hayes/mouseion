@@ -14,6 +14,7 @@ type RenderInput struct {
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget     string
 	SentenceTranslationTargets                                                []string
 	TargetWord, Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion string
+	PassageContext, PassageCitation, BrownsonPin                              string
 	OmittedEvidenceCount                                                      int
 	Morphology, SourceDocument, Notes                                         string
 	CandidateSenses                                                           []enrichment.LexicalSense
@@ -31,6 +32,7 @@ func renderInputFromEntry(entry Entry) RenderInput {
 		SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget,
 		TargetWord: entry.TargetWord, Gloss: entry.Gloss, Plural: entry.Plural, IPA: entry.IPA,
 		PrincipalParts: entry.PrincipalParts, DictionaryProviderVersion: entry.DictionaryProviderVersion,
+		PassageContext: entry.PassageContext, PassageCitation: entry.PassageCitation, BrownsonPin: entry.BrownsonPin,
 		OmittedEvidenceCount: entry.OmittedEvidenceCount,
 		Morphology:           entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes,
 		CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),

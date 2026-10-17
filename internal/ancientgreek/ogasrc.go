@@ -289,6 +289,9 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 		Text:     relative.text,
 		Tokens:   tokens,
 		Location: analyzer.SourceLocation{SourceDocumentID: s.unitID, StartOffset: uint64(sentenceStart), EndOffset: sentenceEnd},
+		// The passage context of ADR 0101 needs every section the sentence
+		// touches, so a sentence crossing 1.2.17-18 carries both.
+		Citations: sentenceCitations(sentence),
 	})
 	s.report.Sentences++
 	s.report.Tokens += len(tokens)
@@ -625,6 +628,32 @@ func recordName(stats map[string]nameStat, key string, sentenceInitial, capitali
 		}
 	}
 	stats[key] = stat
+}
+
+// sentenceCitations returns every distinct cited section a source sentence
+// touches, in citation order. A sentence crossing 1.2.17-18 carries both.
+func sentenceCitations(sentence sourceSentence) []string {
+	seen := make(map[string]struct{}, len(sentence.tokens))
+	citations := make([]string, 0, len(sentence.tokens))
+	for _, token := range sentence.tokens {
+		if token.citation == "" {
+			continue
+		}
+		if _, duplicate := seen[token.citation]; duplicate {
+			continue
+		}
+		seen[token.citation] = struct{}{}
+		citations = append(citations, token.citation)
+	}
+	sort.SliceStable(citations, func(i, j int) bool {
+		left, leftOK := parseCitation(citations[i])
+		right, rightOK := parseCitation(citations[j])
+		if !leftOK || !rightOK {
+			return citations[i] < citations[j]
+		}
+		return compareCitation(left, right) < 0
+	})
+	return citations
 }
 
 // parseCitation splits a dotted citation such as "1.10.19" into numbers.

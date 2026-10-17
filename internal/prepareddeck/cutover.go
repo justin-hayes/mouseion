@@ -145,7 +145,7 @@ func effectivePreparedDeckCandidates(preparation domain.DeckPreparation, facts p
 func candidateProjections(preparation domain.DeckPreparation, deckName string, selectedFacts []persistence.PreparedDeckCandidateFacts) []cardexport.CandidateProjection {
 	projections := make([]cardexport.CandidateProjection, 0, len(selectedFacts))
 	for _, fact := range selectedFacts {
-		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: deckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences, RequireContextualGloss: false})
+		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: deckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences, RequireContextualGloss: false, ReferenceTranslations: fact.ReferenceTranslations, ReferencePin: fact.ReferencePin})
 	}
 	return projections
 }
