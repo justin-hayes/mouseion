@@ -114,6 +114,43 @@ func TestAncientGreekRegistrationRefusesLegacyGreekRows(t *testing.T) {
 	assert.Zero(t, languages, "refusal writes no display name")
 }
 
+// TestAncientGreekReRegistrationStillRefusesStrayGreekBook proves a registered
+// learner's re-registration still refuses a grc Book that is not a Reading
+// unit: only rows derived after the first registration are exempt.
+func TestAncientGreekReRegistrationStillRefusesStrayGreekBook(t *testing.T) {
+	ctx, store, pool, _ := ancientGreekHarness(t)
+	learner := createAccount(t, ctx, store, "greek-learner-stray", "learner-password")
+	service := ancientgreek.NewService(store)
+	_, err := service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO books(owner_id, title, metadata_provenance, language_state, language_tag) VALUES ($1, 'Stray Greek', 'catalog_sync', 'chosen', 'grc')`, learner.ID)
+	require.NoError(t, err)
+
+	_, err = service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "owner="+learner.ID+" surface=books count=1")
+}
+
+// TestAncientGreekRegistrationExemptsOnlyRegisteredLearners proves one
+// learner's registration never exempts another learner's legacy Known row.
+func TestAncientGreekRegistrationExemptsOnlyRegisteredLearners(t *testing.T) {
+	ctx, store, pool, _ := ancientGreekHarness(t)
+	registered := createAccount(t, ctx, store, "greek-learner-registered", "learner-password")
+	legacy := createAccount(t, ctx, store, "greek-learner-known", "learner-password")
+	service := ancientgreek.NewService(store)
+	_, err := service.Register(ctx, registered.Username, ancientgreek.AnabasisBook1)
+	require.NoError(t, err)
+	for _, owner := range []string{registered.ID, legacy.ID} {
+		_, err = pool.Exec(ctx, `INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos) VALUES ($1, 'grc', 'λόγοσ', 'NOUN')`, owner)
+		require.NoError(t, err)
+	}
+
+	_, err = service.Register(ctx, legacy.Username, ancientgreek.AnabasisBook1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "owner="+legacy.ID+" surface=known_vocabulary count=1")
+	assert.NotContains(t, err.Error(), "owner="+registered.ID, "the registered learner's own Known row is not legacy")
+}
+
 // ancientGreekHarness provisions one migrated PostgreSQL database, its store,
 // and a web handler wired to it.
 func ancientGreekHarness(t *testing.T) (context.Context, *persistence.PostgresStore, *pgxpool.Pool, *Handler) {

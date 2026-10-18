@@ -182,6 +182,13 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	var known int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='grc'`, learner.ID).Scan(&known))
 	assert.Zero(t, known, "preparing a deck never marks vocabulary Known")
+
+	// The operator can re-run registration after reading and preparing: the
+	// learner's own tokens, vocabulary and deck rows are not legacy rows.
+	again, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	require.NoError(t, err, "re-registering after deck preparation is not refused")
+	assert.False(t, again.Created)
+	assert.Equal(t, registration.BookID, again.BookID)
 }
 
 // TestAncientGreekDeckSentenceQualityOmissionWithoutProvider proves a Greek deck

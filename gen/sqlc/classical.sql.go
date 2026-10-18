@@ -98,6 +98,12 @@ func (q *Queries) ListBookReadingUnits(ctx context.Context, arg ListBookReadingU
 }
 
 const listLegacyLanguageRows = `-- name: ListLegacyLanguageRows :many
+WITH registered_owners AS (
+    SELECT DISTINCT bru.owner_id
+    FROM book_reading_units bru
+    JOIN books b ON b.owner_id = bru.owner_id AND b.id = bru.book_id
+    WHERE b.language_tag = $1
+)
 SELECT t.owner_id, t.surface, count(*)::bigint AS row_count
 FROM (
     SELECT b.owner_id::text AS owner_id, 'books'::text AS surface
@@ -119,6 +125,7 @@ FROM (
     SELECT ct.owner_id::text, 'corpus_tokens'::text
     FROM corpus_tokens ct
     WHERE ct.language = $1
+      AND ct.owner_id NOT IN (SELECT owner_id FROM registered_owners)
     UNION ALL
     SELECT pg.owner_id::text, 'primary_goals'::text
     FROM primary_goals pg
@@ -131,30 +138,37 @@ FROM (
     SELECT kv.owner_id::text, 'known_vocabulary'::text
     FROM known_vocabulary kv
     WHERE kv.language = $1
+      AND kv.owner_id NOT IN (SELECT owner_id FROM registered_owners)
     UNION ALL
     SELECT vs.owner_id::text, 'vocabulary_states'::text
     FROM vocabulary_states vs
     WHERE vs.language = $1
+      AND vs.owner_id NOT IN (SELECT owner_id FROM registered_owners)
     UNION ALL
     SELECT gv.owner_id::text, 'generated_vocabulary'::text
     FROM generated_vocabulary gv
     WHERE gv.language = $1
+      AND gv.owner_id NOT IN (SELECT owner_id FROM registered_owners)
     UNION ALL
     SELECT sc.owner_id::text, 'selection_candidates'::text
     FROM selection_candidates sc
     WHERE sc.language = $1
+      AND sc.owner_id NOT IN (SELECT owner_id FROM registered_owners)
     UNION ALL
     SELECT d.owner_id::text, 'decks'::text
     FROM decks d
     WHERE d.language = $1
+      AND d.owner_id NOT IN (SELECT owner_id FROM registered_owners)
     UNION ALL
     SELECT dpv.owner_id::text, 'deck_preparation_vocabulary'::text
     FROM deck_preparation_vocabulary dpv
     WHERE dpv.language = $1
+      AND dpv.owner_id NOT IN (SELECT owner_id FROM registered_owners)
     UNION ALL
     SELECT dpmi.owner_id::text, 'deck_preparation_manifest_items'::text
     FROM deck_preparation_manifest_items dpmi
     WHERE dpmi.language = $1
+      AND dpmi.owner_id NOT IN (SELECT owner_id FROM registered_owners)
 ) t
 GROUP BY t.owner_id, t.surface
 ORDER BY t.owner_id, t.surface
@@ -168,7 +182,10 @@ type ListLegacyLanguageRowsRow struct {
 
 // Rows carrying a language identity that predate the classical registration.
 // A Book already associated with a Reading unit, and the source materials
-// pointing at it, are this feature's own data and are not legacy.
+// pointing at it, are this feature's own data and are not legacy. A learner's
+// first registration passes only when they own no such rows, so every derived
+// row (tokens, Known, vocabulary, candidates, decks) a registered learner owns
+// was written by this feature: an operator re-import is not refused by them.
 func (q *Queries) ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error) {
 	rows, err := q.db.Query(ctx, listLegacyLanguageRows, languageTag)
 	if err != nil {
