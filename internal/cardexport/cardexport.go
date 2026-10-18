@@ -50,6 +50,11 @@ type Entry struct {
 	SentenceStartOffset                               uint64
 	FirstEncounter                                    int64
 	fallbackGlossApplied                              bool
+	// LSJSummaryProviderVersion is the provider version of the LSJ sense
+	// summary the entry's pinned LSJ entry may be condensed by. It is frozen at
+	// freeze time and is empty when the summary is not offered, so no summary is
+	// requested or shown (ADR 0101).
+	LSJSummaryProviderVersion string
 	// ProviderProposed marks a render entry built by the Ancient Greek
 	// evidence-assisted pass. Its contextual Gloss, sentence translation and
 	// English target alignment are provider-proposed and labelled as such; the
@@ -61,8 +66,12 @@ type Note struct {
 	Key, Identity, Text, Article, Lemma, Gender, Plural, IPA, PrincipalParts, POS, Gloss, English, EnglishSentence, BookTitle string
 	PassageLabel, PassageText                                                                                                 string
 	DictionaryEntry                                                                                                           string
-	BackExtra                                                                                                                 string
-	Tags                                                                                                                      []string
+	// LSJSenseSummary is Mouseion-composed HTML for a provider-written LSJ sense
+	// summary, shown above the full LSJ entry it condenses and never replacing
+	// it. Its text pieces are already escaped.
+	LSJSenseSummary string
+	BackExtra       string
+	Tags            []string
 }
 
 type Artifact struct {
@@ -1247,6 +1256,9 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		// DictionaryEntry is Mouseion-composed HTML whose text pieces are already
 		// escaped, so it is embedded as is rather than escaped again.
 		DictionaryEntry: input.DictionaryEntry, Tags: tags,
+		// LSJSenseSummary is Mouseion-composed HTML whose text pieces are already
+		// escaped, so it is embedded as is rather than escaped again.
+		LSJSenseSummary: input.LSJSenseSummary,
 	}
 	if strings.TrimSpace(input.PassageContext) != "" && strings.TrimSpace(input.PassageCitation) != "" {
 		note.PassageLabel = escapeField(passageContextLabel(input.PassageCitation))
@@ -1331,7 +1343,7 @@ func RenderTSV(notes []Note, attribution string) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Gender, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText, n.DictionaryEntry}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Gender, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText, n.DictionaryEntry, n.LSJSenseSummary}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
@@ -1349,7 +1361,7 @@ func labelledProviderProposed(value string) string {
 	return escapeField(providerProposedLabel) + value
 }
 
-var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Gender", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry"}
+var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Gender", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry", "LSJSenseSummary"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)

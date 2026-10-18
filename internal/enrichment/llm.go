@@ -26,8 +26,13 @@ const (
 	// resolved contextual Gloss with a sentence translation and target
 	// alignment, or an explicit abstention (ADR 0101).
 	evidenceAssistedPassPromptVersion = "translation-v16-evidence-assisted-greek"
-	llmReasoningEffortEnv             = "MOUSEION_LLM_REASONING_EFFORT"
-	llmReasoningSupportEnv            = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
+	// lsjSenseSummaryPromptVersion pins the strict Ancient Greek LSJ sense
+	// summary contract: the pinned LSJ entry alone (headword, sense IDs and
+	// English glosses), and a few short lines each citing sense IDs that exist
+	// in that entry (ADR 0101).
+	lsjSenseSummaryPromptVersion = "translation-v17-lsj-sense-summary-greek"
+	llmReasoningEffortEnv        = "MOUSEION_LLM_REASONING_EFFORT"
+	llmReasoningSupportEnv       = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )
 
 // LLMConfig is the administrator-controlled configuration for the external

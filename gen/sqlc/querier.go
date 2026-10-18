@@ -165,6 +165,11 @@ type Querier interface {
 	GetGeneratedVocabulary(ctx context.Context, arg GetGeneratedVocabularyParams) (GetGeneratedVocabularyRow, error)
 	GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error)
 	GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error)
+	// Per-entry cache for the provider-written Ancient Greek LSJ sense summary
+	// (ADR 0101, ticket #2172). Its identity is the LSJ pin, the entry's native
+	// identity and the provider prompt version; it carries no learner identity and
+	// no Book data.
+	GetLSJSenseSummary(ctx context.Context, arg GetLSJSenseSummaryParams) ([]byte, error)
 	GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error)
 	GetMyBookCompletionSummary(ctx context.Context, arg GetMyBookCompletionSummaryParams) (GetMyBookCompletionSummaryRow, error)
 	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)
@@ -267,6 +272,7 @@ type Querier interface {
 	// POS and discriminator). The domain decides which identities they cover.
 	ListKnownVocabularyForCurrentReadingSnapshot(ctx context.Context, arg ListKnownVocabularyForCurrentReadingSnapshotParams) ([]ListKnownVocabularyForCurrentReadingSnapshotRow, error)
 	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
+	ListLSJSenseSummariesByPins(ctx context.Context, pins []string) ([]ListLSJSenseSummariesByPinsRow, error)
 	// Rows carrying a language identity that predate the classical registration.
 	// A Book already associated with a Reading unit, and the source materials
 	// pointing at it, are this feature's own data and are not legacy. A learner's
@@ -402,6 +408,7 @@ type Querier interface {
 	UpsertEdition(ctx context.Context, arg UpsertEditionParams) (UpsertEditionRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error
 	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)
+	UpsertLSJSenseSummary(ctx context.Context, arg UpsertLSJSenseSummaryParams) error
 	UpsertReadingUnit(ctx context.Context, arg UpsertReadingUnitParams) (UpsertReadingUnitRow, error)
 	// Operator-imported reference translations (Brownson's Anabasis translation in
 	// the Perseus perseus-eng2 digitisation), keyed by citation. The prepared-deck

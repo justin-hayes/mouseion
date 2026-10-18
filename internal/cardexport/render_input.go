@@ -16,13 +16,19 @@ type RenderInput struct {
 	TargetWord, Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion string
 	PassageContext, PassageCitation, BrownsonPin                              string
 	DictionaryEntry, DictionaryEntryID, DictionaryPin                         string
-	OmittedEvidenceCount                                                      int
-	Morphology, SourceDocument, Notes                                         string
-	CandidateSenses                                                           []enrichment.LexicalSense
-	SentenceTokens                                                            []analyzer.Token
-	SentenceStartOffset                                                       uint64
-	FirstEncounter                                                            int64
-	fallbackGlossApplied                                                      bool
+	// LSJSummaryProviderVersion is the frozen provider version of the LSJ sense
+	// summary this entry's LSJ entry may be condensed by (empty when not
+	// offered), and LSJSenseSummary is that summary's rendered HTML, resolved at
+	// finalization from the per-entry cache. The summary is shown above the full
+	// entry and never replaces it (ADR 0101).
+	LSJSummaryProviderVersion, LSJSenseSummary string
+	OmittedEvidenceCount                       int
+	Morphology, SourceDocument, Notes          string
+	CandidateSenses                            []enrichment.LexicalSense
+	SentenceTokens                             []analyzer.Token
+	SentenceStartOffset                        uint64
+	FirstEncounter                             int64
+	fallbackGlossApplied                       bool
 	// ProviderProposed marks a render input whose optional Gloss, sentence
 	// translation and English target alignment come from the Ancient Greek
 	// evidence-assisted pass and must be labelled provider-proposed. The pass
@@ -40,8 +46,9 @@ func renderInputFromEntry(entry Entry) RenderInput {
 		PrincipalParts: entry.PrincipalParts, DictionaryProviderVersion: entry.DictionaryProviderVersion,
 		PassageContext: entry.PassageContext, PassageCitation: entry.PassageCitation, BrownsonPin: entry.BrownsonPin,
 		DictionaryEntry: entry.DictionaryEntry, DictionaryEntryID: entry.DictionaryEntryID, DictionaryPin: entry.DictionaryPin,
-		OmittedEvidenceCount: entry.OmittedEvidenceCount,
-		Morphology:           entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes,
+		LSJSummaryProviderVersion: entry.LSJSummaryProviderVersion,
+		OmittedEvidenceCount:      entry.OmittedEvidenceCount,
+		Morphology:                entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes,
 		CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
 		SentenceTokens:  cloneTokens(entry.SentenceTokens), SentenceStartOffset: entry.SentenceStartOffset,
 		FirstEncounter:       entry.FirstEncounter,

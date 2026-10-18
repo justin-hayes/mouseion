@@ -464,6 +464,14 @@ func (p *BatchPlanner) planEvidenceAssistedRun(ctx context.Context, preparation 
 	if err := enrichment.AllowExternalProviderCall(p.assessments(), projections[0].Candidate.Language, provider, p.Codec.EvidenceAssistedPassPromptContract(), enrichment.EvidenceAssistedPassPayloadFields()); err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, err
 	}
+	// The context-free LSJ sense summary is a second, separately assessed
+	// payload. It is offered only while its own matching assessment is recorded,
+	// and it rides along with the pass: when it is not offered the pass deck is
+	// unchanged and no summary is requested (ADR 0101).
+	summaryVersion := ""
+	if enrichment.LSJSenseSummaryOffered(p.assessments()) && enrichment.AllowExternalProviderCall(p.assessments(), projections[0].Candidate.Language, provider, p.Codec.LSJSenseSummaryPromptContract(), enrichment.LSJSenseSummaryPayloadFields()) == nil {
+		summaryVersion = p.Codec.LSJSenseSummaryProviderVersion()
+	}
 	config := persistence.PreparedDeckRunConfig{
 		ExternalTranslationConsent:    true,
 		ExternalTranslationConfigured: true,
@@ -485,6 +493,7 @@ func (p *BatchPlanner) planEvidenceAssistedRun(ctx context.Context, preparation 
 		projections[i].RequireContextualGloss = false
 		projections[i].SkipMeaningEvidence = true
 		projections[i].EvidenceAssistedPass = true
+		projections[i].LSJSummaryProviderVersion = summaryVersion
 	}
 	deck, _, err := p.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections)
 	if err != nil {

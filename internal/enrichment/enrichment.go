@@ -85,6 +85,16 @@ type TranslationRequest struct {
 	// pinned LSJ senses with their native IDs. The pass can only add to a card,
 	// so an abstaining or failed answer is not an omission (ADR 0101).
 	RequireEvidenceAssistedPass bool `json:"-"`
+	// RequireLSJSenseSummary marks the context-free Ancient Greek LSJ sense
+	// summary contract: the pinned LSJ entry alone, with no representative
+	// sentence and no learner data. Its payload is only the entry's headword,
+	// sense IDs and English glosses, and it is cached per (LSJ pin, entry ID,
+	// prompt version) (ADR 0101).
+	RequireLSJSenseSummary bool `json:"-"`
+	// Headword and LSJSenses are the pinned LSJ entry the sense summary
+	// condenses. They are transmitted only under RequireLSJSenseSummary.
+	Headword  string                 `json:"-"`
+	LSJSenses []LSJSenseSummarySense `json:"-"`
 }
 type TranslationResponse struct {
 	// ItemID is the stable translation item identity a contextual Gloss
@@ -103,6 +113,9 @@ type TranslationResponse struct {
 	SenseOrder                 []int    `json:"sense_order"`
 	FallbackGloss              string   `json:"fallback_gloss"`
 	Warnings                   []string `json:"-"`
+	// SenseSummary is the provider-written LSJ sense summary an
+	// LSJ-sense-summary request resolves. It is empty for every other contract.
+	SenseSummary []LSJSenseSummaryLine `json:"-"`
 }
 
 // TranslationUsage is the bounded usage portion of a provider response. It

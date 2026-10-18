@@ -22,7 +22,7 @@ func TestManifestSnapshotRetainsHistoricalDigestAndRenderParity(t *testing.T) {
 	snapshot := bound.Snapshot()
 	digest, err := snapshot.Digest()
 	require.NoError(t, err)
-	assert.Equal(t, "5bc3277c895ce3491ae737750b29c86c0baa26ce3629d83fd0afd6e0e2d655c2", digest)
+	assert.Equal(t, "ce8afd5eaaf3c50aeaa06f3bd70d75ccae4439aabdd6444be7f791cd69f2ed98", digest)
 
 	historicalV10 := snapshot
 	historicalV10.SchemaVersion = ManifestSchemaVersionV10
@@ -35,7 +35,7 @@ func TestManifestSnapshotRetainsHistoricalDigestAndRenderParity(t *testing.T) {
 	v9Digest, err := historicalV9.Digest()
 	require.NoError(t, err)
 	assert.Equal(t, "44c23bc1f640e6389c0cf995190a1bb46f09b22acc6f6c2a34d3c6a949153d80", v9Digest, "the v9 digest stays stable")
-	assert.NotEqual(t, v9Digest, digest, "v11 adds the frozen dictionary-entry fields")
+	assert.NotEqual(t, v9Digest, digest, "v12 adds the frozen LSJ sense summary provider version")
 
 	rebuilt, err := manifestFromSnapshot(snapshot)
 	require.NoError(t, err)

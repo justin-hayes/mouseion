@@ -61,11 +61,38 @@ var evidenceAssistedPassAssessment = ProviderAssessment{
 	Recorded:    true,
 }
 
+// lsjSenseSummaryAssessment is the reviewed personal-use disposition for the
+// exact Ancient Greek LSJ sense summary payload: the pinned LSJ entry's
+// headword, its sense IDs and its English glosses alone. Justin must review that
+// payload and record the disposition on #2172 before any call is transmitted.
+// Recorded stays false until then, so no summary is requested and every Greek
+// card keeps its full LSJ entry (ADR 0101).
+//
+// The transport is the configured OpenAI-compatible Chat Completions endpoint.
+// No learner identity, Book title, representative sentence, whole Book, raw
+// annotation, lexical discriminator or Brownson passage is transmitted.
+//
+// PromptVersion and Fields are written out as the recorded literals, not taken
+// from the codec, so the record is a real pin: changing the prompt contract or
+// the payload without re-recording the disposition fails the gate and sends
+// nothing.
+var lsjSenseSummaryAssessment = ProviderAssessment{
+	Language:      "grc",
+	Provider:      "openai-compatible",
+	PromptVersion: "translation-v17-lsj-sense-summary-greek",
+	Fields: []string{
+		"item_id", "headword", "senses",
+	},
+	Disposition: "awaiting Justin's review of the LSJ sense summary payload (#2172)",
+	Ticket:      "#2172",
+	Recorded:    false,
+}
+
 // ProviderAssessments returns the compiled reviewed personal-use payload
 // assessments. A caller that can install a recorded assessment for a test
 // passes its own set to AllowExternalProviderCall instead.
 func ProviderAssessments() []ProviderAssessment {
-	return []ProviderAssessment{evidenceAssistedPassAssessment}
+	return []ProviderAssessment{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment}
 }
 
 // Gate reports whether a language's provider call may proceed. A language the
@@ -92,12 +119,27 @@ func (a ProviderAssessment) Gate(language, provider, promptVersion string, field
 // provider call. The prepared-deck pass consults it when it freezes a run: a
 // frozen run is immutable, so revoking a recorded assessment later never
 // rewrites a deck that was already planned. A language with no recorded
-// assessment is unaffected.
+// assessment is unaffected. A language may carry several assessed payloads (the
+// evidence-assisted pass and the LSJ sense summary), so a call is allowed when
+// any assessment for its language matches it, and fails closed only when the
+// language is assessed but none of its assessments matches.
 func AllowExternalProviderCall(assessments []ProviderAssessment, language, provider, promptVersion string, fields []string) error {
-	for _, assessment := range assessments {
-		if err := assessment.Gate(language, provider, promptVersion, fields); err != nil {
-			return err
+	covered := false
+	var lastErr error
+	for i := range assessments {
+		assessment := assessments[i]
+		if !sameAssessmentLanguage(language, assessment.Language) {
+			continue
 		}
+		covered = true
+		if err := assessment.Gate(language, provider, promptVersion, fields); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+	if covered {
+		return lastErr
 	}
 	return nil
 }
@@ -108,6 +150,18 @@ func AllowExternalProviderCall(assessments []ProviderAssessment, language, provi
 func EvidenceAssistedPassOffered(assessments []ProviderAssessment) bool {
 	for _, assessment := range assessments {
 		if assessment.Recorded && sameAssessmentLanguage(assessment.Language, evidenceAssistedPassAssessment.Language) && assessment.Provider == evidenceAssistedPassAssessment.Provider && assessment.PromptVersion == evidenceAssistedPassPromptVersion && slices.Equal(assessment.Fields, EvidenceAssistedPassPayloadFields()) {
+			return true
+		}
+	}
+	return false
+}
+
+// LSJSenseSummaryOffered reports whether a matching recorded assessment makes
+// the LSJ sense summary available. While it is false the summary does not run
+// and nothing is sent for it (ADR 0101).
+func LSJSenseSummaryOffered(assessments []ProviderAssessment) bool {
+	for _, assessment := range assessments {
+		if assessment.Recorded && sameAssessmentLanguage(assessment.Language, lsjSenseSummaryAssessment.Language) && assessment.Provider == lsjSenseSummaryAssessment.Provider && assessment.PromptVersion == lsjSenseSummaryPromptVersion && slices.Equal(assessment.Fields, LSJSenseSummaryPayloadFields()) {
 			return true
 		}
 	}
