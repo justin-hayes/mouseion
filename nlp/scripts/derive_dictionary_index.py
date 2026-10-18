@@ -722,21 +722,81 @@ def lsj_citation(bibl) -> str:
     return " ".join(parts) if parts else urn
 
 
-def collect_sense_content(element, glosses: list[str], citations: list[str]) -> None:
+# LSJ also marks cognates with <tr>: after a language abbreviation, usually in
+# the closing "(Cf. Skt. ..., Lat. ...)" etymology. Those are not English glosses.
+LSJ_COGNATE_LANGUAGE = re.compile(
+    r"\b(?:Skt|Lat|Lith|Goth|Engl|OE|OHG|Slav|Arm|OIr|Umbr|Osc|Russ|Icel|Av|Hitt)\.?\s*$"
+)
+LSJ_COGNATE_LANGUAGE_ANYWHERE = re.compile(
+    r"\b(?:Skt|Lat|Lith|Goth|Engl|OE|OHG|Slav|Arm|OIr|Umbr|Osc|Russ|Icel|Av|Hitt)\."
+)
+LSJ_ETYMOLOGY_NOTE = re.compile(r"\(\s*Cf\.")
+LSJ_GLOSS_TRIM = " \t\n,;:"
+
+
+def open_parenthesis(flow: str) -> str:
+    """Return the text of the innermost still-open parenthesis, or ''."""
+    starts: list[int] = []
+    for index, character in enumerate(flow):
+        if character == "(":
+            starts.append(index)
+        elif character == ")" and starts:
+            starts.pop()
+    return flow[starts[0] :] if starts else ""
+
+
+def is_cognate(flow: str) -> bool:
+    """Report whether a <tr> preceded by flow is a cognate, not an English gloss."""
+    if LSJ_COGNATE_LANGUAGE.search(flow):
+        return True
+    parenthesis = open_parenthesis(flow)
+    # A capitalised "(Cf." opens LSJ's closing etymology note.
+    return bool(LSJ_ETYMOLOGY_NOTE.match(parenthesis)) or bool(
+        LSJ_COGNATE_LANGUAGE_ANYWHERE.search(parenthesis)
+    )
+
+
+def clean_gloss(text: str) -> str:
+    """Trim list punctuation; a gloss with no letters is dropped."""
+    text = text.strip(LSJ_GLOSS_TRIM)
+    return text if any(character.isalpha() for character in text) else ""
+
+
+def collect_gloss(tr, glosses: list[str], flow: list[str]) -> None:
+    """Append one <tr> as a gloss unless it is a cognate or only punctuation."""
+    text = element_text(tr)
+    cleaned = "" if is_cognate("".join(flow)) else clean_gloss(text)
+    if cleaned:
+        glosses.append(cleaned)
+    flow.append(text)
+
+
+def collect_sense_content(
+    element, glosses: list[str], citations: list[str], flow: list[str] | None = None
+) -> None:
+    # flow accumulates the sense's own text in document order so each <tr> can be
+    # judged by what precedes it.
+    if flow is None:
+        flow = []
+    if element.text:
+        flow.append(element.text)
     for child in element:
         if child.tag == "sense":
-            continue
-        if child.tag == "tr":
-            text = element_text(child)
-            if text:
-                glosses.append(text)
-            continue
-        if child.tag == "bibl":
+            pass
+        elif child.tag == "tr":
+            collect_gloss(child, glosses, flow)
+        elif child.tag == "bibl":
             citation = lsj_citation(child)
             if citation:
                 citations.append(citation)
-            continue
-        collect_sense_content(child, glosses, citations)
+        elif child.get("lang") == "greek":
+            # Beta Code writes rough breathing as "(", so Greek text stays out of
+            # the flow that parenthesis tracking reads.
+            collect_sense_content(child, glosses, citations, [])
+        else:
+            collect_sense_content(child, glosses, citations, flow)
+        if child.tail:
+            flow.append(child.tail)
 
 
 def dedupe(values: list[str]) -> list[str]:

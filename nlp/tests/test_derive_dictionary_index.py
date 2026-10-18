@@ -10,6 +10,7 @@ import stat
 import sys
 from datetime import date
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -833,6 +834,26 @@ def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path
     assert senses[0]["senses"][0]["id"] == "n1.0.1"
     assert senses[0]["senses"][0]["level"] == 3
     assert senses[0]["senses"][0]["glosses"] == ["account"]
+
+
+def test_lsj_glosses_skip_etymology_cognates_and_punctuation():
+    module = load_script()
+    # A literal synthetic fixture, not untrusted input.
+    sense = ElementTree.fromstring(  # noqa: S314
+        '<sense id="n4.0" n="4" level="2">of things, <tr>to be produced</tr>, '
+        '<tr>;</tr> <foreign lang="greek">ta\\ h(me/ras</foreign> Lat. stuff '
+        "<tr>dues,</tr> and <tr> it is done, </tr> "
+        "(Cf. Skt. <tr>jánati</tr> 'procreate', <tr>jánas</tr> ( = ge/nos ), "
+        "Lat. <tr>gigno, gnatus.</tr>) then <tr>come to pass</tr>; "
+        "= Lat. <tr>decuria</tr> (Cf. <tr>vasnás</tr> 'price')</sense>"
+    )
+
+    derived = module.lsj_sense(sense)
+
+    # Cognates (after a language abbreviation, or inside a parenthesis that
+    # names one) are not English glosses; punctuation is trimmed and a
+    # punctuation-only gloss is dropped. Source order is kept.
+    assert derived["glosses"] == ["to be produced", "dues", "it is done", "come to pass"]
 
 
 def test_without_lsj_dir_the_index_stays_at_the_french_format(tmp_path: Path):
