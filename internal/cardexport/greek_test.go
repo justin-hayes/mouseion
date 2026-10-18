@@ -8,42 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The Ancient Greek rubric keeps the generic text criteria but accepts the
-// source's own sentence terminators and does not require a capitalised first
-// letter, because Greek editions start sentences in lowercase.
-func TestAncientGreekSentenceBoundariesAcceptSourceTerminators(t *testing.T) {
-	const body = "ἔδει γὰρ αὐτὸν δῆσαι τὸν ἵππον πρὸς τὸ δένδρον"
-	tests := []struct {
-		name     string
-		sentence string
-		accepted bool
-	}{
-		{name: "full stop", sentence: body + ".", accepted: true},
-		{name: "ascii question mark", sentence: body + ";", accepted: true},
-		{name: "greek question mark", sentence: body + "\u037e", accepted: true},
-		{name: "raised dot", sentence: body + "·", accepted: true},
-		{name: "ano teleia", sentence: body + "\u0387", accepted: true},
-		{name: "no terminator", sentence: body, accepted: false},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			quality := scoreSentenceQuality("grc", tc.sentence, "δῆσαι", 10, nil, 0)
-			assert.Equal(t, tc.accepted, quality.Accepted, "quality=%+v", quality)
-			if tc.accepted {
-				assert.NotContains(t, quality.Reasons, "incomplete sentence boundaries")
-			}
-		})
-	}
-}
-
-// The capitalised-start requirement stays in force for every other language.
-func TestLowercaseStartStillRejectedOutsideAncientGreek(t *testing.T) {
-	const sentence = "unter dem alten haus spielen heute viele fröhliche kinder."
-	quality := scoreSentenceQuality("de", sentence, "haus", 10, nil, 0)
-	assert.False(t, quality.Accepted)
-	assert.Contains(t, quality.Reasons, "incomplete sentence boundaries")
-}
-
 // Homographs that share a lemma and part of speech must produce separate cards,
 // separate deduplication keys and separate exported identities.
 func TestHomographsProduceSeparateCards(t *testing.T) {

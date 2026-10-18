@@ -4,11 +4,13 @@ Status: Implemented · Date: 2026-09-12 · Updated: 2026-09-15
 
 ## Motivation
 
-The recognition-card export gate (`ScoreSentenceQuality` in card export) scores
-a candidate sentence from its text, target surface, source location, and, for
-German candidates, persisted dependency data. It can reject fragments without a
-finite verb and subject and rank accepted examples by a deterministic GDEX-style
-score. ADR 0020 deferred sentence-quality scoring; this feature implements it.
+The sentence-quality gate (the `sentencequality` package, shared by the prepared
+deck and the Reading freeze — [ADR 0106](../adr/0106-reading-freeze-applies-sentence-quality-gate.md))
+scores a candidate sentence from its text, target surface, source location, and,
+for German candidates, persisted dependency data. It can reject fragments
+without a finite verb and subject and rank accepted examples by a deterministic
+GDEX-style score. ADR 0020 deferred sentence-quality scoring; this feature
+implements it.
 
 The GDEX (Good Dictionary Examples) rubric
 ([zentrum-lexikographie/gdex](https://github.com/zentrum-lexikographie/gdex))
@@ -31,10 +33,10 @@ and Italian candidates use the generic deterministic rubric.
 
 ## Scope
 
-- **Derivation at export time**: card export reads the candidate sentences'
-  tokens and dependency structure from the persisted corpus (sentence ordinal
-  ↔ `sentence_ordinal`), batches them, and scores on the fly. Rubric changes
-  apply retroactively to existing analyses on re-export.
+- **Derivation at export time**: the sentence-quality module reads the candidate
+  sentences' tokens and dependency structure from the persisted corpus (sentence
+  ordinal ↔ `sentence_ordinal`), batches them, and scores on the fly. Rubric
+  changes apply retroactively to existing analyses on re-export.
 - **Gate**: `ScoreSentenceQuality` gains finite-verb-and-subject as a rejection
   reason; the existing length, boundary, target-presence, location, and
   structural-noise criteria are unchanged.

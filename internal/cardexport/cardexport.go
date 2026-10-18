@@ -11,10 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"math"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -23,8 +21,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/gdex"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
+	"github.com/justin-hayes/mouseion/internal/sentencequality"
 	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
 
@@ -131,24 +129,10 @@ type Omission struct {
 	Reasons                        []string
 }
 
-type SentenceQuality struct {
-	Accepted  bool
-	Score     int
-	Reasons   []string
-	GDEXScore float64
-}
-
-type SentenceEvidence struct {
-	Sentence, Target string
-	CorpusID         string
-	FirstEncounter   int64
-	SentenceOrdinal  int64
-	Quality          SentenceQuality
-	Tokens           []analyzer.Token
-	// SentenceStartOffset is the persisted sentence's document-absolute start
-	// offset in Unicode code points, used to anchor a target on token offsets.
-	SentenceStartOffset uint64
-}
+// SentenceQuality is sentencequality.SentenceQuality. It stays a cardexport
+// type alias so the frozen manifest, persistence and presentation keep their
+// existing types while the gate itself lives in the shared module (ADR 0106 §2).
+type SentenceQuality = sentencequality.SentenceQuality
 
 type lexicalResolver struct {
 	lexical enrichment.LexicalProvider
@@ -223,7 +207,7 @@ func boldTargets(sentence string, targets []string, tokens []analyzer.Token, sen
 		if target == "" {
 			continue
 		}
-		start, end, ok := targetSpan(sentence, target, tokens, sentenceStartOffset)
+		start, end, ok := sentencequality.TargetSpan(sentence, target, tokens, sentenceStartOffset)
 		if !ok {
 			continue
 		}
@@ -407,469 +391,10 @@ func escapeField(value string) string {
 	return strings.ReplaceAll(value, "}", "&#125;")
 }
 
-const (
-	minimumSentenceWords         = 6
-	maximumSentenceWords         = 50
-	maximumSentenceCharacters    = 400
-	minimumSentenceScore         = 70
-	reasonNoFiniteVerbAndSubject = "no finite verb and subject"
-)
-
-// ScoreSentenceQuality applies a deliberately small, explainable export gate
-// using only sentence text, the selected target form, and source location.
-func ScoreSentenceQuality(sentence, target string, firstEncounter int64) SentenceQuality {
-	return scoreSentenceQuality("", sentence, target, firstEncounter, nil, 0)
-}
-
-func scoreSentenceQuality(language, sentence, target string, firstEncounter int64, tokens []analyzer.Token, sentenceStartOffset uint64) SentenceQuality {
-	text := strings.TrimSpace(sentence)
-	quality := SentenceQuality{Reasons: make([]string, 0, 8)}
-	scoreLengthQuality(&quality, text)
-	scoreTargetQuality(&quality, text, target, tokens, sentenceStartOffset)
-	scoreSourceLocationQuality(&quality, firstEncounter)
-	scoreBoundaryQuality(&quality, language, text)
-	scoreStructuralNoiseQuality(&quality, text)
-	scoreGermanGDEXQuality(language, &quality, text, target, tokens)
-	quality.Accepted = quality.Score >= minimumSentenceScore && !containsRejection(quality.Reasons)
-	return quality
-}
-
-// award grants points and records the matching acceptance reason.
-func (quality *SentenceQuality) award(points int, reason string) {
-	quality.Score += points
-	quality.Reasons = append(quality.Reasons, reason)
-}
-
-// reject records a rejection reason without changing the score.
-func (quality *SentenceQuality) reject(reason string) {
-	quality.Reasons = append(quality.Reasons, reason)
-}
-
-// scoreLengthQuality applies the length gate: a fragmented or over-long
-// sentence is rejected, otherwise it earns the base score and a context bonus
-// when its word count sits in the useful window.
-func scoreLengthQuality(quality *SentenceQuality, text string) {
-	words := strings.Fields(text)
-	if !utf8.ValidString(text) || len(words) < minimumSentenceWords {
-		quality.reject("too short or fragmented")
-		return
-	}
-	if sentenceTooLong(text) {
-		quality.reject("too long")
-		return
-	}
-	quality.award(30, "usable length")
-	if len(words) >= 8 && len(words) <= 30 {
-		quality.award(10, "useful context window")
-	}
-}
-
-// scoreTargetQuality requires the selected target to appear as a whole word.
-func scoreTargetQuality(quality *SentenceQuality, text, target string, tokens []analyzer.Token, sentenceStartOffset uint64) {
-	if targetIndex(text, strings.TrimSpace(target), tokens, sentenceStartOffset) < 0 {
-		quality.reject("target not present as a word")
-		return
-	}
-	quality.award(25, "target present")
-}
-
-// scoreSourceLocationQuality requires a valid first-encounter offset.
-func scoreSourceLocationQuality(quality *SentenceQuality, firstEncounter int64) {
-	if firstEncounter < 0 || firstEncounter == math.MaxInt64 {
-		quality.reject("invalid source location")
-		return
-	}
-	quality.award(15, "valid source location")
-}
-
-// scoreBoundaryQuality requires a terminal sentence boundary and, for
-// languages that capitalise sentences, a capitalised or quoted start.
-func scoreBoundaryQuality(quality *SentenceQuality, language, text string) {
-	if !hasCompleteBoundary(language, text) {
-		quality.reject("incomplete sentence boundaries")
-		return
-	}
-	quality.award(20, "complete sentence boundaries")
-}
-
-// scoreStructuralNoiseQuality rejects headings, boilerplate and extraction
-// anomalies that pass the length gate.
-func scoreStructuralNoiseQuality(quality *SentenceQuality, text string) {
-	if structuralNoise(text) {
-		quality.reject("structural noise or boilerplate")
-		return
-	}
-	quality.award(10, "no obvious structural noise")
-}
-
-// scoreGermanGDEXQuality overlays the German GDEX grader. It contributes the
-// grader score and merges its reasons, and a rejected grade zeroes the score.
-// Other languages, and calls without a dependency parse, keep only the text
-// criteria scored above.
-func scoreGermanGDEXQuality(language string, quality *SentenceQuality, text, target string, tokens []analyzer.Token) {
-	if tokens == nil || !isGerman(language) {
-		return
-	}
-	gdexQuality := gdex.ScoreSentenceQuality(analyzer.Sentence{Text: text, Tokens: tokens}, gdexTargetIndices(target, tokens))
-	quality.GDEXScore = gdexQuality.Score
-	for _, reason := range gdexQuality.Reasons {
-		if !slices.Contains(quality.Reasons, reason) {
-			quality.Reasons = append(quality.Reasons, reason)
-		}
-	}
-	if !gdexQuality.Accepted {
-		quality.Score = 0
-		if !slices.Contains(quality.Reasons, reasonNoFiniteVerbAndSubject) {
-			quality.Reasons = append(quality.Reasons, reasonNoFiniteVerbAndSubject)
-		}
-	}
-}
-
-// gdexTargetIndices reports the token ordinals whose lexical surface matches the
-// selected target.
-func gdexTargetIndices(target string, tokens []analyzer.Token) []int {
-	targetIndices := make([]int, 0, 1)
-	cleanTarget := textmatch.CleanLexicalSurface(target)
-	for index, token := range tokens {
-		if cleanTarget != "" && strings.EqualFold(textmatch.CleanLexicalSurface(token.Surface), cleanTarget) {
-			targetIndices = append(targetIndices, index)
-		}
-	}
-	return targetIndices
-}
-
-func isGerman(language string) bool {
-	base, _, _ := strings.Cut(strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-")), "-")
-	return base == "de"
-}
-
-func sentenceTooLong(text string) bool {
-	text = strings.TrimSpace(text)
-	return len(strings.Fields(text)) > maximumSentenceWords || utf8.RuneCountInString(text) > maximumSentenceCharacters
-}
-
-func containsRejection(reasons []string) bool {
-	for _, reason := range reasons {
-		switch reason {
-		case "too short or fragmented", "too long", "target not present as a word", "invalid source location", "incomplete sentence boundaries", "structural noise or boilerplate", reasonNoFiniteVerbAndSubject:
-			return true
-		}
-	}
-	return false
-}
-
-func hasCompleteBoundary(language, text string) bool {
-	if text == "" {
-		return false
-	}
-	if IsAncientGreek(language) {
-		// Greek editions start sentences in lowercase, so only the terminal
-		// boundary is required. The source terminators are the full stop, the
-		// semicolon / Greek question mark (U+037E) and the raised dot / ano
-		// teleia (U+00B7 / U+0387).
-		last, _ := utf8.DecodeLastRuneInString(text)
-		return strings.ContainsRune(".;\u037e·\u0387", last)
-	}
-	if !strings.ContainsAny(text[len(text)-1:], ".!?") {
-		return false
-	}
-	first, _ := utf8.DecodeRuneInString(text)
-	return unicode.IsUpper(first) || unicode.IsNumber(first) || strings.ContainsRune("\"'“„«", first)
-}
-
 // IsAncientGreek reports whether a language tag is Ancient Greek, whose
 // editions do not capitalise sentence starts.
 func IsAncientGreek(language string) bool {
-	return baseLanguageCode(language) == "grc"
-}
-
-func structuralNoise(text string) bool {
-	lower := strings.ToLower(strings.TrimSpace(text))
-	for _, marker := range []string{"table of contents", "inhaltsverzeichnis", "bibliography", "bibliografie", "references", "literaturverzeichnis", "notes", "anmerkungen", "footnote", "endnote", "chapter", "kapitel", "section", "abschnitt"} {
-		if structuralHeading(lower, marker) {
-			return true
-		}
-	}
-	return strings.Contains(lower, "all rights reserved") || strings.Contains(lower, "project gutenberg") ||
-		strings.Contains(lower, ".....") || strings.Count(text, "\t") >= 2 ||
-		listOrPageFragment(text) || citationDense(text) || extractionAnomaly(text)
-}
-
-func listOrPageFragment(text string) bool {
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		return true
-	}
-	firstLine := strings.TrimSpace(strings.SplitN(trimmed, "\n", 2)[0])
-	if strings.Contains(trimmed, "\n") || strings.HasPrefix(firstLine, "•") || strings.HasPrefix(firstLine, "- ") || strings.HasPrefix(firstLine, "* ") {
-		return true
-	}
-	fields := strings.Fields(firstLine)
-	if len(fields) <= 12 && len(fields) > 0 {
-		prefix := strings.TrimRight(fields[0], ".)")
-		if _, err := fmt.Sscan(prefix, new(int)); err == nil {
-			return true
-		}
-	}
-	allDigits := true
-	for _, r := range strings.Trim(trimmed, "-–— ") {
-		if !unicode.IsDigit(r) {
-			allDigits = false
-			break
-		}
-	}
-	return allDigits
-}
-
-func citationDense(text string) bool {
-	brackets := strings.Count(text, "[") + strings.Count(text, "]")
-	years := 0
-	for year := 1500; year <= 2099; year++ {
-		if strings.Contains(text, strconv.Itoa(year)) {
-			years++
-		}
-	}
-	lower := strings.ToLower(text)
-	citationMarkers := strings.Count(lower, " et al.") + strings.Count(lower, "doi:") + strings.Count(lower, " pp.") + strings.Count(lower, " vol.")
-	return brackets >= 4 || years >= 2 || citationMarkers >= 2 || strings.Count(lower, "doi:") >= 1
-}
-
-func extractionAnomaly(text string) bool {
-	controlOrReplacement := 0
-	for _, r := range text {
-		if r == unicode.ReplacementChar || (unicode.IsControl(r) && r != '\n' && r != '\t') {
-			controlOrReplacement++
-		}
-	}
-	words := strings.Fields(strings.ToLower(text))
-	repeated := 0
-	for i := 1; i < len(words); i++ {
-		if strings.Trim(words[i], ".,;:!?") == strings.Trim(words[i-1], ".,;:!?") {
-			repeated++
-		}
-	}
-	return controlOrReplacement > 0 || repeated >= 3 || strings.Contains(text, "\u00ad \u00ad")
-}
-
-type sentenceReference struct {
-	SentenceIndex int             `json:"sentence_index"`
-	Text          string          `json:"text"`
-	Location      json.RawMessage `json:"location"`
-}
-
-// BestSentenceEvidence ranks every text-only source reference without changing
-// the candidate's first-encounter ordering. Persisted exports use
-// BestSentenceEvidenceFromCorpus below.
-func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence, bool) {
-	return bestSentenceEvidence(candidate, nil)
-}
-
-// BestSentenceEvidenceFromCorpus ranks source references using the persisted
-// sentence text and dependency tokens for each sentence ordinal.
-func BestSentenceEvidenceFromCorpus(candidate domain.SelectionCandidate, sentences map[int64]analyzer.Sentence) (SentenceEvidence, bool) {
-	return bestSentenceEvidence(candidate, sentences)
-}
-
-// rankedSentenceEvidence is one source reference paired with the evidence that
-// ranks it.
-type rankedSentenceEvidence struct {
-	evidence SentenceEvidence
-	sentence int
-}
-
-func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) (SentenceEvidence, bool) {
-	var refs []sentenceReference
-	if json.Unmarshal(candidate.SentenceReferences, &refs) != nil {
-		return SentenceEvidence{}, false
-	}
-	var forms []string
-	if err := json.Unmarshal(candidate.ObservedForms, &forms); err != nil {
-		return SentenceEvidence{}, false
-	}
-	forms = append(forms, candidate.CanonicalLemma)
-	ranked := rankSentenceEvidence(candidate.Language, refs, forms, persisted)
-	if len(ranked) == 0 {
-		return SentenceEvidence{}, false
-	}
-	sort.SliceStable(ranked, func(i, j int) bool { return betterSentenceEvidence(ranked[i], ranked[j]) })
-	evidence := ranked[0].evidence
-	evidence.CorpusID = candidate.CorpusID
-	evidence.SentenceOrdinal = int64(ranked[0].sentence)
-	return evidence, true
-}
-
-// rankSentenceEvidence scores every source reference the persisted corpus can
-// resolve. Unresolvable references are dropped so they cannot displace the rest.
-func rankSentenceEvidence(language string, refs []sentenceReference, forms []string, persisted map[int64]analyzer.Sentence) []rankedSentenceEvidence {
-	ranked := make([]rankedSentenceEvidence, 0, len(refs))
-	for _, ref := range refs {
-		entry, ok := sentenceEvidenceForReference(language, ref, forms, persisted)
-		if ok {
-			ranked = append(ranked, entry)
-		}
-	}
-	return ranked
-}
-
-// sentenceEvidenceForReference resolves one source reference to its text,
-// target, quality and tokens. It reports false when a persisted run cannot
-// resolve the reference's sentence.
-func sentenceEvidenceForReference(language string, ref sentenceReference, forms []string, persisted map[int64]analyzer.Sentence) (rankedSentenceEvidence, bool) {
-	text, tokens, sentenceStartOffset, ok := persistedSentence(persisted, ref)
-	if !ok {
-		return rankedSentenceEvidence{}, false
-	}
-	location, valid := referenceStartOffset(ref.Location)
-	if !valid {
-		location = -1
-	}
-	target := matchingSentenceTarget(text, forms, tokens, sentenceStartOffset)
-	quality := scoreSentenceQuality(language, text, target, location, tokens, sentenceStartOffset)
-	var evidenceTokens []analyzer.Token
-	if persisted != nil {
-		evidenceTokens = append([]analyzer.Token{}, tokens...)
-	}
-	return rankedSentenceEvidence{
-		evidence: SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens, SentenceStartOffset: sentenceStartOffset},
-		sentence: ref.SentenceIndex,
-	}, true
-}
-
-// persistedSentence resolves a reference against the persisted corpus. Without
-// a persisted run it returns the reference's own text, no tokens and no start
-// offset; with one, an unresolvable reference reports false.
-func persistedSentence(persisted map[int64]analyzer.Sentence, ref sentenceReference) (string, []analyzer.Token, uint64, bool) {
-	if persisted == nil {
-		return ref.Text, nil, 0, true
-	}
-	sentence, ok := persisted[int64(ref.SentenceIndex)]
-	if !ok {
-		return "", nil, 0, false
-	}
-	if sentence.Tokens == nil {
-		return sentence.Text, []analyzer.Token{}, sentence.Location.StartOffset, true
-	}
-	return sentence.Text, sentence.Tokens, sentence.Location.StartOffset, true
-}
-
-// matchingSentenceTarget returns the first observed form that appears as a
-// whole word or a persisted token in text, or the empty string when none does.
-func matchingSentenceTarget(text string, forms []string, tokens []analyzer.Token, sentenceStartOffset uint64) string {
-	for _, form := range forms {
-		cleanForm := textmatch.CleanLexicalSurface(form)
-		if targetIndex(text, cleanForm, tokens, sentenceStartOffset) >= 0 {
-			return cleanForm
-		}
-	}
-	return ""
-}
-
-// betterSentenceEvidence orders accepted candidates first, then by descending
-// GDEX score, ascending first encounter, sentence ordinal and sentence text.
-func betterSentenceEvidence(a, b rankedSentenceEvidence) bool {
-	switch {
-	case a.evidence.Quality.Accepted != b.evidence.Quality.Accepted:
-		return a.evidence.Quality.Accepted
-	case a.evidence.Quality.GDEXScore != b.evidence.Quality.GDEXScore:
-		return a.evidence.Quality.GDEXScore > b.evidence.Quality.GDEXScore
-	case a.evidence.FirstEncounter != b.evidence.FirstEncounter:
-		return a.evidence.FirstEncounter < b.evidence.FirstEncounter
-	case a.sentence != b.sentence:
-		return a.sentence < b.sentence
-	default:
-		return a.evidence.Sentence < b.evidence.Sentence
-	}
-}
-
-func referenceStartOffset(raw json.RawMessage) (int64, bool) {
-	var fields map[string]json.RawMessage
-	if json.Unmarshal(raw, &fields) != nil {
-		return 0, false
-	}
-	for _, key := range []string{"start_offset", "StartOffset"} {
-		if value, ok := fields[key]; ok {
-			var offset uint64
-			if json.Unmarshal(value, &offset) == nil && offset <= math.MaxInt64 {
-				return int64(offset), true
-			}
-		}
-	}
-	return 0, false
-}
-
-func structuralHeading(text, marker string) bool {
-	if !strings.HasPrefix(text, marker) {
-		return false
-	}
-	rest := strings.TrimSpace(strings.TrimPrefix(text, marker))
-	return rest == "" || strings.ContainsRune(":.-–—0123456789", []rune(rest)[0])
-}
-
-func targetIndex(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) int {
-	target = textmatch.CleanLexicalSurface(target)
-	start, _, ok := targetSpan(sentence, target, tokens, sentenceStartOffset)
-	if ok {
-		return start
-	}
-	return -1
-}
-
-// targetSpan returns the byte span of a cleaned target within sentence. The
-// unchanged word-bounded matcher runs first, so a target it already anchors
-// keeps its span; only when it finds none does the persisted token anchor run.
-func targetSpan(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) (int, int, bool) {
-	if start, end, ok := textmatch.FoldedWordSpan(sentence, target); ok {
-		return start, end, true
-	}
-	return tokenAnchorSpan(sentence, target, tokens, sentenceStartOffset)
-}
-
-// tokenAnchorSpan anchors target on the first persisted token, in sentence
-// order, whose cleaned surface case-folds equal to it. Token offsets are
-// document-absolute Unicode code points; the span is taken relative to the
-// sentence's persisted start offset and converted to byte offsets in the
-// sentence text. An elided or inversion-hyphen target (l'homme, d'accord,
-// va-t-il) has no word boundary for the word-bounded matcher, but its own token
-// does carry the exact span (ADR 0102).
-//
-// The span is accepted only when the sentence text at that span, cleaned the
-// same way, case-folds equal to the target. That check rejects stale or
-// inconsistent offsets and multiword-token parts, which carry the whole
-// contraction's span.
-func tokenAnchorSpan(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) (int, int, bool) {
-	if target == "" || len(tokens) == 0 {
-		return 0, 0, false
-	}
-	for _, token := range tokens {
-		if !strings.EqualFold(textmatch.CleanLexicalSurface(token.Surface), target) {
-			continue
-		}
-		start, end, ok := tokenSpanBytes(sentence, token.Location.StartOffset, token.Location.EndOffset, sentenceStartOffset)
-		if !ok || !strings.EqualFold(textmatch.CleanLexicalSurface(sentence[start:end]), target) {
-			return 0, 0, false
-		}
-		return start, end, true
-	}
-	return 0, 0, false
-}
-
-// tokenSpanBytes converts a token's document-absolute code-point span to byte
-// offsets within sentence, relative to sentenceStartOffset. It reports false
-// when the offsets do not describe a span inside the sentence text.
-func tokenSpanBytes(sentence string, start, end, sentenceStartOffset uint64) (int, int, bool) {
-	if start < sentenceStartOffset || end < start {
-		return 0, 0, false
-	}
-	byteOffsets := make([]int, 0, utf8.RuneCountInString(sentence)+1)
-	for offset := range sentence {
-		byteOffsets = append(byteOffsets, offset)
-	}
-	byteOffsets = append(byteOffsets, len(sentence))
-	relativeStart, relativeEnd := start-sentenceStartOffset, end-sentenceStartOffset
-	if relativeStart >= uint64(len(byteOffsets)) || relativeEnd >= uint64(len(byteOffsets)) {
-		return 0, 0, false
-	}
-	return byteOffsets[relativeStart], byteOffsets[relativeEnd], true
+	return sentencequality.IsAncientGreek(language)
 }
 
 func nounArticle(language, upos, lemma, morphology string) (article, genderLabel string) {
@@ -1473,12 +998,12 @@ func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry)
 }
 
 func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) {
-	var evidence SentenceEvidence
+	var evidence sentencequality.SentenceEvidence
 	var ok bool
 	if persisted != nil {
-		evidence, ok = BestSentenceEvidenceFromCorpus(candidate, persisted)
+		evidence, ok = sentencequality.BestSentenceEvidenceFromCorpus(candidate, persisted)
 	} else {
-		evidence, ok = BestSentenceEvidence(candidate)
+		evidence, ok = sentencequality.BestSentenceEvidence(candidate)
 	}
 	if ok {
 		entry.CorpusID = evidence.CorpusID
@@ -1511,7 +1036,7 @@ func newManifest(owner, deckName string, entries []Entry) manifest {
 		decisionEntry := cloneEntry(entry)
 		clearExternalFields(&decisionEntry)
 		decisionEntry.OwnerID = ""
-		quality := scoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens, entry.SentenceStartOffset)
+		quality := sentencequality.ScoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens, entry.SentenceStartOffset)
 		if !quality.Accepted {
 			manifest.omitted = append(manifest.omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)})
 			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
@@ -1818,7 +1343,7 @@ func selectedSenseGloss(input *RenderInput, selection []int) string {
 func targetWord(sentence string, candidate domain.SelectionCandidate, tokens []analyzer.Token, sentenceStartOffset uint64) string {
 	var forms []string
 	if json.Unmarshal(candidate.ObservedForms, &forms) == nil {
-		if target := matchingSentenceTarget(sentence, forms, tokens, sentenceStartOffset); target != "" {
+		if target := sentencequality.MatchingSentenceTarget(sentence, forms, tokens, sentenceStartOffset); target != "" {
 			return target
 		}
 	}

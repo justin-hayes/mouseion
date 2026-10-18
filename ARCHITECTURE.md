@@ -279,6 +279,7 @@ flowchart TB
         selection[selection]
         lexical[lexical]
         gdex[gdex]
+        sentencequality[sentencequality]
         lemmarisk[lemmarisk]
         dictionary[dictionary]
         enrichment[enrichment]
@@ -296,7 +297,8 @@ flowchart TB
     analysis --> epub & analyzer & selection & persistence
     cataloguesync --> opds --> epub
     prepareddeck --> cardexport & enrichment & persistence
-    cardexport --> gdex & dictionary
+    cardexport --> sentencequality & dictionary
+    sentencequality --> gdex
     selection --> lexical
     analyzer --> canonicalization
     persistence --> domain
@@ -314,6 +316,7 @@ flowchart TB
 | [`analysisinsights`](internal/analysisinsights) | Coverage and threshold metrics for a learner and a book |
 | [`lemmarisk`](internal/lemmarisk) | Conservative detection of occurrences that merit learner review |
 | [`gdex`](internal/gdex) | GDEX-informed example-sentence scoring |
+| [`sentencequality`](internal/sentencequality) | The shared sentence-quality gate and representative-sentence selection for the deck and the Reading freeze |
 | [`dictionary`](internal/dictionary) | Read-only access to the Wiktionary-derived index |
 | [`enrichment`](internal/enrichment) | Dictionary and LLM enrichment, caching, and the external-provider privacy boundary |
 | [`prepareddeck`](internal/prepareddeck) | Durable deck preparation: manifest, translation, finalization |
