@@ -781,9 +781,8 @@ def collect_sense_content(
     if element.text:
         flow.append(element.text)
     for child in element:
-        if child.tag == "sense":
-            pass
-        elif child.tag == "tr":
+        # A nested sense is derived on its own; only its tail belongs here.
+        if child.tag == "tr":
             collect_gloss(child, glosses, flow)
         elif child.tag == "bibl":
             citation = lsj_citation(child)
@@ -793,7 +792,7 @@ def collect_sense_content(
             # Beta Code writes rough breathing as "(", so Greek text stays out of
             # the flow that parenthesis tracking reads.
             collect_sense_content(child, glosses, citations, [])
-        else:
+        elif child.tag != "sense":
             collect_sense_content(child, glosses, citations, flow)
         if child.tail:
             flow.append(child.tail)
