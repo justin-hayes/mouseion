@@ -82,6 +82,10 @@ type preparedDeckRenderPayload struct {
 	SentenceStartOffset       uint64                    `json:"sentence_start_offset,omitempty"`
 	SourceDocument            string                    `json:"source_document"`
 	Notes                     string                    `json:"notes"`
+	// LSJSummaryProviderVersion is the frozen provider version of the LSJ sense
+	// summary this entry's LSJ entry may be condensed by, or empty when the
+	// summary is not offered (ADR 0101).
+	LSJSummaryProviderVersion string `json:"lsj_summary_provider_version,omitempty"`
 	// ProviderProposed marks an entry whose optional Gloss and sentence
 	// translation come from the Ancient Greek evidence-assisted pass and must
 	// be labelled provider-proposed. It is frozen on the deck item so a
@@ -338,7 +342,7 @@ func insertPreparedDeckManifestItems(ctx context.Context, tx pgx.Tx, params Free
 }
 
 func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, params FreezePreparedDeckRunParams, config PreparedDeckRunConfig, candidateDigest, runID string, item cardexport.ManifestItem, pending map[int]cardexport.ManifestItem) error {
-	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, DictionaryEntry: item.Entry.DictionaryEntry, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes, ProviderProposed: item.Entry.ProviderProposed})
+	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, DictionaryEntry: item.Entry.DictionaryEntry, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes, ProviderProposed: item.Entry.ProviderProposed, LSJSummaryProviderVersion: item.Entry.LSJSummaryProviderVersion})
 	if err != nil {
 		return err
 	}
@@ -617,6 +621,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		item.Entry.SentenceStartOffset = render.SentenceStartOffset
 		item.Entry.SourceDocument, item.Entry.Notes = render.SourceDocument, render.Notes
 		item.Entry.ProviderProposed = render.ProviderProposed
+		item.Entry.LSJSummaryProviderVersion = render.LSJSummaryProviderVersion
 		item.Entry.PassageContext, item.Entry.PassageCitation, item.Entry.BrownsonPin = model.PassageContext, model.PassageCitation, model.BrownsonPin
 		item.CorpusID = uuidString(model.CorpusID)
 		item.SentenceOrdinal = pgInt8(model.SentenceOrdinal)

@@ -676,6 +676,14 @@ type KnownVocabulary struct {
 	Headword                       string
 }
 
+type LsjSenseSummary struct {
+	LsjPin        string
+	LsjEntryID    string
+	PromptVersion string
+	SummaryLines  []byte
+	CreatedAt     time.Time
+}
+
 type MyBooksEvidence struct {
 	BookID                  string
 	BookOwnerID             string

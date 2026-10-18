@@ -27,7 +27,8 @@ const (
 	ManifestSchemaVersionV9       = 9
 	ManifestSchemaVersionV10      = 10
 	ManifestSchemaVersionV11      = 11
-	ManifestSchemaVersion         = ManifestSchemaVersionV11
+	ManifestSchemaVersionV12      = 12
+	ManifestSchemaVersion         = ManifestSchemaVersionV12
 )
 
 type ManifestDisposition string
@@ -139,8 +140,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v9\x00"
 	case ManifestSchemaVersionV10:
 		prefix = "mouseion-prepared-deck-manifest-v10\x00"
-	default:
+	case ManifestSchemaVersionV11:
 		prefix = "mouseion-prepared-deck-manifest-v11\x00"
+	default:
+		prefix = "mouseion-prepared-deck-manifest-v12\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -225,8 +228,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v9\x00"
 	case ManifestSchemaVersionV10:
 		prefix = "mouseion-prepared-deck-candidate-v10\x00"
-	default:
+	case ManifestSchemaVersionV11:
 		prefix = "mouseion-prepared-deck-candidate-v11\x00"
+	default:
+		prefix = "mouseion-prepared-deck-candidate-v12\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -308,6 +313,7 @@ type canonicalEntry struct {
 	DictionaryEntry           string                    `json:"dictionary_entry,omitempty"`
 	DictionaryEntryID         string                    `json:"dictionary_entry_id,omitempty"`
 	DictionaryPin             string                    `json:"dictionary_pin,omitempty"`
+	LSJSummaryProviderVersion string                    `json:"lsj_summary_provider_version,omitempty"`
 	OmittedEvidenceCount      int                       `json:"omitted_evidence_count,omitempty"`
 	CandidateSenses           []enrichment.LexicalSense `json:"candidate_senses,omitempty"`
 	SourceDocument            string                    `json:"source_document"`
@@ -363,7 +369,7 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 // validateHeader rejects a snapshot whose schema version is unknown or whose
 // owner and deck identity are missing or inconsistent with the download name.
 func (s ManifestSnapshot) validateHeader() error {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	return nil
@@ -524,6 +530,9 @@ func canonicalizeManifestEntry(entry Entry, schemaVersion int) (canonicalEntry, 
 		entryCanonical.DictionaryEntry = entry.DictionaryEntry
 		entryCanonical.DictionaryEntryID = entry.DictionaryEntryID
 		entryCanonical.DictionaryPin = entry.DictionaryPin
+	}
+	if schemaVersion >= ManifestSchemaVersionV12 {
+		entryCanonical.LSJSummaryProviderVersion = entry.LSJSummaryProviderVersion
 	}
 	if schemaVersion >= ManifestSchemaVersionV7 {
 		if entry.OmittedEvidenceCount < 0 {

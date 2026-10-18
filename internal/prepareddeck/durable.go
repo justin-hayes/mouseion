@@ -17,6 +17,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
@@ -357,6 +358,7 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
+	deck = applyCachedLSJSenseSummaries(ctx, r.Store, deck)
 	artifact, diagnostics, err := r.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
 		return domain.DeckPreparation{}, fmt.Errorf("render prepared deck revision: %w", err)
@@ -554,7 +556,42 @@ func (f *DurableFinalizer) restoreFrozenDeck(ctx context.Context, claim finaliza
 	if err != nil {
 		return cardexport.FrozenDeck{}, nil, f.recordFailure(ctx, claim, "presentation", "invalid_manifest", err)
 	}
-	return deck, stored, nil
+	return applyCachedLSJSenseSummaries(ctx, f.Store, deck), stored, nil
+}
+
+// lsjSenseSummaryStore is the optional durable reader for the per-entry LSJ
+// sense summary cache. A store without it simply yields no summaries.
+type lsjSenseSummaryStore interface {
+	LoadLSJSenseSummaries(context.Context, []enrichment.LSJSenseSummaryKey) (map[enrichment.LSJSenseSummaryKey]enrichment.LSJSenseSummary, error)
+}
+
+// applyCachedLSJSenseSummaries applies the cached LSJ sense summaries the deck
+// might show when the run's store can read them; a store without the capability
+// yields the deck unchanged.
+func applyCachedLSJSenseSummaries(ctx context.Context, store any, deck cardexport.FrozenDeck) cardexport.FrozenDeck {
+	reader, ok := store.(lsjSenseSummaryStore)
+	if !ok {
+		return deck
+	}
+	return applyLSJSenseSummaries(ctx, reader, deck)
+}
+
+// applyLSJSenseSummaries loads and attaches every cached LSJ sense summary the
+// frozen deck might show. The summary only adds to a card, so a load failure
+// logs and leaves every card's full LSJ entry rather than failing the render
+// (ADR 0101). Because the summaries live in a durable per-entry cache, a
+// re-render resolves the same summaries and reproduces the same cards.
+func applyLSJSenseSummaries(ctx context.Context, reader lsjSenseSummaryStore, deck cardexport.FrozenDeck) cardexport.FrozenDeck {
+	keys := deck.LSJSenseSummaryKeys()
+	if len(keys) == 0 {
+		return deck
+	}
+	summaries, err := reader.LoadLSJSenseSummaries(ctx, keys)
+	if err != nil {
+		log.Printf("prepared deck LSJ sense summary: %v", err)
+		return deck
+	}
+	return deck.WithLSJSenseSummaries(summaries)
 }
 
 func renderFailure(err error) (failureClass, failureCode string) {

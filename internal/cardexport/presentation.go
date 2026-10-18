@@ -44,6 +44,11 @@ type CandidateProjection struct {
 	// fields on top only when the provider resolves a contextual Gloss
 	// (ADR 0101).
 	EvidenceAssistedPass bool
+	// LSJSummaryProviderVersion is the provider version of the context-free LSJ
+	// sense summary this projection's LSJ entry may be condensed by. It is
+	// empty unless the summary's payload assessment is recorded, so no summary
+	// is requested or shown (ADR 0101).
+	LSJSummaryProviderVersion string
 }
 
 // WorkItem is one exact external request derived from a frozen deck.
@@ -52,6 +57,12 @@ type WorkItem struct {
 	Request                   enrichment.TranslationRequest
 	CacheKey                  enrichment.CacheKey
 	DictionaryProviderVersion string
+	// SummaryRequest and SummaryKey are the context-free LSJ sense summary this
+	// item's pinned LSJ entry may be condensed by. They are zero when the
+	// summary is not offered or the entry has no pinned LSJ entry, so no summary
+	// request is made (ADR 0101).
+	SummaryRequest enrichment.TranslationRequest
+	SummaryKey     enrichment.LSJSenseSummaryKey
 }
 
 // RequestCandidate adapts a work request to the result shape used by the
@@ -225,6 +236,7 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, orde
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
 		applyPassageContext(&entry, projection)
 		entry.ProviderProposed = projection.EvidenceAssistedPass
+		entry.LSJSummaryProviderVersion = projection.LSJSummaryProviderVersion
 		if projection.SkipMeaningEvidence {
 			clearDictionaryFacts(&entry)
 			matched, found := resolveAncientGreekLSJ(ctx, lexical, &entry)
@@ -421,7 +433,73 @@ func (d FrozenDeck) workItem(acceptedIndex int) WorkItem {
 			RequireEvidenceAssistedPass: entry.ProviderProposed,
 		},
 		CacheKey: key, DictionaryProviderVersion: entry.DictionaryProviderVersion,
+		SummaryRequest: lsjSenseSummaryRequest(entry, targetLanguage),
+		SummaryKey:     lsjSenseSummaryKey(entry),
 	}
+}
+
+// lsjSenseSummaryRequest builds the context-free LSJ sense summary request for
+// an entry whose summary is offered and whose LSJ entry is pinned. It carries
+// only the entry's headword and its citable senses, so it transmits no
+// representative sentence and no learner data (ADR 0101).
+func lsjSenseSummaryRequest(entry RenderInput, targetLanguage string) enrichment.TranslationRequest {
+	if !lsjSenseSummaryOffered(entry) {
+		return enrichment.TranslationRequest{}
+	}
+	senses := make([]enrichment.LSJSenseSummarySense, 0, len(entry.CandidateSenses))
+	for _, sense := range entry.CandidateSenses {
+		if strings.TrimSpace(sense.EvidenceID) == "" {
+			continue
+		}
+		senses = append(senses, enrichment.LSJSenseSummarySense{ID: sense.EvidenceID, Glosses: splitLSJGlosses(sense.Gloss)})
+	}
+	if len(senses) == 0 {
+		return enrichment.TranslationRequest{}
+	}
+	return enrichment.TranslationRequest{
+		Language: entry.Language, TargetLanguage: targetLanguage,
+		CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
+		RequireLSJSenseSummary: true,
+		Headword:               strings.TrimSpace(entry.Headword),
+		LSJSenses:              senses,
+	}
+}
+
+// lsjSenseSummaryKey is the per-entry cache identity of an entry's LSJ sense
+// summary. It is zero unless the summary is offered and the LSJ entry is pinned.
+func lsjSenseSummaryKey(entry RenderInput) enrichment.LSJSenseSummaryKey {
+	if !lsjSenseSummaryOffered(entry) {
+		return enrichment.LSJSenseSummaryKey{}
+	}
+	return enrichment.LSJSenseSummaryKey{Pin: entry.DictionaryPin, EntryID: entry.DictionaryEntryID, PromptVersion: entry.LSJSummaryProviderVersion}
+}
+
+// lsjSenseSummaryOffered reports whether the entry can carry an LSJ sense
+// summary: the summary is offered, the entry has a pinned LSJ entry, and its
+// headword and citable senses are known.
+func lsjSenseSummaryOffered(entry RenderInput) bool {
+	return strings.TrimSpace(entry.LSJSummaryProviderVersion) != "" &&
+		strings.TrimSpace(entry.DictionaryPin) != "" &&
+		strings.TrimSpace(entry.DictionaryEntryID) != "" &&
+		strings.TrimSpace(entry.Headword) != "" &&
+		len(entry.CandidateSenses) > 0
+}
+
+// splitLSJGlosses recovers the individual English glosses the LSJ pass evidence
+// joined with a semicolon, so the summary payload carries them as a list.
+func splitLSJGlosses(gloss string) []string {
+	gloss = strings.TrimSpace(gloss)
+	if gloss == "" {
+		return nil
+	}
+	parts := strings.Split(gloss, "; ")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func (d FrozenDeck) Summary() Summary {
@@ -431,6 +509,54 @@ func (d FrozenDeck) Summary() Summary {
 
 func (d FrozenDeck) Diagnostics() Diagnostics {
 	return manifestDiagnostics(d.manifest)
+}
+
+// LSJSenseSummaryKeys returns the distinct per-entry summary cache identities
+// the frozen deck might show. The finalizer loads exactly these and applies them
+// before rendering; a content-free caller can assert the set.
+func (d FrozenDeck) LSJSenseSummaryKeys() []enrichment.LSJSenseSummaryKey {
+	seen := make(map[enrichment.LSJSenseSummaryKey]struct{})
+	keys := make([]enrichment.LSJSenseSummaryKey, 0)
+	for _, entry := range d.manifest.accepted {
+		key := lsjSenseSummaryKey(entry)
+		if key.EntryID == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+// WithLSJSenseSummaries returns a deck whose accepted entries carry each cached
+// summary for the LSJ entry they share. A summary that cites an unknown sense ID,
+// or that cites none, is discarded so the card keeps its full LSJ entry
+// (ADR 0101). The accepted entries are copied before they are written, so the
+// receiver is left untouched. The summaries are resolved outside the frozen
+// manifest, so a re-render resolves the same durable cache and reproduces the
+// same cards.
+func (d FrozenDeck) WithLSJSenseSummaries(summaries map[enrichment.LSJSenseSummaryKey]enrichment.LSJSenseSummary) FrozenDeck {
+	if len(summaries) == 0 {
+		return d
+	}
+	accepted := append([]RenderInput(nil), d.manifest.accepted...)
+	for i := range accepted {
+		entry := &accepted[i]
+		key := lsjSenseSummaryKey(*entry)
+		if key.EntryID == "" {
+			continue
+		}
+		summary, ok := summaries[key]
+		if !ok {
+			continue
+		}
+		entry.LSJSenseSummary = renderValidatedLSJSenseSummary(summary, entry.CandidateSenses)
+	}
+	d.manifest.accepted = accepted
+	return d
 }
 
 // Finalize overlays only exact stored results and renders the complete artifact.

@@ -42,6 +42,12 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		return err
 	}
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricTranslationUnits, Phase: "translating", State: "in_progress", Provider: "openai", Value: 1})
+	if err := w.ensureLSJSenseSummary(ctx, work); err != nil {
+		// The LSJ sense summary only adds to the card, so a failure to resolve
+		// or store it leaves the full LSJ entry rather than failing the item
+		// (ADR 0101).
+		log.Printf("prepared deck LSJ sense summary: %v", err)
+	}
 	if done, err := w.completeFromCache(ctx, args, token, work); done {
 		return err
 	}
@@ -129,6 +135,31 @@ func (w *StandardTranslationWorker) restoreWork(ctx context.Context, args Standa
 		return cardexport.WorkItem{}, false, w.fail(ctx, args, token, "identity", "manifest_item", true)
 	}
 	return work, true, nil
+}
+
+// ensureLSJSenseSummary resolves and caches the context-free LSJ sense summary
+// for one work item's pinned entry, when the deck offers it. It is best effort:
+// the summary only adds to the card, so a provider failure, an invalid summary
+// or a cache error leaves the full LSJ entry and never fails the item
+// (ADR 0101). Its per-entry cache identity means a summary is resolved once and
+// reused across every deck and occurrence that cites the entry.
+func (w *StandardTranslationWorker) ensureLSJSenseSummary(ctx context.Context, work cardexport.WorkItem) error {
+	if w == nil || w.Store == nil || w.Provider == nil || work.SummaryKey.EntryID == "" || work.SummaryKey.Pin == "" || work.SummaryKey.PromptVersion == "" {
+		return nil
+	}
+	if _, found, err := w.Store.GetLSJSenseSummary(ctx, work.SummaryKey); err != nil || found {
+		return err
+	}
+	response, _, callErr := w.translate(ctx, work.SummaryRequest)
+	if callErr != nil {
+		return callErr
+	}
+	summary := enrichment.LSJSenseSummary{EntryID: work.SummaryKey.EntryID, Pin: work.SummaryKey.Pin, Lines: response.SenseSummary}
+	validated, ok := enrichment.ValidateLSJSenseSummary(summary, enrichment.LSJSenseIDs(work.SummaryRequest.LSJSenses))
+	if !ok {
+		return nil
+	}
+	return w.Store.PutLSJSenseSummary(ctx, work.SummaryKey, validated.Lines)
 }
 
 // completeFromCache finishes the item from an exact, complete cache entry.

@@ -74,6 +74,14 @@ type greekPassFixture struct {
 
 func newGreekPassFixture(t *testing.T, ctx context.Context, username string, recorded bool, responder func(enrichment.TranslationRequest) (enrichment.TranslationResponse, error)) *greekPassFixture {
 	t.Helper()
+	return newGreekPassFixtureWithSummary(t, ctx, username, recorded, false, responder)
+}
+
+// newGreekPassFixtureWithSummary additionally records (or withholds) the LSJ
+// sense summary payload assessment, so a test can exercise the context-free
+// summary layer of the pass.
+func newGreekPassFixtureWithSummary(t *testing.T, ctx context.Context, username string, recorded, summaryRecorded bool, responder func(enrichment.TranslationRequest) (enrichment.TranslationResponse, error)) *greekPassFixture {
+	t.Helper()
 	t.Setenv("MOUSEION_SECRET", greekPassSecret)
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
@@ -90,7 +98,7 @@ func newGreekPassFixture(t *testing.T, ctx context.Context, username string, rec
 
 	provider := &greekPassProvider{responder: responder}
 	codec := greekPassCodec(t)
-	client := newGreekPassClient(t, ctx, store, pool, codec, provider, recorded)
+	client := newGreekPassClient(t, ctx, store, pool, codec, provider, recorded, summaryRecorded)
 	deck := prepareddeck.NewService(store, client)
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{
@@ -259,7 +267,7 @@ func greekPassCodec(t *testing.T) *enrichment.TranslationCodec {
 // configured provider and a recorded evidence-assisted pass assessment. The
 // client is returned unstarted. recorded sets whether the pass payload
 // assessment the freeze worker gates against is recorded.
-func newGreekPassClient(t *testing.T, ctx context.Context, store *persistence.PostgresStore, pool *pgxpool.Pool, codec *enrichment.TranslationCodec, provider enrichment.TranslationProvider, recorded bool) *river.Client[pgx.Tx] {
+func newGreekPassClient(t *testing.T, ctx context.Context, store *persistence.PostgresStore, pool *pgxpool.Pool, codec *enrichment.TranslationCodec, provider enrichment.TranslationProvider, recorded, summaryRecorded bool) *river.Client[pgx.Tx] {
 	t.Helper()
 	workers := river.NewWorkers()
 	presentation := cardexport.NewPresentation(greekDeckLexicon{})
@@ -272,12 +280,20 @@ func newGreekPassClient(t *testing.T, ctx context.Context, store *persistence.Po
 	}
 	batchConfig := prepareddeck.BatchConfig{MaxRequests: 1, PollInterval: time.Millisecond}
 	metrics := prepareddeck.NewMetricsCollector()
-	assessments := []enrichment.ProviderAssessment{{
-		Language: "grc", Provider: codec.ProviderName(),
-		PromptVersion: codec.EvidenceAssistedPassPromptContract(),
-		Fields:        enrichment.EvidenceAssistedPassPayloadFields(),
-		Disposition:   "recorded for this test", Ticket: "#2171", Recorded: recorded,
-	}}
+	assessments := []enrichment.ProviderAssessment{
+		{
+			Language: "grc", Provider: codec.ProviderName(),
+			PromptVersion: codec.EvidenceAssistedPassPromptContract(),
+			Fields:        enrichment.EvidenceAssistedPassPayloadFields(),
+			Disposition:   "recorded for this test", Ticket: "#2171", Recorded: recorded,
+		},
+		{
+			Language: "grc", Provider: codec.ProviderName(),
+			PromptVersion: codec.LSJSenseSummaryPromptContract(),
+			Fields:        enrichment.LSJSenseSummaryPayloadFields(),
+			Disposition:   "recorded for this test", Ticket: "#2172", Recorded: summaryRecorded,
+		},
+	}
 
 	unusedAnalyzer := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		return analyzer.Result{}, errors.New("the imported Ancient Greek Book never calls the analyzer")

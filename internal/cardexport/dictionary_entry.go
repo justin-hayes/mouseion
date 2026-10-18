@@ -70,6 +70,40 @@ func lsjHasDefinitions(senses []enrichment.AncientGreekLSJSense) bool {
 	})
 }
 
+// lsjSenseSummaryLabel labels the provider-written LSJ sense summary shown above
+// the full entry, so it is never mistaken for source evidence (ADR 0101).
+const lsjSenseSummaryLabel = "Summary of LSJ, provider-written"
+
+// renderValidatedLSJSenseSummary renders a provider-written LSJ sense summary
+// above the full entry it condenses. It renders nothing when the summary has no
+// line or any line cites a sense ID that is not one of the entry's pinned
+// senses: such a summary is discarded and the card keeps its full LSJ entry
+// (ADR 0101). Every text piece is escaped before it is wrapped, so provider text
+// cannot inject markup.
+func renderValidatedLSJSenseSummary(summary enrichment.LSJSenseSummary, senses []enrichment.LexicalSense) string {
+	known := make(map[string]struct{}, len(senses))
+	for _, sense := range senses {
+		if id := strings.TrimSpace(sense.EvidenceID); id != "" {
+			known[id] = struct{}{}
+		}
+	}
+	validated, ok := enrichment.ValidateLSJSenseSummary(summary, known)
+	if !ok {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(`<div class="lsj-summary"><div class="lsj-summary-label">`)
+	b.WriteString(escapeField(lsjSenseSummaryLabel))
+	b.WriteString(`</div>`)
+	for _, line := range validated.Lines {
+		b.WriteString(`<div class="lsj-summary-line">`)
+		b.WriteString(escapeField(line.Text))
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div>`)
+	return b.String()
+}
+
 // renderAncientGreekLSJEntry renders the LSJ entry in source order with LSJ's
 // numbering. When the entry carries definitions, a compact outline of each
 // sense's definitions comes first and the full hierarchy, every gloss and
