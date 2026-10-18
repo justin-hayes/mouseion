@@ -8,12 +8,12 @@ import (
 )
 
 // ancientGreekLSJFixtureStatements add the Kaikki greek_entries table, the LSJ
-// table introduced with index format 3, and the metadata they require to the
-// base fixture schema.
+// table introduced with index format 4 (and its sub-entry column in format 5),
+// and the metadata they require to the base fixture schema.
 var ancientGreekLSJFixtureStatements = []string{
 	`CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL)`,
-	`CREATE TABLE lsj_entries (entry_id TEXT NOT NULL, headword TEXT NOT NULL, senses_json TEXT NOT NULL)`,
-	`INSERT INTO metadata VALUES ('index_format', '4')`,
+	`CREATE TABLE lsj_entries (entry_id TEXT NOT NULL, headword TEXT NOT NULL, senses_json TEXT NOT NULL, subordinate INTEGER NOT NULL)`,
+	`INSERT INTO metadata VALUES ('index_format', '5')`,
 	`INSERT INTO metadata VALUES ('lsj_pin', '56061ca127f4a2844980baffc5f2b6d1332897b3')`,
 }
 
@@ -22,7 +22,7 @@ var ancientGreekLSJFixtureStatements = []string{
 // sense hierarchy.
 func TestAncientGreekLSJUnambiguousMatchReturnsEntry(t *testing.T) {
 	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
-		`INSERT INTO lsj_entries VALUES ('n61607', 'λόγοσ', '[{"id":"n61607.0","n":"A","level":1,"glosses":["word"],"citations":["X. An. 1.1.1"],"senses":[{"id":"n61607.1","n":"2","level":3,"glosses":["speech"]}]}]')`,
+		`INSERT INTO lsj_entries VALUES ('n61607', 'λόγοσ', '[{"id":"n61607.0","n":"A","level":1,"glosses":["word"],"citations":["X. An. 1.1.1"],"senses":[{"id":"n61607.1","n":"2","level":3,"glosses":["speech"]}]}]', 0)`,
 	)...)
 
 	entry, found := index.LookupAncientGreekLSJ(t.Context(), "λόγος")
@@ -43,10 +43,10 @@ func TestAncientGreekLSJUnambiguousMatchReturnsEntry(t *testing.T) {
 // with the LSJ homograph number.
 func TestAncientGreekLSJHomographsNeverBorrowEachOther(t *testing.T) {
 	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
-		`INSERT INTO lsj_entries VALUES ('n1', 'δέω', '[{"id":"n1.0","n":"A","level":1,"glosses":["bind"]}]')`,
-		`INSERT INTO lsj_entries VALUES ('n2', 'δέω', '[{"id":"n2.0","n":"A","level":1,"glosses":["lack"]}]')`,
-		`INSERT INTO lsj_entries VALUES ('n3', 'λύω', '[{"id":"n3.0","n":"A","level":1,"glosses":["loosen"]}]')`,
-		`INSERT INTO lsj_entries VALUES ('n4', 'λύω', '[{"id":"n4.0","n":"A","level":1,"glosses":["undo"]}]')`,
+		`INSERT INTO lsj_entries VALUES ('n1', 'δέω', '[{"id":"n1.0","n":"A","level":1,"glosses":["bind"]}]', 0)`,
+		`INSERT INTO lsj_entries VALUES ('n2', 'δέω', '[{"id":"n2.0","n":"A","level":1,"glosses":["lack"]}]', 0)`,
+		`INSERT INTO lsj_entries VALUES ('n3', 'λύω', '[{"id":"n3.0","n":"A","level":1,"glosses":["loosen"]}]', 0)`,
+		`INSERT INTO lsj_entries VALUES ('n4', 'λύω', '[{"id":"n4.0","n":"A","level":1,"glosses":["undo"]}]', 0)`,
 	)...)
 
 	for _, test := range []struct {
@@ -64,11 +64,70 @@ func TestAncientGreekLSJHomographsNeverBorrowEachOther(t *testing.T) {
 	}
 }
 
+// TestAncientGreekLSJSubordinateSubEntriesNeverCompete proves a phrase sub-entry
+// and a cross-reference redirect stub filed under the bare word's key do not
+// make the bare lemma ambiguous, so its own entry is matched.
+func TestAncientGreekLSJSubordinateSubEntriesNeverCompete(t *testing.T) {
+	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
+		`INSERT INTO lsj_entries VALUES ('n75730', 'οὐ', '[{"id":"n75730.0","n":"A","level":1,"glosses":["not"]}]', 0)`,
+		`INSERT INTO lsj_entries VALUES ('n75743', 'οὐ', '[{"id":"n75743.0","n":"A","level":1,"glosses":["for not"]}]', 1)`,
+		`INSERT INTO lsj_entries VALUES ('n75744', 'οὐ', '[{"id":"n75744.0","n":"A","level":1,"glosses":["no indeed"]}]', 1)`,
+		`INSERT INTO lsj_entries VALUES ('n46646', 'ἤδη', '[{"id":"n46646.0","n":"1","level":1,"glosses":["already"]}]', 0)`,
+		`INSERT INTO lsj_entries VALUES ('n46647', 'ἤδη', '[{"id":"n46647.0","n":"A","level":1,"glosses":[]}]', 1)`,
+	)...)
+
+	t.Run("phrase sub-entries", func(t *testing.T) {
+		entry, found := index.LookupAncientGreekLSJ(t.Context(), "οὐ")
+		require.True(t, found)
+		assert.Equal(t, "n75730", entry.EntryID)
+	})
+	t.Run("redirect stub", func(t *testing.T) {
+		entry, found := index.LookupAncientGreekLSJ(t.Context(), "ἤδη")
+		require.True(t, found)
+		assert.Equal(t, "n46646", entry.EntryID)
+	})
+}
+
+// TestAncientGreekLSJProperNameDoesNotMakeLowercaseAmbiguous proves a capitalised
+// proper-name entry does not make a lowercase common-word lemma ambiguous, while
+// a capitalised lemma still resolves its own proper-name entry.
+func TestAncientGreekLSJProperNameDoesNotMakeLowercaseAmbiguous(t *testing.T) {
+	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
+		`INSERT INTO lsj_entries VALUES ('n24340', 'δῆλοσ', '[{"id":"n24340.0","n":"A","level":1,"glosses":["clear, visible"]}]', 0)`,
+		`INSERT INTO lsj_entries VALUES ('n24339', 'Δῆλοσ', '[{"id":"n24339.0","n":"A","level":1,"glosses":["Delos"]}]', 0)`,
+	)...)
+
+	t.Run("lowercase lemma keeps the common word", func(t *testing.T) {
+		entry, found := index.LookupAncientGreekLSJ(t.Context(), "δῆλος")
+		require.True(t, found)
+		assert.Equal(t, "n24340", entry.EntryID)
+	})
+	t.Run("capitalised lemma keeps the proper name", func(t *testing.T) {
+		entry, found := index.LookupAncientGreekLSJ(t.Context(), "Δῆλος")
+		require.True(t, found)
+		assert.Equal(t, "n24339", entry.EntryID)
+	})
+}
+
+// TestAncientGreekLSJLoneCapitalisedEntryIsStillMatched proves a capitalised
+// entry with no lowercase sibling is still the lowercase lemma's evidence, so a
+// common adjective written with a capital resolves rather than vanishing.
+func TestAncientGreekLSJLoneCapitalisedEntryIsStillMatched(t *testing.T) {
+	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
+		`INSERT INTO lsj_entries VALUES ('n33822', 'Ἑλληνικόσ', '[{"id":"n33822.0","n":"A","level":1,"glosses":["of Greece"]}]', 0)`,
+	)...)
+
+	entry, found := index.LookupAncientGreekLSJ(t.Context(), "ἑλληνικός")
+
+	require.True(t, found)
+	assert.Equal(t, "n33822", entry.EntryID)
+}
+
 // TestAncientGreekLSJMissingHeadwordYieldsNoEntry proves an unindexed headword
 // resolves to no entry rather than a guess.
 func TestAncientGreekLSJMissingHeadwordYieldsNoEntry(t *testing.T) {
 	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
-		`INSERT INTO lsj_entries VALUES ('n61607', 'λόγοσ', '[]')`,
+		`INSERT INTO lsj_entries VALUES ('n61607', 'λόγοσ', '[]', 0)`,
 	)...)
 
 	entry, found := index.LookupAncientGreekLSJ(t.Context(), "ἄνθρωπος")
@@ -82,7 +141,7 @@ func TestAncientGreekLSJMissingHeadwordYieldsNoEntry(t *testing.T) {
 // matched.
 func TestAncientGreekLSJSkippedHeadwordIsCounted(t *testing.T) {
 	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
-		`INSERT INTO lsj_entries VALUES ('n9', '123', '[]')`,
+		`INSERT INTO lsj_entries VALUES ('n9', '123', '[]', 0)`,
 	)...)
 
 	entry, found := index.LookupAncientGreekLSJ(t.Context(), "123")

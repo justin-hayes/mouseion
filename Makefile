@@ -28,7 +28,7 @@ DICTIONARY_VERSION ?= dump=$(DICTIONARY_DUMP_DATE);extraction=$(DICTIONARY_EXTRA
 DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 # Optional: point DICTIONARY_LSJ_DIR at the pinned PerseusDL/lexica grc/lsj TEI
-# directory to derive the LSJ table (index format 4). The real files never enter
+# directory to derive the LSJ table (index format 5). The real files never enter
 # the repository or CI.
 DICTIONARY_LSJ_PIN ?= 56061ca127f4a2844980baffc5f2b6d1332897b3
 DICTIONARY_LSJ_ARGS := $(if $(strip $(DICTIONARY_LSJ_DIR)),--lsj-dir "$(DICTIONARY_LSJ_DIR)" --lsj-pin "$(DICTIONARY_LSJ_PIN)",)

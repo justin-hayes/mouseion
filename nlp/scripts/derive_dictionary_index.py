@@ -36,9 +36,11 @@ LSJ_PIN = "56061ca127f4a2844980baffc5f2b6d1332897b3"
 # kept on an LSJ sense.
 XENOPHON_URN_PREFIX = "urn:cts:greekLit:tlg0032"
 # index format 3 introduced the French h_status column (ticket #2163); format 4
-# adds the LSJ table and the lsj_pin metadata (ticket #2169).
+# adds the LSJ table and the lsj_pin metadata (ticket #2169); format 5 adds the
+# LSJ sub-entry classification that keeps a phrase sub-entry or a redirect stub
+# from counting as a homograph (ticket #2214).
 INDEX_FORMAT_VERSION = 3
-LSJ_INDEX_FORMAT_VERSION = 4
+LSJ_INDEX_FORMAT_VERSION = 5
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -121,7 +123,8 @@ CREATE TABLE greek_entries (
 CREATE TABLE lsj_entries (
     entry_id TEXT NOT NULL,
     headword TEXT NOT NULL,
-    senses_json TEXT NOT NULL
+    senses_json TEXT NOT NULL,
+    subordinate INTEGER NOT NULL
 );
 """
 INSERT_ENTRIES_SQL = (
@@ -133,7 +136,9 @@ INSERT_GREEK_ENTRIES_SQL = (
     "INSERT INTO greek_entries(headword, upos, etymology_number, senses_json, forms_json) "
     "VALUES (?, ?, ?, ?, ?)"
 )
-INSERT_LSJ_ENTRIES_SQL = "INSERT INTO lsj_entries(entry_id, headword, senses_json) VALUES (?, ?, ?)"
+INSERT_LSJ_ENTRIES_SQL = (
+    "INSERT INTO lsj_entries(entry_id, headword, senses_json, subordinate) VALUES (?, ?, ?, ?)"
+)
 
 
 def load_german_normalization_policy() -> dict:
@@ -656,6 +661,10 @@ LSJ_MARKS = {
     "+": "\u0308",
     "|": "\u0345",
 }
+# LSJ keys mark a vowel's quantity with "^" (long) or "_" (short). Quantity is
+# not part of the ancient-greek/1 key and OGA lemmas do not carry it, so the
+# mark is dropped rather than rendered.
+LSJ_LENGTH_MARKS = frozenset({"_", "^"})
 
 
 def strip_trailing_digits(value: str) -> str:
@@ -664,6 +673,11 @@ def strip_trailing_digits(value: str) -> str:
     while end > 0 and value[end - 1] in "0123456789":
         end -= 1
     return value[:end]
+
+
+def strip_length_marks(value: str) -> str:
+    """Drop LSJ's "^"/"_" vowel-quantity marks; quantity is not part of the key."""
+    return "".join(character for character in value if character not in LSJ_LENGTH_MARKS)
 
 
 def beta_to_greek(value: str) -> tuple[str, list[str]]:
@@ -698,9 +712,72 @@ def lsj_headword(key: str) -> tuple[str, bool]:
     """Return (NFC headword, admitted). The trailing homograph digit is dropped;
     the homograph is preserved by the row's native entry id, never by numbering."""
     key = strip_trailing_digits(key)
-    greek, unknown = beta_to_greek(key)
+    greek, unknown = beta_to_greek(strip_length_marks(key))
     headword = greek.strip()
     return headword, bool(headword) and not unknown
+
+
+# LSJ marks a real homograph with a letter in parentheses after the headword
+# ("a)/n (A)", "a)/n (B)"). Such an entry is a distinct lexeme even when it only
+# redirects, so it stays a competing homograph.
+LSJ_HOMOGRAPH_MARKERS = tuple(f"({letter})" for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+
+def lsj_has_homograph_marker(preamble: str) -> bool:
+    """Report whether LSJ marks the entry as a real homograph, "(A)".."(Z)"."""
+    return any(marker in preamble for marker in LSJ_HOMOGRAPH_MARKERS)
+
+
+def lsj_homograph_number(key: str) -> int:
+    """Return a key's trailing homograph number, or 1 when it has none."""
+    stripped = strip_trailing_digits(key)
+    return int(key[len(stripped) :]) if stripped != key else 1
+
+
+def lsj_first_orth(element) -> str:
+    """Return the entry's first <orth>, the headword it spells."""
+    for child in element:
+        if child.tag == "orth":
+            return "".join(child.itertext()).strip()
+    return ""
+
+
+def lsj_preamble(element) -> str:
+    """Return the entry's own text before its first sense."""
+    parts: list[str] = []
+    for child in element:
+        if child.tag == "sense":
+            break
+        parts.append("".join(child.itertext()))
+        parts.append(child.tail or "")
+    return " ".join(parts)
+
+
+def lsj_has_gloss(element) -> bool:
+    """Report whether the entry states any English gloss of its own."""
+    return any(clean_gloss(element_text(tr)) for tr in element.iter("tr"))
+
+
+def lsj_has_cross_reference(element) -> bool:
+    """Report whether the entry carries a cross-reference ("v. ..." / "= ...")."""
+    return element.find(".//xr") is not None
+
+
+def lsj_subordinate(element) -> bool:
+    """Report whether a numbered LSJ entry is a sub-entry, not a homograph.
+
+    LSJ files a phrase ("ou) ga/r") or a redirect stub ("h)/dh, v. *ei)/dw")
+    under the bare word's key with a trailing homograph number. Neither is the
+    bare lemma's own entry, so neither makes it ambiguous when the bare lemma is
+    looked up. A real homograph LSJ marks (A)/(B)/(C) still competes.
+    """
+    if lsj_homograph_number(element.get("key") or "") < 2:
+        return False
+    if lsj_has_homograph_marker(lsj_preamble(element)):
+        return False
+    if " " in lsj_first_orth(element):
+        return True
+    return not lsj_has_gloss(element) and lsj_has_cross_reference(element)
 
 
 def element_text(element) -> str:
@@ -903,8 +980,8 @@ def lsj_sense(element) -> dict:
     return sense
 
 
-def lsj_rows_for_file(path: Path) -> list[tuple[str, str, str]]:
-    rows: list[tuple[str, str, str]] = []
+def lsj_rows_for_file(path: Path) -> list[tuple[str, str, str, int]]:
+    rows: list[tuple[str, str, str, int]] = []
     # The LSJ files are operator-supplied and digest-pinned (ADR 0101), never
     # fetched from an untrusted source, so entity-expansion attacks are out of
     # scope here.
@@ -913,17 +990,18 @@ def lsj_rows_for_file(path: Path) -> list[tuple[str, str, str]]:
             continue
         entry_id = (element.get("id") or "").strip()
         headword, admitted = lsj_headword(element.get("key") or "")
+        subordinate = lsj_subordinate(element)
         senses = [lsj_sense(child) for child in element if child.tag == "sense"]
         element.clear()
         if not admitted or not entry_id or not senses:
             continue
         senses_json = json.dumps(senses, ensure_ascii=False, separators=(",", ":"))
-        rows.append((entry_id, headword, senses_json))
+        rows.append((entry_id, headword, senses_json, int(subordinate)))
     return rows
 
 
-def collect_lsj_entries(lsj_dir: Path) -> list[tuple[str, str, str]]:
-    rows: list[tuple[str, str, str]] = []
+def collect_lsj_entries(lsj_dir: Path) -> list[tuple[str, str, str, int]]:
+    rows: list[tuple[str, str, str, int]] = []
     for path in sorted(lsj_dir.glob("grc.lsj.perseus-eng*.xml")):
         rows.extend(lsj_rows_for_file(path))
     return sorted(rows)
@@ -955,7 +1033,7 @@ class DerivedRows:
 
     entries: dict[tuple[str, str, str], dict]
     greek_entries: list[tuple[str, str, str, str, str]]
-    lsj_entries: list[tuple[str, str, str]]
+    lsj_entries: list[tuple[str, str, str, int]]
 
 
 def metadata_rows(provider_version: str, source: SourceMetadata, lsj_pin: str) -> dict[str, str]:

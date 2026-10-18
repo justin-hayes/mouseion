@@ -42,9 +42,9 @@ type Index struct {
 	skippedGreekHeadwords int
 
 	// lsjEntries maps each LSJ main entry's ancient-greek/1 key to the source
-	// entries that share it. A key with exactly one entry is an unambiguous
-	// match; a key with none or several is never matched.
-	lsjEntries map[string][]enrichment.AncientGreekLSJEntry
+	// entries that share it. A key with exactly one competing entry is an
+	// unambiguous match; a key with none or several is never matched.
+	lsjEntries map[string][]lsjEntry
 	// lsjAvailable is true when the index format carries the LSJ table, so an
 	// older index reports no LSJ entry rather than an empty dictionary.
 	lsjAvailable bool
