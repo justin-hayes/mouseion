@@ -9,6 +9,7 @@
 package storecontract
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -34,6 +35,11 @@ type BookSeed struct {
 	// Vocabulary is the identities the Book's analysis contributes. A Start
 	// freezes the eligible ones into the reading's snapshot.
 	Vocabulary []domain.SnapshotIdentity
+	// Unusable names identities in Vocabulary that the Book's analysis holds
+	// only as gate-rejected fragments, so a gated Start must not freeze them.
+	// An adapter that models the gate by omission simply leaves them out of the
+	// snapshot vocabulary.
+	Unusable []domain.SnapshotIdentity
 	// Occurrences are the observed tokens the Book's analysis contributes to
 	// lemma review, in sentence order. Each one becomes its own sentence.
 	Occurrences []OccurrenceSeed
@@ -50,6 +56,12 @@ type BookSeed struct {
 // such as morpheus:2.
 type OccurrenceSeed struct {
 	Surface, Lemma, UPOS, LexicalDiscriminator string
+}
+
+// DeclaresUnusable reports whether the seed names identity as one the Book's
+// analysis cannot gate, so a gated Start must not freeze it.
+func (seed BookSeed) DeclaresUnusable(identity domain.SnapshotIdentity) bool {
+	return slices.Contains(seed.Unusable, identity)
 }
 
 // Harness is what an adapter implements to run the scenarios. Store exposes the

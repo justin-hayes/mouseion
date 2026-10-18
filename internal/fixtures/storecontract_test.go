@@ -62,8 +62,14 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 	if seed.ToRead {
 		h.store.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
 	}
+	// The fixtures hold no dependency parses, so they model the sentence-quality
+	// gate by leaving out the identities a seed declares unusable: a Start then
+	// freezes the rest, as the gate does against PostgreSQL.
 	vocabulary := make([]domain.DeckPreparationVocabulary, 0, len(seed.Vocabulary))
 	for _, identity := range seed.Vocabulary {
+		if seed.DeclaresUnusable(identity) {
+			continue
+		}
 		vocabulary = append(vocabulary, domain.DeckPreparationVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, Headword: identity.Headword})
 	}
 	h.store.bookSnapshotVocabulary[bookID] = vocabulary
