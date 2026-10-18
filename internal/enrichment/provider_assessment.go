@@ -35,31 +35,30 @@ type ProviderAssessment struct {
 
 // evidenceAssistedPassAssessment is the reviewed personal-use disposition for
 // the exact Ancient Greek evidence-assisted pass payload: the representative
-// sentence, its passage context, and the pinned LSJ senses with their native
-// IDs. Justin must review that payload and record the disposition on #2171
-// before any call is transmitted. Recorded stays false until then, so the pass
-// does not run and Greek decks contain default cards only (ADR 0101, ADR 0105).
+// sentence, its passage context, and the pinned LSJ definitions as short
+// evidence handles. Justin reviewed that payload and recorded the disposition on
+// #2171, so the pass runs for every Greek deck with a configured provider
+// (ADR 0101, ADR 0105).
 //
 // The transport is the configured OpenAI-compatible Chat Completions endpoint.
-// The transmitted fields are exactly the frozen pass payload: identity fields,
-// the representative sentence, its passage context, and the LSJ senses with
-// their native IDs. No learner identity, Book title, or raw annotation is
-// transmitted.
+// No learner identity, Book title, whole Book, raw annotation, lexical
+// discriminator or native LSJ ID is transmitted.
 //
-// Fields is written out independently of EvidenceAssistedPassPayloadFields so
-// the record is a real pin: changing the codec's payload without re-recording
-// the disposition fails the gate and sends nothing.
+// PromptVersion and Fields are written out as the recorded literals, not taken
+// from the codec, so the record is a real pin: changing the prompt contract or
+// the payload without re-recording the disposition fails the gate and sends
+// nothing.
 var evidenceAssistedPassAssessment = ProviderAssessment{
 	Language:      "grc",
 	Provider:      "openai-compatible",
-	PromptVersion: evidenceAssistedPassPromptVersion,
+	PromptVersion: "translation-v16-evidence-assisted-greek",
 	Fields: []string{
 		"item_id", "language", "target_language", "canonical_lemma", "upos",
 		"target_word", "example_sentence", "passage_context", "candidate_senses",
 	},
-	Disposition: "awaiting Justin's review of the evidence-assisted pass payload (#2171)",
+	Disposition: "approved for personal use of the locally produced deck",
 	Ticket:      "#2171",
-	Recorded:    false,
+	Recorded:    true,
 }
 
 // ProviderAssessments returns the compiled reviewed personal-use payload

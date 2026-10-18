@@ -14,19 +14,31 @@ func passCodec(t *testing.T) *TranslationCodec {
 	return codec
 }
 
-// TestEvidenceAssistedPassAssessmentShipsClosed proves the #2171 disposition is
-// unrecorded, so the pass is not offered and no pass call is transmitted.
-func TestEvidenceAssistedPassAssessmentShipsClosed(t *testing.T) {
+// TestEvidenceAssistedPassAssessmentIsRecorded proves the #2171 disposition is
+// recorded and matches the current codec, so the pass runs and its call is
+// allowed.
+func TestEvidenceAssistedPassAssessmentIsRecorded(t *testing.T) {
 	assessments := ProviderAssessments()
 	require.Len(t, assessments, 1)
 	assessment := assessments[0]
-	assert.False(t, assessment.Recorded, "the #2171 assessment ships unrecorded until Justin records it")
+	assert.True(t, assessment.Recorded, "Justin recorded the #2171 assessment")
 	assert.Equal(t, "#2171", assessment.Ticket)
-	assert.False(t, EvidenceAssistedPassOffered(assessments), "the pass is not offered while its assessment is unrecorded")
+	assert.Equal(t, "approved for personal use of the locally produced deck", assessment.Disposition)
+	assert.True(t, EvidenceAssistedPassOffered(assessments))
 
 	codec := passCodec(t)
-	err := AllowExternalProviderCall(assessments, "grc", codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields())
-	require.Error(t, err)
+	assert.Equal(t, codec.EvidenceAssistedPassPromptContract(), assessment.PromptVersion, "the recorded prompt contract is the one the codec sends; a new prompt needs a new record")
+	require.NoError(t, AllowExternalProviderCall(assessments, "grc", codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields()))
+}
+
+// TestEvidenceAssistedPassUnrecordedAssessmentFailsClosed proves an unrecorded
+// assessment allows no pass call.
+func TestEvidenceAssistedPassUnrecordedAssessmentFailsClosed(t *testing.T) {
+	unrecorded := ProviderAssessments()
+	unrecorded[0].Recorded = false
+	assert.False(t, EvidenceAssistedPassOffered(unrecorded))
+	codec := passCodec(t)
+	err := AllowExternalProviderCall(unrecorded, "grc", codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields())
 	assert.ErrorIs(t, err, ErrProviderAssessmentNotRecorded)
 }
 

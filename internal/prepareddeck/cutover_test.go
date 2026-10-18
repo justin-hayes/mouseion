@@ -537,8 +537,11 @@ func TestBatchPlannerPlansDefaultGreekDeckWithoutAssessment(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, deckName: "Book", language: "grc"}
+	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{})
+	planner.Assessments = recordedPassAssessment(t, codec)
+	planner.Assessments[0].Recorded = false
 
-	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
 	assertDefaultGreekPlan(t, plan)
 }
