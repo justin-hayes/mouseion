@@ -1,6 +1,6 @@
 # ADR 0106: The Reading freeze applies the sentence-quality gate
 
-Status: **Proposed** · Date: 2026-10-18 · Author: Justin + opencode
+Status: **Accepted** · Date: 2026-10-18 · Author: Justin + opencode
 
 Amends the snapshot rule of [ADR 0085](0085-reading-owned-book-vocabulary.md)
 as revised by [ADR 0090](0090-library-total-book-vocabulary-selection.md): a
@@ -62,14 +62,15 @@ for a later Book, where a better sentence can earn it a card.
 ### 5. Finish still accepts the whole snapshot
 
 Finish needs no deck and accepts every frozen identity that is not already
-Known, as before. The only identities left without a card are now per-item
-provider omissions (ADR 0100), which are few (23 on Herkunft) and retryable.
-They had a passing sentence and are still accepted.
+Known, as before. The only identities left without a card are now meaning
+omissions, where the provider found no defensible meaning in context, and
+retryable provider omissions (ADR 0100). There were 23 such identities on
+Herkunft. They had a passing sentence and are still accepted.
 
 ## Consequences
 
 - The reserved count and the "words become Known" count match the deck, apart
-  from provider omissions. A learner who reads without a deck gains only words
+  from meaning and provider omissions. A learner who reads without a deck gains only words
   that appeared in a usable sentence.
 - Starting a Reading costs more. Measured on Herkunft (8,023 sentences), scoring
   every projected identity's 36,665 references took about 0.8 s, after about
