@@ -63,9 +63,13 @@ and Italian candidates use the generic deterministic rubric.
 fragmented, too long, target not present as a word, invalid source location,
 incomplete sentence boundaries, structural noise or boilerplate) plus:
 
-- **No finite verb and subject**: the sentence root is not a finite verb (UPOS
-  `AUX`/`VERB` with finite morphology) that has a subject dependent (`nsubj`,
-  `nsubj:pass`, or `csubj`). Computed from the persisted morphology and
+- **No finite verb and subject**: neither the sentence root nor any direct
+  dependent of the root is a finite verb (UPOS `AUX`/`VERB` with finite
+  morphology) for which that verb or the root has a subject dependent (`nsubj`,
+  `nsubj:pass`, or `csubj`). As in GDEX, the finite verb may sit below the
+  root: UD German roots compound tenses at the participle or infinitive and
+  copula sentences at the predicate, with the finite verb attached as `aux`,
+  `aux:pass` or `cop` (#2219). Computed from the persisted morphology and
   dependency/head data.
 
 **Gradual score (ranking among accepted candidates, 0–1):**

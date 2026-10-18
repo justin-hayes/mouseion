@@ -180,8 +180,8 @@ digitale Lexikographie der deutschen Sprache), computed over the persisted
 parses ([spec](features/sentence-quality-scoring.md),
 [ADR 0062](adr/0062-derived-sentence-quality-scoring.md)):
 
-- **Knock-out criteria** reject a sentence outright: no finite verb as root
-  with a subject (a fragment), wrong length, broken boundaries, structural
+- **Knock-out criteria** reject a sentence outright: no finite verb with a
+  subject in the main clause (a fragment), wrong length, broken boundaries, structural
   noise, or a missing target.
 - **Gradual criteria** rank the remainder. A sentence is penalized when the
   target sits only in a subordinate clause, when it relies on deictic words
