@@ -51,6 +51,37 @@ func TestRecoveryWorkerEnqueuesEachStaleDeckOnce(t *testing.T) {
 	assert.Equal(t, 2, jobs)
 }
 
+func TestRecoveryWorkerSkipsRerenderedDeckWithOlderFrozenInputs(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	store, err := persistence.Open(ctx, integrationDatabase(t, ctx))
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "recovery-rerendered-owner", false)
+	require.NoError(t, err)
+	preparation := createCompletedStaleDeck(t, ctx, store, owner.ID, "rerendered")
+	// The state a rerender leaves behind: the artifact is current, while the
+	// run keeps the older version its inputs were frozen at.
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET presentation_version=$3, render_input_version=$4 WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID, cardexport.PresentationVersion, cardexport.RenderInputVersion)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_runs SET presentation_version=$3, render_input_version=$4 WHERE owner_id=$1 AND preparation_id=$2`, owner.ID, preparation.ID, cardexport.PresentationVersion, cardexport.RenderInputVersion-1)
+	require.NoError(t, err)
+	workers := river.NewWorkers()
+	AddRerenderWorker(workers, nil)
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
+	worker := &RecoveryWorker{Store: store, Client: client, Interval: time.Hour, Limit: 100}
+
+	err = worker.Work(ctx, nil)
+	var snooze *river.JobSnoozeError
+	require.ErrorAs(t, err, &snooze)
+
+	var jobs int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1`, (RerenderJobArgs{}).Kind()).Scan(&jobs))
+	assert.Zero(t, jobs, "a deck already rerendered at the current versions is not queued again")
+}
+
 func TestRecoveryWorkerSnoozesAtDefaultIntervalWhenUnset(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()

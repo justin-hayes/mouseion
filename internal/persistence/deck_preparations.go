@@ -158,7 +158,9 @@ func supersedePreparedDeckArtifactTx(ctx context.Context, tx pgx.Tx, owner, prep
 
 // preparedDeckRerenderDecision validates that a completed run can be
 // superseded and returns the presentation version to publish. upToDate reports
-// that the stored run already meets or exceeds the requested versions.
+// that the stored run already meets or exceeds the requested versions. The
+// run keeps the render-input version its inputs were frozen at, so a rerendered
+// artifact's version is read from the preparation.
 func preparedDeckRerenderDecision(preparation domain.DeckPreparation, run domain.PreparedDeckRun, runID string, presentationVersion int) (int, bool, error) {
 	if preparation.CurrentRunID != runID || preparation.State != domain.DeckPreparationReady || preparation.RetiredAt != nil || run.State != domain.PreparedDeckRunCompleted {
 		return 0, false, ErrInvalidTransition
@@ -166,7 +168,7 @@ func preparedDeckRerenderDecision(preparation domain.DeckPreparation, run domain
 	if run.PresentationVersion > presentationVersion {
 		presentationVersion = run.PresentationVersion
 	}
-	upToDate := run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion
+	upToDate := run.PresentationVersion >= presentationVersion && max(run.RenderInputVersion, preparation.RenderInputVersion) >= cardexport.RenderInputVersion
 	return presentationVersion, upToDate, nil
 }
 

@@ -110,16 +110,20 @@ func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.Prepar
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var currentRunID string
-	err = tx.QueryRow(ctx, `SELECT current_run_id::text FROM deck_preparations WHERE owner_id=$1 AND id=$2 AND state='ready' AND retired_at IS NULL AND current_run_id=$3::uuid FOR UPDATE`, item.OwnerID, item.PreparationID, item.RunID).Scan(&currentRunID)
+	var artifactRenderInputVersion int
+	err = tx.QueryRow(ctx, `SELECT current_run_id::text, render_input_version FROM deck_preparations WHERE owner_id=$1 AND id=$2 AND state='ready' AND retired_at IS NULL AND current_run_id=$3::uuid FOR UPDATE`, item.OwnerID, item.PreparationID, item.RunID).Scan(&currentRunID, &artifactRenderInputVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return tx.Commit(ctx)
 	}
 	if err != nil {
 		return err
 	}
+	// The run keeps the render-input version its inputs were frozen at; a
+	// rerendered artifact records the version it was rendered at on the
+	// preparation.
 	var runPresentationVersion, runRenderInputVersion int
 	err = tx.QueryRow(ctx, `SELECT presentation_version, render_input_version FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3::uuid AND state='completed'`, item.OwnerID, item.PreparationID, currentRunID).Scan(&runPresentationVersion, &runRenderInputVersion)
-	if errors.Is(err, pgx.ErrNoRows) || (runPresentationVersion >= item.PresentationVersion && runRenderInputVersion >= cardexport.RenderInputVersion) {
+	if errors.Is(err, pgx.ErrNoRows) || (runPresentationVersion >= item.PresentationVersion && max(runRenderInputVersion, artifactRenderInputVersion) >= cardexport.RenderInputVersion) {
 		return tx.Commit(ctx)
 	}
 	if err != nil {

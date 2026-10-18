@@ -343,7 +343,10 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if run.PresentationVersion > presentationVersion {
 		presentationVersion = run.PresentationVersion
 	}
-	if run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion {
+	// The run keeps the render-input version its inputs were frozen at, which
+	// legacy recovery below still needs; a rerendered artifact records the
+	// version it was rendered at on the preparation.
+	if run.PresentationVersion >= presentationVersion && max(run.RenderInputVersion, preparation.RenderInputVersion) >= cardexport.RenderInputVersion {
 		return preparation, nil
 	}
 	projection, stored, err := r.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)

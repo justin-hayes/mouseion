@@ -1110,7 +1110,7 @@ JOIN deck_preparation_runs r
 WHERE p.state = 'ready' AND p.retired_at IS NULL AND p.current_run_id IS NOT NULL
   AND r.state = 'completed'
   AND (r.presentation_version < $1
-       OR r.render_input_version < $2)
+       OR GREATEST(r.render_input_version, p.render_input_version) < $2)
   AND p.error <> $3
 ORDER BY p.updated_at, p.id
 LIMIT $4
