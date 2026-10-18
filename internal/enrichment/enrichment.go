@@ -66,11 +66,25 @@ type PronunciationProvider interface {
 }
 
 // TranslationRequest is deliberately the complete external-provider input.
-// Adding user, document, corpus, or reading metadata to it is prohibited.
+// Adding user, document, corpus, or reading metadata to it is prohibited:
+// PassageContext carries only the pinned source translation of the cited
+// sections and identifies neither the learner nor the Book (ADR 0101).
 type TranslationRequest struct {
 	Language, TargetLanguage, CanonicalLemma, UPOS, TargetWord, ExampleSentence string
-	CandidateSenses                                                             []LexicalSense
-	RequireContextualGloss                                                      bool `json:"-"`
+	// PassageContext is the labelled English of the cited sections a
+	// representative sentence touches. It is sent only by the Ancient Greek
+	// evidence-assisted pass, which uses it as background; it is never an
+	// English target alignment (ADR 0101).
+	PassageContext  string
+	CandidateSenses []LexicalSense
+	// RequireContextualGloss marks the modern-language contextual-gloss
+	// contract, which requires a resolved Gloss.
+	RequireContextualGloss bool `json:"-"`
+	// RequireEvidenceAssistedPass marks the Ancient Greek evidence-assisted
+	// pass contract: the representative sentence, its passage context and the
+	// pinned LSJ senses with their native IDs. The pass can only add to a card,
+	// so an abstaining or failed answer is not an omission (ADR 0101).
+	RequireEvidenceAssistedPass bool `json:"-"`
 }
 type TranslationResponse struct {
 	// ItemID is the stable translation item identity a contextual Gloss

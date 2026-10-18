@@ -360,6 +360,7 @@ type DeckPreparation struct {
 	PresentationVersion                     int
 	DeckRevision                            int
 	GoalSnapshotID                          pgtype.UUID
+	EvidenceAssistedProviderPass            bool
 }
 
 type DeckPreparationBatchChunk struct {

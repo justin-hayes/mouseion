@@ -20,8 +20,14 @@ const (
 	defaultReasoningEffort       = "low"
 	llmPromptVersion             = "translation-v12-structured-target-alignment"
 	contextualGlossPromptVersion = "translation-v15-short-handles"
-	llmReasoningEffortEnv        = "MOUSEION_LLM_REASONING_EFFORT"
-	llmReasoningSupportEnv       = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
+	// evidenceAssistedPassPromptVersion pins the strict Ancient Greek
+	// evidence-assisted pass contract: the representative sentence, its
+	// passage context and the pinned LSJ senses with their native IDs, and a
+	// resolved contextual Gloss with a sentence translation and target
+	// alignment, or an explicit abstention (ADR 0101).
+	evidenceAssistedPassPromptVersion = "translation-v16-evidence-assisted-greek"
+	llmReasoningEffortEnv             = "MOUSEION_LLM_REASONING_EFFORT"
+	llmReasoningSupportEnv            = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )
 
 // LLMConfig is the administrator-controlled configuration for the external

@@ -50,6 +50,11 @@ type Entry struct {
 	SentenceStartOffset                               uint64
 	FirstEncounter                                    int64
 	fallbackGlossApplied                              bool
+	// ProviderProposed marks a render entry built by the Ancient Greek
+	// evidence-assisted pass. Its contextual Gloss, sentence translation and
+	// English target alignment are provider-proposed and labelled as such; the
+	// pass only adds to the source-evidence card (ADR 0101).
+	ProviderProposed bool
 }
 
 type Note struct {
@@ -1247,6 +1252,13 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		note.PassageLabel = escapeField(passageContextLabel(input.PassageCitation))
 		note.PassageText = escapeField(input.PassageContext)
 	}
+	if input.ProviderProposed {
+		// The pass only adds: every field it contributes is labelled, so a
+		// learner never mistakes a provider-proposed meaning for source
+		// evidence (ADR 0101).
+		note.Gloss = labelledProviderProposed(note.Gloss)
+		note.EnglishSentence = labelledProviderProposed(note.EnglishSentence)
+	}
 	articleLemma := note.Lemma
 	if note.Article != "" {
 		separator := " "
@@ -1323,6 +1335,19 @@ func noteFields(n Note) []string {
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
+
+// providerProposedLabel prefixes each field the Ancient Greek evidence-assisted
+// pass contributes, so a provider-proposed Gloss or sentence translation is
+// never mistaken for source evidence (ADR 0101).
+const providerProposedLabel = "Provider-proposed: "
+
+// labelledProviderProposed prefixes a non-empty field the pass contributed.
+func labelledProviderProposed(value string) string {
+	if value == "" {
+		return value
+	}
+	return escapeField(providerProposedLabel) + value
+}
 
 var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Gender", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry"}
 
@@ -1607,11 +1632,41 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) ([]string
 	if err := validateEnrichmentCandidate(testedRenderTarget(*input), result, outcome.CacheKey, available); err != nil {
 		return nil, err
 	}
+	if input.ProviderProposed {
+		// The evidence-assisted pass only adds. A resolved contextual Gloss
+		// brings its sentence translation and English target alignment; a
+		// failed or abstaining answer leaves the source-evidence card as it was.
+		applyEvidenceAssistedPass(input, result)
+		return nil, nil
+	}
 	applyEnrichmentTranslations(input, result)
 	if outcome.CacheKey.MeaningEvidenceHash != "" {
 		return nil, applyContextualGloss(input, result)
 	}
 	return applySenseSelectionGloss(input, result), nil
+}
+
+// applyEvidenceAssistedPass overlays the provider-proposed contextual Gloss and
+// sentence translation when the pass resolved a contextual Gloss. It never
+// fails: the pass can only add to the source-evidence card, so an abstaining or
+// failed answer is not an omission (ADR 0101). The lemma translation the shared
+// contract carries is deliberately not applied, because the default Greek card
+// shows no lemma English.
+func applyEvidenceAssistedPass(input *RenderInput, result enrichment.Result) {
+	gloss := strings.TrimSpace(result.FallbackGloss.Value)
+	if !result.FallbackGloss.Available || !fallbackGlossEligible(gloss) {
+		return
+	}
+	input.Gloss = gloss
+	if result.SentenceTranslation.Available {
+		input.SentenceTranslation = result.SentenceTranslation.Value
+	}
+	if result.SentenceTranslationTarget.Available {
+		input.SentenceTranslationTarget = result.SentenceTranslationTarget.Value
+	}
+	if result.SentenceTranslationTargets.Available {
+		input.SentenceTranslationTargets = enrichment.ValidateSentenceTranslationTargets(input.SentenceTranslation, result.SentenceTranslationTargets.Value)
+	}
 }
 
 // validateEnrichmentProvenance rejects any available field whose provenance

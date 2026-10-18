@@ -49,6 +49,11 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary ADD COLUMN lexical_discriminator text NOT NULL DEFAULT '', ADD COLUMN headword text NOT NULL DEFAULT ''`)
 	require.NoError(t, err)
+	// The evidence-assisted pass flag joins the deck specification in a
+	// successor migration. Add it while seeding, then drop it so migration 43
+	// still runs below.
+	_, err = pool.Exec(ctx, `ALTER TABLE deck_preparations ADD COLUMN evidence_assisted_provider_pass boolean NOT NULL DEFAULT false`)
+	require.NoError(t, err)
 	owner, err := store.CreateUser(ctx, "reading-cutover-owner", false)
 	require.NoError(t, err)
 	active, activeSource, deck := createReadingFixture(t, ctx, store, owner.ID, "cutover-active")
@@ -79,6 +84,8 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	_, err = pool.Exec(ctx, `ALTER TABLE primary_goal_snapshot_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `ALTER TABLE deck_preparations DROP COLUMN evidence_assisted_provider_pass`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `DROP TABLE occurrence_lemma_corrections`)
 	require.NoError(t, err)

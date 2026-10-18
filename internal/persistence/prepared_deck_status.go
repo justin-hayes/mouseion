@@ -113,10 +113,11 @@ func appendEvidenceCoverage(p *domain.DeckPreparation, frozen cardexport.FrozenD
 }
 
 // appendMeaningOmissions names the target word of every completed item the
-// provider explicitly left unresolved.
+// provider explicitly left unresolved. An evidence-assisted pass abstention is
+// not an unresolved meaning: the pass only adds, so it is skipped.
 func appendMeaningOmissions(p *domain.DeckPreparation, outcomes []domain.PreparedDeckTranslationOutcome, items []cardexport.ManifestItem) {
 	for _, outcome := range outcomes {
-		if outcome.OmissionReason == "" || outcome.State != domain.PreparedDeckOutcomeCompleted {
+		if outcome.OmissionReason == "" || outcome.State != domain.PreparedDeckOutcomeCompleted || outcome.OmissionReason == domain.DeckPreparationEvidenceAssistedPassAbstentionReason {
 			continue
 		}
 		for _, item := range items {

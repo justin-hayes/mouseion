@@ -18,6 +18,15 @@ var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target 
 
 var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only the exact short evidence_id handles (for example e1 or e2) shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
+// evidenceAssistedPassSystemPrompt is the strict Ancient Greek evidence-assisted
+// pass contract. The payload carries the representative sentence, its
+// unhighlighted passage context and the pinned LSJ senses with their native IDs
+// as short handles. The provider proposes a contextual Gloss with a sentence
+// translation and English target alignment, or abstains. It never guarantees a
+// card: a failed or abstaining answer leaves the source-evidence card as it
+// was (ADR 0101).
+var evidenceAssistedPassSystemPrompt = "Translate the supplied lemma in the supplied representative sentence of an Ancient Greek text. The passage_context is the labelled English of nearby sections, not a translation of the sentence; use it only as background. candidate_senses are the pinned LSJ senses of the lemma, each with a short evidence_id handle. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. translation is a concise lemma translation. gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. sentence_translation is a natural English translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, abstain: return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why; still return a translation and a sentence_translation. Otherwise return a non-empty gloss, supporting evidence_ids when any pinned evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
+
 const (
 	maxTranslationResponseBytes = 1 << 20
 	maxUnresolvedReasonRunes    = 200
@@ -84,6 +93,27 @@ func (c *TranslationCodec) ContextualGlossProviderVersion() string {
 // assessment pins this contract, so it is stable across model changes.
 func (c *TranslationCodec) ContextualGlossPromptContract() string {
 	return contextualGlossPromptVersion
+}
+
+// EvidenceAssistedPassProviderVersion identifies the strict Ancient Greek
+// evidence-assisted pass response contract used by a pass run.
+func (c *TranslationCodec) EvidenceAssistedPassProviderVersion() string {
+	if c == nil {
+		return ""
+	}
+	version := c.model + "/" + evidenceAssistedPassPromptVersion
+	if c.usesReasoningEffort {
+		version += "-reasoning-" + c.reasoningEffort
+	}
+	return version
+}
+
+// EvidenceAssistedPassPromptContract returns the versioned evidence-assisted
+// pass prompt contract alone, without the configured model. The
+// provider-payload assessment pins this contract, so it is stable across model
+// changes.
+func (c *TranslationCodec) EvidenceAssistedPassPromptContract() string {
+	return evidenceAssistedPassPromptVersion
 }
 
 // PromptVersion identifies the request/validation contract frozen into this
@@ -174,7 +204,7 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 		return nil, errors.New("encode LLM translation input: required identity or language field is empty")
 	}
 	candidateSenses := CloneLexicalSenses(input.CandidateSenses)
-	if input.RequireContextualGloss {
+	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass {
 		handles := newContextualGlossHandles(input)
 		itemID = ContextualGlossItemHandle
 		for i := range candidateSenses {
@@ -191,8 +221,9 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 		UPOS            string         `json:"upos"`
 		TargetWord      string         `json:"target_word,omitempty"`
 		ExampleSentence string         `json:"example_sentence,omitempty"`
+		PassageContext  string         `json:"passage_context,omitempty"`
 		CandidateSenses []LexicalSense `json:"candidate_senses,omitempty"`
-	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, candidateSenses})
+	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, input.PassageContext, candidateSenses})
 	if err != nil {
 		return nil, fmt.Errorf("encode LLM translation input: %w", err)
 	}
@@ -218,6 +249,9 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 }
 
 func promptForRequest(input TranslationRequest) string {
+	if input.RequireEvidenceAssistedPass {
+		return evidenceAssistedPassSystemPrompt
+	}
 	if input.RequireContextualGloss {
 		return contextualGlossSystemPrompt
 	}
@@ -236,6 +270,22 @@ var contextualGlossPayloadFields = []string{
 // contextual Gloss request transmits.
 func ContextualGlossPayloadFields() []string {
 	return slices.Clone(contextualGlossPayloadFields)
+}
+
+// evidenceAssistedPassPayloadFields is the exact ordered field set an Ancient
+// Greek evidence-assisted pass request transmits in its user message:
+// the representative sentence, its passage context and the pinned LSJ senses
+// with their native IDs (as short handles). It is the reviewed contract the
+// #2171 provider-payload assessment pins before any request is sent.
+var evidenceAssistedPassPayloadFields = []string{
+	"item_id", "language", "target_language", "canonical_lemma", "upos",
+	"target_word", "example_sentence", "passage_context", "candidate_senses",
+}
+
+// EvidenceAssistedPassPayloadFields returns a copy of the ordered field set an
+// evidence-assisted pass request transmits.
+func EvidenceAssistedPassPayloadFields() []string {
+	return slices.Clone(evidenceAssistedPassPayloadFields)
 }
 
 // ContextualGlossItemHandle is the short handle a contextual Gloss payload
@@ -281,10 +331,11 @@ func newContextualGlossHandles(input TranslationRequest) contextualGlossHandles 
 }
 
 // mapContextualEvidenceHandles replaces the short handles a contextual Gloss
-// response echoed with the stable evidence IDs the request froze. Every other
-// response already carries stable identifiers, so it is returned unchanged.
+// or evidence-assisted pass response echoed with the stable evidence IDs the
+// request froze. Every other response already carries stable identifiers, so it
+// is returned unchanged.
 func mapContextualEvidenceHandles(input TranslationRequest, response *TranslationResponse) error {
-	if !input.RequireContextualGloss {
+	if !input.RequireContextualGloss && !input.RequireEvidenceAssistedPass {
 		return nil
 	}
 	handles := newContextualGlossHandles(input)
@@ -360,9 +411,10 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if err != nil {
 		return TranslationResponse{}, TranslationUsage{}, err
 	}
-	if input.RequireContextualGloss {
-		// A contextual Gloss request transmits the short per-request item
-		// handle, not the stable item ID, so the echo is validated against it.
+	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass {
+		// A contextual Gloss or evidence-assisted pass request transmits the
+		// short per-request item handle, not the stable item ID, so the echo is
+		// validated against it.
 		expectedItemID = ContextualGlossItemHandle
 	}
 	if err := validateTranslationIdentity(input, expectedItemID, result); err != nil {
@@ -470,7 +522,7 @@ func buildTranslationResponse(input TranslationRequest, result decodedTranslatio
 	} else {
 		response.FallbackGloss = fallback
 	}
-	if input.RequireContextualGloss {
+	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass {
 		// The transmitted payload carried a short per-request handle in place
 		// of the stable item ID; the decoded response reports the stable ID.
 		response.ItemID = TranslationItemID(input)
@@ -478,10 +530,11 @@ func buildTranslationResponse(input TranslationRequest, result decodedTranslatio
 	return NormalizeTranslationResponse(input, response)
 }
 
-// requireContextualGlossFields rejects a contextual-gloss response that omits
-// one of the four mandatory outcome fields (even when it sent JSON null).
+// requireContextualGlossFields rejects a contextual-gloss or evidence-assisted
+// pass response that omits one of the four mandatory outcome fields (even when
+// it sent JSON null).
 func requireContextualGlossFields(input TranslationRequest, result decodedTranslationFields) error {
-	if input.RequireContextualGloss && (len(result.Gloss) == 0 || len(result.EvidenceIDs) == 0 || len(result.ContextOnly) == 0 || string(result.Gloss) == "null" || string(result.EvidenceIDs) == "null" || string(result.ContextOnly) == "null") {
+	if (input.RequireContextualGloss || input.RequireEvidenceAssistedPass) && (len(result.Gloss) == 0 || len(result.EvidenceIDs) == 0 || len(result.ContextOnly) == 0 || string(result.Gloss) == "null" || string(result.EvidenceIDs) == "null" || string(result.ContextOnly) == "null") {
 		return errors.New("decode LLM translation: incomplete contextual gloss outcome")
 	}
 	return nil
@@ -531,7 +584,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	if response.Translation == "" {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}
-	if input.RequireContextualGloss {
+	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass {
 		// A resolved meaning and an unresolved reason are mutually exclusive.
 		// Keep the resolved meaning and discard the stray reason without
 		// validating it: it is never stored, cached, or rendered, and failing
