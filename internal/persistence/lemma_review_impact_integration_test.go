@@ -15,19 +15,29 @@ import (
 )
 
 // reviewImpactBook creates a Book whose analysis repeats one word per entry in
-// words, builds its count projection, and returns it.
+// words, builds its count projection, and returns it. The sentence carries the
+// German finite-verb template the sentence-quality gate accepts (ADR 0106), so
+// the freeze and the lemma-review impact preview agree.
 func reviewImpactBook(t *testing.T, ctx context.Context, store *PostgresStore, ownerID, suffix string, toRead bool, words []string) domain.Book {
 	t.Helper()
-	text := strings.Join(words, " ")
+	text := "Anna ist nicht mit dem " + strings.Join(words, " ") + " ."
 	end := int64(len([]rune(text)))
 	book, source := createConcordanceBook(t, ctx, store, ownerID, "Review impact "+suffix, suffix, toRead,
 		[]domain.ExtractedUnit{concordanceUnit(0, suffix, text, 0, uint64(end))})
-	tokens := make([]concordanceToken, 0, len(words))
+	tokens := make([]concordanceToken, 0, len(words)+5)
 	offset := int64(0)
-	for _, word := range words {
-		length := int64(len([]rune(word)))
-		tokens = append(tokens, concordanceToken{Surface: word, Lemma: strings.ToLower(word), Upos: "NOUN", Start: offset, End: offset + length})
+	appendToken := func(surface, lemma, upos, dependency string, head int64, morphology map[string]string) {
+		length := int64(len([]rune(surface)))
+		tokens = append(tokens, concordanceToken{Surface: surface, Lemma: lemma, Upos: upos, Dependency: dependency, Head: head, Morphology: morphology, Start: offset, End: offset + length})
 		offset += length + 1
+	}
+	appendToken("Anna", "Anna", "PROPN", "nsubj", 1, nil)
+	appendToken("ist", "sein", "AUX", "root", 1, map[string]string{"VerbForm": "Fin"})
+	appendToken("nicht", "nicht", "PART", "advmod", 1, nil)
+	appendToken("mit", "mit", "ADP", "case", 5, nil)
+	appendToken("dem", "der", "DET", "det", 5, nil)
+	for _, word := range words {
+		appendToken(word, strings.ToLower(word), "NOUN", "obl", 1, nil)
 	}
 	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{{
 		UnitID: "epub-unit-v1:0:" + suffix, Ordinal: 0, Text: text, Start: 0, End: end, Tokens: tokens,

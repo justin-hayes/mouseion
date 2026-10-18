@@ -10,10 +10,136 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/selection"
+	"github.com/justin-hayes/mouseion/internal/sentencequality"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestCurrentReadingFreezeRecordsGateVersionAndAcceptsLegacySnapshot pins ADR
+// 0106 §3: a frozen identity's provenance records the sentence-quality gate
+// version that admitted it, and a snapshot frozen before the gate (no gate
+// version) still lists its identities and finishes whole.
+func TestCurrentReadingFreezeRecordsGateVersionAndAcceptsLegacySnapshot(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "goal-gate-version", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "gate-version")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+	var corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Occurrences: 3})
+
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	require.Len(t, snapshot, 1)
+	var provenance struct {
+		OccurrenceCount int `json:"occurrence_count"`
+		GateVersion     int `json:"gate_version"`
+	}
+	require.NoError(t, json.Unmarshal(snapshot[0].Provenance, &provenance))
+	assert.Equal(t, sentencequality.GateVersion, provenance.GateVersion)
+	assert.Equal(t, 3, provenance.OccurrenceCount)
+
+	// A snapshot frozen before this change carries no gate version. It still
+	// lists its identities and Finish accepts the whole snapshot.
+	_, err = store.Pool().Exec(ctx, `UPDATE primary_goal_snapshot_vocabulary SET provenance = provenance - 'gate_version' WHERE owner_id=$1 AND snapshot_id=$2`, owner.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	legacy, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	require.Len(t, legacy, 1)
+	assert.NotContains(t, string(legacy[0].Provenance), "gate_version")
+
+	result, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Completion.SnapshotVocabularyCount)
+	assert.Equal(t, 1, result.Completion.GraduatedVocabularyCount, "a snapshot without a gate version still accepts the whole snapshot")
+	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	require.Len(t, known, 1)
+	assert.Equal(t, "reisen", known[0].CanonicalLemma)
+}
+
+// TestGatedCurrentReadingCandidatesRequireResolvableSentenceReferences pins the
+// gate's failure mode: a reference the persisted corpus cannot resolve fails the
+// freeze instead of silently freezing the candidate.
+func TestGatedCurrentReadingCandidatesRequireResolvableSentenceReferences(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "gate-missing-sentence", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "gate-missing-sentence")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+	var corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Occurrences: 1})
+
+	tx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tx.Rollback(ctx)) }()
+	candidate := domain.SelectionCandidate{
+		OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: "reisen", UPOS: "VERB",
+		ObservedForms: []byte(`["reisen"]`),
+		SentenceReferences: []byte(`[
+			{"sentence_index":0,"text":"present","location":{"StartOffset":1}},
+			{"sentence_index":99,"text":"missing","location":{"StartOffset":1}}
+		]`),
+	}
+	_, err = gatedCurrentReadingCandidates(ctx, tx, owner.ID, []domain.SelectionCandidate{candidate})
+	require.ErrorContains(t, err, "missing sentence ordinal 99")
+}
+
+// TestCurrentReadingFrozenSentenceReferencesResolveLikeTheDeck pins ADR 0106's
+// freeze-evidence rule: a frozen reference names the persisted sentence its
+// token came from, resolved by stored sentence number, even when the corpus
+// holds a sentence with no tokens before it.
+func TestCurrentReadingFrozenSentenceReferencesResolveLikeTheDeck(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "goal-sentence-numbers", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "sentence-numbers")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+	var corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
+
+	// A sentence with no tokens keeps ordinal 0, so the word's sentences start
+	// at 1. The freeze must not renumber them.
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) SELECT owner_id,analysis_run_id,id,'seeded-unit',0,'.......',0,7 FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpusID)
+	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Occurrences: 3})
+
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, goal.SnapshotSize, "the gate still admits a word whose sentence follows a tokenless one")
+	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	require.Len(t, snapshot, 1)
+	var references []selection.SentenceReference
+	require.NoError(t, json.Unmarshal(snapshot[0].SentenceReferences, &references))
+	require.Len(t, references, 3)
+
+	ordinals := make([]int64, 0, len(references))
+	for _, reference := range references {
+		ordinals = append(ordinals, int64(reference.SentenceIndex))
+	}
+	sentences, err := store.ListCorpusSentences(ctx, owner.ID, corpusID, ordinals)
+	require.NoError(t, err)
+	want := testutil.GatePassingSentence("de", testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB"}).Text
+	for _, reference := range references {
+		persisted, ok := sentences[int64(reference.SentenceIndex)]
+		require.True(t, ok, "the frozen reference resolves in the deck's sentence loader")
+		assert.Equal(t, want, reference.Text)
+		assert.Equal(t, reference.Text, persisted.Text, "the frozen reference names the sentence its token came from")
+		assert.NotZero(t, persisted.Location.StartOffset, "a tokenless sentence does not reset the following sentence's start offset")
+	}
+}
 
 func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	ctx := context.Background()

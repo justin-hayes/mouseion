@@ -42,6 +42,10 @@ type SentenceReference struct {
 type Provenance struct {
 	MinOccurrences  int `json:"min_occurrences"`
 	OccurrenceCount int `json:"occurrence_count"`
+	// GateVersion is the sentence-quality gate version that admitted a frozen
+	// Reading identity (ADR 0106). It is zero, and omitted, for the Browse-
+	// selection store and for snapshots frozen before the gate was applied.
+	GateVersion int `json:"gate_version,omitempty"`
 }
 type Candidate struct {
 	Identity           Identity

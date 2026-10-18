@@ -89,7 +89,7 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	assert.Zero(t, provider.calls, "no provider request is made for a Greek deck")
 	status, err := store.GetDeckPreparationStatus(ctx, learner.ID, preparation.ID)
 	require.NoError(t, err)
-	requireGreekDeckOmissionKinds(t, status, 0)
+	requireGreekDeckAgreesWithSnapshot(t, status)
 
 	// Homographs stay separate cards with separate deduplication keys.
 	cards := queryGreekDeckCards(t, ctx, pool, learner.ID)
@@ -191,10 +191,11 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	assert.Equal(t, registration.BookID, again.BookID)
 }
 
-// TestAncientGreekDeckSentenceQualityOmissionWithoutProvider proves a Greek deck
-// item whose sentences all fail the gate is a sentence-quality omission and that
-// no other omission kind is produced for grc.
-func TestAncientGreekDeckSentenceQualityOmissionWithoutProvider(t *testing.T) {
+// TestAncientGreekDeckAgreesWithGatedSnapshotWithoutProvider proves a deck
+// prepared from a gated snapshot omits nothing for sentence quality: the δέω
+// fragments never enter the snapshot, so λόγος is the only frozen identity and
+// the deck cards it with no omission.
+func TestAncientGreekDeckAgreesWithGatedSnapshotWithoutProvider(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "ancient-greek-deck-integration-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -226,7 +227,7 @@ func TestAncientGreekDeckSentenceQualityOmissionWithoutProvider(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, started.Code, "start body=%s", started.Body.String())
 	reading, err := store.GetCurrentReading(ctx, learner.ID, "grc")
 	require.NoError(t, err)
-	require.Equal(t, 2, reading.SnapshotSize, "the recurring δέω and λόγος identities are frozen")
+	require.Equal(t, 1, reading.SnapshotSize, "the δέω fragments do not gate, so only λόγος is frozen")
 
 	submitted := perform(t, h, http.MethodPost, "/reading/books/"+registration.BookID+"/deck/retry", url.Values{
 		"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID},
@@ -234,19 +235,20 @@ func TestAncientGreekDeckSentenceQualityOmissionWithoutProvider(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, submitted.Code, "prepare body=%s", submitted.Body.String())
 	preparation := waitForPreparedDeck(t, ctx, store, learner.ID, reading.SnapshotID)
 	require.Equal(t, domain.DeckPreparationReady, preparation.State, "preparation error=%q", preparation.Error)
-	assert.Equal(t, 1, preparation.TotalCards, "λόγος is the only accepted card")
+	assert.Equal(t, 1, preparation.TotalCards, "λόγος is the only frozen identity's card")
 
 	assert.Zero(t, provider.calls, "no provider request is made for a Greek deck")
 	status, err := store.GetDeckPreparationStatus(ctx, learner.ID, preparation.ID)
 	require.NoError(t, err)
-	requireGreekDeckOmissionKinds(t, status, 1)
+	requireGreekDeckAgreesWithSnapshot(t, status)
 }
 
-// requireGreekDeckOmissionKinds asserts a Greek deck produces only
-// sentence-quality omissions: no meaning and no provider omissions.
-func requireGreekDeckOmissionKinds(t *testing.T, status domain.DeckPreparation, wantQuality int) {
+// requireGreekDeckAgreesWithSnapshot asserts a Greek deck prepared from a gated
+// snapshot produces no omissions: the freeze already dropped every identity
+// without a usable sentence, so the deck has nothing left to omit.
+func requireGreekDeckAgreesWithSnapshot(t *testing.T, status domain.DeckPreparation) {
 	t.Helper()
-	require.Equal(t, wantQuality, status.QualityOmissions, "a Greek item whose sentences all fail the gate is a sentence-quality omission")
+	require.Zero(t, status.QualityOmissions, "a gated snapshot leaves the deck no sentence-quality omission")
 	require.Zero(t, status.ProviderOmissions, "a Greek deck produces no provider omissions")
 	require.Empty(t, status.MeaningOmissions, "a Greek deck produces no meaning omissions")
 }

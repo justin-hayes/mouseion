@@ -15,6 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/selection"
+	"github.com/justin-hayes/mouseion/internal/sentencequality"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
@@ -104,7 +105,7 @@ func eligibleCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen
 	if err != nil {
 		return nil, err
 	}
-	return filterCurrentReadingCandidates(ctx, q, owner, language, candidates, eligibility, acrossBooks)
+	return filterCurrentReadingCandidates(ctx, tx, q, owner, language, candidates, eligibility, acrossBooks)
 }
 
 // requestedCurrentReadingIdentities collects the distinct below-the-floor
@@ -127,8 +128,9 @@ func requestedCurrentReadingIdentities(candidates []domain.SelectionCandidate, e
 }
 
 // filterCurrentReadingCandidates keeps the candidates that meet the frequency
-// rule and are not held by an active snapshot.
-func filterCurrentReadingCandidates(ctx context.Context, q *sqlcgen.Queries, owner, language string, candidates []domain.SelectionCandidate, eligibility selection.Eligibility, acrossBooks map[currentReadingVocabularyIdentity]int64) ([]domain.SelectionCandidate, error) {
+// rule and are not held by an active snapshot, then applies the sentence-quality
+// gate as the last step.
+func filterCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language string, candidates []domain.SelectionCandidate, eligibility selection.Eligibility, acrossBooks map[currentReadingVocabularyIdentity]int64) ([]domain.SelectionCandidate, error) {
 	selected := make([]domain.SelectionCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		if !eligibility.AllowsBookDeckCandidate(candidate, currentReadingCandidateFrequency(candidate, acrossBooks)) {
@@ -143,7 +145,32 @@ func filterCurrentReadingCandidates(ctx context.Context, q *sqlcgen.Queries, own
 		}
 		selected = append(selected, candidate)
 	}
-	return selected, nil
+	return gatedCurrentReadingCandidates(ctx, tx, owner, selected)
+}
+
+// gatedCurrentReadingCandidates applies ADR 0106 after the frequency rule: a
+// candidate is frozen only when at least one of its sentence references in this
+// Book passes the shared sentence-quality gate. It resolves references exactly
+// as the deck does, by persisted sentence ordinal with each sentence's start
+// offset, so the two can never disagree about a sentence.
+func gatedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, owner string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
+	ordinalsByCorpus := candidateSentenceOrdinalsByCorpus(candidates)
+	sentencesByCorpus := make(map[string]map[int64]analyzer.Sentence, len(ordinalsByCorpus))
+	for corpusID, ordinalSet := range ordinalsByCorpus {
+		sentences, err := loadCorpusSentenceOrdinals(ctx, tx, owner, corpusID, ordinalSet)
+		if err != nil {
+			return nil, err
+		}
+		sentencesByCorpus[corpusID] = sentences
+	}
+	frozen := make([]domain.SelectionCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if !sentencequality.AnyReferencePasses(candidate, sentencesByCorpus[candidate.CorpusID]) {
+			continue
+		}
+		frozen = append(frozen, candidate)
+	}
+	return frozen, nil
 }
 
 // currentReadingCandidateFrequency is the across-Books total that can qualify a
@@ -321,11 +348,12 @@ func currentReadingCorrectionDecisions(corrections []domain.OccurrenceLemmaCorre
 }
 
 // projectedCurrentReadingCandidates persists the projection as frozen selection
-// candidates, encoding each fact, its first encounter, and its citation
-// headword.
+// candidates, encoding each fact, its first encounter, its citation headword,
+// and the sentence-quality gate version that will admit it (ADR 0106 §3).
 func projectedCurrentReadingCandidates(owner, language, corpusID string, projected []selection.Candidate, headwords map[selection.Identity]string) ([]domain.SelectionCandidate, error) {
 	candidates := make([]domain.SelectionCandidate, 0, len(projected))
 	for _, candidate := range projected {
+		candidate.Provenance.GateVersion = sentencequality.GateVersion
 		encoded, err := encodeProjectedCurrentReadingCandidate(candidate)
 		if err != nil {
 			return nil, err
