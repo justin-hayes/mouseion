@@ -2,6 +2,7 @@ package cardexport
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -37,20 +38,36 @@ func resolveAncientGreekLSJ(ctx context.Context, lexical enrichment.LexicalProvi
 // source order, into the pinned LSJ meaning evidence the evidence-assisted pass
 // transmits. Each sense carries its native LSJ sense ID as its evidence ID, so
 // the provider cites a pinned sense and decoding maps the short handle back to
-// that exact ID. A sense with no native ID cannot be cited and is skipped.
+// that exact ID. Each sense sends its definitions (ADR 0104), not the usage
+// glosses that translate quoted passages; an entry derived before definitions
+// existed sends every gloss instead. A sense with no native ID cannot be cited,
+// and a sense with nothing to send gives no evidence, so both are skipped.
 func ancientGreekLSJPassSenses(entry enrichment.AncientGreekLSJEntry) []enrichment.LexicalSense {
+	useDefinitions := lsjHasDefinitions(entry.Senses)
 	var senses []enrichment.LexicalSense
 	var walk func([]enrichment.AncientGreekLSJSense)
 	walk = func(level []enrichment.AncientGreekLSJSense) {
 		for _, sense := range level {
-			if strings.TrimSpace(sense.ID) != "" {
-				senses = append(senses, enrichment.LexicalSense{EvidenceID: sense.ID, Source: "lsj", Gloss: strings.Join(sense.Glosses, "; ")})
+			glosses := sense.Glosses
+			if useDefinitions {
+				glosses = sense.Definitions
+			}
+			gloss := strings.Join(glosses, "; ")
+			if strings.TrimSpace(sense.ID) != "" && strings.TrimSpace(gloss) != "" {
+				senses = append(senses, enrichment.LexicalSense{EvidenceID: sense.ID, Source: "lsj", Gloss: gloss})
 			}
 			walk(sense.Senses)
 		}
 	}
 	walk(entry.Senses)
 	return senses
+}
+
+// lsjHasDefinitions reports whether any sense, at any depth, has definitions.
+func lsjHasDefinitions(senses []enrichment.AncientGreekLSJSense) bool {
+	return slices.ContainsFunc(senses, func(sense enrichment.AncientGreekLSJSense) bool {
+		return len(sense.Definitions) > 0 || lsjHasDefinitions(sense.Senses)
+	})
 }
 
 // renderAncientGreekLSJEntry renders the LSJ entry in source order with LSJ's
