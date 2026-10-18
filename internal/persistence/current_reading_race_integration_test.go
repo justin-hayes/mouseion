@@ -156,11 +156,7 @@ func newCurrentReadingRaceFixture(t *testing.T, ctx context.Context, store *Post
 	}
 	var corpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, fixture.books[0].ID).Scan(&corpusID))
-	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{
-		OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: currentReadingRaceLemma, UPOS: "NOUN",
-		OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
-	})
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: currentReadingRaceLemma, UPOS: "NOUN", Occurrences: 5})
 	return fixture
 }
 

@@ -46,8 +46,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT COALESCE(MAX(river_job_id),0)+1 FROM analysis_jobs`).Scan(&analysisJobID))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,corpus_id,progress,display_number,analysis_run_id) VALUES($1,$2,$3,$4,$5,100,1,$6)`, analysisJobID, owner.ID, source.ID, source.ContentHash, corpus.ID, analysisRunID)
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','haus','NOUN',3,'["Haus"]','[]','{}')`, owner.ID, corpus.ID)
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpus.ID, "de", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3})
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 
 	workers := river.NewWorkers()
@@ -249,8 +248,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.Equal(t, domain.DeckPreparationQueued, retriedPreparation.State)
 
 	switchBook, switchSource, switchCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "switch-enqueue-failure", "Switch enqueue failure", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "garten", UPOS: "NOUN", OccurrenceCount: 3}})
-	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','garten','NOUN',3,'["Garten"]','[]','{}')`, owner.ID, switchCorpus.ID)
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, switchCorpus.ID, "de", testutil.CorpusWord{Lemma: "garten", UPOS: "NOUN", Occurrences: 3})
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, switchBook.ID, domain.BookDispositionToRead))
 	setEnqueueFailure(true)
 	switched := perform(t, h, http.MethodPost, "/reading/books/"+switchBook.ID+"/switch", url.Values{
@@ -332,9 +330,7 @@ func TestCurrentReadingStartReportsCrossBookCountReadinessAndRetries(t *testing.
 	owner := createAccount(t, ctx, store, "reading-count-readiness", "learner-password")
 	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "count-readiness-target", "Count readiness target", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "crossing", UPOS: "NOUN", OccurrenceCount: 2}})
 	other, _, otherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "count-readiness-other", "Count readiness other", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "crossing", UPOS: "NOUN", OccurrenceCount: 8}})
-	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance)
-VALUES($1,$2,'de','crossing','NOUN',2,'[]','[]','{}')`, owner.ID, corpus.ID)
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpus.ID, "de", testutil.CorpusWord{Lemma: "crossing", UPOS: "NOUN", Occurrences: 2})
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, other.ID, domain.BookDispositionToRead))
 

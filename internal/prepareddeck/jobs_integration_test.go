@@ -367,8 +367,7 @@ func seedAnalyzedReading(t *testing.T, ctx context.Context, store *persistence.P
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	// A frozen snapshot with no vocabulary needs no deck, so seed one identity for it to prepare.
-	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3, ObservedForms: []byte(`["haus"]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{"min_occurrences":3}`)})
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3})
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	require.Positive(t, reading.SnapshotSize)

@@ -96,9 +96,9 @@ func (h *postgresHarness) exec(t *testing.T, sql string, args ...any) {
 
 // SeedBook creates a Book with a completed analysis and the given candidate
 // identities, as analysis and selection would, and marks it To Read when asked.
-// A modern-language Book's identities are seeded as selection candidates; an
-// imported classical Book's identities are seeded as analysis tokens, the shape
-// the import writer produces, so the Reading freeze reads the projection.
+// Identities are seeded as analysis tokens, which the Reading freeze projects;
+// an imported classical Book's tokens take the shape the import writer
+// produces.
 func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontract.BookSeed) string {
 	t.Helper()
 	h.books++
@@ -129,8 +129,7 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 			imported = append(imported, identity)
 			continue
 		}
-		_, err = h.store.PutSelectionCandidate(h.ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: corpusID, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)})
-		require.NoError(t, err)
+		testutil.SeedCorpusWords(t, h.ctx, h.store.Pool(), owner, corpusID, identity.Language, testutil.CorpusWord{Lemma: identity.CanonicalLemma, UPOS: identity.UPOS, Occurrences: 5})
 	}
 	if len(imported) > 0 {
 		h.seedImportedVocabulary(t, owner, book.ID, source.ID, runID, corpusID, imported)

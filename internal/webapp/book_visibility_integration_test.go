@@ -77,8 +77,7 @@ func seedVisibilityToReadBook(t *testing.T, ctx context.Context, store *persiste
 	counts := []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3}}
 	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, suffix, title, counts)
 	publishProjectedCounts(t, ctx, store, owner, book.ID, counts)
-	_, err := store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de',$3,'NOUN',3,'[]','[]','{}')`, owner, corpus.ID, lemma)
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner, corpus.ID, "de", testutil.CorpusWord{Lemma: lemma, UPOS: "NOUN", Occurrences: 3})
 	require.NoError(t, store.SetBookDisposition(ctx, owner, book.ID, domain.BookDispositionToRead))
 	return book
 }

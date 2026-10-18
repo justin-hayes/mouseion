@@ -25,7 +25,9 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	// schema, then remove it so migration 23 is still exercised below.
 	_, err := pool.Exec(ctx, `CREATE TABLE occurrence_lemma_corrections (
 		owner_id uuid NOT NULL, book_id uuid NOT NULL, corpus_id uuid NOT NULL,
-		analysis_run_id uuid NOT NULL
+		analysis_run_id uuid NOT NULL, source_document_id text NOT NULL,
+		start_offset bigint NOT NULL, end_offset bigint NOT NULL,
+		canonical_lemma text NOT NULL, excluded boolean NOT NULL
 	)`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `CREATE TABLE occurrence_lemma_review_flags (
@@ -39,11 +41,13 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	_, err = pool.Exec(ctx, `ALTER TABLE book_dispositions ADD COLUMN revision bigint NOT NULL DEFAULT 1`)
 	require.NoError(t, err)
 	// Current application code also reads and writes the successor identity
-	// columns (analysis syntax state, the frozen snapshot discriminator and
-	// headword, and the Known discriminator and headword). Add empty stand-ins
-	// while seeding against this old schema, then drop them so the successor
-	// migrations that introduce them still run below.
+	// columns (analysis syntax state, the token, frozen snapshot and Known
+	// discriminator and headword). Add empty stand-ins while seeding against
+	// this old schema, then drop them so the successor migrations that
+	// introduce them still run below.
 	_, err = pool.Exec(ctx, `ALTER TABLE analysis_runs ADD COLUMN syntax_state text NOT NULL DEFAULT 'ud'`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `ALTER TABLE corpus_tokens ADD COLUMN lexical_discriminator text NOT NULL DEFAULT '', ADD COLUMN headword text NOT NULL DEFAULT ''`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE primary_goal_snapshot_vocabulary ADD COLUMN lexical_discriminator text NOT NULL DEFAULT '', ADD COLUMN headword text NOT NULL DEFAULT ''`)
 	require.NoError(t, err)
@@ -80,6 +84,8 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	_, err = pool.Exec(ctx, `ALTER TABLE book_dispositions DROP COLUMN revision`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE analysis_runs DROP COLUMN syntax_state`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `ALTER TABLE corpus_tokens DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE primary_goal_snapshot_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
 	require.NoError(t, err)

@@ -71,14 +71,10 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, source.ID, metadataView.Acquired.Source.ID)
 	assert.NotEmpty(t, metadataView.Acquired.CorpusID)
 	assert.Equal(t, domain.LanguageChosen, metadataView.Book.LanguageState)
-	for _, candidate := range []domain.SelectionCandidate{
-		{OwnerID: alice.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 3, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)},
-		{OwnerID: alice.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)},
-		{OwnerID: alice.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "legacy-state", UPOS: "ADJ", OccurrenceCount: 3, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)},
-	} {
-		_, err = store.PutSelectionCandidate(ctx, candidate)
-		require.NoError(t, err)
-	}
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), alice.ID, corpus.ID, "de",
+		testutil.CorpusWord{Lemma: "residual", UPOS: "NOUN", Occurrences: 3},
+		testutil.CorpusWord{Lemma: "graduated", UPOS: "VERB", Occurrences: 3},
+		testutil.CorpusWord{Lemma: "legacy-state", UPOS: "ADJ", Occurrences: 3})
 
 	secondBook, secondSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "later", "Later Journey book", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1},

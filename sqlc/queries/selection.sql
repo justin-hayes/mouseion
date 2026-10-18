@@ -61,23 +61,6 @@ WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')
   AND corpus_id = sqlc.arg('corpus') AND analysis_run_id = sqlc.arg('analysis_run')
 ORDER BY source_document_id, start_offset, end_offset;
 
--- name: HasCurrentLemmaCorrections :one
-SELECT EXISTS (
-  SELECT 1 FROM occurrence_lemma_corrections d
-  JOIN book_current_analyses cai ON cai.owner_id = d.owner_id
-    AND cai.book_id = d.book_id AND cai.analysis_run_id = d.analysis_run_id
-  JOIN source_materials source ON source.owner_id = cai.owner_id
-    AND source.id = cai.source_material_id AND source.book_id = cai.book_id
-  JOIN analysis_runs r ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
-    AND r.source_material_id = cai.source_material_id AND r.state = 'completed'
-  JOIN corpora c ON c.owner_id = r.owner_id AND c.id = r.corpus_id
-    AND c.id = d.corpus_id AND c.source_material_id = r.source_material_id
-    AND c.analysis_run_id = r.id AND c.status = 'complete'
-  WHERE d.owner_id = sqlc.arg('owner') AND d.book_id = sqlc.arg('book')
-    AND source.current_content_revision_id = r.content_revision_id
-    AND source.current_snapshot_id = r.snapshot_id
-);
-
 -- name: HasCurrentLemmaCorrectionsForAnalysis :one
 SELECT EXISTS (
   SELECT 1 FROM occurrence_lemma_corrections d

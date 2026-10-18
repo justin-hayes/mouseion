@@ -53,31 +53,12 @@ func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Que
 	if err != nil {
 		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 	}
-	hasCorrections, err := q.HasCurrentLemmaCorrections(ctx, sqlcgen.HasCurrentLemmaCorrectionsParams{Owner: owner, Book: bookID})
-	if err != nil {
-		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
-	}
-	imported, err := currentReadingImportedAnalysis(ctx, tx, owner, bookID)
-	if err != nil {
-		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
-	}
-	var candidates []domain.SelectionCandidate
-	if hasCorrections || imported {
-		// An imported classical Book never writes the retiring Browse-selection
-		// store, and a corrected modern Book's stored counts are stale: both
-		// freeze the analysis projection itself, the same tokens, occurrence
-		// decisions and discriminated identities Browse reads.
-		candidates, err = correctedCurrentReadingCandidates(ctx, tx, q, owner, language, identity)
-	} else {
-		var rows []sqlcgen.ListCurrentReadingSnapshotCandidatesRow
-		rows, err = q.ListCurrentReadingSnapshotCandidates(ctx, sqlcgen.ListCurrentReadingSnapshotCandidatesParams{Owner: owner, Language: language, Corpus: identity.CaCorpusID})
-		if err == nil {
-			candidates = make([]domain.SelectionCandidate, 0, len(rows))
-			for _, row := range rows {
-				candidates = append(candidates, selectionCandidateFromFields(row.OwnerID, row.CorpusID, row.Language, row.CanonicalLemma, row.Upos, row.OccurrenceCount, row.ObservedForms, row.EligibleSentenceRefs, row.Provenance, row.SelectedAt, row.FirstEncounter))
-			}
-		}
-	}
+	// The freeze always reads the analysis projection, the same tokens,
+	// occurrence decisions and discriminated identities Browse reads. The
+	// retiring Browse-selection store is not a source: it was written once at
+	// analysis time with that moment's Known and Reserved identities removed,
+	// so it silently omits identities that are no longer excluded (#2217).
+	candidates, err := projectedAnalysisCurrentReadingCandidates(ctx, tx, q, owner, language, identity)
 	if err != nil {
 		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 	}
@@ -98,24 +79,6 @@ func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Que
 		}
 	}
 	return snapshot, candidates, nil
-}
-
-// currentReadingImportedAnalysis reports whether the Book's current analysis is
-// an imported run. An imported run's tokens carry native or absent syntax rather
-// than UD, and the import never writes the retiring Browse-selection store, so
-// the Reading freeze must read the analysis projection directly.
-func currentReadingImportedAnalysis(ctx context.Context, tx pgx.Tx, owner, bookID string) (bool, error) {
-	var syntaxState string
-	err := tx.QueryRow(ctx, `SELECT r.syntax_state FROM current_analysis_identity cai
-		JOIN analysis_runs r ON r.owner_id=cai.owner_id AND r.id=cai.analysis_run_id
-		WHERE cai.owner_id=$1 AND cai.book_id=$2`, owner, bookID).Scan(&syntaxState)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return syntaxState != "ud", nil
 }
 
 type currentReadingVocabularyIdentity struct {
@@ -293,15 +256,20 @@ LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos AND c.lexical_
 	return acrossBooks, nil
 }
 
-// correctedCurrentReadingCandidates rebuilds the current Book's candidate set
-// from immutable analyzer evidence plus exact-occurrence learner corrections.
-// It runs in the same transaction as the freeze, after the Book row is locked.
-func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow) ([]domain.SelectionCandidate, error) {
+// projectedAnalysisCurrentReadingCandidates rebuilds the current Book's
+// candidate set from immutable analyzer evidence plus exact-occurrence learner
+// corrections. It runs in the same transaction as the freeze, after the Book row
+// is locked.
+func projectedAnalysisCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow) ([]domain.SelectionCandidate, error) {
 	analysis, corrections, err := loadAnalysisProjectionFactsTx(ctx, tx, q, domain.DeckPreparation{
 		OwnerID: owner, SourceMaterialID: identity.CaSourceMaterialID, AnalysisRunID: identity.CaAnalysisRunID,
 	}, identity.CaCorpusID)
 	if err != nil {
 		return nil, err
+	}
+	if len(analysis.Sentences) == 0 {
+		// An analysis without tokens freezes an empty snapshot.
+		return nil, nil
 	}
 	decisions, err := currentReadingCorrectionDecisions(corrections)
 	if err != nil {

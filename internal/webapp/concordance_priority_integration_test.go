@@ -196,6 +196,11 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 		assert.Contains(t, body, "No Book was being read when you looked this up")
 		next := pageLink(body, "Next")
 		assert.Contains(t, next, "priority=none")
+		// Leer's only word is below the in-Book floor, so its freeze reads
+		// current across-Books counts.
+		for _, book := range []domain.Book{zeta, alpha, beta, gleichOne, gleichTwo, leer} {
+			buildBrowseProjection(t, ctx, store, book.ID)
+		}
 		restarted, err := store.StartCurrentReading(ctx, alice.ID, "de", leer.ID)
 		require.NoError(t, err)
 		second := get(strings.TrimPrefix(next, "/vocabulary/concordance?"))

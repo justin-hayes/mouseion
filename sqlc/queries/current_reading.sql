@@ -82,23 +82,6 @@ FROM primary_goal_snapshot_vocabulary
 WHERE owner_id = sqlc.arg('owner') AND snapshot_id = sqlc.arg('snapshot')
 ORDER BY language, canonical_lemma, upos, lexical_discriminator;
 
--- name: ListCurrentReadingSnapshotCandidates :many
-SELECT sc.owner_id::text AS owner_id,
-       sc.corpus_id, sc.language, sc.canonical_lemma, sc.upos,
-       sc.occurrence_count, sc.observed_forms, sc.eligible_sentence_refs,
-       sc.provenance, sc.selected_at,
-       COALESCE(first_seen.start_offset, 9223372036854775807::bigint)::bigint AS first_encounter
-FROM selection_candidates sc
-LEFT JOIN LATERAL (
-  SELECT MIN(COALESCE(ref->'location'->>'start_offset', ref->'location'->>'StartOffset', ref->'Location'->>'StartOffset')::bigint) AS start_offset
-  FROM jsonb_array_elements(sc.eligible_sentence_refs) ref
-) first_seen ON true
-WHERE sc.owner_id = sqlc.arg('owner')
-  AND sc.corpus_id = sqlc.arg('corpus')
-  AND sc.language = sqlc.arg('language')
-  AND sc.occurrence_count >= 1
-ORDER BY sc.language, sc.canonical_lemma, sc.upos;
-
 -- name: IsCurrentReadingVocabularyReserved :one
 SELECT EXISTS (
   SELECT 1 FROM primary_goal_snapshots ps
