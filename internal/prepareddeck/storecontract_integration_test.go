@@ -129,10 +129,14 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 			imported = append(imported, identity)
 			continue
 		}
-		testutil.SeedCorpusWords(t, h.ctx, h.store.Pool(), owner, corpusID, identity.Language, testutil.CorpusWord{Lemma: identity.CanonicalLemma, UPOS: identity.UPOS, Occurrences: 5})
+		testutil.SeedCorpusWords(t, h.ctx, h.store.Pool(), owner, corpusID, identity.Language, testutil.CorpusWord{
+			Lemma: identity.CanonicalLemma, UPOS: identity.UPOS,
+			LexicalDiscriminator: identity.LexicalDiscriminator, Headword: identity.Headword,
+			Fragment: seed.DeclaresUnusable(identity), Occurrences: 5,
+		})
 	}
 	if len(imported) > 0 {
-		h.seedImportedVocabulary(t, owner, book.ID, source.ID, runID, corpusID, imported)
+		h.seedImportedVocabulary(t, owner, book.ID, source.ID, runID, corpusID, seed, imported)
 	}
 	return book.ID
 }
@@ -163,22 +167,26 @@ func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID
 	return handle.RunID, corpusID
 }
 
-// seedImportedVocabulary stores each imported identity as three analysis tokens
-// in the Book's single extracted unit, then builds the Book's vocabulary count
+// seedImportedVocabulary stores each imported identity's three occurrences in
+// the Book's single extracted unit, then builds the Book's vocabulary count
 // projection. Three in-Book occurrences qualify every identity for the Reading
 // freeze, and the tokens carry the identity's source discriminator and headword.
-func (h *postgresHarness) seedImportedVocabulary(t *testing.T, owner, bookID, sourceID, runID, corpusID string, identities []domain.SnapshotIdentity) {
+// An identity the seed declares unusable gets fragments instead of gate-passing
+// sentences.
+func (h *postgresHarness) seedImportedVocabulary(t *testing.T, owner, bookID, sourceID, runID, corpusID string, seed storecontract.BookSeed, identities []domain.SnapshotIdentity) {
 	t.Helper()
 	unitID := domain.EPUBUnitID(0, "unit")
 	ordinal, start := int64(0), int64(0)
 	language := identities[0].Language
 	for _, identity := range identities {
+		word := testutil.CorpusWord{
+			Lemma: identity.CanonicalLemma, UPOS: identity.UPOS,
+			LexicalDiscriminator: identity.LexicalDiscriminator, Headword: identity.Headword,
+			Fragment: seed.DeclaresUnusable(identity),
+		}
+		sentence := testutil.CorpusSentence(language, word)
 		for range 3 {
-			surface := identity.CanonicalLemma
-			end := start + int64(utf8.RuneCountInString(surface))
-			h.exec(t, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, owner, runID, corpusID, unitID, ordinal, surface, start, end)
-			h.exec(t, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,lexical_discriminator,headword,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,0,$6,$7,$7,$8,'dep',0,'{}',$9,$10,$11,$12)`, owner, language, runID, corpusID, ordinal, surface, identity.CanonicalLemma, identity.UPOS, identity.LexicalDiscriminator, identity.Headword, start, end)
-			start, ordinal = end+1, ordinal+1
+			ordinal, start = testutil.SeedCorpusSentence(t, h.ctx, h.store.Pool(), owner, corpusID, language, runID, unitID, ordinal, start, sentence)
 		}
 	}
 	tx, err := h.store.Pool().Begin(h.ctx)

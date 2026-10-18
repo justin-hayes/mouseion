@@ -26,7 +26,7 @@ func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
 	require.NoError(t, err)
-	reisen := testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Sentence: "Wir reisen heute.", Occurrences: 5}
+	reisen := testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Occurrences: 5}
 	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", reisen)
 
 	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
@@ -52,7 +52,7 @@ func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	var frozenReferences []selection.SentenceReference
 	require.NoError(t, json.Unmarshal(snapshotVocabulary[0].SentenceReferences, &frozenReferences))
 	require.Len(t, frozenReferences, 5)
-	assert.Equal(t, "Wir reisen heute.", frozenReferences[0].Text)
+	assert.Equal(t, testutil.GatePassingSentence("de", reisen).Text, frozenReferences[0].Text)
 
 	err = store.EndCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
