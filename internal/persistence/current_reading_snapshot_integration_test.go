@@ -26,20 +26,8 @@ func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
 	require.NoError(t, err)
-	analysis := analyzer.Result{Language: "de"}
-	for occurrence := range 5 {
-		analysis.Sentences = append(analysis.Sentences, analyzer.Sentence{
-			Text: "Wir reisen heute.",
-			Tokens: []analyzer.Token{{Surface: "reisen", CanonicalLemma: "reisen", UPOS: "VERB", Location: analyzer.SourceLocation{
-				SourceDocumentID: source.ID, StartOffset: uint64(occurrence + 4), EndOffset: uint64(occurrence + 10),
-			}}},
-		})
-	}
-	selected, err := selection.NewService(store).Select(ctx, owner.ID, analysis, selection.DefaultConfig(corpusID))
-	require.NoError(t, err)
-	require.Len(t, selected, 1)
-	assert.Equal(t, 5, selected[0].OccurrenceCount)
-	assert.Len(t, selected[0].SentenceReferences, 5)
+	reisen := testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Sentence: "Wir reisen heute.", Occurrences: 5}
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", reisen)
 
 	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
@@ -51,8 +39,8 @@ func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	require.Len(t, reserved, 1)
 	assert.Equal(t, "reisen", reserved[0].CanonicalLemma)
 
-	_, err = store.Pool().Exec(ctx, `UPDATE selection_candidates SET occurrence_count=99 WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpusID)
-	require.NoError(t, err)
+	// Later analysis evidence does not reach the frozen snapshot.
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", reisen)
 	stored, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, goal.SnapshotID, stored.SnapshotID)
@@ -75,6 +63,48 @@ func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NOT NULL`, owner.ID, goal.SnapshotID).Scan(&released)
 	require.NoError(t, err)
 	assert.Equal(t, 1, released)
+}
+
+// TestCurrentReadingFreezesIdentitiesKnownOnlyWhenAnalyzed pins #2217: analysis
+// left a then-Known identity out of the Browse-selection store, and the freeze
+// must still include it once it is no longer Known.
+func TestCurrentReadingFreezesIdentitiesKnownOnlyWhenAnalyzed(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "goal-known-when-analyzed", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "known-when-analyzed")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+	var corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de",
+		testutil.CorpusWord{Lemma: "sagen", UPOS: "VERB", Occurrences: 3},
+		testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Occurrences: 3})
+	analysis := analyzer.Result{Language: "de"}
+	for occurrence, lemma := range []string{"sagen", "sagen", "sagen", "reisen", "reisen", "reisen"} {
+		analysis.Sentences = append(analysis.Sentences, analyzer.Sentence{Text: lemma, Tokens: []analyzer.Token{{
+			Surface: lemma, CanonicalLemma: lemma, UPOS: "VERB",
+			Location: analyzer.SourceLocation{SourceDocumentID: source.ID, StartOffset: uint64(occurrence * 10), EndOffset: uint64(occurrence*10 + len(lemma))},
+		}}})
+	}
+	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "sagen", "")
+	require.NoError(t, err)
+	selected, err := selection.NewService(store).Select(ctx, owner.ID, analysis, selection.DefaultConfig(corpusID))
+	require.NoError(t, err)
+	require.Len(t, selected, 1, "analysis omits the then-Known identity from the Browse-selection store")
+	_, err = store.Pool().Exec(ctx, `DELETE FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='sagen'`, owner.ID)
+	require.NoError(t, err)
+
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	lemmas := make([]string, 0, len(snapshot))
+	for _, candidate := range snapshot {
+		lemmas = append(lemmas, candidate.CanonicalLemma)
+	}
+	assert.ElementsMatch(t, []string{"reisen", "sagen"}, lemmas)
 }
 
 func TestCurrentReadingFreezesCorpusQualifiedCandidates(t *testing.T) {
@@ -108,9 +138,9 @@ func TestCurrentReadingFreezesCorpusQualifiedCandidates(t *testing.T) {
 		{"pos-total", "NOUN", 2},
 		{"singleton", "NOUN", 1},
 	} {
-		_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance)
-VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2),'de',$3,$4,$5,'[]','[]','{}')`, owner.ID, target.ID, candidate.lemma, candidate.upos, candidate.count)
-		require.NoError(t, err)
+		var targetCorpus string
+		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, target.ID).Scan(&targetCorpus))
+		testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, targetCorpus, "de", testutil.CorpusWord{Lemma: candidate.lemma, UPOS: candidate.upos, Occurrences: int(candidate.count)})
 	}
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "known-total", "")
 	require.NoError(t, err)
@@ -181,8 +211,7 @@ func TestCurrentReadingCrossBookReadinessIsAtomicAndOnlyNeededBelowTheInBookFloo
 	makeAnalyzedToReadBook(t, ctx, store, current, currentSource)
 	var currentCorpus string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, current.ID).Scan(&currentCorpus))
-	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','three-local','NOUN',3,'[]','[]','{}')`, owner.ID, currentCorpus)
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, currentCorpus, "de", testutil.CorpusWord{Lemma: "three-local", UPOS: "NOUN", Occurrences: 3})
 	other, otherSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-other")
 	makeAnalyzedToReadBook(t, ctx, store, other, otherSource)
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", current.ID)
@@ -192,8 +221,7 @@ func TestCurrentReadingCrossBookReadinessIsAtomicAndOnlyNeededBelowTheInBookFloo
 	makeAnalyzedToReadBook(t, ctx, store, target, targetSource)
 	var targetCorpus, targetRun string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text,analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, target.ID).Scan(&targetCorpus, &targetRun))
-	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','crossing','NOUN',2,'[]','[]','{}')`, owner.ID, targetCorpus)
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, targetCorpus, "de", testutil.CorpusWord{Lemma: "crossing", UPOS: "NOUN", Occurrences: 2})
 
 	_, err = store.SwitchCurrentReading(ctx, owner.ID, "de", target.ID, current.ID, reading.SnapshotID)
 	require.ErrorIs(t, err, ErrVocabularyBrowseCountsPending)
@@ -263,11 +291,7 @@ func TestCurrentReadingCompletionGraduatesFrozenVocabularyWithProvenance(t *test
 		{lemma: "known-before-completion", upos: "VERB"},
 		{lemma: "known-other-pos", upos: "VERB"},
 	} {
-		_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{
-			OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: candidate.lemma, UPOS: candidate.upos,
-			OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
-		})
-		require.NoError(t, err)
+		testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: candidate.lemma, UPOS: candidate.upos, Occurrences: 5})
 	}
 	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)

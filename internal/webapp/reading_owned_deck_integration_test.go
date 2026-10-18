@@ -46,10 +46,9 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT COALESCE(MAX(river_job_id),0)+1 FROM analysis_jobs`).Scan(&analysisJobID))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,corpus_id,progress,display_number,analysis_run_id) VALUES($1,$2,$3,$4,$5,100,1,$6)`, analysisJobID, owner.ID, source.ID, source.ContentHash, corpus.ID, analysisRunID)
 	require.NoError(t, err)
-	for _, lemma := range []string{"haus", "buch"} {
-		_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de',$3,'NOUN',3,'[]','[]','{}')`, owner.ID, corpus.ID, lemma)
-		require.NoError(t, err)
-	}
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpus.ID, "de",
+		testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3},
+		testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 3})
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 
 	workers := river.NewWorkers()
@@ -77,7 +76,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 
 	// Live eligibility and Known state change after the freeze. Neither is
 	// allowed to reselect the identities for this Reading's deck.
-	_, err = store.Pool().Exec(ctx, `UPDATE selection_candidates SET occurrence_count=1 WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET upos='PUNCT' WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos,lexical_discriminator) VALUES($1,'de','haus','NOUN','') ON CONFLICT(owner_id,language,canonical_lemma,upos,lexical_discriminator) DO NOTHING`, owner.ID)
 	require.NoError(t, err)
@@ -132,13 +131,9 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 
 	// The already-submitted job remains usable and retains the exact snapshot
 	// even after Reading releases it and a reread submits a newer generation.
-	_, err = store.Pool().Exec(ctx, `UPDATE selection_candidates SET occurrence_count=3 WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET upos='NOUN' WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID)
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','garten','NOUN',3,'[]','[]','{}')`, owner.ID, corpus.ID)
-	require.NoError(t, err)
-	var eligibleRows int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2 AND occurrence_count>=3`, owner.ID, corpus.ID).Scan(&eligibleRows))
-	assert.Equal(t, 3, eligibleRows)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpus.ID, "de", testutil.CorpusWord{Lemma: "garten", UPOS: "NOUN", Occurrences: 3})
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	restarted := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, restarted.Code)

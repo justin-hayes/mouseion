@@ -129,8 +129,7 @@ func TestRetryingOmittedItemsReusesCacheAndRecoversCards(t *testing.T) {
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner.ID, book.ID, source.ID, analysisRunID)
 	require.NoError(t, err)
 	for _, seeded := range []struct{ lemma, upos string }{{"umhauen", "VERB"}, {"motorrad", "NOUN"}} {
-		_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: seeded.lemma, UPOS: seeded.upos, OccurrenceCount: 3, ObservedForms: []byte(`["x"]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{"min_occurrences":3}`)})
-		require.NoError(t, err)
+		testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpus.ID, "de", testutil.CorpusWord{Lemma: seeded.lemma, UPOS: seeded.upos, Occurrences: 3})
 	}
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)

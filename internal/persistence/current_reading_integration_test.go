@@ -446,16 +446,9 @@ func TestCurrentReadingReadingFinishConcurrentRequestsTransitionOnce(t *testing.
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
 	require.NoError(t, err)
-	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{
-		OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: "concurrent", UPOS: "NOUN",
-		OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
-	})
-	require.NoError(t, err)
-	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{
-		OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: "legacy-concurrent", UPOS: "VERB",
-		OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
-	})
-	require.NoError(t, err)
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de",
+		testutil.CorpusWord{Lemma: "concurrent", UPOS: "NOUN", Occurrences: 5},
+		testutil.CorpusWord{Lemma: "legacy-concurrent", UPOS: "VERB", Occurrences: 5})
 	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "legacy-concurrent", "VERB")
