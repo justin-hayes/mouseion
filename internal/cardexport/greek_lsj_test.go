@@ -120,6 +120,41 @@ func TestAncientGreekLSJEntryOutlinesDefinitionsBeforeFullEntry(t *testing.T) {
 	assert.NotContains(t, outline, `<span class="lsj-number">4</span>`, "a sense with no definitions anywhere in its span is left out")
 }
 
+// TestAncientGreekLSJPassSensesSendDefinitions proves the pass evidence is each
+// sense's definitions in source order with its native ID: usage glosses are not
+// sent, and a sense with no definitions is left out.
+func TestAncientGreekLSJPassSensesSendDefinitions(t *testing.T) {
+	entry := enrichment.AncientGreekLSJEntry{
+		EntryID: "n1", Headword: "γίγνομαι",
+		Senses: []enrichment.AncientGreekLSJSense{
+			{ID: "n1.0", Number: "A", Level: 1, Definitions: []string{"come into a new state of being"}, Glosses: []string{"come into a new state of being"}},
+			{ID: "n1.1", Number: "1", Level: 3, Definitions: []string{"to be born", "born"}, Glosses: []string{"to be born", "born", "living", "at our birth"}},
+			{ID: "n1.2", Number: "II", Level: 2, Glosses: []string{"turning"}},
+			{ID: "n1.3", Number: "3", Level: 3},
+			{ID: "n1.4", Number: "a", Level: 4, Definitions: []string{"become one of"}, Glosses: []string{"become one of", "cost"}},
+		},
+	}
+
+	assert.Equal(t, []enrichment.LexicalSense{
+		{EvidenceID: "n1.0", Source: "lsj", Gloss: "come into a new state of being"},
+		{EvidenceID: "n1.1", Source: "lsj", Gloss: "to be born; born"},
+		{EvidenceID: "n1.4", Source: "lsj", Gloss: "become one of"},
+	}, ancientGreekLSJPassSenses(entry))
+}
+
+// TestAncientGreekLSJPassSensesFallBackToGlosses proves an entry derived before
+// definitions existed sends every gloss, and never a sense with no gloss.
+func TestAncientGreekLSJPassSensesFallBackToGlosses(t *testing.T) {
+	entry := lsjMatchedEntry()
+	entry.Senses = append(entry.Senses, enrichment.AncientGreekLSJSense{ID: "n61607.3", Number: "C", Level: 1})
+
+	assert.Equal(t, []enrichment.LexicalSense{
+		{EvidenceID: "n61607.0", Source: "lsj", Gloss: "word; speech"},
+		{EvidenceID: "n61607.1", Source: "lsj", Gloss: "account"},
+		{EvidenceID: "n61607.2", Source: "lsj", Gloss: "reason"},
+	}, ancientGreekLSJPassSenses(entry))
+}
+
 // TestAncientGreekLSJEntryEscapesSourceText proves source text cannot inject
 // markup into the rendered entry.
 func TestAncientGreekLSJEntryEscapesSourceText(t *testing.T) {
