@@ -61,14 +61,8 @@ type DeckPreparation struct {
 	ProviderOmissions                                     int
 	RenderInputVersion, PresentationVersion, DeckRevision int
 	VocabularyCount                                       int
-	// EvidenceAssistedProviderPass records whether this Ancient Greek deck
-	// specification opts into the provider pass that adds provider-proposed
-	// fields on top of the source-evidence card. It is off by default and is
-	// offered only while a matching provider payload assessment is recorded
-	// (ADR 0101).
-	EvidenceAssistedProviderPass bool
-	EvidenceCoverage             []DeckPreparationEvidenceCoverage
-	MeaningOmissions             []DeckPreparationMeaningOmission
+	EvidenceCoverage                                      []DeckPreparationEvidenceCoverage
+	MeaningOmissions                                      []DeckPreparationMeaningOmission
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.

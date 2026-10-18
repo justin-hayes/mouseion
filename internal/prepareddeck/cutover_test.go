@@ -531,28 +531,42 @@ func recordedPassAssessment(t *testing.T, codec *enrichment.TranslationCodec) []
 	}}
 }
 
-// A Greek deck specification that opts into the pass fails closed while no
-// matching provider payload assessment is recorded: the option was not offered
-// and nothing may be sent.
-func TestBatchPlannerFailsClosedEvidenceAssistedPassWithoutAssessment(t *testing.T) {
+// Without a matching recorded assessment a Greek deck is the providerless
+// default even with a provider configured: nothing is sent (ADR 0105).
+func TestBatchPlannerPlansDefaultGreekDeckWithoutAssessment(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, deckName: "Book", language: "grc"}
-	preparation := domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book", EvidenceAssistedProviderPass: true}
 
-	_, err = NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, preparation)
-	require.ErrorIs(t, err, enrichment.ErrProviderAssessmentNotRecorded)
+	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+	require.NoError(t, err)
+	assertDefaultGreekPlan(t, plan)
 }
 
-// With a matching recorded assessment, a Greek pass specification freezes a
-// standard provider run whose request carries the evidence-assisted contract.
+// A recorded assessment that no longer matches the configured provider sends
+// nothing: the deck falls back to the default card.
+func TestBatchPlannerPlansDefaultGreekDeckWhenAssessmentDrifted(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, deckName: "Book", language: "grc"}
+	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{})
+	planner.Assessments = recordedPassAssessment(t, codec)
+	planner.Assessments[0].PromptVersion = "an-older-prompt"
+
+	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+	require.NoError(t, err)
+	assertDefaultGreekPlan(t, plan)
+}
+
+// With a configured provider and a matching recorded assessment, every Greek
+// deck freezes a standard provider run carrying the evidence-assisted contract.
 func TestBatchPlannerPlansEvidenceAssistedPassWithRecordedAssessment(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, deckName: "Book", language: "grc"}
 	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{})
 	planner.Assessments = recordedPassAssessment(t, codec)
-	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book", EvidenceAssistedProviderPass: true})
+	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
 
 	assert.True(t, plan.Config.ExternalTranslationConsent)
@@ -571,41 +585,23 @@ func TestBatchPlannerPlansEvidenceAssistedPassWithRecordedAssessment(t *testing.
 	assert.False(t, work[0].Request.RequireContextualGloss)
 }
 
-// A pass specification on a modern deck is unsupported; the pass only exists on
-// top of a source-evidence Greek deck.
-func TestBatchPlannerRejectsEvidenceAssistedPassForModernDeck(t *testing.T) {
-	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
-	require.NoError(t, err)
-	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
-	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{})
-	planner.Assessments = recordedPassAssessment(t, codec)
-
-	_, err = planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book", EvidenceAssistedProviderPass: true})
-	require.ErrorIs(t, err, errEvidenceAssistedPassUnsupported)
-}
-
-// A Greek pass specification without a configured provider keeps the existing
-// provider-required failure.
-func TestBatchPlannerRejectsEvidenceAssistedPassWithoutProvider(t *testing.T) {
+// Without a configured provider a Greek deck is the providerless default even
+// when the assessment is recorded.
+func TestBatchPlannerPlansDefaultGreekDeckWithoutProvider(t *testing.T) {
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, deckName: "Book", language: "grc"}
 	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), nil, false, BatchConfig{})
-
-	_, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book", EvidenceAssistedProviderPass: true})
-	require.ErrorContains(t, err, "configured translation provider")
-}
-
-// The pass is off by default: a Greek specification without the pass keeps its
-// providerless source-evidence plan.
-func TestBatchPlannerDefaultsEvidenceAssistedPassOff(t *testing.T) {
-	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
-	require.NoError(t, err)
-	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, deckName: "Book", language: "grc"}
-	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{})
-	planner.Assessments = recordedPassAssessment(t, codec)
+	planner.Assessments = []enrichment.ProviderAssessment{{Language: "grc", Recorded: true}}
 
 	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
+	assertDefaultGreekPlan(t, plan)
+}
+
+// assertDefaultGreekPlan asserts a providerless source-evidence Greek plan.
+func assertDefaultGreekPlan(t *testing.T, plan persistence.FreezePreparedDeckRunParams) {
+	t.Helper()
 	assert.False(t, plan.Config.ExternalTranslationConsent)
 	assert.Empty(t, plan.Config.Provider)
-	assert.Nil(t, plan.Projection.Items[0].CacheKey)
+	require.Len(t, plan.Projection.Items, 1)
+	assert.Nil(t, plan.Projection.Items[0].CacheKey, "a default Greek item has no provider cache identity")
 }

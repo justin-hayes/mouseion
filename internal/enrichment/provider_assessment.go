@@ -38,7 +38,7 @@ type ProviderAssessment struct {
 // sentence, its passage context, and the pinned LSJ senses with their native
 // IDs. Justin must review that payload and record the disposition on #2171
 // before any call is transmitted. Recorded stays false until then, so the pass
-// is not offered and Greek decks contain default cards only (ADR 0101).
+// does not run and Greek decks contain default cards only (ADR 0101, ADR 0105).
 //
 // The transport is the configured OpenAI-compatible Chat Completions endpoint.
 // The transmitted fields are exactly the frozen pass payload: identity fields,
@@ -104,8 +104,8 @@ func AllowExternalProviderCall(assessments []ProviderAssessment, language, provi
 }
 
 // EvidenceAssistedPassOffered reports whether a matching recorded assessment
-// makes the evidence-assisted pass available. While it is false the pass is not
-// offered and nothing is sent for it (ADR 0101).
+// makes the evidence-assisted pass available. While it is false the pass does
+// not run and nothing is sent for it (ADR 0101, ADR 0105).
 func EvidenceAssistedPassOffered(assessments []ProviderAssessment) bool {
 	for _, assessment := range assessments {
 		if assessment.Recorded && sameAssessmentLanguage(assessment.Language, evidenceAssistedPassAssessment.Language) && assessment.Provider == evidenceAssistedPassAssessment.Provider && assessment.PromptVersion == evidenceAssistedPassPromptVersion && slices.Equal(assessment.Fields, EvidenceAssistedPassPayloadFields()) {
