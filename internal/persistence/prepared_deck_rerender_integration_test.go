@@ -83,4 +83,22 @@ func TestListStalePreparedDecksOnlyReturnsCurrentUnretiredReadyDecks(t *testing.
 	assert.NotContains(t, ids, current.ID)
 	assert.NotContains(t, ids, retired.ID)
 	assert.NotContains(t, ids, blocked.ID)
+
+	// A rerender publishes an artifact at the current render-input version but
+	// keeps the run's frozen input version, which later rerenders still need to
+	// recover legacy inputs. The rerendered deck is no longer stale.
+	_, err = store.SupersedePreparedDeckArtifact(ctx, owner.ID, inputStale.ID, inputStaleRun.ID, cardexport.PresentationVersion, cardexport.Artifact{
+		APKG: []byte("input-stale-rerendered"), Filename: inputStale.Filename, DeckName: inputStale.DeckName,
+	})
+	require.NoError(t, err)
+	rerenderedRun, err := store.GetCurrentPreparedDeckRun(ctx, owner.ID, inputStale.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rerenderedRun.RenderInputVersion, "the run keeps the version its inputs were frozen at")
+	work, err = store.ListStalePreparedDecks(ctx, cardexport.PresentationVersion, 100)
+	require.NoError(t, err)
+	ids = nil
+	for _, item := range work {
+		ids = append(ids, item.PreparationID)
+	}
+	assert.NotContains(t, ids, inputStale.ID, "a rerendered deck with old frozen inputs is not listed again")
 }
