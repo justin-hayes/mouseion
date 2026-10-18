@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/sentencequality"
 	"github.com/justin-hayes/mouseion/internal/textmatch"
 	"github.com/stretchr/testify/require"
 )
@@ -66,7 +67,7 @@ func TestFrenchGoldenCorpusAnchorsEveryTarget(t *testing.T) {
 				_, _, wordBounded := textmatch.FoldedWordSpan(sentence.Text, cleaned)
 				require.Equal(t, target.WordBounded, wordBounded, "%s/%s recorded match", entry.ID, target.Form)
 
-				start, end, ok := targetSpan(sentence.Text, cleaned, tokens, 0)
+				start, end, ok := sentencequality.TargetSpan(sentence.Text, cleaned, tokens, 0)
 				require.True(t, ok, "%s/%s must anchor", entry.ID, target.Form)
 				require.EqualValues(t, target.Span[0], utf8.RuneCountInString(sentence.Text[:start]), "%s/%s start", entry.ID, target.Form)
 				require.EqualValues(t, target.Span[1], utf8.RuneCountInString(sentence.Text[:end]), "%s/%s end", entry.ID, target.Form)
