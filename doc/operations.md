@@ -257,8 +257,10 @@ These commands run against `MOUSEION_DATABASE_URL`.
   one named learner. It creates the learner's unprepared Book and its
   Book–Reading unit association, and ensures "Ancient Greek" appears in the
   language drop-down. It is idempotent, and refuses without writing when any
-  pre-existing `grc` rows exist, naming their owners, surfaces and counts. It
-  prints no Greek text.
+  pre-existing `grc` rows exist, naming their owners, surfaces and counts. Rows
+  a registered learner's reading and deck preparation wrote are not
+  pre-existing, so the command can be re-run to re-import. It prints no Greek
+  text.
 - `go run ./cmd/greekregister <learner-username> <pinned-source-file>` —
   registers as above and then imports the file's annotation into an ordinary
   analysis run, so My Books shows the Book as prepared with its word count and
