@@ -29,28 +29,35 @@ func TestEvidenceAssistedPassAssessmentIsRecorded(t *testing.T) {
 	require.NoError(t, AllowExternalProviderCall(assessments, "grc", codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields()))
 }
 
-// TestLSJSenseSummaryAssessmentIsUnrecorded proves the #2172 disposition is not
-// yet recorded, so no summary is requested until Justin records it, and that a
-// recorded assessment with the exact payload enables the summary.
-func TestLSJSenseSummaryAssessmentIsUnrecorded(t *testing.T) {
+// TestLSJSenseSummaryAssessmentIsRecorded proves the #2172 disposition is
+// recorded and matches the current codec, so the pass requests a context-free
+// summary of each pinned LSJ entry.
+func TestLSJSenseSummaryAssessmentIsRecorded(t *testing.T) {
 	assessments := ProviderAssessments()
 	assessment := assessmentByTicket(t, "#2172")
-	assert.False(t, assessment.Recorded, "Justin has not yet recorded the #2172 assessment")
-	assert.False(t, LSJSenseSummaryOffered(assessments))
+	assert.True(t, assessment.Recorded, "Justin recorded the #2172 assessment")
+	assert.Equal(t, "approved for personal use of the locally produced deck", assessment.Disposition)
+	assert.True(t, LSJSenseSummaryOffered(assessments))
 
 	codec := passCodec(t)
 	assert.Equal(t, codec.LSJSenseSummaryPromptContract(), assessment.PromptVersion, "the recorded prompt contract is the one the codec sends; a new prompt needs a new record")
 	assert.Equal(t, LSJSenseSummaryPayloadFields(), assessment.Fields, "the recorded field set is the one the codec sends; a changed payload needs a new record")
-	require.ErrorIs(t, AllowExternalProviderCall(assessments, "grc", codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()), ErrProviderAssessmentNotRecorded)
+	require.NoError(t, AllowExternalProviderCall(assessments, "grc", codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()))
+}
 
-	recorded := append([]ProviderAssessment(nil), assessments...)
-	for i := range recorded {
-		if recorded[i].Ticket == "#2172" {
-			recorded[i].Recorded = true
+// TestLSJSenseSummaryUnrecordedAssessmentFailsClosed proves an unrecorded
+// summary assessment withholds the summary.
+func TestLSJSenseSummaryUnrecordedAssessmentFailsClosed(t *testing.T) {
+	unrecorded := ProviderAssessments()
+	for i := range unrecorded {
+		if unrecorded[i].Ticket == "#2172" {
+			unrecorded[i].Recorded = false
 		}
 	}
-	assert.True(t, LSJSenseSummaryOffered(recorded))
-	require.NoError(t, AllowExternalProviderCall(recorded, "grc", codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()))
+	assert.False(t, LSJSenseSummaryOffered(unrecorded))
+
+	codec := passCodec(t)
+	require.ErrorIs(t, AllowExternalProviderCall(unrecorded, "grc", codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()), ErrProviderAssessmentNotRecorded)
 }
 
 // assessmentByTicket returns the compiled assessment recorded for one ticket.

@@ -63,10 +63,9 @@ var evidenceAssistedPassAssessment = ProviderAssessment{
 
 // lsjSenseSummaryAssessment is the reviewed personal-use disposition for the
 // exact Ancient Greek LSJ sense summary payload: the pinned LSJ entry's
-// headword, its sense IDs and its English glosses alone. Justin must review that
-// payload and record the disposition on #2172 before any call is transmitted.
-// Recorded stays false until then, so no summary is requested and every Greek
-// card keeps its full LSJ entry (ADR 0101).
+// headword, its sense IDs and its English glosses alone. Justin reviewed that
+// payload and recorded the disposition on #2172, so the pass also asks for a
+// context-free summary of each pinned entry (ADR 0101).
 //
 // The transport is the configured OpenAI-compatible Chat Completions endpoint.
 // No learner identity, Book title, representative sentence, whole Book, raw
@@ -83,9 +82,9 @@ var lsjSenseSummaryAssessment = ProviderAssessment{
 	Fields: []string{
 		"item_id", "headword", "senses",
 	},
-	Disposition: "awaiting Justin's review of the LSJ sense summary payload (#2172)",
+	Disposition: "approved for personal use of the locally produced deck",
 	Ticket:      "#2172",
-	Recorded:    false,
+	Recorded:    true,
 }
 
 // ProviderAssessments returns the compiled reviewed personal-use payload
