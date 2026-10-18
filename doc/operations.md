@@ -203,8 +203,11 @@ make dictionary-index \
 
 The derivation preserves each LSJ entry's native id and sense hierarchy, keeps
 only Xenophon citations, and records the revision pin (`DICTIONARY_LSJ_PIN`,
-default commit `56061ca…`) in the index metadata. The real LSJ files never enter
-the repository or CI; both use synthetic fixtures.
+default commit `56061ca…`) in the index metadata. It also records whether a
+numbered entry is a phrase sub-entry or a cross-reference stub filed under a
+bare word's key, so such a sub-entry never counts as a homograph when the bare
+lemma is looked up. An index built before this format must be rebuilt. The real
+LSJ files never enter the repository or CI; both use synthetic fixtures.
 
 The command writes `dictionary/dictionary-index.sqlite` atomically with mode
 `0644`. The web container runs as an unprivileged user, so the artifact must be

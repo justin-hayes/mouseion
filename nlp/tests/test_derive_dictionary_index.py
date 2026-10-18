@@ -780,6 +780,22 @@ SYNTHETIC_LSJ = """<?xml version="1.0" encoding="UTF-8"?>
 </entryFree>
 <entryFree id="n2" key="de/w" type="main"><sense id="n2.0" n="A" level="1"><tr>bind</tr></sense></entryFree>
 <entryFree id="n3" key="de/w1" type="main"><sense id="n3.0" n="A" level="1"><tr>lack</tr></sense></entryFree>
+<entryFree id="n4" key="lo/gos2" type="main">
+  <orth>lo/gos a)nh/r</orth>
+  <sense id="n4.0" n="A" level="1"><tr>a man of words</tr></sense>
+</entryFree>
+<entryFree id="n5" key="de/w2" type="main">
+  <orth>de/w</orth>
+  <sense id="n5.0" n="A" level="1"><xr><lbl>v.</lbl><ref>dh/w</ref></xr></sense>
+</entryFree>
+<entryFree id="n6" key="a)/n1" type="main">
+  <orth>a)/n</orth> (A),
+  <sense id="n6.0" n="A" level="1"><tr>if</tr></sense>
+</entryFree>
+<entryFree id="n7" key="a)/n2" type="main">
+  <orth>a)/n</orth> (B),
+  <sense id="n7.0" n="A" level="1"><xr><lbl>=</lbl><ref>e)a/n</ref></xr></sense>
+</entryFree>
 </body></text>
 </TEI.2>
 """
@@ -806,12 +822,12 @@ def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path
     connection = sqlite3.connect(output)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("4",)
+    ).fetchone() == ("5",)
     assert connection.execute("SELECT value FROM metadata WHERE key = 'lsj_pin'").fetchone() == (
         "pin123",
     )
     rows = connection.execute(
-        "SELECT entry_id, headword, senses_json FROM lsj_entries ORDER BY entry_id"
+        "SELECT entry_id, headword, senses_json, subordinate FROM lsj_entries ORDER BY entry_id"
     ).fetchall()
     connection.close()
 
@@ -821,7 +837,23 @@ def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path
         ("n1", "λόγοσ"),
         ("n2", "δέω"),
         ("n3", "δέω"),
+        ("n4", "λόγοσ"),
+        ("n5", "δέω"),
+        ("n6", "ἄν"),
+        ("n7", "ἄν"),
     ]
+    # A phrase sub-entry (n4) and a "v. ..." redirect stub (n5) are subordinate.
+    # The real homographs, the bare entries, and the (A)/(B) pair (n6, n7) are
+    # not, so the pair still reaches the lookup as two competing entries.
+    assert {row[0]: row[3] for row in rows} == {
+        "n1": 0,
+        "n2": 0,
+        "n3": 0,
+        "n4": 1,
+        "n5": 1,
+        "n6": 0,
+        "n7": 0,
+    }
 
     senses = json.loads(rows[0][2])
     assert [sense["id"] for sense in senses] == ["n1.0", "n1.1"]
@@ -835,6 +867,65 @@ def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path
     assert senses[0]["senses"][0]["id"] == "n1.0.1"
     assert senses[0]["senses"][0]["level"] == 3
     assert senses[0]["senses"][0]["glosses"] == ["account"]
+
+
+def test_lsj_vowel_length_marks_are_dropped_and_admitted():
+    module = load_script()
+
+    # A "^" or "_" quantity mark is dropped, and the key is admitted rather than
+    # rejected as an unknown character.
+    for key, expected in (
+        ("o(/ti^", "ὅτι"),
+        ("de/ka^", "δέκα"),
+        ("pa/nu^", "πάνυ"),
+        ("e)/nqa^", "ἔνθα"),
+        ("*(re/a_", "Ῥέα"),
+        ("*)/ogka_", "Ὄγκα"),
+    ):
+        headword, admitted = module.lsj_headword(key)
+        assert admitted, key
+        assert headword == expected, key
+
+
+def test_lsj_subordinate_classifies_phrases_stubs_and_homographs():
+    module = load_script()
+
+    def entry(xml: str):
+        # A literal synthetic fixture, not untrusted input.
+        return ElementTree.fromstring(xml)  # noqa: S314
+
+    phrase = entry(
+        '<entryFree key="ou)2" type="main"><orth>ou) ga/r</orth>'
+        '<sense id="x"><tr>for not</tr></sense></entryFree>'
+    )
+    assert module.lsj_subordinate(phrase), "a multi-word phrase sub-entry is subordinate"
+
+    redirect = entry(
+        '<entryFree key="h)/dh2" type="main"><orth>h)/dh</orth>'
+        '<sense id="x"><xr><lbl>v.</lbl><ref>*ei)/dw</ref></xr></sense></entryFree>'
+    )
+    assert module.lsj_subordinate(redirect), "a cross-reference stub is subordinate"
+
+    # A stub LSJ marks (A)/(B)/(C) is a real homograph, not a redirect.
+    marked = entry(
+        '<entryFree key="a)/n2" type="main"><orth>a)/n</orth> (B), '
+        '<sense id="x"><xr><lbl>=</lbl><ref>e)a/n</ref></xr></sense></entryFree>'
+    )
+    assert not module.lsj_subordinate(marked)
+
+    # A numbered entry with its own gloss is a real homograph.
+    homograph = entry(
+        '<entryFree key="de/w1" type="main"><orth>de/w</orth>'
+        '<sense id="x"><tr>lack</tr></sense></entryFree>'
+    )
+    assert not module.lsj_subordinate(homograph)
+
+    # The bare entry is never subordinate, even when it only redirects.
+    bare = entry(
+        '<entryFree key="ma=llon" type="main"><orth>ma=llon</orth>'
+        '<sense id="x"><xr><lbl>v.</lbl><ref>ma/la</ref></xr></sense></entryFree>'
+    )
+    assert not module.lsj_subordinate(bare)
 
 
 def test_lsj_glosses_skip_etymology_cognates_and_punctuation():
