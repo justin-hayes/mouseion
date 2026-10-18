@@ -56,9 +56,8 @@ func (p *greekPassProvider) Translate(_ context.Context, request enrichment.Tran
 	return p.responder(request)
 }
 
-// greekPassFixture is one prepared Book 1 deck whose freeze worker is created
-// but not yet started, so a test can set the deck specification's pass flag
-// before the run is frozen.
+// greekPassFixture is one Book 1 learner with a configured fake provider and a
+// freeze worker whose pass assessment is recorded or not.
 type greekPassFixture struct {
 	store    *persistence.PostgresStore
 	pool     *pgxpool.Pool
@@ -73,7 +72,7 @@ type greekPassFixture struct {
 	client   *river.Client[pgx.Tx]
 }
 
-func newGreekPassFixture(t *testing.T, ctx context.Context, username string, responder func(enrichment.TranslationRequest) (enrichment.TranslationResponse, error)) *greekPassFixture {
+func newGreekPassFixture(t *testing.T, ctx context.Context, username string, recorded bool, responder func(enrichment.TranslationRequest) (enrichment.TranslationResponse, error)) *greekPassFixture {
 	t.Helper()
 	t.Setenv("MOUSEION_SECRET", greekPassSecret)
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -91,7 +90,7 @@ func newGreekPassFixture(t *testing.T, ctx context.Context, username string, res
 
 	provider := &greekPassProvider{responder: responder}
 	codec := greekPassCodec(t)
-	client := newGreekPassClient(t, ctx, store, pool, codec, provider)
+	client := newGreekPassClient(t, ctx, store, pool, codec, provider, recorded)
 	deck := prepareddeck.NewService(store, client)
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{
@@ -106,10 +105,9 @@ func newGreekPassFixture(t *testing.T, ctx context.Context, username string, res
 	}
 }
 
-// startReadingAndDeck starts the reading, creates the deck specification and,
-// when pass is set, opts into the pass before the freeze worker starts. It
-// returns the ready preparation.
-func (f *greekPassFixture) startReadingAndDeck(t *testing.T, ctx context.Context, pass bool) domain.DeckPreparation {
+// startReadingAndDeck starts the reading, prepares its deck and returns the
+// ready preparation.
+func (f *greekPassFixture) startReadingAndDeck(t *testing.T, ctx context.Context) domain.DeckPreparation {
 	t.Helper()
 	started := perform(t, f.handler, http.MethodPost, "/reading/books/"+f.bookID+"/start", url.Values{"csrf_token": {f.csrf}}, f.cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code, "start body=%s", started.Body.String())
@@ -117,16 +115,8 @@ func (f *greekPassFixture) startReadingAndDeck(t *testing.T, ctx context.Context
 	require.NoError(t, err)
 	require.Equal(t, 3, reading.SnapshotSize, "δέω 1, δέω 2 and λόγος are the recurring Book vocabulary")
 
-	handle, err := f.deck.PrepareCurrentReadingDeck(ctx, f.learner.ID, f.bookID, reading.SnapshotID)
+	_, err = f.deck.PrepareCurrentReadingDeck(ctx, f.learner.ID, f.bookID, reading.SnapshotID)
 	require.NoError(t, err)
-	if pass {
-		// The deck specification is created with the pass off, then opts in
-		// before the freeze worker starts. This is the only seam that sets the
-		// flag today: the app never offers it while the payload assessment is
-		// unrecorded.
-		_, err = f.pool.Exec(ctx, `UPDATE deck_preparations SET evidence_assisted_provider_pass=true WHERE owner_id=$1 AND id=$2`, f.learner.ID, handle.Preparation.ID)
-		require.NoError(t, err)
-	}
 	require.NoError(t, f.client.Start(ctx))
 
 	preparation := waitForPreparedDeck(t, ctx, f.store, f.learner.ID, reading.SnapshotID)
@@ -135,15 +125,15 @@ func (f *greekPassFixture) startReadingAndDeck(t *testing.T, ctx context.Context
 }
 
 // TestAncientGreekEvidenceAssistedPassAddsLabelledProviderFields proves the
-// opt-in pass sends the representative sentence, its passage context and the
+// pass sends the representative sentence, its passage context and the
 // pinned LSJ senses, labels the provider-proposed fields it adds and leaves a
 // homograph whose answer abstained as the default card, with no meaning or
 // provider omissions.
 func TestAncientGreekEvidenceAssistedPassAddsLabelledProviderFields(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	fixture := newGreekPassFixture(t, ctx, "greek-pass-learner", greekPassResolvedResponse)
-	preparation := fixture.startReadingAndDeck(t, ctx, true)
+	fixture := newGreekPassFixture(t, ctx, "greek-pass-learner", true, greekPassResolvedResponse)
+	preparation := fixture.startReadingAndDeck(t, ctx)
 
 	assert.Equal(t, 3, preparation.TotalCards)
 
@@ -193,10 +183,10 @@ func TestAncientGreekEvidenceAssistedPassAddsLabelledProviderFields(t *testing.T
 func TestAncientGreekEvidenceAssistedPassAbstentionKeepsDefaultCard(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	fixture := newGreekPassFixture(t, ctx, "greek-pass-abstain-learner", func(enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	fixture := newGreekPassFixture(t, ctx, "greek-pass-abstain-learner", true, func(enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 		return enrichment.TranslationResponse{Translation: "word", Gloss: "", ContextOnly: true, UnresolvedReason: "no defensible contextual sense", SentenceTranslation: "The man sees the word."}, nil
 	})
-	preparation := fixture.startReadingAndDeck(t, ctx, true)
+	preparation := fixture.startReadingAndDeck(t, ctx)
 
 	assert.Equal(t, 3, fixture.provider.calls, "the pass still asks the provider")
 	assert.Equal(t, 3, preparation.TotalCards, "an abstaining pass still produces every default card")
@@ -214,10 +204,10 @@ func TestAncientGreekEvidenceAssistedPassAbstentionKeepsDefaultCard(t *testing.T
 func TestAncientGreekEvidenceAssistedPassFailureKeepsDefaultCard(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	fixture := newGreekPassFixture(t, ctx, "greek-pass-failure-learner", func(enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	fixture := newGreekPassFixture(t, ctx, "greek-pass-failure-learner", true, func(enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 		return enrichment.TranslationResponse{}, errors.New("provider unavailable")
 	})
-	preparation := fixture.startReadingAndDeck(t, ctx, true)
+	preparation := fixture.startReadingAndDeck(t, ctx)
 
 	assert.Equal(t, 3, preparation.TotalCards, "a failed pass still produces every default card")
 	assert.False(t, bytes.Contains(preparation.Artifact, []byte("Provider-proposed: ")), "a failed pass adds no labelled field")
@@ -228,17 +218,17 @@ func TestAncientGreekEvidenceAssistedPassFailureKeepsDefaultCard(t *testing.T) {
 	requireGreekDeckOmissionKinds(t, status, 0)
 }
 
-// TestAncientGreekEvidenceAssistedPassOffMakesNoRequest proves the pass is off
-// by default: a Greek deck with a configured provider still makes no request and
-// adds no provider-proposed field.
-func TestAncientGreekEvidenceAssistedPassOffMakesNoRequest(t *testing.T) {
+// TestAncientGreekEvidenceAssistedPassUnrecordedMakesNoRequest proves the pass
+// never runs while its payload assessment is unrecorded: a Greek deck with a
+// configured provider makes no request and is the default card (ADR 0105).
+func TestAncientGreekEvidenceAssistedPassUnrecordedMakesNoRequest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	fixture := newGreekPassFixture(t, ctx, "greek-pass-off-learner", greekPassResolvedResponse)
-	preparation := fixture.startReadingAndDeck(t, ctx, false)
+	fixture := newGreekPassFixture(t, ctx, "greek-pass-off-learner", false, greekPassResolvedResponse)
+	preparation := fixture.startReadingAndDeck(t, ctx)
 
 	assert.Equal(t, 3, preparation.TotalCards)
-	assert.Zero(t, fixture.provider.calls, "a Greek deck with the pass off makes no provider request")
+	assert.Zero(t, fixture.provider.calls, "an unrecorded assessment sends no provider request")
 	assert.False(t, bytes.Contains(preparation.Artifact, []byte("Provider-proposed: ")))
 	assert.Equal(t, 0, countGreekPassCacheRows(t, ctx, fixture.pool, fixture.codec))
 }
@@ -267,9 +257,9 @@ func greekPassCodec(t *testing.T) *enrichment.TranslationCodec {
 
 // newGreekPassClient wires the full durable prepared-deck pipeline with a
 // configured provider and a recorded evidence-assisted pass assessment. The
-// client is returned unstarted, so a test can set the deck specification's pass
-// flag before the freeze worker runs.
-func newGreekPassClient(t *testing.T, ctx context.Context, store *persistence.PostgresStore, pool *pgxpool.Pool, codec *enrichment.TranslationCodec, provider enrichment.TranslationProvider) *river.Client[pgx.Tx] {
+// client is returned unstarted. recorded sets whether the pass payload
+// assessment the freeze worker gates against is recorded.
+func newGreekPassClient(t *testing.T, ctx context.Context, store *persistence.PostgresStore, pool *pgxpool.Pool, codec *enrichment.TranslationCodec, provider enrichment.TranslationProvider, recorded bool) *river.Client[pgx.Tx] {
 	t.Helper()
 	workers := river.NewWorkers()
 	presentation := cardexport.NewPresentation(greekDeckLexicon{})
@@ -286,7 +276,7 @@ func newGreekPassClient(t *testing.T, ctx context.Context, store *persistence.Po
 		Language: "grc", Provider: codec.ProviderName(),
 		PromptVersion: codec.EvidenceAssistedPassPromptContract(),
 		Fields:        enrichment.EvidenceAssistedPassPayloadFields(),
-		Disposition:   "recorded for this test", Ticket: "#2171", Recorded: true,
+		Disposition:   "recorded for this test", Ticket: "#2171", Recorded: recorded,
 	}}
 
 	unusedAnalyzer := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
