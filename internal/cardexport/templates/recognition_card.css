@@ -189,6 +189,26 @@
   font-style: italic;
 }
 
+.lsj-outline .lsj-sense {
+  margin-top: var(--mouseion-space-1);
+  line-height: 1.4;
+}
+
+.lsj-outline .lsj-level-1 {
+  margin-top: var(--mouseion-space-2);
+}
+
+.lsj-full {
+  margin-top: var(--mouseion-space-4);
+}
+
+.lsj-full > summary {
+  color: var(--mouseion-color-text-muted);
+  cursor: pointer;
+  font-size: 0.82em;
+  font-weight: 600;
+}
+
 @media (max-width: 40rem) {
   .card {
     padding: var(--mouseion-space-4);

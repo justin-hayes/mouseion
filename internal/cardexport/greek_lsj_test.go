@@ -74,6 +74,52 @@ func TestAncientGreekLSJEntryRendersHierarchyInSourceOrder(t *testing.T) {
 	assert.Contains(t, rendered, `<span class="lsj-citation">X. An. 1.1.1</span>`)
 }
 
+// TestAncientGreekLSJEntryWithoutDefinitionsShowsFullEntryOpen proves an entry
+// derived before definitions existed keeps the full layout with no outline.
+func TestAncientGreekLSJEntryWithoutDefinitionsShowsFullEntryOpen(t *testing.T) {
+	rendered := renderAncientGreekLSJEntry(lsjMatchedEntry())
+
+	assert.NotContains(t, rendered, "lsj-outline")
+	assert.NotContains(t, rendered, "<details")
+}
+
+// TestAncientGreekLSJEntryOutlinesDefinitionsBeforeFullEntry proves the compact
+// outline lists each sense's definitions in source order with LSJ numbering,
+// keeps a heading whose deeper senses have definitions, and leaves the full
+// entry, every gloss and citation, behind a collapsed toggle.
+func TestAncientGreekLSJEntryOutlinesDefinitionsBeforeFullEntry(t *testing.T) {
+	// Perseus LSJ senses are flat siblings that carry their level.
+	entry := enrichment.AncientGreekLSJEntry{
+		EntryID: "n1", Headword: "γίγνομαι", Pin: testLSJPin,
+		Senses: []enrichment.AncientGreekLSJSense{
+			{ID: "n1.0", Number: "A", Level: 1, Definitions: []string{"come into a new state of being"}, Glosses: []string{"come into a new state of being"}},
+			{ID: "n1.1", Number: "1", Level: 3, Definitions: []string{"to be born"}, Glosses: []string{"to be born", "living"}, Citations: []string{"X. Cyr. 1.4.16"}},
+			{ID: "n1.2", Number: "II", Level: 2, Glosses: []string{"turning"}},
+			{ID: "n1.3", Number: "3", Level: 3},
+			{ID: "n1.4", Number: "a", Level: 4, Definitions: []string{"become one of"}, Glosses: []string{"become one of", "cost"}},
+			{ID: "n1.5", Number: "4", Level: 3, Glosses: []string{"it goes"}},
+		},
+	}
+
+	rendered := renderAncientGreekLSJEntry(entry)
+
+	outlineStart := strings.Index(rendered, `<div class="lsj-outline">`)
+	fullStart := strings.Index(rendered, `<details class="lsj-full"><summary>Full LSJ entry</summary>`)
+	require.GreaterOrEqual(t, outlineStart, 0, "rendered=%s", rendered)
+	require.Greater(t, fullStart, outlineStart, "the outline precedes the full entry")
+	outline, full := rendered[outlineStart:fullStart], rendered[fullStart:]
+
+	assert.Less(t, strings.Index(outline, "come into a new state of being"), strings.Index(outline, "to be born"))
+	assert.Less(t, strings.Index(outline, "to be born"), strings.Index(outline, "become one of"))
+	assert.Contains(t, outline, `<span class="lsj-number">II</span>`, "a heading whose deeper sense has definitions stays")
+	assert.Contains(t, outline, `<span class="lsj-number">3</span>`, "a heading whose deeper sense has definitions stays")
+	for _, usage := range []string{"living", "turning", "cost", "it goes", "X. Cyr. 1.4.16"} {
+		assert.NotContains(t, outline, usage, "the outline shows definitions only")
+		assert.Contains(t, full, usage, "the full entry keeps every gloss and citation")
+	}
+	assert.NotContains(t, outline, `<span class="lsj-number">4</span>`, "a sense with no definitions anywhere in its span is left out")
+}
+
 // TestAncientGreekLSJEntryEscapesSourceText proves source text cannot inject
 // markup into the rendered entry.
 func TestAncientGreekLSJEntryEscapesSourceText(t *testing.T) {

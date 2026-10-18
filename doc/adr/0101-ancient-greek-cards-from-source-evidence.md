@@ -1,6 +1,6 @@
 # ADR 0101: Ancient Greek cards from source evidence, with an optional evidence-assisted provider pass
 
-Status: **Accepted** · Date: 2026-10-17 · Author: Justin + opencode
+Status: **Accepted** · Date: 2026-10-17 · Author: Justin + opencode · Amended by [ADR 0104](0104-compact-lsj-definition-outline.md)
 
 Tracked by [#2131](https://github.com/justin-hayes/mouseion/issues/2131), the
 decision ticket of the map

@@ -14,7 +14,7 @@ import sqlite3
 import tempfile
 import unicodedata
 from collections import OrderedDict
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from urllib.request import urlopen
@@ -732,6 +732,7 @@ LSJ_COGNATE_LANGUAGE_ANYWHERE = re.compile(
 )
 LSJ_ETYMOLOGY_NOTE = re.compile(r"\(\s*Cf\.")
 LSJ_GLOSS_TRIM = " \t\n,;:"
+LSJ_MEANING_START = ":\u2014"
 
 
 def open_parenthesis(flow: str) -> str:
@@ -762,40 +763,57 @@ def clean_gloss(text: str) -> str:
     return text if any(character.isalpha() for character in text) else ""
 
 
-def collect_gloss(tr, glosses: list[str], flow: list[str]) -> None:
-    """Append one <tr> as a gloss unless it is a cognate or only punctuation."""
+@dataclass
+class SenseContent:
+    """One LSJ sense's own content, gathered in document order. Definitions are
+    the glosses LSJ states before the sense's first citation; later glosses
+    translate cited usages."""
+
+    glosses: list[str] = field(default_factory=list)
+    definitions: list[str] = field(default_factory=list)
+    citations: list[str] = field(default_factory=list)
+    # flow is the sense's own non-Greek text so far, so each <tr> can be judged
+    # by what precedes it.
+    flow: list[str] = field(default_factory=list)
+    cited: bool = False
+
+
+def collect_gloss(tr, content: SenseContent) -> None:
+    """Record one <tr> as a gloss unless it is a cognate or only punctuation."""
     text = element_text(tr)
-    cleaned = "" if is_cognate("".join(flow)) else clean_gloss(text)
+    cleaned = "" if is_cognate("".join(content.flow)) else clean_gloss(text)
     if cleaned:
-        glosses.append(cleaned)
-    flow.append(text)
+        content.glosses.append(cleaned)
+        if not content.cited:
+            content.definitions.append(cleaned)
+    content.flow.append(text)
 
 
-def collect_sense_content(
-    element, glosses: list[str], citations: list[str], flow: list[str] | None = None
-) -> None:
-    # flow accumulates the sense's own text in document order so each <tr> can be
-    # judged by what precedes it.
-    if flow is None:
-        flow = []
-    if element.text:
-        flow.append(element.text)
+def add_flow(content: SenseContent, text: str) -> None:
+    """Append sense text. LSJ's ":—" ends a forms paragraph and starts the
+    meaning, so the definitions after it are uncited again."""
+    content.flow.append(text)
+    if LSJ_MEANING_START in text:
+        content.cited = False
+
+
+def collect_sense_content(element, content: SenseContent, track_flow: bool = True) -> None:
+    if element.text and track_flow:
+        add_flow(content, element.text)
     for child in element:
         # A nested sense is derived on its own; only its tail belongs here.
         if child.tag == "tr":
-            collect_gloss(child, glosses, flow)
+            collect_gloss(child, content)
         elif child.tag == "bibl":
-            citation = lsj_citation(child)
-            if citation:
-                citations.append(citation)
-        elif child.get("lang") == "greek":
+            content.cited = True
+            if citation := lsj_citation(child):
+                content.citations.append(citation)
+        elif child.tag != "sense":
             # Beta Code writes rough breathing as "(", so Greek text stays out of
             # the flow that parenthesis tracking reads.
-            collect_sense_content(child, glosses, citations, [])
-        elif child.tag != "sense":
-            collect_sense_content(child, glosses, citations, flow)
-        if child.tail:
-            flow.append(child.tail)
+            collect_sense_content(child, content, track_flow and child.get("lang") != "greek")
+        if child.tail and track_flow:
+            add_flow(content, child.tail)
 
 
 def dedupe(values: list[str]) -> list[str]:
@@ -803,14 +821,15 @@ def dedupe(values: list[str]) -> list[str]:
 
 
 def lsj_sense(element) -> dict:
-    glosses: list[str] = []
-    citations: list[str] = []
-    collect_sense_content(element, glosses, citations)
-    sense = {
+    content = SenseContent()
+    collect_sense_content(element, content)
+    sense: dict = {
         "id": (element.get("id") or "").strip(),
-        "glosses": dedupe(glosses),
-        "citations": dedupe(citations),
+        "glosses": dedupe(content.glosses),
+        "citations": dedupe(content.citations),
     }
+    if content.definitions:
+        sense["definitions"] = dedupe(content.definitions)
     if number := (element.get("n") or "").strip():
         sense["n"] = number
     try:

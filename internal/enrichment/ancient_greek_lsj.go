@@ -5,15 +5,18 @@ import "context"
 // AncientGreekLSJSense is one sense of an LSJ dictionary entry, in source
 // order. It keeps the source's native sense ID and numbering label, its nesting
 // level and children so the hierarchy survives, its English glosses, and the
-// citations kept for it. The glosses and citations are plain text; any markup
-// is added by the renderer.
+// citations kept for it. Definitions are the glosses LSJ states before the
+// sense's first citation; they are empty in an index derived before they
+// existed. The glosses and citations are plain text; any markup is added by
+// the renderer.
 type AncientGreekLSJSense struct {
-	ID        string                 `json:"id"`
-	Number    string                 `json:"n,omitempty"`
-	Level     int                    `json:"level,omitempty"`
-	Glosses   []string               `json:"glosses,omitempty"`
-	Citations []string               `json:"citations,omitempty"`
-	Senses    []AncientGreekLSJSense `json:"senses,omitempty"`
+	ID          string                 `json:"id"`
+	Number      string                 `json:"n,omitempty"`
+	Level       int                    `json:"level,omitempty"`
+	Definitions []string               `json:"definitions,omitempty"`
+	Glosses     []string               `json:"glosses,omitempty"`
+	Citations   []string               `json:"citations,omitempty"`
+	Senses      []AncientGreekLSJSense `json:"senses,omitempty"`
 }
 
 // AncientGreekLSJEntry is one LSJ main entry matched to an Ancient Greek
