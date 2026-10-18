@@ -722,13 +722,74 @@ def lsj_citation(bibl) -> str:
     return " ".join(parts) if parts else urn
 
 
-# LSJ also marks cognates with <tr>: after a language abbreviation, usually in
-# the closing "(Cf. Skt. ..., Lat. ...)" etymology. Those are not English glosses.
+# LSJ also marks cognates and loan-words with <tr>: after a language
+# abbreviation, usually in the closing "(Cf. Skt. ..., Lat. ...)" etymology.
+# Those are not English glosses, so a <tr> after one, or inside a parenthesis
+# that names one, is skipped.
+#
+# LSJ sometimes omits the period after the abbreviations it uses constantly
+# ("cf. Lith girdziù", "OHG ei"), so the period is optional for those. The rest
+# are written with one, and the abbreviations that are also ordinary words
+# ("Copt", "Sumer", "Egypt") only count with it, so prose such as "the entrance
+# to Egypt" is not read as a citation. Grammar and citation abbreviations
+# (Adv., Subst., Comp., Lit., Rom.) are absent: they introduce English glosses,
+# not cognates.
+LSJ_COGNATE_LANGUAGES = (
+    "Skt",
+    "Lat",
+    "Lith",
+    "Goth",
+    "Engl",
+    "OE",
+    "OHG",
+    "Slav",
+    "Arm",
+    "OIr",
+    "Umbr",
+    "Osc",
+    "Russ",
+    "Icel",
+    "Av",
+    "Hitt",
+)
+LSJ_COGNATE_LANGUAGE_WORDS = (
+    "Heb",
+    "Hebr",
+    "Aram",
+    "Assyr",
+    "Bab",
+    "Sumer",
+    "Accad",
+    "Egypt",
+    "Copt",
+    "Skr",
+    "Avest",
+    "Lett",
+    "OPruss",
+    "OSlav",
+    "Serb",
+    "Celt",
+    "Ir",
+    "Ital",
+    "Armen",
+    "Phryg",
+)
+
+
+def lsj_language_pattern(languages: tuple[str, ...]) -> str:
+    """Match one LSJ language abbreviation at a word boundary."""
+    return r"\b(?:" + "|".join(languages) + r")"
+
+
 LSJ_COGNATE_LANGUAGE = re.compile(
-    r"\b(?:Skt|Lat|Lith|Goth|Engl|OE|OHG|Slav|Arm|OIr|Umbr|Osc|Russ|Icel|Av|Hitt)\.?\s*$"
+    lsj_language_pattern(LSJ_COGNATE_LANGUAGES)
+    + r"\.?\s*$"
+    + "|"
+    + lsj_language_pattern(LSJ_COGNATE_LANGUAGE_WORDS)
+    + r"\.\s*$"
 )
 LSJ_COGNATE_LANGUAGE_ANYWHERE = re.compile(
-    r"\b(?:Skt|Lat|Lith|Goth|Engl|OE|OHG|Slav|Arm|OIr|Umbr|Osc|Russ|Icel|Av|Hitt)\."
+    lsj_language_pattern(LSJ_COGNATE_LANGUAGES + LSJ_COGNATE_LANGUAGE_WORDS) + r"\."
 )
 LSJ_ETYMOLOGY_NOTE = re.compile(r"\(\s*Cf\.")
 LSJ_GLOSS_TRIM = " \t\n,;:"
@@ -736,7 +797,7 @@ LSJ_MEANING_START = ":\u2014"
 
 
 def open_parenthesis(flow: str) -> str:
-    """Return the text of the innermost still-open parenthesis, or ''."""
+    """Return the text of the outermost still-open parenthesis, or ''."""
     starts: list[int] = []
     for index, character in enumerate(flow):
         if character == "(":

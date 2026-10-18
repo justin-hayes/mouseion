@@ -857,6 +857,51 @@ def test_lsj_glosses_skip_etymology_cognates_and_punctuation():
     assert derived["glosses"] == ["to be produced", "dues", "it is done", "come to pass"]
 
 
+def test_lsj_glosses_skip_the_remaining_cognate_languages():
+    module = load_script()
+    # A literal synthetic fixture shaped like the pinned LSJ's etymology notes
+    # ("(Cf. Skt. ..., Lat. ...)", "(Egypt. ...)"), not untrusted input.
+    sense = ElementTree.fromstring(  # noqa: S314
+        '<sense id="n6.0" n="1" level="2">(Cf. Skt. <tr>jánati</tr>, Avest. <tr>ayar</tr>) '
+        "Hebr. <tr>šālôm</tr> but <tr>peace</tr>, Accad. <tr>kitinnu</tr>, "
+        "Egypt. <tr>kemai</tr>, (Egypt. pwr b <tr>p;</tr>), Assyr. <tr>agarru</tr>, "
+        "Bab. <tr>buśtu</tr>, Sumer. <tr>balag</tr>, Aram. <tr>gerōphīth</tr>, "
+        "Heb. <tr>shibboleth</tr>, Copt. <tr>stēm</tr>, Skr. <tr>hanus</tr>, "
+        "Lett. <tr>glums</tr>, OPruss. <tr>seyr</tr>, OSlav. <tr>kryti</tr>, "
+        "Serb. <tr>jedan put</tr>, Celt. <tr>benn</tr>, Ital. <tr>sagena</tr>, "
+        "Ir. <tr>ulcha</tr>, Armen. <tr>kask</tr>, Phryg. <tr>hircus</tr>, "
+        "<tr>come to pass</tr></sense>"
+    )
+
+    derived = module.lsj_sense(sense)
+
+    # Foreign forms are not English glosses, whether they directly follow the
+    # abbreviation or sit inside the parenthesis it names. The gloss after the
+    # abbreviation list is kept in source order.
+    assert derived["glosses"] == ["peace", "come to pass"]
+
+
+def test_lsj_glosses_keep_prose_and_grammar_abbreviations_as_glosses():
+    module = load_script()
+    # "Egypt" as an ordinary place name, and abbreviations that introduce an
+    # English gloss, never suppress it. "Lit." means literally here.
+    sense = ElementTree.fromstring(  # noqa: S314
+        '<sense id="n6.1" n="2" level="3">the entrance to Egypt <tr>with a store of</tr>, '
+        "Adv. <tr>without pain</tr>, Subst. <tr>sinner</tr>, Comp. <tr>more natural</tr>, "
+        "Lit. <tr>the people's property</tr></sense>"
+    )
+
+    derived = module.lsj_sense(sense)
+
+    assert derived["glosses"] == [
+        "with a store of",
+        "without pain",
+        "sinner",
+        "more natural",
+        "the people's property",
+    ]
+
+
 def test_lsj_definitions_are_the_glosses_before_the_first_citation():
     module = load_script()
     # A literal synthetic fixture, not untrusted input.
