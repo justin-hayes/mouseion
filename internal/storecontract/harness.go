@@ -152,6 +152,7 @@ type Scenario struct {
 // Scenarios returns every store contract scenario.
 func Scenarios() []Scenario {
 	scenarios := lifecycleScenarios()
+	scenarios = append(scenarios, gateScenarios()...)
 	for _, tc := range finishCases() {
 		scenarios = append(scenarios, finishScenario(tc))
 	}

@@ -192,16 +192,25 @@ func listOccurrenceLemmaCorrectionsTx(ctx context.Context, q *sqlcgen.Queries, p
 }
 
 // analysisFromTokenEvidence rebuilds the analysed corpus from persisted token
-// rows, grouping tokens into sentences by their stored ordinal.
+// rows, grouping tokens into sentences by their stored ordinal. Sentences the
+// corpus holds without tokens are padded with their own empty sentence, so a
+// sentence's index is the stored ordinal the deck's sentence loader resolves
+// (ADR 0106): a reference always names the sentence its token came from.
 func analysisFromTokenEvidence(rows []sqlcgen.ListAnalysisTokenEvidenceRow) (analyzer.Result, error) {
 	var analysis analyzer.Result
 	indexByOrdinal := make(map[int64]int)
 	for _, row := range rows {
 		index, ok := indexByOrdinal[row.SentenceOrdinal]
 		if !ok {
-			index = len(analysis.Sentences)
+			if row.SentenceOrdinal < 0 {
+				return analyzer.Result{}, errors.New("decode persisted token location: invalid sentence ordinal")
+			}
+			for int64(len(analysis.Sentences)) <= row.SentenceOrdinal {
+				analysis.Sentences = append(analysis.Sentences, analyzer.Sentence{})
+			}
+			index = int(row.SentenceOrdinal)
 			indexByOrdinal[row.SentenceOrdinal] = index
-			analysis.Sentences = append(analysis.Sentences, analyzer.Sentence{Text: row.SentenceText})
+			analysis.Sentences[index].Text = row.SentenceText
 		}
 		token, err := decodeTokenEvidence(row)
 		if err != nil {

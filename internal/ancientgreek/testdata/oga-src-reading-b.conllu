@@ -1,35 +1,71 @@
 # source = Xenophon, Xen. Anab._1.2.1
-# text = δέω λόγος
+# text = ὁ δὲ καὶ τὸν τὸ δέω λόγος;
 # sent_id = 1
-1	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_1|0|ref=Xen. Anab._1.2.1
-2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_2|t_1|ref=Xen. Anab._1.2.1
+1	ὁ	ὁ	l	l-s---mn-	_	0	DET	_	t_0|0|ref=Xen. Anab._1.2.1
+2	δὲ	δέ	c	c--------	_	0	COORD	_	t_1|0|ref=Xen. Anab._1.2.1
+3	καὶ	καί	c	c--------	_	0	COORD	_	t_2|0|ref=Xen. Anab._1.2.1
+4	τὸν	ὁ	l	l-s---ma-	_	0	DET	_	t_3|0|ref=Xen. Anab._1.2.1
+5	τὸ	ὁ	l	l-s---na-	_	0	DET	_	t_4|0|ref=Xen. Anab._1.2.1
+6	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_5|0|ref=Xen. Anab._1.2.1
+7	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	0	SBJ	_	t_6|0|ref=Xen. Anab._1.2.1
+8	;	;	u	u--------	_	0	PUNCT	_	t_7|0|ref=Xen. Anab._1.2.1
 
 # source = Xenophon, Xen. Anab._1.2.2
-# text = δέω λόγος
+# text = ὁ δὲ καὶ τὸν τὸ δέω λόγος;
 # sent_id = 2
-1	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_3|0|ref=Xen. Anab._1.2.2
-2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_4|t_3|ref=Xen. Anab._1.2.2
+1	ὁ	ὁ	l	l-s---mn-	_	0	DET	_	t_8|0|ref=Xen. Anab._1.2.2
+2	δὲ	δέ	c	c--------	_	0	COORD	_	t_9|0|ref=Xen. Anab._1.2.2
+3	καὶ	καί	c	c--------	_	0	COORD	_	t_10|0|ref=Xen. Anab._1.2.2
+4	τὸν	ὁ	l	l-s---ma-	_	0	DET	_	t_11|0|ref=Xen. Anab._1.2.2
+5	τὸ	ὁ	l	l-s---na-	_	0	DET	_	t_12|0|ref=Xen. Anab._1.2.2
+6	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_13|0|ref=Xen. Anab._1.2.2
+7	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	0	SBJ	_	t_14|0|ref=Xen. Anab._1.2.2
+8	;	;	u	u--------	_	0	PUNCT	_	t_15|0|ref=Xen. Anab._1.2.2
 
 # source = Xenophon, Xen. Anab._1.2.3
-# text = δέω λόγος
+# text = ὁ δὲ καὶ τὸν τὸ δέω λόγος;
 # sent_id = 3
-1	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_5|0|ref=Xen. Anab._1.2.3
-2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_6|t_5|ref=Xen. Anab._1.2.3
+1	ὁ	ὁ	l	l-s---mn-	_	0	DET	_	t_16|0|ref=Xen. Anab._1.2.3
+2	δὲ	δέ	c	c--------	_	0	COORD	_	t_17|0|ref=Xen. Anab._1.2.3
+3	καὶ	καί	c	c--------	_	0	COORD	_	t_18|0|ref=Xen. Anab._1.2.3
+4	τὸν	ὁ	l	l-s---ma-	_	0	DET	_	t_19|0|ref=Xen. Anab._1.2.3
+5	τὸ	ὁ	l	l-s---na-	_	0	DET	_	t_20|0|ref=Xen. Anab._1.2.3
+6	δέω	δέω1	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_21|0|ref=Xen. Anab._1.2.3
+7	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	0	SBJ	_	t_22|0|ref=Xen. Anab._1.2.3
+8	;	;	u	u--------	_	0	PUNCT	_	t_23|0|ref=Xen. Anab._1.2.3
 
 # source = Xenophon, Xen. Anab._1.2.4
-# text = δέω λόγος
+# text = ὁ δὲ καὶ τὸν τὸ δέω λόγος;
 # sent_id = 4
-1	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_7|0|ref=Xen. Anab._1.2.4
-2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_8|t_7|ref=Xen. Anab._1.2.4
+1	ὁ	ὁ	l	l-s---mn-	_	0	DET	_	t_24|0|ref=Xen. Anab._1.2.4
+2	δὲ	δέ	c	c--------	_	0	COORD	_	t_25|0|ref=Xen. Anab._1.2.4
+3	καὶ	καί	c	c--------	_	0	COORD	_	t_26|0|ref=Xen. Anab._1.2.4
+4	τὸν	ὁ	l	l-s---ma-	_	0	DET	_	t_27|0|ref=Xen. Anab._1.2.4
+5	τὸ	ὁ	l	l-s---na-	_	0	DET	_	t_28|0|ref=Xen. Anab._1.2.4
+6	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_29|0|ref=Xen. Anab._1.2.4
+7	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	0	SBJ	_	t_30|0|ref=Xen. Anab._1.2.4
+8	;	;	u	u--------	_	0	PUNCT	_	t_31|0|ref=Xen. Anab._1.2.4
 
 # source = Xenophon, Xen. Anab._1.2.5
-# text = δέω λόγος
+# text = ὁ δὲ καὶ τὸν τὸ δέω λόγος;
 # sent_id = 5
-1	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_9|0|ref=Xen. Anab._1.2.5
-2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_10|t_9|ref=Xen. Anab._1.2.5
+1	ὁ	ὁ	l	l-s---mn-	_	0	DET	_	t_32|0|ref=Xen. Anab._1.2.5
+2	δὲ	δέ	c	c--------	_	0	COORD	_	t_33|0|ref=Xen. Anab._1.2.5
+3	καὶ	καί	c	c--------	_	0	COORD	_	t_34|0|ref=Xen. Anab._1.2.5
+4	τὸν	ὁ	l	l-s---ma-	_	0	DET	_	t_35|0|ref=Xen. Anab._1.2.5
+5	τὸ	ὁ	l	l-s---na-	_	0	DET	_	t_36|0|ref=Xen. Anab._1.2.5
+6	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_37|0|ref=Xen. Anab._1.2.5
+7	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	0	SBJ	_	t_38|0|ref=Xen. Anab._1.2.5
+8	;	;	u	u--------	_	0	PUNCT	_	t_39|0|ref=Xen. Anab._1.2.5
 
 # source = Xenophon, Xen. Anab._1.2.6
-# text = δέω λόγος
+# text = ὁ δὲ καὶ τὸν τὸ δέω λόγος;
 # sent_id = 6
-1	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_11|0|ref=Xen. Anab._1.2.6
-2	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_12|t_11|ref=Xen. Anab._1.2.6
+1	ὁ	ὁ	l	l-s---mn-	_	0	DET	_	t_40|0|ref=Xen. Anab._1.2.6
+2	δὲ	δέ	c	c--------	_	0	COORD	_	t_41|0|ref=Xen. Anab._1.2.6
+3	καὶ	καί	c	c--------	_	0	COORD	_	t_42|0|ref=Xen. Anab._1.2.6
+4	τὸν	ὁ	l	l-s---ma-	_	0	DET	_	t_43|0|ref=Xen. Anab._1.2.6
+5	τὸ	ὁ	l	l-s---na-	_	0	DET	_	t_44|0|ref=Xen. Anab._1.2.6
+6	δέω	δέω2	v	v1spia---	Mood=i|Number=s|Person=1|Tense=p|Voice=a	0	PRED	_	t_45|0|ref=Xen. Anab._1.2.6
+7	λόγος	λόγος	n	n-s---mn-	Case=n|Gender=m|Number=s	0	SBJ	_	t_46|0|ref=Xen. Anab._1.2.6
+8	;	;	u	u--------	_	0	PUNCT	_	t_47|0|ref=Xen. Anab._1.2.6

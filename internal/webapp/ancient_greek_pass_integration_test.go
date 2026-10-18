@@ -170,7 +170,7 @@ func TestAncientGreekEvidenceAssistedPassAddsLabelledProviderFields(t *testing.T
 
 	status, err := fixture.store.GetDeckPreparationStatus(ctx, fixture.learner.ID, preparation.ID)
 	require.NoError(t, err)
-	requireGreekDeckOmissionKinds(t, status, 0)
+	requireGreekDeckAgreesWithSnapshot(t, status)
 
 	// Re-rendering the frozen specification and its exact overlay reproduces the
 	// same labelled artifact without contacting the provider again.
@@ -203,7 +203,7 @@ func TestAncientGreekEvidenceAssistedPassAbstentionKeepsDefaultCard(t *testing.T
 
 	status, err := fixture.store.GetDeckPreparationStatus(ctx, fixture.learner.ID, preparation.ID)
 	require.NoError(t, err)
-	requireGreekDeckOmissionKinds(t, status, 0)
+	requireGreekDeckAgreesWithSnapshot(t, status)
 }
 
 // TestAncientGreekEvidenceAssistedPassFailureKeepsDefaultCard proves a failed
@@ -223,7 +223,7 @@ func TestAncientGreekEvidenceAssistedPassFailureKeepsDefaultCard(t *testing.T) {
 
 	status, err := fixture.store.GetDeckPreparationStatus(ctx, fixture.learner.ID, preparation.ID)
 	require.NoError(t, err)
-	requireGreekDeckOmissionKinds(t, status, 0)
+	requireGreekDeckAgreesWithSnapshot(t, status)
 }
 
 // TestAncientGreekEvidenceAssistedPassUnrecordedMakesNoRequest proves the pass
