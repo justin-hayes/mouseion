@@ -827,6 +827,7 @@ def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path
     assert [sense["id"] for sense in senses] == ["n1.0", "n1.1"]
     assert senses[0]["n"] == "A"
     assert senses[0]["glosses"] == ["word"]
+    assert senses[0]["definitions"] == ["word"]
     # Only the Xenophon citation is kept; the Homer one is dropped.
     assert senses[0]["citations"] == ["X. An. 1.1.1"]
     assert senses[1]["citations"] == []
@@ -854,6 +855,39 @@ def test_lsj_glosses_skip_etymology_cognates_and_punctuation():
     # names one) are not English glosses; punctuation is trimmed and a
     # punctuation-only gloss is dropped. Source order is kept.
     assert derived["glosses"] == ["to be produced", "dues", "it is done", "come to pass"]
+
+
+def test_lsj_definitions_are_the_glosses_before_the_first_citation():
+    module = load_script()
+    # A literal synthetic fixture, not untrusted input.
+    sense = ElementTree.fromstring(  # noqa: S314
+        '<sense id="n5.0" n="1" level="3">of persons, <tr>to be born</tr>, '
+        '<foreign lang="greek">neo/s</foreign> new <tr>born</tr>, '
+        '<bibl n="urn:cts:greekLit:tlg0012.tlg001.perseus-grc1:1:1">Il. 1.1</bibl>; '
+        "<tr>living</tr> under Tmolus, "
+        '<cit><quote lang="greek">x</quote><bibl n="urn:x">Hdt.</bibl></cit> '
+        "<tr>at our birth</tr></sense>"
+    )
+    uncited = ElementTree.fromstring(  # noqa: S314
+        '<sense id="n5.1" n="2" level="3"><tr>fall due</tr></sense>'
+    )
+
+    derived = module.lsj_sense(sense)
+
+    # LSJ states a sense's definitions before citing it; later glosses
+    # translate cited usages. All glosses are kept in source order.
+    assert derived["definitions"] == ["to be born", "born"]
+    assert derived["glosses"] == ["to be born", "born", "living", "at our birth"]
+    assert module.lsj_sense(uncited)["definitions"] == ["fall due"]
+    no_gloss = ElementTree.fromstring('<sense id="n5.2" n="3" level="3">x</sense>')  # noqa: S314
+    assert "definitions" not in module.lsj_sense(no_gloss)
+    # A forms paragraph cites its forms; ":—" then starts the meaning.
+    forms = ElementTree.fromstring(  # noqa: S314
+        '<sense id="n5.3" n="A" level="1">plpf. <cit><quote lang="greek">e)ge/neto</quote>'
+        '<bibl n="urn:x">Il.</bibl></cit>, al.:—<tr>come into being</tr>: hence, '
+        '<bibl n="urn:y">Pl.</bibl> <tr>arise</tr></sense>'
+    )
+    assert module.lsj_sense(forms)["definitions"] == ["come into being"]
 
 
 def test_without_lsj_dir_the_index_stays_at_the_french_format(tmp_path: Path):

@@ -53,10 +53,13 @@ func ancientGreekLSJPassSenses(entry enrichment.AncientGreekLSJEntry) []enrichme
 	return senses
 }
 
-// renderAncientGreekLSJEntry renders the full LSJ sense hierarchy in source
-// order with LSJ's numbering and each sense's English glosses and Xenophon
-// citations. It never reranks or truncates a sense. Every text piece is escaped
-// before it is wrapped, so source text cannot inject markup.
+// renderAncientGreekLSJEntry renders the LSJ entry in source order with LSJ's
+// numbering. When the entry carries definitions, a compact outline of each
+// sense's definitions comes first and the full hierarchy, every gloss and
+// Xenophon citation, follows behind a collapsed toggle; otherwise the full
+// hierarchy is shown open. It never reranks a sense, and the full entry is
+// never truncated. Every text piece is escaped before it is wrapped, so source
+// text cannot inject markup.
 func renderAncientGreekLSJEntry(entry enrichment.AncientGreekLSJEntry) string {
 	if entry.Empty() {
 		return ""
@@ -70,9 +73,78 @@ func renderAncientGreekLSJEntry(entry enrichment.AncientGreekLSJEntry) string {
 		b.WriteString(`</span>`)
 	}
 	b.WriteString(`</div>`)
-	renderAncientGreekLSJSenses(&b, entry.Senses, 1)
+	if outline := lsjOutline(entry.Senses); len(outline) > 0 {
+		renderLSJOutline(&b, outline)
+		b.WriteString(`<details class="lsj-full"><summary>Full LSJ entry</summary>`)
+		renderAncientGreekLSJSenses(&b, entry.Senses, 1)
+		b.WriteString(`</details>`)
+	} else {
+		renderAncientGreekLSJSenses(&b, entry.Senses, 1)
+	}
 	b.WriteString(`</div>`)
 	return b.String()
+}
+
+// lsjOutlineSense is one sense in the compact outline, at its effective level.
+type lsjOutlineSense struct {
+	sense enrichment.AncientGreekLSJSense
+	level int
+}
+
+// lsjOutline flattens the senses in source order and keeps each sense that has
+// definitions, plus each heading whose span holds one. Perseus LSJ senses are
+// mostly flat siblings that carry their level, so a sense's span is the run of
+// deeper-level senses after it, nested or not.
+func lsjOutline(senses []enrichment.AncientGreekLSJSense) []lsjOutlineSense {
+	var flat []lsjOutlineSense
+	var walk func([]enrichment.AncientGreekLSJSense, int)
+	walk = func(level []enrichment.AncientGreekLSJSense, depth int) {
+		for _, sense := range level {
+			effective := sense.Level
+			if effective <= 0 {
+				effective = depth
+			}
+			flat = append(flat, lsjOutlineSense{sense: sense, level: effective})
+			walk(sense.Senses, effective+1)
+		}
+	}
+	walk(senses, 1)
+	var outline []lsjOutlineSense
+	for i, item := range flat {
+		if lsjSpanHasDefinitions(flat, i) {
+			outline = append(outline, item)
+		}
+	}
+	return outline
+}
+
+// lsjSpanHasDefinitions reports whether flat[i] or any deeper sense in its span
+// has a definition.
+func lsjSpanHasDefinitions(flat []lsjOutlineSense, i int) bool {
+	if len(flat[i].sense.Definitions) > 0 {
+		return true
+	}
+	for j := i + 1; j < len(flat) && flat[j].level > flat[i].level; j++ {
+		if len(flat[j].sense.Definitions) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// renderLSJOutline writes the compact outline: each kept sense's number and
+// definitions, without usage glosses or citations.
+func renderLSJOutline(b *strings.Builder, outline []lsjOutlineSense) {
+	b.WriteString(`<div class="lsj-outline">`)
+	for _, item := range outline {
+		b.WriteString(`<div class="lsj-sense lsj-level-`)
+		b.WriteString(strconv.Itoa(item.level))
+		b.WriteString(`">`)
+		writeLSJNumber(b, item.sense.Number)
+		writeLSJGlosses(b, item.sense.Definitions)
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div>`)
 }
 
 // renderAncientGreekLSJSenses writes one nesting level of senses. A sense with
