@@ -129,6 +129,66 @@ func fixtureSentence(length int) analyzer.Sentence {
 	return analyzer.Sentence{Text: "Eine beispielhafte Satzstruktur.", Tokens: tokens}
 }
 
+// TestScoreSentenceQualityAcceptsFiniteVerbBelowTheRoot pins #2219: UD German
+// roots a compound tense at its participle or infinitive and a copula sentence
+// at its predicate, so the finite verb is a direct dependent of the root.
+func TestScoreSentenceQualityAcceptsFiniteVerbBelowTheRoot(t *testing.T) {
+	finite := map[string]string{"VerbForm": "Fin"}
+	tests := []struct {
+		name   string
+		tokens []analyzer.Token
+	}{
+		{name: "perfect with auxiliary", tokens: []analyzer.Token{ // Du bist gestolpert.
+			{Surface: "Du", UPOS: "PRON", Dependency: "nsubj", Head: 2},
+			{Surface: "bist", UPOS: "AUX", Dependency: "aux", Head: 2, Morphology: finite},
+			{Surface: "gestolpert", UPOS: "VERB", Dependency: "root", Head: 2, Morphology: map[string]string{"VerbForm": "Part"}},
+		}},
+		{name: "passive auxiliary", tokens: []analyzer.Token{ // Das Haus wurde gebaut.
+			{Surface: "Das", UPOS: "DET", Dependency: "det", Head: 1},
+			{Surface: "Haus", UPOS: "NOUN", Dependency: "nsubj:pass", Head: 3},
+			{Surface: "wurde", UPOS: "AUX", Dependency: "aux:pass", Head: 3, Morphology: finite},
+			{Surface: "gebaut", UPOS: "VERB", Dependency: "root", Head: 3, Morphology: map[string]string{"VerbForm": "Part"}},
+		}},
+		{name: "copula", tokens: []analyzer.Token{ // Er ist müde.
+			{Surface: "Er", UPOS: "PRON", Dependency: "nsubj", Head: 2},
+			{Surface: "ist", UPOS: "AUX", Dependency: "cop", Head: 2, Morphology: finite},
+			{Surface: "müde", UPOS: "ADJ", Dependency: "root", Head: 2},
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			quality := ScoreSentenceQuality(analyzer.Sentence{Tokens: test.tokens}, []int{len(test.tokens) - 1})
+			assert.True(t, quality.Accepted)
+			assert.NotContains(t, quality.Reasons, reasonNoFiniteVerbAndSubject)
+		})
+	}
+}
+
+func TestScoreSentenceQualityRejectsVerblessFragment(t *testing.T) {
+	// Offenbar eine Falle.
+	tokens := []analyzer.Token{
+		{Surface: "Offenbar", UPOS: "ADV", Dependency: "advmod", Head: 2},
+		{Surface: "eine", UPOS: "DET", Dependency: "det", Head: 2},
+		{Surface: "Falle", UPOS: "NOUN", Dependency: "root", Head: 2},
+	}
+	quality := ScoreSentenceQuality(analyzer.Sentence{Tokens: tokens}, []int{2})
+	assert.False(t, quality.Accepted)
+	assert.Contains(t, quality.Reasons, reasonNoFiniteVerbAndSubject)
+}
+
+func TestScoreSentenceQualityRejectsFiniteVerbOutsideTheRootClause(t *testing.T) {
+	// A finite verb and subject inside a dependent clause of a verbless root.
+	tokens := []analyzer.Token{
+		{Surface: "Wasser", UPOS: "NOUN", Dependency: "root", Head: 0},
+		{Surface: "die", UPOS: "PRON", Dependency: "nsubj", Head: 3},
+		{Surface: "trinken", UPOS: "VERB", Dependency: "xcomp", Head: 3},
+		{Surface: "wollen", UPOS: "VERB", Dependency: "acl", Head: 4, Morphology: map[string]string{"VerbForm": "Fin"}},
+		{Surface: "Wesen", UPOS: "NOUN", Dependency: "conj", Head: 0},
+	}
+	quality := ScoreSentenceQuality(analyzer.Sentence{Tokens: tokens}, []int{0})
+	assert.False(t, quality.Accepted)
+}
+
 func TestFiniteRootRequiresDirectSubject(t *testing.T) {
 	sentence := fixtureSentence(12)
 	sentence.Tokens[2].Head = 5

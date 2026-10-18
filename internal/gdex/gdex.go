@@ -86,19 +86,43 @@ func ScoreSentenceQuality(sentence analyzer.Sentence, targetIndices []int) Sente
 	return quality
 }
 
+// hasFiniteRootWithSubject is GDEX's German finite-verb-and-subject test: the
+// root or one of its direct dependents is a finite verb, and that verb or the
+// root has a subject. UD German roots compound tenses at the participle or
+// infinitive and copula sentences at the predicate, so the finite verb is
+// often an aux, aux:pass or cop dependent of the root.
 func hasFiniteRootWithSubject(tokens []analyzer.Token) bool {
-	for index, token := range tokens {
-		if !strings.EqualFold(strings.TrimSpace(token.Dependency), "root") || !isFiniteVerb(token) {
+	for root, token := range tokens {
+		if !strings.EqualFold(strings.TrimSpace(token.Dependency), "root") {
 			continue
 		}
-		for _, dependent := range tokens {
-			if uint64(dependent.Head) != uint64(index) {
+		rootHasSubject := hasSubject(tokens, root)
+		for verb, candidate := range tokens {
+			if verb != root && !isDependentOf(tokens, verb, root) {
 				continue
 			}
-			switch strings.ToLower(strings.TrimSpace(dependent.Dependency)) {
-			case "nsubj", "nsubj:pass", "csubj":
+			if isFiniteVerb(candidate) && (rootHasSubject || hasSubject(tokens, verb)) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// isDependentOf reports whether the token at index attaches directly to head.
+// A token is not its own dependent, although a root may carry its own index.
+func isDependentOf(tokens []analyzer.Token, index, head int) bool {
+	return index != head && int64(tokens[index].Head) == int64(head)
+}
+
+func hasSubject(tokens []analyzer.Token, head int) bool {
+	for index, dependent := range tokens {
+		if !isDependentOf(tokens, index, head) {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(dependent.Dependency)) {
+		case "nsubj", "nsubj:pass", "csubj":
+			return true
 		}
 	}
 	return false
