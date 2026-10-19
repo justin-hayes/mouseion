@@ -102,13 +102,14 @@ contract.
       `lang::fr` tag, and stays separate from Known vocabulary.
 2. **Pinned-model golden check, opt-in.** This is the recorded French release
    gate, run outside default CI. The committed corpus is
-   `nlp/tests/testdata/french_golden_corpus.json`: the 44 human-approved
-   constructed diagnostic strings from the #2152 probe (17 approved inputs, 5
-   typographic-apostrophe copies, 22 extended inputs) with their reviewed
-   sentence boundaries, tokens, lemmas and target anchors. The check replays
+   `nlp/tests/testdata/french_golden_corpus.json`: the 47-string French
+   regression corpus, made of the #2152 probe's 17 approved inputs, 5
+   typographic-apostrophe copies and 25 extended inputs, with their reviewed
+   sentence boundaries, tokens, lemmas and target anchors. The last five
+   extended inputs cover the ADR 0102 dialogue repairs. The check replays
    them through the exact pinned Stanza 1.15.0 combined package and passes only
    when every eligible target anchors with byte-identical persisted sentences:
-   112/112 targets, 19 of which only the persisted-token anchor reaches. The 112
+   116/116 targets, 19 of which only the persisted-token anchor reaches. The 116
    are the probe's eligibility set, which predates the product's French negation
    exclusion. Run it with
    `MOUSEION_TEST_STANZA_RESOURCES_DIR=<provisioned dir> make
@@ -123,8 +124,8 @@ contract.
 
 | Area | Check |
 |---|---|
-| Target anchoring | 112/112 eligible corpus targets are anchored, in both ASCII and curly apostrophe forms and before inversion hyphens, with byte-identical persisted sentences. Targets the existing word-bounded matcher misses are anchored on persisted token offsets, for every language. An Italian `L'uomo` elision regression is added, and German and Greek match results are unchanged. |
-| Sentence boundaries | Each of these persists as one complete sentence: a sentence closed by `»` followed by an ordinary space, U+202F, a paragraph break or more text in the same paragraph; `« Tu viens ? » demanda-t-il.`; dialogue led by an em dash `—`, an en dash `–` or a horizontal bar `―` (including `– Tu viens ? demanda-t-il.` and a dash followed by a no-break space). Plain-prose counts are unchanged on the corpus. German `„…“` and Italian segmentation do not regress. |
+| Target anchoring | 116/116 eligible corpus targets are anchored, in both ASCII and curly apostrophe forms and before inversion hyphens, with byte-identical persisted sentences. Targets the existing word-bounded matcher misses are anchored on persisted token offsets, for every language. An Italian `L'uomo` elision regression is added, and German and Greek match results are unchanged. |
+| Sentence boundaries | Each of these persists as one complete sentence: a sentence closed by `»` followed by an ordinary space, U+202F, a paragraph break or more text in the same paragraph; `« Tu viens ? » demanda-t-il.`; dialogue led by an em dash `—`, an en dash `–` or a horizontal bar `―` (including `– Tu viens ? demanda-t-il.` and a dash followed by a no-break space); a lone opening `«` followed by an ordinary space, U+00A0 or U+202F joins the sentence it opens, and a quotation spanning several sentences keeps `«` on its first sentence while later sentences are unchanged. Plain-prose counts are unchanged on the corpus. German `„…“` and Italian segmentation do not regress. |
 | Eligibility | ADV `ne`/`n'` (lemma *ne*) and ADV `pas` are excluded from French vocabulary and coverage and added to the French context stopwords. NOUN *pas*, `près`, `là` and `où` stay eligible. |
 | Canonical identity | A dedicated French profile: NFC + casefold, accents preserved (`où`≠`ou`, `sûr`≠`sur`), U+2019 → U+0027 in the canonical lemma only, so `aujourd'hui` and `aujourd’hui` are one identity. It is applied identically in the producer, the dictionary derivation, Go lookup and the canonicalization registry. Source text is never rewritten. |
 | Pronominal identity | Pronominal and plain uses share the base verb: `je me lave` counts as *laver*, and Known *aller* covers `s'en aller`. Contraction components never become content-word identities. |

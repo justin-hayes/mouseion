@@ -133,6 +133,56 @@
         {"surface":"?","raw_lemma":"?","pos":"PUNCT","canonical_lemma":"?","location":{"source_document_id":"french-book","start_offset":"253","end_offset":"254"},"dependency":"punct","head":2}
       ],
       "location": {"source_document_id":"french-book","start_offset":"242","end_offset":"254"}
+    },
+    {
+      "text": "« Il faut partir.",
+      "tokens": [
+        {"surface":"«","raw_lemma":"«","pos":"PUNCT","canonical_lemma":"«","location":{"source_document_id":"french-book","start_offset":"255","end_offset":"256"},"dependency":"punct","head":2},
+        {"surface":"Il","raw_lemma":"lui","pos":"PRON","canonical_lemma":"lui","morphology":{"Case":"Nom","Person":"3","Gender":"Masc","Emph":"No","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"257","end_offset":"259"},"dependency":"expl:subj","head":2},
+        {"surface":"faut","raw_lemma":"falloir","pos":"VERB","canonical_lemma":"falloir","morphology":{"Tense":"Pres","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"260","end_offset":"264"},"dependency":"root","head":2},
+        {"surface":"partir","raw_lemma":"partir","pos":"VERB","canonical_lemma":"partir","morphology":{"VerbForm":"Inf"},"location":{"source_document_id":"french-book","start_offset":"265","end_offset":"271"},"dependency":"ccomp","head":2},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"271","end_offset":"272"},"dependency":"punct","head":2}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"255","end_offset":"272"}
+    },
+    {
+      "text": "«\u00a0Tu viens ?",
+      "tokens": [
+        {"surface":"«","raw_lemma":"«","pos":"PUNCT","canonical_lemma":"«","location":{"source_document_id":"french-book","start_offset":"273","end_offset":"274"},"dependency":"punct","head":2},
+        {"surface":"Tu","raw_lemma":"toi","pos":"PRON","canonical_lemma":"toi","morphology":{"Case":"Nom","Person":"2","Number":"Sing","Emph":"No","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"275","end_offset":"277"},"dependency":"nsubj","head":2},
+        {"surface":"viens","raw_lemma":"venir","pos":"VERB","canonical_lemma":"venir","morphology":{"Tense":"Pres","Mood":"Ind","Person":"2","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"278","end_offset":"283"},"dependency":"root","head":2},
+        {"surface":"?","raw_lemma":"?","pos":"PUNCT","canonical_lemma":"?","location":{"source_document_id":"french-book","start_offset":"284","end_offset":"285"},"dependency":"punct","head":2}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"273","end_offset":"285"}
+    },
+    {
+      "text": "«\u202fTu viens ?",
+      "tokens": [
+        {"surface":"«","raw_lemma":"«","pos":"PUNCT","canonical_lemma":"«","location":{"source_document_id":"french-book","start_offset":"286","end_offset":"287"},"dependency":"punct","head":2},
+        {"surface":"Tu","raw_lemma":"toi","pos":"PRON","canonical_lemma":"toi","morphology":{"Case":"Nom","Person":"2","Number":"Sing","Emph":"No","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"288","end_offset":"290"},"dependency":"nsubj","head":2},
+        {"surface":"viens","raw_lemma":"venir","pos":"VERB","canonical_lemma":"venir","morphology":{"Tense":"Pres","Mood":"Ind","Person":"2","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"291","end_offset":"296"},"dependency":"root","head":2},
+        {"surface":"?","raw_lemma":"?","pos":"PUNCT","canonical_lemma":"?","location":{"source_document_id":"french-book","start_offset":"297","end_offset":"298"},"dependency":"punct","head":2}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"286","end_offset":"298"}
+    },
+    {
+      "text": "« Il partit.",
+      "tokens": [
+        {"surface":"«","raw_lemma":"«","pos":"PUNCT","canonical_lemma":"«","location":{"source_document_id":"french-book","start_offset":"299","end_offset":"300"},"dependency":"punct","head":2},
+        {"surface":"Il","raw_lemma":"lui","pos":"PRON","canonical_lemma":"lui","morphology":{"Case":"Nom","Person":"3","Gender":"Masc","Emph":"No","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"301","end_offset":"303"},"dependency":"nsubj","head":2},
+        {"surface":"partit","raw_lemma":"partir","pos":"VERB","canonical_lemma":"partir","morphology":{"Tense":"Past","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"304","end_offset":"310"},"dependency":"root","head":2},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"310","end_offset":"311"},"dependency":"punct","head":2}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"299","end_offset":"311"}
+    },
+    {
+      "text": "Elle resta.",
+      "tokens": [
+        {"surface":"Elle","raw_lemma":"lui","pos":"PRON","canonical_lemma":"lui","morphology":{"Case":"Nom","Person":"3","Gender":"Fem","Emph":"No","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"312","end_offset":"316"},"dependency":"nsubj","head":1},
+        {"surface":"resta","raw_lemma":"rester","pos":"VERB","canonical_lemma":"rester","morphology":{"Tense":"Past","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"317","end_offset":"322"},"dependency":"root","head":1},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"322","end_offset":"323"},"dependency":"punct","head":1}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"312","end_offset":"323"}
     }
   ],
   "source_documents": [{"id":"french-book","source_identifier":"fixture:french","title":"French fixture"}],

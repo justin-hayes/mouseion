@@ -1,5 +1,5 @@
 {
-  "description": "Pinned-model golden corpus for French: the 44 human-approved constructed diagnostic strings from the #2152 probe (17 approved inputs, 5 typographic-apostrophe copies, 22 extended inputs, the last two adding en-dash and horizontal-bar dialogue). Expected sentences, tokens, lemmas and target anchors are the reviewed probe observations. Sentence boundaries include the ADR 0102 dialogue repairs that keep each string one complete sentence. Spans and sentence offsets are document-absolute Unicode code points. The 112 targets are the probe's eligible content tokens (NOUN/VERB/ADJ/ADV), including the ADV negation the product now excludes from vocabulary. 'word_bounded' and 'lemma_bounded' record whether the unchanged FoldedWordSpan matcher reached the target; 19 rely on the persisted-token anchor instead.",
+  "description": "Pinned-model golden corpus for French: the 47-string French regression corpus made of the #2152 probe's 17 approved inputs, 5 typographic-apostrophe copies and 25 extended inputs; the last five extended inputs add en-dash, horizontal-bar and lone-opening-guillemet dialogue. Expected sentences, tokens, lemmas and target anchors are the reviewed observations. Sentence boundaries include the ADR 0102 dialogue repairs that keep each string one complete sentence. Spans and sentence offsets are document-absolute Unicode code points. The 116 targets are the probe's eligible content tokens (NOUN/VERB/ADJ/ADV), including the ADV negation the product now excludes from vocabulary. 'word_bounded' and 'lemma_bounded' record whether the unchanged FoldedWordSpan matcher reached the target; 19 rely on the persisted-token anchor instead.",
   "model": {
     "model_version": "stanza-1.15.0-fr-combined",
     "stanza_version": "1.15.0",
@@ -1019,6 +1019,62 @@
           "targets": [
             {"form": "viens", "lemma": "venir", "pos": "VERB", "span": [5, 10], "word_bounded": true, "lemma_bounded": false},
             {"form": "demanda", "lemma": "demander", "pos": "VERB", "span": [13, 20], "word_bounded": false, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X23",
+      "text": "« Il faut partir.",
+      "sentences": [
+        {
+          "text": "« Il faut partir.",
+          "tokens": [
+            {"surface": "«", "raw_lemma": "«", "canonical_lemma": "«", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [2, 4]},
+            {"surface": "faut", "raw_lemma": "falloir", "canonical_lemma": "falloir", "pos": "VERB", "span": [5, 9]},
+            {"surface": "partir", "raw_lemma": "partir", "canonical_lemma": "partir", "pos": "VERB", "span": [10, 16]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [16, 17]}
+          ],
+          "targets": [
+            {"form": "faut", "lemma": "falloir", "pos": "VERB", "span": [5, 9], "word_bounded": true, "lemma_bounded": false},
+            {"form": "partir", "lemma": "partir", "pos": "VERB", "span": [10, 16], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X24",
+      "text": "«\u00a0Tu viens ?",
+      "sentences": [
+        {
+          "text": "«\u00a0Tu viens ?",
+          "tokens": [
+            {"surface": "«", "raw_lemma": "«", "canonical_lemma": "«", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Tu", "raw_lemma": "toi", "canonical_lemma": "toi", "pos": "PRON", "span": [2, 4]},
+            {"surface": "viens", "raw_lemma": "venir", "canonical_lemma": "venir", "pos": "VERB", "span": [5, 10]},
+            {"surface": "?", "raw_lemma": "?", "canonical_lemma": "?", "pos": "PUNCT", "span": [11, 12]}
+          ],
+          "targets": [
+            {"form": "viens", "lemma": "venir", "pos": "VERB", "span": [5, 10], "word_bounded": true, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X25",
+      "text": "«\u202fTu viens ?",
+      "sentences": [
+        {
+          "text": "«\u202fTu viens ?",
+          "tokens": [
+            {"surface": "«", "raw_lemma": "«", "canonical_lemma": "«", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Tu", "raw_lemma": "toi", "canonical_lemma": "toi", "pos": "PRON", "span": [2, 4]},
+            {"surface": "viens", "raw_lemma": "venir", "canonical_lemma": "venir", "pos": "VERB", "span": [5, 10]},
+            {"surface": "?", "raw_lemma": "?", "canonical_lemma": "?", "pos": "PUNCT", "span": [11, 12]}
+          ],
+          "targets": [
+            {"form": "viens", "lemma": "venir", "pos": "VERB", "span": [5, 10], "word_bounded": true, "lemma_bounded": false}
           ]
         }
       ]

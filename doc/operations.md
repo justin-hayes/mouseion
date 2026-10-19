@@ -141,10 +141,10 @@ a newly available language are blocked.
 ### French release gate
 
 French support is guarded by an opt-in pinned-model golden check, outside
-default CI. It replays the committed 44-string regression corpus
+default CI. It replays the committed 47-string regression corpus
 (`nlp/tests/testdata/french_golden_corpus.json`) through the exact pinned
 Stanza 1.15.0 combined package and asserts the expected sentence boundaries,
-tokens, lemmas, and target anchors. The gate passes only when it anchors 112/112
+tokens, lemmas, and target anchors. The gate passes only when it anchors 116/116
 eligible corpus targets with byte-identical persisted sentences; 19 of those
 targets have no word-bounded match and are reached by the persisted-token
 anchor. Run it before releasing French support and after any Stanza, package,
