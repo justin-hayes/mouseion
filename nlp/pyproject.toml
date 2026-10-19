@@ -11,7 +11,7 @@ dependencies = [
     "stanza==1.15.0",
     # CPU-only wheels from the explicit index below; never the CUDA stack from PyPI.
     "torch==2.14.1",
-    "transformers==5.19.0",
+    "transformers==5.20.0",
 ]
 
 [dependency-groups]
@@ -21,7 +21,7 @@ dev = [
     "pytest-cov==7.1.0",
     "grpcio-tools==1.71.2",
     "mypy==2.4.0",
-    "ruff==0.16.10",
+    "ruff==0.17.1",
     "setuptools==84.0.0",
 ]
 
