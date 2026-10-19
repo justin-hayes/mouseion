@@ -23,7 +23,7 @@ type fakeAnalysisUpdates struct {
 	submitted []string
 }
 
-func (f *fakeAnalysisUpdates) AnalysisUpdateOffers(context.Context, string, []string) (map[string]domain.AnalysisUpdateCandidate, error) {
+func (f *fakeAnalysisUpdates) AnalysisUpdateCandidates(context.Context, string, []string) (map[string]domain.AnalysisUpdateCandidate, error) {
 	return f.offers, f.offersErr
 }
 
@@ -141,8 +141,8 @@ func TestAnalysisUpdateConfirmationSubmitsTheConfirmedOffer(t *testing.T) {
 	location, err := url.Parse(response.Header().Get("Location"))
 	require.NoError(t, err)
 	assert.Equal(t, "/reading", location.Path)
-	assert.Contains(t, location.Query().Get("message"), "Analysis update #7 queued")
-	assert.Contains(t, location.Query().Get("message"), "The published analysis stays in effect until it publishes.")
+	assert.Contains(t, location.Query().Get("message"), "submitted as analysis job #7")
+	assert.Contains(t, location.Query().Get("message"), "The published analysis stays in effect until the update publishes.")
 	assert.Equal(t, []string{"fixture-route-match|" + sourceID + "|published-run|" + testUpdateTarget.Key()}, updates.submitted)
 }
 
@@ -181,19 +181,36 @@ func TestAnalysisUpdateConfirmationWithoutAnUpdateSeamSubmitsNothing(t *testing.
 	h, cookies, csrf, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)
 
-	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/analysis-update", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), url.QueryEscape(analysisUpdateChangedMessage))
-	missing := readingTestRequest(t, h, "/reading/books/no-such-book/analysis-update", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusNotFound, missing.Code)
-	forged := readingTestRequest(t, h, "/reading/books/fixture-route-match/analysis-update", url.Values{}, cookies)
-	assert.Equal(t, http.StatusForbidden, forged.Code)
+	t.Run("no update seam", func(t *testing.T) {
+		response := readingTestRequest(t, h, "/reading/books/fixture-route-match/analysis-update", url.Values{"csrf_token": {csrf}}, cookies)
+		assert.Equal(t, http.StatusSeeOther, response.Code)
+		assert.Contains(t, response.Header().Get("Location"), url.QueryEscape(analysisUpdateChangedMessage))
+	})
+	t.Run("unknown Book", func(t *testing.T) {
+		missing := readingTestRequest(t, h, "/reading/books/no-such-book/analysis-update", url.Values{"csrf_token": {csrf}}, cookies)
+		assert.Equal(t, http.StatusNotFound, missing.Code)
+	})
+	t.Run("missing CSRF token", func(t *testing.T) {
+		forged := readingTestRequest(t, h, "/reading/books/fixture-route-match/analysis-update", url.Values{}, cookies)
+		assert.Equal(t, http.StatusForbidden, forged.Code)
+	})
 }
 
 func TestAnalysisUpdateDecisionsText(t *testing.T) {
-	assert.Equal(t, "You have no confirmed lemma corrections or occurrence exclusions on it.", analysisUpdateDecisionsText(0, 0))
-	assert.Equal(t, "Your 2 confirmed lemma corrections and 1 occurrence exclusion on it do not carry over to the new analysis.", analysisUpdateDecisionsText(2, 1))
-	assert.Equal(t, "Your 0 confirmed lemma corrections and 3 occurrence exclusions on it do not carry over to the new analysis.", analysisUpdateDecisionsText(0, 3))
+	for _, tt := range []struct {
+		name                    string
+		corrections, exclusions int
+		want                    string
+	}{
+		{"none", 0, 0, "You have no confirmed lemma corrections or occurrence exclusions on it."},
+		{"both", 2, 1, "Your 2 confirmed lemma corrections and 1 occurrence exclusion on it do not carry over to the new analysis."},
+		{"exclusions only", 0, 3, "Your 3 occurrence exclusions on it do not carry over to the new analysis."},
+		{"one correction", 1, 0, "Your 1 confirmed lemma correction on it does not carry over to the new analysis."},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, analysisUpdateDecisionsText(tt.corrections, tt.exclusions))
+		})
+	}
 }
 
 func TestMyBookAnalysisUpdateNeedsAnOfferedCandidate(t *testing.T) {

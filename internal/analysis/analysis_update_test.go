@@ -33,21 +33,29 @@ func TestCurrentTargetTreatsUnknownIdentityAsCurrent(t *testing.T) {
 		"not ready":    {Languages: []analyzer.LanguageCapability{notReady}},
 		"no version":   {Languages: []analyzer.LanguageCapability{unversioned}},
 	} {
-		_, ok := currentTarget(value, "fr")
-		assert.False(t, ok, name)
+		t.Run(name, func(t *testing.T) {
+			_, ok := currentTarget(value, "fr")
+			assert.False(t, ok)
+		})
 	}
 }
 
 func TestCurrentTargetsNeedAReachableService(t *testing.T) {
-	ctx := context.Background()
-	_, known := (&Service{}).currentTargets(ctx)
-	assert.False(t, known, "no provider")
-	_, known = (&Service{}).WithCapabilities(failingCapabilities{}).currentTargets(ctx)
-	assert.False(t, known, "unreachable service")
-	_, known = (&Service{}).WithCapabilities(analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Degraded: true}}).currentTargets(ctx)
-	assert.False(t, known, "a cached answer served while the service is unreachable")
-	_, known = (&Service{}).WithCapabilities(analyzertest.CapabilityProvider{}).currentTargets(ctx)
-	assert.True(t, known)
+	for _, tt := range []struct {
+		name    string
+		service *Service
+		known   bool
+	}{
+		{"no provider", &Service{}, false},
+		{"unreachable service", (&Service{}).WithCapabilities(failingCapabilities{}), false},
+		{"cached answer while unreachable", (&Service{}).WithCapabilities(analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Degraded: true}}), false},
+		{"reachable service", (&Service{}).WithCapabilities(analyzertest.CapabilityProvider{}), true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, known := tt.service.currentTargets(context.Background())
+			assert.Equal(t, tt.known, known)
+		})
+	}
 }
 
 func TestPipelineOutdatedComparesEveryIdentityPart(t *testing.T) {
@@ -65,19 +73,21 @@ func TestPipelineOutdatedComparesEveryIdentityPart(t *testing.T) {
 		"profile":               func(i *domain.AnalysisPipelineIdentity) { i.NormalizationProfile = "unicode-casefold" },
 		"version":               func(i *domain.AnalysisPipelineIdentity) { i.NormalizationVersion = "1" },
 	} {
-		published := current
-		change(&published)
-		assert.True(t, pipelineOutdated(published, target), name)
+		t.Run(name, func(t *testing.T) {
+			published := current
+			change(&published)
+			assert.True(t, pipelineOutdated(published, target))
+		})
 	}
 }
 
 func TestAnalysisUpdateEntryPointsRequireTheirInputs(t *testing.T) {
 	ctx := context.Background()
-	offers, err := (&Service{}).AnalysisUpdateOffers(ctx, "owner", []string{"source"})
+	offers, err := (&Service{}).AnalysisUpdateCandidates(ctx, "owner", []string{"source"})
 	require.NoError(t, err)
 	assert.Empty(t, offers)
 	var nilService *Service
-	offers, err = nilService.AnalysisUpdateOffers(ctx, "owner", nil)
+	offers, err = nilService.AnalysisUpdateCandidates(ctx, "owner", nil)
 	require.NoError(t, err)
 	assert.Empty(t, offers)
 	_, err = (&Service{}).SubmitAnalysisUpdate(ctx, "owner", "book", "source", "run", "target")

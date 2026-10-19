@@ -97,13 +97,13 @@ func (p publishedAnalysis) candidate(target domain.AnalysisUpdateTarget) domain.
 	return domain.AnalysisUpdateCandidate{PublishedRunID: p.runID, Target: target, LemmaCorrections: p.corrections, OccurrenceExclusions: p.exclusions}
 }
 
-// AnalysisUpdateOffers returns, by source ID, the sources whose published
+// AnalysisUpdateCandidates returns, by source ID, the sources whose published
 // analysis was produced under an Analysis pipeline identity other than the
-// current one. An unknown current identity offers nothing. Offers are only
+// current one. An unknown current identity offers nothing. Candidates are only
 // advisory: callers decide eligibility through the evidence classification,
 // and SubmitAnalysisUpdate revalidates under lock.
-func (s *Service) AnalysisUpdateOffers(ctx context.Context, owner string, sourceIDs []string) (map[string]domain.AnalysisUpdateCandidate, error) {
-	offers := map[string]domain.AnalysisUpdateCandidate{}
+func (s *Service) AnalysisUpdateCandidates(ctx context.Context, owner string, sourceIDs []string) (map[string]domain.AnalysisUpdateCandidate, error) {
+	candidates := map[string]domain.AnalysisUpdateCandidate{}
 	ids := make([]string, 0, len(sourceIDs))
 	for _, id := range sourceIDs {
 		if _, err := uuid.Parse(strings.TrimSpace(id)); err == nil {
@@ -111,11 +111,11 @@ func (s *Service) AnalysisUpdateOffers(ctx context.Context, owner string, source
 		}
 	}
 	if s == nil || s.pool == nil || strings.TrimSpace(owner) == "" || len(ids) == 0 {
-		return offers, nil
+		return candidates, nil
 	}
 	capabilities, known := s.currentTargets(ctx)
 	if !known {
-		return offers, nil
+		return candidates, nil
 	}
 	rows, err := s.pool.Query(ctx, publishedAnalysisSelect+` AND cai.source_material_id=ANY($2::uuid[])`, owner, ids)
 	if err != nil {
@@ -129,13 +129,13 @@ func (s *Service) AnalysisUpdateOffers(ctx context.Context, owner string, source
 		}
 		target, ok := currentTarget(capabilities, published.language)
 		if ok && pipelineOutdated(published.identity, target) {
-			offers[published.sourceID] = published.candidate(target)
+			candidates[published.sourceID] = published.candidate(target)
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read published analysis identities: %w", err)
 	}
-	return offers, nil
+	return candidates, nil
 }
 
 // SubmitAnalysisUpdate queues the learner-confirmed Analysis update of a To

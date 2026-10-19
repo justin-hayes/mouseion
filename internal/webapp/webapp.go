@@ -134,7 +134,7 @@ type Analysis interface {
 // (ADR 0107). A nil seam offers nothing, as when the current Analysis
 // pipeline identity is unknown.
 type AnalysisUpdates interface {
-	AnalysisUpdateOffers(ctx context.Context, owner string, sourceIDs []string) (map[string]domain.AnalysisUpdateCandidate, error)
+	AnalysisUpdateCandidates(ctx context.Context, owner string, sourceIDs []string) (map[string]domain.AnalysisUpdateCandidate, error)
 	SubmitAnalysisUpdate(ctx context.Context, owner, bookID, sourceID, expectedRunID, expectedTarget string) (analysis.Handle, error)
 }
 

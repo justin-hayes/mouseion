@@ -31,27 +31,36 @@ func TestAnalysisUpdateOfferNeverChangesEvidence(t *testing.T) {
 
 func TestAnalysisUpdateOfferEligibility(t *testing.T) {
 	outdated := AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunCompleted, PipelineOutdated: true}
-	assert.Equal(t, AnalysisUpdateAvailable, ClassifyBookEvidence(outdated, BookDispositionToRead, "de").Update)
-	assert.Equal(t, AnalysisUpdateNone, ClassifyBookEvidence(outdated, BookDispositionInbox, "de").Update, "other dispositions get no offer")
-
-	current := outdated
-	current.CurrentReading = true
-	assert.Equal(t, AnalysisUpdateEndReadingFirst, ClassifyBookEvidence(current, BookDispositionToRead, "de").Update)
-
-	imported := outdated
-	imported.Content = ContentCurrentImported
-	assert.Equal(t, AnalysisUpdateNone, ClassifyBookEvidence(imported, BookDispositionToRead, "de").Update, "imported analyses are never offered")
-
-	for _, run := range []LatestRunSignal{RunQueued, RunRunning, RunFailed, RunJobFailed, RunCancelled, RunPublicationPending} {
-		inFlight := outdated
-		inFlight.LatestRun = run
-		got := ClassifyBookEvidence(inFlight, BookDispositionToRead, "de")
-		assert.Equal(t, AnalysisUpdateNone, got.Update, "a newer %s run keeps its own status", run)
+	with := func(change func(*AnalysisSignals)) AnalysisSignals {
+		signals := outdated
+		change(&signals)
+		return signals
 	}
-
-	upToDate := outdated
-	upToDate.PipelineOutdated = false
-	assert.Equal(t, AnalysisUpdateNone, ClassifyBookEvidence(upToDate, BookDispositionToRead, "de").Update)
+	tests := []struct {
+		name        string
+		signals     AnalysisSignals
+		disposition BookDisposition
+		want        AnalysisUpdateOffer
+	}{
+		{"outdated To Read Book", outdated, BookDispositionToRead, AnalysisUpdateAvailable},
+		{"other disposition", outdated, BookDispositionInbox, AnalysisUpdateNone},
+		{"current Reading", with(func(s *AnalysisSignals) { s.CurrentReading = true }), BookDispositionToRead, AnalysisUpdateEndReadingFirst},
+		{"imported analysis", with(func(s *AnalysisSignals) { s.Content = ContentCurrentImported }), BookDispositionToRead, AnalysisUpdateNone},
+		{"current pipeline", with(func(s *AnalysisSignals) { s.PipelineOutdated = false }), BookDispositionToRead, AnalysisUpdateNone},
+	}
+	for _, run := range []LatestRunSignal{RunQueued, RunRunning, RunFailed, RunJobFailed, RunCancelled, RunPublicationPending} {
+		tests = append(tests, struct {
+			name        string
+			signals     AnalysisSignals
+			disposition BookDisposition
+			want        AnalysisUpdateOffer
+		}{"newer " + string(run) + " run keeps its own status", with(func(s *AnalysisSignals) { s.LatestRun = run }), BookDispositionToRead, AnalysisUpdateNone})
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ClassifyBookEvidence(tt.signals, tt.disposition, "de").Update)
+		})
+	}
 }
 
 func TestSummaryAndMyBookDeriveTheOfferFromTheCandidate(t *testing.T) {

@@ -144,7 +144,7 @@ func TestAnalysisUpdateReplacesOutdatedAnalysisThroughOneConfirmedRun(t *testing
 	book, source, original := h.analyzedToReadBook(t, ctx, "replace")
 	currentKey := domain.AnalysisUpdateTarget{AnalyzerName: snapshotAnalyzerName, AnalyzerVersion: snapshotAnalyzerVersion, NormalizationProfile: "casefold", NormalizationVersion: "1"}.Key()
 
-	offers, err := h.service.AnalysisUpdateOffers(ctx, h.owner, []string{source.ID})
+	offers, err := h.service.AnalysisUpdateCandidates(ctx, h.owner, []string{source.ID})
 	require.NoError(t, err)
 	assert.Empty(t, offers, "a current analysis is not offered an update")
 	noop, err := h.service.SubmitAnalysisUpdate(ctx, h.owner, book.ID, source.ID, original.RunID, currentKey)
@@ -162,7 +162,7 @@ func TestAnalysisUpdateReplacesOutdatedAnalysisThroughOneConfirmedRun(t *testing
 	require.NoError(t, err)
 
 	h.pipeline.set("2", "2")
-	offers, err = h.service.AnalysisUpdateOffers(ctx, h.owner, []string{source.ID, "not-a-uuid"})
+	offers, err = h.service.AnalysisUpdateCandidates(ctx, h.owner, []string{source.ID, "not-a-uuid"})
 	require.NoError(t, err)
 	require.Contains(t, offers, source.ID)
 	offer := offers[source.ID]
@@ -224,7 +224,7 @@ func TestAnalysisUpdateReplacesOutdatedAnalysisThroughOneConfirmedRun(t *testing
 	require.Eventually(t, func() bool { return h.publishedRun(t, ctx, book.ID) == update.RunID }, 10*time.Second, 25*time.Millisecond, "the update publishes and replaces the old evidence")
 	assert.Equal(t, 2, h.runCount(t, ctx, source.ID))
 
-	offers, err = h.service.AnalysisUpdateOffers(ctx, h.owner, []string{source.ID})
+	offers, err = h.service.AnalysisUpdateCandidates(ctx, h.owner, []string{source.ID})
 	require.NoError(t, err)
 	assert.Empty(t, offers, "the replacement is current")
 	var carried, kept int
@@ -236,7 +236,7 @@ func TestAnalysisUpdateReplacesOutdatedAnalysisThroughOneConfirmedRun(t *testing
 	assert.Zero(t, replayed)
 }
 
-func TestAnalysisUpdateOffersNothingWhenTheCurrentIdentityIsUnknown(t *testing.T) {
+func TestAnalysisUpdateCandidatesNothingWhenTheCurrentIdentityIsUnknown(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	t.Cleanup(cancel)
 	h := newAnalysisUpdateHarness(t, ctx, "analysis-update-unknown")
@@ -248,18 +248,20 @@ func TestAnalysisUpdateOffersNothingWhenTheCurrentIdentityIsUnknown(t *testing.T
 		"unreachable": func() { h.pipeline.unreadable = true },
 		"not ready":   func() { h.pipeline.notReady = true },
 	} {
-		h.pipeline.mu.Lock()
-		h.pipeline.unreadable, h.pipeline.notReady = false, false
-		configure()
-		h.pipeline.mu.Unlock()
-		offers, err := h.service.AnalysisUpdateOffers(ctx, h.owner, []string{source.ID})
-		require.NoError(t, err, name)
-		assert.Empty(t, offers, name)
-		_, err = h.service.SubmitAnalysisUpdate(ctx, h.owner, book.ID, source.ID, original.RunID, target)
-		require.ErrorIs(t, err, ErrAnalysisUpdateChanged, name)
+		t.Run(name, func(t *testing.T) {
+			h.pipeline.mu.Lock()
+			h.pipeline.unreadable, h.pipeline.notReady = false, false
+			configure()
+			h.pipeline.mu.Unlock()
+			offers, err := h.service.AnalysisUpdateCandidates(ctx, h.owner, []string{source.ID})
+			require.NoError(t, err)
+			assert.Empty(t, offers)
+			_, err = h.service.SubmitAnalysisUpdate(ctx, h.owner, book.ID, source.ID, original.RunID, target)
+			require.ErrorIs(t, err, ErrAnalysisUpdateChanged)
+		})
 	}
 	without := NewService(h.store.Pool(), h.service.client)
-	offers, err := without.AnalysisUpdateOffers(ctx, h.owner, []string{source.ID})
+	offers, err := without.AnalysisUpdateCandidates(ctx, h.owner, []string{source.ID})
 	require.NoError(t, err)
 	assert.Empty(t, offers, "a service without capabilities treats every Book as current")
 	assert.Equal(t, 1, h.runCount(t, ctx, source.ID))
@@ -286,7 +288,7 @@ func TestAnalysisUpdateIsRefusedOutsideNonCurrentToReadBooks(t *testing.T) {
 	assert.Equal(t, 1, h.runCount(t, ctx, currentSource.ID))
 	assert.Equal(t, 1, h.runCount(t, ctx, inboxSource.ID))
 
-	offers, err := h.service.AnalysisUpdateOffers(ctx, h.owner, []string{currentSource.ID, inboxSource.ID})
+	offers, err := h.service.AnalysisUpdateCandidates(ctx, h.owner, []string{currentSource.ID, inboxSource.ID})
 	require.NoError(t, err)
 	assert.Len(t, offers, 2, "offers are raw identity differences; the classification decides eligibility")
 }

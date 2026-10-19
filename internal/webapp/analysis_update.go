@@ -40,16 +40,16 @@ func (h *Handler) annotateAnalysisUpdates(ctx context.Context, owner string, boo
 	if len(sourceIDs) == 0 {
 		return
 	}
-	offers, err := h.services.AnalysisUpdates.AnalysisUpdateOffers(ctx, owner, sourceIDs)
+	candidates, err := h.services.AnalysisUpdates.AnalysisUpdateCandidates(ctx, owner, sourceIDs)
 	if err != nil {
-		log.Printf("analysis update offers unavailable: %v", err)
+		log.Printf("analysis update candidates unavailable: %v", err)
 		return
 	}
 	for i := range books {
 		if books[i].Acquired == nil {
 			continue
 		}
-		if candidate, ok := offers[books[i].Acquired.Source.ID]; ok {
+		if candidate, ok := candidates[books[i].Acquired.Source.ID]; ok {
 			books[i].Acquired.AnalysisUpdate = &candidate
 		}
 	}
@@ -64,12 +64,21 @@ func analysisUpdateConfirmationText(candidate domain.AnalysisUpdateCandidate) st
 }
 
 func analysisUpdateDecisionsText(corrections, exclusions int) string {
-	if corrections == 0 && exclusions == 0 {
+	var decisions []string
+	if corrections > 0 {
+		decisions = append(decisions, countNoun(corrections, "confirmed lemma correction", "confirmed lemma corrections"))
+	}
+	if exclusions > 0 {
+		decisions = append(decisions, countNoun(exclusions, "occurrence exclusion", "occurrence exclusions"))
+	}
+	if len(decisions) == 0 {
 		return "You have no confirmed lemma corrections or occurrence exclusions on it."
 	}
-	return fmt.Sprintf("Your %s and %s on it do not carry over to the new analysis.",
-		countNoun(corrections, "confirmed lemma correction", "confirmed lemma corrections"),
-		countNoun(exclusions, "occurrence exclusion", "occurrence exclusions"))
+	verb := "do"
+	if corrections+exclusions == 1 {
+		verb = "does"
+	}
+	return "Your " + strings.Join(decisions, " and ") + " on it " + verb + " not carry over to the new analysis."
 }
 
 func countNoun(count int, singular, plural string) string {
@@ -124,6 +133,6 @@ func (h *Handler) updateToReadBookAnalysis(w http.ResponseWriter, r *http.Reques
 	case err != nil:
 		fail(w, err)
 	default:
-		redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis update #%d queued for %s. The published analysis stays in effect until it publishes.", handle.DisplayNumber, detail.Book.Title)))
+		redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis update for %s submitted as analysis job #%d. The published analysis stays in effect until the update publishes.", detail.Book.Title, handle.DisplayNumber)))
 	}
 }
