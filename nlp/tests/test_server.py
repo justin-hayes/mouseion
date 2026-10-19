@@ -21,6 +21,9 @@ class StubProducer:
             "it": "it-fixture-2",
         }[language]
 
+    def normalization_identity(self, language):
+        return f"{language}-profile", "7"
+
     def warmup(self, language):
         assert language in {"de", "el", "fr", "it"}
 
@@ -81,6 +84,7 @@ def test_grpc_server_reports_language_capabilities() -> None:
             True,
         )
         assert german.supported_features == ["tokenize", "pos", "lemma", "depparse"]
+        assert (german.normalization_profile, german.normalization_version) == ("de-profile", "7")
         assert (italian.display_name, italian.model_version, italian.ready) == (
             "Italian",
             "it-fixture-2",
@@ -88,6 +92,21 @@ def test_grpc_server_reports_language_capabilities() -> None:
         )
     finally:
         server.stop(None).wait()
+
+
+def test_unready_language_reports_no_normalization_identity(capsys) -> None:
+    class FailingProducer(StubProducer):
+        def warmup(self, language):
+            raise RuntimeError("model unavailable")
+
+    with patch.dict(os.environ, {"MOUSEION_NLP_WARM_LANGUAGES": "de"}, clear=True):
+        servicer = AnalyzerServicer(FailingProducer())
+    warm_configured_languages(servicer)
+
+    capability = servicer.GetCapabilities(None, None).languages[0]
+    assert not capability.ready
+    assert (capability.normalization_profile, capability.normalization_version) == ("", "")
+    assert "model unavailable" in capsys.readouterr().err
 
 
 def test_configured_languages_supports_legacy_setting() -> None:

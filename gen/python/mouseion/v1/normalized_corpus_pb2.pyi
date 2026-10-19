@@ -16,18 +16,22 @@ class GetCapabilitiesResponse(_message.Message):
     def __init__(self, languages: _Optional[_Iterable[_Union[LanguageCapability, _Mapping]]] = ...) -> None: ...
 
 class LanguageCapability(_message.Message):
-    __slots__ = ("language", "display_name", "model_version", "supported_features", "ready")
+    __slots__ = ("language", "display_name", "model_version", "supported_features", "ready", "normalization_profile", "normalization_version")
     LANGUAGE_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     SUPPORTED_FEATURES_FIELD_NUMBER: _ClassVar[int]
     READY_FIELD_NUMBER: _ClassVar[int]
+    NORMALIZATION_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    NORMALIZATION_VERSION_FIELD_NUMBER: _ClassVar[int]
     language: str
     display_name: str
     model_version: str
     supported_features: _containers.RepeatedScalarFieldContainer[str]
     ready: bool
-    def __init__(self, language: _Optional[str] = ..., display_name: _Optional[str] = ..., model_version: _Optional[str] = ..., supported_features: _Optional[_Iterable[str]] = ..., ready: bool = ...) -> None: ...
+    normalization_profile: str
+    normalization_version: str
+    def __init__(self, language: _Optional[str] = ..., display_name: _Optional[str] = ..., model_version: _Optional[str] = ..., supported_features: _Optional[_Iterable[str]] = ..., ready: bool = ..., normalization_profile: _Optional[str] = ..., normalization_version: _Optional[str] = ...) -> None: ...
 
 class AnalyzeRequest(_message.Message):
     __slots__ = ("language", "document_text", "source_document")

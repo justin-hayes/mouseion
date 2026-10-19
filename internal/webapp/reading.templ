@@ -310,6 +310,7 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 						<p>By { author }</p>
 					}
 				<div class="reading-chooser-entry__actions">
+					@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
 					if item.Coverage != nil {
 						if currentBookID != "" {
 							@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot. The former current book remains To Read; its analysis, decks, and history remain. You can start either book again later.", StatusNeutral) {

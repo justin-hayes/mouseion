@@ -247,6 +247,9 @@ type SourceMaterialSummary struct {
 	AnalysisJobID    int64
 	IsToRead         bool
 	IsCurrentReading bool
+	// AnalysisUpdate is set when the published analysis's Analysis pipeline
+	// identity differs from the current one reported by the analysis service.
+	AnalysisUpdate *AnalysisUpdateCandidate
 }
 
 // EvidenceClassification classifies this source's Analysis evidence. Eligibility
@@ -255,6 +258,7 @@ type SourceMaterialSummary struct {
 func (s SourceMaterialSummary) EvidenceClassification() BookEvidenceClassification {
 	signals := s.Signals
 	signals.CurrentReading = s.IsCurrentReading
+	signals.PipelineOutdated = s.AnalysisUpdate != nil
 	return ClassifyBookEvidence(signals, BookDispositionToRead, s.Source.Language)
 }
 

@@ -119,14 +119,15 @@ func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string
 	return 0, false
 }
 
-// loadLibraryBrowsingExtras runs the three My Books reads that decorate the
-// result rows: disposition annotations, refreshable IDs, and the OPDS
+// loadLibraryBrowsingExtras runs the My Books reads that decorate the result
+// rows: disposition annotations, Analysis update offers, refreshable IDs, and the OPDS
 // connection count that decides whether acquisition is offered. It keeps their
 // order, which the validated rows depend on.
 func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) (map[string]bool, int, error) {
 	if err := h.annotateMyBooksWithDisposition(ctx, owner, books); err != nil {
 		return nil, 0, err
 	}
+	h.annotateAnalysisUpdates(ctx, owner, books)
 	refreshableBookIDs, err := h.refreshableMyBookIDs(ctx, owner, books)
 	if err != nil {
 		return nil, 0, err

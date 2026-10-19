@@ -44,6 +44,12 @@ def _language_family(language: str) -> str:
     return language.lower().replace("_", "-").split("-", 1)[0]
 
 
+# Each normalization version is the producer's declaration that a language's
+# evidence may change, and it is part of the Analysis pipeline identity
+# (ADR 0107). Bump it whenever normalization, segmentation, or other analyzer
+# output that can change a Book's evidence changes; learners are then offered an
+# Analysis update for Books analysed under the earlier version. A model or
+# dependency upgrade bumps it only when it can change evidence.
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
 GERMAN_NORMALIZATION_VERSION = "6"
 GREEK_NORMALIZATION_PROFILE = "modern-greek"
@@ -374,7 +380,7 @@ class Producer:
         sentences = [
             self._map_sentence(sentence, source, language) for sentence in stanza_document.sentences
         ]
-        profile_name, profile_version = self._normalization_profile(language)
+        profile_name, profile_version = self.normalization_identity(language)
 
         return normalized_corpus_pb2.NormalizedCorpus(
             schema_version="1.1.0",
@@ -458,7 +464,8 @@ class Producer:
             location=self._location(source, start, end),
         )
 
-    def _normalization_profile(self, language: str) -> tuple[str, str]:
+    def normalization_identity(self, language: str) -> tuple[str, str]:
+        """Return the normalization profile name and version emitted for a language."""
         if self.normalization_profile is not None:
             return self.normalization_profile, self.normalization_version or ""
         if self._is_german(language):

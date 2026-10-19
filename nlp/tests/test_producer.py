@@ -2672,6 +2672,22 @@ def test_french_normalization_profile_is_recorded() -> None:
     assert artifact.normalization_profile.version == "2"
 
 
+def test_normalization_identity_matches_the_recorded_profile() -> None:
+    """Capabilities report the same identity the artifact records (ADR 0107)."""
+    producer = Producer(
+        pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=[])
+    )
+    for language in ("de", "el", "fr", "it"):
+        artifact = producer.analyze("x", language)
+        assert producer.normalization_identity(language) == (
+            artifact.normalization_profile.name,
+            artifact.normalization_profile.version,
+        )
+    assert Producer(
+        normalization_profile="custom", normalization_version="9"
+    ).normalization_identity("de") == ("custom", "9")
+
+
 def test_french_elision_contraction_and_clitic_expansion() -> None:
     """MWT expansion keeps each component and its dependency head."""
     text = "L'homme s'habille, d'accord, va-t-il."

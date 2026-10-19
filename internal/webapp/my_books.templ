@@ -59,6 +59,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 					</form>
 				}
 			}
+			@AnalysisUpdateNotice(book, csrf, "btn btn-outline")
 			if book.CompletionCount > 0 {
 				<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
 				<p class="metadata"><strong>Latest completion</strong>: { myBooksCompletionDateLabel(book.LatestCompletionAt) } · { myBooksCompletionSourceLabel(book.LatestCompletionSource) }</p>
