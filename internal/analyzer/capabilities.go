@@ -24,6 +24,11 @@ type LanguageCapability struct {
 	ModelVersion      string
 	SupportedFeatures []string
 	Ready             bool
+	// NormalizationProfile and NormalizationVersion are the language's part of
+	// the Analysis pipeline identity (ADR 0107). They are empty when the
+	// service does not report them.
+	NormalizationProfile string
+	NormalizationVersion string
 }
 
 const FeatureDepparse = "depparse"
@@ -45,6 +50,18 @@ func (c Capabilities) SupportsLanguage(language, feature string) bool {
 		}
 	}
 	return false
+}
+
+// Language returns the reported capability for a language, matching codes as
+// SupportsLanguage does.
+func (c Capabilities) Language(language string) (LanguageCapability, bool) {
+	normalizedLanguage := canonicalization.NormalizeLanguage(language)
+	for _, capability := range c.Languages {
+		if canonicalization.NormalizeLanguage(capability.Language) == normalizedLanguage {
+			return capability, true
+		}
+	}
+	return LanguageCapability{}, false
 }
 
 func ReadySupportedLanguages(value Capabilities) []domain.SupportedLanguage {

@@ -116,9 +116,10 @@ const (
 )
 
 type Service struct {
-	pool        *pgxpool.Pool
-	client      riverClient
-	findLiveJob func(context.Context, string, string) (int64, error)
+	pool         *pgxpool.Pool
+	client       riverClient
+	findLiveJob  func(context.Context, string, string) (int64, error)
+	capabilities analyzer.CapabilityProvider
 }
 
 type riverClient interface {
@@ -254,7 +255,7 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID st
 	if err != nil {
 		return Handle{}, err
 	}
-	result, handled, err := s.submitExistingRun(ctx, tx, owner, args)
+	result, handled, err := s.submitExistingRun(ctx, tx, owner, args, nil)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -345,18 +346,31 @@ func loadSubmissionInputs(ctx context.Context, tx pgx.Tx, owner, bookID, sourceI
 	return args, nil
 }
 
-// submitExistingRun attaches the submission to an existing run for its
+// submitExistingRun attaches the submission to the newest run for its
 // snapshot identity. Queued or running runs ensure an attempt; a completed run
 // retries publication; a failed or cancelled run is requeued with history. It
-// reports handled=false only when no run exists, so the caller creates one.
-func (s *Service) submitExistingRun(ctx context.Context, tx pgx.Tx, owner string, args JobArgs) (Handle, bool, error) {
+// reports handled=false when no run exists, so the caller creates one.
+//
+// An Analysis update passes its target Analysis pipeline identity: a completed
+// run whose artifact records another normalization identity is then not
+// reused, so the update creates a new run (ADR 0107). Runs that have not
+// completed carry no identity yet and run under the current pipeline, so
+// double submit and retry still converge on one run. Ordinary submissions
+// pass nil and never start an update.
+func (s *Service) submitExistingRun(ctx context.Context, tx pgx.Tx, owner string, args JobArgs, target *domain.AnalysisPipelineIdentity) (Handle, bool, error) {
 	var runID, state string
-	err := tx.QueryRow(ctx, `SELECT id::text,state FROM analysis_runs WHERE owner_id=$1 AND content_revision_id=$2 AND analyzer_name=$3 AND analyzer_version=$4 AND config_identity=$5 FOR UPDATE`, owner, args.ContentRevisionID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID, &state)
+	err := tx.QueryRow(ctx, `SELECT id::text,state FROM analysis_runs WHERE owner_id=$1 AND content_revision_id=$2 AND analyzer_name=$3 AND analyzer_version=$4 AND config_identity=$5 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`, owner, args.ContentRevisionID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID, &state)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Handle{}, false, nil
 	}
 	if err != nil {
 		return Handle{}, false, fmt.Errorf("check existing analysis: %w", err)
+	}
+	if state == "completed" && target != nil {
+		matches, err := completedRunMatches(ctx, tx, owner, runID, *target)
+		if err != nil || !matches {
+			return Handle{}, false, err
+		}
 	}
 	var id, display int64
 	if err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner, runID).Scan(&id, &display); err != nil {

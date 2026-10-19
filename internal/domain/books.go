@@ -213,6 +213,7 @@ func (m MyBook) Classification() BookEvidenceClassification {
 	var signals AnalysisSignals
 	if m.Acquired != nil {
 		signals = m.Acquired.Signals
+		signals.PipelineOutdated = m.Acquired.AnalysisUpdate != nil
 	}
 	signals.CurrentReading = m.IsCurrentReading
 	language := ""

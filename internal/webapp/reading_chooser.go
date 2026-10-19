@@ -338,10 +338,14 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 		return readingChooserPageView{}, err
 	}
 	view := readingChooserPageView{Language: language, LanguageLabel: languageLabel}
+	candidates := make([]domain.MyBook, 0, len(books))
 	for _, book := range books {
-		if !readingChooserCandidate(book, language) {
-			continue
+		if readingChooserCandidate(book, language) {
+			candidates = append(candidates, book)
 		}
+	}
+	h.annotateAnalysisUpdates(ctx, owner, candidates)
+	for _, book := range candidates {
 		candidate := readingChooserBookView{Book: book}
 		group, err := h.classifyReadingChooserCandidate(ctx, owner, &candidate)
 		if err != nil {

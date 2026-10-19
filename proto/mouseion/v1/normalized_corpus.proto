@@ -21,6 +21,12 @@ message LanguageCapability {
   string model_version = 3;
   repeated string supported_features = 4;
   bool ready = 5;
+  // normalization_profile and normalization_version are the producer's
+  // declaration of the evidence it emits for this language. A changed version
+  // makes Books analysed under the earlier one eligible for an Analysis update
+  // (ADR 0107).
+  string normalization_profile = 6;
+  string normalization_version = 7;
 }
 
 // AnalyzeRequest carries one complete source document across the analyzer RPC

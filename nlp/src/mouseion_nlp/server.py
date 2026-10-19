@@ -26,6 +26,8 @@ class LanguageDescriptor:
     display_name: str
     supported_features: tuple[str, ...]
     model_version: str = ""
+    normalization_profile: str = ""
+    normalization_version: str = ""
     ready: bool = False
 
 
@@ -75,6 +77,12 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
         descriptor.model_version = (
             model_version(language) if model_version is not None else stanza.__version__
         )
+        normalization_identity = getattr(self._producer, "normalization_identity", None)
+        if normalization_identity is not None:
+            (
+                descriptor.normalization_profile,
+                descriptor.normalization_version,
+            ) = normalization_identity(language)
         descriptor.ready = True
 
     def GetCapabilities(self, request, context):  # noqa: ARG002, N802
@@ -86,6 +94,8 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
                     model_version=descriptor.model_version,
                     supported_features=list(descriptor.supported_features),
                     ready=descriptor.ready,
+                    normalization_profile=descriptor.normalization_profile,
+                    normalization_version=descriptor.normalization_version,
                 )
                 for descriptor in self._languages
             ]

@@ -61,6 +61,10 @@ type AnalysisSignals struct {
 	// evidence cannot be refreshed, so a newer run that failed or was cancelled
 	// offers no retry while the published analysis stays in effect.
 	CurrentReading bool
+	// PipelineOutdated reports that the published analysis was produced under
+	// an Analysis pipeline identity other than the current one. It never changes
+	// the evidence state; it only feeds the Analysis update offer (ADR 0107).
+	PipelineOutdated bool
 }
 
 // AnalysisPhase is the Book's analysis status as My Books and Reading present
@@ -98,6 +102,8 @@ type BookEvidenceClassification struct {
 	Run         LatestRunSignal
 	Eligibility CurrentReadingEligibilityReason
 	Recovery    BookEvidenceRecovery
+	// Update is the Analysis update offer, which is independent of Evidence.
+	Update AnalysisUpdateOffer
 }
 
 // PublicationPending reports a completed analysis run whose result is not yet
@@ -162,6 +168,7 @@ func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, 
 		Run:         runOrNone(signals.LatestRun),
 		Eligibility: eligibilityReason(content, signals, phase, disposition, language),
 		Recovery:    recoveryAction(content, signals, phase),
+		Update:      analysisUpdateOffer(content, signals, disposition),
 	}
 }
 

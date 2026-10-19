@@ -67,7 +67,8 @@ func (a *GRPCAnalyzer) GetCapabilities(ctx context.Context) (Capabilities, error
 		result.Languages = append(result.Languages, LanguageCapability{
 			Language: language.GetLanguage(), DisplayName: language.GetDisplayName(),
 			ModelVersion: language.GetModelVersion(), SupportedFeatures: append([]string(nil), language.GetSupportedFeatures()...),
-			Ready: language.GetReady(),
+			Ready:                language.GetReady(),
+			NormalizationProfile: language.GetNormalizationProfile(), NormalizationVersion: language.GetNormalizationVersion(),
 		})
 	}
 	return result, nil

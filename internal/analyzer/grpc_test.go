@@ -25,6 +25,7 @@ func (s *analyzerService) GetCapabilities(context.Context, *mouseionv1.GetCapabi
 	return &mouseionv1.GetCapabilitiesResponse{Languages: []*mouseionv1.LanguageCapability{{
 		Language: "de", DisplayName: "German", ModelVersion: "1.10.1",
 		SupportedFeatures: []string{"tokenize", "pos", "lemma", "depparse"}, Ready: true,
+		NormalizationProfile: "german-standard-post-1996", NormalizationVersion: "6",
 	}, {
 		Language: "it", DisplayName: "Italian", ModelVersion: "1.9.2",
 		SupportedFeatures: []string{"tokenize", "pos", "lemma", "depparse"}, Ready: false,
@@ -102,6 +103,8 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 	assert.Equal(t, "German", capabilities.Languages[0].DisplayName)
 	assert.Equal(t, "1.10.1", capabilities.Languages[0].ModelVersion)
 	assert.True(t, capabilities.Languages[0].Ready)
+	assert.Equal(t, "german-standard-post-1996", capabilities.Languages[0].NormalizationProfile)
+	assert.Equal(t, "6", capabilities.Languages[0].NormalizationVersion)
 	assert.Equal(t, "Italian", capabilities.Languages[1].DisplayName)
 	assert.Equal(t, "1.9.2", capabilities.Languages[1].ModelVersion)
 	assert.False(t, capabilities.Languages[1].Ready)

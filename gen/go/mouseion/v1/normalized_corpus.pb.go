@@ -108,8 +108,14 @@ type LanguageCapability struct {
 	ModelVersion      string                 `protobuf:"bytes,3,opt,name=model_version,json=modelVersion,proto3" json:"model_version,omitempty"`
 	SupportedFeatures []string               `protobuf:"bytes,4,rep,name=supported_features,json=supportedFeatures,proto3" json:"supported_features,omitempty"`
 	Ready             bool                   `protobuf:"varint,5,opt,name=ready,proto3" json:"ready,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// normalization_profile and normalization_version are the producer's
+	// declaration of the evidence it emits for this language. A changed version
+	// makes Books analysed under the earlier one eligible for an Analysis update
+	// (ADR 0107).
+	NormalizationProfile string `protobuf:"bytes,6,opt,name=normalization_profile,json=normalizationProfile,proto3" json:"normalization_profile,omitempty"`
+	NormalizationVersion string `protobuf:"bytes,7,opt,name=normalization_version,json=normalizationVersion,proto3" json:"normalization_version,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *LanguageCapability) Reset() {
@@ -175,6 +181,20 @@ func (x *LanguageCapability) GetReady() bool {
 		return x.Ready
 	}
 	return false
+}
+
+func (x *LanguageCapability) GetNormalizationProfile() string {
+	if x != nil {
+		return x.NormalizationProfile
+	}
+	return ""
+}
+
+func (x *LanguageCapability) GetNormalizationVersion() string {
+	if x != nil {
+		return x.NormalizationVersion
+	}
+	return ""
 }
 
 // AnalyzeRequest carries one complete source document across the analyzer RPC
@@ -780,13 +800,15 @@ const file_mouseion_v1_normalized_corpus_proto_rawDesc = "" +
 	"#mouseion/v1/normalized_corpus.proto\x12\vmouseion.v1\"\x18\n" +
 	"\x16GetCapabilitiesRequest\"X\n" +
 	"\x17GetCapabilitiesResponse\x12=\n" +
-	"\tlanguages\x18\x01 \x03(\v2\x1f.mouseion.v1.LanguageCapabilityR\tlanguages\"\xbd\x01\n" +
+	"\tlanguages\x18\x01 \x03(\v2\x1f.mouseion.v1.LanguageCapabilityR\tlanguages\"\xa7\x02\n" +
 	"\x12LanguageCapability\x12\x1a\n" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12#\n" +
 	"\rmodel_version\x18\x03 \x01(\tR\fmodelVersion\x12-\n" +
 	"\x12supported_features\x18\x04 \x03(\tR\x11supportedFeatures\x12\x14\n" +
-	"\x05ready\x18\x05 \x01(\bR\x05ready\"\x97\x01\n" +
+	"\x05ready\x18\x05 \x01(\bR\x05ready\x123\n" +
+	"\x15normalization_profile\x18\x06 \x01(\tR\x14normalizationProfile\x123\n" +
+	"\x15normalization_version\x18\a \x01(\tR\x14normalizationVersion\"\x97\x01\n" +
 	"\x0eAnalyzeRequest\x12\x1a\n" +
 	"\blanguage\x18e \x01(\tR\blanguage\x12#\n" +
 	"\rdocument_text\x18f \x01(\tR\fdocumentText\x12D\n" +

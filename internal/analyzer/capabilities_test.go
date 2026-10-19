@@ -226,3 +226,12 @@ func TestCachedCapabilityProviderDoesNotCancelSharedLookup(t *testing.T) {
 	assert.False(t, value.Degraded)
 	assert.Equal(t, int32(1), calls.Load(), "capability RPC calls = %d, want 1", calls.Load())
 }
+
+func TestCapabilitiesLanguageMatchesNormalizedCodes(t *testing.T) {
+	value := Capabilities{Languages: []LanguageCapability{{Language: "de", NormalizationVersion: "6"}}}
+	german, ok := value.Language("DE")
+	assert.True(t, ok)
+	assert.Equal(t, "6", german.NormalizationVersion)
+	_, ok = value.Language("fr")
+	assert.False(t, ok)
+}
