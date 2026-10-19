@@ -126,8 +126,12 @@ rewritten. Plain-prose sentence counts on the corpus do not change, and German
 `„…“` and Italian segmentation do not regress. The French normalization version
 is bumped so new artifacts record the segmentation that produced them; the
 version that introduced the dash repairs also covers this opening-guillemet
-repair because both ship in the same release. Existing French Books pick up the
-change through the existing re-analyse action, with no automatic invalidation.
+repair because both ship in the same release. Existing French Books do not pick
+up the change: analysis-run deduplication does not include the normalization
+version, so re-analysing a Book whose analysis completed returns the existing
+run. [ADR 0107](0107-analysis-pipeline-identity-and-analysis-updates.md) makes
+the change reachable through a learner-confirmed Analysis update, with no
+automatic invalidation.
 
 ### French canonicalization (amends ADR 0005)
 

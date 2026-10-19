@@ -258,6 +258,22 @@ never rewrites earlier extractions, analyses, Lemma corrections, current-reading
 snapshots or prepared decks, which keep the evidence they froze.
 _Avoid_: re-import, reacquisition, migration, backfill.
 
+**Analysis pipeline identity**:
+The analyzer-side identity that produced an analysis: the analyzer's version and
+selection configuration together with the language's normalization profile and
+version reported by the running analysis service. A model or dependency change
+alone does not change it; only a change that can alter a Book's evidence does.
+_Avoid_: model version, pipeline generation, analyzer version (one part of it).
+
+**Analysis update**:
+The learner-confirmed reanalysis of a Book's unchanged content and extraction
+under a newer Analysis pipeline identity, offered when the identity that
+produced the Book's published analysis differs from the current one. It is not
+stale evidence: the published analysis stays in effect until the update
+publishes, and the update never rewrites earlier analyses, Lemma corrections,
+current-reading snapshots or prepared decks.
+_Avoid_: stale analysis, outdated evidence, re-import, migration.
+
 **Vocabulary coverage band**:
 A neutral grouping of trustworthy analyzed To Read Books by current
 analyzable-token coverage: at least 99%, at least 97% but below 99%, at least
