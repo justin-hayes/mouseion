@@ -281,6 +281,132 @@ func TestIndexLookupUsesFrenchCanonicalProfile(t *testing.T) {
 	})
 }
 
+// Stanza tags French prepositional adverbs ADV, while Wiktionary files them
+// under ADP only. An ADV identity with no ADV or untagged row still resolves
+// the ADP row, as weak evidence.
+func TestIndexLookupResolvesFrenchPrepositionalAdverbs(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'tandis', 'ADP', '[{"Gloss":"while"}]', '', '', '', '/tɑ̃di/', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'hors', 'ADP', '[{"Gloss":"outside"}]', '', '', '', '/ɔʁ/', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'delà', 'ADP', '[{"Gloss":"beyond"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'au-dessous', 'ADP', '[{"Gloss":"below"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'outre', 'ADP', '[{"Gloss":"beyond"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'outre', 'NOUN', '[{"Gloss":"a waterskin"}]', '', '', '', '', '', '')`,
+	)
+
+	for _, test := range []struct {
+		lemma string
+		gloss string
+	}{
+		{lemma: "tandis", gloss: "while"},
+		{lemma: "hors", gloss: "outside"},
+		{lemma: "delà", gloss: "beyond"},
+		{lemma: "au-dessous", gloss: "below"},
+		{lemma: "outre", gloss: "beyond"},
+	} {
+		t.Run(test.lemma, func(t *testing.T) {
+			result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: test.lemma, UPOS: "ADV"})
+			require.NoError(t, err)
+			require.True(t, found)
+			require.NotEmpty(t, result.CandidateSenses)
+			require.NotEmpty(t, result.Senses)
+			t.Run("gloss comes from the preposition row", func(t *testing.T) {
+				assert.Equal(t, test.gloss, result.CandidateSenses[0].Gloss)
+			})
+			t.Run("preposition row is weak evidence", func(t *testing.T) {
+				assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[0].MatchStrength)
+				assert.Equal(t, "lemma_only_missing_pos", result.Senses[0].MatchStrength)
+			})
+			t.Run("preposition morphology is not adopted", func(t *testing.T) {
+				assert.Empty(t, result.IPA)
+			})
+		})
+	}
+}
+
+// An exact ADV row answers the lookup, so the ADP row is not added. An
+// untagged row already provides weak evidence and likewise blocks the fallback.
+func TestIndexLookupPrefersExactFrenchAdverbOverPrepositionFallback(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'tandis', 'ADV', '[{"Gloss":"meanwhile"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'tandis', 'ADP', '[{"Gloss":"while"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'hors', '', '[{"Gloss":"outside"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'hors', 'ADP', '[{"Gloss":"outside (preposition)"}]', '', '', '', '', '', '')`,
+	)
+
+	t.Run("exact adverb", func(t *testing.T) {
+		result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "tandis", UPOS: "ADV"})
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Len(t, result.CandidateSenses, 1)
+		assert.Equal(t, "meanwhile", result.CandidateSenses[0].Gloss)
+		assert.Equal(t, "exact_lemma_pos", result.CandidateSenses[0].MatchStrength)
+	})
+
+	t.Run("untagged row", func(t *testing.T) {
+		result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "hors", UPOS: "ADV"})
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Len(t, result.CandidateSenses, 1)
+		assert.Equal(t, "outside", result.CandidateSenses[0].Gloss)
+		assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[0].MatchStrength)
+	})
+}
+
+// Only the French ADV-to-ADP pair falls back. Every other requested part of
+// speech, and every other language, keeps exact-or-untagged matching.
+func TestIndexLookupDoesNotFallBackBetweenOtherPartsOfSpeech(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'preposition', 'ADP', '[{"Gloss":"preposition"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'adjective', 'ADJ', '[{"Gloss":"adjective"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('de', 'preposition', 'ADP', '[{"Gloss":"preposition"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('it', 'preposition', 'ADP', '[{"Gloss":"preposition"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('el', 'πρόθεση', 'ADP', '[{"Gloss":"preposition"}]', '', '', '', '', '', '')`,
+		`INSERT INTO greek_entries VALUES ('δέω', 'ADP', '', '[{"Gloss":"from"}]', '[]')`,
+	)
+
+	for _, test := range []struct {
+		name     string
+		language string
+		lemma    string
+		upos     string
+	}{
+		{name: "French noun asks for a preposition", language: "fr", lemma: "preposition", upos: "NOUN"},
+		{name: "French adverb asks for an adjective", language: "fr", lemma: "adjective", upos: "ADV"},
+		{name: "German adverb asks for a preposition", language: "de", lemma: "preposition", upos: "ADV"},
+		{name: "Italian adverb asks for a preposition", language: "it", lemma: "preposition", upos: "ADV"},
+		{name: "Modern Greek adverb asks for a preposition", language: "el", lemma: "πρόθεση", upos: "ADV"},
+		{name: "Ancient Greek adverb asks for a preposition", language: "grc", lemma: "δέω", upos: "ADV"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: test.language, CanonicalLemma: test.lemma, UPOS: test.upos})
+			require.NoError(t, err)
+			require.False(t, found)
+			require.Empty(t, result.Senses)
+		})
+	}
+}
+
+// The fallback follows the existing weak-evidence path: it never promotes the
+// ADP row's morphology columns onto the entry.
+func TestIndexLookupFrenchAdverbFallbackKeepsADPMorphologyWeak(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'hors', 'ADP', '[{"Gloss":"outside"}]', 'Masc', 'le', 'hors', '/ɔʁ/', 'parts', 'aspirated')`,
+	)
+
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "hors", UPOS: "ADV"})
+	require.NoError(t, err)
+	require.True(t, found)
+	t.Run("ADP row morphology stays weak", func(t *testing.T) {
+		assert.Empty(t, result.Gender)
+		assert.Empty(t, result.Article)
+		assert.Empty(t, result.Plural)
+		assert.Empty(t, result.IPA)
+		assert.Empty(t, result.PrincipalParts)
+		assert.Empty(t, result.HStatus)
+	})
+}
+
 func TestIndexLookupIncludesMissingPOSOnlyAfterExactIdentity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)

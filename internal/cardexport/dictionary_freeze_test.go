@@ -337,6 +337,46 @@ func TestFrenchDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	assert.Empty(t, note.PrincipalParts, "a French verb carries no conjugation summary")
 }
 
+func TestFrenchPrepositionalAdverbGlossFollowsWeakEvidencePath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('fr', 'tandis', 'ADP', '[{"Gloss":"while","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]', 'Masc', 'le', 'tandis', '/tɑ̃di/', '')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	index, err := dictionary.OpenIndex(t.Context(), path)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := index.Close(); err != nil {
+			t.Errorf("dictionary index cleanup failed: %v", err)
+		}
+	})
+
+	service := &lexicalResolver{lexical: index}
+	entry := Entry{
+		Language: "fr", CanonicalLemma: "tandis", UPOS: "ADV",
+		Sentence: "Tandis qu'il lisait, elle écrivait.", TargetWord: "Tandis",
+	}
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NotEmpty(t, entry.CandidateSenses)
+	t.Run("gloss uses weak evidence", func(t *testing.T) {
+		assert.Equal(t, "lemma_only_missing_pos", entry.CandidateSenses[0].MatchStrength)
+		assert.Equal(t, "while", entry.Gloss)
+		assert.Empty(t, entry.Morphology, "the ADP row's morphology stays weaker evidence")
+	})
+
+	note, err := makeNote("owner", renderInputFromEntry(entry))
+	require.NoError(t, err)
+	t.Run("card takes no ADP morphology", func(t *testing.T) {
+		assert.Equal(t, "while", note.Gloss)
+		assert.Empty(t, note.Article)
+		assert.Empty(t, note.Gender)
+		assert.Empty(t, note.Plural)
+		assert.Empty(t, note.IPA)
+	})
+}
+
 func TestGreekDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)

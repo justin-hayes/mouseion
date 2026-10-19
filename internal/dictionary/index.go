@@ -216,20 +216,42 @@ type lookupMorphology struct {
 // morphology. withHStatus selects the French aspirated-h evidence column only
 // when the index format carries it.
 func lookupEntryRows(ctx context.Context, db *sql.DB, language, lemma, upos string, withHStatus bool) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
+	exactSenses, weakSenses, morphology, foundExact, err = readEntryRows(ctx, db, language, lemma, upos, upos, withHStatus)
+	if err != nil {
+		return nil, nil, lookupMorphology{}, false, err
+	}
+	// French prepositional adverbs are the one cross-POS fallback: Stanza
+	// analyses them as ADV while Wiktionary files them under ADP only. An
+	// exact or untagged row already answers the lookup, so the ADP row is
+	// weak evidence only when neither exists.
+	if language == "fr" && upos == "ADV" && !foundExact && len(weakSenses) == 0 {
+		_, weakSenses, _, _, err = readEntryRows(ctx, db, language, lemma, upos, "ADP", withHStatus)
+		if err != nil {
+			return nil, nil, lookupMorphology{}, false, err
+		}
+	}
+	return exactSenses, weakSenses, morphology, foundExact, nil
+}
+
+// readEntryRows queries the candidate rows for one index part of speech and
+// scans them against requestedUPOS. Only an exact requestedUPOS row is strong
+// evidence; untagged and cross-POS rows stay weak.
+func readEntryRows(ctx context.Context, db *sql.DB, language, lemma, requestedUPOS, entryUPOS string, withHStatus bool) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
 	// Two constant queries rather than one assembled column list: the h_status
 	// column exists only in the newer index format, and a literal statement
-	// keeps the lookup free of any dynamically built SQL.
+	// keeps the lookup free of any dynamically built SQL. The ORDER BY keeps
+	// exact rows ahead of untagged rows.
 	var rows *sql.Rows
 	if withHStatus {
-		rows, err = db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts, h_status FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, upos, upos)
+		rows, err = db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts, h_status FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, entryUPOS, entryUPOS)
 	} else {
-		rows, err = db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, upos, upos)
+		rows, err = db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, entryUPOS, entryUPOS)
 	}
 	if err != nil {
 		return nil, nil, lookupMorphology{}, false, fmt.Errorf("dictionary lookup: %w", err)
 	}
 	defer rows.Close() //nolint:errcheck // Rows.Err below reports actionable lookup failures.
-	exactSenses, weakSenses, morphology, foundExact, err = scanEntryRows(rows, upos, withHStatus)
+	exactSenses, weakSenses, morphology, foundExact, err = scanEntryRows(rows, requestedUPOS, withHStatus)
 	if err != nil {
 		return nil, nil, lookupMorphology{}, false, err
 	}
