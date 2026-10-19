@@ -111,6 +111,10 @@ as one complete sentence:
 
 - a sentence closed by `»`, whatever follows it: an ordinary space, a narrow
   no-break space (U+202F), a paragraph break, or more text in the same paragraph;
+- a lone opening `«`, with an ordinary space, a no-break space (U+00A0) or a
+  narrow no-break space (U+202F), joins the sentence it opens; a quotation
+  spanning several sentences keeps `«` on its first sentence, and later
+  sentences are unchanged;
 - `« Tu viens ? » demanda-t-il.`;
 - dialogue led by an em dash `—`, an en dash `–` (U+2013) or a horizontal bar
   `―` (U+2015), including `— Tu viens ? demanda-t-il.` and a leading dash the
@@ -120,9 +124,10 @@ as one complete sentence:
 Sentence text is still sliced from the source with exact offsets and is never
 rewritten. Plain-prose sentence counts on the corpus do not change, and German
 `„…“` and Italian segmentation do not regress. The French normalization version
-is bumped so new artifacts record the segmentation that produced them; existing
-French Books pick up the change through the existing re-analyse action, with no
-automatic invalidation.
+is bumped so new artifacts record the segmentation that produced them; the
+version that introduced the dash repairs also covers this opening-guillemet
+repair because both ship in the same release. Existing French Books pick up the
+change through the existing re-analyse action, with no automatic invalidation.
 
 ### French canonicalization (amends ADR 0005)
 

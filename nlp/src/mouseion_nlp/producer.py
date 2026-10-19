@@ -57,13 +57,16 @@ DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 FRENCH_TYPOGRAPHIC_APOSTROPHE = "\u2019"
 
 # French dialogue typography. Stanza's tokenizer splits a closing guillemet off
-# the sentence it closes, splits a dialogue incise from the spoken sentence, and
-# sometimes emits a leading dialogue dash as its own sentence. French introduces
-# dialogue with an em dash (U+2014), an en dash (U+2013) or a horizontal bar
-# (U+2015). The producer rejoins these at the tokenizer boundary, before the
-# syntactic processors run, so each representative sentence stays whole
-# (ADR 0102). Tokens and source text are never rewritten.
+# the sentence it closes, sometimes emits an opening guillemet as its own
+# sentence, splits a dialogue incise from the spoken sentence, and sometimes
+# emits a leading dialogue dash as its own sentence. French introduces dialogue
+# with a guillemet pair or with an em dash (U+2014), an en dash (U+2013) or a
+# horizontal bar (U+2015). The producer rejoins these at the tokenizer boundary,
+# before the syntactic processors run, so each representative sentence stays
+# whole (ADR 0102). Tokens and source text are never rewritten.
+FRENCH_OPENING_GUILLEMET = "«"
 FRENCH_CLOSING_GUILLEMET = "»"
+FRENCH_OPENING_GUILLEMETS = frozenset({FRENCH_OPENING_GUILLEMET})
 FRENCH_DIALOGUE_DASHES = frozenset({"—", "–", "―"})
 FRENCH_INCISE_BOUNDARY = frozenset({"?", "!", "…", FRENCH_CLOSING_GUILLEMET})
 
@@ -159,15 +162,32 @@ def _dialogue_begins_lowercase(token: TokenizerToken) -> bool:
     return bool(text) and text[0].islower()
 
 
+def _is_lone_dialogue_marker(token: TokenizerToken, markers: frozenset[str]) -> bool:
+    """Detect a marker token alone, optionally with attached spacing.
+
+    A no-break space (U+00A0) or narrow no-break space (U+202F) sometimes stays
+    attached to a marker token when it follows it; an ordinary space is handled
+    the same way.
+    """
+    text = _dialogue_token_text(token)
+    return bool(text) and text[0] in markers and not text[1:].strip()
+
+
 def _is_dialogue_dash(token: TokenizerToken) -> bool:
     """Detect a dialogue dash, alone or with an attached no-break space.
 
-    French marks dialogue with an em dash, an en dash or a horizontal bar. A
-    no-break space (U+00A0) or narrow no-break space (U+202F) sometimes stays
-    attached to the dash token when it follows it.
+    French marks dialogue with an em dash, an en dash or a horizontal bar.
     """
-    text = _dialogue_token_text(token)
-    return bool(text) and text[0] in FRENCH_DIALOGUE_DASHES and not text[1:].strip()
+    return _is_lone_dialogue_marker(token, FRENCH_DIALOGUE_DASHES)
+
+
+def _is_opening_guillemet(token: TokenizerToken) -> bool:
+    """Detect an opening guillemet emitted as its own sentence.
+
+    Stanza sometimes emits ``«`` as a sentence of its own. The guillemet belongs
+    to the sentence it opens, not to the preceding one.
+    """
+    return _is_lone_dialogue_marker(token, FRENCH_OPENING_GUILLEMETS)
 
 
 def _continues_french_incise(previous: list[TokenizerToken], current: list[TokenizerToken]) -> bool:
@@ -178,17 +198,21 @@ def _continues_french_incise(previous: list[TokenizerToken], current: list[Token
     return boundary in FRENCH_INCISE_BOUNDARY and _dialogue_begins_lowercase(current[0])
 
 
-def _rejoin_leading_dashes(
+def _rejoin_leading_dialogue_markers(
     sentences: list[list[TokenizerToken]],
 ) -> list[list[TokenizerToken]]:
-    """Rejoin a leading dialogue dash emitted as its own sentence with the next one."""
+    """Rejoin leading dialogue markers emitted as their own sentence.
+
+    A leading dialogue dash or opening guillemet belongs to the sentence that
+    follows it.
+    """
     rejoined: list[list[TokenizerToken]] = []
     index = 0
     while index < len(sentences):
         tokens = list(sentences[index])
         if (
             tokens
-            and all(_is_dialogue_dash(token) for token in tokens)
+            and all(_is_dialogue_dash(token) or _is_opening_guillemet(token) for token in tokens)
             and index + 1 < len(sentences)
         ):
             rejoined.append(tokens + list(sentences[index + 1]))
@@ -204,15 +228,16 @@ def merge_french_dialogue_sentences(
 ) -> list[list[TokenizerToken]]:
     """Rejoin French dialogue sentences that Stanza's tokenizer splits.
 
-    Stanza splits a closing guillemet off the sentence it closes, splits a
-    dialogue dash incise such as ``demanda-t-il`` from the spoken sentence, and
-    sometimes emits a leading dialogue dash (an em dash, en dash or horizontal
-    bar) as its own sentence. Rejoining them here, at the tokenizer boundary,
-    keeps each representative sentence whole and leaves the downstream
-    processors to analyze one complete sentence.
+    Stanza splits a closing guillemet off the sentence it closes, sometimes
+    emits an opening guillemet as its own sentence, splits a dialogue dash
+    incise such as ``demanda-t-il`` from the spoken sentence, and sometimes
+    emits a leading dialogue dash (an em dash, en dash or horizontal bar) as
+    its own sentence. Rejoining them here, at the tokenizer boundary, keeps
+    each representative sentence whole and leaves the downstream processors to
+    analyze one complete sentence.
     """
     merged: list[list[TokenizerToken]] = []
-    for tokens in _rejoin_leading_dashes(sentences):
+    for tokens in _rejoin_leading_dialogue_markers(sentences):
         leading_closers = 0
         while (
             leading_closers < len(tokens)

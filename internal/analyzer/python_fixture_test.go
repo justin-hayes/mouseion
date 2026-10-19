@@ -78,7 +78,7 @@ func TestGoConsumesFrenchStanzaRegressionFixture(t *testing.T) {
 	require.Equal(t, "fr", corpus.GetLanguage())
 	require.Equal(t, "french", corpus.GetNormalizationProfile().GetName(), "the producer records the French profile")
 	require.Equal(t, "2", corpus.GetNormalizationProfile().GetVersion())
-	require.Len(t, corpus.GetSentences(), 10)
+	require.Len(t, corpus.GetSentences(), 15)
 	sentences := corpus.GetSentences()
 
 	t.Run("plain prose keeps its elision and contraction", func(t *testing.T) {
@@ -183,5 +183,61 @@ func TestGoConsumesFrenchStanzaRegressionFixture(t *testing.T) {
 		require.Len(t, tokens, 4)
 		require.Equal(t, uint64(242), tokens[0].GetLocation().GetStartOffset())
 		require.Equal(t, uint64(243), tokens[0].GetLocation().GetEndOffset())
+	})
+
+	t.Run("a lone opening guillemet joins the sentence it opens", func(t *testing.T) {
+		opening := sentences[10]
+		require.Equal(t, "« Il faut partir.", opening.GetText())
+		require.Equal(t, uint64(255), opening.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(272), opening.GetLocation().GetEndOffset())
+		tokens := opening.GetTokens()
+		require.Len(t, tokens, 5)
+		require.Equal(t, "«", tokens[0].GetSurface())
+		require.Equal(t, uint64(255), tokens[0].GetLocation().GetStartOffset())
+		require.Equal(t, uint64(256), tokens[0].GetLocation().GetEndOffset())
+		require.Equal(t, uint64(257), tokens[1].GetLocation().GetStartOffset())
+		require.Equal(t, uint64(272), tokens[4].GetLocation().GetEndOffset())
+	})
+
+	t.Run("a lone opening guillemet with a no-break space stays whole", func(t *testing.T) {
+		opening := sentences[11]
+		require.Equal(t, "«\u00a0Tu viens ?", opening.GetText())
+		require.Equal(t, uint64(273), opening.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(285), opening.GetLocation().GetEndOffset())
+		tokens := opening.GetTokens()
+		require.Len(t, tokens, 4)
+		require.Equal(t, uint64(273), tokens[0].GetLocation().GetStartOffset())
+		require.Equal(t, uint64(274), tokens[0].GetLocation().GetEndOffset())
+		require.Equal(t, uint64(275), tokens[1].GetLocation().GetStartOffset())
+	})
+
+	t.Run("a lone opening guillemet with a narrow no-break space stays whole", func(t *testing.T) {
+		opening := sentences[12]
+		require.Equal(t, "«\u202fTu viens ?", opening.GetText())
+		require.Equal(t, uint64(286), opening.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(298), opening.GetLocation().GetEndOffset())
+		tokens := opening.GetTokens()
+		require.Len(t, tokens, 4)
+		require.Equal(t, uint64(286), tokens[0].GetLocation().GetStartOffset())
+		require.Equal(t, uint64(287), tokens[0].GetLocation().GetEndOffset())
+		require.Equal(t, uint64(288), tokens[1].GetLocation().GetStartOffset())
+	})
+
+	t.Run("a multi-sentence quotation keeps the opening guillemet on its first sentence", func(t *testing.T) {
+		first := sentences[13]
+		require.Equal(t, "« Il partit.", first.GetText())
+		require.Equal(t, uint64(299), first.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(311), first.GetLocation().GetEndOffset())
+		require.Len(t, first.GetTokens(), 4)
+		require.Equal(t, "«", first.GetTokens()[0].GetSurface())
+		require.Equal(t, uint64(299), first.GetTokens()[0].GetLocation().GetStartOffset())
+
+		second := sentences[14]
+		require.Equal(t, "Elle resta.", second.GetText())
+		require.Equal(t, uint64(312), second.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(323), second.GetLocation().GetEndOffset())
+		require.Len(t, second.GetTokens(), 3)
+		require.Equal(t, "Elle", second.GetTokens()[0].GetSurface())
+		require.Equal(t, uint64(312), second.GetTokens()[0].GetLocation().GetStartOffset())
 	})
 }
