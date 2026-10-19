@@ -91,6 +91,8 @@ func TestAncientGreekSentenceBoundariesAcceptSourceTerminators(t *testing.T) {
 		{name: "raised dot", sentence: body + "·", accepted: true},
 		{name: "ano teleia", sentence: body + "\u0387", accepted: true},
 		{name: "no terminator", sentence: body, accepted: false},
+		{name: "ellipsis stays out of the Greek rule", sentence: body + "…", accepted: false},
+		{name: "closing quote stays out of the Greek rule", sentence: body + ". »", accepted: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -109,6 +111,94 @@ func TestLowercaseStartStillRejectedOutsideAncientGreek(t *testing.T) {
 	quality := ScoreSentenceQuality("de", sentence, "haus", 10, nil, 0)
 	assert.False(t, quality.Accepted)
 	assert.Contains(t, quality.Reasons, "incomplete sentence boundaries")
+}
+
+// Dialogue sentences are representative sentences. A dialogue dash followed by
+// a space and a start the rule already accepts opens a complete sentence, and a
+// sentence may close with a terminal punctuation mark before one or more closing
+// quotation marks, or with an ellipsis.
+func TestSentenceBoundaryAcceptsDialogueStartsAndTerminalEndings(t *testing.T) {
+	const body = "Le tigre bondit sur sa proie"
+	t.Run("dialogue starts", func(t *testing.T) {
+		dashes := []struct{ name, dash string }{
+			{"em dash", "—"},
+			{"en dash", "–"},
+			{"horizontal bar", "―"},
+		}
+		spaces := []struct{ name, space string }{
+			{"ordinary space", " "},
+			{"no-break space", "\u00a0"},
+			{"narrow no-break space", "\u202f"},
+		}
+		for _, dash := range dashes {
+			for _, space := range spaces {
+				t.Run(dash.name+" with "+space.name, func(t *testing.T) {
+					quality := ScoreSentenceQuality("fr", dash.dash+space.space+body+".", "tigre", 10, nil, 0)
+					assert.True(t, quality.Accepted, "quality=%+v", quality)
+					assert.Contains(t, quality.Reasons, "complete sentence boundaries")
+					assert.NotContains(t, quality.Reasons, "incomplete sentence boundaries")
+				})
+			}
+		}
+	})
+
+	t.Run("terminal endings", func(t *testing.T) {
+		tests := []struct{ name, sentence string }{
+			{"ellipsis", body + "…"},
+			{"full stop and closing guillemet", body + ". »"},
+			{"question mark and closing curly quote", body + "? ”"},
+			{"exclamation mark and closing ascii quote", body + "! \""},
+			{"full stop and closing single quote", body + ". ’"},
+			{"ellipsis and closing guillemet", body + "… »"},
+			{"full stop before a no-break space", body + ".\u00a0»"},
+			{"full stop before a narrow no-break space", body + ".\u202f»"},
+			{"several closing quotes", body + ". » ”"},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				quality := ScoreSentenceQuality("fr", tc.sentence, "tigre", 10, nil, 0)
+				assert.True(t, quality.Accepted, "quality=%+v", quality)
+				assert.Contains(t, quality.Reasons, "complete sentence boundaries")
+				assert.NotContains(t, quality.Reasons, "incomplete sentence boundaries")
+			})
+		}
+	})
+
+	t.Run("incomplete forms stay rejected", func(t *testing.T) {
+		tests := []struct{ name, sentence string }{
+			{"dash without a following space", "—" + body + "."},
+			{"dash followed by a lowercase start", "— le tigre bondit sur sa proie."},
+			{"bare closing guillemet without terminal punctuation", body + " »"},
+			{"only a closing quote", "»"},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				quality := ScoreSentenceQuality("fr", tc.sentence, "tigre", 10, nil, 0)
+				assert.False(t, quality.Accepted, "quality=%+v", quality)
+				assert.Contains(t, quality.Reasons, "incomplete sentence boundaries")
+			})
+		}
+	})
+}
+
+// A sentence that was already eligible keeps exactly its score and reasons:
+// the boundary change only stops rejecting the new dialogue and terminal forms.
+func TestPreviouslyEligibleSentencesKeepTheirScoreAndReasons(t *testing.T) {
+	tests := []struct{ name, language, sentence, target string }{
+		{"French", "fr", "Le tigre bondit sur sa proie.", "tigre"},
+		{"German", "de", "Das Haus steht an der Straße.", "Haus"},
+		{"Italian", "it", "Il gatto salta sopra la preda.", "gatto"},
+		{"Greek", "el", "Η γάτα πηδάει πάνω στο θήραμα.", "θήραμα"},
+	}
+	wantReasons := []string{"usable length", "target present", "valid source location", "complete sentence boundaries", "no obvious structural noise"}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			quality := ScoreSentenceQuality(tc.language, tc.sentence, tc.target, 10, nil, 0)
+			assert.True(t, quality.Accepted, "quality=%+v", quality)
+			assert.Equal(t, 100, quality.Score)
+			assert.Equal(t, wantReasons, quality.Reasons)
+		})
+	}
 }
 
 // TestSentenceQualityAcceptsElidedTarget pins the sentence-quality "target
