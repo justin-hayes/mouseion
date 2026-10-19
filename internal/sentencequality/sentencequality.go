@@ -30,7 +30,7 @@ import (
 // German GDEX overlay. A change that only affects the ranking among accepted
 // sentences, or only the recorded reasons, leaves every accept/reject outcome
 // unchanged and must not bump it.
-const GateVersion = 1
+const GateVersion = 2
 
 const (
 	minimumSentenceWords         = 6
@@ -198,15 +198,64 @@ func hasCompleteBoundary(language, text string) bool {
 		// Greek editions start sentences in lowercase, so only the terminal
 		// boundary is required. The source terminators are the full stop, the
 		// semicolon / Greek question mark (U+037E) and the raised dot / ano
-		// teleia (U+00B7 / U+0387).
+		// teleia (U+00B7 / U+0387). The generic dialogue and closing-quote forms
+		// are deliberately outside this rule.
 		last, _ := utf8.DecodeLastRuneInString(text)
 		return strings.ContainsRune(".;\u037e·\u0387", last)
 	}
-	if !strings.ContainsAny(text[len(text)-1:], ".!?") {
+	if !hasCompleteEnding(text) {
 		return false
 	}
-	first, _ := utf8.DecodeRuneInString(text)
-	return unicode.IsUpper(first) || unicode.IsNumber(first) || strings.ContainsRune("\"'“„«", first)
+	return acceptedSentenceStart(text)
+}
+
+const (
+	dialogueDashes = "—–―"
+	dialogueSpaces = " \u00a0\u202f"
+	openingStarts  = "\"'“„«"
+	closingQuotes  = "»”\"’"
+	terminalMarks  = ".!?…"
+)
+
+// hasCompleteEnding reports whether text closes with a terminal mark, or a
+// terminal mark followed by one or more closing quotation marks that may be
+// separated by dialogue spaces.
+func hasCompleteEnding(text string) bool {
+	end := len(text)
+	for end > 0 {
+		quote, size := utf8.DecodeLastRuneInString(text[:end])
+		if !strings.ContainsRune(closingQuotes, quote) {
+			break
+		}
+		end -= size
+		for end > 0 {
+			space, spaceSize := utf8.DecodeLastRuneInString(text[:end])
+			if !strings.ContainsRune(dialogueSpaces, space) {
+				break
+			}
+			end -= spaceSize
+		}
+	}
+	if end == 0 {
+		return false
+	}
+	last, _ := utf8.DecodeLastRuneInString(text[:end])
+	return strings.ContainsRune(terminalMarks, last)
+}
+
+// acceptedSentenceStart reports whether text starts with an accepted sentence
+// opening: a capital, a digit or an opening quotation mark. A dialogue dash may
+// precede it when a dialogue space separates the two.
+func acceptedSentenceStart(text string) bool {
+	first, size := utf8.DecodeRuneInString(text)
+	if strings.ContainsRune(dialogueDashes, first) {
+		space, spaceSize := utf8.DecodeRuneInString(text[size:])
+		if !strings.ContainsRune(dialogueSpaces, space) {
+			return false
+		}
+		first, _ = utf8.DecodeRuneInString(text[size+spaceSize:])
+	}
+	return unicode.IsUpper(first) || unicode.IsNumber(first) || strings.ContainsRune(openingStarts, first)
 }
 
 // IsAncientGreek reports whether a language tag is Ancient Greek, whose

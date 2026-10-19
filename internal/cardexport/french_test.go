@@ -8,6 +8,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/sentencequality"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -145,6 +146,37 @@ func TestFrenchPreparedDeckUsesLanguageHierarchyAndTag(t *testing.T) {
 	apkg, err := renderAPKG(t.Context(), deckName, []Note{note}, "")
 	require.NoError(t, err)
 	assert.Contains(t, collectionColumn(t, apkg, "decks"), deckName)
+}
+
+// A dash-led French dialogue sentence is an eligible representative sentence:
+// the card carries the persisted sentence verbatim, leading dash included, with
+// the target anchored.
+func TestFrenchDialogueSentenceIsEligibleAndRendersVerbatim(t *testing.T) {
+	const sentence = "— Le tigre bondit sur sa proie."
+	candidate := domain.SelectionCandidate{
+		CorpusID: "french-corpus", Language: "fr", CanonicalLemma: "tigre",
+		ObservedForms:      []byte(`["tigre"]`),
+		SentenceReferences: []byte(`[{"sentence_index":0,"text":"` + sentence + `","location":{"start_offset":0}}]`),
+	}
+	sentences := map[int64]analyzer.Sentence{0: {
+		Text:     sentence,
+		Location: analyzer.SourceLocation{StartOffset: 0},
+	}}
+
+	evidence, ok := sentencequality.BestSentenceEvidenceFromCorpus(candidate, sentences)
+	require.True(t, ok)
+	require.True(t, evidence.Quality.Accepted, "quality=%+v", evidence.Quality)
+	assert.Equal(t, sentence, evidence.Sentence, "the representative sentence is persisted verbatim")
+	require.Equal(t, "tigre", evidence.Target)
+
+	note, err := makeNote("alice", renderInputFromEntry(Entry{
+		Language: "fr", CanonicalLemma: "tigre", UPOS: "NOUN",
+		Sentence: evidence.Sentence, TargetWord: evidence.Target,
+		FirstEncounter: evidence.FirstEncounter, SentenceTokens: evidence.Tokens,
+		SentenceStartOffset: evidence.SentenceStartOffset,
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "— Le <b>tigre</b> bondit sur sa proie.", note.Text)
 }
 
 // A missing defensible meaning yields the established retryable provider
