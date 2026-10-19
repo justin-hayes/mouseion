@@ -1,9 +1,9 @@
 """Opt-in pinned-model golden check for French, the release gate for `fr`.
 
-This is not part of default CI. It runs the committed 42-string French
+This is not part of default CI. It runs the committed 44-string French
 regression corpus (``testdata/french_golden_corpus.json``) through the real,
 pinned Stanza 1.15.0 combined pipeline and asserts the expected sentence
-boundaries, tokens, lemmas and target anchors, including the 17 targets only the
+boundaries, tokens, lemmas and target anchors, including the 19 targets only the
 persisted-token anchor reaches. The corpus holds the reviewed observations from
 the #2152 probe plus the ADR 0102 dialogue repairs.
 
@@ -39,10 +39,10 @@ STANZA_RESOURCES_ENV = "MOUSEION_TEST_STANZA_RESOURCES_DIR"
 CORPUS = json.loads(
     (Path(__file__).parent / "testdata" / "french_golden_corpus.json").read_text(encoding="utf-8")
 )
-EXPECTED_STRINGS = 42
-EXPECTED_TOKENS = 318
-EXPECTED_TARGETS = 108
-EXPECTED_OFFSET_ANCHORED = 17
+EXPECTED_STRINGS = 44
+EXPECTED_TOKENS = 332
+EXPECTED_TARGETS = 112
+EXPECTED_OFFSET_ANCHORED = 19
 
 requires_provisioned_models = pytest.mark.skipif(
     not os.environ.get(STANZA_RESOURCES_ENV),

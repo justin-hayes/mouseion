@@ -40,8 +40,8 @@ The Stanza pipeline handled elision, contractions and clitics well. The defects
 it found are on Mouseion's side:
 
 - **Sentence integrity.** A closing `»` is split from its sentence in every
-  dialogue layout, and em-dash incises are split, so persisted representative
-  sentences can be incomplete.
+  dialogue layout, and dialogue-dash incises are split, so persisted
+  representative sentences can be incomplete.
 - **Target anchoring.** The card-export matcher (`textmatch.FoldedWordSpan`)
   treats `'`, `’` and hyphens as word characters. A target directly after an
   elided clitic (`l'homme`, `s’habille`) or before an inversion hyphen
@@ -112,11 +112,17 @@ as one complete sentence:
 - a sentence closed by `»`, whatever follows it: an ordinary space, a narrow
   no-break space (U+202F), a paragraph break, or more text in the same paragraph;
 - `« Tu viens ? » demanda-t-il.`;
-- em-dash dialogue incises such as `— Tu viens ? demanda-t-il.`
+- dialogue led by an em dash `—`, an en dash `–` (U+2013) or a horizontal bar
+  `―` (U+2015), including `— Tu viens ? demanda-t-il.` and a leading dash the
+  tokenizer emits as its own sentence, with or without a following no-break
+  space.
 
 Sentence text is still sliced from the source with exact offsets and is never
 rewritten. Plain-prose sentence counts on the corpus do not change, and German
-`„…“` and Italian segmentation do not regress.
+`„…“` and Italian segmentation do not regress. The French normalization version
+is bumped so new artifacts record the segmentation that produced them; existing
+French Books pick up the change through the existing re-analyse action, with no
+automatic invalidation.
 
 ### French canonicalization (amends ADR 0005)
 

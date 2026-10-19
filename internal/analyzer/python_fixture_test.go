@@ -77,8 +77,8 @@ func TestGoConsumesFrenchStanzaRegressionFixture(t *testing.T) {
 	require.NoError(t, protojson.Unmarshal(payload, corpus), "unmarshal French Python fixture")
 	require.Equal(t, "fr", corpus.GetLanguage())
 	require.Equal(t, "french", corpus.GetNormalizationProfile().GetName(), "the producer records the French profile")
-	require.Equal(t, "1", corpus.GetNormalizationProfile().GetVersion())
-	require.Len(t, corpus.GetSentences(), 6)
+	require.Equal(t, "2", corpus.GetNormalizationProfile().GetVersion())
+	require.Len(t, corpus.GetSentences(), 10)
 	sentences := corpus.GetSentences()
 
 	t.Run("plain prose keeps its elision and contraction", func(t *testing.T) {
@@ -136,5 +136,52 @@ func TestGoConsumesFrenchStanzaRegressionFixture(t *testing.T) {
 		require.Equal(t, uint64(147), emDash.GetLocation().GetStartOffset())
 		require.Equal(t, uint64(173), emDash.GetLocation().GetEndOffset())
 		require.Equal(t, "—", emDash.GetTokens()[0].GetSurface())
+	})
+
+	t.Run("a leading en dash rejoins the line it introduces", func(t *testing.T) {
+		enDash := sentences[6]
+		require.Equal(t, "– Il est là, dit-elle.", enDash.GetText())
+		require.Equal(t, uint64(174), enDash.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(196), enDash.GetLocation().GetEndOffset())
+		tokens := enDash.GetTokens()
+		require.Len(t, tokens, 8)
+		require.Equal(t, "–", tokens[0].GetSurface())
+		require.Equal(t, uint64(174), tokens[0].GetLocation().GetStartOffset())
+		require.Equal(t, uint64(175), tokens[0].GetLocation().GetEndOffset())
+	})
+
+	t.Run("a leading horizontal bar rejoins the line it introduces", func(t *testing.T) {
+		bar := sentences[7]
+		require.Equal(t, "― Il faut partir.", bar.GetText())
+		require.Equal(t, uint64(197), bar.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(214), bar.GetLocation().GetEndOffset())
+		tokens := bar.GetTokens()
+		require.Len(t, tokens, 5)
+		require.Equal(t, "―", tokens[0].GetSurface())
+		require.Equal(t, uint64(197), tokens[0].GetLocation().GetStartOffset())
+		require.Equal(t, uint64(198), tokens[0].GetLocation().GetEndOffset())
+	})
+
+	t.Run("an en-dash incise stays whole", func(t *testing.T) {
+		enDash := sentences[8]
+		require.Equal(t, "– Tu viens ? demanda-t-il.", enDash.GetText())
+		require.Equal(t, uint64(215), enDash.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(241), enDash.GetLocation().GetEndOffset())
+		tokens := enDash.GetTokens()
+		require.Len(t, tokens, 7)
+		require.Equal(t, "–", tokens[0].GetSurface())
+		require.Equal(t, "demanda", tokens[4].GetSurface())
+		require.Equal(t, "parataxis:insert", tokens[4].GetDependency())
+	})
+
+	t.Run("an en dash followed by a no-break space stays whole", func(t *testing.T) {
+		noBreak := sentences[9]
+		require.Equal(t, "–\u00a0Tu viens ?", noBreak.GetText())
+		require.Equal(t, uint64(242), noBreak.GetLocation().GetStartOffset())
+		require.Equal(t, uint64(254), noBreak.GetLocation().GetEndOffset())
+		tokens := noBreak.GetTokens()
+		require.Len(t, tokens, 4)
+		require.Equal(t, uint64(242), tokens[0].GetLocation().GetStartOffset())
+		require.Equal(t, uint64(243), tokens[0].GetLocation().GetEndOffset())
 	})
 }

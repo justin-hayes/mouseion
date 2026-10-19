@@ -1,5 +1,5 @@
 {
-  "description": "Pinned-model golden corpus for French: the 42 human-approved constructed diagnostic strings from the #2152 probe (17 approved inputs, 5 typographic-apostrophe copies, 20 extended inputs). Expected sentences, tokens, lemmas and target anchors are the reviewed probe observations. Sentence boundaries include the ADR 0102 dialogue repairs that keep each string one complete sentence. Spans and sentence offsets are document-absolute Unicode code points. The 108 targets are the probe's eligible content tokens (NOUN/VERB/ADJ/ADV), including the ADV negation the product now excludes from vocabulary. 'word_bounded' and 'lemma_bounded' record whether the unchanged FoldedWordSpan matcher reached the target; 17 rely on the persisted-token anchor instead.",
+  "description": "Pinned-model golden corpus for French: the 44 human-approved constructed diagnostic strings from the #2152 probe (17 approved inputs, 5 typographic-apostrophe copies, 22 extended inputs, the last two adding en-dash and horizontal-bar dialogue). Expected sentences, tokens, lemmas and target anchors are the reviewed probe observations. Sentence boundaries include the ADR 0102 dialogue repairs that keep each string one complete sentence. Spans and sentence offsets are document-absolute Unicode code points. The 112 targets are the probe's eligible content tokens (NOUN/VERB/ADJ/ADV), including the ADV negation the product now excludes from vocabulary. 'word_bounded' and 'lemma_bounded' record whether the unchanged FoldedWordSpan matcher reached the target; 19 rely on the persisted-token anchor instead.",
   "model": {
     "model_version": "stanza-1.15.0-fr-combined",
     "stanza_version": "1.15.0",
@@ -975,6 +975,50 @@
             {"form": "Aujourd'hui", "lemma": "aujourd'hui", "pos": "ADV", "span": [0, 11], "word_bounded": true, "lemma_bounded": true},
             {"form": "prend", "lemma": "prendre", "pos": "VERB", "span": [16, 21], "word_bounded": true, "lemma_bounded": false},
             {"form": "petit-déjeuner", "lemma": "petit-déjeuner", "pos": "NOUN", "span": [26, 40], "word_bounded": true, "lemma_bounded": true}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X21",
+      "text": "– Tu viens ? demanda-t-il.",
+      "sentences": [
+        {
+          "text": "– Tu viens ? demanda-t-il.",
+          "tokens": [
+            {"surface": "–", "raw_lemma": "–", "canonical_lemma": "–", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Tu", "raw_lemma": "toi", "canonical_lemma": "toi", "pos": "PRON", "span": [2, 4]},
+            {"surface": "viens", "raw_lemma": "venir", "canonical_lemma": "venir", "pos": "VERB", "span": [5, 10]},
+            {"surface": "?", "raw_lemma": "?", "canonical_lemma": "?", "pos": "PUNCT", "span": [11, 12]},
+            {"surface": "demanda", "raw_lemma": "demander", "canonical_lemma": "demander", "pos": "VERB", "span": [13, 20]},
+            {"surface": "t-il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [20, 25]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [25, 26]}
+          ],
+          "targets": [
+            {"form": "viens", "lemma": "venir", "pos": "VERB", "span": [5, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "demanda", "lemma": "demander", "pos": "VERB", "span": [13, 20], "word_bounded": false, "lemma_bounded": false}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "X22",
+      "text": "― Tu viens ? demanda-t-il.",
+      "sentences": [
+        {
+          "text": "― Tu viens ? demanda-t-il.",
+          "tokens": [
+            {"surface": "―", "raw_lemma": "―", "canonical_lemma": "―", "pos": "PUNCT", "span": [0, 1]},
+            {"surface": "Tu", "raw_lemma": "toi", "canonical_lemma": "toi", "pos": "PRON", "span": [2, 4]},
+            {"surface": "viens", "raw_lemma": "venir", "canonical_lemma": "venir", "pos": "VERB", "span": [5, 10]},
+            {"surface": "?", "raw_lemma": "?", "canonical_lemma": "?", "pos": "PUNCT", "span": [11, 12]},
+            {"surface": "demanda", "raw_lemma": "demander", "canonical_lemma": "demander", "pos": "VERB", "span": [13, 20]},
+            {"surface": "t-il", "raw_lemma": "lui", "canonical_lemma": "lui", "pos": "PRON", "span": [20, 25]},
+            {"surface": ".", "raw_lemma": ".", "canonical_lemma": ".", "pos": "PUNCT", "span": [25, 26]}
+          ],
+          "targets": [
+            {"form": "viens", "lemma": "venir", "pos": "VERB", "span": [5, 10], "word_bounded": true, "lemma_bounded": false},
+            {"form": "demanda", "lemma": "demander", "pos": "VERB", "span": [13, 20], "word_bounded": false, "lemma_bounded": false}
           ]
         }
       ]

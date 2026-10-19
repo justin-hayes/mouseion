@@ -30,6 +30,12 @@ func TestFrenchProfileIdentity(t *testing.T) {
 	versioned, err := Lookup("fr", FrenchProfileVersion)
 	require.NoError(t, err)
 	assert.Equal(t, FrenchProfileName, versioned.Name())
+
+	// Version 1 stays addressable so an earlier analysis can be reproduced.
+	historical, err := Lookup("fr", "1")
+	require.NoError(t, err)
+	assert.Equal(t, FrenchProfileName, historical.Name())
+	assert.Equal(t, "1", historical.Version())
 }
 
 func TestFrenchProfileNormalizePreservesRawLemma(t *testing.T) {

@@ -49,7 +49,7 @@ GERMAN_NORMALIZATION_VERSION = "6"
 GREEK_NORMALIZATION_PROFILE = "modern-greek"
 GREEK_NORMALIZATION_VERSION = "1"
 FRENCH_NORMALIZATION_PROFILE = "french"
-FRENCH_NORMALIZATION_VERSION = "1"
+FRENCH_NORMALIZATION_VERSION = "2"
 DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
 DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 # The typographic apostrophe French text uses for elision; the canonical lemma
@@ -57,13 +57,14 @@ DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 FRENCH_TYPOGRAPHIC_APOSTROPHE = "\u2019"
 
 # French dialogue typography. Stanza's tokenizer splits a closing guillemet off
-# the sentence it closes, splits an em-dash incise from the spoken sentence, and
-# sometimes emits a leading em-dash as its own sentence. The producer rejoins
-# these at the tokenizer boundary, before the syntactic processors run, so each
-# representative sentence stays whole (ADR 0102). Tokens and source text are
-# never rewritten.
+# the sentence it closes, splits a dialogue incise from the spoken sentence, and
+# sometimes emits a leading dialogue dash as its own sentence. French introduces
+# dialogue with an em dash (U+2014), an en dash (U+2013) or a horizontal bar
+# (U+2015). The producer rejoins these at the tokenizer boundary, before the
+# syntactic processors run, so each representative sentence stays whole
+# (ADR 0102). Tokens and source text are never rewritten.
 FRENCH_CLOSING_GUILLEMET = "»"
-FRENCH_DIALOGUE_DASH = "—"
+FRENCH_DIALOGUE_DASHES = frozenset({"—", "–", "―"})
 FRENCH_INCISE_BOUNDARY = frozenset({"?", "!", "…", FRENCH_CLOSING_GUILLEMET})
 
 logger = logging.getLogger(__name__)
@@ -159,11 +160,18 @@ def _dialogue_begins_lowercase(token: TokenizerToken) -> bool:
 
 
 def _is_dialogue_dash(token: TokenizerToken) -> bool:
-    return _dialogue_token_text(token) == FRENCH_DIALOGUE_DASH
+    """Detect a dialogue dash, alone or with an attached no-break space.
+
+    French marks dialogue with an em dash, an en dash or a horizontal bar. A
+    no-break space (U+00A0) or narrow no-break space (U+202F) sometimes stays
+    attached to the dash token when it follows it.
+    """
+    text = _dialogue_token_text(token)
+    return bool(text) and text[0] in FRENCH_DIALOGUE_DASHES and not text[1:].strip()
 
 
 def _continues_french_incise(previous: list[TokenizerToken], current: list[TokenizerToken]) -> bool:
-    """Detect an em-dash dialogue incise split from the spoken sentence."""
+    """Detect a dialogue incise split from the spoken sentence."""
     if not previous or not current:
         return False
     boundary = _dialogue_token_text(previous[-1])
@@ -173,7 +181,7 @@ def _continues_french_incise(previous: list[TokenizerToken], current: list[Token
 def _rejoin_leading_dashes(
     sentences: list[list[TokenizerToken]],
 ) -> list[list[TokenizerToken]]:
-    """Rejoin a leading em-dash emitted as its own sentence with the next one."""
+    """Rejoin a leading dialogue dash emitted as its own sentence with the next one."""
     rejoined: list[list[TokenizerToken]] = []
     index = 0
     while index < len(sentences):
@@ -196,11 +204,12 @@ def merge_french_dialogue_sentences(
 ) -> list[list[TokenizerToken]]:
     """Rejoin French dialogue sentences that Stanza's tokenizer splits.
 
-    Stanza splits a closing guillemet off the sentence it closes, splits an
-    em-dash incise such as ``demanda-t-il`` from the spoken sentence, and
-    sometimes emits a leading em-dash as its own sentence. Rejoining them here,
-    at the tokenizer boundary, keeps each representative sentence whole and
-    leaves the downstream processors to analyze one complete sentence.
+    Stanza splits a closing guillemet off the sentence it closes, splits a
+    dialogue dash incise such as ``demanda-t-il`` from the spoken sentence, and
+    sometimes emits a leading dialogue dash (an em dash, en dash or horizontal
+    bar) as its own sentence. Rejoining them here, at the tokenizer boundary,
+    keeps each representative sentence whole and leaves the downstream
+    processors to analyze one complete sentence.
     """
     merged: list[list[TokenizerToken]] = []
     for tokens in _rejoin_leading_dashes(sentences):

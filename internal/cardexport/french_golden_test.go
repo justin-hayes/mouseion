@@ -38,15 +38,15 @@ type frenchGoldenCorpus struct {
 }
 
 // TestFrenchGoldenCorpusAnchorsEveryTarget pins the ADR 0102 acceptance target:
-// all 108 eligible corpus targets anchor on their persisted token offsets, with
-// byte-identical persisted sentences. Seventeen of them have no word-bounded
+// all 112 eligible corpus targets anchor on their persisted token offsets, with
+// byte-identical persisted sentences. Nineteen of them have no word-bounded
 // match, so they exercise the fallback path.
 func TestFrenchGoldenCorpusAnchorsEveryTarget(t *testing.T) {
 	raw, err := os.ReadFile("../../nlp/tests/testdata/french_golden_corpus.json")
 	require.NoError(t, err)
 	var corpus frenchGoldenCorpus
 	require.NoError(t, json.Unmarshal(raw, &corpus))
-	require.Len(t, corpus.Strings, 42, "the committed corpus keeps all 42 strings")
+	require.Len(t, corpus.Strings, 44, "the committed corpus keeps all 44 strings")
 
 	anchored, offsetAnchored := 0, 0
 	for _, entry := range corpus.Strings {
@@ -80,6 +80,6 @@ func TestFrenchGoldenCorpusAnchorsEveryTarget(t *testing.T) {
 			}
 		}
 	}
-	require.Equal(t, 108, anchored, "108/108 eligible targets anchor")
-	require.Equal(t, 17, offsetAnchored, "17 targets need the persisted-token anchor")
+	require.Equal(t, 112, anchored, "112/112 eligible targets anchor")
+	require.Equal(t, 19, offsetAnchored, "19 targets need the persisted-token anchor")
 }

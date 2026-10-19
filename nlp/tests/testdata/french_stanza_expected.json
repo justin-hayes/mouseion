@@ -85,9 +85,57 @@
         {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"172","end_offset":"173"},"dependency":"punct","head":2}
       ],
       "location": {"source_document_id":"french-book","start_offset":"147","end_offset":"173"}
+    },
+    {
+      "text": "– Il est là, dit-elle.",
+      "tokens": [
+        {"surface":"–","raw_lemma":"–","pos":"PUNCT","canonical_lemma":"–","location":{"source_document_id":"french-book","start_offset":"174","end_offset":"175"},"dependency":"punct","head":2},
+        {"surface":"Il","raw_lemma":"lui","pos":"PRON","canonical_lemma":"lui","morphology":{"Case":"Nom","Person":"3","Gender":"Masc","Emph":"No","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"176","end_offset":"178"},"dependency":"nsubj","head":2},
+        {"surface":"est","raw_lemma":"être","pos":"AUX","canonical_lemma":"être","morphology":{"Tense":"Pres","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"179","end_offset":"182"},"dependency":"root","head":2},
+        {"surface":"là","raw_lemma":"là","pos":"ADV","canonical_lemma":"là","location":{"source_document_id":"french-book","start_offset":"183","end_offset":"185"},"dependency":"advmod","head":2},
+        {"surface":",","raw_lemma":",","pos":"PUNCT","canonical_lemma":",","location":{"source_document_id":"french-book","start_offset":"185","end_offset":"186"},"dependency":"punct","head":2},
+        {"surface":"dit","raw_lemma":"dire","pos":"VERB","canonical_lemma":"dire","morphology":{"Tense":"Pres","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"187","end_offset":"190"},"dependency":"parataxis:insert","head":2},
+        {"surface":"elle","raw_lemma":"lui","pos":"PRON","canonical_lemma":"lui","morphology":{"Person":"3","Gender":"Fem","Emph":"No","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"190","end_offset":"195"},"dependency":"nsubj","head":5},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"195","end_offset":"196"},"dependency":"punct","head":2}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"174","end_offset":"196"}
+    },
+    {
+      "text": "― Il faut partir.",
+      "tokens": [
+        {"surface":"―","raw_lemma":"―","pos":"PUNCT","canonical_lemma":"―","location":{"source_document_id":"french-book","start_offset":"197","end_offset":"198"},"dependency":"punct","head":2},
+        {"surface":"Il","raw_lemma":"lui","pos":"PRON","canonical_lemma":"lui","morphology":{"Case":"Nom","Person":"3","Gender":"Masc","Emph":"No","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"199","end_offset":"201"},"dependency":"expl:subj","head":2},
+        {"surface":"faut","raw_lemma":"falloir","pos":"VERB","canonical_lemma":"falloir","morphology":{"Tense":"Pres","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"202","end_offset":"206"},"dependency":"root","head":2},
+        {"surface":"partir","raw_lemma":"partir","pos":"VERB","canonical_lemma":"partir","morphology":{"VerbForm":"Inf"},"location":{"source_document_id":"french-book","start_offset":"207","end_offset":"213"},"dependency":"ccomp","head":2},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"213","end_offset":"214"},"dependency":"punct","head":2}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"197","end_offset":"214"}
+    },
+    {
+      "text": "– Tu viens ? demanda-t-il.",
+      "tokens": [
+        {"surface":"–","raw_lemma":"–","pos":"PUNCT","canonical_lemma":"–","location":{"source_document_id":"french-book","start_offset":"215","end_offset":"216"},"dependency":"punct","head":2},
+        {"surface":"Tu","raw_lemma":"toi","pos":"PRON","canonical_lemma":"toi","morphology":{"Case":"Nom","Person":"2","Number":"Sing","Emph":"No","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"217","end_offset":"219"},"dependency":"nsubj","head":2},
+        {"surface":"viens","raw_lemma":"venir","pos":"VERB","canonical_lemma":"venir","morphology":{"Tense":"Pres","Mood":"Ind","Person":"2","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"220","end_offset":"225"},"dependency":"root","head":2},
+        {"surface":"?","raw_lemma":"?","pos":"PUNCT","canonical_lemma":"?","location":{"source_document_id":"french-book","start_offset":"226","end_offset":"227"},"dependency":"punct","head":2},
+        {"surface":"demanda","raw_lemma":"demander","pos":"VERB","canonical_lemma":"demander","morphology":{"Tense":"Past","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"228","end_offset":"235"},"dependency":"parataxis:insert","head":2},
+        {"surface":"t-il","raw_lemma":"lui","pos":"PRON","canonical_lemma":"lui","morphology":{"Person":"3","Gender":"Masc","Emph":"No","Number":"Sing","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"235","end_offset":"240"},"dependency":"nsubj","head":4},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"french-book","start_offset":"240","end_offset":"241"},"dependency":"punct","head":2}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"215","end_offset":"241"}
+    },
+    {
+      "text": "–\u00a0Tu viens ?",
+      "tokens": [
+        {"surface":"–","raw_lemma":"–","pos":"PUNCT","canonical_lemma":"–","location":{"source_document_id":"french-book","start_offset":"242","end_offset":"243"},"dependency":"punct","head":2},
+        {"surface":"Tu","raw_lemma":"toi","pos":"PRON","canonical_lemma":"toi","morphology":{"Case":"Nom","Person":"2","Number":"Sing","Emph":"No","PronType":"Prs"},"location":{"source_document_id":"french-book","start_offset":"244","end_offset":"246"},"dependency":"nsubj","head":2},
+        {"surface":"viens","raw_lemma":"venir","pos":"VERB","canonical_lemma":"venir","morphology":{"Tense":"Pres","Mood":"Ind","Person":"2","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"french-book","start_offset":"247","end_offset":"252"},"dependency":"root","head":2},
+        {"surface":"?","raw_lemma":"?","pos":"PUNCT","canonical_lemma":"?","location":{"source_document_id":"french-book","start_offset":"253","end_offset":"254"},"dependency":"punct","head":2}
+      ],
+      "location": {"source_document_id":"french-book","start_offset":"242","end_offset":"254"}
     }
   ],
   "source_documents": [{"id":"french-book","source_identifier":"fixture:french","title":"French fixture"}],
   "analysis": {"run_id":"french-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.15.0"},
-  "normalization_profile": {"name":"french","version":"1"}
+  "normalization_profile": {"name":"french","version":"2"}
 }

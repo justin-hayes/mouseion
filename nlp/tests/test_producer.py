@@ -1387,6 +1387,51 @@ def test_french_dialogue_tokenizer_merger_rejoins_a_leading_em_dash() -> None:
     ]
 
 
+def test_french_dialogue_tokenizer_merger_rejoins_a_leading_en_dash() -> None:
+    # U+2013 EN DASH is a French dialogue marker alongside the em dash.
+    sentences = [
+        ["–"],
+        ["Il", "est", "là", ",", "dit", "-elle", "."],
+    ]
+
+    assert merge_french_dialogue_sentences(sentences) == [
+        ["–", "Il", "est", "là", ",", "dit", "-elle", "."]
+    ]
+
+
+def test_french_dialogue_tokenizer_merger_rejoins_a_leading_horizontal_bar() -> None:
+    # U+2015 HORIZONTAL BAR is the third French dialogue marker.
+    sentences = [
+        ["―"],
+        ["Il", "est", "là", ",", "dit", "-elle", "."],
+    ]
+
+    assert merge_french_dialogue_sentences(sentences) == [
+        ["―", "Il", "est", "là", ",", "dit", "-elle", "."]
+    ]
+
+
+def test_french_dialogue_tokenizer_merger_rejoins_an_en_dash_incise() -> None:
+    sentences = [
+        ["–", "Tu", "viens", "?"],
+        ["demanda", "-t-il", "."],
+    ]
+
+    assert merge_french_dialogue_sentences(sentences) == [
+        ["–", "Tu", "viens", "?", "demanda", "-t-il", "."]
+    ]
+
+
+def test_french_dialogue_tokenizer_merger_rejoins_a_dash_with_a_no_break_space() -> None:
+    # A no-break space (U+00A0) sometimes stays attached to the leading dash.
+    sentences = [
+        ["–\u00a0"],
+        ["Tu", "viens", "?"],
+    ]
+
+    assert merge_french_dialogue_sentences(sentences) == [["–\u00a0", "Tu", "viens", "?"]]
+
+
 def test_french_dialogue_tokenizer_merger_leaves_plain_prose_and_capitalised_text_alone() -> None:
     sentences = [
         ["Il", "partit", "."],
@@ -1430,7 +1475,14 @@ def test_french_linguistic_regression_fixture() -> None:
     after = "Il faut partir."
     incise = "« Tu viens ? » demanda-t-il."
     em_dash = "— Tu viens ? demanda-t-il."
-    text = f"{first} {second} {guillemet}\n\n{after} {incise} {em_dash}"
+    en_dash_leading = "– Il est là, dit-elle."
+    bar_leading = "― Il faut partir."
+    en_dash_incise = "– Tu viens ? demanda-t-il."
+    no_break_dash = "–\u00a0Tu viens ?"
+    text = (
+        f"{first} {second} {guillemet}\n\n{after} {incise} {em_dash}"
+        f" {en_dash_leading} {bar_leading} {en_dash_incise} {no_break_dash}"
+    )
     sentences = [
         SimpleNamespace(
             text=first,
@@ -1994,6 +2046,272 @@ def test_french_linguistic_regression_fixture() -> None:
                 ),
             ],
         ),
+        SimpleNamespace(
+            text=en_dash_leading,
+            tokens=[
+                SimpleNamespace(
+                    words=[
+                        word("–", "–", "PUNCT", None, 174, 175, id=1, head=3, deprel="punct"),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "Il",
+                            "lui",
+                            "PRON",
+                            "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+                            176,
+                            178,
+                            id=2,
+                            head=3,
+                            deprel="nsubj",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "est",
+                            "être",
+                            "AUX",
+                            "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+                            179,
+                            182,
+                            id=3,
+                            head=0,
+                            deprel="root",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[word("là", "là", "ADV", None, 183, 185, id=4, head=3, deprel="advmod")],
+                ),
+                SimpleNamespace(
+                    words=[word(",", ",", "PUNCT", None, 185, 186, id=5, head=3, deprel="punct")],
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "dit",
+                            "dire",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+                            187,
+                            190,
+                            id=6,
+                            head=3,
+                            deprel="parataxis:insert",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "-elle",
+                            "lui",
+                            "PRON",
+                            "Emph=No|Gender=Fem|Number=Sing|Person=3|PronType=Prs",
+                            190,
+                            195,
+                            id=7,
+                            head=6,
+                            deprel="nsubj",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(".", ".", "PUNCT", None, 195, 196, id=8, head=3, deprel="punct"),
+                    ]
+                ),
+            ],
+        ),
+        SimpleNamespace(
+            text=bar_leading,
+            tokens=[
+                SimpleNamespace(
+                    words=[
+                        word("―", "―", "PUNCT", None, 197, 198, id=1, head=3, deprel="punct"),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "Il",
+                            "lui",
+                            "PRON",
+                            "Case=Nom|Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+                            199,
+                            201,
+                            id=2,
+                            head=3,
+                            deprel="expl:subj",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "faut",
+                            "falloir",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin",
+                            202,
+                            206,
+                            id=3,
+                            head=0,
+                            deprel="root",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "partir",
+                            "partir",
+                            "VERB",
+                            "VerbForm=Inf",
+                            207,
+                            213,
+                            id=4,
+                            head=3,
+                            deprel="ccomp",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(".", ".", "PUNCT", None, 213, 214, id=5, head=3, deprel="punct"),
+                    ]
+                ),
+            ],
+        ),
+        SimpleNamespace(
+            text=en_dash_incise,
+            tokens=[
+                SimpleNamespace(
+                    words=[
+                        word("–", "–", "PUNCT", None, 215, 216, id=1, head=3, deprel="punct"),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "Tu",
+                            "toi",
+                            "PRON",
+                            "Case=Nom|Emph=No|Number=Sing|Person=2|PronType=Prs",
+                            217,
+                            219,
+                            id=2,
+                            head=3,
+                            deprel="nsubj",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "viens",
+                            "venir",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=2|Tense=Pres|VerbForm=Fin",
+                            220,
+                            225,
+                            id=3,
+                            head=0,
+                            deprel="root",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word("?", "?", "PUNCT", None, 226, 227, id=4, head=3, deprel="punct"),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "demanda",
+                            "demander",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin",
+                            228,
+                            235,
+                            id=5,
+                            head=3,
+                            deprel="parataxis:insert",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "t-il",
+                            "lui",
+                            "PRON",
+                            "Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs",
+                            235,
+                            240,
+                            id=6,
+                            head=5,
+                            deprel="nsubj",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(".", ".", "PUNCT", None, 240, 241, id=7, head=3, deprel="punct"),
+                    ]
+                ),
+            ],
+        ),
+        SimpleNamespace(
+            text=no_break_dash,
+            tokens=[
+                SimpleNamespace(
+                    words=[
+                        word("–", "–", "PUNCT", None, 242, 243, id=1, head=3, deprel="punct"),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "Tu",
+                            "toi",
+                            "PRON",
+                            "Case=Nom|Emph=No|Number=Sing|Person=2|PronType=Prs",
+                            244,
+                            246,
+                            id=2,
+                            head=3,
+                            deprel="nsubj",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word(
+                            "viens",
+                            "venir",
+                            "VERB",
+                            "Mood=Ind|Number=Sing|Person=2|Tense=Pres|VerbForm=Fin",
+                            247,
+                            252,
+                            id=3,
+                            head=0,
+                            deprel="root",
+                        ),
+                    ]
+                ),
+                SimpleNamespace(
+                    words=[
+                        word("?", "?", "PUNCT", None, 253, 254, id=4, head=3, deprel="punct"),
+                    ]
+                ),
+            ],
+        ),
     ]
     artifact = Producer(
         pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=sentences)
@@ -2058,7 +2376,7 @@ def test_french_normalization_profile_is_recorded() -> None:
         pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=[])
     ).analyze("où", "fr")
     assert artifact.normalization_profile.name == "french"
-    assert artifact.normalization_profile.version == "1"
+    assert artifact.normalization_profile.version == "2"
 
 
 def test_french_elision_contraction_and_clitic_expansion() -> None:
