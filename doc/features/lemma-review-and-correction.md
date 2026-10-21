@@ -1,12 +1,12 @@
 # Learner review of analyzer lemmas
 
-Status: **Manual occurrence review, conservative German risk flags, and opt-in LLM lemma suggestions implemented** · Date: 2026-09-30
+Status: **Manual occurrence review, conservative German and French risk flags, and opt-in LLM lemma suggestions implemented** · Date: 2026-10-21
 
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct
 prepared-deck projection, Book vocabulary insights, and current-reading
-snapshots. Automatic review flags are limited to conservative German
-alternatives supported by local lexical evidence; automatic flags remain
+snapshots. Automatic review flags are limited to conservative German and
+French alternatives supported by local lexical evidence; automatic flags remain
 disabled for other languages. An optional LLM lemma suggestion is requested
 only by an explicit action while reviewing an occurrence. Its bounded request
 contains the target, analyzer lemma/POS, one sentence, and available local
@@ -77,14 +77,32 @@ recorded keep, correction, or exclusion or create a retroactive Reading gate.
 
 ## Detect, suggest, review
 
-The first automatic detector is German-only. It uses the existing local Kaikki
-index and available analyzer evidence to flag **high-risk** content-word
-occurrences when an absent exact lemma has a plausible indexed alternative;
-absence alone is not a flag. It considers both current recurring candidates
-and plausible corrections that could join other occurrences and cross the
-recurrence threshold. Suggestions do not assert correctness and do not choose
-an identity. The learner can manually review eligible content-word occurrences
-in German, Italian, and Modern Greek; automatic flags for additional languages
+Automatic detection runs for German and French. A missing exact lemma is never
+enough to flag; the detector only offers occurrences with a dictionary-backed
+alternative, and it considers both current recurring candidates and plausible
+corrections that could join other occurrences and cross the shared recurring
+threshold of three.
+
+German keeps its existing evidence rule: the local Kaikki index supplies a
+simple observed-form inflection candidate, and at least two meaningful words
+from the occurrence's sentence must also appear in that entry's example.
+
+French uses the index link itself as evidence. An occurrence is a candidate
+only when its analysed (lemma, part of speech) has no index entry and an
+alternative with the same part of speech exists. Alternatives are tried in this
+order: the surface's own indexed headword, when the entry has at least one
+non-form-of sense, then the headwords Kaikki records in structured `form_of`
+data for that surface. Each flag keeps the first alternative that reaches the
+recurring floor. An entry made only of form-of senses is not a headword, so a
+plural form cannot silently stand in for its own lemma. A participial adjective
+is not flagged when its analysed lemma is a verb headword and the surface is a
+recorded participle form of that verb: *mouillé* analysed as *mouiller* ADJ is
+the verb's own form, not a lemma error. The sentence-example overlap rule
+remains German-only.
+
+Suggestions do not assert correctness and do not choose an identity. The
+learner can manually review eligible content-word occurrences in German,
+Italian, French, and Modern Greek; automatic flags for additional languages
 need separate precision evidence. Changing POS or rescuing a token excluded by
 its analyzer POS is not part of this first workflow.
 
@@ -92,7 +110,9 @@ Review flags and their evidence provenance are retained for the exact analysis
 until resolved by the learner. When local index evidence is unavailable, show
 that assessment is unavailable rather than claiming the analysis has passed a
 dictionary check; no new flags are invented and only previously recorded
-unresolved high-risk flags can pause Reading.
+unresolved high-risk flags can pause Reading. A French index older than the
+format carrying structured form-of links counts as unavailable, never as a
+passed check; German assessment does not depend on that data.
 
 The Book-scoped Reading review surface shows each flagged occurrence in its
 complete sentence, the observed form, analyzer lemma, why it was flagged, and
@@ -152,6 +172,14 @@ may need to remove it manually in Anki. Mouseion does not delete Anki notes.
   credible alternative evidence exists; the learner chooses the appropriate
   lemma for its sentence. The program does not infer `Drache` from spelling
   alone or rewrite a different `Drachen` used as a kite.
+- A human-reviewed French fixture has **no incorrect blocking flags**. It flags
+  the coverage-run cases with a dictionary-backed alternative, for example
+  *fraca* → `fracas`, *voiles* analyzed as *voiler* NOUN → `voile`, and *assied*
+  analyzed as *asseedtir* → `asseoir`. It does not flag correctly lemmatized
+  occurrences, *mouillé* analyzed as *mouiller* ADJ, or cases without an
+  alternative: names tagged ADJ, *fage* from `fr`, *taper* NOUN from `tapes`,
+  and *baisser* ADJ from `baissée`. Cases below the recurring floor of three
+  are not flagged.
 - A valid unindexed compound such as `Basketballspiel` is not blocked merely
   for lacking an exact Kaikki entry. Human-reviewed German fixtures must have
   **no incorrect blocking flags** before activating the detector; missing a

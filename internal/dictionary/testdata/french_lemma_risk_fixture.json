@@ -1,0 +1,119 @@
+{
+  "description": "Acceptance fixture for French lemma-risk detection (issue #2244). It distils the reviewed cases from the #2166 dictionary-coverage run: every listed flag has a dictionary-backed alternative, and zero incorrect flags is the acceptance bar.",
+  "entries": [
+    {"lemma": "fracas", "upos": "NOUN", "senses": [{"Gloss": "fracas"}]},
+    {"lemma": "enclos", "upos": "NOUN", "senses": [{"Gloss": "enclosure"}]},
+    {"lemma": "remords", "upos": "NOUN", "senses": [{"Gloss": "remorse"}]},
+    {"lemma": "voile", "upos": "NOUN", "senses": [{"Gloss": "sail"}]},
+    {"lemma": "joue", "upos": "NOUN", "senses": [{"Gloss": "cheek"}]},
+    {"lemma": "réclame", "upos": "NOUN", "senses": [{"Gloss": "advertisement"}]},
+    {"lemma": "asseoir", "upos": "VERB", "senses": [{"Gloss": "to seat"}]},
+    {"lemma": "vouloir", "upos": "VERB", "senses": [{"Gloss": "to want"}]},
+    {"lemma": "pouvoir", "upos": "VERB", "senses": [{"Gloss": "to be able to"}]},
+    {"lemma": "mouiller", "upos": "VERB", "senses": [{"Gloss": "to wet"}]},
+    {"lemma": "mouillé", "upos": "ADJ", "senses": [{"Gloss": "wet"}]},
+    {"lemma": "écrire", "upos": "VERB", "senses": [{"Gloss": "to write"}]},
+    {"lemma": "taper", "upos": "VERB", "senses": [{"Gloss": "to slap"}]},
+    {"lemma": "baisser", "upos": "VERB", "senses": [{"Gloss": "to lower"}]},
+    {"lemma": "héros", "upos": "NOUN", "senses": [{"Gloss": "hero"}]},
+    {"lemma": "voiles", "upos": "NOUN", "senses": [{"Gloss": "plural of voile", "Tags": ["form-of", "plural"]}]},
+    {"lemma": "joues", "upos": "NOUN", "senses": [{"Gloss": "plural of joue", "Tags": ["form-of", "plural"]}]},
+    {"lemma": "réclames", "upos": "NOUN", "senses": [{"Gloss": "plural of réclame", "Tags": ["form-of", "plural"]}]},
+    {"lemma": "assied", "upos": "VERB", "senses": [{"Gloss": "third-person singular present of asseoir", "Tags": ["form-of"]}]},
+    {"lemma": "voulez", "upos": "VERB", "senses": [{"Gloss": "second-person plural present of vouloir", "Tags": ["form-of"]}]},
+    {"lemma": "pussent", "upos": "VERB", "senses": [{"Gloss": "third-person plural imperfect subjunctive of pouvoir", "Tags": ["form-of"]}]},
+    {"lemma": "mouillé", "upos": "VERB", "senses": [{"Gloss": "past participle of mouiller", "Tags": ["form-of", "participle", "past"]}]},
+    {"lemma": "baissée", "upos": "VERB", "senses": [{"Gloss": "feminine singular of baissé", "Tags": ["form-of", "participle"]}]}
+  ],
+  "headwords": [
+    {"lemma": "fracas", "upos": "NOUN"},
+    {"lemma": "enclos", "upos": "NOUN"},
+    {"lemma": "remords", "upos": "NOUN"},
+    {"lemma": "voile", "upos": "NOUN"},
+    {"lemma": "joue", "upos": "NOUN"},
+    {"lemma": "réclame", "upos": "NOUN"},
+    {"lemma": "asseoir", "upos": "VERB"},
+    {"lemma": "vouloir", "upos": "VERB"},
+    {"lemma": "pouvoir", "upos": "VERB"},
+    {"lemma": "mouiller", "upos": "VERB"},
+    {"lemma": "mouillé", "upos": "ADJ"},
+    {"lemma": "écrire", "upos": "VERB"},
+    {"lemma": "taper", "upos": "VERB"},
+    {"lemma": "baisser", "upos": "VERB"},
+    {"lemma": "héros", "upos": "NOUN"}
+  ],
+  "forms": [
+    {"form": "voiles", "upos": "NOUN", "target": "voile", "participle": false, "evidence_id": "form-of:voiles:NOUN:voile"},
+    {"form": "joues", "upos": "NOUN", "target": "joue", "participle": false, "evidence_id": "form-of:joues:NOUN:joue"},
+    {"form": "réclames", "upos": "NOUN", "target": "réclame", "participle": false, "evidence_id": "form-of:réclames:NOUN:réclame"},
+    {"form": "assied", "upos": "VERB", "target": "asseoir", "participle": false, "evidence_id": "form-of:assied:VERB:asseoir"},
+    {"form": "voulez", "upos": "VERB", "target": "vouloir", "participle": false, "evidence_id": "form-of:voulez:VERB:vouloir"},
+    {"form": "pussent", "upos": "VERB", "target": "pouvoir", "participle": false, "evidence_id": "form-of:pussent:VERB:pouvoir"},
+    {"form": "mouillé", "upos": "VERB", "target": "mouiller", "participle": true, "evidence_id": "form-of:mouillé:VERB:mouiller"},
+    {"form": "baissée", "upos": "VERB", "target": "baissé", "participle": true, "evidence_id": "form-of:baissée:VERB:baissé"},
+    {"form": "tapes", "upos": "VERB", "target": "taper", "participle": false, "evidence_id": "form-of:tapes:VERB:taper"}
+  ],
+  "occurrences": [
+    {"id": "fraca", "surface": "fracas", "lemma": "fraca", "upos": "NOUN", "sentence": "Le fracas du tonnerre réveilla tout le village."},
+    {"id": "fracas-1", "surface": "fracas", "lemma": "fracas", "upos": "NOUN", "sentence": "Un fracas sourd montait de la cave."},
+    {"id": "fracas-2", "surface": "fracas", "lemma": "fracas", "upos": "NOUN", "sentence": "Le fracas des armes cessa enfin."},
+
+    {"id": "enclo", "surface": "enclos", "lemma": "enclo", "upos": "NOUN", "sentence": "Les enfants jouaient dans l'enclos."},
+    {"id": "enclos-1", "surface": "enclos", "lemma": "enclos", "upos": "NOUN", "sentence": "L'enclos était fermé par une barrière."},
+    {"id": "enclos-2", "surface": "enclos", "lemma": "enclos", "upos": "NOUN", "sentence": "Elle traversa l'enclos sans bruit."},
+
+    {"id": "remord", "surface": "remords", "lemma": "remord", "upos": "NOUN", "sentence": "Il éprouvait des remords après la dispute."},
+    {"id": "remords-1", "surface": "remords", "lemma": "remords", "upos": "NOUN", "sentence": "Les remords le tenaient éveillé."},
+    {"id": "remords-2", "surface": "remords", "lemma": "remords", "upos": "NOUN", "sentence": "Aucun remords ne semblait le troubler."},
+
+    {"id": "voiler", "surface": "voiles", "lemma": "voiler", "upos": "NOUN", "sentence": "Les voiles claquaient dans le vent."},
+    {"id": "voile-1", "surface": "voile", "lemma": "voile", "upos": "NOUN", "sentence": "La voile se gonfla soudain."},
+    {"id": "voile-2", "surface": "voile", "lemma": "voile", "upos": "NOUN", "sentence": "Il hissa la voile avec peine."},
+
+    {"id": "jouer", "surface": "joues", "lemma": "jouer", "upos": "NOUN", "sentence": "Ses joues rougirent de honte."},
+    {"id": "joue-1", "surface": "joue", "lemma": "joue", "upos": "NOUN", "sentence": "Une larme coula sur sa joue."},
+    {"id": "joue-2", "surface": "joue", "lemma": "joue", "upos": "NOUN", "sentence": "Elle posa la main sur sa joue."},
+
+    {"id": "récler", "surface": "réclames", "lemma": "récler", "upos": "NOUN", "sentence": "Les réclames couvraient tout le mur."},
+    {"id": "réclame-1", "surface": "réclame", "lemma": "réclame", "upos": "NOUN", "sentence": "Une réclame vantait le nouveau savon."},
+    {"id": "réclame-2", "surface": "réclame", "lemma": "réclame", "upos": "NOUN", "sentence": "La réclame disparut au coin de la rue."},
+
+    {"id": "asseedtir", "surface": "assied", "lemma": "asseedtir", "upos": "VERB", "sentence": "Elle assied l'enfant sur la chaise."},
+    {"id": "asseoir-1", "surface": "asseoir", "lemma": "asseoir", "upos": "VERB", "sentence": "Il faut asseoir les invités."},
+    {"id": "asseoir-2", "surface": "asseoir", "lemma": "asseoir", "upos": "VERB", "sentence": "On va asseoir tout le monde ici."},
+
+    {"id": "ivouler", "surface": "voulez", "lemma": "ivouler", "upos": "VERB", "sentence": "Voulez-vous un peu de thé ?"},
+    {"id": "vouloir-1", "surface": "vouloir", "lemma": "vouloir", "upos": "VERB", "sentence": "Elle veut vouloir partir demain."},
+    {"id": "vouloir-2", "surface": "vouloir", "lemma": "vouloir", "upos": "VERB", "sentence": "Ils semblent vouloir rester."},
+    {"id": "voulait", "surface": "voulait", "lemma": "vouloir", "upos": "VERB", "sentence": "Il voulait seulement dormir."},
+
+    {"id": "posser", "surface": "pussent", "lemma": "posser", "upos": "VERB", "sentence": "Il fallait qu'ils pussent entrer."},
+    {"id": "pouvoir-1", "surface": "pouvoir", "lemma": "pouvoir", "upos": "VERB", "sentence": "Elle espérait pouvoir aider."},
+    {"id": "pouvoir-2", "surface": "pouvoir", "lemma": "pouvoir", "upos": "VERB", "sentence": "Ils voulaient pouvoir choisir."},
+
+    {"id": "mouiller-participle", "surface": "mouillé", "lemma": "mouiller", "upos": "ADJ", "sentence": "Le linge était mouillé."},
+    {"id": "mouillé-1", "surface": "mouillé", "lemma": "mouillé", "upos": "ADJ", "sentence": "Le sol restait mouillé."},
+    {"id": "mouillé-2", "surface": "mouillé", "lemma": "mouillé", "upos": "ADJ", "sentence": "Ses cheveux étaient mouillés."},
+
+    {"id": "écrire", "surface": "s'écria", "lemma": "écrire", "upos": "VERB", "sentence": "Il s'écria de surprise."},
+
+    {"id": "FOGG", "surface": "FOGG", "lemma": "fogg", "upos": "ADJ", "sentence": "FOGG attendait dans le hall."},
+    {"id": "PHILEAS", "surface": "PHILEAS", "lemma": "phileas", "upos": "ADJ", "sentence": "PHILEAS consulta sa montre."},
+    {"id": "PASSEPARTOUT", "surface": "PASSEPARTOUT", "lemma": "passepartout", "upos": "ADJ", "sentence": "PASSEPARTOUT ferma la porte."},
+    {"id": "fr", "surface": "fr", "lemma": "fage", "upos": "NOUN", "sentence": "Le fr est une abréviation courante."},
+    {"id": "tapes", "surface": "tapes", "lemma": "taper", "upos": "NOUN", "sentence": "Les tapes résonnaient dans la salle."},
+    {"id": "baissée", "surface": "baissée", "lemma": "baisser", "upos": "ADJ", "sentence": "Elle marchait tête baissée."},
+    {"id": "héros-below-floor", "surface": "héros", "lemma": "héreau", "upos": "NOUN", "sentence": "Le héros revint au village."}
+  ],
+  "expected_flags": {
+    "fraca": "fracas",
+    "enclo": "enclos",
+    "remord": "remords",
+    "voiler": "voile",
+    "jouer": "joue",
+    "récler": "réclame",
+    "asseedtir": "asseoir",
+    "ivouler": "vouloir",
+    "posser": "pouvoir"
+  }
+}

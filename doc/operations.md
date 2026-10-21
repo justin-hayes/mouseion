@@ -190,6 +190,11 @@ Ancient Greek entries are stored one row per source entry with no normalization
 key; the server derives their keys when it opens the index, and an index older
 than the Ancient Greek format reports `grc` as unavailable.
 
+French lemma-risk review reads structured Kaikki `form_of` links and headword
+membership from the index. Re-derive the index after upgrading so French Books
+can be assessed; an index older than that format reports French lemma review
+unavailable rather than passed. German review does not depend on the new data.
+
 Greek cards use the Perseus LSJ dictionary entry, not Wiktionary. To derive it,
 point `DICTIONARY_LSJ_DIR` at the pinned `PerseusDL/lexica`
 `CTS_XML_TEI/perseus/pdllex/grc/lsj` directory:
