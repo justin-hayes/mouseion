@@ -205,35 +205,13 @@ func (s *PostgresStore) GetExtractedUnits(ctx context.Context, owner, sourceID s
 // GetExtractedUnitSnapshot returns the immutable identity and contents of the
 // current owner-scoped extracted-unit snapshot.
 func (s *PostgresStore) GetExtractedUnitSnapshot(ctx context.Context, owner, sourceID string) (string, domain.ExtractedUnits, error) {
-	var out domain.ExtractedUnits
-	snapshot, err := s.queries().GetCurrentExtractedUnitSnapshot(ctx, sqlcgen.GetCurrentExtractedUnitSnapshotParams{OwnerID: owner, SourceMaterialID: sourceID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", out, domain.ErrExtractedUnitsUnavailable
-	}
-	if err != nil {
-		return "", out, err
-	}
-	out.SchemaVersion = snapshot.SchemaVersion
-	rows, err := s.queries().ListCurrentExtractedUnits(ctx, sqlcgen.ListCurrentExtractedUnitsParams{OwnerID: owner, SourceMaterialID: sourceID})
-	if err != nil {
-		return "", out, err
-	}
-	for _, row := range rows {
-		unit, err := extractedUnitFromRow(row)
-		if err != nil {
-			return "", out, err
-		}
-		out.Units = append(out.Units, unit)
-	}
-	if err = out.ValidateOffsets(snapshot.FullText); err != nil {
-		return "", out, fmt.Errorf("validate persisted extracted units: %w", err)
-	}
-	return snapshot.USnapshotID, out, nil
+	snapshot, err := s.GetCurrentExtractedSnapshot(ctx, owner, sourceID)
+	return snapshot.SnapshotID, snapshot.Units, err
 }
 
 // extractedUnitFromRow converts one persisted unit row, translating its signed
 // columns and JSON collections into the domain unit.
-func extractedUnitFromRow(row sqlcgen.ListCurrentExtractedUnitsRow) (domain.ExtractedUnit, error) {
+func extractedUnitFromRow(row sqlcgen.ListExtractedUnitsForSnapshotRow) (domain.ExtractedUnit, error) {
 	order, err := checked.Uint64FromInt64(row.UnitOrder)
 	if err != nil {
 		return domain.ExtractedUnit{}, fmt.Errorf("validate persisted unit order: %w", err)

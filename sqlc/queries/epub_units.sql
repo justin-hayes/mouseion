@@ -60,25 +60,62 @@ LEFT JOIN source_content_revisions r ON r.owner_id = s.owner_id
                                     AND r.revision_id = s.current_content_revision_id
 WHERE s.owner_id = $1 AND s.id = $2;
 
--- name: GetCurrentExtractedUnitSnapshot :one
-SELECT u.snapshot_id::text, u.schema_version, r.full_text
-FROM source_material_unit_snapshots u
-JOIN source_materials s ON s.owner_id = u.owner_id
-                        AND s.id = u.source_material_id
-                        AND s.current_snapshot_id = u.snapshot_id
-JOIN source_content_revisions r ON r.owner_id = u.owner_id
-                               AND r.source_material_id = u.source_material_id
-                               AND r.revision_id = u.content_revision_id
-WHERE u.owner_id = $1 AND u.source_material_id = $2;
+-- The snapshot identity resolves through the source, but structure and units
+-- always resolve through the exact snapshot ID. Unit IDs may recur across
+-- snapshots, so the snapshot is part of every reference.
+-- name: GetCurrentExtractedUnitSnapshotIdentity :one
+SELECT snap.snapshot_id::text AS snapshot_id, snap.schema_version,
+       snap.content_revision_id::text AS content_revision_id,
+       COALESCE(snap.structure_convention_set, '')::text AS structure_convention_set
+FROM source_material_unit_snapshots snap
+JOIN source_materials s ON s.owner_id = snap.owner_id
+                       AND s.id = snap.source_material_id
+                       AND s.current_snapshot_id = snap.snapshot_id
+WHERE snap.owner_id = $1 AND snap.source_material_id = $2;
 
--- name: ListCurrentExtractedUnits :many
+-- name: GetExtractedUnitSnapshotIdentity :one
+SELECT snapshot_id::text, schema_version, content_revision_id::text,
+       COALESCE(structure_convention_set, '')::text AS structure_convention_set
+FROM source_material_unit_snapshots
+WHERE owner_id = $1 AND source_material_id = $2 AND snapshot_id = $3;
+
+-- name: ListExtractedUnitsForSnapshot :many
 SELECT u.unit_id, u.unit_order, u.spine_index, u.title, u.title_source, u.text,
        u.start_offset, u.end_offset, u.package_path, u.manifest_id, u.source_href,
        u.resolved_href, u.media_type, u.properties, u.linear, u.navigation_labels,
        u.landmark_types
 FROM source_material_units u
-JOIN source_materials s ON s.owner_id = u.owner_id
-                        AND s.id = u.source_material_id
-                        AND s.current_snapshot_id = u.snapshot_id
-WHERE u.owner_id = $1 AND u.source_material_id = $2
+WHERE u.owner_id = $1 AND u.source_material_id = $2 AND u.snapshot_id = $3
 ORDER BY u.unit_order;
+
+-- name: ListSourceMaterialUnitRoleSpans :many
+SELECT unit_id, role, start_offset, end_offset
+FROM source_material_unit_role_spans
+WHERE owner_id = $1 AND source_material_id = $2 AND snapshot_id = $3
+ORDER BY unit_id, start_offset, end_offset;
+
+-- name: ListSourceMaterialUnitHeadingResets :many
+SELECT unit_id, "offset"
+FROM source_material_unit_heading_resets
+WHERE owner_id = $1 AND source_material_id = $2 AND snapshot_id = $3
+ORDER BY unit_id, "offset";
+
+-- name: InsertSourceStructureCheck :exec
+INSERT INTO source_structure_checks(
+    owner_id, source_material_id, content_revision_id, snapshot_id,
+    target_contract_version, structure_convention_set, outcome, result_identity
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (
+    owner_id, source_material_id, content_revision_id, snapshot_id,
+    target_contract_version, structure_convention_set
+) DO NOTHING;
+
+-- name: GetSourceStructureCheck :one
+SELECT owner_id::text, source_material_id::text, content_revision_id::text,
+       snapshot_id::text, target_contract_version, structure_convention_set,
+       outcome, result_identity, checked_at
+FROM source_structure_checks
+WHERE owner_id = $1 AND source_material_id = $2 AND content_revision_id = $3
+  AND snapshot_id = $4 AND target_contract_version = $5
+  AND structure_convention_set = $6;

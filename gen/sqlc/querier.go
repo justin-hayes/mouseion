@@ -130,7 +130,10 @@ type Querier interface {
 	GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverageEntryForCorpusParams) (GetCoverageEntryForCorpusRow, error)
 	GetCurrentAnalysisOccurrenceEvidence(ctx context.Context, arg GetCurrentAnalysisOccurrenceEvidenceParams) (GetCurrentAnalysisOccurrenceEvidenceRow, error)
 	GetCurrentContentRevisionForUpdate(ctx context.Context, arg GetCurrentContentRevisionForUpdateParams) (string, error)
-	GetCurrentExtractedUnitSnapshot(ctx context.Context, arg GetCurrentExtractedUnitSnapshotParams) (GetCurrentExtractedUnitSnapshotRow, error)
+	// The snapshot identity resolves through the source, but structure and units
+	// always resolve through the exact snapshot ID. Unit IDs may recur across
+	// snapshots, so the snapshot is part of every reference.
+	GetCurrentExtractedUnitSnapshotIdentity(ctx context.Context, arg GetCurrentExtractedUnitSnapshotIdentityParams) (GetCurrentExtractedUnitSnapshotIdentityRow, error)
 	GetCurrentPreparedDeckRun(ctx context.Context, arg GetCurrentPreparedDeckRunParams) (DeckPreparationRun, error)
 	GetCurrentReading(ctx context.Context, arg GetCurrentReadingParams) (GetCurrentReadingRow, error)
 	// Reading Journey and Primary Goal queries. Current analysis eligibility comes
@@ -162,6 +165,7 @@ type Querier interface {
 	// Legacy enrichment reads used by the immediate card-export path. Exact
 	// prepared-deck enrichment is resolved separately from its manifest keys.
 	GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCacheParams) (GetEnrichmentCacheRow, error)
+	GetExtractedUnitSnapshotIdentity(ctx context.Context, arg GetExtractedUnitSnapshotIdentityParams) (GetExtractedUnitSnapshotIdentityRow, error)
 	GetGeneratedVocabulary(ctx context.Context, arg GetGeneratedVocabularyParams) (GetGeneratedVocabularyRow, error)
 	GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error)
 	GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error)
@@ -200,6 +204,7 @@ type Querier interface {
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
 	GetSourceMaterialBookByIdentifierForUpdate(ctx context.Context, arg GetSourceMaterialBookByIdentifierForUpdateParams) (string, error)
 	GetSourceMaterialBookForUpdate(ctx context.Context, arg GetSourceMaterialBookForUpdateParams) (string, error)
+	GetSourceStructureCheck(ctx context.Context, arg GetSourceStructureCheckParams) (GetSourceStructureCheckRow, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
 	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
@@ -247,6 +252,7 @@ type Querier interface {
 	InsertSourceContentRevision(ctx context.Context, arg InsertSourceContentRevisionParams) (string, error)
 	InsertSourceMaterialUnit(ctx context.Context, arg InsertSourceMaterialUnitParams) error
 	InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error)
+	InsertSourceStructureCheck(ctx context.Context, arg InsertSourceStructureCheckParams) error
 	IsCurrentReadingVocabularyReserved(ctx context.Context, arg IsCurrentReadingVocabularyReservedParams) (bool, error)
 	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
 	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
@@ -259,11 +265,11 @@ type Querier interface {
 	ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
-	ListCurrentExtractedUnits(ctx context.Context, arg ListCurrentExtractedUnitsParams) ([]ListCurrentExtractedUnitsRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]ListDeckPreparationVocabularyRow, error)
 	ListDeckPreparationsForSourceMaterial(ctx context.Context, arg ListDeckPreparationsForSourceMaterialParams) ([]DeckPreparation, error)
+	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
 	ListGeneratedVocabulary(ctx context.Context, arg ListGeneratedVocabularyParams) ([]ListGeneratedVocabularyRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
 	// Known rows that can match a frozen identity (same language and lemma, any
@@ -307,6 +313,8 @@ type Querier interface {
 	ListSelectionCandidatesForBook(ctx context.Context, arg ListSelectionCandidatesForBookParams) ([]ListSelectionCandidatesForBookRow, error)
 	ListSelectionCandidatesForCorpus(ctx context.Context, arg ListSelectionCandidatesForCorpusParams) ([]ListSelectionCandidatesForCorpusRow, error)
 	ListSharedLemmas(ctx context.Context, contentHash string) ([]ListSharedLemmasRow, error)
+	ListSourceMaterialUnitHeadingResets(ctx context.Context, arg ListSourceMaterialUnitHeadingResetsParams) ([]ListSourceMaterialUnitHeadingResetsRow, error)
+	ListSourceMaterialUnitRoleSpans(ctx context.Context, arg ListSourceMaterialUnitRoleSpansParams) ([]ListSourceMaterialUnitRoleSpansRow, error)
 	// Source-material library queries. The current-analysis identity and the
 	// analysis status/state classification live in the source_material_evidence
 	// view (migration 000067); this query only selects from it, so the status

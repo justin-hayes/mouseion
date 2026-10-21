@@ -4,9 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
-const ExtractedUnitsSchemaVersion = 1
+const (
+	// ExtractedUnitsSchemaVersionV1 is the historical extraction contract. It
+	// carries text only; structure is not recorded, which is not the same as
+	// prose or the absence of speakers.
+	ExtractedUnitsSchemaVersionV1 = 1
+	// ExtractedUnitsSchemaVersionV2 records immutable per-unit roles and
+	// heading resets alongside the same unit text.
+	ExtractedUnitsSchemaVersionV2 = 2
+	// ExtractedUnitsSchemaVersion is the writer version. Nothing writes v2 yet;
+	// readers accept v1 and v2 independently.
+	ExtractedUnitsSchemaVersion = ExtractedUnitsSchemaVersionV1
+)
 
 var ErrExtractedUnitsUnavailable = errors.New("epub: extracted units unavailable")
 
@@ -77,13 +89,34 @@ func (e ExtractedUnits) validateSchema() error {
 	if e.SchemaVersion == 0 {
 		return ErrExtractedUnitsUnavailable
 	}
-	if e.SchemaVersion != ExtractedUnitsSchemaVersion {
+	if e.SchemaVersion != ExtractedUnitsSchemaVersionV1 && e.SchemaVersion != ExtractedUnitsSchemaVersionV2 {
 		return fmt.Errorf("epub: unsupported extracted-unit schema version %d", e.SchemaVersion)
 	}
 	if len(e.Units) == 0 {
 		return ErrExtractedUnitsUnavailable
 	}
 	return nil
+}
+
+// ReconstructText joins this snapshot's ordered unit texts with the established
+// unit separator. A content revision's historical FullText belongs to a
+// different extraction and cannot validate a later snapshot.
+func (e ExtractedUnits) ReconstructText() string {
+	var text strings.Builder
+	for index, unit := range e.Units {
+		if index > 0 {
+			text.WriteString("\n\n")
+		}
+		text.WriteString(unit.Text)
+	}
+	return text.String()
+}
+
+// ValidateSnapshot checks that the snapshot's units agree with the text
+// reconstructed from those same units. Readers use it instead of validating
+// against a content revision's FullText.
+func (e ExtractedUnits) ValidateSnapshot() error {
+	return e.ValidateOffsets(e.ReconstructText())
 }
 
 // validateExtractedUnit checks one unit's order, identity, offsets and text

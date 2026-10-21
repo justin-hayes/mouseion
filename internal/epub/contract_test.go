@@ -56,7 +56,7 @@ func TestExtractedUnitsSerializationIsVersionedAndUsesEmptyMetadataArrays(t *tes
 		assert.Contains(t, got, required, "serialized contract %s does not contain %s", got, required)
 	}
 	require.NoError(t, document.ValidateOffsets("Text"))
-	document.SchemaVersion++
+	document.SchemaVersion += 2
 	err = document.ValidateOffsets("Text")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported")

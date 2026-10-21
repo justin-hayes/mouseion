@@ -31,33 +31,41 @@ func (q *Queries) GetCurrentContentRevisionForUpdate(ctx context.Context, arg Ge
 	return current_revision_id, err
 }
 
-const getCurrentExtractedUnitSnapshot = `-- name: GetCurrentExtractedUnitSnapshot :one
-SELECT u.snapshot_id::text, u.schema_version, r.full_text
-FROM source_material_unit_snapshots u
-JOIN source_materials s ON s.owner_id = u.owner_id
-                        AND s.id = u.source_material_id
-                        AND s.current_snapshot_id = u.snapshot_id
-JOIN source_content_revisions r ON r.owner_id = u.owner_id
-                               AND r.source_material_id = u.source_material_id
-                               AND r.revision_id = u.content_revision_id
-WHERE u.owner_id = $1 AND u.source_material_id = $2
+const getCurrentExtractedUnitSnapshotIdentity = `-- name: GetCurrentExtractedUnitSnapshotIdentity :one
+SELECT snap.snapshot_id::text AS snapshot_id, snap.schema_version,
+       snap.content_revision_id::text AS content_revision_id,
+       COALESCE(snap.structure_convention_set, '')::text AS structure_convention_set
+FROM source_material_unit_snapshots snap
+JOIN source_materials s ON s.owner_id = snap.owner_id
+                       AND s.id = snap.source_material_id
+                       AND s.current_snapshot_id = snap.snapshot_id
+WHERE snap.owner_id = $1 AND snap.source_material_id = $2
 `
 
-type GetCurrentExtractedUnitSnapshotParams struct {
+type GetCurrentExtractedUnitSnapshotIdentityParams struct {
 	OwnerID          string
 	SourceMaterialID string
 }
 
-type GetCurrentExtractedUnitSnapshotRow struct {
-	USnapshotID   string
-	SchemaVersion int
-	FullText      string
+type GetCurrentExtractedUnitSnapshotIdentityRow struct {
+	SnapshotID             string
+	SchemaVersion          int
+	ContentRevisionID      string
+	StructureConventionSet string
 }
 
-func (q *Queries) GetCurrentExtractedUnitSnapshot(ctx context.Context, arg GetCurrentExtractedUnitSnapshotParams) (GetCurrentExtractedUnitSnapshotRow, error) {
-	row := q.db.QueryRow(ctx, getCurrentExtractedUnitSnapshot, arg.OwnerID, arg.SourceMaterialID)
-	var i GetCurrentExtractedUnitSnapshotRow
-	err := row.Scan(&i.USnapshotID, &i.SchemaVersion, &i.FullText)
+// The snapshot identity resolves through the source, but structure and units
+// always resolve through the exact snapshot ID. Unit IDs may recur across
+// snapshots, so the snapshot is part of every reference.
+func (q *Queries) GetCurrentExtractedUnitSnapshotIdentity(ctx context.Context, arg GetCurrentExtractedUnitSnapshotIdentityParams) (GetCurrentExtractedUnitSnapshotIdentityRow, error) {
+	row := q.db.QueryRow(ctx, getCurrentExtractedUnitSnapshotIdentity, arg.OwnerID, arg.SourceMaterialID)
+	var i GetCurrentExtractedUnitSnapshotIdentityRow
+	err := row.Scan(
+		&i.SnapshotID,
+		&i.SchemaVersion,
+		&i.ContentRevisionID,
+		&i.StructureConventionSet,
+	)
 	return i, err
 }
 
@@ -102,6 +110,38 @@ func (q *Queries) GetCurrentSourceMaterialContent(ctx context.Context, arg GetCu
 	return i, err
 }
 
+const getExtractedUnitSnapshotIdentity = `-- name: GetExtractedUnitSnapshotIdentity :one
+SELECT snapshot_id::text, schema_version, content_revision_id::text,
+       COALESCE(structure_convention_set, '')::text AS structure_convention_set
+FROM source_material_unit_snapshots
+WHERE owner_id = $1 AND source_material_id = $2 AND snapshot_id = $3
+`
+
+type GetExtractedUnitSnapshotIdentityParams struct {
+	OwnerID          string
+	SourceMaterialID string
+	SnapshotID       string
+}
+
+type GetExtractedUnitSnapshotIdentityRow struct {
+	SnapshotID             string
+	SchemaVersion          int
+	ContentRevisionID      string
+	StructureConventionSet string
+}
+
+func (q *Queries) GetExtractedUnitSnapshotIdentity(ctx context.Context, arg GetExtractedUnitSnapshotIdentityParams) (GetExtractedUnitSnapshotIdentityRow, error) {
+	row := q.db.QueryRow(ctx, getExtractedUnitSnapshotIdentity, arg.OwnerID, arg.SourceMaterialID, arg.SnapshotID)
+	var i GetExtractedUnitSnapshotIdentityRow
+	err := row.Scan(
+		&i.SnapshotID,
+		&i.SchemaVersion,
+		&i.ContentRevisionID,
+		&i.StructureConventionSet,
+	)
+	return i, err
+}
+
 const getSourceContentRevisionByDigest = `-- name: GetSourceContentRevisionByDigest :one
 SELECT revision_id::text
 FROM source_content_revisions
@@ -119,6 +159,61 @@ func (q *Queries) GetSourceContentRevisionByDigest(ctx context.Context, arg GetS
 	var revision_id string
 	err := row.Scan(&revision_id)
 	return revision_id, err
+}
+
+const getSourceStructureCheck = `-- name: GetSourceStructureCheck :one
+SELECT owner_id::text, source_material_id::text, content_revision_id::text,
+       snapshot_id::text, target_contract_version, structure_convention_set,
+       outcome, result_identity, checked_at
+FROM source_structure_checks
+WHERE owner_id = $1 AND source_material_id = $2 AND content_revision_id = $3
+  AND snapshot_id = $4 AND target_contract_version = $5
+  AND structure_convention_set = $6
+`
+
+type GetSourceStructureCheckParams struct {
+	OwnerID                string
+	SourceMaterialID       string
+	ContentRevisionID      string
+	SnapshotID             string
+	TargetContractVersion  int
+	StructureConventionSet string
+}
+
+type GetSourceStructureCheckRow struct {
+	OwnerID                string
+	SourceMaterialID       string
+	ContentRevisionID      string
+	SnapshotID             string
+	TargetContractVersion  int
+	StructureConventionSet string
+	Outcome                string
+	ResultIdentity         string
+	CheckedAt              time.Time
+}
+
+func (q *Queries) GetSourceStructureCheck(ctx context.Context, arg GetSourceStructureCheckParams) (GetSourceStructureCheckRow, error) {
+	row := q.db.QueryRow(ctx, getSourceStructureCheck,
+		arg.OwnerID,
+		arg.SourceMaterialID,
+		arg.ContentRevisionID,
+		arg.SnapshotID,
+		arg.TargetContractVersion,
+		arg.StructureConventionSet,
+	)
+	var i GetSourceStructureCheckRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.SourceMaterialID,
+		&i.ContentRevisionID,
+		&i.SnapshotID,
+		&i.TargetContractVersion,
+		&i.StructureConventionSet,
+		&i.Outcome,
+		&i.ResultIdentity,
+		&i.CheckedAt,
+	)
+	return i, err
 }
 
 const insertSourceContentRevision = `-- name: InsertSourceContentRevision :one
@@ -232,25 +327,60 @@ func (q *Queries) InsertSourceMaterialUnitSnapshot(ctx context.Context, arg Inse
 	return snapshot_id, err
 }
 
-const listCurrentExtractedUnits = `-- name: ListCurrentExtractedUnits :many
+const insertSourceStructureCheck = `-- name: InsertSourceStructureCheck :exec
+INSERT INTO source_structure_checks(
+    owner_id, source_material_id, content_revision_id, snapshot_id,
+    target_contract_version, structure_convention_set, outcome, result_identity
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (
+    owner_id, source_material_id, content_revision_id, snapshot_id,
+    target_contract_version, structure_convention_set
+) DO NOTHING
+`
+
+type InsertSourceStructureCheckParams struct {
+	OwnerID                string
+	SourceMaterialID       string
+	ContentRevisionID      string
+	SnapshotID             string
+	TargetContractVersion  int
+	StructureConventionSet string
+	Outcome                string
+	ResultIdentity         string
+}
+
+func (q *Queries) InsertSourceStructureCheck(ctx context.Context, arg InsertSourceStructureCheckParams) error {
+	_, err := q.db.Exec(ctx, insertSourceStructureCheck,
+		arg.OwnerID,
+		arg.SourceMaterialID,
+		arg.ContentRevisionID,
+		arg.SnapshotID,
+		arg.TargetContractVersion,
+		arg.StructureConventionSet,
+		arg.Outcome,
+		arg.ResultIdentity,
+	)
+	return err
+}
+
+const listExtractedUnitsForSnapshot = `-- name: ListExtractedUnitsForSnapshot :many
 SELECT u.unit_id, u.unit_order, u.spine_index, u.title, u.title_source, u.text,
        u.start_offset, u.end_offset, u.package_path, u.manifest_id, u.source_href,
        u.resolved_href, u.media_type, u.properties, u.linear, u.navigation_labels,
        u.landmark_types
 FROM source_material_units u
-JOIN source_materials s ON s.owner_id = u.owner_id
-                        AND s.id = u.source_material_id
-                        AND s.current_snapshot_id = u.snapshot_id
-WHERE u.owner_id = $1 AND u.source_material_id = $2
+WHERE u.owner_id = $1 AND u.source_material_id = $2 AND u.snapshot_id = $3
 ORDER BY u.unit_order
 `
 
-type ListCurrentExtractedUnitsParams struct {
+type ListExtractedUnitsForSnapshotParams struct {
 	OwnerID          string
 	SourceMaterialID string
+	SnapshotID       string
 }
 
-type ListCurrentExtractedUnitsRow struct {
+type ListExtractedUnitsForSnapshotRow struct {
 	UnitID           string
 	UnitOrder        int64
 	SpineIndex       int64
@@ -270,15 +400,15 @@ type ListCurrentExtractedUnitsRow struct {
 	LandmarkTypes    []byte
 }
 
-func (q *Queries) ListCurrentExtractedUnits(ctx context.Context, arg ListCurrentExtractedUnitsParams) ([]ListCurrentExtractedUnitsRow, error) {
-	rows, err := q.db.Query(ctx, listCurrentExtractedUnits, arg.OwnerID, arg.SourceMaterialID)
+func (q *Queries) ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error) {
+	rows, err := q.db.Query(ctx, listExtractedUnitsForSnapshot, arg.OwnerID, arg.SourceMaterialID, arg.SnapshotID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListCurrentExtractedUnitsRow{}
+	items := []ListExtractedUnitsForSnapshotRow{}
 	for rows.Next() {
-		var i ListCurrentExtractedUnitsRow
+		var i ListExtractedUnitsForSnapshotRow
 		if err := rows.Scan(
 			&i.UnitID,
 			&i.UnitOrder,
@@ -297,6 +427,89 @@ func (q *Queries) ListCurrentExtractedUnits(ctx context.Context, arg ListCurrent
 			&i.Linear,
 			&i.NavigationLabels,
 			&i.LandmarkTypes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSourceMaterialUnitHeadingResets = `-- name: ListSourceMaterialUnitHeadingResets :many
+SELECT unit_id, "offset"
+FROM source_material_unit_heading_resets
+WHERE owner_id = $1 AND source_material_id = $2 AND snapshot_id = $3
+ORDER BY unit_id, "offset"
+`
+
+type ListSourceMaterialUnitHeadingResetsParams struct {
+	OwnerID          string
+	SourceMaterialID string
+	SnapshotID       string
+}
+
+type ListSourceMaterialUnitHeadingResetsRow struct {
+	UnitID string
+	Offset int
+}
+
+func (q *Queries) ListSourceMaterialUnitHeadingResets(ctx context.Context, arg ListSourceMaterialUnitHeadingResetsParams) ([]ListSourceMaterialUnitHeadingResetsRow, error) {
+	rows, err := q.db.Query(ctx, listSourceMaterialUnitHeadingResets, arg.OwnerID, arg.SourceMaterialID, arg.SnapshotID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSourceMaterialUnitHeadingResetsRow{}
+	for rows.Next() {
+		var i ListSourceMaterialUnitHeadingResetsRow
+		if err := rows.Scan(&i.UnitID, &i.Offset); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSourceMaterialUnitRoleSpans = `-- name: ListSourceMaterialUnitRoleSpans :many
+SELECT unit_id, role, start_offset, end_offset
+FROM source_material_unit_role_spans
+WHERE owner_id = $1 AND source_material_id = $2 AND snapshot_id = $3
+ORDER BY unit_id, start_offset, end_offset
+`
+
+type ListSourceMaterialUnitRoleSpansParams struct {
+	OwnerID          string
+	SourceMaterialID string
+	SnapshotID       string
+}
+
+type ListSourceMaterialUnitRoleSpansRow struct {
+	UnitID      string
+	Role        string
+	StartOffset int
+	EndOffset   int
+}
+
+func (q *Queries) ListSourceMaterialUnitRoleSpans(ctx context.Context, arg ListSourceMaterialUnitRoleSpansParams) ([]ListSourceMaterialUnitRoleSpansRow, error) {
+	rows, err := q.db.Query(ctx, listSourceMaterialUnitRoleSpans, arg.OwnerID, arg.SourceMaterialID, arg.SnapshotID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSourceMaterialUnitRoleSpansRow{}
+	for rows.Next() {
+		var i ListSourceMaterialUnitRoleSpansRow
+		if err := rows.Scan(
+			&i.UnitID,
+			&i.Role,
+			&i.StartOffset,
+			&i.EndOffset,
 		); err != nil {
 			return nil, err
 		}
