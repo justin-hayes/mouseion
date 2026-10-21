@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="book-id">urn:mouseion:gutenberg-fixture</dc:identifier>
+    <dc:title>Gutenberg Fixture</dc:title>
+  </metadata>
+  <manifest>
+    <item id="nav" href="Navigation/nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="pg-header" href="Text/header.xhtml" media-type="application/xhtml+xml"/>
+    <item id="chapter" href="Text/chapter.xhtml" media-type="application/xhtml+xml"/>
+    <item id="pg-footer" href="Text/footer.xhtml" media-type="application/xhtml+xml"/>
+    <item id="illustration" href="Text/illustration.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="pg-header"/>
+    <itemref idref="chapter"/>
+    <itemref idref="pg-footer"/>
+    <itemref idref="illustration"/>
+  </spine>
+</package>

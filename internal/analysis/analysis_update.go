@@ -56,11 +56,12 @@ func currentTarget(value analyzer.Capabilities, language string) (domain.Analysi
 
 // pipelineOutdated reports whether a published identity differs from the
 // current one. The selection configuration is derived from the unchanged
-// snapshot, so it differs only when it is no longer one the analyzer produces.
-func pipelineOutdated(published domain.AnalysisPipelineIdentity, target domain.AnalysisUpdateTarget) bool {
+// snapshot, so a Book is outdated when the snapshot no longer produces the
+// identity its run recorded (ADR 0107, amended by ADR 0108).
+func pipelineOutdated(published domain.AnalysisPipelineIdentity, target domain.AnalysisUpdateTarget, derivedSelection string) bool {
 	return published.AnalyzerName != target.AnalyzerName ||
 		published.AnalyzerVersion != target.AnalyzerVersion ||
-		(published.ConfigIdentity != snapshotConfigIdentity && published.ConfigIdentity != mainTextConfigIdentity) ||
+		published.ConfigIdentity != derivedSelection ||
 		published.NormalizationProfile != target.NormalizationProfile ||
 		published.NormalizationVersion != target.NormalizationVersion
 }
@@ -68,16 +69,18 @@ func pipelineOutdated(published domain.AnalysisPipelineIdentity, target domain.A
 // publishedAnalysis is a Book's published EPUB analysis with the identity its
 // artifact recorded and the learner decisions made on it.
 type publishedAnalysis struct {
-	sourceID, language, runID string
-	identity                  domain.AnalysisPipelineIdentity
-	corrections, exclusions   int
+	sourceID, language, runID     string
+	snapshotID, contentRevisionID string
+	identity                      domain.AnalysisPipelineIdentity
+	corrections, exclusions       int
 }
 
 // publishedAnalysisSelect reads the published analysis of EPUB sources. The
 // normalization identity comes from the artifact, so runs created before
 // ADR 0107 are judged without a backfill.
 const publishedAnalysisSelect = `SELECT cai.source_material_id::text,s.language,cai.analysis_run_id::text,
-	r.analyzer_name,r.analyzer_version,r.config_identity,a.normalization_profile,a.normalization_version,
+	r.analyzer_name,r.analyzer_version,r.config_identity,r.snapshot_id::text,r.content_revision_id::text,
+	a.normalization_profile,a.normalization_version,
 	(SELECT count(*) FROM occurrence_lemma_corrections o WHERE o.owner_id=cai.owner_id AND o.book_id=cai.book_id AND o.analysis_run_id=cai.analysis_run_id AND NOT o.excluded),
 	(SELECT count(*) FROM occurrence_lemma_corrections o WHERE o.owner_id=cai.owner_id AND o.book_id=cai.book_id AND o.analysis_run_id=cai.analysis_run_id AND o.excluded)
 	FROM current_analysis_identity cai
@@ -89,7 +92,7 @@ const publishedAnalysisSelect = `SELECT cai.source_material_id::text,s.language,
 
 func scanPublishedAnalysis(row pgx.Row) (publishedAnalysis, error) {
 	var p publishedAnalysis
-	err := row.Scan(&p.sourceID, &p.language, &p.runID, &p.identity.AnalyzerName, &p.identity.AnalyzerVersion, &p.identity.ConfigIdentity, &p.identity.NormalizationProfile, &p.identity.NormalizationVersion, &p.corrections, &p.exclusions)
+	err := row.Scan(&p.sourceID, &p.language, &p.runID, &p.identity.AnalyzerName, &p.identity.AnalyzerVersion, &p.identity.ConfigIdentity, &p.snapshotID, &p.contentRevisionID, &p.identity.NormalizationProfile, &p.identity.NormalizationVersion, &p.corrections, &p.exclusions)
 	return p, err
 }
 
@@ -127,15 +130,46 @@ func (s *Service) AnalysisUpdateCandidates(ctx context.Context, owner string, so
 		if err != nil {
 			return nil, fmt.Errorf("read published analysis identity: %w", err)
 		}
-		target, ok := currentTarget(capabilities, published.language)
-		if ok && pipelineOutdated(published.identity, target) {
-			candidates[published.sourceID] = published.candidate(target)
+		candidate, outdated, err := s.outdatedCandidate(ctx, owner, published, capabilities)
+		if err != nil {
+			return nil, err
+		}
+		if outdated {
+			candidates[published.sourceID] = candidate
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read published analysis identities: %w", err)
 	}
 	return candidates, nil
+}
+
+// outdatedCandidate reports whether one published analysis differs from the
+// identity its unchanged snapshot and the running service produce now.
+func (s *Service) outdatedCandidate(ctx context.Context, owner string, published publishedAnalysis, capabilities analyzer.Capabilities) (domain.AnalysisUpdateCandidate, bool, error) {
+	target, ok := currentTarget(capabilities, published.language)
+	if !ok {
+		return domain.AnalysisUpdateCandidate{}, false, nil
+	}
+	derivedSelection, err := s.selectionIdentityForSnapshot(ctx, owner, published)
+	if err != nil {
+		return domain.AnalysisUpdateCandidate{}, false, err
+	}
+	if !pipelineOutdated(published.identity, target, derivedSelection) {
+		return domain.AnalysisUpdateCandidate{}, false, nil
+	}
+	return published.candidate(target), true, nil
+}
+
+// selectionIdentityForSnapshot derives the selection identity the published
+// run's unchanged snapshot produces now. Analysis runs always carry a snapshot
+// and content revision (both columns are NOT NULL).
+func (s *Service) selectionIdentityForSnapshot(ctx context.Context, owner string, published publishedAnalysis) (string, error) {
+	units, err := loadSnapshotUnitsForSelection(ctx, s.pool, owner, published.sourceID, published.contentRevisionID, published.snapshotID)
+	if err != nil {
+		return "", fmt.Errorf("derive analysis selection identity: %w", err)
+	}
+	return snapshotConfigIdentityFor(identifyMainText(units)), nil
 }
 
 // SubmitAnalysisUpdate queues the learner-confirmed Analysis update of a To

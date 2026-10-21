@@ -5,6 +5,7 @@ package analysis
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -265,6 +266,64 @@ func TestAnalysisUpdateCandidatesNothingWhenTheCurrentIdentityIsUnknown(t *testi
 	require.NoError(t, err)
 	assert.Empty(t, offers, "a service without capabilities treats every Book as current")
 	assert.Equal(t, 1, h.runCount(t, ctx, source.ID))
+}
+
+func TestAnalysisUpdateCandidatesDeriveTheSnapshotSelection(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	t.Cleanup(cancel)
+	h := newAnalysisUpdateHarness(t, ctx, "analysis-update-selection")
+
+	_, regularSource, regular := h.analyzedToReadBook(t, ctx, "regular")
+	assert.Equal(t, snapshotConfigIdentity, h.runConfigIdentity(t, ctx, regular.RunID))
+
+	book, err := h.store.CreateBook(ctx, domain.Book{OwnerID: h.owner, Title: "Gutenberg selection", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	texts := []string{
+		"Preamble.\n\n*** START OF THE PROJECT GUTENBERG EBOOK X ***\n\nBook one.",
+		"Book two.",
+		"*** END OF THE PROJECT GUTENBERG EBOOK X ***\n\nLicence.",
+		"back",
+	}
+	manifestIDs := []string{"pg-header", "chapter", "pg-footer", "illustration"}
+	fullText := strings.Join(texts, "\n\n")
+	units := make([]domain.ExtractedUnit, len(texts))
+	var start uint64
+	for i, text := range texts {
+		end := start + uint64(len([]rune(text)))
+		units[i] = domain.ExtractedUnit{
+			ID: domain.EPUBUnitID(uint64(i), manifestIDs[i]), Order: uint64(i), SpineIndex: uint64(i),
+			ManifestID: manifestIDs[i], SourceHref: manifestIDs[i] + ".xhtml", ResolvedHref: manifestIDs[i] + ".xhtml",
+			Text: text, StartOffset: start, EndOffset: end, MediaType: "application/xhtml+xml", Linear: true,
+		}
+		start = end + 2
+	}
+	source, err := putAnalysisSourceWithUnits(ctx, h.store, h.owner, "gutenberg-selection", book.Title, fullText, "sha256:gutenberg-selection", units)
+	require.NoError(t, err)
+	require.NoError(t, h.store.LinkSourceToBook(ctx, h.owner, book.ID, source.ID))
+	require.NoError(t, h.store.SetBookDisposition(ctx, h.owner, book.ID, domain.BookDispositionToRead))
+	handle, err := h.service.SubmitToReadBookAnalysis(ctx, h.owner, book.ID, source.ID)
+	require.NoError(t, err)
+	status, err := h.service.Wait(ctx, h.owner, handle.ID)
+	require.NoError(t, err)
+	require.Equal(t, rivertype.JobStateCompleted, status.State, status.Error)
+	assert.Equal(t, distributorConfigIdentity, h.runConfigIdentity(t, ctx, handle.RunID))
+
+	// Simulate a Book published before Distributor selection existed.
+	_, err = h.store.Pool().Exec(ctx, `UPDATE analysis_runs SET config_identity=$3 WHERE owner_id=$1 AND id=$2`, h.owner, handle.RunID, snapshotConfigIdentity)
+	require.NoError(t, err)
+
+	offers, err := h.service.AnalysisUpdateCandidates(ctx, h.owner, []string{source.ID, regularSource.ID})
+	require.NoError(t, err)
+	require.Contains(t, offers, source.ID, "the Gutenberg snapshot now selects differently")
+	assert.Equal(t, handle.RunID, offers[source.ID].PublishedRunID)
+	assert.NotContains(t, offers, regularSource.ID, "a non-Gutenberg snapshot keeps the default identity")
+}
+
+func (h analysisUpdateHarness) runConfigIdentity(t *testing.T, ctx context.Context, runID string) string {
+	t.Helper()
+	var identity string
+	require.NoError(t, h.store.Pool().QueryRow(ctx, `SELECT config_identity FROM analysis_runs WHERE owner_id=$1 AND id=$2`, h.owner, runID).Scan(&identity))
+	return identity
 }
 
 func TestAnalysisUpdateIsRefusedOutsideNonCurrentToReadBooks(t *testing.T) {
