@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS public.source_material_unit_role_spans;
 
 DROP FUNCTION IF EXISTS public.validate_source_material_unit_heading_reset();
 DROP FUNCTION IF EXISTS public.validate_source_material_unit_role_span();
+DROP FUNCTION IF EXISTS public.source_material_unit_structure_length(uuid, uuid, uuid, text);
 DROP FUNCTION IF EXISTS public.reject_source_structure_mutation();
 
 DROP INDEX IF EXISTS public.source_material_unit_snapshots_v2_extraction_identity;

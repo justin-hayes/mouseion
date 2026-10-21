@@ -84,11 +84,12 @@ ALTER TABLE ONLY public.source_material_unit_heading_resets
     REFERENCES public.source_material_units(owner_id, source_material_id, snapshot_id, unit_id)
     ON DELETE CASCADE;
 
--- Reject role spans that leave the unit text, cross another span without proper
--- nesting, or contradict another role by giving the same bounds two roles or by
--- wrapping a speaker label inside a direction. A direction nested inside a
--- speaker label is explicitly allowed.
-CREATE FUNCTION public.validate_source_material_unit_role_span() RETURNS trigger
+-- Resolve the exact unit text length for a structure reference, rejecting a
+-- unit from another snapshot and a v1 contract. Both structure triggers share
+-- this ownership and bounds precondition.
+CREATE FUNCTION public.source_material_unit_structure_length(
+    p_owner_id uuid, p_source_material_id uuid, p_snapshot_id uuid, p_unit_id text
+) RETURNS integer
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -102,16 +103,32 @@ BEGIN
         ON u.owner_id = snap.owner_id
        AND u.source_material_id = snap.source_material_id
        AND u.snapshot_id = snap.snapshot_id
-     WHERE snap.owner_id = NEW.owner_id
-       AND snap.source_material_id = NEW.source_material_id
-       AND snap.snapshot_id = NEW.snapshot_id
-       AND u.unit_id = NEW.unit_id;
+     WHERE snap.owner_id = p_owner_id
+       AND snap.source_material_id = p_source_material_id
+       AND snap.snapshot_id = p_snapshot_id
+       AND u.unit_id = p_unit_id;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'role span unit does not belong to snapshot';
+        RAISE EXCEPTION 'structure reference unit does not belong to snapshot';
     END IF;
     IF snapshot_schema < 2 THEN
-        RAISE EXCEPTION 'role spans require an extraction contract v2 snapshot';
+        RAISE EXCEPTION 'structure references require an extraction contract v2 snapshot';
     END IF;
+    RETURN unit_length;
+END;
+$$;
+
+-- Reject role spans that leave the unit text, cross another span without proper
+-- nesting, or contradict another role by giving the same bounds two roles or by
+-- wrapping a speaker label inside a direction. A direction nested inside a
+-- speaker label is explicitly allowed.
+CREATE FUNCTION public.validate_source_material_unit_role_span() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    unit_length integer;
+BEGIN
+    unit_length := public.source_material_unit_structure_length(
+        NEW.owner_id, NEW.source_material_id, NEW.snapshot_id, NEW.unit_id);
     IF NEW.start_offset < 0 OR NEW.end_offset <= NEW.start_offset OR NEW.end_offset > unit_length THEN
         RAISE EXCEPTION 'role span offsets are outside the unit text';
     END IF;
@@ -172,25 +189,9 @@ CREATE FUNCTION public.validate_source_material_unit_heading_reset() RETURNS tri
     AS $$
 DECLARE
     unit_length integer;
-    snapshot_schema integer;
 BEGIN
-    SELECT snap.schema_version, char_length(u.text)
-      INTO snapshot_schema, unit_length
-      FROM public.source_material_unit_snapshots snap
-      JOIN public.source_material_units u
-        ON u.owner_id = snap.owner_id
-       AND u.source_material_id = snap.source_material_id
-       AND u.snapshot_id = snap.snapshot_id
-     WHERE snap.owner_id = NEW.owner_id
-       AND snap.source_material_id = NEW.source_material_id
-       AND snap.snapshot_id = NEW.snapshot_id
-       AND u.unit_id = NEW.unit_id;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'heading reset unit does not belong to snapshot';
-    END IF;
-    IF snapshot_schema < 2 THEN
-        RAISE EXCEPTION 'heading resets require an extraction contract v2 snapshot';
-    END IF;
+    unit_length := public.source_material_unit_structure_length(
+        NEW.owner_id, NEW.source_material_id, NEW.snapshot_id, NEW.unit_id);
     IF NEW."offset" < 0 OR NEW."offset" > unit_length THEN
         RAISE EXCEPTION 'heading reset offset is outside the unit text';
     END IF;
