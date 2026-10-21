@@ -165,6 +165,16 @@ accuracy figure on real books.
 - **Isolated merged-entry errors are accepted.** For example, `ciel` takes
   `cieux` as its plural for every sense. Systematic gaps in common vocabulary are
   not accepted.
+- **Some French analyzer lemma errors stay unflagged.** Automatic French
+  lemma-risk review flags an occurrence only when the index links the surface to
+  a same-POS alternative. All-caps names tagged ADJ (`FOGG`, `PHILEAS`,
+  `PASSEPARTOUT`, `MADELEINE`), invented lemmas with no index-backed
+  alternative (`fage` from `fr`), verb-tagged plurals whose noun target has no
+  index entry (`taper` NOUN from `tapes`), `baissée` analyzed as *baisser* ADJ,
+  and `s'écria` analyzed as `écrire` when the analyzed lemma exists are
+  reachable only through manual review ("Correct another word"). A participial
+  adjective such as *mouillé* analyzed as *mouiller* ADJ is not a lemma error
+  and is deliberately not flagged.
 - Omitted IPA, plurals or conjugation summaries are acceptable; invented values
   are not.
 

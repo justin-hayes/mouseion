@@ -14,6 +14,7 @@ import sqlite3
 import tempfile
 import unicodedata
 from collections import OrderedDict
+from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
@@ -30,7 +31,7 @@ ANCIENT_GREEK_LANGUAGE = "grc"
 FRENCH_LANGUAGE = "fr"
 # The LSJ (Perseus) derivation is optional: it is present only when an operator
 # points --lsj-dir at the pinned PerseusDL/lexica tree. Its table and the
-# metadata pin are what distinguish index format 4 from format 3.
+# metadata pin are what distinguish an LSJ index from a Kaikki-only one.
 LSJ_PIN = "56061ca127f4a2844980baffc5f2b6d1332897b3"
 # tlg0032 is Xenophon in the Perseus/Cts URN space; only Xenophon citations are
 # kept on an LSJ sense.
@@ -38,9 +39,11 @@ XENOPHON_URN_PREFIX = "urn:cts:greekLit:tlg0032"
 # index format 3 introduced the French h_status column (ticket #2163); format 4
 # adds the LSJ table and the lsj_pin metadata (ticket #2169); format 5 adds the
 # LSJ sub-entry classification that keeps a phrase sub-entry or a redirect stub
-# from counting as a homograph (ticket #2214).
-INDEX_FORMAT_VERSION = 3
-LSJ_INDEX_FORMAT_VERSION = 5
+# from counting as a homograph (ticket #2214); format 6 (and non-LSJ format 4)
+# adds French form-of links and headword membership for lemma-risk review
+# (ticket #2244).
+INDEX_FORMAT_VERSION = 4
+LSJ_INDEX_FORMAT_VERSION = 6
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -126,6 +129,19 @@ CREATE TABLE lsj_entries (
     senses_json TEXT NOT NULL,
     subordinate INTEGER NOT NULL
 );
+CREATE TABLE french_forms (
+    form TEXT NOT NULL,
+    upos TEXT NOT NULL,
+    target TEXT NOT NULL,
+    participle INTEGER NOT NULL,
+    evidence_id TEXT NOT NULL
+);
+CREATE INDEX french_forms_lookup ON french_forms(form, upos);
+CREATE TABLE french_headwords (
+    lemma TEXT NOT NULL,
+    upos TEXT NOT NULL,
+    PRIMARY KEY (lemma, upos)
+);
 """
 INSERT_ENTRIES_SQL = (
     "INSERT INTO entries"
@@ -139,6 +155,10 @@ INSERT_GREEK_ENTRIES_SQL = (
 INSERT_LSJ_ENTRIES_SQL = (
     "INSERT INTO lsj_entries(entry_id, headword, senses_json, subordinate) VALUES (?, ?, ?, ?)"
 )
+INSERT_FRENCH_FORMS_SQL = (
+    "INSERT INTO french_forms(form, upos, target, participle, evidence_id) VALUES (?, ?, ?, ?, ?)"
+)
+INSERT_FRENCH_HEADWORDS_SQL = "INSERT INTO french_headwords(lemma, upos) VALUES (?, ?)"
 
 
 def load_german_normalization_policy() -> dict:
@@ -444,6 +464,14 @@ def open_input(path: Path):
     return path.open(encoding="utf-8")
 
 
+def parsed_items(input_path: Path) -> Iterator[dict]:
+    """Yield each non-empty JSON object from a Kaikki dump."""
+    with open_input(input_path) as source:
+        for line in source:
+            if line.strip():
+                yield json.loads(line)
+
+
 def file_sha256(path: Path) -> str:
     open_binary = gzip.open if path.suffix == ".gz" else Path.open
     digest = hashlib.sha256()
@@ -549,18 +577,113 @@ def indexed_key(item: dict) -> tuple[str, str] | None:
 
 def collect_entries(input_path: Path) -> dict[tuple[str, str, str], dict]:
     entries: dict[tuple[str, str, str], dict] = {}
-    with open_input(input_path) as source:
-        for line in source:
-            if not line.strip():
-                continue
-            item = json.loads(line)
-            key = indexed_key(item)
-            if key is None:
-                continue
-            language, lemma = key
-            for upos, sense in senses_for_item(item):
-                record_sense(entries, (language, lemma, upos), sense, item, upos)
+    for item in parsed_items(input_path):
+        key = indexed_key(item)
+        if key is None:
+            continue
+        language, lemma = key
+        for upos, sense in senses_for_item(item):
+            record_sense(entries, (language, lemma, upos), sense, item, upos)
     return entries
+
+
+def french_form_evidence_id(form: str, upos: str, target: str, participle: bool) -> str:
+    """Derive stable provenance for one French form-of link."""
+    identity = json.dumps(
+        {"form": form, "upos": upos, "target": target, "participle": participle},
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+    return "wiktionary-form-of:" + digest
+
+
+def french_form_of_targets(raw: dict) -> list[str]:
+    """Return the structured form-of headwords a Kaikki sense records.
+
+    Only the explicit ``form_of`` field is evidence. Gloss text is never parsed.
+    """
+    targets = []
+    for target in raw.get("form_of", []):
+        word = target.get("word") if isinstance(target, dict) else target
+        if isinstance(word, str) and word.strip():
+            targets.append(word.strip())
+    return targets
+
+
+def french_sense_links(item: dict, raw_sense: dict) -> tuple[list[str], bool, bool]:
+    """Return a French sense's form-of targets and whether it is a form.
+
+    The participle flag comes from Wiktionary's structured tags and is what
+    lets a participial adjective match the analyzed verb it belongs to.
+    """
+    targets = french_form_of_targets(raw_sense)
+    tags = tags_for(item, raw_sense)
+    is_form_of = bool(targets) or any(tag.casefold() == "form-of" for tag in tags)
+    participle = any(tag.casefold() == "participle" for tag in tags)
+    return targets, is_form_of, participle
+
+
+@dataclass
+class FrenchFormAccumulator:
+    """The French form-of and headword sets collected during one pass."""
+
+    forms: list[tuple[str, str, str, int, str]] = field(default_factory=list)
+    headwords: set[tuple[str, str]] = field(default_factory=set)
+    seen: set[tuple[str, str, str, bool]] = field(default_factory=set)
+
+
+def record_french_sense(
+    accumulator: FrenchFormAccumulator,
+    item: dict,
+    form: str,
+    raw_sense: object,
+) -> None:
+    if not isinstance(raw_sense, dict):
+        return
+    if not [gloss for gloss in values(raw_sense.get("glosses")) if gloss.strip()]:
+        return
+    targets, is_form_of, participle = french_sense_links(item, raw_sense)
+    for upos in upos_for(item, raw_sense):
+        if not is_form_of:
+            accumulator.headwords.add((form, upos))
+        for target in targets:
+            normalized_target = normalize(FRENCH_LANGUAGE, target)
+            key = (form, upos, normalized_target, participle)
+            if not normalized_target or key in accumulator.seen:
+                continue
+            accumulator.seen.add(key)
+            accumulator.forms.append(
+                (
+                    form,
+                    upos,
+                    normalized_target,
+                    int(participle),
+                    french_form_evidence_id(form, upos, normalized_target, participle),
+                )
+            )
+
+
+def collect_french_form_data(
+    input_path: Path,
+) -> tuple[list[tuple[str, str, str, int, str]], list[tuple[str, str]]]:
+    """Collect French form-of links and the entries that are real headwords.
+
+    A French entry is a headword only when at least one of its indexed senses is
+    not a form-of sense. A form-of-only entry is still in the entries table, but
+    it is not offered as a competing surface headword.
+    """
+    accumulator = FrenchFormAccumulator()
+    for item in parsed_items(input_path):
+        if item.get("lang_code") != FRENCH_LANGUAGE:
+            continue
+        word = item.get("word")
+        if not isinstance(word, str) or not word.strip():
+            continue
+        form = normalize(FRENCH_LANGUAGE, word)
+        for raw_sense in item.get("senses", []):
+            record_french_sense(accumulator, item, form, raw_sense)
+    return accumulator.forms, sorted(accumulator.headwords)
 
 
 def greek_etymology_number(item: dict) -> str:
@@ -606,14 +729,10 @@ def collect_greek_entries(input_path: Path) -> list[tuple[str, str, str, str, st
     # One row per source entry (never merged by key): two Wiktionary homographs
     # that share a headword and part of speech stay separate rows.
     rows: list[tuple[str, str, str, str, str]] = []
-    with open_input(input_path) as source:
-        for line in source:
-            if not line.strip():
-                continue
-            item = json.loads(line)
-            if item.get("lang_code") != ANCIENT_GREEK_LANGUAGE:
-                continue
-            rows.extend(greek_rows_for_item(item))
+    for item in parsed_items(input_path):
+        if item.get("lang_code") != ANCIENT_GREEK_LANGUAGE:
+            continue
+        rows.extend(greek_rows_for_item(item))
     return sorted(rows)
 
 
@@ -1029,11 +1148,13 @@ class LsjSource:
 
 @dataclass
 class DerivedRows:
-    """The three row sets a derivation collects before writing the index."""
+    """The row sets a derivation collects before writing the index."""
 
     entries: dict[tuple[str, str, str], dict]
     greek_entries: list[tuple[str, str, str, str, str]]
     lsj_entries: list[tuple[str, str, str, int]]
+    french_forms: list[tuple[str, str, str, int, str]]
+    french_headwords: list[tuple[str, str]]
 
 
 def metadata_rows(provider_version: str, source: SourceMetadata, lsj_pin: str) -> dict[str, str]:
@@ -1092,6 +1213,8 @@ def write_index(
         connection.executemany(INSERT_ENTRIES_SQL, entry_rows(rows.entries))
         connection.executemany(INSERT_GREEK_ENTRIES_SQL, rows.greek_entries)
         connection.executemany(INSERT_LSJ_ENTRIES_SQL, rows.lsj_entries)
+        connection.executemany(INSERT_FRENCH_FORMS_SQL, rows.french_forms)
+        connection.executemany(INSERT_FRENCH_HEADWORDS_SQL, rows.french_headwords)
         connection.commit()
         connection.execute("PRAGMA journal_mode = OFF")
         connection.close()
@@ -1111,10 +1234,13 @@ def derive(
     source = source or SourceMetadata()
     if not source.source_sha256:
         source = replace(source, source_sha256=file_sha256(input_path))
+    french_forms, french_headwords = collect_french_form_data(input_path)
     rows = DerivedRows(
         entries=collect_entries(input_path),
         greek_entries=collect_greek_entries(input_path),
         lsj_entries=collect_lsj_entries(lsj.directory) if lsj else [],
+        french_forms=french_forms,
+        french_headwords=french_headwords,
     )
     write_index(
         output_path,

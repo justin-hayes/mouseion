@@ -29,6 +29,20 @@ type AlternativeIndex interface {
 	Alternatives(context.Context, string, string, string, string) ([]Alternative, error)
 }
 
+// LemmaAlternativeIndex is an optional extension for adapters whose evidence
+// rule needs the analyzed lemma. The detector prefers it when the index
+// implements it; an adapter that does not keeps the surface-and-UPOS contract.
+type LemmaAlternativeIndex interface {
+	AlternativesForLemma(context.Context, string, string, string, string, string) ([]Alternative, error)
+}
+
+// AvailabilityIndex is an optional extension for an adapter whose language
+// evidence can be absent even when the index opens. Detect consults it before
+// treating a Book with nothing to inspect as a clean assessment.
+type AvailabilityIndex interface {
+	AssessmentAvailable(context.Context, string) (bool, error)
+}
+
 type Flag struct {
 	OccurrenceID string
 	Reason       string
@@ -44,8 +58,17 @@ type occurrenceAlternatives struct {
 // evidence is unavailable. A missing exact lemma is never sufficient to flag.
 func Detect(ctx context.Context, language string, occurrences []Occurrence, index AlternativeIndex) ([]Flag, bool, error) {
 	language = strings.ToLower(strings.TrimSpace(language))
-	if language != "de" || index == nil {
+	if !SupportsLanguage(language) || index == nil {
 		return nil, false, nil
+	}
+	if availability, ok := index.(AvailabilityIndex); ok {
+		available, err := availability.AssessmentAvailable(ctx, language)
+		if err != nil {
+			return nil, false, err
+		}
+		if !available {
+			return nil, false, nil
+		}
 	}
 	counts := countLemmaOccurrences(occurrences)
 	state := newDetectionState(len(occurrences))
@@ -59,7 +82,7 @@ func Detect(ctx context.Context, language string, occurrences []Occurrence, inde
 			possible = append(possible, occurrenceAlternatives{Occurrence: occurrence, Alternatives: alternatives})
 		}
 	}
-	flags := flagRecurringCandidates(possible, counts, state.potentialCounts)
+	flags := flagRecurringCandidates(possible, counts, state.potentialCounts, flagReason(language))
 	sort.Slice(flags, func(i, j int) bool { return flags[i].OccurrenceID < flags[j].OccurrenceID })
 	return flags, true, nil
 }
@@ -98,14 +121,15 @@ func newDetectionState(size int) *detectionState {
 // occurrence the local index does not already carry, recording each new
 // candidate identity as a potential occurrence of the proposed lemma.
 func (s *detectionState) collectValidAlternatives(ctx context.Context, occurrence Occurrence, index AlternativeIndex) ([]Alternative, error) {
-	if strings.ToLower(occurrence.Language) != "de" || occurrence.Reviewed || occurrence.Excluded || strings.TrimSpace(occurrence.ID) == "" || strings.TrimSpace(occurrence.Lemma) == "" {
+	language := strings.ToLower(strings.TrimSpace(occurrence.Language))
+	if !SupportsLanguage(language) || occurrence.Reviewed || occurrence.Excluded || strings.TrimSpace(occurrence.ID) == "" || strings.TrimSpace(occurrence.Lemma) == "" {
 		return nil, nil
 	}
 	key := identity(occurrence.Lemma, occurrence.UPOS)
 	exists, checked := s.lemmaExists[key], s.lemmaChecked[key]
 	if !checked {
 		var err error
-		exists, err = index.LemmaExists(ctx, "de", occurrence.Lemma, occurrence.UPOS)
+		exists, err = index.LemmaExists(ctx, language, occurrence.Lemma, occurrence.UPOS)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +138,13 @@ func (s *detectionState) collectValidAlternatives(ctx context.Context, occurrenc
 	if exists {
 		return nil, nil
 	}
-	alternatives, err := index.Alternatives(ctx, "de", occurrence.Surface, occurrence.UPOS, occurrence.Sentence)
+	var alternatives []Alternative
+	var err error
+	if aware, ok := index.(LemmaAlternativeIndex); ok {
+		alternatives, err = aware.AlternativesForLemma(ctx, language, occurrence.Surface, occurrence.Lemma, occurrence.UPOS, occurrence.Sentence)
+	} else {
+		alternatives, err = index.Alternatives(ctx, language, occurrence.Surface, occurrence.UPOS, occurrence.Sentence)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +180,7 @@ func (s *detectionState) recordPotential(candidateID, occurrenceID string) {
 
 // flagRecurringCandidates flags one occurrence per alternative whose combined
 // existing and potential occurrences reach the recurring floor.
-func flagRecurringCandidates(possible []occurrenceAlternatives, counts, potentialCounts map[string]int) []Flag {
+func flagRecurringCandidates(possible []occurrenceAlternatives, counts, potentialCounts map[string]int, reason string) []Flag {
 	flags := make([]Flag, 0)
 	for _, candidate := range possible {
 		for _, alternative := range candidate.Alternatives {
@@ -160,7 +190,7 @@ func flagRecurringCandidates(possible []occurrenceAlternatives, counts, potentia
 			}
 			flags = append(flags, Flag{
 				OccurrenceID: candidate.Occurrence.ID,
-				Reason:       "The analyzed lemma is a local-index miss and sentence-level lexical evidence supports a competing lemma that could affect recurring vocabulary.",
+				Reason:       reason,
 				Alternative:  alternative,
 			})
 			break
@@ -169,4 +199,20 @@ func flagRecurringCandidates(possible []occurrenceAlternatives, counts, potentia
 	return flags
 }
 
+// flagReason names the evidence rule that produced a flag. German keeps its
+// sentence-overlap wording; French evidence is the index link itself.
+func flagReason(language string) string {
+	if language == "fr" {
+		return "The analyzed lemma is a local-index miss and the dictionary links this surface to a competing lemma with the same part of speech that could affect recurring vocabulary."
+	}
+	return "The analyzed lemma is a local-index miss and sentence-level lexical evidence supports a competing lemma that could affect recurring vocabulary."
+}
+
 func identity(lemma, upos string) string { return strings.ToLower(lemma) + "\x00" + upos }
+
+// SupportsLanguage reports whether automatic lemma-risk detection runs for a
+// language. German and French have dictionary-backed evidence rules; every
+// other language remains manual-only.
+func SupportsLanguage(language string) bool {
+	return language == "de" || language == "fr"
+}

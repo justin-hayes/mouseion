@@ -661,6 +661,10 @@ func newGreekTestIndex(t *testing.T, seedStatements ...string) *Index {
 // that carries both Ancient Greek entries and the French h_status evidence.
 const dictionaryFrenchFixtureSchema = `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, h_status TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '3')`
 
+// dictionaryFrenchFormsFixtureSchema is the read-only schema of the index
+// format that carries French form-of links and headword membership.
+const dictionaryFrenchFormsFixtureSchema = `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, h_status TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL); CREATE TABLE french_forms (form TEXT NOT NULL, upos TEXT NOT NULL, target TEXT NOT NULL, participle INTEGER NOT NULL, evidence_id TEXT NOT NULL); CREATE TABLE french_headwords (lemma TEXT NOT NULL, upos TEXT NOT NULL, PRIMARY KEY(lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '4')`
+
 // newFrenchTestIndex opens a format-3 index seeded with seedStatements.
 func newFrenchTestIndex(t *testing.T, seedStatements ...string) *Index {
 	t.Helper()

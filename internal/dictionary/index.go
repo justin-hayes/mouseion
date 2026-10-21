@@ -22,6 +22,10 @@ import (
 
 var ErrInvalidIndex = errors.New("dictionary: invalid index")
 
+// wiktionarySource is the source recorded on Wiktionary-derived evidence that
+// does not carry a source of its own.
+const wiktionarySource = "wiktionary"
+
 // Index is a read-only SQLite-backed lexical provider. It is safe for
 // concurrent lookups and should be closed with the server.
 type Index struct {
@@ -56,6 +60,10 @@ type Index struct {
 	// column, so a lookup can report aspirated-h evidence rather than silently
 	// dropping it.
 	hStatusAvailable bool
+	// frenchFormsAvailable is true when the index carries the French form-of
+	// links and headword membership lemma-risk review needs. An older index
+	// reports French assessment unavailable rather than passing it.
+	frenchFormsAvailable bool
 }
 
 type evidenceIdentity struct {
@@ -110,6 +118,9 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 		return nil, fmt.Errorf("%w: schema: %w", ErrInvalidIndex, errors.Join(err, db.Close()))
 	}
 	if err = index.loadHStatusAvailability(ctx); err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
+	if err = index.loadFrenchFormsAvailability(ctx); err != nil {
 		return nil, errors.Join(err, db.Close())
 	}
 	if err = index.loadGreekEntries(ctx); err != nil {
@@ -334,7 +345,7 @@ func finalizeSense(sense *enrichment.LexicalSense, language, lemma, upos, versio
 		sense.EvidenceID = evidenceID
 	}
 	if sense.Source == "" {
-		sense.Source = "wiktionary"
+		sense.Source = wiktionarySource
 	}
 	if sense.Kind == "" {
 		sense.Kind = "meaning"
@@ -407,6 +418,9 @@ func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (
 		}
 		return false, nil
 	}
+	if language == frenchLanguage && !i.frenchFormsAvailable {
+		return false, ErrFrenchFormsUnavailable
+	}
 	var exists bool
 	err := i.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM entries WHERE language=? AND lemma=? AND upos=?)`, language, lemma, upos).Scan(&exists)
 	if err != nil {
@@ -415,13 +429,41 @@ func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (
 	return exists, nil
 }
 
-// Alternatives returns only indexed German noun alternatives licensed by a
-// simple observed-form inflection candidate and sentence examples with a
-// meaningful lexical overlap. These are review evidence, never replacements.
+// Alternatives returns review evidence for one surface, never a replacement.
+// German alternatives require a simple observed-form inflection candidate and
+// sentence examples with a meaningful lexical overlap. French alternatives come
+// from the index itself: the surface's own headword, then its structured Kaikki
+// form-of targets, both limited to the occurrence's part of speech. Callers that
+// need the French participle exemption must use AlternativesForLemma: this
+// surface-only form has no analyzed lemma to compare against.
 func (i *Index) Alternatives(ctx context.Context, language, surface, upos, sentence string) ([]lemmarisk.Alternative, error) {
-	if canonicalization.NormalizeLanguage(language) != "de" || strings.ToUpper(strings.TrimSpace(upos)) != "NOUN" {
+	return i.alternatives(ctx, language, surface, "", upos, sentence)
+}
+
+// AlternativesForLemma is the analyzed-lemma-aware form of Alternatives. The
+// French participle exemption needs the lemma the analyzer assigned; German
+// ignores it.
+func (i *Index) AlternativesForLemma(ctx context.Context, language, surface, lemma, upos, sentence string) ([]lemmarisk.Alternative, error) {
+	return i.alternatives(ctx, language, surface, lemma, upos, sentence)
+}
+
+func (i *Index) alternatives(ctx context.Context, language, surface, lemma, upos, sentence string) ([]lemmarisk.Alternative, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	upos = strings.ToUpper(strings.TrimSpace(upos))
+	switch language {
+	case "de":
+		if upos != "NOUN" {
+			return nil, nil
+		}
+		return i.germanAlternatives(ctx, surface, upos, sentence)
+	case frenchLanguage:
+		return i.frenchAlternatives(ctx, surface, lemma, upos)
+	default:
 		return nil, nil
 	}
+}
+
+func (i *Index) germanAlternatives(ctx context.Context, surface, upos, sentence string) ([]lemmarisk.Alternative, error) {
 	result := make([]lemmarisk.Alternative, 0, 2)
 	seen := make(map[string]bool)
 	for _, candidate := range germanNounLemmaCandidates(surface) {

@@ -49,7 +49,7 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
     ).fetchone() == ("Wiktionary contributors; CC BY-SA 4.0 / GFDL",)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("3",)
+    ).fetchone() == ("4",)
     row = connection.execute(
         "SELECT language, lemma, upos, senses_json, gender, article, plural FROM entries WHERE lemma = 'haus'"
     ).fetchone()
@@ -377,6 +377,159 @@ def test_french_invariable_reads_head_template_expansions():
         {"head_templates": [{"expansion": "hache f (plural haches)"}]}
     )
     assert not module.french_invariable({"head_templates": [{"expansion": "invariables"}]})
+
+
+def test_french_derivation_records_form_of_links_and_headwords(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(item, ensure_ascii=False)
+            for item in [
+                # Form-of-only entry: indexed for lookup, but not a headword.
+                {
+                    "word": "voiles",
+                    "lang_code": "fr",
+                    "pos": "noun",
+                    "senses": [
+                        {
+                            "glosses": ["plural of voile"],
+                            "tags": ["form-of", "plural"],
+                            "form_of": [{"word": "voile"}],
+                        },
+                        # A repeated link and an empty target do not add rows.
+                        {
+                            "glosses": ["plural of voile"],
+                            "tags": ["form-of", "plural"],
+                            "form_of": [{"word": "voile"}],
+                        },
+                        {
+                            "glosses": ["empty form-of target"],
+                            "tags": ["form-of"],
+                            "form_of": [{"word": "  "}],
+                        },
+                    ],
+                },
+                # Non-mapping and gloss-less senses are skipped, and an empty
+                # word never becomes an index key.
+                {
+                    "word": "sensesanormal",
+                    "lang_code": "fr",
+                    "pos": "noun",
+                    "senses": ["not a mapping"],
+                },
+                {
+                    "word": "sansglose",
+                    "lang_code": "fr",
+                    "pos": "noun",
+                    "senses": [{"form_of": [{"word": "rien"}]}],
+                },
+                {
+                    "word": "",
+                    "lang_code": "fr",
+                    "pos": "noun",
+                    "senses": [{"glosses": ["empty"]}],
+                },
+                {
+                    "word": "voile",
+                    "lang_code": "fr",
+                    "pos": "noun",
+                    "senses": [{"glosses": ["sail"]}],
+                },
+                # A mixed entry has an ordinary sense, so it is a headword even
+                # though another sense is a form-of link.
+                {
+                    "word": "portes",
+                    "lang_code": "fr",
+                    "pos": "noun",
+                    "senses": [
+                        {
+                            "glosses": ["plural of porte"],
+                            "tags": ["form-of", "plural"],
+                            "form_of": [{"word": "porte"}],
+                        },
+                        {"glosses": ["doors"]},
+                    ],
+                },
+                {
+                    "word": "porte",
+                    "lang_code": "fr",
+                    "pos": "noun",
+                    "senses": [{"glosses": ["door"]}],
+                },
+                # Participle tags are recorded so a participial adjective can be
+                # treated as the analyzed verb's own form.
+                {
+                    "word": "mouillé",
+                    "lang_code": "fr",
+                    "pos": "verb",
+                    "senses": [
+                        {
+                            "glosses": ["past participle of mouiller"],
+                            "tags": ["form-of", "participle", "past"],
+                            "form_of": [{"word": "mouiller"}],
+                        }
+                    ],
+                },
+                {
+                    "word": "mouiller",
+                    "lang_code": "fr",
+                    "pos": "verb",
+                    "senses": [{"glosses": ["to wet"]}],
+                },
+                {
+                    "word": "tapes",
+                    "lang_code": "fr",
+                    "pos": "verb",
+                    "senses": [
+                        {
+                            "glosses": ["second-person singular present of taper"],
+                            "tags": ["form-of"],
+                            "form_of": [{"word": "taper"}],
+                        }
+                    ],
+                },
+                {
+                    "word": "taper",
+                    "lang_code": "fr",
+                    "pos": "verb",
+                    "senses": [{"glosses": ["to slap"]}],
+                },
+            ]
+        )
+        + "\n\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute(
+        "SELECT value FROM metadata WHERE key = 'index_format'"
+    ).fetchone() == ("4",)
+    headwords = set(connection.execute("SELECT lemma, upos FROM french_headwords").fetchall())
+    assert headwords == {
+        ("voile", "NOUN"),
+        ("porte", "NOUN"),
+        ("portes", "NOUN"),
+        ("mouiller", "VERB"),
+        ("taper", "VERB"),
+    }
+    form_rows = connection.execute(
+        "SELECT form, upos, target, participle, evidence_id FROM french_forms ORDER BY form"
+    ).fetchall()
+    connection.close()
+
+    assert [
+        (form, upos, target, participle) for form, upos, target, participle, _ in form_rows
+    ] == [
+        ("mouillé", "VERB", "mouiller", 1),
+        ("portes", "NOUN", "porte", 0),
+        ("tapes", "VERB", "taper", 0),
+        ("voiles", "NOUN", "voile", 0),
+    ]
+    assert all(evidence_id.startswith("wiktionary-form-of:") for *_, evidence_id in form_rows)
 
 
 def test_sound_ipa_skips_unusable_sounds():
@@ -822,7 +975,7 @@ def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path
     connection = sqlite3.connect(output)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("5",)
+    ).fetchone() == ("6",)
     assert connection.execute("SELECT value FROM metadata WHERE key = 'lsj_pin'").fetchone() == (
         "pin123",
     )
@@ -1042,7 +1195,7 @@ def test_without_lsj_dir_the_index_stays_at_the_french_format(tmp_path: Path):
     connection = sqlite3.connect(output)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("3",)
+    ).fetchone() == ("4",)
     assert connection.execute("SELECT count(*) FROM lsj_entries").fetchone() == (0,)
     assert connection.execute("SELECT count(*) FROM metadata WHERE key = 'lsj_pin'").fetchone() == (
         0,

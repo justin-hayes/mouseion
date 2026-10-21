@@ -83,6 +83,10 @@ func greekBook() domain.MyBook {
 	return domain.MyBook{Book: domain.Book{LanguageTag: "grc"}, Acquired: &domain.SourceMaterialSummary{}}
 }
 
+func frenchBook() domain.MyBook {
+	return domain.MyBook{Book: domain.Book{LanguageTag: "fr"}, Acquired: &domain.SourceMaterialSummary{}}
+}
+
 func occurrence() domain.LemmaReviewOccurrence {
 	return domain.LemmaReviewOccurrence{
 		AnalysisRunID: "run", SourceDocumentID: "doc", StartOffset: 0, EndOffset: 3,
@@ -104,7 +108,19 @@ func TestAssessNonGermanBookIsNotAssessed(t *testing.T) {
 	assessment, err := service.Assess(context.Background(), "owner", "book")
 
 	require.NoError(t, err)
-	assert.False(t, assessment.Assessed, "risk is detected for German only")
+	assert.False(t, assessment.Assessed, "risk is detected for German and French only")
+	assert.Empty(t, store.saved)
+}
+
+func TestAssessFrenchBookIsAssessed(t *testing.T) {
+	store := &fakeStore{book: frenchBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
+	service := New(Config{Store: store, RiskIndex: fakeIndex{exists: true}})
+
+	assessment, err := service.Assess(context.Background(), "owner", "book")
+
+	require.NoError(t, err)
+	assert.True(t, assessment.Assessed, "French has a dictionary-backed lemma-risk rule")
+	assert.False(t, assessment.Unresolved)
 	assert.Empty(t, store.saved)
 }
 

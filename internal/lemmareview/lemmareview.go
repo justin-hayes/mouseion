@@ -22,13 +22,16 @@ import (
 )
 
 const (
-	// assessedLanguage is the only language lemma risk is detected for.
-	assessedLanguage = "de"
 	// assessmentTimeout bounds local detection. An assessment that runs past it
 	// counts as not assessed rather than as a clean verdict.
 	assessmentTimeout = 250 * time.Millisecond
 	suggestionTimeout = 3 * time.Second
 )
+
+// isAssessedLanguage reports whether automatic lemma risk runs for a language.
+func isAssessedLanguage(language string) bool {
+	return lemmarisk.SupportsLanguage(canonicalization.NormalizeLanguage(language))
+}
 
 // Store is the narrow persistence port the workflow needs. The Postgres store
 // and the fixture store both satisfy it.
@@ -176,8 +179,8 @@ type Outcome struct {
 
 // Assess runs local lemma risk detection for a Book, saves the flags it finds
 // without reopening resolved ones, and reports whether any flag is unresolved.
-// A German Book with no usable index, or one whose detection fails or times out,
-// is not assessed; that is never an error.
+// A German or French Book with no usable index, or one whose detection fails or
+// times out, is not assessed; that is never an error.
 func (s *Service) Assess(ctx context.Context, owner, bookID string) (Assessment, error) {
 	detail, err := s.store.GetBookDetail(ctx, owner, bookID)
 	if err != nil {
@@ -195,7 +198,8 @@ func (s *Service) Assess(ctx context.Context, owner, bookID string) (Assessment,
 }
 
 func (s *Service) detect(ctx context.Context, owner, bookID string, detail domain.MyBook) (bool, error) {
-	if s.riskIndex == nil || detail.Acquired == nil || detail.Book.LanguageTag != assessedLanguage {
+	language := canonicalization.NormalizeLanguage(detail.Book.LanguageTag)
+	if s.riskIndex == nil || detail.Acquired == nil || !isAssessedLanguage(language) {
 		return false, nil
 	}
 	occurrences, err := s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, "")
@@ -207,15 +211,15 @@ func (s *Service) detect(ctx context.Context, owner, bookID string, detail domai
 	for _, occurrence := range occurrences {
 		id := occurrence.ID()
 		input = append(input, lemmarisk.Occurrence{
-			ID: id, Language: assessedLanguage, Surface: occurrence.Surface,
-			Lemma: selection.ReviewIdentityNow(assessedLanguage, occurrence).CanonicalLemma, UPOS: occurrence.UPOS, Sentence: occurrence.SentenceText,
+			ID: id, Language: language, Surface: occurrence.Surface,
+			Lemma: selection.ReviewIdentityNow(language, occurrence).CanonicalLemma, UPOS: occurrence.UPOS, Sentence: occurrence.SentenceText,
 			Reviewed: occurrence.CorrectedLemma != "" || occurrence.ReviewFlagResolution != "", Excluded: occurrence.Excluded,
 		})
 		byID[id] = occurrence
 	}
 	assessmentCtx, cancel := context.WithTimeout(ctx, assessmentTimeout)
 	defer cancel()
-	flags, assessed, err := lemmarisk.Detect(assessmentCtx, assessedLanguage, input, s.riskIndex)
+	flags, assessed, err := lemmarisk.Detect(assessmentCtx, language, input, s.riskIndex)
 	if err != nil || !assessed {
 		// A failed optional local index is not a clean assessment or a Reading blocker.
 		return false, nil
