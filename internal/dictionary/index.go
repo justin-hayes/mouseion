@@ -170,7 +170,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if language == "" || lemma == "" {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	exactSenses, weakSenses, morphology, foundExact, err := i.matchEntries(ctx, language, lemma, upos)
+	exactSenses, weakSenses, morphology, foundExact, err := i.matchEntries(ctx, language, lemma, request.TargetWord, upos)
 	if err != nil {
 		return enrichment.LexicalEntry{}, false, err
 	}
@@ -195,7 +195,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 // matchEntries resolves the candidate rows for one lookup. Ancient Greek uses
 // the in-memory key index; every other language uses the stored-normalized
 // entries query, unchanged.
-func (i *Index) matchEntries(ctx context.Context, language, lemma, upos string) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
+func (i *Index) matchEntries(ctx context.Context, language, lemma, targetWord, upos string) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
 	if language == ancientGreekLanguage {
 		if !i.greekAvailable {
 			return nil, nil, lookupMorphology{}, false, nil
@@ -203,7 +203,7 @@ func (i *Index) matchEntries(ctx context.Context, language, lemma, upos string) 
 		exact, weak, found := i.ancientGreekRows(lemma, upos)
 		return exact, weak, lookupMorphology{}, found, nil
 	}
-	return lookupEntryRows(ctx, i.db, language, lemma, upos, i.hStatusAvailable)
+	return lookupEntryRows(ctx, i.db, language, lemma, targetWord, upos, i.hStatusAvailable)
 }
 
 // lookupMorphology carries the morphology columns of an exact-identity row.
@@ -214,23 +214,38 @@ type lookupMorphology struct {
 // lookupEntryRows runs the candidate query and separates rows that match the
 // requested part of speech from lemma-only fallbacks, keeping the exact row's
 // morphology. withHStatus selects the French aspirated-h evidence column only
-// when the index format carries it.
-func lookupEntryRows(ctx context.Context, db *sql.DB, language, lemma, upos string, withHStatus bool) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
+// when the index format carries it. French has two cross-POS fallbacks, ADV to
+// ADP and participial ADJ to its participle or verb.
+func lookupEntryRows(ctx context.Context, db *sql.DB, language, lemma, targetWord, upos string, withHStatus bool) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
 	exactSenses, weakSenses, morphology, foundExact, err = readEntryRows(ctx, db, language, lemma, upos, upos, withHStatus)
 	if err != nil {
 		return nil, nil, lookupMorphology{}, false, err
 	}
-	// French prepositional adverbs are the one cross-POS fallback: Stanza
-	// analyses them as ADV while Wiktionary files them under ADP only. An
-	// exact or untagged row already answers the lookup, so the ADP row is
-	// weak evidence only when neither exists.
-	if language == "fr" && upos == "ADV" && !foundExact && len(weakSenses) == 0 {
-		_, weakSenses, _, _, err = readEntryRows(ctx, db, language, lemma, upos, "ADP", withHStatus)
-		if err != nil {
-			return nil, nil, lookupMorphology{}, false, err
-		}
+	// An exact or untagged row already answers the lookup, so the French
+	// cross-POS fallbacks are weak evidence only when neither exists.
+	if language != "fr" || foundExact || len(weakSenses) > 0 {
+		return exactSenses, weakSenses, morphology, foundExact, nil
+	}
+	weakSenses, err = lookupFrenchCrossPOSFallback(ctx, db, lemma, targetWord, upos, withHStatus)
+	if err != nil {
+		return nil, nil, lookupMorphology{}, false, err
 	}
 	return exactSenses, weakSenses, morphology, foundExact, nil
+}
+
+// readExactEntryRows returns the senses of the rows whose part of speech
+// exactly matches upos, ignoring untagged rows.
+func readExactEntryRows(ctx context.Context, db *sql.DB, language, lemma, upos string, withHStatus bool) ([]enrichment.LexicalSense, error) {
+	exactSenses, _, _, _, err := readEntryRows(ctx, db, language, lemma, upos, upos, withHStatus)
+	return exactSenses, err
+}
+
+// markWeakEvidence records that a row answered a different identity than the
+// one requested, matching the existing lemma-only fallback strength.
+func markWeakEvidence(senses []enrichment.LexicalSense) {
+	for senseIndex := range senses {
+		senses[senseIndex].MatchStrength = "lemma_only_missing_pos"
+	}
 }
 
 // readEntryRows queries the candidate rows for one index part of speech and
@@ -280,9 +295,7 @@ func scanEntryRows(rows *sql.Rows, upos string, withHStatus bool) (exactSenses, 
 			exactSenses = append(exactSenses, senses...)
 			continue
 		}
-		for senseIndex := range senses {
-			senses[senseIndex].MatchStrength = "lemma_only_missing_pos"
-		}
+		markWeakEvidence(senses)
 		weakSenses = append(weakSenses, senses...)
 	}
 	if err = rows.Err(); err != nil {

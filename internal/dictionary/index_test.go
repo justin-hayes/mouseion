@@ -407,6 +407,196 @@ func TestIndexLookupFrenchAdverbFallbackKeepsADPMorphologyWeak(t *testing.T) {
 	})
 }
 
+// Stanza often gives a French participial adjective the infinitive as its
+// lemma with UPOS ADJ. The dictionary files the adjective under the participle
+// surface, so an ADJ identity whose lemma is a verb resolves the participle's
+// ADJ row as weak evidence.
+func TestIndexLookupResolvesFrenchParticipialAdjectives(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'mouiller', 'VERB', '[{"Gloss":"to wet, to moisten"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'ADJ', '[{"Gloss":"wet, moist (covered with liquid)"}]', 'Masc', 'le', 'mouillés', '/muje/', 'parts', 'aspirated')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'VERB', '[{"Gloss":"past participle of mouiller","Tags":["form-of","participle","past"]}]', '', '', '', '', '', '')`,
+	)
+
+	for _, target := range []string{"mouillé", "mouillée", "mouillés", "mouillées", "Mouillé"} {
+		t.Run(target, func(t *testing.T) {
+			result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "mouiller", UPOS: "ADJ", TargetWord: target})
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Len(t, result.CandidateSenses, 1, "only the participle ADJ row contributes senses")
+			require.NotEmpty(t, result.Senses)
+			assert.Equal(t, "wet, moist (covered with liquid)", result.CandidateSenses[0].Gloss)
+			assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[0].MatchStrength)
+			assert.Equal(t, "lemma_only_missing_pos", result.Senses[0].MatchStrength)
+			t.Run("participle morphology is not adopted", func(t *testing.T) {
+				assert.Empty(t, result.Gender)
+				assert.Empty(t, result.Article)
+				assert.Empty(t, result.Plural)
+				assert.Empty(t, result.IPA)
+				assert.Empty(t, result.PrincipalParts)
+				assert.Empty(t, result.HStatus)
+			})
+		})
+	}
+}
+
+// When no participle ADJ row is tied to the verb, the verb's own senses are
+// the remaining weak evidence.
+func TestIndexLookupFallsBackToFrenchVerbForParticipialAdjective(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'baisser', 'VERB', '[{"Gloss":"to lower"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'baissé', 'VERB', '[{"Gloss":"past participle of baisser"}]', '', '', '', '', '', '')`,
+	)
+
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "baisser", UPOS: "ADJ", TargetWord: "baissée"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 1)
+	require.NotEmpty(t, result.Senses)
+	assert.Equal(t, "to lower", result.CandidateSenses[0].Gloss)
+	assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[0].MatchStrength)
+	assert.Equal(t, "lemma_only_missing_pos", result.Senses[0].MatchStrength)
+	assert.Empty(t, result.IPA, "the verb row's morphology stays weak evidence")
+
+	t.Run("an empty target word skips the participle step", func(t *testing.T) {
+		result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "baisser", UPOS: "ADJ"})
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Len(t, result.CandidateSenses, 1)
+		assert.Equal(t, "to lower", result.CandidateSenses[0].Gloss)
+		assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[0].MatchStrength)
+	})
+}
+
+// A participle ADJ row only qualifies when a VERB row on the same surface names
+// the requested lemma as its past participle. An unrelated homograph therefore
+// leaves the verb fallback.
+func TestIndexLookupFrenchParticipleAdjectiveRequiresMatchingVerb(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'mouiller', 'VERB', '[{"Gloss":"to wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'ADJ', '[{"Gloss":"wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'VERB', '[{"Gloss":"past participle of noyer"}]', '', '', '', '', '', '')`,
+	)
+
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "mouiller", UPOS: "ADJ", TargetWord: "mouillé"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 1)
+	assert.Equal(t, "to wet", result.CandidateSenses[0].Gloss)
+	assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[0].MatchStrength)
+}
+
+// The fallback runs only after the exact-or-untagged lookup misses.
+func TestIndexLookupFrenchParticipialAdjectiveKeepsExactAndUntaggedRows(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'mouiller', 'ADJ', '[{"Gloss":"exact adjective"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouiller', 'VERB', '[{"Gloss":"to wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'ADJ', '[{"Gloss":"wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'VERB', '[{"Gloss":"past participle of mouiller"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'baisser', '', '[{"Gloss":"untagged row"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'baisser', 'VERB', '[{"Gloss":"to lower"}]', '', '', '', '', '', '')`,
+	)
+
+	t.Run("exact adjective", func(t *testing.T) {
+		result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "mouiller", UPOS: "ADJ", TargetWord: "mouillé"})
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Len(t, result.CandidateSenses, 1)
+		assert.Equal(t, "exact adjective", result.CandidateSenses[0].Gloss)
+		assert.Equal(t, "exact_lemma_pos", result.CandidateSenses[0].MatchStrength)
+	})
+
+	t.Run("untagged row", func(t *testing.T) {
+		result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "baisser", UPOS: "ADJ", TargetWord: "baissée"})
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Len(t, result.CandidateSenses, 1)
+		assert.Equal(t, "untagged row", result.CandidateSenses[0].Gloss)
+		assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[0].MatchStrength)
+	})
+}
+
+// The fallback needs a VERB row on the requested lemma. Without one, a
+// participle ADJ surface is not enough evidence for the ADJ identity.
+func TestIndexLookupFrenchParticipialAdjectiveRequiresLemmaVerb(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'ADJ', '[{"Gloss":"wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'VERB', '[{"Gloss":"past participle of mouiller"}]', '', '', '', '', '', '')`,
+	)
+
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "mouiller", UPOS: "ADJ", TargetWord: "mouillé"})
+	require.NoError(t, err)
+	require.False(t, found)
+	assert.Empty(t, result.Senses)
+}
+
+// The fallback is French and ADJ specific: another language or requested part
+// of speech keeps exact-or-untagged matching.
+func TestIndexLookupFrenchParticipialAdjectiveFallbackIsLanguageAndUPOSSpecific(t *testing.T) {
+	index := newFrenchTestIndex(t,
+		`INSERT INTO entries VALUES ('fr', 'mouiller', 'VERB', '[{"Gloss":"to wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'ADJ', '[{"Gloss":"wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('fr', 'mouillé', 'VERB', '[{"Gloss":"past participle of mouiller"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('de', 'mouiller', 'VERB', '[{"Gloss":"to wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('de', 'mouillé', 'ADJ', '[{"Gloss":"wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('de', 'mouillé', 'VERB', '[{"Gloss":"past participle of mouiller"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('it', 'mouiller', 'VERB', '[{"Gloss":"to wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('it', 'mouillé', 'ADJ', '[{"Gloss":"wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('it', 'mouillé', 'VERB', '[{"Gloss":"past participle of mouiller"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('el', 'mouiller', 'VERB', '[{"Gloss":"to wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('el', 'mouillé', 'ADJ', '[{"Gloss":"wet"}]', '', '', '', '', '', '')`,
+		`INSERT INTO entries VALUES ('el', 'mouillé', 'VERB', '[{"Gloss":"past participle of mouiller"}]', '', '', '', '', '', '')`,
+		`INSERT INTO greek_entries VALUES ('δέω', 'VERB', '', '[{"Gloss":"to bind"}]', '[]')`,
+	)
+
+	t.Run("French noun does not use the participle adjective", func(t *testing.T) {
+		result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "fr", CanonicalLemma: "mouiller", UPOS: "NOUN", TargetWord: "mouillé"})
+		require.NoError(t, err)
+		require.False(t, found)
+		assert.Empty(t, result.Senses)
+	})
+
+	for _, test := range []struct {
+		name     string
+		language string
+		lemma    string
+	}{
+		{name: "German", language: "de", lemma: "mouiller"},
+		{name: "Italian", language: "it", lemma: "mouiller"},
+		{name: "Modern Greek", language: "el", lemma: "mouiller"},
+		{name: "Ancient Greek", language: "grc", lemma: "δέω"},
+	} {
+		t.Run(test.name+" adjective does not use the participle adjective", func(t *testing.T) {
+			result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: test.language, CanonicalLemma: test.lemma, UPOS: "ADJ", TargetWord: "mouillé"})
+			require.NoError(t, err)
+			require.False(t, found)
+			assert.Empty(t, result.Senses)
+		})
+	}
+}
+
+// The candidate order pins the specified fallback: the surface itself first,
+// then one trailing inflection suffix in -es, -e, -s order.
+func TestFrenchParticipleCandidates(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+		want   []string
+	}{
+		{name: "empty target has no candidates", target: "", want: nil},
+		{name: "masculine singular stands alone", target: "mouillé", want: []string{"mouillé"}},
+		{name: "feminine singular loses e", target: "mouillée", want: []string{"mouillée", "mouillé"}},
+		{name: "masculine plural loses s", target: "mouillés", want: []string{"mouillés", "mouillé"}},
+		{name: "feminine plural loses es before s", target: "mouillées", want: []string{"mouillées", "mouillé", "mouillée"}},
+		{name: "case is normalized", target: "Mouillées", want: []string{"mouillées", "mouillé", "mouillée"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, frenchParticipleCandidates(test.target))
+		})
+	}
+}
+
 func TestIndexLookupIncludesMissingPOSOnlyAfterExactIdentity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
