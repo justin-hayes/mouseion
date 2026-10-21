@@ -295,8 +295,14 @@ The contiguous run of a Book's readable units that the EPUB structure declares t
 be the body of the work: from a declared body-matter start to a declared
 back-matter start, or to the end when none is declared. Absent a declared
 body-matter start, the Book has no identified main text and its whole snapshot is
-treated as main text.
+treated as main text. Recognised Distributor text is never part of it.
 _Avoid_: body text, main matter (the retired classifier category).
+
+**Distributor text**:
+Text a distributor wraps around the work, such as a header, a licence, and
+pages after the licence, recognised only from that distributor's published
+packaging convention and never inferred from what the text says.
+_Avoid_: boilerplate, front matter, ancillary text (which the EPUB declares).
 
 **Ancillary text**:
 The readable units of a Book that the EPUB structure declares to lie outside the
