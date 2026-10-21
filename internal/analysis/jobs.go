@@ -109,6 +109,12 @@ const (
 	snapshotAnalyzerVersion = "3"
 	snapshotConfigIdentity  = "selection-default-v1"
 	mainTextConfigIdentity  = "selection-maintext-landmarks-v1"
+	// distributorConfigIdentity identifies a run whose scope excludes Project
+	// Gutenberg Distributor text (ADR 0108).
+	distributorConfigIdentity = "selection-distributor-gutenberg-v1"
+	// mainTextDistributorConfigIdentity identifies a run where landmark and
+	// Distributor rules both exclude something.
+	mainTextDistributorConfigIdentity = "selection-maintext-landmarks-distributor-gutenberg-v1"
 	// Version 2 identifies the current ordinary analysis contract, including
 	// lemma-boundary cleanup. Bump it whenever ordinary normalization or
 	// analyzer output semantics change.
@@ -1087,22 +1093,54 @@ type Worker struct {
 }
 
 type snapshotUnit struct {
-	SnapshotID, UnitID, Title, SourceHref, ResolvedHref, Text string
-	Order                                                     int
-	StartOffset, EndOffset                                    uint64
-	LandmarkTypes                                             []string
+	SnapshotID, UnitID, ManifestID, Title, SourceHref, ResolvedHref, Text string
+	Order                                                                 int
+	StartOffset, EndOffset                                                uint64
+	LandmarkTypes                                                         []string
 }
 
 type queryRower interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }
 
+type snapshotUnitQueryer interface {
+	queryRower
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 func loadSnapshotUnits(ctx context.Context, q queryRower, owner, sourceID, revisionID, snapshotID string) ([]snapshotUnit, error) {
-	rows, err := q.Query(ctx, `SELECT u.snapshot_id,u.unit_id,u.unit_order,u.title,u.source_href,u.resolved_href,u.text,u.start_offset,u.end_offset,u.landmark_types
-		FROM source_material_units u
-		JOIN source_material_unit_snapshots snap ON snap.owner_id=u.owner_id AND snap.source_material_id=u.source_material_id AND snap.snapshot_id=u.snapshot_id AND snap.content_revision_id=$4
-		JOIN source_materials source ON source.owner_id=u.owner_id AND source.id=u.source_material_id AND source.current_content_revision_id=$4 AND source.current_snapshot_id=u.snapshot_id
-		WHERE u.owner_id=$1 AND u.source_material_id=$2 AND u.snapshot_id=$3 AND btrim(u.text)<>''
+	return loadSnapshotUnitsWithText(ctx, q, owner, sourceID, revisionID, snapshotID, true)
+}
+
+// loadSnapshotUnitsForSelection loads the units the selection rules need. The
+// text scan is skipped for snapshots without a pg-header unit, because only a
+// Project Gutenberg snapshot can recognise Distributor text (ADR 0108).
+func loadSnapshotUnitsForSelection(ctx context.Context, q snapshotUnitQueryer, owner, sourceID, revisionID, snapshotID string) ([]snapshotUnit, error) {
+	hasHeader, err := snapshotHasGutenbergHeader(ctx, q, owner, sourceID, revisionID, snapshotID)
+	if err != nil {
+		return nil, err
+	}
+	return loadSnapshotUnitsWithText(ctx, q, owner, sourceID, revisionID, snapshotID, hasHeader)
+}
+
+const snapshotUnitsFrom = `FROM source_material_units u
+	JOIN source_material_unit_snapshots snap ON snap.owner_id=u.owner_id AND snap.source_material_id=u.source_material_id AND snap.snapshot_id=u.snapshot_id AND snap.content_revision_id=$4
+	WHERE u.owner_id=$1 AND u.source_material_id=$2 AND u.snapshot_id=$3 AND btrim(u.text)<>''`
+
+func snapshotHasGutenbergHeader(ctx context.Context, q snapshotUnitQueryer, owner, sourceID, revisionID, snapshotID string) (bool, error) {
+	var has bool
+	if err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 `+snapshotUnitsFrom+` AND u.manifest_id='pg-header')`, owner, sourceID, snapshotID, revisionID).Scan(&has); err != nil {
+		return false, fmt.Errorf("find Gutenberg header unit: %w", err)
+	}
+	return has, nil
+}
+
+func loadSnapshotUnitsWithText(ctx context.Context, q queryRower, owner, sourceID, revisionID, snapshotID string, includeText bool) ([]snapshotUnit, error) {
+	text := "''"
+	if includeText {
+		text = "u.text"
+	}
+	rows, err := q.Query(ctx, `SELECT u.snapshot_id,u.unit_id,u.unit_order,u.manifest_id,u.title,u.source_href,u.resolved_href,`+text+`,u.start_offset,u.end_offset,u.landmark_types `+snapshotUnitsFrom+`
 		ORDER BY u.unit_order`, owner, sourceID, snapshotID, revisionID)
 	if err != nil {
 		return nil, fmt.Errorf("load extracted snapshot: %w", err)
@@ -1113,7 +1151,7 @@ func loadSnapshotUnits(ctx context.Context, q queryRower, owner, sourceID, revis
 	for rows.Next() {
 		var unit snapshotUnit
 		var landmarkTypes []byte
-		if err = rows.Scan(&unit.SnapshotID, &unit.UnitID, &unit.Order, &unit.Title, &unit.SourceHref, &unit.ResolvedHref, &unit.Text, &unit.StartOffset, &unit.EndOffset, &landmarkTypes); err != nil {
+		if err = rows.Scan(&unit.SnapshotID, &unit.UnitID, &unit.Order, &unit.ManifestID, &unit.Title, &unit.SourceHref, &unit.ResolvedHref, &unit.Text, &unit.StartOffset, &unit.EndOffset, &landmarkTypes); err != nil {
 			return nil, fmt.Errorf("load extracted snapshot unit: %w", err)
 		}
 		if err = json.Unmarshal(landmarkTypes, &unit.LandmarkTypes); err != nil {
@@ -1141,16 +1179,58 @@ func identifyMainText(units []snapshotUnit) epub.MainTextSelection {
 		if err != nil {
 			return epub.MainTextSelection{}
 		}
-		provenance[i] = epub.ExtractedUnit{ID: unit.UnitID, Order: order, LandmarkTypes: unit.LandmarkTypes}
+		provenance[i] = epub.ExtractedUnit{ID: unit.UnitID, Order: order, ManifestID: unit.ManifestID, Text: unit.Text, LandmarkTypes: unit.LandmarkTypes}
 	}
 	return epub.IdentifyMainText(provenance)
 }
 
 func snapshotConfigIdentityFor(decision epub.MainTextSelection) string {
-	if decision.Applies {
+	switch {
+	case decision.Distributor.Excludes() && decision.LandmarkApplies:
+		return mainTextDistributorConfigIdentity
+	case decision.Distributor.Excludes():
+		return distributorConfigIdentity
+	case decision.LandmarkApplies:
 		return mainTextConfigIdentity
+	default:
+		return snapshotConfigIdentity
 	}
-	return snapshotConfigIdentity
+}
+
+// scopeSnapshotUnits applies the selection a run's configuration identity
+// names. The identity is stored with the run, so an older run keeps the scope it
+// was submitted under even if the current selection would differ.
+func scopeSnapshotUnits(units []snapshotUnit, decision epub.MainTextSelection, configIdentity string) ([]snapshotUnit, []epub.UnitTextRange) {
+	switch configIdentity {
+	case mainTextConfigIdentity:
+		if !decision.Identified {
+			return units, nil
+		}
+		return append([]snapshotUnit(nil), units[decision.BodyMatterStart:decision.BackMatterStart]...), nil
+	case distributorConfigIdentity:
+		return selectedSnapshotUnits(units, unitsOutsideDistributor(units, decision)), decision.Distributor.TrimmedRanges
+	case mainTextDistributorConfigIdentity:
+		return selectedSnapshotUnits(units, decision.SelectedUnitIDs), decision.Distributor.TrimmedRanges
+	default:
+		return units, nil
+	}
+}
+
+// unitsOutsideDistributor returns every unit id except the whole-unit
+// Distributor exclusions, so a distributor-only run is independent of landmark
+// selection.
+func unitsOutsideDistributor(units []snapshotUnit, decision epub.MainTextSelection) []string {
+	excluded := make(map[string]struct{}, len(decision.Distributor.ExcludedUnitIDs))
+	for _, id := range decision.Distributor.ExcludedUnitIDs {
+		excluded[id] = struct{}{}
+	}
+	ids := make([]string, 0, len(units))
+	for _, unit := range units {
+		if _, ok := excluded[unit.UnitID]; !ok {
+			ids = append(ids, unit.UnitID)
+		}
+	}
+	return ids
 }
 
 func selectedSnapshotUnits(units []snapshotUnit, selectedIDs []string) []snapshotUnit {
@@ -1179,6 +1259,11 @@ func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total
 		"excluded_unit_ids":    decision.ExcludedUnitIDs,
 		"selected_unit_count":  selected,
 		"total_unit_count":     total,
+
+		"distributor_recognised":        decision.Distributor.Recognised,
+		"distributor_convention":        decision.Distributor.Convention,
+		"distributor_trimmed_ranges":    decision.Distributor.TrimmedRanges,
+		"distributor_excluded_unit_ids": decision.Distributor.ExcludedUnitIDs,
 	})
 	return details, err
 }
@@ -1196,6 +1281,7 @@ type snapshotDocumentInput struct {
 // snapshotPlan is the fetched and selected snapshot work the analyzer runs on.
 type snapshotPlan struct {
 	decision      epub.MainTextSelection
+	trimmedText   []epub.UnitTextRange
 	totalUnits    int
 	selectedUnits int
 	inputs        []snapshotDocumentInput
@@ -1275,10 +1361,7 @@ func (w *Worker) fetchSnapshotWork(ctx context.Context, a JobArgs) (snapshotPlan
 		return snapshotPlan{}, err
 	}
 	decision := identifyMainText(allUnits)
-	selectedUnits := allUnits
-	if a.ConfigIdentity == mainTextConfigIdentity {
-		selectedUnits = selectedSnapshotUnits(allUnits, decision.SelectedUnitIDs)
-	}
+	selectedUnits, trimmedText := scopeSnapshotUnits(allUnits, decision, a.ConfigIdentity)
 	inputs := make([]snapshotDocumentInput, 0, len(selectedUnits))
 	for _, unit := range selectedUnits {
 		identifier := unit.ResolvedHref
@@ -1287,7 +1370,7 @@ func (w *Worker) fetchSnapshotWork(ctx context.Context, a JobArgs) (snapshotPlan
 		}
 		inputs = append(inputs, snapshotDocumentInput{id: unit.UnitID, identifier: identifier, title: unit.Title, text: unit.Text})
 	}
-	return snapshotPlan{decision: decision, totalUnits: len(allUnits), selectedUnits: len(selectedUnits), inputs: inputs}, nil
+	return snapshotPlan{decision: decision, trimmedText: trimmedText, totalUnits: len(allUnits), selectedUnits: len(selectedUnits), inputs: inputs}, nil
 }
 
 // snapshotChunkMerge folds analyzed chunks into the snapshot's merged result
@@ -1337,17 +1420,49 @@ func (m *snapshotChunkMerge) analysis(a JobArgs) (snapshotAnalysis, error) {
 
 // analyzeSnapshotWork runs the analyzer over every chunk and derives the
 // artifact identity, shared lemmas, and statistics from the merged result.
-func (w *Worker) analyzeSnapshotWork(ctx context.Context, a JobArgs, inputs []snapshotDocumentInput) (snapshotAnalysis, error) {
+func (w *Worker) analyzeSnapshotWork(ctx context.Context, a JobArgs, plan snapshotPlan) (snapshotAnalysis, error) {
 	var merge snapshotChunkMerge
-	for _, input := range inputs {
+	for _, input := range plan.inputs {
 		merge.total += len(chunkText(input.text, w.MaxChunkChars))
 	}
-	for _, input := range inputs {
+	for _, input := range plan.inputs {
 		if err := w.analyzeDocumentChunks(ctx, a, input, &merge); err != nil {
 			return snapshotAnalysis{}, err
 		}
 	}
+	dropDistributorSentences(&merge.result, plan.trimmedText)
 	return merge.analysis(a)
+}
+
+// dropDistributorSentences removes sentences overlapping recognised Distributor
+// text before tokens, lemmas, statistics, and the artifact are derived. Unit
+// text and snapshot offsets are untouched, so retained source locations are
+// identical to a whole-snapshot analysis (ADR 0108).
+func dropDistributorSentences(result *analyzer.Result, trimmedText []epub.UnitTextRange) {
+	if len(trimmedText) == 0 {
+		return
+	}
+	byUnit := make(map[string][]epub.UnitTextRange, len(trimmedText))
+	for _, trimmed := range trimmedText {
+		byUnit[trimmed.UnitID] = append(byUnit[trimmed.UnitID], trimmed)
+	}
+	kept := result.Sentences[:0]
+	for _, sentence := range result.Sentences {
+		if overlapsDistributorText(sentence.Location, byUnit[sentence.Location.SourceDocumentID]) {
+			continue
+		}
+		kept = append(kept, sentence)
+	}
+	result.Sentences = kept
+}
+
+func overlapsDistributorText(location analyzer.SourceLocation, trimmed []epub.UnitTextRange) bool {
+	for _, span := range trimmed {
+		if location.StartOffset < span.EndOffset && location.EndOffset > span.StartOffset {
+			return true
+		}
+	}
+	return false
 }
 
 // analyzeDocumentChunks analyzes and folds every chunk of one snapshot document,
@@ -1499,7 +1614,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err != nil {
 		return err
 	}
-	analyzed, err := w.analyzeSnapshotWork(ctx, a, plan.inputs)
+	analyzed, err := w.analyzeSnapshotWork(ctx, a, plan)
 	if err != nil {
 		return err
 	}

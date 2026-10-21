@@ -1,6 +1,6 @@
 # ADR 0108: Recognise Project Gutenberg Distributor text and exclude it from analysis
 
-Status: **Accepted — implementation pending** · Date: 2026-10-21 · Author: Justin + OpenCode
+Status: **Accepted (implemented)** · Date: 2026-10-21 · Author: Justin + OpenCode
 
 Decided in triage of [#2246](https://github.com/justin-hayes/mouseion/issues/2246).
 Extends main-text selection ([ADR 0066](0066-main-text-selection-from-epub-structure.md))

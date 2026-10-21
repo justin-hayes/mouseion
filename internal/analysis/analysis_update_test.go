@@ -61,10 +61,13 @@ func TestCurrentTargetsNeedAReachableService(t *testing.T) {
 func TestPipelineOutdatedComparesEveryIdentityPart(t *testing.T) {
 	target := domain.AnalysisUpdateTarget{AnalyzerName: snapshotAnalyzerName, AnalyzerVersion: snapshotAnalyzerVersion, NormalizationProfile: "french", NormalizationVersion: "2"}
 	current := domain.AnalysisPipelineIdentity{AnalyzerName: snapshotAnalyzerName, AnalyzerVersion: snapshotAnalyzerVersion, ConfigIdentity: mainTextConfigIdentity, NormalizationProfile: "french", NormalizationVersion: "2"}
-	assert.False(t, pipelineOutdated(current, target))
+	assert.False(t, pipelineOutdated(current, target, mainTextConfigIdentity))
 	defaultConfig := current
 	defaultConfig.ConfigIdentity = snapshotConfigIdentity
-	assert.False(t, pipelineOutdated(defaultConfig, target))
+	assert.False(t, pipelineOutdated(defaultConfig, target, snapshotConfigIdentity))
+	gutenberg := defaultConfig
+	gutenberg.ConfigIdentity = distributorConfigIdentity
+	assert.True(t, pipelineOutdated(gutenberg, target, snapshotConfigIdentity), "a Gutenberg snapshot now selects Distributor text")
 
 	for name, change := range map[string]func(*domain.AnalysisPipelineIdentity){
 		"analyzer name":         func(i *domain.AnalysisPipelineIdentity) { i.AnalyzerName = "other" },
@@ -76,7 +79,7 @@ func TestPipelineOutdatedComparesEveryIdentityPart(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			published := current
 			change(&published)
-			assert.True(t, pipelineOutdated(published, target))
+			assert.True(t, pipelineOutdated(published, target, mainTextConfigIdentity))
 		})
 	}
 }
