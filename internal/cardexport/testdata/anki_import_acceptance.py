@@ -40,6 +40,7 @@ assert [field["name"] for field in book_model["flds"]] == [
     "Text",
     "Article",
     "Lemma",
+    "Gender",
     "Plural",
     "IPA",
     "PrincipalParts",
@@ -48,7 +49,17 @@ assert [field["name"] for field in book_model["flds"]] == [
     "English",
     "EnglishSentence",
     "BookTitle",
+    "PassageLabel",
+    "PassageText",
+    "DictionaryEntry",
+    "LSJSenseSummary",
+    "Attribution",
 ]
+book_fields = book_note[2].split("\x1f")
+assert len(book_fields) == 18, f"expected 18 fields, got {len(book_fields)}"
+assert book_fields[17] == "Erster", f"unexpected attribution field: {book_fields[17]!r}"
+assert '<span class="source-line">Das <b>Haus</b> ist groß.</span>' in book_fields[1]
+assert '<span class="source-line">Es steht am Fluss.</span>' in book_fields[1]
 assert "Mouseion\x1fde\x1fBook A" in decks
 book_deck_id = decks["Mouseion\x1fde\x1fBook A"]["id"]
 assert book_card[1] == book_deck_id

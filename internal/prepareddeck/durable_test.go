@@ -604,6 +604,37 @@ func TestDurableRerendererSkipsLegacyRecoveryWhenRenderInputsAreCurrent(t *testi
 	assert.Equal(t, 1, renderer.calls)
 }
 
+// TestDurableRerendererKeepsFrozenAttributionWithoutEvidenceCalls proves a
+// presentation-only rebuild consumes the frozen specification: it reads no
+// corpus/NLP evidence and keeps the frozen attribution and source lines.
+func TestDurableRerendererKeepsFrozenAttributionWithoutEvidenceCalls(t *testing.T) {
+	sentence := "Der Dichter\nspricht heute sehr laut."
+	store := &finalizerStoreStub{
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: 1},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+		projection: cardexport.ManifestSnapshot{
+			SchemaVersion: cardexport.ManifestSchemaVersion, Owner: "owner", DeckName: "Book", Filename: cardexport.DownloadFilename("Book"),
+			Items: []cardexport.ManifestItem{{
+				Ordinal: 0, Disposition: cardexport.ManifestAccepted,
+				Entry: cardexport.Entry{
+					Language: "de", CanonicalLemma: "dichter", UPOS: "NOUN", Sentence: sentence, TargetWord: "Dichter",
+					Attribution: domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Erster"},
+				},
+				Quality: cardexport.SentenceQuality{Accepted: true, Score: 90, Reasons: []string{"target present"}},
+			}},
+		},
+	}
+	renderer := &corpusRendererStub{}
+	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
+	require.NoError(t, err)
+	assert.Equal(t, 2, updated.DeckRevision)
+	assert.Zero(t, store.corpusCalls, "a presentation-only rebuild must not read corpus/NLP evidence")
+	require.Len(t, renderer.artifact.Generated, 1)
+	assert.Equal(t, "Erster", renderer.artifact.Generated[0].Note.Attribution)
+	assert.Contains(t, renderer.artifact.Generated[0].Note.Text, `<span class="source-line">`)
+	assert.Contains(t, renderer.artifact.Generated[0].Note.Text, `<b>Dichter</b>`)
+}
+
 func TestDurableRerendererLeavesManifestsWithNothingToRecoverUnchanged(t *testing.T) {
 	projection := legacyRerenderManifest(t)
 	projection.Items[0].Entry.SentenceTokens = []analyzer.Token{{Surface: "stehe", Dependency: "root", Head: 0}}

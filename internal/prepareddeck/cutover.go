@@ -81,7 +81,7 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 	if err != nil {
 		return nil, "", fmt.Errorf("load selected prepared deck facts: %w", err)
 	}
-	return candidateProjections(preparation, facts.DeckName, selectedFacts), facts.DeckName, nil
+	return candidateProjections(preparation, facts.DeckName, selectedFacts, facts.Structure, facts.SourceUnits), facts.DeckName, nil
 }
 
 // lockDirectDeckVocabularyDecisions serializes a direct deck's vocabulary
@@ -142,10 +142,16 @@ func effectivePreparedDeckCandidates(preparation domain.DeckPreparation, facts p
 
 // candidateProjections materializes the frozen projections consumed by
 // Presentation from the selected candidate facts.
-func candidateProjections(preparation domain.DeckPreparation, deckName string, selectedFacts []persistence.PreparedDeckCandidateFacts) []cardexport.CandidateProjection {
+func candidateProjections(preparation domain.DeckPreparation, deckName string, selectedFacts []persistence.PreparedDeckCandidateFacts, structure domain.SnapshotStructure, sourceUnits map[string]domain.ExtractedUnit) []cardexport.CandidateProjection {
 	projections := make([]cardexport.CandidateProjection, 0, len(selectedFacts))
 	for _, fact := range selectedFacts {
-		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: deckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences, RequireContextualGloss: false, ReferenceTranslations: fact.ReferenceTranslations, ReferencePin: fact.ReferencePin})
+		projections = append(projections, cardexport.CandidateProjection{
+			OwnerID: preparation.OwnerID, DeckName: deckName,
+			Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences,
+			RequireContextualGloss: false,
+			ReferenceTranslations:  fact.ReferenceTranslations, ReferencePin: fact.ReferencePin,
+			Structure: structure, SourceUnits: sourceUnits,
+		})
 	}
 	return projections
 }

@@ -3,6 +3,7 @@ package cardexport
 import (
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,6 +52,36 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	historicalV3Digest, err := v3.Digest()
 	require.NoError(t, err)
 	assert.NotEqual(t, historicalV3Digest, v3Digest, "v3 and v4 digests must differ")
+}
+
+// TestAttributionIsAV13ManifestDigestInput proves the optional typed
+// attribution is frozen by the current codec and ignored by the historical v12
+// codec, so old manifests keep their digest and render without it.
+func TestAttributionIsAV13ManifestDigestInput(t *testing.T) {
+	snapshot := newManifest("owner-1", "Buch", []Entry{{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus",
+		Attribution: domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Erster"},
+	}}).Snapshot()
+	without := snapshot
+	without.Items = cloneManifestItems(snapshot.Items)
+	without.Items[0].Entry.Attribution = domain.SourceAttribution{}
+
+	withoutV12 := without
+	withoutV12.SchemaVersion = ManifestSchemaVersionV12
+	withV12 := snapshot
+	withV12.SchemaVersion = ManifestSchemaVersionV12
+	withoutV12Digest, err := withoutV12.Digest()
+	require.NoError(t, err)
+	withV12Digest, err := withV12.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, withoutV12Digest, withV12Digest, "v12 must ignore the new attribution field")
+
+	withoutCurrentDigest, err := without.Digest()
+	require.NoError(t, err)
+	withCurrentDigest, err := snapshot.Digest()
+	require.NoError(t, err)
+	assert.NotEqual(t, withoutCurrentDigest, withCurrentDigest, "v13 must include the attribution field")
 }
 
 func TestQualityDiagnosticsAffectTheCurrentManifestDigest(t *testing.T) {

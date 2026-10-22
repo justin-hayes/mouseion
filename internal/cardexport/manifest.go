@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
@@ -28,7 +29,8 @@ const (
 	ManifestSchemaVersionV10      = 10
 	ManifestSchemaVersionV11      = 11
 	ManifestSchemaVersionV12      = 12
-	ManifestSchemaVersion         = ManifestSchemaVersionV12
+	ManifestSchemaVersionV13      = 13
+	ManifestSchemaVersion         = ManifestSchemaVersionV13
 )
 
 type ManifestDisposition string
@@ -142,8 +144,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v10\x00"
 	case ManifestSchemaVersionV11:
 		prefix = "mouseion-prepared-deck-manifest-v11\x00"
-	default:
+	case ManifestSchemaVersionV12:
 		prefix = "mouseion-prepared-deck-manifest-v12\x00"
+	default:
+		prefix = "mouseion-prepared-deck-manifest-v13\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -230,8 +234,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v10\x00"
 	case ManifestSchemaVersionV11:
 		prefix = "mouseion-prepared-deck-candidate-v11\x00"
-	default:
+	case ManifestSchemaVersionV12:
 		prefix = "mouseion-prepared-deck-candidate-v12\x00"
+	default:
+		prefix = "mouseion-prepared-deck-candidate-v13\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -254,7 +260,11 @@ func manifestFromSnapshot(snapshot ManifestSnapshot) (manifest, error) {
 	for _, item := range snapshot.Items {
 		switch item.Disposition {
 		case ManifestAccepted:
-			manifest.accepted = append(manifest.accepted, renderInputFromEntry(item.Entry))
+			input := renderInputFromEntry(item.Entry)
+			// Historical manifests keep their shipped Text rendering; only the
+			// schema that froze attribution also froze source-line presentation.
+			input.sourceLinePresentation = snapshot.SchemaVersion >= ManifestSchemaVersionV13
+			manifest.accepted = append(manifest.accepted, input)
 			manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
 				Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS,
 				TargetWord:                item.Entry.TargetWord,
@@ -293,6 +303,13 @@ type canonicalManifestItem struct {
 	CacheKey    *canonicalCacheKey       `json:"cache_key"`
 }
 
+// canonicalAttribution is the versioned codec for the optional typed source
+// attribution introduced by manifest schema v13 (ADR 0103).
+type canonicalAttribution struct {
+	Kind    string `json:"kind"`
+	Speaker string `json:"speaker,omitempty"`
+}
+
 type canonicalEntry struct {
 	Language                  string                    `json:"language"`
 	CanonicalLemma            string                    `json:"canonical_lemma"`
@@ -319,6 +336,7 @@ type canonicalEntry struct {
 	SourceDocument            string                    `json:"source_document"`
 	Notes                     string                    `json:"notes"`
 	FirstEncounter            int64                     `json:"first_encounter"`
+	Attribution               *canonicalAttribution     `json:"attribution,omitempty"`
 }
 
 type canonicalSentenceQuality struct {
@@ -369,7 +387,7 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 // validateHeader rejects a snapshot whose schema version is unknown or whose
 // owner and deck identity are missing or inconsistent with the download name.
 func (s ManifestSnapshot) validateHeader() error {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12 && s.SchemaVersion != ManifestSchemaVersionV13) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	return nil
@@ -545,7 +563,43 @@ func canonicalizeManifestEntry(entry Entry, schemaVersion int) (canonicalEntry, 
 		entryCanonical.PassageCitation = entry.PassageCitation
 		entryCanonical.BrownsonPin = entry.BrownsonPin
 	}
+	if schemaVersion >= ManifestSchemaVersionV13 {
+		attribution, err := canonicalizeAttribution(entry.Attribution)
+		if err != nil {
+			return canonicalEntry{}, err
+		}
+		entryCanonical.Attribution = attribution
+	}
 	return entryCanonical, nil
+}
+
+// canonicalizeAttribution validates and encodes the optional typed source
+// attribution. An absent attribution is nil; a speaker requires a non-empty
+// displayed name, and a stage direction carries no speaker (ADR 0103).
+func canonicalizeAttribution(attribution domain.SourceAttribution) (*canonicalAttribution, error) {
+	switch attribution.Kind {
+	case domain.AttributionNone:
+		if strings.TrimSpace(attribution.Speaker) != "" {
+			return nil, fmt.Errorf("%w: attribution speaker has no kind", ErrInvalidInput)
+		}
+		// A nil pointer is the canonical encoding of "no attribution", not an
+		// error; the caller stores it as an absent optional codec field.
+		return nil, nil //nolint:nilnil // absent optional value
+
+	case domain.AttributionSpeaker:
+		speaker := strings.TrimSpace(attribution.Speaker)
+		if speaker == "" {
+			return nil, fmt.Errorf("%w: speaker attribution has no name", ErrInvalidInput)
+		}
+		return &canonicalAttribution{Kind: string(attribution.Kind), Speaker: speaker}, nil
+	case domain.AttributionStageDirection:
+		if strings.TrimSpace(attribution.Speaker) != "" {
+			return nil, fmt.Errorf("%w: stage direction attribution carries a speaker", ErrInvalidInput)
+		}
+		return &canonicalAttribution{Kind: string(attribution.Kind)}, nil
+	default:
+		return nil, fmt.Errorf("%w: unknown attribution kind", ErrInvalidInput)
+	}
 }
 
 func cloneManifestItems(items []ManifestItem) []ManifestItem {

@@ -43,11 +43,16 @@ type Entry struct {
 	DictionaryEntry, DictionaryEntryID, DictionaryPin string
 	OmittedEvidenceCount                              int
 	Morphology, SourceDocument, Notes                 string
-	CandidateSenses                                   []enrichment.LexicalSense
-	SentenceTokens                                    []analyzer.Token
-	SentenceStartOffset                               uint64
-	FirstEncounter                                    int64
-	fallbackGlossApplied                              bool
+	// Attribution is the optional typed structural attribution derived from
+	// the exact source snapshot during preparation: a displayed speaker name or
+	// stage-direction status. It is empty when the snapshot recorded no
+	// attribution, including every historical manifest (ADR 0103).
+	Attribution          domain.SourceAttribution
+	CandidateSenses      []enrichment.LexicalSense
+	SentenceTokens       []analyzer.Token
+	SentenceStartOffset  uint64
+	FirstEncounter       int64
+	fallbackGlossApplied bool
 	// LSJSummaryProviderVersion is the provider version of the LSJ sense
 	// summary the entry's pinned LSJ entry may be condensed by. It is frozen at
 	// freeze time and is empty when the summary is not offered, so no summary is
@@ -68,8 +73,12 @@ type Note struct {
 	// summary, shown above the full LSJ entry it condenses and never replacing
 	// it. Its text pieces are already escaped.
 	LSJSenseSummary string
-	BackExtra       string
-	Tags            []string
+	// Attribution is the frozen, escaped speaker name or stage-direction label
+	// shown separately on the card front. It is empty when the preparation
+	// recorded no attribution (ADR 0103).
+	Attribution string
+	BackExtra   string
+	Tags        []string
 }
 
 type Artifact struct {
@@ -197,11 +206,31 @@ func BoldTarget(sentence, target string) (string, error) {
 // match or ErrInvalidInput is returned. The persisted tokens and sentence start
 // offset select the fallback anchor for a target no word-bounded match reaches.
 func boldTargets(sentence string, targets []string, tokens []analyzer.Token, sentenceStartOffset uint64) (string, error) {
-	if strings.TrimSpace(sentence) == "" {
-		return "", ErrInvalidInput
+	spans, err := boldTargetSpans(sentence, targets, tokens, sentenceStartOffset)
+	if err != nil {
+		return "", err
 	}
-	type span struct{ start, end int }
-	spans := make([]span, 0, len(targets))
+	var out strings.Builder
+	last := 0
+	for _, s := range spans {
+		out.WriteString(escapeField(sentence[last:s.start]))
+		out.WriteString("<b>")
+		out.WriteString(escapeField(sentence[s.start:s.end]))
+		out.WriteString("</b>")
+		last = s.end
+	}
+	out.WriteString(escapeField(sentence[last:]))
+	return out.String(), nil
+}
+
+// boldTargetSpans resolves the non-overlapping bold ranges for a sentence. It
+// is shared by the prose renderer and the source-line renderer so both anchor
+// the same target and particle evidence (ADR 0102).
+func boldTargetSpans(sentence string, targets []string, tokens []analyzer.Token, sentenceStartOffset uint64) ([]targetSpan, error) {
+	if strings.TrimSpace(sentence) == "" {
+		return nil, ErrInvalidInput
+	}
+	spans := make([]targetSpan, 0, len(targets))
 	for _, target := range targets {
 		target = textmatch.CleanLexicalSurface(target)
 		if target == "" {
@@ -211,26 +240,65 @@ func boldTargets(sentence string, targets []string, tokens []analyzer.Token, sen
 		if !ok {
 			continue
 		}
-		spans = append(spans, span{start, end})
+		spans = append(spans, targetSpan{start: start, end: end})
 	}
 	if len(spans) == 0 {
-		return "", fmt.Errorf("%w: target not found in sentence", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: target not found in sentence", ErrInvalidInput)
 	}
 	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
-	var out strings.Builder
+	nonOverlapping := spans[:0]
 	last := 0
 	for _, s := range spans {
 		if s.start < last {
 			continue
 		}
-		out.WriteString(escapeField(sentence[last:s.start]))
-		out.WriteString("<b>")
-		out.WriteString(escapeField(sentence[s.start:s.end]))
-		out.WriteString("</b>")
+		nonOverlapping = append(nonOverlapping, s)
 		last = s.end
 	}
-	out.WriteString(escapeField(sentence[last:]))
+	return nonOverlapping, nil
+}
+
+type targetSpan struct{ start, end int }
+
+// boldSourceLines renders a multi-line source sentence as one explicit HTML
+// block per source line. Escaping happens per segment before Mouseion's own
+// markup is added, and a bold range that crosses a line break is reopened on
+// the next line so emphasis never escapes its source line.
+func boldSourceLines(sentence string, targets []string, tokens []analyzer.Token, sentenceStartOffset uint64) (string, error) {
+	spans, err := boldTargetSpans(sentence, targets, tokens, sentenceStartOffset)
+	if err != nil {
+		return "", err
+	}
+	var out strings.Builder
+	lineStart := 0
+	for line := range strings.SplitSeq(sentence, "\n") {
+		out.WriteString(`<span class="source-line">`)
+		writeSourceLine(&out, line, lineStart, spans)
+		out.WriteString(`</span>`)
+		lineStart += len(line) + 1
+	}
 	return out.String(), nil
+}
+
+// writeSourceLine escapes one source line and adds its bold ranges.
+func writeSourceLine(out *strings.Builder, line string, lineStart int, spans []targetSpan) {
+	cursor := 0
+	lineEnd := lineStart + len(line)
+	for _, s := range spans {
+		if s.end <= lineStart || s.start >= lineEnd {
+			continue
+		}
+		start, end := max(s.start, lineStart)-lineStart, min(s.end, lineEnd)-lineStart
+		if start < cursor {
+			continue
+		}
+		out.WriteString(escapeField(line[cursor:start]))
+		out.WriteString("<b>")
+		out.WriteString(escapeField(line[start:end]))
+		out.WriteString("</b>")
+		cursor = end
+	}
+	out.WriteString(escapeField(line[cursor:]))
 }
 
 // targetSurfaces resolves the surfaces to bold for a card. It returns the
@@ -756,9 +824,35 @@ func testedTarget(targetWord, canonicalLemma string) string {
 	return target
 }
 
+// renderFront chooses the shipped prose rendering or the explicit source-line
+// rendering a current manifest freezes. Historical manifests keep the prose
+// rendering even when their sentence contains an authorial break.
+func renderFront(input RenderInput, target string) (string, error) {
+	if input.sourceLinePresentation && strings.Contains(input.Sentence, "\n") {
+		return boldSourceLines(input.Sentence, targetSurfaces(target, input.SentenceTokens), input.SentenceTokens, input.SentenceStartOffset)
+	}
+	return boldTargets(input.Sentence, targetSurfaces(target, input.SentenceTokens), input.SentenceTokens, input.SentenceStartOffset)
+}
+
+// attributionField renders the frozen typed attribution as the escaped Anki
+// field value. A stage direction is labelled generically; a speaker shows only
+// the name, because nested directions are already omitted at freeze time.
+func attributionField(attribution domain.SourceAttribution) string {
+	switch attribution.Kind {
+	case domain.AttributionSpeaker:
+		return escapeField(strings.TrimSpace(attribution.Speaker))
+	case domain.AttributionStageDirection:
+		return escapeField(stageDirectionLabel)
+	default:
+		return ""
+	}
+}
+
+const stageDirectionLabel = "Stage direction"
+
 func makeNote(owner string, input RenderInput) (Note, error) {
 	target := testedRenderTarget(input)
-	front, err := boldTargets(input.Sentence, targetSurfaces(target, input.SentenceTokens), input.SentenceTokens, input.SentenceStartOffset)
+	front, err := renderFront(input, target)
 	if err != nil {
 		return Note{}, err
 	}
@@ -784,6 +878,7 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		// LSJSenseSummary is Mouseion-composed HTML whose text pieces are already
 		// escaped, so it is embedded as is rather than escaped again.
 		LSJSenseSummary: input.LSJSenseSummary,
+		Attribution:     attributionField(input.Attribution),
 	}
 	if strings.TrimSpace(input.PassageContext) != "" && strings.TrimSpace(input.PassageCitation) != "" {
 		note.PassageLabel = escapeField(passageContextLabel(input.PassageCitation))
@@ -868,7 +963,7 @@ func RenderTSV(notes []Note, attribution string) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Gender, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText, n.DictionaryEntry, n.LSJSenseSummary}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Gender, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle, n.PassageLabel, n.PassageText, n.DictionaryEntry, n.LSJSenseSummary, n.Attribution}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
@@ -886,7 +981,7 @@ func labelledProviderProposed(value string) string {
 	return escapeField(providerProposedLabel) + value
 }
 
-var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Gender", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry", "LSJSenseSummary"}
+var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Gender", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle", "PassageLabel", "PassageText", "DictionaryEntry", "LSJSenseSummary", "Attribution"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
@@ -1042,7 +1137,11 @@ func newManifest(owner, deckName string, entries []Entry) manifest {
 			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
 			continue
 		}
-		manifest.accepted = append(manifest.accepted, renderInputFromEntry(entry))
+		accepted := renderInputFromEntry(entry)
+		// A manifest written by the current codec freezes the source-line
+		// presentation contract; a historical manifest restores the prose one.
+		accepted.sourceLinePresentation = true
+		manifest.accepted = append(manifest.accepted, accepted)
 		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
 		manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
 			Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,

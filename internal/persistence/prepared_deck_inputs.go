@@ -39,13 +39,14 @@ type PreparedDeckInputFacts struct {
 	Corrections                  []domain.OccurrenceLemmaCorrection
 	CurrentReadingSnapshotActive bool
 	CurrentReadingSnapshot       []domain.SelectionCandidate
-	// Structure is the exact snapshot's recorded source structure for a direct
-	// analysis projection. It is zero for a Current reading snapshot, whose
-	// frozen evidence is never re-filtered.
-	Structure domain.SnapshotStructure
-	Known     []domain.KnownVocabulary
-	Generated []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
-	Reserved  []domain.DeckPreparationVocabulary
+	// Structure and SourceUnits are the exact analysis snapshot's recorded
+	// source structure and units. They derive the optional frozen attribution
+	// without reselecting or re-filtering a Current reading snapshot.
+	Structure   domain.SnapshotStructure
+	SourceUnits map[string]domain.ExtractedUnit
+	Known       []domain.KnownVocabulary
+	Generated   []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
+	Reserved    []domain.DeckPreparationVocabulary
 }
 
 // LoadPreparedDeckInputFactsTx reads candidate and vocabulary facts through
@@ -66,6 +67,9 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		return PreparedDeckInputFacts{}, err
 	}
 	if err := attachPreparedDeckAnalysisFactsTx(ctx, tx, q, preparation, corpusID, &result, languages); err != nil {
+		return PreparedDeckInputFacts{}, err
+	}
+	if err := attachPreparedDeckStructureFactsTx(ctx, tx, preparation, &result); err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
 	if err := attachPreparedDeckVocabularyFacts(ctx, tx, preparation.OwnerID, languages, &result); err != nil {
@@ -120,19 +124,44 @@ func attachPreparedDeckAnalysisFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcge
 	if len(analysis.Sentences) > 0 {
 		result.Analysis = &analysis
 		languages[canonicalization.NormalizeLanguage(analysis.Language)] = struct{}{}
-		snapshotID, err := analysisRunSnapshotID(ctx, tx, preparation.OwnerID, preparation.AnalysisRunID)
-		if err != nil {
-			return err
-		}
-		if snapshotID != "" {
-			result.Structure, err = LoadSnapshotStructure(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, snapshotID)
-			if err != nil {
-				return err
-			}
-		}
 	}
 	result.Corrections = corrections
 	return nil
+}
+
+// attachPreparedDeckStructureFactsTx resolves the exact analysis snapshot's
+// recorded roles and units. It runs for a direct projection and for a Current
+// reading snapshot: attribution is source evidence, not a re-filter of the
+// frozen selection. A legacy run without a snapshot records no structure.
+func attachPreparedDeckStructureFactsTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, result *PreparedDeckInputFacts) error {
+	snapshotID, err := analysisRunSnapshotID(ctx, tx, preparation.OwnerID, preparation.AnalysisRunID)
+	if err != nil || snapshotID == "" {
+		return err
+	}
+	result.Structure, err = LoadSnapshotStructure(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, snapshotID)
+	if err != nil || !result.Structure.Recorded {
+		return err
+	}
+	result.SourceUnits, err = loadSnapshotSourceUnits(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, snapshotID)
+	return err
+}
+
+// loadSnapshotSourceUnits reads the exact snapshot's units by identity so a
+// unit ID recurring in another snapshot never supplies the wrong speaker text.
+func loadSnapshotSourceUnits(ctx context.Context, db sqlcgen.DBTX, owner, sourceID, snapshotID string) (map[string]domain.ExtractedUnit, error) {
+	rows, err := sqlcgen.New(db).ListExtractedUnitsForSnapshot(ctx, sqlcgen.ListExtractedUnitsForSnapshotParams{OwnerID: owner, SourceMaterialID: sourceID, SnapshotID: snapshotID})
+	if err != nil {
+		return nil, err
+	}
+	units := make(map[string]domain.ExtractedUnit, len(rows))
+	for _, row := range rows {
+		unit, err := extractedUnitFromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		units[unit.ID] = unit
+	}
+	return units, nil
 }
 
 // analysisRunSnapshotID resolves the exact snapshot an analysis run was bound

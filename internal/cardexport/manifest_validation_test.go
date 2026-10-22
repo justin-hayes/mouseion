@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/require"
 )
@@ -95,6 +96,34 @@ func TestManifestSnapshotRejectsInvalidItems(t *testing.T) {
 			want: "invalid omitted evidence count",
 			mutate: func(snapshot *cardexport.ManifestSnapshot) {
 				snapshot.Items[0].Entry.OmittedEvidenceCount = -1
+			},
+		},
+		{
+			name: "speaker attribution without a name",
+			want: "speaker attribution has no name",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.Items[0].Entry.Attribution = domain.SourceAttribution{Kind: domain.AttributionSpeaker}
+			},
+		},
+		{
+			name: "stage direction attribution with a speaker",
+			want: "stage direction attribution carries a speaker",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.Items[0].Entry.Attribution = domain.SourceAttribution{Kind: domain.AttributionStageDirection, Speaker: "Erster"}
+			},
+		},
+		{
+			name: "unknown attribution kind",
+			want: "unknown attribution kind",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.Items[0].Entry.Attribution = domain.SourceAttribution{Kind: "chorus"}
+			},
+		},
+		{
+			name: "speaker without an attribution kind",
+			want: "attribution speaker has no kind",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.Items[0].Entry.Attribution = domain.SourceAttribution{Speaker: "Erster"}
 			},
 		},
 	}

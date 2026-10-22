@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 // TestRealAnkiImportAcceptance exercises the current Anki collection importer.
@@ -17,11 +19,28 @@ func TestRealAnkiImportAcceptance(t *testing.T) {
 	if python == "" {
 		python = "python3"
 	}
-	base := RenderInput{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das Haus ist groß.", TargetWord: "Haus", SourceDocument: "Book A", Morphology: `{"Gender":"Neut","Number":"Sing"}`}
-	book, err := makeNote("owner", base)
+	snapshot := ManifestSnapshot{
+		SchemaVersion: ManifestSchemaVersion, Owner: "owner", DeckName: "Book A", Filename: DownloadFilename("Book A"),
+		Items: []ManifestItem{{
+			Ordinal: 0, Disposition: ManifestAccepted,
+			Entry: Entry{
+				Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN",
+				Sentence: "Das Haus ist groß.\nEs steht am Fluss.", TargetWord: "Haus",
+				SourceDocument: "Book A", Morphology: `{"Gender":"Neut","Number":"Sing"}`,
+				Attribution: domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Erster"},
+			},
+			Quality: SentenceQuality{Accepted: true, Score: 90, Reasons: []string{"target present"}},
+		}},
+	}
+	deck, err := NewPresentation(nil).Restore(snapshot)
 	if err != nil {
 		t.Fatal(err)
 	}
+	artifact, _, err := NewPresentation(nil).Finalize(t.Context(), deck, nil, RunFacts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	book := artifact.Generated[0].Note
 	apkg, err := renderAPKG(t.Context(), DeckName("de", "Book A"), []Note{book}, "")
 	if err != nil {
 		t.Fatal(err)

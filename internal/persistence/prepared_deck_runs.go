@@ -91,6 +91,10 @@ type preparedDeckRenderPayload struct {
 	// be labelled provider-proposed. It is frozen on the deck item so a
 	// re-render labels the same fields (ADR 0101).
 	ProviderProposed bool `json:"provider_proposed,omitempty"`
+	// Attribution is the optional typed source attribution frozen by manifest
+	// schema v13. Historical payloads decode it as empty (ADR 0103).
+	AttributionKind    string `json:"attribution_kind,omitempty"`
+	AttributionSpeaker string `json:"attribution_speaker,omitempty"`
 }
 
 // FreezePreparedDeckRunTx stores the complete run inside the caller's
@@ -342,7 +346,7 @@ func insertPreparedDeckManifestItems(ctx context.Context, tx pgx.Tx, params Free
 }
 
 func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, params FreezePreparedDeckRunParams, config PreparedDeckRunConfig, candidateDigest, runID string, item cardexport.ManifestItem, pending map[int]cardexport.ManifestItem) error {
-	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, DictionaryEntry: item.Entry.DictionaryEntry, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes, ProviderProposed: item.Entry.ProviderProposed, LSJSummaryProviderVersion: item.Entry.LSJSummaryProviderVersion})
+	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, DictionaryEntry: item.Entry.DictionaryEntry, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes, ProviderProposed: item.Entry.ProviderProposed, LSJSummaryProviderVersion: item.Entry.LSJSummaryProviderVersion, AttributionKind: string(item.Entry.Attribution.Kind), AttributionSpeaker: item.Entry.Attribution.Speaker})
 	if err != nil {
 		return err
 	}
@@ -622,6 +626,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		item.Entry.SourceDocument, item.Entry.Notes = render.SourceDocument, render.Notes
 		item.Entry.ProviderProposed = render.ProviderProposed
 		item.Entry.LSJSummaryProviderVersion = render.LSJSummaryProviderVersion
+		item.Entry.Attribution = domain.SourceAttribution{Kind: domain.AttributionKind(render.AttributionKind), Speaker: render.AttributionSpeaker}
 		item.Entry.PassageContext, item.Entry.PassageCitation, item.Entry.BrownsonPin = model.PassageContext, model.PassageCitation, model.BrownsonPin
 		item.CorpusID = uuidString(model.CorpusID)
 		item.SentenceOrdinal = pgInt8(model.SentenceOrdinal)

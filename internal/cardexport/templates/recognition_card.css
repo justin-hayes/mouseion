@@ -48,6 +48,20 @@
   border-top: 1px solid var(--mouseion-color-border);
 }
 
+.attribution {
+  margin: 0 0 var(--mouseion-space-2);
+  color: var(--mouseion-color-text-muted);
+  font-size: 0.78em;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+.source-line {
+  display: block;
+  padding-left: 1.5em;
+  text-indent: -1.5em;
+}
+
 .card-back {
   max-width: var(--mouseion-width-reading);
   margin: var(--mouseion-space-5) auto 0;
