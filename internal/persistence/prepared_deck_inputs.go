@@ -39,9 +39,13 @@ type PreparedDeckInputFacts struct {
 	Corrections                  []domain.OccurrenceLemmaCorrection
 	CurrentReadingSnapshotActive bool
 	CurrentReadingSnapshot       []domain.SelectionCandidate
-	Known                        []domain.KnownVocabulary
-	Generated                    []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
-	Reserved                     []domain.DeckPreparationVocabulary
+	// Structure is the exact snapshot's recorded source structure for a direct
+	// analysis projection. It is zero for a Current reading snapshot, whose
+	// frozen evidence is never re-filtered.
+	Structure domain.SnapshotStructure
+	Known     []domain.KnownVocabulary
+	Generated []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
+	Reserved  []domain.DeckPreparationVocabulary
 }
 
 // LoadPreparedDeckInputFactsTx reads candidate and vocabulary facts through
@@ -116,9 +120,32 @@ func attachPreparedDeckAnalysisFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcge
 	if len(analysis.Sentences) > 0 {
 		result.Analysis = &analysis
 		languages[canonicalization.NormalizeLanguage(analysis.Language)] = struct{}{}
+		snapshotID, err := analysisRunSnapshotID(ctx, tx, preparation.OwnerID, preparation.AnalysisRunID)
+		if err != nil {
+			return err
+		}
+		if snapshotID != "" {
+			result.Structure, err = LoadSnapshotStructure(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, snapshotID)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	result.Corrections = corrections
 	return nil
+}
+
+// analysisRunSnapshotID resolves the exact snapshot an analysis run was bound
+// to. A legacy run without a snapshot yields the empty string.
+func analysisRunSnapshotID(ctx context.Context, tx pgx.Tx, owner, runID string) (string, error) {
+	if runID == "" {
+		return "", nil
+	}
+	var snapshotID string
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).Scan(&snapshotID); err != nil {
+		return "", fmt.Errorf("load analysis run snapshot: %w", err)
+	}
+	return snapshotID, nil
 }
 
 // attachPreparedDeckVocabularyFacts appends the known, generated and reserved
@@ -210,7 +237,12 @@ func analysisFromTokenEvidence(rows []sqlcgen.ListAnalysisTokenEvidenceRow) (ana
 			}
 			index = int(row.SentenceOrdinal)
 			indexByOrdinal[row.SentenceOrdinal] = index
+			location, err := persistedSentenceLocation(row)
+			if err != nil {
+				return analyzer.Result{}, err
+			}
 			analysis.Sentences[index].Text = row.SentenceText
+			analysis.Sentences[index].Location = location
 		}
 		token, err := decodeTokenEvidence(row)
 		if err != nil {
@@ -220,6 +252,20 @@ func analysisFromTokenEvidence(rows []sqlcgen.ListAnalysisTokenEvidenceRow) (ana
 		analysis.Sentences[index].Tokens = append(analysis.Sentences[index].Tokens, token)
 	}
 	return analysis, nil
+}
+
+// persistedSentenceLocation decodes one persisted sentence's unit-relative
+// range, so structural facts can resolve against the exact source snapshot.
+func persistedSentenceLocation(row sqlcgen.ListAnalysisTokenEvidenceRow) (analyzer.SourceLocation, error) {
+	start, err := checked.Uint64FromInt64(row.SentenceStartOffset)
+	if err != nil {
+		return analyzer.SourceLocation{}, fmt.Errorf("decode persisted sentence start offset: %w", err)
+	}
+	end, err := checked.Uint64FromInt64(row.SentenceEndOffset)
+	if err != nil {
+		return analyzer.SourceLocation{}, fmt.Errorf("decode persisted sentence end offset: %w", err)
+	}
+	return analyzer.SourceLocation{SourceDocumentID: row.UnitID, StartOffset: start, EndOffset: end}, nil
 }
 
 // decodeTokenEvidence decodes one persisted token row, rejecting an invalid

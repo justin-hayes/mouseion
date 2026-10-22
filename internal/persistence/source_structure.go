@@ -76,7 +76,7 @@ func (s *PostgresStore) loadExtractedSnapshot(ctx context.Context, owner, source
 	if err = out.Units.ValidateSnapshot(); err != nil {
 		return domain.ExtractedSnapshot{}, fmt.Errorf("validate persisted extracted units: %w", err)
 	}
-	out.Structure, err = s.loadSnapshotStructure(ctx, owner, sourceID, identity)
+	out.Structure, err = loadSnapshotStructureRows(ctx, s.queries(), owner, sourceID, identity)
 	if err != nil {
 		return domain.ExtractedSnapshot{}, err
 	}
@@ -86,15 +86,31 @@ func (s *PostgresStore) loadExtractedSnapshot(ctx context.Context, owner, source
 	return out, nil
 }
 
-// loadSnapshotStructure reads the role spans and heading resets recorded by one
-// exact v2 snapshot. A v1 snapshot carries no structure rows and reads as
+// LoadSnapshotStructure reads the structure recorded by one exact
+// owner/source-scoped snapshot. It supplies structural facts to Go consumers;
+// the caller decides what the roles mean for its own rule, so SQL never
+// reimplements eligibility. A v1 snapshot reads as structure not recorded.
+func LoadSnapshotStructure(ctx context.Context, db sqlcgen.DBTX, owner, sourceID, snapshotID string) (domain.SnapshotStructure, error) {
+	q := sqlcgen.New(db)
+	identity, err := q.GetExtractedUnitSnapshotIdentity(ctx, sqlcgen.GetExtractedUnitSnapshotIdentityParams{OwnerID: owner, SourceMaterialID: sourceID, SnapshotID: snapshotID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.SnapshotStructure{}, domain.ErrExtractedUnitsUnavailable
+	}
+	if err != nil {
+		return domain.SnapshotStructure{}, err
+	}
+	return loadSnapshotStructureRows(ctx, q, owner, sourceID, snapshotIdentityFromExact(identity))
+}
+
+// loadSnapshotStructureRows reads the role spans and heading resets recorded by
+// one exact v2 snapshot. A v1 snapshot carries no structure rows and reads as
 // structure not recorded.
-func (s *PostgresStore) loadSnapshotStructure(ctx context.Context, owner, sourceID string, identity snapshotIdentity) (domain.SnapshotStructure, error) {
+func loadSnapshotStructureRows(ctx context.Context, q *sqlcgen.Queries, owner, sourceID string, identity snapshotIdentity) (domain.SnapshotStructure, error) {
 	if identity.schemaVersion < domain.ExtractedUnitsSchemaVersionV2 {
 		return domain.SnapshotStructure{}, nil
 	}
 	out := domain.SnapshotStructure{Recorded: true, ConventionSet: identity.conventionSet}
-	spanRows, err := s.queries().ListSourceMaterialUnitRoleSpans(ctx, sqlcgen.ListSourceMaterialUnitRoleSpansParams{OwnerID: owner, SourceMaterialID: sourceID, SnapshotID: identity.snapshotID})
+	spanRows, err := q.ListSourceMaterialUnitRoleSpans(ctx, sqlcgen.ListSourceMaterialUnitRoleSpansParams{OwnerID: owner, SourceMaterialID: sourceID, SnapshotID: identity.snapshotID})
 	if err != nil {
 		return domain.SnapshotStructure{}, err
 	}
@@ -109,7 +125,7 @@ func (s *PostgresStore) loadSnapshotStructure(ctx context.Context, owner, source
 		}
 		out.RoleSpans = append(out.RoleSpans, domain.UnitRoleSpan{UnitID: row.UnitID, Role: domain.SourceStructureRole(row.Role), StartOffset: start, EndOffset: end})
 	}
-	resetRows, err := s.queries().ListSourceMaterialUnitHeadingResets(ctx, sqlcgen.ListSourceMaterialUnitHeadingResetsParams{OwnerID: owner, SourceMaterialID: sourceID, SnapshotID: identity.snapshotID})
+	resetRows, err := q.ListSourceMaterialUnitHeadingResets(ctx, sqlcgen.ListSourceMaterialUnitHeadingResetsParams{OwnerID: owner, SourceMaterialID: sourceID, SnapshotID: identity.snapshotID})
 	if err != nil {
 		return domain.SnapshotStructure{}, err
 	}

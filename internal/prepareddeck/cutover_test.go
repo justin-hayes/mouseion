@@ -3,6 +3,7 @@ package prepareddeck
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"math"
@@ -14,6 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -607,4 +609,48 @@ func assertDefaultGreekPlan(t *testing.T, plan persistence.FreezePreparedDeckRun
 	assert.Empty(t, plan.Config.Provider)
 	require.Len(t, plan.Projection.Items, 1)
 	assert.Nil(t, plan.Projection.Items[0].CacheKey, "a default Greek item has no provider cache identity")
+}
+
+// TestPreparedDeckProjectionWithholdsSpeakerLabelSentenceReferences holds ADR
+// 0103's shared consumer rule: a direct prepared-deck projection drops a
+// label-overlapping sentence from candidate context while the eligible token
+// still counts and keeps another acceptable occurrence.
+func TestPreparedDeckProjectionWithholdsSpeakerLabelSentenceReferences(t *testing.T) {
+	unit := "epub-unit-v1:0:chapter"
+	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{
+		{Text: "Valentin fällt, das Buch liegt hier.", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 0, EndOffset: 36}, Tokens: []analyzer.Token{
+			{Surface: "Valentin", CanonicalLemma: "Valentin", UPOS: "PROPN", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 0, EndOffset: 8}},
+			{Surface: "fällt", CanonicalLemma: "fallen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 9, EndOffset: 14}},
+			{Surface: "Buch", CanonicalLemma: "Buch", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 20, EndOffset: 24}},
+			{Surface: "liegt", CanonicalLemma: "liegen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 25, EndOffset: 30}},
+		}},
+		{Text: "Das Buch liegt hier.", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 37, EndOffset: 57}, Tokens: []analyzer.Token{
+			{Surface: "Buch", CanonicalLemma: "Buch", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 41, EndOffset: 45}},
+			{Surface: "liegt", CanonicalLemma: "liegen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 46, EndOffset: 51}},
+		}},
+	}}
+	structure := domain.SnapshotStructure{Recorded: true, ConventionSet: domain.StructureConventionSet, RoleSpans: []domain.UnitRoleSpan{
+		{UnitID: unit, Role: domain.SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 15},
+	}}
+	candidates, err := projectPreparedDeckCandidates(domain.DeckPreparation{OwnerID: "alice"}, "corpus", corpus, nil, structure)
+	require.NoError(t, err)
+	byLemma := map[string]domain.SelectionCandidate{}
+	for _, candidate := range candidates {
+		byLemma[candidate.CanonicalLemma] = candidate
+	}
+	var refs []selection.SentenceReference
+	require.NoError(t, json.Unmarshal(byLemma["fallen"].SentenceReferences, &refs))
+	assert.Empty(t, refs, "the label sentence is never card context")
+	require.NoError(t, json.Unmarshal(byLemma["Buch"].SentenceReferences, &refs))
+	require.Len(t, refs, 1, "the direction sentence remains acceptable context")
+	assert.Equal(t, 2, byLemma["Buch"].OccurrenceCount)
+
+	v1, err := projectPreparedDeckCandidates(domain.DeckPreparation{OwnerID: "alice"}, "corpus", corpus, nil, domain.SnapshotStructure{})
+	require.NoError(t, err)
+	for _, candidate := range v1 {
+		if candidate.CanonicalLemma == "fallen" {
+			require.NoError(t, json.Unmarshal(candidate.SentenceReferences, &refs))
+			assert.Len(t, refs, 1, "v1 derives no restriction")
+		}
+	}
 }

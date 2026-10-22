@@ -484,6 +484,14 @@ type ConcordanceResultOccurrence struct {
 	ConcordanceOccurrence
 	RawLemma, EffectiveLemma string
 	Corrected, Excluded      bool
+	// SpeakerLabel reports that this occurrence overlaps a recorded speaker
+	// label in its exact snapshot, so Concordance presents it as speaker-label
+	// evidence. It remains searchable and is never deleted.
+	SpeakerLabel bool
+	// StudyUnavailable reports that the occurrence's sentence overlaps a
+	// recorded speaker label. Such a sentence supplies no Study affordance and
+	// cannot be studied directly (ADR 0103).
+	StudyUnavailable bool
 }
 
 type SentenceStudy struct {
@@ -502,7 +510,11 @@ type SentenceStudy struct {
 	// dependency and head are a non-committal skeleton. An empty state is an
 	// ordinary run for callers that construct a study without a run.
 	SyntaxState string
-	Tokens      []SentenceStudyToken
+	// SpeakerLabelOverlap reports that the sentence overlaps a recorded speaker
+	// label in its exact source snapshot. Such a sentence is raw evidence, not
+	// study context, so a direct Study request is refused (ADR 0103).
+	SpeakerLabelOverlap bool
+	Tokens              []SentenceStudyToken
 	// UnresolvedDecisions are stored occurrence decisions that address this
 	// sentence but cannot be attributed to exactly one persisted analyzed word.
 	// They are shown separately and are never applied to a word.

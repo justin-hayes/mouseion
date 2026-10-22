@@ -137,7 +137,7 @@ func effectivePreparedDeckCandidates(preparation domain.DeckPreparation, facts p
 	if facts.CurrentReadingSnapshotActive || facts.Analysis == nil {
 		return facts.Candidates, nil
 	}
-	return projectPreparedDeckCandidates(preparation, facts.CorpusID, *facts.Analysis, facts.Corrections)
+	return projectPreparedDeckCandidates(preparation, facts.CorpusID, *facts.Analysis, facts.Corrections, facts.Structure)
 }
 
 // candidateProjections materializes the frozen projections consumed by
@@ -150,12 +150,14 @@ func candidateProjections(preparation domain.DeckPreparation, deckName string, s
 	return projections
 }
 
-func projectPreparedDeckCandidates(preparation domain.DeckPreparation, corpusID string, corpus analyzer.Result, corrections []domain.OccurrenceLemmaCorrection) ([]domain.SelectionCandidate, error) {
+func projectPreparedDeckCandidates(preparation domain.DeckPreparation, corpusID string, corpus analyzer.Result, corrections []domain.OccurrenceLemmaCorrection, structure domain.SnapshotStructure) ([]domain.SelectionCandidate, error) {
 	decisions, err := occurrenceDecisions(corrections)
 	if err != nil {
 		return nil, err
 	}
-	projected, err := selection.Project(corpus, selection.DefaultConfig(corpusID), decisions)
+	config := selection.DefaultConfig(corpusID)
+	config.Structure = structure
+	projected, err := selection.Project(corpus, config, decisions)
 	if err != nil {
 		return nil, fmt.Errorf("project effective prepared-deck vocabulary: %w", err)
 	}

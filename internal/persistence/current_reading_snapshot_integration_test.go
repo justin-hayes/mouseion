@@ -616,3 +616,44 @@ func TestCurrentReadingStartAndSwitchRejectIncompleteIdentity(t *testing.T) {
 		require.NotErrorIs(t, err, ErrCurrentReadingStale)
 	})
 }
+
+// TestCurrentReadingFreezeWithholdsSpeakerLabelSentenceReferences holds ADR
+// 0103's shared restriction at the Reading candidate/freeze seam: a v2 snapshot
+// whose speaker label covers the first seeded sentence freezes the same
+// identity and occurrence count while dropping that sentence as context.
+func TestCurrentReadingFreezeWithholdsSpeakerLabelSentenceReferences(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "goal-speaker-label", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "speaker-label")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+	var corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
+
+	sentence := testutil.GatePassingSentence("de", testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB"})
+	unit := domain.ExtractedUnit{ID: "seeded-unit", Order: 0, SpineIndex: 0, ManifestID: "seeded", Text: sentence.Text, EndOffset: uint64(len([]rune(sentence.Text)))}
+	snapshotID := insertStructureSnapshot(t, ctx, store.Pool(), owner.ID, source.ID, source.ContentRevisionID, domain.StructureConventionSet, []domain.ExtractedUnit{unit})
+	require.NoError(t, insertRoleSpan(t, ctx, store.Pool(), owner.ID, source.ID, snapshotID, unit.ID, "speaker", 0, len([]rune(unit.Text))))
+	_, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET snapshot_id=$3 WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID, snapshotID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE source_materials SET current_snapshot_id=$3 WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID, snapshotID)
+	require.NoError(t, err)
+
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Occurrences: 3})
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, goal.SnapshotSize)
+	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	require.Len(t, snapshot, 1)
+	assert.Equal(t, 3, snapshot[0].OccurrenceCount, "the in-Book occurrence count is unchanged")
+
+	var references []selection.SentenceReference
+	require.NoError(t, json.Unmarshal(snapshot[0].SentenceReferences, &references))
+	require.Len(t, references, 2, "the label-overlapping sentence supplies no frozen context")
+	for _, reference := range references {
+		assert.NotEqual(t, 0, reference.SentenceIndex, "the frozen references exclude the label-overlapping sentence")
+	}
+}

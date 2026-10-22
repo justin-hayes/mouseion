@@ -191,6 +191,23 @@ func validateUnitRoleSpan(span UnitRoleSpan, unitText map[string][]rune) error {
 	return nil
 }
 
+// OverlapsSpeakerLabel reports whether the half-open span [start, end) in the
+// named unit overlaps a recorded speaker label. A snapshot that did not record
+// structure has no known labels, so it derives no restriction: v1 means
+// structure not recorded, not prose or absence of speakers.
+func (s SnapshotStructure) OverlapsSpeakerLabel(unitID string, start, end uint64) bool {
+	if !s.Recorded || start >= end {
+		return false
+	}
+	for _, span := range s.RoleSpans {
+		if span.UnitID == unitID && span.Role == SourceStructureRoleSpeaker &&
+			span.StartOffset < end && span.EndOffset > start {
+			return true
+		}
+	}
+	return false
+}
+
 // validateRoleSpanLayout accepts disjoint spans and proper nesting. It rejects
 // crossing spans, duplicate role spans and contradictory nesting, including the
 // same bounds carrying two roles or a speaker label wrapped in a direction. A

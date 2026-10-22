@@ -74,7 +74,8 @@ SELECT EXISTS (
 SELECT t.language, t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.dependency, t.head, t.morphology,
        t.lexical_discriminator, t.headword,
-       t.start_offset, t.end_offset, s.unit_id, s.sentence_text
+       t.start_offset, t.end_offset, s.unit_id, s.sentence_text,
+       s.start_offset AS sentence_start_offset, s.end_offset AS sentence_end_offset
 FROM corpora c
 JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
   AND t.analysis_run_id = c.analysis_run_id

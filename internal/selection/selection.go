@@ -77,6 +77,12 @@ type SelectionConfig struct {
 	CorpusID       string
 	MinOccurrences int
 	AllowedPOS     map[string]bool
+	// Structure is the exact snapshot's recorded source structure. A sentence
+	// overlapping a recorded speaker label is not study or card context, so it
+	// contributes no sentence reference while its eligible tokens still count.
+	// The zero value means structure was not supplied (a v1 snapshot): no
+	// restriction can be derived.
+	Structure domain.SnapshotStructure
 }
 
 func DefaultConfig(corpusID string) SelectionConfig {
@@ -250,6 +256,11 @@ func AnalyzableStatistics(corpus analyzer.Result, cfg SelectionConfig) domain.An
 func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[OccurrenceIdentity]OccurrenceDecision) map[Identity]*aggregate {
 	aggs := map[Identity]*aggregate{}
 	for si, sentence := range corpus.Sentences {
+		// A sentence overlapping a speaker label is never study or card
+		// context. Its eligible tokens still count and may obtain a card from
+		// another acceptable occurrence, so only the sentence reference is
+		// withheld. Analyzer boundaries are never altered.
+		studyContext := !cfg.Structure.OverlapsSpeakerLabel(sentence.Location.SourceDocumentID, sentence.Location.StartOffset, sentence.Location.EndOffset)
 		for _, token := range sentence.Tokens {
 			var decision *OccurrenceDecision
 			if learner, ok := decisions[occurrenceIdentity(token)]; ok {
@@ -266,7 +277,9 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[
 			}
 			a.count++
 			a.forms[token.Surface] = true
-			a.refs = append(a.refs, SentenceReference{si, sentence.Text, token.Location})
+			if studyContext {
+				a.refs = append(a.refs, SentenceReference{si, sentence.Text, token.Location})
+			}
 		}
 	}
 	return aggs

@@ -523,3 +523,67 @@ func TestProjectRejectsInvalidConfig(t *testing.T) {
 		})
 	}
 }
+
+// TestProjectWithholdsOnlyStudyContextOverlappingSpeakerLabels holds ADR 0103's
+// sentence rule: a sentence overlapping a speaker label supplies no sentence
+// reference, while its other eligible words still count and may be carded from
+// another acceptable occurrence. Analyzer sentence boundaries are untouched.
+func TestProjectWithholdsOnlyStudyContextOverlappingSpeakerLabels(t *testing.T) {
+	unit := "epub-unit-v1:0:chapter"
+	labeled := analyzer.Sentence{
+		Text:     "Valentin fällt, das Buch liegt hier.",
+		Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 0, EndOffset: 36},
+		Tokens: []analyzer.Token{
+			{Surface: "Valentin", CanonicalLemma: "Valentin", UPOS: "PROPN", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 0, EndOffset: 8}},
+			{Surface: "fällt", CanonicalLemma: "fallen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 9, EndOffset: 14}},
+			{Surface: "Buch", CanonicalLemma: "Buch", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 20, EndOffset: 24}},
+			{Surface: "liegt", CanonicalLemma: "liegen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 25, EndOffset: 30}},
+		},
+	}
+	// The second sentence shares the same source line (only a space separates
+	// them) but is a standalone direction, not a speaker label.
+	direction := analyzer.Sentence{
+		Text:     "Das Buch liegt hier.",
+		Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 37, EndOffset: 57},
+		Tokens: []analyzer.Token{
+			{Surface: "Buch", CanonicalLemma: "Buch", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 41, EndOffset: 45}},
+			{Surface: "liegt", CanonicalLemma: "liegen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 46, EndOffset: 51}},
+		},
+	}
+	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{labeled, direction}}
+	structure := domain.SnapshotStructure{Recorded: true, ConventionSet: domain.StructureConventionSet, RoleSpans: []domain.UnitRoleSpan{
+		{UnitID: unit, Role: domain.SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 15},
+		{UnitID: unit, Role: domain.SourceStructureRoleDirection, StartOffset: 37, EndOffset: 57},
+	}}
+	config := DefaultConfig("corpus")
+	config.Structure = structure
+
+	projected, err := Project(corpus, config, nil)
+	require.NoError(t, err)
+	byLemma := map[string]Candidate{}
+	for _, candidate := range projected {
+		byLemma[candidate.Identity.CanonicalLemma] = candidate
+	}
+	require.Contains(t, byLemma, "Buch")
+	assert.Equal(t, 2, byLemma["Buch"].OccurrenceCount, "an eligible direction word in a labeled sentence still counts")
+	require.Len(t, byLemma["Buch"].SentenceReferences, 1, "only the acceptable occurrence supplies context")
+	assert.Equal(t, direction.Text, byLemma["Buch"].SentenceReferences[0].Text)
+	assert.Equal(t, 2, byLemma["liegen"].OccurrenceCount)
+	require.Len(t, byLemma["liegen"].SentenceReferences, 1)
+	assert.Equal(t, direction.Text, byLemma["liegen"].SentenceReferences[0].Text)
+	assert.Equal(t, 1, byLemma["fallen"].OccurrenceCount, "a label-overlapping token is still raw evidence")
+	assert.Empty(t, byLemma["fallen"].SentenceReferences, "the label sentence is never study context")
+
+	// Without recorded structure (v1), the same corpus behaves exactly as
+	// today: no restriction can be derived.
+	v1, err := Project(corpus, DefaultConfig("corpus"), nil)
+	require.NoError(t, err)
+	for _, candidate := range v1 {
+		switch candidate.Identity.CanonicalLemma {
+		case "fallen":
+			assert.Len(t, candidate.SentenceReferences, 1)
+		case "Buch":
+			assert.Len(t, candidate.SentenceReferences, 2)
+		}
+	}
+}

@@ -1650,11 +1650,12 @@ func (w *Worker) generateSelection(ctx context.Context, args JobArgs, riverJobID
 		}
 		result = &persisted
 	}
-	if _, err := w.Selection.Select(ctx, args.OwnerID, *result, selection.DefaultConfig(corpusID)); err != nil {
-		if recordErr := w.recordCandidateGenerationFailure(ctx, args.OwnerID, corpusID, riverJobID, "selection", err); recordErr != nil {
-			return errors.Join(err, recordErr)
-		}
-		return err
+	config, err := w.selectionConfig(ctx, args, corpusID)
+	if err != nil {
+		return w.recordSelectionFailure(ctx, args.OwnerID, corpusID, riverJobID, err)
+	}
+	if _, err := w.Selection.Select(ctx, args.OwnerID, *result, config); err != nil {
+		return w.recordSelectionFailure(ctx, args.OwnerID, corpusID, riverJobID, err)
 	}
 	details, err := json.Marshal(map[string]any{"river_job_id": riverJobID, "stage": "selection"})
 	if err != nil {
@@ -1664,6 +1665,30 @@ func (w *Worker) generateSelection(ctx context.Context, args JobArgs, riverJobID
 		return fmt.Errorf("record candidate-generation completion: %w", err)
 	}
 	return nil
+}
+
+// recordSelectionFailure records a retryable candidate-generation failure and
+// returns it together with any recording failure.
+func (w *Worker) recordSelectionFailure(ctx context.Context, owner, corpusID string, riverJobID int64, failure error) error {
+	if recordErr := w.recordCandidateGenerationFailure(ctx, owner, corpusID, riverJobID, "selection", failure); recordErr != nil {
+		return errors.Join(failure, recordErr)
+	}
+	return failure
+}
+
+// selectionConfig passes the exact snapshot's recorded structure to the
+// selection rule. A run without a snapshot id has no structure to supply.
+func (w *Worker) selectionConfig(ctx context.Context, args JobArgs, corpusID string) (selection.SelectionConfig, error) {
+	config := selection.DefaultConfig(corpusID)
+	if args.SnapshotID == "" {
+		return config, nil
+	}
+	structure, err := persistence.LoadSnapshotStructure(ctx, w.Pool, args.OwnerID, args.SourceMaterialID, args.SnapshotID)
+	if err != nil {
+		return config, err
+	}
+	config.Structure = structure
+	return config, nil
 }
 
 func loadNormalizedCorpusForSelection(ctx context.Context, pool *pgxpool.Pool, owner, corpusID, language string) (analyzer.Result, error) {
