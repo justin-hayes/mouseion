@@ -176,3 +176,33 @@ func (s *PostgresStore) GetSourceStructureCheck(ctx context.Context, key domain.
 		ResultIdentity: row.ResultIdentity, CheckedAt: row.CheckedAt,
 	}, true, nil
 }
+
+// ListSourceStructureCheckCandidates returns one bounded page of current EPUB
+// Book snapshots whose exact check key has no successful record and whose
+// contract or convention set is older or different from the target. Imported
+// classical sources and sources without a Book are excluded.
+func (s *PostgresStore) ListSourceStructureCheckCandidates(ctx context.Context, targetContractVersion int, conventionSet, afterSourceID string, limit int) ([]domain.SourceStructureCheckKey, error) {
+	if limit < 1 {
+		return nil, errors.New("list source structure check candidates: limit must be positive")
+	}
+	pageSize, err := checked.Int32FromInt(limit)
+	if err != nil {
+		return nil, fmt.Errorf("list source structure check candidates: %w", err)
+	}
+	rows, err := s.queries().ListSourceStructureCheckCandidates(ctx, sqlcgen.ListSourceStructureCheckCandidatesParams{
+		TargetContractVersion: targetContractVersion, StructureConventionSet: conventionSet,
+		AfterSourceID: afterSourceID, PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]domain.SourceStructureCheckKey, 0, len(rows))
+	for _, row := range rows {
+		keys = append(keys, domain.SourceStructureCheckKey{
+			OwnerID: row.SourceOwnerID, SourceMaterialID: row.SourceID,
+			ContentRevisionID: row.SourceCurrentContentRevisionID, SnapshotID: row.SourceCurrentSnapshotID,
+			TargetContractVersion: targetContractVersion, ConventionSet: conventionSet,
+		})
+	}
+	return keys, nil
+}

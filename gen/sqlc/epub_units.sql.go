@@ -577,6 +577,78 @@ func (q *Queries) ListSourceMaterialUnitRoleSpans(ctx context.Context, arg ListS
 	return items, nil
 }
 
+const listSourceStructureCheckCandidates = `-- name: ListSourceStructureCheckCandidates :many
+SELECT source.owner_id::text, source.id::text,
+       source.current_content_revision_id::text, source.current_snapshot_id::text
+FROM source_materials source
+JOIN source_material_unit_snapshots snapshot
+  ON snapshot.owner_id = source.owner_id
+ AND snapshot.source_material_id = source.id
+ AND snapshot.snapshot_id = source.current_snapshot_id
+LEFT JOIN source_structure_checks existing_check
+  ON existing_check.owner_id = source.owner_id
+ AND existing_check.source_material_id = source.id
+ AND existing_check.content_revision_id = source.current_content_revision_id
+ AND existing_check.snapshot_id = source.current_snapshot_id
+ AND existing_check.target_contract_version = $1
+ AND existing_check.structure_convention_set = $2
+WHERE source.media_type = 'application/epub+zip'
+  AND source.book_id IS NOT NULL
+  AND source.current_content_revision_id IS NOT NULL
+  AND existing_check.owner_id IS NULL
+  AND (snapshot.schema_version < $1 OR COALESCE(snapshot.structure_convention_set, '') <> $2)
+  AND source.id > $3::uuid
+ORDER BY source.id
+LIMIT $4
+`
+
+type ListSourceStructureCheckCandidatesParams struct {
+	TargetContractVersion  int
+	StructureConventionSet string
+	AfterSourceID          string
+	PageSize               int32
+}
+
+type ListSourceStructureCheckCandidatesRow struct {
+	SourceOwnerID                  string
+	SourceID                       string
+	SourceCurrentContentRevisionID string
+	SourceCurrentSnapshotID        string
+}
+
+// The bounded startup scan walks current EPUB Book snapshots whose exact
+// (revision, snapshot, target contract, convention set) key has no successful
+// check yet. Imported classical sources and unlinked sources are excluded.
+func (q *Queries) ListSourceStructureCheckCandidates(ctx context.Context, arg ListSourceStructureCheckCandidatesParams) ([]ListSourceStructureCheckCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, listSourceStructureCheckCandidates,
+		arg.TargetContractVersion,
+		arg.StructureConventionSet,
+		arg.AfterSourceID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSourceStructureCheckCandidatesRow{}
+	for rows.Next() {
+		var i ListSourceStructureCheckCandidatesRow
+		if err := rows.Scan(
+			&i.SourceOwnerID,
+			&i.SourceID,
+			&i.SourceCurrentContentRevisionID,
+			&i.SourceCurrentSnapshotID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setCurrentContentRevision = `-- name: SetCurrentContentRevision :exec
 UPDATE source_materials
 SET current_content_revision_id = $3

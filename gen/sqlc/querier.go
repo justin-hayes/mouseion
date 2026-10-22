@@ -322,6 +322,10 @@ type Querier interface {
 	// view (migration 000067); this query only selects from it, so the status
 	// logic is not duplicated here.
 	ListSourceMaterials(ctx context.Context, owner string) ([]ListSourceMaterialsRow, error)
+	// The bounded startup scan walks current EPUB Book snapshots whose exact
+	// (revision, snapshot, target contract, convention set) key has no successful
+	// check yet. Imported classical sources and unlinked sources are excluded.
+	ListSourceStructureCheckCandidates(ctx context.Context, arg ListSourceStructureCheckCandidatesParams) ([]ListSourceStructureCheckCandidatesRow, error)
 	ListStalePreparedDecks(ctx context.Context, arg ListStalePreparedDecksParams) ([]ListStalePreparedDecksRow, error)
 	// Book, membership, and alias identity queries. Domain-level conflict and
 	// ownership decisions remain in the persistence methods.
