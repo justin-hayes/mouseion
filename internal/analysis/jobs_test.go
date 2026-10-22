@@ -156,3 +156,10 @@ func TestCleanupCancelledAnalysisReportsPostCommitFailures(t *testing.T) {
 	})
 	require.ErrorIs(t, err, cancelErr)
 }
+
+func TestSelectionConfigWithoutSnapshotHasNoStructure(t *testing.T) {
+	config, err := (&Worker{}).selectionConfig(context.Background(), JobArgs{}, "corpus")
+	require.NoError(t, err)
+	assert.Equal(t, "corpus", config.CorpusID)
+	assert.False(t, config.Structure.Recorded, "a run without a snapshot supplies no structure")
+}

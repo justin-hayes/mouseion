@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"golang.org/x/text/unicode/norm"
 )
@@ -91,18 +92,55 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 		result.PriorityState = concordancePriorityState(result.PriorityBookID, priority.analyzed, false)
 		return result, nil
 	}
-	rows, err := loadConcordanceRows(ctx, queries, owner, language, lookup.Page, interpretation, result.PriorityBookID)
+	page, structures, err := loadConcordancePage(ctx, tx, queries, owner, language, lookup.Page, interpretation, result.PriorityBookID)
 	if err != nil {
 		return domain.ConcordanceResult{}, err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return domain.ConcordanceResult{}, err
-	}
-	page := trimConcordanceRows(rows, lookup.Page)
 	result.HasNext, result.Continued = page.hasNext, page.continued
 	result.PriorityState = concordancePriorityState(result.PriorityBookID, priority.analyzed, page.priorityMatched)
-	result.Occurrences = projectConcordanceOccurrences(page.rows)
+	result.Occurrences = projectConcordanceOccurrences(page.rows, structures)
 	return result, nil
+}
+
+// loadConcordancePage fetches the page's rows and their snapshots' structure,
+// then commits the read-only transaction. Structure is loaded before the
+// commit so the page and its roles come from the same repeatable snapshot.
+func loadConcordancePage(ctx context.Context, tx pgx.Tx, queries *sqlcgen.Queries, owner, language string, page int, interpretation concordanceInterpretation, priorityBook string) (concordanceRowPage, map[concordanceStructureKey]domain.SnapshotStructure, error) {
+	rows, err := loadConcordanceRows(ctx, queries, owner, language, page, interpretation, priorityBook)
+	if err != nil {
+		return concordanceRowPage{}, nil, err
+	}
+	structures, err := loadConcordanceStructures(ctx, tx, owner, rows)
+	if err != nil {
+		return concordanceRowPage{}, nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return concordanceRowPage{}, nil, err
+	}
+	return trimConcordanceRows(rows, page), structures, nil
+}
+
+// concordanceStructureKey identifies one exact snapshot that a page's
+// occurrences resolve through.
+type concordanceStructureKey struct{ source, snapshot string }
+
+// loadConcordanceStructures fetches the recorded structure of every distinct
+// snapshot the page references. SQL supplies structural facts only; the Go
+// projection decides speaker-label overlap and the Study restriction.
+func loadConcordanceStructures(ctx context.Context, db sqlcgen.DBTX, owner string, rows []sqlcgen.ListVocabularyConcordanceRow) (map[concordanceStructureKey]domain.SnapshotStructure, error) {
+	structures := make(map[concordanceStructureKey]domain.SnapshotStructure)
+	for _, row := range rows {
+		key := concordanceStructureKey{source: row.SourceMaterialID, snapshot: row.SnapshotID}
+		if _, loaded := structures[key]; loaded {
+			continue
+		}
+		structure, err := LoadSnapshotStructure(ctx, db, owner, key.source, key.snapshot)
+		if err != nil {
+			return nil, err
+		}
+		structures[key] = structure
+	}
+	return structures, nil
 }
 
 // concordanceRevision fingerprints the current analysis identity and occurrence
@@ -248,10 +286,11 @@ func trimConcordanceRows(rows []sqlcgen.ListVocabularyConcordanceRow, page int) 
 }
 
 // projectConcordanceOccurrences maps result rows to the occurrence fields the
-// page renders.
-func projectConcordanceOccurrences(rows []sqlcgen.ListVocabularyConcordanceRow) []domain.ConcordanceResultOccurrence {
+// page renders, applying the recorded snapshot structure to the Study rule.
+func projectConcordanceOccurrences(rows []sqlcgen.ListVocabularyConcordanceRow, structures map[concordanceStructureKey]domain.SnapshotStructure) []domain.ConcordanceResultOccurrence {
 	var occurrences []domain.ConcordanceResultOccurrence
 	for _, row := range rows {
+		structure := structures[concordanceStructureKey{source: row.SourceMaterialID, snapshot: row.SnapshotID}]
 		occurrences = append(occurrences, domain.ConcordanceResultOccurrence{
 			ConcordanceOccurrence: concordanceOccurrenceFromFields(
 				row.Surface, row.CanonicalLemma, row.Upos, row.Headword, row.Dependency,
@@ -264,9 +303,23 @@ func projectConcordanceOccurrences(rows []sqlcgen.ListVocabularyConcordanceRow) 
 			),
 			RawLemma: row.RawLemma, EffectiveLemma: row.EffectiveLemma,
 			Corrected: row.Corrected, Excluded: row.Excluded,
+			SpeakerLabel:     speakerLabelOverlap(structure, row.UnitID, row.UnitStartOffset, row.UnitEndOffset),
+			StudyUnavailable: speakerLabelOverlap(structure, row.UnitID, row.SentenceUnitStartOffset, row.SentenceUnitEndOffset),
 		})
 	}
 	return occurrences
+}
+
+// speakerLabelOverlap applies a recorded snapshot's speaker labels to one
+// occurrence or sentence span. Invalid stored offsets derive no restriction
+// rather than failing the whole page or read.
+func speakerLabelOverlap(structure domain.SnapshotStructure, unitID string, start, end int64) bool {
+	startOffset, startErr := checked.Uint64FromInt64(start)
+	endOffset, endErr := checked.Uint64FromInt64(end)
+	if startErr != nil || endErr != nil {
+		return false
+	}
+	return structure.OverlapsSpeakerLabel(unitID, startOffset, endOffset)
 }
 
 // concordanceBookIDPattern is the canonical text form of a Book identity; any
@@ -315,6 +368,11 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 		// for either and never the stored non-committal skeleton.
 		SyntaxState: first.SyntaxState,
 		Tokens:      make([]domain.SentenceStudyToken, 0, len(rows))}
+	structure, err := LoadSnapshotStructure(ctx, s.pool, owner, first.SourceMaterialID, first.SnapshotID)
+	if err != nil {
+		return domain.SentenceStudy{}, err
+	}
+	study.SpeakerLabelOverlap = speakerLabelOverlap(structure, first.UnitID, first.SentenceStartOffset, first.SentenceEndOffset)
 	for _, row := range rows {
 		if row.TokenOrdinal < 0 {
 			continue // A sentence may be valid source text with no syntax tokens.

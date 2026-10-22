@@ -302,7 +302,13 @@ func projectedAnalysisCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q
 	if err != nil {
 		return nil, err
 	}
-	projected, err := selection.Project(analysis, selection.DefaultConfig(identity.CaCorpusID), decisions)
+	structure, err := LoadSnapshotStructure(ctx, tx, owner, identity.CaSourceMaterialID, identity.CaSnapshotID)
+	if err != nil {
+		return nil, err
+	}
+	config := selection.DefaultConfig(identity.CaCorpusID)
+	config.Structure = structure
+	projected, err := selection.Project(analysis, config, decisions)
 	if err != nil {
 		return nil, err
 	}

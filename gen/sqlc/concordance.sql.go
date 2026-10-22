@@ -170,6 +170,9 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        u.text AS unit_text,
        s.sentence_ordinal,
        $1::bigint AS target_ordinal,
+       s.unit_id,
+       ca.source_material_id::text AS source_material_id,
+       ca.snapshot_id::text AS snapshot_id,
        ca.book_id::text AS book_id,
        b.title AS book_title,
        u.title AS chapter_title
@@ -221,6 +224,9 @@ type GetVocabularySentenceStudyRow struct {
 	UnitText            string
 	SentenceOrdinal     int64
 	TargetOrdinal       int64
+	UnitID              string
+	SourceMaterialID    string
+	SnapshotID          string
 	BookID              string
 	BookTitle           string
 	ChapterTitle        string
@@ -267,6 +273,9 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.UnitText,
 			&i.SentenceOrdinal,
 			&i.TargetOrdinal,
+			&i.UnitID,
+			&i.SourceMaterialID,
+			&i.SnapshotID,
 			&i.BookID,
 			&i.BookTitle,
 			&i.ChapterTitle,
@@ -305,6 +314,9 @@ SELECT o.surface,
        o.unit_order,
        o.sentence_ordinal,
        o.token_ordinal,
+       ca.snapshot_id::text AS snapshot_id,
+       s.start_offset::bigint AS sentence_unit_start_offset,
+       s.end_offset::bigint AS sentence_unit_end_offset,
        t.raw_lemma,
        COALESCE(t.headword, '')::text AS headword,
        COALESCE(d.canonical_lemma, o.canonical_lemma)::text AS effective_lemma,
@@ -317,6 +329,12 @@ SELECT o.surface,
   JOIN corpus_tokens t ON t.owner_id=o.owner_id AND t.language=o.language
     AND t.analysis_run_id=o.analysis_run_id::uuid AND t.corpus_id=o.corpus_id::uuid
     AND t.sentence_ordinal=o.sentence_ordinal AND t.token_ordinal=o.token_ordinal
+  -- The exact snapshot and the sentence's unit-relative range let the caller
+  -- supply structural facts to Go. SQL never decides role eligibility itself.
+  JOIN current_analysis_identity ca ON ca.owner_id=o.owner_id AND ca.book_id=o.book_id::uuid
+    AND ca.analysis_run_id=o.analysis_run_id::uuid AND ca.corpus_id=o.corpus_id::uuid
+  JOIN corpus_sentences s ON s.owner_id=o.owner_id AND s.analysis_run_id=o.analysis_run_id::uuid
+    AND s.corpus_id=o.corpus_id::uuid AND s.sentence_ordinal=o.sentence_ordinal
   LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
     AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
     AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
@@ -354,35 +372,38 @@ type ListVocabularyConcordanceParams struct {
 }
 
 type ListVocabularyConcordanceRow struct {
-	Surface             string
-	CanonicalLemma      string
-	Upos                string
-	Dependency          string
-	HeadOrdinal         int64
-	HeadSurface         pgtype.Text
-	SentenceText        string
-	SentenceStartOffset int64
-	SentenceEndOffset   int64
-	UnitStartOffset     int64
-	UnitEndOffset       int64
-	BookStartOffset     int64
-	BookEndOffset       int64
-	BookID              string
-	BookTitle           string
-	SourceMaterialID    string
-	AnalysisRunID       string
-	CorpusID            string
-	UnitID              string
-	ChapterTitle        string
-	UnitOrder           int64
-	SentenceOrdinal     int64
-	TokenOrdinal        int64
-	RawLemma            string
-	Headword            string
-	EffectiveLemma      string
-	Corrected           bool
-	Excluded            bool
-	PriorityMatched     bool
+	Surface                 string
+	CanonicalLemma          string
+	Upos                    string
+	Dependency              string
+	HeadOrdinal             int64
+	HeadSurface             pgtype.Text
+	SentenceText            string
+	SentenceStartOffset     int64
+	SentenceEndOffset       int64
+	UnitStartOffset         int64
+	UnitEndOffset           int64
+	BookStartOffset         int64
+	BookEndOffset           int64
+	BookID                  string
+	BookTitle               string
+	SourceMaterialID        string
+	AnalysisRunID           string
+	CorpusID                string
+	UnitID                  string
+	ChapterTitle            string
+	UnitOrder               int64
+	SentenceOrdinal         int64
+	TokenOrdinal            int64
+	SnapshotID              string
+	SentenceUnitStartOffset int64
+	SentenceUnitEndOffset   int64
+	RawLemma                string
+	Headword                string
+	EffectiveLemma          string
+	Corrected               bool
+	Excluded                bool
+	PriorityMatched         bool
 }
 
 func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error) {
@@ -427,6 +448,9 @@ func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabul
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
+			&i.SnapshotID,
+			&i.SentenceUnitStartOffset,
+			&i.SentenceUnitEndOffset,
 			&i.RawLemma,
 			&i.Headword,
 			&i.EffectiveLemma,

@@ -3,6 +3,7 @@ package domain
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -235,4 +236,43 @@ func TestSourceStructureOutcomeValid(t *testing.T) {
 		require.True(t, outcome.Valid())
 	}
 	require.False(t, SourceStructureOutcome("failed").Valid())
+}
+
+// TestSnapshotStructureOverlapsSpeakerLabel holds the Study-context rule: only
+// a recorded speaker label overlapping the queried span restricts it, and a v1
+// snapshot (structure not recorded) derives no restriction.
+func TestSnapshotStructureOverlapsSpeakerLabel(t *testing.T) {
+	units := structureFixtureUnits()
+	unitID := units[0].ID
+	structure := SnapshotStructure{Recorded: true, ConventionSet: StructureConventionSet, RoleSpans: []UnitRoleSpan{
+		{UnitID: unitID, Role: SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 9},
+		{UnitID: unitID, Role: SourceStructureRoleDirection, StartOffset: 5, EndOffset: 14},
+	}}
+	for name, span := range map[string]struct {
+		start, end uint64
+		want       bool
+	}{
+		"inside label":   {2, 8, true},
+		"same bounds":    {0, 9, true},
+		"partial at end": {7, 12, true},
+		"adjacent after": {9, 12, false},
+		"before label":   {0, 0, false},
+		"empty span":     {4, 4, false},
+		"another unit":   {0, 9, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			spanUnit := unitID
+			if name == "another unit" {
+				spanUnit = "epub-unit-v1:9:other"
+			}
+			assert.Equal(t, span.want, structure.OverlapsSpeakerLabel(spanUnit, span.start, span.end))
+		})
+	}
+
+	directionOnly := SnapshotStructure{Recorded: true, ConventionSet: StructureConventionSet, RoleSpans: []UnitRoleSpan{
+		{UnitID: unitID, Role: SourceStructureRoleDirection, StartOffset: 0, EndOffset: 9},
+	}}
+	assert.False(t, directionOnly.OverlapsSpeakerLabel(unitID, 0, 9), "a standalone direction is ordinary study context")
+
+	assert.False(t, SnapshotStructure{}.OverlapsSpeakerLabel(unitID, 0, 9), "v1 records no labels, so no restriction is derived")
 }

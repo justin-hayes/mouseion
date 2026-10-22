@@ -225,6 +225,13 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 		return
 	}
 	back := safeConcordanceReturnURL(query.Get("return"))
+	// A sentence overlapping a recorded speaker label is raw Concordance
+	// evidence, not study context. The same rule that withholds the Study
+	// affordance refuses a direct request (ADR 0103).
+	if study.SpeakerLabelOverlap {
+		renderStatus(w, r, http.StatusForbidden, VocabularySentenceStudyUnavailablePageView(u, h.csrf(w, r), back))
+		return
+	}
 	render(w, r, VocabularySentenceStudyPageView(u, h.csrf(w, r), study, back))
 }
 

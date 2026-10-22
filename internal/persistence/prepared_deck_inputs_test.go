@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"context"
 	"testing"
 
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
@@ -32,4 +33,26 @@ func TestAnalysisFromTokenEvidenceRejectsNegativeSentenceOrdinal(t *testing.T) {
 		{Language: "de", SentenceOrdinal: -1, TokenOrdinal: 0, Surface: "Haus", CanonicalLemma: "haus", Upos: "NOUN", Morphology: []byte(`{}`)},
 	})
 	require.ErrorContains(t, err, "invalid sentence ordinal")
+}
+
+// TestAnalysisFromTokenEvidenceRejectsInvalidSentenceOffsets protects the
+// structural-fact seam from a negative persisted sentence range.
+func TestAnalysisFromTokenEvidenceRejectsInvalidSentenceOffsets(t *testing.T) {
+	for name, row := range map[string]sqlcgen.ListAnalysisTokenEvidenceRow{
+		"negative start": {Language: "de", SentenceOrdinal: 0, TokenOrdinal: 0, UnitID: "unit", SentenceStartOffset: -1},
+		"negative end":   {Language: "de", SentenceOrdinal: 0, TokenOrdinal: 0, UnitID: "unit", SentenceEndOffset: -1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := analysisFromTokenEvidence([]sqlcgen.ListAnalysisTokenEvidenceRow{row})
+			require.ErrorContains(t, err, "decode persisted sentence")
+		})
+	}
+}
+
+// TestAnalysisRunSnapshotIDWithoutRunIsEmpty reports a legacy run's absent
+// snapshot without touching the transaction.
+func TestAnalysisRunSnapshotIDWithoutRunIsEmpty(t *testing.T) {
+	snapshot, err := analysisRunSnapshotID(context.Background(), nil, "owner", "")
+	require.NoError(t, err)
+	assert.Empty(t, snapshot)
 }

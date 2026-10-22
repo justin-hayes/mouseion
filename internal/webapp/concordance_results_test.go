@@ -15,6 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
@@ -476,4 +477,49 @@ func TestConcordanceHandlerReportsReadFailures(t *testing.T) {
 			assert.Equal(t, tc.wantCode, response.Code)
 		})
 	}
+}
+
+// TestConcordanceWithholdsStudyForSpeakerLabelSentences holds ADR 0103's Study
+// affordance amendment: a sentence overlapping a speaker label offers no Study,
+// a label occurrence is named as evidence, and a standalone direction sentence
+// keeps its Study link.
+func TestConcordanceWithholdsStudyForSpeakerLabelSentences(t *testing.T) {
+	base := domain.ConcordanceResultOccurrence{
+		BookID: "book-1", BookTitle: "Faust", SentenceText: "Valentin fällt, das Buch liegt hier.",
+		Surface: "fällt", SentenceStartOffset: 9, SentenceEndOffset: 14,
+		SentenceOrdinal: 0, TokenOrdinal: 1, AnalysisRunID: "run", CorpusID: "corpus", UnitID: "unit",
+	}
+	labeled := base
+	labeled.SpeakerLabel = true
+	labeled.StudyUnavailable = true
+	otherWord := base
+	otherWord.Surface = "Buch"
+	otherWord.SentenceStartOffset, otherWord.SentenceEndOffset = 20, 24
+	otherWord.TokenOrdinal = 3
+	otherWord.SpeakerLabel = false
+	otherWord.StudyUnavailable = true
+	direction := base
+	direction.SentenceText = "Das Buch liegt hier."
+	direction.Surface = "Buch"
+	direction.SentenceStartOffset, direction.SentenceEndOffset = 4, 8
+	direction.SentenceOrdinal = 1
+	direction.TokenOrdinal = 1
+	direction.StudyUnavailable = false
+
+	component := VocabularyConcordancePageView(domain.User{}, "", "de",
+		domain.ConcordanceLookup{Term: "fällt", Page: 1},
+		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{labeled, otherWord, direction}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "fällt"}, true, false, "", "", browseOrigin{})
+	var rendered bytes.Buffer
+	require.NoError(t, component.Render(t.Context(), &rendered))
+	body := rendered.String()
+
+	if got := strings.Count(body, `class="concordance-study-link"`); got != 1 {
+		t.Fatalf("rendered %d Study links, want only the standalone direction's one", got)
+	}
+	if got := strings.Count(body, `class="concordance-speaker-label"`); got != 1 {
+		t.Fatalf("rendered %d speaker-label markers, want exactly one", got)
+	}
+	require.Contains(t, body, `aria-label="Speaker label evidence"`)
+	require.Contains(t, body, ">Speaker label</span>")
+	require.Contains(t, body, "das Buch liegt hier.", "the label sentence is kept unchanged")
 }

@@ -97,7 +97,17 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 												</p>
 											</div>
 										</details>
-										<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
+										if occurrence.StudyUnavailable {
+											// A sentence overlapping a speaker label is
+											// raw evidence, never study context. The
+											// occurrence itself stays and, when it is a
+											// label, is named as such.
+											if occurrence.SpeakerLabel {
+												<span class="concordance-speaker-label" aria-label="Speaker label evidence">Speaker label</span>
+											}
+										} else {
+											<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
+										}
 									</li>
 								}
 							</ol>
@@ -116,6 +126,18 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 				}
 			}
 		</div>
+	}
+}
+
+// VocabularySentenceStudyUnavailablePageView explains a refused direct Study
+// request and offers the way back. A speaker-label sentence is raw evidence,
+// not study context (ADR 0103).
+templ VocabularySentenceStudyUnavailablePageView(user domain.User, csrf string, back string) {
+	@ShellLayout("Sentence study unavailable", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
+		@VocabularyPageHeader()
+		@EmptyState("Not available as study context", "This sentence overlaps a speaker label, so Mouseion keeps it as Concordance evidence instead of study context. The source sentence is unchanged.") {
+			<a class="button button--outline" href={ templ.SafeURL(back) }>Return to Concordance results</a>
+		}
 	}
 }
 

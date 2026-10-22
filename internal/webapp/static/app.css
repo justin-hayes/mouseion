@@ -3562,6 +3562,15 @@
     font-size: var(--mouseion-font-size-metadata);
     text-align: center;
   }
+  .concordance-speaker-label {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
+    color: var(--mouseion-color-text-muted);
+    font-size: var(--mouseion-font-size-metadata);
+    line-height: 1.3;
+    text-align: center;
+  }
   .concordance-context {
     max-width: calc(var(--mouseion-width-reading) + 1.25rem);
     padding: 0 0 var(--mouseion-space-4) 1.25rem;

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,4 +38,15 @@ func TestConcordanceTermsFallsBackForUnregisteredLanguage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "città", lemma)
 	assert.Equal(t, "città", form)
+}
+
+// TestSpeakerLabelOverlapIgnoresInvalidOffsets keeps a malformed stored offset
+// from failing or restricting a whole Concordance page or Study read.
+func TestSpeakerLabelOverlapIgnoresInvalidOffsets(t *testing.T) {
+	structure := domain.SnapshotStructure{Recorded: true, ConventionSet: domain.StructureConventionSet, RoleSpans: []domain.UnitRoleSpan{
+		{UnitID: "unit", Role: domain.SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 8},
+	}}
+	assert.False(t, speakerLabelOverlap(structure, "unit", -1, 4))
+	assert.False(t, speakerLabelOverlap(structure, "unit", 0, -1))
+	assert.True(t, speakerLabelOverlap(structure, "unit", 2, 4))
 }
