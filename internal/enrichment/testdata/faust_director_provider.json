@@ -1,0 +1,31 @@
+{
+  "name": "Faust I Director four-line sentence",
+  "language": "de",
+  "target_language": "en",
+  "canonical_lemma": "unternehmung",
+  "upos": "NOUN",
+  "target_word": "Unternehmung",
+  "source_sentence": "Ihr beyden die ihr mir so oft,\nIn Noth und Trübsal, beygestanden,\nSagt was ihr wohl, in deutschen Landen,\nVon unsrer Unternehmung hofft?",
+  "forbidden_context_markers": [
+    "Director",
+    "Vorspiel",
+    "auf dem Theater",
+    "Theaterdichter",
+    "lustige Person",
+    "Faust. Eine Tragödie",
+    "stage direction"
+  ],
+  "candidate_senses": [
+    {"evidence_id": "s1", "source": "dictionary", "gloss": "undertaking"},
+    {"evidence_id": "s2", "source": "dictionary", "gloss": "enterprise"}
+  ],
+  "translation": "undertaking",
+  "fallback_gloss": "an enterprise or venture",
+  "sentence_translation": "Both of you who have so often stood by me in need and tribulation, say what you hope from our undertaking in German lands?",
+  "contiguous_targets": ["undertaking"],
+  "contiguous_expected": "Both of you who have so often stood by me in need and tribulation, say what you hope from our <b>undertaking</b> in German lands?",
+  "discontinuous_targets": ["have", "stood"],
+  "discontinuous_expected": "Both of you who <b>have</b> so often <b>stood</b> by me in need and tribulation, say what you hope from our undertaking in German lands?",
+  "unhighlighted_targets": ["our venture"],
+  "unhighlighted_expected": "Both of you who have so often stood by me in need and tribulation, say what you hope from our undertaking in German lands?"
+}

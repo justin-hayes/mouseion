@@ -30,7 +30,10 @@ import (
 // German GDEX overlay. A change that only affects the ranking among accepted
 // sentences, or only the recorded reasons, leaves every accept/reject outcome
 // unchanged and must not bump it.
-const GateVersion = 2
+//
+// Version 3 applies the list and page-marker checks to each source line, so an
+// authorial LF alone no longer rejects an otherwise complete sentence.
+const GateVersion = 3
 
 const (
 	minimumSentenceWords         = 6
@@ -276,16 +279,33 @@ func structuralNoise(text string) bool {
 		listOrPageFragment(text) || citationDense(text) || extractionAnomaly(text)
 }
 
+// listOrPageFragment applies the list and page-marker content checks to every
+// source line. A newline alone is not structural noise: a complete analyzer
+// sentence may legitimately cross authorial line breaks (ADR 0103).
 func listOrPageFragment(text string) bool {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
 		return true
 	}
-	firstLine := strings.TrimSpace(strings.SplitN(trimmed, "\n", 2)[0])
-	if strings.Contains(trimmed, "\n") || strings.HasPrefix(firstLine, "•") || strings.HasPrefix(firstLine, "- ") || strings.HasPrefix(firstLine, "* ") {
+	for line := range strings.SplitSeq(trimmed, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if listOrPageMarker(line) {
+			return true
+		}
+	}
+	return false
+}
+
+// listOrPageMarker reports whether one trimmed source line is a bullet, a
+// numbered item or a page fragment.
+func listOrPageMarker(line string) bool {
+	if strings.HasPrefix(line, "•") || strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") {
 		return true
 	}
-	fields := strings.Fields(firstLine)
+	fields := strings.Fields(line)
 	if len(fields) <= 12 && len(fields) > 0 {
 		prefix := strings.TrimRight(fields[0], ".)")
 		if _, err := fmt.Sscan(prefix, new(int)); err == nil {
@@ -293,7 +313,7 @@ func listOrPageFragment(text string) bool {
 		}
 	}
 	allDigits := true
-	for _, r := range strings.Trim(trimmed, "-–— ") {
+	for _, r := range strings.Trim(line, "-–— ") {
 		if !unicode.IsDigit(r) {
 			allDigits = false
 			break

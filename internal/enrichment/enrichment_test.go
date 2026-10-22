@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -122,6 +123,42 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	assert.True(t, second.SentenceTranslationTargets.Available)
 	assert.Equal(t, []string{"house"}, second.SentenceTranslationTargets.Value)
 	assert.False(t, first.Translation.Provenance.CachedAt.IsZero(), "first=%+v second=%+v cache=%+v", first, second, cache)
+}
+
+func TestNewlineCacheIdentityDiffersFromV1AndKeepsV1EntriesReadable(t *testing.T) {
+	const v2Sentence = "Ihr beyden die ihr mir so oft,\nIn Noth und Trübsal, beygestanden,\nSagt was ihr wohl, in deutschen Landen,\nVon unsrer Unternehmung hofft?" //nolint:misspell // Goethe source text
+	v1Sentence := strings.ReplaceAll(v2Sentence, "\n", "\n\n")
+
+	cache := &memoryCache{values: map[CacheKey]CacheEntry{}}
+	provider := &translationStub{name: "llm", version: "model-1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true, ContextMode: SentenceContext}, nil, nil, nil, provider, cache)
+	v1 := Candidate{Identity: Identity{"de", "unternehmung", "NOUN"}, TargetWord: "Unternehmung", ExampleSentence: v1Sentence}
+	v2 := Candidate{Identity: Identity{"de", "unternehmung", "NOUN"}, TargetWord: "Unternehmung", ExampleSentence: v2Sentence}
+	v1Key, ok := service.ExternalCacheKey(v1)
+	require.True(t, ok)
+	v2Key, ok := service.ExternalCacheKey(v2)
+	require.True(t, ok)
+	require.NotEqual(t, v1Key, v2Key, "v1 and v2 contexts must have distinct cache identities")
+
+	// Seed the v1 identity exactly as a pre-upgrade preparation stored it.
+	cache.values[v1Key] = CacheEntry{CacheKey: v1Key, Translation: "undertaking", SentenceTranslation: "A v1 rendering."}
+
+	t.Run("a stored v1 entry stays readable", func(t *testing.T) {
+		result, err := service.EnrichExternal(context.Background(), v1)
+		require.NoError(t, err)
+		require.Equal(t, "A v1 rendering.", result.SentenceTranslation.Value)
+		require.Zero(t, provider.requests, "reading a stored v1 entry must not call the provider")
+	})
+	t.Run("a v2 context misses the v1 entry", func(t *testing.T) {
+		_, err := service.EnrichExternal(context.Background(), v2)
+		require.NoError(t, err)
+		require.Len(t, provider.requests, 1, "the v2 context legitimately misses the v1 cache entry")
+	})
+	t.Run("the stored v2 entry is readable on its own identity", func(t *testing.T) {
+		_, err := service.EnrichExternal(context.Background(), v2)
+		require.NoError(t, err)
+		require.Len(t, provider.requests, 1, "a repeated v2 read must not call the provider")
+	})
 }
 
 func TestExternalFallbackGlossIsCachedAndUsesDictionaryIdentity(t *testing.T) {
