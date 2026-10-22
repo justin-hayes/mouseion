@@ -10,24 +10,36 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 // PutSourceMaterialWithExtractedUnits atomically adds an EPUB content revision
-// and extracted snapshot. Existing revisions, units, and scopes are never
-// rewritten.
+// and a v1 extracted snapshot with no recorded structure. Existing revisions,
+// units, and scopes are never rewritten.
 func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context, v domain.SourceMaterial, units domain.ExtractedUnits) (out domain.SourceMaterial, err error) {
+	return s.PutSourceMaterialWithExtractedSnapshot(ctx, v, units, domain.SnapshotStructure{})
+}
+
+// PutSourceMaterialWithExtractedSnapshot atomically adds an EPUB content
+// revision and the extracted snapshot it carries. A v2 snapshot also records
+// its convention set, role spans and heading resets. Existing revisions,
+// snapshots and scopes are never rewritten.
+func (s *PostgresStore) PutSourceMaterialWithExtractedSnapshot(ctx context.Context, v domain.SourceMaterial, units domain.ExtractedUnits, structure domain.SnapshotStructure) (out domain.SourceMaterial, err error) {
 	if err = units.ValidateOffsets(v.FullText); err != nil {
 		return out, fmt.Errorf("validate extracted units: %w", err)
+	}
+	if err = structure.Validate(units.SchemaVersion, units.Units); err != nil {
+		return out, fmt.Errorf("validate source structure: %w", err)
 	}
 	revision, err := sourceMaterialContentIdentity(v)
 	if err != nil {
 		return out, err
 	}
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		out, err = putSourceMaterialWithExtractedUnits(ctx, sqlcgen.New(tx), v, units, revision)
+		out, err = putSourceMaterialWithExtractedUnits(ctx, sqlcgen.New(tx), v, units, structure, revision)
 		return err
 	})
 	return out, err
@@ -72,7 +84,7 @@ func sourceMaterialContentIdentity(v domain.SourceMaterial) (contentRevisionInpu
 // returns the stored material with its current content. It runs in the caller's
 // transaction so the row lock, revision and units stay atomic. On failure it
 // returns the material built so far.
-func putSourceMaterialWithExtractedUnits(ctx context.Context, q *sqlcgen.Queries, v domain.SourceMaterial, units domain.ExtractedUnits, revision contentRevisionInput) (out domain.SourceMaterial, err error) {
+func putSourceMaterialWithExtractedUnits(ctx context.Context, q *sqlcgen.Queries, v domain.SourceMaterial, units domain.ExtractedUnits, structure domain.SnapshotStructure, revision contentRevisionInput) (out domain.SourceMaterial, err error) {
 	row, err := q.UpsertSourceMaterialForExtractedUnits(ctx, sqlcgen.UpsertSourceMaterialForExtractedUnitsParams{
 		OwnerID: v.OwnerID, Language: v.Language, SourceIdentifier: v.SourceIdentifier,
 		Title: v.Title, MediaType: v.MediaType, ContentHash: revision.digest, Content: revision.content, FullText: v.FullText,
@@ -86,7 +98,7 @@ func putSourceMaterialWithExtractedUnits(ctx context.Context, q *sqlcgen.Queries
 		return out, err
 	}
 	if changed {
-		if err := writeExtractedUnits(ctx, q, out, revisionID, units); err != nil {
+		if err := writeExtractedUnits(ctx, q, out, revisionID, units, structure); err != nil {
 			return out, err
 		}
 	}
@@ -136,11 +148,19 @@ func putSourceMaterialRevision(ctx context.Context, q *sqlcgen.Queries, source d
 	return revisionID, true, nil
 }
 
-// writeExtractedUnits records the snapshot that carries a revision's units,
-// makes it current, and inserts each unit. Snapshots and units are immutable;
-// a later revision adds a new snapshot instead of rewriting this one.
-func writeExtractedUnits(ctx context.Context, q *sqlcgen.Queries, source domain.SourceMaterial, revisionID string, units domain.ExtractedUnits) error {
-	snapshotID, err := q.InsertSourceMaterialUnitSnapshot(ctx, sqlcgen.InsertSourceMaterialUnitSnapshotParams{OwnerID: source.OwnerID, SourceMaterialID: source.ID, ContentRevisionID: revisionID, SchemaVersion: units.SchemaVersion})
+// writeExtractedUnits records the snapshot that carries a revision's units and
+// recorded structure, makes it current, and inserts each unit. Snapshots and
+// units are immutable; a later revision adds a new snapshot instead of
+// rewriting this one.
+func writeExtractedUnits(ctx context.Context, q *sqlcgen.Queries, source domain.SourceMaterial, revisionID string, units domain.ExtractedUnits, structure domain.SnapshotStructure) error {
+	convention := pgtype.Text{}
+	if units.SchemaVersion >= domain.ExtractedUnitsSchemaVersionV2 {
+		convention = pgtype.Text{String: structure.ConventionSet, Valid: true}
+	}
+	snapshotID, err := q.InsertSourceMaterialUnitSnapshot(ctx, sqlcgen.InsertSourceMaterialUnitSnapshotParams{
+		OwnerID: source.OwnerID, SourceMaterialID: source.ID, ContentRevisionID: revisionID,
+		SchemaVersion: units.SchemaVersion, StructureConventionSet: convention,
+	})
 	if err != nil {
 		return err
 	}
@@ -152,7 +172,51 @@ func writeExtractedUnits(ctx context.Context, q *sqlcgen.Queries, source domain.
 			return err
 		}
 	}
+	return insertSourceStructure(ctx, q, source, snapshotID, structure)
+}
+
+// insertSourceStructure writes one v2 snapshot's role spans and heading resets.
+// The rows are unit-relative and the database revalidates their bounds, roles
+// and nesting against the exact snapshot.
+func insertSourceStructure(ctx context.Context, q *sqlcgen.Queries, source domain.SourceMaterial, snapshotID string, structure domain.SnapshotStructure) error {
+	for _, span := range structure.RoleSpans {
+		start, err := checkedOffset(span.StartOffset)
+		if err != nil {
+			return err
+		}
+		end, err := checkedOffset(span.EndOffset)
+		if err != nil {
+			return err
+		}
+		if err := q.InsertSourceMaterialUnitRoleSpan(ctx, sqlcgen.InsertSourceMaterialUnitRoleSpanParams{
+			OwnerID: source.OwnerID, SourceMaterialID: source.ID, SnapshotID: snapshotID,
+			UnitID: span.UnitID, Role: string(span.Role), StartOffset: start, EndOffset: end,
+		}); err != nil {
+			return err
+		}
+	}
+	for _, reset := range structure.HeadingResets {
+		offset, err := checkedOffset(reset.Offset)
+		if err != nil {
+			return err
+		}
+		if err := q.InsertSourceMaterialUnitHeadingReset(ctx, sqlcgen.InsertSourceMaterialUnitHeadingResetParams{
+			OwnerID: source.OwnerID, SourceMaterialID: source.ID, SnapshotID: snapshotID,
+			UnitID: reset.UnitID, Offset: offset,
+		}); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// checkedOffset narrows a unit-relative offset for the structure tables.
+func checkedOffset(value uint64) (int, error) {
+	wide, err := checked.Int64FromUint64(value)
+	if err != nil {
+		return 0, err
+	}
+	return checked.IntFromInt64(wide)
 }
 
 // insertExtractedUnit converts one extracted unit's unsigned offsets and

@@ -251,6 +251,8 @@ type Querier interface {
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	InsertSourceContentRevision(ctx context.Context, arg InsertSourceContentRevisionParams) (string, error)
 	InsertSourceMaterialUnit(ctx context.Context, arg InsertSourceMaterialUnitParams) error
+	InsertSourceMaterialUnitHeadingReset(ctx context.Context, arg InsertSourceMaterialUnitHeadingResetParams) error
+	InsertSourceMaterialUnitRoleSpan(ctx context.Context, arg InsertSourceMaterialUnitRoleSpanParams) error
 	InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error)
 	InsertSourceStructureCheck(ctx context.Context, arg InsertSourceStructureCheckParams) error
 	IsCurrentReadingVocabularyReserved(ctx context.Context, arg IsCurrentReadingVocabularyReservedParams) (bool, error)

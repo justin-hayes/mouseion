@@ -15,8 +15,8 @@ const (
 	// ExtractedUnitsSchemaVersionV2 records immutable per-unit roles and
 	// heading resets alongside the same unit text.
 	ExtractedUnitsSchemaVersionV2 = 2
-	// ExtractedUnitsSchemaVersion is the writer version. Nothing writes v2 yet;
-	// readers accept v1 and v2 independently.
+	// ExtractedUnitsSchemaVersion is the default writer version. A v2 extraction
+	// exists without being the default; readers accept v1 and v2 independently.
 	ExtractedUnitsSchemaVersion = ExtractedUnitsSchemaVersionV1
 )
 

@@ -32,8 +32,8 @@ SET current_content_revision_id = $3
 WHERE owner_id = $1 AND id = $2;
 
 -- name: InsertSourceMaterialUnitSnapshot :one
-INSERT INTO source_material_unit_snapshots(owner_id, source_material_id, content_revision_id, schema_version)
-VALUES ($1, $2, $3, $4)
+INSERT INTO source_material_unit_snapshots(owner_id, source_material_id, content_revision_id, schema_version, structure_convention_set)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING snapshot_id::text;
 
 -- name: SetCurrentSnapshot :exec
@@ -99,6 +99,16 @@ SELECT unit_id, "offset"
 FROM source_material_unit_heading_resets
 WHERE owner_id = $1 AND source_material_id = $2 AND snapshot_id = $3
 ORDER BY unit_id, "offset";
+
+-- name: InsertSourceMaterialUnitRoleSpan :exec
+INSERT INTO source_material_unit_role_spans(
+    owner_id, source_material_id, snapshot_id, unit_id, role, start_offset, end_offset
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: InsertSourceMaterialUnitHeadingReset :exec
+INSERT INTO source_material_unit_heading_resets(owner_id, source_material_id, snapshot_id, unit_id, "offset")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: InsertSourceStructureCheck :exec
 INSERT INTO source_structure_checks(
