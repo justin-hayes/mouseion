@@ -31,6 +31,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/selection"
+	"github.com/justin-hayes/mouseion/internal/sourcecheck"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
@@ -193,17 +194,23 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
 	workers := river.NewWorkers()
 	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
+	sourcecheck.AddWorker(workers, store)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
 		return nil, err
 	}
+	sourceStructureChecks := sourcecheck.NewService(store, riverClient, sourcecheck.ConfiguredTarget())
+	epubService.WithSourceStructureCheckEnqueuer(sourceStructureChecks)
 	catalogueWorker.Client = riverClient
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	prepareddeck.AddCustomDeckPreparationWorker(workers, store)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
 	if err := prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
 		return nil, err
+	}
+	if err := sourceStructureChecks.EnqueueStartupChecks(ctx); err != nil {
+		return nil, fmt.Errorf("schedule source structure checks: %w", err)
 	}
 	if err := riverClient.Start(ctx); err != nil {
 		return nil, err

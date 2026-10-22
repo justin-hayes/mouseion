@@ -2,6 +2,7 @@ package epub
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -58,6 +59,16 @@ func (m *acquisitionMemoryStore) FindSourceMaterialForAcquisition(context.Contex
 	return m.existing, true, nil
 }
 
+type recordingStructureChecks struct {
+	calls [][2]string
+	err   error
+}
+
+func (r *recordingStructureChecks) EnqueueSourceStructureCheck(_ context.Context, ownerID, sourceMaterialID string) error {
+	r.calls = append(r.calls, [2]string{ownerID, sourceMaterialID})
+	return r.err
+}
+
 func TestImportPersistsOwnerScopedArtifactsAndHistory(t *testing.T) {
 	store := &memoryStore{}
 	result, err := NewService(store).Import(context.Background(), "owner-id", "de", fixture(t))
@@ -91,4 +102,30 @@ func TestImportForAcquisitionReturnsExistingSourceWithoutRewritingIt(t *testing.
 	assert.Equal(t, 0, store.histories)
 	assert.Equal(t, 1, store.resolved)
 	assert.Equal(t, 1, store.linked)
+}
+
+func TestImportEnqueuesSourceStructureCheckAfterEvidenceChange(t *testing.T) {
+	store := &memoryStore{}
+	checks := &recordingStructureChecks{}
+	result, err := NewService(store).WithSourceStructureCheckEnqueuer(checks).Import(context.Background(), "owner-id", "de", fixture(t))
+	require.NoError(t, err)
+	require.Len(t, checks.calls, 1)
+	assert.Equal(t, [2]string{"owner-id", result.Source.ID}, checks.calls[0])
+}
+
+func TestImportSucceedsWhenStructureCheckSchedulingFails(t *testing.T) {
+	store := &memoryStore{}
+	checks := &recordingStructureChecks{err: errors.New("river unavailable")}
+	result, err := NewService(store).WithSourceStructureCheckEnqueuer(checks).Import(context.Background(), "owner-id", "de", fixture(t))
+	require.NoError(t, err, "an already-committed import must not fail because check scheduling failed")
+	assert.NotEmpty(t, result.Source.ID)
+	assert.Len(t, checks.calls, 1)
+}
+
+func TestAcquisitionReuseDoesNotEnqueueAnotherStructureCheck(t *testing.T) {
+	store := &acquisitionMemoryStore{existing: domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", SourceIdentifier: "existing-source", Title: "Existing"}}
+	checks := &recordingStructureChecks{}
+	_, err := NewService(store).WithSourceStructureCheckEnqueuer(checks).ImportForAcquisition(context.Background(), "owner-id", "de", fixture(t))
+	require.NoError(t, err)
+	assert.Empty(t, checks.calls, "reusing unchanged evidence is not a source-evidence change")
 }

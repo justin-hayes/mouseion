@@ -252,7 +252,7 @@ not the classification itself), deck readiness, evidence status.
 **Source structure update**:
 The learner-confirmed re-extraction of a Book's unchanged acquired content
 under a newer extraction contract, offered only when that contract would
-record different text or structural roles. It adds a new extraction of the
+record different text, structural roles or a different structure convention. It adds a new extraction of the
 same content and makes the Book's analysis evidence stale until reanalysis; it
 never rewrites earlier extractions, analyses, Lemma corrections, current-reading
 snapshots or prepared decks, which keep the evidence they froze.

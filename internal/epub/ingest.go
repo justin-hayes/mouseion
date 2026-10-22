@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -31,12 +32,27 @@ type AcquisitionBookResolver interface {
 	ResolveOrCreateBookForAcquisitionForBook(context.Context, string, string, string, string, string) (string, error)
 }
 
+// SourceStructureCheckEnqueuer schedules an extraction-only structure check for
+// a source whose evidence just changed. It is optional so direct EPUB use and
+// tests do not depend on River.
+type SourceStructureCheckEnqueuer interface {
+	EnqueueSourceStructureCheck(context.Context, string, string) error
+}
+
 type Service struct {
-	store Store
-	now   func() time.Time
+	store           Store
+	now             func() time.Time
+	structureChecks SourceStructureCheckEnqueuer
 }
 
 func NewService(store Store) *Service { return &Service{store: store, now: time.Now} }
+
+// WithSourceStructureCheckEnqueuer attaches the source structure check
+// scheduler. It returns the same service so callers can chain construction.
+func (s *Service) WithSourceStructureCheckEnqueuer(enqueuer SourceStructureCheckEnqueuer) *Service {
+	s.structureChecks = enqueuer
+	return s
+}
 
 type ImportResult struct {
 	Source         domain.SourceMaterial
@@ -117,6 +133,7 @@ func (s *Service) importBookForBook(ctx context.Context, ownerID, language, book
 	if err = s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, source, book.Title); err != nil {
 		return ImportResult{}, fmt.Errorf("epub: link source material to My Books: %w", err)
 	}
+	s.enqueueSourceStructureCheck(ctx, ownerID, source.ID)
 	details, err := json.Marshal(struct {
 		SourceMaterialID string    `json:"source_material_id"`
 		SourceIdentifier string    `json:"source_identifier"`
@@ -131,6 +148,17 @@ func (s *Service) importBookForBook(ctx context.Context, ownerID, language, book
 		return ImportResult{}, fmt.Errorf("epub: record processing history: %w", err)
 	}
 	return ImportResult{Source: source, Book: book, History: history}, nil
+}
+
+// enqueueSourceStructureCheck reports a scheduling failure without failing the
+// already-committed import; the bounded startup scan retries the exact key.
+func (s *Service) enqueueSourceStructureCheck(ctx context.Context, ownerID, sourceMaterialID string) {
+	if s.structureChecks == nil {
+		return
+	}
+	if err := s.structureChecks.EnqueueSourceStructureCheck(ctx, ownerID, sourceMaterialID); err != nil {
+		log.Printf("mouseion: could not enqueue source structure check for %s: %v", sourceMaterialID, err)
+	}
 }
 
 func (s *Service) linkAcquiredSourceForBook(ctx context.Context, ownerID, language, requestedBookID string, source domain.SourceMaterial, fallbackTitle string) error {

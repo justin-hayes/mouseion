@@ -129,3 +129,30 @@ FROM source_structure_checks
 WHERE owner_id = $1 AND source_material_id = $2 AND content_revision_id = $3
   AND snapshot_id = $4 AND target_contract_version = $5
   AND structure_convention_set = $6;
+
+-- The bounded startup scan walks current EPUB Book snapshots whose exact
+-- (revision, snapshot, target contract, convention set) key has no successful
+-- check yet. Imported classical sources and unlinked sources are excluded.
+-- name: ListSourceStructureCheckCandidates :many
+SELECT source.owner_id::text, source.id::text,
+       source.current_content_revision_id::text, source.current_snapshot_id::text
+FROM source_materials source
+JOIN source_material_unit_snapshots snapshot
+  ON snapshot.owner_id = source.owner_id
+ AND snapshot.source_material_id = source.id
+ AND snapshot.snapshot_id = source.current_snapshot_id
+LEFT JOIN source_structure_checks existing_check
+  ON existing_check.owner_id = source.owner_id
+ AND existing_check.source_material_id = source.id
+ AND existing_check.content_revision_id = source.current_content_revision_id
+ AND existing_check.snapshot_id = source.current_snapshot_id
+ AND existing_check.target_contract_version = sqlc.arg(target_contract_version)
+ AND existing_check.structure_convention_set = sqlc.arg(structure_convention_set)
+WHERE source.media_type = 'application/epub+zip'
+  AND source.book_id IS NOT NULL
+  AND source.current_content_revision_id IS NOT NULL
+  AND existing_check.owner_id IS NULL
+  AND (snapshot.schema_version < sqlc.arg(target_contract_version) OR COALESCE(snapshot.structure_convention_set, '') <> sqlc.arg(structure_convention_set))
+  AND source.id > sqlc.arg(after_source_id)::uuid
+ORDER BY source.id
+LIMIT sqlc.arg(page_size);
