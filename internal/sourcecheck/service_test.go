@@ -101,6 +101,13 @@ func runWorker(t *testing.T, ctx context.Context, worker *Worker, args CheckArgs
 	return worker.Work(ctx, &river.Job[CheckArgs]{Args: args})
 }
 
+func TestAddWorkerRegisters(t *testing.T) {
+	workers := river.NewWorkers()
+	worker := AddWorker(workers, &fakeStore{})
+	require.NotNil(t, worker)
+	require.NotNil(t, worker.Store)
+}
+
 func TestServiceEnqueueSourceStructureCheckOutcomes(t *testing.T) {
 	storeErr := errors.New("source store failed")
 	snapshotErr := errors.New("snapshot store failed")
@@ -213,7 +220,7 @@ func TestWorkerSkipsObsoleteAndInertWork(t *testing.T) {
 
 	require.NoError(t, runWorker(t, context.Background(), &Worker{Store: &fakeStore{sourceErr: domain.ErrNotFound}}, validCheckArgs()))
 	sourceErr := errors.New("source load failed")
-	require.ErrorContains(t, runWorker(t, context.Background(), &Worker{Store: &fakeStore{sourceErr: sourceErr}}, validCheckArgs()), "load source material")
+	require.ErrorContains(t, runWorker(t, context.Background(), &Worker{Store: &fakeStore{sourceErr: sourceErr}}, validCheckArgs()), "load source")
 
 	imported := validSource()
 	imported.MediaType = domain.ImportedSourceMediaType

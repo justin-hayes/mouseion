@@ -194,7 +194,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
 	workers := river.NewWorkers()
 	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
-	river.AddWorker(workers, &sourcecheck.Worker{Store: store})
+	sourcecheck.AddWorker(workers, store)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {

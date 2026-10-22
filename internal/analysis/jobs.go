@@ -23,6 +23,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
+	"github.com/justin-hayes/mouseion/internal/sourcecheck"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -2163,7 +2164,7 @@ func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.Ca
 	if standardWorkers < 1 {
 		standardWorkers = 1
 	}
-	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "prepared_decks": {MaxWorkers: 1}, "prepared_deck_translation": {MaxWorkers: standardWorkers}, "source_checks": {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "prepared_decks": {MaxWorkers: 1}, "prepared_deck_translation": {MaxWorkers: standardWorkers}, sourcecheck.Queue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
 }
 
 func configuredJobTimeout() (time.Duration, error) {

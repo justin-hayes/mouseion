@@ -48,6 +48,13 @@ func (a CheckArgs) validate() error {
 	return a.Target().Validate()
 }
 
+// AddWorker registers the structure check worker on the shared River worker set.
+func AddWorker(workers *river.Workers, store Store) *Worker {
+	worker := &Worker{Store: store}
+	river.AddWorker(workers, worker)
+	return worker
+}
+
 // Worker runs one extraction-only source structure check. It reads the exact
 // retained bytes, compares an in-memory extraction with the current snapshot and
 // records only a successful outcome. It never writes a snapshot or changes the
@@ -65,7 +72,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[CheckArgs]) (err error
 		return errors.New("sourcecheck: worker store is required")
 	}
 	args := job.Args
-	if !args.Target().Active() {
+	if !args.Target().Enabled() {
 		return nil // inert until the configured target moves past v1
 	}
 	if err := args.validate(); err != nil {
@@ -100,30 +107,17 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[CheckArgs]) (err error
 // EPUB evidence. An obsolete job returns ok=false and records nothing; the
 // newer evidence owns a different exact key.
 func (w *Worker) loadCurrentEvidence(ctx context.Context, args CheckArgs) (source domain.SourceMaterial, current domain.ExtractedSnapshot, ok bool, err error) {
-	source, err = w.Store.GetSourceMaterial(ctx, args.OwnerID, args.SourceMaterialID)
-	if errors.Is(err, domain.ErrNotFound) {
-		return source, current, false, nil
-	}
-	if err != nil {
-		return source, current, false, fmt.Errorf("load source material for structure check: %w", err)
-	}
-	if source.MediaType != epub.MediaType() {
-		return source, current, false, nil // imported classical analyses are excluded
+	source, current, ok, err = loadEvidence(ctx, w.Store, args.OwnerID, args.SourceMaterialID)
+	if err != nil || !ok {
+		return source, current, false, err
 	}
 	if source.ContentRevisionID != args.ContentRevisionID {
 		return source, current, false, nil
 	}
-	current, err = w.Store.GetCurrentExtractedSnapshot(ctx, args.OwnerID, args.SourceMaterialID)
-	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) {
-		return source, current, false, nil
-	}
-	if err != nil {
-		return source, current, false, fmt.Errorf("load current snapshot for structure check: %w", err)
-	}
 	if current.ContentRevisionID != args.ContentRevisionID || current.SnapshotID != args.SnapshotID {
 		return source, current, false, nil
 	}
-	return source, current, needsCheck(current, args.Target()), nil
+	return source, current, args.Target().Needs(current), nil
 }
 
 // evaluate extracts the retained bytes in memory and classifies the result. A

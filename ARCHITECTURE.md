@@ -207,6 +207,7 @@ queues so a long analysis never blocks catalog sync or deck work.
 | `catalogue_sync` | `catalogue_sync` (periodic per connection), `book_cover` | Metadata-only catalog reconciliation and cover retrieval ([ADR 0041](doc/adr/0041-catalog-sync-metadata-first.md)) |
 | `prepared_decks` | `prepared_deck`, `prepared_deck_finalize`, `prepared_deck_rerender`, `prepared_deck_reconcile`, `prepared_deck_batch_submit`, `prepared_deck_batch_poll`, `prepared_deck_batch_cleanup` | Deck coordination, finalization, recovery, and Batch lifecycle |
 | `prepared_deck_translation` | `prepared_deck_translation` | Standard per-item translation, with configurable concurrency |
+| `source_checks` | `check_source_structure` | Extraction-only comparison of existing EPUB snapshots with the configured extraction contract ([ADR 0103](doc/adr/0103-source-structure-and-poetry-evidence.md)) |
 
 Jobs are idempotent: each records its outcome in ordinary tables, so a retry
 after a crash resumes from persisted state rather than repeating finished work.
@@ -271,6 +272,7 @@ flowchart TB
         analysis[analysis]
         cataloguesync[cataloguesync]
         prepareddeck[prepareddeck]
+        sourcecheck[sourcecheck]
     end
     subgraph lang[Language and text]
         epub[epub]
@@ -290,11 +292,12 @@ flowchart TB
         persistence[persistence]
         opds[opds]
     end
-    server --> webapp & analysis & cataloguesync & prepareddeck
+    server --> webapp & analysis & cataloguesync & prepareddeck & sourcecheck
     fixture --> webapp
     webapp --> webauth --> auth
     webapp --> persistence & lemmarisk
     analysis --> epub & analyzer & selection & persistence
+    sourcecheck --> epub & persistence
     cataloguesync --> opds --> epub
     prepareddeck --> cardexport & enrichment & persistence
     cardexport --> sentencequality & dictionary
@@ -311,6 +314,7 @@ flowchart TB
 | [`epub`](internal/epub) | Reading-order extraction with reproducible source locations; main-text selection |
 | [`analyzer`](internal/analyzer) | The project-owned analysis boundary and its gRPC client |
 | [`analysis`](internal/analysis) | Durable analysis jobs: chunking, persistence, promotion |
+| [`sourcecheck`](internal/sourcecheck) | Extraction-only checks of existing EPUB snapshots against the configured contract |
 | [`canonicalization`](internal/canonicalization) | Language-specific canonical lemma profiles |
 | [`lexical`](internal/lexical), [`selection`](internal/selection) | Eligibility rules and deterministic vocabulary candidates |
 | [`analysisinsights`](internal/analysisinsights) | Coverage and threshold metrics for a learner and a book |

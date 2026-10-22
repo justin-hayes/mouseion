@@ -118,8 +118,8 @@ func TestClassifyCheck(t *testing.T) {
 }
 
 func TestTargetValidationAndNeedsCheck(t *testing.T) {
-	assert.False(t, ConfiguredTarget().Active(), "checks stay inert until the v2 writer is configured")
-	assert.False(t, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV1}.Active())
+	assert.False(t, ConfiguredTarget().Enabled(), "checks stay inert until the v2 writer is configured")
+	assert.False(t, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV1}.Enabled())
 	require.Error(t, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV1}.Validate())
 	require.Error(t, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV2}.Validate())
 	require.Error(t, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV2, ConventionSet: "other"}.Validate())
@@ -129,9 +129,9 @@ func TestTargetValidationAndNeedsCheck(t *testing.T) {
 	v1 := snapshotFixture(domain.ExtractedUnitsSchemaVersionV1, "text", "", nil, nil)
 	v2 := snapshotFixture(domain.ExtractedUnitsSchemaVersionV2, "text", domain.StructureConventionSet, nil, nil)
 	target := Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV2, ConventionSet: domain.StructureConventionSet}
-	assert.True(t, needsCheck(v1, target))
-	assert.False(t, needsCheck(v2, target))
+	assert.True(t, target.Needs(v1))
+	assert.False(t, target.Needs(v2))
 	otherConvention := v2
 	otherConvention.Structure.ConventionSet = "epub-structure/0"
-	assert.True(t, needsCheck(otherConvention, target))
+	assert.True(t, target.Needs(otherConvention))
 }

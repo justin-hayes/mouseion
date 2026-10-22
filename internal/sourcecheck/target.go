@@ -43,9 +43,9 @@ func ConfiguredTarget() Target {
 	return Target{ContractVersion: TargetContractVersion, ConventionSet: domain.StructureConventionSet}
 }
 
-// Active reports whether a target asks for a newer extraction contract. An
-// inactive target is inert: the current v1 snapshot already satisfies it.
-func (t Target) Active() bool {
+// Enabled reports whether checks are enabled for this target. A v1 target is
+// inert: the current snapshot already satisfies it.
+func (t Target) Enabled() bool {
 	return t.ContractVersion >= domain.ExtractedUnitsSchemaVersionV2
 }
 
@@ -53,7 +53,7 @@ func (t Target) Active() bool {
 // convention set means teaching the extractor that set first; checks never
 // pretend to have compared a contract they cannot produce.
 func (t Target) Validate() error {
-	if !t.Active() {
+	if !t.Enabled() {
 		return fmt.Errorf("sourcecheck: target contract %d is not newer than v1", t.ContractVersion)
 	}
 	if t.ContractVersion != domain.ExtractedUnitsSchemaVersionV2 {
@@ -68,12 +68,12 @@ func (t Target) Validate() error {
 	return nil
 }
 
-// needsCheck reports whether an exact current snapshot is older or different
-// enough from the target to deserve an extraction check.
-func needsCheck(current domain.ExtractedSnapshot, target Target) bool {
-	if current.Units.SchemaVersion < target.ContractVersion {
+// Needs reports whether an exact current snapshot is older or different enough
+// from the target to deserve an extraction check.
+func (t Target) Needs(current domain.ExtractedSnapshot) bool {
+	if current.Units.SchemaVersion < t.ContractVersion {
 		return true
 	}
-	return current.Units.SchemaVersion == target.ContractVersion &&
-		current.Structure.ConventionSet != target.ConventionSet
+	return current.Units.SchemaVersion == t.ContractVersion &&
+		current.Structure.ConventionSet != t.ConventionSet
 }

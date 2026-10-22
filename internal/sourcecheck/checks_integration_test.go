@@ -105,7 +105,7 @@ func countJobs(t *testing.T, ctx context.Context, pool *pgxpool.Pool, liveOnly b
 	return countRows(t, ctx, pool, `SELECT count(*) FROM river_job WHERE kind=$1`, (CheckArgs{}).Kind())
 }
 
-func newCheckClient(t *testing.T, pool *pgxpool.Pool) Client {
+func newCheckClient(t *testing.T, pool *pgxpool.Pool) JobInserter {
 	t.Helper()
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
 	require.NoError(t, err)

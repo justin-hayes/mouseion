@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -21,9 +20,9 @@ type Store interface {
 	ListSourceStructureCheckCandidates(ctx context.Context, targetContractVersion int, conventionSet, afterSourceID string, limit int) ([]domain.SourceStructureCheckKey, error)
 }
 
-// Client is the River insertion seam. River owns queued/running/retry/failure;
-// this service only decides which exact keys deserve work.
-type Client interface {
+// JobInserter is the River insertion seam. River owns queued/running/retry/
+// failure; this service only decides which exact keys deserve work.
+type JobInserter interface {
 	Insert(ctx context.Context, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error)
 }
 
@@ -32,45 +31,31 @@ type Client interface {
 // snapshot.
 type Service struct {
 	store    Store
-	client   Client
+	client   JobInserter
 	target   Target
 	pageSize int
 }
 
 // NewService builds a check scheduler for one configured target contract.
-func NewService(store Store, client Client, target Target) *Service {
+func NewService(store Store, client JobInserter, target Target) *Service {
 	return &Service{store: store, client: client, target: target, pageSize: startupScanPageSize}
 }
 
 // EnqueueSourceStructureCheck enqueues one check after a relevant source
 // evidence change, if the current snapshot is older or different enough from
-// the configured target. A successful exact-key check is reused, not re-run.
+// the configured target. This is also the explicit retry path after River
+// exhausts its automatic attempts: a discarded job has no success record, while
+// a successful exact-key check is reused and never re-run.
 func (s *Service) EnqueueSourceStructureCheck(ctx context.Context, ownerID, sourceMaterialID string) error {
-	if s == nil || !s.target.Active() {
+	if s == nil || !s.target.Enabled() {
 		return nil // inert until the v2 extraction contract is configured
 	}
 	if s.store == nil || s.client == nil {
 		return errors.New("sourcecheck: service is not configured")
 	}
-	source, err := s.store.GetSourceMaterial(ctx, ownerID, sourceMaterialID)
-	if errors.Is(err, domain.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("load source for structure check: %w", err)
-	}
-	if source.MediaType != epub.MediaType() {
-		return nil // imported analyses are excluded
-	}
-	current, err := s.store.GetCurrentExtractedSnapshot(ctx, ownerID, sourceMaterialID)
-	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("load current snapshot for structure check: %w", err)
-	}
-	if !needsCheck(current, s.target) {
-		return nil
+	_, current, ok, err := loadEvidence(ctx, s.store, ownerID, sourceMaterialID)
+	if err != nil || !ok || !s.target.Needs(current) {
+		return err
 	}
 	key := domain.SourceStructureCheckKey{
 		OwnerID: ownerID, SourceMaterialID: sourceMaterialID,
@@ -84,7 +69,7 @@ func (s *Service) EnqueueSourceStructureCheck(ctx context.Context, ownerID, sour
 // and enqueues every exact key without a successful check. Completed exact keys
 // are filtered out, so restarting does not rescan them.
 func (s *Service) EnqueueStartupChecks(ctx context.Context) error {
-	if s == nil || !s.target.Active() {
+	if s == nil || !s.target.Enabled() {
 		return nil
 	}
 	if s.store == nil || s.client == nil {
