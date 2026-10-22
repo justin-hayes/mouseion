@@ -972,13 +972,46 @@ type SourceMaterialUnit struct {
 	SnapshotID       string
 }
 
+type SourceMaterialUnitHeadingReset struct {
+	OwnerID          string
+	SourceMaterialID string
+	SnapshotID       string
+	UnitID           string
+	Offset           int
+	CreatedAt        time.Time
+}
+
+type SourceMaterialUnitRoleSpan struct {
+	OwnerID          string
+	SourceMaterialID string
+	SnapshotID       string
+	UnitID           string
+	Role             string
+	StartOffset      int
+	EndOffset        int
+	CreatedAt        time.Time
+}
+
 type SourceMaterialUnitSnapshot struct {
-	OwnerID           string
-	SourceMaterialID  string
-	SchemaVersion     int
-	CreatedAt         time.Time
-	SnapshotID        string
-	ContentRevisionID string
+	OwnerID                string
+	SourceMaterialID       string
+	SchemaVersion          int
+	CreatedAt              time.Time
+	SnapshotID             string
+	ContentRevisionID      string
+	StructureConventionSet pgtype.Text
+}
+
+type SourceStructureCheck struct {
+	OwnerID                string
+	SourceMaterialID       string
+	ContentRevisionID      string
+	SnapshotID             string
+	TargetContractVersion  int
+	StructureConventionSet string
+	Outcome                string
+	ResultIdentity         string
+	CheckedAt              time.Time
 }
 
 type SupportedLanguage struct {
