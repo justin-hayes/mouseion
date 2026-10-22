@@ -18,7 +18,7 @@ func TestCorpusConcordanceSchemaPersistsZeroTokenSentencesAndTokens(t *testing.T
 	owner, err := store.CreateUser(ctx, "concordance-owner", false)
 	require.NoError(t, err)
 	units := domain.ExtractedUnits{
-		SchemaVersion: domain.ExtractedUnitsSchemaVersion,
+		SchemaVersion: domain.ExtractedUnitsSchemaVersionV1,
 		Units: []domain.ExtractedUnit{{
 			ID: "epub-unit-v1:0:chapter-1", Order: 0, SpineIndex: 0,
 			Title: "Chapter 1", TitleSource: domain.UnitTitleHeading, Text: "Hallo Welt",

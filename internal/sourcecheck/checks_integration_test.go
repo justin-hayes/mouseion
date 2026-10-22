@@ -45,8 +45,9 @@ func checkTarget() Target {
 
 func putEPUBSource(t *testing.T, ctx context.Context, store *persistence.PostgresStore, ownerID, identifier string, data []byte, mediaType string, content []byte) (domain.SourceMaterial, domain.ExtractedSnapshot) {
 	t.Helper()
-	book, err := epub.Extract(data)
+	extraction, err := epub.ExtractV1(data)
 	require.NoError(t, err)
+	book := extraction.Book
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
 		OwnerID: ownerID, Language: "de", SourceIdentifier: identifier, Title: book.Title,
 		MediaType: mediaType, Content: content, ContentHash: "legacy:" + identifier, FullText: book.FullText,
@@ -226,11 +227,11 @@ func TestSourceStructureCheckRoleOnlyChangeIsUpdateAvailable(t *testing.T) {
 	store, _ := openStore(t, ctx)
 	owner := newOwner(t, ctx, store, "structure-role-only")
 	data := minimalEPUB(t, `<p><span class="speaker">Sprecher.</span> Es ist ein Text.</p>`)
-	v1, err := epub.Extract(data)
+	v1, err := epub.ExtractV1(data)
 	require.NoError(t, err)
 	v2, err := epub.ExtractV2(data)
 	require.NoError(t, err)
-	require.Equal(t, v1.FullText, v2.Book.FullText, "the fixture must keep text identical")
+	require.Equal(t, v1.Book.FullText, v2.Book.FullText, "the fixture must keep text identical")
 	require.NotEmpty(t, v2.Structure.RoleSpans, "the fixture must record a role")
 
 	source, snapshot := putEPUBSource(t, ctx, store, owner.ID, "role-only", data, epub.MediaType(), data)
@@ -363,7 +364,7 @@ func TestSourceStructureServiceRequiresConfiguration(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, (*Service)(nil).EnqueueStartupChecks(ctx))
 	require.NoError(t, (*Service)(nil).EnqueueSourceStructureCheck(ctx, "owner", "source"))
-	inactive := NewService(nil, nil, ConfiguredTarget())
+	inactive := NewService(nil, nil, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV1})
 	require.NoError(t, inactive.EnqueueStartupChecks(ctx))
 	require.NoError(t, inactive.EnqueueSourceStructureCheck(ctx, "owner", "source"))
 	active := NewService(nil, nil, checkTarget())

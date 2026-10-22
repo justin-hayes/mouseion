@@ -52,7 +52,7 @@ func TestExtractedUnitsSerializationIsVersionedAndUsesEmptyMetadataArrays(t *tes
 	encoded, err := json.Marshal(document)
 	require.NoError(t, err)
 	got := string(encoded)
-	for _, required := range []string{`"schema_version":1`, `"units":[`, `"source_href":"Text/part/chapter.xhtml"`, `"properties":[]`, `"navigation_labels":[]`, `"landmark_types":[]`} {
+	for _, required := range []string{`"schema_version":2`, `"units":[`, `"source_href":"Text/part/chapter.xhtml"`, `"properties":[]`, `"navigation_labels":[]`, `"landmark_types":[]`} {
 		assert.Contains(t, got, required, "serialized contract %s does not contain %s", got, required)
 	}
 	require.NoError(t, document.ValidateOffsets("Text"))

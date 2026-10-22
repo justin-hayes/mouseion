@@ -159,7 +159,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
 		OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: "Re-preparation fixture",
 		MediaType: "application/epub+zip", ContentHash: uuid.NewString(), Content: []byte("text"), FullText: "text",
-	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
+	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
 	require.NoError(t, err)
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT current_content_revision_id::text,current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID).Scan(&source.ContentRevisionID, &source.ContentSnapshotID))
 	var analysisRunID string

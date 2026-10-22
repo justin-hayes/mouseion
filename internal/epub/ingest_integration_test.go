@@ -139,8 +139,8 @@ func TestImportReimportRestoresPreviousRevision(t *testing.T) {
 		require.Equal(t, first.Source.ContentRevisionID, restored.Source.ContentRevisionID)
 		require.Equal(t, first.Book.ExtractedUnits, restoredUnits)
 	})
-	t.Run("restoring a revision adds a snapshot but no revision row", func(t *testing.T) {
-		require.NotEqual(t, firstSnapshotID, restoredSnapshotID)
+	t.Run("restoring a revision reuses its exact snapshot and adds no revision row", func(t *testing.T) {
+		require.Equal(t, firstSnapshotID, restoredSnapshotID, "the same revision and extraction reuse one immutable snapshot")
 		require.NotEqual(t, changedSnapshotID, restoredSnapshotID)
 		var revisionCount int
 		err := admin.QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, first.Source.ID).Scan(&revisionCount)

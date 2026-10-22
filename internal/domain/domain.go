@@ -250,6 +250,10 @@ type SourceMaterialSummary struct {
 	// AnalysisUpdate is set when the published analysis's Analysis pipeline
 	// identity differs from the current one reported by the analysis service.
 	AnalysisUpdate *AnalysisUpdateCandidate
+	// SourceStructureUpdate is set when a successful extraction-only check for
+	// this exact source evidence offers a learner-confirmed structure update
+	// (ADR 0103). Nothing is adopted until the learner confirms it.
+	SourceStructureUpdate *SourceStructureUpdateCandidate
 }
 
 // EvidenceClassification classifies this source's Analysis evidence. Eligibility

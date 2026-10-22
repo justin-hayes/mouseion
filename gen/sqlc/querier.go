@@ -150,6 +150,7 @@ type Querier interface {
 	// Durable facts that prove a lifecycle replay: who the commitment belonged to,
 	// when it was frozen and released, and whether it was completed.
 	GetCurrentReadingSnapshotLifecycle(ctx context.Context, arg GetCurrentReadingSnapshotLifecycleParams) (GetCurrentReadingSnapshotLifecycleRow, error)
+	GetCurrentSourceEvidenceForUpdate(ctx context.Context, arg GetCurrentSourceEvidenceForUpdateParams) (GetCurrentSourceEvidenceForUpdateRow, error)
 	GetCurrentSourceMaterialContent(ctx context.Context, arg GetCurrentSourceMaterialContentParams) (GetCurrentSourceMaterialContentRow, error)
 	// Deck-preparation lifecycle and Goal-owned vocabulary queries.
 	// Domain guards stay in the repository; these statements own the SQL shape,
@@ -204,6 +205,7 @@ type Querier interface {
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
 	GetSourceMaterialBookByIdentifierForUpdate(ctx context.Context, arg GetSourceMaterialBookByIdentifierForUpdateParams) (string, error)
 	GetSourceMaterialBookForUpdate(ctx context.Context, arg GetSourceMaterialBookForUpdateParams) (string, error)
+	GetSourceMaterialUnitSnapshotByExtractionIdentity(ctx context.Context, arg GetSourceMaterialUnitSnapshotByExtractionIdentityParams) (string, error)
 	GetSourceStructureCheck(ctx context.Context, arg GetSourceStructureCheckParams) (GetSourceStructureCheckRow, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)

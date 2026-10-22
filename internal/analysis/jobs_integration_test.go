@@ -39,7 +39,7 @@ func putAnalysisSourceWithUnits(ctx context.Context, store *persistence.Postgres
 	return store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
 		OwnerID: owner, Language: "de", SourceIdentifier: identifier, Title: title,
 		MediaType: "application/epub+zip", ContentHash: hash, Content: []byte(text), FullText: text,
-	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: units})
+	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: units})
 }
 
 func countingTagAnalyzer(calls *int) *analyzertest.Fake {

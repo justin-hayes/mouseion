@@ -14,8 +14,8 @@ import (
 
 const (
 	// TargetContractVersion is the extraction contract that structure checks
-	// target. It follows the configured v2 writer switch: while the writer
-	// remains v1, no check is enqueued or run.
+	// target. It follows the configured writer switch: new acquisitions write
+	// v2, and v1 snapshots are checked for an explicit update offer.
 	TargetContractVersion = domain.ExtractedUnitsSchemaVersion
 
 	// Queue keeps extraction-only checks off the analysis and catalogue queues.

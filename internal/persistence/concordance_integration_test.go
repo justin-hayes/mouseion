@@ -682,7 +682,7 @@ func createConcordanceBook(t *testing.T, ctx context.Context, store *PostgresSto
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
 		OwnerID: owner, Language: "de", SourceIdentifier: "concordance-" + suffix,
 		Title: title, MediaType: "application/epub+zip", Content: []byte("epub-" + suffix), FullText: fullText,
-	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: units})
+	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: units})
 	require.NoError(t, err)
 	require.NoError(t, store.LinkSourceToBook(ctx, owner, book.ID, source.ID))
 	if toRead {

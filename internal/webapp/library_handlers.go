@@ -128,6 +128,7 @@ func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, b
 		return nil, 0, err
 	}
 	h.annotateAnalysisUpdates(ctx, owner, books)
+	h.annotateSourceStructureUpdates(ctx, owner, books)
 	refreshableBookIDs, err := h.refreshableMyBookIDs(ctx, owner, books)
 	if err != nil {
 		return nil, 0, err

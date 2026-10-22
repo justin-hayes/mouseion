@@ -138,6 +138,13 @@ type AnalysisUpdates interface {
 	SubmitAnalysisUpdate(ctx context.Context, owner, bookID, sourceID, expectedRunID, expectedTarget string) (analysis.Handle, error)
 }
 
+// SourceStructureUpdates offers and submits learner-confirmed Source structure
+// updates (ADR 0103). A nil seam offers nothing.
+type SourceStructureUpdates interface {
+	SourceStructureUpdateCandidates(ctx context.Context, owner string, sourceIDs []string) (map[string]domain.SourceStructureUpdateCandidate, error)
+	SubmitSourceStructureUpdate(ctx context.Context, owner, bookID, sourceID string, expected domain.SourceStructureUpdateExpectation) (analysis.Handle, error)
+}
+
 // CatalogueSync is the catalogue sync seam. Connection CRUD maintains the River
 // periodic schedule through it without coupling handlers to River or exposing
 // job credentials; the Jobs surface and Library refresh act on sync runs through
@@ -178,6 +185,7 @@ type Services struct {
 	OPDS             OPDS
 	Analysis         Analysis
 	AnalysisUpdates  AnalysisUpdates
+	SourceStructures SourceStructureUpdates
 	AnalysisInsights AnalysisInsights
 	PreparedDeck     PreparedDeck
 	Capabilities     analyzer.CapabilityProvider
@@ -243,6 +251,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /reading/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryCurrentReadingDeck)))
 	h.mux.Handle("POST /reading/books/{id}/reanalyze", h.user(http.HandlerFunc(h.reanalyzeToReadBook)))
 	h.mux.Handle("POST /reading/books/{id}/analysis-update", h.user(http.HandlerFunc(h.updateToReadBookAnalysis)))
+	h.mux.Handle("POST /reading/books/{id}/source-structure-update", h.user(http.HandlerFunc(h.updateBookSourceStructure)))
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /library/books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))

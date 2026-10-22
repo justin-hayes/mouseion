@@ -353,8 +353,10 @@ func loadSubmissionInputs(ctx context.Context, tx pgx.Tx, owner, bookID, sourceI
 	return args, nil
 }
 
-// submitExistingRun attaches the submission to the newest run for its
-// snapshot identity. Queued or running runs ensure an attempt; a completed run
+// submitExistingRun attaches the submission to the newest run for its snapshot
+// identity. The identity includes the exact extracted snapshot, so a source
+// structure adoption under the same content revision never reuses the earlier
+// snapshot's run. Queued or running runs ensure an attempt; a completed run
 // retries publication; a failed or cancelled run is requeued with history. It
 // reports handled=false when no run exists, so the caller creates one.
 //
@@ -366,7 +368,7 @@ func loadSubmissionInputs(ctx context.Context, tx pgx.Tx, owner, bookID, sourceI
 // pass nil and never start an update.
 func (s *Service) submitExistingRun(ctx context.Context, tx pgx.Tx, owner string, args JobArgs, target *domain.AnalysisPipelineIdentity) (Handle, bool, error) {
 	var runID, state string
-	err := tx.QueryRow(ctx, `SELECT id::text,state FROM analysis_runs WHERE owner_id=$1 AND content_revision_id=$2 AND analyzer_name=$3 AND analyzer_version=$4 AND config_identity=$5 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`, owner, args.ContentRevisionID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID, &state)
+	err := tx.QueryRow(ctx, `SELECT id::text,state FROM analysis_runs WHERE owner_id=$1 AND content_revision_id=$2 AND snapshot_id=$3 AND analyzer_name=$4 AND analyzer_version=$5 AND config_identity=$6 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`, owner, args.ContentRevisionID, args.SnapshotID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID, &state)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Handle{}, false, nil
 	}

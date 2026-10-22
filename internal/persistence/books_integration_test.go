@@ -398,7 +398,7 @@ func putBookSource(t *testing.T, ctx context.Context, store *PostgresStore, owne
 func putBookSourceInLanguage(t *testing.T, ctx context.Context, store *PostgresStore, owner, language, identifier, title string, content []byte, fullText string) domain.SourceMaterial {
 	t.Helper()
 	unit := domain.ExtractedUnit{ID: domain.EPUBUnitID(0, "item"), Order: 0, SpineIndex: 0, ManifestID: "item", Text: fullText, EndOffset: uint64(len([]rune(fullText))), MediaType: "application/xhtml+xml", Linear: true}
-	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: title, MediaType: "application/epub+zip", Content: content, FullText: fullText}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{unit}})
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: title, MediaType: "application/epub+zip", Content: content, FullText: fullText}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: []domain.ExtractedUnit{unit}})
 	require.NoError(t, err)
 	return source
 }

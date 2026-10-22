@@ -32,7 +32,7 @@ func TestLegacyRerenderRecoversDependencyParseWithoutChangingManifest(t *testing
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
 		OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: "Legacy Rerender",
 		MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("Karam rief dem jungen Scheich entgegen."), FullText: "Karam rief dem jungen Scheich entgegen.",
-	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{{
+	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: []domain.ExtractedUnit{{
 		ID: domain.EPUBUnitID(0, "legacy"), Order: 0, SpineIndex: 0, Title: "Legacy", TitleSource: domain.UnitTitleHeading,
 		Text: "Karam rief dem jungen Scheich entgegen.", StartOffset: 0, EndOffset: 39, ManifestID: "legacy", PackagePath: "legacy.xhtml", SourceHref: "legacy.xhtml", ResolvedHref: "legacy.xhtml", MediaType: "application/xhtml+xml", Linear: true,
 	}}})

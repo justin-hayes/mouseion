@@ -136,10 +136,10 @@ func TestExtractV2FaustExcerpts(t *testing.T) {
 	})
 
 	t.Run("v1 keeps the old break behavior", func(t *testing.T) {
-		v1, err := Extract(fixtureDirectory(t, "testfixtures/faust-excerpt"))
+		v1, err := ExtractV1(fixtureDirectory(t, "testfixtures/faust-excerpt"))
 		require.NoError(t, err)
-		unit := unitByManifest(t, v1, "excerpt-0")
-		assert.Equal(t, domain.ExtractedUnitsSchemaVersionV1, v1.ExtractedUnits.SchemaVersion)
+		unit := unitByManifest(t, v1.Book, "excerpt-0")
+		assert.Equal(t, domain.ExtractedUnitsSchemaVersionV1, v1.Book.ExtractedUnits.SchemaVersion)
 		assert.Contains(t, unit.Text,
 			"Ihr beyden die ihr mir so oft,\n\nIn Noth und Trübsal, beygestanden,") //nolint:misspell // Goethe source text
 	})
@@ -171,16 +171,16 @@ func TestExtractV2MatchesV1ForNoBreakProse(t *testing.T) {
 	for _, directory := range directories {
 		t.Run(directory, func(t *testing.T) {
 			data := fixtureDirectory(t, directory)
-			v1, err := Extract(data)
+			v1, err := ExtractV1(data)
 			require.NoError(t, err)
 			v2, err := ExtractV2(data)
 			require.NoError(t, err)
 
-			assert.Equal(t, domain.ExtractedUnitsSchemaVersionV1, v1.ExtractedUnits.SchemaVersion, "the default writer stays v1")
+			assert.Equal(t, domain.ExtractedUnitsSchemaVersionV1, v1.Book.ExtractedUnits.SchemaVersion, "ExtractV1 keeps the historical contract")
 			assert.Equal(t, domain.ExtractedUnitsSchemaVersionV2, v2.Book.ExtractedUnits.SchemaVersion)
-			assert.Equal(t, v1.FullText, v2.Book.FullText, "plain blocks without <br/> keep today's text exactly")
-			assert.Equal(t, v1.Title, v2.Book.Title)
-			assert.Equal(t, v1.ExtractedUnits.Units, v2.Book.ExtractedUnits.Units)
+			assert.Equal(t, v1.Book.FullText, v2.Book.FullText, "plain blocks without <br/> keep today's text exactly")
+			assert.Equal(t, v1.Book.Title, v2.Book.Title)
+			assert.Equal(t, v1.Book.ExtractedUnits.Units, v2.Book.ExtractedUnits.Units)
 			assert.True(t, v2.Structure.Recorded)
 			require.NoError(t, v2.Structure.Validate(domain.ExtractedUnitsSchemaVersionV2, v2.Book.ExtractedUnits.Units))
 		})

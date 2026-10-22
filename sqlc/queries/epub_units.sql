@@ -16,6 +16,13 @@ FROM source_materials
 WHERE owner_id = $1 AND id = $2
 FOR UPDATE;
 
+-- name: GetCurrentSourceEvidenceForUpdate :one
+SELECT (COALESCE(current_content_revision_id::text, ''))::text AS current_revision_id,
+       (COALESCE(current_snapshot_id::text, ''))::text AS current_snapshot_id
+FROM source_materials
+WHERE owner_id = $1 AND id = $2
+FOR UPDATE;
+
 -- name: GetSourceContentRevisionByDigest :one
 SELECT revision_id::text
 FROM source_content_revisions
@@ -35,6 +42,12 @@ WHERE owner_id = $1 AND id = $2;
 INSERT INTO source_material_unit_snapshots(owner_id, source_material_id, content_revision_id, schema_version, structure_convention_set)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING snapshot_id::text;
+
+-- name: GetSourceMaterialUnitSnapshotByExtractionIdentity :one
+SELECT snapshot_id::text
+FROM source_material_unit_snapshots
+WHERE owner_id = $1 AND source_material_id = $2 AND content_revision_id = $3
+  AND schema_version = $4 AND structure_convention_set = $5;
 
 -- name: SetCurrentSnapshot :exec
 UPDATE source_materials

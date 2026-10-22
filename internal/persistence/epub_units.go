@@ -23,6 +23,117 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 	return s.PutSourceMaterialWithExtractedSnapshot(ctx, v, units, domain.SnapshotStructure{})
 }
 
+// ErrSourceEvidenceChanged reports that a confirmation no longer names the
+// source's expected current revision and snapshot. Nothing is adopted; the
+// learner reviews the refreshed offer.
+var ErrSourceEvidenceChanged = errors.New("source evidence changed")
+
+// ExtractedSnapshotAdoption is one learner-confirmed switch to the exact
+// extraction that a structure check verified. It never writes a content
+// revision: the retained bytes already belong to the confirmed revision.
+type ExtractedSnapshotAdoption struct {
+	OwnerID            string
+	SourceMaterialID   string
+	ContentRevisionID  string
+	ExpectedSnapshotID string
+	Units              domain.ExtractedUnits
+	Structure          domain.SnapshotStructure
+}
+
+// AdoptExtractedSnapshot creates or reuses the exact immutable v2 snapshot for
+// the confirmed extraction and switches the source's current pointer. It runs
+// in the caller's transaction, locks the source row, and refuses a concurrent
+// source change. A double submit that already made the same snapshot current is
+// idempotent: it adopts the same snapshot again instead of creating another.
+func AdoptExtractedSnapshot(ctx context.Context, tx pgx.Tx, adoption ExtractedSnapshotAdoption) (snapshotID string, err error) {
+	if err := validateExtractedSnapshotAdoption(adoption); err != nil {
+		return "", err
+	}
+	q := sqlcgen.New(tx)
+	current, err := q.GetCurrentSourceEvidenceForUpdate(ctx, sqlcgen.GetCurrentSourceEvidenceForUpdateParams{OwnerID: adoption.OwnerID, ID: adoption.SourceMaterialID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("lock source evidence for adoption: %w", err)
+	}
+	if current.CurrentRevisionID != adoption.ContentRevisionID {
+		return "", ErrSourceEvidenceChanged
+	}
+	target, found, err := existingExtractionSnapshot(ctx, q, adoption)
+	if err != nil {
+		return "", err
+	}
+	if found {
+		return reuseExistingExtractionSnapshot(ctx, q, adoption, current.CurrentSnapshotID, target)
+	}
+	return createExtractedSnapshot(ctx, q, adoption, current.CurrentSnapshotID)
+}
+
+// validateExtractedSnapshotAdoption rejects an incomplete or unreadable v2
+// extraction before the transaction touches the source.
+func validateExtractedSnapshotAdoption(adoption ExtractedSnapshotAdoption) error {
+	if strings.TrimSpace(adoption.OwnerID) == "" || strings.TrimSpace(adoption.SourceMaterialID) == "" ||
+		strings.TrimSpace(adoption.ContentRevisionID) == "" || strings.TrimSpace(adoption.ExpectedSnapshotID) == "" {
+		return errors.New("adopt extracted snapshot: identity is incomplete")
+	}
+	if adoption.Units.SchemaVersion != domain.ExtractedUnitsSchemaVersionV2 {
+		return fmt.Errorf("adopt extracted snapshot: contract %d is not v2", adoption.Units.SchemaVersion)
+	}
+	if err := adoption.Units.ValidateSnapshot(); err != nil {
+		return fmt.Errorf("adopt extracted snapshot: validate units: %w", err)
+	}
+	if err := adoption.Structure.Validate(adoption.Units.SchemaVersion, adoption.Units.Units); err != nil {
+		return fmt.Errorf("adopt extracted snapshot: validate structure: %w", err)
+	}
+	return nil
+}
+
+// existingExtractionSnapshot resolves the exact immutable snapshot for the
+// confirmed extraction, if a previous adoption or import already created it.
+func existingExtractionSnapshot(ctx context.Context, q *sqlcgen.Queries, adoption ExtractedSnapshotAdoption) (string, bool, error) {
+	target, err := q.GetSourceMaterialUnitSnapshotByExtractionIdentity(ctx, sqlcgen.GetSourceMaterialUnitSnapshotByExtractionIdentityParams{
+		OwnerID: adoption.OwnerID, SourceMaterialID: adoption.SourceMaterialID,
+		ContentRevisionID:      adoption.ContentRevisionID,
+		SchemaVersion:          adoption.Units.SchemaVersion,
+		StructureConventionSet: pgtype.Text{String: adoption.Structure.ConventionSet, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("find checked extracted snapshot: %w", err)
+	}
+	return target, true, nil
+}
+
+// reuseExistingExtractionSnapshot switches to an existing exact snapshot. It
+// accepts the source only at the checked snapshot or already at the target, so
+// a concurrent change to other evidence is never silently overridden.
+func reuseExistingExtractionSnapshot(ctx context.Context, q *sqlcgen.Queries, adoption ExtractedSnapshotAdoption, currentSnapshotID, target string) (string, error) {
+	if currentSnapshotID != adoption.ExpectedSnapshotID && currentSnapshotID != target {
+		return "", ErrSourceEvidenceChanged
+	}
+	if currentSnapshotID == target {
+		return target, nil
+	}
+	if err := q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: adoption.OwnerID, ID: adoption.SourceMaterialID, CurrentSnapshotID: uuidArg(target)}); err != nil {
+		return "", fmt.Errorf("switch to the checked extracted snapshot: %w", err)
+	}
+	return target, nil
+}
+
+// createExtractedSnapshot writes the exact v2 snapshot when no previous
+// extraction created it. A different current snapshot than the one the check
+// named is a concurrent source change, never an implicit adopt.
+func createExtractedSnapshot(ctx context.Context, q *sqlcgen.Queries, adoption ExtractedSnapshotAdoption, currentSnapshotID string) (string, error) {
+	if currentSnapshotID != adoption.ExpectedSnapshotID {
+		return "", ErrSourceEvidenceChanged
+	}
+	source := domain.SourceMaterial{ID: adoption.SourceMaterialID, OwnerID: adoption.OwnerID}
+	return writeExtractedUnits(ctx, q, source, adoption.ContentRevisionID, adoption.Units, adoption.Structure)
+}
+
 // PutSourceMaterialWithExtractedSnapshot atomically adds an EPUB content
 // revision and the extracted snapshot it carries. A v2 snapshot also records
 // its convention set, role spans and heading resets. Existing revisions,
@@ -98,7 +209,7 @@ func putSourceMaterialWithExtractedUnits(ctx context.Context, q *sqlcgen.Queries
 		return out, err
 	}
 	if changed {
-		if err := writeExtractedUnits(ctx, q, out, revisionID, units, structure); err != nil {
+		if _, err := writeExtractedUnits(ctx, q, out, revisionID, units, structure); err != nil {
 			return out, err
 		}
 	}
@@ -152,27 +263,46 @@ func putSourceMaterialRevision(ctx context.Context, q *sqlcgen.Queries, source d
 // recorded structure, makes it current, and inserts each unit. Snapshots and
 // units are immutable; a later revision adds a new snapshot instead of
 // rewriting this one.
-func writeExtractedUnits(ctx context.Context, q *sqlcgen.Queries, source domain.SourceMaterial, revisionID string, units domain.ExtractedUnits, structure domain.SnapshotStructure) error {
+func writeExtractedUnits(ctx context.Context, q *sqlcgen.Queries, source domain.SourceMaterial, revisionID string, units domain.ExtractedUnits, structure domain.SnapshotStructure) (string, error) {
 	convention := pgtype.Text{}
 	if units.SchemaVersion >= domain.ExtractedUnitsSchemaVersionV2 {
 		convention = pgtype.Text{String: structure.ConventionSet, Valid: true}
+		existing, err := q.GetSourceMaterialUnitSnapshotByExtractionIdentity(ctx, sqlcgen.GetSourceMaterialUnitSnapshotByExtractionIdentityParams{
+			OwnerID: source.OwnerID, SourceMaterialID: source.ID, ContentRevisionID: revisionID,
+			SchemaVersion: units.SchemaVersion, StructureConventionSet: convention,
+		})
+		switch {
+		case err == nil:
+			// Restoring the same revision under the same extraction contract and
+			// convention set reuses the exact immutable snapshot. It never inserts
+			// another snapshot or rewrites the existing units and structure.
+			if err := q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: source.OwnerID, ID: source.ID, CurrentSnapshotID: uuidArg(existing)}); err != nil {
+				return "", err
+			}
+			return existing, nil
+		case !errors.Is(err, pgx.ErrNoRows):
+			return "", err
+		}
 	}
 	snapshotID, err := q.InsertSourceMaterialUnitSnapshot(ctx, sqlcgen.InsertSourceMaterialUnitSnapshotParams{
 		OwnerID: source.OwnerID, SourceMaterialID: source.ID, ContentRevisionID: revisionID,
 		SchemaVersion: units.SchemaVersion, StructureConventionSet: convention,
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: source.OwnerID, ID: source.ID, CurrentSnapshotID: uuidArg(snapshotID)}); err != nil {
-		return err
+		return "", err
 	}
 	for _, unit := range units.Units {
 		if err := insertExtractedUnit(ctx, q, source, snapshotID, unit); err != nil {
-			return err
+			return "", err
 		}
 	}
-	return insertSourceStructure(ctx, q, source, snapshotID, structure)
+	if err := insertSourceStructure(ctx, q, source, snapshotID, structure); err != nil {
+		return "", err
+	}
+	return snapshotID, nil
 }
 
 // insertSourceStructure writes one v2 snapshot's role spans and heading resets.

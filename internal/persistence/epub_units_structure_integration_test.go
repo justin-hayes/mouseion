@@ -19,7 +19,7 @@ func structureUnitsFixture() domain.ExtractedUnits {
 	first, second := "Erster Satz.", "Zweiter Satz."
 	firstEnd := uint64(len([]rune(first)))
 	secondStart := firstEnd + 2
-	return domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{
+	return domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: []domain.ExtractedUnit{
 		{ID: domain.EPUBUnitID(0, "one"), Order: 0, SpineIndex: 0, ManifestID: "one", Text: first, StartOffset: 0, EndOffset: firstEnd},
 		{ID: domain.EPUBUnitID(1, "two"), Order: 1, SpineIndex: 1, ManifestID: "two", Text: second, StartOffset: secondStart, EndOffset: secondStart + uint64(len([]rune(second)))},
 	}}
@@ -132,8 +132,9 @@ func TestExtractedSnapshotReconstructionMatchesCurrentExtractedFixture(t *testin
 	owner, err := store.CreateUser(ctx, "source-structure-fixture", false)
 	require.NoError(t, err)
 	data := testutil.ZipDirectory(t, filepath.Join("..", "epub", "testfixtures", "epub3-edge-cases"))
-	book, err := epub.Extract(data)
+	extraction, err := epub.ExtractV1(data)
 	require.NoError(t, err)
+	book := extraction.Book
 
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
 		OwnerID: owner.ID, Language: "de", SourceIdentifier: book.SourceIdentifier, Title: book.Title,
@@ -148,7 +149,7 @@ SELECT snap.schema_version, snap.structure_convention_set
 FROM source_material_unit_snapshots snap
 JOIN source_materials source ON source.owner_id=snap.owner_id AND source.id=snap.source_material_id AND source.current_snapshot_id=snap.snapshot_id
 WHERE snap.owner_id=$1 AND snap.source_material_id=$2`, owner.ID, source.ID).Scan(&schemaVersion, &conventionSet))
-	assert.Equal(t, domain.ExtractedUnitsSchemaVersionV1, schemaVersion, "writer must remain v1")
+	assert.Equal(t, domain.ExtractedUnitsSchemaVersionV1, schemaVersion, "the historical v1 writer remains readable")
 	assert.Nil(t, conventionSet, "v1 must not record a convention set")
 
 	current, err := store.GetCurrentExtractedSnapshot(ctx, owner.ID, source.ID)
