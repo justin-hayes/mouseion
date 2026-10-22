@@ -211,6 +211,89 @@ func sentenceStudySegments(study domain.SentenceStudy, source sentenceStudySourc
 	return segments
 }
 
+// sentenceStudyLineRow is one authorial source line of the morphology line.
+// Every row is rendered at every width; a row that wraps on a narrow viewport
+// hangs indented so a soft wrap never looks like a source break.
+type sentenceStudyLineRow struct {
+	Segments []sentenceStudySegment
+}
+
+// sentenceStudyRows splits the aligned morphology line into authorial source
+// line rows. A plain source run may carry a break; an aligned word never spans
+// one. Empty rows are retained so a gap between lines is never repaired away.
+func sentenceStudyRows(line sentenceStudyLine) []sentenceStudyLineRow {
+	rows := []sentenceStudyLineRow{{}}
+	for _, segment := range line.Segments {
+		if segment.Word != nil {
+			rows[len(rows)-1].Segments = append(rows[len(rows)-1].Segments, segment)
+			continue
+		}
+		parts := strings.Split(segment.Text, "\n")
+		for index, part := range parts {
+			if index > 0 {
+				rows = append(rows, sentenceStudyLineRow{})
+			}
+			if part == "" {
+				continue
+			}
+			rows[len(rows)-1].Segments = append(rows[len(rows)-1].Segments, sentenceStudySegment{Text: part})
+		}
+	}
+	return rows
+}
+
+// sentenceStudyLineEndOrdinals names the analyzed tokens that end a source line
+// while the sentence continues. The complete text alternative notes the break
+// after that token, so it never invents a word for an unaligned gap. A
+// whole-line fallback has no trustworthy source bounds and returns no notes.
+func sentenceStudyLineEndOrdinals(study domain.SentenceStudy, line sentenceStudyLine) map[int64]bool {
+	if line.WholeLineFallback || len(study.Tokens) == 0 || !strings.Contains(study.SentenceText, "\n") {
+		return nil
+	}
+	runes := []rune(study.UnitText)
+	ends := make(map[int64]bool)
+	var lastWord int64
+	hasWord := false
+	for index, token := range study.Tokens {
+		if !sentenceStudyTokenInUnit(token, len(runes)) {
+			continue
+		}
+		if sentenceStudyTokenIsWord(token) {
+			lastWord, hasWord = token.Ordinal, true
+		}
+		if sentenceStudyBreakFollows(study, runes, index) {
+			if hasWord {
+				ends[lastWord] = true
+			}
+			hasWord = false
+		}
+	}
+	if len(ends) == 0 {
+		return nil
+	}
+	return ends
+}
+
+// sentenceStudyTokenInUnit reports whether a stored token span is a valid,
+// non-empty range inside the unit text.
+func sentenceStudyTokenInUnit(token domain.SentenceStudyToken, length int) bool {
+	return token.StartOffset >= 0 && token.EndOffset > token.StartOffset && token.EndOffset <= int64(length)
+}
+
+// sentenceStudyBreakFollows reports whether a source line break separates the
+// token from the next token or the end of the sentence.
+func sentenceStudyBreakFollows(study domain.SentenceStudy, runes []rune, index int) bool {
+	token := study.Tokens[index]
+	next := study.SentenceEndOffset
+	if index+1 < len(study.Tokens) {
+		next = study.Tokens[index+1].StartOffset
+	}
+	if next <= token.EndOffset || next > int64(len(runes)) {
+		return false
+	}
+	return strings.Contains(string(runes[token.EndOffset:next]), "\n")
+}
+
 // sentenceStudyWordSegment builds one aligned unit over its decided sub-span.
 // Punctuation and symbols cover source text but carry no grammatical features,
 // so they stay plain.

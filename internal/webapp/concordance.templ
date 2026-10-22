@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -82,19 +80,14 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 											<summary>
 												if target != "" {
 													// One line: inline whitespace between these parts would add spaces to the sentence.
-													<span class="concordance-before"><span>{ concordanceContextText(before) }</span></span><strong class="concordance-surface">{ target }</strong><span class="concordance-after">{ concordanceContextText(after) }</span>
+													<span class="concordance-before"><span>@concordanceSummaryContext(before)</span></span><strong class="concordance-surface">{ target }</strong><span class="concordance-after">@concordanceSummaryContext(after)</span>
 												} else {
-													<span class="concordance-before"></span><strong class="concordance-surface">{ occurrence.Surface }</strong><span class="concordance-after">{ " " + occurrence.SentenceText }</span>
+													<span class="concordance-before"></span><strong class="concordance-surface">{ occurrence.Surface }</strong><span class="concordance-after">{ " " }@concordanceSummaryContext(occurrence.SentenceText)</span>
 												}
 											</summary>
 											<div class="concordance-context">
-												<p class="reading-text">
-													if target != "" {
-														{ before }<strong class="concordance-observed-target">{ target }</strong>{ after }
-													} else {
-														{ occurrence.SentenceText }
-													}
-												</p>
+												@sourceAttribution(occurrence.Attribution, "concordance-attribution")
+												<p class="reading-text">@concordanceContextText(before, target, after, occurrence.SentenceText)</p>
 											</div>
 										</details>
 										if occurrence.StudyUnavailable {
@@ -152,9 +145,8 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 			if sentenceStudySyntaxUnavailable(study) {
 				<p class="sentence-study-note" id="sentence-study-syntax-unavailable">Syntax unavailable for this analysis. The sentence and its morphology are shown; relation and head are not available.</p>
 			}
-			<p class="reading-text sentence-study-text">
-				{ study.SentenceText }
-			</p>
+			@sourceAttribution(study.Attribution, "sentence-study-attribution")
+			<p class="reading-text sentence-study-text">@sentenceStudySourceText(study.SentenceText)</p>
 			{{ line := alignSentenceStudy(study) }}
 			if len(study.Tokens) == 0 {
 				<p>Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.</p>
@@ -162,15 +154,16 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 				if line.WholeLineFallback {
 					<p class="sentence-study-fallback">Word-level labels are withheld because the sentence could not be verified against its stored source text. The complete text alternative below is open by default.</p>
 				} else {
-					<p class="sentence-study-line">
-						for _, segment := range line.Segments {
-							if segment.Word != nil {
-								@sentenceStudyWordUnit(*segment.Word)
-							} else {
-								<span class="sentence-study-source">{ segment.Text }</span>
+					{{ rows := sentenceStudyRows(line) }}
+					if len(rows) > 1 {
+						<p class="sentence-study-line">
+							for _, row := range rows {
+								<span class="sentence-study-line-row">@sentenceStudyLineSegments(row.Segments)</span>
 							}
-						}
-					</p>
+						</p>
+					} else {
+						<p class="sentence-study-line">@sentenceStudyLineSegments(line.Segments)</p>
+					}
 					if line.Degraded {
 						<p class="sentence-study-note">{ sentenceStudyDegradedNote(line) }</p>
 					}
@@ -198,6 +191,7 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 				// fallback, where the line is withheld.
 				<details id="sentence-study-text-alternative" class="sentence-study-alternative" open?={ line.WholeLineFallback }>
 					<summary>Complete text alternative</summary>
+					{{ lineEnds := sentenceStudyLineEndOrdinals(study, line) }}
 					<ol class="sentence-study-tokens">
 						for _, token := range study.Tokens {
 							<li>
@@ -218,6 +212,9 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 								if token.Excluded {
 									<span>Excluded from effective vocabulary; retained as syntax evidence.</span>
 								}
+								if lineEnds[token.Ordinal] {
+									<span class="sentence-study-line-end">{ " · end of source line." }</span>
+								}
 							</li>
 						}
 					</ol>
@@ -234,6 +231,81 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 				</details>
 			}
 		</section>
+	}
+}
+
+// sourceAttribution renders quiet small-caps source metadata above a sentence.
+// It shows a speaker name only or Stage direction; the marker is never part of
+// the sentence or a target, and an unknown attribution leaves the slot absent.
+templ sourceAttribution(attribution domain.SourceAttribution, class string) {
+	if attribution.Kind == domain.AttributionSpeaker && attribution.Speaker != "" {
+		<p class={ class }>{ attribution.Speaker }</p>
+	} else if attribution.Kind == domain.AttributionStageDirection {
+		<p class={ class }>Stage direction</p>
+	}
+}
+
+// concordanceSummaryContext renders a one-line key-word context. Each source
+// line break becomes a muted slash mark; a literal source slash remains
+// ambiguous until the occurrence is expanded.
+templ concordanceSummaryContext(text string) {
+	for _, chunk := range concordanceSummaryChunks(text) {
+		if chunk.Break {
+			<span class="concordance-line-break">{ " / " }</span>
+		} else {
+			{ chunk.Text }
+		}
+	}
+}
+
+// concordanceContextText renders the expanded occurrence as its actual source
+// lines. An occurrence without authorial breaks keeps the shipped inline
+// layout; a target stays emphasized inside the correct line.
+templ concordanceContextText(before, target, after, sentenceText string) {
+	if target == "" {
+		@sourceTextLinesView(sourceTextLines(sourceTextSegment{Text: sentenceText}), "concordance-context-line", "")
+	} else {
+		@sourceTextLinesView(sourceTextLines(sourceTextSegment{Text: before}, sourceTextSegment{Text: target, Target: true}, sourceTextSegment{Text: after}), "concordance-context-line", "concordance-observed-target")
+	}
+}
+
+// sentenceStudySourceText renders the complete study sentence as its actual
+// source lines. No-break prose renders exactly as it did before.
+templ sentenceStudySourceText(text string) {
+	@sourceTextLinesView(sourceTextLines(sourceTextSegment{Text: text}), "sentence-study-source-line", "")
+}
+
+// sourceTextLinesView keeps one source line per block when a sentence has
+// authorial breaks; a single source line stays inline so prose is unchanged.
+templ sourceTextLinesView(lines []sourceTextLine, lineClass, targetClass string) {
+	if len(lines) > 1 {
+		for _, line := range lines {
+			<span class={ lineClass }>@sourceTextSegments(line.Segments, targetClass)</span>
+		}
+	} else {
+		@sourceTextSegments(lines[0].Segments, targetClass)
+	}
+}
+
+templ sourceTextSegments(segments []sourceTextSegment, targetClass string) {
+	for _, segment := range segments {
+		if segment.Target {
+			<strong class={ targetClass }>{ segment.Text }</strong>
+		} else {
+			{ segment.Text }
+		}
+	}
+}
+
+// sentenceStudyLineSegments renders one morphology row's aligned words and
+// exact source gaps.
+templ sentenceStudyLineSegments(segments []sentenceStudySegment) {
+	for _, segment := range segments {
+		if segment.Word != nil {
+			@sentenceStudyWordUnit(*segment.Word)
+		} else {
+			<span class="sentence-study-source">{ segment.Text }</span>
+		}
 	}
 }
 
@@ -579,30 +651,6 @@ func concordanceSentenceParts(occurrence domain.ConcordanceResultOccurrence) (st
 		return "", "", ""
 	}
 	return text[:start], text[start:end], text[end:]
-}
-
-// concordanceContextText collapses whitespace runs to single spaces while
-// keeping a boundary space, so the KWIC summary separates the key word from
-// its neighbours exactly where the sentence does. The boundary space is a
-// no-break space: the left context is laid out right-to-left so it can be cut
-// at its start, and bidi rule L1 would move an ordinary trailing space to the
-// far edge of that line.
-func concordanceContextText(text string) string {
-	const boundary = " "
-	collapsed := strings.Join(strings.Fields(text), " ")
-	if collapsed == "" {
-		if text != "" {
-			return boundary
-		}
-		return ""
-	}
-	if first, _ := utf8.DecodeRuneInString(text); unicode.IsSpace(first) {
-		collapsed = boundary + collapsed
-	}
-	if last, _ := utf8.DecodeLastRuneInString(text); unicode.IsSpace(last) {
-		collapsed += boundary
-	}
-	return collapsed
 }
 
 func codePointByteOffset(text string, offset int64) (int, bool) {

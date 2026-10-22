@@ -708,6 +708,149 @@ func TestSentenceStudyPageRendersTheMorphologyLineAndKey(t *testing.T) {
 	})
 }
 
+func TestSentenceStudyRowsSplitAtAuthorialBreaks(t *testing.T) {
+	text := "Der Geist\nist leicht."
+	study := studySentence(text, studyEnd(text),
+		studyWord(0, 0, 3, "Der", "DET", map[string]string{"Case": "Nom"}),
+		studyWord(1, 4, 9, "Geist", "NOUN", map[string]string{"Case": "Nom"}),
+		studyWord(2, 10, 13, "ist", "AUX", map[string]string{"VerbForm": "Fin"}),
+		studyWord(3, 14, 20, "leicht", "ADJ", map[string]string{"Degree": "Pos"}),
+		studyWord(4, 20, 21, ".", "PUNCT", nil))
+	line := alignSentenceStudy(study)
+	require.False(t, line.WholeLineFallback)
+	require.False(t, line.Degraded)
+	assert.Equal(t, text, studySource(line), "the source line break is never reconstructed as a word")
+
+	rows := sentenceStudyRows(line)
+	require.Len(t, rows, 2)
+	assert.Equal(t, []string{"Der", "Geist"}, studyRowWords(rows[0]))
+	assert.Equal(t, []string{"ist", "leicht"}, studyRowWords(rows[1]))
+	assert.Equal(t, "ist leicht.", studyRowSource(rows[1]))
+}
+
+func studyRowWords(row sentenceStudyLineRow) []string {
+	var words []string
+	for _, segment := range row.Segments {
+		if segment.Word != nil {
+			words = append(words, segment.Word.Text)
+		}
+	}
+	return words
+}
+
+func studyRowSource(row sentenceStudyLineRow) string {
+	var builder strings.Builder
+	for _, segment := range row.Segments {
+		if segment.Word != nil {
+			builder.WriteString(segment.Word.Text)
+		} else {
+			builder.WriteString(segment.Text)
+		}
+	}
+	return builder.String()
+}
+
+func TestSentenceStudyLineEndOrdinalsNoteOnlyLinesThatContinue(t *testing.T) {
+	text := "Haus steht,\nund gut."
+	study := studySentence(text, studyEnd(text),
+		studyWord(0, 0, 4, "Haus", "NOUN", nil),
+		studyWord(1, 5, 10, "steht", "VERB", nil),
+		studyWord(2, 10, 11, ",", "PUNCT", nil),
+		studyWord(3, 12, 15, "und", "CCONJ", nil),
+		studyWord(4, 16, 19, "gut", "ADJ", nil),
+		studyWord(5, 19, 20, ".", "PUNCT", nil))
+	line := alignSentenceStudy(study)
+	assert.Equal(t, map[int64]bool{1: true}, sentenceStudyLineEndOrdinals(study, line),
+		"the last word before the break carries the note, not its punctuation; the final line needs none")
+
+	single := studySentence("Haus steht.", 11,
+		studyWord(0, 0, 4, "Haus", "NOUN", nil),
+		studyWord(1, 5, 10, "steht", "VERB", nil),
+		studyWord(2, 10, 11, ".", "PUNCT", nil))
+	assert.Nil(t, sentenceStudyLineEndOrdinals(single, alignSentenceStudy(single)),
+		"no-break prose keeps the continuous sentence reading")
+
+	leadingBreak := studySentence("\nHaus", 5, studyWord(0, 1, 5, "Haus", "NOUN", nil))
+	assert.Nil(t, sentenceStudyLineEndOrdinals(leadingBreak, alignSentenceStudy(leadingBreak)),
+		"a break before the first token is already represented by the line row")
+
+	invalidSpan := studySentence("Haus\nsteht", 10,
+		studyWord(0, -1, 4, "Haus", "NOUN", nil),
+		studyWord(1, 5, 10, "steht", "VERB", nil))
+	assert.Nil(t, sentenceStudyLineEndOrdinals(invalidSpan, alignSentenceStudy(invalidSpan)),
+		"an invalid stored span never produces a line note")
+}
+
+func TestSentenceStudyPageRendersSourceLinesAndPerLineMorphology(t *testing.T) {
+	text := "Der Geist\nist leicht."
+	study := studySentence(text, studyEnd(text),
+		studyWord(0, 0, 3, "Der", "DET", map[string]string{"Case": "Nom"}),
+		studyWord(1, 4, 9, "Geist", "NOUN", map[string]string{"Case": "Nom"}),
+		studyWord(2, 10, 13, "ist", "AUX", map[string]string{"VerbForm": "Fin"}),
+		studyWord(3, 14, 20, "leicht", "ADJ", map[string]string{"Degree": "Pos"}),
+		studyWord(4, 20, 21, ".", "PUNCT", nil))
+	study.TargetOrdinal = 1
+	body := renderSentenceStudy(t, study)
+
+	require.Equal(t, 2, strings.Count(body, `class="sentence-study-source-line"`),
+		"the complete sentence renders one block per source line")
+	require.Equal(t, 2, strings.Count(body, `class="sentence-study-line-row"`),
+		"the morphology line renders one row per source line")
+	require.Equal(t, 1, strings.Count(body, `<strong class="sentence-study-word">Geist</strong>`),
+		"target emphasis stays inside its source line")
+	require.Equal(t, 1, strings.Count(body, `class="sentence-study-line-end"`),
+		"only the line that continues into another line carries the text-alternative note")
+	require.Contains(t, body, ` · end of source line.`)
+}
+
+func TestSentenceStudyPageLeavesNoBreakProseLayoutUnchanged(t *testing.T) {
+	study := studySentence("Das Haus.", 9,
+		studyWord(0, 0, 3, "Das", "DET", map[string]string{"Case": "Nom"}),
+		studyWord(1, 4, 8, "Haus", "NOUN", map[string]string{"Case": "Nom"}),
+		studyWord(2, 8, 9, ".", "PUNCT", nil))
+	body := renderSentenceStudy(t, study)
+
+	require.NotContains(t, body, `class="sentence-study-source-line"`)
+	require.NotContains(t, body, `class="sentence-study-line-row"`)
+	require.NotContains(t, body, "end of source line")
+	require.Contains(t, body, `<p class="reading-text sentence-study-text">Das Haus.</p>`)
+	require.Contains(t, body, `<p class="sentence-study-line">`)
+}
+
+func TestSentenceStudyPageShowsQuietAttributionOrStageDirection(t *testing.T) {
+	t.Run("speaker name only, escaped as text", func(t *testing.T) {
+		study := studySentence("Das Haus.", 9, studyWord(0, 0, 3, "Das", "DET", nil))
+		study.Attribution = domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: `Valentin <script>alert(1)</script>`}
+		body := renderSentenceStudy(t, study)
+		require.Contains(t, body, `<p class="sentence-study-attribution">Valentin &lt;script&gt;alert(1)&lt;/script&gt;</p>`)
+		require.NotContains(t, body, `<script>alert(1)</script>`)
+	})
+
+	t.Run("stage direction", func(t *testing.T) {
+		study := studySentence("Er schlägt das Buch auf.", 24, studyWord(0, 0, 2, "Er", "PRON", nil))
+		study.Attribution = domain.SourceAttribution{Kind: domain.AttributionStageDirection}
+		require.Contains(t, renderSentenceStudy(t, study), `<p class="sentence-study-attribution">Stage direction</p>`)
+	})
+
+	t.Run("unknown attribution leaves the slot absent", func(t *testing.T) {
+		study := studySentence("Das Haus.", 9, studyWord(0, 0, 3, "Das", "DET", nil))
+		require.NotContains(t, renderSentenceStudy(t, study), "sentence-study-attribution")
+	})
+}
+
+func TestSentenceStudyPageWholeLineFallbackKeepsSourceLinesWithoutMorphology(t *testing.T) {
+	study := domain.SentenceStudy{BookTitle: "Buch", SentenceText: "Der Geist\nist leicht.", UnitText: "Anderer Text.",
+		SentenceStartOffset: 0, SentenceEndOffset: 21,
+		Tokens: []domain.SentenceStudyToken{studyWord(0, 0, 3, "Der", "DET", nil)}}
+	body := renderSentenceStudy(t, study)
+	require.NotContains(t, body, `class="sentence-study-line-row"`, "fallback withholds per-line morphology")
+	require.Equal(t, 2, strings.Count(body, `class="sentence-study-source-line"`),
+		"the complete source sentence still renders its authorial lines")
+	require.NotContains(t, body, "end of source line",
+		"untrusted sentence bounds produce no line-end notes")
+	require.Contains(t, body, `<details id="sentence-study-text-alternative" class="sentence-study-alternative" open>`)
+}
+
 func TestSentenceStudyPageWholeLineFallbackOpensTheTextAlternative(t *testing.T) {
 	study := domain.SentenceStudy{BookTitle: "Buch", SentenceText: "Das Haus.", UnitText: "Anderer Text.", SentenceStartOffset: 0, SentenceEndOffset: 13,
 		Tokens: []domain.SentenceStudyToken{studyWord(0, 0, 3, "Das", "DET", nil)}}

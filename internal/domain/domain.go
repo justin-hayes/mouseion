@@ -492,6 +492,10 @@ type ConcordanceResultOccurrence struct {
 	// recorded speaker label. Such a sentence supplies no Study affordance and
 	// cannot be studied directly (ADR 0103).
 	StudyUnavailable bool
+	// Attribution is the quiet structural metadata for the sentence's exact
+	// source span: a speaker name (nested directions omitted) or a stage
+	// direction. It is never part of the sentence or a target.
+	Attribution SourceAttribution
 }
 
 type SentenceStudy struct {
@@ -514,7 +518,12 @@ type SentenceStudy struct {
 	// label in its exact source snapshot. Such a sentence is raw evidence, not
 	// study context, so a direct Study request is refused (ADR 0103).
 	SpeakerLabelOverlap bool
-	Tokens              []SentenceStudyToken
+	// Attribution is the structural attribution of the sentence's exact source
+	// span: a speaker name (nested directions omitted) or a stage direction.
+	// It is quiet metadata, never part of the sentence or a target. It is empty
+	// when the snapshot recorded no structure or no label precedes the span.
+	Attribution SourceAttribution
+	Tokens      []SentenceStudyToken
 	// UnresolvedDecisions are stored occurrence decisions that address this
 	// sentence but cannot be attributed to exactly one persisted analyzed word.
 	// They are shown separately and are never applied to a word.

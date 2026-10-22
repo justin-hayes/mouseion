@@ -53,6 +53,7 @@ func TestConcordanceAndSentenceStudyApplySpeakerLabelRestriction(t *testing.T) {
 	v1Study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, unit.ID, 0, 1, "fällt")
 	require.NoError(t, err)
 	assert.False(t, v1Study.SpeakerLabelOverlap)
+	assert.Empty(t, v1Study.Attribution, "v1 records no structure, so there is no attribution to show")
 
 	// Switch the same revision to a v2 snapshot that records a speaker label
 	// over the first sentence and a standalone direction over the second.
@@ -85,6 +86,8 @@ func TestConcordanceAndSentenceStudyApplySpeakerLabelRestriction(t *testing.T) {
 	assert.False(t, bySentence[0].SpeakerLabel, "the direction word itself is not the speaker label")
 	assert.False(t, bySentence[1].StudyUnavailable, "a standalone direction sentence remains study context")
 	assert.False(t, bySentence[1].SpeakerLabel)
+	assert.Equal(t, domain.SourceAttribution{Kind: domain.AttributionStageDirection}, bySentence[1].Attribution,
+		"the expanded context names a direction sentence")
 
 	labeledStudy, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, unit.ID, 0, 1, "fällt")
 	require.NoError(t, err)
@@ -92,6 +95,52 @@ func TestConcordanceAndSentenceStudyApplySpeakerLabelRestriction(t *testing.T) {
 	directionStudy, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, unit.ID, 1, 1, "Buch")
 	require.NoError(t, err)
 	assert.False(t, directionStudy.SpeakerLabelOverlap, "the standalone direction sentence is still studyable")
+	assert.Equal(t, domain.SourceAttribution{Kind: domain.AttributionStageDirection}, directionStudy.Attribution)
+}
+
+// TestSentenceStudyAttributionShowsOnlyTheSpeakerName derives the quiet
+// speaker metadata from the exact snapshot: the nearest preceding label wins,
+// a nested direction is omitted, and the slot is absent when no label applies.
+func TestSentenceStudyAttributionShowsOnlyTheSpeakerName(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "sentence-attribution", false)
+	require.NoError(t, err)
+
+	const text = "Mephistopheles für sich. Das Buch liegt hier."
+	unit := concordanceUnit(0, "chapter", text, 0, uint64(len([]rune(text))))
+	book, source := createConcordanceBook(t, ctx, store, owner.ID, "Poetry", "sentence-attribution", false, []domain.ExtractedUnit{unit})
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{{
+		UnitID: unit.ID, Ordinal: 0, Text: "Das Buch liegt hier.", Start: 25, End: 45,
+		Tokens: []concordanceToken{
+			{Surface: "Das", Lemma: "der", Upos: "DET", Start: 25, End: 28},
+			{Surface: "Buch", Lemma: "Buch", Upos: "NOUN", Start: 29, End: 33},
+			{Surface: "liegt", Lemma: "liegen", Upos: "VERB", Start: 34, End: 39},
+			{Surface: "hier", Lemma: "hier", Upos: "ADV", Start: 40, End: 44},
+			{Surface: ".", Lemma: ".", Upos: "PUNCT", Start: 44, End: 45},
+		},
+	}})
+	var runID, corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text, corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID, &corpusID))
+
+	snapshotID := insertStructureSnapshot(t, ctx, store.Pool(), owner.ID, source.ID, source.ContentRevisionID, domain.StructureConventionSet, []domain.ExtractedUnit{unit})
+	require.NoError(t, insertRoleSpan(t, ctx, store.Pool(), owner.ID, source.ID, snapshotID, unit.ID, "speaker", 0, 24))
+	require.NoError(t, insertRoleSpan(t, ctx, store.Pool(), owner.ID, source.ID, snapshotID, unit.ID, "stage_direction", 15, 23))
+	_, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET snapshot_id=$3 WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID, snapshotID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE source_materials SET current_snapshot_id=$3 WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID, snapshotID)
+	require.NoError(t, err)
+
+	study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, unit.ID, 0, 1, "Buch")
+	require.NoError(t, err)
+	assert.Equal(t, domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Mephistopheles"}, study.Attribution,
+		"the nested direction is omitted and the terminal period is trimmed")
+
+	occurrences, err := store.ListVocabularyConcordance(ctx, owner.ID, "de", domain.ConcordanceLookup{Term: "Buch", Match: domain.ConcordanceMatchForm, Page: 1})
+	require.NoError(t, err)
+	require.Len(t, occurrences.Occurrences, 1)
+	assert.Equal(t, domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Mephistopheles"}, occurrences.Occurrences[0].Attribution,
+		"the expanded context carries the same quiet attribution")
 }
 
 // TestStructureLoadersReportMissingSnapshotAndRun keeps the new loaders'

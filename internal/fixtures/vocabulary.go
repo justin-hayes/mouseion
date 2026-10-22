@@ -177,6 +177,9 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-whole-line") {
 		return fixtureWholeLineConcordance(result), nil
 	}
+	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-poetry") {
+		return fixturePoetryConcordance(result), nil
+	}
 	lemma := strings.ToLower(strings.TrimSpace(query.Term))
 	// Mirror the persisted lookup: an evidenced effective lemma wins and
 	// expands its forms; any other term matches only that source form.
@@ -258,6 +261,10 @@ func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, uni
 	}
 	switch unit {
 	case "fixture-concordance-unit", "fixture-concordance-whole-line-unit":
+	case "fixture-poetry-unit":
+		return fixturePoetryStudy(book, sentence, target, targetSurface), nil
+	case "fixture-stage-unit":
+		return fixtureStageStudy(book, sentence, target, targetSurface), nil
 	default:
 		return domain.SentenceStudy{}, errors.New("sentence study not found")
 	}
@@ -286,6 +293,106 @@ func fixtureSentenceStudy(book string, sentence, target int64, targetSurface str
 			{Surface: "aus", RawLemma: "aus", EffectiveLemma: "aus", UPOS: "PART", Dependency: "compound:prt", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 4, StartOffset: 19, EndOffset: 22, Morphology: map[string]string{"PartType": "Sep"}},
 			{Surface: ".", RawLemma: ".", EffectiveLemma: ".", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 5, StartOffset: 22, EndOffset: 23},
 		}}
+}
+
+// fixturePoetrySentence is a short synthetic verse excerpt with four authorial
+// source lines, used only to exercise source-line presentation in the fixture
+// server.
+const fixturePoetrySentence = "Der Geist der Medicin ist leicht zu fassen;\nIhr durchstudirt die groß’ und kleine Welt,\nUm es am Ende gehn zu lassen,\nWie’s Gott gefällt."
+
+// fixturePoetryConcordance returns an occurrence whose sentence has authorial
+// breaks, so browser acceptance can see the one-line summary and expanded
+// source lines without PostgreSQL or NLP.
+func fixturePoetryConcordance(result domain.ConcordanceResult) domain.ConcordanceResult {
+	result.Match, result.Term = domain.ConcordanceMatchForm, "fixture-poetry"
+	occurrence := fixtureConcordanceOccurrence("Geist", false, false)
+	occurrence.BookID = "fixture-kwic-poetry"
+	occurrence.BookTitle = "Faust: Eine Tragödie [erster Teil]"
+	occurrence.ChapterTitle = "Studirzimmer"
+	occurrence.SentenceText = fixturePoetrySentence
+	occurrence.SentenceStartOffset = 4
+	occurrence.SentenceEndOffset = 9
+	occurrence.Surface = "Geist"
+	occurrence.UnitID = "fixture-poetry-unit"
+	occurrence.TokenOrdinal = 1
+	occurrence.Attribution = domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Mephistopheles"}
+	result.Occurrences = []domain.ConcordanceResultOccurrence{occurrence}
+	return result
+}
+
+// fixturePoetryStudy serves the aligned verse excerpt and its quiet speaker
+// attribution. The speaker is name-only; nested directions never leave the
+// structural role span.
+func fixturePoetryStudy(book string, sentence, target int64, targetSurface string) domain.SentenceStudy {
+	return domain.SentenceStudy{
+		BookID: book, BookTitle: "Faust: Eine Tragödie [erster Teil]", ChapterTitle: "Studirzimmer",
+		TargetSurface: targetSurface, SentenceText: fixturePoetrySentence, UnitText: fixturePoetrySentence,
+		SentenceStartOffset: 0, SentenceEndOffset: int64(len([]rune(fixturePoetrySentence))),
+		SentenceOrdinal: sentence, TargetOrdinal: target,
+		Attribution: domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Mephistopheles"},
+		Tokens:      fixturePoetryTokens(),
+	}
+}
+
+// fixturePoetryTokens keeps every verse word in source order so the fixture
+// proves per-source-line morphology and target emphasis inside the right line.
+func fixturePoetryTokens() []domain.SentenceStudyToken {
+	return []domain.SentenceStudyToken{
+		{Surface: "Der", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 1, HeadSurface: "Geist", Ordinal: 0, StartOffset: 0, EndOffset: 3, Morphology: map[string]string{"Case": "Nom", "Gender": "Masc", "Number": "Sing"}},
+		{Surface: "Geist", RawLemma: "Geist", EffectiveLemma: "Geist", UPOS: "NOUN", Dependency: "nsubj", HeadOrdinal: 4, HeadSurface: "ist", Ordinal: 1, StartOffset: 4, EndOffset: 9, Morphology: map[string]string{"Case": "Nom", "Gender": "Masc", "Number": "Sing"}},
+		{Surface: "der", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 3, HeadSurface: "Medicin", Ordinal: 2, StartOffset: 10, EndOffset: 13, Morphology: map[string]string{"Case": "Gen", "Gender": "Fem", "Number": "Sing"}},
+		{Surface: "Medicin", RawLemma: "Medicin", EffectiveLemma: "Medicin", UPOS: "NOUN", Dependency: "nmod", HeadOrdinal: 1, HeadSurface: "Geist", Ordinal: 3, StartOffset: 14, EndOffset: 21, Morphology: map[string]string{"Case": "Gen", "Gender": "Fem", "Number": "Sing"}},
+		{Surface: "ist", RawLemma: "sein", EffectiveLemma: "sein", UPOS: "AUX", Dependency: "cop", HeadOrdinal: 1, HeadSurface: "Geist", Ordinal: 4, StartOffset: 22, EndOffset: 25, Morphology: map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "VerbForm": "Fin"}},
+		{Surface: "leicht", RawLemma: "leicht", EffectiveLemma: "leicht", UPOS: "ADJ", Dependency: "advmod", HeadOrdinal: 7, HeadSurface: "fassen", Ordinal: 5, StartOffset: 26, EndOffset: 32, Morphology: map[string]string{"Degree": "Pos"}},
+		{Surface: "zu", RawLemma: "zu", EffectiveLemma: "zu", UPOS: "PART", Dependency: "mark", HeadOrdinal: 7, HeadSurface: "fassen", Ordinal: 6, StartOffset: 33, EndOffset: 35},
+		{Surface: "fassen", RawLemma: "fassen", EffectiveLemma: "fassen", UPOS: "VERB", Dependency: "xcomp", HeadOrdinal: 4, HeadSurface: "ist", Ordinal: 7, StartOffset: 36, EndOffset: 42, Morphology: map[string]string{"VerbForm": "Inf"}},
+		{Surface: ";", RawLemma: ";", EffectiveLemma: ";", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 4, HeadSurface: "ist", Ordinal: 8, StartOffset: 42, EndOffset: 43},
+		{Surface: "Ihr", RawLemma: "ihr", EffectiveLemma: "ihr", UPOS: "PRON", Dependency: "nsubj", HeadOrdinal: 10, HeadSurface: "durchstudirt", Ordinal: 9, StartOffset: 44, EndOffset: 47, Morphology: map[string]string{"Case": "Nom", "Number": "Plur", "Person": "2"}},
+		{Surface: "durchstudirt", RawLemma: "durchstudiren", EffectiveLemma: "durchstudiren", UPOS: "VERB", Dependency: "root", HeadOrdinal: 10, HeadSurface: "durchstudirt", Ordinal: 10, StartOffset: 48, EndOffset: 60, Morphology: map[string]string{"Mood": "Ind", "Number": "Plur", "Person": "2", "Tense": "Pres", "VerbForm": "Fin"}},
+		{Surface: "die", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 12, HeadSurface: "Welt", Ordinal: 11, StartOffset: 61, EndOffset: 64, Morphology: map[string]string{"Case": "Acc", "Gender": "Fem", "Number": "Sing"}},
+		{Surface: "groß’", RawLemma: "groß", EffectiveLemma: "groß", UPOS: "ADJ", Dependency: "amod", HeadOrdinal: 12, HeadSurface: "Welt", Ordinal: 12, StartOffset: 65, EndOffset: 70, Morphology: map[string]string{"Case": "Acc", "Gender": "Fem", "Number": "Sing"}},
+		{Surface: "und", RawLemma: "und", EffectiveLemma: "und", UPOS: "CCONJ", Dependency: "cc", HeadOrdinal: 14, HeadSurface: "Welt", Ordinal: 13, StartOffset: 71, EndOffset: 74},
+		{Surface: "kleine", RawLemma: "klein", EffectiveLemma: "klein", UPOS: "ADJ", Dependency: "amod", HeadOrdinal: 14, HeadSurface: "Welt", Ordinal: 14, StartOffset: 75, EndOffset: 81, Morphology: map[string]string{"Case": "Acc", "Gender": "Fem", "Number": "Sing"}},
+		{Surface: "Welt", RawLemma: "Welt", EffectiveLemma: "Welt", UPOS: "NOUN", Dependency: "obj", HeadOrdinal: 10, HeadSurface: "durchstudirt", Ordinal: 15, StartOffset: 82, EndOffset: 86, Morphology: map[string]string{"Case": "Acc", "Gender": "Fem", "Number": "Sing"}},
+		{Surface: ",", RawLemma: ",", EffectiveLemma: ",", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 10, HeadSurface: "durchstudirt", Ordinal: 16, StartOffset: 86, EndOffset: 87},
+		{Surface: "Um", RawLemma: "um", EffectiveLemma: "um", UPOS: "ADP", Dependency: "mark", HeadOrdinal: 21, HeadSurface: "lassen", Ordinal: 17, StartOffset: 88, EndOffset: 90},
+		{Surface: "es", RawLemma: "es", EffectiveLemma: "es", UPOS: "PRON", Dependency: "obj", HeadOrdinal: 21, HeadSurface: "lassen", Ordinal: 18, StartOffset: 91, EndOffset: 93, Morphology: map[string]string{"Case": "Acc", "Gender": "Neut", "Number": "Sing"}},
+		{Surface: "am", RawLemma: "an", EffectiveLemma: "an", UPOS: "ADP", Dependency: "case", HeadOrdinal: 20, HeadSurface: "Ende", Ordinal: 19, StartOffset: 94, EndOffset: 96},
+		{Surface: "Ende", RawLemma: "Ende", EffectiveLemma: "Ende", UPOS: "NOUN", Dependency: "obl", HeadOrdinal: 21, HeadSurface: "lassen", Ordinal: 20, StartOffset: 97, EndOffset: 101, Morphology: map[string]string{"Case": "Dat", "Gender": "Neut", "Number": "Sing"}},
+		{Surface: "gehn", RawLemma: "gehen", EffectiveLemma: "gehen", UPOS: "VERB", Dependency: "xcomp", HeadOrdinal: 21, HeadSurface: "lassen", Ordinal: 21, StartOffset: 102, EndOffset: 106, Morphology: map[string]string{"VerbForm": "Inf"}},
+		{Surface: "zu", RawLemma: "zu", EffectiveLemma: "zu", UPOS: "PART", Dependency: "mark", HeadOrdinal: 21, HeadSurface: "lassen", Ordinal: 22, StartOffset: 107, EndOffset: 109},
+		{Surface: "lassen", RawLemma: "lassen", EffectiveLemma: "lassen", UPOS: "VERB", Dependency: "conj", HeadOrdinal: 10, HeadSurface: "durchstudirt", Ordinal: 23, StartOffset: 110, EndOffset: 116, Morphology: map[string]string{"VerbForm": "Inf"}},
+		{Surface: ",", RawLemma: ",", EffectiveLemma: ",", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 10, HeadSurface: "durchstudirt", Ordinal: 24, StartOffset: 116, EndOffset: 117},
+		{Surface: "Wie’s", RawLemma: "wie", EffectiveLemma: "wie", UPOS: "PRON", Dependency: "nsubj", HeadOrdinal: 27, HeadSurface: "gefällt", Ordinal: 25, StartOffset: 118, EndOffset: 123},
+		{Surface: "Gott", RawLemma: "Gott", EffectiveLemma: "Gott", UPOS: "PROPN", Dependency: "nsubj", HeadOrdinal: 27, HeadSurface: "gefällt", Ordinal: 26, StartOffset: 124, EndOffset: 128, Morphology: map[string]string{"Case": "Nom", "Gender": "Masc", "Number": "Sing"}},
+		{Surface: "gefällt", RawLemma: "gefallen", EffectiveLemma: "gefallen", UPOS: "VERB", Dependency: "root", HeadOrdinal: 27, HeadSurface: "gefällt", Ordinal: 27, StartOffset: 129, EndOffset: 136, Morphology: map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "VerbForm": "Fin"}},
+		{Surface: ".", RawLemma: ".", EffectiveLemma: ".", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 27, HeadSurface: "gefällt", Ordinal: 28, StartOffset: 136, EndOffset: 137},
+	}
+}
+
+// fixtureStageStudy serves a standalone direction sentence with the agreed
+// Stage direction slot and a separable verb target.
+func fixtureStageStudy(book string, sentence, target int64, targetSurface string) domain.SentenceStudy {
+	const text = "Er schlägt das Buch auf und erblickt das Zeichen des Makrokosmus."
+	return domain.SentenceStudy{
+		BookID: book, BookTitle: "Faust: Eine Tragödie [erster Teil]", ChapterTitle: "Nacht",
+		TargetSurface: targetSurface, SentenceText: text, UnitText: text,
+		SentenceStartOffset: 0, SentenceEndOffset: int64(len([]rune(text))),
+		SentenceOrdinal: sentence, TargetOrdinal: target,
+		Attribution: domain.SourceAttribution{Kind: domain.AttributionStageDirection},
+		Tokens: []domain.SentenceStudyToken{
+			{Surface: "Er", RawLemma: "er", EffectiveLemma: "er", UPOS: "PRON", Ordinal: 0, StartOffset: 0, EndOffset: 2, Morphology: map[string]string{"Case": "Nom", "Gender": "Masc", "Number": "Sing", "Person": "3"}},
+			{Surface: "schlägt", RawLemma: "schlagen", EffectiveLemma: "schlagen", UPOS: "VERB", Ordinal: 1, StartOffset: 3, EndOffset: 10, Morphology: map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "VerbForm": "Fin"}},
+			{Surface: "das", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Ordinal: 2, StartOffset: 11, EndOffset: 14, Morphology: map[string]string{"Case": "Acc", "Gender": "Neut", "Number": "Sing"}},
+			{Surface: "Buch", RawLemma: "Buch", EffectiveLemma: "Buch", UPOS: "NOUN", Ordinal: 3, StartOffset: 15, EndOffset: 19, Morphology: map[string]string{"Case": "Acc", "Gender": "Neut", "Number": "Sing"}},
+			{Surface: "auf", RawLemma: "auf", EffectiveLemma: "auf", UPOS: "PART", Ordinal: 4, StartOffset: 20, EndOffset: 23, Morphology: map[string]string{"PartType": "Sep"}},
+			{Surface: "und", RawLemma: "und", EffectiveLemma: "und", UPOS: "CCONJ", Ordinal: 5, StartOffset: 24, EndOffset: 27},
+			{Surface: "erblickt", RawLemma: "erblicken", EffectiveLemma: "erblicken", UPOS: "VERB", Ordinal: 6, StartOffset: 28, EndOffset: 36, Morphology: map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "VerbForm": "Fin"}},
+			{Surface: "Zeichen", RawLemma: "Zeichen", EffectiveLemma: "Zeichen", UPOS: "NOUN", Ordinal: 7, StartOffset: 41, EndOffset: 48, Morphology: map[string]string{"Case": "Acc", "Gender": "Neut", "Number": "Sing"}},
+			{Surface: "Makrokosmus", RawLemma: "Makrokosmus", EffectiveLemma: "Makrokosmus", UPOS: "NOUN", Ordinal: 8, StartOffset: 53, EndOffset: 64, Morphology: map[string]string{"Case": "Gen", "Gender": "Masc", "Number": "Sing"}},
+			{Surface: ".", RawLemma: ".", EffectiveLemma: ".", UPOS: "PUNCT", Ordinal: 9, StartOffset: 64, EndOffset: 65},
+		},
+	}
 }
 
 // fixtureWholeLineConcordance points Study at the fixture sentence whose stored

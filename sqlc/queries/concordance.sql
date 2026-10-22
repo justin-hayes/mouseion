@@ -98,6 +98,7 @@ SELECT o.surface,
        o.sentence_ordinal,
        o.token_ordinal,
        ca.snapshot_id::text AS snapshot_id,
+       u.text AS unit_text,
        s.start_offset::bigint AS sentence_unit_start_offset,
        s.end_offset::bigint AS sentence_unit_end_offset,
        t.raw_lemma,
@@ -118,6 +119,11 @@ SELECT o.surface,
     AND ca.analysis_run_id=o.analysis_run_id::uuid AND ca.corpus_id=o.corpus_id::uuid
   JOIN corpus_sentences s ON s.owner_id=o.owner_id AND s.analysis_run_id=o.analysis_run_id::uuid
     AND s.corpus_id=o.corpus_id::uuid AND s.sentence_ordinal=o.sentence_ordinal
+  -- The sentence's exact unit text, so Go can derive quiet attribution from
+  -- the same snapshot's role spans. SQL never chooses a speaker itself.
+  JOIN source_material_units u ON u.owner_id=o.owner_id
+    AND u.source_material_id=o.source_material_id::uuid
+    AND u.snapshot_id=ca.snapshot_id AND u.unit_id=o.unit_id
   LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
     AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
     AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
