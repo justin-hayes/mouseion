@@ -613,8 +613,8 @@ func assertDefaultGreekPlan(t *testing.T, plan persistence.FreezePreparedDeckRun
 
 // TestPreparedDeckProjectionWithholdsSpeakerLabelSentenceReferences holds ADR
 // 0103's shared consumer rule: a direct prepared-deck projection drops a
-// label-overlapping sentence from candidate context while the eligible token
-// still counts and keeps another acceptable occurrence.
+// label-overlapping token and never uses its sentence as candidate context,
+// while other eligible words still count and keep an acceptable occurrence.
 func TestPreparedDeckProjectionWithholdsSpeakerLabelSentenceReferences(t *testing.T) {
 	unit := "epub-unit-v1:0:chapter"
 	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{
@@ -638,15 +638,15 @@ func TestPreparedDeckProjectionWithholdsSpeakerLabelSentenceReferences(t *testin
 	for _, candidate := range candidates {
 		byLemma[candidate.CanonicalLemma] = candidate
 	}
+	assert.NotContains(t, byLemma, "fallen", "the label token is structural non-vocabulary")
 	var refs []selection.SentenceReference
-	require.NoError(t, json.Unmarshal(byLemma["fallen"].SentenceReferences, &refs))
-	assert.Empty(t, refs, "the label sentence is never card context")
 	require.NoError(t, json.Unmarshal(byLemma["Buch"].SentenceReferences, &refs))
 	require.Len(t, refs, 1, "the direction sentence remains acceptable context")
 	assert.Equal(t, 2, byLemma["Buch"].OccurrenceCount)
 
 	v1, err := projectPreparedDeckCandidates(domain.DeckPreparation{OwnerID: "alice"}, "corpus", corpus, nil, domain.SnapshotStructure{})
 	require.NoError(t, err)
+	assert.Contains(t, byLemma, "Buch")
 	for _, candidate := range v1 {
 		if candidate.CanonicalLemma == "fallen" {
 			require.NoError(t, json.Unmarshal(candidate.SentenceReferences, &refs))

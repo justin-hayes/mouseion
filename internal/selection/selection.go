@@ -77,11 +77,13 @@ type SelectionConfig struct {
 	CorpusID       string
 	MinOccurrences int
 	AllowedPOS     map[string]bool
-	// Structure is the exact snapshot's recorded source structure. A sentence
-	// overlapping a recorded speaker label is not study or card context, so it
-	// contributes no sentence reference while its eligible tokens still count.
-	// The zero value means structure was not supplied (a v1 snapshot): no
-	// restriction can be derived.
+	// Structure is the exact snapshot's recorded source structure. Speaker-label
+	// tokens are structural non-vocabulary: they contribute no identity,
+	// occurrence count or coverage-denominator token, and a sentence overlapping
+	// a label supplies no study or card context. A direction nested inside a
+	// label is covered by the enclosing speaker span; a standalone direction
+	// stays ordinary eligible text. The zero value means structure was not
+	// supplied (a v1 snapshot), so no restriction can be derived.
 	Structure domain.SnapshotStructure
 }
 
@@ -256,33 +258,41 @@ func AnalyzableStatistics(corpus analyzer.Result, cfg SelectionConfig) domain.An
 func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[OccurrenceIdentity]OccurrenceDecision) map[Identity]*aggregate {
 	aggs := map[Identity]*aggregate{}
 	for si, sentence := range corpus.Sentences {
-		// A sentence overlapping a speaker label is never study or card
-		// context. Its eligible tokens still count and may obtain a card from
-		// another acceptable occurrence, so only the sentence reference is
-		// withheld. Analyzer boundaries are never altered.
-		studyContext := !cfg.Structure.OverlapsSpeakerLabel(sentence.Location.SourceDocumentID, sentence.Location.StartOffset, sentence.Location.EndOffset)
-		for _, token := range sentence.Tokens {
-			var decision *OccurrenceDecision
-			if learner, ok := decisions[occurrenceIdentity(token)]; ok {
-				decision = &learner
-			}
-			id, counts := Effective(cfg, corpus.Language, OccurrenceFact{Lemma: token.CanonicalLemma, UPOS: token.UPOS, Dependency: token.Dependency, LexicalDiscriminator: token.LexicalDiscriminator}, decision)
-			if !counts {
-				continue
-			}
-			a := aggs[id]
-			if a == nil {
-				a = &aggregate{forms: map[string]bool{}}
-				aggs[id] = a
-			}
-			a.count++
-			a.forms[token.Surface] = true
-			if studyContext {
-				a.refs = append(a.refs, SentenceReference{si, sentence.Text, token.Location})
-			}
-		}
+		aggregateSentence(aggs, si, sentence, corpus.Language, cfg, decisions)
 	}
 	return aggs
+}
+
+// aggregateSentence folds one sentence's eligible tokens into the identity
+// aggregates. A label-overlapping token is structural non-vocabulary even when
+// a correction names the occurrence. A sentence overlapping a label is never
+// study or card context, so its other eligible tokens still count but supply no
+// sentence reference. Analyzer boundaries are never altered.
+func aggregateSentence(aggs map[Identity]*aggregate, si int, sentence analyzer.Sentence, language string, cfg SelectionConfig, decisions map[OccurrenceIdentity]OccurrenceDecision) {
+	studyContext := !cfg.Structure.OverlapsSpeakerLabel(sentence.Location.SourceDocumentID, sentence.Location.StartOffset, sentence.Location.EndOffset)
+	for _, token := range sentence.Tokens {
+		if cfg.Structure.OverlapsSpeakerLabel(token.Location.SourceDocumentID, token.Location.StartOffset, token.Location.EndOffset) {
+			continue
+		}
+		var decision *OccurrenceDecision
+		if learner, ok := decisions[occurrenceIdentity(token)]; ok {
+			decision = &learner
+		}
+		id, counts := Effective(cfg, language, OccurrenceFact{Lemma: token.CanonicalLemma, UPOS: token.UPOS, Dependency: token.Dependency, LexicalDiscriminator: token.LexicalDiscriminator}, decision)
+		if !counts {
+			continue
+		}
+		a := aggs[id]
+		if a == nil {
+			a = &aggregate{forms: map[string]bool{}}
+			aggs[id] = a
+		}
+		a.count++
+		a.forms[token.Surface] = true
+		if studyContext {
+			a.refs = append(a.refs, SentenceReference{si, sentence.Text, token.Location})
+		}
+	}
 }
 
 // OccurrenceFact is the analyzer evidence for one analyzed token, the inputs

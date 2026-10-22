@@ -292,7 +292,7 @@ func TestCurrentReadingFreezesCorpusQualifiedCandidates(t *testing.T) {
 	VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, book.OwnerID, book.ID, book.LanguageTag, run, corpus, item.lemma, item.pos, item.count)
 			require.NoError(t, insertErr)
 		}
-		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,$3,$4,$5,3)`, book.OwnerID, book.ID, book.LanguageTag, run, corpus)
+		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,$3,$4,$5,4)`, book.OwnerID, book.ID, book.LanguageTag, run, corpus)
 		require.NoError(t, insertErr)
 	}
 	putProjection(target, []countRow{
@@ -376,7 +376,7 @@ VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid
 			_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count) VALUES($1,$2,'de',$3,$4,$5,'NOUN',$6)`, owner.ID, book.ID, run, corpus, item.lemma, item.count)
 			require.NoError(t, insertErr)
 		}
-		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'de',$3,$4,3)`, owner.ID, book.ID, run, corpus)
+		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'de',$3,$4,4)`, owner.ID, book.ID, run, corpus)
 		require.NoError(t, insertErr)
 	}
 	putReady(current, countItem{lemma: "three-local", count: 3})
@@ -641,18 +641,21 @@ func TestCurrentReadingFreezeWithholdsSpeakerLabelSentenceReferences(t *testing.
 	_, err = store.Pool().Exec(ctx, `UPDATE source_materials SET current_snapshot_id=$3 WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID, snapshotID)
 	require.NoError(t, err)
 
-	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Occurrences: 3})
+	// The whole first seeded sentence sits inside the speaker label, so it is
+	// structural non-vocabulary. Four occurrences leave three eligible ones, which
+	// still reaches the Reading floor without an across-Books lookup.
+	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: "reisen", UPOS: "VERB", Occurrences: 4})
 	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, goal.SnapshotSize)
 	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	require.Len(t, snapshot, 1)
-	assert.Equal(t, 3, snapshot[0].OccurrenceCount, "the in-Book occurrence count is unchanged")
+	assert.Equal(t, 3, snapshot[0].OccurrenceCount, "the label-overlapping occurrence does not count")
 
 	var references []selection.SentenceReference
 	require.NoError(t, json.Unmarshal(snapshot[0].SentenceReferences, &references))
-	require.Len(t, references, 2, "the label-overlapping sentence supplies no frozen context")
+	require.Len(t, references, 3, "the label-overlapping sentence supplies no frozen context")
 	for _, reference := range references {
 		assert.NotEqual(t, 0, reference.SentenceIndex, "the frozen references exclude the label-overlapping sentence")
 	}

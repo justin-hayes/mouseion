@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,32 @@ func TestRequireDependencyParsing(t *testing.T) {
 	require.Error(t, err)
 	require.NotErrorIs(t, err, ErrDependencyParsingUnavailable)
 	assert.Equal(t, "Analysis could not be completed. Retry the analysis or review the current source.", safeAnalysisError(err))
+}
+
+func TestSnapshotAnalysisExcludesSpeakerLabelsFromStatisticsButKeepsEvidence(t *testing.T) {
+	result := analyzer.Result{
+		Language: "de",
+		Sentences: []analyzer.Sentence{{
+			Text: "Valentin fällt. Das Buch.",
+			Tokens: []analyzer.Token{
+				{Surface: "Valentin", CanonicalLemma: "Valentin", UPOS: "PROPN", Dependency: "nsubj", Location: analyzer.SourceLocation{SourceDocumentID: "unit", EndOffset: 8}},
+				{Surface: "fällt", CanonicalLemma: "fallen", UPOS: "VERB", Dependency: "root", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 9, EndOffset: 15}},
+				{Surface: "Buch", CanonicalLemma: "Buch", UPOS: "NOUN", Dependency: "obl", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 21, EndOffset: 25}},
+			},
+			Location: analyzer.SourceLocation{SourceDocumentID: "unit", EndOffset: 26},
+		}},
+		Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "test", AnalyzerVersion: "1"},
+		NormalizationProfile: analyzer.NormalizationProfile{Name: "test", Version: "1"},
+	}
+	merge := snapshotChunkMerge{result: result, completed: 1}
+	structure := domain.SnapshotStructure{Recorded: true, RoleSpans: []domain.UnitRoleSpan{{UnitID: "unit", Role: domain.SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 15}}}
+
+	analyzed, err := merge.analysis(JobArgs{ContentHash: "hash", AnalyzerName: "test", AnalyzerVersion: "1", ConfigIdentity: "config"}, structure)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), analyzed.statistics.AnalyzableTokenCount, "the speaker label is not an analyzable token")
+	assert.Equal(t, int64(1), analyzed.statistics.DistinctLemmaCount)
+	assert.Len(t, analyzed.result.Sentences[0].Tokens, 3, "all analyzer evidence stays in the corpus")
+	assert.Equal(t, "fallen", analyzed.result.Sentences[0].Tokens[1].CanonicalLemma)
 }
 
 func TestAggregateLemmasIsIdempotent(t *testing.T) {
