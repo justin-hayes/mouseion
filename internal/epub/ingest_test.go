@@ -36,7 +36,7 @@ func (m *memoryStore) LinkSourceToBook(_ context.Context, _, _, _ string) error 
 func (m *memoryStore) GetExtractedUnitSnapshot(_ context.Context, _, _ string) (string, domain.ExtractedUnits, error) {
 	return "snapshot:test", m.units, nil
 }
-func (m *memoryStore) PutSourceMaterialWithExtractedUnits(_ context.Context, v domain.SourceMaterial, units ExtractedUnits) (domain.SourceMaterial, error) {
+func (m *memoryStore) PutSourceMaterialWithExtractedSnapshot(_ context.Context, v domain.SourceMaterial, units ExtractedUnits, structure domain.SnapshotStructure) (domain.SourceMaterial, error) {
 	m.puts++
 	v.ID = "source-id"
 	m.source = v

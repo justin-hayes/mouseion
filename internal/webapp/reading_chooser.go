@@ -345,6 +345,7 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 		}
 	}
 	h.annotateAnalysisUpdates(ctx, owner, candidates)
+	h.annotateSourceStructureUpdates(ctx, owner, candidates)
 	for _, book := range candidates {
 		candidate := readingChooserBookView{Book: book}
 		group, err := h.classifyReadingChooserCandidate(ctx, owner, &candidate)

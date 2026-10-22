@@ -118,7 +118,7 @@ func TestClassifyCheck(t *testing.T) {
 }
 
 func TestTargetValidationAndNeedsCheck(t *testing.T) {
-	assert.False(t, ConfiguredTarget().Enabled(), "checks stay inert until the v2 writer is configured")
+	assert.True(t, ConfiguredTarget().Enabled(), "checks target the v2 writer")
 	assert.False(t, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV1}.Enabled())
 	require.Error(t, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV1}.Validate())
 	require.Error(t, Target{ContractVersion: domain.ExtractedUnitsSchemaVersionV2}.Validate())

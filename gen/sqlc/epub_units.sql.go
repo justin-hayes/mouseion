@@ -69,6 +69,31 @@ func (q *Queries) GetCurrentExtractedUnitSnapshotIdentity(ctx context.Context, a
 	return i, err
 }
 
+const getCurrentSourceEvidenceForUpdate = `-- name: GetCurrentSourceEvidenceForUpdate :one
+SELECT (COALESCE(current_content_revision_id::text, ''))::text AS current_revision_id,
+       (COALESCE(current_snapshot_id::text, ''))::text AS current_snapshot_id
+FROM source_materials
+WHERE owner_id = $1 AND id = $2
+FOR UPDATE
+`
+
+type GetCurrentSourceEvidenceForUpdateParams struct {
+	OwnerID string
+	ID      string
+}
+
+type GetCurrentSourceEvidenceForUpdateRow struct {
+	CurrentRevisionID string
+	CurrentSnapshotID string
+}
+
+func (q *Queries) GetCurrentSourceEvidenceForUpdate(ctx context.Context, arg GetCurrentSourceEvidenceForUpdateParams) (GetCurrentSourceEvidenceForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getCurrentSourceEvidenceForUpdate, arg.OwnerID, arg.ID)
+	var i GetCurrentSourceEvidenceForUpdateRow
+	err := row.Scan(&i.CurrentRevisionID, &i.CurrentSnapshotID)
+	return i, err
+}
+
 const getCurrentSourceMaterialContent = `-- name: GetCurrentSourceMaterialContent :one
 SELECT COALESCE(r.content, s.content) AS content,
        COALESCE(r.full_text, s.full_text) AS full_text,
@@ -159,6 +184,34 @@ func (q *Queries) GetSourceContentRevisionByDigest(ctx context.Context, arg GetS
 	var revision_id string
 	err := row.Scan(&revision_id)
 	return revision_id, err
+}
+
+const getSourceMaterialUnitSnapshotByExtractionIdentity = `-- name: GetSourceMaterialUnitSnapshotByExtractionIdentity :one
+SELECT snapshot_id::text
+FROM source_material_unit_snapshots
+WHERE owner_id = $1 AND source_material_id = $2 AND content_revision_id = $3
+  AND schema_version = $4 AND structure_convention_set = $5
+`
+
+type GetSourceMaterialUnitSnapshotByExtractionIdentityParams struct {
+	OwnerID                string
+	SourceMaterialID       string
+	ContentRevisionID      string
+	SchemaVersion          int
+	StructureConventionSet pgtype.Text
+}
+
+func (q *Queries) GetSourceMaterialUnitSnapshotByExtractionIdentity(ctx context.Context, arg GetSourceMaterialUnitSnapshotByExtractionIdentityParams) (string, error) {
+	row := q.db.QueryRow(ctx, getSourceMaterialUnitSnapshotByExtractionIdentity,
+		arg.OwnerID,
+		arg.SourceMaterialID,
+		arg.ContentRevisionID,
+		arg.SchemaVersion,
+		arg.StructureConventionSet,
+	)
+	var snapshot_id string
+	err := row.Scan(&snapshot_id)
+	return snapshot_id, err
 }
 
 const getSourceStructureCheck = `-- name: GetSourceStructureCheck :one

@@ -109,15 +109,24 @@ type spineItem struct {
 }
 
 // Extract validates an EPUB byte stream and extracts XHTML documents in spine
-// order under the current v1 writer contract. v1 records text only.
+// order under the current writer contract. New acquisitions write contract v2,
+// which records source structure; callers that need that structure use
+// ExtractV2. v1 remains available through ExtractV1 for historical evidence.
 func Extract(data []byte) (ExtractedBook, error) {
 	extraction, err := extractContract(data, ExtractedUnitsSchemaVersion)
 	return extraction.Book, err
 }
 
-// ExtractV2 extracts under the v2 contract without becoming the default writer.
-// It preserves authorial source lines, line groups and markup-declared roles
-// while keeping the exact unit text as the only offset basis.
+// ExtractV1 extracts under the historical text-only contract. Existing
+// snapshots and their checks keep reading as v1; it is never the new
+// acquisition writer.
+func ExtractV1(data []byte) (Extraction, error) {
+	return extractContract(data, domain.ExtractedUnitsSchemaVersionV1)
+}
+
+// ExtractV2 extracts under the v2 contract. It preserves authorial source
+// lines, line groups and markup-declared roles while keeping the exact unit
+// text as the only offset basis.
 func ExtractV2(data []byte) (Extraction, error) {
 	return extractContract(data, domain.ExtractedUnitsSchemaVersionV2)
 }

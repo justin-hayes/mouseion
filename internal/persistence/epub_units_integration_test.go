@@ -18,7 +18,7 @@ func extractedUnitFixture(manifest string, order, spine uint64, text string, sta
 
 // extractedUnitsFixture is the snapshot stored by the extracted-unit tests.
 func extractedUnitsFixture() domain.ExtractedUnits {
-	return domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{
+	return domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: []domain.ExtractedUnit{
 		extractedUnitFixture("unit", 0, 0, "text", 0, 4),
 	}}
 }
@@ -41,7 +41,7 @@ func TestPutSourceMaterialWithExtractedUnitsResolvesContentIdentity(t *testing.T
 	require.NoError(t, err)
 
 	t.Run("rejects units that do not match the full text", func(t *testing.T) {
-		bad := domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{
+		bad := domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: []domain.ExtractedUnit{
 			extractedUnitFixture("unit", 0, 0, "other", 0, 4),
 		}}
 		_, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "bad-units", Title: "Bad", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, bad)

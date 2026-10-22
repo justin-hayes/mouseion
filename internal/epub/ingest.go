@@ -14,7 +14,7 @@ import (
 var ErrUnauthenticated = errors.New("epub: authenticated owner is required")
 
 type Store interface {
-	PutSourceMaterialWithExtractedUnits(context.Context, domain.SourceMaterial, ExtractedUnits) (domain.SourceMaterial, error)
+	PutSourceMaterialWithExtractedSnapshot(context.Context, domain.SourceMaterial, ExtractedUnits, domain.SnapshotStructure) (domain.SourceMaterial, error)
 	ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error)
 	LinkSourceToBook(context.Context, string, string, string) error
 	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
@@ -68,11 +68,11 @@ func (s *Service) Import(ctx context.Context, ownerID, language string, content 
 	if language == "" {
 		return ImportResult{}, errors.New("epub: language is required")
 	}
-	book, err := Extract(content)
+	extraction, err := ExtractV2(content)
 	if err != nil {
 		return ImportResult{}, err
 	}
-	return s.importBook(ctx, ownerID, language, content, book)
+	return s.importBook(ctx, ownerID, language, content, extraction)
 }
 
 // ImportForAcquisition validates and imports an OPDS download. When the
@@ -100,10 +100,11 @@ func (s *Service) importForAcquisition(ctx context.Context, ownerID, language, b
 	if language == "" {
 		return ImportResult{}, errors.New("epub: language is required")
 	}
-	book, err := Extract(content)
+	extraction, err := ExtractV2(content)
 	if err != nil {
 		return ImportResult{}, err
 	}
+	book := extraction.Book
 	contentHash := domain.EPUBContentDigest(content)
 	if lookup, ok := s.store.(AcquisitionSourceLookup); ok {
 		existing, found, lookupErr := lookup.FindSourceMaterialForAcquisition(ctx, ownerID, book.SourceIdentifier, contentHash)
@@ -117,16 +118,17 @@ func (s *Service) importForAcquisition(ctx context.Context, ownerID, language, b
 			return ImportResult{Source: existing, Book: book, AlreadyPresent: true}, nil
 		}
 	}
-	return s.importBookForBook(ctx, ownerID, language, bookID, content, book)
+	return s.importBookForBook(ctx, ownerID, language, bookID, content, extraction)
 }
 
-func (s *Service) importBook(ctx context.Context, ownerID, language string, content []byte, book ExtractedBook) (ImportResult, error) {
-	return s.importBookForBook(ctx, ownerID, language, "", content, book)
+func (s *Service) importBook(ctx context.Context, ownerID, language string, content []byte, extraction Extraction) (ImportResult, error) {
+	return s.importBookForBook(ctx, ownerID, language, "", content, extraction)
 }
 
-func (s *Service) importBookForBook(ctx context.Context, ownerID, language, bookID string, content []byte, book ExtractedBook) (ImportResult, error) {
+func (s *Service) importBookForBook(ctx context.Context, ownerID, language, bookID string, content []byte, extraction Extraction) (ImportResult, error) {
+	book := extraction.Book
 	contentHash := domain.EPUBContentDigest(content)
-	source, err := s.store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: contentHash, Content: content, FullText: book.FullText}, book.ExtractedUnits)
+	source, err := s.store.PutSourceMaterialWithExtractedSnapshot(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: contentHash, Content: content, FullText: book.FullText}, book.ExtractedUnits, extraction.Structure)
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("epub: persist private source material: %w", err)
 	}

@@ -144,7 +144,9 @@ func importedSourceMaterial(in ancientgreek.ImportWriteRequest) domain.SourceMat
 // unit. Its identity is the classical unit id the corpus sentences reference.
 func importedUnits(in ancientgreek.ImportWriteRequest) domain.ExtractedUnits {
 	return domain.ExtractedUnits{
-		SchemaVersion: domain.ExtractedUnitsSchemaVersion,
+		// Imported classical text records no EPUB markup structure. Keep the
+		// historical text-only contract; v2 describes EPUB role spans.
+		SchemaVersion: domain.ExtractedUnitsSchemaVersionV1,
 		Units: []domain.ExtractedUnit{{
 			ID:               in.UnitID,
 			Order:            0,

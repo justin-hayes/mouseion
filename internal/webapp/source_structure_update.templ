@@ -1,0 +1,29 @@
+package webapp
+
+import (
+	"fmt"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+// SourceStructureUpdateNotice is the Book-level checked Source structure update
+// notice (ADR 0103). The action is a native disclosure confirmation, so it
+// works without JavaScript. Nothing is adopted until the learner confirms.
+templ SourceStructureUpdateNotice(book domain.MyBook, csrf, buttonClass string) {
+	if candidate := myBookSourceStructureUpdate(book); candidate != nil {
+		<div class="source-structure-update">
+			<p><strong>{ sourceStructureUpdateNotice }</strong></p>
+			@Confirmation("Update source structure", sourceStructureUpdateConfirmationText(*candidate, book.IsCurrentReading), StatusNeutral) {
+				<form method="post" action={ templ.SafeURL(readingSourceStructureUpdateURL(book.Book.ID)) }>
+					<input type="hidden" name="csrf_token" value={ csrf }/>
+					<input type="hidden" name="expected_content_revision_id" value={ candidate.ContentRevisionID }/>
+					<input type="hidden" name="expected_snapshot_id" value={ candidate.SnapshotID }/>
+					<input type="hidden" name="expected_contract_version" value={ fmt.Sprint(candidate.TargetContractVersion) }/>
+					<input type="hidden" name="expected_convention_set" value={ candidate.ConventionSet }/>
+					<input type="hidden" name="expected_result_identity" value={ candidate.ResultIdentity }/>
+					<button class={ buttonClass } type="submit">Confirm source structure update</button>
+				</form>
+			}
+		</div>
+	}
+}

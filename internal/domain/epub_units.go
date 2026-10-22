@@ -15,9 +15,11 @@ const (
 	// ExtractedUnitsSchemaVersionV2 records immutable per-unit roles and
 	// heading resets alongside the same unit text.
 	ExtractedUnitsSchemaVersionV2 = 2
-	// ExtractedUnitsSchemaVersion is the default writer version. A v2 extraction
-	// exists without being the default; readers accept v1 and v2 independently.
-	ExtractedUnitsSchemaVersion = ExtractedUnitsSchemaVersionV1
+	// ExtractedUnitsSchemaVersion is the extraction contract new EPUB
+	// acquisitions write. v2 records immutable per-unit roles and heading
+	// resets alongside the same unit text. Readers still accept v1 and v2
+	// independently.
+	ExtractedUnitsSchemaVersion = ExtractedUnitsSchemaVersionV2
 )
 
 var ErrExtractedUnitsUnavailable = errors.New("epub: extracted units unavailable")

@@ -64,6 +64,43 @@ type ExtractedSnapshot struct {
 	Structure         SnapshotStructure
 }
 
+// SourceStructureUpdateExpectation is the checked offer a learner confirmed.
+// It carries the exact base revision and snapshot plus the target extraction
+// identity, so a submit can refuse a stale or different offer instead of
+// adopting evidence the learner never saw.
+type SourceStructureUpdateExpectation struct {
+	ContentRevisionID     string
+	SnapshotID            string
+	TargetContractVersion int
+	ConventionSet         string
+	ResultIdentity        string
+}
+
+// SourceStructureUpdateCandidate is a Book's checked source structure update.
+// It is not an evidence state: the current snapshot, analysis and frozen
+// artifacts stay in effect until the learner confirms and the adoption commits.
+// The two decision counts are confirmed corrections and exclusions on the
+// published analysis, which do not carry over to the new analysis.
+type SourceStructureUpdateCandidate struct {
+	ContentRevisionID     string
+	SnapshotID            string
+	TargetContractVersion int
+	ConventionSet         string
+	ResultIdentity        string
+	LemmaCorrections      int
+	OccurrenceExclusions  int
+}
+
+// Expectation returns the confirmed-offer identity this candidate asks the
+// learner to submit.
+func (c SourceStructureUpdateCandidate) Expectation() SourceStructureUpdateExpectation {
+	return SourceStructureUpdateExpectation{
+		ContentRevisionID: c.ContentRevisionID, SnapshotID: c.SnapshotID,
+		TargetContractVersion: c.TargetContractVersion,
+		ConventionSet:         c.ConventionSet, ResultIdentity: c.ResultIdentity,
+	}
+}
+
 // SourceStructureOutcome is the successful outcome of a source structure check.
 type SourceStructureOutcome string
 

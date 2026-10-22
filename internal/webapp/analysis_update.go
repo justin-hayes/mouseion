@@ -31,12 +31,7 @@ func (h *Handler) annotateAnalysisUpdates(ctx context.Context, owner string, boo
 	if h.services.AnalysisUpdates == nil {
 		return
 	}
-	sourceIDs := make([]string, 0, len(books))
-	for _, book := range books {
-		if book.Acquired != nil && book.Acquired.Source.ID != "" {
-			sourceIDs = append(sourceIDs, book.Acquired.Source.ID)
-		}
-	}
+	sourceIDs := sourceIDsForBooks(books)
 	if len(sourceIDs) == 0 {
 		return
 	}
@@ -45,12 +40,32 @@ func (h *Handler) annotateAnalysisUpdates(ctx context.Context, owner string, boo
 		log.Printf("analysis update candidates unavailable: %v", err)
 		return
 	}
+	applyBookCandidates(books, candidates, func(acquired *domain.SourceMaterialSummary, candidate domain.AnalysisUpdateCandidate) {
+		acquired.AnalysisUpdate = &candidate
+	})
+}
+
+// sourceIDsForBooks collects the acquired source identities an offer lookup may
+// ask about, preserving the rows' order.
+func sourceIDsForBooks(books []domain.MyBook) []string {
+	sourceIDs := make([]string, 0, len(books))
+	for _, book := range books {
+		if book.Acquired != nil && book.Acquired.Source.ID != "" {
+			sourceIDs = append(sourceIDs, book.Acquired.Source.ID)
+		}
+	}
+	return sourceIDs
+}
+
+// applyBookCandidates attaches offered candidates to the acquired rows that have
+// one. It is shared by the independent Analysis and Source structure offers.
+func applyBookCandidates[T any](books []domain.MyBook, candidates map[string]T, apply func(*domain.SourceMaterialSummary, T)) {
 	for i := range books {
 		if books[i].Acquired == nil {
 			continue
 		}
 		if candidate, ok := candidates[books[i].Acquired.Source.ID]; ok {
-			books[i].Acquired.AnalysisUpdate = &candidate
+			apply(books[i].Acquired, candidate)
 		}
 	}
 }

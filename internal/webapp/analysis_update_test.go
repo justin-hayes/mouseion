@@ -177,6 +177,7 @@ func TestAnalysisUpdateConfirmationReportsRefusals(t *testing.T) {
 	}
 }
 
+//nolint:dupl // the Source structure refusal contract mirrors this one with its own route and copy
 func TestAnalysisUpdateConfirmationWithoutAnUpdateSeamSubmitsNothing(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)
