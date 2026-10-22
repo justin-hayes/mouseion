@@ -143,6 +143,52 @@ func TestProjectAppliesExactOccurrenceDecisionsWithoutChangingAnalyzerEvidence(t
 	assert.Equal(t, int64(2), statistics.AnalyzableTokenCount, "occurrence decisions must not change the coverage denominator")
 }
 
+func TestSpeakerLabelSpansAreStructuralNonVocabulary(t *testing.T) {
+	speaker := domain.UnitRoleSpan{UnitID: "unit", Role: domain.SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 15}
+	direction := domain.UnitRoleSpan{UnitID: "unit", Role: domain.SourceStructureRoleDirection, StartOffset: 9, EndOffset: 15}
+	labelToken := analyzer.Token{Surface: "fällt", CanonicalLemma: "fallen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 9, EndOffset: 15}}
+	directionToken := analyzer.Token{Surface: "schlägt", CanonicalLemma: "schlagen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 30, EndOffset: 38}}
+	standaloneDirectionToken := analyzer.Token{Surface: "auf", CanonicalLemma: "auf", UPOS: "ADV", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 39, EndOffset: 42}}
+	properName := analyzer.Token{Surface: "Valentin", CanonicalLemma: "Valentin", UPOS: "PROPN", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 0, EndOffset: 8}}
+	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{
+		{Text: "Valentin fällt.", Tokens: []analyzer.Token{properName, labelToken}},
+		{Text: "Er schlägt auf.", Tokens: []analyzer.Token{directionToken, standaloneDirectionToken}},
+	}}
+	cfg := DefaultConfig("corpus")
+	cfg.Structure = domain.SnapshotStructure{Recorded: true, RoleSpans: []domain.UnitRoleSpan{speaker, direction}}
+
+	withSpans, err := Project(corpus, cfg, nil)
+	require.NoError(t, err)
+	require.Len(t, withSpans, 2)
+	assert.Equal(t, "auf", withSpans[0].Identity.CanonicalLemma, "a standalone direction stays ordinary eligible text")
+	assert.Equal(t, "schlagen", withSpans[1].Identity.CanonicalLemma)
+	for _, candidate := range withSpans {
+		assert.NotEqual(t, "fallen", candidate.Identity.CanonicalLemma, "a label token never creates an identity")
+	}
+
+	cfg.Structure = domain.SnapshotStructure{}
+	unstructured, err := Project(corpus, cfg, nil)
+	require.NoError(t, err)
+	require.Len(t, unstructured, 3)
+	assert.Equal(t, []string{"auf", "fallen", "schlagen"}, []string{unstructured[0].Identity.CanonicalLemma, unstructured[1].Identity.CanonicalLemma, unstructured[2].Identity.CanonicalLemma}, "without recorded structure the same evidence keeps its ordinary rules")
+}
+
+func TestSpeakerLabelSpansLeaveTheCoverageDenominator(t *testing.T) {
+	label := analyzer.Token{Surface: "fällt", CanonicalLemma: "fallen", UPOS: "VERB", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 9, EndOffset: 15}}
+	content := analyzer.Token{Surface: "Buch", CanonicalLemma: "Buch", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 20, EndOffset: 24}}
+	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Text: "Valentin fällt. Das Buch.", Tokens: []analyzer.Token{label, content}}}}
+	cfg := DefaultConfig("corpus")
+
+	withoutStructure := AnalyzableStatistics(corpus, cfg)
+	assert.Equal(t, int64(2), withoutStructure.AnalyzableTokenCount)
+
+	cfg.Structure = domain.SnapshotStructure{Recorded: true, RoleSpans: []domain.UnitRoleSpan{{UnitID: "unit", Role: domain.SourceStructureRoleSpeaker, StartOffset: 9, EndOffset: 15}}}
+	withStructure := AnalyzableStatistics(corpus, cfg)
+	assert.Equal(t, int64(1), withStructure.AnalyzableTokenCount, "speaker-label tokens are not in the coverage denominator")
+	assert.Equal(t, int64(1), withStructure.DistinctLemmaCount)
+	assert.Equal(t, int64(2), withStructure.TextProfile.NormalizedTokenCount, "normalized corpus evidence still counts every analyzed token")
+}
+
 func TestProjectRejectsAmbiguousOrMalformedOccurrenceDecisions(t *testing.T) {
 	occurrence := OccurrenceIdentity{SourceDocumentID: "book", StartOffset: 1, EndOffset: 2}
 	for name, decisions := range map[string][]OccurrenceDecision{
@@ -525,9 +571,10 @@ func TestProjectRejectsInvalidConfig(t *testing.T) {
 }
 
 // TestProjectWithholdsOnlyStudyContextOverlappingSpeakerLabels holds ADR 0103's
-// sentence rule: a sentence overlapping a speaker label supplies no sentence
-// reference, while its other eligible words still count and may be carded from
-// another acceptable occurrence. Analyzer sentence boundaries are untouched.
+// sentence and vocabulary rules: a label-overlapping token is structural
+// non-vocabulary, while other eligible words in the sentence still count and may
+// be carded from another acceptable occurrence. Analyzer sentence boundaries are
+// untouched.
 func TestProjectWithholdsOnlyStudyContextOverlappingSpeakerLabels(t *testing.T) {
 	unit := "epub-unit-v1:0:chapter"
 	labeled := analyzer.Sentence{
@@ -571,8 +618,7 @@ func TestProjectWithholdsOnlyStudyContextOverlappingSpeakerLabels(t *testing.T) 
 	assert.Equal(t, 2, byLemma["liegen"].OccurrenceCount)
 	require.Len(t, byLemma["liegen"].SentenceReferences, 1)
 	assert.Equal(t, direction.Text, byLemma["liegen"].SentenceReferences[0].Text)
-	assert.Equal(t, 1, byLemma["fallen"].OccurrenceCount, "a label-overlapping token is still raw evidence")
-	assert.Empty(t, byLemma["fallen"].SentenceReferences, "the label sentence is never study context")
+	assert.NotContains(t, byLemma, "fallen", "a label-overlapping token is structural non-vocabulary")
 
 	// Without recorded structure (v1), the same corpus behaves exactly as
 	// today: no restriction can be derived.

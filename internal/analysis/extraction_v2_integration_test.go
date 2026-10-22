@@ -5,11 +5,15 @@ package analysis
 import (
 	"context"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -56,7 +60,17 @@ VALUES($1,$2,$3,$4,$5,$6,$7,'queued') RETURNING id::text`,
 	var requests []analyzer.AnalyzeRequest
 	fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, request analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		requests = append(requests, request)
-		return analyzer.Result{}, nil
+		tokens := tokenizeIntegrationWords(request.Document.ID, request.Document.Text)
+		return analyzer.Result{
+			SchemaVersion:        "1",
+			Language:             request.Language,
+			Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fixture", AnalyzerVersion: "1"},
+			NormalizationProfile: analyzer.NormalizationProfile{Name: "identity", Version: "1"},
+			Sentences: []analyzer.Sentence{{
+				Text: request.Document.Text, Tokens: tokens,
+				Location: analyzer.SourceLocation{SourceDocumentID: request.Document.ID, EndOffset: uint64(len([]rune(request.Document.Text)))},
+			}},
+		}, nil
 	}}
 	worker := &Worker{
 		Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(),
@@ -70,6 +84,10 @@ VALUES($1,$2,$3,$4,$5,$6,$7,'queued') RETURNING id::text`,
 	plan, err := worker.fetchSnapshotWork(ctx, args)
 	require.NoError(t, err)
 	require.Len(t, plan.inputs, len(extraction.Book.ExtractedUnits.Units), "the fixture declares no main-text landmark, so the whole snapshot is analyzed")
+	assert.Equal(t, extraction.Structure, plan.structure, "the worker loads the exact snapshot's recorded structure")
+	selectionCfg, err := worker.selectionConfig(ctx, args, "corpus")
+	require.NoError(t, err)
+	assert.Equal(t, extraction.Structure, selectionCfg.Structure, "candidate generation uses the same exact-snapshot structure")
 	for index, input := range plan.inputs {
 		assert.Equal(t, extraction.Book.ExtractedUnits.Units[index].Text, input.text)
 	}
@@ -95,4 +113,60 @@ VALUES($1,$2,$3,$4,$5,$6,$7,'queued') RETURNING id::text`,
 		assert.Equal(t, unit.Text, byDocument[unit.ID], "the analyzer received text other than the exact v2 unit text")
 	}
 	assert.Greater(t, chunks[extraction.Book.ExtractedUnits.Units[0].ID], 1, "the size cap should split the long Director unit")
+
+	analyzed, err := merge.analysis(args, plan.structure)
+	require.NoError(t, err)
+	wantAnalyzable := eligibleTokensOutsideSpeakerSpans(merge.result, plan.structure)
+	assert.Positive(t, wantAnalyzable)
+	assert.Less(t, wantAnalyzable, allIntegrationTokens(merge.result), "the fixture must contain excluded label tokens")
+	assert.Equal(t, wantAnalyzable, analyzed.statistics.AnalyzableTokenCount, "the snapshot's speaker spans keep label tokens out of the analysis aggregate")
+}
+
+var integrationWordPattern = regexp.MustCompile(`[\p{L}\p{M}]+`)
+
+// tokenizeIntegrationWords turns a chunk into one eligible noun per letter run
+// using chunk-relative code-point offsets, so the merge's offset adjustment
+// lines up with the exact snapshot units.
+func tokenizeIntegrationWords(documentID, text string) []analyzer.Token {
+	var tokens []analyzer.Token
+	for _, index := range integrationWordPattern.FindAllStringIndex(text, -1) {
+		surface := text[index[0]:index[1]]
+		start, err := checked.Uint64FromInt(utf8.RuneCountInString(text[:index[0]]))
+		if err != nil {
+			panic(err)
+		}
+		end, err := checked.Uint64FromInt(utf8.RuneCountInString(text[:index[1]]))
+		if err != nil {
+			panic(err)
+		}
+		tokens = append(tokens, analyzer.Token{
+			Surface: surface, RawLemma: strings.ToLower(surface), CanonicalLemma: strings.ToLower(surface),
+			UPOS: "NOUN", Dependency: "root", Location: analyzer.SourceLocation{SourceDocumentID: documentID, StartOffset: start, EndOffset: end},
+		})
+	}
+	return tokens
+}
+
+// eligibleTokensOutsideSpeakerSpans counts merged tokens that do not overlap a
+// recorded speaker span, independently of selection's projection.
+func eligibleTokensOutsideSpeakerSpans(result analyzer.Result, structure domain.SnapshotStructure) int64 {
+	var count int64
+	for _, sentence := range result.Sentences {
+		for _, token := range sentence.Tokens {
+			if !structure.OverlapsSpeakerLabel(token.Location.SourceDocumentID, token.Location.StartOffset, token.Location.EndOffset) {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// allIntegrationTokens counts every analyzed token, so a passing comparison
+// proves at least one label token was excluded rather than none.
+func allIntegrationTokens(result analyzer.Result) int64 {
+	var count int64
+	for _, sentence := range result.Sentences {
+		count += int64(len(sentence.Tokens))
+	}
+	return count
 }

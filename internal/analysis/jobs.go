@@ -1283,6 +1283,7 @@ type snapshotDocumentInput struct {
 type snapshotPlan struct {
 	decision      epub.MainTextSelection
 	trimmedText   []epub.UnitTextRange
+	structure     domain.SnapshotStructure
 	totalUnits    int
 	selectedUnits int
 	inputs        []snapshotDocumentInput
@@ -1361,6 +1362,10 @@ func (w *Worker) fetchSnapshotWork(ctx context.Context, a JobArgs) (snapshotPlan
 	if err != nil {
 		return snapshotPlan{}, err
 	}
+	structure, err := persistence.LoadSnapshotStructure(ctx, w.Pool, a.OwnerID, a.SourceMaterialID, a.SnapshotID)
+	if err != nil {
+		return snapshotPlan{}, err
+	}
 	decision := identifyMainText(allUnits)
 	selectedUnits, trimmedText := scopeSnapshotUnits(allUnits, decision, a.ConfigIdentity)
 	inputs := make([]snapshotDocumentInput, 0, len(selectedUnits))
@@ -1371,7 +1376,7 @@ func (w *Worker) fetchSnapshotWork(ctx context.Context, a JobArgs) (snapshotPlan
 		}
 		inputs = append(inputs, snapshotDocumentInput{id: unit.UnitID, identifier: identifier, title: unit.Title, text: unit.Text})
 	}
-	return snapshotPlan{decision: decision, trimmedText: trimmedText, totalUnits: len(allUnits), selectedUnits: len(selectedUnits), inputs: inputs}, nil
+	return snapshotPlan{decision: decision, trimmedText: trimmedText, structure: structure, totalUnits: len(allUnits), selectedUnits: len(selectedUnits), inputs: inputs}, nil
 }
 
 // snapshotChunkMerge folds analyzed chunks into the snapshot's merged result
@@ -1405,16 +1410,18 @@ func (m *snapshotChunkMerge) progress() int {
 
 // analysis derives the artifact identity, shared lemmas, and statistics from
 // the merged result.
-func (m *snapshotChunkMerge) analysis(a JobArgs) (snapshotAnalysis, error) {
+func (m *snapshotChunkMerge) analysis(a JobArgs, structure domain.SnapshotStructure) (snapshotAnalysis, error) {
 	artifactHash := normalizedArtifactHash(a.ContentHash, "", a.AnalysisIdentity, a.AnalyzerName, a.AnalyzerVersion, a.ConfigIdentity, m.result)
 	lemmas, err := aggregateLemmas(artifactHash, m.result)
 	if err != nil {
 		return snapshotAnalysis{}, fmt.Errorf("aggregate analyzed lemmas: %w", err)
 	}
+	cfg := selection.DefaultConfig("")
+	cfg.Structure = structure
 	return snapshotAnalysis{
 		result:     m.result,
 		lemmas:     lemmas,
-		statistics: selection.AnalyzableStatistics(m.result, selection.DefaultConfig("")),
+		statistics: selection.AnalyzableStatistics(m.result, cfg),
 		artifact:   domain.NormalizedArtifact{ContentHash: artifactHash, Language: m.result.Language, SchemaVersion: m.result.SchemaVersion, NormalizationProfile: m.result.NormalizationProfile.Name, NormalizationVersion: m.result.NormalizationProfile.Version, AnalyzerName: m.result.Analysis.AnalyzerName, AnalyzerVersion: m.result.Analysis.AnalyzerVersion},
 	}, nil
 }
@@ -1432,7 +1439,7 @@ func (w *Worker) analyzeSnapshotWork(ctx context.Context, a JobArgs, plan snapsh
 		}
 	}
 	dropDistributorSentences(&merge.result, plan.trimmedText)
-	return merge.analysis(a)
+	return merge.analysis(a, plan.structure)
 }
 
 // dropDistributorSentences removes sentences overlapping recognised Distributor

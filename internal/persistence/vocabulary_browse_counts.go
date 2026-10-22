@@ -13,9 +13,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
 
-// Version 3 derives counts only through selection.Project (ADR 0087). Version 2
+// Version 4 applies exact-snapshot speaker spans through selection.Project.
+// Version 3 derived counts only through selection.Project (ADR 0087). Version 2
 // normalized identities like the projection in SQL; version 1 matched verbatim.
-const vocabularyBrowseCountBuilderVersion = 3
+const vocabularyBrowseCountBuilderVersion = 4
 
 var ErrBrowseCountDecisionsChanged = errors.New("occurrence decisions changed during Browse count rebuild")
 
@@ -134,7 +135,13 @@ func projectBrowseCounts(ctx context.Context, tx pgx.Tx, scope browseCountReadin
 	if err != nil {
 		return nil, err
 	}
-	candidates, err := selection.Project(analysis, selection.DefaultConfig(scope.corpus), decisions)
+	structure, err := LoadSnapshotStructure(ctx, tx, scope.owner, scope.source, scope.snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("load Browse speaker structure: %w", err)
+	}
+	cfg := selection.DefaultConfig(scope.corpus)
+	cfg.Structure = structure
+	candidates, err := selection.Project(analysis, cfg, decisions)
 	if err != nil {
 		return nil, fmt.Errorf("project Browse counts: %w", err)
 	}
