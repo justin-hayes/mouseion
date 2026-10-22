@@ -1,0 +1,13 @@
+{
+  "source": "Project Gutenberg eBook #21000, Faust: Eine Tragödie [erster Teil], EPUB 2 no images",
+  "source_sha256": "93d5a2bd657dc0ffdb39dbff0ab0979cb1229be05e1efbf69ca08691b1430b01",
+  "package_prefix": "OEBPS/8980964947130898904_21000-h-",
+  "note": "Short excerpts only. The complete EPUB, its Gutenberg header, licence text and references are deliberately not committed.",
+  "excerpts": [
+    {"path": "OEBPS/8980964947130898904_21000-h-0.htm.html", "source_lines": "84-116", "purpose": "Director speech: four source lines in one 26-line group; heading, entrance and zero-width page markers"},
+    {"path": "OEBPS/8980964947130898904_21000-h-2.htm.html", "source_lines": "343-346", "purpose": "mixed-role direction paragraph with an inline speaker span"},
+    {"path": "OEBPS/8980964947130898904_21000-h-3.htm.html", "source_lines": "139-169", "purpose": "Thule song: six four-line groups"},
+    {"path": "OEBPS/8980964947130898904_21000-h-4.htm.html", "source_lines": "577-580", "purpose": "Valentin speaker label with a nested direction"},
+    {"path": "OEBPS/8980964947130898904_21000-h-5.htm.html", "source_lines": "43-52", "purpose": "visible correction text only; nested direction inside a speaker label"}
+  ]
+}

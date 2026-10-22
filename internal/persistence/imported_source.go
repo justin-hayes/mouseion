@@ -24,13 +24,17 @@ func (s *PostgresStore) PutImportedSourceMaterial(ctx context.Context, v domain.
 	if err = units.ValidateOffsets(v.FullText); err != nil {
 		return out, fmt.Errorf("validate imported units: %w", err)
 	}
+	structure := domain.SnapshotStructure{}
+	if err = structure.Validate(units.SchemaVersion, units.Units); err != nil {
+		return out, fmt.Errorf("validate imported source structure: %w", err)
+	}
 	revision, err := sourceMaterialContentIdentity(v)
 	if err != nil {
 		return out, err
 	}
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
-		written, err := putSourceMaterialWithExtractedUnits(ctx, q, v, units, revision)
+		written, err := putSourceMaterialWithExtractedUnits(ctx, q, v, units, structure, revision)
 		if err != nil {
 			return err
 		}

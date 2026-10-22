@@ -417,6 +417,51 @@ func TestExtractedSnapshotReadsMissingSourcesAndPropagatesFailures(t *testing.T)
 	}
 }
 
+// TestExtractedSnapshotV2RoundTrip stores a v2 extraction through the
+// ticket-1 schema and reads back the same units, role spans and heading resets.
+func TestExtractedSnapshotV2RoundTrip(t *testing.T) {
+	ctx := context.Background()
+	url, pool := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, url)
+	owner, err := store.CreateUser(ctx, "source-structure-v2-round-trip", false)
+	require.NoError(t, err)
+
+	data := testutil.ZipDirectory(t, filepath.Join("..", "epub", "testfixtures", "faust-excerpt"))
+	extraction, err := epub.ExtractV2(data)
+	require.NoError(t, err)
+	require.NotEmpty(t, extraction.Structure.RoleSpans)
+	require.NotEmpty(t, extraction.Structure.HeadingResets)
+
+	source, err := store.PutSourceMaterialWithExtractedSnapshot(ctx, domain.SourceMaterial{
+		OwnerID: owner.ID, Language: "de", SourceIdentifier: extraction.Book.SourceIdentifier, Title: extraction.Book.Title,
+		MediaType: "application/epub+zip", Content: data, FullText: extraction.Book.FullText,
+	}, extraction.Book.ExtractedUnits, extraction.Structure)
+	require.NoError(t, err)
+
+	current, err := store.GetCurrentExtractedSnapshot(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.ExtractedUnitsSchemaVersionV2, current.Units.SchemaVersion)
+	assert.Equal(t, extraction.Book.ExtractedUnits, current.Units)
+	assert.True(t, current.Structure.Recorded)
+	assert.Equal(t, domain.StructureConventionSet, current.Structure.ConventionSet)
+	assert.Equal(t, extraction.Structure.RoleSpans, current.Structure.RoleSpans)
+	assert.Equal(t, extraction.Structure.HeadingResets, current.Structure.HeadingResets)
+	assert.Equal(t, source.ContentRevisionID, current.ContentRevisionID)
+
+	var convention *string
+	require.NoError(t, pool.QueryRow(ctx, `
+SELECT structure_convention_set FROM source_material_unit_snapshots
+WHERE owner_id=$1 AND source_material_id=$2 AND snapshot_id=$3`, owner.ID, source.ID, current.SnapshotID).Scan(&convention))
+	require.NotNil(t, convention)
+	assert.Equal(t, domain.StructureConventionSet, *convention)
+
+	var roleCount, resetCount int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM source_material_unit_role_spans WHERE owner_id=$1 AND source_material_id=$2 AND snapshot_id=$3`, owner.ID, source.ID, current.SnapshotID).Scan(&roleCount))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM source_material_unit_heading_resets WHERE owner_id=$1 AND source_material_id=$2 AND snapshot_id=$3`, owner.ID, source.ID, current.SnapshotID).Scan(&resetCount))
+	assert.Equal(t, len(extraction.Structure.RoleSpans), roleCount)
+	assert.Equal(t, len(extraction.Structure.HeadingResets), resetCount)
+}
+
 // TestSourceStructureV2MigrationReversesCleanly runs the successor migration
 // down and up again, so the down script is part of the tested contract.
 func TestSourceStructureV2MigrationReversesCleanly(t *testing.T) {

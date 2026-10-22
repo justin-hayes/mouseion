@@ -58,6 +58,11 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	// still runs below.
 	_, err = pool.Exec(ctx, `ALTER TABLE deck_preparations ADD COLUMN evidence_assisted_provider_pass boolean NOT NULL DEFAULT false`)
 	require.NoError(t, err)
+	// Current writers name the successor snapshot convention column. Add an
+	// empty stand-in while seeding against this old schema, then drop it so
+	// migration 45 still runs below.
+	_, err = pool.Exec(ctx, `ALTER TABLE source_material_unit_snapshots ADD COLUMN structure_convention_set text`)
+	require.NoError(t, err)
 	owner, err := store.CreateUser(ctx, "reading-cutover-owner", false)
 	require.NoError(t, err)
 	active, activeSource, deck := createReadingFixture(t, ctx, store, owner.ID, "cutover-active")
@@ -92,6 +97,8 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE deck_preparations DROP COLUMN evidence_assisted_provider_pass`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `ALTER TABLE source_material_unit_snapshots DROP COLUMN structure_convention_set`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `DROP TABLE occurrence_lemma_corrections`)
 	require.NoError(t, err)

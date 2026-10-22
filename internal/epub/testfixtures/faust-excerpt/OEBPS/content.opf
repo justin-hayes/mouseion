@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0" unique-identifier="id">
+  <metadata>
+    <dc:identifier id="id">urn:mouseion:fixture:faust-excerpt</dc:identifier>
+    <dc:creator>Johann Wolfgang von Goethe</dc:creator>
+    <dc:title>Faust: Eine Tragödie [erster Teil]</dc:title>
+    <dc:language>de</dc:language>
+  </metadata>
+  <manifest>
+    <item href="8980964947130898904_21000-h-0.htm.html" id="excerpt-0" media-type="application/xhtml+xml"/>
+    <item href="8980964947130898904_21000-h-2.htm.html" id="excerpt-2" media-type="application/xhtml+xml"/>
+    <item href="8980964947130898904_21000-h-3.htm.html" id="excerpt-3" media-type="application/xhtml+xml"/>
+    <item href="8980964947130898904_21000-h-4.htm.html" id="excerpt-4" media-type="application/xhtml+xml"/>
+    <item href="8980964947130898904_21000-h-5.htm.html" id="excerpt-5" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="excerpt-0"/>
+    <itemref idref="excerpt-2"/>
+    <itemref idref="excerpt-3"/>
+    <itemref idref="excerpt-4"/>
+    <itemref idref="excerpt-5"/>
+  </spine>
+</package>

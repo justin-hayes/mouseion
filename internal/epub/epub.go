@@ -13,6 +13,9 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+
+	"github.com/justin-hayes/mouseion/internal/checked"
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 const mediaType = "application/epub+zip"
@@ -61,12 +64,21 @@ type Chapter struct {
 	Location Location `json:"location"`
 }
 
+// ExtractedBook is the compatibility projection of one extraction: ordered
+// readable units, chapter locations and the joined full text.
 type ExtractedBook struct {
 	Title            string         `json:"title"`
 	SourceIdentifier string         `json:"source_identifier"`
 	FullText         string         `json:"full_text"`
 	Chapters         []Chapter      `json:"chapters"`
 	ExtractedUnits   ExtractedUnits `json:"extracted_units"`
+}
+
+// Extraction is one EPUB extracted under a specific snapshot contract. The
+// default writer remains v1; v2 additionally records source structure.
+type Extraction struct {
+	Book      ExtractedBook
+	Structure domain.SnapshotStructure
 }
 
 type container struct {
@@ -96,34 +108,53 @@ type spineItem struct {
 	Linear string `xml:"linear,attr"`
 }
 
-// Extract validates an EPUB byte stream and extracts XHTML documents in spine order.
+// Extract validates an EPUB byte stream and extracts XHTML documents in spine
+// order under the current v1 writer contract. v1 records text only.
 func Extract(data []byte) (ExtractedBook, error) {
+	extraction, err := extractContract(data, ExtractedUnitsSchemaVersion)
+	return extraction.Book, err
+}
+
+// ExtractV2 extracts under the v2 contract without becoming the default writer.
+// It preserves authorial source lines, line groups and markup-declared roles
+// while keeping the exact unit text as the only offset basis.
+func ExtractV2(data []byte) (Extraction, error) {
+	return extractContract(data, domain.ExtractedUnitsSchemaVersionV2)
+}
+
+// extractContract validates an EPUB byte stream and extracts it under one
+// snapshot contract.
+func extractContract(data []byte, schemaVersion int) (Extraction, error) {
 	files, err := openEPUB(data)
 	if err != nil {
-		return ExtractedBook{}, err
+		return Extraction{}, err
 	}
 	pkg, opfPath, err := readPackage(files)
 	if err != nil {
-		return ExtractedBook{}, err
+		return Extraction{}, err
 	}
-	book, err := newExtractedBook(pkg)
+	book, err := newExtractedBook(pkg, schemaVersion)
 	if err != nil {
-		return ExtractedBook{}, err
+		return Extraction{}, err
 	}
 	items, err := indexManifest(pkg.Manifest)
 	if err != nil {
-		return ExtractedBook{}, err
+		return Extraction{}, err
 	}
-	if err := extractSpine(&book, files, opfPath, items, pkg); err != nil {
-		return ExtractedBook{}, err
+	structure, err := extractSpine(&book, files, opfPath, items, pkg, schemaVersion)
+	if err != nil {
+		return Extraction{}, err
 	}
 	if len(book.Chapters) == 0 {
-		return ExtractedBook{}, invalid("package spine contains no readable XHTML content", nil)
+		return Extraction{}, invalid("package spine contains no readable XHTML content", nil)
 	}
 	if err := book.ExtractedUnits.ValidateOffsets(book.FullText); err != nil {
-		return ExtractedBook{}, invalid("validate extracted units", err)
+		return Extraction{}, invalid("validate extracted units", err)
 	}
-	return book, nil
+	if err := structure.Validate(schemaVersion, book.ExtractedUnits.Units); err != nil {
+		return Extraction{}, invalid("validate source structure", err)
+	}
+	return Extraction{Book: book, Structure: structure}, nil
 }
 
 // openEPUB reads the ZIP container and checks its required mimetype entry,
@@ -170,13 +201,13 @@ func readPackage(files map[string]*zip.File) (packageDoc, string, error) {
 }
 
 // newExtractedBook seeds the result with the package metadata and its required
-// identifier, initialising the extracted-unit envelope.
-func newExtractedBook(pkg packageDoc) (ExtractedBook, error) {
+// identifier, initialising the extracted-unit envelope for the contract.
+func newExtractedBook(pkg packageDoc, schemaVersion int) (ExtractedBook, error) {
 	book := ExtractedBook{
 		Title:            firstNonBlank(pkg.Metadata.Titles),
 		SourceIdentifier: firstNonBlank(pkg.Metadata.Identifiers),
 		ExtractedUnits: ExtractedUnits{
-			SchemaVersion: ExtractedUnitsSchemaVersion,
+			SchemaVersion: schemaVersion,
 			Units:         []ExtractedUnit{},
 		},
 	}
@@ -202,8 +233,9 @@ func indexManifest(manifest []manifestItem) (map[string]manifestItem, error) {
 }
 
 // extractSpine walks the package spine in order, appending one unit per
-// readable XHTML document to book and setting book.FullText.
-func extractSpine(book *ExtractedBook, files map[string]*zip.File, opfPath string, items map[string]manifestItem, pkg packageDoc) error {
+// readable XHTML document to book and setting book.FullText. Under v2 it also
+// records each unit's role spans and heading resets.
+func extractSpine(book *ExtractedBook, files map[string]*zip.File, opfPath string, items map[string]manifestItem, pkg packageDoc, schemaVersion int) (domain.SnapshotStructure, error) {
 	base := path.Dir(opfPath)
 	navigationLabels, landmarkTypes := navigationMetadata(files, base, pkg.Manifest)
 	extractor := spineExtractor{
@@ -213,11 +245,15 @@ func extractSpine(book *ExtractedBook, files map[string]*zip.File, opfPath strin
 		items:            items,
 		navigationLabels: navigationLabels,
 		landmarkTypes:    landmarkTypes,
+		schemaVersion:    schemaVersion,
+	}
+	if schemaVersion >= domain.ExtractedUnitsSchemaVersionV2 {
+		extractor.structure = domain.SnapshotStructure{Recorded: true, ConventionSet: domain.StructureConventionSet}
 	}
 	for spineIndex, ref := range pkg.Spine {
 		unit, include, err := extractor.readDocument(uint64(spineIndex), ref)
 		if err != nil {
-			return err
+			return domain.SnapshotStructure{}, err
 		}
 		if !include {
 			continue
@@ -225,7 +261,7 @@ func extractSpine(book *ExtractedBook, files map[string]*zip.File, opfPath strin
 		extractor.appendUnit(book, unit)
 	}
 	book.FullText = extractor.out.String()
-	return nil
+	return extractor.structure, nil
 }
 
 // spineExtractor turns spine references into ordered units, keeping the running
@@ -237,6 +273,8 @@ type spineExtractor struct {
 	items            map[string]manifestItem
 	navigationLabels map[string][]string
 	landmarkTypes    map[string][]string
+	schemaVersion    int
+	structure        domain.SnapshotStructure
 	out              strings.Builder
 	offset           uint64
 }
@@ -262,7 +300,7 @@ func (x *spineExtractor) readDocument(spineIndex uint64, ref spineItem) (Extract
 	if err != nil {
 		return ExtractedUnit{}, false, invalid("resolve manifest resource "+item.Href, err)
 	}
-	text, title, err := extractXHTML(x.files[name])
+	text, title, groups, err := x.extractDocument(name)
 	if err != nil {
 		return ExtractedUnit{}, false, invalid("extract spine document "+name, err)
 	}
@@ -290,7 +328,67 @@ func (x *spineExtractor) readDocument(spineIndex uint64, ref spineItem) (Extract
 		NavigationLabels: append([]string{}, x.navigationLabels[name]...),
 		LandmarkTypes:    append([]string{}, x.landmarkTypes[name]...),
 	}
+	if x.schemaVersion >= domain.ExtractedUnitsSchemaVersionV2 {
+		if err := x.recordUnitStructure(unit.ID, groups); err != nil {
+			return ExtractedUnit{}, false, invalid("record source structure", err)
+		}
+	}
 	return unit, true, nil
+}
+
+// extractDocument extracts one XHTML resource under the active contract. v2
+// also returns the groups that carry structure offsets relative to the unit.
+func (x *spineExtractor) extractDocument(name string) (string, string, []v2Group, error) {
+	if x.schemaVersion < domain.ExtractedUnitsSchemaVersionV2 {
+		text, title, err := extractXHTML(x.files[name])
+		return text, title, nil, err
+	}
+	document, err := extractXHTMLV2(x.files[name])
+	if err != nil {
+		return "", "", nil, err
+	}
+	return documentText(document.groups), document.title, document.groups, nil
+}
+
+// recordUnitStructure maps group-relative offsets into the exact unit text.
+func (x *spineExtractor) recordUnitStructure(unitID string, groups []v2Group) error {
+	offset := uint64(0)
+	for index, group := range groups {
+		if index > 0 {
+			offset += uint64(len([]rune(groupSeparator)))
+		}
+		if group.heading {
+			x.structure.HeadingResets = append(x.structure.HeadingResets, domain.UnitHeadingReset{UnitID: unitID, Offset: offset})
+		}
+		for _, span := range group.spans {
+			start, err := checked.Uint64FromInt(span.start)
+			if err != nil {
+				return err
+			}
+			end, err := checked.Uint64FromInt(span.end)
+			if err != nil {
+				return err
+			}
+			x.structure.RoleSpans = append(x.structure.RoleSpans, domain.UnitRoleSpan{
+				UnitID: unitID, Role: span.role,
+				StartOffset: offset + start, EndOffset: offset + end,
+			})
+		}
+		offset += uint64(len([]rune(group.text)))
+	}
+	return nil
+}
+
+// documentText joins extracted groups with the established group separator.
+func documentText(groups []v2Group) string {
+	var text strings.Builder
+	for index, group := range groups {
+		if index > 0 {
+			text.WriteString(groupSeparator)
+		}
+		text.WriteString(group.text)
+	}
+	return text.String()
 }
 
 // appendUnit writes one included document to the FullText builder, assigning

@@ -302,17 +302,72 @@ func (q *Queries) InsertSourceMaterialUnit(ctx context.Context, arg InsertSource
 	return err
 }
 
+const insertSourceMaterialUnitHeadingReset = `-- name: InsertSourceMaterialUnitHeadingReset :exec
+INSERT INTO source_material_unit_heading_resets(owner_id, source_material_id, snapshot_id, unit_id, "offset")
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertSourceMaterialUnitHeadingResetParams struct {
+	OwnerID          string
+	SourceMaterialID string
+	SnapshotID       string
+	UnitID           string
+	Offset           int
+}
+
+func (q *Queries) InsertSourceMaterialUnitHeadingReset(ctx context.Context, arg InsertSourceMaterialUnitHeadingResetParams) error {
+	_, err := q.db.Exec(ctx, insertSourceMaterialUnitHeadingReset,
+		arg.OwnerID,
+		arg.SourceMaterialID,
+		arg.SnapshotID,
+		arg.UnitID,
+		arg.Offset,
+	)
+	return err
+}
+
+const insertSourceMaterialUnitRoleSpan = `-- name: InsertSourceMaterialUnitRoleSpan :exec
+INSERT INTO source_material_unit_role_spans(
+    owner_id, source_material_id, snapshot_id, unit_id, role, start_offset, end_offset
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+`
+
+type InsertSourceMaterialUnitRoleSpanParams struct {
+	OwnerID          string
+	SourceMaterialID string
+	SnapshotID       string
+	UnitID           string
+	Role             string
+	StartOffset      int
+	EndOffset        int
+}
+
+func (q *Queries) InsertSourceMaterialUnitRoleSpan(ctx context.Context, arg InsertSourceMaterialUnitRoleSpanParams) error {
+	_, err := q.db.Exec(ctx, insertSourceMaterialUnitRoleSpan,
+		arg.OwnerID,
+		arg.SourceMaterialID,
+		arg.SnapshotID,
+		arg.UnitID,
+		arg.Role,
+		arg.StartOffset,
+		arg.EndOffset,
+	)
+	return err
+}
+
 const insertSourceMaterialUnitSnapshot = `-- name: InsertSourceMaterialUnitSnapshot :one
-INSERT INTO source_material_unit_snapshots(owner_id, source_material_id, content_revision_id, schema_version)
-VALUES ($1, $2, $3, $4)
+INSERT INTO source_material_unit_snapshots(owner_id, source_material_id, content_revision_id, schema_version, structure_convention_set)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING snapshot_id::text
 `
 
 type InsertSourceMaterialUnitSnapshotParams struct {
-	OwnerID           string
-	SourceMaterialID  string
-	ContentRevisionID string
-	SchemaVersion     int
+	OwnerID                string
+	SourceMaterialID       string
+	ContentRevisionID      string
+	SchemaVersion          int
+	StructureConventionSet pgtype.Text
 }
 
 func (q *Queries) InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error) {
@@ -321,6 +376,7 @@ func (q *Queries) InsertSourceMaterialUnitSnapshot(ctx context.Context, arg Inse
 		arg.SourceMaterialID,
 		arg.ContentRevisionID,
 		arg.SchemaVersion,
+		arg.StructureConventionSet,
 	)
 	var snapshot_id string
 	err := row.Scan(&snapshot_id)
