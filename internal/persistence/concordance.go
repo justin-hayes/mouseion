@@ -305,6 +305,7 @@ func projectConcordanceOccurrences(rows []sqlcgen.ListVocabularyConcordanceRow, 
 			Corrected: row.Corrected, Excluded: row.Excluded,
 			SpeakerLabel:     speakerLabelOverlap(structure, row.UnitID, row.UnitStartOffset, row.UnitEndOffset),
 			StudyUnavailable: speakerLabelOverlap(structure, row.UnitID, row.SentenceUnitStartOffset, row.SentenceUnitEndOffset),
+			Attribution:      sourceAttributionAt(structure, row.UnitID, row.UnitText, row.SentenceUnitStartOffset, row.SentenceUnitEndOffset),
 		})
 	}
 	return occurrences
@@ -320,6 +321,18 @@ func speakerLabelOverlap(structure domain.SnapshotStructure, unitID string, star
 		return false
 	}
 	return structure.OverlapsSpeakerLabel(unitID, startOffset, endOffset)
+}
+
+// sourceAttributionAt derives the quiet metadata shown above an exact source
+// span from the snapshot's recorded roles. Invalid stored offsets leave the
+// slot absent rather than failing the read or inventing a speaker.
+func sourceAttributionAt(structure domain.SnapshotStructure, unitID, unitText string, start, end int64) domain.SourceAttribution {
+	startOffset, startErr := checked.Uint64FromInt64(start)
+	endOffset, endErr := checked.Uint64FromInt64(end)
+	if startErr != nil || endErr != nil {
+		return domain.SourceAttribution{}
+	}
+	return structure.AttributionAt(domain.ExtractedUnit{ID: unitID, Text: unitText}, startOffset, endOffset)
 }
 
 // concordanceBookIDPattern is the canonical text form of a Book identity; any
@@ -373,6 +386,7 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 		return domain.SentenceStudy{}, err
 	}
 	study.SpeakerLabelOverlap = speakerLabelOverlap(structure, first.UnitID, first.SentenceStartOffset, first.SentenceEndOffset)
+	study.Attribution = sourceAttributionAt(structure, first.UnitID, first.UnitText, first.SentenceStartOffset, first.SentenceEndOffset)
 	for _, row := range rows {
 		if row.TokenOrdinal < 0 {
 			continue // A sentence may be valid source text with no syntax tokens.

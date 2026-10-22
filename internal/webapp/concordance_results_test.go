@@ -109,6 +109,68 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	}
 }
 
+func TestConcordanceSummaryAndContextKeepAuthorialSourceLines(t *testing.T) {
+	sentence := "Der Geist,\nist <script>leicht</script>."
+	start := int64(len([]rune("Der ")))
+	occurrence := domain.ConcordanceResultOccurrence{
+		BookID: "book-1", BookTitle: "Faust", SentenceText: sentence,
+		Surface: "Geist", SentenceStartOffset: start, SentenceEndOffset: start + 5,
+		SentenceOrdinal: 0, TokenOrdinal: 1, AnalysisRunID: "run", CorpusID: "corpus", UnitID: "unit",
+		Attribution: domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: `Mephistopheles <script>`},
+	}
+	component := VocabularyConcordancePageView(domain.User{}, "", "de",
+		domain.ConcordanceLookup{Term: "Geist", Page: 1},
+		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "geist"}, true, false, "", "", browseOrigin{})
+	var rendered bytes.Buffer
+	require.NoError(t, component.Render(t.Context(), &rendered))
+	body := rendered.String()
+
+	require.Equal(t, 1, strings.Count(body, `class="concordance-line-break"`),
+		"the one-line summary marks each authorial break")
+	require.Contains(t, body, `<span class="concordance-line-break"> / </span>`)
+	require.Equal(t, 2, strings.Count(body, `class="concordance-context-line"`),
+		"the expanded occurrence renders actual source lines")
+	require.Contains(t, body, `<span class="concordance-context-line">Der <strong class="concordance-observed-target">Geist</strong>,</span>`,
+		"target emphasis stays inside the correct source line")
+	require.Contains(t, body, `ist &lt;script&gt;leicht&lt;/script&gt;.`, "source text is escaped as text")
+	require.NotContains(t, body, `<script>leicht</script>`)
+	require.Contains(t, body, `<p class="concordance-attribution">Mephistopheles &lt;script&gt;</p>`,
+		"speaker metadata is escaped as text and stays outside the sentence")
+}
+
+func TestConcordanceContextShowsStageDirectionAttribution(t *testing.T) {
+	occurrence := domain.ConcordanceResultOccurrence{
+		BookID: "book-1", BookTitle: "Faust", SentenceText: "Er schlägt das Buch auf.",
+		Surface: "schlägt", SentenceStartOffset: 3, SentenceEndOffset: 10,
+		SentenceOrdinal: 0, TokenOrdinal: 1, AnalysisRunID: "run", CorpusID: "corpus", UnitID: "unit",
+		Attribution: domain.SourceAttribution{Kind: domain.AttributionStageDirection},
+	}
+	component := VocabularyConcordancePageView(domain.User{}, "", "de",
+		domain.ConcordanceLookup{Term: "schlägt", Page: 1},
+		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "schlägt"}, true, false, "", "", browseOrigin{})
+	var rendered bytes.Buffer
+	require.NoError(t, component.Render(t.Context(), &rendered))
+	require.Contains(t, rendered.String(), `<p class="concordance-attribution">Stage direction</p>`)
+}
+
+func TestConcordanceNoBreakProseKeepsTheShippedLayout(t *testing.T) {
+	occurrence := domain.ConcordanceResultOccurrence{
+		BookID: "book-1", BookTitle: "Buch", SentenceText: "Das Haus sieht gut aus.",
+		Surface: "Haus", SentenceStartOffset: 4, SentenceEndOffset: 8,
+		SentenceOrdinal: 0, TokenOrdinal: 1, AnalysisRunID: "run", CorpusID: "corpus", UnitID: "unit",
+	}
+	component := VocabularyConcordancePageView(domain.User{}, "", "de",
+		domain.ConcordanceLookup{Term: "Haus", Page: 1},
+		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "haus"}, true, false, "", "", browseOrigin{})
+	var rendered bytes.Buffer
+	require.NoError(t, component.Render(t.Context(), &rendered))
+	body := rendered.String()
+
+	require.NotContains(t, body, `class="concordance-line-break"`)
+	require.NotContains(t, body, `class="concordance-context-line"`)
+	require.Contains(t, body, `<p class="reading-text">Das <strong class="concordance-observed-target">Haus</strong> sieht gut aus.</p>`)
+}
+
 func TestConcordanceContinuedBookKeepsItsPageLocalCount(t *testing.T) {
 	occurrence := domain.ConcordanceResultOccurrence{
 		BookID: "book-1", BookTitle: "Der lange Weg nach Hause", SentenceText: "Ein Haus.", Surface: "Haus"}
@@ -256,17 +318,51 @@ func TestConcordanceSentencePartsRejectOffsetsOutsideTheSentence(t *testing.T) {
 	}
 }
 
-func TestConcordanceContextTextKeepsOnlyBoundarySpaces(t *testing.T) {
-	for input, want := range map[string]string{
-		"Wie er  tatsächlich\n verstand ": "Wie er tatsächlich verstand ",
-		" , falls  er":                    " , falls er",
-		", falls er":                      ", falls er",
-		" ":                               " ",
-		"":                                "",
-	} {
-		if got := concordanceContextText(input); got != want {
-			t.Errorf("concordanceContextText(%q) = %q, want %q", input, got, want)
-		}
+func TestConcordanceSummaryChunksMarkSourceLineBreaks(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []concordanceSummaryChunk
+	}{
+		{
+			name:  "source breaks become marks and boundary spaces stay unbroken",
+			input: "Wie er  tatsächlich\n verstand ",
+			want: []concordanceSummaryChunk{
+				{Text: "Wie er tatsächlich"},
+				{Break: true},
+				{Text: "verstand\u00a0"},
+			},
+		},
+		{
+			name:  "leading boundary space stays unbroken",
+			input: " , falls  er",
+			want:  []concordanceSummaryChunk{{Text: "\u00a0, falls er"}},
+		},
+		{
+			name:  "literal source slash is not a break",
+			input: "und/oder",
+			want:  []concordanceSummaryChunk{{Text: "und/oder"}},
+		},
+		{
+			name:  "no breaks keep today's collapse",
+			input: ", falls er",
+			want:  []concordanceSummaryChunk{{Text: ", falls er"}},
+		},
+		{
+			name:  "whitespace alone stays one boundary space",
+			input: " ",
+			want:  []concordanceSummaryChunk{{Text: "\u00a0"}},
+		},
+		{
+			name:  "empty text stays empty",
+			input: "",
+			want:  nil,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, concordanceSummaryChunks(test.input))
+		})
 	}
 }
 

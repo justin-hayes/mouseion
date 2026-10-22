@@ -40,6 +40,20 @@ func TestConcordanceTermsFallsBackForUnregisteredLanguage(t *testing.T) {
 	assert.Equal(t, "città", form)
 }
 
+// TestSourceAttributionIgnoresInvalidOffsets keeps malformed stored bounds or
+// an unrecorded v1 snapshot from failing a read or inventing metadata.
+func TestSourceAttributionIgnoresInvalidOffsets(t *testing.T) {
+	structure := domain.SnapshotStructure{Recorded: true, ConventionSet: domain.StructureConventionSet, RoleSpans: []domain.UnitRoleSpan{
+		{UnitID: "unit", Role: domain.SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 9},
+	}}
+	assert.Equal(t, domain.SourceAttribution{}, sourceAttributionAt(structure, "unit", "Valentin. Das Buch.", -1, 10))
+	assert.Equal(t, domain.SourceAttribution{}, sourceAttributionAt(structure, "unit", "Valentin. Das Buch.", 0, -1))
+	assert.Equal(t, domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Valentin"},
+		sourceAttributionAt(structure, "unit", "Valentin. Das Buch.", 10, 19))
+	assert.Equal(t, domain.SourceAttribution{}, sourceAttributionAt(domain.SnapshotStructure{}, "unit", "Valentin. Das Buch.", 10, 19),
+		"a v1 snapshot records no structure")
+}
+
 // TestSpeakerLabelOverlapIgnoresInvalidOffsets keeps a malformed stored offset
 // from failing or restricting a whole Concordance page or Study read.
 func TestSpeakerLabelOverlapIgnoresInvalidOffsets(t *testing.T) {

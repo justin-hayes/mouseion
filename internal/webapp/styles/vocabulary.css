@@ -345,6 +345,38 @@ body.vocabulary-shell .sentence-study-source {
   white-space: pre-wrap;
 }
 
+/* Source lines are structure. A soft wrap hangs under its line so the two can
+ * never look alike; no-break prose does not receive these row blocks. */
+body.vocabulary-shell .concordance-context-line,
+body.vocabulary-shell .sentence-study-source-line,
+body.vocabulary-shell .sentence-study-line-row {
+  display: block;
+  padding-inline-start: 1.5em;
+  text-indent: -1.5em;
+}
+
+body.vocabulary-shell .sentence-study-line-row + .sentence-study-line-row {
+  margin-block-start: var(--mouseion-space-2);
+}
+
+body.vocabulary-shell .concordance-line-break {
+  color: var(--mouseion-color-text-muted);
+  font-weight: 400;
+}
+
+body.vocabulary-shell .concordance-attribution,
+body.vocabulary-shell .sentence-study-attribution {
+  margin: 0 0 var(--mouseion-space-2);
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+body.vocabulary-shell .sentence-study-line-end {
+  color: var(--mouseion-color-text-muted);
+}
+
 body.vocabulary-shell .sentence-study-unit {
   display: inline-block;
   max-width: 100%;

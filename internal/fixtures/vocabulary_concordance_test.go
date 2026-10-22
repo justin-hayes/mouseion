@@ -41,6 +41,36 @@ func TestFixtureSentenceStudyServesStoredMorphology(t *testing.T) {
 	assert.Equal(t, map[string]string{"PartType": "Sep"}, study.Tokens[4].Morphology)
 }
 
+// TestFixturePoetryPresentationsServeVerseLinesAndAttribution exercises the
+// fixture server's line-aware Concordance and Sentence study data so browser
+// acceptance can prove source lines, per-line morphology and attribution
+// without a fake analyzer claim.
+func TestFixturePoetryPresentationsServeVerseLinesAndAttribution(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+
+	concordance, err := store.ListVocabularyConcordance(ctx, OwnerID, "de", domain.ConcordanceLookup{Language: "de", Term: "fixture-poetry"})
+	require.NoError(t, err)
+	require.Len(t, concordance.Occurrences, 1)
+	occurrence := concordance.Occurrences[0]
+	assert.Equal(t, fixturePoetrySentence, occurrence.SentenceText)
+	assert.Contains(t, occurrence.SentenceText, "\n")
+
+	study, err := store.GetVocabularySentenceStudy(ctx, OwnerID, "fixture-kwic-poetry", ResultRunID, "fixture-corpus", "fixture-poetry-unit", 0, 1, "Geist")
+	require.NoError(t, err)
+	assert.Contains(t, study.SentenceText, "\n")
+	assert.Equal(t, domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Mephistopheles"}, study.Attribution)
+	require.Len(t, study.Tokens, 29)
+	assert.Equal(t, "Geist", study.Tokens[1].Surface)
+	assert.Equal(t, int64(4), study.Tokens[1].StartOffset)
+	assert.Equal(t, int64(9), study.Tokens[1].EndOffset)
+
+	stage, err := store.GetVocabularySentenceStudy(ctx, OwnerID, "fixture-kwic-poetry", ResultRunID, "fixture-corpus", "fixture-stage-unit", 0, 1, "schlägt")
+	require.NoError(t, err)
+	assert.Equal(t, domain.SourceAttribution{Kind: domain.AttributionStageDirection}, stage.Attribution)
+	assert.Equal(t, "schlägt", stage.Tokens[1].Surface)
+}
+
 // TestFixtureConcordanceReportsStaleErrorsPriorityAndEmptyPages holds the
 // Concordance edge responses: a stale revision is flagged without occurrences,
 // the canned server-error and timeout terms surface the same errors the
