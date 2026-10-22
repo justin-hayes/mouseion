@@ -2,6 +2,7 @@ package cardexport
 
 import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
@@ -24,11 +25,18 @@ type RenderInput struct {
 	LSJSummaryProviderVersion, LSJSenseSummary string
 	OmittedEvidenceCount                       int
 	Morphology, SourceDocument, Notes          string
-	CandidateSenses                            []enrichment.LexicalSense
-	SentenceTokens                             []analyzer.Token
-	SentenceStartOffset                        uint64
-	FirstEncounter                             int64
-	fallbackGlossApplied                       bool
+	// Attribution is the optional typed source attribution frozen in the
+	// presentation-independent input set (ADR 0103).
+	Attribution          domain.SourceAttribution
+	CandidateSenses      []enrichment.LexicalSense
+	SentenceTokens       []analyzer.Token
+	SentenceStartOffset  uint64
+	FirstEncounter       int64
+	fallbackGlossApplied bool
+	// sourceLinePresentation is a presentation-contract flag, not a frozen
+	// specification field: a current manifest emits explicit per-source-line
+	// Text markup, while a historical manifest keeps its shipped prose markup.
+	sourceLinePresentation bool
 	// ProviderProposed marks a render input whose optional Gloss, sentence
 	// translation and English target alignment come from the Ancient Greek
 	// evidence-assisted pass and must be labelled provider-proposed. The pass
@@ -49,6 +57,7 @@ func renderInputFromEntry(entry Entry) RenderInput {
 		LSJSummaryProviderVersion: entry.LSJSummaryProviderVersion,
 		OmittedEvidenceCount:      entry.OmittedEvidenceCount,
 		Morphology:                entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes,
+		Attribution:     entry.Attribution,
 		CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
 		SentenceTokens:  cloneTokens(entry.SentenceTokens), SentenceStartOffset: entry.SentenceStartOffset,
 		FirstEncounter:       entry.FirstEncounter,

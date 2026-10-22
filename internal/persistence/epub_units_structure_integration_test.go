@@ -158,6 +158,26 @@ WHERE snap.owner_id=$1 AND snap.source_material_id=$2`, owner.ID, source.ID).Sca
 	assert.False(t, current.Structure.Recorded)
 }
 
+// TestLoadSnapshotSourceUnitsReadsTheExactSnapshot gives preparation the unit
+// text it needs to resolve speaker labels without falling back to newer source
+// evidence.
+func TestLoadSnapshotSourceUnitsReadsTheExactSnapshot(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "prepared-deck-source-units", false)
+	require.NoError(t, err)
+	source := putStructureSource(t, ctx, store, owner.ID, "prepared-deck-source-units")
+	units := structureUnitsFixture()
+	snapshotID := insertStructureSnapshot(t, ctx, store.Pool(), owner.ID, source.ID, source.ContentRevisionID, domain.StructureConventionSet, units.Units)
+
+	loaded, err := loadSnapshotSourceUnits(ctx, store.Pool(), owner.ID, source.ID, snapshotID)
+	require.NoError(t, err)
+	require.Len(t, loaded, len(units.Units))
+	for _, unit := range units.Units {
+		assert.Equal(t, unit.Text, loaded[unit.ID].Text)
+	}
+}
+
 // TestExtractedSnapshotStructureResolvesThroughTheExactSnapshot covers
 // owner/source/snapshot scoping, unit IDs that recur across snapshots, role
 // nesting and heading resets.

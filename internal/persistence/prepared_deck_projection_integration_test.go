@@ -35,6 +35,24 @@ func TestLoadPreparedDeckStorageProjectionSupportsHistoricalSchemas(t *testing.T
 	}
 }
 
+// TestLoadPreparedDeckStorageProjectionPreservesFrozenAttribution proves the
+// normalized durable row round-trips the optional v13 attribution, so the
+// manifest digest and a presentation-only rebuild see the same frozen value.
+func TestLoadPreparedDeckStorageProjectionPreservesFrozenAttribution(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	snapshot := projectionSnapshot(t, "", cardexport.ManifestSchemaVersion)
+	snapshot.Items[0].Entry.Attribution = domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Erster"}
+	owner, preparationID, runID, want := insertProjectionFixture(t, ctx, store, snapshot, nil)
+	loaded, digest, err := store.LoadPreparedDeckStorageProjection(ctx, owner, preparationID, runID)
+	require.NoError(t, err)
+	assert.Equal(t, want, loaded)
+	wantDigest, err := want.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, wantDigest, digest)
+	assert.Equal(t, domain.SourceAttribution{Kind: domain.AttributionSpeaker, Speaker: "Erster"}, loaded.Items[0].Entry.Attribution)
+}
+
 func TestLoadPreparedDeckStorageProjectionRejectsPersistedCorruption(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -151,7 +169,9 @@ func insertProjectionFixture(t *testing.T, ctx context.Context, store *PostgresS
 			SentenceTokens            []analyzer.Token          `json:"sentence_tokens,omitempty"`
 			SourceDocument            string                    `json:"source_document"`
 			Notes                     string                    `json:"notes"`
-		}{item.Entry.Morphology, item.Entry.Gloss, item.Entry.Plural, item.Entry.IPA, item.Entry.PrincipalParts, item.Entry.DictionaryProviderVersion, item.Entry.CandidateSenses, item.Entry.SentenceTokens, item.Entry.SourceDocument, item.Entry.Notes})
+			AttributionKind           string                    `json:"attribution_kind,omitempty"`
+			AttributionSpeaker        string                    `json:"attribution_speaker,omitempty"`
+		}{item.Entry.Morphology, item.Entry.Gloss, item.Entry.Plural, item.Entry.IPA, item.Entry.PrincipalParts, item.Entry.DictionaryProviderVersion, item.Entry.CandidateSenses, item.Entry.SentenceTokens, item.Entry.SourceDocument, item.Entry.Notes, string(item.Entry.Attribution.Kind), item.Entry.Attribution.Speaker})
 		require.NoError(t, err)
 		var provider, providerVersion, sentenceHash any
 		if item.CacheKey != nil {

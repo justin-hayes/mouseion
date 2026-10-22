@@ -238,7 +238,7 @@ func modelMetadata(modelID, deckID int64) map[string]any {
 	for i, name := range fieldNames {
 		fields[i] = map[string]any{"name": name, "ord": i, "sticky": false, "rtl": false, "font": "Arial", "size": 20, "media": []any{}}
 	}
-	qfmt := `{{Text}}`
+	qfmt := `{{#Attribution}}<div class="attribution">{{Attribution}}</div>{{/Attribution}}{{Text}}`
 	afmt := strings.TrimSpace(recognitionCardBackTemplate)
 	css := strings.TrimSpace(recognitionCardCSS)
 	return map[string]any{"id": modelID, "name": noteTypeName, "type": 0, "mod": 0, "usn": -1, "sortf": 0, "did": deckID, "tmpls": []any{map[string]any{"name": "Recognition", "ord": 0, "qfmt": qfmt, "afmt": afmt, "bqfmt": "", "bafmt": "", "did": nil}}, "flds": fields, "css": css, "latexPre": "", "latexPost": "", "req": []any{[]any{0, "all", []any{0}}}, "vers": []any{}, "tags": []any{}}

@@ -152,6 +152,23 @@ func TestInputAssemblerFreezesOccurrenceCorrectionIntoRecurringDeckIdentity(t *t
 	assert.Equal(t, 3, projections[0].Candidate.OccurrenceCount)
 }
 
+// TestCandidateProjectionsCarryTheExactSnapshotStructure proves the assembler
+// hands presentation the exact snapshot roles and unit text it needs to derive
+// frozen attribution, without consulting newer source evidence.
+func TestCandidateProjectionsCarryTheExactSnapshotStructure(t *testing.T) {
+	unit := domain.ExtractedUnit{ID: "unit-1", Text: "Erster. Der Dichter spricht."}
+	structure := domain.SnapshotStructure{Recorded: true, ConventionSet: domain.StructureConventionSet, RoleSpans: []domain.UnitRoleSpan{
+		{UnitID: unit.ID, Role: domain.SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 7},
+	}}
+	projections := candidateProjections(domain.DeckPreparation{OwnerID: "alice"}, "Book", []persistence.PreparedDeckCandidateFacts{{
+		Candidate: domain.SelectionCandidate{Language: "de", CanonicalLemma: "dichter", UPOS: "NOUN"},
+		Entry:     cardexport.Entry{Language: "de", CanonicalLemma: "dichter", UPOS: "NOUN"},
+	}}, structure, map[string]domain.ExtractedUnit{unit.ID: unit})
+	require.Len(t, projections, 1)
+	assert.Equal(t, structure, projections[0].Structure)
+	assert.Equal(t, unit, projections[0].SourceUnits[unit.ID])
+}
+
 // cutoverGreekProjection is a valid Ancient Greek projection whose sentence
 // passes the Greek quality gate.
 func cutoverGreekProjection() cardexport.CandidateProjection {

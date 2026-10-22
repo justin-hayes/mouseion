@@ -7,8 +7,10 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
@@ -49,6 +51,12 @@ type CandidateProjection struct {
 	// empty unless the summary's payload assessment is recorded, so no summary
 	// is requested or shown (ADR 0101).
 	LSJSummaryProviderVersion string
+	// Structure and SourceUnits are the exact source snapshot's recorded roles
+	// and units. Preparation derives the optional frozen attribution from them;
+	// an empty structure (every v1 snapshot) establishes no attribution
+	// (ADR 0103).
+	Structure   domain.SnapshotStructure
+	SourceUnits map[string]domain.ExtractedUnit
 }
 
 // WorkItem is one exact external request derived from a frozen deck.
@@ -234,6 +242,9 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, orde
 		entry := cloneEntry(projection.Entry)
 		clearExternalFields(&entry)
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
+		if err := applySourceAttribution(&entry, projection); err != nil {
+			return nil, err
+		}
 		applyPassageContext(&entry, projection)
 		entry.ProviderProposed = projection.EvidenceAssistedPass
 		entry.LSJSummaryProviderVersion = projection.LSJSummaryProviderVersion
@@ -255,6 +266,44 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, orde
 		entries = append(entries, entry)
 	}
 	return entries, nil
+}
+
+// applySourceAttribution derives the optional typed attribution of the frozen
+// representative sentence from the exact source snapshot. It prefers the
+// persisted sentence's own unit and range so a text-only fallback never invents
+// structure, and it never consults newer source evidence (ADR 0103).
+func applySourceAttribution(entry *Entry, projection CandidateProjection) error {
+	if entry == nil {
+		return nil
+	}
+	// A new preparation derives attribution only from this exact snapshot; an
+	// unrelated caller-provided value must not survive as evidence.
+	entry.Attribution = domain.SourceAttribution{}
+	if !projection.Structure.Recorded || entry.Sentence == "" {
+		return nil
+	}
+	sentence, ok := projection.Sentences[entry.SentenceOrdinal]
+	if !ok || sentence.Text != entry.Sentence {
+		return nil
+	}
+	unit, ok := projection.SourceUnits[sentence.Location.SourceDocumentID]
+	if !ok {
+		return nil
+	}
+	start, end := sentence.Location.StartOffset, sentence.Location.EndOffset
+	if end <= start {
+		length, err := checked.Uint64FromInt(utf8.RuneCountInString(entry.Sentence))
+		if err != nil {
+			return fmt.Errorf("derive source attribution: %w", err)
+		}
+		end = start + length
+	}
+	attribution := projection.Structure.AttributionAt(unit, start, end)
+	if attribution.Kind == domain.AttributionSpeaker && strings.TrimSpace(attribution.Speaker) == "" {
+		return nil
+	}
+	entry.Attribution = attribution
+	return nil
 }
 
 // applyPassageContext freezes the imported Brownson passage of the sections a
