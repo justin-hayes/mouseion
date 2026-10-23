@@ -2,10 +2,14 @@ package selection
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -632,4 +636,52 @@ func TestProjectWithholdsOnlyStudyContextOverlappingSpeakerLabels(t *testing.T) 
 			assert.Len(t, candidate.SentenceReferences, 2)
 		}
 	}
+}
+
+// TestProjectKeepsAnExplicitEmptyReferenceListForLabelOnlyContext proves a
+// candidate can count an eligible direction word while its only sentence
+// overlaps a speaker label. The empty reference list is persisted as [] rather
+// than JSON null, so preparation fact loaders can expand it unconditionally.
+func TestProjectKeepsAnExplicitEmptyReferenceListForLabelOnlyContext(t *testing.T) {
+	const unit = "epub-unit-v1:0:mixed"
+	const text = "Mephistopheles mit seltsamen Geberden."
+	labelIndex := strings.Index(text, "Mephistopheles")
+	require.GreaterOrEqual(t, labelIndex, 0)
+	labelStart, err := checked.Uint64FromInt(utf8.RuneCountInString(text[:labelIndex]))
+	require.NoError(t, err)
+	labelLength, err := checked.Uint64FromInt(utf8.RuneCountInString("Mephistopheles"))
+	require.NoError(t, err)
+	labelEnd := labelStart + labelLength
+	wordIndex := strings.Index(text, "Geberden")
+	require.GreaterOrEqual(t, wordIndex, 0)
+	wordStart, err := checked.Uint64FromInt(utf8.RuneCountInString(text[:wordIndex]))
+	require.NoError(t, err)
+	wordLength, err := checked.Uint64FromInt(utf8.RuneCountInString("Geberden"))
+	require.NoError(t, err)
+	textLength, err := checked.Uint64FromInt(len([]rune(text)))
+	require.NoError(t, err)
+	sentence := analyzer.Sentence{
+		Text:     text,
+		Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: 0, EndOffset: textLength},
+		Tokens: []analyzer.Token{
+			{Surface: "Mephistopheles", CanonicalLemma: "Mephistopheles", UPOS: "PROPN", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: labelStart, EndOffset: labelEnd}},
+			{Surface: "Geberden", CanonicalLemma: "Geberde", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: unit, StartOffset: wordStart, EndOffset: wordStart + wordLength}},
+		},
+	}
+	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{sentence}}
+	config := DefaultConfig("corpus")
+	config.Structure = domain.SnapshotStructure{Recorded: true, ConventionSet: domain.StructureConventionSet, RoleSpans: []domain.UnitRoleSpan{
+		{UnitID: unit, Role: domain.SourceStructureRoleSpeaker, StartOffset: 0, EndOffset: 14},
+	}}
+
+	projected, err := Project(corpus, config, nil)
+	require.NoError(t, err)
+	require.Len(t, projected, 1)
+	assert.Equal(t, "Geberde", projected[0].Identity.CanonicalLemma)
+	assert.Equal(t, 1, projected[0].OccurrenceCount)
+	assert.NotNil(t, projected[0].SentenceReferences)
+	assert.Empty(t, projected[0].SentenceReferences)
+	encoded, err := json.Marshal(projected[0].SentenceReferences)
+	require.NoError(t, err)
+	assert.JSONEq(t, "[]", string(encoded))
 }
