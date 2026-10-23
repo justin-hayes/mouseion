@@ -246,6 +246,49 @@ The web server applies the embedded golang-migrate migrations at startup.
 history is preserved at the `migrations/pre-baseline` Git tag. Schema changes
 follow [ADR 0038](adr/0038-schema-change-governance.md).
 
+### Single-version schema and evidence cutover
+
+Some releases add a new source-extraction or analysis contract that must not
+coexist with older writers. The source-structure release
+(`000045_source_structure_v2`, [ADR 0103](adr/0103-source-structure-and-poetry-evidence.md))
+is the current case. Deploy one version at a time; this procedure is not
+deployment permission.
+
+1. **Quiesce the old version.** Stop the web process, which owns the River
+   workers: `docker compose stop web`. Confirm no old web process, worker,
+   analysis run, catalogue sync or one-off maintenance command still writes.
+   Mixed old/new writers are unsupported.
+2. **Optionally back up.** A manual `pg_dump --format=custom` outside the
+   repository is insurance, not an automated rollback step. ADR 0103 does not
+   require it.
+3. **Apply the additive DDL and start the new version.** Start the new image
+   with `docker compose up -d --build web`. On startup the binary applies the
+   embedded migrations before it opens the store, serves HTTP or starts River,
+   so DDL completes before any v2 write. Verify the migration reached version
+   45 with no dirty state, then run the container healthcheck.
+4. **Keep one version running.** Do not start the old image again after the
+   migration. There is no mixed-writer mode and no supported downgrade after a
+   Book adopts v2.
+5. **Verify the new state.** The health endpoint returns `ok`; River workers are
+   registered; existing v1 snapshots, unit text and analyses are unchanged; a
+   newly acquired Book records `schema_version = 2` with the versioned
+   convention set; no existing Book changed snapshot without learner
+   confirmation.
+6. **Adopt deliberately.** Existing Books remain on v1 until a learner confirms
+   **Source structure update** at Book level. Do not run a library-wide
+   adoption, pre-create candidate snapshots or enqueue automatic reanalysis.
+
+Failure during the migration prevents the server from starting. The migration
+runs in a transaction, so the previous schema stays in place; resolve the cause
+and retry the same version rather than editing migration history. Failure after
+the switch uses the existing stale/failed analysis states and **Re-analyze**;
+retries converge on the same extraction and run identity.
+`000045_source_structure_v2.down.sql` drops the structure tables and is not a
+supported production rollback after v2 adoption. Recovery is retry and
+forward-fix only: there is no revert-to-v1 action and no correction, Reading or
+deck remapping. Restoring a pre-cutover backup is a break-glass operator
+decision, not a downgrade procedure.
+
 ## Maintenance commands
 
 These commands run against `MOUSEION_DATABASE_URL`.
