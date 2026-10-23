@@ -218,7 +218,14 @@ func projectCandidate(id Identity, a *aggregate, cfg SelectionConfig) Candidate 
 		forms = append(forms, form)
 	}
 	sort.Strings(forms)
-	return Candidate{Identity: id, OccurrenceCount: a.count, ObservedForms: forms, SentenceReferences: a.refs, Provenance: Provenance{MinOccurrences: cfg.MinOccurrences, OccurrenceCount: a.count}}
+	// A candidate whose every occurrence overlaps a speaker label has no
+	// acceptable study reference. Persist an explicit empty array rather than
+	// JSON null, so fact loaders can expand the column unconditionally.
+	refs := a.refs
+	if refs == nil {
+		refs = []SentenceReference{}
+	}
+	return Candidate{Identity: id, OccurrenceCount: a.count, ObservedForms: forms, SentenceReferences: refs, Provenance: Provenance{MinOccurrences: cfg.MinOccurrences, OccurrenceCount: a.count}}
 }
 
 // AnalyzableStatistics calculates the immutable coverage denominator using the

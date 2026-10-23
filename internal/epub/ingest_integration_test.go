@@ -3,6 +3,7 @@
 package epub
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -167,6 +168,98 @@ func TestImportMainTextFixturePreservesAllDeclaredUnits(t *testing.T) {
 		result.Book.ExtractedUnits.Units[1].ManifestID,
 		result.Book.ExtractedUnits.Units[2].ManifestID,
 		result.Book.ExtractedUnits.Units[3].ManifestID,
+	})
+}
+
+// TestImportForAcquisitionWritesV2SnapshotAndRetainsBytes is the new-acquisition
+// guard for the v2 cutover. A same-origin acquisition of the checksum-pinned
+// Faust excerpt keeps the downloaded bytes unchanged, records the immutable v2
+// snapshot with its role spans and heading resets, and analyses the whole
+// snapshot because the edition declares no main-text landmark.
+func TestImportForAcquisitionWritesV2SnapshotAndRetainsBytes(t *testing.T) {
+	ctx := context.Background()
+	url, admin := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "epub store", store.Close)
+	owner, err := store.CreateUser(ctx, "faust-acquisition", false)
+	require.NoError(t, err)
+
+	data := fixtureDirectory(t, "testfixtures/faust-excerpt")
+	extracted, err := ExtractV2(data)
+	require.NoError(t, err)
+
+	result, err := NewService(store).ImportForAcquisition(ctx, owner.ID, "de", data)
+	require.NoError(t, err)
+	require.False(t, result.AlreadyPresent)
+
+	t.Run("retains the original bytes and digest unchanged", func(t *testing.T) {
+		source, err := store.GetSourceMaterial(ctx, owner.ID, result.Source.ID)
+		require.NoError(t, err)
+		assert.True(t, bytes.Equal(data, source.Content), "acquisition rewrote the retained original")
+		assert.Equal(t, domain.EPUBContentDigest(data), source.ContentHash)
+		assert.Equal(t, extracted.Book.FullText, source.FullText)
+	})
+
+	t.Run("records the v2 snapshot identity", func(t *testing.T) {
+		snapshotID, units, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, result.Source.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, snapshotID)
+		assert.Equal(t, int(domain.ExtractedUnitsSchemaVersionV2), units.SchemaVersion)
+		assert.Equal(t, extracted.Book.ExtractedUnits, units, "the stored snapshot is the exact v2 extraction")
+		assert.Equal(t, extracted.Book.ExtractedUnits.ReconstructText(), extracted.Book.FullText)
+
+		var schemaVersion int
+		var conventionSet string
+		require.NoError(t, admin.QueryRow(ctx, `
+SELECT schema_version, structure_convention_set
+FROM source_material_unit_snapshots
+WHERE owner_id=$1 AND source_material_id=$2 AND snapshot_id=$3`,
+			owner.ID, result.Source.ID, snapshotID).Scan(&schemaVersion, &conventionSet))
+		assert.Equal(t, int(domain.ExtractedUnitsSchemaVersionV2), schemaVersion)
+		assert.Equal(t, domain.StructureConventionSet, conventionSet)
+
+		tx, err := store.Pool().Begin(ctx)
+		require.NoError(t, err)
+		testutil.Cleanup(t, "snapshot structure read transaction", func() error { return tx.Rollback(ctx) })
+		structure, err := persistence.LoadSnapshotStructure(ctx, tx, owner.ID, result.Source.ID, snapshotID)
+		require.NoError(t, err)
+		assert.True(t, structure.Recorded)
+		assert.Equal(t, extracted.Structure.RoleSpans, structure.RoleSpans)
+		assert.Equal(t, extracted.Structure.HeadingResets, structure.HeadingResets)
+		require.NotEmpty(t, structure.RoleSpans, "the Director excerpts declare speaker and direction roles")
+		require.NotEmpty(t, structure.HeadingResets, "the Vorspiel heading resets attribution")
+	})
+
+	t.Run("falls back to the whole snapshot as analysis scope", func(t *testing.T) {
+		_, units, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, result.Source.ID)
+		require.NoError(t, err)
+		decision := IdentifyMainText(units.Units)
+		assert.False(t, decision.Identified, "the excerpt declares no bodymatter landmark")
+		assert.False(t, decision.Applies)
+		selected := make([]string, 0, len(units.Units))
+		for _, unit := range units.Units {
+			selected = append(selected, unit.ID)
+		}
+		assert.Equal(t, selected, decision.SelectedUnitIDs)
+		assert.Empty(t, decision.ExcludedUnitIDs)
+		assert.Contains(t, result.Book.FullText, "Vorspiel", "header matter stays in the whole-snapshot fallback")
+	})
+
+	t.Run("a repeat acquisition converges on the same snapshot", func(t *testing.T) {
+		firstSnapshot, _, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, result.Source.ID)
+		require.NoError(t, err)
+		second, err := NewService(store).ImportForAcquisition(ctx, owner.ID, "de", data)
+		require.NoError(t, err)
+		require.True(t, second.AlreadyPresent)
+		assert.Equal(t, result.Source.ID, second.Source.ID)
+		secondSnapshot, units, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, second.Source.ID)
+		require.NoError(t, err)
+		assert.Equal(t, firstSnapshot, secondSnapshot)
+		assert.Equal(t, extracted.Book.ExtractedUnits, units)
+		source, err := store.GetSourceMaterial(ctx, owner.ID, second.Source.ID)
+		require.NoError(t, err)
+		assert.True(t, bytes.Equal(data, source.Content))
 	})
 }
 
