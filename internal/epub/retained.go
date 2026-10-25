@@ -385,11 +385,11 @@ func cutManifestItems(opf []byte, removals []plannedRemoval) ([]byte, error) {
 	return rewritten.Bytes(), nil
 }
 
-// writeRetained copies every kept entry raw and in its original order. The
-// rewritten package document keeps its entry's position, name, compression
-// method and modification time. A positive limit stops the output as soon as
-// it would cross the bound, so peak memory follows the limit rather than the
-// Catalog file.
+// writeRetained copies every kept entry raw and in its original order, except
+// directory entries, which are written empty. The rewritten package document
+// keeps its entry's position, name, compression method and modification time.
+// A positive limit stops the output as soon as it would cross the bound, so
+// peak memory follows the limit rather than the Catalog file.
 func writeRetained(container *zip.Reader, opfPath string, opf []byte, removals []plannedRemoval, limit int64) ([]byte, error) {
 	removed := make(map[string]struct{}, len(removals))
 	for _, removal := range removals {
@@ -402,26 +402,53 @@ func writeRetained(container *zip.Reader, opfPath string, opf []byte, removals [
 		if _, drop := removed[name]; drop {
 			continue
 		}
-		if name != opfPath {
-			if err := writer.Copy(file); err != nil {
-				return nil, retainedWriteError(err, "copy retained container entry "+name)
-			}
-			continue
-		}
-		header := file.FileHeader
-		header.Extra = nil
-		entry, err := writer.CreateHeader(&header)
-		if err != nil {
-			return nil, retainedWriteError(err, "rewrite package document")
-		}
-		if _, err := entry.Write(opf); err != nil {
-			return nil, retainedWriteError(err, "write package document")
+		if err := writeRetainedEntry(writer, file, name, opfPath, opf); err != nil {
+			return nil, err
 		}
 	}
 	if err := writer.Close(); err != nil {
 		return nil, retainedWriteError(err, "close Retained EPUB")
 	}
 	return out.Bytes(), nil
+}
+
+// writeRetainedEntry writes one kept entry: a directory as an empty entry, the
+// rewritten package document under its original header, and anything else raw.
+func writeRetainedEntry(writer *zip.Writer, file *zip.File, name, opfPath string, opf []byte) error {
+	if strings.HasSuffix(file.Name, "/") {
+		return writeRetainedDirectory(writer, file, name)
+	}
+	if name != opfPath {
+		if err := writer.Copy(file); err != nil {
+			return retainedWriteError(err, "copy retained container entry "+name)
+		}
+		return nil
+	}
+	header := file.FileHeader
+	header.Extra = nil
+	entry, err := writer.CreateHeader(&header)
+	if err != nil {
+		return retainedWriteError(err, "rewrite package document")
+	}
+	if _, err := entry.Write(opf); err != nil {
+		return retainedWriteError(err, "write package document")
+	}
+	return nil
+}
+
+// writeRetainedDirectory writes a directory entry empty rather than raw. Some
+// tools deflate directories, leaving a few bytes of empty stream that the zip
+// writer refuses for a directory. A directory that claims content is invalid.
+func writeRetainedDirectory(writer *zip.Writer, file *zip.File, name string) error {
+	if file.UncompressedSize64 != 0 {
+		return invalid("directory entry "+name+" holds data", nil)
+	}
+	header := file.FileHeader
+	header.Extra = nil
+	if _, err := writer.CreateHeader(&header); err != nil {
+		return retainedWriteError(err, "write retained directory entry "+name)
+	}
+	return nil
 }
 
 // limitedBuffer refuses output past a positive byte limit with

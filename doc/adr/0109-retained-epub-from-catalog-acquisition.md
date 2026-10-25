@@ -71,7 +71,10 @@ every resource extraction reads.
 - The output must be deterministic: a pure function of the Catalog file's bytes
   and the slimming version. Kept entries are copied raw, in their original
   order. A rewritten package document keeps its entry's position, name, method
-  and modification time.
+  and modification time. A directory entry is written as an empty stored
+  entry with the same position, name and modification time, because some
+  tools deflate directories and a ZIP writer cannot copy those bytes raw; a
+  directory entry that claims content is an invalid EPUB.
 - When nothing matches, the Retained EPUB is the Catalog file, byte-for-byte.
 
 ### Identity and provenance
