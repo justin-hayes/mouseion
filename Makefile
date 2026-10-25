@@ -34,7 +34,7 @@ DICTIONARY_LSJ_PIN ?= 56061ca127f4a2844980baffc5f2b6d1332897b3
 DICTIONARY_LSJ_ARGS := $(if $(strip $(DICTIONARY_LSJ_DIR)),--lsj-dir "$(DICTIONARY_LSJ_DIR)" --lsj-pin "$(DICTIONARY_LSJ_PIN)",)
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight french-golden
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources check-dockerfile-go python-test-preflight french-golden
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
@@ -203,6 +203,12 @@ check-frontend-css:
 	$(MAKE) check-frontend-css-sources
 	tools/build-frontend-css.sh
 	git diff --exit-code -- internal/webapp/static/app.css
+
+# The Dockerfile's golang image must satisfy go.mod's go directive; CI's Go
+# jobs read go.mod and would not notice an image left behind.
+check-dockerfile-go:
+	tools/check-dockerfile-go_test.sh
+	tools/check-dockerfile-go.sh
 
 # Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
 # the current-state baseline/successor migrations. sqlc is pinned; CI installs

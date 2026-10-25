@@ -92,6 +92,11 @@ jobs:
         if: needs.changes.outputs.go == 'true'
         run: go build ./...
 
+      # go.mod and Dockerfile changes both mark the go class.
+      - name: Verify Dockerfile Go image satisfies go.mod
+        if: needs.changes.outputs.go == 'true'
+        run: make check-dockerfile-go
+
       # The unit suite runs under the race detector through the same Makefile
       # switch developers use locally (doc/development.md).
       - name: Go test
