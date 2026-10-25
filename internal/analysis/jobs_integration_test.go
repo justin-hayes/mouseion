@@ -290,6 +290,13 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	if tokenCount != int64(len(tokens)) {
 		t.Fatalf("token count = %d, want %d", tokenCount, len(tokens))
 	}
+	// Publication plans its Browse projection read against these statistics;
+	// stale ones made it run for half an hour on a large first-language corpus.
+	var analyzedSentences, analyzedTokens float64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT reltuples FROM pg_class WHERE oid='corpus_sentences'::regclass`).Scan(&analyzedSentences))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT reltuples FROM pg_class WHERE oid='corpus_tokens'::regclass`).Scan(&analyzedTokens))
+	assert.InDelta(t, float64(sentenceCount), analyzedSentences, 0, "persisting the corpus refreshes corpus_sentences planner statistics")
+	assert.InDelta(t, float64(tokenCount), analyzedTokens, 0, "persisting the corpus refreshes corpus_tokens planner statistics")
 	if corpus.Statistics == nil || corpus.Statistics.TextProfile == nil || corpus.Statistics.TextProfile.SentenceCount != sentenceCount || corpus.Statistics.TextProfile.EmptySentenceCount != 1 {
 		t.Fatalf("text profile = %+v, want two sentences and one empty sentence", corpus.Statistics)
 	}
