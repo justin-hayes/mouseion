@@ -153,6 +153,51 @@ func TestRetainReturnsTheCatalogFileWhenNothingMatches(t *testing.T) {
 	})
 }
 
+func TestRetainKeepsADirectoryEntryThatCarriesCompressedBytes(t *testing.T) {
+	catalog := directoryEPUB(t, "OPS/audio/", "")
+	directory := zipEntry(t, openZip(t, catalog), "OPS/audio")
+	require.NotNil(t, directory)
+	require.NotEmpty(t, rawEntryBytes(t, directory), "fixture must carry a deflated empty stream")
+
+	retained, err := Retain(bytes.NewReader(catalog), int64(len(catalog)), math.MaxInt64)
+	require.NoError(t, err)
+	t.Run("removes the font entry", func(t *testing.T) {
+		require.NotContains(t, retainedEntryNames(t, retained.Content), "OPS/font.bin")
+	})
+	t.Run("keeps the directory entry, empty", func(t *testing.T) {
+		got := zipEntry(t, openZip(t, retained.Content), "OPS/audio")
+		require.NotNil(t, got, "directory entry disappeared")
+		require.Equal(t, "OPS/audio/", got.Name)
+		require.Empty(t, rawEntryBytes(t, got))
+		require.True(t, got.Modified.Equal(directory.Modified), "directory modification time changed")
+	})
+	t.Run("repeated runs agree byte-for-byte", func(t *testing.T) {
+		again, err := Retain(bytes.NewReader(catalog), int64(len(catalog)), math.MaxInt64)
+		require.NoError(t, err)
+		require.Equal(t, retained.Content, again.Content)
+	})
+}
+
+func TestRetainRefusesADirectoryEntryThatHoldsData(t *testing.T) {
+	catalog := directoryEPUB(t, "OPS/audio/", "not empty")
+	_, err := Retain(bytes.NewReader(catalog), int64(len(catalog)), math.MaxInt64)
+	require.ErrorIs(t, err, ErrInvalidEPUB)
+}
+
+// directoryEPUB builds a Catalog file whose deflated directory entry holds
+// content, as some EPUB tools write even when it is empty. Go's zip writer
+// stores directories with no data, so the entry is written under a file name
+// of the same length and renamed in place; the name occurs nowhere else.
+func directoryEPUB(t *testing.T, directory, content string) []byte {
+	t.Helper()
+	placeholder := strings.TrimSuffix(directory, "/") + "_"
+	catalog := epubFixture(t, validPackage(`<item id="font" href="font.bin" media-type="font/otf"/>`, ""),
+		fixtureFile{placeholder, content},
+		fixtureFile{"OPS/font.bin", "font bytes"},
+	)
+	return bytes.ReplaceAll(catalog, []byte(placeholder), []byte(directory))
+}
+
 func TestRetainRemovesEveryFontMediaTypeSpelling(t *testing.T) {
 	for _, media := range []string{
 		"font/otf",
@@ -257,6 +302,13 @@ func TestRetainStopsAtTheSizeLimit(t *testing.T) {
 	}{
 		{name: "a no-op Catalog file is not read", catalog: clean, limit: int64(len(clean)) - 1},
 		{name: "a rewritten Retained EPUB is not materialised in full", catalog: illustrated, limit: 100},
+		{name: "a large kept entry stops the copy", catalog: storedZip(t,
+			fixtureFile{"mimetype", mediaType},
+			fixtureFile{"META-INF/container.xml", containerXML},
+			fixtureFile{"OPS/content.opf", validPackage(`<item id="font" href="font.bin" media-type="font/otf"/>`, "")},
+			fixtureFile{"OPS/font.bin", "font bytes"},
+			fixtureFile{"OPS/text.xhtml", strings.Repeat("x", 8<<10)},
+		), limit: 1 << 10},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -264,6 +316,52 @@ func TestRetainStopsAtTheSizeLimit(t *testing.T) {
 			require.ErrorIs(t, err, ErrRetainedSizeLimit)
 		})
 	}
+}
+
+// TestWriteRetainedEntryStopsAtTheSizeLimit writes stored entries larger
+// than the zip writer's buffer, so the limit trips inside the entry write.
+func TestWriteRetainedEntryStopsAtTheSizeLimit(t *testing.T) {
+	large := strings.Repeat("x", 8<<10)
+	catalog := openZip(t, storedZip(t,
+		fixtureFile{"OPS/content.opf", "<package/>"},
+		fixtureFile{"OPS/audio/", ""},
+		fixtureFile{"OPS/text.xhtml", large},
+	))
+	opf := zipEntry(t, catalog, "OPS/content.opf")
+	directory := zipEntry(t, catalog, "OPS/audio")
+	text := zipEntry(t, catalog, "OPS/text.xhtml")
+	limited := func() *zip.Writer { return zip.NewWriter(&limitedBuffer{limit: 100}) }
+
+	t.Run("copying a raw entry", func(t *testing.T) {
+		err := writeRetainedEntry(limited(), text, "OPS/text.xhtml", "OPS/content.opf", nil)
+		require.ErrorIs(t, err, ErrRetainedSizeLimit)
+	})
+	t.Run("rewriting the package document", func(t *testing.T) {
+		err := writeRetainedEntry(limited(), opf, "OPS/content.opf", "OPS/content.opf", []byte(large))
+		require.ErrorIs(t, err, ErrRetainedSizeLimit)
+	})
+	t.Run("writing a directory after the limit", func(t *testing.T) {
+		writer := limited()
+		require.ErrorIs(t, writer.Copy(text), ErrRetainedSizeLimit)
+		err := writeRetainedEntry(writer, directory, "OPS/audio", "OPS/content.opf", nil)
+		require.ErrorIs(t, err, ErrRetainedSizeLimit)
+	})
+}
+
+// storedZip writes uncompressed entries, so their size reaches the output
+// unchanged.
+func storedZip(t *testing.T, files ...fixtureFile) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, file := range files {
+		w, err := zw.CreateHeader(&zip.FileHeader{Name: file.name, Method: zip.Store})
+		require.NoError(t, err)
+		_, err = w.Write([]byte(file.content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, zw.Close())
+	return buf.Bytes()
 }
 
 func TestCutManifestItemsRejectsAnInvalidRange(t *testing.T) {
