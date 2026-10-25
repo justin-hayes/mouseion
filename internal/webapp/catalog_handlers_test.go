@@ -54,8 +54,13 @@ func TestLegacyConnectionsRoutePermanentlyRedirectsAndPreservesSupportedQuery(t 
 	assert.False(t, got.Has("ignored"))
 }
 
-func TestOPDSErrorMessageNamesTheEPUBSizeLimit(t *testing.T) {
-	// The size case must win over the generic "download EPUB" connection case.
-	err := fmt.Errorf("opds: download EPUB: %w", opds.ErrEPUBTooLarge)
-	assert.Equal(t, "This EPUB is larger than the 100 MiB download limit. Choose a smaller edition, or reduce its images in the catalog.", opdsErrorMessage(err))
+func TestOPDSErrorMessageNamesTheEPUBSizeLimits(t *testing.T) {
+	t.Run("download limit", func(t *testing.T) {
+		err := fmt.Errorf("opds: download EPUB: %w", opds.ErrDownloadTooLarge)
+		assert.Equal(t, "This EPUB is larger than the 512 MiB download limit. Choose a smaller edition.", opdsErrorMessage(err))
+	})
+	t.Run("stored-content limit", func(t *testing.T) {
+		err := fmt.Errorf("opds: ingest downloaded EPUB: %w", opds.ErrRetainedEPUBTooLarge)
+		assert.Equal(t, "This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition.", opdsErrorMessage(err))
+	})
 }

@@ -4,14 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 )
+
+const defaultRetainedLimit = int64(100 << 20)
 
 var (
 	ErrUnauthenticated   = errors.New("opds: authenticated user is required")
@@ -26,19 +30,32 @@ type Importer interface {
 	Import(context.Context, string, string, []byte) (epub.ImportResult, error)
 }
 type AcquisitionImporter interface {
-	ImportForAcquisition(context.Context, string, string, []byte) (epub.ImportResult, error)
+	ImportForAcquisition(context.Context, string, string, epub.AcquisitionContent) (epub.ImportResult, error)
 }
 type AcquisitionImporterForBook interface {
-	ImportForAcquisitionForBook(context.Context, string, string, string, []byte) (epub.ImportResult, error)
+	ImportForAcquisitionForBook(context.Context, string, string, string, epub.AcquisitionContent) (epub.ImportResult, error)
 }
 type Service struct {
 	store    ConnectionStore
 	importer Importer
 	http     *http.Client
+	// acquisitionTempDir holds Catalog files while they are acquired. Empty uses the
+	// system temporary directory.
+	acquisitionTempDir string
+	// retainedLimit bounds the Retained EPUB. NewService fills the default;
+	// tests override it to avoid streaming a real 100 MiB body.
+	retainedLimit int64
 }
 
 func NewService(store ConnectionStore, importer Importer, httpClient *http.Client) *Service {
-	return &Service{store: store, importer: importer, http: httpClient}
+	return &Service{store: store, importer: importer, http: httpClient, retainedLimit: defaultRetainedLimit}
+}
+
+// WithAcquisitionTempDir sets where Catalog files are streamed. It returns the same
+// service so startup can chain construction.
+func (s *Service) WithAcquisitionTempDir(dir string) *Service {
+	s.acquisitionTempDir = dir
+	return s
 }
 func (s *Service) Browse(ctx context.Context, ownerID, connectionID, feedURL string) (Feed, error) {
 	connection, client, err := s.client(ctx, ownerID, connectionID)
@@ -184,28 +201,50 @@ func (s *Service) acquire(ctx context.Context, ownerID, connectionID, language, 
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
-	content, err := client.Download(ctx, downloadURL)
+	// Acquisition is synchronous but outlives the page request: the response
+	// deadline must not abandon a download the learner can only observe by
+	// reloading My Books.
+	acquisitionCtx := context.WithoutCancel(ctx)
+	download, err := client.DownloadToFile(acquisitionCtx, downloadURL, s.acquisitionTempDir)
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
+	defer removeDownloadedCatalogFile(download.Path)
+	if download.Size > s.retainedLimit {
+		return epub.ImportResult{}, ErrRetainedEPUBTooLarge
+	}
+	content, err := os.ReadFile(download.Path)
+	if err != nil {
+		return epub.ImportResult{}, fmt.Errorf("opds: read downloaded EPUB: %w", err)
+	}
+	acquisition := epub.AcquisitionContent{Content: content, CatalogDigest: download.Digest}
 	var result epub.ImportResult
 	if bookID != "" {
 		acquisitionImporter, ok := s.importer.(AcquisitionImporterForBook)
 		if !ok {
 			return epub.ImportResult{}, errors.New("opds: selected acquisition book cannot be promoted")
 		}
-		result, err = acquisitionImporter.ImportForAcquisitionForBook(ctx, ownerID, language, bookID, content)
+		result, err = acquisitionImporter.ImportForAcquisitionForBook(acquisitionCtx, ownerID, language, bookID, acquisition)
+	} else if acquisitionImporter, ok := s.importer.(AcquisitionImporter); ok {
+		result, err = acquisitionImporter.ImportForAcquisition(acquisitionCtx, ownerID, language, acquisition)
 	} else {
-		importer := s.importer.Import
-		if acquisitionImporter, ok := s.importer.(AcquisitionImporter); ok {
-			importer = acquisitionImporter.ImportForAcquisition
-		}
-		result, err = importer(ctx, ownerID, language, content)
+		result, err = s.importer.Import(acquisitionCtx, ownerID, language, content)
 	}
 	if err != nil {
 		return epub.ImportResult{}, fmt.Errorf("opds: ingest downloaded EPUB: %w", err)
 	}
 	return result, nil
+}
+
+// removeDownloadedCatalogFile keeps temporary disk use bounded. A removal
+// failure must not fail an acquisition that already succeeded.
+func removeDownloadedCatalogFile(path string) {
+	if path == "" {
+		return
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Printf("mouseion: could not remove downloaded catalog file %s: %v", path, err)
+	}
 }
 
 func resolveCatalogTarget(catalogURL, target string) (string, error) {

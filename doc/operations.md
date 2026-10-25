@@ -75,6 +75,7 @@ Compose reads these from `.env`; see [`.env.example`](../.env.example).
 | `MOUSEION_DB_PASSWORD` | Compose only, required: the PostgreSQL password shared by `db` and `web`. Compose refuses to start when it is unset or empty. |
 | `MOUSEION_HTTP_ADDR` | Web listen address. |
 | `MOUSEION_COOKIE_SECURE` | `true` only when serving HTTPS (for example through a TLS reverse proxy); defaults to `false`. |
+| `MOUSEION_ACQUISITION_TEMP_DIR` | Directory where acquisition streams catalog EPUB files before ingest; must already exist. Empty uses the system temporary directory. Allow up to 512 MiB free per concurrent acquisition. |
 | `MOUSEION_NLP_ADDR` | Address of the NLP gRPC service; defaults to `localhost:50051`. |
 | `MOUSEION_NLP_WARM_LANGUAGES` | Comma-separated languages to provision, preload, and advertise (see below). The singular `MOUSEION_NLP_WARM_LANGUAGE` remains supported. |
 | `MOUSEION_ANALYSIS_JOB_TIMEOUT` | Maximum duration of one analysis job. |

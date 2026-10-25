@@ -96,7 +96,7 @@ func TestRelativeEPUBAcquisitionPreservesCatalogQueryCredentials(t *testing.T) {
 	links := FindEPUBs(feed.Entries[0])
 	require.Len(t, links, 1)
 	assert.Equal(t, server.URL+"/books/one.epub?access_token=catalog-secret", links[0].Href)
-	data, err := client.Download(context.Background(), links[0].Href)
+	data, err := downloadedBytes(t, client, links[0].Href, t.TempDir())
 	require.NoError(t, err)
 	assert.Equal(t, "epub bytes", string(data))
 }
@@ -218,21 +218,23 @@ func TestDownloadErrorsAndMediaType(t *testing.T) {
 			http.NotFound(w, r)
 		case "/too-large":
 			w.Header().Set("Content-Type", EPUBMediaType)
-			_, err := io.CopyN(w, zeroReader{}, maxResponse+1)
+			_, err := io.CopyN(w, zeroReader{}, 9)
 			assert.NoError(t, err)
 		}
 	}))
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{})
-	_, err := client.Download(context.Background(), server.URL+"/too-large")
-	require.ErrorIs(t, err, ErrEPUBTooLarge)
-	data, err := client.Download(context.Background(), server.URL+"/book")
+	client.downloadLimit = 8
+	_, err := downloadedBytes(t, client, server.URL+"/too-large", t.TempDir())
+	require.ErrorIs(t, err, ErrDownloadTooLarge)
+	client.downloadLimit = defaultDownloadLimit
+	data, err := downloadedBytes(t, client, server.URL+"/book", t.TempDir())
 	require.NoError(t, err)
 	assert.Equal(t, "epub bytes", string(data))
-	_, err = client.Download(context.Background(), server.URL+"/pdf")
+	_, err = downloadedBytes(t, client, server.URL+"/pdf", t.TempDir())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "incompatible")
-	_, err = client.Download(context.Background(), server.URL+"/missing")
+	_, err = downloadedBytes(t, client, server.URL+"/missing", t.TempDir())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "404")
 	_, err = NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") })}, Auth{}).List(context.Background(), "http://catalog.invalid")
@@ -330,7 +332,7 @@ func TestCredentialsAreScopedToCatalogOrigin(t *testing.T) {
 	}))
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{Username: "reader", Password: "secret", Origin: "https://catalog.example/opds"})
-	_, err := client.Download(context.Background(), server.URL)
+	_, err := client.DownloadToFile(context.Background(), server.URL, t.TempDir())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "outside the catalog origin")
 	assert.False(t, receivedCredentials, "catalog credentials were sent to a different origin")
@@ -394,7 +396,7 @@ func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.
 			return err
 		}},
 		{"external download redirect", func() error {
-			_, err := opdsClient.Download(context.Background(), catalog.URL+"/download-redirect")
+			_, err := opdsClient.DownloadToFile(context.Background(), catalog.URL+"/download-redirect", t.TempDir())
 			return err
 		}},
 		{"external image redirect", func() error {

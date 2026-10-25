@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -73,6 +74,55 @@ func TestRunRequiresDatabaseURL(t *testing.T) {
 	err := run()
 
 	require.EqualError(t, err, "MOUSEION_DATABASE_URL is required")
+}
+
+func TestLoadServerConfigReadsAcquisitionTempDir(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("MOUSEION_SECRET", strings.Repeat("s", 32))
+	t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+	t.Setenv("MOUSEION_COOKIE_SECURE", "true")
+	t.Setenv("MOUSEION_ACQUISITION_TEMP_DIR", "  "+dir+"  ")
+
+	cfg, err := loadServerConfig()
+
+	require.NoError(t, err)
+	assert.Equal(t, dir, cfg.acquisitionTempDir)
+	assert.True(t, cfg.secureCookies)
+}
+
+func TestLoadServerConfigDefaultsAcquisitionTempDirToSystemTemp(t *testing.T) {
+	for _, value := range []string{"", "   "} {
+		t.Setenv("MOUSEION_SECRET", strings.Repeat("s", 32))
+		t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+		t.Setenv("MOUSEION_ACQUISITION_TEMP_DIR", value)
+
+		cfg, err := loadServerConfig()
+
+		require.NoError(t, err)
+		assert.Empty(t, cfg.acquisitionTempDir)
+	}
+}
+
+func TestRunRejectsMissingAcquisitionTempDir(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", strings.Repeat("s", 32))
+	t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+	t.Setenv("MOUSEION_ACQUISITION_TEMP_DIR", filepath.Join(t.TempDir(), "absent"))
+
+	err := run()
+
+	require.ErrorContains(t, err, "invalid MOUSEION_ACQUISITION_TEMP_DIR")
+}
+
+func TestRunRejectsAcquisitionTempFile(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", strings.Repeat("s", 32))
+	t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+	file := filepath.Join(t.TempDir(), "not-a-directory")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
+	t.Setenv("MOUSEION_ACQUISITION_TEMP_DIR", file)
+
+	err := run()
+
+	require.ErrorContains(t, err, "invalid MOUSEION_ACQUISITION_TEMP_DIR")
 }
 
 func TestProbeHealth(t *testing.T) {

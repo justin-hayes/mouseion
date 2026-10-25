@@ -59,6 +59,36 @@ func (m *acquisitionMemoryStore) FindSourceMaterialForAcquisition(context.Contex
 	return m.existing, true, nil
 }
 
+// catalogDigestStore records every digest the acquisition lookup tries and
+// resolves only the configured one, as a revision stored before slimming would.
+type catalogDigestStore struct {
+	memoryStore
+	existing  domain.SourceMaterial
+	foundHash string
+	lookupErr error
+	linkErr   error
+	requested []string
+}
+
+func (m *catalogDigestStore) FindSourceMaterialForAcquisition(_ context.Context, _, _, contentHash string) (domain.SourceMaterial, bool, error) {
+	m.requested = append(m.requested, contentHash)
+	if m.lookupErr != nil {
+		return domain.SourceMaterial{}, false, m.lookupErr
+	}
+	if contentHash == m.foundHash {
+		return m.existing, true, nil
+	}
+	return domain.SourceMaterial{}, false, nil
+}
+
+func (m *catalogDigestStore) LinkSourceToBook(_ context.Context, _, _, _ string) error {
+	if m.linkErr != nil {
+		return m.linkErr
+	}
+	m.linked++
+	return nil
+}
+
 type recordingStructureChecks struct {
 	calls [][2]string
 	err   error
@@ -94,7 +124,7 @@ func TestImportRequiresAuthenticatedOwner(t *testing.T) {
 
 func TestImportForAcquisitionReturnsExistingSourceWithoutRewritingIt(t *testing.T) {
 	store := &acquisitionMemoryStore{existing: domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", SourceIdentifier: "existing-source", Title: "Existing"}}
-	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", fixture(t))
+	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: fixture(t)})
 	require.NoError(t, err)
 	assert.True(t, result.AlreadyPresent)
 	assert.Equal(t, "existing-source", result.Source.ID)
@@ -102,6 +132,58 @@ func TestImportForAcquisitionReturnsExistingSourceWithoutRewritingIt(t *testing.
 	assert.Equal(t, 0, store.histories)
 	assert.Equal(t, 1, store.resolved)
 	assert.Equal(t, 1, store.linked)
+}
+
+func TestImportForAcquisitionMatchesEitherTheRetainedOrCatalogDigest(t *testing.T) {
+	content := fixture(t)
+	catalogDigest := domain.EPUBContentDigest([]byte("catalog file before slimming"))
+	store := &catalogDigestStore{
+		existing:  domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", SourceIdentifier: "existing-source", Title: "Existing"},
+		foundHash: catalogDigest,
+	}
+	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content, CatalogDigest: catalogDigest})
+	require.NoError(t, err)
+	assert.True(t, result.AlreadyPresent)
+	assert.Equal(t, "existing-source", result.Source.ID)
+	assert.Equal(t, []string{ContentDigest(content), catalogDigest}, store.requested, "the lookup must try the Retained EPUB digest before the Catalog file digest")
+	assert.Zero(t, store.puts, "the existing content revision was duplicated")
+}
+
+func TestImportForAcquisitionLooksUpAnIdenticalCatalogDigestOnce(t *testing.T) {
+	content := fixture(t)
+	digest := ContentDigest(content)
+	store := &catalogDigestStore{foundHash: "never"}
+	_, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content, CatalogDigest: digest})
+	require.NoError(t, err)
+	assert.Equal(t, []string{digest}, store.requested)
+}
+
+func TestImportForAcquisitionPropagatesLookupAndLinkFailures(t *testing.T) {
+	content := fixture(t)
+	t.Run("lookup failure", func(t *testing.T) {
+		store := &catalogDigestStore{lookupErr: errors.New("database unavailable")}
+		_, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content})
+		require.ErrorContains(t, err, "look up existing source material")
+		assert.Zero(t, store.puts, "a failed idempotency lookup was ignored")
+	})
+	t.Run("link failure", func(t *testing.T) {
+		store := &catalogDigestStore{
+			foundHash: ContentDigest(content),
+			existing:  domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", SourceIdentifier: "existing-source", Title: "Existing"},
+			linkErr:   errors.New("link failed"),
+		}
+		_, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content})
+		require.ErrorContains(t, err, "link source existing-source to book")
+		assert.Zero(t, store.puts, "reused content was imported again after a link failure")
+	})
+}
+
+func TestImportForAcquisitionWithoutARevisionLookupImportsNormally(t *testing.T) {
+	store := &memoryStore{}
+	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: fixture(t)})
+	require.NoError(t, err)
+	assert.False(t, result.AlreadyPresent)
+	assert.Equal(t, 1, store.puts)
 }
 
 func TestImportEnqueuesSourceStructureCheckAfterEvidenceChange(t *testing.T) {
@@ -125,7 +207,7 @@ func TestImportSucceedsWhenStructureCheckSchedulingFails(t *testing.T) {
 func TestAcquisitionReuseDoesNotEnqueueAnotherStructureCheck(t *testing.T) {
 	store := &acquisitionMemoryStore{existing: domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", SourceIdentifier: "existing-source", Title: "Existing"}}
 	checks := &recordingStructureChecks{}
-	_, err := NewService(store).WithSourceStructureCheckEnqueuer(checks).ImportForAcquisition(context.Background(), "owner-id", "de", fixture(t))
+	_, err := NewService(store).WithSourceStructureCheckEnqueuer(checks).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: fixture(t)})
 	require.NoError(t, err)
 	assert.Empty(t, checks.calls, "reusing unchanged evidence is not a source-evidence change")
 }
