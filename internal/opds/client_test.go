@@ -216,10 +216,16 @@ func TestDownloadErrorsAndMediaType(t *testing.T) {
 			w.Header().Set("Content-Type", "application/pdf")
 		case "/missing":
 			http.NotFound(w, r)
+		case "/too-large":
+			w.Header().Set("Content-Type", EPUBMediaType)
+			_, err := io.CopyN(w, zeroReader{}, maxResponse+1)
+			assert.NoError(t, err)
 		}
 	}))
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{})
+	_, err := client.Download(context.Background(), server.URL+"/too-large")
+	require.ErrorIs(t, err, ErrEPUBTooLarge)
 	data, err := client.Download(context.Background(), server.URL+"/book")
 	require.NoError(t, err)
 	assert.Equal(t, "epub bytes", string(data))
@@ -492,6 +498,15 @@ func TestDiscoveredCatalogTargetsAreValidatedBeforeFetching(t *testing.T) {
 	t.Run("external target is not reached", func(t *testing.T) {
 		require.False(t, externalHit, "external discovered target was reached")
 	})
+}
+
+// zeroReader streams zero bytes, so a test can send an oversized body without
+// allocating it.
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
