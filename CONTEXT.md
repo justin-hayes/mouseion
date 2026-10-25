@@ -370,6 +370,19 @@ catalog-entry alias per connection in the current OPDS flow; two connections may
 each offer the same entry identifier without identifying the same offering.
 _Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
 
+**Catalog file**:
+The EPUB exactly as a Catalog entry's acquisition link serves it. Mouseion
+streams it to a temporary file and derives the Retained EPUB from it; it is not
+stored. Its digest is kept in processing history (ADR 0109).
+_Avoid_: original EPUB, retained bytes.
+
+**Retained EPUB**:
+The EPUB Mouseion stores for a content revision: the Catalog file without the
+image, font, audio and video resources Mouseion never reads, or the Catalog file
+itself when it has none. Extraction, structure checks and the content digest
+all use it (ADR 0109).
+_Avoid_: slim EPUB, stripped EPUB, original bytes.
+
 **Work**:
 The intellectual composition that groups its particular textual versions,
 independent of a learner's Books or the sources offering it. Titles and authors
