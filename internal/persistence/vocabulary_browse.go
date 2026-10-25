@@ -106,23 +106,28 @@ WITH all_books AS (
      (bi.discriminator='' AND ns.lemma IS NOT NULL) AS bare_with_numbered_sibling
    FROM book_identities bi LEFT JOIN numbered_siblings ns
      ON ns.book_id=bi.book_id AND ns.lemma=bi.lemma AND ns.upos=bi.upos
-), grouped AS (
-  SELECT lemma,upos,discriminator,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books,bool_or(corrected) AS corrected,
-    COALESCE(min(headword) FILTER (WHERE headword<>''),'') AS headword,
-    bool_or(bare_with_numbered_sibling) AS bare_with_numbered_sibling
-  FROM annotated_books GROUP BY lemma,upos,discriminator
-), scoped_grouped AS (
-  SELECT lemma,upos,discriminator,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books,bool_or(corrected) AS corrected,
-    COALESCE(min(headword) FILTER (WHERE headword<>''),'') AS headword,
-    bool_or(bare_with_numbered_sibling) AS bare_with_numbered_sibling
-  FROM annotated_books JOIN scope_books ON scope_books.id=annotated_books.book_id
-  WHERE (COALESCE(cardinality($5::text[]),0)=0 OR upos=ANY($5::text[]))
+), identity_totals AS MATERIALIZED (
+  -- One aggregate yields both the all-Book and the scoped figures. Joining two
+  -- separate aggregates relied on row estimates the CTEs above cannot give,
+  -- and the nested loop that followed exceeded the Browse deadline.
+  SELECT lemma,upos,discriminator,
+    sum(occurrences)::bigint AS across_books_occurrences,
+    bool_or(in_scope) AS in_scope,
+    sum(occurrences) FILTER (WHERE in_scope)::bigint AS occurrences,
+    count(*) FILTER (WHERE in_scope)::bigint AS books,
+    bool_or(corrected) FILTER (WHERE in_scope) AS corrected,
+    COALESCE(min(headword) FILTER (WHERE in_scope AND headword<>''),'') AS headword,
+    bool_or(bare_with_numbered_sibling) FILTER (WHERE in_scope) AS bare_with_numbered_sibling
+  FROM (
+    SELECT ab.*, (sb.id IS NOT NULL AND (COALESCE(cardinality($5::text[]),0)=0 OR ab.upos=ANY($5::text[]))) AS in_scope
+    FROM annotated_books ab LEFT JOIN scope_books sb ON sb.id=ab.book_id
+  ) scoped
   GROUP BY lemma,upos,discriminator
  ), annotated AS MATERIALIZED (
   -- The eligibility filter reads several annotated learner-state columns.
   -- Inlining repeats correlated lookups and can exceed the Browse deadline.
   SELECT g.lemma,g.upos,g.discriminator,g.headword,g.bare_with_numbered_sibling,g.occurrences,g.books,g.corrected,
-    COALESCE(all_grouped.occurrences,g.occurrences) AS across_books_occurrences,
+    g.across_books_occurrences,
     EXISTS (SELECT 1 FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2 AND k.canonical_lemma=g.lemma AND (k.upos=g.upos OR k.upos='') AND k.lexical_discriminator=g.discriminator) AS known,
     EXISTS (SELECT 1 FROM primary_goal_snapshots ps
       JOIN primary_goals pg ON pg.owner_id=ps.owner_id AND pg.snapshot_id=ps.id
@@ -134,7 +139,7 @@ WITH all_books AS (
       JOIN deck_preparation_manifest_items mi ON mi.owner_id=p.owner_id AND mi.preparation_id=p.id
       WHERE p.owner_id=$1 AND p.book_id=$12::uuid AND p.state='ready'
         AND mi.disposition='accepted' AND mi.language=$2 AND mi.canonical_lemma=g.lemma AND mi.upos=g.upos) AS in_book_deck
-  FROM scoped_grouped g LEFT JOIN grouped all_grouped USING (lemma,upos,discriminator)
+  FROM identity_totals g WHERE g.in_scope
 ), eligible AS (
   SELECT a.lemma,a.upos,a.discriminator,a.headword,a.bare_with_numbered_sibling,a.occurrences,a.across_books_occurrences,a.books,a.corrected,a.known,a.reserved,a.generated,a.in_book_deck
   FROM annotated a
@@ -151,9 +156,9 @@ WITH all_books AS (
 	  LIMIT 25 OFFSET (($9::bigint-1)*25)
 ), summary AS (
    SELECT (SELECT count(*)::bigint FROM eligible) AS total,
-          (SELECT count(*)::bigint FROM scoped_grouped) AS scoped_total,
+          (SELECT count(*)::bigint FROM identity_totals WHERE in_scope) AS scoped_total,
           CASE WHEN $10<>'' THEN (SELECT count(*)::bigint FROM book_identities WHERE book_id=$10)
-               ELSE (SELECT count(*)::bigint FROM grouped) END AS inventory_total,
+               ELSE (SELECT count(*)::bigint FROM identity_totals) END AS inventory_total,
           NOT (SELECT ready OR failed FROM projection_status) AS browse_counts_updating,
           (SELECT failed FROM projection_status) AS browse_counts_unavailable
 ), coverage AS (
