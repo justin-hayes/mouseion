@@ -1918,12 +1918,29 @@ const (
 )
 
 // persistNormalizedCorpus writes the normalized sentences and then the tokens
-// they contain, in the caller's transaction.
+// they contain, in the caller's transaction, and refreshes their planner
+// statistics.
 func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, result analyzer.Result) error {
 	if err := insertCorpusSentences(ctx, tx, ownerID, runID, corpusID, result.Sentences); err != nil {
 		return err
 	}
-	return insertCorpusTokens(ctx, tx, ownerID, language, runID, corpusID, result.Sentences)
+	if err := insertCorpusTokens(ctx, tx, ownerID, language, runID, corpusID, result.Sentences); err != nil {
+		return err
+	}
+	return refreshCorpusStatistics(ctx, tx)
+}
+
+// refreshCorpusStatistics analyzes the corpus tables so queries over a corpus
+// that was just written see its rows. Until autoanalyze catches up, the planner
+// estimates a new run (or a first-seen language) at about one row, and the
+// Browse projection read during publication can then pick a plan that runs for
+// tens of minutes instead of well under a second. ANALYZE samples the caller's
+// uncommitted rows, so running it inside the writing transaction is enough.
+func refreshCorpusStatistics(ctx context.Context, tx pgx.Tx) error {
+	if _, err := tx.Exec(ctx, `ANALYZE corpus_sentences, corpus_tokens`); err != nil {
+		return fmt.Errorf("refresh corpus planner statistics: %w", err)
+	}
+	return nil
 }
 
 func insertCorpusSentences(ctx context.Context, tx pgx.Tx, ownerID, runID, corpusID string, sentences []analyzer.Sentence) error {
