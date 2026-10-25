@@ -5,7 +5,7 @@ How to build, test, and change Mouseion. For running an installation, see the
 
 ## Toolchain
 
-- Go 1.27.2
+- Go 1.27.3
 - Python 3.13, pinned in `nlp/pyproject.toml`, the NLP image, and CI (3.14 needs
   a grpcio upgrade: the pinned grpcio 1.71.2 has no 3.14 wheels)
 - Protobuf compiler 29.x for regenerating the shared contract (`protoc-gen-go`
@@ -537,7 +537,8 @@ one by hand, then regenerate and verify as listed.
 - **Go toolchain** (the `go` directive in `go.mod`, the `golang:` tag in the
   `Dockerfile`, and the `golang` ignore rule's `>= 1.28` bound in
   `dependabot.yml`): raise all three together. CI reads `go.mod`, so it follows
-  without a separate edit. Move the `>= 1.28` bound up with the image, so the
+  without a separate edit; `make check-dockerfile-go`, which CI runs on Go
+  changes, fails when the image is older than the `go` directive. Move the `>= 1.28` bound up with the image, so the
   `docker` ecosystem can propose the next one. A `make vuln` finding that is
   fixed only in a newer Go release, in the standard library or toolchain, is
   cleared the same way; a patch raise (for example 1.27.0 to 1.27.2) leaves both
