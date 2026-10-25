@@ -1,6 +1,8 @@
 # Mouseion
 
-Mouseion is a self-hosted reading environment for learning foreign languages.
+Mouseion is a self-hosted reading environment for the languages of classical
+philology: Ancient Greek and Latin, and German, French, Italian and Modern Greek
+([ADR 0110](doc/adr/0110-philological-reading-competence-boundary.md)).
 A learner connects their own OPDS catalog, syncs books into a personal
 library, analyzes each Book according to its declared EPUB structure, and prepares
 Anki recognition decks from unknown vocabulary.
@@ -393,57 +395,13 @@ _Avoid_: Book (the learner-owned identity), Edition (a particular version).
 A particular textual version of a Work, distinct from the repository or producer
 that supplies its text or annotations. Different Editions remain distinct even
 when their text overlaps or their identifiers appear to agree.
-_Avoid_: Work, Text Source, annotation release.
+_Avoid_: Work, annotation release.
 
 **Reading unit**:
 The defined extent of one Edition that a Book represents: a whole work, a
 constituent book, or a bounded passage. Its extent is stable across source
 revisions and is not defined by whichever annotation fragments are available.
 _Avoid_: readable unit (an extracted structural unit), annotation coverage.
-
-**Text Source**:
-Acquired text evidence from a particular origin, with its own immutable
-revisions, distinct from the Edition it witnesses. One Text Source can support
-several Reading units.
-_Avoid_: repository, producer, Edition.
-
-**Annotation Source**:
-Independently acquired linguistic evidence with its own origin, passage
-coverage, and immutable revisions. It applies to text only through a verified
-Text–annotation binding.
-_Avoid_: producer, current analysis, text identity.
-
-**Text–annotation binding**:
-The verified correspondence between an Annotation Source revision and an exact
-Text Source revision over declared passage bounds, retaining its transformation
-provenance. Bibliographic or CTS identifier agreement alone does not establish
-this correspondence.
-_Avoid_: work match, CTS match (candidate identity, not verified correspondence).
-
-**Canonical interpretation**:
-The source-independent linguistic meaning derived from exact annotation evidence
-through documented mappings, distinct from the preserved native evidence. It
-explicitly distinguishes usable information from missing or unresolved information.
-_Avoid_: original annotation, complete parse (not implied by interpretation).
-
-**Evidence adoption**:
-An owner's explicit selection of exact text and analysis evidence as current for
-their Book, distinct from discovery of an upstream revision or another owner's
-selection. It does not change a Reading's frozen evidence.
-_Avoid_: catalog sync, global source replacement, Reading refresh.
-
-**Vocabulary-ready analysis**:
-An analysis with verified text correspondence and full declared-scope coverage,
-accounting for every lexical occurrence by usable vocabulary identity or justified
-non-vocabulary classification. It does not imply complete syntax, human review,
-or card suitability.
-_Avoid_: human-reviewed analysis, card-ready analysis, complete parse.
-
-**Annotation provenance**:
-The attributed origin and production or review history of linguistic evidence,
-at its documented layer and scope. Human, human-reviewed automatic, automatic,
-and unknown provenance are distinct from a learner's correction decisions.
-_Avoid_: scholarly certification, learner review, annotation quality.
 
 **Annotation occurrence**:
 A text-attested linguistic occurrence distinguished within one exact analysis,
@@ -552,6 +510,12 @@ ones that are not vocabulary, such as proper nouns and separable particles. A
 lemma query applies confirmed Lemma corrections, and excluded occurrences are
 hidden from every query.
 _Avoid_: KWIC (a rendering style, not the feature), occurrence list.
+
+**Sentence study**:
+The learner's study of one complete study context, with each word's analyzed
+morphology and, where the analysis has syntax, its dependency relation and head.
+It is where construction-level help belongs.
+_Avoid_: sentence detail, parse view.
 
 **Dependency relation**:
 The syntactic function a token (the dependent) fulfils relative to its head
