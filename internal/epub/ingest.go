@@ -62,12 +62,14 @@ type ImportResult struct {
 }
 
 // AcquisitionContent is an EPUB downloaded for acquisition, together with the
-// Catalog file identity it arrived with. Until slimming lands the content is
-// the Catalog file itself, but catalog digest resolution already has to work
-// for revisions stored before slimming changed stored bytes.
+// Catalog file identity it arrived with and the slimming report that produced
+// its retained content.
 type AcquisitionContent struct {
-	Content       []byte
-	CatalogDigest string
+	Content         []byte
+	CatalogDigest   string
+	CatalogSize     int64
+	SlimmingVersion int
+	Removed         []RemovedResource
 }
 
 func (s *Service) Import(ctx context.Context, ownerID, language string, content []byte) (ImportResult, error) {
@@ -126,7 +128,7 @@ func (s *Service) importForAcquisition(ctx context.Context, ownerID, language, b
 		}
 		return ImportResult{Source: existing, Book: book, AlreadyPresent: true}, nil
 	}
-	return s.importBookForBook(ctx, ownerID, language, bookID, content, extraction)
+	return s.importBookForBook(ctx, ownerID, language, bookID, content, &acquisition, extraction)
 }
 
 // findAcquisitionSource resolves an existing revision by the Retained EPUB's
@@ -155,10 +157,10 @@ func (s *Service) findAcquisitionSource(ctx context.Context, ownerID, sourceIden
 }
 
 func (s *Service) importBook(ctx context.Context, ownerID, language string, content []byte, extraction Extraction) (ImportResult, error) {
-	return s.importBookForBook(ctx, ownerID, language, "", content, extraction)
+	return s.importBookForBook(ctx, ownerID, language, "", content, nil, extraction)
 }
 
-func (s *Service) importBookForBook(ctx context.Context, ownerID, language, bookID string, content []byte, extraction Extraction) (ImportResult, error) {
+func (s *Service) importBookForBook(ctx context.Context, ownerID, language, bookID string, content []byte, acquisition *AcquisitionContent, extraction Extraction) (ImportResult, error) {
 	book := extraction.Book
 	contentHash := domain.EPUBContentDigest(content)
 	source, err := s.store.PutSourceMaterialWithExtractedSnapshot(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: contentHash, Content: content, FullText: book.FullText}, book.ExtractedUnits, extraction.Structure)
@@ -169,13 +171,9 @@ func (s *Service) importBookForBook(ctx context.Context, ownerID, language, book
 		return ImportResult{}, fmt.Errorf("epub: link source material to My Books: %w", err)
 	}
 	s.enqueueSourceStructureCheck(ctx, ownerID, source.ID)
-	details, err := json.Marshal(struct {
-		SourceMaterialID string    `json:"source_material_id"`
-		SourceIdentifier string    `json:"source_identifier"`
-		Chapters         []Chapter `json:"chapters"`
-	}{source.ID, book.SourceIdentifier, book.Chapters})
+	details, err := importHistoryDetails(source, book, acquisition)
 	if err != nil {
-		return ImportResult{}, fmt.Errorf("epub: encode source locations: %w", err)
+		return ImportResult{}, err
 	}
 	completed := s.now().UTC()
 	history, err := s.store.PutProcessingHistory(ctx, domain.ProcessingHistory{OwnerID: ownerID, Operation: "epub.import", Status: "complete", Details: details, CompletedAt: &completed})
@@ -183,6 +181,38 @@ func (s *Service) importBookForBook(ctx context.Context, ownerID, language, book
 		return ImportResult{}, fmt.Errorf("epub: record processing history: %w", err)
 	}
 	return ImportResult{Source: source, Book: book, History: history}, nil
+}
+
+// importHistoryDetails encodes the locations that identify this import. An
+// acquisition additionally records the Catalog file identity, the Retained
+// EPUB's size and the slimming report, without changing direct imports.
+func importHistoryDetails(source domain.SourceMaterial, book ExtractedBook, acquisition *AcquisitionContent) ([]byte, error) {
+	details := struct {
+		SourceMaterialID string             `json:"source_material_id"`
+		SourceIdentifier string             `json:"source_identifier"`
+		Chapters         []Chapter          `json:"chapters"`
+		CatalogDigest    string             `json:"catalog_digest,omitempty"`
+		CatalogSize      int64              `json:"catalog_size,omitempty"`
+		RetainedSize     int64              `json:"retained_size,omitempty"`
+		SlimmingVersion  int                `json:"slimming_version,omitempty"`
+		RemovedItems     *[]RemovedResource `json:"removed_items,omitempty"`
+	}{SourceMaterialID: source.ID, SourceIdentifier: book.SourceIdentifier, Chapters: book.Chapters}
+	if acquisition != nil {
+		details.CatalogDigest = acquisition.CatalogDigest
+		details.CatalogSize = acquisition.CatalogSize
+		details.RetainedSize = int64(len(acquisition.Content))
+		details.SlimmingVersion = acquisition.SlimmingVersion
+		removed := acquisition.Removed
+		if removed == nil {
+			removed = []RemovedResource{}
+		}
+		details.RemovedItems = &removed
+	}
+	encoded, err := json.Marshal(details)
+	if err != nil {
+		return nil, fmt.Errorf("epub: encode source locations: %w", err)
+	}
+	return encoded, nil
 }
 
 // enqueueSourceStructureCheck reports a scheduling failure without failing the

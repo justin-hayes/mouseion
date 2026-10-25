@@ -302,7 +302,7 @@ func (x *spineExtractor) readDocument(spineIndex uint64, ref spineItem) (Extract
 	if strings.EqualFold(ref.Linear, "no") {
 		return ExtractedUnit{}, false, nil
 	}
-	if item.MediaType != "application/xhtml+xml" || hasWord(item.Properties, "nav") {
+	if item.MediaType != "application/xhtml+xml" || hasNavProperty(item.Properties) {
 		return ExtractedUnit{}, false, nil
 	}
 	name, err := resolveResourcePath(x.base, item.Href)
@@ -435,7 +435,7 @@ func navigationMetadata(files map[string]*zip.File, base string, manifest []mani
 	labels := make(map[string][]string)
 	landmarks := make(map[string][]string)
 	for _, item := range manifest {
-		if item.MediaType != "application/xhtml+xml" || !hasWord(item.Properties, "nav") {
+		if item.MediaType != "application/xhtml+xml" || !hasNavProperty(item.Properties) {
 			continue
 		}
 		name, err := resolveResourcePath(base, item.Href)
@@ -718,8 +718,8 @@ func firstNonBlank(v []string) string {
 	}
 	return ""
 }
-func hasWord(s, word string) bool {
-	return slices.Contains(strings.Fields(s), word)
+func hasNavProperty(value string) bool {
+	return slices.Contains(strings.Fields(strings.ToLower(value)), "nav")
 }
 func invalid(message string, err error) error {
 	if err == nil {

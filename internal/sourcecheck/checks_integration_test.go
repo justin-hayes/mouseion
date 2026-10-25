@@ -160,6 +160,31 @@ func TestSourceStructureCheckUnchangedProseIsNoOp(t *testing.T) {
 	assert.Equal(t, snapshot.SnapshotID, current.SnapshotID)
 }
 
+func TestSourceStructureCheckRetainedEPUBReportsUnchanged(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	store, pool := openStore(t, ctx)
+	owner := newOwner(t, ctx, store, "structure-retained")
+	catalog := testutil.ZipDirectory(t, filepath.Join("..", "epub", "testfixtures", "illustrated"))
+	retained, err := epub.Retain(bytes.NewReader(catalog), int64(len(catalog)), math.MaxInt64)
+	require.NoError(t, err)
+	require.NotEmpty(t, retained.Removed, "the illustrated fixture must slim down")
+
+	source, snapshot := putEPUBSource(t, ctx, store, owner.ID, "retained-illustrated", retained.Content, epub.MediaType(), retained.Content)
+	args := argsFor(source, snapshot)
+	require.NoError(t, runCheck(t, ctx, &Worker{Store: store}, args))
+
+	t.Run("reports unchanged", func(t *testing.T) {
+		check, found, err := store.GetSourceStructureCheck(ctx, args.Key())
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, domain.SourceStructureUnchanged, check.Outcome, "removing never-read resources changed extracted structure")
+	})
+	t.Run("stores no candidate snapshot", func(t *testing.T) {
+		require.Equal(t, 1, countRows(t, ctx, pool, `SELECT count(*) FROM source_material_unit_snapshots WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID))
+	})
+}
+
 func TestSourceStructureCheckDetectsChangedV1Text(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
