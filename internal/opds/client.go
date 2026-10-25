@@ -29,6 +29,7 @@ const (
 
 var (
 	ErrNoEPUB            = errors.New("opds: entry has no EPUB acquisition link")
+	ErrEPUBTooLarge      = errors.New("opds: EPUB exceeds 100 MiB limit")
 	ErrSearchUnavailable = errors.New("opds: catalog does not advertise search")
 )
 
@@ -392,7 +393,7 @@ func (c *Client) Download(ctx context.Context, downloadURL string) (data []byte,
 		return nil, fmt.Errorf("opds: read EPUB: %w", err)
 	}
 	if len(data) > maxResponse {
-		return nil, errors.New("opds: EPUB exceeds 100 MiB limit")
+		return nil, ErrEPUBTooLarge
 	}
 	return data, nil
 }

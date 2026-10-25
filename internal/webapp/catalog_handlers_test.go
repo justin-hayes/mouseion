@@ -1,11 +1,13 @@
 package webapp
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,4 +52,10 @@ func TestLegacyConnectionsRoutePermanentlyRedirectsAndPreservesSupportedQuery(t 
 	assert.Equal(t, "Catalog added", got.Get("message"))
 	assert.Equal(t, "Try again", got.Get("error"))
 	assert.False(t, got.Has("ignored"))
+}
+
+func TestOPDSErrorMessageNamesTheEPUBSizeLimit(t *testing.T) {
+	// The size case must win over the generic "download EPUB" connection case.
+	err := fmt.Errorf("opds: download EPUB: %w", opds.ErrEPUBTooLarge)
+	assert.Equal(t, "This EPUB is larger than the 100 MiB download limit. Choose a smaller edition, or reduce its images in the catalog.", opdsErrorMessage(err))
 }
