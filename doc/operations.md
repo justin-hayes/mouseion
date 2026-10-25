@@ -75,7 +75,7 @@ Compose reads these from `.env`; see [`.env.example`](../.env.example).
 | `MOUSEION_DB_PASSWORD` | Compose only, required: the PostgreSQL password shared by `db` and `web`. Compose refuses to start when it is unset or empty. |
 | `MOUSEION_HTTP_ADDR` | Web listen address. |
 | `MOUSEION_COOKIE_SECURE` | `true` only when serving HTTPS (for example through a TLS reverse proxy); defaults to `false`. |
-| `MOUSEION_ACQUISITION_TEMP_DIR` | Directory where acquisition streams catalog EPUB files before ingest; must already exist. Empty uses the system temporary directory. Allow up to 512 MiB free per concurrent acquisition. |
+| `MOUSEION_ACQUISITION_TEMP_DIR` | Directory where acquisition streams catalog EPUB files before ingest; must already exist. Empty uses the system temporary directory. Allow up to 512 MiB free per concurrent acquisition (see below). |
 | `MOUSEION_NLP_ADDR` | Address of the NLP gRPC service; defaults to `localhost:50051`. |
 | `MOUSEION_NLP_WARM_LANGUAGES` | Comma-separated languages to provision, preload, and advertise (see below). The singular `MOUSEION_NLP_WARM_LANGUAGE` remains supported. |
 | `MOUSEION_ANALYSIS_JOB_TIMEOUT` | Maximum duration of one analysis job. |
@@ -96,6 +96,21 @@ configured provider: each card receives a contextual English gloss grounded in
 Wiktionary evidence and the source sentence
 ([ADR 0079](adr/0079-contextual-glosses-require-llm.md)). Without a provider,
 deck preparation is reported as unavailable rather than silently degraded.
+
+### Acquisition temporary directory
+
+Acquisition streams each Catalog file to a temporary file before deriving the
+Retained EPUB ([ADR 0109](adr/0109-retained-epub-from-catalog-acquisition.md)).
+A Catalog file may reach 512 MiB, so allow that much free space in
+`MOUSEION_ACQUISITION_TEMP_DIR` for each acquisition that can run at once.
+
+Point it at a disk-backed directory. The file exists to keep large downloads
+out of memory, and a RAM-backed filesystem such as a `tmpfs` `/tmp` puts them
+back there. Under Compose the default is the container's own `/tmp`, which is
+on the container's writable layer unless you mount a `tmpfs` there. On a manual
+install, check `findmnt /tmp`; if it reports `tmpfs`, create a directory on
+disk and set the variable to it. A configured directory that is missing or not
+a directory stops startup.
 
 ### Prepared-deck translation
 
