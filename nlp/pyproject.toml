@@ -22,7 +22,7 @@ dev = [
     "grpcio-tools==1.71.2",
     "mypy==2.4.0",
     "ruff==0.17.1",
-    "setuptools==84.0.0",
+    "setuptools==84.1.0",
 ]
 
 [tool.uv]
