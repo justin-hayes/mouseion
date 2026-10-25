@@ -2,6 +2,7 @@ package epub
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -175,6 +176,41 @@ func TestImportForAcquisitionPropagatesLookupAndLinkFailures(t *testing.T) {
 		_, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content})
 		require.ErrorContains(t, err, "link source existing-source to book")
 		assert.Zero(t, store.puts, "reused content was imported again after a link failure")
+	})
+}
+
+func TestImportForAcquisitionRecordsCatalogAndSlimmingProvenance(t *testing.T) {
+	store := &memoryStore{}
+	removed := []RemovedResource{{ID: "cover", Href: "images/cover.jpg", MediaType: "image/jpeg", Size: 42}}
+	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{
+		Content:         fixture(t),
+		CatalogDigest:   "sha256:catalog",
+		CatalogSize:     900,
+		SlimmingVersion: RetainedSlimmingVersion,
+		Removed:         removed,
+	})
+	require.NoError(t, err)
+	var details struct {
+		CatalogDigest   string             `json:"catalog_digest"`
+		CatalogSize     int64              `json:"catalog_size"`
+		RetainedSize    int64              `json:"retained_size"`
+		SlimmingVersion int                `json:"slimming_version"`
+		RemovedItems    *[]RemovedResource `json:"removed_items"`
+	}
+	require.NoError(t, json.Unmarshal(result.History.Details, &details))
+	t.Run("records the Catalog file identity", func(t *testing.T) {
+		require.Equal(t, "sha256:catalog", details.CatalogDigest)
+		require.Equal(t, int64(900), details.CatalogSize)
+	})
+	t.Run("records the Retained EPUB size", func(t *testing.T) {
+		require.Equal(t, int64(len(fixture(t))), details.RetainedSize)
+	})
+	t.Run("records the slimming version", func(t *testing.T) {
+		require.Equal(t, RetainedSlimmingVersion, details.SlimmingVersion)
+	})
+	t.Run("records the removal report", func(t *testing.T) {
+		require.NotNil(t, details.RemovedItems)
+		require.Equal(t, removed, *details.RemovedItems)
 	})
 }
 

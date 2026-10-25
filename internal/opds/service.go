@@ -210,14 +210,17 @@ func (s *Service) acquire(ctx context.Context, ownerID, connectionID, language, 
 		return epub.ImportResult{}, err
 	}
 	defer removeDownloadedCatalogFile(download.Path)
-	if download.Size > s.retainedLimit {
-		return epub.ImportResult{}, ErrRetainedEPUBTooLarge
-	}
-	content, err := os.ReadFile(download.Path)
+	retained, err := retainCatalogFile(download, s.retainedLimit)
 	if err != nil {
-		return epub.ImportResult{}, fmt.Errorf("opds: read downloaded EPUB: %w", err)
+		return epub.ImportResult{}, err
 	}
-	acquisition := epub.AcquisitionContent{Content: content, CatalogDigest: download.Digest}
+	acquisition := epub.AcquisitionContent{
+		Content:         retained.Content,
+		CatalogDigest:   download.Digest,
+		CatalogSize:     download.Size,
+		SlimmingVersion: retained.SlimmingVersion,
+		Removed:         retained.Removed,
+	}
 	var result epub.ImportResult
 	if bookID != "" {
 		acquisitionImporter, ok := s.importer.(AcquisitionImporterForBook)
@@ -228,12 +231,34 @@ func (s *Service) acquire(ctx context.Context, ownerID, connectionID, language, 
 	} else if acquisitionImporter, ok := s.importer.(AcquisitionImporter); ok {
 		result, err = acquisitionImporter.ImportForAcquisition(acquisitionCtx, ownerID, language, acquisition)
 	} else {
-		result, err = s.importer.Import(acquisitionCtx, ownerID, language, content)
+		result, err = s.importer.Import(acquisitionCtx, ownerID, language, retained.Content)
 	}
 	if err != nil {
 		return epub.ImportResult{}, fmt.Errorf("opds: ingest downloaded EPUB: %w", err)
 	}
 	return result, nil
+}
+
+// retainCatalogFile derives the Retained EPUB from the temporary Catalog file
+// through random access, so the whole downloaded body never has to be read
+// twice.
+func retainCatalogFile(download CatalogDownload, limit int64) (epub.RetainedEPUB, error) {
+	file, err := os.Open(download.Path)
+	if err != nil {
+		return epub.RetainedEPUB{}, fmt.Errorf("opds: retain downloaded EPUB: %w", err)
+	}
+	retained, retainErr := epub.Retain(file, download.Size, limit)
+	closeErr := file.Close()
+	if errors.Is(retainErr, epub.ErrRetainedSizeLimit) {
+		return epub.RetainedEPUB{}, ErrRetainedEPUBTooLarge
+	}
+	if retainErr != nil {
+		return epub.RetainedEPUB{}, fmt.Errorf("opds: retain downloaded EPUB: %w", retainErr)
+	}
+	if closeErr != nil {
+		return epub.RetainedEPUB{}, fmt.Errorf("opds: close downloaded EPUB: %w", closeErr)
+	}
+	return retained, nil
 }
 
 // removeDownloadedCatalogFile keeps temporary disk use bounded. A removal

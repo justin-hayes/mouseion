@@ -70,7 +70,7 @@ func parseNavigationDocument(data []byte) (navigationDocument, error) {
 		return navigationDocument{}, err
 	}
 	for _, item := range pkg.Manifest {
-		if item.MediaType != "application/xhtml+xml" || !hasWord(item.Properties, "nav") {
+		if item.MediaType != "application/xhtml+xml" || !hasNavProperty(item.Properties) {
 			continue
 		}
 		entries, err := navigationDocumentEntries(files, base, item.Href)
