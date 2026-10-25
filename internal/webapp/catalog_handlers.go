@@ -145,8 +145,10 @@ func opdsErrorMessage(err error) string {
 	switch {
 	case errors.Is(err, opds.ErrNoEPUB), strings.Contains(lower, "incompatible media type"):
 		message = "This book is not available as an EPUB. Choose another edition or format."
-	case errors.Is(err, opds.ErrEPUBTooLarge):
-		message = "This EPUB is larger than the 100 MiB download limit. Choose a smaller edition, or reduce its images in the catalog."
+	case errors.Is(err, opds.ErrDownloadTooLarge):
+		message = "This EPUB is larger than the 512 MiB download limit. Choose a smaller edition."
+	case errors.Is(err, opds.ErrRetainedEPUBTooLarge):
+		message = "This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition."
 	case strings.Contains(lower, "401"), strings.Contains(lower, "403"):
 		message = "The catalog rejected the credentials. Update the connection username and password."
 	case strings.Contains(lower, "parse atom"), strings.Contains(lower, "html"):

@@ -61,6 +61,15 @@ type ImportResult struct {
 	AlreadyPresent bool
 }
 
+// AcquisitionContent is an EPUB downloaded for acquisition, together with the
+// Catalog file identity it arrived with. Until slimming lands the content is
+// the Catalog file itself, but catalog digest resolution already has to work
+// for revisions stored before slimming changed stored bytes.
+type AcquisitionContent struct {
+	Content       []byte
+	CatalogDigest string
+}
+
 func (s *Service) Import(ctx context.Context, ownerID, language string, content []byte) (ImportResult, error) {
 	if ownerID == "" {
 		return ImportResult{}, ErrUnauthenticated
@@ -79,46 +88,70 @@ func (s *Service) Import(ctx context.Context, ownerID, language string, content 
 // owner already has the same source identity or content, it returns that
 // source without rewriting its extracted snapshot or processing history.
 // Direct imports continue to use Import and retain their existing behavior.
-func (s *Service) ImportForAcquisition(ctx context.Context, ownerID, language string, content []byte) (ImportResult, error) {
-	return s.importForAcquisition(ctx, ownerID, language, "", content)
+func (s *Service) ImportForAcquisition(ctx context.Context, ownerID, language string, acquisition AcquisitionContent) (ImportResult, error) {
+	return s.importForAcquisition(ctx, ownerID, language, "", acquisition)
 }
 
 // ImportForAcquisitionForBook is the explicit promotion path from a
 // metadata-only My Books identity. The selected Book is owner-validated by
 // persistence before source evidence is linked.
-func (s *Service) ImportForAcquisitionForBook(ctx context.Context, ownerID, language, bookID string, content []byte) (ImportResult, error) {
+func (s *Service) ImportForAcquisitionForBook(ctx context.Context, ownerID, language, bookID string, acquisition AcquisitionContent) (ImportResult, error) {
 	if bookID == "" {
 		return ImportResult{}, errors.New("epub: acquisition book is required")
 	}
-	return s.importForAcquisition(ctx, ownerID, language, bookID, content)
+	return s.importForAcquisition(ctx, ownerID, language, bookID, acquisition)
 }
 
-func (s *Service) importForAcquisition(ctx context.Context, ownerID, language, bookID string, content []byte) (ImportResult, error) {
+func (s *Service) importForAcquisition(ctx context.Context, ownerID, language, bookID string, acquisition AcquisitionContent) (ImportResult, error) {
 	if ownerID == "" {
 		return ImportResult{}, ErrUnauthenticated
 	}
 	if language == "" {
 		return ImportResult{}, errors.New("epub: language is required")
 	}
+	content := acquisition.Content
 	extraction, err := ExtractV2(content)
 	if err != nil {
 		return ImportResult{}, err
 	}
 	book := extraction.Book
 	contentHash := domain.EPUBContentDigest(content)
-	if lookup, ok := s.store.(AcquisitionSourceLookup); ok {
-		existing, found, lookupErr := lookup.FindSourceMaterialForAcquisition(ctx, ownerID, book.SourceIdentifier, contentHash)
-		if lookupErr != nil {
-			return ImportResult{}, fmt.Errorf("epub: look up existing source material: %w", lookupErr)
+	existing, found, err := s.findAcquisitionSource(ctx, ownerID, book.SourceIdentifier, contentHash, acquisition.CatalogDigest)
+	if err != nil {
+		return ImportResult{}, err
+	}
+	if found {
+		if err := s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, existing, book.Title); err != nil {
+			return ImportResult{}, err
 		}
-		if found {
-			if err := s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, existing, book.Title); err != nil {
-				return ImportResult{}, err
-			}
-			return ImportResult{Source: existing, Book: book, AlreadyPresent: true}, nil
-		}
+		return ImportResult{Source: existing, Book: book, AlreadyPresent: true}, nil
 	}
 	return s.importBookForBook(ctx, ownerID, language, bookID, content, extraction)
+}
+
+// findAcquisitionSource resolves an existing revision by the Retained EPUB's
+// digest first, then by the Catalog file's. A revision stored before slimming
+// holds the Catalog file, so its digest is the catalog's, and re-acquiring it
+// is not a content change.
+func (s *Service) findAcquisitionSource(ctx context.Context, ownerID, sourceIdentifier, contentHash, catalogDigest string) (domain.SourceMaterial, bool, error) {
+	lookup, ok := s.store.(AcquisitionSourceLookup)
+	if !ok {
+		return domain.SourceMaterial{}, false, nil
+	}
+	digests := []string{contentHash}
+	if catalogDigest != "" && catalogDigest != contentHash {
+		digests = append(digests, catalogDigest)
+	}
+	for _, digest := range digests {
+		existing, found, err := lookup.FindSourceMaterialForAcquisition(ctx, ownerID, sourceIdentifier, digest)
+		if err != nil {
+			return domain.SourceMaterial{}, false, fmt.Errorf("epub: look up existing source material: %w", err)
+		}
+		if found {
+			return existing, true, nil
+		}
+	}
+	return domain.SourceMaterial{}, false, nil
 }
 
 func (s *Service) importBook(ctx context.Context, ownerID, language string, content []byte, extraction Extraction) (ImportResult, error) {

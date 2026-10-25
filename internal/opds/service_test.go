@@ -1,11 +1,17 @@
 package opds
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
@@ -31,6 +37,20 @@ type importerStub struct {
 
 func (s *importerStub) Import(_ context.Context, owner, language string, content []byte) (epub.ImportResult, error) {
 	s.owner, s.language, s.content = owner, language, content
+	return epub.ImportResult{Source: domain.SourceMaterial{OwnerID: owner}}, nil
+}
+
+type acquisitionImporterStub struct {
+	importerStub
+	acquisition epub.AcquisitionContent
+	err         error
+}
+
+func (s *acquisitionImporterStub) ImportForAcquisition(_ context.Context, owner, language string, acquisition epub.AcquisitionContent) (epub.ImportResult, error) {
+	s.owner, s.language, s.acquisition = owner, language, acquisition
+	if s.err != nil {
+		return epub.ImportResult{}, s.err
+	}
 	return epub.ImportResult{Source: domain.SourceMaterial{OwnerID: owner}}, nil
 }
 
@@ -174,6 +194,96 @@ func TestBrowseRejectsExternalEagerPaginationTarget(t *testing.T) {
 	t.Run("external target is not reached", func(t *testing.T) {
 		require.False(t, externalHit, "external eager pagination target was reached")
 	})
+}
+
+func TestAcquireStreamsTheCatalogFileThroughTheConfiguredDirectory(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", EPUBMediaType)
+		testwrite.String(t, w, "epub")
+	}))
+	defer server.Close()
+
+	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL}}
+	importer := &acquisitionImporterStub{}
+	dir := t.TempDir()
+	service := NewService(store, importer, server.Client()).WithAcquisitionTempDir(dir)
+	_, err := service.Acquire(t.Context(), "owner", "connection", "de", Entry{Links: []Link{{Rel: AcquisitionRel, Type: EPUBMediaType, Href: server.URL}}})
+	require.NoError(t, err)
+	assert.Equal(t, "epub", string(importer.acquisition.Content))
+	assert.Equal(t, domain.EPUBContentDigest([]byte("epub")), importer.acquisition.CatalogDigest)
+	assertNoTemporaryFiles(t, dir)
+}
+
+func TestAcquireRemovesTheTemporaryFileAfterIngestFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", EPUBMediaType)
+		testwrite.String(t, w, "epub")
+	}))
+	defer server.Close()
+
+	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL}}
+	importer := &acquisitionImporterStub{err: errors.New("ingest failed")}
+	dir := t.TempDir()
+	service := NewService(store, importer, server.Client()).WithAcquisitionTempDir(dir)
+	_, err := service.Acquire(t.Context(), "owner", "connection", "de", Entry{Links: []Link{{Rel: AcquisitionRel, Type: EPUBMediaType, Href: server.URL}}})
+	require.Error(t, err)
+	assertNoTemporaryFiles(t, dir)
+}
+
+func TestAcquireRejectsACatalogFileOverTheRetainedLimit(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", EPUBMediaType)
+		testwrite.String(t, w, "larger than the test limit")
+	}))
+	defer server.Close()
+
+	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL}}
+	importer := &acquisitionImporterStub{}
+	dir := t.TempDir()
+	service := NewService(store, importer, server.Client()).WithAcquisitionTempDir(dir)
+	service.retainedLimit = 8
+	_, err := service.Acquire(t.Context(), "owner", "connection", "de", Entry{Links: []Link{{Rel: AcquisitionRel, Type: EPUBMediaType, Href: server.URL}}})
+	require.ErrorIs(t, err, ErrRetainedEPUBTooLarge)
+	assert.Empty(t, importer.acquisition.Content, "an over-limit Catalog file was still read into memory")
+	assertNoTemporaryFiles(t, dir)
+}
+
+func TestAcquireFinishesAfterTheRequestContextIsCancelled(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", EPUBMediaType)
+		time.Sleep(30 * time.Millisecond)
+		testwrite.String(t, w, "epub")
+	}))
+	defer server.Close()
+
+	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL}}
+	importer := &acquisitionImporterStub{}
+	service := NewService(store, importer, server.Client()).WithAcquisitionTempDir(t.TempDir())
+	ctx, cancel := context.WithCancel(t.Context())
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		cancel()
+	}()
+	_, err := service.Acquire(ctx, "owner", "connection", "de", Entry{Links: []Link{{Rel: AcquisitionRel, Type: EPUBMediaType, Href: server.URL}}})
+	require.NoError(t, err, "acquisition stopped when the page request ended")
+	assert.Equal(t, "epub", string(importer.acquisition.Content))
+}
+
+func TestRemoveDownloadedCatalogFileToleratesMissingAndFailedPaths(t *testing.T) {
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	removeDownloadedCatalogFile("")
+	assert.Empty(t, logs.String(), "an empty path is not a cleanup failure")
+
+	removeDownloadedCatalogFile(filepath.Join(t.TempDir(), "already-removed"))
+	assert.Empty(t, logs.String(), "a missing temporary file is not a cleanup failure")
+
+	occupied := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(occupied, "file"), []byte("x"), 0o600))
+	removeDownloadedCatalogFile(occupied)
+	assert.Contains(t, logs.String(), "could not remove downloaded catalog file")
 }
 
 func TestAcquireRejectsTargetOutsideOwnerCatalogOrigin(t *testing.T) {

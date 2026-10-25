@@ -64,6 +64,9 @@ type serverConfig struct {
 	addr            string
 	secureCookies   bool
 	sessionLifetime time.Duration
+	// acquisitionTempDir holds Catalog files while they are acquired. Empty
+	// uses the system temporary directory.
+	acquisitionTempDir string
 }
 
 // serverDependencies holds the clients and providers built after the store
@@ -136,12 +139,35 @@ func loadServerConfig() (serverConfig, error) {
 	if addr == "" {
 		addr = ":8080"
 	}
+	acquisitionTempDir, err := acquisitionTempDirFromEnv()
+	if err != nil {
+		return serverConfig{}, err
+	}
 	return serverConfig{
-		databaseURL:     databaseURL,
-		addr:            addr,
-		secureCookies:   strings.EqualFold(os.Getenv("MOUSEION_COOKIE_SECURE"), "true"),
-		sessionLifetime: 24 * time.Hour,
+		databaseURL:        databaseURL,
+		addr:               addr,
+		secureCookies:      strings.EqualFold(os.Getenv("MOUSEION_COOKIE_SECURE"), "true"),
+		sessionLifetime:    24 * time.Hour,
+		acquisitionTempDir: acquisitionTempDir,
 	}, nil
+}
+
+// acquisitionTempDirFromEnv resolves where acquisition streams Catalog files.
+// An explicitly configured directory must already exist, so a typo stops
+// startup instead of the first Move to To Read.
+func acquisitionTempDirFromEnv() (string, error) {
+	dir := strings.TrimSpace(os.Getenv("MOUSEION_ACQUISITION_TEMP_DIR"))
+	if dir == "" {
+		return "", nil
+	}
+	info, err := os.Stat(dir) //nolint:gosec // the operator configures this directory; it is not untrusted request input.
+	if err != nil {
+		return "", fmt.Errorf("invalid MOUSEION_ACQUISITION_TEMP_DIR: %w", err)
+	}
+	if !info.IsDir() {
+		return "", errors.New("invalid MOUSEION_ACQUISITION_TEMP_DIR: not a directory")
+	}
+	return dir, nil
 }
 
 // migrateAndOpenStore migrates before opening, so the shared store only ever
@@ -159,7 +185,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	authService := auth.New(store, cfg.sessionLifetime)
 	authHandler := webauth.New(authService, cfg.secureCookies, cfg.sessionLifetime)
 	epubService := epub.NewService(store)
-	opdsService := opds.NewService(store, epubService, nil)
+	opdsService := opds.NewService(store, epubService, nil).WithAcquisitionTempDir(cfg.acquisitionTempDir)
 	selectionService := selection.NewService(store)
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {

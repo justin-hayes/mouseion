@@ -78,6 +78,40 @@ func TestReanalyzeReportsAndLogsAcquisitionFailure(t *testing.T) {
 	assert.Contains(t, logs.String(), "mouseion: To Read acquisition failed for owner "+fixtures.OwnerID+" book "+strconv.Quote(metadataOnlyBookID)+": "+strconv.Quote(opds.ErrNoEPUB.Error()))
 }
 
+func TestSizeLimitFailuresAreClassifiedAndLogged(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		wantMessage string
+	}{
+		{
+			name:        "download limit",
+			err:         opds.ErrDownloadTooLarge,
+			wantMessage: "This EPUB is larger than the 512 MiB download limit. Choose a smaller edition.",
+		},
+		{
+			name:        "stored-content limit",
+			err:         opds.ErrRetainedEPUBTooLarge,
+			wantMessage: "This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h, cookies, csrf, store := readingFixtureSession(t)
+			endGermanFixtureReading(t, store)
+			require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, metadataOnlyBookID, domain.BookDispositionToRead))
+			requireHandler(t, h).services.OPDS = failingToReadOPDS{err: tt.err}
+			logs := captureLog(t)
+
+			response := readingTestRequest(t, h, "/reading/books/"+metadataOnlyBookID+"/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
+
+			require.Equal(t, http.StatusSeeOther, response.Code)
+			assert.Contains(t, redirectMessage(t, response.Header().Get("Location"), "error"), tt.wantMessage)
+			assert.Contains(t, logs.String(), "mouseion: To Read acquisition failed for owner "+fixtures.OwnerID+" book "+strconv.Quote(metadataOnlyBookID)+": "+strconv.Quote(tt.err.Error()))
+		})
+	}
+}
+
 func TestReanalyzeReportsAndLogsAnalysisSubmissionFailure(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)

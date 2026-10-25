@@ -86,6 +86,8 @@ services:
       MOUSEION_COOKIE_SECURE: ${MOUSEION_COOKIE_SECURE:-false}
       MOUSEION_DICTIONARY_INDEX: ${MOUSEION_DICTIONARY_INDEX:-/opt/mouseion/dictionary/dictionary-index.sqlite}
       MOUSEION_SECRET: ${MOUSEION_SECRET:-change-me-in-prod}
+      # Empty uses the system temporary directory inside the container.
+      MOUSEION_ACQUISITION_TEMP_DIR: ${MOUSEION_ACQUISITION_TEMP_DIR:-}
       MOUSEION_LLM_ENABLED: ${MOUSEION_LLM_ENABLED:-false}
       MOUSEION_LLM_API_KEY: ${MOUSEION_LLM_API_KEY:-}
       MOUSEION_LLM_MODEL: ${MOUSEION_LLM_MODEL:-}

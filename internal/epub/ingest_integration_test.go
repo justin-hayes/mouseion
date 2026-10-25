@@ -189,7 +189,7 @@ func TestImportForAcquisitionWritesV2SnapshotAndRetainsBytes(t *testing.T) {
 	extracted, err := ExtractV2(data)
 	require.NoError(t, err)
 
-	result, err := NewService(store).ImportForAcquisition(ctx, owner.ID, "de", data)
+	result, err := NewService(store).ImportForAcquisition(ctx, owner.ID, "de", AcquisitionContent{Content: data})
 	require.NoError(t, err)
 	require.False(t, result.AlreadyPresent)
 
@@ -249,7 +249,7 @@ WHERE owner_id=$1 AND source_material_id=$2 AND snapshot_id=$3`,
 	t.Run("a repeat acquisition converges on the same snapshot", func(t *testing.T) {
 		firstSnapshot, _, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, result.Source.ID)
 		require.NoError(t, err)
-		second, err := NewService(store).ImportForAcquisition(ctx, owner.ID, "de", data)
+		second, err := NewService(store).ImportForAcquisition(ctx, owner.ID, "de", AcquisitionContent{Content: data})
 		require.NoError(t, err)
 		require.True(t, second.AlreadyPresent)
 		assert.Equal(t, result.Source.ID, second.Source.ID)

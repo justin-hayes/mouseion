@@ -23,14 +23,14 @@ const (
 	CoverThumbnailRel = "http://opds-spec.org/image/thumbnail"
 	EPUBMediaType     = "application/epub+zip"
 	maxPages          = 100
-	maxResponse       = 100 << 20
 	maxImageResponse  = 8 << 20
 )
 
 var (
-	ErrNoEPUB            = errors.New("opds: entry has no EPUB acquisition link")
-	ErrEPUBTooLarge      = errors.New("opds: EPUB exceeds 100 MiB limit")
-	ErrSearchUnavailable = errors.New("opds: catalog does not advertise search")
+	ErrNoEPUB               = errors.New("opds: entry has no EPUB acquisition link")
+	ErrDownloadTooLarge     = errors.New("opds: catalog EPUB exceeds the 512 MiB download limit")
+	ErrRetainedEPUBTooLarge = errors.New("opds: EPUB exceeds the 100 MiB retained-EPUB limit")
+	ErrSearchUnavailable    = errors.New("opds: catalog does not advertise search")
 )
 
 type Auth struct {
@@ -77,13 +77,24 @@ type atomFeed struct {
 type Client struct {
 	HTTP *http.Client
 	Auth Auth
+	// Catalog download bounds. NewClient fills them with the package defaults;
+	// tests override them to keep coverage-sized bodies and waits small.
+	downloadLimit   int64
+	idleTimeout     time.Duration
+	downloadTimeout time.Duration
 }
 
 func NewClient(httpClient *http.Client, auth Auth) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
-	return &Client{HTTP: httpClient, Auth: auth}
+	return &Client{
+		HTTP:            httpClient,
+		Auth:            auth,
+		downloadLimit:   defaultDownloadLimit,
+		idleTimeout:     defaultIdleTimeout,
+		downloadTimeout: defaultDownloadTimeout,
+	}
 }
 
 func (c *Client) ListRoot(ctx context.Context, catalogURL string) (Feed, error) {
@@ -368,36 +379,6 @@ func sameLanguageLabel(left, right string) bool {
 // SupportsSearch reports whether a feed advertises an OpenSearch endpoint.
 func SupportsSearch(feed Feed) bool { return findLink(feed.Links, "search") != nil }
 
-func (c *Client) Download(ctx context.Context, downloadURL string) (data []byte, err error) {
-	scoped, err := c.withOrigin(downloadURL)
-	if err != nil {
-		return nil, fmt.Errorf("opds: download EPUB: %w", err)
-	}
-	if scoped != c {
-		return scoped.Download(ctx, downloadURL)
-	}
-	resp, err := c.get(ctx, downloadURL)
-	if err != nil {
-		return nil, fmt.Errorf("opds: download EPUB: %w", err)
-	}
-	defer func() { err = errors.Join(err, resp.Body.Close()) }()
-	if err := statusError(resp); err != nil {
-		return nil, err
-	}
-	mediaType := strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
-	if mediaType != "" && !strings.EqualFold(mediaType, EPUBMediaType) && !strings.EqualFold(mediaType, "application/octet-stream") {
-		return nil, fmt.Errorf("opds: download returned incompatible media type %q", mediaType)
-	}
-	data, err = io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
-	if err != nil {
-		return nil, fmt.Errorf("opds: read EPUB: %w", err)
-	}
-	if len(data) > maxResponse {
-		return nil, ErrEPUBTooLarge
-	}
-	return data, nil
-}
-
 // DownloadImage fetches an advertised cover image without imposing EPUB
 // media-type restrictions.
 func (c *Client) DownloadImage(ctx context.Context, imageURL string) (data []byte, contentType string, err error) {
@@ -501,6 +482,10 @@ func (c *Client) fetchSearchTemplate(ctx context.Context, descriptionURL string)
 }
 
 func (c *Client) get(ctx context.Context, target string) (*http.Response, error) {
+	return c.do(ctx, target, c.httpClient())
+}
+
+func (c *Client) do(ctx context.Context, target string, client *http.Client) (*http.Response, error) {
 	if err := c.validateTarget(target); err != nil {
 		return nil, err
 	}
@@ -512,7 +497,7 @@ func (c *Client) get(ctx context.Context, target string) (*http.Response, error)
 	if (c.Auth.Username != "" || c.Auth.Password != "") && (c.Auth.Origin == "" || sameOrigin(c.Auth.Origin, target)) {
 		req.SetBasicAuth(c.Auth.Username, c.Auth.Password)
 	}
-	return c.httpClient().Do(req)
+	return client.Do(req)
 }
 
 func (c *Client) validateTarget(target string) error {
