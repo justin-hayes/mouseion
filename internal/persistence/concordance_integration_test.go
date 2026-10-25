@@ -582,6 +582,17 @@ func TestCurrentReadingBrowseRanksLocalFrequencyThenAcrossBookTotal(t *testing.T
 	assert.Equal(t, int64(4), page.Rows[0].AcrossBooksOccurrenceCount)
 	assert.Equal(t, "alpha", page.Rows[1].CanonicalLemma)
 	assert.Equal(t, int64(2), page.Rows[1].AcrossBooksOccurrenceCount)
+
+	nouns, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{
+		BookIDs: []string{current.ID}, UPOS: []string{"NOUN"}, Sort: "lemma", Page: 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, nouns.Rows, 2, "a UPOS-filtered Book subset keeps only its own identities")
+	assert.Equal(t, "zeta", nouns.Rows[1].CanonicalLemma)
+	assert.Equal(t, int64(1), nouns.Rows[1].OccurrenceCount)
+	assert.Equal(t, int64(4), nouns.Rows[1].AcrossBooksOccurrenceCount, "the across-Book total counts Books outside the subset")
+	assert.Equal(t, int64(2), nouns.ScopedInventoryTotal)
+	assert.Equal(t, int64(3), nouns.InventoryTotal, "the inventory counts every analysed Book")
 }
 
 func TestListCorpusSentencesReturnsBatchedTokenDependencyData(t *testing.T) {
