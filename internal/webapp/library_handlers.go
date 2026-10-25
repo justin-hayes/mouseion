@@ -313,6 +313,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	if applied && !wasToRead && h.services.Analysis != nil && detail.ReadingUnit == nil {
 		handle, target, title, acquisitionFailed, analysisErr := h.ensureToReadAnalysis(r.Context(), owner, bookID)
 		if analysisErr != nil {
+			logToReadAnalysisFailure(owner, bookID, acquisitionFailed, analysisErr)
 			message = toReadAnalysisError(r.Context(), h.services.Store.Catalogs, owner, bookID, title, target, acquisitionFailed, analysisErr)
 		} else {
 			message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)

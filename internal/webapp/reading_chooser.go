@@ -255,13 +255,14 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	handle, _, _, _, err := h.ensureToReadAnalysis(r.Context(), owner, bookID)
+	handle, target, title, acquisitionFailed, err := h.ensureToReadAnalysis(r.Context(), owner, bookID)
 	if err != nil {
 		if errors.Is(err, analysis.ErrCurrentBook) {
 			rejectCurrentBookRefresh(w, r)
 			return
 		}
-		redirect(w, r, "/reading?error="+url.QueryEscape("Acquisition or analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again."))
+		logToReadAnalysisFailure(owner, bookID, acquisitionFailed, err)
+		redirect(w, r, "/reading?error="+url.QueryEscape(reanalysisError(r.Context(), h.services.Store.Catalogs, owner, bookID, title, target, acquisitionFailed, err)))
 		return
 	}
 	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
