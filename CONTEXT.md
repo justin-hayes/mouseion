@@ -417,7 +417,15 @@ A reviewed, keyed description of one Reading unit: its Work, Edition, citation
 range, source pin, optional translation pin and interpretation version. It ships
 with Mouseion, keeps its key permanently, and takes a new revision whenever a
 content-bearing part changes.
-_Avoid_: manifest entry, shelf item, catalogue entry (catalogue means OPDS).
+_Avoid_: manifest entry, shelf item, catalog entry (an OPDS offering).
+
+**Classical catalog**:
+The installation-wide collection of Reading-unit definitions a learner can add
+to My Books. They are curated, not learner-authored; adding one gives the
+learner at most one Book for its Reading unit, which keeps that link when the
+definition takes a new revision.
+_Avoid_: shelf (a Book workflow bucket synonym), Browse (the vocabulary view),
+library.
 
 **Annotation occurrence**:
 A text-attested linguistic occurrence distinguished within one exact analysis,
