@@ -262,3 +262,8 @@ Bundled third-party assets keep their own licenses, recorded beside them in
 Open Font License). The optional dictionary index is not distributed with the
 source; when built, it is Wiktionary-derived data under CC BY-SA 4.0 / GFDL, as
 described in the [operations guide](doc/operations.md#dictionary-index).
+
+The language models, treebanks, dictionaries and texts a deployment provisions
+or imports are not covered by the AGPL and keep their own terms. Some are
+non-commercial, including models in the default warm set. The
+[third-party data register](doc/third-party-data.md) lists each one.

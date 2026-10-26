@@ -15,6 +15,7 @@ of document has one home:
 | Domain glossary | [`CONTEXT.md`](../CONTEXT.md) | The ubiquitous language used in code, UI, and documentation. |
 | Architecture | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | How the system is built: processes, pipelines, jobs, data model, and code map. |
 | Linguistic design | [`linguistics.md`](linguistics.md) | The linguistic decisions behind analysis, selection, and evidence, with evaluation and limitations. |
+| Third-party data register | [`third-party-data.md`](third-party-data.md) | Every third-party Analysis resource and Source content layer, with its terms and flags (ADR 0111). |
 | Decisions | [`adr/`](adr/) | Accepted architecture and product-boundary decisions. |
 | Feature specifications | [`features/`](features/) | Behavior, motivation, and scope of individual features. |
 | Design | [`design/`](design/) | Principles, design system, and information architecture. |

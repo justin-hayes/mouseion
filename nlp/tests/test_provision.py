@@ -15,6 +15,8 @@ from mouseion_nlp.model_config import (
 )
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
+    THIRD_PARTY_DATA_NOTICE,
+    THIRD_PARTY_REGISTER,
     ArtifactChecksumMismatchError,
     ExternalModels,
     ensure_external_dependency,
@@ -477,6 +479,22 @@ def test_main_provisions_the_configured_languages(tmp_path) -> None:
 
     assert [call.args[0] for call in download.call_args_list] == ["de", "it"]
     assert read_marker(tmp_path).languages == ("de", "it")
+
+
+def test_main_points_to_the_third_party_data_register(tmp_path, capsys) -> None:
+    with (
+        patch.dict(
+            "os.environ",
+            {"MOUSEION_NLP_WARM_LANGUAGES": "de", "STANZA_RESOURCES_DIR": str(tmp_path)},
+            clear=True,
+        ),
+        patch("mouseion_nlp.provision.stanza.download"),
+    ):
+        assert main() == 0
+
+    lines = [line for line in capsys.readouterr().out.splitlines() if THIRD_PARTY_REGISTER in line]
+    assert lines == [THIRD_PARTY_DATA_NOTICE]
+    assert "own terms" in THIRD_PARTY_DATA_NOTICE
 
 
 def test_read_marker_treats_a_corrupt_marker_as_absent(tmp_path) -> None:

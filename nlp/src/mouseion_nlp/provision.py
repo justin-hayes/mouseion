@@ -40,6 +40,12 @@ from .server import configured_languages
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
 DEFAULT_HF_HOME = Path("/opt/huggingface")
+THIRD_PARTY_REGISTER = "doc/third-party-data.md"
+# Logged on every provisioning run; there is no acknowledgement gate (ADR 0111).
+THIRD_PARTY_DATA_NOTICE = (
+    "provisioned models are third-party and carry their own terms, some non-commercial; "
+    f"see {THIRD_PARTY_REGISTER} in the Mouseion source"
+)
 
 
 class ArtifactChecksumMismatchError(RuntimeError):
@@ -298,6 +304,7 @@ def main() -> int:
         f"provisioned Stanza models for {', '.join(languages)} in {resources_dir}",
         flush=True,
     )
+    print(THIRD_PARTY_DATA_NOTICE, flush=True)
     return 0
 
 
