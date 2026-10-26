@@ -61,7 +61,7 @@ Stanza is `stanza==1.15.0` (`nlp/uv.lock`). Its packages resolve through
 | Stanza trained models for `de`, `it`, `el` and `fr` (HF `stanfordnlp/stanza-{de,it,el,fr}` at `v1.15.0`; `fr` at `caeb7742`) | Analysis resource | Each model card declares `apache-2.0`. Stanza's performance page (unpinned) says "License information for models built from the UD data is unclear" and offers the packs under the Open Data Commons Attribution License v1.0 to the extent Stanford holds rights. The training data rows below apply too. | unclear | Deploy time (`stanza-data` volume) | Output only (`Lemma`, `POS`), with the generic annotations notice | **NC** (through conll17 and the treebanks below) |
 | conll17 word embeddings (`pretrain/conll17.pt` for `de`, `it`, `el`, `fr`) | Analysis resource | LINDAT `11234/1-1989`: "the CC BY-SA-NC 4.0 license applies to the automatically generated annotations and word embeddings, not to the underlying data, which may have different license and impose additional restrictions." The record's file is CC BY-NC-SA 4.0. | NC | Deploy time, inside the Stanza download | Output only | **NC**; underlying text **unverified** |
 | Stanza `newswiki` character models (`de` `pos` and `depparse`; `fr`) | Analysis resource | No licence statement found; training corpus unidentified (`stanza@v1.15.0`, `default_packages.py`). | unclear | Deploy time | Output only | **Unverified** |
-| Stanza German lemma data composed from German Wiktionary (`de` combined package) | Analysis resource | Stanza's combined-models page (unpinned) says it is "composed from German Wiktionary". No Stanza-side licence statement; Wiktionary text is CC BY-SA 4.0 / GFDL under the Wikimedia Terms of Use §7. | share-alike | Deploy time, inside the `de` package | Output only | **Unverified** |
+| Stanza German lemma data composed from German Wiktionary (`de` combined package) | Analysis resource | Stanza's combined-models page (unpinned) says it is "composed from German Wiktionary". No Stanza-side licence statement; Wiktionary text is CC BY-SA 4.0 / GFDL under the Wikimedia Terms of Use §7. | unclear | Deploy time, inside the `de` package | Output only | **Unverified** |
 | UD German-GSD (`UD_German-GSD@ce54dbe9`), trains the `de` package | Analysis resource | `LICENSE.txt`: CC BY-SA 4.0. README: "Google gave permission to drop the NC restriction … This applies to the UD annotations (not the underlying content …)"; "Portions of the German data were sampled from the CoNLL 2006 Tiger Treebank". | share-alike | Inside the `de` package weights | Output only | Tiger-sampled sentences **unverified** |
 | UD Italian-ISDT (`UD_Italian-ISDT@ff2447f6`), trains the `it` package | Analysis resource | `LICENSE.txt`: "released … under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported licence". The README's "research purposes" wording does not override it. | NC | Inside the `it` package weights | Output only | **NC** |
 | UD Italian-VIT (`UD_Italian-VIT@12fc5f68`), trains the `it` package | Analysis resource | `LICENSE.txt`: CC BY-NC-SA 3.0. | NC | Inside the `it` package weights | Output only | **NC** |
@@ -89,6 +89,12 @@ No Source content layer in use is NC, research-only, unlicensed or unclear.
   provider's terms. ADR 0111 leaves this open.
 - **Books a learner imports** are the learner's own material, not a layer
   Mouseion supplies.
-- **Software dependencies** keep their own licences. These include Go modules,
-  Python packages (Stanza's code is Apache-2.0) and the web assets bundled under
-  [`internal/webapp/static/vendor/`](../internal/webapp/static/vendor/).
+- **Software dependencies and bundled assets** keep their own licences. These
+  include Go modules, Python packages (Stanza's code is Apache-2.0), and the
+  htmx, Tailwind CSS, daisyUI, Literata and Commissioner assets recorded under
+  [`internal/webapp/static/vendor/`](../internal/webapp/static/vendor/). None of
+  them reaches a deck.
+- **Mouseion's own data**, such as the German spelling table
+  `internal/canonicalization/german_post1996.json`
+  ([ADR 0065](adr/0065-german-pre-1996-sharp-s-canonicalization.md)), is part
+  of the AGPL-covered source.
