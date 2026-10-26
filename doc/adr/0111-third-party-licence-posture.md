@@ -1,11 +1,12 @@
 # ADR 0111: One licence posture for third-party data in every language
 
-Status: **Accepted — posture** · Date: 2026-10-26 · Author: Justin + OpenCode
+Status: **Accepted — posture; implemented** · Date: 2026-10-26 · Author: Justin + OpenCode
 
 Accepted by merging this ADR's pull request. Decided in
 [#2308](https://github.com/justin-hayes/mouseion/issues/2308). The deployer
-register, provisioning pointer and deck notice it requires are tracked
-separately; this ADR is marked implemented when they land. Amends the context of
+register ([`doc/third-party-data.md`](../third-party-data.md)), provisioning
+pointer and deck notice it requires were implemented in
+[#2312](https://github.com/justin-hayes/mouseion/issues/2312). Amends the context of
 [ADR 0099](0099-ancient-greek-imported-analyses.md) and restates the rights
 footing of [ADR 0073](0073-modern-greek-language-support.md) and
 [ADR 0102](0102-french-language-support.md) as a general rule.

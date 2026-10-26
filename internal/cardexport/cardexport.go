@@ -949,7 +949,11 @@ func uniqueTags(values ...string) []string {
 func RenderTSV(notes []Note, attribution string) (string, error) {
 	var out bytes.Buffer
 	if attribution = strings.TrimSpace(attribution); attribution != "" {
-		_, _ = out.WriteString("# " + attribution + "\n")
+		// Comment every line so the blank line between notices, and each later
+		// notice, is never read as a note row.
+		for line := range strings.SplitSeq(attribution, "\n") {
+			_, _ = out.WriteString(strings.TrimRight("# "+line, " ") + "\n")
+		}
 	}
 	w := csv.NewWriter(&out)
 	w.Comma, w.UseCRLF = '\t', false
@@ -1517,11 +1521,17 @@ func deckDescription(entries []RenderInput) string {
 	return description
 }
 
+// AnalysisModelsNotice is retained wherever annotations from the NLP service
+// are exported. It names no model: the deployer provisions them, and the
+// deployment's third-party data register records their terms (ADR 0111).
+const AnalysisModelsNotice = "Lemmas, parts of speech and other annotations come from language models provisioned by the operator of this Mouseion deployment. Those models carry their own terms; see the deployment's third-party data register (doc/third-party-data.md in the Mouseion source)."
+
 // attributionNotices returns every attribution and licence notice the entries
 // require: Wiktionary whenever dictionary evidence was used, the LSJ/Perseus
 // notice whenever a matched LSJ entry was frozen, the imported Ancient Greek
-// source notices whenever the deck is Ancient Greek, and the Brownson notice
-// whenever a passage was frozen.
+// source notices whenever the deck is Ancient Greek, the Brownson notice
+// whenever a passage was frozen, and the analysis-models notice whenever the
+// NLP service analysed the deck.
 func attributionNotices(entries []RenderInput) string {
 	var notices []string
 	if dictionaryAttribution(entries) != "" {
@@ -1536,7 +1546,22 @@ func attributionNotices(entries []RenderInput) string {
 	if deckHasBrownsonPassage(entries) {
 		notices = append(notices, dictionary.BrownsonSourceNotice)
 	}
+	if deckIsNLPAnalysed(entries) {
+		notices = append(notices, AnalysisModelsNotice)
+	}
 	return strings.Join(notices, "\n\n")
+}
+
+// deckIsNLPAnalysed reports whether any entry's analysis came from the NLP
+// service. Every study language except Ancient Greek is analysed there; an
+// Ancient Greek analysis is imported (ADR 0099).
+func deckIsNLPAnalysed(entries []RenderInput) bool {
+	for _, entry := range entries {
+		if language := strings.TrimSpace(entry.Language); language != "" && !IsAncientGreek(language) {
+			return true
+		}
+	}
+	return false
 }
 
 // deckHasBrownsonPassage reports whether any entry froze a Brownson passage.

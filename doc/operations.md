@@ -146,6 +146,13 @@ processor at the provisioned copy so Greek loads offline. The Hugging Face cache
 is checked on each run and repaired if a model is missing. Serving loads only
 local artifacts and never downloads models.
 
+The provisioned models carry their own third-party terms, and the default warm
+set includes non-commercial ones. The
+[third-party data register](third-party-data.md) lists each model, treebank,
+dictionary and text with its terms. Provisioning logs a pointer to it. A
+commercial deployment is the deployer's responsibility
+([ADR 0111](adr/0111-third-party-licence-posture.md)).
+
 To add a language, set `MOUSEION_NLP_WARM_LANGUAGES` in `.env` and run
 `docker compose up -d`; no image rebuild is needed. The init container must be
 able to reach Stanza's model source. If provisioning fails, Compose does not
