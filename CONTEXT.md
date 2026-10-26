@@ -401,7 +401,16 @@ _Avoid_: Work, annotation release.
 The defined extent of one Edition that a Book represents: a whole work, a
 constituent book, or a bounded passage. Its extent is stable across source
 revisions and is not defined by whichever annotation fragments are available.
+A sentence belongs to the Reading unit that holds its first word, so each
+sentence of an Edition belongs to exactly one of its Reading units.
 _Avoid_: readable unit (an extracted structural unit), annotation coverage.
+
+**Constituent book**:
+A Work's conventional top-level division that its citation scheme names a book,
+such as Anabasis 1–7 or Iliad 1–24. It is not a chapter, a page, or a line, even
+when one of those is the first citation level. It is unrelated to a learner's
+Book.
+_Avoid_: Book (the learner-owned identity), volume, chapter.
 
 **Annotation occurrence**:
 A text-attested linguistic occurrence distinguished within one exact analysis,
