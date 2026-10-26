@@ -7,7 +7,8 @@ the Opera Graeca Adnotata (OGA) v0.2.0 annotations in the pinned `oga_src`
 file derive from, whether those inputs carry non-commercial (NC) terms, and
 the deployer-register row for the annotation layer (ADR 0111, #2312). Primary
 sources only: Zenodo records, GitHub repositories and tags, arXiv papers, and
-the pinned file itself. No authors were contacted.
+the pinned file itself. The CLTK README is cited only as corroboration of a
+statement found in the primary repository. No authors were contacted.
 
 ## Answer
 
@@ -31,7 +32,11 @@ the pinned file itself. No authors were contacted.
   conflict is resolved in the sources.
 - **Recommendation:** restriction kind `unclear`, flagged **unverified**, not
   flagged NC. The reasons are the unstated AGDT version and the unresolved
-  licence conflicts in the training data.
+  licence conflicts in the training data. ADR 0111 counts a layer whose terms
+  cannot be settled from the instruments in force as unclear.
+- **The shipped import stays.** ADR 0111 classifies these annotations as an
+  Analysis resource, acceptable whatever the AGDT lineage, so this finding
+  changes only the register row (#2312), not the import.
 
 ## Evidence
 
@@ -49,7 +54,15 @@ the pinned file itself. No authors were contacted.
 - The file's only header fields are `# source`, `# text` and `# sent_id`.
   No line states a version, a parser, a treebank or a licence. The first
   source line is `# source = Xenophon, Xen. Anab._1.1.1`.
-- The ADR calls the pin "the single-file CoNLL-U packaging" of Zenodo record
+- The committed `internal/ancientgreek/testdata/oga-src-*.conllu` fixtures
+  are not excerpts of the pinned file. They use its column format, but every
+  `# text` line is a synthetic sentence (for example "λέγει Κῦρος · καὶ
+  λέγουσι ;"), not Xenophon's text. The repository therefore ships no OGA
+  annotation, as ADR 0111's condition 2 requires.
+- `oga_src` at `v0.2.0` holds only `README.md`, `license.md`, `data/`, one
+  Jupyter notebook and `.github/funding.yml`. It has no build pipeline: it
+  repackages OGA's output and does not regenerate annotations.
+- ADR 0099 calls the pin "the single-file CoNLL-U packaging" of Zenodo record
   15199546. That record is not a single CoNLL-U file. Its only file is
   `mgbilby/oga_src-v0.2.0.zip`, 761,489,280 bytes, MD5
   `714b9b52abc47c65f26f6f2fefc92520`
@@ -80,7 +93,9 @@ the pinned file itself. No authors were contacted.
     (for more details, look also at the repositories of the original texts
     mentioned above)."
 - The `main` README of that repository is a different revision. The tag
-  README is the one cited above.
+  README is the one cited above. The tag has no LICENSE file (its top level is
+  `README.md` and seven tool directories), so the README is the only upstream
+  licence statement.
 - `mgbilby/oga_src` `license.md` (blob `e3e2f9a956b426109dd619e974f2252ebc0b2ad9`,
   the same at `v0.2.0` and `main`) says the corpus "was archived under a CC
   BY-SA 4.0 international license". This is the repackager's statement, not
@@ -178,7 +193,8 @@ the pinned file itself. No authors were contacted.
 1. **The AGDT version behind OGA v0.2.0 is unstated.** The v0.2.0 README and
    arXiv 2410.12055 name only "AGDT". The only version statement is AGDT 2.1
    for v0.1.0. A training manifest or Celano's repository would settle it. The
-   Leipzig GitLab repository I checked yielded no readable metadata.
+   Leipzig GitLab repository I checked yielded no readable metadata. Only the
+   author could settle it, and no author was contacted.
 2. **Anabasis in the training data is inferred, not confirmed.** The
    inference rests on the Gorman Xenophon trees and the paper's dataset table.
 3. **Gorman NC conflict.** The README says NC-SA 4.0. The licence file in force
@@ -200,8 +216,9 @@ the pinned file itself. No authors were contacted.
 
 Add a row to `doc/third-party-data.md` when #2312 creates it. The row is an
 Analysis resource (ADR 0111). The ADR's conditions for NC or unclear Analysis
-resources already hold for the import: the file is operator-supplied at a local
-path, and the import never ships it.
+resources hold for the import once this row exists (condition 4): the file is
+operator-supplied at a local path, and neither the import nor its test fixtures
+ship it.
 
 | Field | Value |
 | --- | --- |
@@ -213,7 +230,5 @@ path, and the import never ships it.
 | Delivery path | Operator-supplied local file, imported by `ancientgreek` (ADR 0099). Never in a repository, image or release artifact. |
 | Reaches a deck | Yes: `Lemma` and `POS` fields of imported decks, with `AncientGreekSourceNotice` (ADR 0111, "Exported decks"). |
 
-If #2312 prefers the declared licence to the lineage, the restriction kind
-would be `share-alike` with the same unverified flag. I recommend `unclear`
-because the lineage contains an unresolved NC claim and an unstated AGDT
-version.
+Once #2312 lands, `doc/third-party-data.md` is authoritative for this row; this
+section records only the evidence behind it.
