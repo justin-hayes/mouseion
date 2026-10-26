@@ -17,6 +17,20 @@ import (
 // A page past the last page returns no rows with its exact Total; the caller
 // decides how to explain it rather than silently serving a different page.
 func (s *PostgresStore) ListVocabularyBrowsePage(ctx context.Context, owner, language string, queryParams domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
+	queryParams = normalizeVocabularyBrowseQuery(queryParams)
+	rows, err := s.pool.Query(ctx, vocabularyBrowseSQL, vocabularyBrowseArgs(owner, language, queryParams)...)
+	if err != nil {
+		return domain.VocabularyBrowsePage{}, fmt.Errorf("query effective vocabulary browse: %w", err)
+	}
+	defer rows.Close()
+	result, err := readVocabularyBrowseRows(rows, queryParams)
+	if err != nil {
+		return domain.VocabularyBrowsePage{}, err
+	}
+	return result, nil
+}
+
+func normalizeVocabularyBrowseQuery(queryParams domain.VocabularyBrowseQuery) domain.VocabularyBrowseQuery {
 	if queryParams.Page < 1 {
 		queryParams.Page = 1
 	}
@@ -32,7 +46,22 @@ func (s *PostgresStore) ListVocabularyBrowsePage(ctx context.Context, owner, lan
 	if queryParams.Sort != "occurrences" && queryParams.Sort != "books" {
 		queryParams.Sort = "lemma"
 	}
-	const query = `
+	return queryParams
+}
+
+// vocabularyBrowseArgs binds a normalized query to vocabularyBrowseSQL's
+// parameters. The Browse scale test explains the same text with these
+// arguments, so it inspects the plan a learner's request executes.
+func vocabularyBrowseArgs(owner, language string, queryParams domain.VocabularyBrowseQuery) []any {
+	var deckBookID any
+	if queryParams.CurrentBookID != "" {
+		deckBookID = queryParams.CurrentBookID
+	}
+	showAll := queryParams.IncludeAll || queryParams.CurrentBookID == ""
+	return []any{owner, language, strings.TrimSpace(queryParams.Prefix), queryParams.BookIDs, queryParams.UPOS, queryParams.KnownFilter, queryParams.ReservedFilter, queryParams.Sort, queryParams.Page, queryParams.CurrentBookID, showAll, deckBookID}
+}
+
+const vocabularyBrowseSQL = `
 WITH all_books AS (
   SELECT b.id::text AS id, b.title,
     EXISTS (SELECT 1 FROM current_analysis_identity cai WHERE cai.owner_id=b.owner_id AND cai.book_id=b.id) AS analyzed
@@ -207,22 +236,6 @@ FROM summary CROSS JOIN coverage CROSS JOIN revision LEFT JOIN page_rows p ON tr
 ORDER BY CASE WHEN $8='occurrences' THEN p.occurrences END DESC,
              CASE WHEN $10<>'' THEN p.across_books_occurrences END DESC,
 	         CASE WHEN $8='books' THEN p.books END DESC,p.lemma,p.upos,p.discriminator`
-	var deckBookID any
-	if queryParams.CurrentBookID != "" {
-		deckBookID = queryParams.CurrentBookID
-	}
-	showAll := queryParams.IncludeAll || queryParams.CurrentBookID == ""
-	rows, err := s.pool.Query(ctx, query, owner, language, strings.TrimSpace(queryParams.Prefix), queryParams.BookIDs, queryParams.UPOS, queryParams.KnownFilter, queryParams.ReservedFilter, queryParams.Sort, queryParams.Page, queryParams.CurrentBookID, showAll, deckBookID)
-	if err != nil {
-		return domain.VocabularyBrowsePage{}, fmt.Errorf("query effective vocabulary browse: %w", err)
-	}
-	defer rows.Close()
-	result, err := readVocabularyBrowseRows(rows, queryParams)
-	if err != nil {
-		return domain.VocabularyBrowsePage{}, err
-	}
-	return result, nil
-}
 
 func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	result := domain.VocabularyBrowsePage{Page: queryParams.Page, SelectedBooks: queryParams.BookIDs, SelectedUPOS: queryParams.UPOS, KnownFilter: queryParams.KnownFilter, ReservedFilter: queryParams.ReservedFilter, Sort: queryParams.Sort, IncludeAll: queryParams.IncludeAll}
