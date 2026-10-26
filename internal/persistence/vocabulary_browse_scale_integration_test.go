@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -24,22 +23,13 @@ const browseScaleRescanLimit = 1000
 // overlaps the next Book's, so the library inventory is several times one
 // Book's and both grow with the library.
 type browseScaleLibrary struct {
-	language       string
-	books          int
-	perBook        int
-	core           int
-	lemma          string // SQL over id yielding the canonical lemma
-	discriminator  string // SQL over id yielding the lexical discriminator
-	headword       string // SQL over id yielding the citation headword, '' for none
-	expectedRescan browseExpectedRescan
-}
-
-// browseExpectedRescan marks a known library-scale rescan as an expected
-// failure. Every view must still rescan exactly these CTEs, so a fix shows up
-// as a failure asking for the marker's removal and a new rescan still fails.
-type browseExpectedRescan struct {
-	issue string
-	ctes  []string
+	language      string
+	books         int
+	perBook       int
+	core          int
+	lemma         string // SQL over id yielding the canonical lemma
+	discriminator string // SQL over id yielding the lexical discriminator
+	headword      string // SQL over id yielding the citation headword, '' for none
 }
 
 var browseScaleLibraries = []browseScaleLibrary{{
@@ -55,9 +45,6 @@ var browseScaleLibraries = []browseScaleLibrary{{
 	lemma:         `CASE WHEN (id/3)%2=0 THEN 'δέω'||(id/3) ELSE 'λόγος'||lpad(id::text,6,'0') END`,
 	discriminator: `CASE WHEN (id/3)%2=0 THEN (ARRAY['','1','2'])[id%3+1] ELSE '' END`,
 	headword:      `CASE WHEN (id/3)%2=0 THEN 'δέω'||(id/3) WHEN id%4=0 THEN 'λόγος' ELSE '' END`,
-	// Every view still matches each Book identity against the library's
-	// headwords and numbered siblings in a nested loop.
-	expectedRescan: browseExpectedRescan{issue: "#2289", ctes: []string{"identity_headwords", "numbered_siblings"}},
 }}
 
 type browseScaleView struct {
@@ -98,24 +85,7 @@ func TestVocabularyBrowseViewsAvoidLibraryScaleRescans(t *testing.T) {
 				t.Run(view.name, func(t *testing.T) {
 					t.Parallel()
 					rescans := explainBrowseRescans(t, ctx, store, owner.ID, library.language, view.query)
-					expected := library.expectedRescan
-					rescanned := make([]string, 0, len(rescans))
-					var unexpected []browseRescan
-					for _, rescan := range rescans {
-						if slices.Contains(expected.ctes, rescan.cte) {
-							rescanned = append(rescanned, rescan.cte)
-						} else {
-							unexpected = append(unexpected, rescan)
-						}
-					}
-					require.Empty(t, unexpected, "Browse %s view rescans a CTE at library scale", view.name)
-					if expected.issue == "" {
-						return
-					}
-					slices.Sort(rescanned)
-					require.Equal(t, expected.ctes, slices.Compact(rescanned),
-						"Browse %s view changed its expected failure for %s; remove the marker for any CTE it no longer rescans", view.name, expected.issue)
-					t.Logf("expected failure tracked by %s: %v", expected.issue, rescans)
+					require.Empty(t, rescans, "Browse %s view rescans a CTE at library scale", view.name)
 				})
 			}
 		})
@@ -127,49 +97,58 @@ func seedBrowseScaleLibrary(t *testing.T, ctx context.Context, store *PostgresSt
 	window := library.perBook - library.core
 	books := make([]string, 0, library.books)
 	for i := range library.books {
-		suffix := fmt.Sprintf("browse-scale-%s-%02d", library.language, i)
-		book, err := store.CreateBook(ctx, domain.Book{
-			OwnerID: owner, Title: fmt.Sprintf("Scale %s %02d", library.language, i), MetadataProvenance: domain.MetadataProvenanceCatalogueSync,
-			LanguageState: domain.LanguageChosen, LanguageTag: library.language,
-		})
-		require.NoError(t, err)
-		units := []domain.ExtractedUnit{concordanceUnit(0, suffix, "text", 0, 4)}
-		source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
-			OwnerID: owner, Language: library.language, SourceIdentifier: suffix,
-			Title: book.Title, MediaType: "application/epub+zip", Content: []byte(suffix), FullText: "text",
-		}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: units})
-		require.NoError(t, err)
-		require.NoError(t, store.LinkSourceToBook(ctx, owner, book.ID, source.ID))
-		insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{{UnitID: units[0].ID, Text: "text", End: 4}})
-		var run, corpus string
-		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text,corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner, book.ID).Scan(&run, &corpus))
-
 		// Book i holds the core and the window starting i half-windows past it,
 		// so each window identity is shared with one neighbouring Book.
 		identities := fmt.Sprintf(`SELECT id, %s AS lemma, %s AS discriminator, %s AS headword,
-				(ARRAY['NOUN','VERB','ADJ','ADV'])[id%%4+1] AS upos
+				(ARRAY['NOUN','VERB','ADJ','ADV'])[id%%4+1] AS upos, 1+id%%50 AS occurrences
 			FROM (SELECT CASE WHEN j<%[4]d THEN j ELSE %[4]d+%[5]d+(j-%[4]d) END AS id FROM generate_series(0,%[6]d-1) j) ids`,
 			library.lemma, library.discriminator, library.headword, library.core, i*window/2, library.perBook)
-		_, err = store.Pool().Exec(ctx, `
-			INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count,lexical_discriminator)
-			SELECT $1,$2,$3,$4,$5,lemma,upos,1+id%50,discriminator FROM (`+identities+`) i`,
-			owner, book.ID, library.language, run, corpus)
-		require.NoError(t, err)
-		_, err = store.Pool().Exec(ctx, `
-			INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,start_offset,end_offset,lexical_discriminator,headword)
-			SELECT $1,$2,$3,$4,0,id,lemma,lemma,lemma,upos,'root',0,0,4,discriminator,headword
-			FROM (`+identities+`) i WHERE headword<>''`,
-			owner, library.language, run, corpus)
-		require.NoError(t, err)
-		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,$3,$4,$5,$6)`,
-			owner, book.ID, library.language, run, corpus, vocabularyBrowseCountBuilderVersion)
-		require.NoError(t, err)
-		books = append(books, book.ID)
+		books = append(books, seedBrowseBook(t, ctx, store, owner, library.language, fmt.Sprintf("Scale %s %02d", library.language, i), identities))
 	}
 	// A deployed database has statistics for these tables; plan against them.
 	_, err := store.Pool().Exec(ctx, `ANALYZE books, current_analysis_identity, vocabulary_browse_counts, vocabulary_browse_count_readiness, corpus_tokens`)
 	require.NoError(t, err)
 	return books
+}
+
+// seedBrowseBook creates one analyzed Book with a ready Browse projection.
+// identities is SQL yielding id, lemma, discriminator, headword, upos and
+// occurrences: an identity with occurrences is counted, and one with a
+// headword carries it on an analysis token. An identity with a headword and
+// no occurrences is a token Browse never counts.
+func seedBrowseBook(t *testing.T, ctx context.Context, store *PostgresStore, owner, language, title, identities string) string {
+	t.Helper()
+	book, err := store.CreateBook(ctx, domain.Book{
+		OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync,
+		LanguageState: domain.LanguageChosen, LanguageTag: language,
+	})
+	require.NoError(t, err)
+	suffix := "browse-" + book.ID
+	units := []domain.ExtractedUnit{concordanceUnit(0, suffix, "text", 0, 4)}
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
+		OwnerID: owner, Language: language, SourceIdentifier: suffix,
+		Title: book.Title, MediaType: "application/epub+zip", Content: []byte(suffix), FullText: "text",
+	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersionV1, Units: units})
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner, book.ID, source.ID))
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{{UnitID: units[0].ID, Text: "text", End: 4}})
+	var run, corpus string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text,corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner, book.ID).Scan(&run, &corpus))
+	_, err = store.Pool().Exec(ctx, `
+		INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count,lexical_discriminator)
+		SELECT $1,$2,$3,$4,$5,lemma,upos,occurrences,discriminator FROM (`+identities+`) i WHERE occurrences>0`,
+		owner, book.ID, language, run, corpus)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `
+		INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,start_offset,end_offset,lexical_discriminator,headword)
+		SELECT $1,$2,$3,$4,0,id,lemma,lemma,lemma,upos,'root',0,0,4,discriminator,headword
+		FROM (`+identities+`) i WHERE headword<>''`,
+		owner, language, run, corpus)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,$3,$4,$5,$6)`,
+		owner, book.ID, language, run, corpus, vocabularyBrowseCountBuilderVersion)
+	require.NoError(t, err)
+	return book.ID
 }
 
 // browsePlanNode is the part of an EXPLAIN (FORMAT JSON) node the rescan check
