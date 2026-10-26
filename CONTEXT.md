@@ -724,3 +724,17 @@ A historical label for a card's English meaning cue supplied when dictionary
 evidence was absent or unsuitable for the representative sentence. It named the
 fallback path, not a separate kind of learner-facing meaning.
 _Avoid_: definition, Gloss (when referring to the historical fallback path).
+
+**Analysis resource**:
+A third-party layer from which the learner receives only derived linguistic
+labels about a text: sentence boundaries, lemmas, parts of speech, morphology or
+syntax. Models, embeddings, character models, treebanks and lemma tables are
+typical. Classification is per layer, so one artifact can hold both an Analysis
+resource and Source content.
+_Avoid_: tool, data, asset, model (for the general category).
+
+**Source content**:
+A third-party layer whose own expression reaches the learner, either shown in
+Mouseion or copied into an exported deck: texts, translations, dictionary
+definitions and graded readers.
+_Avoid_: data, asset, corpus (for the general category).
