@@ -383,3 +383,16 @@ func TestVocabularyBrowseBuilderVersionBumpMakesOldProjectionsUpdatingUntilRebui
 	assert.Equal(t, "haus", page.Rows[0].CanonicalLemma)
 	assert.Equal(t, int64(1), page.Rows[0].OccurrenceCount)
 }
+
+func TestVocabularyBrowseReportsAFailedQuery(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "browse-failed-query-owner", false)
+	require.NoError(t, err)
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+
+	_, err = store.ListVocabularyBrowsePage(cancelled, owner.ID, "de", domain.VocabularyBrowseQuery{Page: 1})
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorContains(t, err, "query effective vocabulary browse")
+}
