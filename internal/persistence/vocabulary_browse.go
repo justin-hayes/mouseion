@@ -110,31 +110,36 @@ WITH all_books AS (
   -- classical analyses) rather than stored on the count. Modern-language tokens
   -- carry an empty headword, so this set is empty for them and Browse is
   -- unchanged.
-  SELECT t.owner_id,t.analysis_run_id,t.corpus_id,t.canonical_lemma,t.upos,t.lexical_discriminator,min(t.headword) AS headword
+  SELECT p.book_id::text AS book_id,t.canonical_lemma,t.upos,t.lexical_discriminator,min(t.headword) AS headword
   FROM corpus_tokens t JOIN projection_ready p
     ON p.owner_id=t.owner_id AND p.analysis_run_id=t.analysis_run_id AND p.corpus_id=t.corpus_id
   WHERE t.language=$2 AND t.headword <> ''
-  GROUP BY t.owner_id,t.analysis_run_id,t.corpus_id,t.canonical_lemma,t.upos,t.lexical_discriminator
+  GROUP BY p.book_id,t.canonical_lemma,t.upos,t.lexical_discriminator
  ), current_evidence AS MATERIALIZED (
+  -- Headwords and numbered-sibling marks ride beside the counts and meet them
+  -- in book_identities' aggregate. Joining CTEs relied on row estimates they
+  -- cannot give, and a nested loop between them grows with identities times
+  -- headwords or numbered forms.
   SELECT p.book_id::text AS book_id,c.upos,c.canonical_lemma AS lemma,c.lexical_discriminator AS discriminator,c.corrected,c.occurrence_count,
-    COALESCE(h.headword,'') AS headword
+    NULL::text AS headword,false AS numbered_sibling
   FROM vocabulary_browse_counts c JOIN projection_ready p
     ON p.owner_id=c.owner_id AND p.book_id=c.book_id AND p.analysis_run_id=c.analysis_run_id AND p.corpus_id=c.corpus_id
-  LEFT JOIN identity_headwords h
-    ON h.owner_id=c.owner_id AND h.analysis_run_id=c.analysis_run_id AND h.corpus_id=c.corpus_id
-    AND h.canonical_lemma=c.canonical_lemma AND h.upos=c.upos AND h.lexical_discriminator=c.lexical_discriminator
+  UNION ALL
+  SELECT h.book_id,h.upos,h.canonical_lemma,h.lexical_discriminator,NULL,NULL,h.headword,false
+  FROM identity_headwords h
+  UNION ALL
+  -- A numbered form marks the bare identity of its lemma in the same Book as
+  -- one the source gives no homograph number for.
+  SELECT p.book_id::text,c.upos,c.canonical_lemma,'',NULL,NULL,NULL,true
+  FROM vocabulary_browse_counts c JOIN projection_ready p
+    ON p.owner_id=c.owner_id AND p.book_id=c.book_id AND p.analysis_run_id=c.analysis_run_id AND p.corpus_id=c.corpus_id
+  WHERE c.lexical_discriminator <> ''
  ), book_identities AS MATERIALIZED (
-   SELECT book_id,lemma,upos,discriminator,sum(occurrence_count)::bigint AS occurrences,bool_or(corrected) AS corrected,min(headword) AS headword
+   -- Only counted identities are vocabulary; a headword or mark alone adds no row.
+   SELECT book_id,lemma,upos,discriminator,sum(occurrence_count)::bigint AS occurrences,bool_or(corrected) AS corrected,
+     COALESCE(min(headword),'') AS headword,bool_or(numbered_sibling) AS bare_with_numbered_sibling
    FROM current_evidence GROUP BY book_id,lemma,upos,discriminator
-), numbered_siblings AS MATERIALIZED (
-   -- A numbered form of an identity in the same Book, so a bare identity can be
-   -- labelled as one the source gives no homograph number for.
-   SELECT DISTINCT book_id,lemma,upos FROM book_identities WHERE discriminator <> ''
-), annotated_books AS MATERIALIZED (
-   SELECT bi.book_id,bi.lemma,bi.upos,bi.discriminator,bi.occurrences,bi.corrected,bi.headword,
-     (bi.discriminator='' AND ns.lemma IS NOT NULL) AS bare_with_numbered_sibling
-   FROM book_identities bi LEFT JOIN numbered_siblings ns
-     ON ns.book_id=bi.book_id AND ns.lemma=bi.lemma AND ns.upos=bi.upos
+   HAVING count(occurrence_count) > 0
 ), identity_totals AS MATERIALIZED (
   -- One aggregate yields both the all-Book and the scoped figures. Joining two
   -- separate aggregates relied on row estimates the CTEs above cannot give,
@@ -148,8 +153,8 @@ WITH all_books AS (
     COALESCE(min(headword) FILTER (WHERE in_scope AND headword<>''),'') AS headword,
     bool_or(bare_with_numbered_sibling) FILTER (WHERE in_scope) AS bare_with_numbered_sibling
   FROM (
-    SELECT ab.*, (sb.id IS NOT NULL AND (COALESCE(cardinality($5::text[]),0)=0 OR ab.upos=ANY($5::text[]))) AS in_scope
-    FROM annotated_books ab LEFT JOIN scope_books sb ON sb.id=ab.book_id
+    SELECT bi.*, (sb.id IS NOT NULL AND (COALESCE(cardinality($5::text[]),0)=0 OR bi.upos=ANY($5::text[]))) AS in_scope
+    FROM book_identities bi LEFT JOIN scope_books sb ON sb.id=bi.book_id
   ) scoped
   GROUP BY lemma,upos,discriminator
  ), annotated AS MATERIALIZED (
