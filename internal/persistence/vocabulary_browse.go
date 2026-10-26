@@ -121,7 +121,7 @@ WITH all_books AS (
   -- cannot give, and a nested loop between them grows with identities times
   -- headwords or numbered forms.
   SELECT p.book_id::text AS book_id,c.upos,c.canonical_lemma AS lemma,c.lexical_discriminator AS discriminator,c.corrected,c.occurrence_count,
-    NULL::text AS headword,false AS numbered_sibling
+    NULL::text AS headword,false AS bare_with_numbered_sibling
   FROM vocabulary_browse_counts c JOIN projection_ready p
     ON p.owner_id=c.owner_id AND p.book_id=c.book_id AND p.analysis_run_id=c.analysis_run_id AND p.corpus_id=c.corpus_id
   UNION ALL
@@ -137,7 +137,7 @@ WITH all_books AS (
  ), book_identities AS MATERIALIZED (
    -- Only counted identities are vocabulary; a headword or mark alone adds no row.
    SELECT book_id,lemma,upos,discriminator,sum(occurrence_count)::bigint AS occurrences,bool_or(corrected) AS corrected,
-     COALESCE(min(headword),'') AS headword,bool_or(numbered_sibling) AS bare_with_numbered_sibling
+     COALESCE(min(headword),'') AS headword,bool_or(bare_with_numbered_sibling) AS bare_with_numbered_sibling
    FROM current_evidence GROUP BY book_id,lemma,upos,discriminator
    HAVING count(occurrence_count) > 0
 ), identity_totals AS MATERIALIZED (

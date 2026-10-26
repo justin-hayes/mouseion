@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,7 +45,7 @@ func TestVocabularyBrowseCarriesCitationHeadwordsAndBareLemmaNotesPerScope(t *te
 			(3, 'φιλοσ', 'morpheus:1', 'φίλος', 'NOUN', 1)
 		) AS i(id, lemma, discriminator, headword, upos, occurrences)`)
 
-	browse := func(query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, map[string]browseHeadwordRow) {
+	browse := func(t *testing.T, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, map[string]browseHeadwordRow) {
 		t.Helper()
 		query.Page = 1
 		page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "grc", query)
@@ -62,41 +61,41 @@ func TestVocabularyBrowseCarriesCitationHeadwordsAndBareLemmaNotesPerScope(t *te
 	}
 
 	t.Run("library", func(t *testing.T) {
-		page, rows := browse(domain.VocabularyBrowseQuery{})
-		assert.Equal(t, int64(7), page.Total)
-		assert.Equal(t, int64(7), page.InventoryTotal)
-		assert.Equal(t, map[string]browseHeadwordRow{
-			"δεω|VERB|morpheus:1":   {"δέω", false, 2, 2, 1},
-			"δεω|VERB|morpheus:2":   {"δέω", false, 1, 1, 1},
-			"λογοσ|NOUN|":           {"λόγος", true, 8, 8, 2},
-			"λογοσ|NOUN|morpheus:1": {"λόγος", false, 1, 1, 1},
-			"λεγω|VERB|":            {"λέγω", false, 10, 10, 2},
-			"φιλοσ|ADJ|":            {"φίλος", false, 1, 1, 1},
-			"φιλοσ|NOUN|morpheus:1": {"φίλος", false, 1, 1, 1},
+		page, rows := browse(t, domain.VocabularyBrowseQuery{})
+		require.Equal(t, int64(7), page.Total)
+		require.Equal(t, int64(7), page.InventoryTotal)
+		require.Equal(t, map[string]browseHeadwordRow{
+			"δεω|VERB|morpheus:1":   {headword: "δέω", bare: false, occurrences: 2, acrossBooks: 2, books: 1},
+			"δεω|VERB|morpheus:2":   {headword: "δέω", bare: false, occurrences: 1, acrossBooks: 1, books: 1},
+			"λογοσ|NOUN|":           {headword: "λόγος", bare: true, occurrences: 8, acrossBooks: 8, books: 2},
+			"λογοσ|NOUN|morpheus:1": {headword: "λόγος", bare: false, occurrences: 1, acrossBooks: 1, books: 1},
+			"λεγω|VERB|":            {headword: "λέγω", bare: false, occurrences: 10, acrossBooks: 10, books: 2},
+			"φιλοσ|ADJ|":            {headword: "φίλος", bare: false, occurrences: 1, acrossBooks: 1, books: 1},
+			"φιλοσ|NOUN|morpheus:1": {headword: "φίλος", bare: false, occurrences: 1, acrossBooks: 1, books: 1},
 		}, rows)
 	})
 
 	t.Run("one Book without the numbered sibling", func(t *testing.T) {
-		page, rows := browse(domain.VocabularyBrowseQuery{BookIDs: []string{second}})
-		assert.Equal(t, int64(4), page.Total)
-		assert.Equal(t, map[string]browseHeadwordRow{
-			"λογοσ|NOUN|":           {"λόγος", false, 5, 8, 1},
-			"λεγω|VERB|":            {"λέγω", false, 6, 10, 1},
-			"φιλοσ|ADJ|":            {"φίλος", false, 1, 1, 1},
-			"φιλοσ|NOUN|morpheus:1": {"φίλος", false, 1, 1, 1},
+		page, rows := browse(t, domain.VocabularyBrowseQuery{BookIDs: []string{second}})
+		require.Equal(t, int64(4), page.Total)
+		require.Equal(t, map[string]browseHeadwordRow{
+			"λογοσ|NOUN|":           {headword: "λόγος", bare: false, occurrences: 5, acrossBooks: 8, books: 1},
+			"λεγω|VERB|":            {headword: "λέγω", bare: false, occurrences: 6, acrossBooks: 10, books: 1},
+			"φιλοσ|ADJ|":            {headword: "φίλος", bare: false, occurrences: 1, acrossBooks: 1, books: 1},
+			"φιλοσ|NOUN|morpheus:1": {headword: "φίλος", bare: false, occurrences: 1, acrossBooks: 1, books: 1},
 		}, rows)
 	})
 
 	t.Run("current reading without a headword", func(t *testing.T) {
-		page, rows := browse(domain.VocabularyBrowseQuery{CurrentBookID: first, IncludeAll: true})
-		assert.Equal(t, int64(5), page.Total)
-		assert.Equal(t, int64(5), page.InventoryTotal)
-		assert.Equal(t, map[string]browseHeadwordRow{
-			"δεω|VERB|morpheus:1":   {"δέω", false, 2, 2, 1},
-			"δεω|VERB|morpheus:2":   {"δέω", false, 1, 1, 1},
-			"λογοσ|NOUN|":           {"λόγος", true, 3, 8, 1},
-			"λογοσ|NOUN|morpheus:1": {"λόγος", false, 1, 1, 1},
-			"λεγω|VERB|":            {"", false, 4, 10, 1},
+		page, rows := browse(t, domain.VocabularyBrowseQuery{CurrentBookID: first, IncludeAll: true})
+		require.Equal(t, int64(5), page.Total)
+		require.Equal(t, int64(5), page.InventoryTotal)
+		require.Equal(t, map[string]browseHeadwordRow{
+			"δεω|VERB|morpheus:1":   {headword: "δέω", bare: false, occurrences: 2, acrossBooks: 2, books: 1},
+			"δεω|VERB|morpheus:2":   {headword: "δέω", bare: false, occurrences: 1, acrossBooks: 1, books: 1},
+			"λογοσ|NOUN|":           {headword: "λόγος", bare: true, occurrences: 3, acrossBooks: 8, books: 1},
+			"λογοσ|NOUN|morpheus:1": {headword: "λόγος", bare: false, occurrences: 1, acrossBooks: 1, books: 1},
+			"λεγω|VERB|":            {headword: "", bare: false, occurrences: 4, acrossBooks: 10, books: 1},
 		}, rows)
 	})
 }
