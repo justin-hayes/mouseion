@@ -1,0 +1,441 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not for main. Issue #2298 (map #2292).
+  Question: where does the Classical catalog live, and how does a learner
+  browse many works (author → work → Reading units), add a unit to My Books,
+  and follow its preparation?
+  Three variants on one page, switchable via ?variant=A|B|C and the floating bar:
+    A  In My Books   — a "Classical catalog" view inside My Books (nested disclosures)
+    B  On Catalogs   — a built-in source beside OPDS connections (drill-down pages)
+    C  Own destination — a fifth top-level destination (index + unit table)
+  The shell markup and stylesheet are the real app's (/static/app.css); data is
+  illustrative and every mutation is in memory.
+  Run: python3 -m http.server -d internal/webapp 8124
+       open http://127.0.0.1:8124/prototype-classical-catalog/?variant=A
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classical catalog prototype · Mouseion</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  /* Prototype-only layout. Uses the app's tokens; nothing here is a pattern. */
+  .proto-note { font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); border-left: 3px solid var(--mouseion-color-warning); padding: .25rem .6rem; margin: .5rem 0 1rem; }
+  .cc-search { display: flex; gap: .5rem; max-width: 36rem; margin: .5rem 0 1.25rem; }
+  .cc-search .input { flex: 1; }
+  .cc-authors { list-style: none; padding: 0; margin: 0; }
+  .cc-authors > li { border-top: 1px solid var(--mouseion-color-border); padding: .5rem 0; }
+  .cc-authors summary { cursor: pointer; padding: .35rem 0; }
+  .cc-author-name { font-family: var(--mouseion-font-reading); font-size: 1.25rem; }
+  .cc-count { color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata, 13px); margin-left: .5rem; }
+  .cc-works { list-style: none; padding-left: 1.25rem; margin: .25rem 0 .5rem; }
+  .cc-works > li { padding: .2rem 0; }
+  .cc-work-title { font-family: var(--mouseion-font-reading); font-size: 1.05rem; }
+  .cc-units { list-style: none; padding: 0 0 0 1.25rem; margin: .25rem 0 .75rem; }
+  .cc-unit { display: grid; grid-template-columns: minmax(8rem, 14rem) 1fr auto; gap: .75rem; align-items: center; padding: .3rem 0; border-bottom: 1px dotted var(--mouseion-color-border); }
+  .cc-unit__meta { color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata, 13px); }
+  .cc-unit form, .cc-inline form { display: inline; margin: 0; }
+  .cc-small { font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); }
+  .cc-index { list-style: none; padding: 0; columns: 2 16rem; margin: 0 0 1rem; }
+  .cc-index li { padding: .45rem 0; break-inside: avoid; border-bottom: 1px solid var(--mouseion-color-border); }
+  .cc-index a { font-family: var(--mouseion-font-reading); font-size: 1.15rem; }
+  .cc-worklist { list-style: none; padding: 0; }
+  .cc-worklist li { padding: .75rem 0; border-bottom: 1px solid var(--mouseion-color-border); display: grid; grid-template-columns: 1fr 16rem; gap: 1rem; }
+  .cc-worklist .margin { border-left: 1px solid var(--mouseion-color-border); padding-left: .75rem; font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); }
+  .cc-desk { display: grid; grid-template-columns: 15rem 1fr; gap: 2rem; align-items: start; }
+  .cc-desk__index { position: sticky; top: 1rem; border-right: 1px solid var(--mouseion-color-border); padding-right: 1rem; }
+  .cc-desk__index ul { list-style: none; padding: 0; margin: .5rem 0; }
+  .cc-desk__index li a { display: block; padding: .35rem .5rem; border-radius: 4px; text-decoration: none; }
+  .cc-desk__index li a[aria-current] { background: var(--mouseion-color-surface-quiet); font-weight: 600; }
+  .cc-table { width: 100%; border-collapse: collapse; margin: .25rem 0 1.5rem; font-size: .95rem; }
+  .cc-table th, .cc-table td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--mouseion-color-border); vertical-align: top; }
+  .cc-table th { font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); font-weight: 600; }
+  .cc-table td.num { font-variant-numeric: tabular-nums; }
+  .cc-filters-extra a { margin-left: 1rem; }
+  @media (max-width: 40rem) { .cc-desk { grid-template-columns: 1fr; } .cc-desk__index { position: static; border-right: 0; } .cc-unit { grid-template-columns: 1fr; } .cc-worklist li { grid-template-columns: 1fr; } }
+
+  /* Prototype switcher: deliberately not part of the design. */
+  #proto-bar { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: .5rem; background: #111; color: #fff; border-radius: 999px; padding: .35rem .5rem; box-shadow: 0 6px 24px rgba(0,0,0,.35); font: 600 14px/1.2 system-ui, sans-serif; }
+  #proto-bar button { background: #333; color: #fff; border: 0; border-radius: 999px; min-width: 2.2rem; height: 2.2rem; cursor: pointer; font: inherit; }
+  #proto-bar button:hover { background: #555; }
+  #proto-bar .label { padding: 0 .6rem; white-space: nowrap; }
+  #proto-panel { position: fixed; right: 1rem; bottom: 1rem; z-index: 1000; width: 21rem; max-height: 70vh; overflow: auto; background: #111; color: #eee; border-radius: 10px; padding: .6rem .8rem; font: 13px/1.4 system-ui, sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  #proto-panel summary { cursor: pointer; font-weight: 600; }
+  #proto-panel label { display: block; margin: .3rem 0; }
+  #proto-panel select, #proto-panel button { font: inherit; }
+  #proto-panel button { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: .2rem .5rem; margin: .2rem .2rem 0 0; cursor: pointer; }
+  #proto-panel pre { white-space: pre-wrap; background: #000; padding: .4rem; border-radius: 6px; font-size: 11px; max-height: 18rem; overflow: auto; }
+</style>
+</head>
+<body class="my-books-shell">
+<div id="app"></div>
+<div id="proto-bar" role="toolbar" aria-label="Prototype variant switcher">
+  <button type="button" id="proto-prev" aria-label="Previous variant">←</button>
+  <span class="label" id="proto-label"></span>
+  <button type="button" id="proto-next" aria-label="Next variant">→</button>
+</div>
+<details id="proto-panel">
+  <summary>Prototype scenario &amp; state</summary>
+  <label>Preparation outcome after To Read
+    <select id="sc-outcome">
+      <option value="ok">Succeeds</option>
+      <option value="fetch">Fetch keeps failing → Assessment unavailable</option>
+      <option value="import">Import fails → Analysis failed</option>
+      <option value="mismatch">Pin mismatch → terminal</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="sc-legacy"> Legacy grc rows present (catalog fails closed)</label>
+  <label><input type="checkbox" id="sc-auto" checked> Advance preparation automatically</label>
+  <button type="button" id="sc-step">Advance preparation one step</button>
+  <button type="button" id="sc-reset">Reset learner state</button>
+  <pre id="sc-state"></pre>
+</details>
+
+<script>
+(function () {
+'use strict';
+
+// ---------- Illustrative catalog data (shape follows #2295/#2297) ----------
+var ILIAD_LINES = [611,877,461,544,909,529,482,565,713,579,848,471,837,522,746,867,761,617,424,503,611,515,897,804];
+var ODYSSEY_LINES = [444,434,497,847,493,331,347,586,566,574,640,453,440,533,557,481,606,428,604,394,434,501,372,548];
+function books(prefix, n, f) { var out = []; for (var i = 1; i <= n; i++) out.push(f(i)); return out; }
+var AUTHORS = [
+  { key: 'homer', name: 'Homer', works: [
+    { key: 'iliad', title: 'Iliad', greek: 'Ἰλιάς', english: true,
+      units: ILIAD_LINES.map(function (l, i) { return { key: 'homer-iliad-' + (i+1), label: 'Book ' + (i+1), range: (i+1) + '.1–' + (i+1) + '.' + l, words: Math.round(l * 6.9 / 10) * 10 }; }) },
+    { key: 'odyssey', title: 'Odyssey', greek: 'Ὀδύσσεια', english: true,
+      units: ODYSSEY_LINES.map(function (l, i) { var s = i === 15 ? '16.4' : (i+1) + '.1'; return { key: 'homer-odyssey-' + (i+1), label: 'Book ' + (i+1), range: s + '–' + (i+1) + '.' + l, words: Math.round(l * 6.8 / 10) * 10 }; }) } ] },
+  { key: 'herodotus', name: 'Herodotus', works: [
+    { key: 'histories', title: 'Histories', greek: 'Ἱστορίαι', english: true,
+      units: books('', 9, function (i) { return { key: 'herodotus-histories-' + i, label: 'Book ' + i, range: i + '.1–' + i + '.' + [216,182,160,205,126,140,239,144,122][i-1], words: [33100,24800,22300,25100,17900,19700,32800,20800,18600][i-1] }; }) } ] },
+  { key: 'lysias', name: 'Lysias', works: [
+    { key: 'eratosthenes-murder', title: 'On the Murder of Eratosthenes', greek: 'Ὑπὲρ τοῦ Ἐρατοσθένους φόνου', english: true, units: [{ key: 'lysias-1', label: 'Whole work', range: '1–50', words: 3500 }] },
+    { key: 'against-eratosthenes', title: 'Against Eratosthenes', greek: 'Κατὰ Ἐρατοσθένους', english: true, units: [{ key: 'lysias-12', label: 'Whole work', range: '1–100', words: 6900 }] },
+    { key: 'invalid', title: 'On the Refusal of a Pension', greek: 'Ὑπὲρ τοῦ ἀδυνάτου', english: false, units: [{ key: 'lysias-24', label: 'Whole work', range: '1–27', words: 2300 }] } ] },
+  { key: 'plato', name: 'Plato', works: [
+    { key: 'apology', title: 'Apology', greek: 'Ἀπολογία Σωκράτους', english: true, units: [{ key: 'plato-apology', label: 'Whole work', range: '17a–42a', words: 8900 }] },
+    { key: 'crito', title: 'Crito', greek: 'Κρίτων', english: true, units: [{ key: 'plato-crito', label: 'Whole work', range: '43a–54e', words: 4300 }] },
+    { key: 'euthyphro', title: 'Euthyphro', greek: 'Εὐθύφρων', english: true, units: [{ key: 'plato-euthyphro', label: 'Whole work', range: '2a–16a', words: 5500 }] },
+    { key: 'republic', title: 'Republic', greek: 'Πολιτεία', english: true,
+      units: books('', 10, function (i) { return { key: 'plato-republic-' + i, label: 'Book ' + i, range: ['327a–354c','357a–383c','386a–417b','419a–445e','449a–480a','484a–511e','514a–541b','543a–569c','571a–592b','595a–621d'][i-1], words: [9800,8300,10200,9200,11000,9000,8600,8200,7400,9100][i-1] }; }) } ] },
+  { key: 'plutarch', name: 'Plutarch', works: [
+    { key: 'theseus', title: 'Life of Theseus', greek: 'Θησεύς', english: true, units: [{ key: 'plutarch-theseus', label: 'Whole work', range: '1.1–36.4', words: 10200 }] },
+    { key: 'romulus', title: 'Life of Romulus', greek: 'Ῥωμύλος', english: true, units: [{ key: 'plutarch-romulus', label: 'Whole work', range: '1.1–29.7', words: 10900 }] } ] },
+  { key: 'sophocles', name: 'Sophocles', works: [
+    { key: 'antigone', title: 'Antigone', greek: 'Ἀντιγόνη', english: false, units: [{ key: 'sophocles-antigone', label: 'Whole work', range: '1–1353', words: 8900 }] } ] },
+  { key: 'thucydides', name: 'Thucydides', works: [
+    { key: 'history', title: 'History of the Peloponnesian War', greek: 'Ἱστορίαι', english: true,
+      units: books('', 8, function (i) { return { key: 'thucydides-history-' + i, label: 'Book ' + i, range: i + '.1–' + i + '.' + [146,103,116,135,116,105,87,109][i-1], words: [27600,23200,26700,24900,22100,23500,19800,20700][i-1] }; }) } ] },
+  { key: 'xenophon', name: 'Xenophon', works: [
+    { key: 'anabasis', title: 'Anabasis', greek: 'Κύρου Ἀνάβασις', english: true, englishBy: 'Brownson',
+      units: books('', 7, function (i) { return { key: 'xenophon-anabasis-' + i, label: 'Book ' + i, range: i === 1 ? '1.1.1–1.10.19' : i + '.1–' + i + '.' + [10,6,5,8,8,6,8][i-1], words: [10500,8000,8800,10900,9100,7300,11300][i-1] }; }) },
+    { key: 'hellenica', title: 'Hellenica', greek: 'Ἑλληνικά', english: true,
+      units: books('', 7, function (i) { return { key: 'xenophon-hellenica-' + i, label: 'Book ' + i, range: i + '.1–' + i + '.' + [7,4,5,8,4,5,5][i-1], words: [8200,7300,7600,10800,6900,8900,9300][i-1] }; }) },
+    { key: 'memorabilia', title: 'Memorabilia', greek: 'Ἀπομνημονεύματα', english: true,
+      units: books('', 4, function (i) { return { key: 'xenophon-memorabilia-' + i, label: 'Book ' + i, range: i + '.1–' + i + '.' + [7,10,14,8][i-1], words: [6300,7500,11700,8800][i-1] }; }) } ] }
+];
+var UNIT = {}; AUTHORS.forEach(function (a) { a.works.forEach(function (w) { w.units.forEach(function (u) { UNIT[u.key] = { unit: u, work: w, author: a }; }); }); });
+function countUnits(a) { return a.works.reduce(function (n, w) { return n + w.units.length; }, 0); }
+function bookTitle(key) { var r = UNIT[key]; return r.unit.label === 'Whole work' ? r.work.title : r.work.title + ', ' + r.unit.label; }
+
+var GERMAN = [
+  { title: 'Der Prozess', author: 'Franz Kafka', bucket: 'To Read', note: 'Known coverage 81% · 4 points to the next band' },
+  { title: 'Die Verwandlung', author: 'Franz Kafka', bucket: 'Inbox', note: '' },
+  { title: 'Effi Briest', author: 'Theodor Fontane', bucket: 'Read', note: 'Last read 2026-08-30' }
+];
+
+// ---------- In-memory learner state ----------
+var VARIANTS = [['A', 'In My Books'], ['B', 'On Catalogs'], ['C', 'Own destination']];
+var S;
+function fresh() { return { lang: 'de', books: {}, flash: null, seq: 1 }; }
+S = fresh();
+var SC = { outcome: 'ok', legacy: false, auto: true };
+
+function params() { return new URLSearchParams(location.search); }
+function variant() { var v = params().get('variant'); return VARIANTS.some(function (x) { return x[0] === v; }) ? v : 'A'; }
+function go(q, replace) {
+  var p = new URLSearchParams(q); p.set('variant', variant());
+  history[replace ? 'replaceState' : 'pushState'](null, '', '?' + p.toString());
+  render();
+}
+window.addEventListener('popstate', render);
+
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function link(q, text, attrs) { return '<a href="?' + esc(new URLSearchParams(Object.assign({ variant: variant() }, q)).toString()) + '" data-go="' + esc(new URLSearchParams(q).toString()) + '"' + (attrs || '') + '>' + text + '</a>'; }
+function badge(label, tone, shape) { return '<span class="status-badge status-badge--' + tone + '"><span class="status-badge__shape status-badge__shape--' + shape + '" aria-hidden="true"></span>' + esc(label) + '</span>'; }
+function btn(action, key, label, cls) { return '<button type="button" class="' + (cls || 'btn btn-outline') + '" data-act="' + action + '" data-key="' + esc(key || '') + '">' + label + '</button>'; }
+
+// ---------- Actions ----------
+function addUnit(key) {
+  if (S.books[key]) return;
+  S.books[key] = { key: key, id: 'bk' + (S.seq++), bucket: 'Inbox', prep: null, attempts: 0, translation: null };
+  S.flash = { kind: 'success', title: 'Added to My Books', text: bookTitle(key) + ' is in your Ancient Greek Inbox. Nothing is downloaded until you move it to To Read.', key: key };
+  render();
+}
+function toRead(key) {
+  var b = S.books[key]; b.bucket = 'To Read'; S.flash = null;
+  if (!b.prep || b.prep === 'unavailable' || b.prep === 'failed') startPrep(b);
+  render();
+}
+function startPrep(b) { b.prep = 'queued'; b.attempts = 0; schedule(b); }
+function step(b) {
+  if (b.prep === 'queued') b.prep = 'fetching';
+  else if (b.prep === 'fetching') {
+    if (SC.outcome === 'fetch') { b.attempts++; b.prep = b.attempts >= 3 ? 'unavailable' : 'fetching'; }
+    else if (SC.outcome === 'mismatch') b.prep = 'mismatch';
+    else b.prep = 'importing';
+  } else if (b.prep === 'importing') {
+    if (SC.outcome === 'import') b.prep = 'failed';
+    else { b.prep = 'done'; b.translation = UNIT[b.key].work.english ? 'importing' : 'none'; }
+  } else if (b.translation === 'importing') b.translation = 'done';
+  else return false;
+  return true;
+}
+function schedule(b) { if (!SC.auto) return; setTimeout(function () { if (step(b)) { render(); schedule(b); } }, 1400); }
+function stepAll() { Object.keys(S.books).forEach(function (k) { step(S.books[k]); }); render(); }
+
+document.addEventListener('click', function (e) {
+  var a = e.target.closest('a[data-go]');
+  if (a) { e.preventDefault(); go(a.getAttribute('data-go')); return; }
+  var b = e.target.closest('[data-act]');
+  if (!b) return;
+  var key = b.getAttribute('data-key'), act = b.getAttribute('data-act');
+  if (act === 'add') addUnit(key);
+  else if (act === 'add-work') { UNIT[key].work.units.forEach(function (u) { if (!S.books[u.key]) S.books[u.key] = { key: u.key, id: 'bk' + (S.seq++), bucket: 'Inbox', prep: null, attempts: 0, translation: null }; }); S.flash = { kind: 'success', title: 'Added to My Books', text: 'Every Reading unit of ' + UNIT[key].work.title + ' is in your Ancient Greek Inbox.' }; render(); }
+  else if (act === 'to-read') toRead(key);
+  else if (act === 'retry') { startPrep(S.books[key]); render(); }
+  else if (act === 'inbox') { S.books[key].bucket = 'Inbox'; render(); }
+  else if (act === 'dismiss') { S.flash = null; render(); }
+});
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'active-study-language') { S.lang = e.target.value; S.flash = null; go({ view: 'library' }); }
+});
+document.addEventListener('input', function (e) {
+  if (e.target.id === 'cc-q') { var p = params(); p.set('q', e.target.value); history.replaceState(null, '', '?' + p); renderMainOnly(e.target); }
+});
+
+// ---------- Shell ----------
+function hasGreek() { return Object.keys(S.books).length > 0; }
+function shell(current, main) {
+  var nav = [['library', 'My Books'], ['reading', 'Reading'], ['vocabulary', 'Vocabulary'], ['catalogs', 'Catalogs']];
+  if (variant() === 'C') nav.push(['classical', 'Classical catalog']);
+  var items = nav.map(function (n) { var cur = n[0] === current; return '<li>' + link({ view: n[0] }, n[1], ' class="site-nav__link' + (cur ? ' site-nav__link--current' : '') + '"' + (cur ? ' aria-current="page"' : '')) + '</li>'; }).join('');
+  var langs = [['de', 'Deutsch'], ['it', 'Italiano']];
+  if (hasGreek()) langs.push(['grc', 'Ancient Greek' + (S.lang === 'grc' ? '' : ' (new)')]);
+  else if (variant() === 'A' && S.lang === 'grc') langs.push(['grc', 'Ancient Greek (no books)']);
+  var opts = langs.map(function (l) { return '<option value="' + l[0] + '"' + (S.lang === l[0] ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('');
+  return '<a class="skip-link" href="#main-content">Skip to main content</a>' +
+    '<header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation">' +
+    '<a class="site-header__brand" href="?variant=' + variant() + '" data-go="view=library"><strong>Mouseion</strong></a>' +
+    '<ul class="site-header__navigation">' + items + '</ul>' +
+    '<div class="site-header__tools"><form class="site-header__language" onsubmit="return false"><label for="active-study-language"><span class="site-header__language-label">Study language</span>' +
+    '<select id="active-study-language" name="language">' + opts + '</select></label></form>' +
+    '<details class="site-header__account"><summary><span class="site-header__account-name">fixture-learner</span><span class="site-header__account-compact">Account</span></summary><div class="site-header__account-panel"><p>Signed in as <strong>fixture-learner</strong></p></div></details>' +
+    '</div></nav></header>' +
+    '<main id="main-content" class="page-container" tabindex="-1">' + main + '</main>';
+}
+function flash() {
+  if (!S.flash) return '';
+  var f = S.flash;
+  var open = f.key ? ' ' + (S.lang === 'grc' && params().get('view') === 'library' ? '' : link({ view: 'library', lang: 'grc' }, 'Open in My Books')) : '';
+  return '<article class="feedback feedback--' + f.kind + '" role="status" aria-live="polite"><strong>' + esc(f.title) + '</strong><p>' + esc(f.text) + open + ' ' + btn('dismiss', '', 'Dismiss', 'button button--quiet') + '</p></article>';
+}
+function legacyBlock() {
+  return SC.legacy ? '<article class="feedback feedback--warning" role="status"><strong>The Classical catalog is unavailable on this installation</strong><p>Earlier Ancient Greek data must be migrated before Books can be added or prepared. Books already in My Books are unchanged. <span class="cc-small">Code: classical_catalog_legacy_rows</span></p></article>' : '';
+}
+
+// ---------- Unit action (shared across variants) ----------
+function unitAction(key, compact) {
+  var b = S.books[key];
+  if (b) return badge('In My Books', 'success', 'dot') + ' ' + link({ view: 'library', lang: 'grc', focus: key }, compact ? 'Open' : 'Open in My Books');
+  if (SC.legacy) return '<button type="button" class="btn btn-outline" disabled>Add to My Books</button>';
+  return btn('add', key, 'Add to My Books');
+}
+
+// ---------- My Books (Ancient Greek) rows: follow preparation (#2296) ----------
+function prepNote(b) {
+  switch (b.prep) {
+    case 'queued': return '<p class="library-book__evidence">Analysis incomplete. Waiting to fetch the reviewed source.</p>';
+    case 'fetching': return '<p class="library-book__evidence">Analysis incomplete. Fetching the reviewed source' + (b.attempts ? ' (attempt ' + (b.attempts + 1) + ' of 3)' : '') + '…</p>';
+    case 'importing': return '<p class="library-book__evidence">Analysis incomplete. Checking and importing the source…</p>';
+    case 'unavailable': return '<p class="library-book__evidence">' + badge('Assessment unavailable', 'warning', 'ring') + ' The source could not be fetched.</p>' + btn('retry', b.key, 'Retry acquisition', 'library-book__recovery');
+    case 'failed': return '<p class="library-book__evidence">' + badge('Analysis failed', 'danger', 'diamond') + '</p>' + btn('retry', b.key, 'Retry analysis', 'library-book__recovery');
+    case 'mismatch': return '<p class="library-book__evidence">' + badge("Source doesn't match its reviewed definition", 'danger', 'diamond') + '</p><p class="cc-small">No retry. It will be prepared once a corrected definition ships. ' + link({ view: 'jobs' }, 'View job status') + '</p>';
+    case 'done': return '<p class="library-book__evidence">Known coverage 0% · 31 points to the next band</p>';
+    default: return '';
+  }
+}
+function greekRow(b) {
+  var r = UNIT[b.key];
+  var bucketBadge = b.bucket === 'Inbox' ? badge('Inbox', 'neutral', 'ring') : badge('To Read', 'neutral', 'ring');
+  var primary = b.bucket === 'Inbox' ? btn('to-read', b.key, 'Move to To Read', 'btn btn-outline library-book__journey-action') : link({ view: 'reading' }, 'View in Reading', ' class="btn btn-outline library-book__journey-action"');
+  var focus = params().get('focus') === b.key ? ' style="outline: 2px solid var(--mouseion-color-focus); outline-offset: 4px"' : '';
+  return '<li class="library-book"' + focus + '><a class="library-book__identity-link" href="#"><div class="book-cover-media"><div class="book-cover-media__placeholder" aria-hidden="true"><span class="book-cover-media__initial">' + esc(r.work.greek.charAt(0)) + '</span></div></div>' +
+    '<div class="library-book__text"><h2 class="bibliographic-title">' + esc(bookTitle(b.key)) + '</h2><span class="library-book__author">By ' + esc(r.author.name) + '</span>' +
+    '<span class="cc-small" style="display:block">' + esc(r.work.greek) + ' · ' + esc(r.unit.range) + ' · Classical catalog</span></div></a>' +
+    '<div class="library-book__notes"><p class="library-book__membership">' + bucketBadge + '</p>' + prepNote(b) + '</div>' +
+    '<div class="library-book__actions">' + primary + ' <details class="more-actions"><summary>More actions</summary><div class="more-actions__body">' + (b.bucket === 'To Read' ? btn('inbox', b.key, 'Move to Inbox') : '') + '<button type="button" class="btn btn-outline">Hide</button></div></details></div></li>';
+}
+function germanRow(g) {
+  var tone = g.bucket === 'Read' ? badge('Read', 'success', 'dot') : badge(g.bucket, 'neutral', 'ring');
+  return '<li class="library-book"><a class="library-book__identity-link" href="#"><div class="book-cover-media"><div class="book-cover-media__placeholder" aria-hidden="true"><span class="book-cover-media__initial">' + g.title.replace(/^(Der|Die|Das) /, '').charAt(0) + '</span></div></div><div class="library-book__text"><h2 class="bibliographic-title">' + esc(g.title) + '</h2><span class="library-book__author">By ' + esc(g.author) + '</span></div></a>' +
+    '<div class="library-book__notes"><p class="library-book__membership">' + tone + '</p>' + (g.note ? '<p class="library-book__evidence">' + esc(g.note) + '</p>' : '') + '</div><div class="library-book__actions"><a class="btn btn-outline library-book__journey-action" href="#">' + (g.bucket === 'Inbox' ? 'Move to To Read' : 'View in Reading') + '</a></div></li>';
+}
+function libraryPage(viewNav, entryLine) {
+  var grc = S.lang === 'grc';
+  var list = grc ? Object.keys(S.books).map(function (k) { return greekRow(S.books[k]); }).join('') : GERMAN.map(germanRow).join('');
+  var counts = grc ? Object.keys(S.books).length : 3;
+  var body = '<section class="library-masthead"><h1>My Books</h1><p class="library-language-context">' + (grc ? 'Ancient Greek collection' : 'German collection') + '</p></section>' + (viewNav || '') +
+    '<section class="library-finder" aria-label="Find books"><form class="library-search" role="search" onsubmit="return false"><div class="library-search__controls"><input class="input" type="search" placeholder="Title, author, or edition"> <button class="btn btn-outline" type="button">Search</button></div></form>' +
+    '<nav class="library-filters" aria-label="My Books filters">' + '<a aria-current="page" href="#">All (' + counts + ')</a><a href="#">Inbox</a><a href="#">To Read</a><a href="#">Read</a></nav></section>' +
+    (entryLine || '') + flash();
+  if (grc && !counts) body += '<article class="empty-state"><h2>No Ancient Greek Books yet</h2><p>Add a Reading unit from the Classical catalog.</p></article>';
+  return body + '<section id="library-results"><ul class="library-books" role="list">' + list + '</ul></section>';
+}
+
+// ---------- Variant A: a view inside My Books, nested disclosures ----------
+function A_views(cur) {
+  return '<nav class="library-filters" aria-label="My Books views" style="margin-bottom:1rem">' + link({ view: 'library', lang: 'grc' }, 'Your Books', cur === 'books' ? ' aria-current="page"' : '') + link({ view: 'classical' }, 'Classical catalog', cur === 'catalog' ? ' aria-current="page"' : '') + '</nav>';
+}
+function A_library() {
+  var entry = S.lang === 'grc' ? '' : '<p class="cc-small">Reading Ancient Greek? ' + link({ view: 'classical' }, 'Add reviewed texts from the Classical catalog') + ' (switches My Books to Ancient Greek).</p>';
+  return libraryPage(S.lang === 'grc' ? A_views('books') : null, entry);
+}
+function A_catalog() {
+  var q = (params().get('q') || '').toLowerCase();
+  var authors = AUTHORS.filter(function (a) { return !q || a.name.toLowerCase().indexOf(q) >= 0 || a.works.some(function (w) { return w.title.toLowerCase().indexOf(q) >= 0; }); });
+  var html = '<section class="library-masthead"><h1>My Books</h1><p class="library-language-context">Ancient Greek collection</p></section>' +
+    A_views('catalog') +
+    '<p class="proto-note">Variant A: the catalog is a second view of the Ancient Greek partition of My Books. Opening it from German My Books changes the active study language, so “Ancient Greek (no books)” appears in the switcher before the first Book exists.</p>' +
+    legacyBlock() + flash() +
+    '<p>Reviewed Ancient Greek texts you can add. A Book is created in your Inbox; its source is fetched and analysed when you move it to To Read.</p>' +
+    '<div class="cc-search"><label class="sr-only" for="cc-q">Search the Classical catalog</label><input class="input" id="cc-q" type="search" placeholder="Author or work" value="' + esc(params().get('q') || '') + '"></div>' +
+    '<ul class="cc-authors" id="cc-results">' + authors.map(function (a) {
+      return '<li><details' + (q || a.key === 'xenophon' ? ' open' : '') + '><summary><span class="cc-author-name">' + esc(a.name) + '</span><span class="cc-count">' + a.works.length + (a.works.length === 1 ? ' work' : ' works') + ' · ' + countUnits(a) + ' Reading units</span></summary><ul class="cc-works">' +
+        a.works.map(function (w) {
+          var added = w.units.filter(function (u) { return S.books[u.key]; }).length;
+          if (w.units.length === 1) { var u = w.units[0]; return '<li class="cc-unit" style="padding-left:0"><span class="cc-work-title">' + esc(w.title) + '</span><span class="cc-unit__meta">' + esc(w.greek) + ' · ' + esc(u.range) + (w.english ? ' · English alongside' : '') + '</span><span>' + unitAction(u.key, true) + '</span></li>'; }
+          return '<li><details><summary><span class="cc-work-title">' + esc(w.title) + '</span><span class="cc-count">' + esc(w.greek) + ' · ' + w.units.length + ' books' + (w.english ? ' · English alongside' : '') + (added ? ' · ' + added + ' in My Books' : '') + '</span></summary><ul class="cc-units">' +
+            w.units.map(function (u) { return '<li class="cc-unit"><span>' + esc(u.label) + '</span><span class="cc-unit__meta">' + esc(u.range) + '</span><span>' + unitAction(u.key, true) + '</span></li>'; }).join('') + '</ul></details></li>';
+        }).join('') + '</ul></details></li>';
+    }).join('') + '</ul>';
+  return html;
+}
+
+// ---------- Variant B: built-in source on Catalogs, drill-down pages ----------
+function B_catalogs() {
+  var n = AUTHORS.reduce(function (s, a) { return s + countUnits(a); }, 0), w = AUTHORS.reduce(function (s, a) { return s + a.works.length; }, 0);
+  return '<header class="page-header"><div class="page-header__content"><h1>Catalogs</h1><p>Where Mouseion finds Books to add to My Books.</p></div></header>' +
+    '<p class="proto-note">Variant B: the catalog sits beside OPDS connections as a source that needs no setup. Today’s design rule says Catalogs is “configuration and sync, not a book-browse surface”; this variant breaks that rule.</p>' +
+    '<div class="catalog-list"><article class="catalog-record"><header><h3>Classical catalog</h3><p class="cc-small">Built into Mouseion · Ancient Greek</p></header>' +
+    '<div class="catalog-record__status" role="status"><p><strong>' + (SC.legacy ? 'Unavailable' : 'Reviewed for this release') + '</strong></p><p>' + w + ' works by ' + AUTHORS.length + ' authors in ' + n + ' Reading units. Sources are fetched when you move a Book to To Read.</p></div>' +
+    '<div class="action-group">' + link({ view: 'classical' }, 'Browse Classical catalog', ' role="button" class="button"') + '</div><div class="catalog-record__details"><p>Curated in the Mouseion repository; nothing to connect or sync.</p></div></article>' +
+    '<h2>Your OPDS connections</h2><article class="catalog-record"><header><h3>Fixture catalog</h3></header><div class="catalog-record__status" role="status"><p><strong>Last synced</strong></p><p>Last successful sync: 2026-01-15 12:00 UTC</p></div><div class="action-group"><button class="button" type="button">Sync now</button> <a role="button" class="button button--outline" href="#">Browse My Books</a></div></article>' +
+    '<details><summary>Add catalog connection</summary><p class="cc-small">(OPDS form unchanged.)</p></details></div>';
+}
+function B_index() {
+  return '<nav class="breadcrumb" aria-label="Breadcrumb">' + link({ view: 'catalogs' }, '← Catalogs') + '</nav>' +
+    '<header class="page-header"><div class="page-header__content"><h1>Classical catalog</h1><p>Reviewed Ancient Greek texts. Choose an author.</p></div></header>' + legacyBlock() + flash() +
+    '<ul class="cc-index">' + AUTHORS.map(function (a) { return '<li>' + link({ view: 'classical', author: a.key }, esc(a.name)) + '<span class="cc-count">' + a.works.length + (a.works.length === 1 ? ' work' : ' works') + '</span></li>'; }).join('') + '</ul>';
+}
+function B_author(a) {
+  return '<nav class="breadcrumb" aria-label="Breadcrumb">' + link({ view: 'classical' }, '← Classical catalog') + '</nav>' +
+    '<header class="page-header"><div class="page-header__content"><h1>' + esc(a.name) + '</h1></div></header>' + legacyBlock() + flash() +
+    '<ul class="cc-worklist">' + a.works.map(function (w) {
+      var added = w.units.filter(function (u) { return S.books[u.key]; }).length;
+      var main = w.units.length === 1 ? '<div><h2 class="bibliographic-title">' + esc(w.title) + '</h2><p class="cc-small">' + esc(w.greek) + ' · ' + esc(w.units[0].range) + '</p><div>' + unitAction(w.units[0].key) + '</div></div>'
+        : '<div><h2 class="bibliographic-title">' + link({ view: 'classical', author: a.key, work: w.key }, esc(w.title)) + '</h2><p class="cc-small">' + esc(w.greek) + ' · ' + w.units.length + ' books</p></div>';
+      return '<li>' + main + '<div class="margin">' + (w.english ? 'English translation alongside' + (w.englishBy ? ' (' + w.englishBy + ')' : '') : 'No English translation') + (added ? '<br>' + added + ' of ' + w.units.length + ' in My Books' : '') + '</div></li>';
+    }).join('') + '</ul>';
+}
+function B_work(a, w) {
+  var rest = w.units.filter(function (u) { return !S.books[u.key]; }).length;
+  return '<nav class="breadcrumb" aria-label="Breadcrumb">' + link({ view: 'classical', author: a.key }, '← ' + esc(a.name)) + '</nav>' +
+    '<header class="page-header"><div class="page-header__content"><h1>' + esc(w.title) + '</h1><p>' + esc(a.name) + ' · ' + esc(w.greek) + ' · ' + (w.english ? 'English translation alongside' : 'No English translation') + '</p></div></header>' + legacyBlock() + flash() +
+    '<ul class="library-books" role="list">' + w.units.map(function (u) {
+      return '<li class="library-book"><div class="library-book__identity-link"><div class="book-cover-media"><div class="book-cover-media__placeholder" aria-hidden="true"><span class="book-cover-media__initial">' + esc(u.label.replace('Book ', '')) + '</span></div></div><div class="library-book__text"><h2 class="bibliographic-title">' + esc(u.label) + '</h2><span class="library-book__author">' + esc(u.range) + '</span></div></div>' +
+        '<div class="library-book__notes"><p class="library-book__membership">' + (S.books[u.key] ? badge('In My Books', 'success', 'dot') : '') + '</p></div><div class="library-book__actions">' + (S.books[u.key] ? link({ view: 'library', lang: 'grc', focus: u.key }, 'Open in My Books', ' class="btn btn-outline"') : unitAction(u.key)) + '</div></li>';
+    }).join('') + '</ul>' +
+    (rest && !SC.legacy ? '<details class="confirmation"><summary>Add all ' + rest + ' remaining books</summary><div class="confirmation__body"><p>Each becomes its own Inbox Book. Nothing is downloaded until you move one to To Read.</p>' + btn('add-work', w.units[0].key, 'Confirm adding ' + rest + ' Books') + '</div></details>' : '');
+}
+
+// ---------- Variant C: own destination, author index beside a unit table ----------
+function C_unitStatus(key) {
+  var b = S.books[key];
+  if (!b) return SC.legacy ? '<button type="button" class="btn btn-outline" disabled>Add</button>' : btn('add', key, 'Add');
+  var s = b.bucket === 'Inbox' ? 'Inbox' : ({ queued: 'To Read · preparing', fetching: 'To Read · preparing', importing: 'To Read · preparing', unavailable: 'To Read · source unavailable', failed: 'To Read · analysis failed', mismatch: 'To Read · source mismatch', done: 'To Read · ready' })[b.prep] || 'To Read';
+  return link({ view: 'library', lang: 'grc', focus: key }, esc(s));
+}
+function C_page() {
+  var q = (params().get('q') || '').toLowerCase();
+  var sel = params().get('author') || (q ? '' : 'xenophon');
+  var shown = AUTHORS.filter(function (a) { return q ? (a.name.toLowerCase().indexOf(q) >= 0 || a.works.some(function (w) { return w.title.toLowerCase().indexOf(q) >= 0; })) : a.key === sel; });
+  var index = '<aside class="cc-desk__index" aria-label="Authors"><label class="cc-small" for="cc-q">Find author or work</label><input class="input" id="cc-q" type="search" value="' + esc(params().get('q') || '') + '"><ul>' +
+    AUTHORS.map(function (a) { return '<li>' + link({ view: 'classical', author: a.key }, esc(a.name) + ' <span class="cc-count">' + countUnits(a) + '</span>', a.key === sel && !q ? ' aria-current="true"' : '') + '</li>'; }).join('') + '</ul></aside>';
+  var body = shown.map(function (a) {
+    return '<section><h2>' + esc(a.name) + '</h2>' + a.works.map(function (w) {
+      return '<h3 class="bibliographic-title" style="margin-top:1rem">' + esc(w.title) + ' <span class="cc-count">' + esc(w.greek) + '</span></h3>' +
+        '<table class="cc-table"><thead><tr><th scope="col">Reading unit</th><th scope="col">Passage</th><th scope="col">Words</th><th scope="col">English</th><th scope="col">In My Books</th></tr></thead><tbody>' +
+        w.units.map(function (u) { return '<tr><th scope="row">' + esc(u.label) + '</th><td>' + esc(u.range) + '</td><td class="num">~' + u.words.toLocaleString('en') + '</td><td>' + (w.english ? 'Yes' : '—') + '</td><td>' + C_unitStatus(u.key) + '</td></tr>'; }).join('') + '</tbody></table>';
+    }).join('') + '</section>';
+  }).join('') || '<p>No author or work matches.</p>';
+  return '<header class="page-header"><div class="page-header__content"><h1>Classical catalog</h1><p>Reviewed Ancient Greek texts. Add a Reading unit to My Books; its source is fetched when you move it to To Read.</p></div></header>' +
+    '<p class="proto-note">Variant C: a fifth destination (ADR 0058 fixes four). The table shows word counts (fog: “difficulty before adding”) and doubles as a place to follow preparation, where the In My Books column links to the Book.</p>' +
+    legacyBlock() + flash() + '<div class="cc-desk">' + index + '<div id="cc-results">' + body + '</div></div>';
+}
+
+// ---------- Stubs ----------
+function stub(title, text) { return '<header class="page-header"><div class="page-header__content"><h1>' + title + '</h1><p>' + text + '</p></div></header>'; }
+
+// ---------- Router ----------
+function mainFor() {
+  var p = params(), v = variant(), view = p.get('view') || 'library';
+  if (p.get('lang')) { S.lang = p.get('lang'); }
+  if (view === 'library') return ['library', v === 'A' ? A_library() : libraryPage(null, '')];
+  if (view === 'classical') {
+    if (v === 'A') { S.lang = 'grc'; return ['library', A_catalog()]; }
+    if (v === 'B') { var a = AUTHORS.find(function (x) { return x.key === p.get('author'); }); var w = a && a.works.find(function (x) { return x.key === p.get('work'); }); return ['catalogs', w ? B_work(a, w) : a ? B_author(a) : B_index()]; }
+    return ['classical', C_page()];
+  }
+  if (view === 'catalogs') return ['catalogs', v === 'B' ? B_catalogs() : stub('Catalogs', 'OPDS connections, unchanged in this variant.')];
+  if (view === 'reading') return ['reading', stub('Reading', 'Not prototyped. A To Read classical Book appears in the chooser with the same evidence note as its My Books row.')];
+  if (view === 'jobs') return ['', stub('Analysis history', 'Not prototyped. The failed preparation run shows code <code>source_pin_mismatch</code>.')];
+  return ['vocabulary', stub('Vocabulary', 'Not prototyped.')];
+}
+function render() {
+  var r = mainFor();
+  document.getElementById('app').innerHTML = shell(r[0], r[1]);
+  var v = variant(), label = VARIANTS.find(function (x) { return x[0] === v; });
+  document.getElementById('proto-label').textContent = label[0] + ' (' + label[1] + ')';
+  document.getElementById('sc-state').textContent = JSON.stringify({ variant: v, view: params().get('view') || 'library', activeLanguage: S.lang, scenario: SC, books: S.books }, null, 1);
+}
+function renderMainOnly(input) {
+  var pos = input.selectionStart; render();
+  var el = document.getElementById('cc-q'); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
+}
+
+// ---------- Switcher and scenario panel ----------
+function cycle(d) {
+  var i = VARIANTS.findIndex(function (x) { return x[0] === variant(); });
+  var next = VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length][0];
+  var p = params(); p.set('variant', next);
+  if (p.get('view') === 'classical') { p.delete('author'); p.delete('work'); }
+  history.replaceState(null, '', '?' + p); render();
+}
+document.getElementById('proto-prev').onclick = function () { cycle(-1); };
+document.getElementById('proto-next').onclick = function () { cycle(1); };
+document.addEventListener('keydown', function (e) {
+  var t = e.target; if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') cycle(-1); else if (e.key === 'ArrowRight') cycle(1);
+});
+document.getElementById('sc-outcome').onchange = function (e) { SC.outcome = e.target.value; render(); };
+document.getElementById('sc-legacy').onchange = function (e) { SC.legacy = e.target.checked; render(); };
+document.getElementById('sc-auto').onchange = function (e) { SC.auto = e.target.checked; if (SC.auto) Object.keys(S.books).forEach(function (k) { schedule(S.books[k]); }); render(); };
+document.getElementById('sc-step').onclick = stepAll;
+document.getElementById('sc-reset').onclick = function () { S = fresh(); go({ view: 'library' }); };
+render();
+})();
+</script>
+</body>
+</html>
