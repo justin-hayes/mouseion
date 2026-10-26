@@ -412,6 +412,13 @@ when one of those is the first citation level. It is unrelated to a learner's
 Book.
 _Avoid_: Book (the learner-owned identity), volume, chapter.
 
+**Reading-unit definition**:
+A reviewed, keyed description of one Reading unit: its Work, Edition, citation
+range, source pin, optional translation pin and interpretation version. It ships
+with Mouseion, keeps its key permanently, and takes a new revision whenever a
+content-bearing part changes.
+_Avoid_: manifest entry, shelf item, catalogue entry (catalogue means OPDS).
+
 **Annotation occurrence**:
 A text-attested linguistic occurrence distinguished within one exact analysis,
 even when it shares a source span with another occurrence. An unprinted syntax
