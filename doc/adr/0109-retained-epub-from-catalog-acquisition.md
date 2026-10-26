@@ -5,7 +5,9 @@ Status: **Accepted (implemented)** · Date: 2026-10-25 · Author: Justin + OpenC
 Accepted by merging this ADR's pull request. Implemented by
 [#2283](https://github.com/justin-hayes/mouseion/pull/2283) (stream the Catalog
 file to disk) and [#2284](https://github.com/justin-hayes/mouseion/pull/2284)
-(derive and store the Retained EPUB). Specified in
+(derive and store the Retained EPUB), with
+[#2286](https://github.com/justin-hayes/mouseion/pull/2286) (keep deflated
+directory entries). Specified in
 [#2278](https://github.com/justin-hayes/mouseion/issues/2278). Amends the
 acquisition steps of [ADR 0035](0035-my-books-membership-and-source-provenance.md)
 and the "original bytes" wording of
