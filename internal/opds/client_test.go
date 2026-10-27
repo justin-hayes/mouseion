@@ -299,6 +299,24 @@ func TestLanguageIDPrefersExactLanguageOverBaseLanguage(t *testing.T) {
 	assert.Equal(t, "8", LanguageID(feed, "de-DE", "German (Germany)"))
 }
 
+// TestLanguageIDMatchesISO639PeriodQualifiedGreekNames pins the ISO 639
+// reference names Calibre-Web uses to title its Greek language entries, which
+// qualify the language by period instead of naming it plainly.
+func TestLanguageIDMatchesISO639PeriodQualifiedGreekNames(t *testing.T) {
+	for _, titles := range [][2]string{
+		{"Greek, Modern (1453-)", "Greek, Ancient (to 1453)"},
+		{"Greek; Modern (1453-)", "Greek; Ancient (to 1453)"},
+	} {
+		feed := Feed{Entries: []Entry{
+			{Title: titles[1], Links: []Link{{Rel: "subsection", Href: "/language/3"}}},
+			{Title: titles[0], Links: []Link{{Rel: "subsection", Href: "/language/4"}}},
+		}}
+
+		assert.Equal(t, "4", LanguageID(feed, "el", "Greek"), titles[0])
+		assert.Equal(t, "3", LanguageID(feed, "grc", "Ancient_Greek"), titles[1])
+	}
+}
+
 // TestLanguageIDsDeriveIdentifiersFromLanguageLinks pins each way a language
 // navigation entry can advertise its identifier, through the public language
 // seam, so splitting identification into private steps cannot change it.

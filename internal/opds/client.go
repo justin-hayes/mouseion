@@ -274,7 +274,7 @@ func LanguageID(feed Feed, language, displayName string) string {
 	normalizedLanguage := canonicalization.NormalizeLanguage(language)
 	if normalizedLanguage != "" {
 		for _, entry := range feed.Entries {
-			if canonicalization.NormalizeLanguage(strings.TrimSpace(entry.Title)) != normalizedLanguage {
+			if entryLanguage(entry.Title) != normalizedLanguage {
 				continue
 			}
 			if id := languageEntryID(entry); id != "" {
@@ -293,6 +293,27 @@ func LanguageID(feed Feed, language, displayName string) string {
 		}
 	}
 	return ""
+}
+
+// periodQualifiedLanguages maps the ISO 639 reference names that qualify a
+// language by period, as Calibre-Web titles its language entries, to the tag
+// the analyzer advertises. Older iso-codes releases separate the qualifier
+// with a comma and newer ones with a semicolon.
+var periodQualifiedLanguages = map[string]string{
+	"greek, modern (1453-)":    "el",
+	"greek; modern (1453-)":    "el",
+	"greek, ancient (to 1453)": "grc",
+	"greek; ancient (to 1453)": "grc",
+}
+
+// entryLanguage returns the normalized language a navigation entry title
+// names, resolving period-qualified ISO 639 reference names to their tag.
+func entryLanguage(title string) string {
+	title = strings.TrimSpace(title)
+	if language, ok := periodQualifiedLanguages[strings.ToLower(strings.Join(strings.Fields(title), " "))]; ok {
+		return language
+	}
+	return canonicalization.NormalizeLanguage(title)
 }
 
 // LanguageIDs returns the distinct language feed identifiers advertised by a
