@@ -16,7 +16,7 @@ import (
 
 var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target language. Return exactly one JSON object using only these eight field names, with no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_targets (an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists), sense_order (an optional array of distinct 0-based integer indices into the frozen candidate_senses list, in best-fit order; return at most %d indices, capped at the display limit of %d; omit it, or return an empty array, when no candidate sense fits), and fallback_gloss (an optional concise English gloss only when no candidate sense fits or the candidate list is empty). Do not include the whole sentence or unrelated words in an alignment. Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_targets must be empty. Do not return HTML or markup in any field.", DefaultMaxSenses, DefaultMaxSenses)
 
-var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only the exact short evidence_id handles (for example e1 or e2) shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
+var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these eleven fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_kind, unresolved_reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only the exact short evidence_id handles (for example e1 or e2) shown in candidate_senses that support the gloss. If the representative sentence evidently uses a different lexeme than the supplied lemma, return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=lemma_mismatch, and a brief unresolved_reason explaining why. If no defensible contextual meaning can otherwise be given, return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=ambiguous, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_kind and unresolved_reason as empty strings. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
 // evidenceAssistedPassSystemPrompt is the strict Ancient Greek evidence-assisted
 // pass contract. The payload carries the representative sentence, its
@@ -496,6 +496,7 @@ type decodedTranslationFields struct {
 	Gloss                      json.RawMessage `json:"gloss"`
 	EvidenceIDs                json.RawMessage `json:"evidence_ids"`
 	ContextOnly                json.RawMessage `json:"context_only"`
+	UnresolvedKind             json.RawMessage `json:"unresolved_kind"`
 	UnresolvedReason           json.RawMessage `json:"unresolved_reason"`
 }
 
@@ -662,7 +663,7 @@ func buildTranslationResponse(input TranslationRequest, result decodedTranslatio
 	if err := requireContextualGlossFields(input, result); err != nil {
 		return TranslationResponse{}, err
 	}
-	if err := decodeMeaningFields(result, &response); err != nil {
+	if err := decodeMeaningFields(input.RequireContextualGloss, result, &response); err != nil {
 		return TranslationResponse{}, err
 	}
 	if err := mapContextualEvidenceHandles(input, &response); err != nil {
@@ -698,8 +699,8 @@ func requireContextualGlossFields(input TranslationRequest, result decodedTransl
 
 // decodeMeaningFields decodes the optional meaning fields one shape at a time,
 // keeping a malformed optional field's error distinct from the others.
-func decodeMeaningFields(result decodedTranslationFields, response *TranslationResponse) error {
-	if len(result.Gloss) == 0 && len(result.EvidenceIDs) == 0 && len(result.ContextOnly) == 0 && len(result.UnresolvedReason) == 0 {
+func decodeMeaningFields(requireUnresolvedKind bool, result decodedTranslationFields, response *TranslationResponse) error {
+	if len(result.Gloss) == 0 && len(result.EvidenceIDs) == 0 && len(result.ContextOnly) == 0 && len(result.UnresolvedKind) == 0 && len(result.UnresolvedReason) == 0 {
 		return nil
 	}
 	if err := json.Unmarshal(result.Gloss, &response.Gloss); err != nil {
@@ -710,6 +711,11 @@ func decodeMeaningFields(result decodedTranslationFields, response *TranslationR
 	}
 	if err := json.Unmarshal(result.ContextOnly, &response.ContextOnly); err != nil {
 		return errors.New("decode LLM translation: invalid context_only")
+	}
+	if requireUnresolvedKind && len(result.UnresolvedKind) != 0 {
+		if err := json.Unmarshal(result.UnresolvedKind, &response.UnresolvedKind); err != nil {
+			return errors.New("decode LLM translation: invalid unresolved kind")
+		}
 	}
 	if len(result.UnresolvedReason) != 0 {
 		if err := json.Unmarshal(result.UnresolvedReason, &response.UnresolvedReason); err != nil {
@@ -735,17 +741,25 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	response.SentenceTranslation = strings.TrimSpace(response.SentenceTranslation)
 	response.SentenceTranslationTargets = ValidateSentenceTranslationTargets(response.SentenceTranslation, response.SentenceTranslationTargets)
 	response.Gloss = strings.TrimSpace(response.Gloss)
+	response.UnresolvedKind = ContextualGlossUnresolvedKind(strings.TrimSpace(string(response.UnresolvedKind)))
 	response.UnresolvedReason = strings.TrimSpace(response.UnresolvedReason)
 	response.FallbackGloss = strings.TrimSpace(response.FallbackGloss)
 	if response.Translation == "" {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}
+	if input.RequireEvidenceAssistedPass {
+		// The evidence-assisted pass keeps its unchanged abstention contract;
+		// unresolved_kind is not part of it.
+		response.UnresolvedKind = ""
+	}
 	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass {
-		// A resolved meaning and an unresolved reason are mutually exclusive.
-		// Keep the resolved meaning and discard the stray reason without
-		// validating it: it is never stored, cached, or rendered, and failing
-		// the response would spend an item's retry budget on an irrelevant field.
+		// A resolved meaning and an unresolved kind or reason are mutually
+		// exclusive. Keep the resolved meaning and discard the stray values
+		// without validating them: they are never stored, cached, or rendered,
+		// and failing the response would spend an item's retry budget on an
+		// irrelevant field.
 		if response.Gloss != "" {
+			response.UnresolvedKind = ""
 			response.UnresolvedReason = ""
 		}
 		if err := validateContextualMeaning(input, response); err != nil {
@@ -768,6 +782,9 @@ func validateContextualMeaning(input TranslationRequest, response TranslationRes
 	if err := validateContextualGloss(response.Gloss); err != nil {
 		return err
 	}
+	if err := validateContextualUnresolvedKind(input, response.UnresolvedKind); err != nil {
+		return err
+	}
 	if err := validateContextualUnresolvedReason(response.UnresolvedReason); err != nil {
 		return err
 	}
@@ -777,7 +794,21 @@ func validateContextualMeaning(input TranslationRequest, response TranslationRes
 	if err := validateContextualEvidenceAgreement(response); err != nil {
 		return err
 	}
-	return validateContextualOutcome(response)
+	return validateContextualOutcome(input, response)
+}
+
+// validateContextualUnresolvedKind accepts only the enumerated contextual
+// omission kinds. The evidence-assisted pass does not carry this field.
+func validateContextualUnresolvedKind(input TranslationRequest, kind ContextualGlossUnresolvedKind) error {
+	if !input.RequireContextualGloss {
+		return nil
+	}
+	switch kind {
+	case "", ContextualGlossUnresolvedAmbiguous, ContextualGlossUnresolvedLemmaMismatch:
+		return nil
+	default:
+		return errors.New("decode LLM translation: invalid unresolved kind")
+	}
 }
 
 // validateContextualGloss caps the free-text gloss and rejects markup.
@@ -841,11 +872,14 @@ func validateEvidenceID(id string, knownEvidence, seenEvidence map[string]struct
 }
 
 // validateContextualOutcome requires a complete abstention when there is no
-// gloss. A resolved gloss's stray unresolved reason is discarded during
-// normalization, so only the abstention branch remains here.
-func validateContextualOutcome(response TranslationResponse) error {
+// gloss. A resolved gloss's stray unresolved kind and reason are discarded
+// during normalization, so only the abstention branch remains here.
+func validateContextualOutcome(input TranslationRequest, response TranslationResponse) error {
 	if response.Gloss == "" {
 		if !response.ContextOnly || len(response.EvidenceIDs) != 0 || response.UnresolvedReason == "" {
+			return errors.New("decode LLM translation: unresolved meaning is incomplete")
+		}
+		if input.RequireContextualGloss && response.UnresolvedKind == "" {
 			return errors.New("decode LLM translation: unresolved meaning is incomplete")
 		}
 	}

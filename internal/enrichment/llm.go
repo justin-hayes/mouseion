@@ -19,7 +19,7 @@ const (
 	defaultLLMTimeout            = 30 * time.Second
 	defaultReasoningEffort       = "low"
 	llmPromptVersion             = "translation-v12-structured-target-alignment"
-	contextualGlossPromptVersion = "translation-v15-short-handles"
+	contextualGlossPromptVersion = "translation-v16-lemma-mismatch"
 	// evidenceAssistedPassPromptVersion pins the strict Ancient Greek
 	// evidence-assisted pass contract: the representative sentence, its
 	// passage context and the pinned LSJ senses with their native IDs, and a

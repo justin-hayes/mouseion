@@ -157,7 +157,10 @@ templ CurrentReadingDeckPreparationStatus(csrf, bookID, snapshotID string, prepa
 				<p>No cards were created from this snapshot.</p>
 			} else {
 				if summary := providerOmissionSummary(preparation); summary != "" {
-					<p role="status"><strong>Omissions:</strong> { summary }</p>
+					@OmissionSummary(summary)
+				}
+				if summary := lemmaMismatchOmissionSummary(preparation); summary != "" {
+					@OmissionSummary(summary)
 				}
 				<a class="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 				if actions.Reprepare {

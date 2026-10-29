@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,40 @@ const DeckPreparationProviderOmissionReason = "the translation provider gave an 
 // added nothing. The pass only adds to the source-evidence card, so it is never
 // reported as a meaning or provider omission (ADR 0101).
 const DeckPreparationEvidenceAssistedPassAbstentionReason = "the evidence-assisted provider pass added nothing"
+
+// DeckPreparationLemmaMismatchLabel is the learner-facing label for a card the
+// contextual-gloss provider omitted because the representative sentence uses a
+// different lexeme than the target lemma.
+const DeckPreparationLemmaMismatchLabel = "the sentence uses a different word than this lemma"
+
+// DeckPreparationLemmaMismatchPrefix is the reserved, domain-owned prefix that
+// distinguishes a lemma-mismatch omission from an ambiguous one in the existing
+// free-text omission reason. It is deliberately independent of the learner
+// label so rewording the label cannot reclassify already stored rows. No schema
+// change is needed.
+const DeckPreparationLemmaMismatchPrefix = "lemma_mismatch: "
+
+// maxDeckPreparationOmissionReasonRunes matches the persisted omission-reason
+// bound.
+const maxDeckPreparationOmissionReasonRunes = 200
+
+// DeckPreparationLemmaMismatchOmissionReason builds the stored omission reason
+// for a lemma-mismatch outcome: the reserved prefix plus the bounded provider
+// reason, truncated so the persisted value stays within its existing bound.
+func DeckPreparationLemmaMismatchOmissionReason(detail string) string {
+	detail = strings.TrimSpace(detail)
+	available := maxDeckPreparationOmissionReasonRunes - len([]rune(DeckPreparationLemmaMismatchPrefix))
+	if runes := []rune(detail); len(runes) > available {
+		detail = string(runes[:available])
+	}
+	return DeckPreparationLemmaMismatchPrefix + detail
+}
+
+// IsDeckPreparationLemmaMismatchOmission reports whether a stored omission
+// reason uses the reserved lemma-mismatch prefix.
+func IsDeckPreparationLemmaMismatchOmission(reason string) bool {
+	return strings.HasPrefix(reason, DeckPreparationLemmaMismatchPrefix)
+}
 
 const (
 	DeckPreparationQueued    DeckPreparationState = "queued"
@@ -63,6 +98,10 @@ type DeckPreparation struct {
 	VocabularyCount                                       int
 	EvidenceCoverage                                      []DeckPreparationEvidenceCoverage
 	MeaningOmissions                                      []DeckPreparationMeaningOmission
+	// LemmaMismatchOmissions counts the subset of MeaningOmissions the
+	// contextual-gloss provider attributed to a different lexeme than the
+	// target lemma. Ambiguous omissions are not included.
+	LemmaMismatchOmissions int
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.

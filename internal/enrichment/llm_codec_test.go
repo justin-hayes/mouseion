@@ -275,16 +275,20 @@ func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOm
 	require.NoError(t, err)
 	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", TargetWord: "Bank", ExampleSentence: "Sie sieht die Bank.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:seat", Gloss: "bench"}}}
 	seat := contextualEvidenceHandle(input, "wikt:seat")
-	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She sees the bank.","sentence_translation_targets":["bank"],"gloss":"","evidence_ids":[],"context_only":true,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."}`
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She sees the bank.","sentence_translation_targets":["bank"],"gloss":"","evidence_ids":[],"context_only":true,"unresolved_kind":"ambiguous","unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
 	assert.Empty(t, response.Gloss)
 	assert.True(t, response.ContextOnly)
+	assert.Equal(t, ContextualGlossUnresolvedAmbiguous, response.UnresolvedKind)
 	assert.Equal(t, "The sentence does not provide enough context to distinguish the meanings.", response.UnresolvedReason)
 
 	for name, invalid := range map[string]string{
 		"missing reason":             strings.Replace(content, `,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."`, "", 1),
+		"missing kind":               strings.Replace(content, `"unresolved_kind":"ambiguous",`, "", 1),
+		"unknown kind":               strings.Replace(content, `"unresolved_kind":"ambiguous"`, `"unresolved_kind":"different_lexeme"`, 1),
+		"non-string kind":            strings.Replace(content, `"unresolved_kind":"ambiguous"`, `"unresolved_kind":1`, 1),
 		"abstention with evidence":   strings.Replace(content, `"evidence_ids":[]`, `"evidence_ids":["`+seat+`"]`, 1),
 		"abstention without context": strings.Replace(content, `"context_only":true`, `"context_only":false`, 1),
 		"markup reason":              strings.Replace(content, "does not provide enough context", "<b>unsafe</b>", 1),
@@ -296,6 +300,22 @@ func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOm
 	}
 }
 
+func TestTranslationCodecAcceptsLemmaMismatchOmission(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "sehen", UPOS: "VERB", TargetWord: "sieht", ExampleSentence: "Großmutter sieht im Wohnzimmer fern ohne Bild und Ton.", RequireContextualGloss: true}
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"to see","sentence_translation":"Grandmother watches television in the living room without picture or sound.","sentence_translation_targets":[],"gloss":"","evidence_ids":[],"context_only":true,"unresolved_kind":"lemma_mismatch","unresolved_reason":"The sentence uses fernsehen, not sehen."}`
+	response, err := codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(content)+`}}]}`))
+	require.NoError(t, err)
+	t.Run("omits the card as a lemma mismatch", func(t *testing.T) {
+		require.Empty(t, response.Gloss)
+		require.Equal(t, ContextualGlossUnresolvedLemmaMismatch, response.UnresolvedKind)
+	})
+	t.Run("keeps the bounded provider reason", func(t *testing.T) {
+		require.Equal(t, "The sentence uses fernsehen, not sehen.", response.UnresolvedReason)
+	})
+}
+
 func TestTranslationCodecDiscardsStrayUnresolvedReasonFromResolvedGloss(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
@@ -304,13 +324,14 @@ func TestTranslationCodecDiscardsStrayUnresolvedReasonFromResolvedGloss(t *testi
 		{EvidenceID: "wikt:finance", Gloss: "financial institution"},
 	}}
 	seat := contextualEvidenceHandle(input, "wikt:seat")
-	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["` + seat + `"],"context_only":false,"unresolved_reason":"The gloss may be wrong."}`
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["` + seat + `"],"context_only":false,"unresolved_kind":"lemma_mismatch","unresolved_reason":"The gloss may be wrong."}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
 	assert.Equal(t, "bench", response.Gloss)
 	assert.Equal(t, []string{"wikt:seat"}, response.EvidenceIDs)
 	assert.False(t, response.ContextOnly)
+	assert.Empty(t, response.UnresolvedKind, "a stray kind on a resolved gloss is discarded")
 	assert.Empty(t, response.UnresolvedReason)
 }
 
@@ -373,6 +394,30 @@ func TestTranslationCodecTransmitsShortHandlesAndResolvesThemBack(t *testing.T) 
 			require.ErrorIs(t, decodeErr, ErrInvalidTranslationResponse)
 		})
 	}
+}
+
+// TestContextualGlossPromptRequiresLemmaMismatchOutcome covers the #2328
+// contract: the prompt names the new unresolved kind and its contract version
+// changes so cached v15 results are never reused.
+func TestContextualGlossPromptRequiresLemmaMismatchOutcome(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	body, err := codec.EncodeRequest(TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "sehen", UPOS: "VERB", TargetWord: "sieht", ExampleSentence: "Großmutter sieht im Wohnzimmer fern.", RequireContextualGloss: true})
+	require.NoError(t, err)
+	var request chatRequest
+	require.NoError(t, json.Unmarshal(body, &request))
+	require.Len(t, request.Messages, 2)
+	prompt := request.Messages[0].Content
+	t.Run("names the unresolved kind", func(t *testing.T) {
+		require.Contains(t, prompt, "unresolved_kind")
+		require.Contains(t, prompt, "lemma_mismatch")
+	})
+	t.Run("requires a different-lexeme outcome", func(t *testing.T) {
+		require.Contains(t, prompt, "different lexeme")
+	})
+	t.Run("bumps the contract version", func(t *testing.T) {
+		require.Equal(t, "translation-v16-lemma-mismatch", codec.ContextualGlossPromptContract())
+	})
 }
 
 // TestTranslationCodecKeepsStableIdentifiersOutsideContextualGloss guards the
@@ -551,6 +596,7 @@ func TestNormalizeTranslationResponseRejectsMalformedMeaningFields(t *testing.T)
 		{"overlong unresolved reason", contextual, func() TranslationResponse {
 			response := contextualResponse()
 			response.Gloss, response.EvidenceIDs, response.ContextOnly = "", nil, true
+			response.UnresolvedKind = ContextualGlossUnresolvedAmbiguous
 			response.UnresolvedReason = strings.Repeat("r", 201)
 			return response
 		}, "invalid unresolved reason"},
@@ -577,8 +623,22 @@ func TestNormalizeTranslationResponseRejectsMalformedMeaningFields(t *testing.T)
 		{"unresolved meaning incomplete", contextual, func() TranslationResponse {
 			response := contextualResponse()
 			response.Gloss, response.EvidenceIDs, response.ContextOnly = "", nil, true
+			response.UnresolvedKind = ContextualGlossUnresolvedAmbiguous
 			return response
 		}, "unresolved meaning is incomplete"},
+		{"missing unresolved kind", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.Gloss, response.EvidenceIDs, response.ContextOnly = "", nil, true
+			response.UnresolvedReason = "The sentence does not distinguish the meanings."
+			return response
+		}, "unresolved meaning is incomplete"},
+		{"unknown unresolved kind", contextual, func() TranslationResponse {
+			response := contextualResponse()
+			response.Gloss, response.EvidenceIDs, response.ContextOnly = "", nil, true
+			response.UnresolvedKind = "different_lexeme"
+			response.UnresolvedReason = "The sentence does not distinguish the meanings."
+			return response
+		}, "invalid unresolved kind"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := NormalizeTranslationResponse(test.input, test.build())

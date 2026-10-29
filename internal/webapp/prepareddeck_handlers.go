@@ -158,15 +158,17 @@ type deckEvidenceCoverageResponse struct {
 }
 
 type deckCompletenessResponse struct {
-	TotalCards               int    `json:"total_cards"`
-	CardsWithEnglish         int    `json:"cards_with_english"`
-	CardsWithEnglishSentence int    `json:"cards_with_contextual_sentence_translations"`
-	CardsWithFallbackGloss   *int   `json:"cards_with_fallback_gloss,omitempty"`
-	CardsWithContextualGloss *int   `json:"cards_with_contextual_gloss,omitempty"`
-	ContextOnlyGlosses       *int   `json:"context_only_glosses,omitempty"`
-	QualityOmissions         int    `json:"quality_omissions"`
-	ProviderOmissions        int    `json:"provider_omissions"`
-	ProviderOmissionReason   string `json:"provider_omission_reason,omitempty"`
+	TotalCards                  int    `json:"total_cards"`
+	CardsWithEnglish            int    `json:"cards_with_english"`
+	CardsWithEnglishSentence    int    `json:"cards_with_contextual_sentence_translations"`
+	CardsWithFallbackGloss      *int   `json:"cards_with_fallback_gloss,omitempty"`
+	CardsWithContextualGloss    *int   `json:"cards_with_contextual_gloss,omitempty"`
+	ContextOnlyGlosses          *int   `json:"context_only_glosses,omitempty"`
+	QualityOmissions            int    `json:"quality_omissions"`
+	ProviderOmissions           int    `json:"provider_omissions"`
+	ProviderOmissionReason      string `json:"provider_omission_reason,omitempty"`
+	LemmaMismatchOmissions      int    `json:"lemma_mismatch_omissions"`
+	LemmaMismatchOmissionReason string `json:"lemma_mismatch_omission_reason,omitempty"`
 }
 
 type deckTranslationResponse struct {
@@ -199,8 +201,20 @@ type deckBatchResponse struct {
 // providerOmissionReason names why a ready deck left accepted identities out.
 // It is empty unless the deck omitted provider-unusable answers.
 func providerOmissionReason(p domain.DeckPreparation) string {
-	if p.State == domain.DeckPreparationReady && p.ProviderOmissions > 0 {
-		return domain.DeckPreparationProviderOmissionReason
+	return readyOmissionReason(p, p.ProviderOmissions, domain.DeckPreparationProviderOmissionReason)
+}
+
+// lemmaMismatchOmissionReason labels the subset of meaning omissions the
+// provider attributed to a different lexeme than the target lemma.
+func lemmaMismatchOmissionReason(p domain.DeckPreparation) string {
+	return readyOmissionReason(p, p.LemmaMismatchOmissions, domain.DeckPreparationLemmaMismatchLabel)
+}
+
+// readyOmissionReason returns a reason only for a ready preparation that has a
+// non-zero omission count of that kind.
+func readyOmissionReason(p domain.DeckPreparation, count int, reason string) string {
+	if p.State == domain.DeckPreparationReady && count > 0 {
+		return reason
 	}
 	return ""
 }
@@ -222,7 +236,7 @@ func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 			fallbackGlossCount = &p.CardsWithFallbackGloss
 		}
 	}
-	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady && p.Error != domain.DeckPreparationRequiresRepreparationError, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, DeckRevision: p.DeckRevision, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: fallbackGlossCount, CardsWithContextualGloss: contextualGlossCount, ContextOnlyGlosses: contextOnlyGlossCount, QualityOmissions: p.QualityOmissions, ProviderOmissions: p.ProviderOmissions, ProviderOmissionReason: providerOmissionReason(p)}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
+	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady && p.Error != domain.DeckPreparationRequiresRepreparationError, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, DeckRevision: p.DeckRevision, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: fallbackGlossCount, CardsWithContextualGloss: contextualGlossCount, ContextOnlyGlosses: contextOnlyGlossCount, QualityOmissions: p.QualityOmissions, ProviderOmissions: p.ProviderOmissions, ProviderOmissionReason: providerOmissionReason(p), LemmaMismatchOmissions: p.LemmaMismatchOmissions, LemmaMismatchOmissionReason: lemmaMismatchOmissionReason(p)}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
 	for _, coverage := range p.EvidenceCoverage {
 		response.Evidence = append(response.Evidence, deckEvidenceCoverageResponse{Source: coverage.Source, Configured: coverage.Configured, Selected: coverage.Selected, Matched: coverage.Matched, Candidates: coverage.Candidates, Omitted: coverage.Omitted})
 	}

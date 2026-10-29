@@ -319,6 +319,39 @@ func TestReadyDeckReportsProviderOmissionsAndRetriesOnlyThem(t *testing.T) {
 	assert.NotContains(t, html, "No recurring vocabulary", "omissions must not be presented as missing vocabulary: %s", html)
 }
 
+func TestReadyDeckCountsAndLabelsLemmaMismatchOmissionsSeparately(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-lemma-mismatch", SourceMaterialID: "book-mismatch", State: domain.DeckPreparationReady,
+		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg", TotalCards: 3,
+		MeaningOmissions: []domain.DeckPreparationMeaningOmission{
+			{TargetWord: "sieht", Reason: domain.DeckPreparationLemmaMismatchLabel},
+			{TargetWord: "Bank", Reason: "The sentence does not distinguish the meanings."},
+		},
+		LemmaMismatchOmissions: 1,
+	}
+	var output bytes.Buffer
+	action := deckReadingActionView{BookID: "book-mismatch", State: deckIsCurrentReading, Actions: deckPreparationActions{BookID: "book-mismatch", OnCurrentReading: true, Reprepare: true}}
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output))
+	html := output.String()
+	t.Run("counts lemma mismatches separately", func(t *testing.T) {
+		require.Contains(t, html, "1 word left out: "+domain.DeckPreparationLemmaMismatchLabel+".", "deck page: %s", html)
+	})
+	t.Run("labels the omitted target", func(t *testing.T) {
+		require.Contains(t, html, "Omitted sieht:")
+	})
+	t.Run("keeps ambiguous omissions unchanged", func(t *testing.T) {
+		require.Contains(t, html, "<strong>Omitted Bank:</strong> The sentence does not distinguish the meanings.")
+	})
+}
+
+func TestCurrentReadingDeckStatusReportsLemmaMismatchOmissions(t *testing.T) {
+	preparation := domain.DeckPreparation{ID: "prep-reading-mismatch", State: domain.DeckPreparationReady, TotalCards: 3, LemmaMismatchOmissions: 1}
+	var output bytes.Buffer
+	require.NoError(t, CurrentReadingDeckPreparationStatus("csrf", "book-reading", "snapshot-reading", preparation, deckPreparationActions{BookID: "book-reading", OnCurrentReading: true, Reprepare: true}).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "1 word left out: "+domain.DeckPreparationLemmaMismatchLabel+".", "Reading page must count lemma mismatches separately: %s", html)
+}
+
 func TestCurrentReadingDeckStatusReportsProviderOmissions(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "prep-reading-omitted", State: domain.DeckPreparationReady, TotalCards: 3, ProviderOmissions: 1}
 	var output bytes.Buffer

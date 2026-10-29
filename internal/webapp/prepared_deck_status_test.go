@@ -91,6 +91,28 @@ func TestPreparationResponseExposesTargetAndReasonForMeaningOmissions(t *testing
 	assert.Contains(t, string(encoded), `"meaning_omissions":[{"target":"Bank","reason":"The sentence does not distinguish the meanings."}]`)
 }
 
+func TestPreparationResponseCountsLemmaMismatchOmissionsSeparately(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{
+		State: domain.DeckPreparationReady,
+		MeaningOmissions: []domain.DeckPreparationMeaningOmission{
+			{TargetWord: "sieht", Reason: domain.DeckPreparationLemmaMismatchLabel},
+			{TargetWord: "Bank", Reason: "The sentence does not distinguish the meanings."},
+		},
+		LemmaMismatchOmissions: 1,
+	})
+	encoded, err := json.Marshal(response)
+	require.NoError(t, err)
+	t.Run("counts and labels lemma mismatches separately", func(t *testing.T) {
+		require.Equal(t, 1, response.Completeness.LemmaMismatchOmissions)
+		require.Equal(t, domain.DeckPreparationLemmaMismatchLabel, response.Completeness.LemmaMismatchOmissionReason)
+		require.Contains(t, string(encoded), `"lemma_mismatch_omissions":1`)
+		require.Contains(t, string(encoded), `"lemma_mismatch_omission_reason":"`+domain.DeckPreparationLemmaMismatchLabel+`"`)
+	})
+	t.Run("keeps the ambiguous omission presentation", func(t *testing.T) {
+		require.Contains(t, string(encoded), `"target":"Bank","reason":"The sentence does not distinguish the meanings."`)
+	})
+}
+
 func TestPreparationResponseExposesFrozenEvidenceCoverageAndTruncation(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{State: domain.DeckPreparationPreparing, EvidenceCoverage: []domain.DeckPreparationEvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 5, Matched: 3, Candidates: 12, Omitted: 4}}})
 	encoded, err := json.Marshal(response)

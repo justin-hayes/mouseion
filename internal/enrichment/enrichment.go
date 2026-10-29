@@ -96,23 +96,35 @@ type TranslationRequest struct {
 	Headword  string                 `json:"-"`
 	LSJSenses []LSJSenseSummarySense `json:"-"`
 }
+
+// ContextualGlossUnresolvedKind is the enumerated reason a contextual Gloss
+// request has no resolved meaning. It is required when the Gloss is empty and
+// empty when a Gloss is resolved.
+type ContextualGlossUnresolvedKind string
+
+const (
+	ContextualGlossUnresolvedAmbiguous     ContextualGlossUnresolvedKind = "ambiguous"
+	ContextualGlossUnresolvedLemmaMismatch ContextualGlossUnresolvedKind = "lemma_mismatch"
+)
+
 type TranslationResponse struct {
 	// ItemID is the stable translation item identity a contextual Gloss
 	// response resolves back to. The transmitted payload carries a short
 	// per-request handle instead, so the field is empty for responses that were
 	// never transmitted under that contract. It is never part of the provider
 	// wire format.
-	ItemID                     string   `json:"-"`
-	Translation                string   `json:"translation"`
-	SentenceTranslation        string   `json:"sentence_translation"`
-	SentenceTranslationTargets []string `json:"sentence_translation_targets"`
-	Gloss                      string   `json:"gloss,omitempty"`
-	EvidenceIDs                []string `json:"evidence_ids,omitempty"`
-	ContextOnly                bool     `json:"context_only,omitempty"`
-	UnresolvedReason           string   `json:"unresolved_reason,omitempty"`
-	SenseOrder                 []int    `json:"sense_order"`
-	FallbackGloss              string   `json:"fallback_gloss"`
-	Warnings                   []string `json:"-"`
+	ItemID                     string                        `json:"-"`
+	Translation                string                        `json:"translation"`
+	SentenceTranslation        string                        `json:"sentence_translation"`
+	SentenceTranslationTargets []string                      `json:"sentence_translation_targets"`
+	Gloss                      string                        `json:"gloss,omitempty"`
+	EvidenceIDs                []string                      `json:"evidence_ids,omitempty"`
+	ContextOnly                bool                          `json:"context_only,omitempty"`
+	UnresolvedKind             ContextualGlossUnresolvedKind `json:"unresolved_kind,omitempty"`
+	UnresolvedReason           string                        `json:"unresolved_reason,omitempty"`
+	SenseOrder                 []int                         `json:"sense_order"`
+	FallbackGloss              string                        `json:"fallback_gloss"`
+	Warnings                   []string                      `json:"-"`
 	// SenseSummary is the provider-written LSJ sense summary an
 	// LSJ-sense-summary request resolves. It is empty for every other contract.
 	SenseSummary []LSJSenseSummaryLine `json:"-"`
