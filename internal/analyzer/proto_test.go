@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,6 +70,66 @@ func TestProtoRoundTrip(t *testing.T) {
 	require.Len(t, got.Sentences[0].Tokens, 2)
 	assert.Equal(t, "nsubj", got.Sentences[0].Tokens[0].Dependency)
 	assert.Equal(t, uint32(1), got.Sentences[0].Tokens[0].Head)
+}
+
+func TestFromProtoTreatsRecoveredAdvmodParticleAsCompound(t *testing.T) {
+	corpus, err := analyzer.FromProto(&mouseionv1.NormalizedCorpus{
+		SchemaVersion: "1.1.0",
+		Language:      "de",
+		Sentences: []*mouseionv1.Sentence{{
+			Text: "Großmutter sieht fern.",
+			Tokens: []*mouseionv1.Token{
+				{Surface: "Großmutter", CanonicalLemma: "großmutter", Pos: "NOUN", Dependency: "nsubj", Head: 1},
+				{Surface: "sieht", CanonicalLemma: "fernsehen", Pos: "VERB", Dependency: "root", Head: 1},
+				{Surface: "fern", CanonicalLemma: "fern", Pos: "ADV", Dependency: "advmod", Head: 1},
+			},
+		}},
+	})
+	require.NoError(t, err)
+
+	tokens := corpus.Sentences[0].Tokens
+	assert.Equal(t, "compound:prt", tokens[2].Dependency, "a recovered particle is a verb component for every consumer")
+}
+
+func TestFromProtoLeavesTrueAdverbDependencyAlone(t *testing.T) {
+	corpus, err := analyzer.FromProto(&mouseionv1.NormalizedCorpus{
+		SchemaVersion: "1.1.0",
+		Language:      "de",
+		Sentences: []*mouseionv1.Sentence{{
+			Text: "Das Dorf liegt fern der Stadt.",
+			Tokens: []*mouseionv1.Token{
+				{Surface: "Das", CanonicalLemma: "der", Pos: "DET", Dependency: "det", Head: 1},
+				{Surface: "Dorf", CanonicalLemma: "dorf", Pos: "NOUN", Dependency: "nsubj", Head: 2},
+				{Surface: "liegt", CanonicalLemma: "liegen", Pos: "VERB", Dependency: "root", Head: 2},
+				{Surface: "fern", CanonicalLemma: "fern", Pos: "ADV", Dependency: "advmod", Head: 2},
+				{Surface: "der", CanonicalLemma: "der", Pos: "DET", Dependency: "det", Head: 5},
+				{Surface: "Stadt", CanonicalLemma: "stadt", Pos: "NOUN", Dependency: "nmod", Head: 3},
+			},
+		}},
+	})
+	require.NoError(t, err)
+
+	tokens := corpus.Sentences[0].Tokens
+	assert.Equal(t, "advmod", tokens[3].Dependency, "a true adverb keeps its analyzer relation")
+}
+
+func TestFromProtoDoesNotNormalizeAdvmodOutsideGerman(t *testing.T) {
+	corpus, err := analyzer.FromProto(&mouseionv1.NormalizedCorpus{
+		SchemaVersion: "1.1.0",
+		Language:      "fr",
+		Sentences: []*mouseionv1.Sentence{{
+			Text: "Elle voit fern.",
+			Tokens: []*mouseionv1.Token{
+				{Surface: "Elle", CanonicalLemma: "elle", Pos: "PRON", Dependency: "nsubj", Head: 1},
+				{Surface: "voit", CanonicalLemma: "fernsehen", Pos: "VERB", Dependency: "root", Head: 1},
+				{Surface: "fern", CanonicalLemma: "fern", Pos: "ADV", Dependency: "advmod", Head: 1},
+			},
+		}},
+	})
+	require.NoError(t, err)
+
+	tokens := corpus.Sentences[0].Tokens
+	assert.Equal(t, "advmod", tokens[2].Dependency, "only German recovery is normalized")
 }
 
 func TestFromProtoRejectsInvalidAnalysisTime(t *testing.T) {

@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
-from .producer import GERMAN_SEPARABLE_PREFIXES, Producer
+from .producer import GERMAN_SEPARABLE_PREFIXES, Producer, recovered_advmod_particles
 
 # These prefixes have common non-particle uses in ordinary prose. They are not
 # rejected by the producer, but are called out for a human review of the sample.
@@ -45,6 +45,7 @@ class Measurement:
     reattachment_count: int
     accepted_particle_count: int
     skipped_particle_count: int
+    advmod_recovery_count: int
     prefix_counts: tuple[tuple[str, int], ...]
     lemma_pairs: tuple[tuple[str, str, int], ...]
     spot_checks: tuple[Reattachment, ...]
@@ -58,6 +59,7 @@ def measure(corpus: Any) -> Measurement:
     reattachment_count = 0
     accepted_particle_count = 0
     skipped_particle_count = 0
+    advmod_recovery_count = 0
     token_count = 0
 
     for sentence_number, sentence in enumerate(corpus.sentences, start=1):
@@ -79,19 +81,14 @@ def measure(corpus: Any) -> Measurement:
                 if token.surface.casefold() in GERMAN_SEPARABLE_PREFIXES
             ]
             skipped_particle_count += len(particles) - len(accepted)
-            if not accepted:
+            recoveries = _advmod_recoveries(tokens, verb_index, verb)
+            advmod_recovery_count += len(recoveries)
+            if not accepted and not recoveries:
                 continue
 
             accepted_particle_count += len(accepted)
             for particle in accepted:
                 prefix_counts[particle.surface.casefold()] += 1
-
-            accepted_ids = {id(token) for token in accepted}
-            particle_distance = {
-                id(token): abs(token_index - verb_index)
-                for token_index, token in enumerate(tokens)
-                if id(token) in accepted_ids
-            }
 
             normalized_raw = Producer._canonical_lemma("de", verb.raw_lemma)
             if verb.canonical_lemma == normalized_raw:
@@ -99,24 +96,42 @@ def measure(corpus: Any) -> Measurement:
 
             reattachment_count += 1
             lemma_pairs[(verb.raw_lemma, verb.canonical_lemma)] += 1
-            spot_checks.append(
-                Reattachment(
-                    sentence_number=sentence_number,
-                    sentence=" ".join(sentence.text.split()),
-                    particles=tuple(token.surface for token in accepted),
-                    raw_lemma=verb.raw_lemma,
-                    full_lemma=verb.canonical_lemma,
-                    review_flag=(
-                        "debatable"
-                        if any(
-                            token.surface.casefold() in DEBATABLE_PREFIXES
-                            or particle_distance[id(token)] > 8
-                            for token in accepted
-                        )
-                        else ""
-                    ),
+            if accepted:
+                accepted_ids = {id(token) for token in accepted}
+                particle_distance = {
+                    id(token): abs(token_index - verb_index)
+                    for token_index, token in enumerate(tokens)
+                    if id(token) in accepted_ids
+                }
+                spot_checks.append(
+                    Reattachment(
+                        sentence_number=sentence_number,
+                        sentence=" ".join(sentence.text.split()),
+                        particles=tuple(token.surface for token in accepted),
+                        raw_lemma=verb.raw_lemma,
+                        full_lemma=verb.canonical_lemma,
+                        review_flag=(
+                            "debatable"
+                            if any(
+                                token.surface.casefold() in DEBATABLE_PREFIXES
+                                or particle_distance[id(token)] > 8
+                                for token in accepted
+                            )
+                            else ""
+                        ),
+                    )
                 )
-            )
+            for particle in recoveries:
+                spot_checks.append(
+                    Reattachment(
+                        sentence_number=sentence_number,
+                        sentence=" ".join(sentence.text.split()),
+                        particles=(particle.surface,),
+                        raw_lemma=verb.raw_lemma,
+                        full_lemma=verb.canonical_lemma,
+                        review_flag="advmod-recovered",
+                    )
+                )
 
     return Measurement(
         sentence_count=len(corpus.sentences),
@@ -124,6 +139,7 @@ def measure(corpus: Any) -> Measurement:
         reattachment_count=reattachment_count,
         accepted_particle_count=accepted_particle_count,
         skipped_particle_count=skipped_particle_count,
+        advmod_recovery_count=advmod_recovery_count,
         prefix_counts=tuple(sorted(prefix_counts.items())),
         lemma_pairs=tuple(
             (raw_lemma, full_lemma, count)
@@ -131,6 +147,21 @@ def measure(corpus: Any) -> Measurement:
         ),
         spot_checks=tuple(spot_checks),
     )
+
+
+def _advmod_recoveries(tokens: list[Any], verb_index: int, verb: Any) -> list[Any]:
+    """Return the ADV/advmod particles the producer actually recovered.
+
+    The producer's own predicate decides whether a particle is eligible; the
+    second check keeps a true adverb, or a particle the producer declined to
+    reattach, out of the measurement.
+    """
+    base_lemma = Producer._canonical_lemma("de", verb.raw_lemma)
+    return [
+        token
+        for token, full_lemma in recovered_advmod_particles(tokens, verb_index, base_lemma)
+        if verb.canonical_lemma == Producer._canonical_lemma("de", full_lemma)
+    ]
 
 
 @dataclass(frozen=True)
@@ -148,8 +179,8 @@ def render_report(measurement: Measurement, provenance: ReportProvenance) -> str
     """Render the committed Markdown evidence report."""
     accepted = measurement.accepted_particle_count
     skipped = measurement.skipped_particle_count
-    observed = accepted + skipped
-    review_rows = sum(bool(row.review_flag) for row in measurement.spot_checks)
+    observed = accepted + skipped + measurement.advmod_recovery_count
+    review_rows = sum(row.review_flag == "debatable" for row in measurement.spot_checks)
 
     lines = [
         "# German Separable-Verb Precision Evidence",
@@ -176,13 +207,17 @@ def render_report(measurement: Measurement, provenance: ReportProvenance) -> str
         f"| Reattachment events (changed verb tokens) | {measurement.reattachment_count} |",
         f"| Accepted particle observations | {accepted} |",
         f"| Skipped particle observations | {skipped} |",
+        f"| ADVMod particle recoveries | {measurement.advmod_recovery_count} |",
         f"| Particle observations reviewed by the guard | {observed} |",
         f"| Spot-check rows flagged debatable | {review_rows} |",
         "",
         "`Skipped particle observations` are `compound:prt` dependents whose",
-        "surface was not in the curated prefix set. The reattachment count is",
-        "the number of verb tokens whose canonical lemma changed; a verb with",
-        "multiple accepted particles still counts as one event.",
+        "surface was not in the curated prefix set. `ADVMod particle recoveries`",
+        "are ADV/advmod particles reattached through the explicit, reviewed",
+        "particle-and-verb evidence table; each is also a reattachment event and",
+        "appears in the spot checks. The reattachment count is the number of verb",
+        "tokens whose canonical lemma changed; a verb with multiple accepted",
+        "particles still counts as one event.",
         "",
         "## Prefix Breakdown",
         "",
@@ -210,7 +245,9 @@ def render_report(measurement: Measurement, provenance: ReportProvenance) -> str
             "",
             "Each row contains the complete Stanza sentence context. `debatable`",
             "flags prefixes with frequent non-particle uses or long-distance",
-            "attachments; blank flags are not an assertion that the row is correct.",
+            "attachments; `advmod-recovered` marks an ADV/advmod particle",
+            "reattached through the explicit evidence table. Blank flags are not an",
+            "assertion that the row is correct.",
             "Reviewers can determine the false-positive rate by judging these rows",
             "and counting any false positives against the reattachment-event count.",
             "",

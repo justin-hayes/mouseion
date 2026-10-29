@@ -4,6 +4,7 @@ package analyzer
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -78,6 +79,59 @@ type Token struct {
 	Headword             string            `json:"Headword,omitempty"`
 	LexicalDiscriminator string            `json:"LexicalDiscriminator,omitempty"`
 	SearchKey            string            `json:"SearchKey,omitempty"`
+}
+
+// IsSeparableParticle reports whether tokens[index] is a component of its head
+// verb's full canonical lemma rather than its own word. A compound:prt
+// dependent always is. An advmod dependent is too when the NLP producer
+// recovered a separable verb whose particle Stanza tagged as an adverb: it
+// follows its head verb, has no dependents of its own, and the head verb's
+// canonical lemma begins with the particle's surface. A true adverb of the base
+// verb (for example fern meaning "far") leaves the verb's lemma unchanged and
+// therefore stays eligible.
+func IsSeparableParticle(tokens []Token, index int) bool {
+	return isSeparableParticle(tokens, index, dependentOrdinals(tokens))
+}
+
+// isSeparableParticle is the shared implementation. withDependents holds the
+// ordinals some token points at, so callers scanning a sentence compute it once.
+func isSeparableParticle(tokens []Token, index int, withDependents map[int]bool) bool {
+	if index < 0 || index >= len(tokens) {
+		return false
+	}
+	token := tokens[index]
+	if token.Dependency == "compound:prt" {
+		return true
+	}
+	if token.Dependency != "advmod" || token.UPOS != "ADV" {
+		return false
+	}
+	headIndex := int(token.Head)
+	if headIndex == index || headIndex < 0 || headIndex >= len(tokens) {
+		return false
+	}
+	// The producer only recovers a particle after its verb and without
+	// dependents of its own; mirror those conditions here.
+	if headIndex >= index || withDependents[index] {
+		return false
+	}
+	head := tokens[headIndex]
+	if head.UPOS != "VERB" {
+		return false
+	}
+	particle := strings.ToLower(strings.TrimSpace(token.Surface))
+	lemma := strings.ToLower(strings.TrimSpace(head.CanonicalLemma))
+	return particle != "" && lemma != particle && strings.HasPrefix(lemma, particle)
+}
+
+// dependentOrdinals returns the ordinals that some token in the sentence points
+// at as its head.
+func dependentOrdinals(tokens []Token) map[int]bool {
+	withDependents := make(map[int]bool, len(tokens))
+	for _, token := range tokens {
+		withDependents[int(token.Head)] = true
+	}
+	return withDependents
 }
 
 // SourceDocumentMetadata describes a source referenced by SourceLocation.

@@ -1,6 +1,6 @@
 # German separable-verb lemmatization
 
-Status: Implemented · Date: 2026-09-12 · Updated: 2026-09-15
+Status: Implemented · Date: 2026-09-12 · Updated: 2026-10-29
 
 ## Motivation
 
@@ -23,6 +23,14 @@ A second, related defect: roughly a third of separable particles are tagged
 *auf* can surface as its own vocabulary candidate from a book full of
 *steht auf*.
 
+A third defect survives both rules: Stanza sometimes attaches the particle as
+an ordinary adverb (`advmod`) rather than `compound:prt`. *Großmutter sieht im
+Wohnzimmer fern ohne Bild und Ton.* is analysed as `sieht` → *sehen* plus
+`fern` → *fern* (`ADV`, `advmod`, head `sieht`), so the learner gets a *sehen*
+card whose sentence means "watches television". The dependency relation alone
+cannot separate such a particle from a true adverb such as *fern* meaning
+"far" (*Das Dorf liegt fern der Stadt.*).
+
 ## Goal
 
 In the NLP producer, separable particles are reattached to German verb lemmas so
@@ -40,11 +48,16 @@ the observed reattachments and spot-check rows in
   in the curated separable-prefix set gets `canonical_lemma` =
   particle lemma + verb lemma, normalized by the existing German post-1996
   profile; the profile version bumps.
+- ADVMod recovery: a clause-final `ADV`/`advmod` dependent is reattached only
+  when the pair of particle surface and base verb lemma appears in an explicit,
+  reviewed evidence table (for example the dictionary headword *fernsehen*).
+  The table, not the dependency relation, is the guard.
 - `raw_lemma` is untouched.
-- Selection excludes tokens whose dependency relation is `compound:prt`.
+- Selection excludes tokens whose dependency relation is `compound:prt`, and a
+  recovered `advmod` particle is treated as one of those components.
 - Validation: unit fixtures (attached, separated, multiple particles,
-  false-positive traps), an end-to-end analysis test, and a real-corpus
-  precision measurement.
+  false-positive traps, `advmod` recovery and its negative cases), an
+  end-to-end analysis test, and a real-corpus precision measurement.
 
 ## Non-goals
 
@@ -83,6 +96,28 @@ A closed-class list of German separable prefixes (for example `ab`, `an`,
 `weiter`, ...). It lives beside the German normalization table in the NLP
 producer and is the guard against free-adverb and prepositional homographs.
 
+### ADVMod recovery
+
+When Stanza tags a separated particle as an adverb, the verb token keeps the
+base lemma unless the particle is known evidence for a separable verb. The
+recovery requires all of:
+
+- the particle is `ADV` with dependency `advmod` and its head is the verb,
+- it follows the verb and has no dependents of its own (the particle's
+  clause-final position; material in the Nachfeld may still follow it),
+- the pair (particle surface, base verb canonical lemma) is in the reviewed
+  evidence table, which names the combined lemma.
+
+The producer keeps the analyzer's `advmod` relation in its artifact so the
+precision measurement can count the recovery. The Go analyzer boundary
+normalizes a recovered particle to `compound:prt`, exactly like a particle
+Stanza tagged itself, so selection, lemma review, and card presentation treat
+it as a component of the verb's full lemma: it neither becomes its own
+vocabulary candidate nor disappears from the bolded target (ADR 0067). A true
+adverb of the base verb, or a particle-homograph adverb whose verb is not in
+the table, keeps the base verb lemma. The precision measurement counts each
+recovery separately from the existing `compound:prt` observations.
+
 ### Normalization
 
 Reattachment happens as part of `canonical_lemma` derivation; the result passes
@@ -104,6 +139,10 @@ its own word.
   forms (`ich stehe auf`), multiple particles, and false-positive traps
   (`Die Tür ist auf` — predicative; `auf dem Berg` — prepositional; `nach wie
   vor` — fixed phrase). Assert the persisted `canonical_lemma`.
+- **ADVMod fixtures**: *sieht … fern* recovers *fernsehen*; *Das Dorf liegt
+  fern der Stadt.*, pre-verbal *fern*, and particle-homograph adverbs such as
+  *fest* and *weg* keep the base verb lemma. Card bolding covers the recovered
+  particle as a second target span.
 - **End-to-end analysis test**: a completed analysis persists the full lexeme
   as `canonical_lemma` with `raw_lemma` unchanged.
 
@@ -119,10 +158,19 @@ its own word.
       analyses are affected
 - [x] The precision evidence report records the reattachment count and
       spot-check rows for false-positive review
+- [x] An `advmod` particle with reviewed evidence recovers the full lexeme, is
+      excluded from candidates, and is bolded on the card
+- [x] True adverbial uses and particle-homograph adverbs keep the base verb
+      lemma
+- [x] The precision evidence report counts `advmod` recoveries alongside the
+      skipped-particle observations
+- [x] Existing analyses change only when re-analysed; no backfill is part of
+      the change
 
 ## References
 
 - [ADR 0061: German separable-verb lemmatization from dependency data](../adr/0061-german-separable-verb-lemmatization.md)
+- [ADR 0113: Recover German separable verbs whose particle is parsed as an adverb](../adr/0113-german-advmod-separable-verb-recovery.md)
 - [ADR 0060: Persist dependency parses in the normalized corpus](../adr/0060-persist-dependency-parses.md)
 - [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](../adr/0005-vocabulary-identity-normalization-ranking.md)
 - [Dependency Parse Foundation](dependency-parse-foundation.md)

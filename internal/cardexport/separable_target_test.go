@@ -3,10 +3,22 @@ package cardexport
 import (
 	"testing"
 
+	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func recoveredAdvmodTokens(t *testing.T, text string, tokens ...*mouseionv1.Token) []analyzer.Token {
+	t.Helper()
+	corpus, err := analyzer.FromProto(&mouseionv1.NormalizedCorpus{
+		SchemaVersion: "1.1.0",
+		Language:      "de",
+		Sentences:     []*mouseionv1.Sentence{{Text: text, Tokens: tokens}},
+	})
+	require.NoError(t, err)
+	return corpus.Sentences[0].Tokens
+}
 
 func TestMakeNoteBoldsEveryComponentOfSeparableVerb(t *testing.T) {
 	entry := Entry{
@@ -26,6 +38,51 @@ func TestMakeNoteBoldsEveryComponentOfSeparableVerb(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "Karam <b>rief</b> dem jungen Scheich <b>entgegen</b>.", note.Text)
+}
+
+func TestMakeNoteBoldsRecoveredAdvmodParticle(t *testing.T) {
+	entry := Entry{
+		Language: "de", CanonicalLemma: "fernsehen", UPOS: "VERB",
+		Sentence:   "Großmutter sieht im Wohnzimmer fern ohne Bild und Ton.",
+		TargetWord: "sieht",
+		SentenceTokens: recoveredAdvmodTokens(t, "Großmutter sieht im Wohnzimmer fern ohne Bild und Ton.",
+			&mouseionv1.Token{Surface: "Großmutter", CanonicalLemma: "großmutter", Pos: "NOUN", Dependency: "nsubj", Head: 1},
+			&mouseionv1.Token{Surface: "sieht", CanonicalLemma: "fernsehen", Pos: "VERB", Dependency: "root", Head: 1},
+			&mouseionv1.Token{Surface: "im", CanonicalLemma: "in", Pos: "ADP", Dependency: "case", Head: 3},
+			&mouseionv1.Token{Surface: "Wohnzimmer", CanonicalLemma: "wohnzimmer", Pos: "NOUN", Dependency: "obl", Head: 1},
+			&mouseionv1.Token{Surface: "fern", CanonicalLemma: "fern", Pos: "ADV", Dependency: "advmod", Head: 1},
+			&mouseionv1.Token{Surface: "ohne", CanonicalLemma: "ohne", Pos: "ADP", Dependency: "case", Head: 6},
+			&mouseionv1.Token{Surface: "Bild", CanonicalLemma: "bild", Pos: "NOUN", Dependency: "obl", Head: 1},
+			&mouseionv1.Token{Surface: "und", CanonicalLemma: "und", Pos: "CCONJ", Dependency: "cc", Head: 6},
+			&mouseionv1.Token{Surface: "Ton", CanonicalLemma: "ton", Pos: "NOUN", Dependency: "conj", Head: 6},
+		),
+	}
+
+	note, err := makeNote("owner", renderInputFromEntry(entry))
+
+	require.NoError(t, err)
+	assert.Equal(t, "Großmutter <b>sieht</b> im Wohnzimmer <b>fern</b> ohne Bild und Ton.", note.Text)
+}
+
+func TestMakeNoteLeavesTrueAdverbUnbolded(t *testing.T) {
+	entry := Entry{
+		Language: "de", CanonicalLemma: "liegen", UPOS: "VERB",
+		Sentence:   "Das Dorf liegt fern der Stadt.",
+		TargetWord: "liegt",
+		SentenceTokens: recoveredAdvmodTokens(t, "Das Dorf liegt fern der Stadt.",
+			&mouseionv1.Token{Surface: "Das", CanonicalLemma: "der", Pos: "DET", Dependency: "det", Head: 1},
+			&mouseionv1.Token{Surface: "Dorf", CanonicalLemma: "dorf", Pos: "NOUN", Dependency: "nsubj", Head: 2},
+			&mouseionv1.Token{Surface: "liegt", CanonicalLemma: "liegen", Pos: "VERB", Dependency: "root", Head: 2},
+			&mouseionv1.Token{Surface: "fern", CanonicalLemma: "fern", Pos: "ADV", Dependency: "advmod", Head: 2},
+			&mouseionv1.Token{Surface: "der", CanonicalLemma: "der", Pos: "DET", Dependency: "det", Head: 5},
+			&mouseionv1.Token{Surface: "Stadt", CanonicalLemma: "stadt", Pos: "NOUN", Dependency: "nmod", Head: 3},
+		),
+	}
+
+	note, err := makeNote("owner", renderInputFromEntry(entry))
+
+	require.NoError(t, err)
+	assert.Equal(t, "Das Dorf <b>liegt</b> fern der Stadt.", note.Text)
 }
 
 func TestMakeNoteBoldsAttachedSeparableVerbOnce(t *testing.T) {

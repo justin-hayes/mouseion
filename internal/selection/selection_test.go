@@ -8,6 +8,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -224,6 +225,42 @@ func TestDefaultRulesExcludeSeparableParticlesButKeepAdverbs(t *testing.T) {
 	require.Len(t, got, 2)
 	assert.Equal(t, "aufstehen", got[0].Identity.CanonicalLemma)
 	assert.Equal(t, "dort", got[1].Identity.CanonicalLemma)
+}
+
+func TestDefaultRulesExcludeRecoveredAdvmodParticles(t *testing.T) {
+	store := &memoryStore{known: map[string]bool{}}
+	corpus, err := analyzer.FromProto(&mouseionv1.NormalizedCorpus{
+		SchemaVersion: "1.1.0",
+		Language:      "de",
+		Sentences: []*mouseionv1.Sentence{{
+			Text: "Großmutter sieht im Wohnzimmer fern ohne Bild und Ton.",
+			Tokens: []*mouseionv1.Token{
+				{Surface: "Großmutter", CanonicalLemma: "großmutter", Pos: "NOUN", Dependency: "nsubj", Head: 1},
+				{Surface: "sieht", CanonicalLemma: "fernsehen", Pos: "VERB", Dependency: "root", Head: 1},
+				{Surface: "im", CanonicalLemma: "in", Pos: "ADP", Dependency: "case", Head: 3},
+				{Surface: "Wohnzimmer", CanonicalLemma: "wohnzimmer", Pos: "NOUN", Dependency: "obl", Head: 1},
+				{Surface: "fern", CanonicalLemma: "fern", Pos: "ADV", Dependency: "advmod", Head: 1},
+				{Surface: "ohne", CanonicalLemma: "ohne", Pos: "ADP", Dependency: "case", Head: 6},
+				{Surface: "Bild", CanonicalLemma: "bild", Pos: "NOUN", Dependency: "obl", Head: 1},
+				{Surface: "und", CanonicalLemma: "und", Pos: "CCONJ", Dependency: "cc", Head: 6},
+				{Surface: "Ton", CanonicalLemma: "ton", Pos: "NOUN", Dependency: "conj", Head: 6},
+			},
+		}},
+	})
+	require.NoError(t, err)
+
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("corpus-1"))
+
+	require.NoError(t, err)
+	require.Len(t, got, 5)
+	assert.Equal(t, "bild", got[0].Identity.CanonicalLemma)
+	assert.Equal(t, "fernsehen", got[1].Identity.CanonicalLemma)
+	assert.Equal(t, "großmutter", got[2].Identity.CanonicalLemma)
+	assert.Equal(t, "ton", got[3].Identity.CanonicalLemma)
+	assert.Equal(t, "wohnzimmer", got[4].Identity.CanonicalLemma)
+	for _, candidate := range got {
+		assert.NotEqual(t, "fern", candidate.Identity.CanonicalLemma, "a recovered particle is not its own candidate")
+	}
 }
 
 func TestAnalyzableStatisticsUsesSelectionFiltersBeforeLearnerExclusions(t *testing.T) {
