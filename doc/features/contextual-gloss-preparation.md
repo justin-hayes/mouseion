@@ -59,8 +59,13 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   whose particle analysis missed or an idiom headed elsewhere. Omit that card,
   record the omission with a reserved, domain-owned reason prefix, and count
   and label it separately in the deck result ("the sentence uses a different
-  word than this lemma"). `ambiguous` omissions keep their current
-  presentation. An unknown kind is an invalid response. No schema change.
+  word than this lemma"). The same outcome raises one advisory, non-blocking
+  lemma review flag for the representative target occurrence, recorded with
+  provider/model/prompt provenance and no proposed lemma; it never pauses
+  preparation or reading. See [learner review of analyzer
+  lemmas](lemma-review-and-correction.md#provider-raised-advisory-flags).
+  `ambiguous` omissions keep their current presentation. An unknown kind is an
+  invalid response. No schema change.
 - Give the revised contract a new prompt contract version, so cached results
   from `translation-v15-short-handles` are never reused. The Ancient Greek
   evidence-assisted pass is unchanged.
@@ -124,8 +129,9 @@ one-to-three-word cue would mislead, especially for function words or idioms.
 - Marking a context-inferred gloss on the Anki card or changing the card front,
   representative-sentence selection, or morphology/IPA presentation.
 - Multi-source dictionary imports or a redistributed combined dataset.
-- Fixing the German separable-particle misparse in analysis, or turning
-  `lemma_mismatch` outcomes into learner lemma-review flags.
+- Fixing the German separable-particle misparse in analysis, turning a
+  `lemma_mismatch` into an automatic correction, or making its advisory review
+  flag block preparation or reading.
 - Dropping the lemma `translation` field, showing the `English` field on the card
   back, or changing the configured model or its reasoning setting.
 
@@ -155,6 +161,10 @@ one-to-three-word cue would mislead, especially for function words or idioms.
       the deck status view and JSON count and label it separately from
       `ambiguous` omissions; malformed `unresolved_kind` values are rejected
       and a stray kind beside a resolved Gloss is discarded (#2325).
+- [ ] A `lemma_mismatch` omission also raises one advisory, non-blocking lemma
+      review flag for the representative target occurrence, with
+      provider/model/prompt provenance and no proposed lemma; it never pauses a
+      freeze or changes an active reading (#2332).
 - [ ] The prompt contract version is bumped from
       `translation-v15-short-handles`, and the encoded request states the
       citation-form rule, the gloss/translation relationship and the

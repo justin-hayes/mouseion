@@ -656,8 +656,11 @@ _Avoid_: lemma fix, lemma audit, dictionary check.
 **Lemma review flag**:
 A non-authoritative indication that an analyzed occurrence's lemma may assign
 the wrong vocabulary identity, offered for learner review before it affects a
-current-reading snapshot or prepared deck. Missing dictionary evidence alone
-does not prove an error.
+current-reading snapshot or prepared deck. It can rest on local dictionary
+evidence or, when a contextual-Gloss response reports `lemma_mismatch`, on
+model evidence; a provider-raised flag is advisory, carries no proposed lemma,
+and never blocks a freeze. Missing dictionary evidence alone does not prove an
+error.
 _Avoid_: invalid lemma, unconfirmed lemma.
 
 **Lemma suggestion**:
