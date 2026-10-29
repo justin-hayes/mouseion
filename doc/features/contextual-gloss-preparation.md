@@ -1,12 +1,20 @@
 # Contextual gloss preparation
 
-Status: **Core implemented** · Date: 2026-09-27 · Scope revised: 2026-09-28 · Decision:
-[ADR 0079](../adr/0079-contextual-glosses-require-llm.md)
+Status: **Core implemented; citation-form Gloss pending** · Date: 2026-09-27 · Scope revised: 2026-10-29 · Decisions:
+[ADR 0079](../adr/0079-contextual-glosses-require-llm.md),
+[ADR 0112](../adr/0112-gloss-is-lemma-sense-in-citation-form.md)
 
 The FreeDict/PanLex source expansion in the original plan was canceled
 (#1263–#1265). The implemented path uses the existing Wiktionary/Kaikki index
 and sentence context. Explicit re-preparation of older Ready decks under these
 rules remains a separate follow-up (#1266).
+
+The Gloss contract was revised by #2325 (ADR 0112) after prompt
+`translation-v15-short-handles` produced definition paraphrases ("having a low
+temperature" for *kalt*), sentence-inflected Glosses ("rested my wrist" for
+*poggiare*), and Glosses of the wrong word ("to watch television" for *sehen* in
+a *fernsehen* sentence). The citation-form rules, the `lemma_mismatch` outcome
+and the review gate below are not yet implemented.
 
 ## Motivation and goal
 
@@ -14,9 +22,10 @@ The earlier pipeline froze a Wiktionary-derived sense list, optionally
 let the LLM select senses, and used the LLM to write a fallback only when no
 sense fit. This could leave an ambiguous list instead of a simple answer to
 "what does this word mean *here*?" Prepare each new card with a short English
-cue for **one contextual meaning**, alongside its existing whole-sentence
-English translation. A few comma-separated near-synonyms are useful; unrelated
-senses and gratuitous length are not. A longer phrase is acceptable where a
+**Gloss**: the equivalent of the target lemma, in the sense its sentence uses,
+in citation form, alongside the existing whole-sentence English translation.
+A few comma-separated near-synonyms are useful; unrelated senses and
+gratuitous length are not. A longer phrase is acceptable where a
 one-to-three-word cue would mislead, especially for function words or idioms.
 
 ## Scope and behavior
@@ -34,6 +43,26 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   Do not add a second gloss-only call. Continue sending only the target lemma,
   tested form, one sentence, and public lexical candidates; no whole Book,
   title, learner metadata, or reading history.
+- Write the Gloss in citation form, following the lemma `translation`'s
+  conventions: verbs as "to …", nouns singular without an article, adjectives
+  in their base form. The Gloss equals the `translation` unless the sentence
+  clearly uses a different or narrower sense (*palazzo* → "apartment
+  building"). Never return a definition-style paraphrase when a short
+  equivalent exists, and never carry the sentence's inflection, number or
+  arguments; those stay in the highlighted English sentence. The meaning block
+  still renders only the Gloss; the `English` field stays off the card back.
+- Classify every unresolved outcome with an `unresolved_kind` of `ambiguous`
+  or `lemma_mismatch`. The kind is empty when a Gloss is resolved and required
+  when the Gloss is empty. Return `lemma_mismatch` when the sentence evidently
+  uses a different lexeme than the supplied lemma, such as a separable verb
+  whose particle analysis missed or an idiom headed elsewhere. Omit that card,
+  record the omission with a reserved, domain-owned reason prefix, and count
+  and label it separately in the deck result ("the sentence uses a different
+  word than this lemma"). `ambiguous` omissions keep their current
+  presentation. An unknown kind is an invalid response. No schema change.
+- Give the revised contract a new prompt contract version, so cached results
+  from `translation-v15-short-handles` are never reused. The Ancient Greek
+  evidence-assisted pass is unchanged.
 - Collect local English meaning evidence for `de`, `it`, and `el` from the
   Wiktionary/Kaikki index. Freeze a **bounded** candidate payload for the target
   lemma/POS, labeling a missing-POS match as weaker. Retain stable candidate
@@ -56,7 +85,8 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   a gloss from sentence context when no supplied meaning fits, and must record
   that distinction. A response that supplies a resolved gloss and also a stray
   unresolved reason is accepted as resolved; the stray reason is discarded and
-  never stored, cached, or rendered. If meaning is still uncertain, omit the
+  never stored, cached, or rendered, and the same applies to a stray
+  `unresolved_kind`. If meaning is still uncertain, omit the
   item rather than guessing. A malformed/invalid provider outcome or transport failure follows
   durable retry and fails the run without a dictionary-only fallback. A valid
   outcome with an unresolved gloss omits only that card; an all-omitted run
@@ -67,6 +97,22 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   the current-reading snapshot, Reserved vocabulary, Known vocabulary, or
   reading completion; the learner may explicitly omit an identity at completion.
   Existing ready decks remain unchanged unless explicitly re-prepared.
+- Review every new prompt contract version before rollout. An operator command,
+  never run in CI, sends a frozen, versioned review case set through the real
+  codec and the configured provider at the deployed model and reasoning
+  setting, sending only what preparation sends. It writes a dated Markdown
+  report under `doc/reviews/` with the date, model, reasoning setting, prompt
+  contract version, and each case's request summary, Gloss, translation,
+  automatic checks ("Gloss equals translation", "outcome is
+  `lemma_mismatch`") and a blank reviewer verdict. The seed cases come from
+  v15: plain-equivalent cases (*kalt*, *Feuer*, *höflich*, *Finne*, *fähig*),
+  sentence-material cases (*erschießen*, *poggiare*, *eröffnen*, *biegen*,
+  *macchina*), protected wins (*palazzo*, *schießen*), the *sehen*/*fernsehen*
+  mismatch, and function-word, idiom, Italian and Modern Greek spot checks.
+  The rubric checks citation form, no definition paraphrase, no sentence
+  inflection or arguments, mismatch detected, and protected win kept. The
+  corpus-wide rate of Glosses containing the translation is reported for
+  information only.
 
 ## Non-goals
 
@@ -77,6 +123,10 @@ one-to-three-word cue would mislead, especially for function words or idioms.
 - Marking a context-inferred gloss on the Anki card or changing the card front,
   representative-sentence selection, or morphology/IPA presentation.
 - Multi-source dictionary imports or a redistributed combined dataset.
+- Fixing the German separable-particle misparse in analysis, or turning
+  `lemma_mismatch` outcomes into learner lemma-review flags.
+- Dropping the `translation` field, showing the `English` field on the card
+  back, or changing the configured model or its reasoning setting.
 
 ## Acceptance criteria
 
@@ -96,11 +146,26 @@ one-to-three-word cue would mislead, especially for function words or idioms.
       and Wiktionary credits are present in deck/export metadata.
 - [ ] Explicit re-preparation may use refreshed index/prompt versions without
       rewriting older generations (#1266).
-- [ ] A reviewed sample across German, Italian, and Modern Greek compares old
-      and new card glosses for contextual correctness, brevity, and unsupported
-      claims. Include polysemy, function words, idioms, absent evidence, evidence
-      at odds with sentence context, and invalid/ambiguous model responses;
-      retain a rubric and cases for later prompt regressions.
+- [ ] Glosses are citation-form equivalents of the lemma's sense: verbs as
+      "to …", nouns singular without an article, adjectives in base form; equal
+      to the `translation` unless the sense differs; no definition paraphrase;
+      no sentence inflection, number or arguments (#2325).
+- [ ] A `lemma_mismatch` response omits the card with the reserved reason, and
+      the deck status view and JSON count and label it separately from
+      `ambiguous` omissions; malformed `unresolved_kind` values are rejected
+      and a stray kind beside a resolved Gloss is discarded (#2325).
+- [ ] The prompt contract version is bumped from
+      `translation-v15-short-handles`, and the encoded request states the
+      citation-form rule, the gloss/translation relationship and the
+      `lemma_mismatch` instruction (#2325).
+- [ ] Review gate: an operator review command runs the frozen case set and
+      rubric against the configured provider, outside CI, and its dated report
+      is committed under `doc/reviews/`. The new prompt version ships only when
+      it keeps every protected win (*palazzo* → "apartment building",
+      *schießen* → "to gush out"), produces no definition paraphrase and no
+      sentence-inflected Gloss, and returns `lemma_mismatch` for the
+      *fernsehen* case. This replaces the original reviewed-sample criterion,
+      which was never completed (#2325).
 
 ## Sources and prior contracts
 

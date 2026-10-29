@@ -1,6 +1,6 @@
 # ADR 0079: Contextual glosses require LLM-assisted deck preparation
 
-Status: **Accepted (core implemented); amended for Ancient Greek by [ADR 0101](0101-ancient-greek-cards-from-source-evidence.md)** · Date: 2026-09-27 · Scope revised: 2026-09-28 · Author: Justin + OpenCode
+Status: **Accepted (core implemented); amended for Ancient Greek by [ADR 0101](0101-ancient-greek-cards-from-source-evidence.md); gloss clause amended by [ADR 0112](0112-gloss-is-lemma-sense-in-citation-form.md)** · Date: 2026-09-27 · Scope revised: 2026-09-28 · Author: Justin + OpenCode
 
 The original multi-source expansion was dropped after the contextual-gloss core
 shipped. FreeDict and PanLex imports are not required by this decision; see
