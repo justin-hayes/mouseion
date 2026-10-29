@@ -1,18 +1,20 @@
 # Learner review of analyzer lemmas
 
-Status: **Manual occurrence review, conservative German and French risk flags, and opt-in LLM lemma suggestions implemented** · Date: 2026-10-21
+Status: **Manual occurrence review, conservative German and French risk flags, and opt-in LLM lemma suggestions implemented. Provider-raised advisory flags accepted (#2332); implementation pending.** · Date: 2026-10-29
 
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct
 prepared-deck projection, Book vocabulary insights, and current-reading
-snapshots. Automatic review flags are limited to conservative German and
-French alternatives supported by local lexical evidence; automatic flags remain
-disabled for other languages. An optional LLM lemma suggestion is requested
-only by an explicit action while reviewing an occurrence. Its bounded request
-contains the target, analyzer lemma/POS, one sentence, and available local
-lexical evidence. The provider and prompt version are shown with the
-non-authoritative suggestion. A missing or failing provider leaves manual review
-available and never changes the effective identity.
+snapshots. Automatic review flags come from two sources: conservative German
+and French alternatives supported by local lexical evidence, and advisory
+provider-raised flags when a contextual-Gloss response reports a
+`lemma_mismatch`. Only the local high-risk flags can pause a freeze; provider
+flags are evidence for review, never a gate. An optional LLM lemma suggestion
+is requested only by an explicit action while reviewing an occurrence. Its
+bounded request contains the target, analyzer lemma/POS, one sentence, and
+available local lexical evidence. The provider and prompt version are shown
+with the non-authoritative suggestion. A missing or failing provider leaves
+manual review available and never changes the effective identity.
 
 ## Problem and goal
 
@@ -106,8 +108,9 @@ Italian, French, and Modern Greek; automatic flags for additional languages
 need separate precision evidence. Changing POS or rescuing a token excluded by
 its analyzer POS is not part of this first workflow.
 
-Review flags and their evidence provenance are retained for the exact analysis
-until resolved by the learner. When local index evidence is unavailable, show
+Review flags and their evidence provenance, including provider-raised
+advisory flags, are retained for the exact analysis until resolved by the
+learner. When local index evidence is unavailable, show
 that assessment is unavailable rather than claiming the analysis has passed a
 dictionary check; no new flags are invented and only previously recorded
 unresolved high-risk flags can pause Reading. A French index older than the
@@ -138,14 +141,63 @@ building full-text search or a concordance screen. The review uses ordinary
 server-rendered forms and existing accessible Book/Reading patterns, not a new
 admin dashboard or retired Book-detail route.
 
+## Provider-raised advisory flags
+
+A contextual-Gloss response that reports `lemma_mismatch` says the provider
+believes the representative sentence uses a different lexeme than the
+occurrence's lemma. Deck preparation already omits that card, records the
+reserved omission reason, and counts it separately. The accepted design is that
+the same outcome will also raise one **advisory** lemma review flag for the
+representative sentence's target occurrence, so the learner can reach the
+suspected analyzer error through the existing review flow instead of finding
+it manually.
+
+The flag carries no proposed lemma and does not change the contextual-Gloss
+response contract: there is no new response field, no prompt-contract change,
+and no automatic correction. The provider still does not decide vocabulary
+identity at deck-generation time. A learner who wants an alternative asks for
+the existing on-demand **Lemma suggestion**, which keeps its own provider data
+boundary, or enters a correction manually.
+
+The flag is non-blocking. It never pauses Start reading or Prepare deck, never
+alters an active reading, a frozen current-reading snapshot, or a Ready deck,
+and never counts as one of the unresolved high-risk flags that pause a freeze.
+The card remains omitted and separately counted as before. A provider flag
+found after a snapshot freezes is therefore only evidence the learner may act
+on through the existing recovery path, not a retroactive gate.
+
+An unresolved provider flag never shadows later local high-risk evidence for
+the same occurrence: local high-risk evidence takes precedence, so a genuine
+freeze gate still applies. A flag the learner already resolved is never
+reopened.
+
+The flag records in `evidence_provenance` that it came from the configured
+contextual-Gloss provider: the provider name, the model and prompt-contract
+version, and the provider's reason text bounded to the existing omission-reason
+length. The review surface labels it as model evidence, never as dictionary
+evidence or proof. It is attached to the exact occurrence the card's
+representative sentence targets, using the frozen analysis's source document
+and target span. If preparation has become stale and that occurrence is no
+longer in the Book's current analysis, the advisory flag is skipped rather than
+failing the deck; the omission remains reported. The existing flag table needs
+no schema change.
+
+The learner resolves a provider flag through the existing keep, correct, or
+exclude decision. A correction follows the existing recovery path: end the
+current reading if one is active, correct the lemma, then re-prepare. Nothing
+is corrected, re-rendered, or re-prepared automatically.
+
 ## Gates and frozen history
 
 Unresolved **high-risk** flags for occurrences that could affect the current
 snapshot/deck pause both Start reading and direct Prepare deck for that Book.
-The learner resolves each through keep, correction, or exclusion. A dictionary
-miss without a credible alternative does not create a mandatory task. Checking
-the relevant review decisions and effective vocabulary at either freeze must
-be consistent even if another request changes a decision at the same time.
+Provider-raised `lemma_mismatch` flags are advisory and are never high-risk:
+they never pause either operation and never count as an unresolved flag at a
+freeze. The learner resolves each through keep, correction, or exclusion. A
+dictionary miss without a credible alternative does not create a mandatory
+task. Checking the relevant review decisions and effective vocabulary at
+either freeze must be consistent even if another request changes a decision at
+the same time.
 Reading must not issue a live LLM call or wait on a failed local index merely
 to freeze a snapshot. If evidence is unavailable, no new flags are generated;
 already-recorded unresolved flags still require a decision. Flags discovered
@@ -172,6 +224,12 @@ may need to remove it manually in Anki. Mouseion does not delete Anki notes.
   credible alternative evidence exists; the learner chooses the appropriate
   lemma for its sentence. The program does not infer `Drache` from spelling
   alone or rewrite a different `Drachen` used as a kite.
+- A `lemma_mismatch` omission raises one advisory flag for the representative
+  target occurrence, with provider/model/prompt provenance, no proposed lemma,
+  and no blocking effect on either freeze. The learner can keep, correct, or
+  exclude through the existing flow; a correction follows the existing
+  end-read/correct/re-prepare path, and a stale analysis skips the advisory flag
+  without failing preparation.
 - A human-reviewed French fixture has **no incorrect blocking flags**. It flags
   the coverage-run cases with a dictionary-backed alternative, for example
   *fraca* → `fracas`, *voiles* analyzed as *voiler* NOUN → `voile`, and *assied*
@@ -201,6 +259,8 @@ may need to remove it manually in Anki. Mouseion does not delete Anki notes.
 
 - An LLM automatically changing the canonical lemma during deck generation,
   or a deck-time change being backported into already-frozen identities.
+- Making a provider-raised `lemma_mismatch` flag blocking, carrying a proposed
+  lemma, or rewriting an existing Ready deck or active reading automatically.
 - A new administrator role, global correction rule, POS correction, general
   concordance or full-text search, or a new global-frequency import.
 - Rewriting shared normalized corpus data, completed reading history, existing
