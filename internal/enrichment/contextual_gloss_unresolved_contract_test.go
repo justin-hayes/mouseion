@@ -185,6 +185,17 @@ func TestContextualGlossUnresolvedContractFixtures(t *testing.T) {
 				if fixture.ExpectedOutcome == "resolved" {
 					assert.Len(t, artifact.Generated, 2, "%s mode renders the resolved card", mode)
 					assert.Contains(t, artifact.TSV, fixture.ExpectedGloss)
+					var resolved cardexport.Note
+					for _, generated := range artifact.Generated {
+						if generated.Input.TargetWord == fixture.TargetWord {
+							resolved = generated.Note
+						}
+					}
+					require.NotEmpty(t, resolved.Gloss, "%s mode renders the target's note", mode)
+					assert.Equal(t, fixture.ExpectedGloss, resolved.Gloss, "%s mode puts the resolved Gloss in the meaning block", mode)
+					assert.Contains(t, resolved.BackExtra, fixture.ExpectedGloss, "%s mode shows the Gloss on the card back", mode)
+					assert.Equal(t, response.Translation, resolved.English, "%s mode keeps the lemma translation in the hidden English field", mode)
+					assert.NotContains(t, resolved.BackExtra, resolved.English, "%s mode keeps the English field off the card back", mode)
 					continue
 				}
 				assert.Len(t, artifact.Generated, 1, "%s mode omits only the unresolved card", mode)
@@ -199,7 +210,14 @@ func TestContextualGlossUnresolvedContractFixtures(t *testing.T) {
 func TestAllLemmaMismatchOmissionsStillFailFinalize(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "fixture-model"})
 	require.NoError(t, err)
-	fixture := loadContextualOutcomeFixtures(t)[0]
+	var fixture contextualOutcomeFixture
+	for _, candidate := range loadContextualOutcomeFixtures(t) {
+		if candidate.ExpectedOutcome == "lemma_mismatch" {
+			fixture = candidate
+			break
+		}
+	}
+	require.NotEmpty(t, fixture.Name, "the fixture set has a lemma_mismatch case")
 	input := contextualOutcomeRequest(fixture)
 	response, err := codec.DecodeResponse(input, contextualOutcomeResponse(t, fixture))
 	require.NoError(t, err)

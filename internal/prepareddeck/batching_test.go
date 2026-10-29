@@ -144,7 +144,8 @@ func TestPlanBatchChunksRoundTripsRestoredFrozenWorkThroughGoldenRequests(t *tes
 		Filename:      cardexport.DownloadFilename("Book"),
 		Items: []cardexport.ManifestItem{
 			{Ordinal: 0, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", TargetWord: "Haus", Sentence: "Das Haus ist groß."}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1"}},
-			{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", TargetWord: "gehen"}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "gehen", UPOS: "VERB", Provider: "openai", ProviderVersion: "v1"}},
+			{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "it", CanonicalLemma: "macchina", UPOS: "NOUN", TargetWord: "macchine", Sentence: "Le macchine erano parcheggiate lungo la strada.", CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:car", Gloss: "car"}}}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "it", TargetLanguage: "en", CanonicalLemma: "macchina", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", MeaningEvidenceHash: enrichment.MeaningEvidenceHash([]enrichment.LexicalSense{{EvidenceID: "wikt:car", Gloss: "car"}})}},
+			{Ordinal: 2, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", TargetWord: "gehen"}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "gehen", UPOS: "VERB", Provider: "openai", ProviderVersion: "v1"}},
 		},
 	}
 	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
@@ -160,7 +161,7 @@ func TestPlanBatchChunksRoundTripsRestoredFrozenWorkThroughGoldenRequests(t *tes
 	require.NoError(t, err)
 	want, err := os.ReadFile("../enrichment/testdata/openai_batch_requests.golden.jsonl")
 	require.NoError(t, err)
-	want = []byte(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(string(want), ":2:3", ":0:3"), ":7:3", ":1:3"), `\"upos\":\"VERB\"}`, `\"upos\":\"VERB\",\"target_word\":\"gehen\"}`))
+	want = []byte(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(string(want), ":2:3", ":0:3"), ":5:3", ":1:3"), ":7:3", ":2:3"), `\"upos\":\"VERB\"}`, `\"upos\":\"VERB\",\"target_word\":\"gehen\"}`))
 	assert.Equal(t, want, got)
 }
 
