@@ -19,7 +19,7 @@ records the historical Goal and ordered-Journey model.
 [ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the
 implemented contextual Gloss vocabulary below;
 [ADR 0112](doc/adr/0112-gloss-is-lemma-sense-in-citation-form.md) records the
-citation-form Gloss definition, whose prompt change is pending review.
+citation-form Gloss definition, whose implementation is pending.
 The Book-scoped Vocabulary Browse inventory and Reading-owned Book vocabulary
 definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md).
 [ADR 0100](doc/adr/0100-retryable-provider-omissions-preparation.md) records how

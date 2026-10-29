@@ -15,10 +15,12 @@ other decisions, and the Ancient Greek evidence-assisted pass of
 
 ADR 0079 defined the Gloss as the target's meaning *in this sentence*. It never
 said the Gloss is a dictionary-form equivalent, and it never related the Gloss
-to the lemma `translation` the same provider response returns. Under prompt
+to the **lemma translation**: the plain English equivalent of the lemma that the
+same provider response returns in its `translation` field, stored in the
+hidden `English` note field. It is not the whole-sentence translation. Under prompt
 `translation-v15-short-handles`, the model treated the two fields as different
 jobs. Of 6,044 contextual Glosses for `de`, `it` and `el` in the operator's
-cache, 2,348 contain neither the lemma translation nor anything equal to it.
+cache, 2,348 do not contain the lemma translation at all.
 Three failures recur:
 
 - **Definition paraphrase.** *kalt* → "having a low temperature" instead of
@@ -34,14 +36,15 @@ Three failures recur:
 Some contextual Glosses are genuine improvements and must survive: *palazzo* →
 "apartment building", *schießen* → "to gush out".
 
-ADR 0079 also required a reviewed quality sample. That review was never
-performed, so v15 shipped unreviewed.
+ADR 0079 required quality to be evaluated on representative cards, and the
+feature specification asked for a reviewed sample with a rubric. That review
+was never performed, so v15 shipped unreviewed.
 
 ## Decision
 
 **The Gloss is the English equivalent of the target lemma, in the sense its
 representative sentence uses, in citation form.** It follows the conventions of
-the lemma `translation`: verbs as "to …", nouns singular without an article,
+the lemma translation: verbs as "to …", nouns singular without an article,
 adjectives in their base form. The sentence's inflection, number and arguments
 belong only in the highlighted English sentence, never in the Gloss.
 
@@ -52,9 +55,8 @@ ADR 0079's brevity rules remain: one to three words, close comma-separated
 synonyms only when one word would mislead, and a longer phrase for function
 words or idioms where a short cue would mislead.
 
-**The Gloss equals the `translation` unless the sense differs.** The provider's
-`translation` (the lemma's plain equivalent) and `gloss` now have an explicit
-relationship: they are the same text when the sentence uses the common sense,
+**The Gloss equals the lemma translation unless the sense differs.** The
+provider's `translation` and `gloss` fields now have an explicit relationship: they are the same text when the sentence uses the common sense,
 and differ only when it uses another sense. The card's meaning block still
 renders only the Gloss; the `English` note field stays off the card back
 ([ADR 0068](0068-recognition-card-meaning-and-form-presentation.md)).
@@ -85,7 +87,7 @@ spot checks. The new version must keep every protected contextual win, produce
 no definition paraphrase and no sentence-inflected Gloss, and return
 `lemma_mismatch` for the *fernsehen* case. The dated report is committed under
 `doc/reviews/`. The review never runs in CI. The corpus-wide rate of Glosses
-containing the translation is reported for information, not as a gate. Every
+containing the lemma translation is reported for information, not as a gate. Every
 later prompt or model change is reviewed the same way.
 
 **Existing decks are unchanged.** Ready decks keep their frozen results. A

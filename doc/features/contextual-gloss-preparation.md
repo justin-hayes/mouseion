@@ -43,9 +43,10 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   Do not add a second gloss-only call. Continue sending only the target lemma,
   tested form, one sentence, and public lexical candidates; no whole Book,
   title, learner metadata, or reading history.
-- Write the Gloss in citation form, following the lemma `translation`'s
-  conventions: verbs as "to …", nouns singular without an article, adjectives
-  in their base form. The Gloss equals the `translation` unless the sentence
+- Write the Gloss in citation form, following the conventions of the lemma
+  translation (the response's `translation` field, the lemma's plain English
+  equivalent stored in the hidden `English` note field): verbs as "to …",
+  nouns singular without an article, adjectives in their base form. The Gloss equals the lemma translation unless the sentence
   clearly uses a different or narrower sense (*palazzo* → "apartment
   building"). Never return a definition-style paraphrase when a short
   equivalent exists, and never carry the sentence's inflection, number or
@@ -102,7 +103,7 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   codec and the configured provider at the deployed model and reasoning
   setting, sending only what preparation sends. It writes a dated Markdown
   report under `doc/reviews/` with the date, model, reasoning setting, prompt
-  contract version, and each case's request summary, Gloss, translation,
+  contract version, and each case's request summary, Gloss, lemma translation,
   automatic checks ("Gloss equals translation", "outcome is
   `lemma_mismatch`") and a blank reviewer verdict. The seed cases come from
   v15: plain-equivalent cases (*kalt*, *Feuer*, *höflich*, *Finne*, *fähig*),
@@ -111,7 +112,7 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   mismatch, and function-word, idiom, Italian and Modern Greek spot checks.
   The rubric checks citation form, no definition paraphrase, no sentence
   inflection or arguments, mismatch detected, and protected win kept. The
-  corpus-wide rate of Glosses containing the translation is reported for
+  corpus-wide rate of Glosses containing the lemma translation is reported for
   information only.
 
 ## Non-goals
@@ -125,7 +126,7 @@ one-to-three-word cue would mislead, especially for function words or idioms.
 - Multi-source dictionary imports or a redistributed combined dataset.
 - Fixing the German separable-particle misparse in analysis, or turning
   `lemma_mismatch` outcomes into learner lemma-review flags.
-- Dropping the `translation` field, showing the `English` field on the card
+- Dropping the lemma `translation` field, showing the `English` field on the card
   back, or changing the configured model or its reasoning setting.
 
 ## Acceptance criteria
@@ -148,7 +149,7 @@ one-to-three-word cue would mislead, especially for function words or idioms.
       rewriting older generations (#1266).
 - [ ] Glosses are citation-form equivalents of the lemma's sense: verbs as
       "to …", nouns singular without an article, adjectives in base form; equal
-      to the `translation` unless the sense differs; no definition paraphrase;
+      to the lemma translation unless the sense differs; no definition paraphrase;
       no sentence inflection, number or arguments (#2325).
 - [ ] A `lemma_mismatch` response omits the card with the reserved reason, and
       the deck status view and JSON count and label it separately from
