@@ -630,7 +630,7 @@ func TestStandardWorkerPersistsValidUnresolvedMeaningAndFinalizesMixedDeck(t *te
 		if request.CanonicalLemma == run.keys[0].CanonicalLemma {
 			return enrichment.TranslationResponse{
 				Translation: request.CanonicalLemma + "-translated", SentenceTranslation: "The translated sentence.",
-				ContextOnly: true, UnresolvedReason: "The sentence does not distinguish the meanings.",
+				ContextOnly: true, UnresolvedKind: enrichment.ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "The sentence does not distinguish the meanings.",
 			}, nil
 		}
 		return validTranslationResponse(request), nil
@@ -692,7 +692,7 @@ func TestStandardWorkerAllUnresolvedFailsPreparationWithInspectableReason(t *tes
 	defer cancel()
 	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
 	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
-		return enrichment.TranslationResponse{Translation: "translated", SentenceTranslation: "The sentence.", ContextOnly: true, UnresolvedReason: "The sentence is too ambiguous."}, nil
+		return enrichment.TranslationResponse{Translation: "translated", SentenceTranslation: "The sentence.", ContextOnly: true, UnresolvedKind: enrichment.ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "The sentence is too ambiguous."}, nil
 	}
 	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider, AttemptTimeout: time.Second}
 	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))

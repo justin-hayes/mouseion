@@ -133,8 +133,16 @@ _Avoid_: quality failure, invalid sentence.
 **Meaning omission**:
 A deck omission whose provider answer explicitly resolved nothing defensible
 for the target in context; the deck shows the target word and the provider's
-reason. It is not retryable.
+reason, except for a lemma-mismatch omission, which shows its own label. It is
+not retryable.
 _Avoid_: unresolved gloss, unknown word.
+
+**Lemma-mismatch omission**:
+A meaning omission whose provider answer identifies the representative sentence
+as using a different lexeme than the target lemma, so no card is produced. The
+deck labels it "the sentence uses a different word than this lemma" and counts
+it separately from an ambiguous meaning omission.
+_Avoid_: wrong lemma, ambiguous omission.
 
 **Provider omission**:
 A deck omission caused by provider answers that were unusable through the

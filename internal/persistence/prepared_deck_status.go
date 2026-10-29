@@ -114,15 +114,25 @@ func appendEvidenceCoverage(p *domain.DeckPreparation, frozen cardexport.FrozenD
 
 // appendMeaningOmissions names the target word of every completed item the
 // provider explicitly left unresolved. An evidence-assisted pass abstention is
-// not an unresolved meaning: the pass only adds, so it is skipped.
+// not an unresolved meaning: the pass only adds, so it is skipped. A
+// lemma-mismatch omission is counted separately and labelled with the fixed
+// learner-facing reason; ambiguous omissions keep their provider reason.
 func appendMeaningOmissions(p *domain.DeckPreparation, outcomes []domain.PreparedDeckTranslationOutcome, items []cardexport.ManifestItem) {
 	for _, outcome := range outcomes {
 		if outcome.OmissionReason == "" || outcome.State != domain.PreparedDeckOutcomeCompleted || outcome.OmissionReason == domain.DeckPreparationEvidenceAssistedPassAbstentionReason {
 			continue
 		}
+		lemmaMismatch := domain.IsDeckPreparationLemmaMismatchOmission(outcome.OmissionReason)
+		reason := outcome.OmissionReason
+		if lemmaMismatch {
+			reason = domain.DeckPreparationLemmaMismatchLabel
+		}
 		for _, item := range items {
 			if item.Ordinal == outcome.Ordinal {
-				p.MeaningOmissions = append(p.MeaningOmissions, domain.DeckPreparationMeaningOmission{TargetWord: item.Entry.TargetWord, Reason: outcome.OmissionReason})
+				p.MeaningOmissions = append(p.MeaningOmissions, domain.DeckPreparationMeaningOmission{TargetWord: item.Entry.TargetWord, Reason: reason})
+				if lemmaMismatch {
+					p.LemmaMismatchOmissions++
+				}
 				break
 			}
 		}

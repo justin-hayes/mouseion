@@ -3,8 +3,10 @@ package persistence
 import (
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPreparationPhasesExposeDurableBatchLifecycle(t *testing.T) {
@@ -32,6 +34,32 @@ func TestPreparationPhasesExposeStandardTranslationAndAssembly(t *testing.T) {
 	assert.Equal(t, "translating", preparationPhase(domain.DeckPreparationPreparing, standard, domain.PreparedDeckRunProgress{}, nil))
 	standard.State = domain.PreparedDeckRunFinalizing
 	assert.Equal(t, "assembling", preparationPhase(domain.DeckPreparationPreparing, standard, domain.PreparedDeckRunProgress{}, nil))
+}
+
+func TestAppendMeaningOmissionsSeparatesLemmaMismatchFromAmbiguous(t *testing.T) {
+	preparation := domain.DeckPreparation{}
+	items := []cardexport.ManifestItem{
+		{Ordinal: 0, Entry: cardexport.Entry{TargetWord: "sieht"}},
+		{Ordinal: 1, Entry: cardexport.Entry{TargetWord: "Bank"}},
+		{Ordinal: 2, Entry: cardexport.Entry{TargetWord: "λόγος"}},
+	}
+	outcomes := []domain.PreparedDeckTranslationOutcome{
+		{Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted, OmissionReason: domain.DeckPreparationLemmaMismatchOmissionReason("The sentence uses fernsehen, not sehen.")},
+		{Ordinal: 1, State: domain.PreparedDeckOutcomeCompleted, OmissionReason: "The sentence does not distinguish the meanings."},
+		{Ordinal: 2, State: domain.PreparedDeckOutcomeCompleted, OmissionReason: domain.DeckPreparationEvidenceAssistedPassAbstentionReason},
+	}
+
+	appendMeaningOmissions(&preparation, outcomes, items)
+
+	t.Run("counts only the lemma mismatch subset separately", func(t *testing.T) {
+		require.Equal(t, 1, preparation.LemmaMismatchOmissions)
+	})
+	t.Run("labels the lemma mismatch and keeps the ambiguous reason", func(t *testing.T) {
+		require.Equal(t, []domain.DeckPreparationMeaningOmission{
+			{TargetWord: "sieht", Reason: domain.DeckPreparationLemmaMismatchLabel},
+			{TargetWord: "Bank", Reason: "The sentence does not distinguish the meanings."},
+		}, preparation.MeaningOmissions)
+	})
 }
 
 func TestPreparedDeckFailureClassUsesFailedChunkDiagnostic(t *testing.T) {

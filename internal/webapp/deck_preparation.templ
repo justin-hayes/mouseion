@@ -52,7 +52,10 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				}
 				<p><strong>Completeness:</strong> { deckCompletenessSummary(preparation) }</p>
 				if summary := providerOmissionSummary(preparation); summary != "" {
-					<p role="status"><strong>Omissions:</strong> { summary }</p>
+					@OmissionSummary(summary)
+				}
+				if summary := lemmaMismatchOmissionSummary(preparation); summary != "" {
+					@OmissionSummary(summary)
 				}
 				for _, evidence := range preparation.EvidenceCoverage {
 					if evidence.Configured {
@@ -112,14 +115,29 @@ func deckPreparationRetryLabel(preparation domain.DeckPreparation) string {
 	}
 }
 
-// providerOmissionSummary names the omission count and constant reason, or
-// returns an empty string when the preparation omitted nothing.
+templ OmissionSummary(summary string) {
+	<p role="status"><strong>Omissions:</strong> { summary }</p>
+}
+
+// providerOmissionSummary names the provider-omission count and reason.
 func providerOmissionSummary(preparation domain.DeckPreparation) string {
+	return omissionSummary(preparation.ProviderOmissions, domain.DeckPreparationProviderOmissionReason)
+}
+
+// lemmaMismatchOmissionSummary names the separate lemma-mismatch count.
+// Ambiguous omissions keep their existing per-item presentation.
+func lemmaMismatchOmissionSummary(preparation domain.DeckPreparation) string {
+	return omissionSummary(preparation.LemmaMismatchOmissions, domain.DeckPreparationLemmaMismatchLabel)
+}
+
+// omissionSummary labels a non-zero omission count, or returns an empty string
+// when nothing was omitted.
+func omissionSummary(count int, reason string) string {
 	switch {
-	case preparation.ProviderOmissions == 1:
-		return fmt.Sprintf("1 word left out: %s.", domain.DeckPreparationProviderOmissionReason)
-	case preparation.ProviderOmissions > 1:
-		return fmt.Sprintf("%d words left out: %s.", preparation.ProviderOmissions, domain.DeckPreparationProviderOmissionReason)
+	case count == 1:
+		return fmt.Sprintf("1 word left out: %s.", reason)
+	case count > 1:
+		return fmt.Sprintf("%d words left out: %s.", count, reason)
 	default:
 		return ""
 	}

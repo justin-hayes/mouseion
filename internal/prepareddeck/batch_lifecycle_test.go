@@ -274,7 +274,7 @@ func TestCompletedBatchItemRecordsUnresolvedMeaningWithoutCacheEntry(t *testing.
 	work := cardexport.WorkItem{Ordinal: 3, CacheKey: enrichment.CacheKey{CanonicalLemma: "bank"}}
 	outcome := enrichment.BatchTranslationOutcome{Response: enrichment.TranslationResponse{
 		Translation: "bank", SentenceTranslation: "She sat on the bank.",
-		UnresolvedReason: "The sentence does not distinguish the meanings.",
+		UnresolvedKind: enrichment.ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "The sentence does not distinguish the meanings.",
 	}}
 
 	update := completedBatchItem(&BatchPollWorker{}, item, work, outcome)
@@ -282,6 +282,26 @@ func TestCompletedBatchItemRecordsUnresolvedMeaningWithoutCacheEntry(t *testing.
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, update.State)
 	assert.Equal(t, "The sentence does not distinguish the meanings.", update.OmissionReason)
 	assert.Nil(t, update.CacheEntry, "an unresolved result must not become a dictionary-only cache entry")
+}
+
+func TestCompletedBatchItemRecordsLemmaMismatchWithReservedReason(t *testing.T) {
+	item := enrichment.BatchTranslationItem{Ordinal: 3}
+	work := cardexport.WorkItem{Ordinal: 3, CacheKey: enrichment.CacheKey{CanonicalLemma: "sehen"}}
+	outcome := enrichment.BatchTranslationOutcome{Response: enrichment.TranslationResponse{
+		Translation: "to see", SentenceTranslation: "Grandmother watches television.",
+		UnresolvedKind: enrichment.ContextualGlossUnresolvedLemmaMismatch, UnresolvedReason: "The sentence uses fernsehen, not sehen.",
+	}}
+
+	update := completedBatchItem(&BatchPollWorker{}, item, work, outcome)
+
+	t.Run("completes the item as an omission", func(t *testing.T) {
+		require.Equal(t, domain.PreparedDeckOutcomeCompleted, update.State)
+		require.Nil(t, update.CacheEntry)
+	})
+	t.Run("stores the reserved reason", func(t *testing.T) {
+		require.Equal(t, domain.DeckPreparationLemmaMismatchPrefix+"The sentence uses fernsehen, not sehen.", update.OmissionReason)
+		require.True(t, domain.IsDeckPreparationLemmaMismatchOmission(update.OmissionReason))
+	})
 }
 
 func TestCompletedBatchItemPersistsContextualGlossAndFrozenEvidenceSelection(t *testing.T) {

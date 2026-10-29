@@ -267,7 +267,7 @@ func (w *StandardTranslationWorker) persistTranslation(ctx context.Context, args
 	}
 	if request.RequireContextualGloss && response.Gloss == "" {
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{
-			State: domain.PreparedDeckOutcomeCompleted, OmissionReason: response.UnresolvedReason,
+			State: domain.PreparedDeckOutcomeCompleted, OmissionReason: contextualOmissionReason(response),
 			ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency,
 		}, w.finalizer)
 		return finishErr

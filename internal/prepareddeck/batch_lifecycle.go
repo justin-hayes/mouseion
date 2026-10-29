@@ -317,8 +317,8 @@ func completedBatchItem(w *BatchPollWorker, item enrichment.BatchTranslationItem
 	for _, warning := range outcome.Response.Warnings {
 		log.Printf("prepared deck translation: %s", warning)
 	}
-	if reason := strings.TrimSpace(outcome.Response.UnresolvedReason); reason != "" {
-		return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, OmissionReason: reason}
+	if strings.TrimSpace(outcome.Response.UnresolvedReason) != "" {
+		return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, OmissionReason: contextualOmissionReason(outcome.Response)}
 	}
 	selection := evidenceSelectionIndices(item.Request.CandidateSenses, outcome.Response.EvidenceIDs)
 	return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: workItem.CacheKey, Translation: outcome.Response.Translation, FallbackGloss: outcome.Response.Gloss, SenseSelection: selection, SentenceTranslation: outcome.Response.SentenceTranslation, SentenceTranslationTargets: append([]string(nil), outcome.Response.SentenceTranslationTargets...), CachedAt: w.now()}}
