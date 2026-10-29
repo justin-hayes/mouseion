@@ -261,7 +261,7 @@ flowchart TB
     subgraph entry[Entry points]
         server[cmd/server]
         fixture[cmd/fixtureserver]
-        tools[cmd/*backfill, cmd/*cutover]
+        tools[cmd/*backfill, cmd/*cutover, cmd/glossreview]
     end
     subgraph web[Web]
         webapp[webapp]
