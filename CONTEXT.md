@@ -17,7 +17,9 @@ synonyms that are deliberately not used.
 [ADR 0072](doc/adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
 records the historical Goal and ordered-Journey model.
 [ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the
-implemented contextual Gloss vocabulary below.
+implemented contextual Gloss vocabulary below;
+[ADR 0112](doc/adr/0112-gloss-is-lemma-sense-in-citation-form.md) records the
+citation-form Gloss definition, whose implementation is pending.
 The Book-scoped Vocabulary Browse inventory and Reading-owned Book vocabulary
 definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md).
 [ADR 0100](doc/adr/0100-retryable-provider-omissions-preparation.md) records how
@@ -712,11 +714,15 @@ _Avoid_: definition (the full native-language explanation, a separate deferred
 field), translation.
 
 **Gloss**:
-The short English cue for what the target means in its representative sentence,
-rendered on the card back. It expresses one contextual meaning, not a list of
-different senses; one to three comma-separated words or close synonyms are
-preferred when they convey that meaning faithfully. It is distinct from the
-English translation of the whole sentence.
+The short English equivalent of the target lemma, in the sense its
+representative sentence uses, rendered on the card back. It is in citation
+form: verbs as "to …", nouns singular without an article, adjectives in their
+base form. It is the common equivalent of the lemma unless the sentence clearly
+uses a different or narrower sense. It is never a definition-style paraphrase
+and never carries the sentence's inflection, number or arguments. It expresses
+one meaning, not a list of senses; one to three words or close comma-separated
+synonyms are preferred, with a longer phrase only where a short cue would
+mislead. It is distinct from the English translation of the whole sentence.
 _Avoid_: definition, translation (the contextual whole-sentence field).
 
 **Dictionary gloss**:
