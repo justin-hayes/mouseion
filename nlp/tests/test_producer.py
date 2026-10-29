@@ -327,7 +327,7 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
         "esszimmer",
     ]
     assert artifact.normalization_profile.name == "german-standard-post-1996"
-    assert artifact.normalization_profile.version == "6"
+    assert artifact.normalization_profile.version == "7"
 
 
 def test_german_separable_verbs_reattach_and_ignore_homographs() -> None:
@@ -558,7 +558,206 @@ def test_german_separable_verbs_reattach_and_ignore_homographs() -> None:
     assert prepositional[1].canonical_lemma == "stehen"
     assert fixed[1].canonical_lemma == "bleiben"
     assert unknown[1].canonical_lemma == "gehen"
-    assert artifact.normalization_profile.version == "6"
+    assert artifact.normalization_profile.version == "7"
+
+
+def test_german_recovers_separable_verb_when_particle_is_advmod() -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="Großmutter sieht im Wohnzimmer fern ohne Bild und Ton.",
+                tokens=[
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "Großmutter",
+                                "Großmutter",
+                                "NOUN",
+                                None,
+                                0,
+                                10,
+                                id=1,
+                                head=2,
+                                deprel="nsubj",
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "sieht",
+                                "sehen",
+                                "VERB",
+                                "VerbForm=Fin",
+                                11,
+                                16,
+                                id=2,
+                                head=0,
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word("im", "in", "ADP", None, 17, 19, id=3, head=4, deprel="case")]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "Wohnzimmer",
+                                "Wohnzimmer",
+                                "NOUN",
+                                None,
+                                20,
+                                30,
+                                id=4,
+                                head=2,
+                                deprel="obl",
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("fern", "fern", "ADV", None, 31, 35, id=5, head=2, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("ohne", "ohne", "ADP", None, 36, 40, id=6, head=7, deprel="case")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("Bild", "Bild", "NOUN", None, 41, 45, id=7, head=2, deprel="obl")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word("und", "und", "CCONJ", None, 46, 49, id=8, head=7, deprel="cc")]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("Ton", "Ton", "NOUN", None, 50, 53, id=9, head=7, deprel="conj")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 53, 54, id=10, head=2, deprel="punct")]
+                    ),
+                ],
+            ),
+            SimpleNamespace(
+                text="Das Dorf liegt fern der Stadt.",
+                tokens=[
+                    SimpleNamespace(
+                        words=[word("Das", "der", "DET", None, 0, 3, id=1, head=2, deprel="det")]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("Dorf", "Dorf", "NOUN", None, 4, 8, id=2, head=3, deprel="nsubj")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word("liegt", "liegen", "VERB", None, 9, 14, id=3, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("fern", "fern", "ADV", None, 15, 19, id=4, head=3, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word("der", "der", "DET", None, 20, 23, id=5, head=6, deprel="det")]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "Stadt", "Stadt", "NOUN", None, 24, 29, id=6, head=4, deprel="nmod"
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 29, 30, id=7, head=3, deprel="punct")]
+                    ),
+                ],
+            ),
+            SimpleNamespace(
+                text="Fern sieht er gut.",
+                tokens=[
+                    SimpleNamespace(
+                        words=[
+                            word("Fern", "fern", "ADV", None, 0, 4, id=1, head=2, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word("sieht", "sehen", "VERB", None, 5, 10, id=2, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[word("er", "er", "PRON", None, 11, 13, id=3, head=2, deprel="nsubj")]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("gut", "gut", "ADV", None, 14, 17, id=4, head=2, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 17, 18, id=5, head=2, deprel="punct")]
+                    ),
+                ],
+            ),
+            SimpleNamespace(
+                text="Er steht fest.",
+                tokens=[
+                    SimpleNamespace(
+                        words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("steht", "stehen", "VERB", None, 3, 8, id=2, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("fest", "fest", "ADV", None, 9, 13, id=3, head=2, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 13, 14, id=4, head=2, deprel="punct")]
+                    ),
+                ],
+            ),
+            SimpleNamespace(
+                text="Sie geht weg.",
+                tokens=[
+                    SimpleNamespace(
+                        words=[word("Sie", "sie", "PRON", None, 0, 3, id=1, head=2, deprel="nsubj")]
+                    ),
+                    SimpleNamespace(
+                        words=[word("geht", "gehen", "VERB", None, 4, 8, id=2, head=0)]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("weg", "weg", "ADV", None, 9, 12, id=3, head=2, deprel="advmod")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 12, 13, id=4, head=2, deprel="punct")]
+                    ),
+                ],
+            ),
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
+
+    artifact = producer.analyze("fixture", "de")
+
+    recovered, adverbial, pre_verbal, homograph, other_homograph = [
+        sentence.tokens for sentence in artifact.sentences
+    ]
+    assert recovered[1].raw_lemma == "sehen"
+    assert recovered[1].canonical_lemma == "fernsehen"
+    assert recovered[4].surface == "fern"
+    assert recovered[4].canonical_lemma == "fern"
+    assert recovered[4].dependency == "advmod"
+    assert adverbial[2].canonical_lemma == "liegen"
+    assert adverbial[3].canonical_lemma == "fern"
+    assert pre_verbal[1].canonical_lemma == "sehen"
+    assert homograph[1].canonical_lemma == "stehen"
+    assert other_homograph[1].canonical_lemma == "gehen"
+    assert artifact.normalization_profile.version == "7"
 
 
 def test_modern_greek_canonicalization_matches_identity_contract() -> None:

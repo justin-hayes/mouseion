@@ -304,9 +304,10 @@ func writeSourceLine(out *strings.Builder, line string, lineStart int, spans []t
 // targetSurfaces resolves the surfaces to bold for a card. It returns the
 // observed target followed by each compound:prt particle token whose head is the
 // token matching the observed target, resolved from the persisted dependency
-// parse. Without a parse, or when no token matches the target, only the observed
-// target is returned. Duplicate surfaces are collapsed so repeated exports are
-// stable.
+// parse. A recovered advmod particle arrives as compound:prt from the analyzer
+// boundary, so it is bolded the same way. Without a parse, or when no token
+// matches the target, only the observed target is returned. Duplicate surfaces
+// are collapsed so repeated exports are stable.
 func targetSurfaces(target string, tokens []analyzer.Token) []string {
 	target = textmatch.CleanLexicalSurface(target)
 	if target == "" {

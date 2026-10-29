@@ -51,7 +51,7 @@ def _language_family(language: str) -> str:
 # Analysis update for Books analysed under the earlier version. A model or
 # dependency upgrade bumps it only when it can change evidence.
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
-GERMAN_NORMALIZATION_VERSION = "6"
+GERMAN_NORMALIZATION_VERSION = "7"
 GREEK_NORMALIZATION_PROFILE = "modern-greek"
 GREEK_NORMALIZATION_VERSION = "1"
 FRENCH_NORMALIZATION_PROFILE = "french"
@@ -154,6 +154,40 @@ GERMAN_SEPARABLE_PREFIXES = frozenset(
         "zusammen",
     }
 )
+
+# Explicit, reviewed evidence for separable verbs whose particle Stanza attaches
+# as an adverb (ADV/advmod) instead of compound:prt. A pair enters this table
+# only when the combined form is an attested dictionary headword, so a free
+# adverb that happens to follow a verb is never reattached. Keys are the
+# particle surface and the verb's base canonical lemma; values are the combined
+# canonical lemma. Source: Duden, "fernsehen" (trennbar), reviewed 2026-10-29.
+GERMAN_ADVMOD_SEPARABLE_VERBS: dict[tuple[str, str], str] = {
+    ("fern", "sehen"): "fernsehen",
+}
+
+
+def recovered_advmod_particles(
+    tokens: list[Any], verb_ordinal: int, base_lemma: str
+) -> list[tuple[Any, str]]:
+    """Return reviewed ADV/advmod particles for one verb and their full lemmas.
+
+    A recoverable particle follows its head verb, has no dependents of its own,
+    and is tagged ADV/advmod. The explicit evidence table decides whether the
+    pair is a separable verb, so a true adverb such as *fern* in *fern der
+    Stadt* keeps the base lemma. The caller supplies the verb's base canonical
+    lemma because a reattached verb no longer carries it.
+    """
+    with_dependents = {token.head for token in tokens}
+    recovered: list[tuple[Any, str]] = []
+    for token_ordinal, token in enumerate(tokens):
+        if token.head != verb_ordinal or token.dependency != "advmod" or token.pos != "ADV":
+            continue
+        if token_ordinal <= verb_ordinal or token_ordinal in with_dependents:
+            continue
+        full_lemma = GERMAN_ADVMOD_SEPARABLE_VERBS.get((token.surface.casefold(), base_lemma))
+        if full_lemma is not None:
+            recovered.append((token, full_lemma))
+    return recovered
 
 
 def _dialogue_token_text(token: TokenizerToken) -> str:
@@ -488,11 +522,15 @@ class Producer:
                 and token.dependency == "compound:prt"
                 and token.surface.casefold() in GERMAN_SEPARABLE_PREFIXES
             ]
+            recovered = recovered_advmod_particles(tokens, verb_ordinal, verb.canonical_lemma)
             if particles:
                 verb.canonical_lemma = cls._canonical_lemma(
                     "de",
                     "".join(token.canonical_lemma for token in particles) + verb.canonical_lemma,
                 )
+            elif recovered:
+                # The evidence table already names the complete lemma.
+                verb.canonical_lemma = cls._canonical_lemma("de", recovered[0][1])
 
     @staticmethod
     def _is_german(language: str) -> bool:

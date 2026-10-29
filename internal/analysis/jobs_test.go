@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -91,6 +92,30 @@ func TestAggregateLemmasExcludesSeparableParticles(t *testing.T) {
 
 	require.Len(t, lemmas, 1)
 	assert.Equal(t, "aufstehen", lemmas[0].CanonicalLemma)
+}
+
+func TestAggregateLemmasExcludesRecoveredAdvmodParticles(t *testing.T) {
+	corpus, err := analyzer.FromProto(&mouseionv1.NormalizedCorpus{
+		SchemaVersion: "1.1.0",
+		Language:      "de",
+		Sentences: []*mouseionv1.Sentence{{
+			Text: "Großmutter sieht fern.",
+			Tokens: []*mouseionv1.Token{
+				{Surface: "Großmutter", CanonicalLemma: "großmutter", Pos: "NOUN", Dependency: "nsubj", Head: 1},
+				{Surface: "sieht", CanonicalLemma: "fernsehen", Pos: "VERB", Dependency: "root", Head: 1},
+				{Surface: "fern", CanonicalLemma: "fern", Pos: "ADV", Dependency: "advmod", Head: 1},
+			},
+		}},
+	})
+	require.NoError(t, err)
+
+	lemmas, err := aggregateLemmas("sha256:x", corpus)
+	require.NoError(t, err)
+
+	require.Len(t, lemmas, 2)
+	got := []string{lemmas[0].CanonicalLemma, lemmas[1].CanonicalLemma}
+	assert.ElementsMatch(t, []string{"fernsehen", "großmutter"}, got)
+	assert.NotContains(t, got, "fern")
 }
 
 func TestOffsetResultLocations(t *testing.T) {

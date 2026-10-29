@@ -7,6 +7,7 @@ import (
 	"time"
 
 	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
 
 // ToProto converts a project-owned Result to the normalized-corpus transport
@@ -100,9 +101,27 @@ func FromProto(corpus *mouseionv1.NormalizedCorpus) (Result, error) {
 				Location:       locationFromProto(token.GetLocation()),
 			})
 		}
+		if canonicalization.NormalizeLanguage(result.Language) == "de" {
+			normalizeRecoveredParticles(converted.Tokens)
+		}
 		result.Sentences = append(result.Sentences, converted)
 	}
 	return result, nil
+}
+
+// normalizeRecoveredParticles gives every consumer the same view of a
+// separable particle the NLP producer recovered from an advmod dependent. The
+// producer keeps the analyzer's advmod relation so its precision measurement
+// can count the recovery; here the particle becomes compound:prt, exactly like
+// a particle the analyzer tagged itself, so selection, lemma review, and card
+// bolding treat it as a component of the verb's full lemma.
+func normalizeRecoveredParticles(tokens []Token) {
+	withDependents := dependentOrdinals(tokens)
+	for index := range tokens {
+		if tokens[index].Dependency == "advmod" && isSeparableParticle(tokens, index, withDependents) {
+			tokens[index].Dependency = "compound:prt"
+		}
+	}
 }
 
 func formatTime(value time.Time) string {

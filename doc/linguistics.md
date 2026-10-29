@@ -34,7 +34,7 @@ a new, distinguishable analysis rather than silently altering an old one
 
 ## 2. Annotation
 
-Text is annotated by [Stanza](https://stanfordnlp.github.io/stanza/) 1.14 into
+Text is annotated by [Stanza](https://stanfordnlp.github.io/stanza/) 1.15 into
 [Universal Dependencies](https://universaldependencies.org/) categories:
 tokenization, multi-word-token expansion where the language needs it, universal
 part-of-speech (UPOS) tags, morphological features, lemmas, and basic
@@ -87,10 +87,15 @@ Counted that way, the learner would study *fangen* ("catch") instead of
 the dependency parse marks it `compound:prt` *and* its surface form is in a
 closed list of 49 separable prefixes. The relation alone isn't enough,
 because it doesn't reliably separate particles from free adverbs and
-homographs. The verb's canonical lemma becomes the full lexeme (*anfangen*),
-and the particle is excluded from candidates
+homographs. When Stanza instead tags the particle `ADV`/`advmod`, the producer
+recovers the full lexeme only for an explicit, reviewed particle-and-verb
+evidence pair (for example *fern* + *sehen* → *fernsehen*); a clause-final
+position and the table, not the relation alone, are the guards. The verb's
+canonical lemma becomes the full lexeme (*anfangen*, *fernsehen*), and the
+particle is excluded from candidates and included in the card's bolded target
 ([spec](features/separable-verb-lemmatization.md),
-[ADR 0061](adr/0061-german-separable-verb-lemmatization.md)).
+[ADR 0061](adr/0061-german-separable-verb-lemmatization.md),
+[ADR 0113](adr/0113-german-advmod-separable-verb-recovery.md)).
 
 **Modern Greek.** The `modern-greek` profile applies Unicode NFC normalization
 and full case folding, which also unifies final *ς* with medial *σ*. It is
@@ -255,11 +260,13 @@ found under *anfangen* whether it appears as *anfangen* or *fängt … an*
 ## 9. Evaluation and limitations
 
 **Measured.** The separable-verb rule is evaluated by a script that runs the
-real producer over a committed public-domain sample: a 101-sentence excerpt
-(2,095 tokens) from Goethe's *Die Leiden des jungen Werther*. On that sample, it made 10
-reattachments, skipped 2 particle candidates outside the prefix list, and one
-reattachment was marked debatable on review. The report records the sample's
-hash and the Stanza version and can be regenerated
+real producer over a committed public-domain sample: a 99-sentence excerpt
+(2,090 tokens) from Goethe's *Die Leiden des jungen Werther*. On that sample, it made 10
+reattachments, accepted 11 particle observations, skipped 2 candidates outside
+the prefix list, recorded no `advmod` particle recoveries, and one reattachment
+was marked debatable on review. The report records the sample's hash and the
+Stanza version, counts `advmod` recoveries alongside the skipped-particle
+observations, and can be regenerated
 ([evidence](evidence/german-separable-verb-precision.md)). The contextual-gloss
 and alignment contracts have deterministic fixture certification; a review of
 the configured model's output is pending ([review](reviews/english-target-alignment.md)).

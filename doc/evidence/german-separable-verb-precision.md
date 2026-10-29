@@ -9,7 +9,7 @@ German separable-prefix set.
 
 - Source: [Die Leiden des jungen Werther — Band 1](https://www.gutenberg.org/ebooks/2407)
 - Sample SHA-256: `e066b0ee1c3fff0bfca6a7f4a45fedf0c9148e7bbea6106df19110aaf9865a1e`
-- Stanza version: `1.14.0`
+- Stanza version: `1.15.0`
 - Regenerate: `PYTHONPATH=nlp/src:gen/python .venv/bin/python nlp/scripts/measure_german_separable_verbs.py`
 - An unavailable Stanza German model causes the generator to print `SKIP`, exit with status 3, and write no report; this committed report is left unchanged.
 
@@ -17,18 +17,22 @@ German separable-prefix set.
 
 | Measure | Count |
 | --- | ---: |
-| Sentences | 101 |
-| Tokens | 2095 |
+| Sentences | 99 |
+| Tokens | 2090 |
 | Reattachment events (changed verb tokens) | 10 |
-| Accepted particle observations | 10 |
+| Accepted particle observations | 11 |
 | Skipped particle observations | 2 |
-| Particle observations reviewed by the guard | 12 |
+| ADVMod particle recoveries | 0 |
+| Particle observations reviewed by the guard | 13 |
 | Spot-check rows flagged debatable | 1 |
 
 `Skipped particle observations` are `compound:prt` dependents whose
-surface was not in the curated prefix set. The reattachment count is
-the number of verb tokens whose canonical lemma changed; a verb with
-multiple accepted particles still counts as one event.
+surface was not in the curated prefix set. `ADVMod particle recoveries`
+are ADV/advmod particles reattached through the explicit, reviewed
+particle-and-verb evidence table; each is also a reattachment event and
+appears in the spot checks. The reattachment count is the number of verb
+tokens whose canonical lemma changed; a verb with multiple accepted
+particles still counts as one event.
 
 ## Prefix Breakdown
 
@@ -41,7 +45,7 @@ multiple accepted particles still counts as one event.
 | `hinauf` | 1 |
 | `hinunter` | 2 |
 | `weiter` | 1 |
-| `über` | 1 |
+| `über` | 2 |
 
 ## Reattached Lemma Pairs
 
@@ -56,25 +60,27 @@ multiple accepted particles still counts as one event.
 | `steigen` | `hinaufsteigen` | 1 |
 | `steigen` | `hinuntersteigen` | 1 |
 | `treffen` | `antreffen` | 1 |
-| `werden` | `überwerden` | 1 |
+| `werden` | `überüberwerden` | 1 |
 
 ## Spot Checks
 
 Each row contains the complete Stanza sentence context. `debatable`
 flags prefixes with frequent non-particle uses or long-distance
-attachments; blank flags are not an assertion that the row is correct.
+attachments; `advmod-recovered` marks an ADV/advmod particle
+reattached through the explicit evidence table. Blank flags are not an
+assertion that the row is correct.
 Reviewers can determine the false-positive rate by judging these rows
 and counting any false positives against the reattachment-event count.
 
 | Sentence | Particles | Base -> full lemma | Review flag | Full sentence context |
 | ---: | --- | --- | --- | --- |
-| 45 | `hinunter` | `gehen` -> `hinuntergehen` |  | Du gehst einen kleinen Hügel hinunter und findest dich vor einem Gewölbe, da wohl zwanzig Stufen hinabgehen, wo unten das klarste Wasser aus Marmorfelsen quillt. |
-| 62 | `weiter` | `Sage` -> `weitersage` |  | Sage das nicht weiter; |
-| 67 | `ab` | `fertigen` -> `abfertigen` |  | Wie ich im Anfange mich zu ihnen gesellte, sie freundschaftlich fragte über dies und das, glaubten einige, ich wollte ihrer spotten, und fertigten mich wohl gar grob ab. |
-| 72 | `hinunter` | `steigen` -> `hinuntersteigen` |  | Ich stieg hinunter und sah sie an. |
-| 72 | `an` | `sehen` -> `ansehen` |  | Ich stieg hinunter und sah sie an. |
-| 74 | `über` | `werden` -> `überwerden` | debatable | Sie ward rot über und über. |
-| 78 | `hinauf` | `steigen` -> `hinaufsteigen` |  | Sie dankte und stieg hinauf. |
-| 89 | `ein` | `engen` -> `einengen` |  | Ach, das engt das ganze Herz so ein. |
-| 92 | `an` | `treffen` -> `antreffen` |  | Vor wenig Tagen traf ich einen jungen V. an, einen offnen Jungen, mit einer gar glücklichen Gesichtsbildung. |
-| 95 | `aus` | `kramen` -> `auskramen` |  | Da er hörte, daß ich viel zeichnete und Griechisch könnte, wandte er sich an mich und kramte viel Wissens aus, von Batteux bis zu Wood, von de Piles zu Winckelmann, und versicherte mich, er habe Sulzers Theorie, den ersten Teil, ganz durchgelesen und besitze ein Manuskript von Heynen über das Studium der Antike. |
+| 44 | `hinunter` | `gehen` -> `hinuntergehen` |  | Du gehst einen kleinen Hügel hinunter und findest dich vor einem Gewölbe, da wohl zwanzig Stufen hinabgehen, wo unten das klarste Wasser aus Marmorfelsen quillt. |
+| 60 | `weiter` | `Sage` -> `weitersage` |  | Sage das nicht weiter; |
+| 65 | `ab` | `fertigen` -> `abfertigen` |  | Wie ich im Anfange mich zu ihnen gesellte, sie freundschaftlich fragte über dies und das, glaubten einige, ich wollte ihrer spotten, und fertigten mich wohl gar grob ab. |
+| 71 | `hinunter` | `steigen` -> `hinuntersteigen` |  | Ich stieg hinunter und sah sie an. |
+| 71 | `an` | `sehen` -> `ansehen` |  | Ich stieg hinunter und sah sie an. |
+| 73 | `über, über` | `werden` -> `überüberwerden` | debatable | Sie ward rot über und über. |
+| 77 | `hinauf` | `steigen` -> `hinaufsteigen` |  | Sie dankte und stieg hinauf. |
+| 88 | `ein` | `engen` -> `einengen` |  | Ach, das engt das ganze Herz so ein. |
+| 90 | `an` | `treffen` -> `antreffen` |  | Vor wenig Tagen traf ich einen jungen V. an, einen offnen Jungen, mit einer gar glücklichen Gesichtsbildung. |
+| 93 | `aus` | `kramen` -> `auskramen` |  | Da er hörte, daß ich viel zeichnete und Griechisch könnte, wandte er sich an mich und kramte viel Wissens aus, von Batteux bis zu Wood, von de Piles zu Winckelmann, und versicherte mich, er habe Sulzers Theorie, den ersten Teil, ganz durchgelesen und besitze ein Manuskript von Heynen über das Studium der Antike. |
