@@ -1,6 +1,6 @@
 # Learner review of analyzer lemmas
 
-Status: **Manual occurrence review, conservative German and French risk flags, and opt-in LLM lemma suggestions implemented; provider-raised advisory flags accepted (#2332), implementation pending** · Date: 2026-10-29
+Status: **Manual occurrence review, conservative German and French risk flags, and opt-in LLM lemma suggestions implemented. Provider-raised advisory flags accepted (#2332); implementation pending.** · Date: 2026-10-29
 
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct
@@ -11,11 +11,10 @@ provider-raised flags when a contextual-Gloss response reports a
 `lemma_mismatch`. Only the local high-risk flags can pause a freeze; provider
 flags are evidence for review, never a gate. An optional LLM lemma suggestion
 is requested only by an explicit action while reviewing an occurrence. Its
-bounded request
-contains the target, analyzer lemma/POS, one sentence, and available local
-lexical evidence. The provider and prompt version are shown with the
-non-authoritative suggestion. A missing or failing provider leaves manual review
-available and never changes the effective identity.
+bounded request contains the target, analyzer lemma/POS, one sentence, and
+available local lexical evidence. The provider and prompt version are shown
+with the non-authoritative suggestion. A missing or failing provider leaves
+manual review available and never changes the effective identity.
 
 ## Problem and goal
 
@@ -147,10 +146,11 @@ admin dashboard or retired Book-detail route.
 A contextual-Gloss response that reports `lemma_mismatch` says the provider
 believes the representative sentence uses a different lexeme than the
 occurrence's lemma. Deck preparation already omits that card, records the
-reserved omission reason, and counts it separately. The same outcome also
-raises one **advisory** lemma review flag for the representative sentence's
-target occurrence, so the learner can reach the suspected analyzer error
-through the existing review flow instead of finding it manually.
+reserved omission reason, and counts it separately. The accepted design is that
+the same outcome will also raise one **advisory** lemma review flag for the
+representative sentence's target occurrence, so the learner can reach the
+suspected analyzer error through the existing review flow instead of finding
+it manually.
 
 The flag carries no proposed lemma and does not change the contextual-Gloss
 response contract: there is no new response field, no prompt-contract change,
