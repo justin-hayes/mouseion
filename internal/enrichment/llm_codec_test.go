@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testBatchRunID = "018f64b6-5f2f-7e12-a7a7-832a50f68b7c"
+const (
+	testBatchRunID                    = "018f64b6-5f2f-7e12-a7a7-832a50f68b7c"
+	testContextualGlossPromptContract = "translation-v16-citation-form-gloss"
+)
 
 func TestTranslationCodecBatchJSONLGoldenDeterministicAndPrivate(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "gpt-test"})
@@ -21,11 +24,12 @@ func TestTranslationCodecBatchJSONLGoldenDeterministicAndPrivate(t *testing.T) {
 	items := []BatchTranslationItem{
 		{Ordinal: 7, Request: TranslationRequest{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}},
 		{Ordinal: 2, Request: TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}},
+		{Ordinal: 5, Request: TranslationRequest{Language: "it", TargetLanguage: "en", CanonicalLemma: "macchina", UPOS: "NOUN", TargetWord: "macchine", ExampleSentence: "Le macchine erano parcheggiate lungo la strada.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:car", Gloss: "car"}}}},
 	}
 	var first, second bytes.Buffer
 	firstBytes, err := codec.WriteBatchJSONL(&first, testBatchRunID, 3, items)
 	require.NoError(t, err)
-	secondBytes, err := codec.WriteBatchJSONL(&second, testBatchRunID, 3, []BatchTranslationItem{items[1], items[0]})
+	secondBytes, err := codec.WriteBatchJSONL(&second, testBatchRunID, 3, []BatchTranslationItem{items[1], items[2], items[0]})
 	require.NoError(t, err)
 	assert.Equal(t, int64(first.Len()), firstBytes)
 	assert.Equal(t, int64(second.Len()), secondBytes)
@@ -396,10 +400,11 @@ func TestTranslationCodecTransmitsShortHandlesAndResolvesThemBack(t *testing.T) 
 	}
 }
 
-// TestContextualGlossPromptRequiresLemmaMismatchOutcome covers the #2328
-// contract: the prompt names the new unresolved kind and its contract version
-// changes so cached v15 results are never reused.
-func TestContextualGlossPromptRequiresLemmaMismatchOutcome(t *testing.T) {
+// TestContextualGlossPromptContract covers the #2328 and #2330 prompt
+// contracts: the encoded request states the citation-form Gloss rule, its
+// relationship to the lemma translation and the lemma_mismatch outcome under a
+// new contract version, so earlier cached results are never reused.
+func TestContextualGlossPromptContract(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
 	body, err := codec.EncodeRequest(TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "sehen", UPOS: "VERB", TargetWord: "sieht", ExampleSentence: "Großmutter sieht im Wohnzimmer fern.", RequireContextualGloss: true})
@@ -408,15 +413,28 @@ func TestContextualGlossPromptRequiresLemmaMismatchOutcome(t *testing.T) {
 	require.NoError(t, json.Unmarshal(body, &request))
 	require.Len(t, request.Messages, 2)
 	prompt := request.Messages[0].Content
-	t.Run("names the unresolved kind", func(t *testing.T) {
-		require.Contains(t, prompt, "unresolved_kind")
-		require.Contains(t, prompt, "lemma_mismatch")
-	})
-	t.Run("requires a different-lexeme outcome", func(t *testing.T) {
-		require.Contains(t, prompt, "different lexeme")
-	})
+
+	for name, clause := range map[string]string{
+		"citation form":                     "in citation form",
+		"verbs":                             `verbs as "to …"`,
+		"nouns":                             "nouns singular without an article",
+		"adjectives":                        "adjectives in base form",
+		"equals the translation by default": "Gloss must equal translation unless the sentence clearly uses a different or narrower sense",
+		"no definition paraphrase":          "Never return a definition-style paraphrase when a short equivalent exists",
+		"no sentence material":              "never carry the sentence's inflection, number or arguments",
+		"function words and idioms":         "a longer phrase for a function word or idiom",
+		"brevity":                           "Keep the Gloss to one to three words",
+		"close synonyms":                    "close comma-separated synonyms",
+		"lemma mismatch kind":               "unresolved_kind",
+		"lemma mismatch instruction":        "a different lexeme than the supplied lemma",
+		"lemma mismatch outcome":            "unresolved_kind=lemma_mismatch",
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Contains(t, prompt, clause)
+		})
+	}
 	t.Run("bumps the contract version", func(t *testing.T) {
-		require.Equal(t, "translation-v16-lemma-mismatch", codec.ContextualGlossPromptContract())
+		require.Equal(t, testContextualGlossPromptContract, codec.ContextualGlossPromptContract())
 	})
 }
 

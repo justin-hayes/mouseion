@@ -1,5 +1,23 @@
 [
   {
+    "name": "resolved citation-form gloss renders in the meaning block",
+    "language": "it",
+    "lemma": "macchina",
+    "upos": "NOUN",
+    "target_word": "macchine",
+    "source_sentence": "Le macchine erano parcheggiate lungo la strada.",
+    "translation": "machine; car",
+    "sentence_translation": "The cars were parked along the street.",
+    "sentence_translation_targets": ["cars"],
+    "gloss": "car",
+    "evidence_ids": [],
+    "context_only": true,
+    "unresolved_kind": "",
+    "unresolved_reason": "",
+    "expected_outcome": "resolved",
+    "expected_gloss": "car"
+  },
+  {
     "name": "lemma mismatch is omitted with the reserved reason",
     "language": "de",
     "lemma": "sehen",
@@ -59,7 +77,7 @@
     "upos": "VERB",
     "target_word": "sieht",
     "source_sentence": "Sie sieht den alten Garten hinter dem Haus.",
-    "translation": "to see",
+    "translation": "to perceive",
     "sentence_translation": "She sees the old garden behind the house.",
     "sentence_translation_targets": ["sees"],
     "gloss": "to see",
