@@ -76,6 +76,17 @@ func seedProviderReviewFlag(t *testing.T, h Harness, occurrence domain.LemmaRevi
 	}}))
 }
 
+// requireLocalHighRiskFlag asserts the Book's first review occurrence holds
+// unresolved local evidence, and that the evidence still gates Start.
+func requireLocalHighRiskFlag(t *testing.T, h Harness, bookID string) {
+	t.Helper()
+	after := reviewOccurrence(t, h, bookID, 0)
+	assert.Equal(t, "local high-risk evidence", after.ReviewFlagReason)
+	assert.False(t, domain.LemmaReviewFlagProviderSourced(after.ReviewFlagProvenance))
+	_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
+	require.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags)
+}
+
 func lemmaReviewScenarios() []Scenario {
 	scenarios := lemmaDecisionScenarios()
 	scenarios = append(scenarios, lemmaFlagScenarios()...)
@@ -237,11 +248,7 @@ func lemmaProviderFlagScenarios() []Scenario {
 			flagged := reviewOccurrence(t, h, bookID, 0)
 			seedProviderReviewFlag(t, h, flagged, "provider lemma mismatch")
 			seedReviewFlag(t, h, flagged, "local high-risk evidence")
-			after := reviewOccurrence(t, h, bookID, 0)
-			assert.Equal(t, "local high-risk evidence", after.ReviewFlagReason)
-			assert.False(t, domain.LemmaReviewFlagProviderSourced(after.ReviewFlagProvenance))
-			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
-			require.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags)
+			requireLocalHighRiskFlag(t, h, bookID)
 		},
 	}, {
 		Name: "a provider flag leaves an unresolved local high-risk flag unchanged",
@@ -250,11 +257,7 @@ func lemmaProviderFlagScenarios() []Scenario {
 			flagged := reviewOccurrence(t, h, bookID, 0)
 			seedReviewFlag(t, h, flagged, "local high-risk evidence")
 			seedProviderReviewFlag(t, h, flagged, "provider lemma mismatch")
-			after := reviewOccurrence(t, h, bookID, 0)
-			assert.Equal(t, "local high-risk evidence", after.ReviewFlagReason)
-			assert.False(t, domain.LemmaReviewFlagProviderSourced(after.ReviewFlagProvenance))
-			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
-			require.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags)
+			requireLocalHighRiskFlag(t, h, bookID)
 		},
 	}, {
 		Name: "later evidence from the same source leaves the stored flag unchanged",
