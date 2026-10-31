@@ -36,6 +36,35 @@ var (
 	ErrLemmaReviewPreviewStale = errors.New("persistence: lemma review preview is stale")
 )
 
+// LemmaReviewFlagProviderSource is the evidence_provenance "source" value that
+// marks a flag raised by the configured contextual-Gloss provider. Provider
+// flags are advisory evidence: they never pause a freeze. The persistence path
+// records provider, model, prompt version and unresolved reason alongside this
+// marker. Every other flag is local high-risk evidence.
+const LemmaReviewFlagProviderSource = "contextual_gloss_provider"
+
+// LemmaReviewFlagProviderSourced reports whether provenance records the
+// contextual-Gloss provider as its evidence source.
+func LemmaReviewFlagProviderSourced(provenance map[string]any) bool {
+	source, ok := provenance["source"].(string)
+	return ok && source == LemmaReviewFlagProviderSource
+}
+
+// BlocksFreeze reports whether the flag is unresolved local high-risk evidence
+// that must pause Start reading or Prepare deck. A provider-sourced flag is
+// advisory and never blocks, and a resolved flag never blocks whatever its
+// source.
+func (f LemmaReviewFlag) BlocksFreeze() bool {
+	return f.Resolution == "" && !LemmaReviewFlagProviderSourced(f.Provenance)
+}
+
+// BlocksFreeze reports whether the occurrence carries an unresolved local
+// high-risk flag. It is LemmaReviewFlag.BlocksFreeze in the occurrence shape the
+// review list exposes.
+func (o LemmaReviewOccurrence) BlocksFreeze() bool {
+	return o.ReviewFlagReason != "" && o.ReviewFlagResolution == "" && !LemmaReviewFlagProviderSourced(o.ReviewFlagProvenance)
+}
+
 // ID is the stable identity of an occurrence within its Book: the analysis run,
 // source document, and character span. Unlike a list position it does not shift
 // when another occurrence of the same form is reviewed.

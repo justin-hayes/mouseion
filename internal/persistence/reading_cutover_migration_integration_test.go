@@ -32,6 +32,7 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `CREATE TABLE occurrence_lemma_review_flags (
 		owner_id uuid NOT NULL, book_id uuid NOT NULL, analysis_run_id uuid NOT NULL,
+		evidence_provenance jsonb NOT NULL DEFAULT '{}'::jsonb,
 		resolution text
 	)`)
 	require.NoError(t, err)

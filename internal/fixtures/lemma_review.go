@@ -99,7 +99,9 @@ func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, sur
 }
 
 // SaveLemmaReviewFlags validates every flag before it records any, as the
-// persistence store's transaction does, and never reopens a resolved flag.
+// persistence store's transaction does, and never reopens a resolved flag. A
+// local high-risk flag replaces an unresolved provider flag for the same
+// occurrence, while a provider flag never replaces an unresolved local one.
 func (s *Store) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaReviewFlag) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -111,7 +113,15 @@ func (s *Store) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaRevi
 	for _, flag := range flags {
 		o := flag.Occurrence
 		key := fixtureLemmaCorrectionKey(o.OwnerID, o.BookID, o.AnalysisRunID, o.StartOffset, o.EndOffset)
-		if current, ok := s.lemmaReviewFlags[key]; !ok || current.Resolution == "" {
+		current, exists := s.lemmaReviewFlags[key]
+		storedProvider := domain.LemmaReviewFlagProviderSourced(current.Provenance)
+		incomingProvider := domain.LemmaReviewFlagProviderSourced(flag.Provenance)
+		switch {
+		case !exists:
+			s.lemmaReviewFlags[key] = flag
+		case current.Resolution != "":
+			// A resolved flag is never modified or reopened.
+		case storedProvider && !incomingProvider:
 			s.lemmaReviewFlags[key] = flag
 		}
 	}
@@ -254,11 +264,12 @@ func (s *Store) PutLemmaDecisionProposal(ctx context.Context, proposal domain.Le
 }
 
 // hasUnresolvedLemmaReviewFlag reports whether any seeded occurrence of the Book
-// carries a flag the learner has not resolved.
+// carries an unresolved local high-risk flag. Provider-sourced advisory flags
+// never gate a freeze.
 func (s *Store) hasUnresolvedLemmaReviewFlag(owner, bookID string) bool {
 	for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] {
 		key := fixtureLemmaCorrectionKey(owner, bookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
-		if flag, ok := s.lemmaReviewFlags[key]; ok && flag.Resolution == "" {
+		if flag, ok := s.lemmaReviewFlags[key]; ok && flag.BlocksFreeze() {
 			return true
 		}
 	}
