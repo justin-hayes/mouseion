@@ -82,7 +82,9 @@ func New(cfg Config) *Service {
 }
 
 // Assessment reports whether lemma risk was assessed for a Book, and whether
-// any of its occurrences still awaits a learner decision.
+// any of its occurrences still carries unresolved local high-risk evidence.
+// Provider-raised advisory flags are evidence, not blockers, and never set
+// Unresolved.
 type Assessment struct {
 	Assessed   bool
 	Unresolved bool
@@ -161,7 +163,7 @@ const (
 	// OutcomeSaved: the decision is saved and no re-preparation was needed.
 	OutcomeSaved OutcomeKind = iota
 	// OutcomeFlagsUnresolved: the decision is saved, but restarting the Book is
-	// blocked until its unresolved flags are reviewed.
+	// blocked until its unresolved local high-risk flags are reviewed.
 	OutcomeFlagsUnresolved
 	// OutcomePreparing: the decision is saved and a new deck preparation is queued.
 	OutcomePreparing
@@ -613,9 +615,11 @@ func hasDecision(occurrences []domain.LemmaReviewOccurrence) bool {
 	return false
 }
 
+// anyUnresolved reports whether the list carries unresolved local high-risk
+// evidence. Provider-raised advisory flags do not count.
 func anyUnresolved(occurrences []domain.LemmaReviewOccurrence) bool {
 	for _, occurrence := range occurrences {
-		if occurrence.ReviewFlagReason != "" && occurrence.ReviewFlagResolution == "" {
+		if occurrence.BlocksFreeze() {
 			return true
 		}
 	}

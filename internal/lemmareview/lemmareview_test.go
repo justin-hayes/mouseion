@@ -170,6 +170,19 @@ func TestAssessReportsUnresolvedFlags(t *testing.T) {
 	assert.False(t, assessment.Assessed, "the flag exists even though detection did not run")
 }
 
+func TestAssessProviderFlagIsNotUnresolved(t *testing.T) {
+	flagged := occurrence()
+	flagged.ReviewFlagReason = "provider lemma mismatch"
+	flagged.ReviewFlagProvenance = map[string]any{"source": domain.LemmaReviewFlagProviderSource, "provider": "fake"}
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{flagged}}
+	service := New(Config{Store: store})
+
+	assessment, err := service.Assess(context.Background(), "owner", "book")
+
+	require.NoError(t, err)
+	assert.False(t, assessment.Unresolved, "a provider advisory flag never blocks Reading")
+}
+
 func TestAssessResolvedFlagsAreNotUnresolved(t *testing.T) {
 	flagged := occurrence()
 	flagged.ReviewFlagReason = "alternative exists"

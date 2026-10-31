@@ -57,9 +57,10 @@ func saveLemmaReviewFlagsTx(ctx context.Context, tx pgx.Tx, first domain.LemmaRe
 }
 
 // saveLemmaReviewFlag rejects a flag whose occurrence is missing required
-// evidence or is not in the Book's current analysis, then inserts the flag's
-// evidence. A flag the learner already resolved is never reopened, because the
-// insert conflicts with the stored row.
+// evidence or is not in the Book's current analysis, then records the flag's
+// evidence. A flag the learner already resolved is never reopened, a local
+// high-risk flag replaces an unresolved provider flag for the same occurrence,
+// and a provider flag never replaces an unresolved local one.
 func saveLemmaReviewFlag(ctx context.Context, tx pgx.Tx, first domain.LemmaReviewOccurrence, flag domain.LemmaReviewFlag) error {
 	o := flag.Occurrence
 	if o.OwnerID != first.OwnerID || o.BookID != first.BookID || o.CorpusID == "" || o.AnalysisRunID == "" || o.SourceDocumentID == "" || o.EndOffset <= o.StartOffset || strings.TrimSpace(flag.Reason) == "" {
@@ -76,7 +77,7 @@ func saveLemmaReviewFlag(ctx context.Context, tx pgx.Tx, first domain.LemmaRevie
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO occurrence_lemma_review_flags(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,reason,evidence_provenance) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) ON CONFLICT(owner_id,book_id,analysis_run_id,source_document_id,start_offset,end_offset) DO NOTHING`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.SourceDocumentID, o.StartOffset, o.EndOffset, flag.Reason, string(provenance))
+	_, err = tx.Exec(ctx, `INSERT INTO occurrence_lemma_review_flags(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,reason,evidence_provenance) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) ON CONFLICT(owner_id,book_id,analysis_run_id,source_document_id,start_offset,end_offset) DO UPDATE SET reason=EXCLUDED.reason,evidence_provenance=EXCLUDED.evidence_provenance WHERE occurrence_lemma_review_flags.resolution IS NULL AND occurrence_lemma_review_flags.evidence_provenance->>'source'=$10 AND COALESCE(EXCLUDED.evidence_provenance->>'source','')<>$10`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.SourceDocumentID, o.StartOffset, o.EndOffset, flag.Reason, string(provenance), domain.LemmaReviewFlagProviderSource)
 	return err
 }
 
@@ -103,9 +104,11 @@ func marshalLemmaReviewFlagProvenance(provenance map[string]any) ([]byte, error)
 	return json.Marshal(provenance)
 }
 
+// unresolvedLemmaReviewFlags reports whether the analysis still holds unresolved
+// local high-risk evidence. Provider-sourced advisory flags never gate a freeze.
 func unresolvedLemmaReviewFlags(ctx context.Context, tx pgx.Tx, owner, book, analysisRun string) (bool, error) {
 	var exists bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM occurrence_lemma_review_flags WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND resolution IS NULL)`, owner, book, analysisRun).Scan(&exists)
+	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM occurrence_lemma_review_flags WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND resolution IS NULL AND COALESCE(evidence_provenance->>'source','')<>$4)`, owner, book, analysisRun, domain.LemmaReviewFlagProviderSource).Scan(&exists)
 	return exists, err
 }
 
