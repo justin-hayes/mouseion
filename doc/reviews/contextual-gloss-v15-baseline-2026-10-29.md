@@ -8,7 +8,7 @@ environment**
 - Reasoning setting: not configured
 - Prompt contract: `translation-v15-short-handles`
 - Case set: `gloss-review-v1` (20 cases) in
-  [`cmd/glossreview/testdata/gloss_review_cases.json`](../../cmd/glossreview/testdata/gloss_review_cases.json)
+  [`cmd/glossreview/testdata/gloss_review_cases_v1.json`](../../cmd/glossreview/testdata/gloss_review_cases_v1.json)
 - Command: `go run ./cmd/glossreview` (see [the review guide](README.md))
 
 ## Run status

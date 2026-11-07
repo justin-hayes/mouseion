@@ -17,12 +17,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	seedReviewCaseIDs     = []string{"de-sehen-fern", "it-palazzo", "el-tha"}
+	missedParticleCaseIDs = []string{"de-ruft-an", "de-steht-auf", "de-kauft-ein"}
+	lookalikeControlIDs   = []string{"de-liegt-fern", "de-fernsehen"}
+)
+
 func TestEmbeddedCaseSetCoversEveryReviewClassAndLanguage(t *testing.T) {
 	cases, err := loadCaseSet(bytes.NewReader(glossReviewCases))
 	require.NoError(t, err)
 
 	t.Run("version is pinned", func(t *testing.T) {
-		require.Equal(t, "gloss-review-v1", cases.Version)
+		require.Equal(t, "gloss-review-v2", cases.Version)
 	})
 	t.Run("every supported language is present", func(t *testing.T) {
 		seen := map[string]bool{}
@@ -44,9 +50,34 @@ func TestEmbeddedCaseSetCoversEveryReviewClassAndLanguage(t *testing.T) {
 	})
 	t.Run("seed cases are present", func(t *testing.T) {
 		ids := caseIDs(cases)
-		for _, want := range []string{"de-sehen-fern", "it-palazzo", "el-tha"} {
-			require.Contains(t, ids, want)
+		for _, group := range [][]string{seedReviewCaseIDs, missedParticleCaseIDs, lookalikeControlIDs} {
+			for _, want := range group {
+				t.Run(want, func(t *testing.T) {
+					require.Contains(t, ids, want)
+				})
+			}
 		}
+	})
+	t.Run("missed-particle cases expect a mismatch", func(t *testing.T) {
+		byID := casesByID(cases)
+		for _, id := range missedParticleCaseIDs {
+			t.Run(id, func(t *testing.T) {
+				require.Equal(t, verdictLemmaMismatch, byID[id].ExpectedVerdictClass)
+				require.Empty(t, byID[id].ExpectedGloss, "a mismatch case has no expected Gloss")
+			})
+		}
+	})
+	t.Run("lookalike controls expect a Gloss", func(t *testing.T) {
+		byID := casesByID(cases)
+		for _, id := range lookalikeControlIDs {
+			t.Run(id, func(t *testing.T) {
+				require.NotEqual(t, verdictLemmaMismatch, byID[id].ExpectedVerdictClass)
+				require.NotEmpty(t, byID[id].ExpectedGloss)
+			})
+		}
+		t.Run("fernsehen gloss", func(t *testing.T) {
+			require.Equal(t, "to watch television", byID["de-fernsehen"].ExpectedGloss)
+		})
 	})
 	t.Run("cases carry evidence and an expected Gloss", func(t *testing.T) {
 		for _, reviewCase := range cases.Cases {
@@ -58,6 +89,56 @@ func TestEmbeddedCaseSetCoversEveryReviewClassAndLanguage(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestCaseSetKeepsEveryV1CaseUnchanged(t *testing.T) {
+	v1Bytes, err := os.ReadFile(filepath.Join("testdata", "gloss_review_cases_v1.json"))
+	require.NoError(t, err)
+	v1, err := loadCaseSet(bytes.NewReader(v1Bytes))
+	require.NoError(t, err)
+	v2, err := loadCaseSet(bytes.NewReader(glossReviewCases))
+	require.NoError(t, err)
+
+	byID := casesByID(v2)
+	for _, v1Case := range v1.Cases {
+		t.Run(v1Case.ID, func(t *testing.T) {
+			v2Case, ok := byID[v1Case.ID]
+			require.True(t, ok, "v2 dropped the v1 case")
+			require.Equal(t, v1Case, v2Case)
+		})
+	}
+}
+
+func TestReviewScoresFlaggedControlsAndMissedParticleCases(t *testing.T) {
+	cases, err := loadCaseSet(bytes.NewReader(glossReviewCases))
+	require.NoError(t, err)
+	client := stubClientForCases(t, func(providerRequestPayload) (string, string) {
+		// An empty Gloss makes the stub return unresolved_kind=lemma_mismatch.
+		return "to see", ""
+	})
+	report := review(context.Background(), reviewOptions{
+		Now:      time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC),
+		Cases:    cases,
+		Client:   client,
+		Provider: reviewTestProviderMetadata(),
+	})
+	byID := resultsByCaseID(report.Cases)
+
+	for _, id := range lookalikeControlIDs {
+		t.Run("control "+id, func(t *testing.T) {
+			result, ok := byID[id]
+			require.True(t, ok)
+			require.Equal(t, outcomeAbstained, result.Outcome)
+			require.Equal(t, checkFail, automaticCheckStatus(result, checkNameLemmaMismatch))
+		})
+	}
+	for _, id := range missedParticleCaseIDs {
+		t.Run("mismatch "+id, func(t *testing.T) {
+			result, ok := byID[id]
+			require.True(t, ok)
+			require.Equal(t, checkPass, automaticCheckStatus(result, checkNameLemmaMismatch))
+		})
+	}
 }
 
 func TestLoadCaseSetRejectsUnknownFieldsAndMissingCoverage(t *testing.T) {
@@ -214,15 +295,15 @@ func TestRunWithEnvironmentWritesTheDatedReportAndSummary(t *testing.T) {
 	for name, fragment := range map[string]string{
 		"report title":  "# Contextual Gloss review — `translation-v16-citation-form-gloss`",
 		"report date":   "- Date: 2026-10-29",
-		"full case set": "- Case set: `gloss-review-v1` (20 cases)",
-		"contains rate": "Full review-corpus \"Gloss contains translation\" rate: 20/20 (100.0%)",
+		"full case set": "- Case set: `gloss-review-v2` (25 cases)",
+		"contains rate": "Full review-corpus \"Gloss contains translation\" rate: 25/25 (100.0%)",
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.Contains(t, string(rendered), fragment)
 		})
 	}
 	t.Run("stdout", func(t *testing.T) {
-		require.Contains(t, output.String(), "gloss review report written: path="+path+" cases=20")
+		require.Contains(t, output.String(), "gloss review report written: path="+path+" cases=25")
 	})
 }
 
@@ -361,6 +442,22 @@ func caseIDs(cases reviewCaseSet) []string {
 		ids = append(ids, reviewCase.ID)
 	}
 	return ids
+}
+
+func casesByID(cases reviewCaseSet) map[string]reviewCase {
+	byID := make(map[string]reviewCase, len(cases.Cases))
+	for _, reviewCase := range cases.Cases {
+		byID[reviewCase.ID] = reviewCase
+	}
+	return byID
+}
+
+func resultsByCaseID(results []caseResult) map[string]caseResult {
+	byID := make(map[string]caseResult, len(results))
+	for _, result := range results {
+		byID[result.Case.ID] = result
+	}
+	return byID
 }
 
 type providerRequestPayload struct {
