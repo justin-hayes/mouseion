@@ -46,5 +46,12 @@ jobs:
             MIT,
             MPL-2.0,
             Zlib
+          # Packages exempt from the license check, by package URL (any
+          # version). sonarqube-scan-action is LGPL-3.0: it runs only in CI
+          # (sonarqube.yml) and is never built into or shipped with Mouseion,
+          # so it is exempted here rather than allowing LGPL-3.0 for every
+          # runtime dependency.
+          allow-dependencies-licenses: >-
+            pkg:githubactions/SonarSource/sonarqube-scan-action
           # Post the findings on the pull request, not just in the job log.
           comment-summary-in-pr: always
