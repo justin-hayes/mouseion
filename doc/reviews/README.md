@@ -94,7 +94,7 @@ translation, the outcome, and two automatic checks:
   Each case also shows the unresolved kind it returned.
 
 The command always runs the contract compiled into the binary (currently
-`translation-v16-citation-form-gloss`). To reproduce a v15 run, check out a
+`translation-v17-clause-lemma-mismatch`). To reproduce a v15 run, check out a
 commit from before v16 and run the command there.
 
 The summary reports the full review-corpus "Gloss contains translation" rate
