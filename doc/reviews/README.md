@@ -71,11 +71,14 @@ translation, the outcome, and two automatic checks:
 
 - **Gloss equals translation** — compares the resolved Gloss with the plain
   translation, ignoring case and surrounding whitespace.
-- **outcome is `lemma_mismatch`** — compares the observed outcome with the case's
-  expected verdict. The v15 contract has no `lemma_mismatch` outcome yet, so the
-  check reports **not supported by this contract** instead of failing every
-  mismatch case. The mismatch-outcome ticket flips this capability when it adds
-  the enumerated outcome to the response contract.
+- **outcome is `lemma_mismatch`** — compares the provider's `unresolved_kind`
+  with the case's expected verdict. A `lemma_mismatch` case passes only when the
+  provider returns `lemma_mismatch`; any other case fails if the provider does.
+  Each case also shows the unresolved kind it returned.
+
+The command always runs the contract compiled into the binary (currently
+`translation-v16-citation-form-gloss`). To reproduce a v15 run, check out a
+commit from before v16 and run the command there.
 
 The summary reports the full review-corpus "Gloss contains translation" rate
 for information only. It does not gate rollout, and it does not read the

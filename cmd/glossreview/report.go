@@ -35,7 +35,7 @@ func writeReportSummary(builder *strings.Builder, report reviewReport) {
 	writef(builder, "- Cases run: %d\n", summary.Total)
 	writef(builder, "- Outcomes: glossed=%d, abstained=%d, unresolved=%d, invalid response=%d, provider error=%d\n", summary.Glossed, summary.Abstained, summary.Unresolved, summary.InvalidResponse, summary.ProviderError)
 	writef(builder, "- Automatic check %s: %d passed, %d failed, %d not applicable\n", checkDisplayName(checkNameGlossEqualsTranslation), summary.EqualsPass, summary.EqualsFail, summary.EqualsNotApplicable)
-	writef(builder, "- Automatic check %s: %s\n", checkDisplayName(checkNameLemmaMismatch), checkResult(automaticCheck{Status: summary.MismatchStatus, Detail: summary.MismatchDetail}))
+	writef(builder, "- Automatic check %s: %s\n", checkDisplayName(checkNameLemmaMismatch), checkResult(automaticCheck{Status: summary.MismatchStatus}))
 	if summary.ContainsTotal == 0 {
 		builder.WriteString("- Full review-corpus \"Gloss contains translation\": no resolved Gloss and translation pairs\n\n")
 		return
@@ -74,6 +74,7 @@ func writeCaseReport(builder *strings.Builder, result caseResult) {
 	writef(builder, "- Raw Gloss: %s\n", codeSpan(result.Response.Gloss))
 	writef(builder, "- Evidence IDs: %s\n", codeSpan(strings.Join(result.Response.EvidenceIDs, ", ")))
 	writef(builder, "- Context only: %t\n", result.Response.ContextOnly)
+	writef(builder, "- Unresolved kind: %s\n", codeSpan(string(result.Response.UnresolvedKind)))
 	writef(builder, "- Unresolved reason: %s\n", codeSpan(result.Response.UnresolvedReason))
 	builder.WriteString("\n### Automatic checks\n\n")
 	builder.WriteString("| Check | Result |\n| --- | --- |\n")
@@ -114,12 +115,10 @@ func checkResult(check automaticCheck) string {
 		label = "PASS"
 	case checkFail:
 		label = "FAIL"
-	case checkNotSupported:
-		label = "not supported by this contract"
 	case checkNotApplicable:
 		label = "not applicable"
 	}
-	if strings.TrimSpace(check.Detail) == "" || check.Status == checkNotSupported {
+	if strings.TrimSpace(check.Detail) == "" {
 		return "**" + label + "**"
 	}
 	return "**" + label + "** — " + check.Detail

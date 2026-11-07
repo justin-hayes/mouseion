@@ -87,15 +87,14 @@ func TestReviewWritesReportThroughStubbedProviderTransport(t *testing.T) {
 		case "palazzo":
 			return "apartment building", "apartment building"
 		default:
-			return "to see", "to watch television"
+			return "to see", ""
 		}
 	})
 	report := review(context.Background(), reviewOptions{
-		Now:                      time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC),
-		Cases:                    reviewTestCases(),
-		Client:                   client,
-		Provider:                 reviewTestProviderMetadata(),
-		MismatchOutcomeSupported: false,
+		Now:      time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC),
+		Cases:    reviewTestCases(),
+		Client:   client,
+		Provider: reviewTestProviderMetadata(),
 	})
 	require.Len(t, report.Cases, 3)
 	var providerErrors []error
@@ -116,11 +115,17 @@ func TestReviewWritesReportThroughStubbedProviderTransport(t *testing.T) {
 	t.Run("protected win passes equality", func(t *testing.T) {
 		require.Equal(t, checkPass, automaticCheckStatus(report.Cases[1], checkNameGlossEqualsTranslation))
 	})
-	t.Run("v15 cannot report a mismatch", func(t *testing.T) {
-		require.Equal(t, checkNotSupported, automaticCheckStatus(report.Cases[2], checkNameLemmaMismatch))
+	t.Run("lemma mismatch is omitted, not glossed", func(t *testing.T) {
+		require.Equal(t, outcomeAbstained, report.Cases[2].Outcome)
+	})
+	t.Run("lemma mismatch passes the mismatch check", func(t *testing.T) {
+		require.Equal(t, checkPass, automaticCheckStatus(report.Cases[2], checkNameLemmaMismatch))
+	})
+	t.Run("ordinary case passes the mismatch check", func(t *testing.T) {
+		require.Equal(t, checkPass, automaticCheckStatus(report.Cases[0], checkNameLemmaMismatch))
 	})
 	t.Run("summary", func(t *testing.T) {
-		require.Equal(t, reviewSummary{Total: 3, Glossed: 3, EqualsPass: 1, EqualsFail: 2, ContainsTotal: 3, ContainsGloss: 1, MismatchStatus: checkNotSupported, MismatchDetail: "not supported by this contract"}, report.Summary)
+		require.Equal(t, reviewSummary{Total: 3, Glossed: 2, Abstained: 1, EqualsPass: 1, EqualsFail: 1, EqualsNotApplicable: 1, ContainsTotal: 2, ContainsGloss: 1, MismatchStatus: checkPass}, report.Summary)
 	})
 
 	var output bytes.Buffer
@@ -128,11 +133,11 @@ func TestReviewWritesReportThroughStubbedProviderTransport(t *testing.T) {
 	rendered := output.String()
 	t.Run("report shape", func(t *testing.T) {
 		for name, fragment := range map[string]string{
-			"title":                 "# Contextual Gloss review — `translation-v15-short-handles`",
+			"title":                 "# Contextual Gloss review — `translation-v16-citation-form-gloss`",
 			"date":                  "- Date: 2026-10-29",
 			"model":                 "- Model: `gpt-review`",
 			"reasoning setting":     "- Reasoning setting: `low`",
-			"prompt contract":       "- Prompt contract: `translation-v15-short-handles`",
+			"prompt contract":       "- Prompt contract: `translation-v16-citation-form-gloss`",
 			"case set":              "- Case set: `gloss-review-test` (3 cases)",
 			"case heading":          "## `de-kalt` — de `kalt` (`ADJ`)",
 			"sentence":              "- Representative sentence: `Das Wasser war kalt.`",
@@ -140,12 +145,14 @@ func TestReviewWritesReportThroughStubbedProviderTransport(t *testing.T) {
 			"raw gloss":             "- Raw Gloss: `having a low temperature`",
 			"translation":           "- Translation: `cold`",
 			"equality failure":      "| Gloss equals translation | **FAIL**",
-			"unsupported mismatch":  "| outcome is `lemma_mismatch` | **not supported by this contract** |",
+			"mismatch check":        "| outcome is `lemma_mismatch` | **PASS** |",
+			"unresolved kind":       "- Unresolved kind: `lemma_mismatch`",
+			"summary mismatch":      "- Automatic check outcome is `lemma_mismatch`: **PASS**",
 			"citation verdict":      "- [ ] Citation form — verdict: __________",
 			"paraphrase verdict":    "- [ ] No definition paraphrase — verdict: __________",
 			"inflection verdict":    "- [ ] No sentence inflection or arguments — verdict: __________",
 			"protected win verdict": "- [ ] Protected win kept — verdict: __________",
-			"contains rate":         "Full review-corpus \"Gloss contains translation\" rate: 1/3 (33.3%)",
+			"contains rate":         "Full review-corpus \"Gloss contains translation\" rate: 1/2 (50.0%)",
 		} {
 			t.Run(name, func(t *testing.T) {
 				require.Contains(t, rendered, fragment)
@@ -205,7 +212,7 @@ func TestRunWithEnvironmentWritesTheDatedReportAndSummary(t *testing.T) {
 	require.NoError(t, err)
 
 	for name, fragment := range map[string]string{
-		"report title":  "# Contextual Gloss review — `translation-v15-short-handles`",
+		"report title":  "# Contextual Gloss review — `translation-v16-citation-form-gloss`",
 		"report date":   "- Date: 2026-10-29",
 		"full case set": "- Case set: `gloss-review-v1` (20 cases)",
 		"contains rate": "Full review-corpus \"Gloss contains translation\" rate: 20/20 (100.0%)",
@@ -227,21 +234,27 @@ func TestRunWithEnvironmentRejectsAnEnvironmentOpenFailure(t *testing.T) {
 	require.ErrorIs(t, err, openErr)
 }
 
-func TestLemmaMismatchCheckOnceTheContractSupportsIt(t *testing.T) {
+func TestLemmaMismatchCheckComparesExpectedAndObservedMismatch(t *testing.T) {
 	mismatchCase := reviewCase{ID: "sehen", ExpectedVerdictClass: verdictLemmaMismatch}
 	ordinaryCase := reviewCase{ID: "kalt", ExpectedVerdictClass: verdictPlainEquivalent}
+	mismatchResult := caseResult{Outcome: outcomeAbstained, Response: enrichment.TranslationResponse{ContextOnly: true, UnresolvedKind: enrichment.ContextualGlossUnresolvedLemmaMismatch}}
+	ambiguousResult := caseResult{Outcome: outcomeAbstained, Response: enrichment.TranslationResponse{ContextOnly: true, UnresolvedKind: enrichment.ContextualGlossUnresolvedAmbiguous}}
+	erroredMismatch := mismatchResult
+	erroredMismatch.Err = errors.New("provider unavailable")
 	for name, testCase := range map[string]struct {
 		reviewCase reviewCase
 		result     caseResult
-		supported  bool
 		want       checkStatus
 	}{
-		"expected mismatch fails until observed":  {reviewCase: mismatchCase, result: caseResult{Outcome: outcomeGlossed}, supported: true, want: checkFail},
-		"ordinary case passes without a mismatch": {reviewCase: ordinaryCase, result: caseResult{Outcome: outcomeGlossed}, supported: true, want: checkPass},
-		"v15 reports unsupported":                 {reviewCase: mismatchCase, supported: false, want: checkNotSupported},
+		"expected mismatch passes when observed":  {reviewCase: mismatchCase, result: mismatchResult, want: checkPass},
+		"expected mismatch fails when glossed":    {reviewCase: mismatchCase, result: caseResult{Outcome: outcomeGlossed}, want: checkFail},
+		"expected mismatch fails when ambiguous":  {reviewCase: mismatchCase, result: ambiguousResult, want: checkFail},
+		"provider error observes no mismatch":     {reviewCase: mismatchCase, result: erroredMismatch, want: checkFail},
+		"ordinary case passes without a mismatch": {reviewCase: ordinaryCase, result: caseResult{Outcome: outcomeGlossed}, want: checkPass},
+		"ordinary case fails on a mismatch":       {reviewCase: ordinaryCase, result: mismatchResult, want: checkFail},
 	} {
 		t.Run(name, func(t *testing.T) {
-			require.Equal(t, testCase.want, lemmaMismatchCheck(testCase.reviewCase, testCase.result, testCase.supported).Status)
+			require.Equal(t, testCase.want, lemmaMismatchCheck(testCase.reviewCase, testCase.result).Status)
 		})
 	}
 }
@@ -260,7 +273,7 @@ func TestSummarizeCountsEveryOutcomeAndReportsAFailedMismatchCheck(t *testing.T)
 		EqualsPass: 1, EqualsFail: 1, EqualsNotApplicable: 4,
 		ContainsGloss: 1, ContainsTotal: 2,
 		MismatchStatus: checkFail,
-	}, summarize(cases, true))
+	}, summarize(cases))
 }
 
 func TestCaseValidationRejectsIncompleteCases(t *testing.T) {
@@ -314,8 +327,8 @@ func reviewTestProviderMetadata() providerMetadata {
 		Model:           "gpt-review",
 		ReasoningEffort: "low",
 		ProviderName:    "openai-compatible",
-		ProviderVersion: "gpt-review/translation-v15-short-handles-reasoning-low",
-		PromptContract:  "translation-v15-short-handles",
+		ProviderVersion: "gpt-review/translation-v16-citation-form-gloss-reasoning-low",
+		PromptContract:  "translation-v16-citation-form-gloss",
 	}
 }
 
@@ -386,6 +399,11 @@ func stubClientForCases(t *testing.T, answer func(providerRequestPayload) (strin
 	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		payload := decodeProviderRequest(t, request)
 		translation, gloss := answer(payload)
+		// An empty gloss answers with the v16 lemma_mismatch outcome.
+		evidenceIDs, unresolvedKind, unresolvedReason := []string{"e1"}, "", ""
+		if gloss == "" {
+			evidenceIDs, unresolvedKind, unresolvedReason = []string{}, string(enrichment.ContextualGlossUnresolvedLemmaMismatch), "The sentence uses a different verb."
+		}
 		content, err := json.Marshal(map[string]any{
 			"item_id":                      enrichment.ContextualGlossItemHandle,
 			"source_language":              payload.Language,
@@ -394,9 +412,10 @@ func stubClientForCases(t *testing.T, answer func(providerRequestPayload) (strin
 			"sentence_translation":         "A sentence translation.",
 			"sentence_translation_targets": []string{},
 			"gloss":                        gloss,
-			"evidence_ids":                 []string{"e1"},
-			"context_only":                 false,
-			"unresolved_reason":            "",
+			"evidence_ids":                 evidenceIDs,
+			"context_only":                 gloss == "",
+			"unresolved_kind":              unresolvedKind,
+			"unresolved_reason":            unresolvedReason,
 		})
 		require.NoError(t, err)
 		envelope, err := json.Marshal(map[string]any{
