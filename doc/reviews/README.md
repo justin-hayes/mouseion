@@ -99,5 +99,7 @@ operator has recorded every verdict.
 
 - [Contextual Gloss v15 baseline](contextual-gloss-v15-baseline-2026-10-29.md) —
   baseline pending; the implementation environment had no configured provider.
+- [Contextual Gloss v16 review, 2026-11-07](contextual-gloss-v16-2026-11-07.md) —
+  gate failed on the *fern-sehen* `lemma_mismatch` case; v16 does not roll out.
 - [English target alignment quality review](english-target-alignment.md) —
   configured-model review pending.
