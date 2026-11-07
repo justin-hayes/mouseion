@@ -1,5 +1,5 @@
 {
-  "version": "gloss-review-v1",
+  "version": "gloss-review-v2",
   "cases": [
     {
       "id": "de-kalt",
@@ -476,6 +476,124 @@
       "expected_verdict_class": "plain_equivalent",
       "expected_gloss": "book",
       "notes": "Modern Greek plain-equivalent spot check."
+    },
+    {
+      "id": "de-ruft-an",
+      "language": "de",
+      "lemma": "rufen",
+      "upos": "VERB",
+      "target_form": "ruft",
+      "sentence": "Er ruft seine Mutter jeden Abend an.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:rufen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to call, to shout"
+        },
+        {
+          "evidence_id": "wikt:de:rufen:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to summon"
+        }
+      ],
+      "expected_verdict_class": "lemma_mismatch",
+      "notes": "The sentence uses separable anrufen, but the analysis froze the bare base-verb lemma rufen."
+    },
+    {
+      "id": "de-steht-auf",
+      "language": "de",
+      "lemma": "stehen",
+      "upos": "VERB",
+      "target_form": "steht",
+      "sentence": "Sie steht jeden Morgen um sechs Uhr auf.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:stehen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to stand"
+        },
+        {
+          "evidence_id": "wikt:de:stehen:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to be situated, to be located"
+        }
+      ],
+      "expected_verdict_class": "lemma_mismatch",
+      "notes": "The sentence uses separable aufstehen (to get up), but the analysis froze the bare base-verb lemma stehen."
+    },
+    {
+      "id": "de-kauft-ein",
+      "language": "de",
+      "lemma": "kaufen",
+      "upos": "VERB",
+      "target_form": "kauft",
+      "sentence": "Sie kauft samstags auf dem Markt ein.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:kaufen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to buy, to purchase"
+        }
+      ],
+      "expected_verdict_class": "lemma_mismatch",
+      "notes": "The sentence uses separable einkaufen (to shop), but the analysis froze the bare base-verb lemma kaufen."
+    },
+    {
+      "id": "de-liegt-fern",
+      "language": "de",
+      "lemma": "liegen",
+      "upos": "VERB",
+      "target_form": "liegt",
+      "sentence": "Das Dorf liegt fern der Stadt.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:liegen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to lie; to be situated"
+        },
+        {
+          "evidence_id": "wikt:de:liegen:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to be located"
+        }
+      ],
+      "expected_verdict_class": "plain_equivalent",
+      "expected_gloss": "to lie",
+      "notes": "Lookalike control: fern is an adverb meaning 'far from', not the separable prefix of fernsehen. The sentence uses liegen and must be glossed, not flagged as a mismatch."
+    },
+    {
+      "id": "de-fernsehen",
+      "language": "de",
+      "lemma": "fernsehen",
+      "upos": "VERB",
+      "target_form": "sieht",
+      "sentence": "Großmutter sieht im Wohnzimmer fern ohne Bild und Ton.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:fernsehen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to watch television"
+        }
+      ],
+      "expected_verdict_class": "plain_equivalent",
+      "expected_gloss": "to watch television",
+      "notes": "Lookalike control: the same sentence with the correctly analysed separable verb fernsehen, which re-analysed books produce since #2329. It must be glossed, not flagged as a sehen mismatch."
     }
   ]
 }

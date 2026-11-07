@@ -49,7 +49,7 @@ configured, rather than writing a report with empty provider output.
 
 ### Case set
 
-The case set is versioned (`gloss-review-v1`) and carries the v15 failure and win
+The case set is versioned (`gloss-review-v2`) and carries the v15 failure and win
 classes from #2325:
 
 - `plain_equivalent` — must become the plain lemma equivalent.
@@ -60,9 +60,26 @@ classes from #2325:
   omitted instead of glossed.
 - `spot_check` — function words, idioms, and Italian or Modern Greek coverage.
 
+`gloss-review-v2` keeps every v1 case unchanged and adds harder German cases:
+
+- **Missed-particle mismatches** — `de-ruft-an`, `de-steht-auf` and
+  `de-kauft-ein` freeze the bare base-verb lemma (`rufen`, `stehen`, `kaufen`)
+  although the sentence uses the separable verb (*anrufen*, *aufstehen*,
+  *einkaufen*). Each must return `lemma_mismatch`.
+- **Lookalike controls** — `de-liegt-fern` is a *fern* homograph where the word
+  is an adverb ("far from"), not a separable prefix, and it must be glossed as
+  *liegen* ("to lie"). `de-fernsehen` is the *sieht … fern* sentence with the
+  correctly analysed lemma *fernsehen*, which re-analysed books produce since
+  #2329; its Gloss must be "to watch television". Both controls fail the
+  automatic `lemma_mismatch` check if a provider flags them.
+
+`cmd/glossreview/testdata/gloss_review_cases_v1.json` preserves the v1 set, and
+a test asserts every v1 case still appears unchanged in v2.
+
 Every case carries language, lemma, UPOS, target form, representative sentence,
-frozen meaning evidence and an expected verdict class. `loadCaseSet` rejects a
-case set that misses a language or verdict class.
+frozen meaning evidence, an expected verdict class and, unless it is a mismatch
+case, an expected Gloss. `loadCaseSet` rejects a case set that misses a language
+or verdict class.
 
 ### What the report contains
 
@@ -71,11 +88,14 @@ translation, the outcome, and two automatic checks:
 
 - **Gloss equals translation** — compares the resolved Gloss with the plain
   translation, ignoring case and surrounding whitespace.
-- **outcome is `lemma_mismatch`** — compares the observed outcome with the case's
-  expected verdict. The v15 contract has no `lemma_mismatch` outcome yet, so the
-  check reports **not supported by this contract** instead of failing every
-  mismatch case. The mismatch-outcome ticket flips this capability when it adds
-  the enumerated outcome to the response contract.
+- **outcome is `lemma_mismatch`** — compares the provider's `unresolved_kind`
+  with the case's expected verdict. A `lemma_mismatch` case passes only when the
+  provider returns `lemma_mismatch`; any other case fails if the provider does.
+  Each case also shows the unresolved kind it returned.
+
+The command always runs the contract compiled into the binary (currently
+`translation-v16-citation-form-gloss`). To reproduce a v15 run, check out a
+commit from before v16 and run the command there.
 
 The summary reports the full review-corpus "Gloss contains translation" rate
 for information only. It does not gate rollout, and it does not read the
@@ -96,5 +116,7 @@ operator has recorded every verdict.
 
 - [Contextual Gloss v15 baseline](contextual-gloss-v15-baseline-2026-10-29.md) —
   baseline pending; the implementation environment had no configured provider.
+- [Contextual Gloss v16 review, 2026-11-07](contextual-gloss-v16-2026-11-07.md) —
+  gate failed on the *fern-sehen* `lemma_mismatch` case; v16 does not roll out.
 - [English target alignment quality review](english-target-alignment.md) —
   configured-model review pending.

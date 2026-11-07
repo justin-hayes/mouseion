@@ -1,0 +1,481 @@
+{
+  "version": "gloss-review-v1",
+  "cases": [
+    {
+      "id": "de-kalt",
+      "language": "de",
+      "lemma": "kalt",
+      "upos": "ADJ",
+      "target_form": "kalt",
+      "sentence": "Das Wasser war kalt und schmeckte nach Wasser.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:kalt:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "cold, chilly; the physical perception of something having a low temperature"
+        },
+        {
+          "evidence_id": "wikt:de:kalt:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "unfriendly, distant"
+        }
+      ],
+      "expected_verdict_class": "plain_equivalent",
+      "expected_gloss": "cold",
+      "notes": "v15 paraphrased the explanatory tail of the first sense instead of returning the headword equivalent."
+    },
+    {
+      "id": "de-feuer",
+      "language": "de",
+      "lemma": "Feuer",
+      "upos": "NOUN",
+      "target_form": "Feuer",
+      "sentence": "Das Feuer wärmte die Hände der Wanderer.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:feuer:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "fire; the flames and heat produced by burning"
+        }
+      ],
+      "expected_verdict_class": "plain_equivalent",
+      "expected_gloss": "fire",
+      "notes": "A definition-style Gloss such as \"an instance of something burning\" must become the plain equivalent."
+    },
+    {
+      "id": "de-hoeflich",
+      "language": "de",
+      "lemma": "höflich",
+      "upos": "ADJ",
+      "target_form": "höflich",
+      "sentence": "Sie war höflich zu allen Gästen.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:hoeflich:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "polite, courteous"
+        },
+        {
+          "evidence_id": "wikt:de:hoeflich:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "in a well-mannered way"
+        }
+      ],
+      "expected_verdict_class": "plain_equivalent",
+      "expected_gloss": "polite",
+      "notes": "The adverb paraphrase \"in a well-mannered way\" is not the citation-form adjective."
+    },
+    {
+      "id": "de-finne",
+      "language": "de",
+      "lemma": "Finne",
+      "upos": "NOUN",
+      "target_form": "Finne",
+      "sentence": "Der Finne arbeitet seit Jahren in Berlin.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:finne:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "Finn; a person from Finland"
+        }
+      ],
+      "expected_verdict_class": "plain_equivalent",
+      "expected_gloss": "Finn",
+      "notes": "The plain equivalent is the demonym, not a paraphrase of nationality."
+    },
+    {
+      "id": "de-faehig",
+      "language": "de",
+      "lemma": "fähig",
+      "upos": "ADJ",
+      "target_form": "fähig",
+      "sentence": "Er ist zu dieser Aufgabe fähig.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:faehig:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "capable, able"
+        }
+      ],
+      "expected_verdict_class": "plain_equivalent",
+      "expected_gloss": "capable",
+      "notes": "The sentence complement \"to this task\" must not enter the Gloss."
+    },
+    {
+      "id": "de-erschiessen",
+      "language": "de",
+      "lemma": "erschießen",
+      "upos": "VERB",
+      "target_form": "erschießt",
+      "sentence": "Der Jäger erschießt den Wolf.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:erschiessen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to shoot dead"
+        }
+      ],
+      "expected_verdict_class": "drop_sentence_material",
+      "expected_gloss": "to shoot dead",
+      "notes": "v15 returned the past-tense sentence form \"shot dead\" instead of the citation form."
+    },
+    {
+      "id": "de-eroeffnen",
+      "language": "de",
+      "lemma": "eröffnen",
+      "upos": "VERB",
+      "target_form": "eröffnet",
+      "sentence": "Sie eröffnet nächste Woche ein Café.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:eroeffnen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to open (a business or event); to inaugurate"
+        }
+      ],
+      "expected_verdict_class": "drop_sentence_material",
+      "expected_gloss": "to open",
+      "notes": "The Gloss must not carry the sentence's object or time expression."
+    },
+    {
+      "id": "de-biegen",
+      "language": "de",
+      "lemma": "biegen",
+      "upos": "VERB",
+      "target_form": "bog",
+      "sentence": "Das Auto bog langsam um die Ecke.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:biegen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to bend; to turn (a corner)"
+        }
+      ],
+      "expected_verdict_class": "drop_sentence_material",
+      "expected_gloss": "to bend, to turn",
+      "notes": "The citation form is the infinitive; the sentence's path and direction stay in the English sentence."
+    },
+    {
+      "id": "de-schiessen",
+      "language": "de",
+      "lemma": "schießen",
+      "upos": "VERB",
+      "target_form": "schossen",
+      "sentence": "Die Tränen schossen ihr aus den Augen.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:schiessen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to shoot"
+        },
+        {
+          "evidence_id": "wikt:de:schiessen:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to gush out, to rush (of tears or water)"
+        }
+      ],
+      "expected_verdict_class": "protected_win",
+      "expected_gloss": "to gush out",
+      "notes": "A genuine contextual improvement that the v16 contract must keep."
+    },
+    {
+      "id": "de-sehen-fern",
+      "language": "de",
+      "lemma": "sehen",
+      "upos": "VERB",
+      "target_form": "sieht",
+      "sentence": "Großmutter sieht im Wohnzimmer fern ohne Bild und Ton.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:sehen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to see, to look"
+        },
+        {
+          "evidence_id": "wikt:de:sehen:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to understand, to realize"
+        }
+      ],
+      "expected_verdict_class": "lemma_mismatch",
+      "notes": "The sentence uses separable fernsehen, not sehen. v15 glossed it as \"to watch television\"."
+    },
+    {
+      "id": "de-doch",
+      "language": "de",
+      "lemma": "doch",
+      "upos": "PART",
+      "target_form": "doch",
+      "sentence": "Komm doch mit!",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:doch:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "however, nevertheless"
+        },
+        {
+          "evidence_id": "wikt:de:doch:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "modal particle adding emphasis or urging"
+        }
+      ],
+      "expected_verdict_class": "spot_check",
+      "expected_gloss": "do come along",
+      "notes": "Function word: a longer phrase is acceptable when a one-word cue would mislead."
+    },
+    {
+      "id": "de-umhauen",
+      "language": "de",
+      "lemma": "umhauen",
+      "upos": "VERB",
+      "target_form": "haut",
+      "sentence": "Die Nachricht haut mich um.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:de:umhauen:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to knock down"
+        },
+        {
+          "evidence_id": "wikt:de:umhauen:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to bowl over, to astonish"
+        }
+      ],
+      "expected_verdict_class": "spot_check",
+      "expected_gloss": "to bowl over",
+      "notes": "Separable verb idiom: the particle is part of the lemma, not sentence material."
+    },
+    {
+      "id": "it-poggiare",
+      "language": "it",
+      "lemma": "poggiare",
+      "upos": "VERB",
+      "target_form": "poggiavo",
+      "sentence": "Poggiavo il gomito sul tavolo.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:it:poggiare:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to lean, to rest (something against something)"
+        },
+        {
+          "evidence_id": "wikt:it:poggiare:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to place"
+        }
+      ],
+      "expected_verdict_class": "drop_sentence_material",
+      "expected_gloss": "to lean, to rest",
+      "notes": "v15 returned \"rested my wrist\" and carried the sentence's person, tense and object."
+    },
+    {
+      "id": "it-macchina",
+      "language": "it",
+      "lemma": "macchina",
+      "upos": "NOUN",
+      "target_form": "macchine",
+      "sentence": "Le macchine erano parcheggiate fuori.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:it:macchina:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "machine"
+        },
+        {
+          "evidence_id": "wikt:it:macchina:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "car, automobile"
+        }
+      ],
+      "expected_verdict_class": "drop_sentence_material",
+      "expected_gloss": "car, machine",
+      "notes": "The sentence's plural must not turn the Gloss into \"cars\"."
+    },
+    {
+      "id": "it-palazzo",
+      "language": "it",
+      "lemma": "palazzo",
+      "upos": "NOUN",
+      "target_form": "palazzo",
+      "sentence": "Abitano in un palazzo del centro.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:it:palazzo:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "palace"
+        },
+        {
+          "evidence_id": "wikt:it:palazzo:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "apartment building, block of flats"
+        }
+      ],
+      "expected_verdict_class": "protected_win",
+      "expected_gloss": "apartment building",
+      "notes": "A genuine contextual improvement that the v16 contract must keep."
+    },
+    {
+      "id": "it-ne",
+      "language": "it",
+      "lemma": "ne",
+      "upos": "PRON",
+      "target_form": "ne",
+      "sentence": "Ne parliamo domani.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:it:ne:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "of it, of them; about it"
+        }
+      ],
+      "expected_verdict_class": "spot_check",
+      "expected_gloss": "about it",
+      "notes": "Italian function word: the clitic's meaning needs the sentence's verb to read naturally."
+    },
+    {
+      "id": "it-in-gamba",
+      "language": "it",
+      "lemma": "gamba",
+      "upos": "NOUN",
+      "target_form": "gamba",
+      "sentence": "È un ragazzo in gamba.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:it:gamba:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "leg"
+        },
+        {
+          "evidence_id": "wikt:it:gamba:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "in gamba: capable, smart"
+        }
+      ],
+      "expected_verdict_class": "spot_check",
+      "expected_gloss": "capable",
+      "notes": "Idiom spot check: the whole phrase, not the literal leg, carries the meaning."
+    },
+    {
+      "id": "el-tha",
+      "language": "el",
+      "lemma": "θα",
+      "upos": "PART",
+      "target_form": "θα",
+      "sentence": "Θα πάμε αύριο.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:el:tha:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "future particle marking future tense: will, shall"
+        }
+      ],
+      "expected_verdict_class": "spot_check",
+      "expected_gloss": "will",
+      "notes": "Modern Greek function word."
+    },
+    {
+      "id": "el-kano-kryo",
+      "language": "el",
+      "lemma": "κάνω",
+      "upos": "VERB",
+      "target_form": "Κάνει",
+      "sentence": "Κάνει πολύ κρύο απόψε.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:el:kano:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "to do, to make"
+        },
+        {
+          "evidence_id": "wikt:el:kano:2",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "κάνει κρύο: it is cold (of the weather)"
+        }
+      ],
+      "expected_verdict_class": "spot_check",
+      "expected_gloss": "to be (of weather)",
+      "notes": "Modern Greek idiom: the weather expression uses κάνω, not a literal \"make\"."
+    },
+    {
+      "id": "el-vivlio",
+      "language": "el",
+      "lemma": "βιβλίο",
+      "upos": "NOUN",
+      "target_form": "βιβλίο",
+      "sentence": "Διαβάζω ένα βιβλίο.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:el:vivlio:1",
+          "source": "wiktionary",
+          "origin": "Kaikki.org Wiktextract enwiktionary",
+          "version": "review-v15",
+          "gloss": "book"
+        }
+      ],
+      "expected_verdict_class": "plain_equivalent",
+      "expected_gloss": "book",
+      "notes": "Modern Greek plain-equivalent spot check."
+    }
+  ]
+}

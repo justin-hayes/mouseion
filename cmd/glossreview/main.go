@@ -29,12 +29,6 @@ const usage = "usage: glossreview [-out <report.md>] [-date YYYY-MM-DD]"
 //go:embed testdata/gloss_review_cases.json
 var glossReviewCases []byte
 
-// lemmaMismatchOutcomeSupported reports whether the current contextual-Gloss
-// response contract can return a lemma_mismatch outcome. It becomes true when
-// the mismatch-outcome ticket adds the enumerated unresolved kind; until then
-// the review reports the check as unsupported instead of failing every case.
-const lemmaMismatchOutcomeSupported = false
-
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout); err != nil {
 		log.Fatal(err)
@@ -113,11 +107,10 @@ func runWithEnvironment(ctx context.Context, args []string, output io.Writer, op
 		return err
 	}
 	report := review(ctx, reviewOptions{
-		Now:                      now,
-		Cases:                    cases,
-		Client:                   environment.Client,
-		Provider:                 environment.Provider,
-		MismatchOutcomeSupported: lemmaMismatchOutcomeSupported,
+		Now:      now,
+		Cases:    cases,
+		Client:   environment.Client,
+		Provider: environment.Provider,
 	})
 	path := strings.TrimSpace(*outPath)
 	if path == "" {

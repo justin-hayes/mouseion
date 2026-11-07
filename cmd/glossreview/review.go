@@ -31,11 +31,10 @@ type providerMetadata struct {
 }
 
 type reviewOptions struct {
-	Now                      time.Time
-	Cases                    reviewCaseSet
-	Client                   translationClient
-	Provider                 providerMetadata
-	MismatchOutcomeSupported bool
+	Now      time.Time
+	Cases    reviewCaseSet
+	Client   translationClient
+	Provider providerMetadata
 }
 
 type reviewReport struct {
@@ -59,7 +58,6 @@ type reviewSummary struct {
 	ContainsGloss       int
 	ContainsTotal       int
 	MismatchStatus      checkStatus
-	MismatchDetail      string
 }
 
 type caseResult struct {
@@ -87,7 +85,6 @@ const (
 	checkPass          checkStatus = "pass"
 	checkFail          checkStatus = "fail"
 	checkNotApplicable checkStatus = "not applicable"
-	checkNotSupported  checkStatus = "not supported"
 
 	checkNameGlossEqualsTranslation = "Gloss equals translation"
 	checkNameLemmaMismatch          = "outcome is lemma_mismatch"
@@ -114,17 +111,17 @@ func review(ctx context.Context, options reviewOptions) reviewReport {
 		result.Outcome = classifyOutcome(result)
 		result.Checks = []automaticCheck{
 			glossEqualsTranslation(result),
-			lemmaMismatchCheck(testCase, result, options.MismatchOutcomeSupported),
+			lemmaMismatchCheck(testCase, result),
 		}
 		report.Cases = append(report.Cases, result)
 	}
-	report.Summary = summarize(report.Cases, options.MismatchOutcomeSupported)
+	report.Summary = summarize(report.Cases)
 	return report
 }
 
-// classifyOutcome names the visible result class of one provider call. The v15
-// contract has no enumerated unresolved kind, so an abstention is distinguished
-// by context_only rather than by a lemma_mismatch value.
+// classifyOutcome names the visible result class of one provider call. An
+// abstention is distinguished by context_only; whether it is a lemma_mismatch
+// is the separate automatic check, read from the unresolved kind.
 func classifyOutcome(result caseResult) outcomeKind {
 	if result.Err != nil {
 		if errors.Is(result.Err, enrichment.ErrInvalidTranslationResponse) {
@@ -142,7 +139,7 @@ func classifyOutcome(result caseResult) outcomeKind {
 }
 
 // glossEqualsTranslation checks the explicit relationship the v16 contract
-// will state: unless the sentence uses a narrower sense, the Gloss is the plain
+// states: unless the sentence uses a narrower sense, the Gloss is the plain
 // lemma translation. Comparison ignores surrounding whitespace and case, which
 // do not change the equivalent.
 func glossEqualsTranslation(result caseResult) automaticCheck {
@@ -162,15 +159,10 @@ func glossEqualsTranslation(result caseResult) automaticCheck {
 }
 
 // lemmaMismatchCheck compares the expected mismatch verdict with the observed
-// outcome. The v15 contract cannot carry a lemma_mismatch outcome, so the check
-// reports unsupported instead of failing every mismatch case.
-func lemmaMismatchCheck(testCase reviewCase, result caseResult, supported bool) automaticCheck {
+// outcome. A case that does not expect a mismatch fails when the provider
+// reports one, because that card would be wrongly omitted.
+func lemmaMismatchCheck(testCase reviewCase, result caseResult) automaticCheck {
 	check := automaticCheck{Name: checkNameLemmaMismatch}
-	if !supported {
-		check.Status = checkNotSupported
-		check.Detail = "not supported by this contract"
-		return check
-	}
 	expected := testCase.ExpectedVerdictClass == verdictLemmaMismatch
 	observed := observedLemmaMismatch(result)
 	if expected == observed {
@@ -182,16 +174,14 @@ func lemmaMismatchCheck(testCase reviewCase, result caseResult, supported bool) 
 	return check
 }
 
-// observedLemmaMismatch reports the enumerated unresolved kind once the
-// mismatch-outcome ticket adds it to the response contract. Flip this together
-// with lemmaMismatchOutcomeSupported; until then no response can be a lemma
-// mismatch.
-func observedLemmaMismatch(caseResult) bool {
-	return false
+// observedLemmaMismatch reports whether the provider returned the enumerated
+// lemma_mismatch unresolved kind. A failed call observed nothing.
+func observedLemmaMismatch(result caseResult) bool {
+	return result.Err == nil && result.Response.UnresolvedKind == enrichment.ContextualGlossUnresolvedLemmaMismatch
 }
 
 // summarize counts outcomes and both automatic checks across the full case set.
-func summarize(cases []caseResult, mismatchSupported bool) reviewSummary {
+func summarize(cases []caseResult) reviewSummary {
 	summary := reviewSummary{Total: len(cases), MismatchStatus: checkPass}
 	for _, result := range cases {
 		switch result.Outcome {
@@ -219,11 +209,6 @@ func summarize(cases []caseResult, mismatchSupported bool) reviewSummary {
 			summary.EqualsFail++
 		default:
 			summary.EqualsNotApplicable++
-		}
-		if !mismatchSupported {
-			summary.MismatchStatus = checkNotSupported
-			summary.MismatchDetail = "not supported by this contract"
-			continue
 		}
 		if automaticCheckStatus(result, checkNameLemmaMismatch) == checkFail {
 			summary.MismatchStatus = checkFail
