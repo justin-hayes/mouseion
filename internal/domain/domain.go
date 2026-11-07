@@ -37,16 +37,23 @@ const DeckPreparationLemmaMismatchPrefix = "lemma_mismatch: "
 // bound.
 const maxDeckPreparationOmissionReasonRunes = 200
 
-// DeckPreparationLemmaMismatchOmissionReason builds the stored omission reason
-// for a lemma-mismatch outcome: the reserved prefix plus the bounded provider
-// reason, truncated so the persisted value stays within its existing bound.
-func DeckPreparationLemmaMismatchOmissionReason(detail string) string {
+// DeckPreparationLemmaMismatchDetail bounds a provider's lemma-mismatch reason
+// to the space available in the stored omission reason's detail, so evidence
+// provenance and the stored omission carry the same bounded text.
+func DeckPreparationLemmaMismatchDetail(detail string) string {
 	detail = strings.TrimSpace(detail)
 	available := maxDeckPreparationOmissionReasonRunes - len([]rune(DeckPreparationLemmaMismatchPrefix))
 	if runes := []rune(detail); len(runes) > available {
 		detail = string(runes[:available])
 	}
-	return DeckPreparationLemmaMismatchPrefix + detail
+	return detail
+}
+
+// DeckPreparationLemmaMismatchOmissionReason builds the stored omission reason
+// for a lemma-mismatch outcome: the reserved prefix plus the bounded provider
+// reason, truncated so the persisted value stays within its existing bound.
+func DeckPreparationLemmaMismatchOmissionReason(detail string) string {
+	return DeckPreparationLemmaMismatchPrefix + DeckPreparationLemmaMismatchDetail(detail)
 }
 
 // IsDeckPreparationLemmaMismatchOmission reports whether a stored omission
