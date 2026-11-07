@@ -20,6 +20,13 @@ func TestLemmaMismatchOmissionReasonUsesTheReservedPrefix(t *testing.T) {
 	})
 }
 
+func TestLemmaMismatchDetailSharesTheStoredBound(t *testing.T) {
+	detail := DeckPreparationLemmaMismatchDetail("  " + strings.Repeat("r", 400) + "  ")
+
+	require.LessOrEqual(t, utf8.RuneCountInString(detail), 200-len([]rune(DeckPreparationLemmaMismatchPrefix)))
+	require.Equal(t, detail, strings.TrimPrefix(DeckPreparationLemmaMismatchOmissionReason(strings.Repeat("r", 400)), DeckPreparationLemmaMismatchPrefix))
+}
+
 func TestLemmaMismatchOmissionReasonStaysWithinTheStoredBound(t *testing.T) {
 	reason := DeckPreparationLemmaMismatchOmissionReason(strings.Repeat("r", 400))
 

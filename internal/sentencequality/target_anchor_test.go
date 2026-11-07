@@ -121,6 +121,33 @@ func TestTargetSpanAnchorsElidedAndInversionHyphenTargets(t *testing.T) {
 	}
 }
 
+// TestTargetTokenRequiresExactPersistedSpan pins that occurrence resolution
+// returns the persisted token carrying the target anchor and refuses a token
+// whose stored span does not match it.
+func TestTargetTokenRequiresExactPersistedSpan(t *testing.T) {
+	sentence := "Je vois l'homme qui marche vers la gare."
+	tokens := []analyzer.Token{
+		tokenAt("Je", 0, 2), tokenAt("vois", 3, 7), tokenAt("l'", 8, 10),
+		tokenAt("homme", 10, 15), tokenAt("qui", 16, 19), tokenAt("marche", 20, 26),
+	}
+
+	t.Run("returns the exact target token", func(t *testing.T) {
+		token, ok := TargetToken(sentence, "homme", tokens, 0)
+		require.True(t, ok)
+		assert.Equal(t, "homme", token.Surface)
+		assert.Equal(t, uint64(10), token.Location.StartOffset)
+		assert.Equal(t, uint64(15), token.Location.EndOffset)
+	})
+	t.Run("rejects a token that does not carry the anchor", func(t *testing.T) {
+		_, ok := TargetToken(sentence, "homme", []analyzer.Token{tokenAt("homme", 0, 5)}, 0)
+		assert.False(t, ok)
+	})
+	t.Run("rejects a target that does not anchor", func(t *testing.T) {
+		_, ok := TargetToken(sentence, "fehlt", tokens, 0)
+		assert.False(t, ok)
+	})
+}
+
 // TestTargetSpanKeepsWordBoundedSpanFirst pins that a target the unchanged
 // word-bounded matcher already anchors keeps that span, so the German and Greek
 // results the ADR must not disturb are unchanged.

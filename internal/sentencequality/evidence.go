@@ -225,6 +225,25 @@ func targetSpan(sentence, target string, tokens []analyzer.Token, sentenceStartO
 	return tokenAnchorSpan(sentence, target, tokens, sentenceStartOffset)
 }
 
+// TargetToken returns the persisted token whose document span is exactly the
+// target span card presentation anchors. It reports false when the target does
+// not anchor or no persisted token carries that span, so callers never flag a
+// guessed occurrence.
+func TargetToken(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) (analyzer.Token, bool) {
+	target = textmatch.CleanLexicalSurface(target)
+	start, end, ok := targetSpan(sentence, target, tokens, sentenceStartOffset)
+	if !ok {
+		return analyzer.Token{}, false
+	}
+	for _, token := range tokens {
+		tokenStart, tokenEnd, ok := tokenSpanBytes(sentence, token.Location.StartOffset, token.Location.EndOffset, sentenceStartOffset)
+		if ok && tokenStart == start && tokenEnd == end {
+			return token, true
+		}
+	}
+	return analyzer.Token{}, false
+}
+
 // tokenAnchorSpan anchors target on the first persisted token, in sentence
 // order, whose cleaned surface case-folds equal to it. Token offsets are
 // document-absolute Unicode code points; the span is taken relative to the

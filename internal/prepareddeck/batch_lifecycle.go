@@ -220,6 +220,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 	if err == nil {
 		w.cleanupTerminalBatchFiles(ctx, args, chunk)
 		w.recordTerminalBatchMetrics(batch, updates, counts.successes)
+		w.saveContextualGlossLemmaMismatchFlags(ctx, args, items, updates)
 	}
 	return err
 }
@@ -227,6 +228,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 type terminalBatchItems struct {
 	items     []enrichment.BatchTranslationItem
 	byOrdinal map[int]cardexport.WorkItem
+	targets   map[int]cardexport.TargetOccurrence
 }
 
 type terminalBatchCounts struct {
@@ -257,7 +259,31 @@ func (w *BatchPollWorker) loadTerminalBatchItems(ctx context.Context, args Batch
 	if err != nil {
 		return terminalBatchItems{}, "chunk_membership"
 	}
-	return terminalBatchItems{items: items, byOrdinal: byOrdinal}, ""
+	targets := make(map[int]cardexport.TargetOccurrence, len(chunk.Ordinals))
+	for _, ordinal := range chunk.Ordinals {
+		if target, ok := deck.TargetOccurrence(ordinal); ok {
+			targets[ordinal] = target
+		}
+	}
+	return terminalBatchItems{items: items, byOrdinal: byOrdinal, targets: targets}, ""
+}
+
+// saveContextualGlossLemmaMismatchFlags forwards the chunk's completed
+// lemma-mismatch outcomes to the advisory flag write, after reconciliation has
+// already committed their terminal states.
+func (w *BatchPollWorker) saveContextualGlossLemmaMismatchFlags(ctx context.Context, args BatchPollJobArgs, items terminalBatchItems, updates []persistence.PreparedDeckBatchItemReconciliation) {
+	outcomes := make([]contextualGlossLemmaMismatchOutcome, 0, len(updates))
+	for _, update := range updates {
+		if !domain.IsDeckPreparationLemmaMismatchOmission(update.OmissionReason) {
+			continue
+		}
+		target, found := items.targets[update.Ordinal]
+		outcomes = append(outcomes, contextualGlossLemmaMismatchOutcome{
+			Ordinal: update.Ordinal, Target: target, TargetFound: found,
+			UnresolvedReason: strings.TrimPrefix(update.OmissionReason, domain.DeckPreparationLemmaMismatchPrefix),
+		})
+	}
+	saveContextualGlossLemmaMismatchFlags(ctx, w.Store, args.OwnerID, args.PreparationID, args.RunID, outcomes)
 }
 
 func (w *BatchPollWorker) handleTerminalFileError(ctx context.Context, chunk domain.PreparedDeckBatchChunk, args BatchPollJobArgs, token string, batch enrichment.Batch, err error) error {

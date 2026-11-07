@@ -22,6 +22,15 @@ import (
 
 const standardTranslationLease = 5 * time.Minute
 
+// translationWork pairs the frozen external request with the exact persisted
+// target occurrence, so a lemma-mismatch outcome can raise its advisory flag
+// without re-resolving the manifest after the terminal write.
+type translationWork struct {
+	cardexport.WorkItem
+	target      cardexport.TargetOccurrence
+	targetFound bool
+}
+
 func (w *StandardTranslationWorker) now() time.Time {
 	if w != nil && w.Now != nil {
 		return w.Now().UTC()
@@ -42,13 +51,13 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		return err
 	}
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricTranslationUnits, Phase: "translating", State: "in_progress", Provider: "openai", Value: 1})
-	if err := w.ensureLSJSenseSummary(ctx, work); err != nil {
+	if err := w.ensureLSJSenseSummary(ctx, work.WorkItem); err != nil {
 		// The LSJ sense summary only adds to the card, so a failure to resolve
 		// or store it leaves the full LSJ entry rather than failing the item
 		// (ADR 0101).
 		log.Printf("prepared deck LSJ sense summary: %v", err)
 	}
-	if done, err := w.completeFromCache(ctx, args, token, work); done {
+	if done, err := w.completeFromCache(ctx, args, token, work.WorkItem); done {
 		return err
 	}
 	if err := w.Store.VerifyPreparedDeckTranslationClaim(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token); err != nil {
@@ -84,7 +93,7 @@ func (w *StandardTranslationWorker) claimTranslation(ctx context.Context, args S
 
 // translateClaimed makes the bounded provider call for one claimed item,
 // validates the response, and persists the outcome.
-func (w *StandardTranslationWorker) translateClaimed(ctx context.Context, args StandardTranslationJobArgs, token string, claimed domain.PreparedDeckTranslationOutcome, work cardexport.WorkItem) error {
+func (w *StandardTranslationWorker) translateClaimed(ctx context.Context, args StandardTranslationJobArgs, token string, claimed domain.PreparedDeckTranslationOutcome, work translationWork) error {
 	request := work.Request
 	response, providerLatency, callErr := w.translate(ctx, request)
 	if callErr != nil {
@@ -121,20 +130,21 @@ func (w *StandardTranslationWorker) canExecute(args StandardTranslationJobArgs) 
 // restoreWork finds the claimed item in the frozen manifest. When the item
 // cannot be restored it fails the item and reports found=false with the
 // result of recording that failure.
-func (w *StandardTranslationWorker) restoreWork(ctx context.Context, args StandardTranslationJobArgs, token string) (cardexport.WorkItem, bool, error) {
+func (w *StandardTranslationWorker) restoreWork(ctx context.Context, args StandardTranslationJobArgs, token string) (translationWork, bool, error) {
 	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
-		return cardexport.WorkItem{}, false, w.fail(ctx, args, token, "orchestration", "manifest", true)
+		return translationWork{}, false, w.fail(ctx, args, token, "orchestration", "manifest", true)
 	}
 	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
 	if err != nil {
-		return cardexport.WorkItem{}, false, w.fail(ctx, args, token, "identity", "manifest_item", true)
+		return translationWork{}, false, w.fail(ctx, args, token, "identity", "manifest_item", true)
 	}
 	work, found := deck.WorkByOrdinal(args.Ordinal)
 	if !found {
-		return cardexport.WorkItem{}, false, w.fail(ctx, args, token, "identity", "manifest_item", true)
+		return translationWork{}, false, w.fail(ctx, args, token, "identity", "manifest_item", true)
 	}
-	return work, true, nil
+	target, targetFound := deck.TargetOccurrence(args.Ordinal)
+	return translationWork{WorkItem: work, target: target, targetFound: targetFound}, true, nil
 }
 
 // ensureLSJSenseSummary resolves and caches the context-free LSJ sense summary
@@ -260,16 +270,21 @@ func (w *StandardTranslationWorker) persistEvidenceAssistedPass(ctx context.Cont
 // persistTranslation completes the item from a validated provider response:
 // as an explicit omission when the meaning is unresolved, otherwise by
 // storing the claimed cache entry.
-func (w *StandardTranslationWorker) persistTranslation(ctx context.Context, args StandardTranslationJobArgs, token string, work cardexport.WorkItem, response enrichment.TranslationResponse, providerLatency time.Duration) error {
+func (w *StandardTranslationWorker) persistTranslation(ctx context.Context, args StandardTranslationJobArgs, token string, work translationWork, response enrichment.TranslationResponse, providerLatency time.Duration) error {
 	request := work.Request
 	if request.RequireEvidenceAssistedPass {
-		return w.persistEvidenceAssistedPass(ctx, args, token, work, response, providerLatency)
+		return w.persistEvidenceAssistedPass(ctx, args, token, work.WorkItem, response, providerLatency)
 	}
 	if request.RequireContextualGloss && response.Gloss == "" {
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{
 			State: domain.PreparedDeckOutcomeCompleted, OmissionReason: contextualOmissionReason(response),
 			ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency,
 		}, w.finalizer)
+		if finishErr == nil && response.UnresolvedKind == enrichment.ContextualGlossUnresolvedLemmaMismatch {
+			saveContextualGlossLemmaMismatchFlags(ctx, w.Store, args.OwnerID, args.PreparationID, args.RunID, []contextualGlossLemmaMismatchOutcome{{
+				Ordinal: args.Ordinal, Target: work.target, TargetFound: work.targetFound, UnresolvedReason: response.UnresolvedReason,
+			}})
+		}
 		return finishErr
 	}
 	selection := evidenceSelectionIndices(request.CandidateSenses, response.EvidenceIDs)

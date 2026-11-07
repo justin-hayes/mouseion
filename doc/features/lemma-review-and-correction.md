@@ -1,6 +1,6 @@
 # Learner review of analyzer lemmas
 
-Status: **Manual occurrence review, conservative German and French risk flags, and opt-in LLM lemma suggestions implemented. Provider-raised advisory flags accepted (#2332); implementation pending.** · Date: 2026-10-29
+Status: **Manual occurrence review, conservative German and French risk flags, opt-in LLM lemma suggestions, and provider-raised advisory flags implemented (#2340).** · Date: 2026-11-07
 
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct
