@@ -183,6 +183,48 @@ func TestAssessProviderFlagIsNotUnresolved(t *testing.T) {
 	assert.False(t, assessment.Unresolved, "a provider advisory flag never blocks Reading")
 }
 
+// A provider flag carries model attribution and the provider's bounded reason
+// instead of a local alternative. EvidenceOf exposes both shapes without
+// inventing a proposed lemma for the provider flag.
+func TestEvidenceOfProviderFlagExposesModelAttributionOnly(t *testing.T) {
+	flagged := occurrence()
+	flagged.ReviewFlagReason = "the sentence uses a different word than this lemma"
+	flagged.ReviewFlagProvenance = map[string]any{
+		"source":            domain.LemmaReviewFlagProviderSource,
+		"provider":          "configured-provider",
+		"model":             "configured-model",
+		"prompt_version":    "contextual-gloss-v16",
+		"unresolved_reason": "the sentence uses a separable verb whose particle belongs elsewhere",
+	}
+
+	evidence := EvidenceOf(flagged)
+
+	assert.True(t, evidence.ProviderSourced)
+	assert.Equal(t, "configured-provider", evidence.Provider)
+	assert.Equal(t, "configured-model", evidence.Model)
+	assert.Equal(t, "contextual-gloss-v16", evidence.PromptVersion)
+	assert.Equal(t, "the sentence uses a separable verb whose particle belongs elsewhere", evidence.Reason)
+	assert.Empty(t, evidence.Alternative, "a provider flag proposes no lemma")
+	assert.Empty(t, evidence.EvidenceID)
+}
+
+func TestEvidenceOfLocalFlagKeepsDictionaryAttribution(t *testing.T) {
+	flagged := occurrence()
+	flagged.ReviewFlagProvenance = map[string]any{
+		"alternative_lemma": "pfad", "source": "wiktionary", "version": "fixture-1", "evidence_id": "sense-1",
+	}
+
+	evidence := EvidenceOf(flagged)
+
+	assert.False(t, evidence.ProviderSourced)
+	assert.Equal(t, "pfad", evidence.Alternative)
+	assert.Equal(t, "wiktionary", evidence.Source)
+	assert.Equal(t, "fixture-1", evidence.Version)
+	assert.Equal(t, "sense-1", evidence.EvidenceID)
+	assert.Empty(t, evidence.Provider)
+	assert.Empty(t, evidence.Reason)
+}
+
 func TestAssessResolvedFlagsAreNotUnresolved(t *testing.T) {
 	flagged := occurrence()
 	flagged.ReviewFlagReason = "alternative exists"

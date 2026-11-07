@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
@@ -209,6 +210,114 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, fixtures.BookID, "Weg")
 	require.NoError(t, err)
 	assert.Equal(t, "pfad", occurrences[0].CorrectedLemma)
+}
+
+// TestProviderFlagRendersAsModelEvidenceWithoutAProposedLemma pins the review
+// surface's provider presentation: model attribution and the provider's bounded
+// explanation, alongside the ordinary keep, correct, exclude and suggestion
+// actions, and never a local alternative or a proposed lemma.
+func TestProviderFlagRendersAsModelEvidenceWithoutAProposedLemma(t *testing.T) {
+	h, cookies, _, store := readingFixtureSession(t)
+	endGermanFixtureReading(t, store)
+	const bookID = "fixture-route-match"
+	occurrence := reviewOccurrenceAt(t, store, bookID, 0)
+	const providerReason = "The sentence joins a particle to a different lexeme."
+	require.NoError(t, store.SaveLemmaReviewFlags(context.Background(), []domain.LemmaReviewFlag{{
+		Occurrence: occurrence,
+		Reason:     "the sentence uses a different word than this lemma",
+		Provenance: map[string]any{
+			"source":            domain.LemmaReviewFlagProviderSource,
+			"provider":          "configured-provider",
+			"model":             "configured-model",
+			"prompt_version":    "contextual-gloss-v16",
+			"unresolved_reason": providerReason,
+		},
+	}}))
+
+	body := reviewPageBody(t, h, cookies, bookID)
+
+	assert.Contains(t, body, "Model evidence", "the provider flag is labelled as model evidence")
+	assert.Contains(t, body, "configured-provider")
+	assert.Contains(t, body, "configured-model")
+	assert.Contains(t, body, "contextual-gloss-v16")
+	assert.Contains(t, body, providerReason, "the model's explanation is shown")
+	assert.NotContains(t, body, "Local-index alternative", "a provider flag carries no local alternative")
+	assert.NotContains(t, body, `value="`+providerReason+`"`, "the reason is an explanation, not a proposed correction")
+	assert.Contains(t, body, `name="lemma" value=""`, "the correction field is not prefilled with a proposed lemma")
+	assert.Contains(t, body, "Ask for an optional LLM lemma suggestion")
+	assert.Contains(t, body, "Preview correction")
+	assert.Contains(t, body, "Preview keeping analyzer lemma")
+	assert.Contains(t, body, "Preview exclusion")
+}
+
+// TestLocalFlagKeepsDictionaryEvidenceRendering keeps the local high-risk
+// presentation unchanged and distinguishable from a provider flag.
+func TestLocalFlagKeepsDictionaryEvidenceRendering(t *testing.T) {
+	h, cookies, _, store := readingFixtureSession(t)
+	endGermanFixtureReading(t, store)
+	const bookID = "fixture-route-match"
+	occurrence := reviewOccurrenceAt(t, store, bookID, 0)
+	require.NoError(t, store.SaveLemmaReviewFlags(context.Background(), []domain.LemmaReviewFlag{{
+		Occurrence: occurrence,
+		Reason:     "local high-risk evidence",
+		Provenance: map[string]any{
+			"alternative_lemma": "pfad", "source": "wiktionary", "version": "fixture-1", "evidence_id": "fixture-evidence",
+		},
+	}}))
+
+	body := reviewPageBody(t, h, cookies, bookID)
+
+	assert.Contains(t, body, "Local-index alternative:")
+	assert.Contains(t, body, "pfad")
+	assert.Contains(t, body, "wiktionary")
+	assert.Contains(t, body, "fixture-1")
+	assert.Contains(t, body, "fixture-evidence")
+	assert.NotContains(t, body, "Model evidence", "local dictionary evidence is not presented as model evidence")
+}
+
+func TestResolvedProviderFlagShowsPreviouslyReviewed(t *testing.T) {
+	h, cookies, _, store := readingFixtureSession(t)
+	endGermanFixtureReading(t, store)
+	const bookID = "fixture-route-match"
+	occurrence := reviewOccurrenceAt(t, store, bookID, 0)
+	require.NoError(t, store.SaveLemmaReviewFlags(context.Background(), []domain.LemmaReviewFlag{{
+		Occurrence: occurrence, Reason: "the sentence uses a different word than this lemma", Resolution: "keep",
+		Provenance: map[string]any{
+			"source":            domain.LemmaReviewFlagProviderSource,
+			"provider":          "configured-provider",
+			"model":             "configured-model",
+			"prompt_version":    "contextual-gloss-v16",
+			"unresolved_reason": "The sentence joins a particle to a different lexeme.",
+		},
+	}}))
+
+	body := reviewPageBody(t, h, cookies, bookID)
+
+	assert.Contains(t, body, "Previously reviewed:")
+	assert.Contains(t, body, "keep")
+	assert.Contains(t, body, "Model evidence")
+}
+
+// reviewOccurrenceAt reads one "Weg" occurrence in review order.
+func reviewOccurrenceAt(t *testing.T, store lemmareview.Store, bookID string, index int) domain.LemmaReviewOccurrence {
+	t.Helper()
+	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, bookID, "Weg")
+	require.NoError(t, err)
+	require.Greater(t, len(occurrences), index)
+	return occurrences[index]
+}
+
+// reviewPageBody renders the Book-scoped review page for the exact form "Weg".
+func reviewPageBody(t *testing.T, h http.Handler, cookies []*http.Cookie, bookID string) string {
+	t.Helper()
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading/books/"+bookID+"/lemma-review?form=Weg", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code)
+	return response.Body.String()
 }
 
 // wegOccurrenceIDs lists the occurrence IDs of the form "Weg" in review order. Review
