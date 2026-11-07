@@ -25,6 +25,9 @@ information only.
 **Decision:** v16 does not roll out. The failing case is `de-sehen-fern`. This
 was a single run; provider output can vary between runs.
 
+Follow-ups: harder review cases (#2352), a v17 prompt (#2353), the v17 review
+(#2354), and idiom handling for cases like κάνει κρύο (#2351).
+
 ## Summary
 
 - Cases run: 20
