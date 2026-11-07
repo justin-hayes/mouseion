@@ -144,6 +144,31 @@ deck labels it "the sentence uses a different word than this lemma" and counts
 it separately from an ambiguous meaning omission.
 _Avoid_: wrong lemma, ambiguous omission.
 
+**Idiom**:
+A multi-word lexeme with its own dictionary entry, such as Italian *in gamba*
+("capable") or *macchina da scrivere* ("typewriter"), whose meaning belongs to
+the whole expression rather than to any one of its words. An idiom is card-only:
+it has no Known, Reserved, Unknown or Generated state.
+_Avoid_: multi-word expression (fine in prose), collocation, phrase.
+
+**Idiom candidate**:
+A match of an idiom's words in one sentence, found from dictionary evidence and
+anchored on a vocabulary identity of the deck. It is unconfirmed until the
+provider glosses it as an idiom in that sentence.
+_Avoid_: detected idiom, idiom occurrence.
+
+**Idiom card**:
+A prepared-deck card that teaches an idiom from its own representative sentence.
+It sits alongside, and never replaces, the lemma cards of the idiom's words, and
+including it records no Generated vocabulary.
+_Avoid_: phrase card, lemma card (for an idiom).
+
+**Idiom omission**:
+An idiom card that is not produced because the provider found the sentence uses
+the words literally or could not defend a meaning. It is not an Omission of a
+vocabulary identity and raises no Lemma review flag.
+_Avoid_: lemma-mismatch omission, meaning omission.
+
 **Provider omission**:
 A deck omission caused by provider answers that were unusable through the
 bounded attempts. It is retryable, and retrying requests only the omitted
