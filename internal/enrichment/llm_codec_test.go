@@ -15,7 +15,7 @@ import (
 
 const (
 	testBatchRunID                    = "018f64b6-5f2f-7e12-a7a7-832a50f68b7c"
-	testContextualGlossPromptContract = "translation-v16-citation-form-gloss"
+	testContextualGlossPromptContract = "translation-v17-clause-lemma-mismatch"
 )
 
 func TestTranslationCodecBatchJSONLGoldenDeterministicAndPrivate(t *testing.T) {
@@ -400,10 +400,11 @@ func TestTranslationCodecTransmitsShortHandlesAndResolvesThemBack(t *testing.T) 
 	}
 }
 
-// TestContextualGlossPromptContract covers the #2328 and #2330 prompt
+// TestContextualGlossPromptContract covers the #2328, #2330 and #2353 prompt
 // contracts: the encoded request states the citation-form Gloss rule, its
-// relationship to the lemma translation and the lemma_mismatch outcome under a
-// new contract version, so earlier cached results are never reused.
+// relationship to the lemma translation, the clause-level lemma_mismatch check
+// with its lookalike limits, and the lemma_mismatch outcome under a new
+// contract version, so earlier cached results are never reused.
 func TestContextualGlossPromptContract(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
@@ -428,6 +429,12 @@ func TestContextualGlossPromptContract(t *testing.T) {
 		"lemma mismatch kind":               "unresolved_kind",
 		"lemma mismatch instruction":        "a different lexeme than the supplied lemma",
 		"lemma mismatch outcome":            "unresolved_kind=lemma_mismatch",
+		"clause-level check":                "check the whole clause",
+		"stranded particle evidence":        "a stranded separable particle",
+		"missed particle condition":         "the supplied lemma names only its base verb",
+		"adverbial homograph limit":         "a genuine adverbial particle homograph",
+		"separable verb limit":              "a correctly analysed separable verb whose particle the supplied lemma already includes",
+		"lookalikes are glossed":            "gloss those normally",
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.Contains(t, prompt, clause)
