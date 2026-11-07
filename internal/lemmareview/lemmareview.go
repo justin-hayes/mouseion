@@ -532,8 +532,9 @@ func normalizationProfile(language string, occurrences []domain.LemmaReviewOccur
 	return canonicalization.For(language)
 }
 
-// EvidenceOf is the local-reference provenance a flag recorded on an occurrence,
-// empty when the occurrence is unflagged.
+// EvidenceOf is the provenance a flag recorded on an occurrence, empty when the
+// occurrence is unflagged. A provider flag carries model attribution and the
+// provider's bounded explanation instead of a local alternative.
 func EvidenceOf(occurrence domain.LemmaReviewOccurrence) Evidence {
 	value := func(key string) string {
 		text, ok := occurrence.ReviewFlagProvenance[key].(string)
@@ -542,11 +543,21 @@ func EvidenceOf(occurrence domain.LemmaReviewOccurrence) Evidence {
 		}
 		return text
 	}
-	return Evidence{Alternative: value("alternative_lemma"), Source: value("source"), Version: value("version"), EvidenceID: value("evidence_id")}
+	return Evidence{
+		Alternative: value("alternative_lemma"), Source: value("source"), Version: value("version"), EvidenceID: value("evidence_id"),
+		ProviderSourced: domain.LemmaReviewFlagProviderSourced(occurrence.ReviewFlagProvenance),
+		Provider:        value("provider"), Model: value("model"), PromptVersion: value("prompt_version"), Reason: value("unresolved_reason"),
+	}
 }
 
-// Evidence is the provenance a lemma risk flag stored with its alternative.
-type Evidence struct{ Alternative, Source, Version, EvidenceID string }
+// Evidence is the provenance a lemma risk flag stored. A local-index flag names
+// an alternative and its dictionary source; a provider flag names the model that
+// raised it and its bounded reason, and proposes no lemma.
+type Evidence struct {
+	Alternative, Source, Version, EvidenceID string
+	ProviderSourced                          bool
+	Provider, Model, PromptVersion, Reason   string
+}
 
 func changesIdentity(proposal domain.LemmaReviewProposal) bool {
 	for _, decision := range proposal.Decisions() {

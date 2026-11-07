@@ -71,7 +71,23 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 							<p role="status"><strong>Previously reviewed:</strong> { occurrence.ReviewFlagResolution }. New reference evidence does not reopen this decision.</p>
 						}
 						{{ evidence := lemmareview.EvidenceOf(occurrence) }}
-						if evidence.Alternative != "" {
+						if evidence.ProviderSourced {
+							<p><strong>Model evidence (advisory).</strong> Raised by the configured contextual-Gloss provider — not a proposed correction.</p>
+							<p>
+								if evidence.Provider != "" {
+									<span><strong>Provider:</strong> { evidence.Provider }</span>
+								}
+								if evidence.Model != "" {
+									<span> · <strong>Model:</strong> { evidence.Model }</span>
+								}
+								if evidence.PromptVersion != "" {
+									<span> · <strong>Prompt version:</strong> { evidence.PromptVersion }</span>
+								}
+							</p>
+							if evidence.Reason != "" {
+								<p><strong>Model explanation:</strong> { evidence.Reason }</p>
+							}
+						} else if evidence.Alternative != "" {
 							<p><strong>Local-index alternative:</strong> { evidence.Alternative } · <strong>Source:</strong> { evidence.Source } · <strong>Version:</strong> { evidence.Version }</p>
 							if evidence.EvidenceID != "" {
 								<p><strong>Evidence ID:</strong> { evidence.EvidenceID }</p>
