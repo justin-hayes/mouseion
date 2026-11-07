@@ -469,6 +469,9 @@ comment. To handle a rejected license:
    identifier, exclude the package from the check with
    `allow-dependencies-licenses` (a list of package URLs) and record the reason,
    rather than adding the artifact to the allow list.
+   The same list exempts CI-only tools that are never built into or shipped
+   with Mouseion, such as the LGPL-3.0 `SonarSource/sonarqube-scan-action`, so
+   their license does not have to be allowed for every runtime dependency.
 4. If the license is genuinely incompatible, replace the dependency.
 
 The workflow and the allow list are CODEOWNERS paths, so changing them needs
