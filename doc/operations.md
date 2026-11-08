@@ -218,6 +218,15 @@ membership from the index. Re-derive the index after upgrading so French Books
 can be assessed; an index older than that format reports French lemma review
 unavailable rather than passed. German review does not depend on the new data.
 
+Idiom detection reads a word-to-multi-word-entry lookup from the index. The
+derivation keeps two-to-four-word entries that have at least one ordinary sense,
+excluding entries made up only of form-of or alt-of senses, and loads Mouseion's
+reviewed idiom list from `nlp/reviewed_idioms.json`. The reviewed list records
+its own source and version, and starts empty for Italian and German. Re-derive
+the index after upgrading; an older index reports no idiom candidates rather
+than failing. Deck preparation does not call the lookup yet; idiom cards
+arrive with their own review-gated rollout.
+
 Greek cards use the Perseus LSJ dictionary entry, not Wiktionary. To derive it,
 point `DICTIONARY_LSJ_DIR` at the pinned `PerseusDL/lexica`
 `CTS_XML_TEI/perseus/pdllex/grc/lsj` directory:

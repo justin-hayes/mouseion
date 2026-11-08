@@ -41,9 +41,20 @@ XENOPHON_URN_PREFIX = "urn:cts:greekLit:tlg0032"
 # LSJ sub-entry classification that keeps a phrase sub-entry or a redirect stub
 # from counting as a homograph (ticket #2214); format 6 (and non-LSJ format 4)
 # adds French form-of links and headword membership for lemma-risk review
-# (ticket #2244).
-INDEX_FORMAT_VERSION = 4
-LSJ_INDEX_FORMAT_VERSION = 6
+# (ticket #2244); format 7 (and non-LSJ format 5) adds the word-to-multi-word
+# idiom lookup (ticket #2361).
+INDEX_FORMAT_VERSION = 5
+LSJ_INDEX_FORMAT_VERSION = 7
+# Idiom candidates are two to four words. Longer expressions are not idioms for
+# the matcher; shorter ones are a single lemma already.
+IDIOM_MIN_WORDS = 2
+IDIOM_MAX_WORDS = 4
+# The derived index records which evidence source supplied an idiom entry.
+# Wiktionary entries keep the index's provider version; Mouseion's reviewed list
+# carries its own version so a refresh can be told apart from dictionary data.
+WIKTIONARY_IDIOM_SOURCE = "wiktionary"
+REVIEWED_IDIOM_SOURCE = "reviewed-idioms"
+DEFAULT_REVIEWED_IDIOM_VERSION = "reviewed-idioms/1"
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -142,6 +153,25 @@ CREATE TABLE french_headwords (
     upos TEXT NOT NULL,
     PRIMARY KEY (lemma, upos)
 );
+CREATE TABLE idiom_entries (
+    language TEXT NOT NULL,
+    headword TEXT NOT NULL,
+    upos TEXT NOT NULL,
+    words_json TEXT NOT NULL,
+    senses_json TEXT NOT NULL,
+    source TEXT NOT NULL,
+    version TEXT NOT NULL,
+    PRIMARY KEY (language, headword, upos, source)
+);
+CREATE TABLE idiom_words (
+    language TEXT NOT NULL,
+    word TEXT NOT NULL,
+    headword TEXT NOT NULL,
+    upos TEXT NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (language, word, headword, upos, source)
+);
+CREATE INDEX idiom_words_lookup ON idiom_words(language, word);
 """
 INSERT_ENTRIES_SQL = (
     "INSERT INTO entries"
@@ -159,6 +189,13 @@ INSERT_FRENCH_FORMS_SQL = (
     "INSERT INTO french_forms(form, upos, target, participle, evidence_id) VALUES (?, ?, ?, ?, ?)"
 )
 INSERT_FRENCH_HEADWORDS_SQL = "INSERT INTO french_headwords(lemma, upos) VALUES (?, ?)"
+INSERT_IDIOM_ENTRIES_SQL = (
+    "INSERT INTO idiom_entries(language, headword, upos, words_json, senses_json, source, version) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?)"
+)
+INSERT_IDIOM_WORDS_SQL = (
+    "INSERT INTO idiom_words(language, word, headword, upos, source) VALUES (?, ?, ?, ?, ?)"
+)
 
 
 def load_german_normalization_policy() -> dict:
@@ -585,6 +622,193 @@ def collect_entries(input_path: Path) -> dict[tuple[str, str, str], dict]:
         for upos, sense in senses_for_item(item):
             record_sense(entries, (language, lemma, upos), sense, item, upos)
     return entries
+
+
+def idiom_headword_words(value: str) -> list[str]:
+    """Return the whitespace-separated words of a multi-word headword."""
+    return unicodedata.normalize("NFC", value).split()
+
+
+def sense_is_form_or_alt_of(item: dict, raw_sense: dict) -> bool:
+    """Report whether a sense only points at an inflected or alternative form."""
+    tags = {tag.casefold() for tag in tags_for(item, raw_sense)}
+    return (
+        bool(raw_sense.get("form_of"))
+        or bool(raw_sense.get("alt_of"))
+        or bool(tags & {"form-of", "alt-of"})
+    )
+
+
+def idiom_senses_for_item(item: dict):
+    """Yield only the ordinary senses that make a multi-word entry an idiom."""
+    for raw_sense in item.get("senses", []):
+        if not isinstance(raw_sense, dict) or sense_is_form_or_alt_of(item, raw_sense):
+            continue
+        for upos in upos_for(item, raw_sense):
+            sense = sense_from(item, raw_sense, upos)
+            if sense is not None:
+                yield upos, sense
+
+
+@dataclass(frozen=True)
+class ReviewedIdiom:
+    headword: str
+    words: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ReviewedIdioms:
+    version: str = DEFAULT_REVIEWED_IDIOM_VERSION
+    languages: dict[str, tuple[ReviewedIdiom, ...]] = field(default_factory=dict)
+
+
+def default_reviewed_idioms_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "reviewed_idioms.json"
+
+
+def _reviewed_idiom_rows(language: str, value: object) -> tuple[ReviewedIdiom, ...]:
+    if not isinstance(value, list):
+        raise ValueError(f"reviewed idioms for {language!r} must be a list")
+    reviewed: list[ReviewedIdiom] = []
+    for row in value:
+        if not isinstance(row, dict):
+            raise ValueError(f"reviewed idiom in {language!r} must be an object")
+        headword = row.get("headword")
+        words = row.get("words")
+        if not isinstance(headword, str) or not headword.strip():
+            raise ValueError(f"reviewed idiom in {language!r} needs a headword")
+        if not isinstance(words, list) or not all(
+            isinstance(word, str) and word.strip() for word in words
+        ):
+            raise ValueError(f"reviewed idiom {headword!r} needs non-empty words")
+        if not IDIOM_MIN_WORDS <= len(words) <= IDIOM_MAX_WORDS:
+            raise ValueError(
+                f"reviewed idiom {headword!r} must have {IDIOM_MIN_WORDS}-{IDIOM_MAX_WORDS} words"
+            )
+        normalized_headword = " ".join(unicodedata.normalize("NFC", headword).split())
+        normalized_words = tuple(unicodedata.normalize("NFC", word.strip()) for word in words)
+        if tuple(normalized_headword.split()) != normalized_words:
+            raise ValueError(
+                f"reviewed idiom {normalized_headword!r} does not spell its words {normalized_words!r}"
+            )
+        reviewed.append(ReviewedIdiom(headword=normalized_headword, words=normalized_words))
+    return tuple(reviewed)
+
+
+def load_reviewed_idioms(path: Path) -> ReviewedIdioms:
+    """Load Mouseion's reviewed idiom list for every language.
+
+    The list is reviewed data, not dictionary input: malformed rows fail the
+    derivation instead of silently disappearing from the index.
+    """
+    with path.open(encoding="utf-8") as source:
+        data = json.load(source)
+    if not isinstance(data, dict):
+        raise ValueError("reviewed idioms must be an object")
+    version = data.get("version")
+    if not isinstance(version, str) or not version.strip():
+        version = DEFAULT_REVIEWED_IDIOM_VERSION
+    languages = data.get("languages", {})
+    if not isinstance(languages, dict):
+        raise ValueError("reviewed idioms languages must be an object")
+    reviewed: dict[str, tuple[ReviewedIdiom, ...]] = {}
+    for raw_language, rows in languages.items():
+        language = str(raw_language).strip().lower()
+        if language not in LANGUAGES:
+            raise ValueError(f"reviewed idioms name an unsupported language: {raw_language!r}")
+        reviewed[language] = _reviewed_idiom_rows(language, rows)
+    return ReviewedIdioms(version=version.strip(), languages=reviewed)
+
+
+@dataclass
+class IdiomAccumulator:
+    """The deduplicated idiom entries and their word lookup rows."""
+
+    entries: dict[tuple[str, str, str, str], dict] = field(default_factory=dict)
+
+    def add(  # noqa: PLR0913 - one row's columns, kept explicit for provenance
+        self,
+        language: str,
+        headword: str,
+        upos: str,
+        words: list[str],
+        senses: list[dict],
+        source: str,
+        version: str,
+    ) -> None:
+        normalized_words = [normalize(language, word) for word in words]
+        if not normalized_words or any(not word for word in normalized_words):
+            return
+        key = (language, headword, upos, source)
+        entry = self.entries.setdefault(
+            key,
+            {"words": normalized_words, "senses": [], "version": version},
+        )
+        known = {json.dumps(sense, ensure_ascii=False, sort_keys=True) for sense in entry["senses"]}
+        for sense in senses:
+            identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
+            if identity not in known:
+                known.add(identity)
+                entry["senses"].append(sense)
+
+    def rows(self) -> tuple[list[tuple], list[tuple]]:
+        entries = []
+        words = []
+        for (language, headword, upos, source), entry in sorted(self.entries.items()):
+            words_json = json.dumps(entry["words"], ensure_ascii=False, separators=(",", ":"))
+            senses_json = json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":"))
+            entries.append(
+                (language, headword, upos, words_json, senses_json, source, entry["version"])
+            )
+            for word in dict.fromkeys(entry["words"]):
+                words.append((language, word, headword, upos, source))
+        return entries, words
+
+
+def collect_idiom_entries(input_path: Path, provider_version: str) -> IdiomAccumulator:
+    """Collect the two-to-four-word dictionary entries that contain a word."""
+    accumulator = IdiomAccumulator()
+    for item in parsed_items(input_path):
+        key = indexed_key(item)
+        if key is None:
+            continue
+        language = key[0]
+        word = item.get("word")
+        if not isinstance(word, str) or not word.strip():
+            continue
+        words = idiom_headword_words(word)
+        if not IDIOM_MIN_WORDS <= len(words) <= IDIOM_MAX_WORDS:
+            continue
+        headword = " ".join(words)
+        grouped: dict[str, list[dict]] = {}
+        for upos, sense in idiom_senses_for_item(item):
+            grouped.setdefault(upos, []).append(sense)
+        for upos, senses in grouped.items():
+            accumulator.add(
+                language,
+                headword,
+                upos,
+                words,
+                senses,
+                WIKTIONARY_IDIOM_SOURCE,
+                provider_version,
+            )
+    return accumulator
+
+
+def add_reviewed_idioms(accumulator: IdiomAccumulator, reviewed: ReviewedIdioms) -> None:
+    """Add the reviewed list's rows under their own source and version."""
+    for language, rows in reviewed.languages.items():
+        for row in rows:
+            accumulator.add(
+                language,
+                row.headword,
+                "",
+                list(row.words),
+                [],
+                REVIEWED_IDIOM_SOURCE,
+                reviewed.version,
+            )
 
 
 def french_form_evidence_id(form: str, upos: str, target: str, participle: bool) -> str:
@@ -1155,6 +1379,8 @@ class DerivedRows:
     lsj_entries: list[tuple[str, str, str, int]]
     french_forms: list[tuple[str, str, str, int, str]]
     french_headwords: list[tuple[str, str]]
+    idiom_entries: list[tuple[str, str, str, str, str, str, str]]
+    idiom_words: list[tuple[str, str, str, str, str]]
 
 
 def metadata_rows(provider_version: str, source: SourceMetadata, lsj_pin: str) -> dict[str, str]:
@@ -1215,6 +1441,8 @@ def write_index(
         connection.executemany(INSERT_LSJ_ENTRIES_SQL, rows.lsj_entries)
         connection.executemany(INSERT_FRENCH_FORMS_SQL, rows.french_forms)
         connection.executemany(INSERT_FRENCH_HEADWORDS_SQL, rows.french_headwords)
+        connection.executemany(INSERT_IDIOM_ENTRIES_SQL, rows.idiom_entries)
+        connection.executemany(INSERT_IDIOM_WORDS_SQL, rows.idiom_words)
         connection.commit()
         connection.execute("PRAGMA journal_mode = OFF")
         connection.close()
@@ -1224,23 +1452,31 @@ def write_index(
         temporary_path.unlink(missing_ok=True)
 
 
-def derive(
+def derive(  # noqa: PLR0913 - the derivation's optional inputs, one per source
     input_path: Path,
     output_path: Path,
     provider_version: str,
     source: SourceMetadata | None = None,
     lsj: LsjSource | None = None,
+    reviewed_idioms: ReviewedIdioms | None = None,
 ) -> None:
     source = source or SourceMetadata()
     if not source.source_sha256:
         source = replace(source, source_sha256=file_sha256(input_path))
+    if reviewed_idioms is None:
+        reviewed_idioms = load_reviewed_idioms(default_reviewed_idioms_path())
     french_forms, french_headwords = collect_french_form_data(input_path)
+    idioms = collect_idiom_entries(input_path, provider_version)
+    add_reviewed_idioms(idioms, reviewed_idioms)
+    idiom_entries, idiom_words = idioms.rows()
     rows = DerivedRows(
         entries=collect_entries(input_path),
         greek_entries=collect_greek_entries(input_path),
         lsj_entries=collect_lsj_entries(lsj.directory) if lsj else [],
         french_forms=french_forms,
         french_headwords=french_headwords,
+        idiom_entries=idiom_entries,
+        idiom_words=idiom_words,
     )
     write_index(
         output_path,
@@ -1266,6 +1502,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wiktextract-commit", default="")
     parser.add_argument("--lsj-dir", type=Path, help="PerseusDL/lexica grc/lsj TEI directory")
     parser.add_argument("--lsj-pin", default=LSJ_PIN, help="pinned PerseusDL/lexica revision")
+    parser.add_argument(
+        "--reviewed-idioms",
+        type=Path,
+        help="reviewed idiom list (default: nlp/reviewed_idioms.json)",
+    )
     args = parser.parse_args(argv)
     if args.force_download and not args.download:
         parser.error("--force-download requires --download")
@@ -1281,6 +1522,12 @@ def main(argv: list[str] | None = None) -> int:
         args.provider_version
         or f"dump={args.dump_date or 'unknown'};extraction={args.extraction_date};wiktextract={args.wiktextract_commit or 'unknown'}"
     )
+    try:
+        reviewed_idioms = load_reviewed_idioms(
+            args.reviewed_idioms or default_reviewed_idioms_path()
+        )
+    except (OSError, ValueError) as error:
+        parser.error(f"could not load reviewed idioms: {error}")
     derive(
         input_path,
         args.output,
@@ -1291,6 +1538,7 @@ def main(argv: list[str] | None = None) -> int:
             wiktextract_commit=args.wiktextract_commit,
         ),
         LsjSource(directory=args.lsj_dir, pin=args.lsj_pin) if args.lsj_dir else None,
+        reviewed_idioms,
     )
     print(f"Wrote {args.output}")
     return 0
