@@ -32,7 +32,8 @@ const (
 	ManifestSchemaVersionV13      = 13
 	ManifestSchemaVersionV14      = 14
 	ManifestSchemaVersionV15      = 15
-	ManifestSchemaVersion         = ManifestSchemaVersionV15
+	ManifestSchemaVersionV16      = 16
+	ManifestSchemaVersion         = ManifestSchemaVersionV16
 )
 
 type ManifestDisposition string
@@ -85,6 +86,10 @@ type ManifestSnapshot struct {
 	Owner         string
 	DeckName      string
 	Filename      string
+	// IdiomOverflow is how many candidate idioms the per-deck bound left out
+	// while freezing. It is part of manifest schema v16 and is not an omission
+	// (doc/features/idiom-cards.md).
+	IdiomOverflow int
 	Items         []ManifestItem
 }
 
@@ -98,6 +103,7 @@ func (m manifest) Snapshot() ManifestSnapshot {
 		Owner:         m.owner,
 		DeckName:      m.deckName,
 		Filename:      DownloadFilename(m.deckName),
+		IdiomOverflow: m.idiomOverflow,
 		Items:         cloneManifestItems(m.decisions),
 	}
 }
@@ -155,8 +161,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v13\x00"
 	case ManifestSchemaVersionV14:
 		prefix = "mouseion-prepared-deck-manifest-v14\x00"
-	default:
+	case ManifestSchemaVersionV15:
 		prefix = "mouseion-prepared-deck-manifest-v15\x00"
+	default:
+		prefix = "mouseion-prepared-deck-manifest-v16\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -249,8 +257,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v13\x00"
 	case ManifestSchemaVersionV14:
 		prefix = "mouseion-prepared-deck-candidate-v14\x00"
-	default:
+	case ManifestSchemaVersionV15:
 		prefix = "mouseion-prepared-deck-candidate-v15\x00"
+	default:
+		prefix = "mouseion-prepared-deck-candidate-v16\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -268,6 +278,9 @@ func manifestFromSnapshot(snapshot ManifestSnapshot) (manifest, error) {
 		accepted:      make([]RenderInput, 0, len(snapshot.Items)), omitted: make([]Omission, 0, len(snapshot.Items)),
 		enrichmentCandidates: make([]enrichment.Candidate, 0, len(snapshot.Items)),
 		decisions:            cloneManifestItems(snapshot.Items),
+	}
+	if snapshot.SchemaVersion >= ManifestSchemaVersionV16 {
+		manifest.idiomOverflow = snapshot.IdiomOverflow
 	}
 	allAcceptedHaveCacheKeys := true
 	for _, item := range snapshot.Items {
@@ -307,6 +320,7 @@ type canonicalSnapshot struct {
 	Owner         string                  `json:"owner"`
 	DeckName      string                  `json:"deck_name"`
 	Filename      string                  `json:"filename"`
+	IdiomOverflow int                     `json:"idiom_overflow,omitempty"`
 	Items         []canonicalManifestItem `json:"items"`
 }
 
@@ -393,7 +407,13 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 	if err := s.validateHeader(); err != nil {
 		return canonicalSnapshot{}, err
 	}
+	if s.SchemaVersion >= ManifestSchemaVersionV16 && s.IdiomOverflow < 0 {
+		return canonicalSnapshot{}, fmt.Errorf("%w: invalid manifest idiom overflow", ErrInvalidInput)
+	}
 	result := canonicalSnapshot{SchemaVersion: s.SchemaVersion, Owner: s.Owner, DeckName: s.DeckName, Filename: s.Filename, Items: make([]canonicalManifestItem, len(s.Items))}
+	if s.SchemaVersion >= ManifestSchemaVersionV16 {
+		result.IdiomOverflow = s.IdiomOverflow
+	}
 	seen := make(map[string]struct{}, len(s.Items))
 	acceptedWithKey, acceptedWithoutKey := 0, 0
 	for i, item := range s.Items {
@@ -419,7 +439,7 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 // validateHeader rejects a snapshot whose schema version is unknown or whose
 // owner and deck identity are missing or inconsistent with the download name.
 func (s ManifestSnapshot) validateHeader() error {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12 && s.SchemaVersion != ManifestSchemaVersionV13 && s.SchemaVersion != ManifestSchemaVersionV14 && s.SchemaVersion != ManifestSchemaVersionV15) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12 && s.SchemaVersion != ManifestSchemaVersionV13 && s.SchemaVersion != ManifestSchemaVersionV14 && s.SchemaVersion != ManifestSchemaVersionV15 && s.SchemaVersion != ManifestSchemaVersionV16) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	return nil

@@ -22,6 +22,13 @@ type IdiomIndex interface {
 	IdiomEntries(ctx context.Context, language, word string) ([]idiom.Entry, error)
 }
 
+// IdiomCardBound is the reviewed maximum number of idiom items one
+// frozen deck carries. A phrase-dense Book must not flood the deck. The bound
+// is applied per deck, after ranking, and overflowed idioms are reported but
+// never treated as idiom omissions (doc/features/idiom-cards.md). Changing the
+// value is a reviewed change alongside the idiom case set.
+const IdiomCardBound = 30
+
 // freezeOptions are the per-call idiom-card settings. They are passed to Freeze
 // instead of stored on Presentation, so one Presentation stays safe for
 // concurrent preparations with different language switches.
@@ -29,6 +36,7 @@ type freezeOptions struct {
 	idiomLanguages       map[string]bool
 	idiomProviderVersion string
 	idiomParameters      idiom.Parameters
+	idiomCardBound       int
 }
 
 // FreezeOption configures one freeze operation.
@@ -50,8 +58,17 @@ func WithIdiomCards(languages []string, providerVersion string) FreezeOption {
 	}
 }
 
+// withIdiomCardBound overrides the reviewed per-deck idiom bound. Production
+// callers use IdiomCardBound; tests use a small bound to exercise
+// overflow without freezing a deck of thirty idioms.
+func withIdiomCardBound(bound int) FreezeOption {
+	return func(options *freezeOptions) {
+		options.idiomCardBound = bound
+	}
+}
+
 func newFreezeOptions(options []FreezeOption) freezeOptions {
-	config := freezeOptions{idiomLanguages: make(map[string]bool), idiomParameters: idiom.DefaultParameters()}
+	config := freezeOptions{idiomLanguages: make(map[string]bool), idiomParameters: idiom.DefaultParameters(), idiomCardBound: IdiomCardBound}
 	for _, option := range options {
 		if option != nil {
 			option(&config)
@@ -84,23 +101,39 @@ type scoredIdiomMatch struct {
 
 // freezeIdiomProjections runs the dictionary-anchored matcher over each enabled
 // language's accepted sentences and returns one projection per distinct idiom
-// (language plus headword). The returned projections are frozen after the
-// vocabulary projections, so existing lemma ordinals never move.
-func freezeIdiomProjections(ctx context.Context, lexical enrichment.LexicalProvider, ordered []CandidateProjection, config freezeOptions) ([]CandidateProjection, error) {
+// (language plus headword), bounded per deck, plus the number of idioms the
+// bound left out. The returned projections are frozen after the vocabulary
+// projections, so existing lemma ordinals never move.
+func freezeIdiomProjections(ctx context.Context, lexical enrichment.LexicalProvider, ordered []CandidateProjection, config freezeOptions) ([]CandidateProjection, int, error) {
 	index, ok := lexical.(IdiomIndex)
 	if !ok || index == nil || len(config.idiomLanguages) == 0 || config.idiomProviderVersion == "" {
-		return nil, nil
+		return nil, 0, nil
 	}
 	matches := make([]idiomMatch, 0)
 	occurrences := make(map[string]int)
 	for _, projection := range ordered {
 		found, err := idiomMatchesForProjection(ctx, index, projection, config, occurrences)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		matches = append(matches, found...)
 	}
-	return idiomProjectionsFromMatches(matches, occurrences), nil
+	projections := idiomProjectionsFromMatches(matches, occurrences)
+	bounded, overflow := boundIdiomProjections(projections, config.idiomCardBound)
+	return bounded, overflow, nil
+}
+
+// boundIdiomProjections keeps the highest-priority idiom projections and
+// returns how many the bound left out. The input is already ranked by anchor
+// occurrence count and deterministic tie-breaks.
+func boundIdiomProjections(projections []CandidateProjection, bound int) ([]CandidateProjection, int) {
+	if bound < 0 {
+		bound = 0
+	}
+	if len(projections) <= bound {
+		return projections, 0
+	}
+	return projections[:bound], len(projections) - bound
 }
 
 // idiomMatchesForProjection matches one frozen vocabulary identity's accepted
@@ -256,12 +289,25 @@ func idiomProjectionsFromMatches(matches []idiomMatch, occurrences map[string]in
 		}
 	}
 	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].Candidate.FirstEncounter != result[j].Candidate.FirstEncounter {
-			return result[i].Candidate.FirstEncounter < result[j].Candidate.FirstEncounter
-		}
-		return result[i].Entry.Headword < result[j].Entry.Headword
+		return idiomProjectionLess(result[i], result[j])
 	})
 	return result
+}
+
+// idiomProjectionLess ranks idiom projections for the per-deck bound. More
+// anchor occurrences go first; ties break by earliest sentence, headword and
+// language, so the bound is deterministic for a given deck.
+func idiomProjectionLess(left, right CandidateProjection) bool {
+	if left.Candidate.OccurrenceCount != right.Candidate.OccurrenceCount {
+		return left.Candidate.OccurrenceCount > right.Candidate.OccurrenceCount
+	}
+	if left.Candidate.FirstEncounter != right.Candidate.FirstEncounter {
+		return left.Candidate.FirstEncounter < right.Candidate.FirstEncounter
+	}
+	if left.Entry.Headword != right.Entry.Headword {
+		return left.Entry.Headword < right.Entry.Headword
+	}
+	return left.Entry.Language < right.Entry.Language
 }
 
 func idiomProjectionForMatches(matches []idiomMatch, occurrences map[string]int) (CandidateProjection, bool) { //nolint:gocognit // scoring and assembly are one deterministic decision

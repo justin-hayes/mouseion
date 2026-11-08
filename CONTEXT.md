@@ -169,6 +169,18 @@ the words literally or could not defend a meaning. It is not an Omission of a
 vocabulary identity and raises no Lemma review flag.
 _Avoid_: lemma-mismatch omission, meaning omission.
 
+**Idiom-card bound**:
+The reviewed maximum number of idiom cards one frozen deck carries, currently
+30. Idioms anchored on vocabulary identities with more sentence occurrences
+rank first; the remaining ties break deterministically.
+_Avoid_: idiom cap, phrase limit.
+
+**Idiom overflow**:
+An idiom candidate the per-deck idiom-card bound left out of a frozen deck. It
+is reported in the deck result, is not an Idiom omission, and raises no review
+flag.
+_Avoid_: omitted idiom (for overflow), idiom omission.
+
 **Provider omission**:
 A deck omission caused by provider answers that were unusable through the
 bounded attempts. It is retryable, and retrying requests only the omitted

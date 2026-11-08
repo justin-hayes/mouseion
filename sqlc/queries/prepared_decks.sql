@@ -319,8 +319,8 @@ INSERT INTO deck_preparation_runs(id, owner_id, preparation_id, run_number, stat
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26);
 
 -- name: InsertPreparedDeckManifest :exec
-INSERT INTO deck_preparation_manifests(owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_name, filename, selected_count, accepted_count, omitted_count)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+INSERT INTO deck_preparation_manifests(owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_name, filename, selected_count, accepted_count, omitted_count, idiom_overflow)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: InsertPreparedDeckManifestItem :exec
 INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, item_kind, lexical_discriminator, headword, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, corpus_id, sentence_ordinal, meaning_evidence_hash, passage_context, passage_citation, brownson_pin, lsj_entry_id, lsj_pin)

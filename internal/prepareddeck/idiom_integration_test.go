@@ -5,6 +5,7 @@ package prepareddeck
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -538,4 +539,133 @@ func TestIdiomProviderFailureRetriesLikeALemmaItem(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, status.IdiomCards, "the recovered idiom item produced its card")
 	assert.Zero(t, status.IdiomOmissions)
+}
+func TestIdiomBoundAndOverflowSurviveDurableFreezeAndStatus(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "idiom-bound-"+uuid.NewString(), false)
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "it", SourceIdentifier: uuid.NewString(), Title: "Libro", MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("testo"), FullText: "testo"})
+	require.NoError(t, err)
+	prep, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename("Libro"), DeckName: "Libro", ContentHash: source.ContentHash})
+	require.NoError(t, err)
+
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "integration-model"})
+	require.NoError(t, err)
+	projections, lexicon := integrationIdiomBoundFixture(t, owner.ID, codec)
+	deck, diagnostics, err := cardexport.NewPresentation(lexicon).Freeze(ctx, owner.ID, "Libro", projections, cardexport.WithIdiomCards([]string{"it"}, codec.IdiomCardProviderVersion()))
+	require.NoError(t, err)
+	const overflow = 5
+	snapshot := deck.StorageProjection()
+
+	t.Run("freeze diagnostics report the overflow", func(t *testing.T) {
+		require.Equal(t, overflow, diagnostics.IdiomOverflow)
+	})
+	t.Run("the manifest carries the overflow", func(t *testing.T) {
+		require.Equal(t, overflow, snapshot.IdiomOverflow)
+	})
+	t.Run("the manifest keeps the highest-priority idioms up to the bound", func(t *testing.T) {
+		idioms := 0
+		for _, item := range snapshot.Items {
+			if item.ItemKind.IsIdiom() {
+				idioms++
+			}
+		}
+		require.Equal(t, cardexport.IdiomCardBound, idioms)
+	})
+
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &StandardTranslationWorker{})
+	river.AddWorker(workers, &integrationFinalizeWorker{})
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
+	config := persistence.PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ExecutionMode: string(domain.PreparedDeckExecutionStandard), TargetLanguage: "en", ContextMode: string(enrichment.SentenceContext), Provider: codec.ProviderName(), ProviderVersion: codec.ContextualGlossProviderVersion(), MaxProviderAttempts: 1}
+	config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
+	config.Model = codec.Model()
+	runID := uuid.NewString()
+	coordinator := NewDurableCoordinator(store, client, fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: snapshot, Config: config}})
+	_, err = coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: prep.ID})
+	require.NoError(t, err)
+
+	status, err := store.GetDeckPreparationStatus(ctx, owner.ID, prep.ID)
+	require.NoError(t, err)
+
+	t.Run("the durable status carries the overflow", func(t *testing.T) {
+		require.Equal(t, overflow, status.IdiomOverflow)
+	})
+}
+
+type integrationBoundLexicon struct {
+	entries map[string][]idiom.Entry
+}
+
+func (integrationBoundLexicon) Name() string    { return "fixture" }
+func (integrationBoundLexicon) Version() string { return "fixture-v1" }
+func (integrationBoundLexicon) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+	return enrichment.LexicalEntry{}, false, nil
+}
+func (l integrationBoundLexicon) IdiomEntries(_ context.Context, language, word string) ([]idiom.Entry, error) {
+	return l.entries[language+"\x00"+word], nil
+}
+
+func integrationIdiomBoundFixture(t *testing.T, owner string, codec *enrichment.TranslationCodec) ([]cardexport.CandidateProjection, integrationBoundLexicon) {
+	t.Helper()
+	const count = cardexport.IdiomCardBound + 5
+	entries := make(map[string][]idiom.Entry, count*2)
+	projections := make([]cardexport.CandidateProjection, 0, count)
+	for i := range count {
+		anchor := fmt.Sprintf("lemma%02d", i)
+		other := fmt.Sprintf("word%02d", i)
+		sentence, tokens := integrationIdiomBoundSentence(uint64(100+i*100), anchor, other)
+		entry := idiom.Entry{
+			Language: "it", Headword: anchor + " " + other, UPOS: "ADJ",
+			Words:  []string{anchor, other},
+			Senses: []enrichment.LexicalSense{{EvidenceID: "e-" + anchor, Gloss: "gloss for " + anchor}},
+			Source: "wiktionary", Version: "fixture-v1",
+		}
+		entries["it\x00"+anchor] = []idiom.Entry{entry}
+		entries["it\x00"+other] = []idiom.Entry{entry}
+		observed, err := json.Marshal([]string{anchor})
+		require.NoError(t, err)
+		corpusID := uuid.NewString()
+		projections = append(projections, cardexport.CandidateProjection{
+			OwnerID: owner, DeckName: "Libro",
+			Candidate: domain.SelectionCandidate{
+				OwnerID: owner, CorpusID: corpusID, Language: "it",
+				CanonicalLemma: anchor, UPOS: "NOUN", OccurrenceCount: count - i,
+				FirstEncounter: int64(100 + i*100), ObservedForms: observed,
+			},
+			Entry: cardexport.Entry{
+				OwnerID: owner, Language: "it", CanonicalLemma: anchor, UPOS: "NOUN",
+				CorpusID: corpusID, SentenceOrdinal: 1, Sentence: sentence, TargetWord: anchor,
+				SentenceTokens: tokens, SentenceStartOffset: uint64(100 + i*100), FirstEncounter: int64(100 + i*100),
+				SourceDocument: "Libro",
+			},
+			Sentences: map[int64]analyzer.Sentence{1: {Text: sentence, Tokens: tokens, Location: analyzer.SourceLocation{StartOffset: uint64(100 + i*100)}}},
+			Provider:  codec.ProviderName(), ProviderVersion: codec.ContextualGlossProviderVersion(),
+			TargetLanguage: "en", RequireContextualGloss: true,
+		})
+	}
+	return projections, integrationBoundLexicon{entries: entries}
+}
+
+func integrationIdiomBoundSentence(start uint64, anchor, other string) (string, []analyzer.Token) {
+	words := []string{"È", "davvero", "un", anchor, other, "bello."}
+	lemmas := []string{"è", "davvero", "un", anchor, other, "bello"}
+	upos := []string{"AUX", "ADV", "DET", "NOUN", "NOUN", "ADJ"}
+	tokens := make([]analyzer.Token, len(words))
+	offset := start
+	for i := range words {
+		tokens[i] = analyzer.Token{
+			Surface: words[i], CanonicalLemma: lemmas[i], UPOS: upos[i],
+			Location: analyzer.SourceLocation{StartOffset: offset, EndOffset: offset + uint64(len(words[i]))},
+		}
+		offset += uint64(len(words[i])) + 1
+	}
+	return "È davvero un " + anchor + " " + other + " bello.", tokens
 }

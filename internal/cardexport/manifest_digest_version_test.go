@@ -112,6 +112,34 @@ func TestItemKindIsAV14ManifestDigestInput(t *testing.T) {
 	assert.NotEqual(t, lemmaDigest, idiomDigest, "v14 must include the item kind")
 }
 
+func TestIdiomOverflowIsAV16ManifestDigestInput(t *testing.T) {
+	snapshot := newManifest("owner-1", "Buch", []Entry{{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus",
+	}}).Snapshot()
+	withOverflow := snapshot
+	withOverflow.IdiomOverflow = 2
+
+	t.Run("v15 ignores the overflow count", func(t *testing.T) {
+		withoutV15 := snapshot
+		withoutV15.SchemaVersion = ManifestSchemaVersionV15
+		withV15 := withOverflow
+		withV15.SchemaVersion = ManifestSchemaVersionV15
+		withoutDigest, err := withoutV15.Digest()
+		require.NoError(t, err)
+		withDigest, err := withV15.Digest()
+		require.NoError(t, err)
+		require.Equal(t, withoutDigest, withDigest)
+	})
+	t.Run("v16 includes the overflow count", func(t *testing.T) {
+		withoutDigest, err := snapshot.Digest()
+		require.NoError(t, err)
+		withDigest, err := withOverflow.Digest()
+		require.NoError(t, err)
+		require.NotEqual(t, withoutDigest, withDigest)
+	})
+}
+
 func TestItemKindIsPartOfTheCacheIdentityDigest(t *testing.T) {
 	snapshot := newManifest("owner-1", "Buch", []Entry{{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",

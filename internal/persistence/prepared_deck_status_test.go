@@ -5,6 +5,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -59,6 +60,33 @@ func TestAppendMeaningOmissionsSeparatesLemmaMismatchFromAmbiguous(t *testing.T)
 			{TargetWord: "sieht", Reason: domain.DeckPreparationLemmaMismatchLabel},
 			{TargetWord: "Bank", Reason: "The sentence does not distinguish the meanings."},
 		}, preparation.MeaningOmissions)
+	})
+}
+
+func TestApplyCardKindCountsReportsIdiomOverflow(t *testing.T) {
+	preparation := domain.DeckPreparation{TotalCards: 5}
+	projection := cardexport.StorageProjection{
+		IdiomOverflow: 2,
+		Items: []cardexport.ManifestItem{
+			{Ordinal: 0, Disposition: cardexport.ManifestAccepted, ItemKind: enrichment.ItemKindLemma},
+			{Ordinal: 1, Disposition: cardexport.ManifestAccepted, ItemKind: enrichment.ItemKindIdiom},
+		},
+	}
+	outcomes := []domain.PreparedDeckTranslationOutcome{
+		{Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted},
+		{Ordinal: 1, State: domain.PreparedDeckOutcomeCompleted},
+	}
+
+	applyCardKindCounts(&preparation, projection, outcomes)
+
+	t.Run("counts idiom cards separately", func(t *testing.T) {
+		require.Equal(t, 1, preparation.IdiomCards)
+	})
+	t.Run("keeps vocabulary cards as the remainder", func(t *testing.T) {
+		require.Equal(t, 4, preparation.VocabularyCards)
+	})
+	t.Run("reports the overflow", func(t *testing.T) {
+		require.Equal(t, 2, preparation.IdiomOverflow)
 	})
 }
 

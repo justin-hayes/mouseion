@@ -115,9 +115,11 @@ gush out".
 - The Anki note key is namespaced to idioms by language and headword, so it is
   stable across decks and never collides with a lemma note. Idiom cards carry
   a `mouseion::idiom` tag.
-- A per-deck bound on idiom cards is fixed during implementation and reviewed
-  with the case set. Anchors with more sentence occurrences go first, and any
-  overflow is reported in the deck result.
+- A per-deck bound of **30 idiom cards** is fixed during implementation and
+  reviewed with the case set. Anchors with more sentence occurrences go first;
+  ties break by earliest sentence, then headword, then language. The ready
+  deck's status view and JSON report any overflow. Overflowed idioms are not
+  idiom omissions and raise no review flag.
 
 ### Domain model
 
@@ -134,6 +136,10 @@ gush out".
 - A frozen idiom item is part of the deck specification (ADR 0071). A
   presentation-only rerender reads it unchanged, and a dictionary or list
   refresh reaches a deck only through explicit re-preparation (ADR 0076).
+- The frozen manifest also records the per-deck idiom overflow count as
+  additive metadata, so the deck result can report it without re-running
+  detection. It is not an omission and changes no vocabulary, snapshot or Known
+  schema.
 
 ### Language rollout and review
 

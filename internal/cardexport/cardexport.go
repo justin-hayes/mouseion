@@ -132,6 +132,10 @@ type manifest struct {
 	enrichmentCandidates []enrichment.Candidate
 	cacheKeys            []enrichment.CacheKey
 	decisions            []ManifestItem
+	// idiomOverflow is how many candidate idioms the per-deck bound left out
+	// while freezing. It is reported, never frozen as an omission
+	// (doc/features/idiom-cards.md).
+	idiomOverflow int
 }
 
 // ExactEnrichment is the result for one manifest candidate under the exact
