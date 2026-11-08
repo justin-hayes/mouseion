@@ -58,10 +58,12 @@ func main() {
 
 // reviewEnvironment is the configured provider and the metadata the report
 // pins. Tests inject a real client whose HTTP transport is stubbed, so the
-// command path never reaches the network in CI.
+// command path never reaches the network in CI. Codec is the configured codec
+// the idiom sample freezes with; it is nil when a test supplies the sample.
 type reviewEnvironment struct {
 	Client   translationClient
 	Provider providerMetadata
+	Codec    *enrichment.TranslationCodec
 }
 
 type reviewEnvironmentOpener func() (reviewEnvironment, error)
@@ -104,6 +106,7 @@ func openIdiomReviewEnvironment() (reviewEnvironment, error) {
 func newReviewEnvironment(cfg enrichment.LLMConfig, codec *enrichment.TranslationCodec, client *enrichment.OpenAITranslationClient, providerVersion, promptContract string) reviewEnvironment {
 	return reviewEnvironment{
 		Client: client,
+		Codec:  codec,
 		Provider: providerMetadata{
 			Model:           cfg.Model,
 			ReasoningEffort: cfg.ReasoningEffort,
@@ -156,7 +159,7 @@ func parseReviewCommand(args []string) (reviewCommandOptions, error) {
 	kindValue := flags.String("review", string(reviewKindGloss), "review to run: gloss or idiom")
 	outPath := flags.String("out", "", "report path under doc/reviews (default: dated report for the chosen review)")
 	dateValue := flags.String("date", "", "report date in YYYY-MM-DD (default: today)")
-	bookID := flags.String("book", "", "Book ID whose ready prepared deck supplies the idiom sample")
+	bookID := flags.String("book", "", "Book ID whose current deck preparation is re-frozen in memory for the idiom sample")
 	language := flags.String("language", "it", "language of the idiom sample")
 	seed := flags.String("seed", "", "deterministic idiom sample seed (default: report date)")
 	if err := flags.Parse(args); err != nil {

@@ -220,6 +220,32 @@ func TestFreezeReportsNoOverflowWhenEveryIdiomFits(t *testing.T) {
 	})
 }
 
+func TestIdiomWorkReturnsEveryUnboundedIdiomRequest(t *testing.T) {
+	projections, lexicon := idiomBoundFixture(t)
+	deck, diagnostics, err := NewPresentation(lexicon).Freeze(t.Context(), "owner-1", "Libro", projections, WithIdiomCards([]string{"it"}, "idiom-v1"), WithoutIdiomCardBound())
+	require.NoError(t, err)
+	items := deck.IdiomWork("IT")
+
+	t.Run("no idiom overflows", func(t *testing.T) {
+		require.Zero(t, diagnostics.IdiomOverflow)
+	})
+	t.Run("every idiom is returned", func(t *testing.T) {
+		require.Len(t, items, 5)
+	})
+	t.Run("each item carries the idiom request", func(t *testing.T) {
+		for _, item := range items {
+			require.True(t, item.Work.Request.RequireIdiomCard)
+			require.Equal(t, item.Headword, item.Work.Request.IdiomHeadword)
+			require.NotEmpty(t, item.Work.Request.IdiomMatchedForms)
+			require.NotEmpty(t, item.Evidence.AnchorCanonicalLemma)
+			require.Equal(t, "idiom-v1", item.Work.CacheKey.ProviderVersion)
+		}
+	})
+	t.Run("another language has no idiom work", func(t *testing.T) {
+		require.Empty(t, deck.IdiomWork("de"))
+	})
+}
+
 func TestBoundIdiomProjectionsTreatsANegativeBoundAsZero(t *testing.T) {
 	bounded, overflow := boundIdiomProjections([]CandidateProjection{{Entry: Entry{Headword: "in gamba"}}}, -1)
 

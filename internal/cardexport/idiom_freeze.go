@@ -2,6 +2,7 @@ package cardexport
 
 import (
 	"context"
+	"math"
 	"slices"
 	"sort"
 	"strings"
@@ -65,6 +66,45 @@ func withIdiomCardBound(bound int) FreezeOption {
 	return func(options *freezeOptions) {
 		options.idiomCardBound = bound
 	}
+}
+
+// WithoutIdiomCardBound lifts the per-deck idiom bound. Only the operator idiom
+// review uses it, so its sample can draw from every idiom a deck matches; a
+// prepared deck always keeps IdiomCardBound.
+func WithoutIdiomCardBound() FreezeOption {
+	return withIdiomCardBound(math.MaxInt)
+}
+
+// IdiomWorkItem is one accepted idiom item of a frozen deck: the exact provider
+// request a prepared deck sends for it and the matcher evidence it was frozen
+// with.
+type IdiomWorkItem struct {
+	Work     WorkItem
+	Headword string
+	Evidence IdiomEvidence
+}
+
+// IdiomWork returns the deck's accepted idiom items for one language in
+// manifest order. Omitted items and other languages are left out.
+func (d FrozenDeck) IdiomWork(language string) []IdiomWorkItem {
+	language = canonicalization.NormalizeLanguage(language)
+	items := make([]IdiomWorkItem, 0)
+	for _, decision := range d.manifest.decisions {
+		if decision.Disposition != ManifestAccepted || !decision.ItemKind.IsIdiom() {
+			continue
+		}
+		if canonicalization.NormalizeLanguage(decision.Entry.Language) != language {
+			continue
+		}
+		work, ok := d.WorkByOrdinal(decision.Ordinal)
+		if !ok {
+			continue
+		}
+		evidence := decision.Entry.IdiomEvidence
+		evidence.MatchedTokenOrdinals = append([]int(nil), evidence.MatchedTokenOrdinals...)
+		items = append(items, IdiomWorkItem{Work: work, Headword: decision.Entry.Headword, Evidence: evidence})
+	}
+	return items
 }
 
 func newFreezeOptions(options []FreezeOption) freezeOptions {

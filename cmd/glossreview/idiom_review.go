@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 // idiomReviewOptions freezes everything one idiom report records besides the
@@ -24,12 +24,14 @@ type idiomReviewOptions struct {
 	Sample         idiomSampleOptions
 }
 
+// idiomSampleOptions names the Book sample and carries the idiom items an
+// in-memory freeze of the Book's current deck preparation matched.
 type idiomSampleOptions struct {
 	Requested bool
 	BookID    string
 	Language  string
 	Seed      string
-	Cards     []persistence.ConfirmedIdiomCard
+	Items     []cardexport.IdiomWorkItem
 }
 
 type idiomReviewReport struct {
@@ -85,9 +87,9 @@ const (
 )
 
 // reviewIdiom sends every provider case through the real idiom codec and
-// applies the automatic checks. Lemma-card controls are repository data and are
-// checked without a provider call. The command never decides a judgement-based
-// verdict.
+// applies the automatic checks, then sends the Book sample. Lemma-card controls
+// are repository data and are checked without a provider call. The command
+// never decides a judgement-based verdict.
 func reviewIdiom(ctx context.Context, options idiomReviewOptions) idiomReviewReport {
 	report := idiomReviewReport{
 		Now:            options.Now.UTC(),
@@ -96,14 +98,6 @@ func reviewIdiom(ctx context.Context, options idiomReviewOptions) idiomReviewRep
 		MatcherVersion: options.MatcherVersion,
 		GapBound:       options.GapBound,
 		Cases:          make([]idiomCaseResult, 0, len(options.Cases.Cases)),
-		Sample: idiomSampleReport{
-			Requested: options.Sample.Requested,
-			BookID:    options.Sample.BookID,
-			Language:  options.Sample.Language,
-			Seed:      options.Sample.Seed,
-			Limit:     idiomSampleSize,
-			Cards:     selectIdiomSample(options.Sample.Cards, options.Sample.BookID, options.Sample.Seed, idiomSampleSize),
-		},
 	}
 	for _, testCase := range options.Cases.Cases {
 		result := idiomCaseResult{Case: testCase}
@@ -118,6 +112,7 @@ func reviewIdiom(ctx context.Context, options idiomReviewOptions) idiomReviewRep
 		report.Cases = append(report.Cases, result)
 	}
 	report.Summary = summarizeIdiom(report.Cases)
+	report.Sample = runIdiomSample(ctx, options.Client, options.Sample)
 	return report
 }
 
