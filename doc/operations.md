@@ -85,6 +85,7 @@ Compose reads these from `.env`; see [`.env.example`](../.env.example).
 | `MOUSEION_LLM_BASE_URL` | OpenAI-compatible API root; defaults to `https://api.openai.com/v1`. Batch mode requires the official OpenAI endpoint. |
 | `MOUSEION_LLM_TIMEOUT` | Positive Go duration; defaults to `30s`. |
 | `MOUSEION_LLM_REASONING_EFFORT` | `low`, `medium`, or `high`; defaults to `low`. |
+| `MOUSEION_LLM_IDIOM_REASONING_EFFORT` | Optional `low`, `medium`, or `high` for idiom-card requests only; unset uses `MOUSEION_LLM_REASONING_EFFORT`. |
 | `MOUSEION_LLM_SUPPORTS_REASONING_EFFORT` | `true` only when a custom endpoint and model accept `reasoning_effort`. |
 | `MOUSEION_PREPARED_DECK_TRANSLATION_MODE` | `standard` (default, interactive) or explicit `batch`. |
 | `MOUSEION_PREPARED_DECK_STANDARD_*` | Concurrency, attempt, and retry-delay bounds for standard translation. |

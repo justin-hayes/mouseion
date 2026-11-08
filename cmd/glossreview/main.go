@@ -89,27 +89,28 @@ func openReviewEnvironment() (reviewEnvironment, error) {
 	if err != nil {
 		return reviewEnvironment{}, err
 	}
-	return newReviewEnvironment(cfg, codec, client, codec.ContextualGlossProviderVersion(), codec.ContextualGlossPromptContract()), nil
+	return newReviewEnvironment(cfg.Model, cfg.ReasoningEffort, codec, client, codec.ContextualGlossProviderVersion(), codec.ContextualGlossPromptContract()), nil
 }
 
 // openIdiomReviewEnvironment reads the same configured provider and pins the
-// idiom-card contract instead of the lemma Gloss contract.
+// idiom-card contract and its reasoning effort instead of the lemma Gloss
+// contract.
 func openIdiomReviewEnvironment() (reviewEnvironment, error) {
 	cfg, codec, client, err := openProvider()
 	if err != nil {
 		return reviewEnvironment{}, err
 	}
-	return newReviewEnvironment(cfg, codec, client, codec.IdiomCardProviderVersion(), codec.IdiomCardPromptContract()), nil
+	return newReviewEnvironment(cfg.Model, codec.IdiomCardReasoningEffort(), codec, client, codec.IdiomCardProviderVersion(), codec.IdiomCardPromptContract()), nil
 }
 
 // newReviewEnvironment builds the client and pinned metadata one report records.
-func newReviewEnvironment(cfg enrichment.LLMConfig, codec *enrichment.TranslationCodec, client *enrichment.OpenAITranslationClient, providerVersion, promptContract string) reviewEnvironment {
+func newReviewEnvironment(model, reasoningEffort string, codec *enrichment.TranslationCodec, client *enrichment.OpenAITranslationClient, providerVersion, promptContract string) reviewEnvironment {
 	return reviewEnvironment{
 		Client: client,
 		Codec:  codec,
 		Provider: providerMetadata{
-			Model:           cfg.Model,
-			ReasoningEffort: cfg.ReasoningEffort,
+			Model:           model,
+			ReasoningEffort: reasoningEffort,
 			ProviderName:    codec.ProviderName(),
 			ProviderVersion: providerVersion,
 			PromptContract:  promptContract,

@@ -73,6 +73,9 @@ func writeIdiomCaseReport(builder *strings.Builder, result idiomCaseResult) {
 	if strings.TrimSpace(testCase.ExpectedGloss) != "" {
 		writef(builder, "- Expected Gloss: %s\n", codeSpan(testCase.ExpectedGloss))
 	}
+	if len(testCase.GlossExcludes) > 0 {
+		writef(builder, "- Gloss must leave out: %s\n", codeSpan(strings.Join(testCase.GlossExcludes, ", ")))
+	}
 	if strings.TrimSpace(testCase.Notes) != "" {
 		writef(builder, "- Notes: %s\n", testCase.Notes)
 	}

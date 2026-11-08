@@ -111,8 +111,17 @@ gush out".
   headword under several parts of speech, their senses are pooled in
   part-of-speech order before the bound applies. The response has the same
   shape as the lemma contract under a separate prompt contract version
-  (`idiom-card-v2`). Its unresolved kinds are `ambiguous` and `literal_use`
+  (`idiom-card-v3`). Its unresolved kinds are `ambiguous` and `literal_use`
   ("this sentence uses the words literally").
+- The prompt makes the provider decide in order before it writes a Gloss:
+  first whether the matched words work together as the idiom or only
+  co-occur, then which candidate sense the sentence uses, and only then the
+  Gloss, built from the idiom's own words without the sentence's verb or
+  arguments (#2389).
+- `MOUSEION_LLM_IDIOM_REASONING_EFFORT` sets the reasoning effort for idiom-card
+  requests only. Unset, idiom cards use `MOUSEION_LLM_REASONING_EFFORT`. The
+  effort is part of the idiom provider version, so changing it re-requests
+  idiom cards rather than reusing cached answers.
 - The Gloss renders the sense the sentence uses, not the first listed sense,
   and agrees with the translation. A candidate sense that only marks literal
   use ("Used other than figuratively or idiomatically") never supports a
@@ -170,16 +179,18 @@ gush out".
 - Each language has an idiom-card switch, off by default. Turning it on
   requires a committed review report for that language.
 - The operator review extends the Gloss review command with an idiom case set
-  (`idiom-review-v2`), run outside CI at the deployed model and reasoning
-  setting. It contains:
+  (`idiom-review-v3`), run outside CI at the deployed model and idiom
+  reasoning setting. It contains:
   - positive cases: *in gamba*, *in bocca al lupo* ("good luck"), *macchina da
-    scrivere*, *κάνω τα στραβά μάτια* ("to turn a blind eye");
+    scrivere*, *κάνω τα στραβά μάτια* ("to turn a blind eye"), and *in giro*
+    ("around"), whose Gloss must not take the sentence's verb;
   - literal-use controls in which the same words are meant literally, such as
     *Tagliò la corda del pacco* against *tagliare la corda* ("to run away")
     and *Sie nimmt das Kind auf den Arm* against *jemanden auf den Arm
     nehmen* ("to pull someone's leg");
   - ambiguous controls in which the sentence uses a sense no candidate lists,
-    such as the comparative *rispetto a* ("compared with");
+    such as the comparative *rispetto a* ("compared with") and *casa isolata*
+    for a remote house when the senses are "detached house" and "homestead";
   - lemma-card controls confirming that the anchor's card moves to an
     idiom-free sentence.
 - Gate per language: every positive case is confirmed with a citation-form
@@ -240,7 +251,10 @@ gush out".
       passes it (#2367). The
       [2026-11-08 v2 re-run](../reviews/idiom-review-v2-2026-11-08.md) also
       failed: idiom senses carry no evidence IDs, and unresolved answers with
-      an empty translation are rejected; Italian stays off (#2385).
+      an empty translation are rejected; Italian stays off (#2385). The
+      re-run after #2387 still failed on the *fare bene* control and two
+      sample cards (*in giro*, *casa isolata*); Italian stays off until a
+      report for `idiom-card-v3` and `idiom-review-v3` passes (#2389).
 
 ## Related
 

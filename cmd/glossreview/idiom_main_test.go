@@ -27,7 +27,7 @@ func TestEmbeddedIdiomCaseSetCoversEveryKindAndLanguage(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("version is pinned", func(t *testing.T) {
-		require.Equal(t, "idiom-review-v2", cases.Version)
+		require.Equal(t, "idiom-review-v3", cases.Version)
 	})
 	t.Run("every supported language is present", func(t *testing.T) {
 		seen := map[string]bool{}
@@ -54,6 +54,7 @@ func TestEmbeddedIdiomCaseSetCoversEveryKindAndLanguage(t *testing.T) {
 			"el-kano-ta-strava-matia", "it-tagliare-la-corda-literal",
 			"de-jemanden-auf-den-arm-nehmen-literal", "it-gamba-lemma-card", "de-arm-lemma-card",
 			"it-di-fronte", "it-rispetto-a-comparative", "it-fare-bene-literal",
+			"it-in-giro", "it-casa-isolata-remote",
 		} {
 			require.Contains(t, ids, want)
 		}
@@ -82,6 +83,20 @@ func TestEmbeddedIdiomCaseSetCoversEveryKindAndLanguage(t *testing.T) {
 		t.Run("fare bene", func(t *testing.T) {
 			require.Equal(t, idiomCaseLiteralUse, byID["it-fare-bene-literal"].Kind)
 			require.Len(t, byID["it-fare-bene-literal"].Evidence, 3, "fare bene keeps its literal-use marker sense")
+		})
+	})
+	t.Run("the 2026-11-08 v2 re-run failures carry their expected outcomes", func(t *testing.T) {
+		byID := map[string]idiomReviewCase{}
+		for _, reviewCase := range cases.Cases {
+			byID[reviewCase.ID] = reviewCase
+		}
+		t.Run("in giro leaves out the sentence verb", func(t *testing.T) {
+			require.Equal(t, idiomCasePositive, byID["it-in-giro"].Kind)
+			require.Subset(t, byID["it-in-giro"].GlossExcludes, []string{"go", "andare"})
+		})
+		t.Run("casa isolata has no fitting sense", func(t *testing.T) {
+			require.Equal(t, idiomCaseAmbiguous, byID["it-casa-isolata-remote"].Kind)
+			require.Len(t, byID["it-casa-isolata-remote"].Evidence, 2, "only the detached-house and homestead senses")
 		})
 	})
 	t.Run("literal-use and ambiguous controls expect no Gloss", func(t *testing.T) {
@@ -384,7 +399,7 @@ func TestExecuteIdiomCommandWritesTheDatedReportWithASample(t *testing.T) {
 	for name, fragment := range map[string]string{
 		"report title":   "# Idiom card review — `idiom-card-v1`",
 		"report date":    "- Date: 2026-11-08",
-		"full case set":  "- Case set: `idiom-review-v2` (11 cases)",
+		"full case set":  "- Case set: `idiom-review-v3` (13 cases)",
 		"matcher":        "- Matcher version: `idiom-matcher/2`",
 		"sample header":  "- Sample: 30 confirmed idiom cards requested from Book `book-1` in `it` (seed `seed-1`); 35 idiom items found, 30 sent, 30 confirmed",
 		"in-memory note": "re-freezes the Book's current deck preparation in memory",
@@ -397,7 +412,7 @@ func TestExecuteIdiomCommandWritesTheDatedReportWithASample(t *testing.T) {
 		})
 	}
 	t.Run("stdout", func(t *testing.T) {
-		require.Equal(t, "idiom review report written: path="+path+" cases=11 sample=30\n", output.String())
+		require.Equal(t, "idiom review report written: path="+path+" cases=13 sample=30\n", output.String())
 	})
 	t.Run("sample source is closed", func(t *testing.T) {
 		require.True(t, source.closed)
@@ -806,15 +821,19 @@ func TestIdiomCaseValidationRejectsAnAmbiguousControlWithAnExpectedGloss(t *test
 	require.Equal(t, "ambiguous control", idiomCaseAmbiguous.label())
 }
 
-// The embedded set's three new cases come from the failed 2026-11-08 Italian
-// review. A provider that confirms every idiom (the v1 failure) must fail the
-// rispetto a and fare bene controls; one that answers as v2 asks passes them.
+// The embedded set's v2 cases come from the failed 2026-11-08 Italian review
+// and its v3 cases from the failed v2 re-run. A provider that confirms every
+// idiom must fail the rispetto a, fare bene and casa isolata controls and the
+// in giro exclusion; one that answers as v3 asks passes them.
 func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 	cases, err := loadIdiomCaseSet(bytes.NewReader(idiomReviewCases))
 	require.NoError(t, err)
 
 	t.Run("a provider that confirms every idiom fails the controls", func(t *testing.T) {
-		confirmAll := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+		confirmAll := stubIdiomClient(t, func(payload idiomProviderRequestPayload) idiomStubAnswer {
+			if payload.Headword == "in giro" {
+				return idiomStubAnswer{translation: "to go around", gloss: "to go around"}
+			}
 			return idiomStubAnswer{translation: "with respect to", gloss: "with respect to"}
 		})
 		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: confirmAll, Provider: idiomTestProviderMetadata()})
@@ -828,11 +847,21 @@ func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 		t.Run("di fronte", func(t *testing.T) {
 			require.Equal(t, checkPass, idiomCheckStatus(byID["it-di-fronte"], checkNameIdiomConfirmed))
 		})
+		t.Run("casa isolata", func(t *testing.T) {
+			require.Equal(t, checkFail, idiomCheckStatus(byID["it-casa-isolata-remote"], checkNameIdiomAmbiguous))
+		})
+		t.Run("in giro", func(t *testing.T) {
+			require.Equal(t, checkFail, idiomCheckStatus(byID["it-in-giro"], checkNameIdiomGlossExcludes))
+		})
 	})
 
-	t.Run("a provider that answers as v2 asks passes every case", func(t *testing.T) {
-		answerAsV2 := stubIdiomClient(t, func(payload idiomProviderRequestPayload) idiomStubAnswer {
+	t.Run("a provider that answers as v3 asks passes every case", func(t *testing.T) {
+		answerAsV3 := stubIdiomClient(t, func(payload idiomProviderRequestPayload) idiomStubAnswer {
 			switch payload.Headword {
+			case "in giro":
+				return idiomStubAnswer{translation: "around", gloss: "around, about"}
+			case "casa isolata":
+				return idiomStubAnswer{translation: "remote house", unresolvedKind: string(enrichment.ContextualGlossUnresolvedAmbiguous), reason: "No candidate sense means a remote house."}
 			case "rispetto a":
 				return idiomStubAnswer{translation: "compared with", unresolvedKind: string(enrichment.ContextualGlossUnresolvedAmbiguous), reason: "No candidate sense is comparative."}
 			case "fare bene", "tagliare la corda", "jemanden auf den Arm nehmen":
@@ -841,7 +870,7 @@ func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 				return idiomStubAnswer{translation: "in front", gloss: "in front"}
 			}
 		})
-		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: answerAsV2, Provider: idiomTestProviderMetadata()})
+		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: answerAsV3, Provider: idiomTestProviderMetadata()})
 		byID := idiomResultsByCaseID(report.Cases)
 		t.Run("rispetto a is ambiguous", func(t *testing.T) {
 			require.Equal(t, idiomOutcomeAmbiguous, byID["it-rispetto-a-comparative"].Outcome)
@@ -851,7 +880,8 @@ func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 			require.Equal(t, checkPass, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomLiteralUse))
 		})
 		t.Run("every automatic check passes", func(t *testing.T) {
-			require.Equal(t, report.Summary.Total, report.Summary.ChecksPass)
+			require.Zero(t, report.Summary.ChecksFail)
+			require.Equal(t, report.Summary.Total+1, report.Summary.ChecksPass, "in giro adds its exclusion check")
 		})
 
 		var output bytes.Buffer
@@ -866,4 +896,116 @@ func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 			})
 		}
 	})
+}
+
+// The idiom review runs and records the idiom-card reasoning effort, so its
+// report names the setting the requests used (#2389).
+func TestOpenIdiomReviewEnvironmentRecordsTheIdiomCardReasoningEffort(t *testing.T) {
+	t.Setenv("MOUSEION_LLM_ENABLED", "true")
+	t.Setenv("MOUSEION_LLM_API_KEY", "test-key")
+	t.Setenv("MOUSEION_LLM_MODEL", "gpt-review")
+	t.Setenv("MOUSEION_LLM_BASE_URL", "https://stub.example/v1")
+	t.Setenv("MOUSEION_LLM_SUPPORTS_REASONING_EFFORT", "true")
+	t.Setenv("MOUSEION_LLM_REASONING_EFFORT", "low")
+	t.Setenv("MOUSEION_LLM_IDIOM_REASONING_EFFORT", "medium")
+
+	idiom, err := openIdiomReviewEnvironment()
+	require.NoError(t, err)
+	require.Equal(t, "medium", idiom.Provider.ReasoningEffort)
+	require.Equal(t, "gpt-review/idiom-card-v3-reasoning-medium", idiom.Provider.ProviderVersion)
+
+	gloss, err := openReviewEnvironment()
+	require.NoError(t, err)
+	require.Equal(t, "low", gloss.Provider.ReasoningEffort, "the Gloss review keeps the global effort")
+}
+
+// A positive case may list sentence words its Gloss must leave out, so a
+// sentence verb carried into the Gloss (andare in giro as "to go around")
+// fails automatically (#2389).
+func TestReviewIdiomFailsAGlossThatAddsAnExcludedSentenceWord(t *testing.T) {
+	cases := idiomReviewCaseSet{Version: "idiom-review-test", Cases: []idiomReviewCase{{
+		ID: "it-in-giro", Language: "it", Kind: idiomCasePositive, Headword: "in giro",
+		MatchedForms: []string{"in", "giro"}, Sentence: "Andiamo in giro per la città.", ExpectedGloss: "around, about",
+		GlossExcludes: []string{"go", "andare"},
+		Evidence:      []enrichment.LexicalSense{{EvidenceID: "wikt:in giro:1", Gloss: "here and there, about, around"}},
+	}}}
+	for name, test := range map[string]struct {
+		gloss string
+		want  checkStatus
+	}{
+		"the sentence verb":        {gloss: "to go around", want: checkFail},
+		"the sentence verb, cased": {gloss: "Go around", want: checkFail},
+		"the idiom alone":          {gloss: "around, about", want: checkPass},
+		"a word containing go":     {gloss: "ago, gone by", want: checkPass},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+				return idiomStubAnswer{translation: test.gloss, gloss: test.gloss}
+			})
+			report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: client, Provider: idiomTestProviderMetadata()})
+			result := report.Cases[0]
+			require.Equal(t, checkPass, idiomCheckStatus(result, checkNameIdiomConfirmed))
+			require.Equal(t, test.want, idiomCheckStatus(result, checkNameIdiomGlossExcludes))
+		})
+	}
+
+	t.Run("an unconfirmed case is not applicable", func(t *testing.T) {
+		client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+			return idiomStubAnswer{unresolvedKind: string(enrichment.ContextualGlossUnresolvedAmbiguous), reason: "unclear"}
+		})
+		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: client, Provider: idiomTestProviderMetadata()})
+		require.Equal(t, checkNotApplicable, idiomCheckStatus(report.Cases[0], checkNameIdiomGlossExcludes))
+		require.Equal(t, 1, report.Summary.ChecksFail, "only the confirmation check fails")
+	})
+	t.Run("the report names the check", func(t *testing.T) {
+		client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+			return idiomStubAnswer{translation: "to go around", gloss: "to go around"}
+		})
+		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: client, Provider: idiomTestProviderMetadata()})
+		var output bytes.Buffer
+		require.NoError(t, writeIdiomReport(&output, report))
+		require.Contains(t, output.String(), "- Gloss must leave out: `go, andare`")
+		require.Contains(t, output.String(), "| Gloss leaves out the excluded sentence words | **FAIL** — Gloss `to go around` contains `go` |")
+	})
+}
+
+func TestIdiomCaseValidationAllowsGlossExclusionsOnPositiveCasesOnly(t *testing.T) {
+	positive := idiomReviewCase{
+		ID: "it-in-giro", Language: "it", Kind: idiomCasePositive, Headword: "in giro",
+		MatchedForms: []string{"in", "giro"}, Sentence: "Andiamo in giro.", ExpectedGloss: "around",
+		GlossExcludes: []string{"go"},
+		Evidence:      []enrichment.LexicalSense{{EvidenceID: "e1", Gloss: "around"}},
+	}
+	require.NoError(t, positive.validate())
+
+	blank := positive
+	blank.GlossExcludes = []string{" "}
+	require.ErrorContains(t, blank.validate(), "Gloss exclusions cannot be blank")
+
+	control := positive
+	control.Kind, control.ExpectedGloss = idiomCaseAmbiguous, ""
+	require.ErrorContains(t, control.validate(), "only a positive case lists Gloss exclusions")
+}
+
+func TestIdiomCaseSetKeepsEveryV2CaseUnchanged(t *testing.T) {
+	v2Bytes, err := os.ReadFile(filepath.Join("testdata", "idiom_review_cases_v2.json"))
+	require.NoError(t, err)
+	v2, err := loadIdiomCaseSet(bytes.NewReader(v2Bytes))
+	require.NoError(t, err)
+	require.Equal(t, "idiom-review-v2", v2.Version)
+	require.Len(t, v2.Cases, 11)
+	current, err := loadIdiomCaseSet(bytes.NewReader(idiomReviewCases))
+	require.NoError(t, err)
+
+	byID := map[string]idiomReviewCase{}
+	for _, reviewCase := range current.Cases {
+		byID[reviewCase.ID] = reviewCase
+	}
+	for _, v2Case := range v2.Cases {
+		t.Run(v2Case.ID, func(t *testing.T) {
+			currentCase, ok := byID[v2Case.ID]
+			require.True(t, ok, "the current set dropped the v2 case")
+			require.Equal(t, v2Case, currentCase)
+		})
+	}
 }

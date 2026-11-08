@@ -115,10 +115,13 @@ operator has recorded every verdict.
 ## Idiom card review
 
 `cmd/glossreview -review idiom` runs the frozen idiom case set
-`idiom-review-v2` through the real idiom codec and the configured provider, at
-the deployed model and reasoning setting. It records the date, model, reasoning
-setting, prompt contract, matcher version and matcher gap bound, and writes a
-dated Markdown report under `doc/reviews/`. The command never runs in CI.
+`idiom-review-v3` through the real idiom codec and the configured provider, at
+the deployed model and reasoning setting. The reasoning setting is
+`MOUSEION_LLM_IDIOM_REASONING_EFFORT` when set, otherwise
+`MOUSEION_LLM_REASONING_EFFORT`; set the same value the deployment uses. It
+records the date, model, reasoning setting, prompt contract, matcher version
+and matcher gap bound, and writes a dated Markdown report under
+`doc/reviews/`. The command never runs in CI.
 
 The idiom request carries only the headword, the matched forms, one
 representative sentence and the idiom's bounded public senses. When the
@@ -168,32 +171,39 @@ assessment is what the review is for.
 
 ### Case set
 
-`idiom-review-v2` contains four review classes. It keeps every
-`idiom-review-v1` case unchanged (`testdata/idiom_review_cases_v1.json`) and
-adds cards 4, 13 and 25 of the failed
-[2026-11-08 Italian review](idiom-review-2026-11-08.md) (#2378).
+`idiom-review-v3` contains four review classes. It keeps every
+`idiom-review-v2` case unchanged (`testdata/idiom_review_cases_v2.json`), which
+in turn kept every `idiom-review-v1` case (`testdata/idiom_review_cases_v1.json`).
+v2 added cards 4, 13 and 25 of the failed
+[2026-11-08 Italian review](idiom-review-2026-11-08.md) (#2378); v3 adds cards 8
+and 18 of the failed v2 re-run (#2389).
 
 - **Positive cases** — *in gamba*, *in bocca al lupo* ("good luck"), *macchina
   da scrivere* ("typewriter"), *κάνω τα στραβά μάτια* ("to turn a blind eye")
-  and *di fronte* with its pooled adjective and adverb senses, where the
-  sentence uses the adverb ("in front", not the noun "front"). Each must be
-  confirmed with a citation-form Gloss.
+  *di fronte* with its pooled adjective and adverb senses, where the
+  sentence uses the adverb ("in front", not the noun "front"), and *in giro*
+  in *andare in giro per la città*, whose Gloss must be "around", not the
+  sentence's verb ("to go around"). Each must be confirmed with a
+  citation-form Gloss.
 - **Literal-use controls** — *Tagliò la corda del pacco.* against *tagliare la
   corda*, *Sie nimmt das Kind auf den Arm.* against *jemanden auf den Arm
   nehmen*, and *fare le cose fatte bene* against *fare bene*, whose senses
   include Wiktionary's "Used other than figuratively or idiomatically" marker.
   The words are meant literally, so each must return `literal_use`.
 - **Ambiguous controls** — the comparative *rispetto a* ("compared with"),
-  whose dictionary senses list only "with respect to" and "in relation to". No
-  candidate sense fits, so it must return `ambiguous` rather than a Gloss from
-  context.
+  whose dictionary senses list only "with respect to" and "in relation to", and
+  *casa isolata* for a remote house beyond the hills, whose senses list only
+  "detached house" and "homestead". No candidate sense fits, so each must
+  return `ambiguous` rather than a Gloss from context.
 - **Lemma-card controls** — *gamba* and *Arm*. Each records the idiom sentence
   and the idiom-free sentence the anchor's own card must use instead.
 
 Every provider case carries language, headword, matched forms, one
 representative sentence, frozen dictionary senses, and its expected outcome. A
 positive case also carries an expected Gloss; a literal-use or ambiguous
-control must not. `loadIdiomCaseSet` rejects a set that misses a language,
+control must not. A positive case may list `gloss_excludes`: sentence words,
+such as the verb that governs the idiom, its confirmed Gloss must not
+contain. `loadIdiomCaseSet` rejects a set that misses a language,
 review class or required field.
 
 ### Sample mode
@@ -220,6 +230,10 @@ sentence, provider outcome, raw Gloss, and automatic checks:
 
 - **outcome is `confirmed`** — a positive case passes only when the provider
   resolved a Gloss.
+- **Gloss leaves out the excluded sentence words** — a positive case with
+  `gloss_excludes` passes only when its confirmed Gloss contains none of them
+  as a whole word, ignoring case. It is not applicable when the case was not
+  confirmed.
 - **outcome is `literal_use`** — a literal-use control passes only when the
   provider rejected the idiom.
 - **outcome is `ambiguous`** — an ambiguous control passes only when the

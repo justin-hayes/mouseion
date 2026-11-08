@@ -22,7 +22,31 @@ var contextualGlossSystemPrompt = "Translate the supplied lemma and complete rep
 // payload carries only the idiom's headword, matched forms, representative
 // sentence and bounded candidate senses; the provider confirms the idiom or
 // reports that the sentence uses the words literally (ADR 0114).
-var idiomCardSystemPrompt = "Confirm and translate the supplied idiom in the complete representative sentence. The payload carries the idiom's headword, the matched forms, the representative sentence and its bounded dictionary senses. Return exactly one JSON object using only these eleven fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_kind, unresolved_reason. First decide which candidate sense this sentence uses; the order of candidate_senses is not a preference, and a sense listed first is not more likely. translation is a concise English equivalent of the idiom in that sense, in citation form. gloss is the English equivalent of the idiom in that same sense, in citation form: verbs as \"to …\", nouns singular without an article, adjectives in base form. translation and gloss must render the same sense; never let gloss name a bare component word or a different sense than translation. Gloss must not be a definition-style paraphrase, and it must never carry the sentence's inflection, number or arguments. Keep the Gloss to one to three words; close comma-separated synonyms are allowed when one word would mislead, and a longer phrase where a short cue would mislead. sentence_translation is a natural translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the idiom; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. A candidate sense that only marks literal use, such as Used other than figuratively or idiomatically: see …, never supports a gloss. If the sentence uses the supplied words literally rather than as the idiom, including when the matched forms only co-occur, such as a participle modified by its own adverb, and when the literal-use sense is the one the sentence uses, return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=literal_use, and a brief unresolved_reason explaining why. If no candidate sense matches the meaning this sentence uses, do not gloss from context: return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=ambiguous, and a brief unresolved_reason naming the missing sense. If no defensible meaning can otherwise be given, return the same ambiguous answer. Otherwise return a non-empty gloss, the evidence_ids of the candidate sense or senses it renders, context_only=false, and unresolved_kind and unresolved_reason as empty strings; a confirmed gloss always cites at least one candidate sense. Never invent IDs. Echo item_id and both languages exactly. Do not return HTML or markup."
+var idiomCardSystemPrompt = "Confirm and translate the supplied idiom in the complete representative sentence. " +
+	"The payload carries the idiom's headword, the matched forms, the representative sentence and its bounded dictionary senses. " +
+	"Return exactly one JSON object using only these eleven fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_kind, unresolved_reason. " +
+	"Decide in three steps, in order, before writing any field; do not write a gloss until steps 1 and 2 are settled. " +
+	"Step 1, literal or idiomatic: decide whether the matched forms work together as the idiom in this sentence. " +
+	"They do not when the sentence uses the supplied words literally, or when the matched forms only co-occur, such as a participle modified by its own adverb, or words that belong to different phrases of the clause. " +
+	"If they do not, stop and return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=literal_use, and a brief unresolved_reason explaining why. " +
+	"Step 2, which sense: decide which candidate sense matches the meaning this sentence uses; the order of candidate_senses is not a preference, and a sense listed first is not more likely. " +
+	"A candidate sense that only marks literal use, such as Used other than figuratively or idiomatically: see …, is never eligible and never supports a gloss; when it is the sense the sentence uses, return literal_use as in step 1. " +
+	"A sense fits only when it states what the idiom means in this sentence; a sense that translates the words but names a different thing does not fit. " +
+	"If no candidate sense matches the meaning this sentence uses, do not gloss from context: stop and return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=ambiguous, and a brief unresolved_reason naming the missing sense. " +
+	"If no defensible meaning can otherwise be given, return the same ambiguous answer. " +
+	"Step 3, gloss: only for the sense chosen in step 2, write translation and gloss from the idiom's own words and that sense alone; never add a verb, subject, object or other word that the sentence supplies around the idiom. " +
+	"An idiom that is not itself a verb phrase never gets a \"to …\" gloss, even when the sentence's verb governs it. " +
+	"translation is a concise English equivalent of the idiom in that sense, in citation form. " +
+	"gloss is the English equivalent of the idiom in that same sense, in citation form: verbs as \"to …\", nouns singular without an article, adjectives in base form, adverbial and prepositional phrases as English adverbs or prepositions. " +
+	"translation and gloss must render the same sense; never let gloss name a bare component word or a different sense than translation. " +
+	"Gloss must not be a definition-style paraphrase, and it must never carry the sentence's inflection, number or arguments. " +
+	"Keep the Gloss to one to three words; close comma-separated synonyms are allowed when one word would mislead, and a longer phrase where a short cue would mislead. " +
+	"evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses of the sense or senses the gloss renders; a confirmed gloss always cites at least one candidate sense. " +
+	"A confirmed answer has context_only=false and unresolved_kind and unresolved_reason as empty strings. " +
+	"For every outcome, sentence_translation is a natural translation of the complete representative sentence. " +
+	"sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the idiom; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. " +
+	"Do not include the whole sentence or unrelated words. " +
+	"Never invent IDs. Echo item_id and both languages exactly. Do not return HTML or markup."
 
 // evidenceAssistedPassSystemPrompt is the strict Ancient Greek evidence-assisted
 // pass contract. The payload carries the representative sentence, its
@@ -57,9 +81,10 @@ var ErrInvalidTranslationResponse = errors.New("enrichment: invalid translation 
 // synchronous and Batch transports. It deliberately contains no credentials,
 // endpoint, HTTP client, or durable preparation identity.
 type TranslationCodec struct {
-	model               string
-	reasoningEffort     string
-	usesReasoningEffort bool
+	model                    string
+	reasoningEffort          string
+	idiomCardReasoningEffort string
+	usesReasoningEffort      bool
 }
 
 // Model returns the model frozen into this codec. Callers use it to verify
@@ -158,9 +183,18 @@ func (c *TranslationCodec) IdiomCardProviderVersion() string {
 	}
 	version := c.model + "/" + idiomCardPromptVersion
 	if c.usesReasoningEffort {
-		version += "-reasoning-" + c.reasoningEffort
+		version += "-reasoning-" + c.idiomCardReasoningEffort
 	}
 	return version
+}
+
+// IdiomCardReasoningEffort returns the reasoning effort idiom-card requests
+// use: the idiom-card setting when configured, otherwise the global one.
+func (c *TranslationCodec) IdiomCardReasoningEffort() string {
+	if c == nil {
+		return ""
+	}
+	return c.idiomCardReasoningEffort
 }
 
 // IdiomCardPromptContract returns the versioned idiom-card prompt contract
@@ -194,10 +228,18 @@ func NewTranslationCodec(cfg LLMConfig) (*TranslationCodec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("enrichment: %s %w", llmReasoningEffortEnv, err)
 	}
+	idiomCardReasoningEffort := reasoningEffort
+	if strings.TrimSpace(cfg.IdiomCardReasoningEffort) != "" {
+		idiomCardReasoningEffort, err = parseReasoningEffort(cfg.IdiomCardReasoningEffort)
+		if err != nil {
+			return nil, fmt.Errorf("enrichment: %s %w", llmIdiomCardReasoningEffortEnv, err)
+		}
+	}
 	return &TranslationCodec{
-		model:               model,
-		reasoningEffort:     reasoningEffort,
-		usesReasoningEffort: cfg.SupportsReasoningEffort || knownReasoningModel(parsed, model),
+		model:                    model,
+		reasoningEffort:          reasoningEffort,
+		idiomCardReasoningEffort: idiomCardReasoningEffort,
+		usesReasoningEffort:      cfg.SupportsReasoningEffort || knownReasoningModel(parsed, model),
 	}, nil
 }
 
@@ -437,7 +479,7 @@ func (c *TranslationCodec) encodeIdiomCardRequest(input TranslationRequest) ([]b
 		},
 	}
 	if c.usesReasoningEffort {
-		payload.ReasoningEffort = c.reasoningEffort
+		payload.ReasoningEffort = c.idiomCardReasoningEffort
 	} else {
 		temperature := 0
 		payload.Temperature = &temperature

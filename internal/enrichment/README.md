@@ -14,6 +14,9 @@ The administrator controls the shared provider with:
 - `MOUSEION_LLM_TIMEOUT`: optional positive Go duration; defaults to `30s`.
 - `MOUSEION_LLM_REASONING_EFFORT`: optional `low`, `medium`, or `high` value;
   defaults to `low`.
+- `MOUSEION_LLM_IDIOM_REASONING_EFFORT`: optional `low`, `medium`, or `high`
+  value for idiom-card requests only; unset uses
+  `MOUSEION_LLM_REASONING_EFFORT`.
 - `MOUSEION_LLM_SUPPORTS_REASONING_EFFORT`: optional boolean for a custom
   endpoint/model that supports the OpenAI `reasoning_effort` request field.
 
