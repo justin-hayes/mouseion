@@ -163,10 +163,12 @@ func freezeIdiomProjections(ctx context.Context, lexical enrichment.LexicalProvi
 	if err != nil {
 		return nil, nil, err
 	}
-	bounded, _ := boundIdiomProjections(projections, config.idiomCardBound)
-	for rank := range ranking {
-		ranking[rank].Kept = rank < len(bounded)
-	}
+	// The tiers decide only which idioms are kept; the kept idioms keep the
+	// existing card order.
+	bounded := slices.Clone(boundIdiomProjections(projections, config.idiomCardBound))
+	sort.SliceStable(bounded, func(i, j int) bool {
+		return idiomProjectionLess(bounded[i], bounded[j])
+	})
 	return bounded, ranking, nil
 }
 
@@ -183,8 +185,6 @@ type IdiomRank struct {
 	// typically a transparent compound, so the idiom ranks after every other
 	// idiom (#2379).
 	NounOnly bool
-	// Kept reports that the idiom fits within the per-deck bound.
-	Kept bool
 }
 
 // rankIdiomProjections orders idiom projections for the per-deck bound and
@@ -213,10 +213,10 @@ func rankIdiomProjections(ctx context.Context, index IdiomIndex, projections []C
 	ranking := make([]IdiomRank, len(items))
 	for i, item := range items {
 		result[i] = item.projection
-		evidence := item.projection.Entry.IdiomEvidence
+		entry := item.projection.Entry
 		ranking[i] = IdiomRank{
-			Language: item.projection.Entry.Language, Headword: item.projection.Entry.Headword,
-			AnchorCanonicalLemma: evidence.AnchorCanonicalLemma, AnchorUPOS: evidence.AnchorUPOS,
+			Language: entry.Language, Headword: entry.Headword,
+			AnchorCanonicalLemma: entry.AnchorCanonicalLemma, AnchorUPOS: entry.AnchorUPOS,
 			AnchorOccurrences: item.projection.Candidate.OccurrenceCount, NounOnly: item.nounOnly,
 		}
 	}
@@ -249,16 +249,10 @@ func idiomIsNounOnly(ctx context.Context, index IdiomIndex, language, headword s
 	return found, nil
 }
 
-// boundIdiomProjections keeps the highest-priority idiom projections and
-// returns how many the bound left out. The input is already ranked.
-func boundIdiomProjections(projections []CandidateProjection, bound int) ([]CandidateProjection, int) {
-	if bound < 0 {
-		bound = 0
-	}
-	if len(projections) <= bound {
-		return projections, 0
-	}
-	return projections[:bound], len(projections) - bound
+// boundIdiomProjections keeps the highest-priority idiom projections. The
+// input is already ranked.
+func boundIdiomProjections(projections []CandidateProjection, bound int) []CandidateProjection {
+	return projections[:min(len(projections), max(bound, 0))]
 }
 
 // idiomMatchesForProjection matches one frozen vocabulary identity's accepted
@@ -442,10 +436,10 @@ func idiomProjectionsFromMatches(matches []idiomMatch, occurrences map[string]in
 	return result
 }
 
-// idiomProjectionLess ranks idiom projections within one tier of the per-deck
-// bound. More
-// anchor occurrences go first; ties break by earliest sentence, headword and
-// language, so the bound is deterministic for a given deck.
+// idiomProjectionLess is the idiom card order, and the per-deck bound's order
+// within each tier. More anchor occurrences go first; ties break by earliest
+// sentence, headword and language, so the bound is deterministic for a given
+// deck.
 func idiomProjectionLess(left, right CandidateProjection) bool {
 	if left.Candidate.OccurrenceCount != right.Candidate.OccurrenceCount {
 		return left.Candidate.OccurrenceCount > right.Candidate.OccurrenceCount

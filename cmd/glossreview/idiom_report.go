@@ -170,15 +170,17 @@ func writeIdiomSampleCards(builder *strings.Builder, sample idiomSampleReport) {
 func writeIdiomBound(builder *strings.Builder, ranking []cardexport.IdiomRank) {
 	kept := ranking[:min(len(ranking), cardexport.IdiomCardBound)]
 	builder.WriteString("## Prepared-deck bound\n\n")
+	if len(ranking) == 0 {
+		builder.WriteString("The Book matched no idioms.\n")
+		return
+	}
 	if len(kept) < len(ranking) {
 		writef(builder, "The sample above ignores the per-deck bound. A prepared deck keeps the first %d of the %d ranked idioms; ", len(kept), len(ranking))
 	} else {
 		writef(builder, "The sample above ignores the per-deck bound. A prepared deck keeps all %d ranked idioms; ", len(ranking))
 	}
 	builder.WriteString("noun-only idioms rank after every other idiom. This list is not a gate criterion.\n\n")
-	if len(kept) > 0 {
-		builder.WriteString("| Rank | Headword | Anchor | Anchor occurrences | Noun-only |\n| --- | --- | --- | --- | --- |\n")
-	}
+	builder.WriteString("| Rank | Headword | Anchor | Anchor occurrences | Noun-only |\n| --- | --- | --- | --- | --- |\n")
 	for i, rank := range kept {
 		nounOnly := "—"
 		if rank.NounOnly {

@@ -21,7 +21,7 @@ func rankedIdioms(count, nounOnly int) []cardexport.IdiomRank {
 		ranking = append(ranking, cardexport.IdiomRank{
 			Language: "it", Headword: fmt.Sprintf("idiom-%02d", i),
 			AnchorCanonicalLemma: "gamba", AnchorUPOS: "NOUN", AnchorOccurrences: count - i,
-			NounOnly: i >= count-nounOnly, Kept: true,
+			NounOnly: i >= count-nounOnly,
 		})
 	}
 	return ranking
@@ -69,4 +69,10 @@ func TestIdiomReportShowsEveryIdiomWhenTheBoundIsNotReached(t *testing.T) {
 
 	require.Contains(t, report, "A prepared deck keeps all 2 ranked idioms;")
 	require.Contains(t, report, "| 2 | `idiom-01` | `gamba` (`NOUN`) | 1 | — |\n\n- Idiom overflow: 0\n")
+}
+
+func TestIdiomReportSaysWhenTheBookMatchedNoIdioms(t *testing.T) {
+	report := renderIdiomReportWithRanking(t, nil)
+
+	require.Contains(t, report, "## Prepared-deck bound\n\nThe Book matched no idioms.\n")
 }

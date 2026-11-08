@@ -133,9 +133,10 @@ gush out".
   more sentence occurrences go first; ties break by earliest sentence, then
   headword, then language. The ranking records no version: it only decides
   which idioms are frozen, and Ready decks change only by re-preparation. The
-  ready
-  deck's status view and JSON report any overflow. Overflowed idioms are not
-  idiom omissions and raise no review flag.
+  tiers only decide which idioms are kept; kept idiom cards follow the
+  within-tier order. The ready deck's status view and JSON report
+  any overflow. Overflowed idioms are not idiom omissions and raise no review
+  flag.
 
 ### Domain model
 

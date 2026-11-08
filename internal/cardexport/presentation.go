@@ -112,8 +112,9 @@ type Diagnostics struct {
 	// They are not omissions and never raise a review flag
 	// (doc/features/idiom-cards.md).
 	IdiomOverflow int
-	// IdiomRanking is every matched idiom in bound order, marking those the
-	// deck kept. Only Freeze reports it; a restored deck has none.
+	// IdiomRanking is every matched idiom in the per-deck bound's order; the
+	// bound keeps a prefix of it. Only Freeze reports it; a restored deck has
+	// none.
 	IdiomRanking []IdiomRank
 }
 

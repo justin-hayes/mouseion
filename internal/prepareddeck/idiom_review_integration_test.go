@@ -148,7 +148,6 @@ func TestIdiomReviewFreezerReFreezesTheCurrentPreparationWithoutWriting(t *testi
 	t.Run("the bound's ranking lists the idiom", func(t *testing.T) {
 		require.Len(t, freeze.Ranking, 1)
 		require.Equal(t, "in gamba", freeze.Ranking[0].Headword)
-		require.True(t, freeze.Ranking[0].Kept)
 	})
 	t.Run("another language has no idiom items", func(t *testing.T) {
 		other, otherErr := freezer.FreezeIdiomReviewItems(ctx, bookID, "de")
