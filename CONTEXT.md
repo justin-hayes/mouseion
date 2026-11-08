@@ -171,8 +171,10 @@ _Avoid_: lemma-mismatch omission, meaning omission.
 
 **Idiom-card bound**:
 The reviewed maximum number of idiom cards one frozen deck carries, currently
-30. Idioms anchored on vocabulary identities with more sentence occurrences
-rank first; the remaining ties break deterministically.
+30. Noun-only idioms, whose dictionary entries are all nouns (typically
+transparent compounds such as *sistema solare*), rank after every other idiom.
+Within each group, idioms anchored on vocabulary identities with more sentence
+occurrences rank first; the remaining ties break deterministically.
 _Avoid_: idiom cap, phrase limit.
 
 **Idiom overflow**:
