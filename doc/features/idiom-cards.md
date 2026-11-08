@@ -254,7 +254,11 @@ gush out".
       an empty translation are rejected; Italian stays off (#2385). The
       re-run after #2387 still failed on the *fare bene* control and two
       sample cards (*in giro*, *casa isolata*); Italian stays off until a
-      report for `idiom-card-v3` and `idiom-review-v3` passes (#2389).
+      report for `idiom-card-v3` and `idiom-review-v3` passes (#2389). The
+      [v3 review](../reviews/idiom-review-v3-2026-11-08.md) failed at `low`
+      and a [`medium` run](../reviews/idiom-review-v3-medium-2026-11-08.md)
+      also failed: *fare bene* is still confirmed and *casa isolata* is still
+      sampled as "detached house"; Italian stays off.
 
 ## Related
 

@@ -275,3 +275,10 @@ The report states this gate and leaves the final verdict to the operator.
 - [Idiom card v2 re-run, 2026-11-08](idiom-review-v2-2026-11-08-rerun.md) —
   after #2387; gate failed on the *fare bene* literal control and two
   wrong-meaning sample cards; Italian idiom cards stay off (#2389).
+- [Idiom card v3 review, 2026-11-08](idiom-review-v3-2026-11-08.md) — at the
+  deployed `low` setting; gate failed on the *fare bene*, *rispetto a* and
+  *casa isolata* controls and one wrong-meaning sample card (*casa isolata*);
+  Italian idiom cards stay off (#2389).
+- [Idiom card v3 review at `medium`, 2026-11-08](idiom-review-v3-medium-2026-11-08.md)
+  — diagnostic run; gate failed on the *fare bene* control, *casa isolata*
+  returned as `literal_use`, and the same wrong-meaning sample card (#2389).
