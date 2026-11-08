@@ -150,27 +150,41 @@ func TestIndexIdiomEntriesGiveEverySenseAStableEvidenceID(t *testing.T) {
 
 	first, err := index.IdiomEntries(t.Context(), "it", "bene")
 	require.NoError(t, err)
-	second, err := index.IdiomEntries(t.Context(), "it", "bene")
-	require.NoError(t, err)
-
 	require.Len(t, first, 2)
 	noun, verb := first[0], first[1]
 	require.Equal(t, "VERB", verb.UPOS)
-	require.Len(t, verb.Senses, 3, "a sense that repeats an evidence identity is dropped")
-	assert.Equal(t, []string{"to do well", "to do the right thing", "to be good for"}, []string{verb.Senses[0].Gloss, verb.Senses[1].Gloss, verb.Senses[2].Gloss})
-	assert.Equal(t, "reviewed:fare bene:1", verb.Senses[2].EvidenceID, "an explicit evidence ID is kept")
-	require.Len(t, noun.Senses, 1)
 
-	seen := map[string]struct{}{}
-	for _, sense := range append(append([]enrichment.LexicalSense(nil), verb.Senses...), noun.Senses...) {
-		assert.NotEmpty(t, sense.EvidenceID, "sense %q", sense.Gloss)
-		assert.Equal(t, "wiktionary", sense.Source, "sense %q", sense.Gloss)
-		assert.Equal(t, "fixture-v1", sense.Version, "sense %q", sense.Gloss)
-		_, duplicate := seen[sense.EvidenceID]
-		assert.False(t, duplicate, "evidence ID %q is repeated", sense.EvidenceID)
-		seen[sense.EvidenceID] = struct{}{}
-	}
-	assert.Equal(t, first, second, "the same entry yields the same evidence IDs")
+	t.Run("a sense that repeats an evidence identity is dropped", func(t *testing.T) {
+		glosses := make([]string, 0, len(verb.Senses))
+		for _, sense := range verb.Senses {
+			glosses = append(glosses, sense.Gloss)
+		}
+		require.Equal(t, []string{"to do well", "to do the right thing", "to be good for"}, glosses)
+	})
+	t.Run("an explicit evidence ID is kept", func(t *testing.T) {
+		require.Len(t, verb.Senses, 3)
+		require.Equal(t, "reviewed:fare bene:1", verb.Senses[2].EvidenceID)
+	})
+	t.Run("every sense has a distinct evidence ID and the entry provenance", func(t *testing.T) {
+		ids := map[string]struct{}{}
+		var missing, provenance []string
+		senses := append(append([]enrichment.LexicalSense(nil), verb.Senses...), noun.Senses...)
+		for _, sense := range senses {
+			if sense.EvidenceID == "" {
+				missing = append(missing, sense.Gloss)
+			}
+			ids[sense.EvidenceID] = struct{}{}
+			provenance = append(provenance, sense.Source+"/"+sense.Version)
+		}
+		require.Empty(t, missing, "senses without an evidence ID")
+		require.Len(t, ids, len(senses), "evidence IDs are distinct across parts of speech")
+		require.Equal(t, []string{"wiktionary/fixture-v1", "wiktionary/fixture-v1", "wiktionary/fixture-v1", "wiktionary/fixture-v1"}, provenance)
+	})
+	t.Run("the same entry yields the same evidence IDs", func(t *testing.T) {
+		second, err := index.IdiomEntries(t.Context(), "it", "bene")
+		require.NoError(t, err)
+		require.Equal(t, first, second)
+	})
 }
 
 func TestIndexIdiomEntriesUnknownWordAndOlderIndexAreEmpty(t *testing.T) {

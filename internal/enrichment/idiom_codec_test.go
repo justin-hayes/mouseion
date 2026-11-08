@@ -111,23 +111,37 @@ func TestIdiomCardCodecRejectsAnEmptyTranslationOnAResolvedAnswer(t *testing.T) 
 }
 
 func TestNormalizeTranslationResponseKeepsTheEmptyTranslationRuleOutsideUnresolvedIdioms(t *testing.T) {
-	unresolved := TranslationResponse{SentenceTranslation: "He has a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "literal"}
-
-	_, err := NormalizeTranslationResponse(idiomCardRequest(), unresolved)
-	require.NoError(t, err, "an unresolved idiom answer may leave translation blank")
-
-	resolved := TranslationResponse{SentenceTranslation: "He is capable.", Gloss: "capable", EvidenceIDs: []string{"wikt:capable"}}
-	_, err = NormalizeTranslationResponse(idiomCardRequest(), resolved)
-	require.ErrorContains(t, err, "translation is empty")
+	t.Run("an unresolved idiom answer may leave translation blank", func(t *testing.T) {
+		unresolved := TranslationResponse{SentenceTranslation: "He has a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "literal"}
+		_, err := NormalizeTranslationResponse(idiomCardRequest(), unresolved)
+		require.NoError(t, err)
+	})
 
 	lemma := TranslationRequest{Language: "it", TargetLanguage: "en", CanonicalLemma: "gamba", UPOS: "NOUN", ExampleSentence: "Ho una gamba."}
-	_, err = NormalizeTranslationResponse(lemma, TranslationResponse{SentenceTranslation: "I have a leg."})
-	require.ErrorContains(t, err, "translation is empty")
-
 	contextual := lemma
 	contextual.RequireContextualGloss = true
-	_, err = NormalizeTranslationResponse(contextual, TranslationResponse{SentenceTranslation: "I have a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "unclear"})
-	require.ErrorContains(t, err, "translation is empty", "a contextual-gloss abstention keeps the rule")
+	for name, test := range map[string]struct {
+		request  TranslationRequest
+		response TranslationResponse
+	}{
+		"a resolved idiom answer": {
+			request:  idiomCardRequest(),
+			response: TranslationResponse{SentenceTranslation: "He is capable.", Gloss: "capable", EvidenceIDs: []string{"wikt:capable"}},
+		},
+		"a lemma answer": {
+			request:  lemma,
+			response: TranslationResponse{SentenceTranslation: "I have a leg."},
+		},
+		"a contextual-gloss abstention": {
+			request:  contextual,
+			response: TranslationResponse{SentenceTranslation: "I have a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "unclear"},
+		},
+	} {
+		t.Run(name+" still needs a translation", func(t *testing.T) {
+			_, err := NormalizeTranslationResponse(test.request, test.response)
+			require.ErrorContains(t, err, "translation is empty")
+		})
+	}
 }
 
 func TestIdiomCardCodecDiscardsAStrayKindAndReasonBesideAResolvedGloss(t *testing.T) {

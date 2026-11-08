@@ -852,7 +852,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	response.UnresolvedKind = ContextualGlossUnresolvedKind(strings.TrimSpace(string(response.UnresolvedKind)))
 	response.UnresolvedReason = strings.TrimSpace(response.UnresolvedReason)
 	response.FallbackGloss = strings.TrimSpace(response.FallbackGloss)
-	if response.Translation == "" && !unresolvedIdiomAnswer(input, response) {
+	if response.Translation == "" && !idiomAnswerConfirmsNoSense(input, response) {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.RequireEvidenceAssistedPass {
@@ -883,11 +883,12 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	return reconcileSenseSelection(input, response), nil
 }
 
-// unresolvedIdiomAnswer reports an idiom answer that confirms no sense. The
-// idiom prompt defines translation as the idiom in the confirmed sense, so such
-// an answer may leave it blank; the answer becomes an omission and is never
-// cached. The rest of the abstention is validated with the contextual meaning.
-func unresolvedIdiomAnswer(input TranslationRequest, response TranslationResponse) bool {
+// idiomAnswerConfirmsNoSense reports an idiom answer without a Gloss. The idiom
+// prompt defines translation as the idiom in the confirmed sense, so such an
+// answer may leave it blank; it becomes an omission and is never cached.
+// validateContextualMeaning still requires its literal_use or ambiguous kind
+// and its reason.
+func idiomAnswerConfirmsNoSense(input TranslationRequest, response TranslationResponse) bool {
 	return input.RequireIdiomCard && response.Gloss == ""
 }
 

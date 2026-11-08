@@ -435,10 +435,12 @@ INSERT INTO idiom_words VALUES ('it', 'gamba', 'in gamba', 'ADJ', 'wiktionary')`
 	require.Len(t, items, 1)
 	senses := items[0].Work.Request.CandidateSenses
 	require.Len(t, senses, 2)
-	assert.Equal(t, "capable, on the ball", senses[0].Gloss)
-	assert.Equal(t, "in good health", senses[1].Gloss)
-	for _, sense := range senses {
-		assert.NotEmpty(t, sense.EvidenceID, "sense %q", sense.Gloss)
-	}
-	assert.NotEqual(t, senses[0].EvidenceID, senses[1].EvidenceID)
+	t.Run("both senses are sent in dictionary order", func(t *testing.T) {
+		require.Equal(t, []string{"capable, on the ball", "in good health"}, []string{senses[0].Gloss, senses[1].Gloss})
+	})
+	t.Run("each sense carries its own evidence ID", func(t *testing.T) {
+		require.NotEmpty(t, senses[0].EvidenceID)
+		require.NotEmpty(t, senses[1].EvidenceID)
+		require.NotEqual(t, senses[0].EvidenceID, senses[1].EvidenceID)
+	})
 }
