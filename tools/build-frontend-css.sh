@@ -45,7 +45,8 @@ download_verified() {
       gh release download "$tag" --repo "$repo" --pattern "$asset" --dir "$cache" --clobber; then
       mv "$cache/$asset" "$path"
     else
-      curl --fail --location --retry 5 --retry-delay 2 --retry-all-errors \
+      curl --fail --location --proto '=https' --proto-redir '=https' \
+        --retry 5 --retry-delay 2 --retry-all-errors \
         --silent --show-error \
         "https://github.com/$repo/releases/download/$tag/$asset" --output "$path"
     fi
