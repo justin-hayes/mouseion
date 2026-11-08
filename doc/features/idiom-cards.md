@@ -200,6 +200,9 @@ gush out".
       note key.
 - [ ] Italian review report committed and passing the gate before Italian is
       enabled. German and Modern Greek each follow with their own report.
+      The [2026-11-08 Italian review](../reviews/idiom-review-2026-11-08.md)
+      failed the gate (three wrong-meaning sample cards); Italian stays off
+      pending #2378.
 
 ## Related
 
