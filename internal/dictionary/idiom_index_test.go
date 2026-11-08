@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/idiom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -135,6 +136,41 @@ func TestIndexIdiomEntriesRejectsInvalidIdentity(t *testing.T) {
 			assert.Empty(t, entries)
 		})
 	}
+}
+
+// The derived index stores idiom senses without evidence IDs, and the idiom
+// prompt can only confirm a sense it can cite (#2385).
+func TestIndexIdiomEntriesGiveEverySenseAStableEvidenceID(t *testing.T) {
+	index := newIdiomTestIndex(t,
+		`INSERT INTO idiom_entries VALUES ('it', 'fare bene', 'VERB', '["fare","bene"]', '[{"Gloss":"to do well"},{"Gloss":"to do the right thing"},{"Gloss":"to do well"},{"evidence_id":"reviewed:fare bene:1","gloss":"to be good for"}]', 'wiktionary', 'fixture-v1')`,
+		`INSERT INTO idiom_entries VALUES ('it', 'fare bene', 'NOUN', '["fare","bene"]', '[{"Gloss":"to do well"}]', 'wiktionary', 'fixture-v1')`,
+		`INSERT INTO idiom_words VALUES ('it', 'bene', 'fare bene', 'VERB', 'wiktionary')`,
+		`INSERT INTO idiom_words VALUES ('it', 'bene', 'fare bene', 'NOUN', 'wiktionary')`,
+	)
+
+	first, err := index.IdiomEntries(t.Context(), "it", "bene")
+	require.NoError(t, err)
+	second, err := index.IdiomEntries(t.Context(), "it", "bene")
+	require.NoError(t, err)
+
+	require.Len(t, first, 2)
+	noun, verb := first[0], first[1]
+	require.Equal(t, "VERB", verb.UPOS)
+	require.Len(t, verb.Senses, 3, "a sense that repeats an evidence identity is dropped")
+	assert.Equal(t, []string{"to do well", "to do the right thing", "to be good for"}, []string{verb.Senses[0].Gloss, verb.Senses[1].Gloss, verb.Senses[2].Gloss})
+	assert.Equal(t, "reviewed:fare bene:1", verb.Senses[2].EvidenceID, "an explicit evidence ID is kept")
+	require.Len(t, noun.Senses, 1)
+
+	seen := map[string]struct{}{}
+	for _, sense := range append(append([]enrichment.LexicalSense(nil), verb.Senses...), noun.Senses...) {
+		assert.NotEmpty(t, sense.EvidenceID, "sense %q", sense.Gloss)
+		assert.Equal(t, "wiktionary", sense.Source, "sense %q", sense.Gloss)
+		assert.Equal(t, "fixture-v1", sense.Version, "sense %q", sense.Gloss)
+		_, duplicate := seen[sense.EvidenceID]
+		assert.False(t, duplicate, "evidence ID %q is repeated", sense.EvidenceID)
+		seen[sense.EvidenceID] = struct{}{}
+	}
+	assert.Equal(t, first, second, "the same entry yields the same evidence IDs")
 }
 
 func TestIndexIdiomEntriesUnknownWordAndOlderIndexAreEmpty(t *testing.T) {

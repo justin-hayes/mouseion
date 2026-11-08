@@ -68,6 +68,21 @@ func openIdiomSampleSource(ctx context.Context, codec *enrichment.TranslationCod
 	return databaseIdiomSampleSource{Store: store, Presentation: cardexport.NewPresentation(index), Codec: codec, index: index}, nil
 }
 
+// requireCitableIdiomSenses refuses a sample whose frozen idiom requests carry
+// a candidate sense without an evidence ID. The idiom contract confirms a sense
+// only by citing it, so such a sample would measure the missing IDs rather than
+// the prompt (#2385). The check runs before any provider call.
+func requireCitableIdiomSenses(items []cardexport.IdiomWorkItem) error {
+	for _, item := range items {
+		for index, sense := range item.Work.Request.CandidateSenses {
+			if strings.TrimSpace(sense.EvidenceID) == "" {
+				return fmt.Errorf("glossreview: idiom %q: candidate sense %d has no evidence ID; the idiom review needs citable senses", item.Headword, index+1)
+			}
+		}
+	}
+	return nil
+}
+
 // executeIdiomCommand runs the idiom-card review and, when a Book is named,
 // appends the deterministic sample from an in-memory freeze of the Book.
 func executeIdiomCommand(ctx context.Context, options reviewCommandOptions, output io.Writer, open reviewEnvironmentOpener, openSample idiomSampleSourceOpener) (err error) {
@@ -94,6 +109,9 @@ func executeIdiomCommand(ctx context.Context, options reviewCommandOptions, outp
 		freeze, freezeErr := source.FreezeIdiomReviewItems(ctx, options.BookID, options.Language)
 		if freezeErr != nil {
 			return freezeErr
+		}
+		if citeErr := requireCitableIdiomSenses(freeze.Items); citeErr != nil {
+			return citeErr
 		}
 		sample.Items, sample.Ranking = freeze.Items, freeze.Ranking
 	}

@@ -82,6 +82,54 @@ func TestIdiomCardCodecAcceptsAmbiguousAndRejectsUnknownKinds(t *testing.T) {
 	}
 }
 
+// The idiom-card prompt defines translation as the idiom in the confirmed
+// sense, so an unresolved answer may leave it blank (#2385).
+func TestIdiomCardCodecAcceptsAnEmptyTranslationOnAnUnresolvedAnswer(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := idiomCardRequest()
+	for _, kind := range []ContextualGlossUnresolvedKind{ContextualGlossUnresolvedLiteralUse, ContextualGlossUnresolvedAmbiguous} {
+		t.Run(string(kind), func(t *testing.T) {
+			content := `{"item_id":"` + IdiomCardItemHandle + `","source_language":"it","target_language":"en","translation":"","sentence_translation":"He has a leg.","sentence_translation_targets":[],"gloss":"","evidence_ids":[],"context_only":true,"unresolved_kind":"` + string(kind) + `","unresolved_reason":"The idiom is not used here."}`
+			response, err := codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(content)+`}}]}`))
+			require.NoError(t, err)
+			assert.Empty(t, response.Translation)
+			assert.Empty(t, response.Gloss)
+			assert.Equal(t, kind, response.UnresolvedKind)
+		})
+	}
+}
+
+func TestIdiomCardCodecRejectsAnEmptyTranslationOnAResolvedAnswer(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := idiomCardRequest()
+	handle := newContextualGlossHandles(input).toHandle["wikt:capable"]
+	content := `{"item_id":"` + IdiomCardItemHandle + `","source_language":"it","target_language":"en","translation":"","sentence_translation":"He is really a capable young man.","sentence_translation_targets":[],"gloss":"capable","evidence_ids":["` + handle + `"],"context_only":false}`
+	_, err = codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(content)+`}}]}`))
+	assert.ErrorIs(t, err, ErrInvalidTranslationResponse)
+}
+
+func TestNormalizeTranslationResponseKeepsTheEmptyTranslationRuleOutsideUnresolvedIdioms(t *testing.T) {
+	unresolved := TranslationResponse{SentenceTranslation: "He has a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "literal"}
+
+	_, err := NormalizeTranslationResponse(idiomCardRequest(), unresolved)
+	require.NoError(t, err, "an unresolved idiom answer may leave translation blank")
+
+	resolved := TranslationResponse{SentenceTranslation: "He is capable.", Gloss: "capable", EvidenceIDs: []string{"wikt:capable"}}
+	_, err = NormalizeTranslationResponse(idiomCardRequest(), resolved)
+	require.ErrorContains(t, err, "translation is empty")
+
+	lemma := TranslationRequest{Language: "it", TargetLanguage: "en", CanonicalLemma: "gamba", UPOS: "NOUN", ExampleSentence: "Ho una gamba."}
+	_, err = NormalizeTranslationResponse(lemma, TranslationResponse{SentenceTranslation: "I have a leg."})
+	require.ErrorContains(t, err, "translation is empty")
+
+	contextual := lemma
+	contextual.RequireContextualGloss = true
+	_, err = NormalizeTranslationResponse(contextual, TranslationResponse{SentenceTranslation: "I have a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "unclear"})
+	require.ErrorContains(t, err, "translation is empty", "a contextual-gloss abstention keeps the rule")
+}
+
 func TestIdiomCardCodecDiscardsAStrayKindAndReasonBesideAResolvedGloss(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)

@@ -750,7 +750,9 @@ func validateTranslationIdentity(input TranslationRequest, expectedItemID string
 	if result.TargetLanguage == "" || result.TargetLanguage != translationTargetLanguage(input) {
 		return errors.New("decode LLM translation: target_language mismatch")
 	}
-	if result.Translation == "" {
+	// An idiom answer's translation depends on its outcome, which is decoded
+	// later; NormalizeTranslationResponse enforces it there.
+	if result.Translation == "" && !input.RequireIdiomCard {
 		return errors.New("decode LLM translation: translation is empty")
 	}
 	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
@@ -850,7 +852,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	response.UnresolvedKind = ContextualGlossUnresolvedKind(strings.TrimSpace(string(response.UnresolvedKind)))
 	response.UnresolvedReason = strings.TrimSpace(response.UnresolvedReason)
 	response.FallbackGloss = strings.TrimSpace(response.FallbackGloss)
-	if response.Translation == "" {
+	if response.Translation == "" && !unresolvedIdiomAnswer(input, response) {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.RequireEvidenceAssistedPass {
@@ -879,6 +881,14 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 		return TranslationResponse{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
 	return reconcileSenseSelection(input, response), nil
+}
+
+// unresolvedIdiomAnswer reports an idiom answer that confirms no sense. The
+// idiom prompt defines translation as the idiom in the confirmed sense, so such
+// an answer may leave it blank; the answer becomes an omission and is never
+// cached. The rest of the abstention is validated with the contextual meaning.
+func unresolvedIdiomAnswer(input TranslationRequest, response TranslationResponse) bool {
+	return input.RequireIdiomCard && response.Gloss == ""
 }
 
 // validateContextualMeaning enforces the strict contextual-gloss contract:

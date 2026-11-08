@@ -44,6 +44,19 @@ func (i *Index) HasIdiomEntries() bool {
 	return i != nil && i.idiomAvailable
 }
 
+// finalizeIdiomSenses gives each stored idiom sense the evidence identity and
+// provider defaults a lemma sense gets at lookup, with the headword standing in
+// for the lemma. The derived index stores idiom senses without evidence IDs,
+// and the idiom prompt can confirm only a sense it can cite.
+func finalizeIdiomSenses(senses []enrichment.LexicalSense, language, headword, upos, source, version string) ([]enrichment.LexicalSense, error) {
+	for index := range senses {
+		if senses[index].Source == "" {
+			senses[index].Source = source
+		}
+	}
+	return finalizeLookupSenses(senses, language, headword, upos, version)
+}
+
 // IdiomEntries returns the multi-word entries containing word for a language.
 // The word is normalized with the language's canonicalization profile, so a
 // surface form and its lemma reach the same entries. Each entry carries its
@@ -84,6 +97,9 @@ func (i *Index) IdiomEntries(ctx context.Context, language, word string) ([]idio
 		var senses []enrichment.LexicalSense
 		if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
 			return nil, fmt.Errorf("dictionary idiom senses: %w", err)
+		}
+		if senses, err = finalizeIdiomSenses(senses, language, headword, upos, source, version); err != nil {
+			return nil, err
 		}
 		entries = append(entries, idiom.Entry{
 			Language: language,
