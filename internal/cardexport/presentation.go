@@ -112,6 +112,10 @@ type Diagnostics struct {
 	// They are not omissions and never raise a review flag
 	// (doc/features/idiom-cards.md).
 	IdiomOverflow int
+	// IdiomRanking is every matched idiom in the per-deck bound's order; the
+	// bound keeps a prefix of it. Only Freeze reports it; a restored deck has
+	// none.
+	IdiomRanking []IdiomRank
 }
 
 type MeaningOmission struct {
@@ -223,7 +227,7 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 	for language := range p.idiomCardLanguages {
 		config.idiomLanguages[language] = true
 	}
-	idiomProjections, idiomOverflow, err := freezeIdiomProjections(ctx, p.lexical, ordered, config)
+	idiomProjections, idiomRanking, err := freezeIdiomProjections(ctx, p.lexical, ordered, config)
 	if err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("freeze idiom items: %w", err)
 	}
@@ -237,9 +241,10 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 	if err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, err
 	}
-	frozen.idiomOverflow = idiomOverflow
+	frozen.idiomOverflow = len(idiomRanking) - len(idiomProjections)
 	diagnostics := manifestDiagnostics(frozen)
 	diagnostics.GlossCoverage = cloneGlossCoverage(coverage)
+	diagnostics.IdiomRanking = idiomRanking
 	return FrozenDeck{manifest: frozen.clone()}, diagnostics, nil
 }
 
@@ -1044,7 +1049,7 @@ func cloneOmissions(omissions []Omission) []Omission {
 }
 
 func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
-	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), MeaningOmissions: append([]MeaningOmission(nil), diagnostics.MeaningOmissions...), IdiomOmissions: append([]IdiomOmission(nil), diagnostics.IdiomOmissions...), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...), IdiomOverflow: diagnostics.IdiomOverflow}
+	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), MeaningOmissions: append([]MeaningOmission(nil), diagnostics.MeaningOmissions...), IdiomOmissions: append([]IdiomOmission(nil), diagnostics.IdiomOmissions...), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...), IdiomOverflow: diagnostics.IdiomOverflow, IdiomRanking: append([]IdiomRank(nil), diagnostics.IdiomRanking...)}
 }
 
 func evidenceCoverage(entries []RenderInput) []EvidenceCoverage {

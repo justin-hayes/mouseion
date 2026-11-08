@@ -247,14 +247,9 @@ func TestIdiomWorkReturnsEveryUnboundedIdiomRequest(t *testing.T) {
 }
 
 func TestBoundIdiomProjectionsTreatsANegativeBoundAsZero(t *testing.T) {
-	bounded, overflow := boundIdiomProjections([]CandidateProjection{{Entry: Entry{Headword: "in gamba"}}}, -1)
+	bounded := boundIdiomProjections([]CandidateProjection{{Entry: Entry{Headword: "in gamba"}}}, -1)
 
-	t.Run("keeps no idioms", func(t *testing.T) {
-		require.Empty(t, bounded)
-	})
-	t.Run("reports every idiom as overflow", func(t *testing.T) {
-		require.Equal(t, 1, overflow)
-	})
+	require.Empty(t, bounded)
 }
 
 func TestIdiomProjectionOrderBreaksTiesDeterministically(t *testing.T) {

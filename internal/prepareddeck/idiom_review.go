@@ -32,23 +32,33 @@ type IdiomReviewFreezer struct {
 	Assembler inputAssembler
 }
 
+// IdiomReviewFreeze is what one in-memory review freeze found for a language.
+type IdiomReviewFreeze struct {
+	// Items are every accepted idiom item, each with the exact request a
+	// prepared deck sends.
+	Items []cardexport.IdiomWorkItem
+	// Ranking is every matched idiom in the per-deck bound's order. The freeze
+	// lifts the bound, so a prepared deck keeps the first
+	// cardexport.IdiomCardBound of them (#2379).
+	Ranking []cardexport.IdiomRank
+}
+
 // FreezeIdiomReviewItems returns every accepted idiom item the Book's current
-// deck preparation would carry for language, each with the exact request a
-// prepared deck sends. It runs in a read-only transaction that is always
-// rolled back.
-func (f IdiomReviewFreezer) FreezeIdiomReviewItems(ctx context.Context, bookID, language string) (items []cardexport.IdiomWorkItem, err error) {
+// deck preparation would carry for language, and the bound's ranking of them.
+// It runs in a read-only transaction that is always rolled back.
+func (f IdiomReviewFreezer) FreezeIdiomReviewItems(ctx context.Context, bookID, language string) (result IdiomReviewFreeze, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if f.Store == nil || f.Presentation == nil || f.Codec == nil || strings.TrimSpace(bookID) == "" || language == "" {
-		return nil, ErrInvalidInput
+		return IdiomReviewFreeze{}, ErrInvalidInput
 	}
 	tx, err := f.Store.Pool().BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return nil, fmt.Errorf("begin idiom review transaction: %w", err)
+		return IdiomReviewFreeze{}, fmt.Errorf("begin idiom review transaction: %w", err)
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	preparation, err := f.Store.CurrentDeckPreparationForBookTx(ctx, tx, bookID)
 	if err != nil {
-		return nil, err
+		return IdiomReviewFreeze{}, err
 	}
 	assembler := f.Assembler
 	if assembler == nil {
@@ -56,17 +66,23 @@ func (f IdiomReviewFreezer) FreezeIdiomReviewItems(ctx context.Context, bookID, 
 	}
 	projections, deckName, err := assembler.AssemblePreparedDeckInputs(ctx, tx, preparation)
 	if err != nil {
-		return nil, fmt.Errorf("assemble prepared deck inputs: %w", err)
+		return IdiomReviewFreeze{}, fmt.Errorf("assemble prepared deck inputs: %w", err)
 	}
 	if sourceEvidenceDeck(projections) {
-		return nil, errIdiomReviewSourceEvidenceDeck
+		return IdiomReviewFreeze{}, errIdiomReviewSourceEvidenceDeck
 	}
 	assignExternalProvider(projections, f.Codec.ProviderName(), f.Codec.ContextualGlossProviderVersion(), "en")
-	deck, _, err := f.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections,
+	deck, diagnostics, err := f.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections,
 		cardexport.WithIdiomCards([]string{language}, f.Codec.IdiomCardProviderVersion()),
 		cardexport.WithoutIdiomCardBound())
 	if err != nil {
-		return nil, fmt.Errorf("freeze prepared deck presentation: %w", err)
+		return IdiomReviewFreeze{}, fmt.Errorf("freeze prepared deck presentation: %w", err)
 	}
-	return deck.IdiomWork(language), nil
+	ranking := make([]cardexport.IdiomRank, 0, len(diagnostics.IdiomRanking))
+	for _, rank := range diagnostics.IdiomRanking {
+		if canonicalization.NormalizeLanguage(rank.Language) == language {
+			ranking = append(ranking, rank)
+		}
+	}
+	return IdiomReviewFreeze{Items: deck.IdiomWork(language), Ranking: ranking}, nil
 }

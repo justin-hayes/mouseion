@@ -32,6 +32,8 @@ type idiomSampleOptions struct {
 	Language  string
 	Seed      string
 	Items     []cardexport.IdiomWorkItem
+	// Ranking is the per-deck bound's order of every matched idiom.
+	Ranking []cardexport.IdiomRank
 }
 
 type idiomReviewReport struct {

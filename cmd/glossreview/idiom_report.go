@@ -4,6 +4,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
@@ -160,6 +161,35 @@ func writeIdiomSampleCards(builder *strings.Builder, sample idiomSampleReport) {
 		builder.WriteString("- [ ] Meaning correct in context — verdict: __________\n\n")
 	}
 	writeIdiomSampleUnconfirmed(builder, sample.Unconfirmed)
+	writeIdiomBound(builder, sample.Ranking)
+}
+
+// writeIdiomBound lists the idioms a prepared deck keeps under the per-deck
+// bound, in rank order. The sample ignores the bound, so this is the only place
+// a reviewer sees which idioms a real deck carries (#2379).
+func writeIdiomBound(builder *strings.Builder, ranking []cardexport.IdiomRank) {
+	kept := ranking[:min(len(ranking), cardexport.IdiomCardBound)]
+	builder.WriteString("## Prepared-deck bound\n\n")
+	if len(ranking) == 0 {
+		builder.WriteString("The Book matched no idioms.\n")
+		return
+	}
+	if len(kept) < len(ranking) {
+		writef(builder, "The sample above ignores the per-deck bound. A prepared deck keeps the first %d of the %d ranked idioms; ", len(kept), len(ranking))
+	} else {
+		writef(builder, "The sample above ignores the per-deck bound. A prepared deck keeps all %d ranked idioms; ", len(ranking))
+	}
+	builder.WriteString("noun-only idioms rank after every other idiom. This list is not a gate criterion.\n\n")
+	builder.WriteString("| Rank | Headword | Anchor | Anchor occurrences | Noun-only |\n| --- | --- | --- | --- | --- |\n")
+	for i, rank := range kept {
+		nounOnly := "—"
+		if rank.NounOnly {
+			nounOnly = "yes"
+		}
+		writef(builder, "| %d | %s | %s (%s) | %d | %s |\n", i+1, codeSpan(rank.Headword),
+			codeSpan(rank.AnchorCanonicalLemma), codeSpan(rank.AnchorUPOS), rank.AnchorOccurrences, nounOnly)
+	}
+	writef(builder, "\n- Idiom overflow: %d\n", len(ranking)-len(kept))
 }
 
 // writeIdiomSampleUnconfirmed lists the sampled items the provider did not

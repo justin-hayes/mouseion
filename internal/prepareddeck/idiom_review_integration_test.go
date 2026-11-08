@@ -127,8 +127,9 @@ func TestIdiomReviewFreezerReFreezesTheCurrentPreparationWithoutWriting(t *testi
 	freezer := idiomReviewFreezer(t, store)
 	freezer.Assembler = idiomReviewFixtureAssembler{t: t}
 
-	items, err := freezer.FreezeIdiomReviewItems(ctx, bookID, "it")
+	freeze, err := freezer.FreezeIdiomReviewItems(ctx, bookID, "it")
 	require.NoError(t, err)
+	items := freeze.Items
 
 	t.Run("the idiom item is frozen without a recorded assessment", func(t *testing.T) {
 		require.Len(t, items, 1)
@@ -144,10 +145,15 @@ func TestIdiomReviewFreezerReFreezesTheCurrentPreparationWithoutWriting(t *testi
 		require.Equal(t, "È davvero un ragazzo in gamba.", request.ExampleSentence)
 		require.Equal(t, freezer.Codec.IdiomCardProviderVersion(), items[0].Work.CacheKey.ProviderVersion)
 	})
+	t.Run("the bound's ranking lists the idiom", func(t *testing.T) {
+		require.Len(t, freeze.Ranking, 1)
+		require.Equal(t, "in gamba", freeze.Ranking[0].Headword)
+	})
 	t.Run("another language has no idiom items", func(t *testing.T) {
 		other, otherErr := freezer.FreezeIdiomReviewItems(ctx, bookID, "de")
 		require.NoError(t, otherErr)
-		require.Empty(t, other)
+		require.Empty(t, other.Items)
+		require.Empty(t, other.Ranking)
 	})
 	t.Run("the real input assembler runs in the read-only transaction", func(t *testing.T) {
 		assembled := idiomReviewFreezer(t, store)

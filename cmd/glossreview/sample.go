@@ -39,6 +39,9 @@ type idiomSampleReport struct {
 	// sent before Limit was reached that the provider did not confirm.
 	Cards       []idiomSampleResult
 	Unconfirmed []idiomSampleResult
+	// Ranking is the per-deck bound's order of every matched idiom. The report
+	// lists the ones a prepared deck keeps; no provider call is made for it.
+	Ranking []cardexport.IdiomRank
 }
 
 // Sent is the number of items sent to the provider.
@@ -57,6 +60,7 @@ func runIdiomSample(ctx context.Context, client translationClient, options idiom
 		Language:  options.Language,
 		Seed:      options.Seed,
 		Limit:     idiomSampleSize,
+		Ranking:   options.Ranking,
 	}
 	ordered := orderIdiomSample(options.Items, options.BookID, options.Seed)
 	report.Found = len(ordered)
