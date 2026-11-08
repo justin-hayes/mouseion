@@ -3,6 +3,7 @@ package cardexport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -176,6 +177,167 @@ func TestIdiomMatchingIsAbsentWithoutAnIdiomIndex(t *testing.T) {
 	deck, _, err := NewPresentation(fakeLexical{}).Freeze(t.Context(), "owner-1", "Libro", []CandidateProjection{gambaProjection(t)}, WithIdiomCards([]string{"it"}, "idiom-v1"))
 	require.NoError(t, err)
 	assert.Len(t, deck.StorageProjection().Items, 1)
+}
+
+func TestFreezeBoundsIdiomsByAnchorOccurrencesAndReportsOverflow(t *testing.T) {
+	projections, lexicon := idiomBoundFixture(t)
+	deck, diagnostics, err := NewPresentation(lexicon).Freeze(t.Context(), "owner-1", "Libro", projections, WithIdiomCards([]string{"it"}, "idiom-v1"), withIdiomCardBound(2))
+	require.NoError(t, err)
+	snapshot := deck.StorageProjection()
+
+	t.Run("reports overflow in the manifest", func(t *testing.T) {
+		require.Equal(t, 3, snapshot.IdiomOverflow)
+	})
+	t.Run("reports overflow in diagnostics", func(t *testing.T) {
+		require.Equal(t, 3, diagnostics.IdiomOverflow)
+	})
+	t.Run("keeps the highest-priority idioms in deterministic order", func(t *testing.T) {
+		headwords := make([]string, 0, 2)
+		for _, item := range snapshot.Items {
+			if item.ItemKind.IsIdiom() {
+				headwords = append(headwords, item.Entry.Headword)
+			}
+		}
+		require.Equal(t, []string{"epsilon zeta", "beta gamma"}, headwords)
+	})
+	t.Run("restores the overflow", func(t *testing.T) {
+		restored, restoreErr := NewPresentation(nil).Restore(snapshot)
+		require.NoError(t, restoreErr)
+		require.Equal(t, 3, restored.Diagnostics().IdiomOverflow)
+	})
+}
+
+func TestFreezeReportsNoOverflowWhenEveryIdiomFits(t *testing.T) {
+	projections, lexicon := idiomBoundFixture(t)
+	deck, diagnostics, err := NewPresentation(lexicon).Freeze(t.Context(), "owner-1", "Libro", projections, WithIdiomCards([]string{"it"}, "idiom-v1"), withIdiomCardBound(5))
+	require.NoError(t, err)
+
+	t.Run("manifest overflow is zero", func(t *testing.T) {
+		require.Zero(t, deck.StorageProjection().IdiomOverflow)
+	})
+	t.Run("diagnostics overflow is zero", func(t *testing.T) {
+		require.Zero(t, diagnostics.IdiomOverflow)
+	})
+}
+
+func TestBoundIdiomProjectionsTreatsANegativeBoundAsZero(t *testing.T) {
+	bounded, overflow := boundIdiomProjections([]CandidateProjection{{Entry: Entry{Headword: "in gamba"}}}, -1)
+
+	t.Run("keeps no idioms", func(t *testing.T) {
+		require.Empty(t, bounded)
+	})
+	t.Run("reports every idiom as overflow", func(t *testing.T) {
+		require.Equal(t, 1, overflow)
+	})
+}
+
+func TestIdiomProjectionOrderBreaksTiesDeterministically(t *testing.T) {
+	base := CandidateProjection{
+		Candidate: domain.SelectionCandidate{OccurrenceCount: 2, FirstEncounter: 10},
+		Entry:     Entry{Headword: "in gamba", Language: "it"},
+	}
+	higherOccurrences := base
+	higherOccurrences.Candidate.OccurrenceCount = 3
+	laterSentence := base
+	laterSentence.Candidate.FirstEncounter = 20
+	earlierHeadword := base
+	earlierHeadword.Entry.Headword = "a gamba"
+	laterLanguage := base
+	laterLanguage.Entry.Language = "zz"
+
+	t.Run("more occurrences rank first", func(t *testing.T) {
+		require.True(t, idiomProjectionLess(higherOccurrences, base))
+	})
+	t.Run("earlier sentence breaks the occurrence tie", func(t *testing.T) {
+		require.True(t, idiomProjectionLess(base, laterSentence))
+	})
+	t.Run("headword breaks the sentence tie", func(t *testing.T) {
+		require.True(t, idiomProjectionLess(earlierHeadword, base))
+	})
+	t.Run("language breaks the headword tie", func(t *testing.T) {
+		require.True(t, idiomProjectionLess(base, laterLanguage))
+	})
+}
+
+func TestFreezeReportsAnIdiomLookupFailure(t *testing.T) {
+	_, _, err := NewPresentation(errorIdiomLexicon{}).Freeze(t.Context(), "owner-1", "Libro", []CandidateProjection{gambaProjection(t)}, WithIdiomCards([]string{"it"}, "idiom-v1"))
+	require.ErrorContains(t, err, "idiom lookup failed")
+}
+
+type errorIdiomLexicon struct{}
+
+func (errorIdiomLexicon) Name() string    { return "fixture" }
+func (errorIdiomLexicon) Version() string { return "fixture-v1" }
+func (errorIdiomLexicon) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+	return enrichment.LexicalEntry{}, false, nil
+}
+func (errorIdiomLexicon) IdiomEntries(context.Context, string, string) ([]idiom.Entry, error) {
+	return nil, errors.New("idiom lookup failed")
+}
+
+func idiomBoundFixture(t *testing.T) ([]CandidateProjection, fakeIdiomLexicon) {
+	t.Helper()
+	specs := []struct {
+		anchor, other string
+		occurrences   int
+		start         uint64
+	}{
+		{anchor: "alfa", other: "beta", occurrences: 5, start: 100},
+		{anchor: "beta", other: "gamma", occurrences: 9, start: 200},
+		{anchor: "gamma", other: "delta", occurrences: 9, start: 200},
+		{anchor: "delta", other: "epsilon", occurrences: 1, start: 400},
+		{anchor: "epsilon", other: "zeta", occurrences: 9, start: 100},
+	}
+	entries := make(map[string][]idiom.Entry, len(specs)*2)
+	projections := make([]CandidateProjection, 0, len(specs))
+	for _, spec := range specs {
+		sentence, tokens := idiomBoundSentence(spec.start, spec.anchor, spec.other)
+		entry := idiom.Entry{
+			Language: "it", Headword: spec.anchor + " " + spec.other, UPOS: "ADJ",
+			Words: []string{spec.anchor, spec.other},
+			Senses: []enrichment.LexicalSense{{
+				EvidenceID: "e-" + spec.anchor, Gloss: "gloss for " + spec.anchor,
+			}},
+			Source: "wiktionary", Version: "fixture-v1",
+		}
+		entries["it\x00"+spec.anchor] = []idiom.Entry{entry}
+		entries["it\x00"+spec.other] = []idiom.Entry{entry}
+		observed, err := json.Marshal([]string{spec.anchor})
+		require.NoError(t, err)
+		projections = append(projections, CandidateProjection{
+			OwnerID: "owner-1", DeckName: "Libro",
+			Candidate: domain.SelectionCandidate{
+				OwnerID: "owner-1", CorpusID: "corpus-" + spec.anchor, Language: "it",
+				CanonicalLemma: spec.anchor, UPOS: "NOUN", OccurrenceCount: spec.occurrences,
+				FirstEncounter: int64(spec.start), ObservedForms: observed, //nolint:gosec // fixture offsets are small
+			},
+			Entry: Entry{
+				OwnerID: "owner-1", Language: "it", CanonicalLemma: spec.anchor, UPOS: "NOUN",
+				CorpusID: "corpus-" + spec.anchor, SentenceOrdinal: 1, Sentence: sentence, TargetWord: spec.anchor,
+				SentenceTokens: tokens, SentenceStartOffset: spec.start, FirstEncounter: int64(spec.start), //nolint:gosec // fixture offsets are small
+				SourceDocument: "Libro",
+			},
+			Sentences: map[int64]analyzer.Sentence{1: {Text: sentence, Tokens: tokens, Location: analyzer.SourceLocation{StartOffset: spec.start}}},
+			Provider:  "fixture", ProviderVersion: "lemma-v1", TargetLanguage: "en", RequireContextualGloss: true,
+		})
+	}
+	return projections, fakeIdiomLexicon{entries: entries}
+}
+
+func idiomBoundSentence(start uint64, anchor, other string) (string, []analyzer.Token) {
+	words := []string{"È", "davvero", "un", anchor, other, "bello."}
+	lemmas := []string{"è", "davvero", "un", anchor, other, "bello"}
+	upos := []string{"AUX", "ADV", "DET", "NOUN", "NOUN", "ADJ"}
+	tokens := make([]analyzer.Token, len(words))
+	offset := start
+	for i := range words {
+		tokens[i] = analyzer.Token{
+			Surface: words[i], CanonicalLemma: lemmas[i], UPOS: upos[i],
+			Location: analyzer.SourceLocation{StartOffset: offset, EndOffset: offset + uint64(len(words[i]))},
+		}
+		offset += uint64(len(words[i])) + 1
+	}
+	return "È davvero un " + anchor + " " + other + " bello.", tokens
 }
 
 type fakeLexical struct{}

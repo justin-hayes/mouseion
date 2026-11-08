@@ -446,6 +446,8 @@ type DeckPreparationManifest struct {
 	AcceptedCount  int
 	OmittedCount   int
 	CreatedAt      time.Time
+	// Candidate idioms left out by the per-deck idiom-card bound; not an omission
+	IdiomOverflow int
 }
 
 type DeckPreparationManifestItem struct {

@@ -105,7 +105,11 @@ type DeckPreparation struct {
 	// VocabularyOmissions and IdiomOmissions split the provider's explicit
 	// abstentions by frozen item kind. An idiom omission is never a vocabulary
 	// omission (ADR 0114). Both are derived from the durable outcomes.
-	VocabularyOmissions, IdiomOmissions   int
+	VocabularyOmissions, IdiomOmissions int
+	// IdiomOverflow is how many candidate idioms the per-deck bound left out
+	// while freezing. It is derived from the manifest and is not an omission
+	// (doc/features/idiom-cards.md).
+	IdiomOverflow                         int
 	ContextualGlosses, ContextOnlyGlosses int
 	ContextualGlossesReported             bool
 	QualityOmissions                      int

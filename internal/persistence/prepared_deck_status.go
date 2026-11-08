@@ -86,6 +86,7 @@ func applyCardKindCounts(preparation *domain.DeckPreparation, projection cardexp
 	}
 	preparation.IdiomCards = idioms
 	preparation.VocabularyCards = max(0, preparation.TotalCards-idioms)
+	preparation.IdiomOverflow = projection.IdiomOverflow
 }
 
 // runlessPreparationPhase is the phase of a preparation that has not frozen a

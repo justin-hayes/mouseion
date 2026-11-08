@@ -2207,7 +2207,7 @@ func (q *Queries) GetPreparedDeckBatchChunkForUpdate(ctx context.Context, arg Ge
 }
 
 const getPreparedDeckManifest = `-- name: GetPreparedDeckManifest :one
-SELECT owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_name, filename, selected_count, accepted_count, omitted_count, created_at FROM deck_preparation_manifests WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3
+SELECT owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_name, filename, selected_count, accepted_count, omitted_count, created_at, idiom_overflow FROM deck_preparation_manifests WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3
 `
 
 type GetPreparedDeckManifestParams struct {
@@ -2231,6 +2231,7 @@ func (q *Queries) GetPreparedDeckManifest(ctx context.Context, arg GetPreparedDe
 		&i.AcceptedCount,
 		&i.OmittedCount,
 		&i.CreatedAt,
+		&i.IdiomOverflow,
 	)
 	return i, err
 }
@@ -2686,8 +2687,8 @@ func (q *Queries) InsertPreparedDeckBatchChunkItemFromManifest(ctx context.Conte
 }
 
 const insertPreparedDeckManifest = `-- name: InsertPreparedDeckManifest :exec
-INSERT INTO deck_preparation_manifests(owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_name, filename, selected_count, accepted_count, omitted_count)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO deck_preparation_manifests(owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_name, filename, selected_count, accepted_count, omitted_count, idiom_overflow)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
 type InsertPreparedDeckManifestParams struct {
@@ -2701,6 +2702,7 @@ type InsertPreparedDeckManifestParams struct {
 	SelectedCount  int
 	AcceptedCount  int
 	OmittedCount   int
+	IdiomOverflow  int
 }
 
 func (q *Queries) InsertPreparedDeckManifest(ctx context.Context, arg InsertPreparedDeckManifestParams) error {
@@ -2715,6 +2717,7 @@ func (q *Queries) InsertPreparedDeckManifest(ctx context.Context, arg InsertPrep
 		arg.SelectedCount,
 		arg.AcceptedCount,
 		arg.OmittedCount,
+		arg.IdiomOverflow,
 	)
 	return err
 }

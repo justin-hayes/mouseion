@@ -108,6 +108,10 @@ type Diagnostics struct {
 	DegradationCodes []string
 	GlossCoverage    []GlossCoverage
 	EvidenceCoverage []EvidenceCoverage
+	// IdiomOverflow is how many candidate idioms the per-deck bound left out.
+	// They are not omissions and never raise a review flag
+	// (doc/features/idiom-cards.md).
+	IdiomOverflow int
 }
 
 type MeaningOmission struct {
@@ -219,7 +223,7 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 	for language := range p.idiomCardLanguages {
 		config.idiomLanguages[language] = true
 	}
-	idiomProjections, err := freezeIdiomProjections(ctx, p.lexical, ordered, config)
+	idiomProjections, idiomOverflow, err := freezeIdiomProjections(ctx, p.lexical, ordered, config)
 	if err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("freeze idiom items: %w", err)
 	}
@@ -233,6 +237,7 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 	if err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, err
 	}
+	frozen.idiomOverflow = idiomOverflow
 	diagnostics := manifestDiagnostics(frozen)
 	diagnostics.GlossCoverage = cloneGlossCoverage(coverage)
 	return FrozenDeck{manifest: frozen.clone()}, diagnostics, nil
@@ -1026,7 +1031,7 @@ func manifestDiagnostics(manifest manifest) Diagnostics {
 	for _, decision := range manifest.decisions {
 		entries = append(entries, renderInputFromEntry(decision.Entry))
 	}
-	return Diagnostics{QualityOmissions: cloneOmissions(manifest.omitted), EvidenceCoverage: evidenceCoverage(entries)}
+	return Diagnostics{QualityOmissions: cloneOmissions(manifest.omitted), EvidenceCoverage: evidenceCoverage(entries), IdiomOverflow: manifest.idiomOverflow}
 }
 
 func cloneOmissions(omissions []Omission) []Omission {
@@ -1039,7 +1044,7 @@ func cloneOmissions(omissions []Omission) []Omission {
 }
 
 func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
-	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), MeaningOmissions: append([]MeaningOmission(nil), diagnostics.MeaningOmissions...), IdiomOmissions: append([]IdiomOmission(nil), diagnostics.IdiomOmissions...), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...)}
+	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), MeaningOmissions: append([]MeaningOmission(nil), diagnostics.MeaningOmissions...), IdiomOmissions: append([]IdiomOmission(nil), diagnostics.IdiomOmissions...), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...), IdiomOverflow: diagnostics.IdiomOverflow}
 }
 
 func evidenceCoverage(entries []RenderInput) []EvidenceCoverage {

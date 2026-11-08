@@ -210,3 +210,20 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageRead
 	require.NoError(t, err)
 	assert.Empty(t, got)
 }
+func TestPreparationResponseReportsIdiomOverflow(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{
+		State: domain.DeckPreparationReady, TotalCards: 12, IdiomCards: 2, IdiomOverflow: 3,
+	})
+	encoded, err := json.Marshal(response)
+	require.NoError(t, err)
+
+	t.Run("exposes the overflow count", func(t *testing.T) {
+		require.Equal(t, 3, response.Completeness.IdiomOverflow)
+	})
+	t.Run("serializes the overflow count", func(t *testing.T) {
+		require.Contains(t, string(encoded), `"idiom_overflow":3`)
+	})
+	t.Run("keeps idiom cards separate", func(t *testing.T) {
+		require.Contains(t, string(encoded), `"idiom_cards":2`)
+	})
+}

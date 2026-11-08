@@ -66,6 +66,9 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				if summary := lemmaMismatchOmissionSummary(preparation); summary != "" {
 					@OmissionSummary(summary)
 				}
+				if summary := idiomOverflowSummary(preparation); summary != "" {
+					<p role="status"><strong>Idiom cards:</strong> { summary }</p>
+				}
 				for _, evidence := range preparation.EvidenceCoverage {
 					if evidence.Configured {
 						<p><strong>Meaning evidence:</strong> { fmt.Sprintf("%s matched %d of %d targets; %d candidates frozen, %d omitted by the candidate bound", evidence.Source, evidence.Matched, evidence.Selected, evidence.Candidates, evidence.Omitted) }</p>
@@ -147,14 +150,10 @@ func idiomOmissionSummary(preparation domain.DeckPreparation) string {
 
 // omissionCountSummary labels a non-zero omitted-card count.
 func omissionCountSummary(count int, singular, plural string) string {
-	switch {
-	case count == 1:
-		return fmt.Sprintf("1 %s left out.", singular)
-	case count > 1:
-		return fmt.Sprintf("%d %s left out.", count, plural)
-	default:
-		return ""
+	if label := countLabel(count, singular, plural); label != "" {
+		return label + " left out."
 	}
+	return ""
 }
 
 // lemmaMismatchOmissionSummary names the separate lemma-mismatch count.
@@ -163,14 +162,32 @@ func lemmaMismatchOmissionSummary(preparation domain.DeckPreparation) string {
 	return omissionSummary(preparation.LemmaMismatchOmissions, domain.DeckPreparationLemmaMismatchLabel)
 }
 
+// idiomOverflowSummary labels idioms the per-deck bound left out. They are not
+// omissions, so the copy stays separate from the omission summaries.
+func idiomOverflowSummary(preparation domain.DeckPreparation) string {
+	if label := countLabel(preparation.IdiomOverflow, "idiom", "idioms"); label != "" {
+		return label + " left out by the per-deck idiom-card bound."
+	}
+	return ""
+}
+
 // omissionSummary labels a non-zero omission count, or returns an empty string
 // when nothing was omitted.
 func omissionSummary(count int, reason string) string {
+	if label := countLabel(count, "word", "words"); label != "" {
+		return label + " left out: " + reason + "."
+	}
+	return ""
+}
+
+// countLabel renders one or many of a counted noun, or an empty string for
+// zero.
+func countLabel(count int, singular, plural string) string {
 	switch {
 	case count == 1:
-		return fmt.Sprintf("1 word left out: %s.", reason)
+		return "1 " + singular
 	case count > 1:
-		return fmt.Sprintf("%d words left out: %s.", count, reason)
+		return fmt.Sprintf("%d %s", count, plural)
 	default:
 		return ""
 	}

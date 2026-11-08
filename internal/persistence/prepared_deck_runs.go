@@ -235,7 +235,7 @@ func writePreparedDeckRunFreeze(ctx context.Context, tx pgx.Tx, params FreezePre
 	if err := insertPreparedDeckRunRow(ctx, tx, params, config, freeze.runID, freeze.runNumber, freeze.state, freeze.translationState, acceptedCount, manifestWork.completedCount, freeze.translationCompletedAt); err != nil {
 		return nil, err
 	}
-	if err := insertPreparedDeckManifestRow(ctx, tx, params, freeze.runID, digest, selectedCount, acceptedCount, omittedCount); err != nil {
+	if err := insertPreparedDeckManifestRow(ctx, tx, params, freeze.runID, digest, selectedCount, acceptedCount, omittedCount, params.Projection.IdiomOverflow); err != nil {
 		return nil, err
 	}
 	if err := insertPreparedDeckManifestItems(ctx, tx, params, config, candidateDigests, freeze.runID, manifestWork.pending); err != nil {
@@ -342,8 +342,8 @@ func insertPreparedDeckRunRow(ctx context.Context, tx pgx.Tx, params FreezePrepa
 	return sqlcgen.New(tx).InsertPreparedDeckRun(ctx, sqlcgen.InsertPreparedDeckRunParams{ID: runID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunNumber: runNumber, State: string(runState), TranslationState: string(translationState), ExecutionMode: config.ExecutionMode, TargetLanguage: config.TargetLanguage, ExternalTranslationConsent: config.ExternalTranslationConsent, ExternalTranslationConfigured: config.ExternalTranslationConfigured, ContextMode: nullableTextArg(config.ContextMode), Provider: nullableTextArg(config.Provider), ProviderVersion: nullableTextArg(config.ProviderVersion), Endpoint: nullableTextArg(config.Endpoint), Model: nullableTextArg(config.Model), ManifestSchemaVersion: params.Projection.SchemaVersion, RetryPolicyVersion: config.RetryPolicyVersion, MaxProviderAttempts: config.MaxProviderAttempts, MaxBatchGenerations: config.MaxBatchGenerations, BatchMaxRequests: config.BatchMaxRequests, BatchMaxBytes: config.BatchMaxBytes, CandidateCount: acceptedCount, CompletedCount: completedCount, TranslationCompletedAt: pgTimeArgPtr(translationCompletedAt), RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: cardexport.PresentationVersion})
 }
 
-func insertPreparedDeckManifestRow(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, runID, digest string, selectedCount, acceptedCount, omittedCount int) error {
-	return sqlcgen.New(tx).InsertPreparedDeckManifest(ctx, sqlcgen.InsertPreparedDeckManifestParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, SchemaVersion: params.Projection.SchemaVersion, ManifestDigest: digest, DeckName: params.Projection.DeckName, Filename: params.Projection.Filename, SelectedCount: selectedCount, AcceptedCount: acceptedCount, OmittedCount: omittedCount})
+func insertPreparedDeckManifestRow(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, runID, digest string, selectedCount, acceptedCount, omittedCount, idiomOverflow int) error {
+	return sqlcgen.New(tx).InsertPreparedDeckManifest(ctx, sqlcgen.InsertPreparedDeckManifestParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, SchemaVersion: params.Projection.SchemaVersion, ManifestDigest: digest, DeckName: params.Projection.DeckName, Filename: params.Projection.Filename, SelectedCount: selectedCount, AcceptedCount: acceptedCount, OmittedCount: omittedCount, IdiomOverflow: idiomOverflow})
 }
 
 func insertPreparedDeckManifestItems(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, config PreparedDeckRunConfig, candidateDigests []string, runID string, pending map[int]cardexport.ManifestItem) error {
@@ -595,6 +595,16 @@ func (s *PostgresStore) GetCurrentPreparedDeckRun(ctx context.Context, owner, pr
 	return preparedDeckRunFromModel(model), nil
 }
 
+// storedIdiomOverflow reads the overflow only from manifests whose codec
+// defines it. Older manifests report zero even if a later column default or
+// backfill ever wrote a value.
+func storedIdiomOverflow(schemaVersion, overflow int) int {
+	if schemaVersion >= cardexport.ManifestSchemaVersionV16 {
+		return overflow
+	}
+	return 0
+}
+
 // LoadPreparedDeckStorageProjection loads the normalized durable projection
 // without turning it into a presentation manifest or enrichment result.
 func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, owner, preparationID, runID string) (cardexport.StorageProjection, string, error) {
@@ -607,6 +617,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 	snapshot.SchemaVersion = manifest.SchemaVersion
 	snapshot.DeckName = manifest.DeckName
 	snapshot.Filename = manifest.Filename
+	snapshot.IdiomOverflow = storedIdiomOverflow(manifest.SchemaVersion, manifest.IdiomOverflow)
 	storedDigest := manifest.ManifestDigest
 	selectedCount, acceptedCount, omittedCount := manifest.SelectedCount, manifest.AcceptedCount, manifest.OmittedCount
 	items, err := sqlcgen.New(s.pool).ListPreparedDeckManifestItems(ctx, sqlcgen.ListPreparedDeckManifestItemsParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})

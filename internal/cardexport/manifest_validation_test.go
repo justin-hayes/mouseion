@@ -99,6 +99,13 @@ func TestManifestSnapshotRejectsInvalidItems(t *testing.T) {
 			},
 		},
 		{
+			name: "negative idiom overflow",
+			want: "invalid manifest idiom overflow",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.IdiomOverflow = -1
+			},
+		},
+		{
 			name: "speaker attribution without a name",
 			want: "speaker attribution has no name",
 			mutate: func(snapshot *cardexport.ManifestSnapshot) {

@@ -63,6 +63,26 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 	}
 }
 
+func TestDeckPreparationStatusReportsIdiomOverflow(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-idiom-overflow", State: domain.DeckPreparationReady,
+		TotalCards: 12, VocabularyCards: 10, IdiomCards: 2, IdiomOverflow: 3,
+	}
+	var output bytes.Buffer
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
+	html := output.String()
+
+	t.Run("shows idiom and vocabulary card counts", func(t *testing.T) {
+		require.Contains(t, html, "10 vocabulary cards · 2 idiom cards")
+	})
+	t.Run("shows the overflow count", func(t *testing.T) {
+		require.Contains(t, html, "3 idioms left out by the per-deck idiom-card bound")
+	})
+	t.Run("does not present overflow as an omission", func(t *testing.T) {
+		require.NotContains(t, html, "3 words left out")
+	})
+}
+
 func TestPreparationProgressUsesDurableTranslationCounts(t *testing.T) {
 	assert.Equal(t, 75, preparationProgress(domain.DeckPreparation{State: domain.DeckPreparationPreparing, TranslationEligible: 4, TranslationDone: 2, TranslationFailed: 1}))
 	assert.Equal(t, 100, preparationProgress(domain.DeckPreparation{State: domain.DeckPreparationReady}))
