@@ -1318,7 +1318,10 @@ def test_idiom_lookup_indexes_only_two_to_four_ordinary_word_entries(tmp_path: P
 def derive_idiom_rows(
     module, tmp_path: Path, items: list[dict], reviewed_idioms=None
 ) -> tuple[list[tuple], list[tuple]]:
-    """Derive an index from raw items and return its idiom entry and word rows."""
+    """Derive an index from raw items and return its idiom entry and word rows.
+
+    Without explicit reviewed idioms, an empty list keeps the shipped one out.
+    """
     source = tmp_path / "kaikki.jsonl"
     source.write_text(
         "\n".join(json.dumps(item, ensure_ascii=False) for item in items) + "\n",
@@ -1326,9 +1329,8 @@ def derive_idiom_rows(
     )
     output = tmp_path / "dictionary.sqlite"
     if reviewed_idioms is None:
-        module.derive(source, output, "fixture-v1")
-    else:
-        module.derive(source, output, "fixture-v1", reviewed_idioms=reviewed_idioms)
+        reviewed_idioms = module.ReviewedIdioms()
+    module.derive(source, output, "fixture-v1", reviewed_idioms=reviewed_idioms)
     connection = sqlite3.connect(output)
     entries = connection.execute(
         "SELECT language, headword, upos, senses_json, source FROM idiom_entries "
@@ -1457,7 +1459,7 @@ def test_reviewed_idiom_is_indexed_even_when_wiktionary_lists_it_as_a_name(tmp_p
         encoding="utf-8",
     )
 
-    entries, _words = derive_idiom_rows(
+    entries, words = derive_idiom_rows(
         module,
         tmp_path,
         [
@@ -1472,6 +1474,10 @@ def test_reviewed_idiom_is_indexed_even_when_wiktionary_lists_it_as_a_name(tmp_p
     )
 
     assert entries == [("it", "Far West", "", [], "reviewed-idioms")]
+    assert words == [
+        ("far", "Far West", "reviewed-idioms"),
+        ("west", "Far West", "reviewed-idioms"),
+    ]
 
 
 def test_single_word_names_still_reach_the_lemma_entries(tmp_path: Path):

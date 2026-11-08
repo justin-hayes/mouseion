@@ -645,7 +645,11 @@ def sense_is_form_or_alt_of(item: dict, raw_sense: dict) -> bool:
 
 
 def idiom_senses_for_item(item: dict):
-    """Yield only the ordinary senses that make a multi-word entry an idiom."""
+    """Yield only the ordinary senses that make a multi-word entry an idiom.
+
+    Yields nothing for an entry that is not an idiom at all: a proper name, or
+    an entry whose only senses are references or the literal-use marker.
+    """
     # A proper name (surname, place, institution) is never an idiom, and its
     # case-folded words would match ordinary text (#2380).
     if str(item.get("pos", "")).casefold() == WIKTIONARY_NAME_POS:
