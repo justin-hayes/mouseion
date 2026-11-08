@@ -223,10 +223,18 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # GitHub's release-download redirect has intermittently returned 504 on
+      # shared runners. Resolve the pinned upstream archive through the API
+      # instead; the Makefile still enforces the exact version.
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: v2.14.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download v2.14.0 --repo golangci/golangci-lint \
+            --pattern golangci-lint-2.14.0-linux-amd64.tar.gz --dir "$RUNNER_TEMP"
+          tar -xzf "$RUNNER_TEMP/golangci-lint-2.14.0-linux-amd64.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/golangci-lint-2.14.0-linux-amd64" >> "$GITHUB_PATH"
+          make lint-go
 
   integration:
     name: Integration tests
