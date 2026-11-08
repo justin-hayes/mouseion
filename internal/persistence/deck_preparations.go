@@ -276,6 +276,11 @@ func publishPreparedDeckArtifact(ctx context.Context, q *sqlcgen.Queries, owner,
 		if err != nil {
 			return err
 		}
+		if item.ItemKind.IsIdiom() {
+			// Idioms are card-only: they never enter Generated vocabulary or a
+			// preparation's vocabulary assignment (ADR 0114).
+			continue
+		}
 		if err := q.InsertGeneratedVocabulary(ctx, sqlcgen.InsertGeneratedVocabularyParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, LexicalDiscriminator: entry.LexicalDiscriminator, Headword: entry.Headword, Deck: deckID, Preparation: id}); err != nil {
 			return err
 		}

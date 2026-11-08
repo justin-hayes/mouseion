@@ -60,6 +60,36 @@ func TestLSJSenseSummaryUnrecordedAssessmentFailsClosed(t *testing.T) {
 	require.ErrorIs(t, AllowExternalProviderCall(unrecorded, "grc", codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()), ErrProviderAssessmentNotRecorded)
 }
 
+// TestIdiomCardAssessmentIsUnrecordedUntilTheItalianReview proves the idiom
+// payload is covered and fails closed before the review report is committed.
+func TestIdiomCardAssessmentIsUnrecordedUntilTheItalianReview(t *testing.T) {
+	assessment := assessmentByTicket(t, "#2362")
+	assert.False(t, assessment.Recorded)
+	codec := passCodec(t)
+	require.ErrorIs(t, AllowExternalProviderCall(ProviderAssessments(), "it", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded)
+	require.ErrorIs(t, AllowIdiomCardCall(ProviderAssessments(), "it", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded)
+	require.ErrorIs(t, AllowIdiomCardCall(ProviderAssessments(), "de", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded, "a language without an idiom assessment is not rolled out by implication")
+}
+
+// TestIdiomCardGateRequiresExactPayload proves a recorded idiom assessment pins
+// the provider, prompt contract and exact transmitted field set.
+func TestIdiomCardGateRequiresExactPayload(t *testing.T) {
+	codec := passCodec(t)
+	recorded := ProviderAssessment{
+		Language: "it", Provider: codec.ProviderName(),
+		PromptVersion: codec.IdiomCardPromptContract(),
+		Fields:        IdiomCardPayloadFields(),
+		Disposition:   "recorded for this test", Ticket: "#2362", Recorded: true,
+	}
+	assessments := []ProviderAssessment{recorded}
+	require.NoError(t, AllowIdiomCardCall(assessments, "it", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()))
+	drifted := append(IdiomCardPayloadFields(), "book_title")
+	require.ErrorIs(t, AllowIdiomCardCall(assessments, "it", codec.ProviderName(), codec.IdiomCardPromptContract(), drifted), ErrProviderAssessmentNotRecorded)
+	require.ErrorIs(t, AllowIdiomCardCall(assessments, "it", "other-provider", codec.IdiomCardPromptContract(), IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded)
+	require.ErrorIs(t, AllowIdiomCardCall(assessments, "it", codec.ProviderName(), "other-prompt", IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded)
+	require.ErrorIs(t, AllowIdiomCardCall(assessments, "de", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded)
+}
+
 // assessmentByTicket returns the compiled assessment recorded for one ticket.
 func assessmentByTicket(t *testing.T, ticket string) ProviderAssessment {
 	t.Helper()

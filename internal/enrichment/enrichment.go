@@ -91,6 +91,15 @@ type TranslationRequest struct {
 	// sense IDs and English glosses, and it is cached per (LSJ pin, entry ID,
 	// prompt version) (ADR 0101).
 	RequireLSJSenseSummary bool `json:"-"`
+	// RequireIdiomCard marks the dictionary-anchored idiom-card contract: the
+	// headword, the matched forms, the representative sentence and the
+	// entry's bounded candidate senses, with no lemma or learner metadata
+	// (ADR 0114).
+	RequireIdiomCard bool `json:"-"`
+	// IdiomHeadword and IdiomMatchedForms are transmitted only under
+	// RequireIdiomCard. CanonicalLemma carries the headword for cache identity.
+	IdiomHeadword     string   `json:"-"`
+	IdiomMatchedForms []string `json:"-"`
 	// Headword and LSJSenses are the pinned LSJ entry the sense summary
 	// condenses. They are transmitted only under RequireLSJSenseSummary.
 	Headword  string                 `json:"-"`
@@ -105,6 +114,10 @@ type ContextualGlossUnresolvedKind string
 const (
 	ContextualGlossUnresolvedAmbiguous     ContextualGlossUnresolvedKind = "ambiguous"
 	ContextualGlossUnresolvedLemmaMismatch ContextualGlossUnresolvedKind = "lemma_mismatch"
+	// ContextualGlossUnresolvedLiteralUse is the idiom-card outcome that says
+	// the sentence uses the idiom's words literally rather than as the idiom
+	// (ADR 0114).
+	ContextualGlossUnresolvedLiteralUse ContextualGlossUnresolvedKind = "literal_use"
 )
 
 type TranslationResponse struct {

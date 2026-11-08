@@ -89,9 +89,11 @@ func TestItemKindIsAV14ManifestDigestInput(t *testing.T) {
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
 		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus",
 	}}).Snapshot()
+	snapshot.Items[0].Entry.Headword = "haus"
 	idiom := snapshot
 	idiom.Items = cloneManifestItems(snapshot.Items)
 	idiom.Items[0].ItemKind = enrichment.ItemKindIdiom
+	fillIdiomEvidence(&idiom.Items[0])
 
 	lemmaV13 := snapshot
 	lemmaV13.SchemaVersion = ManifestSchemaVersionV13
@@ -116,14 +118,27 @@ func TestItemKindIsPartOfTheCacheIdentityDigest(t *testing.T) {
 		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus",
 	}}).Snapshot()
 	snapshot.Items[0].CacheKey = &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash("Das alte Haus ist überraschend groß.")}
+	snapshot.Items[0].Entry.Headword = "haus"
 
 	lemmaDigest, err := snapshot.Digest()
 	require.NoError(t, err)
 	snapshot.Items[0].ItemKind = enrichment.ItemKindIdiom
+	fillIdiomEvidence(&snapshot.Items[0])
 	snapshot.Items[0].CacheKey.ItemKind = enrichment.ItemKindIdiom
 	idiomDigest, err := snapshot.Digest()
 	require.NoError(t, err)
 	assert.NotEqual(t, lemmaDigest, idiomDigest, "a different cache kind must change v14 identity")
+}
+
+func fillIdiomEvidence(item *ManifestItem) {
+	item.Entry.MatchedTokenOrdinals = []int{0, 1}
+	item.Entry.AnchorLanguage = item.Entry.Language
+	item.Entry.AnchorCanonicalLemma = item.Entry.CanonicalLemma
+	item.Entry.AnchorUPOS = item.Entry.UPOS
+	item.Entry.Source = "wiktionary"
+	item.Entry.SourceVersion = "fixture-v1"
+	item.Entry.MatcherVersion = "idiom-matcher/1"
+	item.Entry.GapBound = 2
 }
 
 func TestQualityDiagnosticsAffectTheCurrentManifestDigest(t *testing.T) {

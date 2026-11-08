@@ -179,7 +179,7 @@ func (w *StandardTranslationWorker) completeFromCache(ctx context.Context, args 
 	if err != nil {
 		return true, w.fail(ctx, args, token, "cache", "cache_lookup", false)
 	}
-	if !hit || !enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) || (work.Request.RequireContextualGloss && strings.TrimSpace(entry.FallbackGloss) == "") {
+	if !hit || !enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) || ((work.Request.RequireContextualGloss || work.Request.RequireIdiomCard) && strings.TrimSpace(entry.FallbackGloss) == "") {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheMisses, Phase: "cache", State: "pending", Provider: "openai", Value: 1})
 		return false, nil
 	}
@@ -275,7 +275,7 @@ func (w *StandardTranslationWorker) persistTranslation(ctx context.Context, args
 	if request.RequireEvidenceAssistedPass {
 		return w.persistEvidenceAssistedPass(ctx, args, token, work.WorkItem, response, providerLatency)
 	}
-	if request.RequireContextualGloss && response.Gloss == "" {
+	if (request.RequireContextualGloss || request.RequireIdiomCard) && response.Gloss == "" {
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{
 			State: domain.PreparedDeckOutcomeCompleted, OmissionReason: contextualOmissionReason(response),
 			ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency,

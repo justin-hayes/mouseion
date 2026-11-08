@@ -26,6 +26,11 @@ const DeckPreparationEvidenceAssistedPassAbstentionReason = "the evidence-assist
 // different lexeme than the target lemma.
 const DeckPreparationLemmaMismatchLabel = "the sentence uses a different word than this lemma"
 
+// DeckPreparationIdiomLiteralUseLabel is the learner-facing label for an idiom
+// card the provider omitted because the sentence uses the words literally
+// (ADR 0114). An idiom omission never raises a lemma review flag.
+const DeckPreparationIdiomLiteralUseLabel = "the words are used literally here"
+
 // DeckPreparationLemmaMismatchPrefix is the reserved, domain-owned prefix that
 // distinguishes a lemma-mismatch omission from an ambiguous one in the existing
 // free-text omission reason. It is deliberately independent of the learner
@@ -94,9 +99,12 @@ type DeckPreparation struct {
 	State                                                                                                                  DeckPreparationState
 	Artifact                                                                                                               []byte
 	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss                          int
-	ContextualGlosses, ContextOnlyGlosses                                                                                  int
-	ContextualGlossesReported                                                                                              bool
-	QualityOmissions                                                                                                       int
+	// VocabularyCards and IdiomCards split TotalCards by frozen item kind. The
+	// values are derived from the manifest, so no persisted column changes.
+	VocabularyCards, IdiomCards           int
+	ContextualGlosses, ContextOnlyGlosses int
+	ContextualGlossesReported             bool
+	QualityOmissions                      int
 	// ProviderOmissions counts accepted identities the translation provider
 	// could not answer usably. They were left out of the ready deck and can be
 	// retried; unlike QualityOmissions they would otherwise have produced cards.

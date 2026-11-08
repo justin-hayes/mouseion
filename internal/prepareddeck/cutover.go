@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -247,6 +249,9 @@ type BatchPlanner struct {
 	Codec           *enrichment.TranslationCodec
 	ExternalEnabled bool
 	BatchConfig     BatchConfig
+	// IdiomCardLanguages is the operator-enabled per-language switch. Context
+	// comes from PreparedDeckConfig so the planner and presentation agree.
+	IdiomCardLanguages map[string]bool
 	// Assessments are the recorded personal-use payload assessments the pass is
 	// gated against. They default to the compiled reviewed set; a caller may
 	// install a recorded assessment to exercise the pass.
@@ -272,9 +277,13 @@ func NewStandardPlanner(assembler inputAssembler, presentation *cardexport.Prese
 // existing run.
 func NewPreparedDeckPlanner(assembler inputAssembler, presentation *cardexport.Presentation, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig, config PreparedDeckConfig) DurableRunPlanner {
 	if config.TranslationMode == "batch" {
-		return NewBatchPlanner(assembler, presentation, codec, externalEnabled, batchConfig)
+		planner := NewBatchPlanner(assembler, presentation, codec, externalEnabled, batchConfig)
+		planner.IdiomCardLanguages = config.IdiomCardLanguages
+		return planner
 	}
-	return NewStandardPlanner(assembler, presentation, codec, externalEnabled, batchConfig, config)
+	planner := NewStandardPlanner(assembler, presentation, codec, externalEnabled, batchConfig, config)
+	planner.IdiomCardLanguages = config.IdiomCardLanguages
+	return planner
 }
 
 func NewBatchPlanner(assembler inputAssembler, presentation *cardexport.Presentation, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig) *BatchPlanner {
@@ -340,6 +349,48 @@ func (p *BatchPlanner) planGreekDeck(ctx context.Context, preparation domain.Dec
 	return p.planSourceEvidenceRun(ctx, preparation, deckName, projections, mode)
 }
 
+// enabledIdiomLanguages returns the distinct languages in the deck whose
+// operator switch is on. A language with no selected candidate never appears,
+// so turning the switch on cannot add a card to an unrelated deck.
+func (p *BatchPlanner) enabledIdiomLanguages(projections []cardexport.CandidateProjection) []string {
+	if p == nil || len(p.IdiomCardLanguages) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(projections))
+	languages := make([]string, 0, len(p.IdiomCardLanguages))
+	for _, projection := range projections {
+		language := canonicalization.NormalizeLanguage(projection.Candidate.Language)
+		if !p.IdiomCardLanguages[language] {
+			continue
+		}
+		if _, ok := seen[language]; ok {
+			continue
+		}
+		seen[language] = struct{}{}
+		languages = append(languages, language)
+	}
+	sort.Strings(languages)
+	return languages
+}
+
+// validateIdiomAssessment fails closed before the deck is frozen when a covered
+// language's idiom payload has not been reviewed for this provider and prompt
+// contract. Nothing is transmitted; the caller reports the assessment error.
+func (p *BatchPlanner) validateIdiomAssessment(languages []string) error {
+	if p == nil || p.Codec == nil {
+		return errTranslationProviderRequired
+	}
+	provider := p.Codec.ProviderName()
+	contract := p.Codec.IdiomCardPromptContract()
+	fields := enrichment.IdiomCardPayloadFields()
+	for _, language := range languages {
+		if err := enrichment.AllowIdiomCardCall(p.assessments(), language, provider, contract, fields); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // evidenceAssistedPassAllowed reports whether the configured provider, prompt
 // contract and payload match a recorded assessment. A drifted or unrecorded
 // assessment sends nothing: the deck falls back to the default card.
@@ -376,7 +427,17 @@ func (p *BatchPlanner) planExternalRun(ctx context.Context, tx pgx.Tx, preparati
 		projections[i].TargetLanguage = config.TargetLanguage
 		projections[i].RequireContextualGloss = true
 	}
-	deck, freezeDiagnostics, err := p.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections)
+	idiomLanguages := p.enabledIdiomLanguages(projections)
+	if len(idiomLanguages) > 0 {
+		if err := p.validateIdiomAssessment(idiomLanguages); err != nil {
+			return persistence.FreezePreparedDeckRunParams{}, err
+		}
+	}
+	freezeOptions := []cardexport.FreezeOption{}
+	if len(idiomLanguages) > 0 {
+		freezeOptions = append(freezeOptions, cardexport.WithIdiomCards(idiomLanguages, p.Codec.IdiomCardProviderVersion()))
+	}
+	deck, freezeDiagnostics, err := p.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections, freezeOptions...)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("freeze prepared deck presentation: %w", err)
 	}

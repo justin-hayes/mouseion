@@ -1,6 +1,6 @@
 # ADR 0114: Idiom cards from dictionary evidence, confirmed by the provider
 
-Status: **Accepted — implementation pending** · Date: 2026-11-07 · Author: Justin + OpenCode
+Status: **Accepted — implementation in progress** · Date: 2026-11-07 · Author: Justin + OpenCode
 
 Accepted by merging this ADR's pull request. Decided in
 [#2351](https://github.com/justin-hayes/mouseion/issues/2351). Builds on

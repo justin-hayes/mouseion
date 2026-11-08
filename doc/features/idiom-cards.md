@@ -1,6 +1,6 @@
 # Idiom cards
 
-Status: **Specified; implementation pending** · Date: 2026-11-07 · Decisions:
+Status: **Specified; implementation in progress** · Date: 2026-11-07 · Decisions:
 [ADR 0114](../adr/0114-idiom-cards-from-dictionary-evidence.md),
 [ADR 0112](../adr/0112-gloss-is-lemma-sense-in-citation-form.md)
 

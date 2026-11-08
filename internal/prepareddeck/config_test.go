@@ -50,18 +50,19 @@ func TestBatchConfigFromEnv(t *testing.T) {
 }
 
 func TestPreparedDeckConfigFromEnv(t *testing.T) {
-	for _, name := range []string{TranslationModeEnv, StandardMaxConcurrencyEnv, StandardMaxAttemptsEnv, StandardRetryBaseDelayEnv, StandardRetryMaxDelayEnv} {
+	for _, name := range []string{TranslationModeEnv, StandardMaxConcurrencyEnv, StandardMaxAttemptsEnv, StandardRetryBaseDelayEnv, StandardRetryMaxDelayEnv, IdiomCardLanguagesEnv} {
 		unsetenv(t, name)
 	}
 	got, err := PreparedDeckConfigFromEnv()
 	require.NoError(t, err)
-	want := PreparedDeckConfig{TranslationMode: "standard", StandardMaxConcurrency: 4, StandardMaxAttempts: 3, StandardRetryBaseDelay: time.Second, StandardRetryMaxDelay: 30 * time.Second}
+	want := PreparedDeckConfig{TranslationMode: "standard", StandardMaxConcurrency: 4, StandardMaxAttempts: 3, StandardRetryBaseDelay: time.Second, StandardRetryMaxDelay: 30 * time.Second, IdiomCardLanguages: map[string]bool{}}
 	assert.Equal(t, want, got)
 	t.Setenv(TranslationModeEnv, "batch")
 	t.Setenv(StandardMaxConcurrencyEnv, "8")
 	t.Setenv(StandardMaxAttemptsEnv, "7")
 	t.Setenv(StandardRetryBaseDelayEnv, "2s")
 	t.Setenv(StandardRetryMaxDelayEnv, "1m")
+	t.Setenv(IdiomCardLanguagesEnv, "it, DE")
 	got, err = PreparedDeckConfigFromEnv()
 	require.NoError(t, err)
 	assert.Equal(t, "batch", got.TranslationMode)
@@ -69,11 +70,13 @@ func TestPreparedDeckConfigFromEnv(t *testing.T) {
 	assert.Equal(t, 7, got.StandardMaxAttempts)
 	assert.Equal(t, 2*time.Second, got.StandardRetryBaseDelay)
 	assert.Equal(t, time.Minute, got.StandardRetryMaxDelay)
+	assert.Equal(t, map[string]bool{"it": true, "de": true}, got.IdiomCardLanguages)
 	for _, test := range []struct{ env, value string }{
 		{TranslationModeEnv, "other"}, {StandardMaxConcurrencyEnv, "0"}, {StandardMaxConcurrencyEnv, "65"},
 		{StandardMaxConcurrencyEnv, "many"}, {StandardMaxAttemptsEnv, "0"}, {StandardMaxAttemptsEnv, "21"},
 		{StandardMaxAttemptsEnv, "many"}, {StandardRetryBaseDelayEnv, "0s"}, {StandardRetryBaseDelayEnv, "not-a-duration"},
 		{StandardRetryBaseDelayEnv, "25h"}, {StandardRetryMaxDelayEnv, "25h"}, {StandardRetryMaxDelayEnv, "500ms"},
+		{IdiomCardLanguagesEnv, "it,,de"},
 	} {
 		t.Run(test.env+"="+test.value, func(t *testing.T) {
 			t.Setenv(test.env, test.value)

@@ -17,6 +17,12 @@ type RenderInput struct {
 	TargetWord, Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion string
 	PassageContext, PassageCitation, BrownsonPin                              string
 	DictionaryEntry, DictionaryEntryID, DictionaryPin                         string
+	// ItemKind distinguishes a vocabulary lemma card from an idiom card. The
+	// zero value is a lemma (ADR 0114).
+	ItemKind enrichment.ItemKind
+	// IdiomMatchedTokenOrdinals locates every matched idiom word in
+	// SentenceTokens so the front bolds the complete idiom (ADR 0067/0114).
+	IdiomMatchedTokenOrdinals []int
 	// LSJSummaryProviderVersion is the frozen provider version of the LSJ sense
 	// summary this entry's LSJ entry may be condensed by (empty when not
 	// offered), and LSJSenseSummary is that summary's rendered HTML, resolved at
@@ -48,7 +54,9 @@ func renderInputFromEntry(entry Entry) RenderInput {
 	return RenderInput{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 		LexicalDiscriminator: entry.LexicalDiscriminator, Headword: entry.Headword,
-		Sentence: entry.Sentence, Translation: entry.Translation,
+		ItemKind:                  entry.ItemKind,
+		IdiomMatchedTokenOrdinals: append([]int(nil), entry.MatchedTokenOrdinals...),
+		Sentence:                  entry.Sentence, Translation: entry.Translation,
 		SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget,
 		TargetWord: entry.TargetWord, Gloss: entry.Gloss, Plural: entry.Plural, IPA: entry.IPA,
 		PrincipalParts: entry.PrincipalParts, DictionaryProviderVersion: entry.DictionaryProviderVersion,
@@ -76,6 +84,7 @@ func cloneRenderInputs(inputs []RenderInput) []RenderInput {
 		result[i].CandidateSenses = enrichment.CloneLexicalSenses(input.CandidateSenses)
 		result[i].SentenceTranslationTargets = append([]string(nil), input.SentenceTranslationTargets...)
 		result[i].SentenceTokens = cloneTokens(input.SentenceTokens)
+		result[i].IdiomMatchedTokenOrdinals = append([]int(nil), input.IdiomMatchedTokenOrdinals...)
 	}
 	return result
 }

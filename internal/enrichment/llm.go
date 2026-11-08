@@ -31,8 +31,13 @@ const (
 	// English glosses), and a few short lines each citing sense IDs that exist
 	// in that entry (ADR 0101).
 	lsjSenseSummaryPromptVersion = "translation-v17-lsj-sense-summary-greek"
-	llmReasoningEffortEnv        = "MOUSEION_LLM_REASONING_EFFORT"
-	llmReasoningSupportEnv       = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
+	// idiomCardPromptVersion pins the dictionary-anchored idiom-card contract:
+	// the headword, matched forms, representative sentence and bounded
+	// candidate senses, and a lemma-shaped answer whose unresolved kinds are
+	// ambiguous or literal_use (ADR 0114).
+	idiomCardPromptVersion = "idiom-card-v1"
+	llmReasoningEffortEnv  = "MOUSEION_LLM_REASONING_EFFORT"
+	llmReasoningSupportEnv = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )
 
 // LLMConfig is the administrator-controlled configuration for the external

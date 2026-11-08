@@ -14,6 +14,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
 
 var ErrAllMeaningsUnresolved = errors.New("cardexport: every selected contextual meaning is unresolved")
@@ -28,6 +29,9 @@ type CandidateProjection struct {
 	Provider, ProviderVersion string
 	TargetLanguage            string
 	RequireContextualGloss    bool
+	// RequireIdiomCard marks a projection whose per-item request uses the
+	// separate idiom-card prompt contract (ADR 0114).
+	RequireIdiomCard bool
 	// SkipMeaningEvidence marks a projection whose deck is built from source
 	// evidence alone. It resolves no Wiktionary local dictionary entry and
 	// freezes no candidate senses, so a source-evidence deck carries no
@@ -196,7 +200,7 @@ type FrozenDeck struct {
 // quality-gates each candidate, and constructs exact external identities. The
 // empty-deck variant is intentionally folded into this operation: the
 // explicit identity supplies the metadata when there are no projections.
-func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, projections []CandidateProjection) (FrozenDeck, FreezeDiagnostics, error) {
+func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, projections []CandidateProjection, options ...FreezeOption) (FrozenDeck, FreezeDiagnostics, error) {
 	if p == nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, ErrInvalidInput
 	}
@@ -204,7 +208,16 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 	if err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, err
 	}
-	entries, err := freezeEntries(ctx, p.lexical, p.idiomCardLanguages, ordered)
+	config := newFreezeOptions(options)
+	for language := range p.idiomCardLanguages {
+		config.idiomLanguages[language] = true
+	}
+	idiomProjections, err := freezeIdiomProjections(ctx, p.lexical, ordered, config)
+	if err != nil {
+		return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("freeze idiom items: %w", err)
+	}
+	ordered = append(ordered, idiomProjections...)
+	entries, err := freezeEntries(ctx, p.lexical, config.idiomLanguages, ordered)
 	if err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, err
 	}
@@ -259,6 +272,13 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, idio
 	for _, projection := range ordered {
 		entry := cloneEntry(projection.Entry)
 		clearExternalFields(&entry)
+		if entry.ItemKind.IsIdiom() {
+			// An idiom projection already carries its chosen accepted sentence,
+			// matched spans and dictionary senses. It resolves no lemma
+			// morphology or source attribution and never becomes vocabulary.
+			entries = append(entries, entry)
+			continue
+		}
 		prefer, err := idiomSentencePreferenceFor(ctx, idiomCapableProvider(lexical), idiomCardLanguages, projection.Candidate)
 		if err != nil {
 			return nil, err
@@ -346,28 +366,49 @@ func applyPassageContext(entry *Entry, projection CandidateProjection) {
 // bindFrozenCacheKeys gives an externally enriched manifest its exact cache
 // identities. A manifest without a provider keeps no cache keys.
 func bindFrozenCacheKeys(built manifest, ordered []CandidateProjection) (manifest, error) {
-	provider, version, target, err := projectionProvider(ordered)
+	provider, _, target, err := projectionProvider(ordered)
 	if err != nil {
 		return manifest{}, err
 	}
 	if provider == "" {
 		return built, nil
 	}
+	type identity struct {
+		language, lemma, upos string
+		kind                  enrichment.ItemKind
+	}
+	versions := make(map[identity]string, len(ordered))
+	contextual := make(map[identity]bool, len(ordered))
+	kinds := make(map[string]enrichment.ItemKind, len(ordered))
+	for _, projection := range ordered {
+		key := identity{
+			language: projection.Candidate.Language, lemma: projection.Candidate.CanonicalLemma,
+			upos: strings.ToUpper(projection.Candidate.UPOS), kind: projection.Entry.ItemKind.Normalized(),
+		}
+		versions[key] = projection.ProviderVersion
+		contextual[key] = projection.RequireContextualGloss || projection.EvidenceAssistedPass || projection.RequireIdiomCard
+		kinds[candidateKey(projection.Candidate)] = key.kind
+	}
 	candidates := built.enrichmentCandidatesProjection()
 	keys := make([]enrichment.CacheKey, len(candidates))
-	contextualGlossByCandidate := make(map[string]bool, len(ordered))
-	for _, projection := range ordered {
-		contextualGlossByCandidate[candidateKey(projection.Candidate)] = projection.RequireContextualGloss || projection.EvidenceAssistedPass
-	}
 	for i, candidate := range candidates {
+		kind := kinds[candidate.Language+"\x00"+candidate.CanonicalLemma+"\x00"+candidate.UPOS]
+		key := identity{language: candidate.Language, lemma: candidate.CanonicalLemma, upos: strings.ToUpper(candidate.UPOS), kind: kind}
+		cacheKind := kind
+		if cacheKind == enrichment.ItemKindLemma {
+			// The zero value stays the persisted lemma spelling, as it was
+			// before the item kind existed.
+			cacheKind = ""
+		}
 		keys[i] = enrichment.CacheKey{
 			Language: candidate.Language, TargetLanguage: target,
 			CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS),
-			Provider: provider, ProviderVersion: version,
+			ItemKind: cacheKind,
+			Provider: provider, ProviderVersion: versions[key],
 			DictionaryProviderVersion: candidate.DictionaryProviderVersion,
 			SentenceHash:              enrichment.SentenceHash(candidate.ExampleSentence),
 		}
-		if contextualGlossByCandidate[candidate.Language+"\x00"+candidate.CanonicalLemma+"\x00"+candidate.UPOS] {
+		if contextual[key] {
 			keys[i].MeaningEvidenceHash = enrichment.MeaningEvidenceHash(candidate.CandidateSenses)
 		}
 	}
@@ -489,24 +530,49 @@ func (d FrozenDeck) workItem(acceptedIndex int) WorkItem {
 	if targetLanguage == "" {
 		targetLanguage = "en"
 	}
+	idiomCard := entry.ItemKind.IsIdiom()
+	request := enrichment.TranslationRequest{
+		Language: entry.Language, TargetLanguage: targetLanguage,
+		CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
+		TargetWord:      testedRenderTarget(entry),
+		ExampleSentence: entry.Sentence,
+		PassageContext:  entry.PassageContext,
+		CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
+		// A pass entry resolves its contextual Gloss through the
+		// evidence-assisted contract, not the modern-language
+		// contextual-gloss contract.
+		RequireContextualGloss:      key.MeaningEvidenceHash != "" && !entry.ProviderProposed && !idiomCard,
+		RequireEvidenceAssistedPass: entry.ProviderProposed,
+	}
+	if idiomCard {
+		request.RequireIdiomCard = true
+		request.IdiomHeadword = entry.Headword
+		request.IdiomMatchedForms = idiomMatchedForms(entry)
+	}
 	return WorkItem{
-		Ordinal: d.manifest.decisionsOrdinalForAccepted(acceptedIndex),
-		Request: enrichment.TranslationRequest{
-			Language: entry.Language, TargetLanguage: targetLanguage,
-			CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
-			TargetWord: testedRenderTarget(entry), ExampleSentence: entry.Sentence,
-			PassageContext:  entry.PassageContext,
-			CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
-			// A pass entry resolves its contextual Gloss through the
-			// evidence-assisted contract, not the modern-language
-			// contextual-gloss contract.
-			RequireContextualGloss:      key.MeaningEvidenceHash != "" && !entry.ProviderProposed,
-			RequireEvidenceAssistedPass: entry.ProviderProposed,
-		},
+		Ordinal:  d.manifest.decisionsOrdinalForAccepted(acceptedIndex),
+		Request:  request,
 		CacheKey: key, DictionaryProviderVersion: entry.DictionaryProviderVersion,
 		SummaryRequest: lsjSenseSummaryRequest(entry, targetLanguage),
 		SummaryKey:     lsjSenseSummaryKey(entry),
 	}
+}
+
+// idiomMatchedForms returns the surface forms the matcher found for an idiom
+// item, in sentence order. The idiom request transmits only these forms, the
+// headword, the sentence and its bounded senses.
+func idiomMatchedForms(entry RenderInput) []string {
+	forms := make([]string, 0, len(entry.IdiomMatchedTokenOrdinals))
+	for _, ordinal := range entry.IdiomMatchedTokenOrdinals {
+		if ordinal < 0 || ordinal >= len(entry.SentenceTokens) {
+			continue
+		}
+		form := textmatch.CleanLexicalSurface(entry.SentenceTokens[ordinal].Surface)
+		if form != "" {
+			forms = append(forms, form)
+		}
+	}
+	return forms
 }
 
 // lsjSenseSummaryRequest builds the context-free LSJ sense summary request for
@@ -694,7 +760,10 @@ func validateExternalRunFacts(manifest manifest, facts RunFacts) error {
 	}
 	for _, key := range manifest.cacheKeys {
 		historicalV1Target := manifest.schemaVersion == LegacyManifestSchemaVersion && key.TargetLanguage == ""
-		if (!historicalV1Target && key.TargetLanguage != facts.TargetLanguage) || key.Provider != facts.Provider || key.ProviderVersion != facts.ProviderVersion {
+		// Idiom items use a separate prompt contract and therefore carry their
+		// own frozen provider version; the manifest digest pins it (ADR 0114).
+		versionMatches := key.ProviderVersion == facts.ProviderVersion || key.ItemKind.IsIdiom()
+		if (!historicalV1Target && key.TargetLanguage != facts.TargetLanguage) || key.Provider != facts.Provider || !versionMatches {
 			return fmt.Errorf("%w: run facts contradict manifest cache identity", ErrInvalidInput)
 		}
 	}
@@ -774,10 +843,20 @@ func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredR
 		alignment.accepted = append(alignment.accepted, manifest.accepted[i])
 		alignment.cacheKeys = append(alignment.cacheKeys, key)
 	}
-	if !providerProposed && len(keys) > 0 && len(alignment.meaningOmissions) == len(keys) {
+	if !providerProposed && len(keys) > 0 && allMeaningsUnresolved(alignment, len(keys)) {
 		return finalizeAlignment{}, ErrAllMeaningsUnresolved
 	}
 	return alignment, nil
+}
+
+// allMeaningsUnresolved reports whether a run produced no vocabulary card. A
+// run whose only successes are idiom cards is still all omitted; an idiom card
+// never substitutes for a vocabulary card (ADR 0114).
+func allMeaningsUnresolved(alignment finalizeAlignment, keyCount int) bool {
+	if len(alignment.meaningOmissions) == keyCount {
+		return true
+	}
+	return !slices.ContainsFunc(alignment.accepted, func(input RenderInput) bool { return !input.ItemKind.IsIdiom() })
 }
 
 // manifestHasProviderProposed reports whether the frozen deck is an Ancient
@@ -892,15 +971,15 @@ func projectionProvider(projections []CandidateProjection) (string, string, stri
 		if !set {
 			provider, version, target = projection.Provider, projection.ProviderVersion, projection.TargetLanguage
 			set = true
-		} else if provider != projection.Provider || version != projection.ProviderVersion || target != projection.TargetLanguage {
+		} else if provider != projection.Provider || target != projection.TargetLanguage || (!projection.Entry.ItemKind.IsIdiom() && version != projection.ProviderVersion) {
 			return "", "", "", fmt.Errorf("%w: candidate projections have different enrichment providers", ErrInvalidInput)
+		}
+		if projection.Provider != "" && strings.TrimSpace(projection.ProviderVersion) == "" {
+			return "", "", "", fmt.Errorf("%w: enrichment provider version is required", ErrInvalidInput)
 		}
 	}
 	if provider == "" && version != "" {
 		return "", "", "", fmt.Errorf("%w: enrichment provider version has no provider", ErrInvalidInput)
-	}
-	if provider != "" && strings.TrimSpace(version) == "" {
-		return "", "", "", fmt.Errorf("%w: enrichment provider version is required", ErrInvalidInput)
 	}
 	if provider != "" && target == "" {
 		target = "en"

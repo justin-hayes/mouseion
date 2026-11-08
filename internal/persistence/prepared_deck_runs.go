@@ -95,6 +95,17 @@ type preparedDeckRenderPayload struct {
 	// schema v13. Historical payloads decode it as empty (ADR 0103).
 	AttributionKind    string `json:"attribution_kind,omitempty"`
 	AttributionSpeaker string `json:"attribution_speaker,omitempty"`
+	// Idiom evidence is frozen on an idiom item so a re-render reproduces the
+	// same matched spans, anchor and provenance (ADR 0114).
+	IdiomMatchedTokenOrdinals       []int  `json:"idiom_matched_token_ordinals,omitempty"`
+	IdiomAnchorLanguage             string `json:"idiom_anchor_language,omitempty"`
+	IdiomAnchorCanonicalLemma       string `json:"idiom_anchor_canonical_lemma,omitempty"`
+	IdiomAnchorUPOS                 string `json:"idiom_anchor_upos,omitempty"`
+	IdiomAnchorLexicalDiscriminator string `json:"idiom_anchor_lexical_discriminator,omitempty"`
+	IdiomSource                     string `json:"idiom_source,omitempty"`
+	IdiomSourceVersion              string `json:"idiom_source_version,omitempty"`
+	IdiomMatcherVersion             string `json:"idiom_matcher_version,omitempty"`
+	IdiomGapBound                   int    `json:"idiom_gap_bound,omitempty"`
 }
 
 // FreezePreparedDeckRunTx stores the complete run inside the caller's
@@ -315,7 +326,7 @@ func validatePreparedDeckManifestCacheItem(item cardexport.ManifestItem, config 
 	if requested != (item.CacheKey != nil) {
 		return fmt.Errorf("%w: manifest cache identity contradicts run configuration", ErrImmutable)
 	}
-	if item.CacheKey != nil && (item.CacheKey.Provider != config.Provider || item.CacheKey.ProviderVersion != config.ProviderVersion) {
+	if item.CacheKey != nil && (item.CacheKey.Provider != config.Provider || (item.CacheKey.ProviderVersion != config.ProviderVersion && !item.ItemKind.IsIdiom())) {
 		return fmt.Errorf("%w: manifest cache identity contradicts provider snapshot", ErrImmutable)
 	}
 	if item.CacheKey != nil && item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(item.Entry.CandidateSenses) {
@@ -346,7 +357,7 @@ func insertPreparedDeckManifestItems(ctx context.Context, tx pgx.Tx, params Free
 }
 
 func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, params FreezePreparedDeckRunParams, config PreparedDeckRunConfig, candidateDigest, runID string, item cardexport.ManifestItem, pending map[int]cardexport.ManifestItem) error {
-	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, DictionaryEntry: item.Entry.DictionaryEntry, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes, ProviderProposed: item.Entry.ProviderProposed, LSJSummaryProviderVersion: item.Entry.LSJSummaryProviderVersion, AttributionKind: string(item.Entry.Attribution.Kind), AttributionSpeaker: item.Entry.Attribution.Speaker})
+	renderPayload, err := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, DictionaryEntry: item.Entry.DictionaryEntry, OmittedEvidenceCount: item.Entry.OmittedEvidenceCount, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SentenceStartOffset: item.Entry.SentenceStartOffset, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes, ProviderProposed: item.Entry.ProviderProposed, LSJSummaryProviderVersion: item.Entry.LSJSummaryProviderVersion, AttributionKind: string(item.Entry.Attribution.Kind), AttributionSpeaker: item.Entry.Attribution.Speaker, IdiomMatchedTokenOrdinals: item.Entry.MatchedTokenOrdinals, IdiomAnchorLanguage: item.Entry.AnchorLanguage, IdiomAnchorCanonicalLemma: item.Entry.AnchorCanonicalLemma, IdiomAnchorUPOS: item.Entry.AnchorUPOS, IdiomAnchorLexicalDiscriminator: item.Entry.AnchorLexicalDiscriminator, IdiomSource: item.Entry.Source, IdiomSourceVersion: item.Entry.SourceVersion, IdiomMatcherVersion: item.Entry.MatcherVersion, IdiomGapBound: item.Entry.GapBound})
 	if err != nil {
 		return err
 	}
@@ -628,6 +639,17 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		item.Entry.ProviderProposed = render.ProviderProposed
 		item.Entry.LSJSummaryProviderVersion = render.LSJSummaryProviderVersion
 		item.Entry.Attribution = domain.SourceAttribution{Kind: domain.AttributionKind(render.AttributionKind), Speaker: render.AttributionSpeaker}
+		item.Entry.IdiomEvidence = cardexport.IdiomEvidence{
+			MatchedTokenOrdinals:       render.IdiomMatchedTokenOrdinals,
+			AnchorLanguage:             render.IdiomAnchorLanguage,
+			AnchorCanonicalLemma:       render.IdiomAnchorCanonicalLemma,
+			AnchorUPOS:                 render.IdiomAnchorUPOS,
+			AnchorLexicalDiscriminator: render.IdiomAnchorLexicalDiscriminator,
+			Source:                     render.IdiomSource,
+			SourceVersion:              render.IdiomSourceVersion,
+			MatcherVersion:             render.IdiomMatcherVersion,
+			GapBound:                   render.IdiomGapBound,
+		}
 		item.Entry.PassageContext, item.Entry.PassageCitation, item.Entry.BrownsonPin = model.PassageContext, model.PassageCitation, model.BrownsonPin
 		item.CorpusID = uuidString(model.CorpusID)
 		item.SentenceOrdinal = pgInt8(model.SentenceOrdinal)

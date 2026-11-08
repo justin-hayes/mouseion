@@ -28,6 +28,27 @@ import (
 
 var ErrInvalidInput = errors.New("cardexport: invalid input")
 
+// IdiomEvidence is the frozen dictionary or reviewed-list evidence for one
+// idiom item (ADR 0114). It records why the item exists and which frozen
+// vocabulary identity anchors it, so a re-render reads the same candidate
+// without re-running the matcher.
+type IdiomEvidence struct {
+	// MatchedTokenOrdinals are the sentence token positions of every word of
+	// the idiom's headword, in sentence order.
+	MatchedTokenOrdinals []int
+	// AnchorLanguage, AnchorCanonicalLemma, AnchorUPOS and
+	// AnchorLexicalDiscriminator identify the frozen vocabulary identity the
+	// item hangs on.
+	AnchorLanguage, AnchorCanonicalLemma, AnchorUPOS, AnchorLexicalDiscriminator string
+	// Source and SourceVersion name the dictionary or reviewed-list entry that
+	// supplied the headword and senses.
+	Source, SourceVersion string
+	// MatcherVersion and GapBound record the matching rules that found the
+	// candidate.
+	MatcherVersion string
+	GapBound       int
+}
+
 type Entry struct {
 	OwnerID, Language, CanonicalLemma, UPOS                                           string
 	LexicalDiscriminator, Headword                                                    string
@@ -36,6 +57,12 @@ type Entry struct {
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
 	Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion                     string
 	PassageContext, PassageCitation, BrownsonPin                                      string
+	// ItemKind distinguishes a vocabulary lemma item from a dictionary-anchored
+	// idiom item. The zero value is a lemma.
+	ItemKind enrichment.ItemKind
+	// Idiom carries the frozen evidence of an idiom item and is empty for a
+	// lemma item (ADR 0114).
+	IdiomEvidence
 	// DictionaryEntry is the rendered hierarchical dictionary-entry display for
 	// the matched source entry (currently the LSJ entry), DictionaryEntryID is
 	// that source's native entry identity, and DictionaryPin is the pinned
@@ -117,8 +144,9 @@ type ExactEnrichment struct {
 // GeneratedRecord is the card provenance to persist only after an artifact is
 // successfully rendered. Prepared-deck completion persists these atomically.
 type GeneratedRecord struct {
-	Input RenderInput
-	Note  Note
+	Input    RenderInput
+	Note     Note
+	ItemKind enrichment.ItemKind
 }
 
 // Completeness reports which optional enrichment fields were available for
@@ -161,6 +189,14 @@ func DedupKeyWithDiscriminator(language, lemma, upos, discriminator, owner strin
 		return DedupKey(language, lemma, upos, owner)
 	}
 	sum := sha256.Sum256([]byte(language + " | " + lemma + " | " + upos + " | " + discriminator + " | " + owner))
+	return hex.EncodeToString(sum[:])
+}
+
+// IdiomDedupKey returns the stable Anki note key of an idiom card. It is
+// namespaced by language and headword, so it never collides with a lemma note
+// and stays stable across decks (ADR 0114).
+func IdiomDedupKey(language, headword, owner string) string {
+	sum := sha256.Sum256([]byte("idiom | " + language + " | " + headword + " | " + owner))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -852,6 +888,9 @@ func attributionField(attribution domain.SourceAttribution) string {
 const stageDirectionLabel = "Stage direction"
 
 func makeNote(owner string, input RenderInput) (Note, error) {
+	if input.ItemKind.IsIdiom() {
+		return makeIdiomNote(owner, input)
+	}
 	target := testedRenderTarget(input)
 	front, err := renderFront(input, target)
 	if err != nil {
@@ -919,6 +958,128 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 	}
 	note.BackExtra = strings.Join(back, "\n")
 	return note, nil
+}
+
+// makeIdiomNote renders an idiom card. The front bolds every matched word; the
+// back carries only the headword, the Gloss and the highlighted English
+// sentence, with the literal part-of-speech label "idiom" and no morphology,
+// article, gender or IPA (ADR 0114).
+func makeIdiomNote(owner string, input RenderInput) (Note, error) {
+	front, err := renderIdiomFront(input)
+	if err != nil {
+		return Note{}, err
+	}
+	headword := strings.TrimSpace(input.Headword)
+	if headword == "" {
+		headword = strings.TrimSpace(input.CanonicalLemma)
+	}
+	note := Note{
+		Key: IdiomDedupKey(input.Language, headword, owner), Identity: CardIdentity(owner, input),
+		Text: front, Lemma: escapeField(headword), POS: "idiom",
+		Gloss:           escapeField(input.Gloss),
+		EnglishSentence: HighlightEnglishTargets(input.SentenceTranslation, input.SentenceTranslationTargets, input.SentenceTranslationTarget),
+		BookTitle:       escapeField(input.SourceDocument),
+		Tags:            uniqueTags("Mouseion", "mouseion::idiom", prefixedTag("lang", input.Language), prefixedTag("source", input.SourceDocument)),
+	}
+	note.BackExtra = strings.Join([]string{note.Lemma, note.POS, note.Gloss, note.EnglishSentence}, "\n")
+	return note, nil
+}
+
+// renderIdiomFront bolds every token the matcher recorded for the idiom. It
+// resolves each token's own source span, so a repeated surface form never
+// bolds the wrong occurrence.
+func renderIdiomFront(input RenderInput) (string, error) {
+	spans, err := idiomSpans(input.Sentence, input.IdiomMatchedTokenOrdinals, input.SentenceTokens, input.SentenceStartOffset)
+	if err != nil {
+		return "", err
+	}
+	if input.sourceLinePresentation && strings.Contains(input.Sentence, "\n") {
+		return renderSpansBySourceLine(input.Sentence, spans), nil
+	}
+	return renderSpans(input.Sentence, spans), nil
+}
+
+func idiomSpans(sentence string, ordinals []int, tokens []analyzer.Token, sentenceStartOffset uint64) ([]targetSpan, error) {
+	if strings.TrimSpace(sentence) == "" || len(ordinals) == 0 {
+		return nil, fmt.Errorf("%w: idiom has no matched span", ErrInvalidInput)
+	}
+	spans := make([]targetSpan, 0, len(ordinals))
+	for _, ordinal := range ordinals {
+		if ordinal < 0 || ordinal >= len(tokens) {
+			continue
+		}
+		if span, ok := tokenSourceSpan(sentence, tokens[ordinal], sentenceStartOffset); ok {
+			spans = append(spans, span)
+		}
+	}
+	if len(spans) == 0 {
+		return nil, fmt.Errorf("%w: idiom matched span not found in sentence", ErrInvalidInput)
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
+	nonOverlapping := spans[:0]
+	last := 0
+	for _, span := range spans {
+		if span.start < last {
+			continue
+		}
+		nonOverlapping = append(nonOverlapping, span)
+		last = span.end
+	}
+	return nonOverlapping, nil
+}
+
+func tokenSourceSpan(sentence string, token analyzer.Token, sentenceStartOffset uint64) (targetSpan, bool) {
+	if token.Location.EndOffset > token.Location.StartOffset && token.Location.StartOffset >= sentenceStartOffset {
+		startOffset := token.Location.StartOffset - sentenceStartOffset
+		endOffset := token.Location.EndOffset - sentenceStartOffset
+		if endOffset > uint64(len(sentence)) {
+			return targetSpan{}, false
+		}
+		//nolint:gosec // The bounds check above proves both offsets fit the sentence.
+		start := int(startOffset)
+		//nolint:gosec // The bounds check above proves both offsets fit the sentence.
+		end := int(endOffset)
+		if start < end {
+			if cleaned := textmatch.CleanLexicalSurface(token.Surface); cleaned != "" {
+				if index := strings.Index(sentence[start:end], cleaned); index >= 0 {
+					start += index
+					end = start + len(cleaned)
+				}
+			}
+			return targetSpan{start: start, end: end}, true
+		}
+	}
+	start, end, ok := sentencequality.TargetSpan(sentence, token.Surface, nil, 0)
+	if !ok {
+		return targetSpan{}, false
+	}
+	return targetSpan{start: start, end: end}, true
+}
+
+func renderSpans(sentence string, spans []targetSpan) string {
+	var out strings.Builder
+	last := 0
+	for _, span := range spans {
+		out.WriteString(escapeField(sentence[last:span.start]))
+		out.WriteString("<b>")
+		out.WriteString(escapeField(sentence[span.start:span.end]))
+		out.WriteString("</b>")
+		last = span.end
+	}
+	out.WriteString(escapeField(sentence[last:]))
+	return out.String()
+}
+
+func renderSpansBySourceLine(sentence string, spans []targetSpan) string {
+	var out strings.Builder
+	lineStart := 0
+	for line := range strings.SplitSeq(sentence, "\n") {
+		out.WriteString(`<span class="source-line">`)
+		writeSourceLine(&out, line, lineStart, spans)
+		out.WriteString(`</span>`)
+		lineStart += len(line) + 1
+	}
+	return out.String()
 }
 
 func nounPlural(upos, plural string) string {
@@ -1128,6 +1289,7 @@ func newManifest(owner, deckName string, entries []Entry) manifest {
 	manifest := manifest{owner: owner, deckName: deckName, schemaVersion: ManifestSchemaVersion, accepted: make([]RenderInput, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries)), decisions: make([]ManifestItem, 0, len(entries))}
 	for ordinal, entry := range entries {
 		entry = cloneEntry(entry)
+		entry.ItemKind = entry.ItemKind.Normalized()
 		entry.UPOS = strings.ToUpper(strings.TrimSpace(entry.UPOS))
 		entry.TargetWord = testedEntryTarget(entry)
 		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
@@ -1139,7 +1301,7 @@ func newManifest(owner, deckName string, entries []Entry) manifest {
 		quality := sentencequality.ScoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens, entry.SentenceStartOffset)
 		if !quality.Accepted {
 			manifest.omitted = append(manifest.omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)})
-			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
+			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, ItemKind: entry.ItemKind, Entry: decisionEntry, Quality: quality})
 			continue
 		}
 		accepted := renderInputFromEntry(entry)
@@ -1147,7 +1309,7 @@ func newManifest(owner, deckName string, entries []Entry) manifest {
 		// presentation contract; a historical manifest restores the prose one.
 		accepted.sourceLinePresentation = true
 		manifest.accepted = append(manifest.accepted, accepted)
-		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
+		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, ItemKind: entry.ItemKind, Entry: decisionEntry, Quality: quality})
 		manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
 			Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 			TargetWord:                entry.TargetWord,
@@ -1509,7 +1671,7 @@ func renderAccepted(ctx context.Context, owner, deckName string, entries []Rende
 	}
 	generated := make([]GeneratedRecord, len(accepted))
 	for i, item := range accepted {
-		generated[i] = GeneratedRecord{Input: item.input, Note: item.note}
+		generated[i] = GeneratedRecord{Input: item.input, Note: item.note, ItemKind: item.input.ItemKind.Normalized()}
 	}
 	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Completeness: completeness, Omitted: omitted, EnrichmentCandidates: enrichmentCandidates, Generated: generated}, nil
 }

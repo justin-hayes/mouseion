@@ -59,7 +59,21 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	if err := s.applyActiveRunCompleteness(ctx, &p, owner, preparationID, run, progress); err != nil {
 		return p, err
 	}
+	applyCardKindCounts(&p, projection)
 	return p, nil
+}
+
+// applyCardKindCounts splits the total card count by frozen item kind. Idiom
+// cards are counted separately from vocabulary cards (ADR 0114).
+func applyCardKindCounts(preparation *domain.DeckPreparation, projection cardexport.StorageProjection) {
+	idioms := 0
+	for _, item := range projection.Items {
+		if item.Disposition == cardexport.ManifestAccepted && item.ItemKind.IsIdiom() {
+			idioms++
+		}
+	}
+	preparation.IdiomCards = idioms
+	preparation.VocabularyCards = max(0, preparation.TotalCards-idioms)
 }
 
 // runlessPreparationPhase is the phase of a preparation that has not frozen a
