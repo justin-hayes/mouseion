@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -14,12 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
-
-// ErrUnsupportedItemKind reports a valid frozen item kind that this build does
-// not render yet. Idiom items are frozen only after the idiom card ticket
-// lands; until then finalize and rerender reject them instead of silently
-// treating an idiom as a lemma.
-var ErrUnsupportedItemKind = errors.New("cardexport: unsupported manifest item kind")
 
 // ManifestSchemaVersion identifies the canonical durable manifest codec. A
 // new version is required for any change that alters digest inputs.
@@ -38,7 +31,8 @@ const (
 	ManifestSchemaVersionV12      = 12
 	ManifestSchemaVersionV13      = 13
 	ManifestSchemaVersionV14      = 14
-	ManifestSchemaVersion         = ManifestSchemaVersionV14
+	ManifestSchemaVersionV15      = 15
+	ManifestSchemaVersion         = ManifestSchemaVersionV15
 )
 
 type ManifestDisposition string
@@ -159,8 +153,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v12\x00"
 	case ManifestSchemaVersionV13:
 		prefix = "mouseion-prepared-deck-manifest-v13\x00"
-	default:
+	case ManifestSchemaVersionV14:
 		prefix = "mouseion-prepared-deck-manifest-v14\x00"
+	default:
+		prefix = "mouseion-prepared-deck-manifest-v15\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -251,8 +247,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v12\x00"
 	case ManifestSchemaVersionV13:
 		prefix = "mouseion-prepared-deck-candidate-v13\x00"
-	default:
+	case ManifestSchemaVersionV14:
 		prefix = "mouseion-prepared-deck-candidate-v14\x00"
+	default:
+		prefix = "mouseion-prepared-deck-candidate-v15\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -263,11 +261,6 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 func manifestFromSnapshot(snapshot ManifestSnapshot) (manifest, error) {
 	if _, err := snapshot.canonical(); err != nil {
 		return manifest{}, err
-	}
-	for _, item := range snapshot.Items {
-		if kind := item.ItemKind.Normalized(); kind != enrichment.ItemKindLemma {
-			return manifest{}, fmt.Errorf("%w: %s item", ErrUnsupportedItemKind, kind)
-		}
 	}
 	manifest := manifest{
 		owner: snapshot.Owner, deckName: snapshot.DeckName,
@@ -280,7 +273,9 @@ func manifestFromSnapshot(snapshot ManifestSnapshot) (manifest, error) {
 	for _, item := range snapshot.Items {
 		switch item.Disposition {
 		case ManifestAccepted:
-			input := renderInputFromEntry(item.Entry)
+			entry := item.Entry
+			entry.ItemKind = item.ItemKind.Normalized()
+			input := renderInputFromEntry(entry)
 			// Historical manifests keep their shipped Text rendering; only the
 			// schema that froze attribution also froze source-line presentation.
 			input.sourceLinePresentation = snapshot.SchemaVersion >= ManifestSchemaVersionV13
@@ -331,12 +326,27 @@ type canonicalAttribution struct {
 	Speaker string `json:"speaker,omitempty"`
 }
 
+// canonicalIdiomEvidence is the versioned codec for the frozen idiom evidence
+// introduced by manifest schema v15 (ADR 0114).
+type canonicalIdiomEvidence struct {
+	MatchedTokenOrdinals       []int  `json:"matched_token_ordinals"`
+	AnchorLanguage             string `json:"anchor_language"`
+	AnchorCanonicalLemma       string `json:"anchor_canonical_lemma"`
+	AnchorUPOS                 string `json:"anchor_upos"`
+	AnchorLexicalDiscriminator string `json:"anchor_lexical_discriminator,omitempty"`
+	Source                     string `json:"source"`
+	SourceVersion              string `json:"source_version,omitempty"`
+	MatcherVersion             string `json:"matcher_version"`
+	GapBound                   int    `json:"gap_bound"`
+}
+
 type canonicalEntry struct {
 	Language                  string                    `json:"language"`
 	CanonicalLemma            string                    `json:"canonical_lemma"`
 	UPOS                      string                    `json:"upos"`
 	LexicalDiscriminator      string                    `json:"lexical_discriminator,omitempty"`
 	Headword                  string                    `json:"headword,omitempty"`
+	Idiom                     *canonicalIdiomEvidence   `json:"idiom,omitempty"`
 	Sentence                  string                    `json:"sentence"`
 	TargetWord                string                    `json:"target_word"`
 	Morphology                string                    `json:"morphology"`
@@ -409,7 +419,7 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 // validateHeader rejects a snapshot whose schema version is unknown or whose
 // owner and deck identity are missing or inconsistent with the download name.
 func (s ManifestSnapshot) validateHeader() error {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12 && s.SchemaVersion != ManifestSchemaVersionV13 && s.SchemaVersion != ManifestSchemaVersionV14) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12 && s.SchemaVersion != ManifestSchemaVersionV13 && s.SchemaVersion != ManifestSchemaVersionV14 && s.SchemaVersion != ManifestSchemaVersionV15) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	return nil
@@ -473,6 +483,13 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	if err != nil {
 		return canonicalManifestItem{}, err
 	}
+	if schemaVersion >= ManifestSchemaVersionV15 {
+		idiom, err := canonicalizeIdiomEvidence(item)
+		if err != nil {
+			return canonicalManifestItem{}, err
+		}
+		entryCanonical.Idiom = idiom
+	}
 	canonical := canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,
 		Entry:    entryCanonical,
@@ -493,6 +510,46 @@ func validateManifestItemKind(item ManifestItem) error {
 		return fmt.Errorf("%w: invalid manifest item kind", ErrInvalidInput)
 	}
 	return nil
+}
+
+// canonicalizeIdiomEvidence validates and encodes the frozen evidence of an
+// idiom item. A lemma item carries none; an idiom item must carry its headword,
+// every matched token position, its anchor identity and its matching
+// provenance, so a re-render never falls back to a lemma interpretation
+// (ADR 0114).
+func canonicalizeIdiomEvidence(item ManifestItem) (*canonicalIdiomEvidence, error) {
+	evidence := item.Entry
+	kind := item.ItemKind.Normalized()
+	if !kind.IsIdiom() {
+		if len(evidence.MatchedTokenOrdinals) > 0 || evidence.Source != "" || evidence.AnchorCanonicalLemma != "" {
+			return nil, fmt.Errorf("%w: lemma item carries idiom evidence", ErrInvalidInput)
+		}
+		return nil, nil //nolint:nilnil // absent optional evidence is the canonical lemma encoding
+	}
+	if strings.TrimSpace(evidence.Headword) == "" || strings.TrimSpace(evidence.Source) == "" || strings.TrimSpace(evidence.MatcherVersion) == "" || strings.TrimSpace(evidence.AnchorLanguage) == "" || strings.TrimSpace(evidence.AnchorCanonicalLemma) == "" || strings.TrimSpace(evidence.AnchorUPOS) == "" {
+		return nil, fmt.Errorf("%w: idiom item evidence is incomplete", ErrInvalidInput)
+	}
+	if len(evidence.MatchedTokenOrdinals) == 0 || evidence.GapBound < 0 {
+		return nil, fmt.Errorf("%w: idiom item evidence is invalid", ErrInvalidInput)
+	}
+	ordinals := make([]int, len(evidence.MatchedTokenOrdinals))
+	for i, ordinal := range evidence.MatchedTokenOrdinals {
+		if ordinal < 0 || (i > 0 && ordinal <= evidence.MatchedTokenOrdinals[i-1]) {
+			return nil, fmt.Errorf("%w: idiom matched ordinals are not in sentence order", ErrInvalidInput)
+		}
+		ordinals[i] = ordinal
+	}
+	return &canonicalIdiomEvidence{
+		MatchedTokenOrdinals:       ordinals,
+		AnchorLanguage:             evidence.AnchorLanguage,
+		AnchorCanonicalLemma:       evidence.AnchorCanonicalLemma,
+		AnchorUPOS:                 evidence.AnchorUPOS,
+		AnchorLexicalDiscriminator: evidence.AnchorLexicalDiscriminator,
+		Source:                     evidence.Source,
+		SourceVersion:              evidence.SourceVersion,
+		MatcherVersion:             evidence.MatcherVersion,
+		GapBound:                   evidence.GapBound,
+	}, nil
 }
 
 // validateManifestEntry rejects owner-scoped or external fields and requires the
@@ -655,6 +712,7 @@ func cloneManifestItems(items []ManifestItem) []ManifestItem {
 		result[i].Quality.Reasons = append([]string(nil), item.Quality.Reasons...)
 		result[i].Entry.CandidateSenses = enrichment.CloneLexicalSenses(item.Entry.CandidateSenses)
 		result[i].Entry.SentenceTokens = cloneTokens(item.Entry.SentenceTokens)
+		result[i].Entry.MatchedTokenOrdinals = append([]int(nil), item.Entry.MatchedTokenOrdinals...)
 		if item.CacheKey != nil {
 			key := *item.CacheKey
 			result[i].CacheKey = &key
@@ -682,5 +740,6 @@ func cloneTokens(tokens []analyzer.Token) []analyzer.Token {
 func cloneEntry(entry Entry) Entry {
 	entry.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses)
 	entry.SentenceTokens = cloneTokens(entry.SentenceTokens)
+	entry.MatchedTokenOrdinals = append([]int(nil), entry.MatchedTokenOrdinals...)
 	return entry
 }

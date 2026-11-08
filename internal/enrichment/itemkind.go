@@ -10,10 +10,14 @@ const (
 	// ItemKindLemma is a vocabulary lemma card. It is the persisted spelling of
 	// the zero value and of every item frozen before idiom cards existed.
 	ItemKindLemma ItemKind = "lemma"
-	// ItemKindIdiom is a dictionary-anchored multi-word idiom card. No idiom
-	// item is produced until the idiom card work lands.
+	// ItemKindIdiom is a dictionary-anchored multi-word idiom card (ADR 0114).
 	ItemKindIdiom ItemKind = "idiom"
 )
+
+// IsIdiom reports whether the normalized kind is an idiom item.
+func (k ItemKind) IsIdiom() bool {
+	return k.Normalized() == ItemKindIdiom
+}
 
 // Normalized returns the persisted spelling of the kind. An unset kind means a
 // lemma item.

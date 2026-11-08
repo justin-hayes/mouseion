@@ -785,8 +785,9 @@ func TestPresentationVersionAdvancesForArticleCorrection(t *testing.T) {
 	// dictionary-entry block on the card back (ADR 0101); 7 adds the French
 	// article rule and its gender label (ADR 0102); 8 adds the provider-written
 	// LSJ sense summary block above the dictionary entry (ADR 0101); 9 adds
-	// the separate Attribution field and source-line front markup (ADR 0103).
-	assert.Equal(t, 9, PresentationVersion)
+	// the separate Attribution field and source-line front markup (ADR 0103);
+	// 10 adds the idiom card front, back and stable note identity (ADR 0114).
+	assert.Equal(t, 10, PresentationVersion)
 }
 
 func TestMakeNoteDoesNotAddGreekArticleToNonNoun(t *testing.T) {

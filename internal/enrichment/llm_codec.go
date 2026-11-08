@@ -18,6 +18,12 @@ var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target 
 
 var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these eleven fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_kind, unresolved_reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. Gloss is the English equivalent of the supplied lemma in the sense the representative sentence uses, in citation form: verbs as \"to …\", nouns singular without an article, adjectives in base form. Gloss must equal translation unless the sentence clearly uses a different or narrower sense. Never return a definition-style paraphrase when a short equivalent exists, and never carry the sentence's inflection, number or arguments. Keep the Gloss to one to three words; close comma-separated synonyms are allowed when one word would mislead, and a longer phrase for a function word or idiom is allowed where a short cue would mislead. evidence_ids must contain only the exact short evidence_id handles (for example e1 or e2) shown in candidate_senses that support the gloss. Before glossing, check the whole clause for evidence that the target belongs to a different lexeme than the supplied lemma, such as a stranded separable particle: when the clause splits a separable verb and the supplied lemma names only its base verb, return lemma_mismatch. This clause-level check has limits: a genuine adverbial particle homograph, where the particle-looking word functions as an adverb, and a correctly analysed separable verb whose particle the supplied lemma already includes, are not mismatches; gloss those normally. If the representative sentence evidently uses a different lexeme than the supplied lemma, return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=lemma_mismatch, and a brief unresolved_reason explaining why. If no defensible contextual meaning can otherwise be given, return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=ambiguous, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_kind and unresolved_reason as empty strings. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
+// idiomCardSystemPrompt is the dictionary-anchored idiom-card contract. The
+// payload carries only the idiom's headword, matched forms, representative
+// sentence and bounded candidate senses; the provider confirms the idiom or
+// reports that the sentence uses the words literally (ADR 0114).
+var idiomCardSystemPrompt = "Confirm and translate the supplied idiom in the complete representative sentence. The payload carries the idiom's headword, the matched forms, the representative sentence and its bounded dictionary senses. Return exactly one JSON object using only these eleven fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_kind, unresolved_reason. translation is a concise English equivalent of the idiom in citation form. gloss is the English equivalent of the idiom in the sense this sentence uses, in citation form: verbs as \"to …\", nouns singular without an article, adjectives in base form. Gloss must not be a definition-style paraphrase, and it must never carry the sentence's inflection, number or arguments. Keep the Gloss to one to three words; close comma-separated synonyms are allowed when one word would mislead, and a longer phrase where a short cue would mislead. sentence_translation is a natural translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the idiom; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If the sentence uses the supplied words literally rather than as the idiom, return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=literal_use, and a brief unresolved_reason explaining why. If no defensible meaning can otherwise be given, return an empty gloss, empty evidence_ids, context_only=true, unresolved_kind=ambiguous, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_kind and unresolved_reason as empty strings. Never invent IDs. Echo item_id and both languages exactly. Do not return HTML or markup."
+
 // evidenceAssistedPassSystemPrompt is the strict Ancient Greek evidence-assisted
 // pass contract. The payload carries the representative sentence, its
 // unhighlighted passage context and the pinned LSJ senses with their native IDs
@@ -144,6 +150,26 @@ func (c *TranslationCodec) LSJSenseSummaryPromptContract() string {
 	return lsjSenseSummaryPromptVersion
 }
 
+// IdiomCardProviderVersion identifies the dictionary-anchored idiom-card
+// response contract used by an idiom item's per-item request.
+func (c *TranslationCodec) IdiomCardProviderVersion() string {
+	if c == nil {
+		return ""
+	}
+	version := c.model + "/" + idiomCardPromptVersion
+	if c.usesReasoningEffort {
+		version += "-reasoning-" + c.reasoningEffort
+	}
+	return version
+}
+
+// IdiomCardPromptContract returns the versioned idiom-card prompt contract
+// alone, without the configured model. The provider-payload assessment pins
+// this contract, so it is stable across model changes.
+func (c *TranslationCodec) IdiomCardPromptContract() string {
+	return idiomCardPromptVersion
+}
+
 // PromptVersion identifies the request/validation contract frozen into this
 // codec. It is recorded by the operator validation report.
 func (c *TranslationCodec) PromptVersion() string { return llmPromptVersion }
@@ -224,12 +250,15 @@ func (c *TranslationCodec) EncodeBatchRequestForValidation(input TranslationRequ
 	return c.encodeRequest(input, itemID)
 }
 
-func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string) ([]byte, error) {
+func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string) ([]byte, error) { //nolint:gocognit // each branch is one independent wire contract
 	if c == nil {
 		return nil, errors.New("encode LLM request: nil translation codec")
 	}
 	if input.RequireLSJSenseSummary {
 		return c.encodeLSJSenseSummaryRequest(input)
+	}
+	if input.RequireIdiomCard {
+		return c.encodeIdiomCardRequest(input)
 	}
 	if strings.TrimSpace(input.Language) == "" || strings.TrimSpace(translationTargetLanguage(input)) == "" || strings.TrimSpace(input.CanonicalLemma) == "" || strings.TrimSpace(input.UPOS) == "" || strings.TrimSpace(itemID) == "" {
 		return nil, errors.New("encode LLM translation input: required identity or language field is empty")
@@ -285,6 +314,9 @@ func promptForRequest(input TranslationRequest) string {
 	}
 	if input.RequireEvidenceAssistedPass {
 		return evidenceAssistedPassSystemPrompt
+	}
+	if input.RequireIdiomCard {
+		return idiomCardSystemPrompt
 	}
 	if input.RequireContextualGloss {
 		return contextualGlossSystemPrompt
@@ -359,6 +391,77 @@ func (c *TranslationCodec) encodeLSJSenseSummaryRequest(input TranslationRequest
 		return nil, fmt.Errorf("encode LSJ sense summary request: %w", err)
 	}
 	return body, nil
+}
+
+// IdiomCardItemHandle is the short per-request item handle an idiom-card
+// payload transmits as item_id. Every idiom request carries exactly one item,
+// so the handle is the same short token for each request; the decoder still
+// rejects an echoed value that does not match the frozen request.
+const IdiomCardItemHandle = "c1"
+
+// encodeIdiomCardRequest encodes the idiom-card payload. It carries only the
+// headword, matched forms, representative sentence and bounded candidate
+// senses: no Book, learner or lemma identity (ADR 0114).
+func (c *TranslationCodec) encodeIdiomCardRequest(input TranslationRequest) ([]byte, error) {
+	headword := strings.TrimSpace(input.IdiomHeadword)
+	if headword == "" {
+		headword = strings.TrimSpace(input.CanonicalLemma)
+	}
+	if headword == "" || strings.TrimSpace(input.Language) == "" || strings.TrimSpace(input.ExampleSentence) == "" || strings.TrimSpace(translationTargetLanguage(input)) == "" || len(input.IdiomMatchedForms) == 0 {
+		return nil, errors.New("encode idiom card input: headword, matched forms, sentence and languages are required")
+	}
+	candidateSenses := CloneLexicalSenses(input.CandidateSenses)
+	handles := newContextualGlossHandles(input)
+	for i := range candidateSenses {
+		if handle, ok := handles.toHandle[candidateSenses[i].EvidenceID]; ok {
+			candidateSenses[i].EvidenceID = handle
+		}
+	}
+	privateInput, err := json.Marshal(struct {
+		ItemID          string         `json:"item_id"`
+		Language        string         `json:"language"`
+		TargetLanguage  string         `json:"target_language"`
+		Headword        string         `json:"headword"`
+		MatchedForms    []string       `json:"matched_forms"`
+		ExampleSentence string         `json:"example_sentence"`
+		CandidateSenses []LexicalSense `json:"candidate_senses,omitempty"`
+	}{IdiomCardItemHandle, input.Language, translationTargetLanguage(input), headword, append([]string(nil), input.IdiomMatchedForms...), input.ExampleSentence, candidateSenses})
+	if err != nil {
+		return nil, fmt.Errorf("encode idiom card input: %w", err)
+	}
+	payload := chatRequest{
+		Model: c.model,
+		Messages: []chatMessage{
+			{Role: "system", Content: idiomCardSystemPrompt},
+			{Role: "user", Content: string(privateInput)},
+		},
+	}
+	if c.usesReasoningEffort {
+		payload.ReasoningEffort = c.reasoningEffort
+	} else {
+		temperature := 0
+		payload.Temperature = &temperature
+	}
+	payload.ResponseFormat.Type = "json_object"
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("encode idiom card request: %w", err)
+	}
+	return body, nil
+}
+
+// idiomCardPayloadFields is the exact ordered field set an idiom-card request
+// transmits in its user message. It is the reviewed contract a provider-payload
+// assessment pins before any request is sent.
+var idiomCardPayloadFields = []string{
+	"item_id", "language", "target_language", "headword", "matched_forms",
+	"example_sentence", "candidate_senses",
+}
+
+// IdiomCardPayloadFields returns a copy of the ordered field set an idiom-card
+// request transmits.
+func IdiomCardPayloadFields() []string {
+	return slices.Clone(idiomCardPayloadFields)
 }
 
 // contextualGlossPayloadFields is the exact ordered field set a contextual
@@ -438,7 +541,7 @@ func newContextualGlossHandles(input TranslationRequest) contextualGlossHandles 
 // request froze. Every other response already carries stable identifiers, so it
 // is returned unchanged.
 func mapContextualEvidenceHandles(input TranslationRequest, response *TranslationResponse) error {
-	if !input.RequireContextualGloss && !input.RequireEvidenceAssistedPass {
+	if !input.RequireContextualGloss && !input.RequireEvidenceAssistedPass && !input.RequireIdiomCard {
 		return nil
 	}
 	handles := newContextualGlossHandles(input)
@@ -523,6 +626,9 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 		// short per-request item handle, not the stable item ID, so the echo is
 		// validated against it.
 		expectedItemID = ContextualGlossItemHandle
+	}
+	if input.RequireIdiomCard {
+		expectedItemID = IdiomCardItemHandle
 	}
 	if err := validateTranslationIdentity(input, expectedItemID, result); err != nil {
 		return TranslationResponse{}, TranslationUsage{}, err
@@ -663,7 +769,7 @@ func buildTranslationResponse(input TranslationRequest, result decodedTranslatio
 	if err := requireContextualGlossFields(input, result); err != nil {
 		return TranslationResponse{}, err
 	}
-	if err := decodeMeaningFields(input.RequireContextualGloss, result, &response); err != nil {
+	if err := decodeMeaningFields(input.RequireContextualGloss || input.RequireIdiomCard, result, &response); err != nil {
 		return TranslationResponse{}, err
 	}
 	if err := mapContextualEvidenceHandles(input, &response); err != nil {
@@ -679,7 +785,7 @@ func buildTranslationResponse(input TranslationRequest, result decodedTranslatio
 	} else {
 		response.FallbackGloss = fallback
 	}
-	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass {
+	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass || input.RequireIdiomCard {
 		// The transmitted payload carried a short per-request handle in place
 		// of the stable item ID; the decoded response reports the stable ID.
 		response.ItemID = TranslationItemID(input)
@@ -691,7 +797,7 @@ func buildTranslationResponse(input TranslationRequest, result decodedTranslatio
 // pass response that omits one of the four mandatory outcome fields (even when
 // it sent JSON null).
 func requireContextualGlossFields(input TranslationRequest, result decodedTranslationFields) error {
-	if (input.RequireContextualGloss || input.RequireEvidenceAssistedPass) && (len(result.Gloss) == 0 || len(result.EvidenceIDs) == 0 || len(result.ContextOnly) == 0 || string(result.Gloss) == "null" || string(result.EvidenceIDs) == "null" || string(result.ContextOnly) == "null") {
+	if (input.RequireContextualGloss || input.RequireEvidenceAssistedPass || input.RequireIdiomCard) && (len(result.Gloss) == 0 || len(result.EvidenceIDs) == 0 || len(result.ContextOnly) == 0 || string(result.Gloss) == "null" || string(result.EvidenceIDs) == "null" || string(result.ContextOnly) == "null") {
 		return errors.New("decode LLM translation: incomplete contextual gloss outcome")
 	}
 	return nil
@@ -752,7 +858,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 		// unresolved_kind is not part of it.
 		response.UnresolvedKind = ""
 	}
-	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass {
+	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass || input.RequireIdiomCard {
 		// A resolved meaning and an unresolved kind or reason are mutually
 		// exclusive. Keep the resolved meaning and discard the stray values
 		// without validating them: they are never stored, cached, or rendered,
@@ -800,8 +906,16 @@ func validateContextualMeaning(input TranslationRequest, response TranslationRes
 // validateContextualUnresolvedKind accepts only the enumerated contextual
 // omission kinds. The evidence-assisted pass does not carry this field.
 func validateContextualUnresolvedKind(input TranslationRequest, kind ContextualGlossUnresolvedKind) error {
-	if !input.RequireContextualGloss {
+	if !input.RequireContextualGloss && !input.RequireIdiomCard {
 		return nil
+	}
+	if input.RequireIdiomCard {
+		switch kind {
+		case "", ContextualGlossUnresolvedAmbiguous, ContextualGlossUnresolvedLiteralUse:
+			return nil
+		default:
+			return errors.New("decode LLM translation: invalid unresolved kind")
+		}
 	}
 	switch kind {
 	case "", ContextualGlossUnresolvedAmbiguous, ContextualGlossUnresolvedLemmaMismatch:
@@ -880,6 +994,9 @@ func validateContextualOutcome(input TranslationRequest, response TranslationRes
 			return errors.New("decode LLM translation: unresolved meaning is incomplete")
 		}
 		if input.RequireContextualGloss && response.UnresolvedKind == "" {
+			return errors.New("decode LLM translation: unresolved meaning is incomplete")
+		}
+		if input.RequireIdiomCard && response.UnresolvedKind == "" {
 			return errors.New("decode LLM translation: unresolved meaning is incomplete")
 		}
 	}

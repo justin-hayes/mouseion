@@ -36,9 +36,20 @@ tailwind="$cache/tailwindcss-$tailwind_version-$tailwind_platform"
 daisyui="$cache/daisyui-$daisyui_version.mjs"
 
 download_verified() {
-  local url="$1" path="$2" checksum="$3"
+  local repo="$1" tag="$2" asset="$3" path="$4" checksum="$5"
   if [[ ! -f "$path" ]]; then
-    curl --fail --location --silent --show-error "$url" --output "$path"
+    # GitHub's HTML release-download redirect has intermittently returned 504
+    # from the Actions runners, while the API asset download stays healthy.
+    # Prefer gh when it is available and fall back to curl for local builds.
+    if command -v gh >/dev/null 2>&1 && \
+      gh release download "$tag" --repo "$repo" --pattern "$asset" --dir "$cache" --clobber; then
+      mv "$cache/$asset" "$path"
+    else
+      curl --fail --location --proto '=https' --proto-redir '=https' \
+        --retry 5 --retry-delay 2 --retry-all-errors \
+        --silent --show-error \
+        "https://github.com/$repo/releases/download/$tag/$asset" --output "$path"
+    fi
   fi
   local actual
   if command -v sha256sum >/dev/null 2>&1; then
@@ -57,10 +68,10 @@ download_verified() {
 }
 
 download_verified \
-  "https://github.com/tailwindlabs/tailwindcss/releases/download/v$tailwind_version/tailwindcss-$tailwind_platform" \
+  tailwindlabs/tailwindcss "v$tailwind_version" "tailwindcss-$tailwind_platform" \
   "$tailwind" "$tailwind_sha256"
 download_verified \
-  "https://github.com/saadeghi/daisyui/releases/download/v$daisyui_version/daisyui.mjs" \
+  saadeghi/daisyui "v$daisyui_version" "daisyui.mjs" \
   "$daisyui" "$daisyui_sha256"
 chmod +x "$tailwind"
 

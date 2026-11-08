@@ -87,11 +87,29 @@ var lsjSenseSummaryAssessment = ProviderAssessment{
 	Recorded:    true,
 }
 
+// idiomCardAssessment is the reviewed personal-use disposition for the exact
+// idiom-card payload: the headword, matched forms, representative sentence and
+// bounded candidate senses alone. It remains unrecorded until the Italian idiom
+// review report is committed, so enabling Italian idiom cards fails closed and
+// sends nothing (ADR 0114).
+var idiomCardAssessment = ProviderAssessment{
+	Language:      "it",
+	Provider:      "openai-compatible",
+	PromptVersion: "idiom-card-v1",
+	Fields: []string{
+		"item_id", "language", "target_language", "headword", "matched_forms",
+		"example_sentence", "candidate_senses",
+	},
+	Disposition: "awaiting the Italian idiom review report",
+	Ticket:      "#2362",
+	Recorded:    false,
+}
+
 // ProviderAssessments returns the compiled reviewed personal-use payload
 // assessments. A caller that can install a recorded assessment for a test
 // passes its own set to AllowExternalProviderCall instead.
 func ProviderAssessments() []ProviderAssessment {
-	return []ProviderAssessment{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment}
+	return []ProviderAssessment{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment}
 }
 
 // Gate reports whether a language's provider call may proceed. A language the
@@ -141,6 +159,31 @@ func AllowExternalProviderCall(assessments []ProviderAssessment, language, provi
 		return lastErr
 	}
 	return nil
+}
+
+// AllowIdiomCardCall applies the compiled assessments to one idiom-card
+// payload. Unlike a generic call, every enabled language must have a recorded
+// assessment that matches the provider, prompt contract and exact field set;
+// a language with no assessment sends nothing (ADR 0114).
+func AllowIdiomCardCall(assessments []ProviderAssessment, language, provider, promptVersion string, fields []string) error {
+	covered := false
+	var lastErr error
+	for i := range assessments {
+		assessment := assessments[i]
+		if !sameAssessmentLanguage(language, assessment.Language) {
+			continue
+		}
+		covered = true
+		if err := assessment.Gate(language, provider, promptVersion, fields); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+	if covered {
+		return lastErr
+	}
+	return fmt.Errorf("%w: no recorded idiom-card assessment for %s", ErrProviderAssessmentNotRecorded, language)
 }
 
 // EvidenceAssistedPassOffered reports whether a matching recorded assessment

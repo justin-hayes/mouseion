@@ -16,6 +16,11 @@ func contextualOmissionReason(response enrichment.TranslationResponse) string {
 	if response.UnresolvedKind == enrichment.ContextualGlossUnresolvedLemmaMismatch {
 		return domain.DeckPreparationLemmaMismatchOmissionReason(reason)
 	}
+	if response.UnresolvedKind == enrichment.ContextualGlossUnresolvedLiteralUse {
+		// An idiom omission is labelled separately and never raises a lemma
+		// review flag (ADR 0114).
+		return domain.DeckPreparationIdiomLiteralUseLabel
+	}
 	if domain.IsDeckPreparationLemmaMismatchOmission(reason) {
 		// An ambiguous provider reason must never masquerade as the reserved
 		// lemma-mismatch kind when the preparation result classifies it later.

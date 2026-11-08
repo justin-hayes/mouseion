@@ -51,3 +51,12 @@ func TestContextualOmissionReasonKeepsAmbiguousOmissionsUnchanged(t *testing.T) 
 		require.False(t, domain.IsDeckPreparationLemmaMismatchOmission(reason))
 	})
 }
+
+func TestContextualOmissionReasonLabelsLiteralUseAndRaisesNoLemmaFlag(t *testing.T) {
+	reason := contextualOmissionReason(enrichment.TranslationResponse{
+		UnresolvedKind:   enrichment.ContextualGlossUnresolvedLiteralUse,
+		UnresolvedReason: "The sentence uses gamba as the literal body part.",
+	})
+	require.Equal(t, domain.DeckPreparationIdiomLiteralUseLabel, reason)
+	require.False(t, domain.IsDeckPreparationLemmaMismatchOmission(reason))
+}

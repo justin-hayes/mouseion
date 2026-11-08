@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
 
 const (
@@ -24,10 +26,14 @@ const (
 	MaximumStandardRetryDelay     = 24 * time.Hour
 	BatchMaxRequestsEnv           = "MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS"
 	BatchPollIntervalEnv          = "MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL"
-	DefaultBatchMaxRequests       = 5000
-	MaximumBatchMaxRequests       = 50000
-	DefaultBatchPollInterval      = 30 * time.Second
-	MaximumBatchPollInterval      = 24 * time.Hour
+	// IdiomCardLanguagesEnv is the comma-separated idiom-card switch. Only a
+	// language with a committed review report may appear; it is empty by
+	// default (ADR 0114).
+	IdiomCardLanguagesEnv    = "MOUSEION_IDIOM_CARD_LANGUAGES"
+	DefaultBatchMaxRequests  = 5000
+	MaximumBatchMaxRequests  = 50000
+	DefaultBatchPollInterval = 30 * time.Second
+	MaximumBatchPollInterval = 24 * time.Hour
 )
 
 type PreparedDeckConfig struct {
@@ -36,6 +42,9 @@ type PreparedDeckConfig struct {
 	StandardMaxAttempts    int
 	StandardRetryBaseDelay time.Duration
 	StandardRetryMaxDelay  time.Duration
+	// IdiomCardLanguages is the operator-enabled idiom-card switch, keyed by
+	// normalized language. Empty means idiom cards are off everywhere.
+	IdiomCardLanguages map[string]bool
 }
 
 // PreparedDeckConfigFromEnv reads the translation mode, concurrency, attempt
@@ -65,7 +74,30 @@ func PreparedDeckConfigFromEnv() (PreparedDeckConfig, error) {
 	if maxDelay < baseDelay {
 		return PreparedDeckConfig{}, fmt.Errorf("%s must not be less than %s", StandardRetryMaxDelayEnv, StandardRetryBaseDelayEnv)
 	}
-	return PreparedDeckConfig{TranslationMode: mode, StandardMaxConcurrency: concurrency, StandardMaxAttempts: attempts, StandardRetryBaseDelay: baseDelay, StandardRetryMaxDelay: maxDelay}, nil
+	languages, err := idiomCardLanguagesFromEnv()
+	if err != nil {
+		return PreparedDeckConfig{}, err
+	}
+	return PreparedDeckConfig{TranslationMode: mode, StandardMaxConcurrency: concurrency, StandardMaxAttempts: attempts, StandardRetryBaseDelay: baseDelay, StandardRetryMaxDelay: maxDelay, IdiomCardLanguages: languages}, nil
+}
+
+// idiomCardLanguagesFromEnv parses the comma-separated idiom-card switch. A
+// malformed or empty entry is rejected so an operator typo cannot silently
+// enable the wrong language; an unset variable keeps idiom cards off.
+func idiomCardLanguagesFromEnv() (map[string]bool, error) {
+	value := strings.TrimSpace(os.Getenv(IdiomCardLanguagesEnv))
+	languages := make(map[string]bool)
+	if value == "" {
+		return languages, nil
+	}
+	for part := range strings.SplitSeq(value, ",") {
+		language := canonicalization.NormalizeLanguage(strings.TrimSpace(part))
+		if language == "" {
+			return nil, fmt.Errorf("%s contains an empty language: %q", IdiomCardLanguagesEnv, value)
+		}
+		languages[language] = true
+	}
+	return languages, nil
 }
 
 // translationModeFromEnv parses the translation mode, defaulting when unset.

@@ -90,6 +90,7 @@ Compose reads these from `.env`; see [`.env.example`](../.env.example).
 | `MOUSEION_PREPARED_DECK_STANDARD_*` | Concurrency, attempt, and retry-delay bounds for standard translation. |
 | `MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS` | Requests per Batch input file; defaults to `5000`, capped at `50000`. |
 | `MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL` | Batch polling interval; defaults to `30s`, capped at `24h`. |
+| `MOUSEION_IDIOM_CARD_LANGUAGES` | Comma-separated per-language idiom-card switch; empty by default. A language may appear only after its review report is committed (ADR 0114). |
 
 Reading and analysis work without an LLM. Preparing a new Anki deck requires the
 configured provider: each card receives a contextual English gloss grounded in
@@ -118,6 +119,14 @@ Standard execution is the default. Batch remains available for explicit
 offline or economy work; those preparations can remain in `preparing` for up to
 the provider's 24-hour completion window. The status endpoint reports the
 current phase, durable counts, retrying items, and a cancellation control.
+
+Idiom cards are off by default. Adding a language to
+`MOUSEION_IDIOM_CARD_LANGUAGES` lets freezing match its dictionary and reviewed
+idiom entries against the selected vocabulary's accepted sentences. Each
+distinct idiom becomes one frozen item, receives its own provider request under
+the separate idiom-card prompt contract, and renders with a `mouseion::idiom`
+tag. The switch fails closed for a covered language until the provider payload
+assessment and the language review report are recorded (ADR 0114).
 Cancellation stops local publication first; provider file cleanup is best
 effort. Batch files are temporary: Mouseion requests seven-day provider
 expiration and deletes input, output, and error files after reconciliation or

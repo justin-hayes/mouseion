@@ -168,17 +168,20 @@ jobs:
         if: needs.changes.outputs.generated == 'true'
         run: make templ
 
-      # arduino/setup-protoc stays on v3.0.0: its latest release still runs on
-      # Node 20 and no Node 24 release exists. Dependabot rewrites the version
-      # comment on the uses line, so the reason lives here instead.
+      # GitHub's release-download redirect has intermittently returned 504 on
+      # shared runners. The API asset download used by gh stays healthy, so this
+      # step resolves the pinned upstream archive there instead of through the
+      # release redirect. The extracted binary is the same pinned release.
       - name: Set up protoc
         if: needs.changes.outputs.generated == 'true'
-        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
-        with:
-          version: '29.3'
-          # Authenticated release lookups get a far higher GitHub API rate limit
-          # than anonymous ones, which shared runner IPs exhaust.
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download v29.3 --repo protocolbuffers/protobuf \
+            --pattern protoc-29.3-linux-x86_64.zip --dir "$RUNNER_TEMP"
+          unzip -q "$RUNNER_TEMP/protoc-29.3-linux-x86_64.zip" -d "$RUNNER_TEMP/protoc"
+          echo "$RUNNER_TEMP/protoc/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/protoc/bin/protoc" --version
 
       - name: Generate protobuf code
         if: needs.changes.outputs.generated == 'true'
@@ -220,10 +223,18 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # GitHub's release-download redirect has intermittently returned 504 on
+      # shared runners. Resolve the pinned upstream archive through the API
+      # instead; the Makefile still enforces the exact version.
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: v2.14.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download v2.14.0 --repo golangci/golangci-lint \
+            --pattern golangci-lint-2.14.0-linux-amd64.tar.gz --dir "$RUNNER_TEMP"
+          tar -xzf "$RUNNER_TEMP/golangci-lint-2.14.0-linux-amd64.tar.gz" -C "$RUNNER_TEMP"
+          export PATH="$RUNNER_TEMP/golangci-lint-2.14.0-linux-amd64:$PATH"
+          make lint-go
 
   integration:
     name: Integration tests

@@ -148,7 +148,11 @@ func deckCompletenessSummary(preparation domain.DeckPreparation) string {
 	if preparation.ContextualGlossesReported {
 		glossSummary = fmt.Sprintf("%d with contextual Gloss · %d inferred from sentence context", preparation.ContextualGlosses, preparation.ContextOnlyGlosses)
 	}
-	return fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %s · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, glossSummary, preparation.QualityOmissions)
+	summary := fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %s · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, glossSummary, preparation.QualityOmissions)
+	if preparation.IdiomCards > 0 {
+		summary = fmt.Sprintf("%d vocabulary cards · %d idiom cards · %s", preparation.VocabularyCards, preparation.IdiomCards, summary)
+	}
+	return summary
 }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
