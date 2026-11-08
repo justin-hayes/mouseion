@@ -218,7 +218,7 @@ func TestReviewIdiomScoresCasesThroughTheStubbedIdiomContract(t *testing.T) {
 	})
 	t.Run("literal-use control is rejected", func(t *testing.T) {
 		require.Equal(t, idiomOutcomeLiteralUse, byID["it-tagliare-la-corda"].Outcome)
-		require.Equal(t, checkPass, idiomCheckStatus(byID["it-tagliare-la-corda"], checkNameIdiomLiteralUse))
+		require.Equal(t, checkPass, idiomCheckStatus(byID["it-tagliare-la-corda"], checkNameIdiomOmitted))
 	})
 	t.Run("lemma-card control passes without a provider", func(t *testing.T) {
 		require.Equal(t, idiomOutcomeLemmaCardControl, byID["it-gamba-lemma-card"].Outcome)
@@ -248,10 +248,13 @@ func TestReviewIdiomScoresCasesThroughTheStubbedIdiomContract(t *testing.T) {
 		"outcome":          "- Outcome: `confirmed`",
 		"gloss":            "- Raw Gloss: `capable`",
 		"confirmed check":  "| outcome is `confirmed` | **PASS** |",
-		"literal check":    "| outcome is `literal_use` | **PASS** |",
+		"omitted check":    "| card is omitted (`literal_use` or `ambiguous`) | **PASS** |",
 		"lemma check":      "| lemma card moves off the idiom sentence | **PASS** |",
 		"citation verdict": "- [ ] Citation form — verdict: __________",
-		"meaning verdict":  "- [ ] Meaning correct in context — verdict: __________",
+		"meaning verdict":  "- [ ] Meaning in context (correct, near-miss or misleading) — verdict: __________",
+		"gate misleading":  "- no card, in a control or the sample, teaches a misleading meaning;",
+		"gate near-miss":   "- at most 3 cards, across the controls and the sample, are near-misses.",
+		"gate grades":      "A control whose card is omitted, as `literal_use` or `ambiguous`, passes.",
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.Contains(t, rendered, fragment)
@@ -272,7 +275,7 @@ func TestReviewIdiomFailsAControlThatIsWronglyConfirmedOrRejected(t *testing.T) 
 		})
 		result := idiomResultsByCaseID(report.Cases)["it-tagliare-la-corda"]
 		require.Equal(t, idiomOutcomeConfirmed, result.Outcome)
-		require.Equal(t, checkFail, idiomCheckStatus(result, checkNameIdiomLiteralUse))
+		require.Equal(t, checkFail, idiomCheckStatus(result, checkNameIdiomOmitted))
 	})
 	t.Run("a rejected positive case fails", func(t *testing.T) {
 		client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
@@ -839,16 +842,16 @@ func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: confirmAll, Provider: idiomTestProviderMetadata()})
 		byID := idiomResultsByCaseID(report.Cases)
 		t.Run("rispetto a", func(t *testing.T) {
-			require.Equal(t, checkFail, idiomCheckStatus(byID["it-rispetto-a-comparative"], checkNameIdiomAmbiguous))
+			require.Equal(t, checkFail, idiomCheckStatus(byID["it-rispetto-a-comparative"], checkNameIdiomOmitted))
 		})
 		t.Run("fare bene", func(t *testing.T) {
-			require.Equal(t, checkFail, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomLiteralUse))
+			require.Equal(t, checkFail, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomOmitted))
 		})
 		t.Run("di fronte", func(t *testing.T) {
 			require.Equal(t, checkPass, idiomCheckStatus(byID["it-di-fronte"], checkNameIdiomConfirmed))
 		})
 		t.Run("casa isolata", func(t *testing.T) {
-			require.Equal(t, checkFail, idiomCheckStatus(byID["it-casa-isolata-remote"], checkNameIdiomAmbiguous))
+			require.Equal(t, checkFail, idiomCheckStatus(byID["it-casa-isolata-remote"], checkNameIdiomOmitted))
 		})
 		t.Run("in giro", func(t *testing.T) {
 			require.Equal(t, checkFail, idiomCheckStatus(byID["it-in-giro"], checkNameIdiomGlossExcludes))
@@ -874,10 +877,10 @@ func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 		byID := idiomResultsByCaseID(report.Cases)
 		t.Run("rispetto a is ambiguous", func(t *testing.T) {
 			require.Equal(t, idiomOutcomeAmbiguous, byID["it-rispetto-a-comparative"].Outcome)
-			require.Equal(t, checkPass, idiomCheckStatus(byID["it-rispetto-a-comparative"], checkNameIdiomAmbiguous))
+			require.Equal(t, checkPass, idiomCheckStatus(byID["it-rispetto-a-comparative"], checkNameIdiomOmitted))
 		})
 		t.Run("fare bene is literal use", func(t *testing.T) {
-			require.Equal(t, checkPass, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomLiteralUse))
+			require.Equal(t, checkPass, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomOmitted))
 		})
 		t.Run("every automatic check passes", func(t *testing.T) {
 			require.Zero(t, report.Summary.ChecksFail)
@@ -888,8 +891,7 @@ func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 		require.NoError(t, writeIdiomReport(&output, report))
 		for name, fragment := range map[string]string{
 			"case heading": "## `it-rispetto-a-comparative` — it `rispetto a` (ambiguous control)",
-			"check row":    "| outcome is `ambiguous` | **PASS** |",
-			"gate line":    "every ambiguous control returns `ambiguous`",
+			"check row":    "| card is omitted (`literal_use` or `ambiguous`) | **PASS** |",
 		} {
 			t.Run("report "+name, func(t *testing.T) {
 				require.Contains(t, output.String(), fragment)
@@ -1008,4 +1010,47 @@ func TestIdiomCaseSetKeepsEveryV2CaseUnchanged(t *testing.T) {
 			require.Equal(t, v2Case, currentCase)
 		})
 	}
+}
+
+// A control passes whenever its card is omitted: literal_use and ambiguous both
+// keep the card out of the deck, so the label the provider picks does not
+// matter to the learner (#2389).
+func TestReviewIdiomControlPassesWithEitherOmissionKind(t *testing.T) {
+	cases := idiomReviewCaseSet{Version: "idiom-review-test", Cases: []idiomReviewCase{
+		{
+			ID: "it-tagliare-la-corda", Language: "it", Kind: idiomCaseLiteralUse, Headword: "tagliare la corda",
+			MatchedForms: []string{"tagliò", "la", "corda"}, Sentence: "Tagliò la corda del pacco.",
+			Evidence: []enrichment.LexicalSense{{EvidenceID: "e1", Gloss: "to run away"}},
+		},
+		{
+			ID: "it-rispetto-a", Language: "it", Kind: idiomCaseAmbiguous, Headword: "rispetto a",
+			MatchedForms: []string{"rispetto", "a"}, Sentence: "È più alto rispetto a lui.",
+			Evidence: []enrichment.LexicalSense{{EvidenceID: "e1", Gloss: "with respect to"}},
+		},
+	}}
+	for name, kind := range map[string]enrichment.ContextualGlossUnresolvedKind{
+		"literal_use": enrichment.ContextualGlossUnresolvedLiteralUse,
+		"ambiguous":   enrichment.ContextualGlossUnresolvedAmbiguous,
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+				return idiomStubAnswer{unresolvedKind: string(kind), reason: "no card"}
+			})
+			report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: client, Provider: idiomTestProviderMetadata()})
+			byID := idiomResultsByCaseID(report.Cases)
+			t.Run("literal-use control", func(t *testing.T) {
+				require.Equal(t, checkPass, idiomCheckStatus(byID["it-tagliare-la-corda"], checkNameIdiomOmitted))
+			})
+			t.Run("ambiguous control", func(t *testing.T) {
+				require.Equal(t, checkPass, idiomCheckStatus(byID["it-rispetto-a"], checkNameIdiomOmitted))
+			})
+		})
+	}
+	t.Run("an unresolved answer without a kind fails", func(t *testing.T) {
+		client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+			return idiomStubAnswer{unresolvedKind: "", reason: ""}
+		})
+		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: client, Provider: idiomTestProviderMetadata()})
+		require.Equal(t, checkFail, idiomCheckStatus(idiomResultsByCaseID(report.Cases)["it-rispetto-a"], checkNameIdiomOmitted))
+	})
 }

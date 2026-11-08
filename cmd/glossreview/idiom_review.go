@@ -84,11 +84,13 @@ const (
 )
 
 const (
-	checkNameIdiomConfirmed  = "outcome is confirmed"
-	checkNameIdiomLiteralUse = "outcome is literal_use"
-	checkNameIdiomAmbiguous  = "outcome is ambiguous"
-	checkNameIdiomLemmaCard  = "lemma card moves off the idiom sentence"
-	checkNameIdiomKnownKind  = "case kind is known"
+	checkNameIdiomConfirmed = "outcome is confirmed"
+	// checkNameIdiomOmitted is the check every literal-use and ambiguous
+	// control gets: the card is omitted. Both omission kinds keep the card
+	// out of the deck, so either passes (ADR 0115).
+	checkNameIdiomOmitted   = "card is omitted"
+	checkNameIdiomLemmaCard = "lemma card moves off the idiom sentence"
+	checkNameIdiomKnownKind = "case kind is known"
 	// checkNameIdiomGlossExcludes is the check a positive case with Gloss
 	// exclusions adds: its confirmed Gloss contains none of them.
 	checkNameIdiomGlossExcludes = "Gloss leaves out the excluded sentence words"
@@ -150,18 +152,15 @@ func classifyIdiomOutcome(result idiomCaseResult) idiomOutcomeKind {
 }
 
 // idiomCaseCheck compares the expected review class with the observed outcome.
-// A positive case must be confirmed; a literal-use control must be rejected as
-// literal_use; an ambiguous control must be rejected as ambiguous; a
-// lemma-card control must point at a different sentence that still carries the
+// A positive case must be confirmed; a literal-use or ambiguous control must
+// be omitted as either literal_use or ambiguous (ADR 0115); a lemma-card control must point at a different sentence that still carries the
 // anchor.
 func idiomCaseCheck(testCase idiomReviewCase, result idiomCaseResult) automaticCheck {
 	switch testCase.Kind {
 	case idiomCasePositive:
 		return expectedIdiomOutcomeCheck(checkNameIdiomConfirmed, idiomOutcomeConfirmed, result)
-	case idiomCaseLiteralUse:
-		return expectedIdiomOutcomeCheck(checkNameIdiomLiteralUse, idiomOutcomeLiteralUse, result)
-	case idiomCaseAmbiguous:
-		return expectedIdiomOutcomeCheck(checkNameIdiomAmbiguous, idiomOutcomeAmbiguous, result)
+	case idiomCaseLiteralUse, idiomCaseAmbiguous:
+		return omittedIdiomCheck(result)
 	case idiomCaseLemmaCard:
 		return lemmaCardControlCheck(testCase)
 	default:
@@ -176,6 +175,19 @@ func expectedIdiomOutcomeCheck(name string, want idiomOutcomeKind, result idiomC
 		return check
 	}
 	check.Detail = fmt.Sprintf("expected %q, observed %q", want, result.Outcome)
+	return check
+}
+
+// omittedIdiomCheck passes a control whose card is omitted as literal_use or
+// ambiguous. An unresolved answer with no kind, an invalid response and a
+// provider error all fail: none of them says why the card is left out.
+func omittedIdiomCheck(result idiomCaseResult) automaticCheck {
+	check := automaticCheck{Name: checkNameIdiomOmitted, Status: checkPass}
+	if result.Outcome == idiomOutcomeLiteralUse || result.Outcome == idiomOutcomeAmbiguous {
+		return check
+	}
+	check.Status = checkFail
+	check.Detail = fmt.Sprintf("expected %q or %q, observed %q", idiomOutcomeLiteralUse, idiomOutcomeAmbiguous, result.Outcome)
 	return check
 }
 

@@ -193,10 +193,19 @@ gush out".
     for a remote house when the senses are "detached house" and "homestead";
   - lemma-card controls confirming that the anchor's card moves to an
     idiom-free sentence.
-- Gate per language: every positive case is confirmed with a citation-form
-  Gloss, no literal-use or ambiguous control is confirmed, and a sample of 30 confirmed
-  idiom cards from one real Book in that language contains no card that
-  teaches a wrong meaning. The dated report goes under `doc/reviews/`.
+- Gate per language (ADR 0115): the reviewer grades every card's meaning in
+  context as correct, near-miss or misleading. The gate passes when every
+  positive case is confirmed with a citation-form Gloss, every literal-use and
+  ambiguous control is omitted (as either `literal_use` or `ambiguous`), every
+  lemma-card control passes, a sample of 30 confirmed idiom cards from one
+  real Book in that language is drawn, no card in the controls or the sample
+  is misleading, and at most 3 are near-misses. The dated report goes under
+  `doc/reviews/`.
+- The case set stays frozen at `idiom-review-v3`; a failed review does not add
+  its failures as new cases.
+- Run idiom cards at `MOUSEION_LLM_IDIOM_REASONING_EFFORT=medium`. In the
+  2026-11-08 runs, `medium` omitted the comparative *rispetto a* and the remote
+  *casa isolata* control that `low` confirmed.
 - The sample comes from an in-memory freeze of the Book's current deck
   preparation, with idiom cards on and no per-deck bound. It writes nothing and
   needs no recorded assessment, so a language can be reviewed before its
@@ -210,6 +219,12 @@ gush out".
   entries to sample 30 cards.
 
 ## Non-goals
+
+- A grammar guard before the provider request. A rule that the matched words
+  must be connected in the dependency parse would not catch *fare le cose
+  fatte bene*, because *bene* attaches to *fatte*. A narrower rule against a
+  verbal idiom's verb used as a participial modifier waits until real decks
+  show the pattern is common (ADR 0115).
 
 - Idioms as vocabulary identities with Known state, snapshot membership,
   multi-token occurrences or lemma review. A later ADR may add them.
