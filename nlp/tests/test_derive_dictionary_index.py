@@ -1315,6 +1315,195 @@ def test_idiom_lookup_indexes_only_two_to_four_ordinary_word_entries(tmp_path: P
     ]
 
 
+def derive_idiom_rows(
+    module, tmp_path: Path, items: list[dict], reviewed_idioms=None
+) -> tuple[list[tuple], list[tuple]]:
+    """Derive an index from raw items and return its idiom entry and word rows.
+
+    Without explicit reviewed idioms, an empty list keeps the shipped one out.
+    """
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        "\n".join(json.dumps(item, ensure_ascii=False) for item in items) + "\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    if reviewed_idioms is None:
+        reviewed_idioms = module.ReviewedIdioms()
+    module.derive(source, output, "fixture-v1", reviewed_idioms=reviewed_idioms)
+    connection = sqlite3.connect(output)
+    entries = connection.execute(
+        "SELECT language, headword, upos, senses_json, source FROM idiom_entries "
+        "ORDER BY headword, source"
+    ).fetchall()
+    words = connection.execute(
+        "SELECT word, headword, source FROM idiom_words ORDER BY headword, word, source"
+    ).fetchall()
+    connection.close()
+    return [
+        (language, headword, upos, [sense["Gloss"] for sense in json.loads(senses)], source)
+        for language, headword, upos, senses, source in entries
+    ], words
+
+
+def test_idiom_lookup_excludes_proper_names_but_keeps_phrases(tmp_path: Path):
+    module = load_script()
+
+    entries, words = derive_idiom_rows(
+        module,
+        tmp_path,
+        [
+            {
+                "word": "La Calamita",
+                "lang_code": "it",
+                "pos": "name",
+                "senses": [{"glosses": ["a surname"]}],
+            },
+            # A lowercase-initial name is still a name.
+            {
+                "word": "mare Adriatico",
+                "lang_code": "it",
+                "pos": "name",
+                "senses": [{"glosses": ["Adriatic Sea"]}],
+            },
+            # Phrase, prepositional phrase and proverb entries have no mapped
+            # UPOS, but they are the idioms the index exists for.
+            {
+                "word": "in bocca al lupo",
+                "lang_code": "it",
+                "pos": "phrase",
+                "senses": [{"glosses": ["good luck"]}],
+            },
+            {
+                "word": "a vanvera",
+                "lang_code": "it",
+                "pos": "prep_phrase",
+                "senses": [{"glosses": ["haphazardly"]}],
+            },
+            {
+                "word": "l'appetito vien mangiando",
+                "lang_code": "it",
+                "pos": "proverb",
+                "senses": [{"glosses": ["appetite comes with eating"]}],
+            },
+        ],
+    )
+
+    assert entries == [
+        ("it", "a vanvera", "", ["haphazardly"], "wiktionary"),
+        ("it", "in bocca al lupo", "", ["good luck"], "wiktionary"),
+        ("it", "l'appetito vien mangiando", "", ["appetite comes with eating"], "wiktionary"),
+    ]
+    assert {headword for _word, headword, _source in words} == {
+        "a vanvera",
+        "in bocca al lupo",
+        "l'appetito vien mangiando",
+    }
+
+
+def test_idiom_lookup_excludes_entries_with_only_the_literal_use_marker(tmp_path: Path):
+    module = load_script()
+
+    entries, words = derive_idiom_rows(
+        module,
+        tmp_path,
+        [
+            {
+                "word": "allor che",
+                "lang_code": "it",
+                "pos": "conj",
+                "senses": [
+                    {"glosses": ["Used other than figuratively or idiomatically: see allor, che."]}
+                ],
+            },
+            # Beside a real sense, the marker stays: it tells the provider
+            # which use is literal.
+            {
+                "word": "al proprio posto",
+                "lang_code": "it",
+                "pos": "prep_phrase",
+                "senses": [
+                    {
+                        "glosses": [
+                            "Used other than figuratively or idiomatically: see al, proprio, posto."
+                        ]
+                    },
+                    {"glosses": ["in one's lane; in one's place"]},
+                ],
+            },
+        ],
+    )
+
+    assert entries == [
+        (
+            "it",
+            "al proprio posto",
+            "",
+            [
+                "Used other than figuratively or idiomatically: see al, proprio, posto.",
+                "in one's lane; in one's place",
+            ],
+            "wiktionary",
+        )
+    ]
+    assert {headword for _word, headword, _source in words} == {"al proprio posto"}
+
+
+def test_reviewed_idiom_is_indexed_even_when_wiktionary_lists_it_as_a_name(tmp_path: Path):
+    module = load_script()
+    reviewed_path = tmp_path / "reviewed_idioms.json"
+    reviewed_path.write_text(
+        json.dumps(
+            {"languages": {"it": [{"headword": "Far West", "words": ["Far", "West"]}]}},
+        ),
+        encoding="utf-8",
+    )
+
+    entries, words = derive_idiom_rows(
+        module,
+        tmp_path,
+        [
+            {
+                "word": "Far West",
+                "lang_code": "it",
+                "pos": "name",
+                "senses": [{"glosses": ["a state of lawlessness"]}],
+            },
+        ],
+        reviewed_idioms=module.load_reviewed_idioms(reviewed_path),
+    )
+
+    assert entries == [("it", "Far West", "", [], "reviewed-idioms")]
+    assert words == [
+        ("far", "Far West", "reviewed-idioms"),
+        ("west", "Far West", "reviewed-idioms"),
+    ]
+
+
+def test_single_word_names_still_reach_the_lemma_entries(tmp_path: Path):
+    module = load_script()
+
+    derive_idiom_rows(
+        module,
+        tmp_path,
+        [
+            {
+                "word": "Roma",
+                "lang_code": "it",
+                "pos": "name",
+                "senses": [{"glosses": ["Rome"]}],
+            },
+        ],
+    )
+
+    connection = sqlite3.connect(tmp_path / "dictionary.sqlite")
+    rows = connection.execute(
+        "SELECT language, lemma, upos FROM entries WHERE lemma = 'roma'"
+    ).fetchall()
+    connection.close()
+    assert rows == [("it", "roma", "")]
+
+
 def test_reviewed_idioms_use_their_own_source_and_version(tmp_path: Path):
     module = load_script()
     source = tmp_path / "kaikki.jsonl"

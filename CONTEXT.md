@@ -147,7 +147,8 @@ _Avoid_: wrong lemma, ambiguous omission.
 **Idiom**:
 A multi-word lexeme with its own dictionary entry, such as Italian *in gamba*
 ("capable") or *macchina da scrivere* ("typewriter"), whose meaning belongs to
-the whole expression rather than to any one of its words. An idiom is card-only:
+the whole expression rather than to any one of its words. A proper name
+(*La Calamita*, *Palazzo Madama*) is never an idiom. An idiom is card-only:
 it has no Known, Reserved, Unknown or Generated state.
 _Avoid_: multi-word expression (fine in prose), collocation, phrase.
 

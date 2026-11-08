@@ -55,6 +55,11 @@ IDIOM_MAX_WORDS = 4
 WIKTIONARY_IDIOM_SOURCE = "wiktionary"
 REVIEWED_IDIOM_SOURCE = "reviewed-idioms"
 DEFAULT_REVIEWED_IDIOM_VERSION = "reviewed-idioms/1"
+# Wiktionary's part of speech for proper nouns. Such entries are never idioms.
+WIKTIONARY_NAME_POS = "name"
+# Wiktionary's gloss for a sense that only points at the literal reading of a
+# multi-word entry, as in "Used other than figuratively or idiomatically: see …".
+LITERAL_USE_MARKER = re.compile(r"used other than figuratively or idiomatically", re.IGNORECASE)
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -640,14 +645,28 @@ def sense_is_form_or_alt_of(item: dict, raw_sense: dict) -> bool:
 
 
 def idiom_senses_for_item(item: dict):
-    """Yield only the ordinary senses that make a multi-word entry an idiom."""
+    """Yield only the ordinary senses that make a multi-word entry an idiom.
+
+    Yields nothing for an entry that is not an idiom at all: a proper name, or
+    an entry whose only senses are references or the literal-use marker.
+    """
+    # A proper name (surname, place, institution) is never an idiom, and its
+    # case-folded words would match ordinary text (#2380).
+    if str(item.get("pos", "")).casefold() == WIKTIONARY_NAME_POS:
+        return
+    senses = []
     for raw_sense in item.get("senses", []):
         if not isinstance(raw_sense, dict) or sense_is_form_or_alt_of(item, raw_sense):
             continue
         for upos in upos_for(item, raw_sense):
             sense = sense_from(item, raw_sense, upos)
             if sense is not None:
-                yield upos, sense
+                senses.append((upos, sense))
+    # An entry that only points at the literal reading has no idiomatic sense.
+    # Beside a real sense the marker stays, as evidence of literal use (#2378).
+    if all(LITERAL_USE_MARKER.match(sense["Gloss"]) for _upos, sense in senses):
+        return
+    yield from senses
 
 
 @dataclass(frozen=True)

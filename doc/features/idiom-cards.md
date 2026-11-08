@@ -58,7 +58,11 @@ gush out".
   stay idioms by design: their cards are correct, so they are ranked last
   within the per-deck bound rather than removed (#2379).
 - Candidate entries: two to four words, excluding entries whose senses are all
-  inflected-form or alternative-form references. The dictionary derivation
+  inflected-form or alternative-form references, Wiktionary proper-name
+  entries (surnames, places, institutions), and entries whose only sense is
+  Wiktionary's literal-use marker ("Used other than figuratively or
+  idiomatically: see …"). Beside a real sense, the marker sense stays as
+  evidence of literal use. The dictionary derivation
   adds a lookup from each word to the multi-word entries containing it.
 - The **reviewed idiom list** is Mouseion-owned data per language, maintained
   like the reviewed separable-verb pairs (ADR 0113). Each row gives a headword
@@ -208,7 +212,8 @@ gush out".
       the item-kind schema change (ADR 0114).
 - [ ] The dictionary derivation exposes a lookup from a word to the two-to-four
       word multi-word entries containing it, excluding form-of and alt-of only
-      entries, and loads the reviewed idiom list for each language.
+      entries, proper-name entries and literal-use-marker-only entries, and
+      loads the reviewed idiom list for each language.
 - [ ] Freezing a deck finds idiom candidates for its frozen vocabulary, prefers
       idiom-free sentences for lemma cards, and freezes one idiom item per
       distinct anchored idiom up to the bound, with evidence provenance.
