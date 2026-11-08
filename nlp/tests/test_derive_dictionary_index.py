@@ -49,7 +49,7 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
     ).fetchone() == ("Wiktionary contributors; CC BY-SA 4.0 / GFDL",)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("4",)
+    ).fetchone() == ("5",)
     row = connection.execute(
         "SELECT language, lemma, upos, senses_json, gender, article, plural FROM entries WHERE lemma = 'haus'"
     ).fetchone()
@@ -507,7 +507,7 @@ def test_french_derivation_records_form_of_links_and_headwords(tmp_path: Path):
     connection = sqlite3.connect(output)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("4",)
+    ).fetchone() == ("5",)
     headwords = set(connection.execute("SELECT lemma, upos FROM french_headwords").fetchall())
     assert headwords == {
         ("voile", "NOUN"),
@@ -975,7 +975,7 @@ def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path
     connection = sqlite3.connect(output)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("6",)
+    ).fetchone() == ("7",)
     assert connection.execute("SELECT value FROM metadata WHERE key = 'lsj_pin'").fetchone() == (
         "pin123",
     )
@@ -1195,9 +1195,227 @@ def test_without_lsj_dir_the_index_stays_at_the_french_format(tmp_path: Path):
     connection = sqlite3.connect(output)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("4",)
+    ).fetchone() == ("5",)
     assert connection.execute("SELECT count(*) FROM lsj_entries").fetchone() == (0,)
     assert connection.execute("SELECT count(*) FROM metadata WHERE key = 'lsj_pin'").fetchone() == (
         0,
     )
     connection.close()
+
+
+def test_idiom_lookup_indexes_only_two_to_four_ordinary_word_entries(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(item, ensure_ascii=False)
+            for item in [
+                {
+                    "word": "in gamba",
+                    "lang_code": "it",
+                    "pos": "adj",
+                    "senses": [{"glosses": ["capable, on the ball"]}],
+                },
+                {
+                    "word": "macchina da scrivere",
+                    "lang_code": "it",
+                    "pos": "noun",
+                    "senses": [{"glosses": ["typewriter"]}],
+                },
+                # Five words and one word are outside the idiom bound.
+                {
+                    "word": "troppo lunga davvero per essere",
+                    "lang_code": "it",
+                    "pos": "noun",
+                    "senses": [{"glosses": ["too long"]}],
+                },
+                {
+                    "word": "voce",
+                    "lang_code": "it",
+                    "pos": "noun",
+                    "senses": [{"glosses": ["word"]}],
+                },
+                # All-alt-of and all-form-of entries are not idioms.
+                {
+                    "word": "altra forma",
+                    "lang_code": "it",
+                    "pos": "noun",
+                    "senses": [
+                        {
+                            "glosses": ["alternative form of forma"],
+                            "tags": ["alt-of"],
+                            "alt_of": [{"word": "forma"}],
+                        }
+                    ],
+                },
+                {
+                    "word": "vecchia forma",
+                    "lang_code": "it",
+                    "pos": "noun",
+                    "senses": [
+                        {
+                            "glosses": ["form of vecchio"],
+                            "tags": ["form-of"],
+                            "form_of": [{"word": "vecchio"}],
+                        }
+                    ],
+                },
+                # A mixed entry keeps its ordinary sense.
+                {
+                    "word": "mista espressione",
+                    "lang_code": "it",
+                    "pos": "noun",
+                    "senses": [
+                        {
+                            "glosses": ["alternative form of espressione"],
+                            "tags": ["alt-of"],
+                            "alt_of": [{"word": "espressione"}],
+                        },
+                        {"glosses": ["mixed expression"]},
+                    ],
+                },
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    entries = connection.execute(
+        "SELECT headword, upos, words_json, senses_json, source, version "
+        "FROM idiom_entries ORDER BY headword"
+    ).fetchall()
+    words = connection.execute(
+        "SELECT language, word, headword FROM idiom_words ORDER BY word"
+    ).fetchall()
+    connection.close()
+
+    assert [
+        (headword, upos, json.loads(words_json), [sense["Gloss"] for sense in json.loads(senses)])
+        for headword, upos, words_json, senses, _source, _version in entries
+    ] == [
+        ("in gamba", "ADJ", ["in", "gamba"], ["capable, on the ball"]),
+        ("macchina da scrivere", "NOUN", ["macchina", "da", "scrivere"], ["typewriter"]),
+        ("mista espressione", "NOUN", ["mista", "espressione"], ["mixed expression"]),
+    ]
+    assert all(
+        source == "wiktionary" and version == "fixture-v1" for *_, source, version in entries
+    )
+    assert words == [
+        ("it", "da", "macchina da scrivere"),
+        ("it", "espressione", "mista espressione"),
+        ("it", "gamba", "in gamba"),
+        ("it", "in", "in gamba"),
+        ("it", "macchina", "macchina da scrivere"),
+        ("it", "mista", "mista espressione"),
+        ("it", "scrivere", "macchina da scrivere"),
+    ]
+
+
+def test_reviewed_idioms_use_their_own_source_and_version(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text("", encoding="utf-8")
+    reviewed_path = tmp_path / "reviewed_idioms.json"
+    reviewed_path.write_text(
+        json.dumps(
+            {
+                "version": "reviewed-test/1",
+                "languages": {
+                    "el": [
+                        {
+                            "headword": "κάνω τα στραβά μάτια",
+                            "words": ["κάνω", "τα", "στραβά", "μάτια"],
+                        }
+                    ]
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+
+    module.derive(
+        source,
+        output,
+        "fixture-v1",
+        reviewed_idioms=module.load_reviewed_idioms(reviewed_path),
+    )
+
+    connection = sqlite3.connect(output)
+    entries = connection.execute(
+        "SELECT language, headword, upos, words_json, senses_json, source, version "
+        "FROM idiom_entries"
+    ).fetchall()
+    words = connection.execute(
+        "SELECT language, word, headword, upos, source FROM idiom_words ORDER BY word"
+    ).fetchall()
+    connection.close()
+
+    assert entries == [
+        (
+            "el",
+            "κάνω τα στραβά μάτια",
+            "",
+            '["κάνω","τα","στραβά","μάτια"]',
+            "[]",
+            "reviewed-idioms",
+            "reviewed-test/1",
+        )
+    ]
+    assert words == [
+        ("el", "κάνω", "κάνω τα στραβά μάτια", "", "reviewed-idioms"),
+        ("el", "μάτια", "κάνω τα στραβά μάτια", "", "reviewed-idioms"),
+        ("el", "στραβά", "κάνω τα στραβά μάτια", "", "reviewed-idioms"),
+        ("el", "τα", "κάνω τα στραβά μάτια", "", "reviewed-idioms"),
+    ]
+
+
+def test_committed_reviewed_idiom_list_loads_every_launch_language():
+    module = load_script()
+
+    reviewed = module.load_reviewed_idioms(module.default_reviewed_idioms_path())
+
+    assert "it" in reviewed.languages
+    assert "de" in reviewed.languages
+    assert "el" in reviewed.languages
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [],
+        {"languages": []},
+        {"languages": {"it": {}}},
+        {"languages": {"it": ["not an object"]}},
+        {"languages": {"it": [{}]}},
+        {"languages": {"it": [{"headword": "x", "words": []}]}},
+        {"languages": {"it": [{"headword": "x", "words": [""]}]}},
+        {"languages": {"it": [{"headword": "in gamba", "words": ["in", "gambe"]}]}},
+        {"languages": {"it": [{"headword": "x", "words": ["a"]}]}},
+        {"languages": {"it": [{"headword": "x", "words": ["a", "b", "c", "d", "e"]}]}},
+        {"languages": {"xx": []}},
+    ],
+)
+def test_reviewed_idioms_reject_malformed_data(tmp_path: Path, payload):
+    module = load_script()
+    path = tmp_path / "reviewed_idioms.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="reviewed idiom"):
+        module.load_reviewed_idioms(path)
+
+
+def test_reviewed_idioms_default_version_and_empty_languages(tmp_path: Path):
+    module = load_script()
+    path = tmp_path / "reviewed_idioms.json"
+    path.write_text(json.dumps({"languages": {}}), encoding="utf-8")
+
+    reviewed = module.load_reviewed_idioms(path)
+
+    assert reviewed.version == module.DEFAULT_REVIEWED_IDIOM_VERSION
+    assert reviewed.languages == {}

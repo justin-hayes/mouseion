@@ -64,6 +64,11 @@ type Index struct {
 	// links and headword membership lemma-risk review needs. An older index
 	// reports French assessment unavailable rather than passing it.
 	frenchFormsAvailable bool
+
+	// idiomAvailable is true when the index carries the word-to-multi-word
+	// idiom lookup. An older index reports no idiom candidates rather than
+	// failing the whole index.
+	idiomAvailable bool
 }
 
 type evidenceIdentity struct {
@@ -117,17 +122,17 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 	if _, err = db.ExecContext(ctx, `SELECT language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries LIMIT 0`); err != nil {
 		return nil, fmt.Errorf("%w: schema: %w", ErrInvalidIndex, errors.Join(err, db.Close()))
 	}
-	if err = index.loadHStatusAvailability(ctx); err != nil {
-		return nil, errors.Join(err, db.Close())
+	loaders := []func(context.Context) error{
+		index.loadHStatusAvailability,
+		index.loadFrenchFormsAvailability,
+		index.loadIdiomAvailability,
+		index.loadGreekEntries,
+		index.loadAncientGreekLSJ,
 	}
-	if err = index.loadFrenchFormsAvailability(ctx); err != nil {
-		return nil, errors.Join(err, db.Close())
-	}
-	if err = index.loadGreekEntries(ctx); err != nil {
-		return nil, errors.Join(err, db.Close())
-	}
-	if err = index.loadAncientGreekLSJ(ctx); err != nil {
-		return nil, errors.Join(err, db.Close())
+	for _, load := range loaders {
+		if err = load(ctx); err != nil {
+			return nil, errors.Join(err, db.Close())
+		}
 	}
 	return index, nil
 }

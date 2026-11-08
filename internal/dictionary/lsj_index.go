@@ -34,6 +34,12 @@ func (i *Index) loadAncientGreekLSJ(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if pin == "" {
+		// LSJ is optional, and a non-LSJ index can carry a format number at or
+		// above the LSJ threshold. No pin means the LSJ table was never
+		// derived; a present pin with a missing table is still invalid.
+		return nil
+	}
 	rows, err := i.db.QueryContext(ctx, `SELECT entry_id, headword, senses_json, subordinate FROM lsj_entries`)
 	if err != nil {
 		return fmt.Errorf("%w: lsj schema: %w", ErrInvalidIndex, err)
