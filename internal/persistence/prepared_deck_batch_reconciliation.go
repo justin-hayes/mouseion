@@ -240,12 +240,12 @@ func persistPreparedDeckBatchCache(ctx context.Context, tx pgx.Tx, member prepar
 		return err
 	}
 	targets := append([]string{}, entry.SentenceTranslationTargets...)
-	if err := sqlcgen.New(tx).UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, SentenceTranslationTargets: targets, CachedAt: entry.CachedAt}); err != nil {
+	if err := sqlcgen.New(tx).UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, ItemKind: string(entry.ItemKind.Normalized()), Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, SentenceTranslationTargets: targets, CachedAt: entry.CachedAt}); err != nil {
 		return err
 	}
 	// The cache is immutable and first-writer-wins. Read the committed row so
 	// the finalizer consumes the trusted value when another run won the race.
-	_, err = sqlcgen.New(tx).EnrichmentCacheLookup(ctx, sqlcgen.EnrichmentCacheLookupParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash})
+	_, err = sqlcgen.New(tx).EnrichmentCacheLookup(ctx, sqlcgen.EnrichmentCacheLookupParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, ItemKind: string(entry.ItemKind.Normalized()), Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash})
 	return err
 }
 
@@ -268,7 +268,7 @@ func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params Prepare
 	}
 	var members []preparedDeckBatchMember
 	for _, row := range rows {
-		member := preparedDeckBatchMember{Ordinal: row.Ordinal, Key: enrichment.CacheKey{Language: row.Language, TargetLanguage: row.TargetLanguage, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Provider: row.Provider, ProviderVersion: row.ProviderVersion, DictionaryProviderVersion: row.DictionaryProviderVersion, SentenceHash: row.SentenceHash, MeaningEvidenceHash: row.MeaningEvidenceHash}}
+		member := preparedDeckBatchMember{Ordinal: row.Ordinal, Key: enrichment.CacheKey{Language: row.Language, TargetLanguage: row.TargetLanguage, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, ItemKind: enrichment.ItemKindFromStored(row.ItemKind), Provider: row.Provider, ProviderVersion: row.ProviderVersion, DictionaryProviderVersion: row.DictionaryProviderVersion, SentenceHash: row.SentenceHash, MeaningEvidenceHash: row.MeaningEvidenceHash}}
 		if member.Key.Provider == "" || member.Key.ProviderVersion == "" || member.Key.TargetLanguage == "" {
 			return nil, ErrPreparedDeckIdentity
 		}

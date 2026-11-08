@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -13,6 +14,12 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
+
+// ErrUnsupportedItemKind reports a valid frozen item kind that this build does
+// not render yet. Idiom items are frozen only after the idiom card ticket
+// lands; until then finalize and rerender reject them instead of silently
+// treating an idiom as a lemma.
+var ErrUnsupportedItemKind = errors.New("cardexport: unsupported manifest item kind")
 
 // ManifestSchemaVersion identifies the canonical durable manifest codec. A
 // new version is required for any change that alters digest inputs.
@@ -30,7 +37,8 @@ const (
 	ManifestSchemaVersionV11      = 11
 	ManifestSchemaVersionV12      = 12
 	ManifestSchemaVersionV13      = 13
-	ManifestSchemaVersion         = ManifestSchemaVersionV13
+	ManifestSchemaVersionV14      = 14
+	ManifestSchemaVersion         = ManifestSchemaVersionV14
 )
 
 type ManifestDisposition string
@@ -68,9 +76,12 @@ type ManifestItem struct {
 	Disposition     ManifestDisposition
 	CorpusID        string
 	SentenceOrdinal int64
-	Entry           Entry
-	Quality         SentenceQuality
-	CacheKey        *enrichment.CacheKey
+	// ItemKind is the frozen card kind. The zero value is a lemma item, which
+	// is every item frozen before idiom cards existed.
+	ItemKind enrichment.ItemKind
+	Entry    Entry
+	Quality  SentenceQuality
+	CacheKey *enrichment.CacheKey
 }
 
 // ManifestSnapshot is the versioned, immutable representation persisted for a
@@ -146,8 +157,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v11\x00"
 	case ManifestSchemaVersionV12:
 		prefix = "mouseion-prepared-deck-manifest-v12\x00"
-	default:
+	case ManifestSchemaVersionV13:
 		prefix = "mouseion-prepared-deck-manifest-v13\x00"
+	default:
+		prefix = "mouseion-prepared-deck-manifest-v14\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -236,8 +249,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v11\x00"
 	case ManifestSchemaVersionV12:
 		prefix = "mouseion-prepared-deck-candidate-v12\x00"
-	default:
+	case ManifestSchemaVersionV13:
 		prefix = "mouseion-prepared-deck-candidate-v13\x00"
+	default:
+		prefix = "mouseion-prepared-deck-candidate-v14\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -248,6 +263,11 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 func manifestFromSnapshot(snapshot ManifestSnapshot) (manifest, error) {
 	if _, err := snapshot.canonical(); err != nil {
 		return manifest{}, err
+	}
+	for _, item := range snapshot.Items {
+		if kind := item.ItemKind.Normalized(); kind != enrichment.ItemKindLemma {
+			return manifest{}, fmt.Errorf("%w: %s item", ErrUnsupportedItemKind, kind)
+		}
 	}
 	manifest := manifest{
 		owner: snapshot.Owner, deckName: snapshot.DeckName,
@@ -298,6 +318,7 @@ type canonicalSnapshot struct {
 type canonicalManifestItem struct {
 	Ordinal     int                      `json:"ordinal"`
 	Disposition ManifestDisposition      `json:"disposition"`
+	ItemKind    enrichment.ItemKind      `json:"item_kind,omitempty"`
 	Entry       canonicalEntry           `json:"entry"`
 	Quality     canonicalSentenceQuality `json:"quality"`
 	CacheKey    *canonicalCacheKey       `json:"cache_key"`
@@ -351,6 +372,7 @@ type canonicalCacheKey struct {
 	TargetLanguage      string `json:"target_language,omitempty"`
 	CanonicalLemma      string `json:"canonical_lemma"`
 	UPOS                string `json:"upos"`
+	ItemKind            string `json:"item_kind,omitempty"`
 	Provider            string `json:"provider"`
 	ProviderVersion     string `json:"provider_version"`
 	SentenceHash        string `json:"sentence_hash"`
@@ -387,7 +409,7 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 // validateHeader rejects a snapshot whose schema version is unknown or whose
 // owner and deck identity are missing or inconsistent with the download name.
 func (s ManifestSnapshot) validateHeader() error {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12 && s.SchemaVersion != ManifestSchemaVersionV13) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12 && s.SchemaVersion != ManifestSchemaVersionV13 && s.SchemaVersion != ManifestSchemaVersionV14) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	return nil
@@ -430,6 +452,9 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	if item.Disposition != ManifestAccepted && item.Disposition != ManifestQualityOmitted {
 		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest disposition", ErrInvalidInput)
 	}
+	if err := validateManifestItemKind(item); err != nil {
+		return canonicalManifestItem{}, err
+	}
 	if err := validateManifestQuality(item, schemaVersion); err != nil {
 		return canonicalManifestItem{}, err
 	}
@@ -448,12 +473,26 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	if err != nil {
 		return canonicalManifestItem{}, err
 	}
-	return canonicalManifestItem{
+	canonical := canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,
 		Entry:    entryCanonical,
 		Quality:  canonicalizeManifestQuality(item.Quality, schemaVersion),
 		CacheKey: key,
-	}, nil
+	}
+	if schemaVersion >= ManifestSchemaVersionV14 {
+		canonical.ItemKind = item.ItemKind.Normalized()
+	}
+	return canonical, nil
+}
+
+// validateManifestItemKind rejects a value this contract does not define.
+// Historical schema versions do not encode the field and ignore it in their
+// digest, but an invalid value is still an invalid frozen decision.
+func validateManifestItemKind(item ManifestItem) error {
+	if !item.ItemKind.Valid() {
+		return fmt.Errorf("%w: invalid manifest item kind", ErrInvalidInput)
+	}
+	return nil
 }
 
 // validateManifestEntry rejects owner-scoped or external fields and requires the
@@ -506,6 +545,13 @@ func canonicalizeManifestCacheKey(item ManifestItem, schemaVersion int) (canonic
 	key := canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
 	if schemaVersion >= ManifestSchemaVersionV8 {
 		key.MeaningEvidenceHash = item.CacheKey.MeaningEvidenceHash
+	}
+	if schemaVersion >= ManifestSchemaVersionV14 {
+		keyKind := item.CacheKey.ItemKind.Normalized()
+		if !keyKind.Valid() || keyKind != item.ItemKind.Normalized() {
+			return canonicalCacheKey{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)
+		}
+		key.ItemKind = string(keyKind)
 	}
 	return key, nil
 }

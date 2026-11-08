@@ -151,6 +151,10 @@ type CacheKey struct {
 	Language, TargetLanguage, CanonicalLemma, UPOS, Provider, ProviderVersion string
 	DictionaryProviderVersion                                                 string
 	SentenceHash, MeaningEvidenceHash                                         string
+	// ItemKind is the card kind this contextual result belongs to. It is part
+	// of the cache identity: a lemma result is never served for an idiom with
+	// the same text, or vice versa. The zero value is a lemma.
+	ItemKind ItemKind
 }
 type CacheEntry struct {
 	CacheKey
