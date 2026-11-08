@@ -29,7 +29,7 @@ The gate passes only when every item below is true:
 
 - [x] Gate evaluated and recorded: **fail** — four automatic checks fail and the sample has 1 confirmed card of the 30 the gate needs.
 
-Verdicts drafted by Claude on 2026-11-08 at the operator's request. Run against the dictionary index rebuilt after #2380 (same 2026-10-03 dump; Italian idiom entries 9,661 → 8,666). The 2026-11-08 v1 report ([idiom-review-2026-11-08.md](idiom-review-2026-11-08.md)) is unchanged. Failing cases:
+Verdicts drafted by Claude on 2026-11-08 at the operator's request and confirmed by the operator the same day. Run against the dictionary index rebuilt after #2380 (same 2026-10-03 dump; Italian idiom entries 9,661 → 8,666). The 2026-11-08 v1 report ([idiom-review-2026-11-08.md](idiom-review-2026-11-08.md)) is unchanged. Failing cases:
 
 - `it-tagliare-la-corda-literal` and `de-jemanden-auf-den-arm-nehmen-literal` (both passed under v1): the provider answered `literal_use` with an empty `translation`, and the codec rejects every response with an empty `translation`, so the controls end as `invalid response`. The v2 prompt defines `translation` as "the idiom in that sense", which has no value when the words are literal.
 - `it-rispetto-a-comparative`: confirmed as "in relation to" instead of `ambiguous`.
