@@ -1,6 +1,6 @@
 # Idiom card review — `idiom-card-v1`
 
-Status: **Operator review required**
+Status: **Gate failed — Italian idiom cards stay off** (follow-up: #2378)
 
 - Date: 2026-11-08
 - Model: `gpt-5.6-luna`
@@ -28,9 +28,9 @@ The gate passes only when every item below is true:
 - no literal-use control is confirmed and every lemma-card control passes its automatic check;
 - none of the sampled cards teaches a wrong meaning.
 
-- [ ] Gate evaluated and recorded: **fail (draft)** — sample cards 4 (*di fronte*), 13 (*rispetto a*) and 25 (*fare bene*) teach a wrong meaning in context. Every case and the other 27 sample cards pass.
+- [x] Gate evaluated and recorded: **fail** — sample cards 4 (*di fronte*), 13 (*rispetto a*) and 25 (*fare bene*) teach a wrong meaning in context. Every case and the other 27 sample cards pass.
 
-Verdicts drafted by Claude on 2026-11-08 at the operator's request; they await the operator's confirmation. Observations beyond the gate:
+Verdicts drafted by Claude on 2026-11-08 at the operator's request and confirmed by the operator the same day. Follow-up: [#2378](https://github.com/justin-hayes/mouseion/issues/2378). Observations beyond the gate:
 
 - Card 25 is a matcher/provider miss: the words are used literally, but the provider confirmed the idiom anyway, even though one candidate sense says "Used other than figuratively or idiomatically".
 - Cards 4 and 13 show the Gloss following the dictionary's first sense rather than the sense the sentence uses (the translation for card 4 is right; the Gloss is not).
