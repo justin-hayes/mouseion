@@ -64,6 +64,36 @@ func TestIdiomCardCodecAcceptsLiteralUseAndRejectsLemmaMismatch(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidTranslationResponse)
 }
 
+func TestIdiomCardCodecAcceptsAmbiguousAndRejectsUnknownKinds(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := idiomCardRequest()
+	ambiguous := `{"item_id":"` + IdiomCardItemHandle + `","source_language":"it","target_language":"en","translation":"leg","sentence_translation":"He has a leg.","sentence_translation_targets":[],"gloss":"","evidence_ids":[],"context_only":true,"unresolved_kind":"ambiguous","unresolved_reason":"The sentence does not distinguish the meanings."}`
+	response, err := codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(ambiguous)+`}}]}`))
+	require.NoError(t, err)
+	assert.Empty(t, response.Gloss)
+	assert.Equal(t, ContextualGlossUnresolvedAmbiguous, response.UnresolvedKind)
+	assert.Equal(t, "The sentence does not distinguish the meanings.", response.UnresolvedReason)
+
+	for _, kind := range []string{"lemma_mismatch", "unsupported_kind"} {
+		invalid := strings.Replace(ambiguous, `"ambiguous"`, `"`+kind+`"`, 1)
+		_, err = codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(invalid)+`}}]}`))
+		assert.ErrorIs(t, err, ErrInvalidTranslationResponse, "kind=%s", kind)
+	}
+}
+
+func TestIdiomCardCodecDiscardsAStrayKindAndReasonBesideAResolvedGloss(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := idiomCardRequest()
+	content := `{"item_id":"` + IdiomCardItemHandle + `","source_language":"it","target_language":"en","translation":"capable","sentence_translation":"He is really a capable young man.","sentence_translation_targets":["capable"],"gloss":"capable","evidence_ids":[],"context_only":true,"unresolved_kind":"literal_use","unresolved_reason":"The words are literal."}`
+	response, err := codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(content)+`}}]}`))
+	require.NoError(t, err)
+	assert.Equal(t, "capable", response.Gloss)
+	assert.Empty(t, response.UnresolvedKind, "a stray kind beside a resolved Gloss is discarded")
+	assert.Empty(t, response.UnresolvedReason, "a stray reason beside a resolved Gloss is discarded")
+}
+
 func TestIdiomCardCodecRequiresTheCompleteOutcome(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)

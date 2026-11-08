@@ -3,12 +3,14 @@ package persistence
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
 // GetDeckPreparationStatus returns the public preparation row with a derived
@@ -54,21 +56,31 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	appendMeaningOmissions(&p, outcomes, projection.Items)
 	applyRunProgress(&p, run, progress, chunks)
 	if p.State == domain.DeckPreparationReady {
-		p.ProviderOmissions = countProviderOmissions(outcomes)
+		p.ProviderOmissions = countProviderOmissions(outcomes, projection.Items)
 	}
 	if err := s.applyActiveRunCompleteness(ctx, &p, owner, preparationID, run, progress); err != nil {
 		return p, err
 	}
-	applyCardKindCounts(&p, projection)
+	applyCardKindCounts(&p, projection, outcomes)
 	return p, nil
 }
 
-// applyCardKindCounts splits the total card count by frozen item kind. Idiom
-// cards are counted separately from vocabulary cards (ADR 0114).
-func applyCardKindCounts(preparation *domain.DeckPreparation, projection cardexport.StorageProjection) {
+// applyCardKindCounts splits the total card count by rendered item kind. A
+// frozen idiom item that the provider omitted is an idiom omission, not an
+// idiom card, so only a completed idiom outcome without an omission counts
+// (ADR 0114).
+func applyCardKindCounts(preparation *domain.DeckPreparation, projection cardexport.StorageProjection, outcomes []domain.PreparedDeckTranslationOutcome) {
+	byOrdinal := make(map[int]domain.PreparedDeckTranslationOutcome, len(outcomes))
+	for _, outcome := range outcomes {
+		byOrdinal[outcome.Ordinal] = outcome
+	}
 	idioms := 0
 	for _, item := range projection.Items {
-		if item.Disposition == cardexport.ManifestAccepted && item.ItemKind.IsIdiom() {
+		if item.Disposition != cardexport.ManifestAccepted || !item.ItemKind.IsIdiom() {
+			continue
+		}
+		outcome, ok := byOrdinal[item.Ordinal]
+		if ok && outcome.State == domain.PreparedDeckOutcomeCompleted && outcome.OmissionReason == "" {
 			idioms++
 		}
 	}
@@ -126,41 +138,65 @@ func appendEvidenceCoverage(p *domain.DeckPreparation, frozen cardexport.FrozenD
 	}
 }
 
-// appendMeaningOmissions names the target word of every completed item the
-// provider explicitly left unresolved. An evidence-assisted pass abstention is
-// not an unresolved meaning: the pass only adds, so it is skipped. A
-// lemma-mismatch omission is counted separately and labelled with the fixed
-// learner-facing reason; ambiguous omissions keep their provider reason.
+// appendMeaningOmissions names the target of every completed item the provider
+// explicitly left unresolved. An evidence-assisted pass abstention is not an
+// unresolved meaning: the pass only adds, so it is skipped. Vocabulary
+// omissions and idiom omissions are counted and listed separately (ADR 0114).
+// A lemma-mismatch omission is counted as a subset of the vocabulary omissions
+// and labelled with the fixed learner-facing reason; ambiguous omissions keep
+// their provider reason.
 func appendMeaningOmissions(p *domain.DeckPreparation, outcomes []domain.PreparedDeckTranslationOutcome, items []cardexport.ManifestItem) {
+	byOrdinal := make(map[int]cardexport.ManifestItem, len(items))
+	for _, item := range items {
+		byOrdinal[item.Ordinal] = item
+	}
 	for _, outcome := range outcomes {
 		if outcome.OmissionReason == "" || outcome.State != domain.PreparedDeckOutcomeCompleted || outcome.OmissionReason == domain.DeckPreparationEvidenceAssistedPassAbstentionReason {
 			continue
 		}
+		item, found := byOrdinal[outcome.Ordinal]
+		if !found {
+			continue
+		}
+		if item.ItemKind.IsIdiom() {
+			p.IdiomOmissions++
+			p.IdiomOmissionDetails = append(p.IdiomOmissionDetails, domain.DeckPreparationIdiomOmission{
+				Headword: idiomOmissionTarget(item),
+				Reason:   outcome.OmissionReason,
+			})
+			continue
+		}
+		p.VocabularyOmissions++
 		lemmaMismatch := domain.IsDeckPreparationLemmaMismatchOmission(outcome.OmissionReason)
 		reason := outcome.OmissionReason
 		if lemmaMismatch {
 			reason = domain.DeckPreparationLemmaMismatchLabel
+			p.LemmaMismatchOmissions++
 		}
-		for _, item := range items {
-			if item.Ordinal == outcome.Ordinal {
-				p.MeaningOmissions = append(p.MeaningOmissions, domain.DeckPreparationMeaningOmission{TargetWord: item.Entry.TargetWord, Reason: reason})
-				if lemmaMismatch {
-					p.LemmaMismatchOmissions++
-				}
-				break
-			}
-		}
+		p.MeaningOmissions = append(p.MeaningOmissions, domain.DeckPreparationMeaningOmission{TargetWord: item.Entry.TargetWord, Reason: reason})
 	}
 }
 
+// idiomOmissionTarget names the omitted idiom rather than one anchor word, so
+// the learner-facing omission list identifies the card that was dropped.
+func idiomOmissionTarget(item cardexport.ManifestItem) string {
+	if headword := strings.TrimSpace(item.Entry.Headword); headword != "" {
+		return headword
+	}
+	return item.Entry.TargetWord
+}
+
 // countProviderOmissions counts the accepted identities a ready deck left out
-// because the provider answered unusably. A ready deck that carries a
-// non-response failure (possible only outside the standard fail-closed path)
-// still reports that failure as a translation failure, not as an omission.
-func countProviderOmissions(outcomes []domain.PreparedDeckTranslationOutcome) int {
+// because the provider answered unusably. An idiom item's failure is always
+// tolerated, so it is always a provider omission (ADR 0114).
+func countProviderOmissions(outcomes []domain.PreparedDeckTranslationOutcome, items []cardexport.ManifestItem) int {
+	byOrdinal := make(map[int]enrichment.ItemKind, len(items))
+	for _, item := range items {
+		byOrdinal[item.Ordinal] = item.ItemKind
+	}
 	count := 0
 	for _, outcome := range outcomes {
-		if outcome.State == domain.PreparedDeckOutcomeFailed && tolerableProviderOmission(outcome.ErrorClass, outcome.ErrorCode) {
+		if outcome.State == domain.PreparedDeckOutcomeFailed && tolerablePreparedDeckFailure(byOrdinal[outcome.Ordinal], outcome.ErrorClass, outcome.ErrorCode) {
 			count++
 		}
 	}

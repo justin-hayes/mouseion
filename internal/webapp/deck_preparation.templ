@@ -33,6 +33,9 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 		for _, omission := range preparation.MeaningOmissions {
 			<p><strong>Omitted { omission.TargetWord }:</strong> { omission.Reason }</p>
 		}
+		for _, omission := range preparation.IdiomOmissionDetails {
+			<p><strong>Omitted { omission.Headword }:</strong> { omission.Reason }</p>
+		}
 		if preparation.DeckName != "" && !deckPreparationEmpty(preparation) {
 			<p><strong>Deck:</strong> <code>{ preparation.DeckName }</code> · <strong>Filename:</strong> <code>{ preparation.Filename }</code></p>
 		}
@@ -52,6 +55,12 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				}
 				<p><strong>Completeness:</strong> { deckCompletenessSummary(preparation) }</p>
 				if summary := providerOmissionSummary(preparation); summary != "" {
+					@OmissionSummary(summary)
+				}
+				if summary := vocabularyOmissionSummary(preparation); summary != "" {
+					@OmissionSummary(summary)
+				}
+				if summary := idiomOmissionSummary(preparation); summary != "" {
 					@OmissionSummary(summary)
 				}
 				if summary := lemmaMismatchOmissionSummary(preparation); summary != "" {
@@ -122,6 +131,30 @@ templ OmissionSummary(summary string) {
 // providerOmissionSummary names the provider-omission count and reason.
 func providerOmissionSummary(preparation domain.DeckPreparation) string {
 	return omissionSummary(preparation.ProviderOmissions, domain.DeckPreparationProviderOmissionReason)
+}
+
+// vocabularyOmissionSummary names the separate vocabulary-omission count. The
+// per-item list carries each learner-facing reason.
+func vocabularyOmissionSummary(preparation domain.DeckPreparation) string {
+	return omissionCountSummary(preparation.VocabularyOmissions, "vocabulary card", "vocabulary cards")
+}
+
+// idiomOmissionSummary names the separate idiom-omission count. The per-item
+// list carries the learner-facing reason, including literal use.
+func idiomOmissionSummary(preparation domain.DeckPreparation) string {
+	return omissionCountSummary(preparation.IdiomOmissions, "idiom", "idioms")
+}
+
+// omissionCountSummary labels a non-zero omitted-card count.
+func omissionCountSummary(count int, singular, plural string) string {
+	switch {
+	case count == 1:
+		return fmt.Sprintf("1 %s left out.", singular)
+	case count > 1:
+		return fmt.Sprintf("%d %s left out.", count, plural)
+	default:
+		return ""
+	}
 }
 
 // lemmaMismatchOmissionSummary names the separate lemma-mismatch count.

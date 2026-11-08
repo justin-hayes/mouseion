@@ -13,6 +13,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
@@ -201,19 +202,47 @@ func preparedDeckRunAcceptsOutcome(run domain.PreparedDeckRun) bool {
 
 // standardRunMustFailForOutcomes reports whether a standard run's terminal
 // outcomes prevent publishing a deck. A per-item provider response failure is
-// tolerated as an omission, but every other failure class fails the run, as
-// does a run where no accepted item produced a usable card.
+// tolerated as an omission, and an idiom item's failure never fails the run: an
+// idiom card is optional and never substitutes for a vocabulary card (ADR 0114).
+// Every other failure class fails the run, as does a run where no accepted item
+// produced a usable card.
 func standardRunMustFailForOutcomes(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, run domain.PreparedDeckRun) (bool, error) {
 	outcomes, err := q.ListPreparedDeckTranslationOutcomes(ctx, sqlcgen.ListPreparedDeckTranslationOutcomesParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})
 	if err != nil {
 		return false, err
 	}
+	items, err := q.ListPreparedDeckManifestItems(ctx, sqlcgen.ListPreparedDeckManifestItemsParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})
+	if err != nil {
+		return false, err
+	}
 	for _, outcome := range outcomes {
-		if outcome.State == string(domain.PreparedDeckOutcomeFailed) && !tolerableProviderOmission(outcome.ErrorClass, outcome.ErrorCode) {
-			return true, nil
+		if outcome.State != string(domain.PreparedDeckOutcomeFailed) {
+			continue
 		}
+		if tolerablePreparedDeckFailure(manifestItemKind(items, outcome.Ordinal), outcome.ErrorClass, outcome.ErrorCode) {
+			continue
+		}
+		return true, nil
 	}
 	return run.FailedCount > 0 && run.CompletedCount == 0, nil
+}
+
+// manifestItemKind returns the frozen kind of one manifest item. A missing item
+// keeps the lemma default, so an unknown failure is never silently tolerated.
+func manifestItemKind(items []sqlcgen.DeckPreparationManifestItem, ordinal int) enrichment.ItemKind {
+	for _, item := range items {
+		if item.Ordinal == ordinal {
+			return enrichment.ItemKind(item.ItemKind)
+		}
+	}
+	return enrichment.ItemKindLemma
+}
+
+// tolerablePreparedDeckFailure reports whether a failed item may be omitted
+// instead of failing the run. Idiom items are optional by design; vocabulary
+// items tolerate only the bounded provider-response failures (ADR 0100/0114).
+func tolerablePreparedDeckFailure(kind enrichment.ItemKind, errorClass, errorCode string) bool {
+	return kind.IsIdiom() || tolerableProviderOmission(errorClass, errorCode)
 }
 
 func resolvePreparedDeckOutcomeReplay(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, ordinal int, state domain.PreparedDeckOutcomeState, fallback error) (domain.PreparedDeckTranslationOutcome, bool, error) {
