@@ -109,6 +109,8 @@ func checkDisplayName(name string) string {
 		return "outcome is `confirmed`"
 	case checkNameIdiomLiteralUse:
 		return "outcome is `literal_use`"
+	case checkNameIdiomAmbiguous:
+		return "outcome is `ambiguous`"
 	default:
 		return name
 	}

@@ -2,6 +2,7 @@
 package idiom
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -12,7 +13,7 @@ import (
 const (
 	// MatcherVersion identifies the matching rules frozen into a candidate's
 	// provenance. A rule change requires a new version.
-	MatcherVersion = "idiom-matcher/1"
+	MatcherVersion = "idiom-matcher/2"
 	// DefaultGapBound is the initial bounded number of other tokens allowed
 	// between consecutive words of a headword.
 	DefaultGapBound = 2
@@ -89,9 +90,11 @@ type Candidate struct {
 // Match returns the idiom candidates in tokens. Every word of an entry's
 // headword must match a token by case-folded surface form or canonical lemma,
 // in headword order, with at most parameters.GapBound other tokens between
-// consecutive words. A candidate without an anchor is dropped. Overlapping
-// candidates resolve to the longest headword, then the earliest sentence
-// position. Match is pure: it performs no I/O and does not mutate its inputs.
+// consecutive words. Entries that share a headword and source are pooled into
+// one candidate carrying every part of speech's senses. A candidate without an
+// anchor is dropped. Overlapping candidates resolve to the longest headword,
+// then the earliest sentence position. Match is pure: it performs no I/O and
+// does not mutate its inputs.
 func Match(parameters Parameters, tokens []Token, anchors []Anchor, entries []Entry) []Candidate {
 	if len(tokens) == 0 || len(entries) == 0 {
 		return nil
@@ -107,7 +110,7 @@ func Match(parameters Parameters, tokens []Token, anchors []Anchor, entries []En
 		anchorsByOrdinal[anchor.TokenOrdinal] = anchor
 	}
 	candidates := make([]Candidate, 0)
-	for _, entry := range uniqueEntries(entries) {
+	for _, entry := range poolEntries(entries) {
 		candidate, found := matchEntry(parameters, tokens, anchorsByOrdinal, entry)
 		if found {
 			candidates = append(candidates, candidate)
@@ -116,19 +119,47 @@ func Match(parameters Parameters, tokens []Token, anchors []Anchor, entries []En
 	return resolveOverlaps(candidates)
 }
 
-func uniqueEntries(entries []Entry) []Entry {
-	type entryKey struct{ language, headword, upos, source string }
-	seen := make(map[entryKey]bool, len(entries))
-	unique := make([]Entry, 0, len(entries))
+// poolEntries merges the entries that share a language, headword and source
+// into one entry. A dictionary can list one headword under several parts of
+// speech (di fronte is both an adjective and an adverb); matching them
+// separately would keep only one entry's senses, so the provider could not see
+// the sense the sentence uses. The pooled senses follow part-of-speech order,
+// then each entry's own sense order, so the result does not depend on the
+// lookup order. A repeated part of speech is dropped. UPOS lists every pooled
+// part of speech, joined with "+".
+func poolEntries(entries []Entry) []Entry {
+	type poolKey struct{ language, headword, source string }
+	groups := make(map[poolKey][]Entry, len(entries))
+	order := make([]poolKey, 0, len(entries))
 	for _, entry := range entries {
-		key := entryKey{entry.Language, entry.Headword, entry.UPOS, entry.Source}
-		if seen[key] {
+		key := poolKey{entry.Language, entry.Headword, entry.Source}
+		group, seen := groups[key]
+		if !seen {
+			order = append(order, key)
+		}
+		if slices.ContainsFunc(group, func(member Entry) bool { return member.UPOS == entry.UPOS }) {
 			continue
 		}
-		seen[key] = true
-		unique = append(unique, entry)
+		groups[key] = append(group, entry)
 	}
-	return unique
+	pooled := make([]Entry, 0, len(order))
+	for _, key := range order {
+		group := groups[key]
+		sort.SliceStable(group, func(left, right int) bool { return group[left].UPOS < group[right].UPOS })
+		entry := group[0]
+		if len(group) > 1 {
+			parts := make([]string, 0, len(group))
+			var senses []enrichment.LexicalSense
+			for _, member := range group {
+				parts = append(parts, member.UPOS)
+				senses = append(senses, member.Senses...)
+			}
+			entry.UPOS = strings.Join(parts, "+")
+			entry.Senses = senses
+		}
+		pooled = append(pooled, entry)
+	}
+	return pooled
 }
 
 func matchEntry(parameters Parameters, tokens []Token, anchors map[int]Anchor, entry Entry) (Candidate, bool) {

@@ -1,0 +1,105 @@
+{
+  "version": "idiom-review-v1",
+  "cases": [
+    {
+      "id": "it-in-gamba",
+      "language": "it",
+      "kind": "positive",
+      "headword": "in gamba",
+      "matched_forms": ["in", "gamba"],
+      "sentence": "È un ragazzo in gamba.",
+      "evidence": [
+        {"evidence_id": "wikt:in gamba:1", "gloss": "capable, on the ball"}
+      ],
+      "expected_gloss": "capable",
+      "notes": "The anchor is gamba; the idiom means capable, not leg."
+    },
+    {
+      "id": "it-in-bocca-al-lupo",
+      "language": "it",
+      "kind": "positive",
+      "headword": "in bocca al lupo",
+      "matched_forms": ["in", "bocca", "al", "lupo"],
+      "sentence": "In bocca al lupo per l'esame!",
+      "evidence": [
+        {"evidence_id": "wikt:in bocca al lupo:1", "gloss": "good luck"}
+      ],
+      "expected_gloss": "good luck",
+      "notes": "A four-word wish; its Gloss must not paraphrase the wolf image."
+    },
+    {
+      "id": "it-macchina-da-scrivere",
+      "language": "it",
+      "kind": "positive",
+      "headword": "macchina da scrivere",
+      "matched_forms": ["macchina", "da", "scrivere"],
+      "sentence": "Ha comprato una macchina da scrivere.",
+      "evidence": [
+        {"evidence_id": "wikt:macchina da scrivere:1", "gloss": "typewriter"}
+      ],
+      "expected_gloss": "typewriter",
+      "notes": "A fixed compound is an idiom for this review."
+    },
+    {
+      "id": "el-kano-ta-strava-matia",
+      "language": "el",
+      "kind": "positive",
+      "headword": "κάνω τα στραβά μάτια",
+      "matched_forms": ["Έκανε", "τα", "στραβά", "μάτια"],
+      "sentence": "Έκανε τα στραβά μάτια στην παράβαση.",
+      "evidence": [
+        {"evidence_id": "reviewed:kano ta strava matia:1", "gloss": "to turn a blind eye"}
+      ],
+      "expected_gloss": "to turn a blind eye",
+      "notes": "The inflected verb is matched through its lemma."
+    },
+    {
+      "id": "it-tagliare-la-corda-literal",
+      "language": "it",
+      "kind": "literal_use_control",
+      "headword": "tagliare la corda",
+      "matched_forms": ["Tagliò", "la", "corda"],
+      "sentence": "Tagliò la corda del pacco.",
+      "evidence": [
+        {"evidence_id": "wikt:tagliare la corda:1", "gloss": "to run away, to scarper"}
+      ],
+      "notes": "The cord belongs to the parcel, so the words are literal."
+    },
+    {
+      "id": "de-jemanden-auf-den-arm-nehmen-literal",
+      "language": "de",
+      "kind": "literal_use_control",
+      "headword": "jemanden auf den Arm nehmen",
+      "matched_forms": ["nimmt", "auf", "den", "Arm"],
+      "sentence": "Sie nimmt das Kind auf den Arm.",
+      "evidence": [
+        {"evidence_id": "wikt:jemanden auf den Arm nehmen:1", "gloss": "to pull someone's leg"}
+      ],
+      "notes": "She picks the child up; this is not the figurative idiom."
+    },
+    {
+      "id": "it-gamba-lemma-card",
+      "language": "it",
+      "kind": "lemma_card_control",
+      "headword": "in gamba",
+      "anchor_lemma": "gamba",
+      "anchor_upos": "NOUN",
+      "anchor_form": "gamba",
+      "idiom_sentence": "È un ragazzo in gamba.",
+      "lemma_card_sentence": "Mi fa male la gamba.",
+      "notes": "The anchor's own card must use the literal leg sentence."
+    },
+    {
+      "id": "de-arm-lemma-card",
+      "language": "de",
+      "kind": "lemma_card_control",
+      "headword": "jemanden auf den Arm nehmen",
+      "anchor_lemma": "Arm",
+      "anchor_upos": "NOUN",
+      "anchor_form": "Arm",
+      "idiom_sentence": "Sie nimmt das Kind auf den Arm.",
+      "lemma_card_sentence": "Er hat sich den Arm gebrochen.",
+      "notes": "The anchor's own card must use the broken-arm sentence."
+    }
+  ]
+}
