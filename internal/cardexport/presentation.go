@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -163,10 +164,27 @@ type RecoveredRenderInput struct {
 // provider is the only replaceable implementation seam.
 type Presentation struct {
 	lexical enrichment.LexicalProvider
+	// idiomCardLanguages holds the normalized languages whose idiom-card
+	// switch is on. An empty set leaves representative-sentence ranking
+	// exactly as it was before idiom cards (ADR 0114).
+	idiomCardLanguages map[string]bool
 }
 
 func NewPresentation(provider enrichment.LexicalProvider) *Presentation {
 	return &Presentation{lexical: provider}
+}
+
+// NewPresentationWithIdiomCards builds a presentation whose idiom-card switch
+// is on for the given languages. The switch is off by default, so a caller
+// that omits a language keeps today's sentence choice exactly.
+func NewPresentationWithIdiomCards(provider enrichment.LexicalProvider, languages []string) *Presentation {
+	enabled := make(map[string]bool, len(languages))
+	for _, language := range languages {
+		if normalized := canonicalization.NormalizeLanguage(language); normalized != "" {
+			enabled[normalized] = true
+		}
+	}
+	return &Presentation{lexical: provider, idiomCardLanguages: enabled}
 }
 
 // FrozenDeck is an opaque, immutable presentation plan.
@@ -186,7 +204,7 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 	if err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, err
 	}
-	entries, err := freezeEntries(ctx, p.lexical, ordered)
+	entries, err := freezeEntries(ctx, p.lexical, p.idiomCardLanguages, ordered)
 	if err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, err
 	}
@@ -235,13 +253,17 @@ func orderedProjections(owner, deckName string, projections []CandidateProjectio
 // clears external fields, applies the frozen sentence decision and resolves
 // local lexical facts. A source-evidence projection resolves no local lexical
 // facts, so its entry keeps the representative sentence alone.
-func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, ordered []CandidateProjection) ([]Entry, error) {
+func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, idiomCardLanguages map[string]bool, ordered []CandidateProjection) ([]Entry, error) {
 	resolver := &lexicalResolver{lexical: lexical}
 	entries := make([]Entry, 0, len(ordered))
 	for _, projection := range ordered {
 		entry := cloneEntry(projection.Entry)
 		clearExternalFields(&entry)
-		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
+		prefer, err := idiomSentencePreferenceFor(ctx, idiomCapableProvider(lexical), idiomCardLanguages, projection.Candidate)
+		if err != nil {
+			return nil, err
+		}
+		applySentenceDecision(&entry, projection.Candidate, projection.Sentences, prefer)
 		if err := applySourceAttribution(&entry, projection); err != nil {
 			return nil, err
 		}

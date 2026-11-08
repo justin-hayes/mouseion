@@ -1097,11 +1097,11 @@ func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry)
 	return nil
 }
 
-func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) {
+func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence, prefer sentencequality.SentencePreference) {
 	var evidence sentencequality.SentenceEvidence
 	var ok bool
 	if persisted != nil {
-		evidence, ok = sentencequality.BestSentenceEvidenceFromCorpus(candidate, persisted)
+		evidence, ok = sentencequality.BestSentenceEvidenceFromCorpusWithPreference(candidate, persisted, prefer)
 	} else {
 		evidence, ok = sentencequality.BestSentenceEvidence(candidate)
 	}

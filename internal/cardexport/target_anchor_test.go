@@ -29,7 +29,7 @@ func TestApplySentenceDecisionResetsAnchorWithoutPersistedSentence(t *testing.T)
 		Sentence: "Je vois l'homme qui marche.", TargetWord: "homme", SentenceStartOffset: 12,
 	}
 
-	applySentenceDecision(&entry, candidate, map[int64]analyzer.Sentence{})
+	applySentenceDecision(&entry, candidate, map[int64]analyzer.Sentence{}, nil)
 
 	assert.Empty(t, entry.SentenceTokens)
 	assert.Equal(t, uint64(0), entry.SentenceStartOffset)
