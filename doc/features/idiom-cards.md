@@ -234,7 +234,10 @@ gush out".
       The [2026-11-08 Italian review](../reviews/idiom-review-2026-11-08.md)
       failed the gate (three wrong-meaning sample cards); Italian stays off
       until a new report for `idiom-card-v2` and `idiom-review-v2` (#2378)
-      passes it (#2367).
+      passes it (#2367). The
+      [2026-11-08 v2 re-run](../reviews/idiom-review-v2-2026-11-08.md) also
+      failed: idiom senses carry no evidence IDs, and unresolved answers with
+      an empty translation are rejected; Italian stays off (#2385).
 
 ## Related
 

@@ -158,7 +158,11 @@ go run ./cmd/glossreview -review idiom \
 that the gate cannot pass without a sample. `-seed` defaults to the report date.
 `-book` needs `MOUSEION_DATABASE_URL` and `MOUSEION_DICTIONARY_INDEX`, and the
 index must carry the idiom lookup tables (`idiom_entries` and `idiom_words`). An
-index derived before those tables existed is refused; rebuild it first. The
+index derived before those tables existed is refused; rebuild it first. An
+index from an older derivation that already has those tables is accepted
+without warning, so rebuild it before a review whenever the deployed change
+touches the derivation script or the reviewed idiom list
+([Dictionary index](../operations.md#dictionary-index)). The
 sample does not need a ready deck or a recorded idiom assessment: recording the
 assessment is what the review is for.
 
@@ -251,3 +255,6 @@ The report states this gate and leaves the final verdict to the operator.
   configured-model review pending.
 - [Idiom card v1 review, 2026-11-08](idiom-review-2026-11-08.md) — gate failed
   on three wrong-meaning sample cards; Italian idiom cards stay off (#2378).
+- [Idiom card v2 review, 2026-11-08](idiom-review-v2-2026-11-08.md) — gate
+  failed on four case checks and a sample of 1 confirmed card; Italian idiom
+  cards stay off (#2385).

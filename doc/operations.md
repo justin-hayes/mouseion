@@ -229,12 +229,23 @@ unavailable rather than passed. German review does not depend on the new data.
 
 Idiom detection reads a word-to-multi-word-entry lookup from the index. The
 derivation keeps two-to-four-word entries that have at least one ordinary sense,
-excluding entries made up only of form-of or alt-of senses, and loads Mouseion's
-reviewed idiom list from `nlp/reviewed_idioms.json`. The reviewed list records
-its own source and version, and starts empty for Italian and German. Re-derive
-the index after upgrading; an older index reports no idiom candidates rather
-than failing. Deck preparation does not call the lookup yet; idiom cards
-arrive with their own review-gated rollout.
+excluding entries made up only of form-of or alt-of senses, proper-name entries,
+and entries whose only sense is Wiktionary's literal-use marker. It also loads
+Mouseion's reviewed idiom list from `nlp/reviewed_idioms.json`. The reviewed
+list records its own source and version, and starts empty for Italian and
+German. Re-derive the index after upgrading; an older index reports no idiom
+candidates rather than failing. Deck preparation uses the lookup only for
+languages whose idiom-card switch is on (`MOUSEION_IDIOM_CARD_LANGUAGES`).
+
+Rebuild the index whenever a deployed change touches
+`nlp/scripts/derive_dictionary_index.py` or `nlp/reviewed_idioms.json`, even
+when the index format is unchanged. The server and review tools only refuse an
+index that lacks a table they need; an index from an older derivation loads
+without warning and keeps the old filtering. Check with
+`git log <deployed-before>..<deployed-after> -- nlp/scripts/derive_dictionary_index.py nlp/reviewed_idioms.json`.
+To change only the derivation, rebuild from the same dump (`KAIKKI_INPUT`, the
+same `DICTIONARY_DUMP_DATE`, and the same `DICTIONARY_LSJ_DIR`); the index
+metadata records the previous dump date, source sha256 and LSJ pin.
 
 Greek cards use the Perseus LSJ dictionary entry, not Wiktionary. To derive it,
 point `DICTIONARY_LSJ_DIR` at the pinned `PerseusDL/lexica`
