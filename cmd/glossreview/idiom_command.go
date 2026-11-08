@@ -22,7 +22,7 @@ import (
 // and returns its idiom items. It is an interface so the command tests never
 // need PostgreSQL or a dictionary index.
 type idiomSampleSource interface {
-	FreezeIdiomReviewItems(ctx context.Context, bookID, language string) ([]cardexport.IdiomWorkItem, error)
+	FreezeIdiomReviewItems(ctx context.Context, bookID, language string) (prepareddeck.IdiomReviewFreeze, error)
 	Close() error
 }
 
@@ -91,10 +91,11 @@ func executeIdiomCommand(ctx context.Context, options reviewCommandOptions, outp
 			return sourceErr
 		}
 		defer func() { err = errors.Join(err, source.Close()) }()
-		sample.Items, err = source.FreezeIdiomReviewItems(ctx, options.BookID, options.Language)
-		if err != nil {
-			return err
+		freeze, freezeErr := source.FreezeIdiomReviewItems(ctx, options.BookID, options.Language)
+		if freezeErr != nil {
+			return freezeErr
 		}
+		sample.Items, sample.Ranking = freeze.Items, freeze.Ranking
 	}
 	report := reviewIdiom(ctx, idiomReviewOptions{
 		Now:            options.Now,

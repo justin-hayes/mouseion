@@ -144,10 +144,10 @@ type scoredIdiomMatch struct {
 // (language plus headword), bounded per deck, plus the number of idioms the
 // bound left out. The returned projections are frozen after the vocabulary
 // projections, so existing lemma ordinals never move.
-func freezeIdiomProjections(ctx context.Context, lexical enrichment.LexicalProvider, ordered []CandidateProjection, config freezeOptions) ([]CandidateProjection, int, error) {
+func freezeIdiomProjections(ctx context.Context, lexical enrichment.LexicalProvider, ordered []CandidateProjection, config freezeOptions) ([]CandidateProjection, []IdiomRank, error) {
 	lookup, ok := lexical.(IdiomIndex)
 	if !ok || lookup == nil || len(config.idiomLanguages) == 0 || config.idiomProviderVersion == "" {
-		return nil, 0, nil
+		return nil, nil, nil
 	}
 	index := newCachedIdiomIndex(lookup)
 	matches := make([]idiomMatch, 0)
@@ -155,18 +155,102 @@ func freezeIdiomProjections(ctx context.Context, lexical enrichment.LexicalProvi
 	for _, projection := range ordered {
 		found, err := idiomMatchesForProjection(ctx, index, projection, config, occurrences)
 		if err != nil {
-			return nil, 0, err
+			return nil, nil, err
 		}
 		matches = append(matches, found...)
 	}
-	projections := idiomProjectionsFromMatches(matches, occurrences)
-	bounded, overflow := boundIdiomProjections(projections, config.idiomCardBound)
-	return bounded, overflow, nil
+	projections, ranking, err := rankIdiomProjections(ctx, index, idiomProjectionsFromMatches(matches, occurrences))
+	if err != nil {
+		return nil, nil, err
+	}
+	bounded, _ := boundIdiomProjections(projections, config.idiomCardBound)
+	for rank := range ranking {
+		ranking[rank].Kept = rank < len(bounded)
+	}
+	return bounded, ranking, nil
+}
+
+// IdiomRank is one idiom's place in the per-deck bound's ranking. Freeze
+// reports the full ranking in its diagnostics so the operator idiom review can
+// show which idioms a prepared deck keeps; it is never stored.
+type IdiomRank struct {
+	Language             string
+	Headword             string
+	AnchorCanonicalLemma string
+	AnchorUPOS           string
+	AnchorOccurrences    int
+	// NounOnly reports that every dictionary entry for the headword is a noun,
+	// typically a transparent compound, so the idiom ranks after every other
+	// idiom (#2379).
+	NounOnly bool
+	// Kept reports that the idiom fits within the per-deck bound.
+	Kept bool
+}
+
+// rankIdiomProjections orders idiom projections for the per-deck bound and
+// returns the matching ranking. Noun-only idioms form a lower tier after every
+// other idiom; idiomProjectionLess orders each tier.
+func rankIdiomProjections(ctx context.Context, index IdiomIndex, projections []CandidateProjection) ([]CandidateProjection, []IdiomRank, error) {
+	type ranked struct {
+		projection CandidateProjection
+		nounOnly   bool
+	}
+	items := make([]ranked, len(projections))
+	for i, projection := range projections {
+		nounOnly, err := idiomIsNounOnly(ctx, index, projection.Entry.Language, projection.Entry.Headword)
+		if err != nil {
+			return nil, nil, err
+		}
+		items[i] = ranked{projection: projection, nounOnly: nounOnly}
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].nounOnly != items[j].nounOnly {
+			return !items[i].nounOnly
+		}
+		return idiomProjectionLess(items[i].projection, items[j].projection)
+	})
+	result := make([]CandidateProjection, len(items))
+	ranking := make([]IdiomRank, len(items))
+	for i, item := range items {
+		result[i] = item.projection
+		evidence := item.projection.Entry.IdiomEvidence
+		ranking[i] = IdiomRank{
+			Language: item.projection.Entry.Language, Headword: item.projection.Entry.Headword,
+			AnchorCanonicalLemma: evidence.AnchorCanonicalLemma, AnchorUPOS: evidence.AnchorUPOS,
+			AnchorOccurrences: item.projection.Candidate.OccurrenceCount, NounOnly: item.nounOnly,
+		}
+	}
+	return result, ranking, nil
+}
+
+// idiomIsNounOnly reports whether every index entry for the headword is a noun.
+// Every word of a headword reaches all of its entries, so the first word is
+// enough. Mixed or missing parts of speech, and reviewed-list entries (which
+// carry none), are not noun-only.
+func idiomIsNounOnly(ctx context.Context, index IdiomIndex, language, headword string) (bool, error) {
+	words := strings.Fields(headword)
+	if len(words) == 0 {
+		return false, nil
+	}
+	entries, err := index.IdiomEntries(ctx, language, words[0])
+	if err != nil {
+		return false, err
+	}
+	found := false
+	for _, entry := range entries {
+		if entry.Headword != headword {
+			continue
+		}
+		if strings.ToUpper(strings.TrimSpace(entry.UPOS)) != "NOUN" {
+			return false, nil
+		}
+		found = true
+	}
+	return found, nil
 }
 
 // boundIdiomProjections keeps the highest-priority idiom projections and
-// returns how many the bound left out. The input is already ranked by anchor
-// occurrence count and deterministic tie-breaks.
+// returns how many the bound left out. The input is already ranked.
 func boundIdiomProjections(projections []CandidateProjection, bound int) ([]CandidateProjection, int) {
 	if bound < 0 {
 		bound = 0
@@ -355,13 +439,11 @@ func idiomProjectionsFromMatches(matches []idiomMatch, occurrences map[string]in
 			result = append(result, projection)
 		}
 	}
-	sort.SliceStable(result, func(i, j int) bool {
-		return idiomProjectionLess(result[i], result[j])
-	})
 	return result
 }
 
-// idiomProjectionLess ranks idiom projections for the per-deck bound. More
+// idiomProjectionLess ranks idiom projections within one tier of the per-deck
+// bound. More
 // anchor occurrences go first; ties break by earliest sentence, headword and
 // language, so the bound is deterministic for a given deck.
 func idiomProjectionLess(left, right CandidateProjection) bool {

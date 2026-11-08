@@ -18,6 +18,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -701,15 +702,16 @@ func decodeIdiomProviderRequest(t *testing.T, request *http.Request) idiomProvid
 
 type fakeIdiomSampleSource struct {
 	items    []cardexport.IdiomWorkItem
+	ranking  []cardexport.IdiomRank
 	err      error
 	closed   bool
 	bookID   string
 	language string
 }
 
-func (f *fakeIdiomSampleSource) FreezeIdiomReviewItems(_ context.Context, bookID, language string) ([]cardexport.IdiomWorkItem, error) {
+func (f *fakeIdiomSampleSource) FreezeIdiomReviewItems(_ context.Context, bookID, language string) (prepareddeck.IdiomReviewFreeze, error) {
 	f.bookID, f.language = bookID, language
-	return f.items, f.err
+	return prepareddeck.IdiomReviewFreeze{Items: f.items, Ranking: f.ranking}, f.err
 }
 
 func (f *fakeIdiomSampleSource) Close() error {
