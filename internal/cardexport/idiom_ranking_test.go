@@ -111,3 +111,18 @@ func TestIdiomSentencePreferencePropagatesLookupFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "corrupt table")
 }
+
+func TestCachedIdiomIndexLooksUpEachWordOnce(t *testing.T) {
+	stub := &idiomLookupStub{entries: map[string][]idiom.Entry{"gamba": {testIdiomEntry()}}}
+	cached := newCachedIdiomIndex(stub)
+	for range 3 {
+		entries, err := idiomEntriesForSentence(context.Background(), cached, "it", gambaTokens())
+		require.NoError(t, err)
+		require.Len(t, entries, 1)
+	}
+	require.Equal(t, []string{"un", "ragazzo", "in", "gamba"}, stub.calls, "each word reaches the index once per freeze")
+
+	failing := newCachedIdiomIndex(&idiomLookupStub{err: errors.New("index closed")})
+	_, err := failing.IdiomEntries(context.Background(), "it", "gamba")
+	require.ErrorContains(t, err, "index closed")
+}

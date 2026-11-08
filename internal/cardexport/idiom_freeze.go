@@ -145,10 +145,11 @@ type scoredIdiomMatch struct {
 // bound left out. The returned projections are frozen after the vocabulary
 // projections, so existing lemma ordinals never move.
 func freezeIdiomProjections(ctx context.Context, lexical enrichment.LexicalProvider, ordered []CandidateProjection, config freezeOptions) ([]CandidateProjection, int, error) {
-	index, ok := lexical.(IdiomIndex)
-	if !ok || index == nil || len(config.idiomLanguages) == 0 || config.idiomProviderVersion == "" {
+	lookup, ok := lexical.(IdiomIndex)
+	if !ok || lookup == nil || len(config.idiomLanguages) == 0 || config.idiomProviderVersion == "" {
 		return nil, 0, nil
 	}
+	index := newCachedIdiomIndex(lookup)
 	matches := make([]idiomMatch, 0)
 	occurrences := make(map[string]int)
 	for _, projection := range ordered {
@@ -286,6 +287,32 @@ func anchorTokens(tokens []idiom.Token, analyzed []analyzer.Token, identity idio
 
 func normSurface(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
+}
+
+// cachedIdiomIndex remembers each word's idiom entries for one freeze. Common
+// words such as Italian "di" belong to well over a thousand idioms, and the
+// same word recurs in nearly every sentence of a Book, so an uncached freeze
+// re-reads and re-decodes those entries for every sentence.
+type cachedIdiomIndex struct {
+	index   IdiomIndex
+	entries map[string][]idiom.Entry
+}
+
+func newCachedIdiomIndex(index IdiomIndex) *cachedIdiomIndex {
+	return &cachedIdiomIndex{index: index, entries: make(map[string][]idiom.Entry)}
+}
+
+func (c *cachedIdiomIndex) IdiomEntries(ctx context.Context, language, word string) ([]idiom.Entry, error) {
+	key := language + "\x00" + word
+	if entries, ok := c.entries[key]; ok {
+		return entries, nil
+	}
+	entries, err := c.index.IdiomEntries(ctx, language, word)
+	if err != nil {
+		return nil, err
+	}
+	c.entries[key] = entries
+	return entries, nil
 }
 
 func idiomEntriesForSentence(ctx context.Context, index IdiomIndex, language string, tokens []analyzer.Token) ([]idiom.Entry, error) {
