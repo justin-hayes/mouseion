@@ -15,8 +15,9 @@ const getEnrichmentCache = `-- name: GetEnrichmentCache :one
 SELECT translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, sentence_translation_targets, cached_at
 FROM enrichment_cache
 WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
-  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8
-  AND meaning_evidence_hash = $9
+  AND item_kind = $5
+  AND provider = $6 AND provider_version = $7 AND sentence_hash = $8 AND dictionary_provider_version = $9
+  AND meaning_evidence_hash = $10
 `
 
 type GetEnrichmentCacheParams struct {
@@ -24,6 +25,7 @@ type GetEnrichmentCacheParams struct {
 	TargetLanguage            string
 	CanonicalLemma            string
 	Upos                      string
+	ItemKind                  string
 	Provider                  string
 	ProviderVersion           string
 	SentenceHash              string
@@ -49,6 +51,7 @@ func (q *Queries) GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCache
 		arg.TargetLanguage,
 		arg.CanonicalLemma,
 		arg.Upos,
+		arg.ItemKind,
 		arg.Provider,
 		arg.ProviderVersion,
 		arg.SentenceHash,
@@ -75,6 +78,7 @@ WHERE language = $1
   AND target_language = 'en'
   AND canonical_lemma = $2
   AND upos = upper($3::text)
+  AND item_kind = 'lemma'
   AND sentence_hash = $4
 ORDER BY cached_at DESC
 LIMIT 1

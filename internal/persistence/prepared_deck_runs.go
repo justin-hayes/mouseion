@@ -273,7 +273,7 @@ func classifyPreparedDeckManifest(ctx context.Context, tx pgx.Tx, projection car
 			continue
 		}
 		key := item.CacheKey
-		found, err := q.PreparedDeckCacheExists(ctx, sqlcgen.PreparedDeckCacheExistsParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash, DictionaryProviderVersion: key.DictionaryProviderVersion, MeaningEvidenceHash: key.MeaningEvidenceHash})
+		found, err := q.PreparedDeckCacheExists(ctx, sqlcgen.PreparedDeckCacheExistsParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, ItemKind: string(key.ItemKind.Normalized()), Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash, DictionaryProviderVersion: key.DictionaryProviderVersion, MeaningEvidenceHash: key.MeaningEvidenceHash})
 		if err != nil {
 			return preparedDeckManifestWork{}, err
 		}
@@ -358,7 +358,7 @@ func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, par
 	if item.CacheKey != nil && item.CacheKey.MeaningEvidenceHash != "" {
 		meaningEvidenceHash = nullableTextArg(item.CacheKey.MeaningEvidenceHash)
 	}
-	if err := q.InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, LexicalDiscriminator: item.Entry.LexicalDiscriminator, Headword: item.Entry.Headword, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityGdexScore: item.Quality.GDEXScore, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest, CorpusID: nullableUUIDArg(item.CorpusID), SentenceOrdinal: nullableInt8Arg(item.CorpusID, item.SentenceOrdinal), MeaningEvidenceHash: meaningEvidenceHash, PassageContext: item.Entry.PassageContext, PassageCitation: item.Entry.PassageCitation, BrownsonPin: item.Entry.BrownsonPin, LsjEntryID: item.Entry.DictionaryEntryID, LsjPin: item.Entry.DictionaryPin}); err != nil {
+	if err := q.InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, ItemKind: string(item.ItemKind.Normalized()), LexicalDiscriminator: item.Entry.LexicalDiscriminator, Headword: item.Entry.Headword, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityGdexScore: item.Quality.GDEXScore, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest, CorpusID: nullableUUIDArg(item.CorpusID), SentenceOrdinal: nullableInt8Arg(item.CorpusID, item.SentenceOrdinal), MeaningEvidenceHash: meaningEvidenceHash, PassageContext: item.Entry.PassageContext, PassageCitation: item.Entry.PassageCitation, BrownsonPin: item.Entry.BrownsonPin, LsjEntryID: item.Entry.DictionaryEntryID, LsjPin: item.Entry.DictionaryPin}); err != nil {
 		return err
 	}
 	if item.Disposition != cardexport.ManifestAccepted {
@@ -607,6 +607,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		var item cardexport.ManifestItem
 		item.Ordinal = model.Ordinal
 		item.Disposition = cardexport.ManifestDisposition(model.Disposition)
+		item.ItemKind = enrichment.ItemKindFromStored(model.ItemKind)
 		item.Entry.Language, item.Entry.CanonicalLemma, item.Entry.UPOS = model.Language, model.CanonicalLemma, model.Upos
 		item.Entry.LexicalDiscriminator, item.Entry.Headword = model.LexicalDiscriminator, model.Headword
 		item.Entry.Sentence, item.Entry.TargetWord, item.Entry.FirstEncounter = model.SourceSentence, model.TestedTarget, model.FirstEncounter
@@ -634,7 +635,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		item.Entry.SentenceOrdinal = item.SentenceOrdinal
 		provider := pgText(model.Provider)
 		if provider != "" {
-			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: model.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: pgText(model.ProviderVersion), DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, SentenceHash: pgText(model.SentenceHash), MeaningEvidenceHash: pgText(model.MeaningEvidenceHash)}
+			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: model.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, ItemKind: item.ItemKind, Provider: provider, ProviderVersion: pgText(model.ProviderVersion), DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, SentenceHash: pgText(model.SentenceHash), MeaningEvidenceHash: pgText(model.MeaningEvidenceHash)}
 		}
 		candidateDigests = append(candidateDigests, model.CandidateDigest)
 		snapshot.Items = append(snapshot.Items, item)

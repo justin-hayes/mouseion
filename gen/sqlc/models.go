@@ -481,6 +481,8 @@ type DeckPreparationManifestItem struct {
 	BrownsonPin          string
 	LsjEntryID           string
 	LsjPin               string
+	// Frozen card kind: lemma for every vocabulary item, idiom for a dictionary-anchored multi-word idiom item
+	ItemKind string
 }
 
 type DeckPreparationRun struct {
@@ -600,6 +602,8 @@ type EnrichmentCache struct {
 	MeaningEvidenceHash string
 	// Optional ordered plain-text excerpts proposed for English target alignment; markup is never stored
 	SentenceTranslationTargets []string
+	// Card kind this contextual result belongs to; part of the cache identity
+	ItemKind string
 }
 
 type ExampleSentence struct {

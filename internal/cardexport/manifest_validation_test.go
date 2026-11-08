@@ -126,6 +126,21 @@ func TestManifestSnapshotRejectsInvalidItems(t *testing.T) {
 				snapshot.Items[0].Entry.Attribution = domain.SourceAttribution{Speaker: "Erster"}
 			},
 		},
+		{
+			name: "unknown item kind",
+			want: "invalid manifest item kind",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.Items[0].ItemKind = "phrase"
+			},
+		},
+		{
+			name: "cache identity kind does not match item",
+			want: "cache identity does not match manifest entry",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.Items[0].ItemKind = enrichment.ItemKindIdiom
+				snapshot.Items[0].CacheKey.ItemKind = ""
+			},
+		},
 	}
 
 	for _, test := range tests {

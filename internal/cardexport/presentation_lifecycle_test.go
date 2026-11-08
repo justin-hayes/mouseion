@@ -184,6 +184,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		11: "2a97907a1c9cbf2d49e1bb83c2cf3e3d97927d239544c5bf5ad064125328d96d",
 		12: "3e893f789653dcb849986c6efbe41fd025007370bce690e957184d71f492ab6a",
 		13: "ede4bde767fb8e3d2a90cf73db3d3d304b86c84fc4a429af7cf45797d5046a72",
+		14: "3dfca4e0f35c615c1d6e076af463a19f164e1c9f50f05079576eb8e59165cff5",
 	}
 	wantCandidateDigests := map[int]string{
 		1:  "43552493d6d8cc96b17112bc9ee667bdd1a0379e38df85c4eb691aa6c788b1cf",
@@ -199,6 +200,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		11: "f5eb9ac6c14dc9292621e41aa2b458538f5772d7b8304271d1adb736503fabdf",
 		12: "b505c59c87ffe28e1db3a0b94abff70f15ab4d3071cf25a51f75edb9402d2bb1",
 		13: "02d61232cab298a7ff37c0eb5539722e50200962981000476903a1405d45882e",
+		14: "6ceac178a8d515d8a666a809ee6424a7e4eb10849832d355c668401f0d73055c",
 	}
 	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		snapshot := lifecycleRestoreSnapshot()
@@ -353,6 +355,15 @@ func TestPresentationLifecycleRestoreRejectsMalformedSnapshots(t *testing.T) {
 			assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 		})
 	}
+}
+
+func TestPresentationLifecycleRestoreRejectsUnsupportedItemKind(t *testing.T) {
+	snapshot := lifecycleRestoreSnapshot()
+	snapshot.Items[0].ItemKind = enrichment.ItemKindIdiom
+	snapshot.Items[0].CacheKey.ItemKind = enrichment.ItemKindIdiom
+
+	_, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	require.ErrorIs(t, err, cardexport.ErrUnsupportedItemKind)
 }
 
 func TestPresentationLifecycleFreezeOrdersByFirstEncounter(t *testing.T) {
