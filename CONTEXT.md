@@ -722,7 +722,9 @@ finite verb and subject. Distinct from the gradual criteria that only rank.
 _Avoid_: hard rule, gate reason.
 
 **Representative sentence**:
-The sentence chosen for a lemma's recognition card: the highest-scoring accepted
+The sentence chosen for a lemma's recognition card: among accepted candidate
+sentences, one whose target is not part of an idiom candidate leads when the
+language's idiom-card switch is on; otherwise the highest-scoring accepted
 candidate sentence, with source order breaking ties. It is always the learner's
 complete source sentence — the occurrence's study context — never truncated or
 paraphrased.

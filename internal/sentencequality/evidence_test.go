@@ -280,6 +280,85 @@ func TestBestSentenceEvidenceCarriesTokenAnchor(t *testing.T) {
 	assert.Equal(t, "Je vois l'homme qui marche vers la gare.", sentences[3].Text, "the persisted source sentence is byte-identical after export")
 }
 
+// TestBestSentenceEvidencePreferenceLeadsAmongAccepted pins the idiom-card
+// ranking rule: an accepted sentence whose target is not part of an idiom
+// candidate leads an otherwise better-scoring accepted sentence.
+func TestBestSentenceEvidencePreferenceLeadsAmongAccepted(t *testing.T) {
+	candidate := domain.SelectionCandidate{
+		CorpusID: "corpus-1", Language: "it", CanonicalLemma: "gamba",
+		ObservedForms: []byte(`["gamba"]`),
+		SentenceReferences: []byte(`[
+			{"sentence_index":0,"text":"Luca è davvero un ragazzo in gamba oggi.","location":{"start_offset":10}},
+			{"sentence_index":1,"text":"Mi fa male la gamba oggi.","location":{"start_offset":100}}
+		]`),
+	}
+	sentences := map[int64]analyzer.Sentence{
+		0: {Text: "Luca è davvero un ragazzo in gamba oggi."},
+		1: {Text: "Mi fa male la gamba oggi."},
+	}
+
+	baseline, ok := BestSentenceEvidenceFromCorpus(candidate, sentences)
+	require.True(t, ok)
+	require.Equal(t, "Luca è davvero un ragazzo in gamba oggi.", baseline.Sentence, "the idiom sentence scores higher today")
+
+	preferred, ok := BestSentenceEvidenceFromCorpusWithPreference(candidate, sentences, func(evidence SentenceEvidence) bool {
+		return evidence.Sentence == "Mi fa male la gamba oggi."
+	})
+	require.True(t, ok)
+	require.True(t, preferred.Quality.Accepted)
+	assert.Equal(t, "Mi fa male la gamba oggi.", preferred.Sentence)
+	assert.Greater(t, baseline.Quality.Score, preferred.Quality.Score, "the preference, not the quality score, moved the choice")
+}
+
+// TestBestSentenceEvidencePreferenceKeepsBestWhenEverySentenceIsPreferred pins
+// the fallback when no accepted sentence is idiom-free: the existing order
+// chooses exactly as it did before.
+func TestBestSentenceEvidencePreferenceKeepsBestWhenEverySentenceIsPreferred(t *testing.T) {
+	candidate := domain.SelectionCandidate{
+		Language: "it", CanonicalLemma: "gamba", ObservedForms: []byte(`["gamba"]`),
+		SentenceReferences: []byte(`[
+			{"sentence_index":0,"text":"Luca è davvero un ragazzo in gamba oggi.","location":{"start_offset":10}},
+			{"sentence_index":1,"text":"Mi fa male la gamba oggi.","location":{"start_offset":100}}
+		]`),
+	}
+	sentences := map[int64]analyzer.Sentence{
+		0: {Text: "Luca è davvero un ragazzo in gamba oggi."},
+		1: {Text: "Mi fa male la gamba oggi."},
+	}
+	baseline, ok := BestSentenceEvidenceFromCorpus(candidate, sentences)
+	require.True(t, ok)
+
+	got, ok := BestSentenceEvidenceFromCorpusWithPreference(candidate, sentences, func(SentenceEvidence) bool { return true })
+	require.True(t, ok)
+	type choice struct {
+		sentence string
+		score    int
+	}
+	assert.Equal(t, choice{baseline.Sentence, baseline.Quality.Score}, choice{got.Sentence, got.Quality.Score})
+}
+
+// TestBestSentenceEvidencePreferenceNeverPromotesRejected pins that the
+// leading rule ranks only accepted sentences.
+func TestBestSentenceEvidencePreferenceNeverPromotesRejected(t *testing.T) {
+	candidate := domain.SelectionCandidate{
+		Language: "it", CanonicalLemma: "gamba", ObservedForms: []byte(`["gamba"]`),
+		SentenceReferences: []byte(`[
+			{"sentence_index":0,"text":"Mi fa male la gamba oggi.","location":{"start_offset":10}},
+			{"sentence_index":1,"text":"gamba","location":{"start_offset":100}}
+		]`),
+	}
+	sentences := map[int64]analyzer.Sentence{
+		0: {Text: "Mi fa male la gamba oggi."},
+		1: {Text: "gamba"},
+	}
+	got, ok := BestSentenceEvidenceFromCorpusWithPreference(candidate, sentences, func(evidence SentenceEvidence) bool {
+		return !evidence.Quality.Accepted
+	})
+	require.True(t, ok)
+	assert.True(t, got.Quality.Accepted)
+	assert.Equal(t, "Mi fa male la gamba oggi.", got.Sentence)
+}
+
 // passableCandidate is a candidate whose sentence references are given as JSON.
 func passableCandidate(refs string) domain.SelectionCandidate {
 	return domain.SelectionCandidate{

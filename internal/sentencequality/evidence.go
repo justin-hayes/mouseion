@@ -32,17 +32,30 @@ type sentenceReference struct {
 	Location      json.RawMessage `json:"location"`
 }
 
+// SentencePreference reports whether an accepted sentence leads the ranking
+// over an otherwise better-ranked accepted sentence. It is consulted only for
+// accepted sentences, so it can never promote a rejected one. A nil preference
+// leaves the existing order unchanged.
+type SentencePreference func(SentenceEvidence) bool
+
 // BestSentenceEvidence ranks every text-only source reference without changing
 // the candidate's first-encounter ordering. Persisted exports use
 // BestSentenceEvidenceFromCorpus below.
 func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence, bool) {
-	return bestSentenceEvidence(candidate, nil)
+	return bestSentenceEvidence(candidate, nil, nil)
 }
 
 // BestSentenceEvidenceFromCorpus ranks source references using the persisted
 // sentence text and dependency tokens for each sentence ordinal.
 func BestSentenceEvidenceFromCorpus(candidate domain.SelectionCandidate, sentences map[int64]analyzer.Sentence) (SentenceEvidence, bool) {
-	return bestSentenceEvidence(candidate, sentences)
+	return bestSentenceEvidence(candidate, sentences, nil)
+}
+
+// BestSentenceEvidenceFromCorpusWithPreference ranks persisted source
+// references with a leading preference among accepted sentences. The existing
+// sentence-quality order breaks ties.
+func BestSentenceEvidenceFromCorpusWithPreference(candidate domain.SelectionCandidate, sentences map[int64]analyzer.Sentence, prefer SentencePreference) (SentenceEvidence, bool) {
+	return bestSentenceEvidence(candidate, sentences, prefer)
 }
 
 // AnyReferencePasses reports whether at least one of the candidate's sentence
@@ -66,16 +79,17 @@ func AnyReferencePasses(candidate domain.SelectionCandidate, sentences map[int64
 // rankedSentenceEvidence is one source reference paired with the evidence that
 // ranks it.
 type rankedSentenceEvidence struct {
-	evidence SentenceEvidence
-	sentence int
+	evidence  SentenceEvidence
+	sentence  int
+	preferred bool
 }
 
-func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) (SentenceEvidence, bool) {
+func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence, prefer SentencePreference) (SentenceEvidence, bool) {
 	refs, forms, ok := decodeCandidate(candidate)
 	if !ok {
 		return SentenceEvidence{}, false
 	}
-	ranked := rankSentenceEvidence(candidate.Language, refs, forms, persisted)
+	ranked := rankSentenceEvidence(candidate.Language, refs, forms, persisted, prefer)
 	if len(ranked) == 0 {
 		return SentenceEvidence{}, false
 	}
@@ -104,11 +118,12 @@ func decodeCandidate(candidate domain.SelectionCandidate) ([]sentenceReference, 
 
 // rankSentenceEvidence scores every source reference the persisted corpus can
 // resolve. Unresolvable references are dropped so they cannot displace the rest.
-func rankSentenceEvidence(language string, refs []sentenceReference, forms []string, persisted map[int64]analyzer.Sentence) []rankedSentenceEvidence {
+func rankSentenceEvidence(language string, refs []sentenceReference, forms []string, persisted map[int64]analyzer.Sentence, prefer SentencePreference) []rankedSentenceEvidence {
 	ranked := make([]rankedSentenceEvidence, 0, len(refs))
 	for _, ref := range refs {
 		entry, ok := sentenceEvidenceForReference(language, ref, forms, persisted)
 		if ok {
+			entry.preferred = prefer != nil && entry.evidence.Quality.Accepted && prefer(entry.evidence)
 			ranked = append(ranked, entry)
 		}
 	}
@@ -169,12 +184,15 @@ func MatchingSentenceTarget(text string, forms []string, tokens []analyzer.Token
 	return ""
 }
 
-// betterSentenceEvidence orders accepted candidates first, then by descending
-// GDEX score, ascending first encounter, sentence ordinal and sentence text.
+// betterSentenceEvidence orders accepted candidates first, then preferred
+// accepted sentences, then descending GDEX score, ascending first encounter,
+// sentence ordinal and sentence text.
 func betterSentenceEvidence(a, b rankedSentenceEvidence) bool {
 	switch {
 	case a.evidence.Quality.Accepted != b.evidence.Quality.Accepted:
 		return a.evidence.Quality.Accepted
+	case a.preferred != b.preferred:
+		return a.preferred
 	case a.evidence.Quality.GDEXScore != b.evidence.Quality.GDEXScore:
 		return a.evidence.Quality.GDEXScore > b.evidence.Quality.GDEXScore
 	case a.evidence.FirstEncounter != b.evidence.FirstEncounter:
@@ -230,18 +248,29 @@ func targetSpan(sentence, target string, tokens []analyzer.Token, sentenceStartO
 // not anchor or no persisted token carries that span, so callers never flag a
 // guessed occurrence.
 func TargetToken(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) (analyzer.Token, bool) {
-	target = textmatch.CleanLexicalSurface(target)
-	start, end, ok := targetSpan(sentence, target, tokens, sentenceStartOffset)
+	index, ok := TargetTokenIndex(sentence, target, tokens, sentenceStartOffset)
 	if !ok {
 		return analyzer.Token{}, false
 	}
-	for _, token := range tokens {
+	return tokens[index], true
+}
+
+// TargetTokenIndex returns the index in tokens of the persisted token whose
+// document span is exactly the target span. It reports false when the target
+// does not anchor or no persisted token carries that span.
+func TargetTokenIndex(sentence, target string, tokens []analyzer.Token, sentenceStartOffset uint64) (int, bool) {
+	target = textmatch.CleanLexicalSurface(target)
+	start, end, ok := targetSpan(sentence, target, tokens, sentenceStartOffset)
+	if !ok {
+		return 0, false
+	}
+	for index, token := range tokens {
 		tokenStart, tokenEnd, ok := tokenSpanBytes(sentence, token.Location.StartOffset, token.Location.EndOffset, sentenceStartOffset)
 		if ok && tokenStart == start && tokenEnd == end {
-			return token, true
+			return index, true
 		}
 	}
-	return analyzer.Token{}, false
+	return 0, false
 }
 
 // tokenAnchorSpan anchors target on the first persisted token, in sentence

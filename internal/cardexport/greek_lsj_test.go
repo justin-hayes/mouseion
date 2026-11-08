@@ -179,7 +179,7 @@ func TestFreezeAncientGreekLSJFrozenIdentityAndPin(t *testing.T) {
 		SkipMeaningEvidence: true,
 	}}
 
-	entries, err := freezeEntries(t.Context(), stub, projections)
+	entries, err := freezeEntries(t.Context(), stub, nil, projections)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 	entry := entries[0]
@@ -205,7 +205,7 @@ func TestFreezeAncientGreekLSJAmbiguousFreezesNoEntry(t *testing.T) {
 		SkipMeaningEvidence: true,
 	}}
 
-	entries, err := freezeEntries(t.Context(), &lsjStub{found: false}, projections)
+	entries, err := freezeEntries(t.Context(), &lsjStub{found: false}, nil, projections)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 	assert.Empty(t, entries[0].DictionaryEntry)
@@ -250,7 +250,7 @@ func TestFreezeAncientGreekLSJWithoutCapabilityFreezesNoEntry(t *testing.T) {
 		SkipMeaningEvidence: true,
 	}}
 
-	entries, err := freezeEntries(t.Context(), lexicalStub{}, projections)
+	entries, err := freezeEntries(t.Context(), lexicalStub{}, nil, projections)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 	assert.Empty(t, entries[0].DictionaryEntryID)
