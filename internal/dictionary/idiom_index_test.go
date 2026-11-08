@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/idiom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -135,6 +136,55 @@ func TestIndexIdiomEntriesRejectsInvalidIdentity(t *testing.T) {
 			assert.Empty(t, entries)
 		})
 	}
+}
+
+// The derived index stores idiom senses without evidence IDs, and the idiom
+// prompt can only confirm a sense it can cite (#2385).
+func TestIndexIdiomEntriesGiveEverySenseAStableEvidenceID(t *testing.T) {
+	index := newIdiomTestIndex(t,
+		`INSERT INTO idiom_entries VALUES ('it', 'fare bene', 'VERB', '["fare","bene"]', '[{"Gloss":"to do well"},{"Gloss":"to do the right thing"},{"Gloss":"to do well"},{"evidence_id":"reviewed:fare bene:1","gloss":"to be good for"}]', 'wiktionary', 'fixture-v1')`,
+		`INSERT INTO idiom_entries VALUES ('it', 'fare bene', 'NOUN', '["fare","bene"]', '[{"Gloss":"to do well"}]', 'wiktionary', 'fixture-v1')`,
+		`INSERT INTO idiom_words VALUES ('it', 'bene', 'fare bene', 'VERB', 'wiktionary')`,
+		`INSERT INTO idiom_words VALUES ('it', 'bene', 'fare bene', 'NOUN', 'wiktionary')`,
+	)
+
+	first, err := index.IdiomEntries(t.Context(), "it", "bene")
+	require.NoError(t, err)
+	require.Len(t, first, 2)
+	noun, verb := first[0], first[1]
+	require.Equal(t, "VERB", verb.UPOS)
+
+	t.Run("a sense that repeats an evidence identity is dropped", func(t *testing.T) {
+		glosses := make([]string, 0, len(verb.Senses))
+		for _, sense := range verb.Senses {
+			glosses = append(glosses, sense.Gloss)
+		}
+		require.Equal(t, []string{"to do well", "to do the right thing", "to be good for"}, glosses)
+	})
+	t.Run("an explicit evidence ID is kept", func(t *testing.T) {
+		require.Len(t, verb.Senses, 3)
+		require.Equal(t, "reviewed:fare bene:1", verb.Senses[2].EvidenceID)
+	})
+	t.Run("every sense has a distinct evidence ID and the entry provenance", func(t *testing.T) {
+		ids := map[string]struct{}{}
+		var missing, provenance []string
+		senses := append(append([]enrichment.LexicalSense(nil), verb.Senses...), noun.Senses...)
+		for _, sense := range senses {
+			if sense.EvidenceID == "" {
+				missing = append(missing, sense.Gloss)
+			}
+			ids[sense.EvidenceID] = struct{}{}
+			provenance = append(provenance, sense.Source+"/"+sense.Version)
+		}
+		require.Empty(t, missing, "senses without an evidence ID")
+		require.Len(t, ids, len(senses), "evidence IDs are distinct across parts of speech")
+		require.Equal(t, []string{"wiktionary/fixture-v1", "wiktionary/fixture-v1", "wiktionary/fixture-v1", "wiktionary/fixture-v1"}, provenance)
+	})
+	t.Run("the same entry yields the same evidence IDs", func(t *testing.T) {
+		second, err := index.IdiomEntries(t.Context(), "it", "bene")
+		require.NoError(t, err)
+		require.Equal(t, first, second)
+	})
 }
 
 func TestIndexIdiomEntriesUnknownWordAndOlderIndexAreEmpty(t *testing.T) {

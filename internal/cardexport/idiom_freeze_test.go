@@ -2,11 +2,14 @@ package cardexport
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/idiom"
@@ -399,4 +402,45 @@ func TestFreezeSendsThePooledSensesOfEveryPartOfSpeechWithinTheSenseBound(t *tes
 	}
 	assert.Equal(t, []string{"adj-a", "adj-b", "adj-c", "adj-d", "adj-e", "adj-f", "adv-a", "adv-b"}, glosses,
 		"both parts of speech reach the provider, capped at the candidate-sense bound")
+}
+
+// A real idiom index stores senses without evidence IDs. The frozen idiom
+// request must still carry one per candidate sense, or the idiom prompt has
+// nothing to cite and cannot confirm a sense (#2385).
+func TestFreezeFromTheDictionaryIndexGivesEveryIdiomSenseAnEvidenceID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `
+CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, h_status TEXT NOT NULL, PRIMARY KEY(language, lemma, upos));
+CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL);
+CREATE TABLE idiom_entries (language TEXT NOT NULL, headword TEXT NOT NULL, upos TEXT NOT NULL, words_json TEXT NOT NULL, senses_json TEXT NOT NULL, source TEXT NOT NULL, version TEXT NOT NULL, PRIMARY KEY(language, headword, upos, source));
+CREATE TABLE idiom_words (language TEXT NOT NULL, word TEXT NOT NULL, headword TEXT NOT NULL, upos TEXT NOT NULL, source TEXT NOT NULL, PRIMARY KEY(language, word, headword, upos, source));
+INSERT INTO metadata VALUES ('provider_version', 'fixture-v1');
+INSERT INTO metadata VALUES ('index_format', '5');
+INSERT INTO idiom_entries VALUES ('it', 'in gamba', 'ADJ', '["in","gamba"]', '[{"gloss":"capable, on the ball"},{"gloss":"in good health"}]', 'wiktionary', 'fixture-v1');
+INSERT INTO idiom_words VALUES ('it', 'in', 'in gamba', 'ADJ', 'wiktionary');
+INSERT INTO idiom_words VALUES ('it', 'gamba', 'in gamba', 'ADJ', 'wiktionary')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+	index, err := dictionary.OpenIndex(t.Context(), path)
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, index.Close()) })
+
+	deck, _, err := NewPresentation(index).Freeze(t.Context(), "owner-1", "Libro", []CandidateProjection{gambaProjection(t)}, WithIdiomCards([]string{"it"}, "idiom-v1"))
+	require.NoError(t, err)
+
+	items := deck.IdiomWork("it")
+	require.Len(t, items, 1)
+	senses := items[0].Work.Request.CandidateSenses
+	require.Len(t, senses, 2)
+	t.Run("both senses are sent in dictionary order", func(t *testing.T) {
+		require.Equal(t, []string{"capable, on the ball", "in good health"}, []string{senses[0].Gloss, senses[1].Gloss})
+	})
+	t.Run("each sense carries its own evidence ID", func(t *testing.T) {
+		require.NotEmpty(t, senses[0].EvidenceID)
+		require.NotEmpty(t, senses[1].EvidenceID)
+		require.NotEqual(t, senses[0].EvidenceID, senses[1].EvidenceID)
+	})
 }

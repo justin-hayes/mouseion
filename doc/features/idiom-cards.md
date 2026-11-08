@@ -119,6 +119,9 @@ gush out".
   Gloss. When no candidate sense matches the sentence's meaning, the answer is
   `ambiguous` and the card is omitted: a confirmed idiom card always cites a
   dictionary sense (#2378).
+- Every candidate sense carries a stable evidence ID, so a confirmed Gloss can
+  cite it. An unresolved answer may leave the translation blank, since the
+  translation is the idiom in the confirmed sense (#2385).
 - An unresolved idiom request omits only the idiom card. The deck result
   counts idiom cards and idiom omissions separately from vocabulary cards and
   vocabulary Omissions, and labels `literal_use` as "the words are used

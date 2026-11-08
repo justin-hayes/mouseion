@@ -109,6 +109,7 @@ func TestLoadIdiomCaseSetRejectsUnknownFieldsAndIncompleteCases(t *testing.T) {
 		"missing kind":           {input: strings.Replace(valid, `"kind":"positive"`, `"kind":"unexpected"`, 1), want: "unknown kind"},
 		"positive without Gloss": {input: strings.Replace(valid, `,"expected_gloss":"capable"`, ``, 1), want: "needs an expected Gloss"},
 		"duplicate case id":      {input: strings.Replace(valid, `"id":"de-literal"`, `"id":"it-positive"`, 1), want: "duplicate case id"},
+		"evidence without an ID": {input: strings.Replace(valid, `{"evidence_id":"e1","gloss":"leg"}`, `{"gloss":"leg"}`, 1), want: "evidence id is required"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := loadIdiomCaseSet(strings.NewReader(testCase.input))
@@ -438,6 +439,35 @@ func TestParseReviewCommandSelectsTheIdiomReviewAndDefaultsTheSeed(t *testing.T)
 	require.ErrorContains(t, err, "unknown review")
 	_, err = parseReviewCommand([]string{"-review", "idiom", "-book", "book-1", "-language", " "})
 	require.ErrorContains(t, err, "-language is required with -book")
+}
+
+// A sample item whose candidate senses carry no evidence IDs cannot be
+// confirmed under the idiom contract, so the review refuses it before any
+// provider call rather than reporting it as unconfirmed (#2385).
+func TestExecuteIdiomCommandRefusesASampleWithoutEvidenceIDs(t *testing.T) {
+	calls := 0
+	client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+		calls++
+		return idiomStubAnswer{translation: "review", gloss: "review"}
+	})
+	items := sampleItems(3)
+	items[1].Work.Request.CandidateSenses = []enrichment.LexicalSense{{EvidenceID: "wikt:in gamba:1", Gloss: "capable"}, {Gloss: "in good health"}}
+	source := &fakeIdiomSampleSource{items: items}
+	path := filepath.Join(t.TempDir(), "idiom-review.md")
+	options, err := parseReviewCommand([]string{"-review", "idiom", "-out", path, "-book", "book-1"})
+	require.NoError(t, err)
+
+	err = executeIdiomCommand(context.Background(), options, io.Discard,
+		func() (reviewEnvironment, error) {
+			return reviewEnvironment{Client: client, Provider: idiomTestProviderMetadata()}, nil
+		},
+		func(context.Context, *enrichment.TranslationCodec) (idiomSampleSource, error) { return source, nil })
+
+	require.ErrorContains(t, err, `idiom "idiom-01"`)
+	require.ErrorContains(t, err, "candidate sense 2 has no evidence ID")
+	require.Zero(t, calls, "no provider call is made")
+	require.NoFileExists(t, path)
+	require.True(t, source.closed)
 }
 
 func TestExecuteIdiomCommandReportsAFailedSampleFreeze(t *testing.T) {
