@@ -107,3 +107,33 @@ func TestIdiomCardCodecRequiresTheCompleteOutcome(t *testing.T) {
 	_, err = codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(missingGloss)+`}}]}`))
 	assert.ErrorIs(t, err, ErrInvalidTranslationResponse)
 }
+
+// The 2026-11-08 Italian idiom review failed on three cards: a Gloss that
+// followed the first listed sense (di fronte, "front"), a sense the dictionary
+// does not list (comparative rispetto a), and a literal use confirmed despite
+// the literal-use marker sense (fare bene). idiom-card-v2 answers each.
+func TestIdiomCardContractV2CarriesTheSentenceSenseLiteralMarkerAndNoFittingSenseRules(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	t.Run("version", func(t *testing.T) {
+		require.Equal(t, "idiom-card-v2", codec.IdiomCardPromptContract())
+		require.Equal(t, "model/idiom-card-v2", codec.IdiomCardProviderVersion())
+	})
+
+	body, err := codec.EncodeRequest(idiomCardRequest())
+	require.NoError(t, err)
+	for name, rule := range map[string]string{
+		"sense the sentence uses":       "the order of candidate_senses is not a preference",
+		"gloss agrees with translation": "translation and gloss must render the same sense",
+		"literal-use marker":            "Used other than figuratively or idiomatically",
+		"no fitting sense abstains":     "If no candidate sense matches the meaning this sentence uses, do not gloss from context",
+		"confirmation cites a sense":    "a confirmed gloss always cites at least one candidate sense",
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Contains(t, string(body), rule)
+		})
+	}
+	t.Run("no context-only Gloss path", func(t *testing.T) {
+		require.NotContains(t, string(body), "or an empty list and context_only=true when none applies")
+	})
+}

@@ -34,8 +34,10 @@ const (
 	// idiomCardPromptVersion pins the dictionary-anchored idiom-card contract:
 	// the headword, matched forms, representative sentence and bounded
 	// candidate senses, and a lemma-shaped answer whose unresolved kinds are
-	// ambiguous or literal_use (ADR 0114).
-	idiomCardPromptVersion = "idiom-card-v1"
+	// ambiguous or literal_use (ADR 0114). v2 glosses the sense the sentence
+	// uses, treats a literal-use marker sense as literal use, and abstains as
+	// ambiguous when no candidate sense fits (#2378).
+	idiomCardPromptVersion = "idiom-card-v2"
 	llmReasoningEffortEnv  = "MOUSEION_LLM_REASONING_EFFORT"
 	llmReasoningSupportEnv = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )

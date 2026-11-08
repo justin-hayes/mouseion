@@ -1,15 +1,21 @@
 {
-  "version": "idiom-review-v1",
+  "version": "idiom-review-v2",
   "cases": [
     {
       "id": "it-in-gamba",
       "language": "it",
       "kind": "positive",
       "headword": "in gamba",
-      "matched_forms": ["in", "gamba"],
+      "matched_forms": [
+        "in",
+        "gamba"
+      ],
       "sentence": "È un ragazzo in gamba.",
       "evidence": [
-        {"evidence_id": "wikt:in gamba:1", "gloss": "capable, on the ball"}
+        {
+          "evidence_id": "wikt:in gamba:1",
+          "gloss": "capable, on the ball"
+        }
       ],
       "expected_gloss": "capable",
       "notes": "The anchor is gamba; the idiom means capable, not leg."
@@ -19,10 +25,18 @@
       "language": "it",
       "kind": "positive",
       "headword": "in bocca al lupo",
-      "matched_forms": ["in", "bocca", "al", "lupo"],
+      "matched_forms": [
+        "in",
+        "bocca",
+        "al",
+        "lupo"
+      ],
       "sentence": "In bocca al lupo per l'esame!",
       "evidence": [
-        {"evidence_id": "wikt:in bocca al lupo:1", "gloss": "good luck"}
+        {
+          "evidence_id": "wikt:in bocca al lupo:1",
+          "gloss": "good luck"
+        }
       ],
       "expected_gloss": "good luck",
       "notes": "A four-word wish; its Gloss must not paraphrase the wolf image."
@@ -32,10 +46,17 @@
       "language": "it",
       "kind": "positive",
       "headword": "macchina da scrivere",
-      "matched_forms": ["macchina", "da", "scrivere"],
+      "matched_forms": [
+        "macchina",
+        "da",
+        "scrivere"
+      ],
       "sentence": "Ha comprato una macchina da scrivere.",
       "evidence": [
-        {"evidence_id": "wikt:macchina da scrivere:1", "gloss": "typewriter"}
+        {
+          "evidence_id": "wikt:macchina da scrivere:1",
+          "gloss": "typewriter"
+        }
       ],
       "expected_gloss": "typewriter",
       "notes": "A fixed compound is an idiom for this review."
@@ -45,10 +66,18 @@
       "language": "el",
       "kind": "positive",
       "headword": "κάνω τα στραβά μάτια",
-      "matched_forms": ["Έκανε", "τα", "στραβά", "μάτια"],
+      "matched_forms": [
+        "Έκανε",
+        "τα",
+        "στραβά",
+        "μάτια"
+      ],
       "sentence": "Έκανε τα στραβά μάτια στην παράβαση.",
       "evidence": [
-        {"evidence_id": "reviewed:kano ta strava matia:1", "gloss": "to turn a blind eye"}
+        {
+          "evidence_id": "reviewed:kano ta strava matia:1",
+          "gloss": "to turn a blind eye"
+        }
       ],
       "expected_gloss": "to turn a blind eye",
       "notes": "The inflected verb is matched through its lemma."
@@ -58,10 +87,17 @@
       "language": "it",
       "kind": "literal_use_control",
       "headword": "tagliare la corda",
-      "matched_forms": ["Tagliò", "la", "corda"],
+      "matched_forms": [
+        "Tagliò",
+        "la",
+        "corda"
+      ],
       "sentence": "Tagliò la corda del pacco.",
       "evidence": [
-        {"evidence_id": "wikt:tagliare la corda:1", "gloss": "to run away, to scarper"}
+        {
+          "evidence_id": "wikt:tagliare la corda:1",
+          "gloss": "to run away, to scarper"
+        }
       ],
       "notes": "The cord belongs to the parcel, so the words are literal."
     },
@@ -70,12 +106,99 @@
       "language": "de",
       "kind": "literal_use_control",
       "headword": "jemanden auf den Arm nehmen",
-      "matched_forms": ["nimmt", "auf", "den", "Arm"],
+      "matched_forms": [
+        "nimmt",
+        "auf",
+        "den",
+        "Arm"
+      ],
       "sentence": "Sie nimmt das Kind auf den Arm.",
       "evidence": [
-        {"evidence_id": "wikt:jemanden auf den Arm nehmen:1", "gloss": "to pull someone's leg"}
+        {
+          "evidence_id": "wikt:jemanden auf den Arm nehmen:1",
+          "gloss": "to pull someone's leg"
+        }
       ],
       "notes": "She picks the child up; this is not the figurative idiom."
+    },
+    {
+      "id": "it-di-fronte",
+      "language": "it",
+      "kind": "positive",
+      "headword": "di fronte",
+      "matched_forms": [
+        "di",
+        "fronte"
+      ],
+      "sentence": "Dietro una curva a gomito, d’un tratto, me le sono trovate di fronte, le persone sedute.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:di fronte:ADJ:1",
+          "gloss": "front, fore"
+        },
+        {
+          "evidence_id": "wikt:di fronte:ADV:1",
+          "gloss": "opposite (directly across)"
+        },
+        {
+          "evidence_id": "wikt:di fronte:ADV:2",
+          "gloss": "in front of"
+        },
+        {
+          "evidence_id": "wikt:di fronte:ADV:3",
+          "gloss": "in the wake of; in the face of"
+        }
+      ],
+      "expected_gloss": "in front, opposite",
+      "notes": "Card 4 of the 2026-11-08 review. The pooled adjective and adverb senses; the sentence uses the adverb, so the Gloss must not be the bare noun front."
+    },
+    {
+      "id": "it-rispetto-a-comparative",
+      "language": "it",
+      "kind": "ambiguous_control",
+      "headword": "rispetto a",
+      "matched_forms": [
+        "rispetto",
+        "a"
+      ],
+      "sentence": "Se parli direttamente con le persone trasmetti un’emozione più intensa, anche se le parole sono incerte e la cadenza è diversa; in ogni caso, il messaggio che arriva assomiglia di più a quello che hai in testa, rispetto a quello che potrebbe ripetere un interprete - o no?",
+      "evidence": [
+        {
+          "evidence_id": "wikt:rispetto a:1",
+          "gloss": "with respect to"
+        },
+        {
+          "evidence_id": "wikt:rispetto a:2",
+          "gloss": "in relation to"
+        }
+      ],
+      "notes": "Card 13 of the 2026-11-08 review. The sentence uses the comparative sense compared with, which no candidate sense lists, so the card is omitted as ambiguous."
+    },
+    {
+      "id": "it-fare-bene-literal",
+      "language": "it",
+      "kind": "literal_use_control",
+      "headword": "fare bene",
+      "matched_forms": [
+        "fatte",
+        "bene"
+      ],
+      "sentence": "Quindi, tanto per essere sicuri e fare le cose fatte bene, ce lo hanno richiesto una terza.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:fare bene:1",
+          "gloss": "to do well (take the prudent approach)"
+        },
+        {
+          "evidence_id": "wikt:fare bene:2",
+          "gloss": "to do the right thing"
+        },
+        {
+          "evidence_id": "wikt:fare bene:3",
+          "gloss": "Used other than figuratively or idiomatically: see fare, bene."
+        }
+      ],
+      "notes": "Card 25 of the 2026-11-08 review. fatte bene modifies le cose (do things properly), and sense 3 marks the literal use."
     },
     {
       "id": "it-gamba-lemma-card",

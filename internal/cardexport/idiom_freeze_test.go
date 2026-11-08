@@ -373,3 +373,35 @@ func (fakeLexical) Version() string { return "fixture-v1" }
 func (fakeLexical) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	return enrichment.LexicalEntry{}, false, nil
 }
+
+func TestFreezeSendsThePooledSensesOfEveryPartOfSpeechWithinTheSenseBound(t *testing.T) {
+	senses := func(prefix string, count int) []enrichment.LexicalSense {
+		out := make([]enrichment.LexicalSense, count)
+		for i := range out {
+			out[i] = enrichment.LexicalSense{Gloss: prefix + string(rune('a'+i))}
+		}
+		return out
+	}
+	adjective := inGambaEntry()
+	adjective.Senses = senses("adj-", 6)
+	adverb := inGambaEntry()
+	adverb.UPOS = "ADV"
+	adverb.Senses = senses("adv-", 4)
+	lexicon := fakeIdiomLexicon{entries: map[string][]idiom.Entry{
+		"it\x00in":    {adverb, adjective},
+		"it\x00gamba": {adjective, adverb},
+	}}
+
+	deck, _, err := NewPresentation(lexicon).Freeze(t.Context(), "owner-1", "Libro", []CandidateProjection{gambaProjection(t)}, WithIdiomCards([]string{"it"}, "idiom-v1"))
+	require.NoError(t, err)
+
+	work := deck.WorkProjection()
+	require.Len(t, work, 2, "one lemma item and one idiom item")
+	require.True(t, work[1].Request.RequireIdiomCard)
+	glosses := make([]string, 0, len(work[1].Request.CandidateSenses))
+	for _, sense := range work[1].Request.CandidateSenses {
+		glosses = append(glosses, sense.Gloss)
+	}
+	assert.Equal(t, []string{"adj-a", "adj-b", "adj-c", "adj-d", "adj-e", "adj-f", "adv-a", "adv-b"}, glosses,
+		"both parts of speech reach the provider, capped at the candidate-sense bound")
+}

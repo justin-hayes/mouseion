@@ -12,19 +12,23 @@ import (
 )
 
 // idiomCaseKind names the review class of one idiom case. Positive cases must
-// be confirmed, literal-use controls must be rejected, and lemma-card controls
-// prove the anchor's own card moved away from the idiom sentence.
+// be confirmed, literal-use controls must be rejected as literal use,
+// ambiguous controls (the sentence uses a sense no candidate lists) must be
+// rejected as ambiguous, and lemma-card controls prove the anchor's own card
+// moved away from the idiom sentence.
 type idiomCaseKind string
 
 const (
 	idiomCasePositive   idiomCaseKind = "positive"
 	idiomCaseLiteralUse idiomCaseKind = "literal_use_control"
+	idiomCaseAmbiguous  idiomCaseKind = "ambiguous_control"
 	idiomCaseLemmaCard  idiomCaseKind = "lemma_card_control"
 )
 
 var idiomCaseKinds = []idiomCaseKind{
 	idiomCasePositive,
 	idiomCaseLiteralUse,
+	idiomCaseAmbiguous,
 	idiomCaseLemmaCard,
 }
 
@@ -105,7 +109,7 @@ func (c idiomReviewCase) validate() error {
 		return fmt.Errorf("case %q: headword is required", c.ID)
 	}
 	switch c.Kind {
-	case idiomCasePositive, idiomCaseLiteralUse:
+	case idiomCasePositive, idiomCaseLiteralUse, idiomCaseAmbiguous:
 		return c.validateProviderCase()
 	case idiomCaseLemmaCard:
 		return c.validateLemmaCardControl()
@@ -127,8 +131,8 @@ func (c idiomReviewCase) validateProviderCase() error {
 	if c.Kind == idiomCasePositive && strings.TrimSpace(c.ExpectedGloss) == "" {
 		return fmt.Errorf("case %q: a positive case needs an expected Gloss", c.ID)
 	}
-	if c.Kind == idiomCaseLiteralUse && strings.TrimSpace(c.ExpectedGloss) != "" {
-		return fmt.Errorf("case %q: a literal-use control has no expected Gloss", c.ID)
+	if (c.Kind == idiomCaseLiteralUse || c.Kind == idiomCaseAmbiguous) && strings.TrimSpace(c.ExpectedGloss) != "" {
+		return fmt.Errorf("case %q: a %s has no expected Gloss", c.ID, c.Kind.label())
 	}
 	return validateLexicalEvidence(c.ID, c.Evidence)
 }
@@ -201,6 +205,8 @@ func (kind idiomCaseKind) label() string {
 		return "positive"
 	case idiomCaseLiteralUse:
 		return "literal-use control"
+	case idiomCaseAmbiguous:
+		return "ambiguous control"
 	case idiomCaseLemmaCard:
 		return "lemma-card control"
 	default:

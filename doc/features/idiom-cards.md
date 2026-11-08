@@ -102,11 +102,19 @@ gush out".
   carrying the sentence's inflection or arguments. There is no morphology
   block, article, gender or IPA. The part-of-speech label reads "idiom".
 - Request: one per-item provider request per idiom card. It sends the
-  headword, the matched forms, the sentence and the bounded candidate senses
-  of the idiom's entry, and nothing about the Book or the learner. The
-  response has the same shape as the lemma contract under a separate prompt
-  contract version. Its unresolved kinds are `ambiguous` and `literal_use`
+  headword, the matched forms, the sentence and the bounded candidate senses,
+  and nothing about the Book or the learner. When the dictionary lists the
+  headword under several parts of speech, their senses are pooled in
+  part-of-speech order before the bound applies. The response has the same
+  shape as the lemma contract under a separate prompt contract version
+  (`idiom-card-v2`). Its unresolved kinds are `ambiguous` and `literal_use`
   ("this sentence uses the words literally").
+- The Gloss renders the sense the sentence uses, not the first listed sense,
+  and agrees with the translation. A candidate sense that only marks literal
+  use ("Used other than figuratively or idiomatically") never supports a
+  Gloss. When no candidate sense matches the sentence's meaning, the answer is
+  `ambiguous` and the card is omitted: a confirmed idiom card always cites a
+  dictionary sense (#2378).
 - An unresolved idiom request omits only the idiom card. The deck result
   counts idiom cards and idiom omissions separately from vocabulary cards and
   vocabulary Omissions, and labels `literal_use` as "the words are used
@@ -154,7 +162,7 @@ gush out".
 - Each language has an idiom-card switch, off by default. Turning it on
   requires a committed review report for that language.
 - The operator review extends the Gloss review command with an idiom case set
-  (`idiom-review-v1`), run outside CI at the deployed model and reasoning
+  (`idiom-review-v2`), run outside CI at the deployed model and reasoning
   setting. It contains:
   - positive cases: *in gamba*, *in bocca al lupo* ("good luck"), *macchina da
     scrivere*, *κάνω τα στραβά μάτια* ("to turn a blind eye");
@@ -162,10 +170,12 @@ gush out".
     *Tagliò la corda del pacco* against *tagliare la corda* ("to run away")
     and *Sie nimmt das Kind auf den Arm* against *jemanden auf den Arm
     nehmen* ("to pull someone's leg");
+  - ambiguous controls in which the sentence uses a sense no candidate lists,
+    such as the comparative *rispetto a* ("compared with");
   - lemma-card controls confirming that the anchor's card moves to an
     idiom-free sentence.
 - Gate per language: every positive case is confirmed with a citation-form
-  Gloss, no literal-use control is confirmed, and a sample of 30 confirmed
+  Gloss, no literal-use or ambiguous control is confirmed, and a sample of 30 confirmed
   idiom cards from one real Book in that language contains no card that
   teaches a wrong meaning. The dated report goes under `doc/reviews/`.
 - The sample comes from an in-memory freeze of the Book's current deck
@@ -217,7 +227,8 @@ gush out".
       enabled. German and Modern Greek each follow with their own report.
       The [2026-11-08 Italian review](../reviews/idiom-review-2026-11-08.md)
       failed the gate (three wrong-meaning sample cards); Italian stays off
-      pending #2378.
+      until a new report for `idiom-card-v2` and `idiom-review-v2` (#2378)
+      passes it (#2367).
 
 ## Related
 

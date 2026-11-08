@@ -115,14 +115,17 @@ operator has recorded every verdict.
 ## Idiom card review
 
 `cmd/glossreview -review idiom` runs the frozen idiom case set
-`idiom-review-v1` through the real idiom codec and the configured provider, at
+`idiom-review-v2` through the real idiom codec and the configured provider, at
 the deployed model and reasoning setting. It records the date, model, reasoning
 setting, prompt contract, matcher version and matcher gap bound, and writes a
 dated Markdown report under `doc/reviews/`. The command never runs in CI.
 
 The idiom request carries only the headword, the matched forms, one
-representative sentence and the idiom entry's bounded public senses. It sends no
-learner identity, Book title, whole Book or reading history.
+representative sentence and the idiom's bounded public senses. When the
+dictionary lists one headword under several parts of speech (*di fronte* is
+both an adjective and an adverb), the senses of every part of speech are pooled
+in part-of-speech order before the bound applies (`idiom-matcher/2`, #2378). It
+sends no learner identity, Book title, whole Book or reading history.
 
 ### Usage
 
@@ -161,23 +164,33 @@ assessment is what the review is for.
 
 ### Case set
 
-`idiom-review-v1` contains three review classes:
+`idiom-review-v2` contains four review classes. It keeps every
+`idiom-review-v1` case unchanged (`testdata/idiom_review_cases_v1.json`) and
+adds cards 4, 13 and 25 of the failed
+[2026-11-08 Italian review](idiom-review-2026-11-08.md) (#2378).
 
 - **Positive cases** — *in gamba*, *in bocca al lupo* ("good luck"), *macchina
-  da scrivere* ("typewriter") and *κάνω τα στραβά μάτια* ("to turn a blind eye").
-  Each must be confirmed with a citation-form Gloss.
+  da scrivere* ("typewriter"), *κάνω τα στραβά μάτια* ("to turn a blind eye")
+  and *di fronte* with its pooled adjective and adverb senses, where the
+  sentence uses the adverb ("in front", not the noun "front"). Each must be
+  confirmed with a citation-form Gloss.
 - **Literal-use controls** — *Tagliò la corda del pacco.* against *tagliare la
-  corda*, and *Sie nimmt das Kind auf den Arm.* against *jemanden auf den Arm
-  nehmen*. The same words are meant literally, so each must return
-  `literal_use`.
+  corda*, *Sie nimmt das Kind auf den Arm.* against *jemanden auf den Arm
+  nehmen*, and *fare le cose fatte bene* against *fare bene*, whose senses
+  include Wiktionary's "Used other than figuratively or idiomatically" marker.
+  The words are meant literally, so each must return `literal_use`.
+- **Ambiguous controls** — the comparative *rispetto a* ("compared with"),
+  whose dictionary senses list only "with respect to" and "in relation to". No
+  candidate sense fits, so it must return `ambiguous` rather than a Gloss from
+  context.
 - **Lemma-card controls** — *gamba* and *Arm*. Each records the idiom sentence
   and the idiom-free sentence the anchor's own card must use instead.
 
 Every provider case carries language, headword, matched forms, one
 representative sentence, frozen dictionary senses, and its expected outcome. A
-positive case also carries an expected Gloss; a literal-use control must not.
-`loadIdiomCaseSet` rejects a set that misses a language, review class or required
-field.
+positive case also carries an expected Gloss; a literal-use or ambiguous
+control must not. `loadIdiomCaseSet` rejects a set that misses a language,
+review class or required field.
 
 ### Sample mode
 
@@ -205,6 +218,8 @@ sentence, provider outcome, raw Gloss, and automatic checks:
   resolved a Gloss.
 - **outcome is `literal_use`** — a literal-use control passes only when the
   provider rejected the idiom.
+- **outcome is `ambiguous`** — an ambiguous control passes only when the
+  provider abstained because no candidate sense fits.
 - **lemma card moves off the idiom sentence** — a lemma-card control passes when
   its recorded card sentence differs from the idiom sentence and still carries
   the anchor form.
@@ -221,7 +236,7 @@ form or meaning.
 Italian idiom cards stay off until a committed report shows all of:
 
 - every positive case is confirmed with a citation-form Gloss;
-- no literal-use or lemma-card control is confirmed;
+- no literal-use, ambiguous or lemma-card control is confirmed;
 - the sample contains 30 confirmed cards and none teaches a wrong meaning.
 
 The report states this gate and leaves the final verdict to the operator.
@@ -234,3 +249,5 @@ The report states this gate and leaves the final verdict to the operator.
   gate failed on the *fern-sehen* `lemma_mismatch` case; v16 does not roll out.
 - [English target alignment quality review](english-target-alignment.md) —
   configured-model review pending.
+- [Idiom card v1 review, 2026-11-08](idiom-review-2026-11-08.md) — gate failed
+  on three wrong-meaning sample cards; Italian idiom cards stay off (#2378).

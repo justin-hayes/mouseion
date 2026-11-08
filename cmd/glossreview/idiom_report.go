@@ -55,7 +55,7 @@ func writeIdiomGate(builder *strings.Builder) {
 	builder.WriteString("## Gate\n\n")
 	builder.WriteString("The gate passes only when every item below is true:\n\n")
 	builder.WriteString("- every positive case is confirmed with a citation-form Gloss;\n")
-	builder.WriteString("- no literal-use control is confirmed and every lemma-card control passes its automatic check;\n")
+	builder.WriteString("- no literal-use control is confirmed, every ambiguous control returns `ambiguous`, and every lemma-card control passes its automatic check;\n")
 	builder.WriteString("- none of the sampled cards teaches a wrong meaning.\n\n")
 	builder.WriteString("- [ ] Gate evaluated and recorded: __________\n\n")
 }

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/idiom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
@@ -167,5 +168,37 @@ func TestIndexHasIdiomEntriesReportsTheIdiomTables(t *testing.T) {
 	t.Run("nil index", func(t *testing.T) {
 		var nilIndex *Index
 		assert.False(t, nilIndex.HasIdiomEntries())
+	})
+}
+
+// Wiktionary lists di fronte as both an adjective and an adverb. The lookup
+// returns both rows, and the matcher pools them into one candidate, so the
+// adverb senses reach the provider (#2378).
+func TestIndexIdiomEntriesFeedTheMatcherEveryPartOfSpeech(t *testing.T) {
+	index := newIdiomTestIndex(t,
+		`INSERT INTO idiom_entries VALUES ('it', 'di fronte', 'ADJ', '["di","fronte"]', '[{"Gloss":"front, fore"}]', 'wiktionary', 'fixture-v1')`,
+		`INSERT INTO idiom_entries VALUES ('it', 'di fronte', 'ADV', '["di","fronte"]', '[{"Gloss":"opposite"},{"Gloss":"in front of"}]', 'wiktionary', 'fixture-v1')`,
+		`INSERT INTO idiom_words VALUES ('it', 'fronte', 'di fronte', 'ADJ', 'wiktionary')`,
+		`INSERT INTO idiom_words VALUES ('it', 'fronte', 'di fronte', 'ADV', 'wiktionary')`,
+	)
+	entries, err := index.IdiomEntries(t.Context(), "it", "fronte")
+	require.NoError(t, err)
+	t.Run("lookup returns both parts of speech", func(t *testing.T) {
+		require.Len(t, entries, 2)
+	})
+
+	tokens := []idiom.Token{
+		{Ordinal: 0, Surface: "di", CanonicalLemma: "di"},
+		{Ordinal: 1, Surface: "fronte", CanonicalLemma: "fronte"},
+	}
+	anchors := []idiom.Anchor{{TokenOrdinal: 1, Identity: idiom.AnchorIdentity{Language: "it", CanonicalLemma: "fronte", UPOS: "NOUN"}}}
+	candidates := idiom.Match(idiom.DefaultParameters(), tokens, anchors, entries)
+	t.Run("matcher pools the senses into one candidate", func(t *testing.T) {
+		require.Len(t, candidates, 1)
+		glosses := make([]string, 0, len(candidates[0].Entry.Senses))
+		for _, sense := range candidates[0].Entry.Senses {
+			glosses = append(glosses, sense.Gloss)
+		}
+		require.Equal(t, []string{"front, fore", "opposite", "in front of"}, glosses)
 	})
 }

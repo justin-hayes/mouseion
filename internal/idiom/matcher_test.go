@@ -3,6 +3,7 @@ package idiom
 import (
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -296,4 +297,52 @@ func TestMatchDeduplicatesEntries(t *testing.T) {
 	got := Match(DefaultParameters(), tokens, []Anchor{testAnchor(1, "gamba")}, []Entry{entry, entry})
 
 	require.Len(t, got, 1)
+}
+
+func TestMatchPoolsTheSensesOfEveryPartOfSpeechForOneHeadword(t *testing.T) {
+	// Wiktionary lists di fronte as an adjective ("front, fore") and an adverb
+	// ("opposite", "in front of"). Card 4 of the 2026-11-08 Italian review was
+	// offered only the adjective's senses and glossed "front".
+	tokens := []Token{
+		testToken(0, "trovate", "trovare"), testToken(1, "di", "di"), testToken(2, "fronte", "fronte"),
+	}
+	adjective := testEntry("di fronte", "di", "fronte")
+	adjective.Senses = []enrichment.LexicalSense{{Gloss: "front, fore"}}
+	adverb := testEntry("di fronte", "di", "fronte")
+	adverb.UPOS = "ADV"
+	adverb.Senses = []enrichment.LexicalSense{{Gloss: "opposite (directly across)"}, {Gloss: "in front of"}}
+	wantGlosses := []string{"front, fore", "opposite (directly across)", "in front of"}
+
+	for name, entries := range map[string][]Entry{
+		"adjective first": {adjective, adverb},
+		"adverb first":    {adverb, adjective},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := Match(DefaultParameters(), tokens, []Anchor{testAnchor(2, "fronte")}, entries)
+
+			require.Len(t, got, 1, "one headword in one sentence is one candidate")
+			glosses := make([]string, 0, len(got[0].Entry.Senses))
+			for _, sense := range got[0].Entry.Senses {
+				glosses = append(glosses, sense.Gloss)
+			}
+			assert.Equal(t, wantGlosses, glosses, "senses are pooled in part-of-speech order")
+			assert.Equal(t, []int{1, 2}, got[0].MatchedTokenOrdinals)
+		})
+	}
+}
+
+func TestMatchKeepsEntriesFromDifferentSourcesApart(t *testing.T) {
+	tokens := []Token{testToken(0, "in", "in"), testToken(1, "gamba", "gamba")}
+	wiktionary := testEntry("in gamba", "in", "gamba")
+	wiktionary.Senses = []enrichment.LexicalSense{{Gloss: "capable"}}
+	reviewed := testEntry("in gamba", "in", "gamba")
+	reviewed.Source = "reviewed"
+	reviewed.Senses = []enrichment.LexicalSense{{Gloss: "on the ball"}}
+
+	got := Match(DefaultParameters(), tokens, []Anchor{testAnchor(1, "gamba")}, []Entry{reviewed, wiktionary})
+
+	require.Len(t, got, 1, "overlap resolution still keeps one candidate")
+	assert.Equal(t, "reviewed", got[0].Entry.Source)
+	require.Len(t, got[0].Entry.Senses, 1, "senses are not pooled across sources")
+	assert.Equal(t, "on the ball", got[0].Entry.Senses[0].Gloss)
 }

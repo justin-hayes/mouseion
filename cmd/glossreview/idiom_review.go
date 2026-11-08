@@ -82,6 +82,7 @@ const (
 const (
 	checkNameIdiomConfirmed  = "outcome is confirmed"
 	checkNameIdiomLiteralUse = "outcome is literal_use"
+	checkNameIdiomAmbiguous  = "outcome is ambiguous"
 	checkNameIdiomLemmaCard  = "lemma card moves off the idiom sentence"
 	checkNameIdiomKnownKind  = "case kind is known"
 )
@@ -139,7 +140,8 @@ func classifyIdiomOutcome(result idiomCaseResult) idiomOutcomeKind {
 }
 
 // idiomCaseCheck compares the expected review class with the observed outcome.
-// A positive case must be confirmed; a literal-use control must be rejected; a
+// A positive case must be confirmed; a literal-use control must be rejected as
+// literal_use; an ambiguous control must be rejected as ambiguous; a
 // lemma-card control must point at a different sentence that still carries the
 // anchor.
 func idiomCaseCheck(testCase idiomReviewCase, result idiomCaseResult) automaticCheck {
@@ -148,6 +150,8 @@ func idiomCaseCheck(testCase idiomReviewCase, result idiomCaseResult) automaticC
 		return expectedIdiomOutcomeCheck(checkNameIdiomConfirmed, idiomOutcomeConfirmed, result)
 	case idiomCaseLiteralUse:
 		return expectedIdiomOutcomeCheck(checkNameIdiomLiteralUse, idiomOutcomeLiteralUse, result)
+	case idiomCaseAmbiguous:
+		return expectedIdiomOutcomeCheck(checkNameIdiomAmbiguous, idiomOutcomeAmbiguous, result)
 	case idiomCaseLemmaCard:
 		return lemmaCardControlCheck(testCase)
 	default:
