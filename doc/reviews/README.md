@@ -112,6 +112,107 @@ The report leaves a blank reviewer verdict for every judgement-based rubric item
 Automatic checks never fill these in. A report is complete only when the
 operator has recorded every verdict.
 
+## Idiom card review
+
+`cmd/glossreview -review idiom` runs the frozen idiom case set
+`idiom-review-v1` through the real idiom codec and the configured provider, at
+the deployed model and reasoning setting. It records the date, model, reasoning
+setting, prompt contract, matcher version and matcher gap bound, and writes a
+dated Markdown report under `doc/reviews/`. The command never runs in CI.
+
+The idiom request carries only the headword, the matched forms, one
+representative sentence and the idiom entry's bounded public senses. It sends no
+learner identity, Book title, whole Book or reading history.
+
+### Usage
+
+Run the case set and a 30-card sample from one real analyzed Book:
+
+```sh
+export MOUSEION_LLM_ENABLED=true
+export MOUSEION_LLM_API_KEY=...
+export MOUSEION_LLM_MODEL=...
+export MOUSEION_DATABASE_URL=...
+
+go run ./cmd/glossreview -review idiom \
+  -book <Book-ID> \
+  -language it \
+  -seed 2026-11-08
+```
+
+The default report path is `doc/reviews/idiom-review-<YYYY-MM-DD>.md`. Choose a
+different path or a fixed report date when reproducing a run:
+
+```sh
+go run ./cmd/glossreview -review idiom \
+  -out doc/reviews/idiom-review-2026-11-08.md \
+  -date 2026-11-08 \
+  -book <Book-ID> -language it -seed 2026-11-08
+```
+
+`-book` is optional: without it the report contains only the case set and says
+that the gate cannot pass without a sample. `-seed` defaults to the report date.
+The sample is drawn from the Book's most recent ready prepared deck, and the
+selection is deterministic for a given Book and seed.
+
+### Case set
+
+`idiom-review-v1` contains three review classes:
+
+- **Positive cases** — *in gamba*, *in bocca al lupo* ("good luck"), *macchina
+  da scrivere* ("typewriter") and *κάνω τα στραβά μάτια* ("to turn a blind eye").
+  Each must be confirmed with a citation-form Gloss.
+- **Literal-use controls** — *Tagliò la corda del pacco.* against *tagliare la
+  corda*, and *Sie nimmt das Kind auf den Arm.* against *jemanden auf den Arm
+  nehmen*. The same words are meant literally, so each must return
+  `literal_use`.
+- **Lemma-card controls** — *gamba* and *Arm*. Each records the idiom sentence
+  and the idiom-free sentence the anchor's own card must use instead.
+
+Every provider case carries language, headword, matched forms, one
+representative sentence, frozen dictionary senses, and its expected outcome. A
+positive case also carries an expected Gloss; a literal-use control must not.
+`loadIdiomCaseSet` rejects a set that misses a language, review class or required
+field.
+
+### Sample mode
+
+The sample is 30 distinct confirmed idiom cards from one Book in the requested
+language. A card counts as confirmed only when its frozen item has a resolved
+provider Gloss, never when the deck omitted it as `literal_use` or `ambiguous`.
+The command orders candidates by a SHA-256 of the Book ID, seed and card
+identity, so the same Book and seed select the same cards regardless of database
+order. The report quotes each sampled card's representative sentence; commit it
+under the same source-rights review as any other review excerpt.
+
+### What the idiom report contains
+
+The report header pins the provider, prompt contract, matcher version and gap
+bound. For each case it shows the headword, matched words, representative
+sentence, provider outcome, raw Gloss, and automatic checks:
+
+- **outcome is `confirmed`** — a positive case passes only when the provider
+  resolved a Gloss.
+- **outcome is `literal_use`** — a literal-use control passes only when the
+  provider rejected the idiom.
+- **lemma card moves off the idiom sentence** — a lemma-card control passes when
+  its recorded card sentence differs from the idiom sentence and still carries
+  the anchor form.
+
+The sample repeats the card details with a `confirmed` check. Every case and
+sample card leaves a blank reviewer verdict; the command never judges citation
+form or meaning.
+
+### Gate
+
+Italian idiom cards stay off until a committed report shows all of:
+
+- every positive case is confirmed with a citation-form Gloss;
+- no literal-use or lemma-card control is confirmed;
+- the sample contains 30 confirmed cards and none teaches a wrong meaning.
+
+The report states this gate and leaves the final verdict to the operator.
+
 ### Reports
 
 - [Contextual Gloss v15 baseline](contextual-gloss-v15-baseline-2026-10-29.md) —

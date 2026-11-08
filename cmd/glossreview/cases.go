@@ -73,37 +73,77 @@ func loadCaseSet(reader io.Reader) (reviewCaseSet, error) {
 	return cases, nil
 }
 
+// reviewClassIdentity is the coverage evidence one case contributes to its
+// set: a unique id, a language and the class the set must cover.
+type reviewClassIdentity struct {
+	ID, Language, Class string
+}
+
+// validateReviewCoverage applies the shared case-set discipline: a version,
+// at least one case, unique ids, and one case for every required language and
+// class.
+func validateReviewCoverage(label, version string, identities []reviewClassIdentity, languages, classes []string) error {
+	if strings.TrimSpace(version) == "" {
+		return fmt.Errorf("load %s review cases: version is required", label)
+	}
+	if len(identities) == 0 {
+		return fmt.Errorf("load %s review cases: no cases", label)
+	}
+	seenIDs := make(map[string]struct{}, len(identities))
+	seenLanguages := make(map[string]struct{}, len(languages))
+	seenClasses := make(map[string]struct{}, len(classes))
+	for _, identity := range identities {
+		if _, duplicate := seenIDs[identity.ID]; duplicate {
+			return fmt.Errorf("load %s review cases: duplicate case id %q", label, identity.ID)
+		}
+		seenIDs[identity.ID] = struct{}{}
+		seenLanguages[identity.Language] = struct{}{}
+		seenClasses[identity.Class] = struct{}{}
+	}
+	for _, language := range languages {
+		if _, ok := seenLanguages[language]; !ok {
+			return fmt.Errorf("load %s review cases: no %s case", label, language)
+		}
+	}
+	for _, class := range classes {
+		if _, ok := seenClasses[class]; !ok {
+			return fmt.Errorf("load %s review cases: no %s case", label, class)
+		}
+	}
+	return nil
+}
+
 // validate rejects a case set that cannot cover the frozen review classes or
 // that carries an incomplete request.
 func (s reviewCaseSet) validate() error {
-	if strings.TrimSpace(s.Version) == "" {
-		return errors.New("load gloss review cases: version is required")
-	}
-	if len(s.Cases) == 0 {
-		return errors.New("load gloss review cases: no cases")
-	}
-	seenIDs := make(map[string]struct{}, len(s.Cases))
-	seenLanguages := make(map[string]struct{}, len(reviewLanguages))
-	seenVerdicts := make(map[verdictClass]struct{}, len(reviewVerdictClasses))
+	identities := make([]reviewClassIdentity, 0, len(s.Cases))
 	for i, testCase := range s.Cases {
 		if err := testCase.validate(); err != nil {
 			return fmt.Errorf("load gloss review cases: case %d: %w", i, err)
 		}
-		if _, duplicate := seenIDs[testCase.ID]; duplicate {
-			return fmt.Errorf("load gloss review cases: duplicate case id %q", testCase.ID)
-		}
-		seenIDs[testCase.ID] = struct{}{}
-		seenLanguages[testCase.Language] = struct{}{}
-		seenVerdicts[testCase.ExpectedVerdictClass] = struct{}{}
+		identities = append(identities, reviewClassIdentity{ID: testCase.ID, Language: testCase.Language, Class: string(testCase.ExpectedVerdictClass)})
 	}
-	for _, language := range reviewLanguages {
-		if _, ok := seenLanguages[language]; !ok {
-			return fmt.Errorf("load gloss review cases: no %s case", language)
-		}
+	classes := make([]string, 0, len(reviewVerdictClasses))
+	for _, class := range reviewVerdictClasses {
+		classes = append(classes, string(class))
 	}
-	for _, verdict := range reviewVerdictClasses {
-		if _, ok := seenVerdicts[verdict]; !ok {
-			return fmt.Errorf("load gloss review cases: no %s case", verdict)
+	return validateReviewCoverage("gloss", s.Version, identities, reviewLanguages, classes)
+}
+
+// validateLexicalEvidence rejects evidence without a unique, non-empty id and
+// a gloss.
+func validateLexicalEvidence(caseID string, evidence []enrichment.LexicalSense) error {
+	seenEvidence := make(map[string]struct{}, len(evidence))
+	for _, sense := range evidence {
+		if strings.TrimSpace(sense.EvidenceID) == "" {
+			return fmt.Errorf("case %q: evidence id is required", caseID)
+		}
+		if _, duplicate := seenEvidence[sense.EvidenceID]; duplicate {
+			return fmt.Errorf("case %q: duplicate evidence id %q", caseID, sense.EvidenceID)
+		}
+		seenEvidence[sense.EvidenceID] = struct{}{}
+		if strings.TrimSpace(sense.Gloss) == "" {
+			return fmt.Errorf("case %q: evidence %q has no gloss", caseID, sense.EvidenceID)
 		}
 	}
 	return nil
@@ -135,20 +175,7 @@ func (c reviewCase) validate() error {
 	if !slices.Contains(reviewVerdictClasses, c.ExpectedVerdictClass) {
 		return fmt.Errorf("case %q has unknown expected verdict class %q", c.ID, c.ExpectedVerdictClass)
 	}
-	seenEvidence := make(map[string]struct{}, len(c.Evidence))
-	for _, evidence := range c.Evidence {
-		if strings.TrimSpace(evidence.EvidenceID) == "" {
-			return fmt.Errorf("case %q: evidence id is required", c.ID)
-		}
-		if _, duplicate := seenEvidence[evidence.EvidenceID]; duplicate {
-			return fmt.Errorf("case %q: duplicate evidence id %q", c.ID, evidence.EvidenceID)
-		}
-		seenEvidence[evidence.EvidenceID] = struct{}{}
-		if strings.TrimSpace(evidence.Gloss) == "" {
-			return fmt.Errorf("case %q: evidence %q has no gloss", c.ID, evidence.EvidenceID)
-		}
-	}
-	return nil
+	return validateLexicalEvidence(c.ID, c.Evidence)
 }
 
 // request builds the exact normal-preparation request for one case.

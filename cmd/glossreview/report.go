@@ -102,10 +102,16 @@ func evidenceSummary(evidence []enrichment.LexicalSense) string {
 // checkDisplayName renders the automatic-check name for the report without
 // putting Markdown into the check's domain identity.
 func checkDisplayName(name string) string {
-	if name == checkNameLemmaMismatch {
+	switch name {
+	case checkNameLemmaMismatch:
 		return "outcome is `lemma_mismatch`"
+	case checkNameIdiomConfirmed:
+		return "outcome is `confirmed`"
+	case checkNameIdiomLiteralUse:
+		return "outcome is `literal_use`"
+	default:
+		return name
 	}
-	return name
 }
 
 func checkResult(check automaticCheck) string {
