@@ -1,6 +1,6 @@
 # Idiom card review — `idiom-card-v3`
 
-Status: **Gate failed — Italian idiom cards stay off** (follow-up: #2389)
+Status: **Gate failed under ADR 0114; superseded** by the [run of record](idiom-review-v3-gate2-2026-11-08.md) under ADR 0115 (#2389)
 
 - Date: 2026-11-08
 - Model: `gpt-5.6-luna`

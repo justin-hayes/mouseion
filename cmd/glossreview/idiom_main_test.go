@@ -255,6 +255,8 @@ func TestReviewIdiomScoresCasesThroughTheStubbedIdiomContract(t *testing.T) {
 		"gate misleading":  "- no card, in a control or the sample, teaches a misleading meaning;",
 		"gate near-miss":   "- at most 3 cards, across the controls and the sample, are near-misses.",
 		"gate grades":      "A control whose card is omitted, as `literal_use` or `ambiguous`, passes.",
+		"gate confirmed":   "A control whose card is confirmed is graded like any other card.",
+		"gate lemma":       "- every lemma-card control passes;",
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.Contains(t, rendered, fragment)

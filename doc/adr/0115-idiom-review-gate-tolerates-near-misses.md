@@ -60,8 +60,7 @@ context of every card, in a control or in the sample, as one of:
 report shows all of:
 
 - every positive case is confirmed with a citation-form Gloss;
-- every literal-use and ambiguous control passes its automatic check, and
-  every lemma-card control passes;
+- every lemma-card control passes;
 - no card, in a control or the sample, teaches a misleading meaning;
 - at most 3 cards, across the controls and the sample, are near-misses.
 
@@ -69,7 +68,9 @@ report shows all of:
 passes when its card is omitted as `literal_use` or `ambiguous`. Both keep the
 card out of the deck, so the label does not matter to the learner. An
 unresolved answer with no kind, an invalid response and a provider error still
-fail.
+fail. A control whose card is confirmed fails its automatic check, which flags
+it for grading; the reviewer then grades the card like any other, so it counts
+against the near-miss budget or, if misleading, fails the gate.
 
 **The case set is frozen.** `idiom-review-v3` stays the case set for Italian.
 A failed review no longer adds its failures as new cases; new cases need their

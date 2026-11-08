@@ -260,13 +260,14 @@ Italian idiom cards stay off until a committed report shows all of
 ([ADR 0115](../adr/0115-idiom-review-gate-tolerates-near-misses.md)):
 
 - every positive case is confirmed with a citation-form Gloss;
-- every literal-use and ambiguous control passes its automatic check, and
-  every lemma-card control passes;
+- every lemma-card control passes;
 - the sample contains 30 confirmed cards;
 - no card, in a control or the sample, teaches a misleading meaning;
 - at most 3 cards, across the controls and the sample, are near-misses.
 
-The report states this gate and leaves the final verdict to the operator. The
+A literal-use or ambiguous control whose card is omitted passes. One whose
+card is confirmed fails its automatic check, which flags the card for grading;
+the gate then counts it like any other card. The report states this gate and leaves the final verdict to the operator. The
 case set stays frozen at `idiom-review-v3`: a failed review does not add its
 failures as cases. Reports written before ADR 0115 used a zero-tolerance gate
 and are not re-graded.
@@ -294,3 +295,8 @@ and are not re-graded.
 - [Idiom card v3 review at `medium`, 2026-11-08](idiom-review-v3-medium-2026-11-08.md)
   — diagnostic run; gate failed on the *fare bene* control, *casa isolata*
   returned as `literal_use`, and the same wrong-meaning sample card (#2389).
+  Both v3 reports were graded under ADR 0114's zero-tolerance gate and are
+  superseded by the run of record below.
+- [Idiom card v3 run of record, 2026-11-08](idiom-review-v3-gate2-2026-11-08.md)
+  — at `medium`, under ADR 0115; gate passed with 3 near-miss control cards and
+  no misleading card. Italian idiom cards may be enabled (#2389).

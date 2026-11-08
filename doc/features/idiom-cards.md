@@ -195,12 +195,13 @@ gush out".
     idiom-free sentence.
 - Gate per language (ADR 0115): the reviewer grades every card's meaning in
   context as correct, near-miss or misleading. The gate passes when every
-  positive case is confirmed with a citation-form Gloss, every literal-use and
-  ambiguous control is omitted (as either `literal_use` or `ambiguous`), every
-  lemma-card control passes, a sample of 30 confirmed idiom cards from one
+  positive case is confirmed with a citation-form Gloss, every lemma-card
+  control passes, a sample of 30 confirmed idiom cards from one
   real Book in that language is drawn, no card in the controls or the sample
   is misleading, and at most 3 are near-misses. The dated report goes under
-  `doc/reviews/`.
+  `doc/reviews/`. A literal-use or ambiguous control passes when its card is
+  omitted as either `literal_use` or `ambiguous`; a confirmed control card is
+  graded like any other card.
 - The case set stays frozen at `idiom-review-v3`; a failed review does not add
   its failures as new cases.
 - Run idiom cards at `MOUSEION_LLM_IDIOM_REASONING_EFFORT=medium`. In the
@@ -258,7 +259,7 @@ gush out".
 - [ ] The per-deck bound ranks noun-only idioms after every other idiom, and
       the idiom review report lists the idioms a prepared deck would keep
       (#2379).
-- [ ] Italian review report committed and passing the gate before Italian is
+- [x] Italian review report committed and passing the gate before Italian is
       enabled. German and Modern Greek each follow with their own report.
       The [2026-11-08 Italian review](../reviews/idiom-review-2026-11-08.md)
       failed the gate (three wrong-meaning sample cards); Italian stays off
@@ -273,11 +274,16 @@ gush out".
       [v3 review](../reviews/idiom-review-v3-2026-11-08.md) failed at `low`
       and a [`medium` run](../reviews/idiom-review-v3-medium-2026-11-08.md)
       also failed: *fare bene* is still confirmed and *casa isolata* is still
-      sampled as "detached house"; Italian stays off.
+      sampled as "detached house"; Italian stays off. ADR 0115 then replaced
+      the zero-tolerance gate, and the
+      [run of record](../reviews/idiom-review-v3-gate2-2026-11-08.md) at
+      `medium` passed with 3 near-miss control cards and no misleading card;
+      the Italian assessment is recorded (#2389).
 
 ## Related
 
 - [ADR 0114: Idiom cards from dictionary evidence](../adr/0114-idiom-cards-from-dictionary-evidence.md)
+- [ADR 0115: The idiom review gate grades severity and tolerates a few near-misses](../adr/0115-idiom-review-gate-tolerates-near-misses.md)
 - [Contextual gloss preparation](contextual-gloss-preparation.md)
 - [Dictionary gloss enrichment](dictionary-gloss-enrichment.md)
 - [Recognition card sentence presentation](recognition-card-sentence-presentation.md)

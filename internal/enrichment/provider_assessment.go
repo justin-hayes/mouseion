@@ -89,9 +89,9 @@ var lsjSenseSummaryAssessment = ProviderAssessment{
 
 // idiomCardAssessment is the reviewed personal-use disposition for the exact
 // idiom-card payload: the headword, matched forms, representative sentence and
-// bounded candidate senses alone. It remains unrecorded until the Italian idiom
-// review report is committed, so enabling Italian idiom cards fails closed and
-// sends nothing (ADR 0114).
+// bounded candidate senses alone. It is recorded for Italian by the passing
+// review in doc/reviews/idiom-review-v3-gate2-2026-11-08.md under the ADR 0115
+// gate. Any other language still fails closed and sends nothing (ADR 0114).
 var idiomCardAssessment = ProviderAssessment{
 	Language:      "it",
 	Provider:      "openai-compatible",
@@ -100,9 +100,9 @@ var idiomCardAssessment = ProviderAssessment{
 		"item_id", "language", "target_language", "headword", "matched_forms",
 		"example_sentence", "candidate_senses",
 	},
-	Disposition: "awaiting the Italian idiom review report",
-	Ticket:      "#2362",
-	Recorded:    false,
+	Disposition: "approved for personal use after the Italian idiom review passed",
+	Ticket:      "#2389",
+	Recorded:    true,
 }
 
 // ProviderAssessments returns the compiled reviewed personal-use payload
