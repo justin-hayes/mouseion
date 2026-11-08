@@ -1,6 +1,6 @@
 # Idiom card review — `idiom-card-v2`
 
-Status: **Gate failed — Italian idiom cards stay off** (follow-up: #2385)
+Status: **Gate failed — Italian idiom cards stay off** (follow-up: #2389)
 
 - Date: 2026-11-08
 - Model: `gpt-5.6-luna`
@@ -29,13 +29,13 @@ The gate passes only when every item below is true:
 
 - [x] Gate evaluated and recorded: **fail** — the `it-fare-bene-literal` control is confirmed, and two of the 30 sampled cards teach a wrong meaning (8 *in giro*, 18 *casa isolata*).
 
-Verdicts drafted by Claude on 2026-11-08 at the operator's request; operator confirmation pending. This re-run uses the code merged in #2387 (idiom senses carry evidence IDs; an unresolved idiom answer may leave `translation` blank) against the same dictionary index, Book and seed as the [failed v2 review](idiom-review-v2-2026-11-08.md), which is unchanged. The index was not rebuilt: it already postdates #2380, and nothing since changed the derivation or the reviewed idiom list.
+Verdicts drafted by Claude on 2026-11-08 at the operator's request and confirmed by the operator the same day. This re-run uses the code merged in #2387 (idiom senses carry evidence IDs; an unresolved idiom answer may leave `translation` blank) against the same dictionary index, Book and seed as the [failed v2 review](idiom-review-v2-2026-11-08.md), which is unchanged. The index was not rebuilt: it already postdates #2380, and nothing since changed the derivation or the reviewed idiom list.
 
 Compared with that run, the sample went from 1 confirmed card out of 351 sent to 30 out of 54, and automatic checks from 7/11 to 10/11. `it-tagliare-la-corda-literal`, `de-jemanden-auf-den-arm-nehmen-literal` and `it-rispetto-a-comparative` now pass, and `it-di-fronte` cites the adverb sense. The 24 unconfirmed sample items are all correct rejections: the words occur separately, or the sentence uses a sense the dictionary does not list.
 
 Remaining failures:
 
-- `it-fare-bene-literal`: the provider confirmed "to do well" (sense e1) although *fatte bene* modifies *le cose* and sense e3 marks the literal use. This is defect 3 of #2385 and needs a prompt change.
+- `it-fare-bene-literal`: the provider confirmed "to do well" (sense e1) although *fatte bene* modifies *le cose* and sense e3 marks the literal use. This is defect 3 of #2385.
 - Sample 8, *in giro* → "to go around": the dictionary lists "here and there, about, around", but the Gloss takes the sentence's verb *andare* instead.
 - Sample 18, *casa isolata* → "detached house": the dictionary lists "detached house" and "homestead", and neither fits a remote house beyond the hills. The provider confirmed one anyway rather than returning `ambiguous`.
 
