@@ -258,3 +258,6 @@ The report states this gate and leaves the final verdict to the operator.
 - [Idiom card v2 review, 2026-11-08](idiom-review-v2-2026-11-08.md) — gate
   failed on four case checks and a sample of 1 confirmed card; Italian idiom
   cards stay off (#2385).
+- [Idiom card v2 re-run, 2026-11-08](idiom-review-v2-2026-11-08-rerun.md) —
+  after #2387; gate failed on the *fare bene* literal control and two
+  wrong-meaning sample cards; Italian idiom cards stay off (#2389).
