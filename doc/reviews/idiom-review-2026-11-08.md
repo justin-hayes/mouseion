@@ -28,7 +28,13 @@ The gate passes only when every item below is true:
 - no literal-use control is confirmed and every lemma-card control passes its automatic check;
 - none of the sampled cards teaches a wrong meaning.
 
-- [ ] Gate evaluated and recorded: __________
+- [ ] Gate evaluated and recorded: **fail (draft)** — sample cards 4 (*di fronte*), 13 (*rispetto a*) and 25 (*fare bene*) teach a wrong meaning in context. Every case and the other 27 sample cards pass.
+
+Verdicts drafted by Claude on 2026-11-08 at the operator's request; they await the operator's confirmation. Observations beyond the gate:
+
+- Card 25 is a matcher/provider miss: the words are used literally, but the provider confirmed the idiom anyway, even though one candidate sense says "Used other than figuratively or idiomatically".
+- Cards 4 and 13 show the Gloss following the dictionary's first sense rather than the sense the sentence uses (the translation for card 4 is right; the Gloss is not).
+- Several sampled items (*sistema solare*, *acqua di mare*, *scuola superiore*, *stare in piedi*) are transparent compounds from Wiktionary's multi-word entries rather than idioms. They are correct but low value.
 
 ## `it-in-gamba` — it `in gamba` (positive)
 
@@ -69,10 +75,10 @@ The gate passes only when every item below is true:
 
 Leave these blank for the operator; the command cannot judge them.
 
-- [ ] Citation form — verdict: __________
-- [ ] No definition paraphrase — verdict: __________
-- [ ] No sentence inflection or arguments — verdict: __________
-- [ ] Meaning correct in context — verdict: __________
+- [x] Citation form — verdict: pass
+- [x] No definition paraphrase — verdict: pass
+- [x] No sentence inflection or arguments — verdict: pass
+- [x] Meaning correct in context — verdict: pass
 
 ## `it-in-bocca-al-lupo` — it `in bocca al lupo` (positive)
 
@@ -113,10 +119,10 @@ Leave these blank for the operator; the command cannot judge them.
 
 Leave these blank for the operator; the command cannot judge them.
 
-- [ ] Citation form — verdict: __________
-- [ ] No definition paraphrase — verdict: __________
-- [ ] No sentence inflection or arguments — verdict: __________
-- [ ] Meaning correct in context — verdict: __________
+- [x] Citation form — verdict: pass
+- [x] No definition paraphrase — verdict: pass
+- [x] No sentence inflection or arguments — verdict: pass
+- [x] Meaning correct in context — verdict: pass
 
 ## `it-macchina-da-scrivere` — it `macchina da scrivere` (positive)
 
@@ -157,10 +163,10 @@ Leave these blank for the operator; the command cannot judge them.
 
 Leave these blank for the operator; the command cannot judge them.
 
-- [ ] Citation form — verdict: __________
-- [ ] No definition paraphrase — verdict: __________
-- [ ] No sentence inflection or arguments — verdict: __________
-- [ ] Meaning correct in context — verdict: __________
+- [x] Citation form — verdict: pass
+- [x] No definition paraphrase — verdict: pass
+- [x] No sentence inflection or arguments — verdict: pass
+- [x] Meaning correct in context — verdict: pass
 
 ## `el-kano-ta-strava-matia` — el `κάνω τα στραβά μάτια` (positive)
 
@@ -201,10 +207,10 @@ Leave these blank for the operator; the command cannot judge them.
 
 Leave these blank for the operator; the command cannot judge them.
 
-- [ ] Citation form — verdict: __________
-- [ ] No definition paraphrase — verdict: __________
-- [ ] No sentence inflection or arguments — verdict: __________
-- [ ] Meaning correct in context — verdict: __________
+- [x] Citation form — verdict: pass
+- [x] No definition paraphrase — verdict: pass
+- [x] No sentence inflection or arguments — verdict: pass
+- [x] Meaning correct in context — verdict: pass
 
 ## `it-tagliare-la-corda-literal` — it `tagliare la corda` (literal-use control)
 
@@ -244,10 +250,10 @@ Leave these blank for the operator; the command cannot judge them.
 
 Leave these blank for the operator; the command cannot judge them.
 
-- [ ] Citation form — verdict: __________
-- [ ] No definition paraphrase — verdict: __________
-- [ ] No sentence inflection or arguments — verdict: __________
-- [ ] Meaning correct in context — verdict: __________
+- [x] Citation form — verdict: n/a — no card was produced; the provider correctly returned `literal_use`
+- [x] No definition paraphrase — verdict: n/a — no card was produced; the provider correctly returned `literal_use`
+- [x] No sentence inflection or arguments — verdict: n/a — no card was produced; the provider correctly returned `literal_use`
+- [x] Meaning correct in context — verdict: pass — the cord belongs to the parcel; rejecting the idiom is correct
 
 ## `de-jemanden-auf-den-arm-nehmen-literal` — de `jemanden auf den Arm nehmen` (literal-use control)
 
@@ -287,10 +293,10 @@ Leave these blank for the operator; the command cannot judge them.
 
 Leave these blank for the operator; the command cannot judge them.
 
-- [ ] Citation form — verdict: __________
-- [ ] No definition paraphrase — verdict: __________
-- [ ] No sentence inflection or arguments — verdict: __________
-- [ ] Meaning correct in context — verdict: __________
+- [x] Citation form — verdict: n/a — no card was produced; the provider correctly returned `literal_use`
+- [x] No definition paraphrase — verdict: n/a — no card was produced; the provider correctly returned `literal_use`
+- [x] No sentence inflection or arguments — verdict: n/a — no card was produced; the provider correctly returned `literal_use`
+- [x] Meaning correct in context — verdict: pass — she physically picks the child up; rejecting the idiom is correct
 
 ## `it-gamba-lemma-card` — it `in gamba` (lemma-card control)
 
@@ -307,7 +313,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 ### Reviewer verdicts
 
-- [ ] Anchor card moved to an idiom-free sentence — verdict: __________
+- [x] Anchor card moved to an idiom-free sentence — verdict: pass — the anchor card uses *Mi fa male la gamba.*
 
 ## `de-arm-lemma-card` — de `jemanden auf den Arm nehmen` (lemma-card control)
 
@@ -324,7 +330,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 ### Reviewer verdicts
 
-- [ ] Anchor card moved to an idiom-free sentence — verdict: __________
+- [x] Anchor card moved to an idiom-free sentence — verdict: pass — the anchor card uses *Er hat sich den Arm gebrochen.*
 
 ## Sample
 
@@ -345,7 +351,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass — "walked at length / for a long time"
 
 ### 2. `prendere in giro` — `prendere` (`VERB`)
 
@@ -364,7 +370,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 3. `altra volta` — `volta` (`NOUN`)
 
@@ -383,7 +389,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 4. `di fronte` — `fronte` (`NOUN`)
 
@@ -402,7 +408,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [ ] Meaning correct in context — verdict: fail — the Gloss "front" is a bare noun; in *me le sono trovate di fronte* the idiom means "in front (of me)", which only the translation says. A learner would learn *di fronte* = "front"
 
 ### 5. `in disparte` — `disparta` (`NOUN`)
 
@@ -421,7 +427,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass — "kept apart / to himself" (the anchor lemma *disparta* is an analyzer error, not a meaning error)
 
 ### 6. `anche se` — `anche` (`ADV`)
 
@@ -440,7 +446,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 7. `per fortuna` — `fortuna` (`NOUN`)
 
@@ -459,7 +465,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 8. `stare in piedi` — `stare` (`VERB`)
 
@@ -478,7 +484,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 9. `fare finta di nulla` — `fare` (`VERB`)
 
@@ -497,7 +503,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 10. `e così via` — `così` (`ADV`)
 
@@ -516,7 +522,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 11. `di tanto in tanto` — `tanto` (`ADV`)
 
@@ -535,7 +541,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 12. `scuola superiore` — `scuola` (`NOUN`)
 
@@ -554,7 +560,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 13. `rispetto a` — `rispetto` (`ADV`)
 
@@ -573,7 +579,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [ ] Meaning correct in context — verdict: fail — here *rispetto a* means "compared with" (the sentence translation renders it "than"); "with respect to" reads as "regarding". The candidate senses offered no comparative sense
 
 ### 14. `su e giù` — `giù` (`ADV`)
 
@@ -592,7 +598,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 15. `fare la pipì` — `fare` (`VERB`)
 
@@ -611,7 +617,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 16. `più o meno` — `più` (`ADV`)
 
@@ -630,7 +636,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 17. `a vicenda` — `vicenda` (`NOUN`)
 
@@ -649,7 +655,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 18. `sistema solare` — `sistema` (`NOUN`)
 
@@ -668,7 +674,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass — the meaning is right, but this is a transparent compound rather than an idiom
 
 ### 19. `acqua di mare` — `acqua` (`NOUN`)
 
@@ -687,7 +693,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass — the meaning is right, but this is a transparent compound; matched through *del* → *di*
 
 ### 20. `lavorare duro` — `lavorare` (`VERB`)
 
@@ -706,7 +712,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 21. `da capo` — `capo` (`NOUN`)
 
@@ -725,7 +731,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass — *rifare da capo* = "redo from scratch / from the start" fits
 
 ### 22. `in cerchio` — `cerchio` (`NOUN`)
 
@@ -744,7 +750,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 23. `fare finta di niente` — `fare` (`VERB`)
 
@@ -763,7 +769,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 24. `non appena` — `non` (`ADV`)
 
@@ -782,7 +788,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 25. `fare bene` — `fare` (`VERB`)
 
@@ -801,7 +807,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [ ] Meaning correct in context — verdict: fail — *fare le cose fatte bene* is literal ("do things properly"); *fatte bene* modifies *le cose*, so there is no idiom. "to do well" (to succeed) is wrong here, and candidate sense e3 even marks the literal use
 
 ### 26. `ad esempio` — `esempio` (`NOUN`)
 
@@ -820,7 +826,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 27. `non ancora` — `non` (`ADV`)
 
@@ -839,7 +845,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 28. `per via di` — `via` (`NOUN`)
 
@@ -858,7 +864,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 29. `fare i conti` — `fare` (`VERB`)
 
@@ -877,7 +883,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ### 30. `forte e chiaro` — `forte` (`ADJ`)
 
@@ -896,7 +902,7 @@ Leave these blank for the operator; the command cannot judge them.
 
 #### Reviewer verdicts
 
-- [ ] Meaning correct in context — verdict: __________
+- [x] Meaning correct in context — verdict: pass
 
 ## Sample items not confirmed
 
