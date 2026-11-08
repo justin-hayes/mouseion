@@ -54,7 +54,9 @@ gush out".
 - An **idiom** is a multi-word lexeme with its own entry in the dictionary
   index or in Mouseion's reviewed idiom list for the language. Figurative
   idioms and fixed compounds (*macchina da scrivere* "typewriter") are both
-  idioms here.
+  idioms here. Transparent compounds such as *sistema solare* ("solar system")
+  stay idioms by design: their cards are correct, so they are ranked last
+  within the per-deck bound rather than removed (#2379).
 - Candidate entries: two to four words, excluding entries whose senses are all
   inflected-form or alternative-form references. The dictionary derivation
   adds a lookup from each word to the multi-word entries containing it.
@@ -116,8 +118,14 @@ gush out".
   stable across decks and never collides with a lemma note. Idiom cards carry
   a `mouseion::idiom` tag.
 - A per-deck bound of **30 idiom cards** is fixed during implementation and
-  reviewed with the case set. Anchors with more sentence occurrences go first;
-  ties break by earliest sentence, then headword, then language. The ready
+  reviewed with the case set. Ranking has two tiers. A **noun-only idiom**,
+  whose dictionary entries for the headword are all nouns, ranks after every
+  other idiom; a headword with mixed or missing parts of speech, or from the
+  reviewed idiom list, stays in the first tier. Within each tier, anchors with
+  more sentence occurrences go first; ties break by earliest sentence, then
+  headword, then language. The ranking records no version: it only decides
+  which idioms are frozen, and Ready decks change only by re-preparation. The
+  ready
   deck's status view and JSON report any overflow. Overflowed idioms are not
   idiom omissions and raise no review flag.
 
@@ -164,6 +172,10 @@ gush out".
   preparation, with idiom cards on and no per-deck bound. It writes nothing and
   needs no recorded assessment, so a language can be reviewed before its
   switch is turned on (#2375).
+- Because the sample ignores the bound, the report also lists the idioms a
+  prepared deck would keep, in rank order with headword, anchor, occurrence
+  count and a noun-only marker, followed by the overflow count. It needs no
+  provider calls and is not a gate criterion (#2379).
 - Order: Italian first. German follows once matching handles reordered
   verb-second clauses. Modern Greek follows once its reviewed list has enough
   entries to sample 30 cards.
@@ -198,6 +210,9 @@ gush out".
 - [ ] The idiom card renders with bold matched words, headword, Gloss and
       highlighted English, with no morphology block, under a stable namespaced
       note key.
+- [ ] The per-deck bound ranks noun-only idioms after every other idiom, and
+      the idiom review report lists the idioms a prepared deck would keep
+      (#2379).
 - [ ] Italian review report committed and passing the gate before Italian is
       enabled. German and Modern Greek each follow with their own report.
       The [2026-11-08 Italian review](../reviews/idiom-review-2026-11-08.md)
