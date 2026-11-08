@@ -47,19 +47,21 @@ func (r idiomSampleReport) Sent() int {
 }
 
 // runIdiomSample sends the ordered idiom items to the provider, one at a time,
-// until limit are confirmed or the items run out.
-func runIdiomSample(ctx context.Context, client translationClient, options idiomSampleOptions, limit int) idiomSampleReport {
+// until idiomSampleSize are confirmed or the items run out. It stops when ctx is
+// cancelled, so an interrupted run does not list the unsent items as provider
+// errors; the caller then writes no report.
+func runIdiomSample(ctx context.Context, client translationClient, options idiomSampleOptions) idiomSampleReport {
 	report := idiomSampleReport{
 		Requested: options.Requested,
 		BookID:    options.BookID,
 		Language:  options.Language,
 		Seed:      options.Seed,
-		Limit:     limit,
+		Limit:     idiomSampleSize,
 	}
 	ordered := orderIdiomSample(options.Items, options.BookID, options.Seed)
 	report.Found = len(ordered)
 	for _, item := range ordered {
-		if len(report.Cards) >= limit {
+		if len(report.Cards) >= report.Limit || ctx.Err() != nil {
 			break
 		}
 		result := idiomSampleResult{Item: item}

@@ -112,7 +112,7 @@ func reviewIdiom(ctx context.Context, options idiomReviewOptions) idiomReviewRep
 		report.Cases = append(report.Cases, result)
 	}
 	report.Summary = summarizeIdiom(report.Cases)
-	report.Sample = runIdiomSample(ctx, options.Client, options.Sample, idiomSampleSize)
+	report.Sample = runIdiomSample(ctx, options.Client, options.Sample)
 	return report
 }
 

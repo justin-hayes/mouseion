@@ -299,7 +299,7 @@ func TestRunIdiomSampleSendsItemsUntilEnoughAreConfirmed(t *testing.T) {
 	}
 	options := idiomSampleOptions{Requested: true, BookID: "book-1", Language: "it", Seed: "seed-1", Items: items}
 
-	report := runIdiomSample(context.Background(), client, options, idiomSampleSize)
+	report := runIdiomSample(context.Background(), client, options)
 
 	t.Run("stops at the reviewed sample size", func(t *testing.T) {
 		require.Len(t, report.Cards, idiomSampleSize)
@@ -331,7 +331,7 @@ func TestRunIdiomSampleSendsItemsUntilEnoughAreConfirmed(t *testing.T) {
 	t.Run("a short Book is not padded", func(t *testing.T) {
 		short := options
 		short.Items = items[6:13]
-		require.Len(t, runIdiomSample(context.Background(), client, short, idiomSampleSize).Cards, 7)
+		require.Len(t, runIdiomSample(context.Background(), client, short).Cards, 7)
 	})
 }
 
@@ -435,6 +435,35 @@ func TestExecuteIdiomCommandReportsAFailedSampleFreeze(t *testing.T) {
 		func(context.Context, *enrichment.TranslationCodec) (idiomSampleSource, error) { return source, nil })
 	require.ErrorContains(t, err, "freeze failed")
 	require.True(t, source.closed)
+}
+
+func TestAnInterruptedIdiomSampleWritesNoReport(t *testing.T) {
+	client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+		return idiomStubAnswer{translation: "review", gloss: "review"}
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	t.Run("no item is sent after cancellation", func(t *testing.T) {
+		options := idiomSampleOptions{Requested: true, BookID: "book-1", Language: "it", Seed: "seed-1", Items: sampleItems(5)}
+		report := runIdiomSample(ctx, client, options)
+		require.Zero(t, report.Sent())
+		require.Equal(t, 5, report.Found)
+	})
+	t.Run("the command returns the cancellation and writes nothing", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "idiom-review.md")
+		options, err := parseReviewCommand([]string{"-review", "idiom", "-out", path, "-book", "book-1"})
+		require.NoError(t, err)
+		err = executeIdiomCommand(ctx, options, io.Discard,
+			func() (reviewEnvironment, error) {
+				return reviewEnvironment{Client: client, Provider: idiomTestProviderMetadata()}, nil
+			},
+			func(context.Context, *enrichment.TranslationCodec) (idiomSampleSource, error) {
+				return &fakeIdiomSampleSource{items: sampleItems(5)}, nil
+			})
+		require.ErrorIs(t, err, context.Canceled)
+		require.NoFileExists(t, path)
+	})
 }
 
 func TestWriteIdiomSampleReportsUnconfirmedAndShortSamples(t *testing.T) {

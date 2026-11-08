@@ -209,8 +209,11 @@ sentence, provider outcome, raw Gloss, and automatic checks:
   its recorded card sentence differs from the idiom sentence and still carries
   the anchor form.
 
-The sample repeats the card details with a `confirmed` check. Every case and
-sample card leaves a blank reviewer verdict; the command never judges citation
+The sample header counts the idiom items the freeze found, how many were sent
+and how many were confirmed. Each confirmed item shows its headword, anchor,
+matched words, representative sentence, Gloss and translations; each item the
+provider did not confirm shows its outcome and reason. Every case and confirmed
+sample item leaves a blank reviewer verdict; the command never judges citation
 form or meaning.
 
 ### Gate

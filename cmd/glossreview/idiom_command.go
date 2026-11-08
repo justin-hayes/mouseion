@@ -105,6 +105,9 @@ func executeIdiomCommand(ctx context.Context, options reviewCommandOptions, outp
 		GapBound:       idiom.DefaultGapBound,
 		Sample:         sample,
 	})
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("glossreview: idiom review interrupted; no report written: %w", err)
+	}
 	path := options.OutPath
 	if path == "" {
 		path = filepath.Join("doc", "reviews", fmt.Sprintf("idiom-review-%s.md", options.Now.Format("2006-01-02")))

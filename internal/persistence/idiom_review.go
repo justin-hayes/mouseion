@@ -17,7 +17,7 @@ func (s *PostgresStore) CurrentDeckPreparationForBookTx(ctx context.Context, tx 
 	err := tx.QueryRow(ctx, `
 		SELECT owner_id::text, id::text
 		FROM deck_preparations
-		WHERE book_id::text = $1 AND retired_at IS NULL
+		WHERE book_id = $1 AND retired_at IS NULL
 		ORDER BY updated_at DESC, id DESC
 		LIMIT 1`, bookID).Scan(&owner, &id)
 	if err != nil {
