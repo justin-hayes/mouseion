@@ -156,3 +156,16 @@ func TestIndexIdiomEntriesUnknownWordAndOlderIndexAreEmpty(t *testing.T) {
 		assert.Empty(t, entries, "an index without the idiom lookup reports no candidates")
 	})
 }
+
+func TestIndexHasIdiomEntriesReportsTheIdiomTables(t *testing.T) {
+	t.Run("index with idiom tables", func(t *testing.T) {
+		assert.True(t, newIdiomTestIndex(t).HasIdiomEntries())
+	})
+	t.Run("older index", func(t *testing.T) {
+		assert.False(t, newTestIndex(t).HasIdiomEntries())
+	})
+	t.Run("nil index", func(t *testing.T) {
+		var nilIndex *Index
+		assert.False(t, nilIndex.HasIdiomEntries())
+	})
+}

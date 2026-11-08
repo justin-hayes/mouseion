@@ -3,18 +3,21 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/require"
 )
 
@@ -249,24 +252,18 @@ func TestReviewIdiomFailsAControlThatIsWronglyConfirmedOrRejected(t *testing.T) 
 	})
 }
 
-func TestSelectIdiomSampleIsDeterministicForBookAndSeed(t *testing.T) {
-	cards := make([]persistence.ConfirmedIdiomCard, 0, 40)
-	for i := range 40 {
-		cards = append(cards, persistence.ConfirmedIdiomCard{
-			Language: "it", Headword: "idiom-" + string(rune('a'+i%26)) + "-" + string(rune('a'+i/26)),
-			Sentence: "Frase " + string(rune('a'+i%26)) + " " + string(rune('a'+i/26)) + ".",
-		})
-	}
+func TestOrderIdiomSampleIsDeterministicForBookAndSeed(t *testing.T) {
+	items := sampleItems(40)
 
-	first := selectIdiomSample(cards, "book-1", "seed-1", idiomSampleSize)
-	second := selectIdiomSample(cards, "book-1", "seed-1", idiomSampleSize)
-	otherSeed := selectIdiomSample(cards, "book-1", "seed-2", idiomSampleSize)
-	otherBook := selectIdiomSample(cards, "book-2", "seed-1", idiomSampleSize)
+	first := orderIdiomSample(items, "book-1", "seed-1")
+	second := orderIdiomSample(items, "book-1", "seed-1")
+	otherSeed := orderIdiomSample(items, "book-1", "seed-2")
+	otherBook := orderIdiomSample(items, "book-2", "seed-1")
 
-	t.Run("selects the reviewed sample size", func(t *testing.T) {
-		require.Len(t, first, idiomSampleSize)
+	t.Run("every item is kept", func(t *testing.T) {
+		require.Len(t, first, 40)
 	})
-	t.Run("same Book and seed select the same cards", func(t *testing.T) {
+	t.Run("same Book and seed give the same order", func(t *testing.T) {
 		require.Equal(t, first, second)
 	})
 	t.Run("a different seed changes the order", func(t *testing.T) {
@@ -275,16 +272,66 @@ func TestSelectIdiomSampleIsDeterministicForBookAndSeed(t *testing.T) {
 	t.Run("a different Book changes the order", func(t *testing.T) {
 		require.NotEqual(t, first, otherBook)
 	})
-	t.Run("a short deck is not padded", func(t *testing.T) {
-		require.Len(t, selectIdiomSample(cards[:7], "book-1", "seed-1", idiomSampleSize), 7)
+	t.Run("input order does not matter", func(t *testing.T) {
+		reversed := slices.Clone(items)
+		slices.Reverse(reversed)
+		require.Equal(t, first, orderIdiomSample(reversed, "book-1", "seed-1"))
 	})
-	t.Run("duplicates are one card", func(t *testing.T) {
-		duplicated := append([]persistence.ConfirmedIdiomCard(nil), cards...)
-		duplicated = append(duplicated, cards[0])
-		require.Len(t, selectIdiomSample(duplicated, "book-1", "seed-1", 100), 40)
+	t.Run("a repeated headword in the same sentence is one item", func(t *testing.T) {
+		duplicated := append(slices.Clone(items), items[0])
+		require.Len(t, orderIdiomSample(duplicated, "book-1", "seed-1"), 40)
 	})
-	t.Run("zero limit selects nothing", func(t *testing.T) {
-		require.Empty(t, selectIdiomSample(cards, "book-1", "seed-1", 0))
+}
+
+func TestRunIdiomSampleSendsItemsUntilEnoughAreConfirmed(t *testing.T) {
+	var sent int
+	client := stubIdiomClient(t, func(payload idiomProviderRequestPayload) idiomStubAnswer {
+		sent++
+		if strings.HasSuffix(payload.Headword, "-literal") {
+			return idiomStubAnswer{translation: "literal", unresolvedKind: string(enrichment.ContextualGlossUnresolvedLiteralUse), reason: "The words are literal."}
+		}
+		return idiomStubAnswer{translation: "capable", gloss: "capable"}
+	})
+	items := sampleItems(40)
+	for i := range 6 {
+		items[i].Headword += "-literal"
+		items[i].Work.Request.IdiomHeadword = items[i].Headword
+	}
+	options := idiomSampleOptions{Requested: true, BookID: "book-1", Language: "it", Seed: "seed-1", Items: items}
+
+	report := runIdiomSample(context.Background(), client, options, idiomSampleSize)
+
+	t.Run("stops at the reviewed sample size", func(t *testing.T) {
+		require.Len(t, report.Cards, idiomSampleSize)
+		require.Equal(t, report.Sent(), sent)
+		require.Less(t, report.Sent(), 40)
+	})
+	t.Run("counts every item the freeze found", func(t *testing.T) {
+		require.Equal(t, 40, report.Found)
+	})
+	t.Run("lists the unconfirmed items it sent", func(t *testing.T) {
+		require.NotEmpty(t, report.Unconfirmed)
+		for _, result := range report.Unconfirmed {
+			require.True(t, strings.HasSuffix(result.Item.Headword, "-literal"))
+			require.Equal(t, idiomOutcomeLiteralUse, result.Outcome)
+		}
+	})
+	t.Run("confirmed cards keep the seeded order", func(t *testing.T) {
+		ordered := orderIdiomSample(items, "book-1", "seed-1")
+		var confirmed []cardexport.IdiomWorkItem
+		for _, item := range ordered {
+			if !strings.HasSuffix(item.Headword, "-literal") {
+				confirmed = append(confirmed, item)
+			}
+		}
+		for i, card := range report.Cards {
+			require.Equal(t, confirmed[i].Headword, card.Item.Headword)
+		}
+	})
+	t.Run("a short Book is not padded", func(t *testing.T) {
+		short := options
+		short.Items = items[6:13]
+		require.Len(t, runIdiomSample(context.Background(), client, short, idiomSampleSize).Cards, 7)
 	})
 }
 
@@ -295,7 +342,7 @@ func TestExecuteIdiomCommandWritesTheDatedReportWithASample(t *testing.T) {
 		}
 		return idiomStubAnswer{translation: "review", gloss: "review"}
 	})
-	source := &fakeIdiomSampleSource{cards: sampleCards(35)}
+	source := &fakeIdiomSampleSource{items: sampleItems(35)}
 	path := filepath.Join(t.TempDir(), "idiom-review.md")
 	options, err := parseReviewCommand([]string{
 		"-review", "idiom", "-out", path, "-date", "2026-11-08",
@@ -307,7 +354,10 @@ func TestExecuteIdiomCommandWritesTheDatedReportWithASample(t *testing.T) {
 		func() (reviewEnvironment, error) {
 			return reviewEnvironment{Client: client, Provider: idiomTestProviderMetadata()}, nil
 		},
-		func(context.Context) (idiomSampleSource, error) { return source, nil }))
+		func(_ context.Context, codec *enrichment.TranslationCodec) (idiomSampleSource, error) {
+			require.Nil(t, codec, "the test environment supplies no codec")
+			return source, nil
+		}))
 
 	rendered, err := os.ReadFile(path) //nolint:gosec // path is inside t.TempDir().
 	require.NoError(t, err)
@@ -316,8 +366,10 @@ func TestExecuteIdiomCommandWritesTheDatedReportWithASample(t *testing.T) {
 		"report date":    "- Date: 2026-11-08",
 		"full case set":  "- Case set: `idiom-review-v1` (8 cases)",
 		"matcher":        "- Matcher version: `idiom-matcher/1`",
-		"sample header":  "- Sample: 30 confirmed idiom cards requested from Book `book-1` in `it` (seed `seed-1`); selected 30",
-		"sample heading": "### 1. `idiom",
+		"sample header":  "- Sample: 30 confirmed idiom cards requested from Book `book-1` in `it` (seed `seed-1`); 35 idiom items found, 30 sent, 30 confirmed",
+		"in-memory note": "re-freezes the Book's current deck preparation in memory",
+		"confirmed":      "### Confirmed",
+		"sample heading": "#### 1. `idiom",
 		"gate":           "- every positive case is confirmed with a citation-form Gloss;",
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -347,7 +399,7 @@ func TestExecuteIdiomCommandReportsAMissingSampleWithoutError(t *testing.T) {
 		func() (reviewEnvironment, error) {
 			return reviewEnvironment{Client: client, Provider: idiomTestProviderMetadata()}, nil
 		},
-		func(context.Context) (idiomSampleSource, error) {
+		func(context.Context, *enrichment.TranslationCodec) (idiomSampleSource, error) {
 			t.Fatal("a sample source must not be opened without -book")
 			return nil, errors.New("unexpected sample source open")
 		}))
@@ -369,10 +421,101 @@ func TestParseReviewCommandSelectsTheIdiomReviewAndDefaultsTheSeed(t *testing.T)
 	require.ErrorContains(t, err, "-language is required with -book")
 }
 
-func TestOpenIdiomSampleSourceRequiresADatabaseURL(t *testing.T) {
-	t.Setenv("MOUSEION_DATABASE_URL", "")
-	_, err := openIdiomSampleSource(context.Background())
-	require.ErrorContains(t, err, "MOUSEION_DATABASE_URL is required")
+func TestExecuteIdiomCommandReportsAFailedSampleFreeze(t *testing.T) {
+	client := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+		return idiomStubAnswer{translation: "review", gloss: "review"}
+	})
+	source := &fakeIdiomSampleSource{err: errors.New("freeze failed")}
+	options, err := parseReviewCommand([]string{"-review", "idiom", "-out", filepath.Join(t.TempDir(), "r.md"), "-book", "book-1"})
+	require.NoError(t, err)
+	err = executeIdiomCommand(context.Background(), options, io.Discard,
+		func() (reviewEnvironment, error) {
+			return reviewEnvironment{Client: client, Provider: idiomTestProviderMetadata()}, nil
+		},
+		func(context.Context, *enrichment.TranslationCodec) (idiomSampleSource, error) { return source, nil })
+	require.ErrorContains(t, err, "freeze failed")
+	require.True(t, source.closed)
+}
+
+func TestWriteIdiomSampleReportsUnconfirmedAndShortSamples(t *testing.T) {
+	items := sampleItems(2)
+	sample := idiomSampleReport{
+		Requested: true, BookID: "book-1", Language: "it", Seed: "seed-1", Limit: idiomSampleSize, Found: 2,
+		Cards: []idiomSampleResult{{Item: items[0], Outcome: idiomOutcomeConfirmed, Response: enrichment.TranslationResponse{Gloss: "capable"}}},
+		Unconfirmed: []idiomSampleResult{{
+			Item: items[1], Outcome: idiomOutcomeLiteralUse, Err: errors.New("provider said no"),
+			Response: enrichment.TranslationResponse{UnresolvedReason: "The words are literal."},
+		}},
+	}
+	var builder strings.Builder
+	writeIdiomSampleCards(&builder, sample)
+	for name, fragment := range map[string]string{
+		"short":       "Only 1 idiom items were confirmed; the gate requires 30.",
+		"heading":     "### Not confirmed",
+		"count":       "The provider did not confirm 1 sampled items.",
+		"outcome":     "- Outcome: `literal_use`",
+		"error":       "- Error: `provider said no`",
+		"reason":      "- Unresolved reason: `The words are literal.`",
+		"anchor":      "— `gamba` (`NOUN`)",
+		"matched":     "- Matched words: `in, gamba`",
+		"translation": "- Gloss: `capable`",
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Contains(t, builder.String(), fragment)
+		})
+	}
+	t.Run("nothing found", func(t *testing.T) {
+		var empty strings.Builder
+		writeIdiomSampleCards(&empty, idiomSampleReport{Requested: true, Limit: idiomSampleSize})
+		require.Contains(t, empty.String(), "The freeze matched no idiom items for this Book and language.")
+	})
+}
+
+func TestOpenIdiomSampleSourceRequiresItsConfiguration(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "review-model"})
+	require.NoError(t, err)
+	t.Run("database URL", func(t *testing.T) {
+		t.Setenv("MOUSEION_DATABASE_URL", "")
+		_, openErr := openIdiomSampleSource(context.Background(), codec)
+		require.ErrorContains(t, openErr, "MOUSEION_DATABASE_URL is required")
+	})
+	t.Run("dictionary index", func(t *testing.T) {
+		t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+		t.Setenv("MOUSEION_DICTIONARY_INDEX", " ")
+		_, openErr := openIdiomSampleSource(context.Background(), codec)
+		require.ErrorContains(t, openErr, "MOUSEION_DICTIONARY_INDEX is required")
+	})
+	t.Run("codec", func(t *testing.T) {
+		t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+		t.Setenv("MOUSEION_DICTIONARY_INDEX", "/dictionary.sqlite")
+		_, openErr := openIdiomSampleSource(context.Background(), nil)
+		require.ErrorContains(t, openErr, "provider codec")
+	})
+	t.Run("missing index", func(t *testing.T) {
+		t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+		t.Setenv("MOUSEION_DICTIONARY_INDEX", filepath.Join(t.TempDir(), "absent.sqlite"))
+		_, openErr := openIdiomSampleSource(context.Background(), codec)
+		require.ErrorContains(t, openErr, "open dictionary index")
+	})
+	t.Run("index without idiom tables", func(t *testing.T) {
+		t.Setenv("MOUSEION_DATABASE_URL", "postgres://unused")
+		t.Setenv("MOUSEION_DICTIONARY_INDEX", writeIndexWithoutIdioms(t))
+		_, openErr := openIdiomSampleSource(context.Background(), codec)
+		require.ErrorContains(t, openErr, "has no idiom lookup tables")
+	})
+}
+
+// writeIndexWithoutIdioms writes a dictionary index from before the idiom
+// lookup tables existed.
+func writeIndexWithoutIdioms(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+	return path
 }
 
 func TestRunRejectsAnUnconfiguredIdiomProvider(t *testing.T) {
@@ -510,16 +653,16 @@ func decodeIdiomProviderRequest(t *testing.T, request *http.Request) idiomProvid
 }
 
 type fakeIdiomSampleSource struct {
-	cards    []persistence.ConfirmedIdiomCard
+	items    []cardexport.IdiomWorkItem
 	err      error
 	closed   bool
 	bookID   string
 	language string
 }
 
-func (f *fakeIdiomSampleSource) ListConfirmedIdiomCardsForBook(_ context.Context, bookID, language string) ([]persistence.ConfirmedIdiomCard, error) {
+func (f *fakeIdiomSampleSource) FreezeIdiomReviewItems(_ context.Context, bookID, language string) ([]cardexport.IdiomWorkItem, error) {
 	f.bookID, f.language = bookID, language
-	return f.cards, f.err
+	return f.items, f.err
 }
 
 func (f *fakeIdiomSampleSource) Close() error {
@@ -527,15 +670,22 @@ func (f *fakeIdiomSampleSource) Close() error {
 	return nil
 }
 
-func sampleCards(count int) []persistence.ConfirmedIdiomCard {
-	cards := make([]persistence.ConfirmedIdiomCard, 0, count)
+// sampleItems builds distinct Italian idiom items as an in-memory freeze would
+// return them.
+func sampleItems(count int) []cardexport.IdiomWorkItem {
+	items := make([]cardexport.IdiomWorkItem, 0, count)
 	for i := range count {
-		cards = append(cards, persistence.ConfirmedIdiomCard{
-			Language: "it", Headword: "idiom-" + strings.Repeat("x", i%5) + "-" + string(rune('a'+i)),
-			MatchedWords: []string{"in", "gamba"}, Sentence: "Frase numero " + string(rune('a'+i)) + ".",
-			Gloss: "capable", Translation: "capable", AnchorLemma: "gamba", AnchorUPOS: "NOUN",
-			MatcherVersion: "idiom-matcher/1", GapBound: 2,
+		headword := fmt.Sprintf("idiom-%02d", i)
+		items = append(items, cardexport.IdiomWorkItem{
+			Headword: headword,
+			Evidence: cardexport.IdiomEvidence{AnchorCanonicalLemma: "gamba", AnchorUPOS: "NOUN"},
+			Work: cardexport.WorkItem{Ordinal: i, Request: enrichment.TranslationRequest{
+				Language: "it", TargetLanguage: "en", CanonicalLemma: "gamba",
+				ExampleSentence:  fmt.Sprintf("Frase numero %d in gamba.", i),
+				CandidateSenses:  []enrichment.LexicalSense{{EvidenceID: "wikt:in gamba:1", Gloss: "capable"}},
+				RequireIdiomCard: true, IdiomHeadword: headword, IdiomMatchedForms: []string{"in", "gamba"},
+			}},
 		})
 	}
-	return cards
+	return items
 }

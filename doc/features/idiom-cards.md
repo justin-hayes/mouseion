@@ -160,6 +160,10 @@ gush out".
   Gloss, no literal-use control is confirmed, and a sample of 30 confirmed
   idiom cards from one real Book in that language contains no card that
   teaches a wrong meaning. The dated report goes under `doc/reviews/`.
+- The sample comes from an in-memory freeze of the Book's current deck
+  preparation, with idiom cards on and no per-deck bound. It writes nothing and
+  needs no recorded assessment, so a language can be reviewed before its
+  switch is turned on (#2375).
 - Order: Italian first. German follows once matching handles reordered
   verb-second clauses. Modern Greek follows once its reviewed list has enough
   entries to sample 30 cards.

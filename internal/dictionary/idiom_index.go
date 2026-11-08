@@ -38,6 +38,12 @@ func (i *Index) loadIdiomAvailability(ctx context.Context) error {
 	return nil
 }
 
+// HasIdiomEntries reports whether the index carries both idiom lookup tables.
+// Without them IdiomEntries returns nothing, so no idiom card can be frozen.
+func (i *Index) HasIdiomEntries() bool {
+	return i != nil && i.idiomAvailable
+}
+
 // IdiomEntries returns the multi-word entries containing word for a language.
 // The word is normalized with the language's canonicalization profile, so a
 // surface form and its lemma reach the same entries. Each entry carries its

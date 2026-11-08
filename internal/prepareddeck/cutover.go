@@ -421,12 +421,7 @@ func (p *BatchPlanner) planExternalRun(ctx context.Context, tx pgx.Tx, preparati
 	config.ProviderVersion = p.Codec.ContextualGlossProviderVersion()
 	config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
 	config.Model = p.Codec.Model()
-	for i := range projections {
-		projections[i].Provider = config.Provider
-		projections[i].ProviderVersion = config.ProviderVersion
-		projections[i].TargetLanguage = config.TargetLanguage
-		projections[i].RequireContextualGloss = true
-	}
+	assignExternalProvider(projections, config.Provider, config.ProviderVersion, config.TargetLanguage)
 	idiomLanguages := p.enabledIdiomLanguages(projections)
 	if len(idiomLanguages) > 0 {
 		if err := p.validateIdiomAssessment(idiomLanguages); err != nil {
@@ -455,6 +450,17 @@ func (p *BatchPlanner) planExternalRun(ctx context.Context, tx pgx.Tx, preparati
 		}
 	}
 	return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: deck.StorageProjection(), Config: config, Chunks: chunks}, nil
+}
+
+// assignExternalProvider gives every projection the contextual-Gloss provider
+// identity an external run freezes with.
+func assignExternalProvider(projections []cardexport.CandidateProjection, provider, providerVersion, targetLanguage string) {
+	for i := range projections {
+		projections[i].Provider = provider
+		projections[i].ProviderVersion = providerVersion
+		projections[i].TargetLanguage = targetLanguage
+		projections[i].RequireContextualGloss = true
+	}
 }
 
 // deckLanguage resolves the preparation's source language when the assembler

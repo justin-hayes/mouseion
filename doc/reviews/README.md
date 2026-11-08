@@ -133,6 +133,7 @@ export MOUSEION_LLM_ENABLED=true
 export MOUSEION_LLM_API_KEY=...
 export MOUSEION_LLM_MODEL=...
 export MOUSEION_DATABASE_URL=...
+export MOUSEION_DICTIONARY_INDEX=...
 
 go run ./cmd/glossreview -review idiom \
   -book <Book-ID> \
@@ -152,8 +153,11 @@ go run ./cmd/glossreview -review idiom \
 
 `-book` is optional: without it the report contains only the case set and says
 that the gate cannot pass without a sample. `-seed` defaults to the report date.
-The sample is drawn from the Book's most recent ready prepared deck, and the
-selection is deterministic for a given Book and seed.
+`-book` needs `MOUSEION_DATABASE_URL` and `MOUSEION_DICTIONARY_INDEX`, and the
+index must carry the idiom lookup tables (`idiom_entries` and `idiom_words`). An
+index derived before those tables existed is refused; rebuild it first. The
+sample does not need a ready deck or a recorded idiom assessment: recording the
+assessment is what the review is for.
 
 ### Case set
 
@@ -178,12 +182,18 @@ field.
 ### Sample mode
 
 The sample is 30 distinct confirmed idiom cards from one Book in the requested
-language. A card counts as confirmed only when its frozen item has a resolved
-provider Gloss, never when the deck omitted it as `literal_use` or `ambiguous`.
-The command orders candidates by a SHA-256 of the Book ID, seed and card
-identity, so the same Book and seed select the same cards regardless of database
-order. The report quotes each sampled card's representative sentence; commit it
-under the same source-rights review as any other review excerpt.
+language. The command re-freezes the Book's current deck preparation in memory,
+in a read-only transaction that is always rolled back, with idiom cards on for
+that language and no per-deck bound. It orders the idiom items by a SHA-256 of
+the Book ID, seed and item identity, so the same Book and seed give the same
+order regardless of database order. It then sends each item to the provider,
+using the request a prepared deck would send, until 30 are confirmed. An item
+counts as confirmed only when the provider resolves a Gloss; items returned as
+`literal_use`, `ambiguous` or unresolved are listed under "Not confirmed" in the
+report. Nothing is written and no assessment is recorded.
+
+The report quotes each sampled item's representative sentence; commit it under
+the same source-rights review as any other review excerpt.
 
 ### What the idiom report contains
 
