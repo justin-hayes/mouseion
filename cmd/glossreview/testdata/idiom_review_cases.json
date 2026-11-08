@@ -1,5 +1,5 @@
 {
-  "version": "idiom-review-v2",
+  "version": "idiom-review-v3",
   "cases": [
     {
       "id": "it-in-gamba",
@@ -199,6 +199,53 @@
         }
       ],
       "notes": "Card 25 of the 2026-11-08 review. fatte bene modifies le cose (do things properly), and sense 3 marks the literal use."
+    },
+    {
+      "id": "it-in-giro",
+      "language": "it",
+      "kind": "positive",
+      "headword": "in giro",
+      "matched_forms": [
+        "in",
+        "giro"
+      ],
+      "sentence": "Non potevamo certo andare in giro per la città con quelli indossati durante il cammino, stracciati e puzzolenti.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:in giro:1",
+          "gloss": "here and there, about, around"
+        }
+      ],
+      "expected_gloss": "around, about",
+      "gloss_excludes": [
+        "go",
+        "going",
+        "went",
+        "andare"
+      ],
+      "notes": "Card 8 of the 2026-11-08 v2 re-run. andare governs the idiom, so the Gloss must not take the sentence's verb (to go around)."
+    },
+    {
+      "id": "it-casa-isolata-remote",
+      "language": "it",
+      "kind": "ambiguous_control",
+      "headword": "casa isolata",
+      "matched_forms": [
+        "casa",
+        "isolata"
+      ],
+      "sentence": "La famiglia abitava fuori Torino, in una casa isolata, oltre le colline.",
+      "evidence": [
+        {
+          "evidence_id": "wikt:casa isolata:1",
+          "gloss": "detached house"
+        },
+        {
+          "evidence_id": "wikt:casa isolata:2",
+          "gloss": "homestead"
+        }
+      ],
+      "notes": "Card 18 of the 2026-11-08 v2 re-run. The sentence means a remote house beyond the hills; neither detached house nor homestead describes it, so the card is omitted as ambiguous."
     },
     {
       "id": "it-gamba-lemma-card",

@@ -95,7 +95,7 @@ var lsjSenseSummaryAssessment = ProviderAssessment{
 var idiomCardAssessment = ProviderAssessment{
 	Language:      "it",
 	Provider:      "openai-compatible",
-	PromptVersion: "idiom-card-v2",
+	PromptVersion: "idiom-card-v3",
 	Fields: []string{
 		"item_id", "language", "target_language", "headword", "matched_forms",
 		"example_sentence", "candidate_senses",

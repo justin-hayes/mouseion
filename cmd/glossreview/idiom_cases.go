@@ -41,20 +41,23 @@ type idiomReviewCaseSet struct {
 }
 
 type idiomReviewCase struct {
-	ID                string                    `json:"id"`
-	Language          string                    `json:"language"`
-	Kind              idiomCaseKind             `json:"kind"`
-	Headword          string                    `json:"headword"`
-	MatchedForms      []string                  `json:"matched_forms,omitempty"`
-	Sentence          string                    `json:"sentence,omitempty"`
-	Evidence          []enrichment.LexicalSense `json:"evidence,omitempty"`
-	ExpectedGloss     string                    `json:"expected_gloss,omitempty"`
-	AnchorLemma       string                    `json:"anchor_lemma,omitempty"`
-	AnchorUPOS        string                    `json:"anchor_upos,omitempty"`
-	AnchorForm        string                    `json:"anchor_form,omitempty"`
-	IdiomSentence     string                    `json:"idiom_sentence,omitempty"`
-	LemmaCardSentence string                    `json:"lemma_card_sentence,omitempty"`
-	Notes             string                    `json:"notes,omitempty"`
+	ID            string                    `json:"id"`
+	Language      string                    `json:"language"`
+	Kind          idiomCaseKind             `json:"kind"`
+	Headword      string                    `json:"headword"`
+	MatchedForms  []string                  `json:"matched_forms,omitempty"`
+	Sentence      string                    `json:"sentence,omitempty"`
+	Evidence      []enrichment.LexicalSense `json:"evidence,omitempty"`
+	ExpectedGloss string                    `json:"expected_gloss,omitempty"`
+	// GlossExcludes lists sentence words a positive case's confirmed Gloss
+	// must not contain, such as the verb that governs the idiom (#2389).
+	GlossExcludes     []string `json:"gloss_excludes,omitempty"`
+	AnchorLemma       string   `json:"anchor_lemma,omitempty"`
+	AnchorUPOS        string   `json:"anchor_upos,omitempty"`
+	AnchorForm        string   `json:"anchor_form,omitempty"`
+	IdiomSentence     string   `json:"idiom_sentence,omitempty"`
+	LemmaCardSentence string   `json:"lemma_card_sentence,omitempty"`
+	Notes             string   `json:"notes,omitempty"`
 }
 
 // loadIdiomCaseSet decodes and validates one frozen idiom review case set.
@@ -134,7 +137,27 @@ func (c idiomReviewCase) validateProviderCase() error {
 	if (c.Kind == idiomCaseLiteralUse || c.Kind == idiomCaseAmbiguous) && strings.TrimSpace(c.ExpectedGloss) != "" {
 		return fmt.Errorf("case %q: a %s has no expected Gloss", c.ID, c.Kind.label())
 	}
+	if err := c.validateGlossExcludes(); err != nil {
+		return err
+	}
 	return validateLexicalEvidence(c.ID, c.Evidence)
+}
+
+// validateGlossExcludes accepts Gloss exclusions only on a positive case,
+// where a confirmed Gloss exists to check.
+func (c idiomReviewCase) validateGlossExcludes() error {
+	if len(c.GlossExcludes) == 0 {
+		return nil
+	}
+	if c.Kind != idiomCasePositive {
+		return fmt.Errorf("case %q: only a positive case lists Gloss exclusions", c.ID)
+	}
+	for _, word := range c.GlossExcludes {
+		if strings.TrimSpace(word) == "" {
+			return fmt.Errorf("case %q: Gloss exclusions cannot be blank", c.ID)
+		}
+	}
+	return nil
 }
 
 func validateIdiomMatchedForms(caseID string, forms []string) error {

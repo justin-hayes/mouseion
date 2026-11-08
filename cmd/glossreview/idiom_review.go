@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -87,6 +89,9 @@ const (
 	checkNameIdiomAmbiguous  = "outcome is ambiguous"
 	checkNameIdiomLemmaCard  = "lemma card moves off the idiom sentence"
 	checkNameIdiomKnownKind  = "case kind is known"
+	// checkNameIdiomGlossExcludes is the check a positive case with Gloss
+	// exclusions adds: its confirmed Gloss contains none of them.
+	checkNameIdiomGlossExcludes = "Gloss leaves out the excluded sentence words"
 )
 
 // reviewIdiom sends every provider case through the real idiom codec and
@@ -112,6 +117,9 @@ func reviewIdiom(ctx context.Context, options idiomReviewOptions) idiomReviewRep
 			result.Outcome = classifyIdiomOutcome(result)
 		}
 		result.Checks = []automaticCheck{idiomCaseCheck(testCase, result)}
+		if len(testCase.GlossExcludes) > 0 {
+			result.Checks = append(result.Checks, glossExcludesCheck(testCase, result))
+		}
 		report.Cases = append(report.Cases, result)
 	}
 	report.Summary = summarizeIdiom(report.Cases)
@@ -168,6 +176,27 @@ func expectedIdiomOutcomeCheck(name string, want idiomOutcomeKind, result idiomC
 		return check
 	}
 	check.Detail = fmt.Sprintf("expected %q, observed %q", want, result.Outcome)
+	return check
+}
+
+// glossExcludesCheck fails a confirmed Gloss that contains an excluded word as
+// a whole word, ignoring case. An unconfirmed case has no Gloss to check.
+func glossExcludesCheck(testCase idiomReviewCase, result idiomCaseResult) automaticCheck {
+	check := automaticCheck{Name: checkNameIdiomGlossExcludes, Status: checkNotApplicable}
+	if result.Outcome != idiomOutcomeConfirmed {
+		return check
+	}
+	words := strings.FieldsFunc(strings.ToLower(result.Response.Gloss), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r) && r != '\''
+	})
+	for _, excluded := range testCase.GlossExcludes {
+		if slices.Contains(words, strings.ToLower(strings.TrimSpace(excluded))) {
+			check.Status = checkFail
+			check.Detail = fmt.Sprintf("Gloss %s contains %s", codeSpan(result.Response.Gloss), codeSpan(excluded))
+			return check
+		}
+	}
+	check.Status = checkPass
 	return check
 }
 

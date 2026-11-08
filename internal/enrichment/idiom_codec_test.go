@@ -1,6 +1,7 @@
 package enrichment
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"testing"
@@ -170,32 +171,138 @@ func TestIdiomCardCodecRequiresTheCompleteOutcome(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidTranslationResponse)
 }
 
-// The 2026-11-08 Italian idiom review failed on three cards: a Gloss that
-// followed the first listed sense (di fronte, "front"), a sense the dictionary
-// does not list (comparative rispetto a), and a literal use confirmed despite
-// the literal-use marker sense (fare bene). idiom-card-v2 answers each.
-func TestIdiomCardContractV2CarriesTheSentenceSenseLiteralMarkerAndNoFittingSenseRules(t *testing.T) {
+// The 2026-11-08 Italian idiom reviews failed on cards whose rules the prompt
+// already stated: a literal use confirmed despite the literal-use marker sense
+// (fare bene), the sentence's verb carried into the Gloss (andare in giro) and
+// a listed sense confirmed although it does not describe the sentence (casa
+// isolata). idiom-card-v3 makes the model decide literal use and the sense
+// before it writes any Gloss (#2389).
+func TestIdiomCardContractV3DecidesLiteralUseAndTheSenseBeforeTheGloss(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
 	t.Run("version", func(t *testing.T) {
-		require.Equal(t, "idiom-card-v2", codec.IdiomCardPromptContract())
-		require.Equal(t, "model/idiom-card-v2", codec.IdiomCardProviderVersion())
+		require.Equal(t, "idiom-card-v3", codec.IdiomCardPromptContract())
+		require.Equal(t, "model/idiom-card-v3", codec.IdiomCardProviderVersion())
 	})
 
 	body, err := codec.EncodeRequest(idiomCardRequest())
 	require.NoError(t, err)
 	for name, rule := range map[string]string{
+		"decision order":                "Decide in three steps, in order, before writing any field",
 		"sense the sentence uses":       "the order of candidate_senses is not a preference",
 		"gloss agrees with translation": "translation and gloss must render the same sense",
 		"literal-use marker":            "Used other than figuratively or idiomatically",
+		"co-occurring forms":            "a participle modified by its own adverb",
+		"sense must describe sentence":  "a sense that translates the words but names a different thing does not fit",
 		"no fitting sense abstains":     "If no candidate sense matches the meaning this sentence uses, do not gloss from context",
+		"gloss from idiom words only":   "never add a verb, subject, object or other word that the sentence supplies around the idiom",
 		"confirmation cites a sense":    "a confirmed gloss always cites at least one candidate sense",
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.Contains(t, string(body), rule)
 		})
 	}
+	t.Run("the decision comes before the Gloss rules", func(t *testing.T) {
+		text := string(body)
+		literal := strings.Index(text, "Step 1")
+		sense := strings.Index(text, "Step 2")
+		gloss := strings.Index(text, "Step 3")
+		require.GreaterOrEqual(t, literal, 0, "Step 1 is missing")
+		require.Less(t, literal, sense, "Step 2 must follow Step 1")
+		require.Less(t, sense, gloss, "Step 3 must follow Step 2")
+		require.Less(t, gloss, strings.Index(text, "citation form"), "Gloss format rules follow the decision")
+	})
 	t.Run("no context-only Gloss path", func(t *testing.T) {
 		require.NotContains(t, string(body), "or an empty list and context_only=true when none applies")
+	})
+}
+
+// An idiom-card reasoning effort applies to idiom-card requests only; unset,
+// idiom cards keep the global effort (#2389).
+func TestIdiomCardReasoningEffortAppliesToIdiomRequestsOnly(t *testing.T) {
+	reasoningEffort := func(t *testing.T, body []byte) any {
+		t.Helper()
+		var request map[string]any
+		require.NoError(t, json.Unmarshal(body, &request))
+		return request["reasoning_effort"]
+	}
+	lemma := TranslationRequest{Language: "it", TargetLanguage: "en", CanonicalLemma: "gamba", UPOS: "NOUN", ExampleSentence: "Mi fa male la gamba.", RequireContextualGloss: true}
+
+	t.Run("set", func(t *testing.T) {
+		codec, err := NewTranslationCodec(LLMConfig{Model: "model", ReasoningEffort: "low", IdiomCardReasoningEffort: "medium", SupportsReasoningEffort: true})
+		require.NoError(t, err)
+		idiomBody, err := codec.EncodeRequest(idiomCardRequest())
+		require.NoError(t, err)
+		lemmaBody, err := codec.EncodeRequest(lemma)
+		require.NoError(t, err)
+		t.Run("the idiom request uses the idiom effort", func(t *testing.T) {
+			require.Equal(t, "medium", reasoningEffort(t, idiomBody))
+		})
+		t.Run("the lemma request keeps the global effort", func(t *testing.T) {
+			require.Equal(t, "low", reasoningEffort(t, lemmaBody))
+		})
+		t.Run("the idiom provider version names the idiom effort", func(t *testing.T) {
+			require.Equal(t, "model/idiom-card-v3-reasoning-medium", codec.IdiomCardProviderVersion())
+			require.Equal(t, "medium", codec.IdiomCardReasoningEffort())
+		})
+		t.Run("the lemma provider version keeps the global effort", func(t *testing.T) {
+			require.Equal(t, "model/"+contextualGlossPromptVersion+"-reasoning-low", codec.ContextualGlossProviderVersion())
+		})
+	})
+	t.Run("unset uses the global effort", func(t *testing.T) {
+		codec, err := NewTranslationCodec(LLMConfig{Model: "model", ReasoningEffort: "high", SupportsReasoningEffort: true})
+		require.NoError(t, err)
+		body, err := codec.EncodeRequest(idiomCardRequest())
+		require.NoError(t, err)
+		t.Run("the request carries the global effort", func(t *testing.T) {
+			require.Equal(t, "high", reasoningEffort(t, body))
+		})
+		t.Run("the provider version names the global effort", func(t *testing.T) {
+			require.Equal(t, "model/idiom-card-v3-reasoning-high", codec.IdiomCardProviderVersion())
+			require.Equal(t, "high", codec.IdiomCardReasoningEffort())
+		})
+	})
+	t.Run("a model without reasoning effort keeps temperature 0", func(t *testing.T) {
+		codec, err := NewTranslationCodec(LLMConfig{Model: "model", IdiomCardReasoningEffort: "medium"})
+		require.NoError(t, err)
+		body, err := codec.EncodeRequest(idiomCardRequest())
+		require.NoError(t, err)
+		t.Run("no effort is sent", func(t *testing.T) {
+			require.Nil(t, reasoningEffort(t, body))
+		})
+		t.Run("temperature is 0", func(t *testing.T) {
+			require.Contains(t, string(body), `"temperature":0`)
+		})
+		t.Run("the provider version has no effort", func(t *testing.T) {
+			require.Equal(t, "model/idiom-card-v3", codec.IdiomCardProviderVersion())
+		})
+	})
+	t.Run("a nil codec has no effort", func(t *testing.T) {
+		var codec *TranslationCodec
+		require.Empty(t, codec.IdiomCardReasoningEffort())
+	})
+	t.Run("an invalid value is rejected", func(t *testing.T) {
+		_, err := NewTranslationCodec(LLMConfig{Model: "model", IdiomCardReasoningEffort: "maximum"})
+		require.ErrorContains(t, err, "MOUSEION_LLM_IDIOM_REASONING_EFFORT")
+	})
+}
+
+func TestLLMConfigFromEnvReadsTheIdiomCardReasoningEffort(t *testing.T) {
+	t.Run("unset", func(t *testing.T) {
+		t.Setenv("MOUSEION_LLM_IDIOM_REASONING_EFFORT", "")
+		cfg, err := LLMConfigFromEnv()
+		require.NoError(t, err)
+		assert.Empty(t, cfg.IdiomCardReasoningEffort)
+	})
+	t.Run("set", func(t *testing.T) {
+		t.Setenv("MOUSEION_LLM_IDIOM_REASONING_EFFORT", " Medium ")
+		cfg, err := LLMConfigFromEnv()
+		require.NoError(t, err)
+		assert.Equal(t, "medium", cfg.IdiomCardReasoningEffort)
+	})
+	t.Run("invalid", func(t *testing.T) {
+		t.Setenv("MOUSEION_LLM_IDIOM_REASONING_EFFORT", "maximum")
+		_, err := LLMConfigFromEnv()
+		require.ErrorContains(t, err, "MOUSEION_LLM_IDIOM_REASONING_EFFORT")
 	})
 }

@@ -36,27 +36,34 @@ const (
 	// candidate senses, and a lemma-shaped answer whose unresolved kinds are
 	// ambiguous or literal_use (ADR 0114). v2 glosses the sense the sentence
 	// uses, treats a literal-use marker sense as literal use, and abstains as
-	// ambiguous when no candidate sense fits (#2378).
-	idiomCardPromptVersion = "idiom-card-v2"
-	llmReasoningEffortEnv  = "MOUSEION_LLM_REASONING_EFFORT"
-	llmReasoningSupportEnv = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
+	// ambiguous when no candidate sense fits (#2378). v3 decides literal use
+	// and the sense before it writes any Gloss, and builds the Gloss from the
+	// idiom's own words only (#2389).
+	idiomCardPromptVersion         = "idiom-card-v3"
+	llmReasoningEffortEnv          = "MOUSEION_LLM_REASONING_EFFORT"
+	llmIdiomCardReasoningEffortEnv = "MOUSEION_LLM_IDIOM_REASONING_EFFORT"
+	llmReasoningSupportEnv         = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )
 
 // LLMConfig is the administrator-controlled configuration for the external
 // translation provider. User consent remains a separate EnrichmentConfig flag.
 type LLMConfig struct {
-	Enabled                 bool
-	APIKey                  string
-	Model                   string
-	BaseURL                 string
-	Timeout                 time.Duration
-	ReasoningEffort         string
-	SupportsReasoningEffort bool
+	Enabled         bool
+	APIKey          string
+	Model           string
+	BaseURL         string
+	Timeout         time.Duration
+	ReasoningEffort string
+	// IdiomCardReasoningEffort overrides ReasoningEffort for idiom-card
+	// requests only. Empty uses ReasoningEffort (#2389).
+	IdiomCardReasoningEffort string
+	SupportsReasoningEffort  bool
 }
 
 // LLMConfigFromEnv reads MOUSEION_LLM_ENABLED, MOUSEION_LLM_API_KEY,
 // MOUSEION_LLM_MODEL, MOUSEION_LLM_BASE_URL, MOUSEION_LLM_TIMEOUT,
-// MOUSEION_LLM_REASONING_EFFORT, and MOUSEION_LLM_SUPPORTS_REASONING_EFFORT.
+// MOUSEION_LLM_REASONING_EFFORT, MOUSEION_LLM_IDIOM_REASONING_EFFORT, and
+// MOUSEION_LLM_SUPPORTS_REASONING_EFFORT.
 func LLMConfigFromEnv() (LLMConfig, error) {
 	cfg := LLMConfig{
 		APIKey:          strings.TrimSpace(os.Getenv("MOUSEION_LLM_API_KEY")),
@@ -71,7 +78,10 @@ func LLMConfigFromEnv() (LLMConfig, error) {
 	if err := parseLLMTimeoutEnv(&cfg.Timeout); err != nil {
 		return LLMConfig{}, err
 	}
-	if err := parseLLMReasoningEffortEnv(&cfg.ReasoningEffort); err != nil {
+	if err := parseLLMReasoningEffortEnv(llmReasoningEffortEnv, &cfg.ReasoningEffort); err != nil {
+		return LLMConfig{}, err
+	}
+	if err := parseLLMReasoningEffortEnv(llmIdiomCardReasoningEffortEnv, &cfg.IdiomCardReasoningEffort); err != nil {
 		return LLMConfig{}, err
 	}
 	if err := parseLLMBoolEnv(llmReasoningSupportEnv, &cfg.SupportsReasoningEffort); err != nil {
@@ -115,15 +125,16 @@ func parseLLMTimeoutEnv(dst *time.Duration) error {
 	return nil
 }
 
-// parseLLMReasoningEffortEnv parses the optional reasoning-effort selector.
-func parseLLMReasoningEffortEnv(dst *string) error {
-	value := strings.TrimSpace(os.Getenv(llmReasoningEffortEnv))
+// parseLLMReasoningEffortEnv parses one optional reasoning-effort selector. An
+// unset or blank value leaves dst unchanged.
+func parseLLMReasoningEffortEnv(name string, dst *string) error {
+	value := strings.TrimSpace(os.Getenv(name))
 	if value == "" {
 		return nil
 	}
 	reasoningEffort, err := parseReasoningEffort(value)
 	if err != nil {
-		return fmt.Errorf("%s %w", llmReasoningEffortEnv, err)
+		return fmt.Errorf("%s %w", name, err)
 	}
 	*dst = reasoningEffort
 	return nil
