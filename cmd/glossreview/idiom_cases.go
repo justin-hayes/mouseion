@@ -131,11 +131,8 @@ func (c idiomReviewCase) validateProviderCase() error {
 	if c.Kind == idiomCasePositive && strings.TrimSpace(c.ExpectedGloss) == "" {
 		return fmt.Errorf("case %q: a positive case needs an expected Gloss", c.ID)
 	}
-	if c.Kind == idiomCaseLiteralUse && strings.TrimSpace(c.ExpectedGloss) != "" {
-		return fmt.Errorf("case %q: a literal-use control has no expected Gloss", c.ID)
-	}
-	if c.Kind == idiomCaseAmbiguous && strings.TrimSpace(c.ExpectedGloss) != "" {
-		return fmt.Errorf("case %q: an ambiguous control has no expected Gloss", c.ID)
+	if (c.Kind == idiomCaseLiteralUse || c.Kind == idiomCaseAmbiguous) && strings.TrimSpace(c.ExpectedGloss) != "" {
+		return fmt.Errorf("case %q: a %s has no expected Gloss", c.ID, c.Kind.label())
 	}
 	return validateLexicalEvidence(c.ID, c.Evidence)
 }

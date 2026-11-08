@@ -115,8 +115,10 @@ func TestIdiomCardCodecRequiresTheCompleteOutcome(t *testing.T) {
 func TestIdiomCardContractV2CarriesTheSentenceSenseLiteralMarkerAndNoFittingSenseRules(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
-	assert.Equal(t, "idiom-card-v2", codec.IdiomCardPromptContract())
-	assert.Equal(t, "model/idiom-card-v2", codec.IdiomCardProviderVersion())
+	t.Run("version", func(t *testing.T) {
+		require.Equal(t, "idiom-card-v2", codec.IdiomCardPromptContract())
+		require.Equal(t, "model/idiom-card-v2", codec.IdiomCardProviderVersion())
+	})
 
 	body, err := codec.EncodeRequest(idiomCardRequest())
 	require.NoError(t, err)
@@ -127,8 +129,11 @@ func TestIdiomCardContractV2CarriesTheSentenceSenseLiteralMarkerAndNoFittingSens
 		"no fitting sense abstains":     "If no candidate sense matches the meaning this sentence uses, do not gloss from context",
 		"confirmation cites a sense":    "a confirmed gloss always cites at least one candidate sense",
 	} {
-		assert.Contains(t, string(body), rule, "v2 prompt lacks the %s rule", name)
+		t.Run(name, func(t *testing.T) {
+			require.Contains(t, string(body), rule)
+		})
 	}
-	assert.NotContains(t, string(body), "or an empty list and context_only=true when none applies",
-		"v2 drops the context-only Gloss path for idioms")
+	t.Run("no context-only Gloss path", func(t *testing.T) {
+		require.NotContains(t, string(body), "or an empty list and context_only=true when none applies")
+	})
 }

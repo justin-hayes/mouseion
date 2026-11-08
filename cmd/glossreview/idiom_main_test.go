@@ -71,11 +71,17 @@ func TestEmbeddedIdiomCaseSetCoversEveryKindAndLanguage(t *testing.T) {
 		for _, reviewCase := range cases.Cases {
 			byID[reviewCase.ID] = reviewCase
 		}
-		require.Equal(t, idiomCasePositive, byID["it-di-fronte"].Kind)
-		require.Len(t, byID["it-di-fronte"].Evidence, 4, "di fronte carries the pooled adjective and adverb senses")
-		require.Equal(t, idiomCaseAmbiguous, byID["it-rispetto-a-comparative"].Kind)
-		require.Equal(t, idiomCaseLiteralUse, byID["it-fare-bene-literal"].Kind)
-		require.Len(t, byID["it-fare-bene-literal"].Evidence, 3, "fare bene keeps its literal-use marker sense")
+		t.Run("di fronte", func(t *testing.T) {
+			require.Equal(t, idiomCasePositive, byID["it-di-fronte"].Kind)
+			require.Len(t, byID["it-di-fronte"].Evidence, 4, "di fronte carries the pooled adjective and adverb senses")
+		})
+		t.Run("rispetto a", func(t *testing.T) {
+			require.Equal(t, idiomCaseAmbiguous, byID["it-rispetto-a-comparative"].Kind)
+		})
+		t.Run("fare bene", func(t *testing.T) {
+			require.Equal(t, idiomCaseLiteralUse, byID["it-fare-bene-literal"].Kind)
+			require.Len(t, byID["it-fare-bene-literal"].Evidence, 3, "fare bene keeps its literal-use marker sense")
+		})
 	})
 	t.Run("literal-use and ambiguous controls expect no Gloss", func(t *testing.T) {
 		for _, reviewCase := range cases.Cases {
@@ -775,35 +781,57 @@ func TestReviewIdiomScoresTheFailedReviewCards(t *testing.T) {
 	cases, err := loadIdiomCaseSet(bytes.NewReader(idiomReviewCases))
 	require.NoError(t, err)
 
-	confirmAll := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
-		return idiomStubAnswer{translation: "with respect to", gloss: "with respect to"}
+	t.Run("a provider that confirms every idiom fails the controls", func(t *testing.T) {
+		confirmAll := stubIdiomClient(t, func(idiomProviderRequestPayload) idiomStubAnswer {
+			return idiomStubAnswer{translation: "with respect to", gloss: "with respect to"}
+		})
+		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: confirmAll, Provider: idiomTestProviderMetadata()})
+		byID := idiomResultsByCaseID(report.Cases)
+		t.Run("rispetto a", func(t *testing.T) {
+			require.Equal(t, checkFail, idiomCheckStatus(byID["it-rispetto-a-comparative"], checkNameIdiomAmbiguous))
+		})
+		t.Run("fare bene", func(t *testing.T) {
+			require.Equal(t, checkFail, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomLiteralUse))
+		})
+		t.Run("di fronte", func(t *testing.T) {
+			require.Equal(t, checkPass, idiomCheckStatus(byID["it-di-fronte"], checkNameIdiomConfirmed))
+		})
 	})
-	report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: confirmAll, Provider: idiomTestProviderMetadata()})
-	byID := idiomResultsByCaseID(report.Cases)
-	require.Equal(t, checkFail, idiomCheckStatus(byID["it-rispetto-a-comparative"], checkNameIdiomAmbiguous))
-	require.Equal(t, checkFail, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomLiteralUse))
-	require.Equal(t, checkPass, idiomCheckStatus(byID["it-di-fronte"], checkNameIdiomConfirmed))
 
-	answerAsV2 := stubIdiomClient(t, func(payload idiomProviderRequestPayload) idiomStubAnswer {
-		switch payload.Headword {
-		case "rispetto a":
-			return idiomStubAnswer{translation: "compared with", unresolvedKind: string(enrichment.ContextualGlossUnresolvedAmbiguous), reason: "No candidate sense is comparative."}
-		case "fare bene", "tagliare la corda", "jemanden auf den Arm nehmen":
-			return idiomStubAnswer{translation: "to do properly", unresolvedKind: string(enrichment.ContextualGlossUnresolvedLiteralUse), reason: "The words are literal here."}
-		default:
-			return idiomStubAnswer{translation: "in front", gloss: "in front"}
+	t.Run("a provider that answers as v2 asks passes every case", func(t *testing.T) {
+		answerAsV2 := stubIdiomClient(t, func(payload idiomProviderRequestPayload) idiomStubAnswer {
+			switch payload.Headword {
+			case "rispetto a":
+				return idiomStubAnswer{translation: "compared with", unresolvedKind: string(enrichment.ContextualGlossUnresolvedAmbiguous), reason: "No candidate sense is comparative."}
+			case "fare bene", "tagliare la corda", "jemanden auf den Arm nehmen":
+				return idiomStubAnswer{translation: "to do properly", unresolvedKind: string(enrichment.ContextualGlossUnresolvedLiteralUse), reason: "The words are literal here."}
+			default:
+				return idiomStubAnswer{translation: "in front", gloss: "in front"}
+			}
+		})
+		report := reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: answerAsV2, Provider: idiomTestProviderMetadata()})
+		byID := idiomResultsByCaseID(report.Cases)
+		t.Run("rispetto a is ambiguous", func(t *testing.T) {
+			require.Equal(t, idiomOutcomeAmbiguous, byID["it-rispetto-a-comparative"].Outcome)
+			require.Equal(t, checkPass, idiomCheckStatus(byID["it-rispetto-a-comparative"], checkNameIdiomAmbiguous))
+		})
+		t.Run("fare bene is literal use", func(t *testing.T) {
+			require.Equal(t, checkPass, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomLiteralUse))
+		})
+		t.Run("every automatic check passes", func(t *testing.T) {
+			require.Equal(t, report.Summary.Total, report.Summary.ChecksPass)
+		})
+
+		var output bytes.Buffer
+		require.NoError(t, writeIdiomReport(&output, report))
+		for name, fragment := range map[string]string{
+			"case heading": "## `it-rispetto-a-comparative` — it `rispetto a` (ambiguous control)",
+			"check row":    "| outcome is `ambiguous` | **PASS** |",
+			"gate line":    "every ambiguous control returns `ambiguous`",
+		} {
+			t.Run("report "+name, func(t *testing.T) {
+				require.Contains(t, output.String(), fragment)
+			})
 		}
 	})
-	report = reviewIdiom(context.Background(), idiomReviewOptions{Now: time.Now(), Cases: cases, Client: answerAsV2, Provider: idiomTestProviderMetadata()})
-	byID = idiomResultsByCaseID(report.Cases)
-	require.Equal(t, idiomOutcomeAmbiguous, byID["it-rispetto-a-comparative"].Outcome)
-	require.Equal(t, checkPass, idiomCheckStatus(byID["it-rispetto-a-comparative"], checkNameIdiomAmbiguous))
-	require.Equal(t, checkPass, idiomCheckStatus(byID["it-fare-bene-literal"], checkNameIdiomLiteralUse))
-	require.Equal(t, report.Summary.Total, report.Summary.ChecksPass, "every case passes its automatic check")
-
-	var output bytes.Buffer
-	require.NoError(t, writeIdiomReport(&output, report))
-	require.Contains(t, output.String(), "## `it-rispetto-a-comparative` — it `rispetto a` (ambiguous control)")
-	require.Contains(t, output.String(), "| outcome is `ambiguous` | **PASS** |")
-	require.Contains(t, output.String(), "every ambiguous control returns `ambiguous`")
 }
