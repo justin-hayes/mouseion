@@ -344,6 +344,29 @@ func TestReadyDeckCountsAndLabelsLemmaMismatchOmissionsSeparately(t *testing.T) 
 	})
 }
 
+func TestReadyDeckCountsAndLabelsIdiomOmissionsSeparately(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-idiom-omitted", SourceMaterialID: "book-idiom", State: domain.DeckPreparationReady,
+		DeckName: "Mouseion::it::A Book", Filename: "A Book.apkg", TotalCards: 2,
+		VocabularyOmissions: 1, IdiomOmissions: 1,
+		MeaningOmissions: []domain.DeckPreparationMeaningOmission{
+			{TargetWord: "Bank", Reason: "The sentence does not distinguish the meanings."},
+		},
+		IdiomOmissionDetails: []domain.DeckPreparationIdiomOmission{
+			{Headword: "tagliare la corda", Reason: domain.DeckPreparationIdiomLiteralUseLabel},
+		},
+	}
+	var output bytes.Buffer
+	action := deckReadingActionView{BookID: "book-idiom", State: deckIsCurrentReading, Actions: deckPreparationActions{BookID: "book-idiom", OnCurrentReading: true, Reprepare: true}}
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "1 vocabulary card left out.")
+	assert.Contains(t, html, "1 idiom left out.")
+	assert.Contains(t, html, "Omitted tagliare la corda:")
+	assert.Contains(t, html, domain.DeckPreparationIdiomLiteralUseLabel)
+	assert.Contains(t, html, "Omitted Bank:", "the vocabulary omission stays a vocabulary omission")
+}
+
 func TestCurrentReadingDeckStatusReportsLemmaMismatchOmissions(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "prep-reading-mismatch", State: domain.DeckPreparationReady, TotalCards: 3, LemmaMismatchOmissions: 1}
 	var output bytes.Buffer

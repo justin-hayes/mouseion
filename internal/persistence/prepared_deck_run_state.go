@@ -253,7 +253,7 @@ func derivePreparedDeckStoredResult(item cardexport.ManifestItem, byOrdinal map[
 	}
 	key := *item.CacheKey
 	if outcome.State == domain.PreparedDeckOutcomeFailed {
-		if !tolerableProviderOmission(outcome.ErrorClass, outcome.ErrorCode) {
+		if !tolerablePreparedDeckFailure(item.ItemKind, outcome.ErrorClass, outcome.ErrorCode) {
 			return cardexport.StoredResult{}, false, nil
 		}
 		return cardexport.StoredResult{CacheKey: key, OmissionReason: domain.DeckPreparationProviderOmissionReason}, true, nil

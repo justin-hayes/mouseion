@@ -101,7 +101,11 @@ type DeckPreparation struct {
 	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss                          int
 	// VocabularyCards and IdiomCards split TotalCards by frozen item kind. The
 	// values are derived from the manifest, so no persisted column changes.
-	VocabularyCards, IdiomCards           int
+	VocabularyCards, IdiomCards int
+	// VocabularyOmissions and IdiomOmissions split the provider's explicit
+	// abstentions by frozen item kind. An idiom omission is never a vocabulary
+	// omission (ADR 0114). Both are derived from the durable outcomes.
+	VocabularyOmissions, IdiomOmissions   int
 	ContextualGlosses, ContextOnlyGlosses int
 	ContextualGlossesReported             bool
 	QualityOmissions                      int
@@ -112,7 +116,10 @@ type DeckPreparation struct {
 	RenderInputVersion, PresentationVersion, DeckRevision int
 	VocabularyCount                                       int
 	EvidenceCoverage                                      []DeckPreparationEvidenceCoverage
-	MeaningOmissions                                      []DeckPreparationMeaningOmission
+	// MeaningOmissions lists vocabulary items the provider left unresolved.
+	// Idiom abstentions are listed separately so the two are never conflated.
+	MeaningOmissions     []DeckPreparationMeaningOmission
+	IdiomOmissionDetails []DeckPreparationIdiomOmission
 	// LemmaMismatchOmissions counts the subset of MeaningOmissions the
 	// contextual-gloss provider attributed to a different lexeme than the
 	// target lemma. Ambiguous omissions are not included.
@@ -140,6 +147,13 @@ type DeckPreparation struct {
 type DeckPreparationMeaningOmission struct {
 	TargetWord string
 	Reason     string
+}
+
+// DeckPreparationIdiomOmission is an idiom the provider declined in context.
+// It is deliberately distinct from a vocabulary meaning omission (ADR 0114).
+type DeckPreparationIdiomOmission struct {
+	Headword string
+	Reason   string
 }
 
 type DeckPreparationEvidenceCoverage struct {

@@ -113,6 +113,26 @@ func TestPreparationResponseCountsLemmaMismatchOmissionsSeparately(t *testing.T)
 	})
 }
 
+func TestPreparationResponseCountsIdiomOmissionsSeparately(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{
+		State:               domain.DeckPreparationReady,
+		VocabularyOmissions: 1,
+		IdiomOmissions:      1,
+		MeaningOmissions:    []domain.DeckPreparationMeaningOmission{{TargetWord: "Bank", Reason: "The sentence does not distinguish the meanings."}},
+		IdiomOmissionDetails: []domain.DeckPreparationIdiomOmission{
+			{Headword: "tagliare la corda", Reason: domain.DeckPreparationIdiomLiteralUseLabel},
+		},
+	})
+	encoded, err := json.Marshal(response)
+	require.NoError(t, err)
+	require.Equal(t, 1, response.Completeness.VocabularyOmissions)
+	require.Equal(t, 1, response.Completeness.IdiomOmissions)
+	require.Contains(t, string(encoded), `"vocabulary_omissions":1`)
+	require.Contains(t, string(encoded), `"idiom_omissions":1`)
+	require.Contains(t, string(encoded), `"meaning_omissions":[{"target":"Bank","reason":"The sentence does not distinguish the meanings."}]`)
+	require.Contains(t, string(encoded), `"idiom_omission_details":[{"headword":"tagliare la corda","reason":"`+domain.DeckPreparationIdiomLiteralUseLabel+`"}]`)
+}
+
 func TestPreparationResponseExposesFrozenEvidenceCoverageAndTruncation(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{State: domain.DeckPreparationPreparing, EvidenceCoverage: []domain.DeckPreparationEvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 5, Matched: 3, Candidates: 12, Omitted: 4}}})
 	encoded, err := json.Marshal(response)

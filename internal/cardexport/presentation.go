@@ -104,6 +104,7 @@ type Summary struct {
 type Diagnostics struct {
 	QualityOmissions []Omission
 	MeaningOmissions []MeaningOmission
+	IdiomOmissions   []IdiomOmission
 	DegradationCodes []string
 	GlossCoverage    []GlossCoverage
 	EvidenceCoverage []EvidenceCoverage
@@ -111,6 +112,12 @@ type Diagnostics struct {
 
 type MeaningOmission struct {
 	Target, Reason string
+}
+
+// IdiomOmission is an idiom card the provider declined in context. It is not a
+// vocabulary meaning omission (ADR 0114).
+type IdiomOmission struct {
+	Headword, Reason string
 }
 
 // EvidenceCoverage reports how much bounded local meaning evidence was frozen.
@@ -724,6 +731,7 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 	}
 	diagnostics := manifestDiagnostics(manifest)
 	diagnostics.MeaningOmissions = append([]MeaningOmission(nil), alignment.meaningOmissions...)
+	diagnostics.IdiomOmissions = append([]IdiomOmission(nil), alignment.idiomOmissions...)
 	diagnostics.DegradationCodes = appendUniqueCodes(diagnostics.DegradationCodes, renderDiagnostics...)
 	artifact.Diagnostics = cloneDiagnostics(diagnostics)
 	return artifact, diagnostics, nil
@@ -798,6 +806,7 @@ type finalizeAlignment struct {
 	accepted         []RenderInput
 	cacheKeys        []enrichment.CacheKey
 	meaningOmissions []MeaningOmission
+	idiomOmissions   []IdiomOmission
 }
 
 // alignStoredResults overlays stored results onto the frozen manifest in
@@ -813,6 +822,7 @@ func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredR
 		accepted:         make([]RenderInput, 0, len(manifest.accepted)),
 		cacheKeys:        make([]enrichment.CacheKey, 0, len(keys)),
 		meaningOmissions: make([]MeaningOmission, 0),
+		idiomOmissions:   make([]IdiomOmission, 0),
 	}
 	for i, key := range keys {
 		stored, err := storedResultFor(key, byKey, required)
@@ -829,11 +839,9 @@ func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredR
 				alignment.cacheKeys = append(alignment.cacheKeys, key)
 				continue
 			}
-			omission, err := unresolvedOmission(stored, manifest.accepted[i].TargetWord)
-			if err != nil {
+			if err := recordUnresolvedResult(&alignment, manifest.accepted[i], stored); err != nil {
 				return finalizeAlignment{}, err
 			}
-			alignment.meaningOmissions = append(alignment.meaningOmissions, omission)
 			continue
 		}
 		if requiredResultIncomplete(stored, manifest.accepted[i], required, contextualIdentity) {
@@ -849,11 +857,26 @@ func alignStoredResults(manifest manifest, byKey map[enrichment.CacheKey]StoredR
 	return alignment, nil
 }
 
+// recordUnresolvedResult drops one explicitly unresolved item and records the
+// omission in the vocabulary or idiom list that matches its kind.
+func recordUnresolvedResult(alignment *finalizeAlignment, input RenderInput, stored StoredResult) error {
+	omission, err := unresolvedOmission(stored, omissionTarget(input))
+	if err != nil {
+		return err
+	}
+	if input.ItemKind.IsIdiom() {
+		alignment.idiomOmissions = append(alignment.idiomOmissions, IdiomOmission{Headword: omission.Target, Reason: omission.Reason})
+		return nil
+	}
+	alignment.meaningOmissions = append(alignment.meaningOmissions, omission)
+	return nil
+}
+
 // allMeaningsUnresolved reports whether a run produced no vocabulary card. A
 // run whose only successes are idiom cards is still all omitted; an idiom card
 // never substitutes for a vocabulary card (ADR 0114).
 func allMeaningsUnresolved(alignment finalizeAlignment, keyCount int) bool {
-	if len(alignment.meaningOmissions) == keyCount {
+	if len(alignment.meaningOmissions)+len(alignment.idiomOmissions) == keyCount {
 		return true
 	}
 	return !slices.ContainsFunc(alignment.accepted, func(input RenderInput) bool { return !input.ItemKind.IsIdiom() })
@@ -879,6 +902,17 @@ func storedResultFor(key enrichment.CacheKey, byKey map[enrichment.CacheKey]Stor
 		return StoredResult{}, fmt.Errorf("%w: required enrichment result is missing", ErrInvalidInput)
 	}
 	return StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key}}, nil
+}
+
+// omissionTarget names the omitted item: an idiom by its headword rather than
+// one anchor word, so the diagnostic identifies the card that was dropped.
+func omissionTarget(input RenderInput) string {
+	if input.ItemKind.IsIdiom() {
+		if headword := strings.TrimSpace(input.Headword); headword != "" {
+			return headword
+		}
+	}
+	return input.TargetWord
 }
 
 // unresolvedOmission converts an explicitly unresolved stored result into a
@@ -1005,7 +1039,7 @@ func cloneOmissions(omissions []Omission) []Omission {
 }
 
 func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
-	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), MeaningOmissions: append([]MeaningOmission(nil), diagnostics.MeaningOmissions...), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...)}
+	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), MeaningOmissions: append([]MeaningOmission(nil), diagnostics.MeaningOmissions...), IdiomOmissions: append([]IdiomOmission(nil), diagnostics.IdiomOmissions...), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...)}
 }
 
 func evidenceCoverage(entries []RenderInput) []EvidenceCoverage {
