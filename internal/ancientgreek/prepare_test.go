@@ -68,3 +68,33 @@ func TestParsedWorkCutUnitReusesTheSameParse(t *testing.T) {
 	assert.Contains(t, unitTwo.FullText, "Ἀρταξέρξης")
 	assert.NotContains(t, unitTwo.FullText, "λέγει")
 }
+
+func TestParseOgaSourceRefusesMalformedBytes(t *testing.T) {
+	t.Parallel()
+	_, err := ParseOgaSource([]byte("not a conllu file"))
+	var importErr *ImportError
+	require.ErrorAs(t, err, &importErr)
+	assert.Equal(t, CodeMalformed, importErr.Code)
+}
+
+func TestParsedWorkCutUnitRefusesInvalidInput(t *testing.T) {
+	t.Parallel()
+	data, valid := ogaFixture(t)
+	parsed, err := ParseOgaSource(data)
+	require.NoError(t, err)
+
+	_, err = (*ParsedWork)(nil).CutUnit(valid)
+	require.Error(t, err)
+
+	invalid := valid
+	invalid.Key = ""
+	_, err = parsed.CutUnit(invalid)
+	require.Error(t, err)
+
+	badCitation := valid
+	badCitation.CitationStart = "not-a-citation"
+	_, err = parsed.CutUnit(badCitation)
+	var importErr *ImportError
+	require.ErrorAs(t, err, &importErr)
+	assert.Equal(t, CodeUnknownInterpret, importErr.Code)
+}

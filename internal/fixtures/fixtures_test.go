@@ -1110,3 +1110,10 @@ func TestClassicalFixtureStubsKeepTheCatalogReadOnly(t *testing.T) {
 	_, err = store.AddClassicalReadingUnits(ctx, OwnerID, []string{"xenophon-anabasis-1"})
 	require.ErrorContains(t, err, "classical Add is not available")
 }
+
+func TestClassicalFixtureListsNoPreparationJobs(t *testing.T) {
+	store := NewStore()
+	jobs, err := store.ListClassicalPreparationJobs(context.Background(), OwnerID)
+	require.NoError(t, err)
+	assert.Empty(t, jobs)
+}

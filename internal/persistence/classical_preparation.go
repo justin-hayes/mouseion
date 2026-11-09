@@ -180,8 +180,8 @@ func (s *PostgresStore) ListClassicalPreparationJobs(ctx context.Context, owner 
 	rows, err := s.pool.Query(ctx, `
 		SELECT job.id, book.id::text, book.title, job.attempt, job.state::text, job.created_at
 		FROM river_job job
-		JOIN books book ON book.owner_id = $1 AND book.id = (job.args->>'book_id')::uuid
-		WHERE job.kind = 'classical_preparation' AND job.args->>'owner_id' = $1
+		JOIN books book ON book.owner_id = $1::uuid AND book.id = (job.args->>'book_id')::uuid
+		WHERE job.kind = 'classical_preparation' AND job.args->>'owner_id' = $1::text
 		ORDER BY job.created_at DESC, job.id DESC
 		LIMIT 100`, owner)
 	if err != nil {

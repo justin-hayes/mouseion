@@ -23,6 +23,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -108,6 +109,7 @@ func preparationHarness(t *testing.T) (context.Context, *persistence.PostgresSto
 		Analysis:             service,
 		ClassicalPreparation: service,
 		Classical:            catalog,
+		CatalogueSync:        fixtures.NewCatalogueSync(fixtures.NewStore()),
 		SessionLifetime:      time.Hour,
 	})
 	return ctx, store, pool, h, service, client, &layerRequests, fixture
@@ -216,6 +218,26 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 	waitForPreparedBooks(t, pool, learner.ID, 2)
 	assert.Equal(t, int64(1), layerRequests.Load(), "the work file downloads once for both Books")
 
+	// The jobs surface shows the Book, attempt and state.
+	jobsPage := perform(t, h, http.MethodGet, "/jobs", nil, cookies)
+	require.Equal(t, http.StatusOK, jobsPage.Code, jobsPage.Body.String())
+	for _, want := range []string{"Classical preparation history", "Classical preparation", "Synthetic Work", "Completed"} {
+		assert.Contains(t, jobsPage.Body.String(), want)
+	}
+
+	// The store reuses and reports the installation-wide source, and an unknown
+	// Book is not a preparation target.
+	storedSource, found, err := store.GetClassicalSource(ctx, fixture.definitions[0].Source.SHA256)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, fixture.definitions[0].Source.FileName, storedSource.FileName)
+	require.NoError(t, store.PutClassicalSource(ctx, storedSource), "a duplicate source insert is a no-op")
+	_, found, err = store.GetClassicalSource(ctx, strings.Repeat("b", 64))
+	require.NoError(t, err)
+	assert.False(t, found)
+	_, err = store.LoadClassicalPreparationTarget(ctx, learner.ID, "00000000-0000-0000-0000-000000000000")
+	require.ErrorIs(t, err, persistence.ErrNotFound)
+
 	// Each Book stores only its own Reading unit, keyed by the Reading-unit key.
 	first := bookWithUnit(t, pool, learner.ID, firstID)
 	second := bookWithUnit(t, pool, learner.ID, secondID)
@@ -247,6 +269,12 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 		assert.Equal(t, "oga-agdt-upos/5", interpretation)
 		assert.NotEmpty(t, runID)
 	}
+
+	// Reading's retry path routes a classical Book to preparation. A current
+	// analysis is reported as current rather than queued again.
+	reanalyzed := perform(t, h, http.MethodPost, "/reading/books/"+secondID+"/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, reanalyzed.Code, reanalyzed.Body.String())
+	assert.Contains(t, reanalyzed.Header().Get("Location"), url.QueryEscape("already current"))
 
 	// The Book is readable: starting it freezes its published analysis.
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))

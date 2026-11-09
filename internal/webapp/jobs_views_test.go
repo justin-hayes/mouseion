@@ -72,6 +72,22 @@ func TestJobsViewsShowClassicalPreparationBookAttemptAndState(t *testing.T) {
 	assert.Contains(t, html, "2026-11-09 12:00")
 }
 
+func TestClassicalPreparationJobStateMapping(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"completed": "Completed", "discarded": "Failed", "cancelled": "Failed",
+		"running": "Running", "available": "Queued", "pending": "Queued",
+		"scheduled": "Queued", "retryable": "Queued", "unknown": "Queued",
+	}
+	for state, want := range cases {
+		t.Run(state, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, want, classicalPreparationJobState(state))
+			assert.NotEmpty(t, classicalPreparationJobTone(state))
+		})
+	}
+}
+
 func TestOperationalShellStylesExcludePico(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, ShellLayout("Jobs", &domain.User{}, "csrf", NavigationLibrary, shellStyleJobs).Render(context.Background(), &output))
