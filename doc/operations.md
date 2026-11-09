@@ -359,37 +359,19 @@ These commands run against `MOUSEION_DATABASE_URL`.
 - `go run ./cmd/cataloguebackfill` — assigns legacy catalogue-entry aliases to
   their owning OPDS connection
   ([ADR 0044](adr/0044-catalogue-entry-connection-scoped-identity.md)).
-- `go run ./cmd/greekregister <learner-username>` — registers the compiled
-  Ancient Greek reading unit (Xenophon, *Anabasis* Book 1, Marchant 1904) for
-  one named learner. It creates the learner's unprepared Book and its
-  Book–Reading unit association, and ensures "Ancient Greek" appears in the
-  language drop-down. It is idempotent, and refuses without writing when any
-  pre-existing `grc` rows exist, naming their owners, surfaces and counts. Rows
-  a registered learner's reading and deck preparation wrote are not
-  pre-existing, so the command can be re-run to re-import. It prints no Greek
-  text.
-- `go run ./cmd/greekregister <learner-username> <pinned-source-file>` —
-  registers as above and then imports the file's annotation into an ordinary
-  analysis run, so My Books shows the Book as prepared with its word count and
-  coverage. The file must match the reviewed size and SHA-256 pin exactly, and
-  the import never calls the NLP service or enqueues EPUB analysis. It refuses
-  a malformed or unknown-tag file before writing anything, and re-running the
-  same pin and interpretation version is a no-op. It prints a report of counts
-  (sentences, tokens, ellipsis tokens skipped, crossing sentences, proper names
-  derived, bare-versus-numbered lemmas, unmapped feature values) and no Greek
-  text.
-- `go run ./cmd/greekregister <learner-username> <pinned-source-file>
-  <brownson-translation-file>` — registers and imports as above, then imports the
-  operator-supplied Brownson translation of the *Anabasis* in the Perseus
-  `perseus-eng2` digitisation, storing each cited section keyed by citation so
-  prepared Greek cards can show passage context
-  ([ADR 0101](adr/0101-ancient-greek-cards-from-source-evidence.md)). The file
-  must match its reviewed size and SHA-256 pin exactly, the import removes
-  Perseus notes and otherwise keeps the text, and it refuses oversize, malformed
-  or unknown content before writing anything. Re-importing the same pin is
-  idempotent and never changes an already-prepared deck. It prints the pin and a
-  report of section and byte counts, never any English text. The pinned file
-  never enters the repository or CI.
+- The retired `cmd/greekregister` command has no replacement to run. At startup
+  the binary reconciles the embedded Classical catalog manifest and converts any
+  pre-upgrade Ancient Greek Book whose source still holds the whole pinned work
+  file, when its published evidence reproduces exactly. The conversion keeps the
+  Book, its Reading-unit association, analysis, corrections, exclusions,
+  vocabulary, completions, current-reading snapshots and prepared decks. If the
+  evidence differs, the Book keeps its published analysis, an Analysis update
+  is offered, and the Classical catalog stays fail-closed with the stable
+  `classical_catalog_legacy_rows` code until it is resolved. The server owns the
+  conversion; it is idempotent and retry-safe, and a failed start leaves the
+  previous schema and learner state in place to retry. Historical whole-file
+  revisions remain immutable evidence for frozen Readings; the Book's current
+  source is the Reading unit.
 - `go run ./cmd/greekhitrate` — reports how many of the installation's Ancient
   Greek vocabulary identities resolve an unambiguous LSJ dictionary entry (the
   entry a Greek card shows) alongside the Wiktionary hit rate, so the operator

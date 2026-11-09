@@ -291,7 +291,7 @@ type Querier interface {
 	// first registration passes only when they own no such rows, so every derived
 	// row (tokens, Known, vocabulary, candidates, decks) a registered learner owns
 	// was written by this feature: an operator re-import is not refused by them.
-	ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error)
+	ListLegacyLanguageRows(ctx context.Context, arg ListLegacyLanguageRowsParams) ([]ListLegacyLanguageRowsRow, error)
 	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
 	// Coverage comes from the durable Vocabulary Browse inventory counts joined to
 	// the learner's current Known vocabulary. A Book without ready counts for its

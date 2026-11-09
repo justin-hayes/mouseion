@@ -45,7 +45,7 @@ func TestAnalysisUpdateOfferEligibility(t *testing.T) {
 		{"outdated To Read Book", outdated, BookDispositionToRead, AnalysisUpdateAvailable},
 		{"other disposition", outdated, BookDispositionInbox, AnalysisUpdateNone},
 		{"current Reading", with(func(s *AnalysisSignals) { s.CurrentReading = true }), BookDispositionToRead, AnalysisUpdateEndReadingFirst},
-		{"imported analysis", with(func(s *AnalysisSignals) { s.Content = ContentCurrentImported }), BookDispositionToRead, AnalysisUpdateNone},
+		{"imported analysis", with(func(s *AnalysisSignals) { s.Content = ContentCurrentImported }), BookDispositionToRead, AnalysisUpdateAvailable},
 		{"current pipeline", with(func(s *AnalysisSignals) { s.PipelineOutdated = false }), BookDispositionToRead, AnalysisUpdateNone},
 	}
 	for _, run := range []LatestRunSignal{RunQueued, RunRunning, RunFailed, RunJobFailed, RunCancelled, RunPublicationPending} {

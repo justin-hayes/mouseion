@@ -105,6 +105,21 @@ FROM (
           WHERE bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
       )
     UNION ALL
+    -- A pre-upgrade classical Book keeps the whole work file under the source
+    -- file name until startup conversion rewrites it to the Reading-unit key.
+    -- Such a Book is legacy even though it already has a Reading-unit link, so
+    -- Add and preparation stay fail-closed until the conversion completes.
+    SELECT sm.owner_id::text, 'source_materials'::text
+    FROM source_materials sm
+    JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
+    JOIN reading_units ru ON ru.id = bru.reading_unit_id
+    LEFT JOIN classical_prepared_definitions p
+      ON p.owner_id = sm.owner_id AND p.book_id = sm.book_id
+    WHERE sm.language = $1
+      AND sm.media_type = $2
+      AND sm.source_identifier <> ru.definition_key
+      AND p.book_id IS NULL
+    UNION ALL
     SELECT ct.owner_id::text, 'corpus_tokens'::text
     FROM corpus_tokens ct
     WHERE ct.language = $1

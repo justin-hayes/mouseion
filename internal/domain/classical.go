@@ -111,6 +111,29 @@ type ClassicalPreparedDefinition struct {
 	AnalysisRunID         string
 }
 
+// ClassicalSourceConversion rewrites one pre-upgrade Book's whole-file source
+// material to the Reading unit's own text under the same source row. The
+// analysis run keeps its evidence and is re-pointed at the new content
+// revision and snapshot.
+type ClassicalSourceConversion struct {
+	OwnerID               string
+	BookID                string
+	SourceMaterialID      string
+	ReadingUnitKey        string
+	UnitID                string
+	UnitTitle             string
+	UnitText              string
+	SourceFileName        string
+	DefinitionRevision    int
+	SourceFileSHA256      string
+	InterpretationVersion string
+	AnalysisRunID         string
+	// ExpectedContentRevisionID and ExpectedSnapshotID are the published
+	// evidence the conversion compared. A concurrent change refuses the write.
+	ExpectedContentRevisionID string
+	ExpectedSnapshotID        string
+}
+
 // ClassicalPreparationJob is one classical preparation shown in the jobs
 // surface. BookTitle is the learner's Book title; State is River's job state.
 type ClassicalPreparationJob struct {

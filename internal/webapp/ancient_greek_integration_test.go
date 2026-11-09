@@ -29,9 +29,8 @@ import (
 func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 	ctx, store, pool, h := ancientGreekHarness(t)
 	learner := createAccount(t, ctx, store, "greek-learner", "learner-password")
-	service := ancientgreek.NewService(store)
 
-	report, err := service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	report, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
 	require.True(t, report.Created)
 	require.NotEmpty(t, report.BookID)
@@ -74,14 +73,14 @@ func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 	assert.Zero(t, jobs, "To Read never submits EPUB analysis for a classical Book")
 
 	// Re-running creates no second Book for the learner.
-	again, err := service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	again, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
 	assert.False(t, again.Created)
 	assert.Equal(t, report.BookID, again.BookID)
 
 	// A second learner gets their own Book for the same Reading unit.
 	other := createAccount(t, ctx, store, "greek-learner-two", "learner-password")
-	second, err := service.Register(ctx, other.Username, ancientgreek.AnabasisBook1)
+	second, err := registerGreekDefinition(t, ctx, store, other.ID, greekTestDefinition())
 	require.NoError(t, err)
 	require.True(t, second.Created)
 	assert.NotEqual(t, report.BookID, second.BookID)
@@ -91,64 +90,6 @@ func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM book_reading_units`).Scan(&associations))
 	assert.Equal(t, 2, books)
 	assert.Equal(t, 2, associations)
-}
-
-// TestAncientGreekRegistrationRefusesLegacyGreekRows proves the preflight: an
-// existing grc row stops registration and nothing is written.
-func TestAncientGreekRegistrationRefusesLegacyGreekRows(t *testing.T) {
-	ctx, store, pool, _ := ancientGreekHarness(t)
-	learner := createAccount(t, ctx, store, "greek-learner-legacy", "learner-password")
-	_, err := pool.Exec(ctx, `INSERT INTO books(owner_id, title, metadata_provenance, language_state, language_tag) VALUES ($1, 'Legacy Greek', 'catalog_sync', 'chosen', 'grc')`, learner.ID)
-	require.NoError(t, err)
-
-	_, err = ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "legacy grc rows exist")
-	assert.Contains(t, err.Error(), "owner="+learner.ID)
-	assert.Contains(t, err.Error(), "surface=books count=1")
-
-	var registered, languages int
-	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM books WHERE metadata_provenance = $1`, domain.MetadataProvenanceOperatorRegistration).Scan(&registered))
-	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM supported_languages WHERE language = 'grc'`).Scan(&languages))
-	assert.Zero(t, registered, "refusal writes no Book")
-	assert.Zero(t, languages, "refusal writes no display name")
-}
-
-// TestAncientGreekReRegistrationStillRefusesStrayGreekBook proves a registered
-// learner's re-registration still refuses a grc Book that is not a Reading
-// unit: only rows derived after the first registration are exempt.
-func TestAncientGreekReRegistrationStillRefusesStrayGreekBook(t *testing.T) {
-	ctx, store, pool, _ := ancientGreekHarness(t)
-	learner := createAccount(t, ctx, store, "greek-learner-stray", "learner-password")
-	service := ancientgreek.NewService(store)
-	_, err := service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO books(owner_id, title, metadata_provenance, language_state, language_tag) VALUES ($1, 'Stray Greek', 'catalog_sync', 'chosen', 'grc')`, learner.ID)
-	require.NoError(t, err)
-
-	_, err = service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "owner="+learner.ID+" surface=books count=1")
-}
-
-// TestAncientGreekRegistrationExemptsOnlyRegisteredLearners proves one
-// learner's registration never exempts another learner's legacy Known row.
-func TestAncientGreekRegistrationExemptsOnlyRegisteredLearners(t *testing.T) {
-	ctx, store, pool, _ := ancientGreekHarness(t)
-	registered := createAccount(t, ctx, store, "greek-learner-registered", "learner-password")
-	legacy := createAccount(t, ctx, store, "greek-learner-known", "learner-password")
-	service := ancientgreek.NewService(store)
-	_, err := service.Register(ctx, registered.Username, ancientgreek.AnabasisBook1)
-	require.NoError(t, err)
-	for _, owner := range []string{registered.ID, legacy.ID} {
-		_, err = pool.Exec(ctx, `INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos) VALUES ($1, 'grc', 'λόγοσ', 'NOUN')`, owner)
-		require.NoError(t, err)
-	}
-
-	_, err = service.Register(ctx, legacy.Username, ancientgreek.AnabasisBook1)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "owner="+legacy.ID+" surface=known_vocabulary count=1")
-	assert.NotContains(t, err.Error(), "owner="+registered.ID, "the registered learner's own Known row is not legacy")
 }
 
 // ancientGreekHarness provisions one migrated PostgreSQL database, its store,

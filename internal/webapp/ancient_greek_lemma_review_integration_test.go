@@ -30,7 +30,7 @@ import (
 func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 	ctx, store, pool, h := ancientGreekHarness(t)
 	learner := createAccount(t, ctx, store, "greek-lemma-learner", "learner-password")
-	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
 	importGreekFixture(t, ctx, store, learner.ID, registration.BookID, "oga-src-browse.conllu")
 
@@ -154,7 +154,7 @@ func browseFixtureImport(t *testing.T) (domain.ReadingUnitDefinition, string) {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-browse.conllu"))
 	require.NoError(t, err)
-	definition := ancientgreek.AnabasisBook1
+	definition := greekTestDefinition()
 	definition.SourceFileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	definition.SourceFileSHA256 = hex.EncodeToString(sum[:])

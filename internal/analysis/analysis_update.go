@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/google/uuid"
@@ -107,15 +108,38 @@ func (p publishedAnalysis) candidate(target domain.AnalysisUpdateTarget) domain.
 // and SubmitAnalysisUpdate revalidates under lock.
 func (s *Service) AnalysisUpdateCandidates(ctx context.Context, owner string, sourceIDs []string) (map[string]domain.AnalysisUpdateCandidate, error) {
 	candidates := map[string]domain.AnalysisUpdateCandidate{}
+	ids := analysisUpdateSourceIDs(sourceIDs)
+	if s == nil || s.pool == nil || strings.TrimSpace(owner) == "" || len(ids) == 0 {
+		return candidates, nil
+	}
+	classical, err := s.classicalUpdateCandidates(ctx, owner, ids)
+	if err != nil {
+		return nil, err
+	}
+	maps.Copy(candidates, classical)
+	epub, err := s.epubAnalysisUpdateCandidates(ctx, owner, ids)
+	if err != nil {
+		return nil, err
+	}
+	maps.Copy(candidates, epub)
+	return candidates, nil
+}
+
+// analysisUpdateSourceIDs keeps the UUID identities the offer lookup can ask about.
+func analysisUpdateSourceIDs(sourceIDs []string) []string {
 	ids := make([]string, 0, len(sourceIDs))
 	for _, id := range sourceIDs {
 		if _, err := uuid.Parse(strings.TrimSpace(id)); err == nil {
 			ids = append(ids, id)
 		}
 	}
-	if s == nil || s.pool == nil || strings.TrimSpace(owner) == "" || len(ids) == 0 {
-		return candidates, nil
-	}
+	return ids
+}
+
+// epubAnalysisUpdateCandidates compares EPUB published analyses with the
+// running NLP pipeline identity. An unknown identity offers nothing.
+func (s *Service) epubAnalysisUpdateCandidates(ctx context.Context, owner string, ids []string) (map[string]domain.AnalysisUpdateCandidate, error) {
+	candidates := map[string]domain.AnalysisUpdateCandidate{}
 	capabilities, known := s.currentTargets(ctx)
 	if !known {
 		return candidates, nil
@@ -182,6 +206,15 @@ func (s *Service) SubmitAnalysisUpdate(ctx context.Context, owner, bookID, sourc
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" || strings.TrimSpace(sourceID) == "" {
 		return Handle{}, errors.New("analysis owner, Book and source are required")
 	}
+	if result, handled, err := s.submitClassicalAnalysisUpdate(ctx, owner, bookID, sourceID, expectedRunID, expectedTarget); handled {
+		return result, err
+	}
+	return s.submitEPUBAnalysisUpdate(ctx, owner, bookID, sourceID, expectedRunID, expectedTarget)
+}
+
+// submitEPUBAnalysisUpdate queues an EPUB Book's confirmed update against the
+// running NLP pipeline identity.
+func (s *Service) submitEPUBAnalysisUpdate(ctx context.Context, owner, bookID, sourceID, expectedRunID, expectedTarget string) (result Handle, err error) {
 	// The capability lookup is a network call, so it happens before the locks;
 	// the comparison against the confirmed target happens under them.
 	capabilities, known := s.currentTargets(ctx)

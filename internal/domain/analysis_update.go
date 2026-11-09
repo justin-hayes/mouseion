@@ -53,12 +53,14 @@ const (
 	AnalysisUpdateEndReadingFirst AnalysisUpdateOffer = "end-reading-first"
 )
 
-// analysisUpdateOffer offers an update only for a To Read EPUB Book whose
+// analysisUpdateOffer offers an update only for a To Read Book whose
 // published analysis is in effect and whose latest run completed. A newer run
 // that is queued, running, failed, or cancelled keeps its own status and
-// retry instead; imported analyses have no NLP producer and are never offered.
+// retry instead. EPUB analyses and imported classical analyses both follow this
+// rule; the classical offer compares the prepared-definition record instead of
+// the NLP pipeline identity (ADR 0116).
 func analysisUpdateOffer(content ContentSignal, signals AnalysisSignals, disposition BookDisposition) AnalysisUpdateOffer {
-	if !signals.PipelineOutdated || content != ContentCurrentEPUB || signals.Published != PublishedCurrent || signals.LatestRun != RunCompleted {
+	if !signals.PipelineOutdated || !content.IsCurrentContent() || signals.Published != PublishedCurrent || signals.LatestRun != RunCompleted {
 		return AnalysisUpdateNone
 	}
 	if signals.CurrentReading {

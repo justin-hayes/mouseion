@@ -128,7 +128,10 @@ func (s *PostgresStore) ListLegacyLanguageRows(ctx context.Context, language str
 // listLegacyLanguageRows is the transaction-aware form, so an Add can hold its
 // legacy-row precondition and its write in one transaction.
 func listLegacyLanguageRows(ctx context.Context, q *sqlcgen.Queries, language string) ([]domain.LegacyLanguageRows, error) {
-	rows, err := q.ListLegacyLanguageRows(ctx, textArg(language))
+	rows, err := q.ListLegacyLanguageRows(ctx, sqlcgen.ListLegacyLanguageRowsParams{
+		LanguageTag: textArg(language),
+		MediaType:   domain.ImportedSourceMediaType,
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -30,7 +30,7 @@ import (
 func TestAncientGreekConcordanceAndSentenceStudy(t *testing.T) {
 	ctx, store, pool, h := ancientGreekHarness(t)
 	learner := createAccount(t, ctx, store, "greek-concordance", "learner-password")
-	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
 
 	definition, sourcePath := fixtureImportFrom(t, "oga-src-sentences.conllu")
@@ -163,7 +163,7 @@ func fixtureImportFrom(t *testing.T, name string) (domain.ReadingUnitDefinition,
 	//nolint:gosec // the caller passes a fixture name compiled into the test.
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", name))
 	require.NoError(t, err)
-	definition := ancientgreek.AnabasisBook1
+	definition := greekTestDefinition()
 	definition.SourceFileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	definition.SourceFileSHA256 = hex.EncodeToString(sum[:])
