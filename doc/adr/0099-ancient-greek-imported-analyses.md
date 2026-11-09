@@ -35,8 +35,8 @@ plus one byte; a larger file is `source_oversize`, a different size or digest is
 `source_pin_mismatch`. A malformed line, an unexpected comment, a missing
 citation reference, an unknown native part of speech or a sentence that straddles
 the citation boundary stops the import with a stable code before anything is
-written. *(The straddle refusal is replaced by first-token sentence ownership in
-[ADR 0117](0117-classical-catalog.md): a sentence belongs to the Reading unit
+written. *(Amended by [ADR 0117](0117-classical-catalog.md): the straddle refusal is
+replaced by first-token sentence ownership. A sentence belongs to the Reading unit
 that holds its first token, and only a sentence belonging to no unit or two
 units is refused.)*
 

@@ -24,9 +24,9 @@ adds Books to My Books.
 Several accepted rules stand in the way:
 
 - ADR 0099 refuses a sentence that straddles a citation boundary. That is fine
-  for one hand-checked Book, but it would keep whole works off the shelf, and
-  it disagrees with the glossary's rule that a sentence belongs to the Reading
-  unit that holds its first word.
+  for one hand-checked Book, but it would keep whole works out of the Classical catalog,
+  and it disagrees with the glossary's rule that a sentence belongs to the
+  Reading unit that holds its first word.
 - ADR 0058 and the information architecture keep Catalogs a configuration and
   sync destination, "not a book-browse surface". The Classical catalog has no
   connection to configure and no metadata to sync, so a learner has to browse
@@ -46,10 +46,11 @@ Several accepted rules stand in the way:
 
 ### Sentence ownership replaces the straddle refusal
 
-A sentence belongs to the **Reading unit that holds its first token**. The
-import no longer refuses a sentence that crosses a citation boundary; it cuts
-that sentence into the unit that holds its first token. It still refuses a
-sentence that belongs to no unit or to two units. The maintainer generator
+A sentence belongs to the **Reading unit that holds its first token** (the
+glossary's "first word"). The import no longer refuses a sentence that crosses
+a citation boundary; the whole sentence belongs to the unit that holds its
+first token. It still refuses a sentence that belongs to no unit or to two
+units. The maintainer generator
 lists every crossing sentence for the reviewer. *Anabasis* Book 1 has no
 crossing sentence, so its result is unchanged.
 
@@ -116,7 +117,8 @@ and offers Work-level actions over them:
 
 - **Move the work to To Read** moves every Book without reading history and
   skips the current Book;
-- **Move the work back to Inbox** leaves the current Book To Read;
+- **Move the work back to Inbox**, under More actions, leaves the current Book
+  To Read;
 - with mixed states, **Move the other N books to To Read**;
 - **Hide all N books** and **Unhide all** set each Book's visibility.
 
@@ -133,11 +135,11 @@ Preparation selects the import adapter by the definition's source format rather
 than hard-wiring the OGA CoNLL-U adapter, so a later adapter (such as the
 graded-reader path in [ADR 0116](https://github.com/justin-hayes/mouseion/pull/2402))
 adds an adapter, not a new preparation job. For now there is one adapter, for
-the OGA CoNLL-U dialect, and one interpretation version for every shelved
-work. That version recognises ellipsis only by the source's ellipsis
+the OGA CoNLL-U dialect, and one interpretation version for every work in
+the Classical catalog. That version recognises ellipsis only by the source's ellipsis
 convention, keeps a native `x` token as an ordinary token mapped to UD `X`, and
 accepts repeated identical `# source` headers. A file whose headers or
-citations cannot be recovered is refused and kept off the shelf. Per-work
+citations cannot be recovered is refused and kept out of the Classical catalog. Per-work
 interpretation variants are not decided.
 
 ### Classical Analysis updates
@@ -149,7 +151,8 @@ per-Book prepared-definition record, not an NLP pipeline identity. A change to
 curatorial metadata or to the translation pin alone gives no offer.
 
 ADR 0107's other rules apply unchanged: eligibility is per Book (To Read Books
-outside the current Reading; never Read or Inbox), nothing is queued without
+outside the current Reading; never Read or Inbox, since an Inbox Book is
+prepared under the current definition when it moves to To Read), nothing is queued without
 confirmation, the published analysis stays in effect until its update
 publishes, and earlier analyses, Lemma corrections, Occurrence exclusions,
 current-reading snapshots, Known and Reserved vocabulary, completions and
@@ -227,7 +230,7 @@ To Read candidates in the existing neutral title order:
 - a Work with more than one To Read Book is one entry. Its identity is Work
   title, author, Greek title and "N books" from the reviewed definition. Its
   margin gives the To Read and assessed counts and one Known coverage range.
-  Inside the entry, a band table lists that Work's candidate book numbers in
+  Inside the entry, a band table lists that Work's candidate Constituent book numbers in
   Constituent book order, one row per band in the shipped band order, omitting
   empty rows. Each number opens that Book's ordinary candidate entry inline,
   with its position, band, coverage, Start or Switch confirmation and Retry
@@ -256,21 +259,22 @@ The page title, description and intro copy are unchanged.
 - **Cache work files on disk or store one per Book.** Rejected: an on-disk cache
   needs a new volume outside database backups; per-Book copies multiply storage
   by the number of Books and learners.
-- **Hard-wire the OGA adapter in preparation.** Rejected per the #2401 comment:
-  the graded-reader adapter would then reshape the preparation job.
+- **Hard-wire the OGA adapter in preparation.** Rejected: a second
+  source format, such as graded readers, would then reshape the preparation
+  job instead of adding an adapter.
 
 ## Consequences
 
-- Adding a work to the shelf is a reviewed manifest change, not Go code plus an
+- Adding a work to the Classical catalog is a reviewed manifest change, not Go code plus an
   operator command. An operator runs nothing for definitions, downloads,
   imports or the conversion.
 - Modern-language analysis, OPDS sync and My Books rows for non-classical
   Books are unchanged; classical preparation never delays EPUB analysis.
 - `CONTEXT.md`, `doc/design/information-architecture.md`,
   `doc/design/components.md`, `doc/design/design-system.md`,
-  `doc/design/screen-inventory.md` and the deployer register are reconciled with
-  this decision when the surfaces ship, so the old Catalogs, chooser and
-  imported-analysis rules do not stay live.
+  `doc/design/screen-inventory.md`, `doc/design/terminology.md` and the
+  deployer register are reconciled with this decision when the surfaces ship,
+  so the old Catalogs, chooser and imported-analysis rules do not stay live.
 - New layers are added to `layers.json` and the deployer register in the same
   change, under ADR 0111.
 - The two migrations need human review under CODEOWNERS and must not land before
