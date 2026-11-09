@@ -71,6 +71,8 @@ a justified `# noqa` rather than a raised limit.
 | `make gen` | Regenerate protobuf code from `proto/` |
 | `make sqlc` | Regenerate `gen/sqlc` from `sqlc/queries/` and the migrations |
 | `make templ` | Regenerate `internal/webapp/*_templ.go` |
+| `make classical-manifest` | Regenerate `internal/classical/manifest.jsonl` from `overrides.jsonl`, `layers.json` and the pinned upstream files named by `CLASSICAL_MANIFEST_UPSTREAM` |
+| `make verify-classical-manifest` | Reproduce the committed Classical manifest byte-for-byte; CI runs this gate |
 | `make frontend-css` | Rebuild the committed stylesheet |
 
 ## Generated code
@@ -80,6 +82,13 @@ Regenerate rather than hand-edit:
 - `internal/webapp/*_templ.go` (templ, from `internal/webapp/*.templ`),
   `gen/go` and `gen/python` (protobuf, from `proto/`), and `gen/sqlc` (sqlc
   v1.31.1) are committed; CI regenerates them and fails on any difference.
+- `internal/classical/manifest.jsonl` is generated from the hand-maintained
+  `internal/classical/overrides.jsonl` and `layers.json` plus the pinned
+  upstream files. Run
+  `make classical-manifest CLASSICAL_MANIFEST_UPSTREAM=<dir>`, then commit the
+  manifest. CI runs `make verify-classical-manifest` and fails on any byte
+  difference. The real OGA and translation files never enter the repository or
+  CI.
 - Run `make templ` after changing a `.templ` file and commit both. Go-compiling
   `make` targets also regenerate templ output when the pinned templ is
   installed, and otherwise build the committed files, so a fresh checkout

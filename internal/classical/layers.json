@@ -1,0 +1,53 @@
+{
+  "layers": [
+    {
+      "key": "oga-src-v0.2.0-text",
+      "release": "v0.2.0",
+      "commit": "223d2258745ecf35e7659191080f93640fe900c1",
+      "baseURL": "https://raw.githubusercontent.com/mgbilby/oga_src/v0.2.0/data/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "OGA oga_src v0.2.0 Greek text (Perseus canonical-greekLit, CC BY-SA 4.0).",
+      "files": [
+        {
+          "name": "tlg0032.tlg006.perseus-grc2_oga020_src.conllu",
+          "workTitle": "Anabasis",
+          "workAuthor": "Xenophon",
+          "size": 7438037,
+          "sha256": "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61"
+        }
+      ]
+    },
+    {
+      "key": "oga-src-v0.2.0-annotations",
+      "release": "v0.2.0",
+      "commit": "223d2258745ecf35e7659191080f93640fe900c1",
+      "baseURL": "https://raw.githubusercontent.com/mgbilby/oga_src/v0.2.0/data/",
+      "licenceClass": "analysis-resource",
+      "restriction": "unclear",
+      "deployerRegisterRow": "OGA oga_src v0.2.0 AGDT-derived lemmas, parts of speech, morphology and syntax with unverified training lineage.",
+      "files": [
+        {
+          "name": "tlg0032.tlg006.perseus-grc2_oga020_src.conllu",
+          "size": 7438037,
+          "sha256": "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61"
+        }
+      ]
+    },
+    {
+      "key": "perseus-eng2-brownson",
+      "commit": "0189b9c8d8d1f148133f2f0af309b4ee90ea4332",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0189b9c8d8d1f148133f2f0af309b4ee90ea4332/data/tlg0032/tlg006/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Xenophon, Anabasis, translated by Carleton L. Brownson (1921-22), Perseus perseus-eng2 digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "tlg0032.tlg006.perseus-eng2.xml",
+          "size": 1101217,
+          "sha256": "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
+        }
+      ]
+    }
+  ]
+}

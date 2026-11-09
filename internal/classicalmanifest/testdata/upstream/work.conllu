@@ -1,0 +1,24 @@
+# source = Xenophon, Xen. Anab._1.1.1
+# text = λέγει Κῦρος · καὶ λέγουσι ;
+# sent_id = 1
+1	λέγει	λέγω1	v	v3spia---	Mood=i|Number=s|Person=3|Tense=p|Voice=a	0	PRED	_	t_1|0|ref=Xen. Anab._1.1.1
+2	Κῦρος	κῦρος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_2|t_1|ref=Xen. Anab._1.1.1
+3	·	·	u	u--------	_	1	AuxK	_	t_3|t_1|ref=Xen. Anab._1.1.1
+4	καὶ	καί	c	c--------	_	5	COORD	_	t_4|t_5|ref=Xen. Anab._1.1.1
+5	λέγουσι	λέγω2	v	v3ppia---	Mood=i|Number=p|Person=3|Tense=p|Voice=a	0	PRED	_	t_5|0|ref=Xen. Anab._1.1.1
+6	;	;	u	u--------	_	5	AuxK	_	t_6|t_5|ref=Xen. Anab._1.1.1
+
+# source = Xenophon, Xen. Anab._1.1.2
+# text = λέγει [0] Κῦρος λέλυκε λύειν
+# sent_id = 2
+1	λέγει	λέγω	v	v3spia---	Mood=i|Number=s|Person=3|Tense=p|Voice=a	0	PRED	_	t_7|0|ref=Xen. Anab._1.1.2
+2	[0]	[0]	-	---------	_	1	PRED	_	e_1|t_7|ref=Xen. Anab._1.1.2
+3	Κῦρος	κῦρος	n	n-s---mn-	Case=n|Gender=m|Number=s	1	SBJ	_	t_8|t_7|ref=Xen. Anab._1.1.2
+4	λέλυκε	λύω	v	v3sria---	Mood=i|Number=s|Person=3|Tense=r|Voice=a	1	OBJ	_	t_9|t_7|ref=Xen. Anab._1.1.2
+5	λύειν	λύω	v	v--pna---	Mood=n|Tense=p|Voice=a	1	OBJ	_	t_10|t_7|ref=Xen. Anab._1.1.2
+
+# source = Xenophon, Xen. Anab._2.1.1
+# text = Ἀρταξέρξης βασιλεύς
+# sent_id = 3
+1	Ἀρταξέρξης	ἀρταξέρξης	n	n-s---mn-	Case=n|Gender=m|Number=s	0	PRED	_	t_11|0|ref=Xen. Anab._2.1.1
+2	βασιλεύς	βασιλεύς	n	n-s---mn-	Case=n|Gender=m|Number=s	1	PNOM	_	t_12|t_11|ref=Xen. Anab._2.1.1

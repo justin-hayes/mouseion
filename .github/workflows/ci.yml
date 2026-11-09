@@ -103,6 +103,13 @@ jobs:
         if: needs.changes.outputs.go == 'true'
         run: make test-go RACE=1
 
+      # The Classical catalog manifest is generated from reviewed overrides
+      # and pinned layers; CI reproduces the committed bytes. The real upstream
+      # files never enter CI, so the committed pins and word counts are reused.
+      - name: Verify Classical catalog manifest
+        if: needs.changes.outputs.go == 'true'
+        run: make verify-classical-manifest
+
       # ------------------------------------------------------------------
       # Python
       # ------------------------------------------------------------------

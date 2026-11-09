@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <text>
+    <body>
+      <div type="translation" xml:lang="eng">
+        <div type="textpart" subtype="book" n="1">
+          <div type="textpart" subtype="chapter" n="1">
+            <div type="textpart" subtype="section" n="1"><p>Book one, section one.</p></div>
+            <div type="textpart" subtype="section" n="2"><p>Book one, section two.</p></div>
+          </div>
+        </div>
+        <div type="textpart" subtype="book" n="2">
+          <div type="textpart" subtype="chapter" n="1">
+            <div type="textpart" subtype="section" n="1"><p>Book two, section one.</p></div>
+          </div>
+        </div>
+      </div>
+    </body>
+  </text>
+</TEI>
