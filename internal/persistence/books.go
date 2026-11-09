@@ -79,8 +79,14 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 	}
 	// Reading-unit association is part of the MyBook read model: it carries the
 	// reviewed Work and constituent position the Reading chooser and Reading
-	// page render as plain facts.
-	return books, s.populateMyBooksReadingUnits(ctx, owner, books)
+	// page render as plain facts, plus the preparation state of a classical Book.
+	if err := s.populateMyBooksReadingUnits(ctx, owner, books); err != nil {
+		return nil, err
+	}
+	if err := s.populateClassicalPreparationStatuses(ctx, owner, books); err != nil {
+		return nil, err
+	}
+	return books, nil
 }
 
 // ListMyBooksBrowse returns one owner-scoped page of My Books. The domain's
@@ -444,6 +450,9 @@ func (s *PostgresStore) collectMyBooksBrowsePage(ctx context.Context, owner, lan
 	if err := s.populateMyBooksCoverage(ctx, owner, pointers); err != nil {
 		return err
 	}
+	if err := s.populateClassicalPreparationPointers(ctx, owner, pointers); err != nil {
+		return err
+	}
 	accumulator.result.Items = make([]domain.MyBook, 0, len(pointers))
 	for _, book := range pointers {
 		accumulator.result.Items = append(accumulator.result.Items, *book)
@@ -597,6 +606,9 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	book.LatestCompletionSource = domain.ReadingCompletionSource(completion.LatestCompletionSource)
 	page := []domain.MyBook{book}
 	if err := s.populateMyBooksReadingUnits(ctx, owner, page); err != nil {
+		return domain.MyBook{}, err
+	}
+	if err := s.populateClassicalPreparationStatuses(ctx, owner, page); err != nil {
 		return domain.MyBook{}, err
 	}
 	return page[0], nil

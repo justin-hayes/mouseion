@@ -71,6 +71,9 @@ type ClassicalPreparationHandle struct {
 	JobID    int64
 	Queued   bool
 	Complete bool
+	// Terminal reports a current source refusal that must not be retried until
+	// a newer definition revision arrives.
+	Terminal bool
 }
 
 // ClassicalPreparationStore is the persistence the preparation service and
@@ -78,6 +81,9 @@ type ClassicalPreparationHandle struct {
 type ClassicalPreparationStore interface {
 	LoadClassicalPreparationTarget(context.Context, string, string) (domain.ClassicalPreparationTarget, error)
 	ClassicalPreparationComplete(context.Context, domain.ClassicalPreparationTarget) (bool, error)
+	GetClassicalPreparationFailure(context.Context, string, string) (domain.ClassicalPreparationFailureRecord, bool, error)
+	PutClassicalPreparationFailure(context.Context, domain.ClassicalPreparationFailureRecord) error
+	ListLegacyLanguageRows(context.Context, string) ([]domain.LegacyLanguageRows, error)
 	GetClassicalSource(context.Context, string) (domain.ClassicalSource, bool, error)
 	PutClassicalSource(context.Context, domain.ClassicalSource) error
 	PutClassicalPreparedDefinition(context.Context, domain.ClassicalPreparedDefinition) error
@@ -129,14 +135,15 @@ func (s *Service) SubmitClassicalPreparation(ctx context.Context, owner, bookID 
 		return result, err
 	}
 	if target.Withdrawn {
+		s.recordRefusedPreparation(ctx, target)
 		return result, ErrWithdrawnClassicalDefinition
 	}
-	complete, err := s.classicalStore.ClassicalPreparationComplete(ctx, target)
+	submission, err := s.classicalPreparationSubmissionState(ctx, owner, bookID, target)
 	if err != nil {
 		return result, err
 	}
-	if complete {
-		return ClassicalPreparationHandle{Complete: true}, nil
+	if handle, done := submissionHandle(submission); done {
+		return handle, nil
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -148,12 +155,12 @@ func (s *Service) SubmitClassicalPreparation(ctx context.Context, owner, bookID 
 		return result, fmt.Errorf("lock classical preparation submission: %w", err)
 	}
 	// Re-check under the lock so two To Read requests cannot both enqueue.
-	complete, err = s.classicalStore.ClassicalPreparationComplete(ctx, target)
+	submission, err = s.classicalPreparationSubmissionState(ctx, owner, bookID, target)
 	if err != nil {
 		return result, err
 	}
-	if complete {
-		return ClassicalPreparationHandle{Complete: true}, nil
+	if handle, done := submissionHandle(submission); done {
+		return handle, nil
 	}
 	inserted, err := s.client.InsertTx(ctx, tx, ClassicalPreparationArgs{
 		OwnerID:            owner,
@@ -183,6 +190,129 @@ func (s *Service) SubmitClassicalPreparation(ctx context.Context, owner, bookID 
 	return ClassicalPreparationHandle{JobID: inserted.Job.ID, Queued: true}, nil
 }
 
+// classicalPreparationSubmission is the outcome of the ensure-once and terminal
+// checks that a submission performs before inserting a job.
+type classicalPreparationSubmission struct {
+	Complete bool
+	Terminal bool
+}
+
+// recordRefusedPreparation keeps the withdrawn state visible on the jobs
+// surface even though no River job exists for a refused submission. A failure
+// to record it is not fatal: the current Reading unit already carries the
+// withdrawn tombstone the learner surfaces read.
+func (s *Service) recordRefusedPreparation(ctx context.Context, target domain.ClassicalPreparationTarget) {
+	err := s.classicalStore.PutClassicalPreparationFailure(ctx, domain.ClassicalPreparationFailureRecord{
+		OwnerID:            target.OwnerID,
+		BookID:             target.BookID,
+		ReadingUnitKey:     target.ReadingUnitKey,
+		DefinitionRevision: target.DefinitionRevision,
+		Stage:              domain.ClassicalPreparationFailureWithdrawn,
+		Code:               classical.WithdrawnCode,
+	})
+	if err != nil {
+		// The Book's current Reading unit already carries the withdrawn
+		// tombstone every learner surface reads, so this is best effort.
+		log.Printf("mouseion: record refused classical preparation owner=%s book=%s code=%s",
+			target.OwnerID, target.BookID, classical.WithdrawnCode)
+	}
+}
+
+// submissionHandle reports the settled outcome of a submission that must not
+// insert a job.
+func submissionHandle(submission classicalPreparationSubmission) (ClassicalPreparationHandle, bool) {
+	switch {
+	case submission.Complete:
+		return ClassicalPreparationHandle{Complete: true}, true
+	case submission.Terminal:
+		return ClassicalPreparationHandle{Terminal: true}, true
+	}
+	return ClassicalPreparationHandle{}, false
+}
+
+// classicalPreparationSubmissionState applies the catalog precondition, the
+// ensure-once check and the terminal source-failure check. Callers run it before
+// and again under the submission lock.
+func (s *Service) classicalPreparationSubmissionState(ctx context.Context, owner, bookID string, target domain.ClassicalPreparationTarget) (classicalPreparationSubmission, error) {
+	if err := refuseClassicalPreparationOnLegacyRows(ctx, s.classicalStore); err != nil {
+		return classicalPreparationSubmission{}, err
+	}
+	complete, err := s.classicalStore.ClassicalPreparationComplete(ctx, target)
+	if err != nil {
+		return classicalPreparationSubmission{}, err
+	}
+	if complete {
+		return classicalPreparationSubmission{Complete: true}, nil
+	}
+	terminal, err := classicalPreparationTerminal(ctx, s.classicalStore, owner, bookID, target)
+	if err != nil {
+		return classicalPreparationSubmission{}, err
+	}
+	return classicalPreparationSubmission{Terminal: terminal}, nil
+}
+
+// refuseClassicalPreparationOnLegacyRows applies the installation-wide
+// fail-closed catalog precondition to preparation as well as Add. Existing
+// Books stay readable; no new preparation starts while legacy rows exist.
+func refuseClassicalPreparationOnLegacyRows(ctx context.Context, store ClassicalPreparationStore) error {
+	legacy, err := store.ListLegacyLanguageRows(ctx, classical.Language)
+	if err != nil {
+		return fmt.Errorf("inspect classical catalog legacy rows: %w", err)
+	}
+	if len(legacy) > 0 {
+		return classical.ErrLegacyRows
+	}
+	return nil
+}
+
+// classicalPreparationTerminal reports a settled source refusal for exactly the
+// current definition revision. Such a failure clears when a newer revision
+// arrives, so it must not be retried against the same reviewed definition.
+func classicalPreparationTerminal(ctx context.Context, store ClassicalPreparationStore, owner, bookID string, target domain.ClassicalPreparationTarget) (bool, error) {
+	failure, found, err := store.GetClassicalPreparationFailure(ctx, owner, bookID)
+	if err != nil || !found {
+		return false, err
+	}
+	if failure.DefinitionRevision < target.DefinitionRevision {
+		return false, nil
+	}
+	return failure.Stage == domain.ClassicalPreparationFailureSource ||
+		failure.Stage == domain.ClassicalPreparationFailureWithdrawn, nil
+}
+
+// ClassicalPreparationFailure returns the stable stage and code to record for a
+// failed preparation. It never returns error text, source text or Greek.
+func ClassicalPreparationFailure(err error) (domain.ClassicalPreparationFailure, string) {
+	switch {
+	case err == nil:
+		return domain.ClassicalPreparationFailureNone, ""
+	case errors.Is(err, ErrWithdrawnClassicalDefinition):
+		return domain.ClassicalPreparationFailureWithdrawn, classical.WithdrawnCode
+	case errors.Is(err, classical.ErrLegacyRows):
+		return domain.ClassicalPreparationFailureCatalog, classical.LegacyRowsCode
+	}
+	if importErr, ok := errors.AsType[*ancientgreek.ImportError](err); ok {
+		switch importErr.Code {
+		case ancientgreek.CodeSourceDownloadFailed:
+			return domain.ClassicalPreparationFailureFetch, importErr.Code
+		case ancientgreek.CodePinMismatch:
+			return domain.ClassicalPreparationFailureSource, importErr.Code
+		case ancientgreek.CodeOversize:
+			return domain.ClassicalPreparationFailureSource, importErr.Code
+		case ancientgreek.CodeSourceLayerUnknown:
+			return domain.ClassicalPreparationFailureSource, importErr.Code
+		case ancientgreek.CodeUnknownSourceFormat,
+			ancientgreek.CodeMalformed, ancientgreek.CodeUnknownPOS,
+			ancientgreek.CodeUnknownInterpret, ancientgreek.CodeSentenceUnassigned,
+			ancientgreek.CodeSentenceAmbiguous, ancientgreek.CodeEmptyCitationRange:
+			return domain.ClassicalPreparationFailureSource, ancientgreek.CodeAdapterRefused
+		default:
+			return domain.ClassicalPreparationFailureImport, classical.PreparationFailedCode
+		}
+	}
+	return domain.ClassicalPreparationFailureImport, classical.PreparationFailedCode
+}
+
 // ClassicalPreparationWorker prepares one classical Book: it makes the pinned
 // work file present, parses it, cuts the Book's Reading unit, stores only the
 // unit text and publishes an ordinary analysis. It never calls the NLP service
@@ -205,7 +335,7 @@ func (w *ClassicalPreparationWorker) Timeout(*river.Job[ClassicalPreparationArgs
 }
 
 // Work implements river.Worker.
-func (w *ClassicalPreparationWorker) Work(ctx context.Context, job *river.Job[ClassicalPreparationArgs]) error {
+func (w *ClassicalPreparationWorker) Work(ctx context.Context, job *river.Job[ClassicalPreparationArgs]) (err error) {
 	if w == nil || w.Store == nil {
 		return errors.New("analysis: classical preparation store is required")
 	}
@@ -216,8 +346,16 @@ func (w *ClassicalPreparationWorker) Work(ctx context.Context, job *river.Job[Cl
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			w.recordFailure(ctx, target, err)
+		}
+	}()
 	if target.Withdrawn {
 		return ErrWithdrawnClassicalDefinition
+	}
+	if err := refuseClassicalPreparationOnLegacyRows(ctx, w.Store); err != nil {
+		return err
 	}
 	complete, err := w.Store.ClassicalPreparationComplete(ctx, target)
 	if err != nil {
@@ -312,6 +450,31 @@ func (w *ClassicalPreparationWorker) ensureTranslationImport(ctx context.Context
 	}); err != nil {
 		log.Printf("mouseion: enqueue reference translation pin=%s: %v", target.TranslationFileSHA256, err)
 	}
+}
+
+// recordFailure writes one stable failure outcome for the Book and logs only
+// identifiers, counts and codes. It never logs the error text, which could carry
+// source detail, and it never logs Greek.
+func (w *ClassicalPreparationWorker) recordFailure(ctx context.Context, target domain.ClassicalPreparationTarget, err error) {
+	stage, code := ClassicalPreparationFailure(err)
+	if stage == domain.ClassicalPreparationFailureNone {
+		return
+	}
+	record := domain.ClassicalPreparationFailureRecord{
+		OwnerID:            target.OwnerID,
+		BookID:             target.BookID,
+		ReadingUnitKey:     target.ReadingUnitKey,
+		DefinitionRevision: target.DefinitionRevision,
+		Stage:              stage,
+		Code:               code,
+	}
+	if putErr := w.Store.PutClassicalPreparationFailure(ctx, record); putErr != nil {
+		log.Printf("mouseion: record classical preparation failure owner=%s book=%s unit=%s revision=%d stage=%s code=%s",
+			target.OwnerID, target.BookID, target.ReadingUnitKey, target.DefinitionRevision, stage, code)
+		return
+	}
+	log.Printf("mouseion: classical preparation failed owner=%s book=%s unit=%s revision=%d stage=%s code=%s",
+		target.OwnerID, target.BookID, target.ReadingUnitKey, target.DefinitionRevision, stage, code)
 }
 
 // sourceBytes returns the verified pinned work file, from the installation

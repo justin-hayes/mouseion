@@ -174,6 +174,16 @@ type CatalogueSyncStatus struct {
 	UpdatedAt         time.Time
 }
 
+type ClassicalPreparationFailure struct {
+	OwnerID            string
+	BookID             string
+	ReadingUnitKey     string
+	DefinitionRevision int
+	Stage              string
+	Code               string
+	FailedAt           time.Time
+}
+
 type ClassicalPreparedDefinition struct {
 	OwnerID               string
 	BookID                string

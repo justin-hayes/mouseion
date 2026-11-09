@@ -41,6 +41,11 @@ const (
 	// CodeSourceDownloadFailed reports a pinned work file that could not be
 	// fetched.
 	CodeSourceDownloadFailed = "source_download_failed"
+	// CodeAdapterRefused is the stable aggregate code recorded when an import
+	// adapter refuses a pinned source during interpretation or validation,
+	// including a malformed file, an unknown POS, or a citation cut that does not
+	// cover the source. The specific refusal code remains in the job's error.
+	CodeAdapterRefused = "source_adapter_refused"
 )
 
 // ImportAnalyzerName identifies an imported classical analysis run.

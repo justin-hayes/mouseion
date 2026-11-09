@@ -35,6 +35,9 @@ func myBookMarginEvidence(book domain.MyBook) string {
 	if book.WorkflowBucket() == domain.MyBookBucketRead && book.LatestCompletionAt != nil {
 		return "Finished " + myBooksCompletionDateLabel(book.LatestCompletionAt) + "."
 	}
+	if preparation, ok := classicalPreparationFor(book); ok {
+		return preparation.Label + "."
+	}
 	if book.AwaitingPreparation() {
 		return notPreparedYetNote
 	}
@@ -140,7 +143,22 @@ func reanalysisMarginNote(classification domain.BookEvidenceClassification) stri
 }
 
 func myBookEvidenceRecovery(book domain.MyBook) string {
-	if book.Acquired == nil || book.IsCurrentReading {
+	if book.IsCurrentReading {
+		return ""
+	}
+	if preparation, ok := classicalPreparationFor(book); ok {
+		if !preparation.Actionable {
+			return ""
+		}
+		if book.Disposition == domain.BookDispositionToRead {
+			return preparation.Recovery
+		}
+		if book.CompletionCount > 0 {
+			return preparation.Recovery + " by reading again"
+		}
+		return preparation.Recovery + " by moving to To Read"
+	}
+	if book.Acquired == nil {
 		return ""
 	}
 	action := ""

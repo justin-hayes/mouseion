@@ -93,8 +93,8 @@ func preparationHarnessWithTranslation(t *testing.T, translationData []byte) (co
 			CitationStart: "1.1.1", CitationEnd: "1.2.18",
 		}
 	}
-	first := preparationDefinition("synthetic-work-1", "Synthetic Work", "Author", pin, &one, "1.1.1", "1.1.2", 4)
-	second := preparationDefinition("synthetic-work-2", "Synthetic Work", "Author", pin, &two, "2.1.1", "2.1.1", 2)
+	first := preparationDefinition("synthetic-work-1", "Synthetic Work", pin, &one, "1.1.1", "1.1.2", 4)
+	second := preparationDefinition("synthetic-work-2", "Synthetic Work", pin, &two, "2.1.1", "2.1.1", 2)
 	first.Translation, second.Translation = translation, translation
 	fixture.definitions = []classical.Definition{first, second}
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, fixture.definitions))
@@ -149,9 +149,9 @@ func preparationHarnessWithTranslation(t *testing.T, translationData []byte) (co
 	return ctx, store, pool, h, service, client, requests, fixture
 }
 
-func preparationDefinition(key, title, author string, pin classical.SourcePin, book *int, start, end string, words int) classical.Definition {
+func preparationDefinition(key, title string, pin classical.SourcePin, book *int, start, end string, words int) classical.Definition {
 	return classical.Definition{
-		Key: key, WorkKey: "synthetic-work", WorkTitle: title, WorkAuthor: author,
+		Key: key, WorkKey: "synthetic-work", WorkTitle: title, WorkAuthor: "Author",
 		EditionKey: "synthetic-edition", EditionLabel: "Synthetic Edition", Language: classical.Language,
 		ConstituentBook: book, ConstituentBooks: 2,
 		CitationStart: start, CitationEnd: end, WordCount: words,
@@ -415,7 +415,7 @@ func TestClassicalPreparationPrunesSourcesAtStartup(t *testing.T) {
 
 	// A later release with a different pin withdraws the old units. Startup
 	// reconciliation then removes the file no current definition pins.
-	other := preparationDefinition("replacement-work-1", "Replacement", "Author", classical.SourcePin{
+	other := preparationDefinition("replacement-work-1", "Replacement", classical.SourcePin{
 		Layer: "synthetic-layer", FileName: "replacement.conllu", Size: 1,
 		SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU,
 	}, nil, "1.1.1", "1.1.1", 1)

@@ -69,22 +69,73 @@ func (s *PostgresStore) PutClassicalPreparedDefinition(ctx context.Context, reco
 	if err := validatePreparedDefinition(record); err != nil {
 		return err
 	}
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO classical_prepared_definitions(
+				owner_id, book_id, reading_unit_key, definition_revision,
+				source_file_sha256, interpretation_version, analysis_run_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (owner_id, book_id) DO UPDATE SET
+				reading_unit_key = EXCLUDED.reading_unit_key,
+				definition_revision = EXCLUDED.definition_revision,
+				source_file_sha256 = EXCLUDED.source_file_sha256,
+				interpretation_version = EXCLUDED.interpretation_version,
+				analysis_run_id = EXCLUDED.analysis_run_id,
+				prepared_at = now()`,
+			record.OwnerID, record.BookID, record.ReadingUnitKey, record.DefinitionRevision,
+			record.SourceFileSHA256, record.InterpretationVersion, record.AnalysisRunID)
+		if err != nil {
+			return fmt.Errorf("write classical prepared definition: %w", err)
+		}
+		// A successful preparation replaces any failure evidence for the Book.
+		if _, err := tx.Exec(ctx, `DELETE FROM classical_preparation_failures WHERE owner_id = $1 AND book_id = $2`,
+			record.OwnerID, record.BookID); err != nil {
+			return fmt.Errorf("clear classical preparation failure: %w", err)
+		}
+		return nil
+	})
+}
+
+// PutClassicalPreparationFailure records one settled preparation failure for a
+// Book, replacing any previous record. It stores a stage and stable code only,
+// never source text. A newer definition revision makes the record stale without
+// rewriting it.
+func (s *PostgresStore) PutClassicalPreparationFailure(ctx context.Context, record domain.ClassicalPreparationFailureRecord) error {
+	if err := validatePreparationFailure(record); err != nil {
+		return err
+	}
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO classical_prepared_definitions(
-			owner_id, book_id, reading_unit_key, definition_revision,
-			source_file_sha256, interpretation_version, analysis_run_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO classical_preparation_failures(
+			owner_id, book_id, reading_unit_key, definition_revision, stage, code)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (owner_id, book_id) DO UPDATE SET
 			reading_unit_key = EXCLUDED.reading_unit_key,
 			definition_revision = EXCLUDED.definition_revision,
-			source_file_sha256 = EXCLUDED.source_file_sha256,
-			interpretation_version = EXCLUDED.interpretation_version,
-			analysis_run_id = EXCLUDED.analysis_run_id,
-			prepared_at = now()`,
-		record.OwnerID, record.BookID, record.ReadingUnitKey, record.DefinitionRevision,
-		record.SourceFileSHA256, record.InterpretationVersion, record.AnalysisRunID)
+			stage = EXCLUDED.stage,
+			code = EXCLUDED.code,
+			failed_at = now()`,
+		record.OwnerID, record.BookID, record.ReadingUnitKey, record.DefinitionRevision, string(record.Stage), record.Code)
 	if err != nil {
-		return fmt.Errorf("write classical prepared definition: %w", err)
+		return fmt.Errorf("write classical preparation failure: %w", err)
+	}
+	return nil
+}
+
+// validatePreparationFailure refuses an incomplete or unsafe failure record.
+func validatePreparationFailure(record domain.ClassicalPreparationFailureRecord) error {
+	switch {
+	case record.OwnerID == "":
+		return errors.New("persistence: classical preparation failure owner is required")
+	case record.BookID == "":
+		return errors.New("persistence: classical preparation failure Book is required")
+	case record.ReadingUnitKey == "":
+		return errors.New("persistence: classical preparation failure Reading unit is required")
+	case record.DefinitionRevision <= 0:
+		return errors.New("persistence: classical preparation failure revision must be positive")
+	case record.Stage == domain.ClassicalPreparationFailureNone:
+		return errors.New("persistence: classical preparation failure stage is required")
+	case record.Code == "":
+		return errors.New("persistence: classical preparation failure code is required")
 	}
 	return nil
 }
@@ -183,11 +234,32 @@ func pruneClassicalSources(ctx context.Context, tx pgx.Tx) error {
 // with their Book, attempt and River state, newest first.
 func (s *PostgresStore) ListClassicalPreparationJobs(ctx context.Context, owner string) ([]domain.ClassicalPreparationJob, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT job.id, book.id::text, book.title, job.attempt, job.state::text, job.created_at
-		FROM river_job job
-		JOIN books book ON book.owner_id = $1::uuid AND book.id = (job.args->>'book_id')::uuid
-		WHERE job.kind = 'classical_preparation' AND job.args->>'owner_id' = $1::text
-		ORDER BY job.created_at DESC, job.id DESC
+		WITH history AS (
+			SELECT job.id, book.id::text AS book_id, book.title, job.attempt, job.state::text AS state,
+			       CASE WHEN job.state IN ('discarded', 'cancelled') THEN COALESCE(failure.code, '') ELSE '' END AS code,
+			       job.created_at
+			FROM river_job job
+			JOIN books book ON book.owner_id = $1::uuid AND book.id = (job.args->>'book_id')::uuid
+			LEFT JOIN classical_preparation_failures failure
+			       ON failure.owner_id = book.owner_id AND failure.book_id = book.id
+			      AND failure.definition_revision = COALESCE((job.args->>'definition_revision')::integer, 0)
+			WHERE job.kind = 'classical_preparation' AND job.args->>'owner_id' = $1::text
+		)
+		SELECT id, book_id, title, attempt, state, code, created_at
+		FROM history
+		UNION ALL
+		SELECT 0, book.id::text, book.title, 0, 'failed', failure.code, failure.failed_at
+		FROM classical_preparation_failures failure
+		JOIN books book ON book.owner_id = failure.owner_id AND book.id = failure.book_id
+		WHERE failure.owner_id = $1
+		  AND NOT EXISTS (
+		      SELECT 1 FROM river_job job
+		      WHERE job.kind = 'classical_preparation'
+		        AND job.args->>'owner_id' = $1::text
+		        AND job.args->>'book_id' = book.id::text
+		        AND COALESCE((job.args->>'definition_revision')::integer, 0) = failure.definition_revision
+		  )
+		ORDER BY created_at DESC, id DESC
 		LIMIT 100`, owner)
 	if err != nil {
 		return nil, fmt.Errorf("list classical preparation jobs: %w", err)
@@ -196,7 +268,7 @@ func (s *PostgresStore) ListClassicalPreparationJobs(ctx context.Context, owner 
 	jobs := make([]domain.ClassicalPreparationJob, 0)
 	for rows.Next() {
 		var job domain.ClassicalPreparationJob
-		if err := rows.Scan(&job.ID, &job.BookID, &job.BookTitle, &job.Attempt, &job.State, &job.CreatedAt); err != nil {
+		if err := rows.Scan(&job.ID, &job.BookID, &job.BookTitle, &job.Attempt, &job.State, &job.Code, &job.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan classical preparation job: %w", err)
 		}
 		jobs = append(jobs, job)

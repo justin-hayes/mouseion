@@ -34,6 +34,10 @@ type readingChooserBookView struct {
 	WorkGreekTitle string
 	WorkBooks      int
 	Position       int
+	// RecoveryLabel and RecoveryAllowed come from the same preparation evidence
+	// as State, so a terminal refusal never offers a retry.
+	RecoveryLabel   string
+	RecoveryAllowed bool
 }
 
 type readingChooserState string
@@ -295,12 +299,26 @@ func (h *Handler) retryClassicalPreparation(w http.ResponseWriter, r *http.Reque
 	}
 	handle, err := h.services.ClassicalPreparation.SubmitClassicalPreparation(r.Context(), owner, bookID)
 	if err != nil {
-		log.Printf("mouseion: classical preparation retry failed for owner %s book %s: %s", owner, strconv.Quote(bookID), strconv.Quote(err.Error()))
-		redirect(w, r, "/reading?error="+url.QueryEscape("Preparation could not be started. Retry when ready."))
+		stage, code := analysis.ClassicalPreparationFailure(err)
+		// Log the stable code and identifiers only. Raw error text could carry
+		// source detail, and Greek never belongs in operator logs.
+		log.Printf("mouseion: classical preparation retry failed for owner %s book %s stage=%s code=%s", owner, strconv.Quote(bookID), stage, code)
+		switch {
+		case errors.Is(err, classical.ErrLegacyRows):
+			redirect(w, r, "/reading?error="+url.QueryEscape(classical.LegacyRowsReason))
+		case errors.Is(err, analysis.ErrWithdrawnClassicalDefinition):
+			redirect(w, r, "/reading?error="+url.QueryEscape(classicalWithdrawnRefusal))
+		default:
+			redirect(w, r, "/reading?error="+url.QueryEscape("Preparation could not be started. Retry when ready."))
+		}
 		return
 	}
 	if handle.Complete {
 		redirect(w, r, "/reading?message="+url.QueryEscape("The analysis is already current."))
+		return
+	}
+	if handle.Terminal {
+		redirect(w, r, "/reading?error="+url.QueryEscape(classicalSourceMismatchRefusal))
 		return
 	}
 	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Preparation job #%d submitted.", handle.JobID)))
@@ -439,13 +457,28 @@ func (h *Handler) readingBookWork(book domain.MyBook) (work classical.CatalogWor
 // evidence state. A missing or untrustworthy reading leaves Coverage nil.
 func (h *Handler) classifyReadingChooserCandidate(ctx context.Context, owner string, candidate *readingChooserBookView) error {
 	book := candidate.Book
+	if preparation, ok := classicalPreparationFor(book); ok {
+		candidate.Description = preparation.Description
+		candidate.RecoveryLabel = preparation.Recovery
+		candidate.RecoveryAllowed = preparation.Actionable
+		if preparation.InProgress {
+			candidate.State = readingChooserInProgress
+		} else {
+			candidate.State = readingChooserNeedsAttention
+		}
+		return nil
+	}
 	if book.Acquired == nil || !analysisReadyForReading(*book.Acquired) {
 		candidate.State, candidate.Description = readingChooserStatusFor(book.Classification())
+		candidate.RecoveryLabel = "Retry acquisition or analysis"
+		candidate.RecoveryAllowed = candidate.State == readingChooserNeedsAttention
 		return nil
 	}
 	if h.services.AnalysisInsights == nil || strings.TrimSpace(book.Acquired.CorpusID) == "" {
 		candidate.State = readingChooserNeedsAttention
 		candidate.Description = "Completed analysis statistics are unavailable. Refresh the page or retry analysis."
+		candidate.RecoveryLabel = "Retry analysis"
+		candidate.RecoveryAllowed = true
 		return nil
 	}
 	coverage, coverageErr := h.services.AnalysisInsights.Coverage(ctx, owner, book.Acquired.CorpusID)
@@ -453,6 +486,8 @@ func (h *Handler) classifyReadingChooserCandidate(ctx context.Context, owner str
 	case errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable):
 		candidate.State = readingChooserNeedsAttention
 		candidate.Description = "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence."
+		candidate.RecoveryLabel = "Retry analysis"
+		candidate.RecoveryAllowed = true
 		return nil
 	case errors.Is(coverageErr, analysisinsights.ErrCountsUpdating):
 		candidate.State = readingChooserUpdating

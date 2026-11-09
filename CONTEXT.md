@@ -489,6 +489,33 @@ definition takes a new revision.
 _Avoid_: shelf (a Book workflow bucket synonym), Browse (the vocabulary view),
 library.
 
+**Definition revision**:
+A monotonic number on a Reading-unit definition that increases when a
+content-bearing part changes: its source pin, translation pin, or interpretation
+version. Curatorial corrections do not increase it, and a changed citation range
+is a new Reading unit rather than a revision.
+_Avoid_: version (the interpretation version is a separate fact), update.
+
+**Withdrawn definition**:
+A Reading-unit definition removed from the Classical catalog, kept as a
+tombstone so existing Books never dangle. It is hidden from browsing and cannot
+be added or prepared; a Book already prepared from it stays readable.
+_Avoid_: deleted definition, removed Book.
+
+**Classical preparation**:
+The durable, serial import that makes a classical Book's Reading unit readable:
+it acquires and verifies the pinned work file, cuts the unit, publishes an
+ordinary analysis, and records the definition it used. It is triggered by To
+Read, runs on `classical_preparation`, and never calls the NLP service.
+_Avoid_: analysis job (when the classical path is meant), EPUB analysis.
+
+**Classical preparation failure**:
+The per-Book evidence of one settled preparation attempt, classified by the
+stage that failed: fetch, import, a refused source, the catalog precondition, or
+a withdrawn definition. It is recorded per Book, never per pinned file, so one
+Book's failure does not fail its siblings.
+_Avoid_: pin failure, download cache failure.
+
 **Annotation occurrence**:
 A text-attested linguistic occurrence distinguished within one exact analysis,
 even when it shares a source span with another occurrence. An unprinted syntax

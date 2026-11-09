@@ -134,19 +134,90 @@ type ClassicalSourceConversion struct {
 	ExpectedSnapshotID        string
 }
 
+// ClassicalPreparationState is the visible state of an in-flight classical
+// preparation. A settled failure carries the zero state and a failure kind.
+type ClassicalPreparationState string
+
+const (
+	ClassicalPreparationQueued  ClassicalPreparationState = "queued"
+	ClassicalPreparationRunning ClassicalPreparationState = "running"
+)
+
+// ClassicalPreparationFailure names the stage that refused or failed a
+// preparation. Learner labels and recovery are chosen from this, never from raw
+// error text or source content.
+type ClassicalPreparationFailure string
+
+const (
+	ClassicalPreparationFailureNone      ClassicalPreparationFailure = ""
+	ClassicalPreparationFailureFetch     ClassicalPreparationFailure = "fetch"
+	ClassicalPreparationFailureImport    ClassicalPreparationFailure = "import"
+	ClassicalPreparationFailureSource    ClassicalPreparationFailure = "source"
+	ClassicalPreparationFailureWithdrawn ClassicalPreparationFailure = "withdrawn"
+	ClassicalPreparationFailureCatalog   ClassicalPreparationFailure = "catalog"
+)
+
+// ClassicalPreparationStatus is the learner-facing state of one classical
+// Book's preparation. It is nil for an ordinary Book, a Book whose published
+// analysis is already in effect, and a Book that has never attempted
+// preparation.
+type ClassicalPreparationStatus struct {
+	// State is queued or running while a preparation job is live.
+	State ClassicalPreparationState
+	// Failure is the stage of a settled failure, empty while in progress.
+	Failure ClassicalPreparationFailure
+	// Code is the stable ASCII code recorded for a failure or job result.
+	Code string
+	// FailureRevision is the definition revision that failed.
+	FailureRevision int
+	// CurrentRevision is the Reading unit's current definition revision.
+	CurrentRevision int
+	// Cleared reports a failure recorded under an older revision. The Book is
+	// no longer failed and offers Retry preparation.
+	Cleared bool
+	// Withdrawn reports the current Reading unit is a withdrawn tombstone.
+	Withdrawn bool
+}
+
+// InProgress reports preparation that is queued or running.
+func (s ClassicalPreparationStatus) InProgress() bool {
+	return s.State == ClassicalPreparationQueued || s.State == ClassicalPreparationRunning
+}
+
+// Failed reports a settled failure of the current definition revision.
+func (s ClassicalPreparationStatus) Failed() bool {
+	return !s.InProgress() && !s.Cleared && s.Failure != ClassicalPreparationFailureNone
+}
+
+// ClassicalPreparationFailureRecord is the durable per-Book failure evidence
+// written when a preparation attempt settles. It carries stable codes and
+// identifiers only, never source text.
+type ClassicalPreparationFailureRecord struct {
+	OwnerID            string
+	BookID             string
+	ReadingUnitKey     string
+	DefinitionRevision int
+	Stage              ClassicalPreparationFailure
+	Code               string
+}
+
 // ClassicalPreparationJob is one classical preparation shown in the jobs
 // surface. BookTitle is the learner's Book title; State is River's job state.
+// Code is the stable code recorded for a failed attempt.
 type ClassicalPreparationJob struct {
 	ID        int64
 	BookID    string
 	BookTitle string
 	Attempt   int
 	State     string
+	Code      string
 	CreatedAt time.Time
 }
 
 // BookReadingUnit is the immutable association of one Book to the Reading unit
-// it was registered for, with the edition label My Books shows.
+// it was registered for, with the edition label My Books shows. ReadingUnitKey,
+// Revision and Withdrawn are the current reconciled definition facts the
+// preparation failure state compares against.
 type BookReadingUnit struct {
 	OwnerID       string
 	BookID        string
@@ -168,6 +239,10 @@ type BookReadingUnit struct {
 	// Work's reviewed total, not the number the learner owns.
 	ConstituentBook  int
 	ConstituentBooks int
+	// Revision and Withdrawn are the current reconciled definition facts the
+	// preparation failure state compares against.
+	Revision  int
+	Withdrawn bool
 }
 
 // BookPosition reports a constituent Book's reviewed place in its Work. A

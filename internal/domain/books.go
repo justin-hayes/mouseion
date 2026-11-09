@@ -128,6 +128,7 @@ type MyBook struct {
 	Book                   Book
 	Cover                  BookCover
 	ReadingUnit            *BookReadingUnit
+	ClassicalPreparation   *ClassicalPreparationStatus
 	Acquired               *SourceMaterialSummary
 	Disposition            BookDisposition
 	DispositionRevision    int64

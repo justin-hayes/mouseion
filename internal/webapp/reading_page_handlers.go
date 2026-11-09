@@ -21,6 +21,8 @@ import (
 type readingBookView struct {
 	Book                             domain.SourceMaterialSummary
 	BookID                           string
+	ReadingUnit                      *domain.BookReadingUnit
+	ClassicalPreparation             *domain.ClassicalPreparationStatus
 	Cover                            domain.BookCover
 	ReadingSince                     time.Time
 	WorkPosition                     int
@@ -101,9 +103,40 @@ func currentReadingSectionFocusID(bookID string) string {
 	return readingBookAnchorID(bookID)
 }
 
+// readingClassicalPreparationStatus resolves a classical Book's preparation
+// state for Reading. A published analysis in effect is ordinary evidence, so the
+// status is ignored.
+func readingClassicalPreparationStatus(item readingBookView) (domain.ClassicalPreparationStatus, bool) {
+	if item.Book.EvidenceClassification().AnalysisInEffect() {
+		return domain.ClassicalPreparationStatus{}, false
+	}
+	if item.ClassicalPreparation != nil {
+		return *item.ClassicalPreparation, true
+	}
+	if item.ReadingUnit != nil && item.ReadingUnit.Withdrawn {
+		return domain.ClassicalPreparationStatus{
+			Failure:         domain.ClassicalPreparationFailureWithdrawn,
+			CurrentRevision: item.ReadingUnit.Revision,
+			Withdrawn:       true,
+		}, true
+	}
+	return domain.ClassicalPreparationStatus{}, false
+}
+
 // readingEvidenceState combines the Book's Analysis evidence classification with
 // whether its coverage statistics are available to present.
 func readingEvidenceState(item readingBookView) readingEvidenceStatus {
+	if status, ok := readingClassicalPreparationStatus(item); ok {
+		switch status.Failure {
+		case domain.ClassicalPreparationFailureFetch, domain.ClassicalPreparationFailureCatalog:
+			return readingEvidenceUnavailable
+		case domain.ClassicalPreparationFailureImport, domain.ClassicalPreparationFailureSource,
+			domain.ClassicalPreparationFailureWithdrawn:
+			return readingEvidenceFailed
+		case domain.ClassicalPreparationFailureNone:
+		}
+		return readingEvidenceIncomplete
+	}
 	if item.CountsUpdating && item.Book.EvidenceClassification().Evidence == domain.BookAnalyzed {
 		return readingEvidenceUpdating
 	}
@@ -111,6 +144,9 @@ func readingEvidenceState(item readingBookView) readingEvidenceStatus {
 }
 
 func readingEvidenceLabel(item readingBookView) string {
+	if status, ok := readingClassicalPreparationStatus(item); ok {
+		return classicalPreparationViewFor(status).Label
+	}
 	switch readingEvidenceState(item) {
 	case readingEvidenceStale:
 		return "Stale evidence"
@@ -132,6 +168,9 @@ func readingEvidenceLabel(item readingBookView) string {
 }
 
 func readingEvidenceDescription(item readingBookView) string {
+	if status, ok := readingClassicalPreparationStatus(item); ok {
+		return classicalPreparationViewFor(status).Description
+	}
 	switch readingEvidenceState(item) {
 	case readingEvidenceStale:
 		return "The current content no longer matches this analysis. Re-analyze the book to refresh its evidence."
@@ -164,6 +203,16 @@ func reservedVocabularySummary(count int) string {
 
 func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 	bookID := readingBookID(item)
+	if status, ok := readingClassicalPreparationStatus(item); ok {
+		view := classicalPreparationViewFor(status)
+		action := bookLifecycleAction{Status: view.Label, Description: view.Description, Tone: classicalPreparationTone(status)}
+		if view.Actionable {
+			action.Label = view.Recovery
+			action.URL = readingReanalyzeURL(bookID)
+			action.Submit = true
+		}
+		return action
+	}
 	classification := item.Book.EvidenceClassification()
 	if !classification.Content.IsCurrentContent() {
 		return bookLifecycleAction{
@@ -425,6 +474,8 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 	}
 	bookByID := make(map[string]domain.SourceMaterialSummary, len(books))
 	coverByBookID := make(map[string]domain.BookCover)
+	readingUnitByID := make(map[string]*domain.BookReadingUnit, len(books))
+	classicalPreparationByID := make(map[string]*domain.ClassicalPreparationStatus, len(books))
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
 	}
@@ -436,6 +487,8 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 	for _, myBook := range myBooks {
 		myBookByID[myBook.Book.ID] = myBook
 		coverByBookID[myBook.Book.ID] = myBook.Cover
+		readingUnitByID[myBook.Book.ID] = myBook.ReadingUnit
+		classicalPreparationByID[myBook.Book.ID] = myBook.ClassicalPreparation
 		if myBook.Acquired != nil {
 			book := *myBook.Acquired
 			book.BookTitle = myBook.Book.Title
@@ -461,6 +514,8 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		}
 		book.CurrentReading = true
 		book.Book.IsCurrentReading = true
+		book.ReadingUnit = readingUnitByID[currentReading.BookID]
+		book.ClassicalPreparation = classicalPreparationByID[currentReading.BookID]
 		book.Cover = coverByBookID[currentReading.BookID]
 		book.ReadingSince = currentReading.CreatedAt
 		h.addReadingWorkPosition(&book, myBookByID[currentReading.BookID])

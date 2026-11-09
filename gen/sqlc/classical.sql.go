@@ -93,7 +93,9 @@ SELECT bru.book_id::text AS book_id,
        w.author AS work_author,
        w.greek_title,
        ru.constituent_book,
-       ru.constituent_books
+       ru.constituent_books,
+       ru.revision,
+       ru.withdrawn
 FROM book_reading_units bru
 JOIN reading_units ru ON ru.id = bru.reading_unit_id
 JOIN editions e ON e.id = ru.edition_id
@@ -119,6 +121,8 @@ type ListBookReadingUnitsRow struct {
 	GreekTitle       string
 	ConstituentBook  pgtype.Int4
 	ConstituentBooks int
+	Revision         int
+	Withdrawn        bool
 }
 
 func (q *Queries) ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error) {
@@ -143,6 +147,8 @@ func (q *Queries) ListBookReadingUnits(ctx context.Context, arg ListBookReadingU
 			&i.GreekTitle,
 			&i.ConstituentBook,
 			&i.ConstituentBooks,
+			&i.Revision,
+			&i.Withdrawn,
 		); err != nil {
 			return nil, err
 		}
