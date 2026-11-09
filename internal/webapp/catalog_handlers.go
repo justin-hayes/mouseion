@@ -29,7 +29,33 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 	for _, status := range items {
 		statuses[status.ConnectionID] = status
 	}
-	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("error"), r.URL.Query().Get("book_id"), statuses))
+	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("error"), r.URL.Query().Get("book_id"), statuses, h.services.Classical))
+}
+
+// classicalAuthorIndex renders the built-in Classical catalog's authors and
+// their works. It is deliberately not scoped to the active study language.
+func (h *Handler) classicalAuthorIndex(w http.ResponseWriter, r *http.Request) {
+	render(w, r, ClassicalAuthorIndexPage(user(r), h.csrf(w, r), h.services.Classical.Authors(), h.services.Classical.Counts()))
+}
+
+// classicalAuthor renders one author's works.
+func (h *Handler) classicalAuthor(w http.ResponseWriter, r *http.Request) {
+	author, ok := h.services.Classical.Author(r.PathValue("author"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	render(w, r, ClassicalAuthorPage(user(r), h.csrf(w, r), author))
+}
+
+// classicalWork renders one Work's constituent books.
+func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
+	work, ok := h.services.Classical.Work(r.PathValue("workKey"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work))
 }
 
 func (h *Handler) legacyConnections(w http.ResponseWriter, r *http.Request) {

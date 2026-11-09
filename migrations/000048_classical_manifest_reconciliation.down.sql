@@ -1,0 +1,22 @@
+ALTER TABLE public.reading_units
+    DROP CONSTRAINT reading_units_translation_pin_check,
+    DROP CONSTRAINT reading_units_revision_check,
+    DROP CONSTRAINT reading_units_word_count_check,
+    DROP CONSTRAINT reading_units_constituent_books_check,
+    DROP CONSTRAINT reading_units_constituent_book_check,
+    DROP COLUMN word_count,
+    DROP COLUMN constituent_books,
+    DROP COLUMN constituent_book,
+    DROP COLUMN source_format,
+    DROP COLUMN source_layer,
+    DROP COLUMN translation_citation_end,
+    DROP COLUMN translation_citation_start,
+    DROP COLUMN translation_file_sha256,
+    DROP COLUMN translation_file_size,
+    DROP COLUMN translation_file_name,
+    DROP COLUMN translation_layer,
+    DROP COLUMN withdrawn,
+    DROP COLUMN revision;
+
+ALTER TABLE public.works
+    DROP COLUMN greek_title;

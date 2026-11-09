@@ -2306,6 +2306,138 @@
   .catalog-list h3, .catalog-list p {
     overflow-wrap: anywhere;
   }
+  .classical-catalog-record {
+    display: grid;
+    grid-template-areas: "identity margin" "note action";
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+    align-items: start;
+    gap: var(--mouseion-space-3) var(--mouseion-space-6);
+    margin-bottom: var(--mouseion-space-6);
+    border-top: var(--mouseion-space-1) solid var(--mouseion-color-accent);
+    border-bottom: 1px solid var(--mouseion-color-border);
+    padding: var(--mouseion-space-5) 0;
+  }
+  .classical-catalog-record > header {
+    grid-area: identity;
+    min-width: 0;
+  }
+  .classical-catalog-record > header h2 {
+    margin-bottom: var(--mouseion-space-2);
+  }
+  .classical-catalog-record > header p, .classical-catalog-record__note {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .classical-catalog-record__margin, .classical-catalog-margin, .classical-work-record__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mouseion-space-3) var(--mouseion-space-5);
+    margin: 0;
+    border-inline-start: 3px solid var(--mouseion-color-info);
+    padding-inline-start: var(--mouseion-space-3);
+    color: var(--mouseion-color-text-muted);
+    font-size: var(--mouseion-font-size-metadata);
+  }
+  .classical-catalog-record__margin {
+    grid-area: margin;
+  }
+  .classical-catalog-record__margin div, .classical-catalog-margin div, .classical-work-record__facts div {
+    min-width: 0;
+  }
+  .classical-catalog-record__margin dt, .classical-catalog-margin dt, .classical-work-record__facts dt {
+    font-weight: 650;
+  }
+  .classical-catalog-record__margin dd, .classical-catalog-margin dd, .classical-work-record__facts dd {
+    margin: 0;
+    color: var(--mouseion-color-text);
+    font-size: var(--mouseion-font-size-stat);
+    font-variant-numeric: tabular-nums;
+  }
+  .classical-catalog-record__note {
+    grid-area: note;
+    color: var(--mouseion-color-text-muted);
+  }
+  .classical-catalog-record > .action-group {
+    grid-area: action;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--mouseion-space-2);
+    min-width: 0;
+  }
+  .classical-catalog-margin {
+    max-width: var(--mouseion-width-data);
+    margin-bottom: var(--mouseion-space-5);
+    border-inline-start: 0;
+    border-top: 1px solid var(--mouseion-color-border);
+    padding: var(--mouseion-space-3) 0 0;
+  }
+  .classical-author-index {
+    display: grid;
+    gap: var(--mouseion-space-6);
+    max-width: var(--mouseion-width-data);
+  }
+  .classical-author-index h2 {
+    margin-bottom: var(--mouseion-space-2);
+  }
+  .classical-author-index ul {
+    margin: 0;
+    padding-inline-start: var(--mouseion-space-5);
+  }
+  .classical-author-index li {
+    margin-bottom: var(--mouseion-space-1);
+    overflow-wrap: anywhere;
+  }
+  .classical-work-list {
+    display: grid;
+    gap: var(--mouseion-space-4);
+    max-width: var(--mouseion-width-data);
+  }
+  .classical-work-record {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: var(--mouseion-space-3) var(--mouseion-space-6);
+    border: 1px solid var(--mouseion-color-border);
+    border-top: var(--mouseion-space-1) solid var(--mouseion-color-accent);
+    padding: var(--mouseion-space-4);
+    background: var(--mouseion-color-surface-raised);
+  }
+  .classical-work-record > header {
+    min-width: 0;
+  }
+  .classical-work-record > header h2 {
+    margin-bottom: var(--mouseion-space-1);
+  }
+  .classical-work-record__greek {
+    margin: 0;
+    color: var(--mouseion-color-text-muted);
+    font-family: var(--mouseion-font-reading);
+    overflow-wrap: anywhere;
+  }
+  .classical-work-record__facts {
+    align-self: start;
+  }
+  .classical-work-page__summary {
+    max-width: var(--mouseion-width-data);
+    color: var(--mouseion-color-text-muted);
+  }
+  @media (max-width: 40rem) {
+    .classical-catalog-record, .classical-work-record {
+      grid-template-areas: none;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .classical-catalog-record__margin, .classical-catalog-record__note, .classical-catalog-record > .action-group {
+      grid-area: auto;
+    }
+    .classical-catalog-record > .action-group {
+      justify-content: flex-start;
+    }
+    .classical-catalog-record__margin {
+      border-inline-start: 0;
+      border-top: 1px solid var(--mouseion-color-border);
+      padding: var(--mouseion-space-2) 0 0;
+    }
+  }
   #catalog-connection-form {
     max-width: var(--mouseion-width-data);
     border: 1px solid var(--mouseion-color-border);

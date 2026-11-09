@@ -1,0 +1,166 @@
+package webapp
+
+import (
+	"fmt"
+	"net/url"
+
+	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+// ClassicalCatalogRecord is the built-in, read-only source on Catalogs. It
+// appears above the learner's OPDS connections and carries no setup, sync or
+// credentials.
+templ ClassicalCatalogRecord(counts classical.CatalogCounts) {
+	<article class="classical-catalog-record" id="classical-catalog" aria-labelledby="classical-catalog-title">
+		<header>
+			<h2 id="classical-catalog-title">Classical catalog</h2>
+			<p>Reviewed Ancient Greek texts that ship with this release. The catalog is built in and read-only: it needs no setup, sync or credentials.</p>
+		</header>
+		@ClassicalCatalogCounts(counts, "classical-catalog-record__margin")
+		<p class="classical-catalog-record__note">Sources are fetched at To Read. Adding a work downloads nothing.</p>
+		<div class="action-group"><a role="button" href="/catalogs/classical">Browse the Classical catalog</a></div>
+	</article>
+}
+
+// ClassicalAuthorIndexPage is the catalog's author index.
+templ ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classical.CatalogAuthor, counts classical.CatalogCounts) {
+	@ShellLayout("Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
+		@Breadcrumb("/catalogs", "Catalogs")
+		@PageHeader("Classical catalog", "Browse the Ancient Greek works this release carries.", nil)
+		@ClassicalCatalogCounts(counts, "classical-catalog-margin")
+		if len(authors) == 0 {
+			@EmptyState("No Ancient Greek works", "This release carries no Classical catalog definitions.")
+		} else {
+			<div class="classical-author-index">
+				for _, author := range authors {
+					<section aria-label={ author.Name }>
+						<h2><a href={ templ.SafeURL(classicalAuthorURL(author.Name)) }>{ author.Name }</a></h2>
+						<ul>
+							for _, work := range author.Works {
+								<li><a href={ templ.SafeURL(classicalWorkURL(work.Key)) }>{ work.Title }</a>
+									if work.GreekTitle != "" {
+										<span lang="grc"> · { work.GreekTitle }</span>
+									}
+								</li>
+							}
+						</ul>
+					</section>
+				}
+			</div>
+		}
+	}
+}
+
+// ClassicalAuthorPage lists one author's works with their length facts.
+templ ClassicalAuthorPage(user domain.User, csrf string, author classical.CatalogAuthor) {
+	@ShellLayout(author.Name+" · Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
+		@Breadcrumb("/catalogs/classical", "Classical catalog")
+		@PageHeader(author.Name, "Works in the Classical catalog with the length facts of this release.", nil)
+		if len(author.Works) == 0 {
+			@EmptyState("No works by this author", "This release carries no current Reading units for this author.")
+		} else {
+			<div class="classical-work-list">
+				for _, work := range author.Works {
+					<article class="classical-work-record" aria-label={ work.Title }>
+						<header>
+							<h2><a href={ templ.SafeURL(classicalWorkURL(work.Key)) }>{ work.Title }</a></h2>
+							if work.GreekTitle != "" {
+								<p class="classical-work-record__greek" lang="grc">{ work.GreekTitle }</p>
+							}
+						</header>
+						<dl class="classical-work-record__facts">
+							<div><dt>Size</dt><dd>{ classicalWorkSizeLabel(work) }</dd></div>
+							<div><dt>Words</dt><dd>{ fmt.Sprintf("%d", work.Words) }</dd></div>
+							<div><dt>Translation</dt><dd>{ classicalTranslationLabel(work.TranslationAvailable) }</dd></div>
+						</dl>
+					</article>
+				}
+			</div>
+		}
+	}
+}
+
+// ClassicalWorkPage lists one row per constituent book of a Work.
+templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork) {
+	@ShellLayout(work.Title+" · Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
+		@Breadcrumb(classicalAuthorURL(work.Author), work.Author)
+		@PageHeader(work.Title, "Constituent books in the Classical catalog. Word counts are length facts, not coverage or difficulty.", nil)
+		if work.GreekTitle != "" {
+			<p class="classical-work-record__greek" lang="grc">{ work.GreekTitle }</p>
+		}
+		<p class="classical-work-page__summary">{ classicalWorkSizeLabel(work) } · { fmt.Sprintf("%d", work.Words) } words · { classicalTranslationLabel(work.TranslationAvailable) }</p>
+		@ResponsiveTable("Books of "+work.Title) {
+			<thead><tr><th>Book</th><th>Passage</th><th>Words</th></tr></thead>
+			<tbody>
+				for _, unit := range work.Units {
+					<tr>
+						<td>{ classicalBookLabel(unit.ConstituentBook) }</td>
+						<td>{ classicalCitationRange(unit) }</td>
+						<td>{ fmt.Sprintf("%d", unit.Words) }</td>
+					</tr>
+				}
+			</tbody>
+		}
+	}
+}
+
+// ClassicalCatalogCounts states the running release's counts in a margin.
+templ ClassicalCatalogCounts(counts classical.CatalogCounts, className string) {
+	<dl class={ className } aria-label="Running release counts">
+		<div><dt>Works</dt><dd>{ fmt.Sprintf("%d", counts.Works) }</dd></div>
+		<div><dt>Authors</dt><dd>{ fmt.Sprintf("%d", counts.Authors) }</dd></div>
+		<div><dt>Reading units</dt><dd>{ fmt.Sprintf("%d", counts.Units) }</dd></div>
+	</dl>
+}
+
+// classicalAuthorURL names an author page. Author display names are curated and
+// contain no path separator.
+func classicalAuthorURL(name string) string {
+	return "/catalogs/classical/authors/" + url.PathEscape(name)
+}
+
+// classicalWorkURL names a Work page by its stable key.
+func classicalWorkURL(key string) string {
+	return "/catalogs/classical/works/" + url.PathEscape(key)
+}
+
+// classicalWorkSizeLabel says how a Work is divided: books or a whole passage.
+func classicalWorkSizeLabel(work classical.CatalogWork) string {
+	if work.WholeWork {
+		return "passage"
+	}
+	return classicalCountLabel(work.ConstituentBooks, "book", "books")
+}
+
+// classicalTranslationLabel never promises a partial translation.
+func classicalTranslationLabel(available bool) string {
+	if available {
+		return "English translation available"
+	}
+	return "English translation not available"
+}
+
+// classicalBookLabel names a constituent book or a whole-work passage.
+func classicalBookLabel(book int) string {
+	if book == 0 {
+		return "Passage"
+	}
+	return fmt.Sprintf("Book %d", book)
+}
+
+// classicalCitationRange renders one unit's inclusive citation range.
+func classicalCitationRange(unit classical.CatalogUnit) string {
+	if unit.CitationStart == unit.CitationEnd {
+		return unit.CitationStart
+	}
+	return unit.CitationStart + "–" + unit.CitationEnd
+}
+
+// classicalCountLabel renders one or many of a counted noun.
+func classicalCountLabel(count int, singular, plural string) string {
+	if count == 1 {
+		return fmt.Sprintf("1 %s", singular)
+	}
+	return fmt.Sprintf("%d %s", count, plural)
+}

@@ -139,10 +139,21 @@ func TestMyBooksCurrentReadingControlsAndReadingLink(t *testing.T) {
 
 func readingFixtureSession(t *testing.T) (http.Handler, []*http.Cookie, string, *fixtures.Store) {
 	t.Helper()
+	return readingFixtureSessionWith(t, nil)
+}
+
+// readingFixtureSessionWith builds the fixture session and lets a test supply
+// one service before the handler is constructed, such as a small catalog.
+func readingFixtureSessionWith(t *testing.T, configure func(*Services)) (http.Handler, []*http.Cookie, string, *fixtures.Store) {
+	t.Helper()
 	t.Setenv("MOUSEION_SECRET", "goal-unit-test-secret-0123456789")
 	store := fixtures.NewStore()
 	authService := auth.New(fixtures.NewAuthStore(), time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Analysis: fixtures.Analysis{Store: store}, CatalogueSync: fixtures.NewCatalogueSync(store), PreparedDeck: fixtures.PreparedDeck{Store: store}, SessionLifetime: time.Hour})
+	services := Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Analysis: fixtures.Analysis{Store: store}, CatalogueSync: fixtures.NewCatalogueSync(store), PreparedDeck: fixtures.PreparedDeck{Store: store}, SessionLifetime: time.Hour}
+	if configure != nil {
+		configure(&services)
+	}
+	h := New(services)
 	loginPage := httptest.NewRecorder()
 	h.ServeHTTP(loginPage, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil))
 	initialCSRFCookie := findCSRFCookie(t, loginPage.Result().Cookies())

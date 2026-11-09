@@ -19,6 +19,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/deploysecret"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -191,8 +192,11 @@ type Services struct {
 	Capabilities     analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
 	// the Reading store, PreparedDeck, and Analysis when it is nil.
-	LemmaReview     *lemmareview.Service
-	CatalogueSync   CatalogueSync
+	LemmaReview   *lemmareview.Service
+	CatalogueSync CatalogueSync
+	// Classical is the built-in, read-only Classical catalog from the release's
+	// embedded manifest. NewWithError loads the embedded one when nil.
+	Classical       *classical.Catalog
 	SecureCookies   bool
 	SessionLifetime time.Duration
 	// InteractiveReadTimeout bounds Browse and Concordance reads; zero uses
@@ -230,6 +234,13 @@ func NewWithError(s Services) (*Handler, error) {
 	}
 	if s.LemmaReview == nil {
 		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})
+	}
+	if s.Classical == nil {
+		catalog, err := classical.LoadCatalog(classical.ManifestJSONL)
+		if err != nil {
+			return nil, fmt.Errorf("webapp: load Classical catalog manifest: %w", err)
+		}
+		s.Classical = catalog
 	}
 	h := &Handler{services: s, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /login", h.loginPage)
@@ -272,6 +283,9 @@ func NewWithError(s Services) (*Handler, error) {
 		redirect(w, r, "/library")
 	})))
 	h.mux.Handle("GET /catalogs", h.user(http.HandlerFunc(h.connections)))
+	h.mux.Handle("GET /catalogs/classical", h.user(http.HandlerFunc(h.classicalAuthorIndex)))
+	h.mux.Handle("GET /catalogs/classical/authors/{author}", h.user(http.HandlerFunc(h.classicalAuthor)))
+	h.mux.Handle("GET /catalogs/classical/works/{workKey}", h.user(http.HandlerFunc(h.classicalWork)))
 	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.legacyConnections)))
 	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
