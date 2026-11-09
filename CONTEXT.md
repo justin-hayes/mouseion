@@ -462,6 +462,17 @@ when one of those is the first citation level. It is unrelated to a learner's
 Book.
 _Avoid_: Book (the learner-owned identity), volume, chapter.
 
+**Citation**:
+A position in a Work's own reference system, written as dotted numbers without
+leading zeros (Anabasis `1.2.3`, Morice `1.0.1`). It runs from the Work's
+numbered top-level divisions down to the finest level its chosen Edition
+numbers. For a graded reader, that is the reader's own numbered parts, stories
+or chapters, then the paragraphs its digitisation numbers; a `0` level marks a
+division the reader does not use. A page, a print line or a heading is never a
+citation.
+_Avoid_: line number, page reference, lesson number (a graded reader's citation
+reaches its paragraphs).
+
 **Reading-unit definition**:
 A reviewed, keyed description of one Reading unit: its Work, Edition, citation
 range, source pin, optional translation pin and interpretation version. It ships
