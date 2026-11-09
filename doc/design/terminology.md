@@ -21,7 +21,7 @@ language without a product reason.
 |---|---|---|
 | **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
 | **Inbox / To Read** | Persisted Book dispositions: Inbox means no explicit future-reading intent, and To Read expresses reading intent and ensures acquisition/analysis when needed. Hidden is separate visibility, not a disposition. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Reading status, Journey position, Set Aside (retired) |
-| **Reading** | The current Book with its vocabulary Browse, or, between Books, the unordered chooser of To Read candidates. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
+| **Reading** | The current Book with its vocabulary Browse, or, between Books, the neutral title-ordered chooser of To Read candidates, where a Work's multiple To Read Books form one entry. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in the active study language, when one exists. Starting freezes a vocabulary snapshot; finishing records history and accepts eligible identities into modeled Known vocabulary. | Primary Goal, current project |
 | **Choose what to read next** | The completion-receipt action that opens `/reading`. It presents To Read candidates without ranking or choosing automatically. | Where next?, Start next, continue plan, complete Journey |
 | **Read / Read again** | Read is the visible bucket for an Inbox Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
@@ -90,7 +90,8 @@ anchor.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Coverage band** | Grouping of To Read candidates by current lexical coverage; it provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
+| **Coverage band** | Classification of a To Read Book's current lexical coverage. A grouped Work entry lists its constituent Book numbers in band rows; a band provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
+| **Work position** | A constituent Book's plain bibliographic place, such as "Book 2 of 24", from the reviewed definition rather than the learner's added Books. A whole-work unit has none, and it never becomes a pointer to the next Book. | Next Book, recommended order |
 | **Move to To Read** | Express reading intent from My Books. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
 | **Start reading** | Make an eligible To Read Book the current Book and freeze its vocabulary snapshot. Requires explicit confirmation. | Choose as Primary Goal |
 | **Switch current reading** | Replace the current Book with an eligible To Read Book after explicit confirmation. The former current Book remains To Read. | Reorder Journey |
@@ -151,7 +152,7 @@ verified mastery. Earlier Goal-specific behavior in ADR 0072 is historical.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **Current coverage** | Coverage from current Known vocabulary under the accepted metric contract. | Reading level |
-| **Coverage band** | A group in the between-Books chooser based on current token-weighted lexical coverage. It compares evidence only and does not rank or recommend candidates. | Difficulty score, readiness rank |
+| **Coverage band** | A row in a grouped Work entry, or a margin label on one ordinary candidate, based on current token-weighted lexical coverage. It compares evidence only and does not rank or recommend candidates. | Difficulty score, readiness rank |
 | **Projected coverage** | Historical term for a hypothetical result after a named vocabulary transition; not presented in current Reading. | Predicted outcome, recommended route |
 | **Evidence needs review** | Existing evidence is stale, questionable, or no longer safely comparable. | Low confidence as an unexplained score |
 | **Not assessed** | Mouseion has no completed comparable analysis for this book. | 0% ready |

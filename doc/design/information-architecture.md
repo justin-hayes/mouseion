@@ -91,12 +91,16 @@ browsed only here.
 ### Reading
 
 **Reading** at `/reading` owns the current Book for the active study language or,
-between Books, an unordered chooser of To Read candidates. While a Book is
-current, the same page hosts its full vocabulary Browse (the working desk); other
-To Read candidates are not listed. Coverage bands label
-current evidence and do not rank candidates or predict outcomes. Starting
-freezes a vocabulary snapshot; finishing records a completion without selecting
-the next Book. End and switch are explicit reversible actions.
+between Books, an unordered chooser of To Read candidates in neutral title order.
+A Work with more than one To Read Book is one entry with a band table of
+constituent Book numbers; each number opens that Book's ordinary candidate entry
+inline. While a Book is current, the same page hosts its full vocabulary Browse
+(the working desk); other To Read candidates are not listed. Coverage bands label
+current evidence and do not rank candidates or predict outcomes. A constituent
+Book's "Book N of M" position is a plain fact from the reviewed definition; a
+whole-work unit shows none and nothing points to a next Book. Starting freezes a
+vocabulary snapshot; finishing records a completion without selecting the next
+Book. End and switch are explicit reversible actions.
 
 There is at most one current Book per owner and study language. The Book's
 My Books disposition remains separate from current-reading state and Read
@@ -310,11 +314,12 @@ Reading answers questions in this order:
 4. What happens to my modeled vocabulary when I finish the current Book?
 
 Current reading is visually distinct but remains book-led rather than a large
-metric card. The between-Books chooser groups candidates by current lexical
-coverage evidence and separates candidates with incomplete evidence. No learner
-order, after-reading projection, forecast, or recommendation is presented.
-Unassessed or otherwise untrustworthy Books remain visible with an explicit
-evidence gap and no fabricated coverage.
+metric card. The between-Books chooser lists candidates in neutral title order
+and groups a Work's multiple To Read Books into one entry with a band table;
+incomplete evidence stays distinct in that table or in an ordinary candidate's
+margin. No learner order, after-reading projection, forecast, next-Book pointer,
+or recommendation is presented. Unassessed or otherwise untrustworthy Books
+remain visible with an explicit evidence gap and no fabricated coverage.
 
 ## Finishing current reading and choosing what to read next
 

@@ -17,8 +17,7 @@ test.describe('Current reading over a failed re-analysis', () => {
     await signIn(page);
 
     await page.goto('/reading/switch');
-    const group = page.getByRole('region', { name: 'Below 95%', exact: true });
-    const candidate = group.locator('li.reading-chooser-book').filter({ hasText: 'Neue Analyse fehlgeschlagen' });
+    const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Neue Analyse fehlgeschlagen' });
     await expect(candidate).toHaveCount(1);
     await candidate.locator('summary').filter({ hasText: 'Switch to this book' }).click();
     await candidate.getByRole('button', { name: 'Confirm switch to this book' }).click();

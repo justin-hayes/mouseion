@@ -73,7 +73,13 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 		books = append(books, book)
 		return nil
 	})
-	return books, err
+	if err != nil {
+		return nil, err
+	}
+	// Reading-unit association is part of the MyBook read model: it carries the
+	// reviewed Work and constituent position the Reading chooser and Reading
+	// page render as plain facts.
+	return books, s.populateMyBooksReadingUnits(ctx, owner, books)
 }
 
 // ListMyBooksBrowse returns one owner-scoped page of My Books. The domain's

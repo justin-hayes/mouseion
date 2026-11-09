@@ -467,12 +467,14 @@ deck preparation,
 Vocabulary Browse/selection/Concordance/sentence study,
 occurrence-level lemma review, and Custom decks. `/journey` is
 only a compatibility redirect and is not an adopted screen. Reading presents
-the current Book as a title-page identity with its “Reading since” date and
-lifecycle actions; preparation and vocabulary evidence annotate it in a narrow
-margin. The between-Books chooser groups unordered candidates by current
-vocabulary-coverage bands and asks for explicit start/switch confirmation. The
-completion receipt reports exact modeled vocabulary changes and returns to that
-neutral chooser.
+the current Book as a title-page identity with its “Reading since” date,
+reviewed Work position when it is a constituent Book, and lifecycle actions;
+preparation and vocabulary evidence annotate it in a narrow margin. The
+between-Books chooser lists unordered candidates in neutral title order, groups a
+Work's multiple To Read Books into one entry whose band table names constituent
+Book numbers, and asks for explicit start/switch confirmation. The completion
+receipt reports exact modeled vocabulary changes and returns to that neutral
+chooser.
 
 The shipped Book Covers slice introduced covers in My Books and Reading. My
 Books presents those covers in the one-column `AnnotatedBookRow` list; Reading

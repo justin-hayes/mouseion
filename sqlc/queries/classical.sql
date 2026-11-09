@@ -65,6 +65,7 @@ VALUES ($1, $2, $3);
 -- name: ListBookReadingUnits :many
 SELECT bru.book_id::text AS book_id,
        bru.reading_unit_id::text AS reading_unit_id,
+       ru.definition_key AS reading_unit_key,
        ru.citation_start,
        ru.citation_end,
        e.label AS edition_label

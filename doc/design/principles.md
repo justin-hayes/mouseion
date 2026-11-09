@@ -31,9 +31,11 @@ not turn low preparation cost into a recommendation about what the learner ought
 to read, imply difficulty or predicted outcome, or impose an order on To Read
 books.
 
-The between-Books chooser presents eligible candidates without ranking. The
-learner can choose a current Book, remain between Books, or return to My Books.
-Mouseion supports a reading life; it does not plan one.
+The between-Books chooser presents eligible candidates without ranking. A Work
+with more than one To Read Book is one entry whose band table names candidate
+constituent Book numbers only; the table is evidence, never an order or a next
+Book. The learner can choose a current Book, remain between Books, or return to
+My Books. Mouseion supports a reading life; it does not plan one.
 
 ## Commitment and continuation
 

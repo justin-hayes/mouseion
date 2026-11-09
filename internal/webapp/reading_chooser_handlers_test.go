@@ -415,6 +415,33 @@ func chooserReadyCandidate() domain.MyBook {
 	}
 }
 
+// chooserBooksByBand returns every candidate in one coverage band, across all
+// entries, so a test can assert classification without the old band sections.
+func chooserBooksByBand(view readingChooserPageView, band domain.CoverageBand) []readingChooserBookView {
+	var books []readingChooserBookView
+	for _, entry := range view.Entries {
+		for _, item := range entry.Books {
+			if item.Coverage != nil && item.Band == band {
+				books = append(books, item)
+			}
+		}
+	}
+	return books
+}
+
+// chooserBooksInState returns every candidate carrying one evidence state.
+func chooserBooksInState(view readingChooserPageView, state readingChooserState) []readingChooserBookView {
+	var books []readingChooserBookView
+	for _, entry := range view.Entries {
+		for _, item := range entry.Books {
+			if item.Coverage == nil && item.State == state {
+				books = append(books, item)
+			}
+		}
+	}
+	return books
+}
+
 func newChooserHandler(books []domain.MyBook, err error, insights AnalysisInsights) *Handler {
 	return &Handler{services: Services{
 		Store:            storeDependencies(chooserEvidenceBooks{Store: fixtures.NewStore(), books: books, err: err}),
@@ -424,66 +451,51 @@ func newChooserHandler(books []domain.MyBook, err error, insights AnalysisInsigh
 
 func TestBuildReadingChooserSurfacesCandidateReadFailure(t *testing.T) {
 	handler := newChooserHandler(nil, errors.New("evidence read failed"), nil)
-	_, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch")
+	_, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
 	require.Error(t, err)
 }
 
 func TestBuildReadingChooserPlacesUnavailableCoverageWithAttention(t *testing.T) {
 	candidate := chooserReadyCandidate()
 	t.Run("no insights service", func(t *testing.T) {
-		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, nil).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch")
+		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, nil).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
 		require.NoError(t, err)
-		require.Len(t, view.Attention, 1)
-		assert.Equal(t, readingChooserNeedsAttention, view.Attention[0].State)
-		assert.Equal(t, "Completed analysis statistics are unavailable. Refresh the page or retry analysis.", view.Attention[0].Description)
+		require.Len(t, chooserBooksInState(view, readingChooserNeedsAttention), 1)
+		assert.Equal(t, readingChooserNeedsAttention, chooserBooksInState(view, readingChooserNeedsAttention)[0].State)
+		assert.Equal(t, "Completed analysis statistics are unavailable. Refresh the page or retry analysis.", chooserBooksInState(view, readingChooserNeedsAttention)[0].Description)
 	})
 	t.Run("statistics unavailable", func(t *testing.T) {
 		insights := chooserInsights{err: analysisinsights.ErrStatisticsUnavailable}
-		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch")
+		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
 		require.NoError(t, err)
-		require.Len(t, view.Attention, 1)
-		assert.Equal(t, "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence.", view.Attention[0].Description)
+		require.Len(t, chooserBooksInState(view, readingChooserNeedsAttention), 1)
+		assert.Equal(t, "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence.", chooserBooksInState(view, readingChooserNeedsAttention)[0].Description)
 	})
 	t.Run("counts updating", func(t *testing.T) {
 		insights := chooserInsights{err: analysisinsights.ErrCountsUpdating}
-		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch")
+		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
 		require.NoError(t, err)
-		require.Len(t, view.Updating, 1)
-		assert.Equal(t, vocabularyCountsUpdatingDescription, view.Updating[0].Description)
+		require.Len(t, chooserBooksInState(view, readingChooserUpdating), 1)
+		assert.Equal(t, vocabularyCountsUpdatingDescription, chooserBooksInState(view, readingChooserUpdating)[0].Description)
 	})
 	t.Run("blank corpus identity", func(t *testing.T) {
 		blank := chooserReadyCandidate()
 		blank.Acquired.CorpusID = "   "
 		insights := chooserInsights{coverage: domain.AnalysisCoverage{KnownTokenCount: 1, AnalyzableTokenCount: 1}}
-		view, err := newChooserHandler([]domain.MyBook{blank}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch")
+		view, err := newChooserHandler([]domain.MyBook{blank}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
 		require.NoError(t, err)
-		require.Len(t, view.Attention, 1)
-		assert.Equal(t, "Completed analysis statistics are unavailable. Refresh the page or retry analysis.", view.Attention[0].Description)
+		require.Len(t, chooserBooksInState(view, readingChooserNeedsAttention), 1)
+		assert.Equal(t, "Completed analysis statistics are unavailable. Refresh the page or retry analysis.", chooserBooksInState(view, readingChooserNeedsAttention)[0].Description)
 	})
 }
 
 func TestBuildReadingChooserReportsUnexpectedCoverageFailure(t *testing.T) {
 	insights := chooserInsights{err: errors.New("coverage read failed")}
-	_, err := newChooserHandler([]domain.MyBook{chooserReadyCandidate()}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch")
+	_, err := newChooserHandler([]domain.MyBook{chooserReadyCandidate()}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
 	require.Error(t, err)
 }
 
 func TestBuildReadingChooserGroupsCoverageByBand(t *testing.T) {
-	section := func(view readingChooserPageView, band domain.CoverageBand) []readingChooserBookView {
-		switch band {
-		case domain.CoverageBand99Plus:
-			return view.At99Plus
-		case domain.CoverageBand97To99:
-			return view.At97To99
-		case domain.CoverageBand95To97:
-			return view.At95To97
-		case domain.CoverageBandBelow95:
-			return view.Below95
-		case domain.CoverageBandNoComparison:
-			return view.NoComparison
-		}
-		return nil
-	}
 	for _, coverage := range []domain.AnalysisCoverage{
 		{KnownTokenCount: 995, AnalyzableTokenCount: 1000},
 		{KnownTokenCount: 980, AnalyzableTokenCount: 1000},
@@ -494,10 +506,10 @@ func TestBuildReadingChooserGroupsCoverageByBand(t *testing.T) {
 		band := domain.CoverageBandFor(coverage.KnownTokenCount, coverage.AnalyzableTokenCount)
 		t.Run(string(band), func(t *testing.T) {
 			handler := newChooserHandler([]domain.MyBook{chooserReadyCandidate()}, nil, chooserInsights{coverage: coverage})
-			view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch")
+			view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
 			require.NoError(t, err)
-			require.Len(t, section(view, band), 1, "band %s", band)
-			assert.Equal(t, band, section(view, band)[0].Band)
+			require.Len(t, chooserBooksByBand(view, band), 1, "band %s", band)
+			assert.Equal(t, band, chooserBooksByBand(view, band)[0].Band)
 		})
 	}
 }
