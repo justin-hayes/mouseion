@@ -128,9 +128,12 @@ type BookReadingUnit struct {
 	OwnerID       string
 	BookID        string
 	ReadingUnitID string
-	CitationStart string
-	CitationEnd   string
-	EditionLabel  string
+	// ReadingUnitKey is the permanent reviewed definition key, the identity the
+	// Classical catalog uses for this Book's Work and constituent position.
+	ReadingUnitKey string
+	CitationStart  string
+	CitationEnd    string
+	EditionLabel   string
 }
 
 // ReadingUnitDefinition is compiled, reviewed data for one operator-registered

@@ -23,7 +23,8 @@ type readingBookView struct {
 	BookID                           string
 	Cover                            domain.BookCover
 	ReadingSince                     time.Time
-	Position                         int
+	WorkPosition                     int
+	WorkBooks                        int
 	CurrentReading                   bool
 	ReadingOnly                      bool
 	CurrentReadingUnassessed         bool
@@ -79,6 +80,15 @@ func canonicalBookTitle(book domain.SourceMaterialSummary) string {
 
 func canonicalBookAuthor(book domain.SourceMaterialSummary) string {
 	return strings.TrimSpace(book.BookAuthor)
+}
+
+// readingBookPositionText names a constituent Book's place in its reviewed
+// Work. A whole-work unit has no position.
+func readingBookPositionText(item readingBookView) string {
+	if item.WorkPosition <= 0 || item.WorkBooks <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("Book %d of %d", item.WorkPosition, item.WorkBooks)
 }
 
 func currentReadingSectionFocusID(bookID string) string {
@@ -422,7 +432,9 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 	if readErr != nil {
 		return readingPageView{}, readErr
 	}
+	myBookByID := make(map[string]domain.MyBook, len(myBooks))
 	for _, myBook := range myBooks {
+		myBookByID[myBook.Book.ID] = myBook
 		coverByBookID[myBook.Book.ID] = myBook.Cover
 		if myBook.Acquired != nil {
 			book := *myBook.Acquired
@@ -451,6 +463,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		book.Book.IsCurrentReading = true
 		book.Cover = coverByBookID[currentReading.BookID]
 		book.ReadingSince = currentReading.CreatedAt
+		h.addReadingWorkPosition(&book, myBookByID[currentReading.BookID])
 		if err := h.addReadingEvidence(ctx, owner, &book); err != nil {
 			return readingPageView{}, err
 		}
@@ -497,6 +510,17 @@ func (h *Handler) addCurrentReadingDeckPreparation(ctx context.Context, owner st
 	}
 	book.CurrentReadingPreparation = deck.Preparation
 	book.CurrentReadingActions = deckActionsFor(currentReading.BookID, admissions)
+}
+
+// addReadingWorkPosition copies a constituent Book's reviewed place onto the
+// current Reading view. A whole-work unit keeps both fields zero.
+func (h *Handler) addReadingWorkPosition(book *readingBookView, myBook domain.MyBook) {
+	work, unit, ok := h.readingBookWork(myBook)
+	if !ok {
+		return
+	}
+	book.WorkPosition = unit.ConstituentBook
+	book.WorkBooks = work.ConstituentBooks
 }
 
 func (h *Handler) readingBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (readingBookView, error) {

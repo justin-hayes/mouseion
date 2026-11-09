@@ -84,6 +84,7 @@ func (q *Queries) InsertBookReadingUnit(ctx context.Context, arg InsertBookReadi
 const listBookReadingUnits = `-- name: ListBookReadingUnits :many
 SELECT bru.book_id::text AS book_id,
        bru.reading_unit_id::text AS reading_unit_id,
+       ru.definition_key AS reading_unit_key,
        ru.citation_start,
        ru.citation_end,
        e.label AS edition_label
@@ -99,11 +100,12 @@ type ListBookReadingUnitsParams struct {
 }
 
 type ListBookReadingUnitsRow struct {
-	BookID        string
-	ReadingUnitID string
-	CitationStart string
-	CitationEnd   string
-	EditionLabel  string
+	BookID         string
+	ReadingUnitID  string
+	ReadingUnitKey string
+	CitationStart  string
+	CitationEnd    string
+	EditionLabel   string
 }
 
 func (q *Queries) ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error) {
@@ -118,6 +120,7 @@ func (q *Queries) ListBookReadingUnits(ctx context.Context, arg ListBookReadingU
 		if err := rows.Scan(
 			&i.BookID,
 			&i.ReadingUnitID,
+			&i.ReadingUnitKey,
 			&i.CitationStart,
 			&i.CitationEnd,
 			&i.EditionLabel,

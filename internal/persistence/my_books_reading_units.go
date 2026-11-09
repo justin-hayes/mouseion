@@ -31,12 +31,13 @@ func (s *PostgresStore) populateMyBooksReadingUnits(ctx context.Context, owner s
 			continue
 		}
 		book.ReadingUnit = &domain.BookReadingUnit{
-			OwnerID:       owner,
-			BookID:        row.BookID,
-			ReadingUnitID: row.ReadingUnitID,
-			CitationStart: row.CitationStart,
-			CitationEnd:   row.CitationEnd,
-			EditionLabel:  row.EditionLabel,
+			OwnerID:        owner,
+			BookID:         row.BookID,
+			ReadingUnitID:  row.ReadingUnitID,
+			ReadingUnitKey: row.ReadingUnitKey,
+			CitationStart:  row.CitationStart,
+			CitationEnd:    row.CitationEnd,
+			EditionLabel:   row.EditionLabel,
 		}
 	}
 	return nil

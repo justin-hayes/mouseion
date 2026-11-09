@@ -27,7 +27,7 @@ test('switch chooser keeps Book actions with identity and coverage in the margin
   expect(await retry.evaluate((button) => getComputedStyle(button).backgroundColor)).not.toBe(
     await candidate.locator('.confirmation button').first().evaluate((button) => getComputedStyle(button).backgroundColor),
   );
-  await expect(page.getByRole('heading', { name: 'Not assessed' })).toBeVisible();
+  await expect(page.getByText('Not assessed').first()).toBeVisible();
   await expect(page.locator('ul.reading-chooser-list').first()).toHaveAttribute('role', 'list');
   const noOverflow = () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
   expect(await noOverflow()).toBe(true);

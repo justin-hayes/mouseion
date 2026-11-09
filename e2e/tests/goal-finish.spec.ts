@@ -58,8 +58,8 @@ test('finishing current reading records Read history and supports reading again'
   const currentReading = page.locator('#primary-goal-section');
   if (await currentReading.count() === 0) {
     const title = 'Italian route baseline';
-    const candidate = page.locator('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
-    await expect(page.getByRole('region', { name: 'Below 95%' })).toContainText(title);
+    const candidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+    await expect(candidate.locator('.reading-chooser-entry__evidence')).toContainText('Below 95%');
     await candidate.locator('details').filter({ hasText: 'Start reading' }).locator('summary').click();
     await candidate.getByRole('button', { name: 'Confirm start reading' }).click();
     await expect(page).toHaveURL(/\/reading\?message=/);

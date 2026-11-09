@@ -77,6 +77,9 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 				if author := canonicalBookAuthor(item.Book); author != "" {
 					<p class="journey-book__author">By { author }</p>
 				}
+				if position := readingBookPositionText(item); position != "" {
+					<p class="journey-book__position">{ position }</p>
+				}
 				@CurrentReadingLifecycleActions(item, csrf)
 				if item.ReadingOnly {
 					@StatusBadge("Reading only", StatusInfo)
@@ -244,129 +247,142 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 			</section>
 		}
 		if chooser.Language != "" && readingChooserCandidateCount(chooser) > 0 {
-			if len(chooser.At99Plus)+len(chooser.At97To99)+len(chooser.At95To97)+len(chooser.Below95)+len(chooser.NoComparison) > 0 {
+			if readingChooserHasCoverage(chooser) {
 				<p>Coverage shows how often words in your Known vocabulary appear in each Book. These groups use exact counts, though the displayed percentages are rounded. They are not reading recommendations.</p>
 			}
-			@ReadingChooserBand("99% or above", "At least 99% of word occurrences are already Known.", chooser.At99Plus, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			@ReadingChooserBand("97% to below 99%", "At least 97%, but less than 99%, of word occurrences are already Known.", chooser.At97To99, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			@ReadingChooserBand("95% to below 97%", "At least 95%, but less than 97%, of word occurrences are already Known.", chooser.At95To97, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			@ReadingChooserBand("Below 95%", "Less than 95% of word occurrences are already Known.", chooser.Below95, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			@ReadingChooserBand("No vocabulary comparison", "There are no words to compare for coverage in this analysis.", chooser.NoComparison, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			if len(chooser.Updating) > 0 {
-				<section aria-labelledby="reading-chooser-updating-heading">
-					<h2 id="reading-chooser-updating-heading">Updating</h2>
-					<p>Coverage is withheld until each Book's vocabulary counts are ready.</p>
-					<ul class="reading-chooser-list" role="list">
-						for _, item := range chooser.Updating {
-							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-						}
-					</ul>
-				</section>
-			}
-			if len(chooser.InProgress) > 0 {
-				<section aria-labelledby="reading-chooser-in-progress-heading">
-					<h2 id="reading-chooser-in-progress-heading">Analysis in progress</h2>
-					<p>Accepted analysis work remains visible here while it runs.</p>
-					<ul class="reading-chooser-list" role="list">
-						for _, item := range chooser.InProgress {
-							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-						}
-					</ul>
-				</section>
-			}
-			if len(chooser.Attention) > 0 {
-				<section aria-labelledby="reading-chooser-unavailable-heading">
-					<h2 id="reading-chooser-unavailable-heading">Not assessed</h2>
-					<p>These Books need current content or analysis before their coverage can be compared.</p>
-					<ul class="reading-chooser-list" role="list">
-						for _, item := range chooser.Attention {
-							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-						}
-					</ul>
-				</section>
-			}
+			<ul class="reading-chooser-list" role="list">
+				for _, entry := range chooser.Entries {
+					if entry.Grouped {
+						@ReadingChooserWorkEntry(entry, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+					} else {
+						@ReadingChooserBook(entry.Books[0], csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+					}
+				}
+			</ul>
 		}
 	}
 }
 
-templ ReadingChooserBand(title, description string, books []readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
-	if len(books) > 0 {
-		<section aria-label={ title }>
-			<h2>{ title }</h2>
-			<p>{ description }</p>
-			<ul class="reading-chooser-list" role="list">
-				for _, item := range books {
-					@ReadingChooserBook(item, csrf, currentBookID, currentSnapshotID)
-				}
-			</ul>
-		</section>
-	}
-}
-
-templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
-	<li class="reading-chooser-book">
-		<article class="reading-chooser-entry">
-			<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)</div>
+// ReadingChooserWorkEntry groups one Work's To Read Books into a single neutral
+// entry. Band rows name candidate Book numbers only; a number opens that Book's
+// ordinary candidate entry inline.
+templ ReadingChooserWorkEntry(entry readingChooserEntryView, csrf, currentBookID, currentSnapshotID string) {
+	<li class="reading-chooser-book reading-chooser-work">
+		<article class="reading-chooser-entry reading-chooser-work__entry" aria-labelledby={ "reading-chooser-work-" + entry.Key }>
+			<div class="reading-chooser-entry__cover">@BookCoverMedia(entry.Books[0].Book.Book.ID, entry.Books[0].Book.Book.Title, entry.Books[0].Book.Book.LanguageTag, entry.Books[0].Book.Cover)</div>
 			<div class="reading-chooser-entry__identity">
-					<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
-					if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
-						<p>By { author }</p>
-					}
-				<div class="reading-chooser-entry__actions">
-					@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
-					@SourceStructureUpdateNotice(item.Book, csrf, "button button--outline")
-					if item.Coverage != nil {
-						if currentBookID != "" {
-							@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot. The former current book remains To Read; its analysis, decks, and history remain. You can start either book again later.", StatusNeutral) {
-								<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/switch") }>
-									<input type="hidden" name="csrf_token" value={ csrf }/>
-									<input type="hidden" name="expected_current_book_id" value={ currentBookID }/>
-									<input type="hidden" name="expected_current_snapshot_id" value={ currentSnapshotID }/>
-									<button class="button" type="submit">Confirm switch to this book</button>
-								</form>
-							}
-						} else {
-							@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
-								<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
-									<input type="hidden" name="csrf_token" value={ csrf }/>
-									<button class="button" type="submit">Confirm start reading</button>
-								</form>
-							}
-						}
-						<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
-					} else if item.State == readingChooserInProgress {
-						if item.Book.Acquired.AnalysisJobID > 0 {
-							<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>
-						} else {
-							<a href="/library?disposition=to_read">Review To Read books</a>
-						}
-					} else if item.State == readingChooserNeedsAttention {
-						<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
-							<input type="hidden" name="csrf_token" value={ csrf }/>
-							<button class="button button--outline" type="submit">Retry acquisition or analysis</button>
-						</form>
-					}
-				</div>
+				<h3 class="bibliographic-title" id={ "reading-chooser-work-" + entry.Key }>{ entry.Title }</h3>
+				if entry.GreekTitle != "" {
+					<p class="reading-chooser-work__greek" lang="grc">{ entry.GreekTitle }</p>
+				}
+				if entry.Author != "" {
+					<p>By { entry.Author }</p>
+				}
+				<p class="reading-chooser-work__size">{ classicalCountLabel(entry.WorkBooks, "book", "books") }</p>
 			</div>
-			<div class="reading-chooser-entry__evidence">
-				if item.Coverage != nil {
-					<p class="numeric"><strong>Known vocabulary coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ readingChooserCount(item.Coverage.KnownTokenCount) } of { readingChooserCount(item.Coverage.AnalyzableTokenCount) } word occurrences)</p>
-					<p class="numeric">{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
-					<details>
-						<summary>Words to reach 95%, 97%, and 99%</summary>
-						<ul>
-						for _, threshold := range item.Coverage.Thresholds {
-							if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
-								<li class="numeric">{ readingChooserThresholdText(threshold) }</li>
-							}
-						}
-						</ul>
-						<p>These counts are distinct words, not the number of cards in a deck.</p>
-					</details>
-				} else {
-					<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
+			<div class="reading-chooser-entry__evidence reading-chooser-work__margin">
+				<p class="numeric"><strong>{ readingChooserWorkCounts(entry) }</strong></p>
+				if coverageRange := readingChooserWorkCoverageRange(entry.Books); coverageRange != "" {
+					<p class="numeric">{ coverageRange }</p>
+				}
+				<dl class="reading-chooser-bands" aria-label={ "Bands in " + entry.Title }>
+					for _, band := range entry.Bands {
+						<div class="reading-chooser-bands__row">
+							<dt>{ band.Label }</dt>
+							<dd>
+								<ul class="reading-chooser-band-books" role="list">
+									for _, item := range band.Books {
+										<li><a class="reading-chooser-band-book" href={ templ.SafeURL("#" + readingChooserCandidateAnchorID(item)) } aria-label={ readingChooserBookAccessibleLabel(item) }>{ readingChooserBookNumber(item) }</a></li>
+									}
+								</ul>
+							</dd>
+						</div>
 					}
+				</dl>
+			</div>
+			<div class="reading-chooser-work__books">
+				for _, item := range entry.Books {
+					<div class="reading-chooser-work__book" id={ readingChooserCandidateAnchorID(item) }>
+						@ReadingChooserCandidate(item, csrf, currentBookID, currentSnapshotID, true)
+					</div>
+				}
 			</div>
 		</article>
 	</li>
+}
+
+templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
+	<li class="reading-chooser-book" id={ readingChooserCandidateAnchorID(item) }>
+		@ReadingChooserCandidate(item, csrf, currentBookID, currentSnapshotID, false)
+	</li>
+}
+
+templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string, inWork bool) {
+	<article class="reading-chooser-entry">
+		<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)</div>
+		<div class="reading-chooser-entry__identity">
+				<h3 class="bibliographic-title">{ readingChooserCandidateTitle(item, inWork) }</h3>
+				if position := readingChooserWorkPosition(item); position != "" {
+					<p class="reading-chooser-entry__position">{ position }</p>
+				}
+				if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
+					<p>By { author }</p>
+				}
+			<div class="reading-chooser-entry__actions">
+				@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
+				@SourceStructureUpdateNotice(item.Book, csrf, "button button--outline")
+				if item.Coverage != nil {
+					if currentBookID != "" {
+						@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot. The former current book remains To Read; its analysis, decks, and history remain. You can start either book again later.", StatusNeutral) {
+							<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/switch") }>
+								<input type="hidden" name="csrf_token" value={ csrf }/>
+								<input type="hidden" name="expected_current_book_id" value={ currentBookID }/>
+								<input type="hidden" name="expected_current_snapshot_id" value={ currentSnapshotID }/>
+								<button class="button" type="submit">Confirm switch to this book</button>
+							</form>
+						}
+					} else {
+						@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
+							<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
+								<input type="hidden" name="csrf_token" value={ csrf }/>
+								<button class="button" type="submit">Confirm start reading</button>
+							</form>
+						}
+					}
+					<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
+				} else if item.State == readingChooserInProgress {
+					if item.Book.Acquired.AnalysisJobID > 0 {
+						<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>
+					} else {
+						<a href="/library?disposition=to_read">Review To Read books</a>
+					}
+				} else if item.State == readingChooserNeedsAttention {
+					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<button class="button button--outline" type="submit">Retry acquisition or analysis</button>
+					</form>
+				}
+			</div>
+		</div>
+		<div class="reading-chooser-entry__evidence">
+			if item.Coverage != nil {
+				<p class="reading-chooser-entry__band"><strong>{ readingChooserBandLabel(item.Band) }</strong></p>
+				<p class="numeric"><strong>Known vocabulary coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ readingChooserCount(item.Coverage.KnownTokenCount) } of { readingChooserCount(item.Coverage.AnalyzableTokenCount) } word occurrences)</p>
+				<p class="numeric">{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
+				<details>
+					<summary>Words to reach 95%, 97%, and 99%</summary>
+					<ul>
+					for _, threshold := range item.Coverage.Thresholds {
+						if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
+							<li class="numeric">{ readingChooserThresholdText(threshold) }</li>
+						}
+					}
+					</ul>
+					<p>These counts are distinct words, not the number of cards in a deck.</p>
+				</details>
+			} else {
+				<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
+				}
+		</div>
+	</article>
 }

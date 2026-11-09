@@ -327,9 +327,10 @@ current-reading snapshots or prepared decks.
 _Avoid_: stale analysis, outdated evidence, re-import, migration.
 
 **Vocabulary coverage band**:
-A neutral grouping of trustworthy analyzed To Read Books by current
+A neutral label of a trustworthy analyzed To Read Book by current
 analyzable-token coverage: at least 99%, at least 97% but below 99%, at least
-95% but below 97%, or below 95%. Coverage counts analyzable tokens by effective
+95% but below 97%, or below 95%. A grouped Work entry puts its constituent Book
+numbers in band rows. Coverage counts analyzable tokens by effective
 vocabulary identity, so confirmed Lemma corrections apply, and excluded
 occurrences remain in the analyzable-token total. It reads the Book's Browse
 count projection, the same per-Book counts My Books uses, and shows Updating
@@ -338,7 +339,7 @@ reading recommendation.
 _Avoid_: accessibility, readiness, difficulty band.
 
 **No vocabulary comparison**:
-The chooser group for a successfully analyzed Book with no analyzable-token
+The chooser band for a successfully analyzed Book with no analyzable-token
 denominator. It means neither zero coverage nor failed evidence.
 _Avoid_: 0% coverage, Needs attention.
 
@@ -542,8 +543,11 @@ _Avoid_: library queue, reading plan.
 
 **Reading**:
 The active-language workflow for the current Book or, between Books, a neutral
-chooser of trustworthy To Read candidates. It maintains no learner-authored
-order or automatic next Book.
+title-ordered chooser of trustworthy To Read candidates. A Work's multiple To
+Read Books form one entry whose band table names constituent Book numbers, each
+opening that Book's ordinary entry inline. A constituent Book's "Book N of M"
+position comes from the reviewed definition; a whole-work unit has none. It
+maintains no learner-authored order or automatic next Book.
 _Avoid_: Reading Journey, Primary Goal, reading queue.
 
 **Inbox**:
