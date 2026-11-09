@@ -49,6 +49,63 @@ type ReadingUnit struct {
 	CreatedAt             time.Time
 }
 
+// ClassicalSource is one verified upstream work file, stored once per
+// installation and keyed by the SHA-256 of its bytes. It carries no learner
+// data.
+type ClassicalSource struct {
+	SHA256   string
+	Layer    string
+	FileName string
+	Size     int64
+	Content  []byte
+}
+
+// ClassicalPreparationTarget is the reconciled definition and Book a
+// preparation job works from. It carries only reviewed definition facts and
+// identifiers, never source text.
+type ClassicalPreparationTarget struct {
+	OwnerID               string
+	BookID                string
+	ReadingUnitKey        string
+	WorkTitle             string
+	WorkAuthor            string
+	EditionLabel          string
+	CitationStart         string
+	CitationEnd           string
+	SourceLayer           string
+	SourceFileName        string
+	SourceFileSize        int64
+	SourceFileSHA256      string
+	SourceFormat          string
+	InterpretationVersion string
+	DefinitionRevision    int
+	Withdrawn             bool
+}
+
+// ClassicalPreparedDefinition is the per-Book record written when a classical
+// preparation publishes. It is keyed by owner and Book and identifies the
+// definition revision and published run the Book's evidence came from.
+type ClassicalPreparedDefinition struct {
+	OwnerID               string
+	BookID                string
+	ReadingUnitKey        string
+	DefinitionRevision    int
+	SourceFileSHA256      string
+	InterpretationVersion string
+	AnalysisRunID         string
+}
+
+// ClassicalPreparationJob is one classical preparation shown in the jobs
+// surface. BookTitle is the learner's Book title; State is River's job state.
+type ClassicalPreparationJob struct {
+	ID        int64
+	BookID    string
+	BookTitle string
+	Attempt   int
+	State     string
+	CreatedAt time.Time
+}
+
 // BookReadingUnit is the immutable association of one Book to the Reading unit
 // it was registered for, with the edition label My Books shows.
 type BookReadingUnit struct {

@@ -109,6 +109,7 @@ type CatalogsStore interface {
 // JobsStore provides the analysis job list shown by the jobs surface.
 type JobsStore interface {
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
+	ListClassicalPreparationJobs(context.Context, string) ([]domain.ClassicalPreparationJob, error)
 }
 
 // StoreDependencies groups the persistence capabilities consumed by the web
@@ -135,6 +136,12 @@ type Analysis interface {
 	Cancel(context.Context, string, int64) (analysis.Status, error)
 	EnqueueBrowseCountRebuild(context.Context, string, string) error
 	GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error)
+}
+
+// ClassicalPreparation is the To Read preparation seam for a classical Book.
+// A nil seam leaves disposition changes working without a preparation job.
+type ClassicalPreparation interface {
+	SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error)
 }
 
 // AnalysisUpdates offers and submits learner-confirmed Analysis updates
@@ -193,9 +200,11 @@ type Services struct {
 	Analysis         Analysis
 	AnalysisUpdates  AnalysisUpdates
 	SourceStructures SourceStructureUpdates
-	AnalysisInsights AnalysisInsights
-	PreparedDeck     PreparedDeck
-	Capabilities     analyzer.CapabilityProvider
+	// ClassicalPreparation prepares a classical Book when it moves to To Read.
+	ClassicalPreparation ClassicalPreparation
+	AnalysisInsights     AnalysisInsights
+	PreparedDeck         PreparedDeck
+	Capabilities         analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
 	// the Reading store, PreparedDeck, and Analysis when it is nil.
 	LemmaReview   *lemmareview.Service

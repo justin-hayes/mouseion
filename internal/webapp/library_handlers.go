@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -288,13 +289,9 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	// An operator-registered Book cannot be read until its annotation is
-	// imported. Refuse before the disposition changes and before any analysis
-	// is submitted, so nothing starts that cannot finish.
-	if detail.AwaitingPreparation() {
-		redirect(w, r, myBooksScopedURL("", 1, false, detail.Disposition, false, detail.Hidden)+"&error="+url.QueryEscape(notPreparedYetNote))
-		return
-	}
+	// A classical Book is prepared on its dedicated queue when it moves to To
+	// Read. The disposition change is the learner's intent; no EPUB acquisition
+	// or analysis is involved.
 	wasToRead := detail.Disposition == domain.BookDispositionToRead
 	applied, transitionErr := h.services.Store.MyBooks.TransitionBookDisposition(r.Context(), owner, bookID, expectedRevision, domain.BookDispositionToRead)
 	if transitionErr != nil {
@@ -307,10 +304,12 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	message := "Book moved to To Read."
-	// An imported classical Book already carries its analysis, so To Read only
-	// changes the disposition: it never acquires a source or submits EPUB
-	// analysis.
-	if applied && !wasToRead && h.services.Analysis != nil && detail.ReadingUnit == nil {
+	switch {
+	case applied && !wasToRead && detail.ReadingUnit != nil && !detail.Classification().AnalysisInEffect():
+		if prepared, ok := h.queueClassicalPreparation(r.Context(), owner, bookID); ok {
+			message = prepared
+		}
+	case applied && !wasToRead && detail.ReadingUnit == nil && h.services.Analysis != nil:
 		handle, target, title, acquisitionFailed, analysisErr := h.ensureToReadAnalysis(r.Context(), owner, bookID)
 		if analysisErr != nil {
 			logToReadAnalysisFailure(owner, bookID, acquisitionFailed, analysisErr)
@@ -320,6 +319,23 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, detail.Hidden)+"&message="+url.QueryEscape(message))
+}
+
+// queueClassicalPreparation submits the Book's ensure-once preparation job.
+// It reports the learner-facing message and whether the seam was available.
+func (h *Handler) queueClassicalPreparation(ctx context.Context, owner, bookID string) (string, bool) {
+	if h.services.ClassicalPreparation == nil {
+		return "", false
+	}
+	handle, err := h.services.ClassicalPreparation.SubmitClassicalPreparation(ctx, owner, bookID)
+	if err != nil {
+		log.Printf("mouseion: classical preparation submission failed for owner %s book %s: %s", owner, strconv.Quote(bookID), strconv.Quote(err.Error()))
+		return "Book moved to To Read, but preparation could not start. Retry analysis from Reading when ready.", true
+	}
+	if handle.Complete {
+		return "Book moved to To Read. Analysis is already current.", true
+	}
+	return "Book moved to To Read. " + fmt.Sprintf("Preparation job #%d submitted.", handle.JobID), true
 }
 
 func expectedDispositionRevision(r *http.Request) (int64, bool) {

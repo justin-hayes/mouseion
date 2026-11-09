@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -255,6 +257,10 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if detail.ReadingUnit != nil {
+		h.retryClassicalPreparation(w, r, owner, detail.Book.ID)
+		return
+	}
 	handle, target, title, acquisitionFailed, err := h.ensureToReadAnalysis(r.Context(), owner, bookID)
 	if err != nil {
 		if errors.Is(err, analysis.ErrCurrentBook) {
@@ -270,6 +276,27 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 
 func rejectCurrentBookRefresh(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/reading?error="+url.QueryEscape("The current book cannot be refreshed. Its frozen evidence remains unchanged."))
+}
+
+// retryClassicalPreparation submits a classical Book's preparation again. A
+// completed run for the current definition is reported as current rather than
+// as a second job.
+func (h *Handler) retryClassicalPreparation(w http.ResponseWriter, r *http.Request, owner, bookID string) {
+	if h.services.ClassicalPreparation == nil {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Classical preparation is unavailable."))
+		return
+	}
+	handle, err := h.services.ClassicalPreparation.SubmitClassicalPreparation(r.Context(), owner, bookID)
+	if err != nil {
+		log.Printf("mouseion: classical preparation retry failed for owner %s book %s: %s", owner, strconv.Quote(bookID), strconv.Quote(err.Error()))
+		redirect(w, r, "/reading?error="+url.QueryEscape("Preparation could not be started. Retry when ready."))
+		return
+	}
+	if handle.Complete {
+		redirect(w, r, "/reading?message="+url.QueryEscape("The analysis is already current."))
+		return
+	}
+	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Preparation job #%d submitted.", handle.JobID)))
 }
 
 func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {

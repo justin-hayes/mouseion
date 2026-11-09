@@ -68,7 +68,10 @@ func reconcileClassicalManifestTx(ctx context.Context, tx pgx.Tx, definitions []
 	if err := withdrawAbsentClassicalUnits(ctx, tx, definitions); err != nil {
 		return err
 	}
-	return pruneMergedClassicalRows(ctx, tx, definitions)
+	if err := pruneMergedClassicalRows(ctx, tx, definitions); err != nil {
+		return err
+	}
+	return pruneClassicalSources(ctx, tx)
 }
 
 // upsertClassicalDefinitions writes each Work, Edition and Reading unit.
