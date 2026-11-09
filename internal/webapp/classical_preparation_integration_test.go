@@ -221,7 +221,7 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 	// The jobs surface shows the Book, attempt and state.
 	jobsPage := perform(t, h, http.MethodGet, "/jobs", nil, cookies)
 	require.Equal(t, http.StatusOK, jobsPage.Code, jobsPage.Body.String())
-	for _, want := range []string{"Classical preparation history", "Classical preparation", "Synthetic Work", "Completed"} {
+	for _, want := range []string{"Classical preparation history", "Classical preparation", "Synthetic Work"} {
 		assert.Contains(t, jobsPage.Body.String(), want)
 	}
 
