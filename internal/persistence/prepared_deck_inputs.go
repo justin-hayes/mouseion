@@ -371,7 +371,7 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	if err != nil {
 		return nil, err
 	}
-	referenceTranslations, referencePin, err := mergedReferenceTranslations(ctx, tx, preparation.OwnerID, candidateLanguages(selected))
+	referenceTranslations, referencePin, err := definitionReferenceTranslations(ctx, tx, preparation)
 	if err != nil {
 		return nil, err
 	}
@@ -387,6 +387,39 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 		})
 	}
 	return result, nil
+}
+
+// definitionReferenceTranslations loads the installation-wide translation rows
+// for the Book's definition translation pin and reports the pin to freeze on
+// each card. A Book without a translation pin, or a pin whose import has not
+// succeeded yet, yields empty values so deck preparation abstains from passage
+// context instead of failing or inventing English.
+func definitionReferenceTranslations(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (map[string]string, string, error) {
+	var pin string
+	err := tx.QueryRow(ctx, `
+		SELECT COALESCE(ru.translation_file_sha256, '')
+		FROM source_materials sm
+		JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
+		JOIN reading_units ru ON ru.id = bru.reading_unit_id
+		WHERE sm.owner_id = $1 AND sm.id = $2`,
+		preparation.OwnerID, preparation.SourceMaterialID).Scan(&pin)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return map[string]string{}, "", nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	if pin == "" {
+		return map[string]string{}, "", nil
+	}
+	translations, err := listReferenceTranslationsByPin(ctx, tx, pin)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(translations) == 0 {
+		return map[string]string{}, "", nil
+	}
+	return translations, "sha256:" + pin, nil
 }
 
 // preparedDeckProjectedEntryScopeTx reports whether a candidate's coverage

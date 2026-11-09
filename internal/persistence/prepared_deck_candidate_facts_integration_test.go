@@ -4,8 +4,10 @@ package persistence
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -160,4 +162,79 @@ func analyzedRunAndCorpus(t *testing.T, ctx context.Context, store *PostgresStor
 	var corpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2`, owner, sourceID).Scan(&corpusID))
 	return runID, corpusID
+}
+
+// TestLoadPreparedDeckCandidateFactsUsesDefinitionTranslationPin proves deck
+// preparation reads the translation rows for its Book's definition pin. A pin
+// without rows abstains from passage context; stored rows then supply the
+// passage text and freeze the pin, while the rest of the candidate facts are
+// unchanged.
+func TestLoadPreparedDeckCandidateFactsUsesDefinitionTranslationPin(t *testing.T) {
+	ctx := context.Background()
+	f := newCandidateFactsFixture(t, ctx, "candidate-facts-translation", "candidate-facts-translation")
+
+	var bookID string
+	require.NoError(t, f.store.Pool().QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, f.ownerID, f.source.ID).Scan(&bookID))
+	translationPin := "00000000000000000000000000000000000000000000000000000000000000aa"
+	definition := classical.Definition{
+		Key: "translation-facts-unit", WorkKey: "translation-facts-work", WorkTitle: "Translation Facts Work", WorkAuthor: "Author",
+		EditionKey: "translation-facts-edition", EditionLabel: "Edition", Language: classical.Language,
+		ConstituentBooks: 1, CitationStart: "1.1.1", CitationEnd: "1.1.1", WordCount: 1,
+		Source: classical.SourcePin{
+			Layer: "translation-facts-layer", FileName: "translation-facts.conllu", Size: 10,
+			SHA256: strings.Repeat("b", 64), Format: classical.SourceFormatOGACoNLLU,
+		},
+		Translation: &classical.TranslationPin{
+			Layer: "translation-facts-translation", FileName: "translation-facts.xml", Size: 10,
+			SHA256: translationPin, CitationStart: "1.1.1", CitationEnd: "1.1.1",
+		},
+		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
+	}
+	require.NoError(t, f.store.ReconcileClassicalManifest(ctx, []classical.Definition{definition}))
+	var readingUnitID string
+	require.NoError(t, f.store.Pool().QueryRow(ctx, `SELECT id::text FROM reading_units WHERE definition_key=$1`, definition.Key).Scan(&readingUnitID))
+	_, err := f.store.Pool().Exec(ctx, `INSERT INTO book_reading_units(owner_id, book_id, reading_unit_id) VALUES($1,$2,$3)`, f.ownerID, bookID, readingUnitID)
+	require.NoError(t, err)
+
+	candidate := domain.SelectionCandidate{
+		OwnerID: f.ownerID, CorpusID: f.corpusID, Language: "de",
+		CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3,
+		ObservedForms: []byte(`["haus"]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
+	}
+	_, err = f.store.PutSelectionCandidate(ctx, candidate)
+	require.NoError(t, err)
+
+	load := func() persistenceCandidates {
+		t.Helper()
+		tx, err := f.store.Pool().Begin(ctx)
+		require.NoError(t, err)
+		defer func() { require.NoError(t, tx.Rollback(ctx)) }()
+		facts, err := f.store.LoadPreparedDeckCandidateFactsTx(ctx, tx, f.preparation, []domain.SelectionCandidate{candidate})
+		require.NoError(t, err)
+		require.Len(t, facts, 1)
+		return persistenceCandidates{
+			translations: facts[0].ReferenceTranslations,
+			pin:          facts[0].ReferencePin,
+			entryLemma:   facts[0].Entry.CanonicalLemma,
+		}
+	}
+
+	missing := load()
+	assert.Empty(t, missing.translations, "a pin without rows yields no passage context")
+	assert.Empty(t, missing.pin, "a pin without rows freezes no pin")
+	assert.Equal(t, "haus", missing.entryLemma, "the remaining candidate facts still load")
+
+	_, err = f.store.PutReferenceTranslations(ctx, translationPin, classical.Language, map[string]string{"1.1.1": "the house"})
+	require.NoError(t, err)
+	present := load()
+	assert.Equal(t, map[string]string{"1.1.1": "the house"}, present.translations)
+	assert.Equal(t, "sha256:"+translationPin, present.pin)
+	assert.Equal(t, "haus", present.entryLemma)
+}
+
+// persistenceCandidates is the deck fact subset this test asserts.
+type persistenceCandidates struct {
+	translations map[string]string
+	pin          string
+	entryLemma   string
 }

@@ -1,19 +1,25 @@
--- Operator-imported reference translations (Brownson's Anabasis translation in
--- the Perseus perseus-eng2 digitisation), keyed by citation. The prepared-deck
--- planner joins them to the cited sections of a representative sentence; a
--- re-import upserts the same citations, so it never changes an already-prepared
--- deck.
+-- Installation-wide reference translations (ADR 0116, ticket #2412). A pinned
+-- English translation file is parsed once per installation; its cited sections
+-- are keyed by the reviewed pin SHA-256 and citation, never by learner. The
+-- prepared-deck planner joins them to the cited sections of a representative
+-- sentence; a re-import upserts the same citations, so it never changes an
+-- already-prepared deck. Different pins coexist.
 
 -- name: UpsertReferenceTranslation :exec
-INSERT INTO reference_translations(owner_id, language, citation, translation, source_pin)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT(owner_id, language, citation) DO UPDATE SET
+INSERT INTO reference_translations(translation_pin_sha256, language, citation, translation)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT(translation_pin_sha256, citation) DO UPDATE SET
+  language = excluded.language,
   translation = excluded.translation,
-  source_pin = excluded.source_pin,
   updated_at = now();
 
--- name: ListReferenceTranslations :many
-SELECT citation, translation, source_pin
+-- name: ListReferenceTranslationsByPin :many
+SELECT citation, translation
 FROM reference_translations
-WHERE owner_id = $1 AND language = $2
+WHERE translation_pin_sha256 = $1
 ORDER BY citation;
+
+-- name: HasReferenceTranslations :one
+SELECT EXISTS(
+  SELECT 1 FROM reference_translations WHERE translation_pin_sha256 = $1
+);

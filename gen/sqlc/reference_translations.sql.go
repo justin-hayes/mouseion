@@ -9,34 +9,41 @@ import (
 	"context"
 )
 
-const listReferenceTranslations = `-- name: ListReferenceTranslations :many
-SELECT citation, translation, source_pin
+const hasReferenceTranslations = `-- name: HasReferenceTranslations :one
+SELECT EXISTS(
+  SELECT 1 FROM reference_translations WHERE translation_pin_sha256 = $1
+)
+`
+
+func (q *Queries) HasReferenceTranslations(ctx context.Context, translationPinSha256 string) (bool, error) {
+	row := q.db.QueryRow(ctx, hasReferenceTranslations, translationPinSha256)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const listReferenceTranslationsByPin = `-- name: ListReferenceTranslationsByPin :many
+SELECT citation, translation
 FROM reference_translations
-WHERE owner_id = $1 AND language = $2
+WHERE translation_pin_sha256 = $1
 ORDER BY citation
 `
 
-type ListReferenceTranslationsParams struct {
-	OwnerID  string
-	Language string
-}
-
-type ListReferenceTranslationsRow struct {
+type ListReferenceTranslationsByPinRow struct {
 	Citation    string
 	Translation string
-	SourcePin   string
 }
 
-func (q *Queries) ListReferenceTranslations(ctx context.Context, arg ListReferenceTranslationsParams) ([]ListReferenceTranslationsRow, error) {
-	rows, err := q.db.Query(ctx, listReferenceTranslations, arg.OwnerID, arg.Language)
+func (q *Queries) ListReferenceTranslationsByPin(ctx context.Context, translationPinSha256 string) ([]ListReferenceTranslationsByPinRow, error) {
+	rows, err := q.db.Query(ctx, listReferenceTranslationsByPin, translationPinSha256)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListReferenceTranslationsRow{}
+	items := []ListReferenceTranslationsByPinRow{}
 	for rows.Next() {
-		var i ListReferenceTranslationsRow
-		if err := rows.Scan(&i.Citation, &i.Translation, &i.SourcePin); err != nil {
+		var i ListReferenceTranslationsByPinRow
+		if err := rows.Scan(&i.Citation, &i.Translation); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -49,34 +56,33 @@ func (q *Queries) ListReferenceTranslations(ctx context.Context, arg ListReferen
 
 const upsertReferenceTranslation = `-- name: UpsertReferenceTranslation :exec
 
-INSERT INTO reference_translations(owner_id, language, citation, translation, source_pin)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT(owner_id, language, citation) DO UPDATE SET
+INSERT INTO reference_translations(translation_pin_sha256, language, citation, translation)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT(translation_pin_sha256, citation) DO UPDATE SET
+  language = excluded.language,
   translation = excluded.translation,
-  source_pin = excluded.source_pin,
   updated_at = now()
 `
 
 type UpsertReferenceTranslationParams struct {
-	OwnerID     string
-	Language    string
-	Citation    string
-	Translation string
-	SourcePin   string
+	TranslationPinSha256 string
+	Language             string
+	Citation             string
+	Translation          string
 }
 
-// Operator-imported reference translations (Brownson's Anabasis translation in
-// the Perseus perseus-eng2 digitisation), keyed by citation. The prepared-deck
-// planner joins them to the cited sections of a representative sentence; a
-// re-import upserts the same citations, so it never changes an already-prepared
-// deck.
+// Installation-wide reference translations (ADR 0116, ticket #2412). A pinned
+// English translation file is parsed once per installation; its cited sections
+// are keyed by the reviewed pin SHA-256 and citation, never by learner. The
+// prepared-deck planner joins them to the cited sections of a representative
+// sentence; a re-import upserts the same citations, so it never changes an
+// already-prepared deck. Different pins coexist.
 func (q *Queries) UpsertReferenceTranslation(ctx context.Context, arg UpsertReferenceTranslationParams) error {
 	_, err := q.db.Exec(ctx, upsertReferenceTranslation,
-		arg.OwnerID,
+		arg.TranslationPinSha256,
 		arg.Language,
 		arg.Citation,
 		arg.Translation,
-		arg.SourcePin,
 	)
 	return err
 }

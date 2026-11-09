@@ -890,12 +890,11 @@ type ReadingUnit struct {
 }
 
 type ReferenceTranslation struct {
-	OwnerID     string
-	Language    string
-	Citation    string
-	Translation string
-	SourcePin   string
-	UpdatedAt   time.Time
+	TranslationPinSha256 string
+	Language             string
+	Citation             string
+	Translation          string
+	UpdatedAt            time.Time
 }
 
 type SelectionCandidate struct {

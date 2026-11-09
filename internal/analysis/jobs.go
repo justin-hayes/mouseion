@@ -2216,7 +2216,7 @@ func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.Ca
 	if standardWorkers < 1 {
 		standardWorkers = 1
 	}
-	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "prepared_decks": {MaxWorkers: 1}, "prepared_deck_translation": {MaxWorkers: standardWorkers}, sourcecheck.Queue: {MaxWorkers: 1}, ClassicalPreparationQueue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "prepared_decks": {MaxWorkers: 1}, "prepared_deck_translation": {MaxWorkers: standardWorkers}, sourcecheck.Queue: {MaxWorkers: 1}, ClassicalPreparationQueue: {MaxWorkers: 1}, ClassicalTranslationQueue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
 }
 
 func configuredJobTimeout() (time.Duration, error) {

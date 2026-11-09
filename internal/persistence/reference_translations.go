@@ -3,8 +3,6 @@ package persistence
 import (
 	"context"
 	"errors"
-	"fmt"
-	"maps"
 	"sort"
 	"strings"
 
@@ -16,12 +14,13 @@ import (
 // translation that cannot be stored.
 var errInvalidReferenceTranslation = errors.New("persistence: invalid reference translation")
 
-// PutReferenceTranslations upserts the operator-imported English translation of
-// each cited section and returns how many sections were written. A re-import of
-// the same pinned file writes the same rows, so an already-prepared deck never
-// changes.
-func (s *PostgresStore) PutReferenceTranslations(ctx context.Context, ownerID, language, sourcePin string, translations map[string]string) (int, error) {
-	if s == nil || strings.TrimSpace(ownerID) == "" || strings.TrimSpace(language) == "" || strings.TrimSpace(sourcePin) == "" || len(translations) == 0 {
+// PutReferenceTranslations upserts the installation-wide English translation of
+// each cited section of one pinned translation file and returns how many
+// sections were written. A re-import of the same pinned file writes the same
+// rows, so an already-prepared deck never changes. The rows carry no owner:
+// every learner and every Book of a Work share them.
+func (s *PostgresStore) PutReferenceTranslations(ctx context.Context, pinSHA256, language string, translations map[string]string) (int, error) {
+	if s == nil || !isLowerHexSHA256String(pinSHA256) || strings.TrimSpace(language) == "" || len(translations) == 0 {
 		return 0, errInvalidReferenceTranslation
 	}
 	citations := make([]string, 0, len(translations))
@@ -36,7 +35,7 @@ func (s *PostgresStore) PutReferenceTranslations(ctx context.Context, ownerID, l
 		q := sqlcgen.New(tx)
 		for _, citation := range citations {
 			if err := q.UpsertReferenceTranslation(ctx, sqlcgen.UpsertReferenceTranslationParams{
-				OwnerID: ownerID, Language: language, Citation: citation, Translation: translations[citation], SourcePin: sourcePin,
+				TranslationPinSha256: pinSHA256, Language: language, Citation: citation, Translation: translations[citation],
 			}); err != nil {
 				return err
 			}
@@ -49,65 +48,56 @@ func (s *PostgresStore) PutReferenceTranslations(ctx context.Context, ownerID, l
 	return len(citations), nil
 }
 
-// ListReferenceTranslations loads an owner's imported translations for one
-// language together with the pin they were imported from. An installation
-// without an imported translation reports an empty map and an empty pin.
-func (s *PostgresStore) ListReferenceTranslations(ctx context.Context, ownerID, language string) (map[string]string, string, error) {
+// ListReferenceTranslationsByPin loads every cited section of one pinned
+// translation file. An installation without that translation reports an empty
+// map, which makes deck preparation abstain from passage context.
+func (s *PostgresStore) ListReferenceTranslationsByPin(ctx context.Context, pinSHA256 string) (map[string]string, error) {
 	if s == nil {
-		return nil, "", ErrInvalidTransition
+		return nil, ErrInvalidTransition
 	}
-	return listReferenceTranslations(ctx, s.pool, ownerID, language)
+	return listReferenceTranslationsByPin(ctx, s.pool, pinSHA256)
 }
 
-// listReferenceTranslations is the transaction-scoped form of
-// ListReferenceTranslations.
-func listReferenceTranslations(ctx context.Context, q sqlcgen.DBTX, ownerID, language string) (map[string]string, string, error) {
-	if strings.TrimSpace(ownerID) == "" || strings.TrimSpace(language) == "" {
-		return map[string]string{}, "", nil
+// listReferenceTranslationsByPin is the transaction-scoped form of
+// ListReferenceTranslationsByPin.
+func listReferenceTranslationsByPin(ctx context.Context, q sqlcgen.DBTX, pinSHA256 string) (map[string]string, error) {
+	if !isLowerHexSHA256String(pinSHA256) {
+		return map[string]string{}, nil
 	}
-	rows, err := sqlcgen.New(q).ListReferenceTranslations(ctx, sqlcgen.ListReferenceTranslationsParams{OwnerID: ownerID, Language: language})
+	rows, err := sqlcgen.New(q).ListReferenceTranslationsByPin(ctx, pinSHA256)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	translations := make(map[string]string, len(rows))
-	pin := ""
 	for _, row := range rows {
-		if pin == "" {
-			pin = row.SourcePin
-		}
 		translations[row.Citation] = row.Translation
 	}
-	if len(translations) == 0 {
-		return map[string]string{}, "", nil
-	}
-	return translations, pin, nil
+	return translations, nil
 }
 
-// mergedReferenceTranslations loads and merges one owner's imported
-// translations across the languages a preparation's candidates use, and reports
-// the pin they share. A preparation with no imported translation reports empty
-// values. Two non-empty pins for the same owner are an inconsistency and are
-// refused rather than silently relabelled.
-func mergedReferenceTranslations(ctx context.Context, q sqlcgen.DBTX, ownerID string, languages map[string]struct{}) (map[string]string, string, error) {
-	merged := make(map[string]string)
-	pin := ""
-	ordered := make([]string, 0, len(languages))
-	for language := range languages {
-		ordered = append(ordered, language)
+// HasReferenceTranslations reports whether any cited section of a pinned
+// translation file is already stored. Translation import skips its download
+// when this is true.
+func (s *PostgresStore) HasReferenceTranslations(ctx context.Context, pinSHA256 string) (bool, error) {
+	if s == nil {
+		return false, ErrInvalidTransition
 	}
-	sort.Strings(ordered)
-	for _, language := range ordered {
-		translations, languagePin, err := listReferenceTranslations(ctx, q, ownerID, language)
-		if err != nil {
-			return nil, "", err
-		}
-		if languagePin != "" {
-			if pin != "" && pin != languagePin {
-				return nil, "", fmt.Errorf("persistence: conflicting reference translation pins for owner %s", ownerID)
-			}
-			pin = languagePin
-		}
-		maps.Copy(merged, translations)
+	if !isLowerHexSHA256String(pinSHA256) {
+		return false, nil
 	}
-	return merged, pin, nil
+	return sqlcgen.New(s.pool).HasReferenceTranslations(ctx, pinSHA256)
+}
+
+// isLowerHexSHA256String reports whether value is a 64-character lowercase
+// hexadecimal SHA-256 digest.
+func isLowerHexSHA256String(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, r := range value {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
+	}
+	return true
 }

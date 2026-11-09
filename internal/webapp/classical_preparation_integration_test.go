@@ -42,10 +42,25 @@ type classicalPreparationFixture struct {
 	unitTwoKey  string
 }
 
-// preparationHarness provisions a migrated database, a reconciled synthetic
-// release, a local layer server and a web handler. The River client is created
-// but not started, so a test can inspect the queued jobs first.
-func preparationHarness(t *testing.T) (context.Context, *persistence.PostgresStore, *pgxpool.Pool, *Handler, *analysis.Service, *river.Client[pgx.Tx], *atomic.Int64, classicalPreparationFixture) {
+// preparationRequests counts the layer downloads one harness saw. Source and
+// translation downloads are separate so a test can prove the work file and its
+// translation are each fetched once.
+type preparationRequests struct {
+	source, translation *atomic.Int64
+}
+
+// preparationHarness provisions a fixture without a reference translation.
+func preparationHarness(t *testing.T) (context.Context, *persistence.PostgresStore, *pgxpool.Pool, *Handler, *analysis.Service, *river.Client[pgx.Tx], preparationRequests, classicalPreparationFixture) {
+	t.Helper()
+	return preparationHarnessWithTranslation(t, nil)
+}
+
+// preparationHarnessWithTranslation provisions a migrated database, a
+// reconciled synthetic release, a local layer server and a web handler. A
+// non-nil translationData adds the reviewed translation pin to both Reading
+// units and serves those bytes from the translation layer. The River client is
+// created but not started, so a test can inspect the queued jobs first.
+func preparationHarnessWithTranslation(t *testing.T, translationData []byte) (context.Context, *persistence.PostgresStore, *pgxpool.Pool, *Handler, *analysis.Service, *river.Client[pgx.Tx], preparationRequests, classicalPreparationFixture) {
 	t.Helper()
 	t.Setenv("MOUSEION_SECRET", "classical-preparation-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -69,19 +84,33 @@ func preparationHarness(t *testing.T) (context.Context, *persistence.PostgresSto
 		unitOneKey: "synthetic-work-1",
 		unitTwoKey: "synthetic-work-2",
 	}
-	fixture.definitions = []classical.Definition{
-		preparationDefinition("synthetic-work-1", "Synthetic Work", "Author", pin, &one, "1.1.1", "1.1.2", 4),
-		preparationDefinition("synthetic-work-2", "Synthetic Work", "Author", pin, &two, "2.1.1", "2.1.1", 2),
+	var translation *classical.TranslationPin
+	if translationData != nil {
+		translationSum := sha256.Sum256(translationData)
+		translation = &classical.TranslationPin{
+			Layer: "synthetic-layer", FileName: "synthetic-translation.xml",
+			Size: int64(len(translationData)), SHA256: hex.EncodeToString(translationSum[:]),
+			CitationStart: "1.1.1", CitationEnd: "1.2.18",
+		}
 	}
+	first := preparationDefinition("synthetic-work-1", "Synthetic Work", "Author", pin, &one, "1.1.1", "1.1.2", 4)
+	second := preparationDefinition("synthetic-work-2", "Synthetic Work", "Author", pin, &two, "2.1.1", "2.1.1", 2)
+	first.Translation, second.Translation = translation, translation
+	fixture.definitions = []classical.Definition{first, second}
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, fixture.definitions))
 	catalog, err := classical.NewCatalog(fixture.definitions)
 	require.NoError(t, err)
 
-	var layerRequests atomic.Int64
+	requests := preparationRequests{source: &atomic.Int64{}, translation: &atomic.Int64{}}
 	layer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		layerRequests.Add(1)
-		_, writeErr := w.Write(data)
-		if writeErr != nil {
+		body := data
+		counter := requests.source
+		if translationData != nil && strings.HasSuffix(r.URL.Path, "synthetic-translation.xml") {
+			body = translationData
+			counter = requests.translation
+		}
+		counter.Add(1)
+		if _, writeErr := w.Write(body); writeErr != nil {
 			return
 		}
 	}))
@@ -93,12 +122,17 @@ func preparationHarness(t *testing.T) (context.Context, *persistence.PostgresSto
 	}}}
 	config := analysis.ClassicalPreparationConfig{Layers: layers, HTTPClient: layer.Client(), TempDir: t.TempDir()}
 	workers := river.NewWorkers()
-	analysis.AddClassicalPreparationWorker(workers, store, config)
+	preparationWorker := analysis.AddClassicalPreparationWorker(workers, store, config)
+	analysis.AddClassicalTranslationWorker(workers, store, config)
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues:  map[string]river.QueueConfig{analysis.ClassicalPreparationQueue: {MaxWorkers: 1}},
+		Queues: map[string]river.QueueConfig{
+			analysis.ClassicalPreparationQueue: {MaxWorkers: 1},
+			analysis.ClassicalTranslationQueue: {MaxWorkers: 1},
+		},
 		Workers: workers,
 	})
 	require.NoError(t, err)
+	preparationWorker.Client = client
 
 	service := analysis.NewService(store.Pool(), client).WithClassicalPreparationStore(store)
 	authService := auth.New(store, time.Hour)
@@ -112,7 +146,7 @@ func preparationHarness(t *testing.T) (context.Context, *persistence.PostgresSto
 		CatalogueSync:        fixtures.NewCatalogueSync(fixtures.NewStore()),
 		SessionLifetime:      time.Hour,
 	})
-	return ctx, store, pool, h, service, client, &layerRequests, fixture
+	return ctx, store, pool, h, service, client, requests, fixture
 }
 
 func preparationDefinition(key, title, author string, pin classical.SourcePin, book *int, start, end string, words int) classical.Definition {
@@ -189,7 +223,7 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, domain.BookDispositionToRead, after.Disposition)
 	}
-	assert.Zero(t, layerRequests.Load(), "enqueueing a preparation fetches nothing")
+	assert.Zero(t, layerRequests.source.Load(), "enqueueing a preparation fetches nothing")
 	var prepJobs, analysisJobs int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue).Scan(&prepJobs))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind='analyze_corpus'`).Scan(&analysisJobs))
@@ -216,7 +250,7 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "classical preparation client", client.Stop)
 	waitForPreparedBooks(t, pool, learner.ID, 2)
-	assert.Equal(t, int64(1), layerRequests.Load(), "the work file downloads once for both Books")
+	assert.Equal(t, int64(1), layerRequests.source.Load(), "the work file downloads once for both Books")
 
 	// The jobs surface shows the Book, attempt and state.
 	jobsPage := perform(t, h, http.MethodGet, "/jobs", nil, cookies)
@@ -338,7 +372,7 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 	}, otherCookies)
 	require.Equal(t, http.StatusSeeOther, otherMoved.Code, otherMoved.Body.String())
 	waitForPreparedBooks(t, pool, other.ID, 1)
-	assert.Equal(t, int64(1), layerRequests.Load(), "a second learner reuses the installation-wide source")
+	assert.Equal(t, int64(1), layerRequests.source.Load(), "a second learner reuses the installation-wide source")
 }
 
 type preparedBookUnit struct {
@@ -389,4 +423,127 @@ func TestClassicalPreparationPrunesSourcesAtStartup(t *testing.T) {
 	other.ConstituentBooks = 1
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{other}))
 	assert.Zero(t, countRows(t, pool, `SELECT count(*) FROM classical_sources`), "unpinned stored source is pruned")
+}
+
+// TestClassicalTranslationFetchedOnceAndSharedByTwoLearners proves a definition's
+// pinned translation is downloaded once, parsed into installation-wide rows and
+// reused by a second learner without another download. The file itself is never
+// stored and the Book's analysis publishes before the import even starts.
+func TestClassicalTranslationFetchedOnceAndSharedByTwoLearners(t *testing.T) {
+	translationData, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "perseus-eng2-section.xml"))
+	require.NoError(t, err)
+	ctx, store, pool, h, _, client, requests, fixture := preparationHarnessWithTranslation(t, translationData)
+	learner := createAccount(t, ctx, store, "classical-translation-one", "learner-password")
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+
+	added := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	owned := booksByReadingUnit(t, store, learner.ID)
+	bookID := owned[fixture.unitOneKey]
+	require.NotEmpty(t, bookID)
+	detail, err := store.GetBookDetail(ctx, learner.ID, bookID)
+	require.NoError(t, err)
+	moved := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/to-read", url.Values{
+		"csrf_token":        {csrf},
+		"expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, moved.Code, moved.Body.String())
+
+	require.NoError(t, client.Start(ctx))
+	testutil.StopOnCleanup(t, "classical prep translation client", client.Stop)
+	waitForPreparedBooks(t, pool, learner.ID, 1)
+	translationPin := fixture.definitions[0].Translation.SHA256
+	waitForReferenceTranslations(t, pool, translationPin, 4)
+	assert.Equal(t, int64(1), requests.translation.Load(), "the translation downloads once")
+	assert.Equal(t, int64(1), requests.source.Load(), "the work file downloads once")
+
+	var storedTranslation int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM classical_sources WHERE sha256=$1`, translationPin).Scan(&storedTranslation))
+	assert.Zero(t, storedTranslation, "a translation file is never stored")
+
+	// A second learner reads the same Work: preparation reuses both the work
+	// file and the parsed translation, so neither is downloaded again.
+	other := createAccount(t, ctx, store, "classical-translation-two", "learner-password")
+	otherCookies, otherCSRF := loginCookies(t, h, other.Username, "learner-password")
+	otherAdd := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {otherCSRF}}, otherCookies)
+	require.Equal(t, http.StatusSeeOther, otherAdd.Code, otherAdd.Body.String())
+	otherBookID := booksByReadingUnit(t, store, other.ID)[fixture.unitOneKey]
+	require.NotEmpty(t, otherBookID)
+	otherDetail, err := store.GetBookDetail(ctx, other.ID, otherBookID)
+	require.NoError(t, err)
+	otherMoved := perform(t, h, http.MethodPost, "/library/books/"+otherBookID+"/to-read", url.Values{
+		"csrf_token":        {otherCSRF},
+		"expected_revision": {strconv.FormatInt(otherDetail.DispositionRevision, 10)},
+	}, otherCookies)
+	require.Equal(t, http.StatusSeeOther, otherMoved.Code, otherMoved.Body.String())
+	waitForPreparedBooks(t, pool, other.ID, 1)
+	waitForReferenceTranslations(t, pool, translationPin, 4)
+	assert.Equal(t, int64(1), requests.translation.Load(), "a second learner reuses the parsed translation")
+	assert.Equal(t, int64(1), requests.source.Load(), "a second learner reuses the work file")
+
+	var rows int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM reference_translations WHERE translation_pin_sha256=$1`, translationPin).Scan(&rows))
+	assert.Equal(t, 4, rows)
+}
+
+// waitForReferenceTranslations waits until the installation-wide rows for one
+// translation pin contain want sections.
+func waitForReferenceTranslations(t *testing.T, pool *pgxpool.Pool, pin string, want int) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		var count int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT count(*) FROM reference_translations WHERE translation_pin_sha256=$1`, pin).Scan(&count); err != nil {
+			return false
+		}
+		return count == want
+	}, 60*time.Second, 50*time.Millisecond, "translation rows did not import")
+}
+
+// TestClassicalTranslationFailureLeavesBookAnalyzed proves the translation
+// import is non-blocking: its pin mismatch fails the separate job and leaves no
+// rows, while the Book's own analysis stays published and readable.
+func TestClassicalTranslationFailureLeavesBookAnalyzed(t *testing.T) {
+	translationData, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "perseus-eng2-section.xml"))
+	require.NoError(t, err)
+	ctx, store, pool, h, _, client, _, fixture := preparationHarnessWithTranslation(t, translationData)
+	// The definition pins a file whose bytes the layer will not serve.
+	_, err = pool.Exec(ctx, `UPDATE reading_units SET translation_file_sha256=$1 WHERE definition_key=$2`, strings.Repeat("0", 64), fixture.unitOneKey)
+	require.NoError(t, err)
+
+	learner := createAccount(t, ctx, store, "classical-translation-failure", "learner-password")
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	added := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	bookID := booksByReadingUnit(t, store, learner.ID)[fixture.unitOneKey]
+	require.NotEmpty(t, bookID)
+	detail, err := store.GetBookDetail(ctx, learner.ID, bookID)
+	require.NoError(t, err)
+	moved := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/to-read", url.Values{
+		"csrf_token":        {csrf},
+		"expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, moved.Code, moved.Body.String())
+
+	require.NoError(t, client.Start(ctx))
+	testutil.StopOnCleanup(t, "classical translation failure client", client.Stop)
+	waitForPreparedBooks(t, pool, learner.ID, 1)
+
+	// The separate import job runs, fails its pin check and becomes retryable
+	// or discarded; the Book's prepared-definition record already exists.
+	require.Eventually(t, func() bool {
+		var failed int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT count(*) FROM river_job WHERE kind=$1 AND (attempt > 0 OR state IN ('retryable','discarded'))`,
+			analysis.ClassicalTranslationQueue).Scan(&failed); err != nil {
+			return false
+		}
+		return failed > 0
+	}, 30*time.Second, 50*time.Millisecond, "the translation import did not fail")
+	var records int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM classical_prepared_definitions WHERE owner_id=$1 AND book_id=$2`, learner.ID, bookID).Scan(&records))
+	assert.Equal(t, 1, records, "the Book's analysis is published before the translation import")
+	var rows int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM reference_translations WHERE translation_pin_sha256=$1`, strings.Repeat("0", 64)).Scan(&rows))
+	assert.Zero(t, rows, "a failed import stores no translation rows")
 }

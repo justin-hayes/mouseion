@@ -222,6 +222,7 @@ type Querier interface {
 	// every persisted word the decision addresses (GetSentenceStudyDecisions).
 	GetVocabularySentenceStudy(ctx context.Context, arg GetVocabularySentenceStudyParams) ([]GetVocabularySentenceStudyRow, error)
 	HasCurrentLemmaCorrectionsForAnalysis(ctx context.Context, arg HasCurrentLemmaCorrectionsForAnalysisParams) (bool, error)
+	HasReferenceTranslations(ctx context.Context, translationPinSha256 string) (bool, error)
 	// Core persistence queries: users, sessions, supported languages, analysis
 	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
 	// states, known vocabulary, generated vocabulary, example/curated sentences,
@@ -315,7 +316,7 @@ type Querier interface {
 	// produces no row. A ready projection with no counts produces one row with an
 	// empty identity so the two cases stay distinguishable.
 	ListProjectedCorpusVocabulary(ctx context.Context, arg ListProjectedCorpusVocabularyParams) ([]ListProjectedCorpusVocabularyRow, error)
-	ListReferenceTranslations(ctx context.Context, arg ListReferenceTranslationsParams) ([]ListReferenceTranslationsRow, error)
+	ListReferenceTranslationsByPin(ctx context.Context, translationPinSha256 string) ([]ListReferenceTranslationsByPinRow, error)
 	ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]ListReservedDeckVocabularyRow, error)
 	ListReviewSentences(ctx context.Context, arg ListReviewSentencesParams) ([]ListReviewSentencesRow, error)
 	ListReviewSentencesForBook(ctx context.Context, arg ListReviewSentencesForBookParams) ([]ListReviewSentencesForBookRow, error)
@@ -430,11 +431,12 @@ type Querier interface {
 	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)
 	UpsertLSJSenseSummary(ctx context.Context, arg UpsertLSJSenseSummaryParams) error
 	UpsertReadingUnit(ctx context.Context, arg UpsertReadingUnitParams) (UpsertReadingUnitRow, error)
-	// Operator-imported reference translations (Brownson's Anabasis translation in
-	// the Perseus perseus-eng2 digitisation), keyed by citation. The prepared-deck
-	// planner joins them to the cited sections of a representative sentence; a
-	// re-import upserts the same citations, so it never changes an already-prepared
-	// deck.
+	// Installation-wide reference translations (ADR 0116, ticket #2412). A pinned
+	// English translation file is parsed once per installation; its cited sections
+	// are keyed by the reviewed pin SHA-256 and citation, never by learner. The
+	// prepared-deck planner joins them to the cited sections of a representative
+	// sentence; a re-import upserts the same citations, so it never changes an
+	// already-prepared deck. Different pins coexist.
 	UpsertReferenceTranslation(ctx context.Context, arg UpsertReferenceTranslationParams) error
 	UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error)
 	// Immutable source revisions and extracted EPUB-unit snapshots.
