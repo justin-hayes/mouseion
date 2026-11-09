@@ -234,10 +234,10 @@ sentence, provider outcome, raw Gloss, and automatic checks:
   `gloss_excludes` passes only when its confirmed Gloss contains none of them
   as a whole word, ignoring case. It is not applicable when the case was not
   confirmed.
-- **outcome is `literal_use`** — a literal-use control passes only when the
-  provider rejected the idiom.
-- **outcome is `ambiguous`** — an ambiguous control passes only when the
-  provider abstained because no candidate sense fits.
+- **card is omitted (`literal_use` or `ambiguous`)** — a literal-use or
+  ambiguous control passes when the provider returned either kind, because
+  both keep the card out of the deck (ADR 0115). An unresolved answer with no
+  kind, an invalid response or a provider error fails.
 - **lemma card moves off the idiom sentence** — a lemma-card control passes when
   its recorded card sentence differs from the idiom sentence and still carries
   the anchor form.
@@ -247,17 +247,30 @@ and how many were confirmed. Each confirmed item shows its headword, anchor,
 matched words, representative sentence, Gloss and translations; each item the
 provider did not confirm shows its outcome and reason. Every case and confirmed
 sample item leaves a blank reviewer verdict; the command never judges citation
-form or meaning.
+form or meaning. The meaning verdict is one of three grades:
+
+- **correct** — the Gloss fits the sense the sentence uses;
+- **near-miss** — close to that sense and would not mislead a learner about the
+  sentence, but a careful reviewer would word it differently;
+- **misleading** — teaches a meaning the sentence does not have.
 
 ### Gate
 
-Italian idiom cards stay off until a committed report shows all of:
+Italian idiom cards stay off until a committed report shows all of
+([ADR 0115](../adr/0115-idiom-review-gate-tolerates-near-misses.md)):
 
 - every positive case is confirmed with a citation-form Gloss;
-- no literal-use, ambiguous or lemma-card control is confirmed;
-- the sample contains 30 confirmed cards and none teaches a wrong meaning.
+- every lemma-card control passes;
+- the sample contains 30 confirmed cards;
+- no card, in a control or the sample, teaches a misleading meaning;
+- at most 3 cards, across the controls and the sample, are near-misses.
 
-The report states this gate and leaves the final verdict to the operator.
+A literal-use or ambiguous control whose card is omitted passes. One whose
+card is confirmed fails its automatic check, which flags the card for grading;
+the gate then counts it like any other card. The report states this gate and leaves the final verdict to the operator. The
+case set stays frozen at `idiom-review-v3`: a failed review does not add its
+failures as cases. Reports written before ADR 0115 used a zero-tolerance gate
+and are not re-graded.
 
 ### Reports
 
@@ -275,3 +288,15 @@ The report states this gate and leaves the final verdict to the operator.
 - [Idiom card v2 re-run, 2026-11-08](idiom-review-v2-2026-11-08-rerun.md) —
   after #2387; gate failed on the *fare bene* literal control and two
   wrong-meaning sample cards; Italian idiom cards stay off (#2389).
+- [Idiom card v3 review, 2026-11-08](idiom-review-v3-2026-11-08.md) — at the
+  deployed `low` setting; gate failed on the *fare bene*, *rispetto a* and
+  *casa isolata* controls and one wrong-meaning sample card (*casa isolata*);
+  Italian idiom cards stay off (#2389).
+- [Idiom card v3 review at `medium`, 2026-11-08](idiom-review-v3-medium-2026-11-08.md)
+  — diagnostic run; gate failed on the *fare bene* control, *casa isolata*
+  returned as `literal_use`, and the same wrong-meaning sample card (#2389).
+  Both v3 reports were graded under ADR 0114's zero-tolerance gate and are
+  superseded by the run of record below.
+- [Idiom card v3 run of record, 2026-11-08](idiom-review-v3-gate2-2026-11-08.md)
+  — at `medium`, under ADR 0115; gate passed with 3 near-miss control cards and
+  no misleading card. Italian idiom cards may be enabled (#2389).

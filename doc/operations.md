@@ -127,7 +127,10 @@ idiom entries against the selected vocabulary's accepted sentences. Each
 distinct idiom becomes one frozen item, receives its own provider request under
 the separate idiom-card prompt contract, and renders with a `mouseion::idiom`
 tag. The switch fails closed for a covered language until the provider payload
-assessment and the language review report are recorded (ADR 0114).
+assessment and the language review report are recorded (ADR 0114). Italian
+(`it`) is recorded by the
+[passing review](reviews/idiom-review-v3-gate2-2026-11-08.md); run it with
+`MOUSEION_LLM_IDIOM_REASONING_EFFORT=medium`, the setting that review used.
 Cancellation stops local publication first; provider file cleanup is best
 effort. Batch files are temporary: Mouseion requests seven-day provider
 expiration and deletes input, output, and error files after reconciliation or

@@ -56,8 +56,11 @@ func writeIdiomGate(builder *strings.Builder) {
 	builder.WriteString("## Gate\n\n")
 	builder.WriteString("The gate passes only when every item below is true:\n\n")
 	builder.WriteString("- every positive case is confirmed with a citation-form Gloss;\n")
-	builder.WriteString("- no literal-use control is confirmed, every ambiguous control returns `ambiguous`, and every lemma-card control passes its automatic check;\n")
-	builder.WriteString("- none of the sampled cards teaches a wrong meaning.\n\n")
+	builder.WriteString("- every lemma-card control passes;\n")
+	builder.WriteString("- no card, in a control or the sample, teaches a misleading meaning;\n")
+	builder.WriteString("- at most 3 cards, across the controls and the sample, are near-misses.\n\n")
+	builder.WriteString("A control whose card is omitted, as `literal_use` or `ambiguous`, passes. A control whose card is confirmed is graded like any other card. ")
+	builder.WriteString("Grade each card's meaning in context as correct, near-miss (close, and would not mislead a learner) or misleading (ADR 0115).\n\n")
 	builder.WriteString("- [ ] Gate evaluated and recorded: __________\n\n")
 }
 
@@ -91,7 +94,7 @@ func writeIdiomCaseReport(builder *strings.Builder, result idiomCaseResult) {
 	builder.WriteString("- [ ] Citation form — verdict: __________\n")
 	builder.WriteString("- [ ] No definition paraphrase — verdict: __________\n")
 	builder.WriteString("- [ ] No sentence inflection or arguments — verdict: __________\n")
-	builder.WriteString("- [ ] Meaning correct in context — verdict: __________\n\n")
+	builder.WriteString("- [ ] Meaning in context (correct, near-miss or misleading) — verdict: __________\n\n")
 }
 
 func writeIdiomLemmaControl(builder *strings.Builder, testCase idiomReviewCase, result idiomCaseResult) {
@@ -161,7 +164,7 @@ func writeIdiomSampleCards(builder *strings.Builder, sample idiomSampleReport) {
 		writef(builder, "- Translation: %s\n", codeSpan(card.Response.Translation))
 		writef(builder, "- Sentence translation: %s\n", codeSpan(card.Response.SentenceTranslation))
 		builder.WriteString("\n#### Reviewer verdicts\n\n")
-		builder.WriteString("- [ ] Meaning correct in context — verdict: __________\n\n")
+		builder.WriteString("- [ ] Meaning in context (correct, near-miss or misleading) — verdict: __________\n\n")
 	}
 	writeIdiomSampleUnconfirmed(builder, sample.Unconfirmed)
 	writeIdiomBound(builder, sample.Ranking)

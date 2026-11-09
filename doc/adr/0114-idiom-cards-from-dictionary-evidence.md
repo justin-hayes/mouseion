@@ -1,6 +1,6 @@
 # ADR 0114: Idiom cards from dictionary evidence, confirmed by the provider
 
-Status: **Accepted — implementation in progress** · Date: 2026-11-07 · Author: Justin + OpenCode
+Status: **Accepted — implementation in progress; rollout gate amended by [ADR 0115](0115-idiom-review-gate-tolerates-near-misses.md)** · Date: 2026-11-07 · Author: Justin + OpenCode
 
 Accepted by merging this ADR's pull request. Decided in
 [#2351](https://github.com/justin-hayes/mouseion/issues/2351). Builds on
@@ -104,6 +104,9 @@ committed under `doc/reviews/` must show that:
 - no literal-use control is confirmed;
 - a sample of 30 confirmed idiom cards from one real Book in that language
   contains no card that teaches a wrong meaning.
+
+ADR 0115 replaces this gate with a severity-graded one that allows a few
+near-misses.
 
 Italian goes first. Its index has the best coverage, and its idioms are mostly
 contiguous. German follows once matching handles reordered verbal idioms

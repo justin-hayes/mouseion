@@ -60,14 +60,14 @@ func TestLSJSenseSummaryUnrecordedAssessmentFailsClosed(t *testing.T) {
 	require.ErrorIs(t, AllowExternalProviderCall(unrecorded, "grc", codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()), ErrProviderAssessmentNotRecorded)
 }
 
-// TestIdiomCardAssessmentIsUnrecordedUntilTheItalianReview proves the idiom
-// payload is covered and fails closed before the review report is committed.
-func TestIdiomCardAssessmentIsUnrecordedUntilTheItalianReview(t *testing.T) {
-	assessment := assessmentByTicket(t, "#2362")
-	assert.False(t, assessment.Recorded)
+// TestIdiomCardAssessmentIsRecordedForItalianOnly proves the passing Italian
+// review records the idiom payload for Italian and no other language.
+func TestIdiomCardAssessmentIsRecordedForItalianOnly(t *testing.T) {
+	assessment := assessmentByTicket(t, "#2389")
+	assert.True(t, assessment.Recorded)
 	codec := passCodec(t)
-	require.ErrorIs(t, AllowExternalProviderCall(ProviderAssessments(), "it", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded)
-	require.ErrorIs(t, AllowIdiomCardCall(ProviderAssessments(), "it", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded)
+	require.NoError(t, AllowExternalProviderCall(ProviderAssessments(), "it", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()))
+	require.NoError(t, AllowIdiomCardCall(ProviderAssessments(), "it", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()))
 	require.ErrorIs(t, AllowIdiomCardCall(ProviderAssessments(), "de", codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()), ErrProviderAssessmentNotRecorded, "a language without an idiom assessment is not rolled out by implication")
 }
 

@@ -28,7 +28,11 @@ func TestIdiomAssessmentBlocksACoveredLanguageBeforeFreeze(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
 	require.NoError(t, err)
 	planner := &BatchPlanner{Codec: codec}
-	require.ErrorIs(t, planner.validateIdiomAssessment([]string{"it"}), enrichment.ErrProviderAssessmentNotRecorded, "the compiled Italian assessment awaits its review report")
+	require.NoError(t, planner.validateIdiomAssessment([]string{"it"}), "the compiled Italian assessment is recorded")
+	require.ErrorIs(t, planner.validateIdiomAssessment([]string{"de"}), enrichment.ErrProviderAssessmentNotRecorded, "the compiled assessments cover Italian only")
+
+	planner.Assessments = []enrichment.ProviderAssessment{}
+	require.ErrorIs(t, planner.validateIdiomAssessment([]string{"it"}), enrichment.ErrProviderAssessmentNotRecorded, "an empty assessment set blocks Italian")
 
 	recorded := enrichment.ProviderAssessment{
 		Language: "it", Provider: codec.ProviderName(), PromptVersion: codec.IdiomCardPromptContract(),
