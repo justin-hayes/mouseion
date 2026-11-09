@@ -215,9 +215,22 @@ func (h *classicalFailureHarness) waitForFailure(owner, bookID string) domain.Cl
 		if err != nil || !found {
 			return false
 		}
+		// The failure record is written from the worker's defer before River
+		// finalizes the job. Wait for the settled job too, so a retry cannot
+		// collide with a still-running unique job.
+		var state string
+		if err := h.pool.QueryRow(context.Background(), `
+			SELECT state::text FROM river_job
+			WHERE kind = $1 AND args->>'book_id' = $2
+			ORDER BY id DESC LIMIT 1`, analysis.ClassicalPreparationQueue, bookID).Scan(&state); err != nil {
+			return false
+		}
+		if state != "discarded" && state != "cancelled" {
+			return false
+		}
 		record = got
 		return true
-	}, 60*time.Second, 50*time.Millisecond, "preparation did not record a failure")
+	}, 60*time.Second, 50*time.Millisecond, "preparation did not record a settled failure")
 	return record
 }
 
@@ -225,7 +238,7 @@ func (h *classicalFailureHarness) waitForPrepared(owner, bookID string) {
 	h.t.Helper()
 	require.Eventually(h.t, func() bool {
 		book, err := h.store.GetBookDetail(context.Background(), owner, bookID)
-		return err == nil && book.Classification().AnalysisInEffect()
+		return err == nil && book.Classification().AnalysisInEffect() && book.ClassicalPreparation == nil
 	}, 60*time.Second, 50*time.Millisecond, "Book did not publish its preparation")
 }
 
