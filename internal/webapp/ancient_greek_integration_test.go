@@ -55,23 +55,23 @@ func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 		assert.Contains(t, library.Body.String(), want, "My Books missing %q", want)
 	}
 
-	// To Read is refused before the disposition changes and before any analysis
-	// job is submitted.
+	// To Read changes the disposition. This harness has no preparation worker,
+	// so no job is submitted; the dedicated worker path is covered by the
+	// classical preparation integration test.
 	detail, err := store.GetBookDetail(ctx, learner.ID, report.BookID)
 	require.NoError(t, err)
 	require.Equal(t, domain.BookDispositionInbox, detail.Disposition)
-	refused := perform(t, h, "POST", "/library/books/"+report.BookID+"/to-read", url.Values{
+	moved := perform(t, h, "POST", "/library/books/"+report.BookID+"/to-read", url.Values{
 		"csrf_token":        {csrf},
 		"expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
 	}, cookies)
-	require.Equal(t, http.StatusSeeOther, refused.Code)
-	assert.Contains(t, refused.Header().Get("Location"), url.QueryEscape(notPreparedYetNote))
+	require.Equal(t, http.StatusSeeOther, moved.Code)
 	after, err := store.GetBookDetail(ctx, learner.ID, report.BookID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, after.Disposition, "refusal leaves the disposition unchanged")
+	assert.Equal(t, domain.BookDispositionToRead, after.Disposition, "To Read moves an unprepared classical Book")
 	var jobs int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id = $1`, learner.ID).Scan(&jobs))
-	assert.Zero(t, jobs, "refusal enqueues no analysis job")
+	assert.Zero(t, jobs, "To Read never submits EPUB analysis for a classical Book")
 
 	// Re-running creates no second Book for the learner.
 	again, err := service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)

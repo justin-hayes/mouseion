@@ -226,6 +226,14 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	workers := river.NewWorkers()
 	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
 	sourcecheck.AddWorker(workers, store)
+	layers, err := classical.ParseLayers(classical.LayersJSON)
+	if err != nil {
+		return nil, fmt.Errorf("parse Classical catalog layers: %w", err)
+	}
+	analysis.AddClassicalPreparationWorker(workers, store, analysis.ClassicalPreparationConfig{
+		Layers:  layers,
+		TempDir: cfg.acquisitionTempDir,
+	})
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -261,7 +269,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 // buildWebHandler registers the catalogue-sync schedules, then assembles the web
 // application from the dependencies the workers share.
 func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.PostgresStore, dictionaryIndex *dictionary.Index, hasDictionaryIndex bool, deps *serverDependencies) (*webapp.Handler, error) {
-	analysisService := analysis.NewService(store.Pool(), deps.riverClient).WithCapabilities(deps.capabilities)
+	analysisService := analysis.NewService(store.Pool(), deps.riverClient).WithCapabilities(deps.capabilities).WithClassicalPreparationStore(store)
 	if err := analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
 	}
@@ -278,7 +286,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
 	if err != nil {
 		return nil, fmt.Errorf("initialize web application: %w", err)
 	}

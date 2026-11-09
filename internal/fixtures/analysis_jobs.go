@@ -17,6 +17,12 @@ func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob,
 	return append([]domain.AnalysisJob(nil), s.jobs...), nil
 }
 
+// ListClassicalPreparationJobs is empty in the in-memory fixture: the browser
+// harness binds no River queue.
+func (s *Store) ListClassicalPreparationJobs(context.Context, string) ([]domain.ClassicalPreparationJob, error) {
+	return nil, nil
+}
+
 func (s *Store) analysisJobState(id int64) (string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

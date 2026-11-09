@@ -127,12 +127,14 @@ func publishImportedRun(ctx context.Context, tx pgx.Tx, in ancientgreek.ImportWr
 	return publishEligibleAnalysis(ctx, tx, args, bookID)
 }
 
-// importedSourceMaterial builds the source-material row for an import.
+// importedSourceMaterial builds the source-material row for an import. Only
+// the Reading unit's text is stored, keyed by the permanent Reading-unit key;
+// the whole work file stays in the installation-wide source store.
 func importedSourceMaterial(in ancientgreek.ImportWriteRequest) domain.SourceMaterial {
 	return domain.SourceMaterial{
 		OwnerID:          in.OwnerID,
 		Language:         in.Definition.Language,
-		SourceIdentifier: in.Definition.SourceFileName,
+		SourceIdentifier: in.Definition.Key,
 		Title:            in.Definition.WorkTitle,
 		MediaType:        ancientgreek.SourceMediaType,
 		Content:          in.SourceBytes,

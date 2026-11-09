@@ -33,7 +33,12 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 		fail(w, syncErr)
 		return
 	}
-	render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message"), jobBookContexts))
+	preparationJobs, err := h.services.Store.Jobs.ListClassicalPreparationJobs(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, preparationJobs, r.URL.Query().Get("message"), jobBookContexts))
 }
 func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -284,4 +289,31 @@ func catalogueSyncJobSummary(status cataloguesync.Status) string {
 		return status.Error
 	}
 	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, maxOne(int(status.Attempt)))
+}
+
+// classicalPreparationJobState maps River's state to the learner-facing label.
+func classicalPreparationJobState(state string) string {
+	switch state {
+	case "completed":
+		return "Completed"
+	case "discarded", "cancelled":
+		return "Failed"
+	case "running":
+		return "Running"
+	default:
+		return "Queued"
+	}
+}
+
+func classicalPreparationJobTone(state string) StatusTone {
+	switch state {
+	case "completed":
+		return StatusSuccess
+	case "discarded", "cancelled":
+		return StatusDanger
+	case "running", "available", "pending", "retryable", "scheduled":
+		return StatusInfo
+	default:
+		return StatusNeutral
+	}
 }

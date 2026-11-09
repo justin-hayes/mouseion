@@ -174,6 +174,26 @@ type CatalogueSyncStatus struct {
 	UpdatedAt         time.Time
 }
 
+type ClassicalPreparedDefinition struct {
+	OwnerID               string
+	BookID                string
+	ReadingUnitKey        string
+	DefinitionRevision    int
+	SourceFileSha256      string
+	InterpretationVersion string
+	AnalysisRunID         string
+	PreparedAt            time.Time
+}
+
+type ClassicalSource struct {
+	Sha256    string
+	Layer     string
+	FileName  string
+	ByteSize  int64
+	Content   []byte
+	CreatedAt time.Time
+}
+
 type ConcordanceOccurrence struct {
 	OwnerID             string
 	Language            string

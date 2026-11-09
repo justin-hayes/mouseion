@@ -113,14 +113,23 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle s
 	}
 }
 
-templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string, jobBookContexts map[string]jobBookContext) {
+templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, preparationJobs []domain.ClassicalPreparationJob, message string, jobBookContexts map[string]jobBookContext) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader("Jobs", "Operational history for catalog sync and analysis work.", nil)
 		if message != "" {
 			@Feedback(FeedbackInfo, "", message)
 		}
-		if len(jobs) == 0 && len(syncJobs) == 0 {
+		if len(jobs) == 0 && len(syncJobs) == 0 && len(preparationJobs) == 0 {
 			@EmptyState("No jobs yet", "Catalog sync and analysis work will appear here when submitted.") { <a href="/library">Go to My Books</a> }
+		}
+		if len(preparationJobs) > 0 {
+			@ResponsiveTable("Classical preparation history") {
+				<thead><tr><th>Kind</th><th>Book</th><th>Status</th><th>Attempt</th><th>Created</th></tr></thead><tbody>
+				for _, job := range preparationJobs {
+					<tr><td>Classical preparation</td><td>{ job.BookTitle }</td><td>@StatusBadge(classicalPreparationJobState(job.State), classicalPreparationJobTone(job.State))</td><td>{ fmt.Sprintf("%d", job.Attempt) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td></tr>
+				}
+				</tbody>
+			}
 		}
 		if len(syncJobs) > 0 {
 			@ResponsiveTable("Catalog sync history") {

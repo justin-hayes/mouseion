@@ -32,6 +32,15 @@ const (
 	// CodeEmptyCitationRange reports a Reading-unit range that does not
 	// resolve to real source tokens.
 	CodeEmptyCitationRange = "citation_range_empty"
+	// CodeUnknownSourceFormat reports a definition whose source format has no
+	// import adapter.
+	CodeUnknownSourceFormat = "source_format_unknown"
+	// CodeSourceLayerUnknown reports a definition whose layer is absent from the
+	// release's layer pins.
+	CodeSourceLayerUnknown = "source_layer_unknown"
+	// CodeSourceDownloadFailed reports a pinned work file that could not be
+	// fetched.
+	CodeSourceDownloadFailed = "source_download_failed"
 )
 
 // ImportAnalyzerName identifies an imported classical analysis run.
@@ -183,10 +192,12 @@ func Import(ctx context.Context, req ImportRequest, writer ImportWriter) (Import
 		return ImportReport{}, err
 	}
 	written, err := writer.WriteImportedAnalysis(ctx, ImportWriteRequest{
-		OwnerID:         req.OwnerID,
-		BookID:          req.BookID,
+		OwnerID: req.OwnerID,
+		BookID:  req.BookID,
+		// Only the Reading unit's text is stored. The whole pinned work file is
+		// provenance in the prepared-definition record, never the Book's source.
+		SourceBytes:     []byte(reading.FullText),
 		Definition:      req.Definition,
-		SourceBytes:     data,
 		FullText:        reading.FullText,
 		UnitID:          unitID,
 		UnitTitle:       req.Definition.WorkTitle,

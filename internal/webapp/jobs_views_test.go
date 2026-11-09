@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
@@ -23,7 +24,7 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	}
 	syncJobs := []cataloguesync.Status{{ID: 3, LogicalState: "cancelled", ConnectionName: "Archive"}}
 	bookContexts := map[string]jobBookContext{"book-1": {Title: "Der lange Weg nach Hause", ReadingURL: "/reading#book-1"}}
-	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", jobs, syncJobs, "", bookContexts).Render(context.Background(), &history))
+	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", jobs, syncJobs, nil, "", bookContexts).Render(context.Background(), &history))
 	html := history.String()
 	assert.Contains(t, html, `<body class="jobs-shell">`)
 	assert.NotContains(t, html, "pico-2.1.1.min.css")
@@ -54,6 +55,37 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.Contains(t, detailHTML, "Unavailable")
 	assert.NotContains(t, detailHTML, "0001-01-01")
 	assert.Contains(t, detailHTML, `role="status"`)
+}
+
+func TestJobsViewsShowClassicalPreparationBookAttemptAndState(t *testing.T) {
+	var output bytes.Buffer
+	jobs := []domain.ClassicalPreparationJob{{
+		ID: 9, BookID: "book-9", BookTitle: "Anabasis", Attempt: 1, State: "running",
+		CreatedAt: time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC),
+	}}
+	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", nil, nil, jobs, "", nil).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, `aria-label="Classical preparation history"`)
+	assert.Contains(t, html, "Classical preparation")
+	assert.Contains(t, html, "Anabasis")
+	assert.Contains(t, html, "Running")
+	assert.Contains(t, html, "2026-11-09 12:00")
+}
+
+func TestClassicalPreparationJobStateMapping(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"completed": "Completed", "discarded": "Failed", "cancelled": "Failed",
+		"running": "Running", "available": "Queued", "pending": "Queued",
+		"scheduled": "Queued", "retryable": "Queued", "unknown": "Queued",
+	}
+	for state, want := range cases {
+		t.Run(state, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, want, classicalPreparationJobState(state))
+			assert.NotEmpty(t, classicalPreparationJobTone(state))
+		})
+	}
 }
 
 func TestOperationalShellStylesExcludePico(t *testing.T) {
