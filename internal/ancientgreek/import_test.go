@@ -27,11 +27,30 @@ func (w *capturedWriter) WriteImportedAnalysis(_ context.Context, request Import
 	return w.result, w.err
 }
 
+// testDefinition is the synthetic fixture's reviewed Reading-unit definition.
+// It mirrors the shipped Anabasis Book 1 key and citation range without
+// compiling the retired production definition into the binary.
+func testDefinition() domain.ReadingUnitDefinition {
+	return domain.ReadingUnitDefinition{
+		Key:                   "xenophon-anabasis-1",
+		Language:              Language,
+		WorkTitle:             "Anabasis",
+		WorkAuthor:            "Xenophon",
+		EditionLabel:          "Marchant 1904",
+		CitationStart:         "1.1.1",
+		CitationEnd:           "1.10.19",
+		SourceFileName:        "tlg0032.tlg006.perseus-grc2_oga020_src.conllu",
+		SourceFileSize:        7438037,
+		SourceFileSHA256:      "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61",
+		InterpretationVersion: "oga-agdt-upos/5",
+	}
+}
+
 // fixtureDefinition pins the fixture file's exact size and digest.
 func fixtureDefinition(t *testing.T) domain.ReadingUnitDefinition {
 	t.Helper()
 	data := readFixture(t)
-	definition := AnabasisBook1
+	definition := testDefinition()
 	definition.SourceFileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	definition.SourceFileSHA256 = hex.EncodeToString(sum[:])
@@ -48,7 +67,7 @@ func readFixture(t *testing.T) []byte {
 // definitionForBytes pins arbitrary bytes, so a malformed or hostile input still
 // passes the pin check and fails later for the intended reason.
 func definitionForBytes(data []byte) domain.ReadingUnitDefinition {
-	definition := AnabasisBook1
+	definition := testDefinition()
 	definition.SourceFileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	definition.SourceFileSHA256 = hex.EncodeToString(sum[:])
@@ -86,7 +105,7 @@ func TestImportInterpretsFixture(t *testing.T) {
 	assert.Equal(t, SyntaxStateAbsent, writer.request.SyntaxState)
 	assert.Equal(t, ImportAnalyzerName, writer.request.AnalyzerName)
 	assert.Contains(t, writer.request.AnalyzerVersion, PosMappingVersion)
-	assert.Equal(t, domain.ClassicalUnitID(AnabasisBook1.Key), writer.request.UnitID)
+	assert.Equal(t, domain.ClassicalUnitID(testDefinition().Key), writer.request.UnitID)
 
 	first := writer.request.Result.Sentences[0]
 	require.Len(t, first.Tokens, 6)

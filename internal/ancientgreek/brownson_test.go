@@ -43,7 +43,14 @@ func writeFixture(t *testing.T, data []byte) string {
 }
 
 func sourceFor(data []byte) BrownsonSource {
-	source := BrownsonAnabasisBook1
+	source := BrownsonSource{
+		Language:      Language,
+		EditionLabel:  "Brownson (1922)",
+		WorkLabel:     "Xen. Anab.",
+		FileName:      "tlg0032.tlg006.perseus-eng2.xml",
+		CitationStart: "1.1.1",
+		CitationEnd:   "1.10.19",
+	}
 	source.FileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	source.FileSHA256 = hex.EncodeToString(sum[:])
@@ -202,14 +209,6 @@ func TestImportBrownsonDropsALeadingNoteWithoutMergingWords(t *testing.T) {
 	require.Len(t, writer.requests, 1)
 	require.Len(t, writer.requests[0].Translations, 1)
 	assert.Equal(t, "Words remain.", writer.requests[0].Translations[0].Text, "a leading note leaves the text unchanged")
-}
-
-func TestBrownsonAnabasisBook1Pin(t *testing.T) {
-	assert.Equal(t, int64(1101217), BrownsonAnabasisBook1.FileSize)
-	assert.Equal(t, "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7", BrownsonAnabasisBook1.FileSHA256)
-	assert.Equal(t, "sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7", BrownsonAnabasisBook1.Pin())
-	assert.Equal(t, "1.1.1", BrownsonAnabasisBook1.CitationStart)
-	assert.Equal(t, "1.10.19", BrownsonAnabasisBook1.CitationEnd)
 }
 
 // sourceWithRange pins data and replaces the reviewed citation range, so a

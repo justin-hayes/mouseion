@@ -13,11 +13,9 @@ import (
 	"unicode/utf8"
 )
 
-// BrownsonSource is the compiled, reviewed pin of an operator-supplied English
-// reference translation: the Perseus perseus-eng2 digitisation of Brownson's
-// 1921-22 translation of Xenophon's Anabasis. It is checked by size and SHA-256
-// exactly like the pinned oga_src annotation, and its sections are stored as
-// source material keyed by citation.
+// BrownsonSource pins an operator-supplied English reference translation by
+// size and SHA-256, exactly like a pinned oga_src annotation. Its sections are
+// stored as source material keyed by citation.
 type BrownsonSource struct {
 	Language      string
 	EditionLabel  string
@@ -27,21 +25,6 @@ type BrownsonSource struct {
 	FileSHA256    string
 	CitationStart string
 	CitationEnd   string
-}
-
-// BrownsonAnabasisBook1 is the pinned Brownson translation of the Anabasis in
-// the Perseus perseus-eng2 digitisation (canonical-greekLit
-// 0189b9c8d8d1f148133f2f0af309b4ee90ea4332). Size and SHA-256 are the reviewed
-// commitments the import checks.
-var BrownsonAnabasisBook1 = BrownsonSource{
-	Language:      Language,
-	EditionLabel:  "Brownson (1922)",
-	WorkLabel:     "Xen. Anab.",
-	FileName:      "tlg0032.tlg006.perseus-eng2.xml",
-	FileSize:      1101217,
-	FileSHA256:    "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7",
-	CitationStart: "1.1.1",
-	CitationEnd:   "1.10.19",
 }
 
 // Pin returns the stable source identity frozen on a prepared deck item. It is

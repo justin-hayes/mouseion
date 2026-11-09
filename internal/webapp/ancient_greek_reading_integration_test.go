@@ -31,18 +31,17 @@ import (
 func TestAncientGreekStartReservedEndSwitchBook1Reading(t *testing.T) {
 	ctx, store, _, h := ancientGreekHarness(t)
 	learner := createAccount(t, ctx, store, "greek-reading-learner", "learner-password")
-	service := ancientgreek.NewService(store)
-	first, err := service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	first, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
-	secondDefinition := ancientgreek.AnabasisBook1
+	secondDefinition := greekTestDefinition()
 	secondDefinition.Key = "xenophon-anabasis-1-second"
 	secondDefinition.SourceFileName = "second.conllu"
-	second, err := service.Register(ctx, learner.Username, secondDefinition)
+	second, err := registerGreekDefinition(t, ctx, store, learner.ID, secondDefinition)
 	require.NoError(t, err)
 	require.True(t, second.Created)
 	require.NotEqual(t, first.BookID, second.BookID)
 
-	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, first.BookID, "oga-src-reading.conllu", ancientgreek.AnabasisBook1)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, first.BookID, "oga-src-reading.conllu", greekTestDefinition())
 	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, second.BookID, "oga-src-reading-b.conllu", secondDefinition)
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, first.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, second.BookID, domain.BookDispositionToRead))
@@ -129,18 +128,17 @@ func TestAncientGreekStartReservedEndSwitchBook1Reading(t *testing.T) {
 func TestAncientGreekFinishBook1ReadingKnown(t *testing.T) {
 	ctx, store, _, h := ancientGreekHarness(t)
 	learner := createAccount(t, ctx, store, "greek-finish-learner", "learner-password")
-	service := ancientgreek.NewService(store)
-	first, err := service.Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	first, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
-	laterDefinition := ancientgreek.AnabasisBook1
+	laterDefinition := greekTestDefinition()
 	laterDefinition.Key = "xenophon-anabasis-1-finish-later"
 	laterDefinition.SourceFileName = "later.conllu"
-	later, err := service.Register(ctx, learner.Username, laterDefinition)
+	later, err := registerGreekDefinition(t, ctx, store, learner.ID, laterDefinition)
 	require.NoError(t, err)
 	require.True(t, later.Created)
 	require.NotEqual(t, first.BookID, later.BookID)
 
-	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, first.BookID, "oga-src-reading.conllu", ancientgreek.AnabasisBook1)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, first.BookID, "oga-src-reading.conllu", greekTestDefinition())
 	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, later.BookID, "oga-src-reading-c.conllu", laterDefinition)
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, first.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, later.BookID, domain.BookDispositionToRead))

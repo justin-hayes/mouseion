@@ -19,7 +19,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
-	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -52,9 +51,9 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	learner := createAccount(t, ctx, store, "greek-deck-learner", "learner-password")
-	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
-	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-deck.conllu", ancientgreek.AnabasisBook1)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-deck.conllu", greekTestDefinition())
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
@@ -185,7 +184,7 @@ func TestAncientGreekBookOneDeckPreparationAndExport(t *testing.T) {
 
 	// The operator can re-run registration after reading and preparing: the
 	// learner's own tokens, vocabulary and deck rows are not legacy rows.
-	again, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	again, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err, "re-registering after deck preparation is not refused")
 	assert.False(t, again.Created)
 	assert.Equal(t, registration.BookID, again.BookID)
@@ -206,9 +205,9 @@ func TestAncientGreekDeckAgreesWithGatedSnapshotWithoutProvider(t *testing.T) {
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	learner := createAccount(t, ctx, store, "greek-omission-learner", "learner-password")
-	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
-	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-deck-omission.conllu", ancientgreek.AnabasisBook1)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-deck-omission.conllu", greekTestDefinition())
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 

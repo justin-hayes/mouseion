@@ -33,7 +33,7 @@ import (
 func TestAncientGreekBrowseListsBook1Vocabulary(t *testing.T) {
 	ctx, store, _, _ := ancientGreekHarness(t)
 	learner := createAccount(t, ctx, store, "greek-browse-learner", "learner-password")
-	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
 	importGreekFixture(t, ctx, store, learner.ID, registration.BookID, "oga-src-browse.conllu")
 
@@ -92,7 +92,7 @@ func importGreekFixture(t *testing.T, ctx context.Context, store *persistence.Po
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", name)) //nolint:gosec // the fixture name is a test constant.
 	require.NoError(t, err)
-	definition := ancientgreek.AnabasisBook1
+	definition := greekTestDefinition()
 	definition.SourceFileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	definition.SourceFileSHA256 = hex.EncodeToString(sum[:])

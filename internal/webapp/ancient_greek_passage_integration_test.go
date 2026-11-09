@@ -44,9 +44,9 @@ func TestAncientGreekCardPassageContext(t *testing.T) {
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	learner := createAccount(t, ctx, store, "greek-passage-learner", "learner-password")
-	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
-	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-passage.conllu", ancientgreek.AnabasisBook1)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-passage.conllu", greekTestDefinition())
 	translationReport := importBrownsonFixture(t, ctx, store, "perseus-eng2-passage.xml")
 	setReadingUnitTranslationPin(t, ctx, pool, "xenophon-anabasis-1", translationReport)
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
@@ -130,7 +130,7 @@ func importBrownsonFixture(t *testing.T, ctx context.Context, store *persistence
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", name)) //nolint:gosec // the fixture name is a test constant.
 	require.NoError(t, err)
-	source := ancientgreek.BrownsonAnabasisBook1
+	source := brownsonTestSource()
 	source.FileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	source.FileSHA256 = hex.EncodeToString(sum[:])
@@ -149,7 +149,7 @@ func importBrownsonFixture(t *testing.T, ctx context.Context, store *persistence
 // does.
 func setReadingUnitTranslationPin(t *testing.T, ctx context.Context, pool *pgxpool.Pool, definitionKey string, report ancientgreek.BrownsonImportReport) {
 	t.Helper()
-	source := ancientgreek.BrownsonAnabasisBook1
+	source := brownsonTestSource()
 	pin := strings.TrimPrefix(report.SourcePin, "sha256:")
 	_, err := pool.Exec(ctx, `
 		UPDATE reading_units SET
@@ -205,15 +205,15 @@ func TestAncientGreekDeckWithoutTranslationAbstainsFromPassage(t *testing.T) {
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	learner := createAccount(t, ctx, store, "greek-no-translation-learner", "learner-password")
-	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
-	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-passage.conllu", ancientgreek.AnabasisBook1)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-passage.conllu", greekTestDefinition())
 
 	// The definition pins a translation, but its import has not succeeded, so
 	// no installation-wide rows exist for the pin.
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "perseus-eng2-passage.xml"))
 	require.NoError(t, err)
-	source := ancientgreek.BrownsonAnabasisBook1
+	source := brownsonTestSource()
 	source.FileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	source.FileSHA256 = hex.EncodeToString(sum[:])

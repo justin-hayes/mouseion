@@ -17,7 +17,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
-	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -90,9 +89,9 @@ func newGreekPassFixtureWithSummary(t *testing.T, ctx context.Context, username 
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	learner := createAccount(t, ctx, store, username, "learner-password")
-	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
-	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-deck.conllu", ancientgreek.AnabasisBook1)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-deck.conllu", greekTestDefinition())
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
