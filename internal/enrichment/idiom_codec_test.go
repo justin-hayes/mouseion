@@ -111,16 +111,39 @@ func TestIdiomCardCodecRejectsAnEmptyTranslationOnAResolvedAnswer(t *testing.T) 
 	assert.ErrorIs(t, err, ErrInvalidTranslationResponse)
 }
 
-func TestNormalizeTranslationResponseKeepsTheEmptyTranslationRuleOutsideUnresolvedIdioms(t *testing.T) {
-	t.Run("an unresolved idiom answer may leave translation blank", func(t *testing.T) {
-		unresolved := TranslationResponse{SentenceTranslation: "He has a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "literal"}
-		_, err := NormalizeTranslationResponse(idiomCardRequest(), unresolved)
-		require.NoError(t, err)
-	})
-
+// An answer without a Gloss omits the card and is never cached, so its
+// translation is unused: idiom answers (#2385) and contextual-Gloss
+// abstentions (#2354) may leave it blank. Every other answer still needs one.
+func TestNormalizeTranslationResponseKeepsTheEmptyTranslationRuleOutsideUnresolvedAnswers(t *testing.T) {
 	lemma := TranslationRequest{Language: "it", TargetLanguage: "en", CanonicalLemma: "gamba", UPOS: "NOUN", ExampleSentence: "Ho una gamba."}
 	contextual := lemma
 	contextual.RequireContextualGloss = true
+	evidenceAssisted := lemma
+	evidenceAssisted.RequireEvidenceAssistedPass = true
+	for name, test := range map[string]struct {
+		request  TranslationRequest
+		response TranslationResponse
+	}{
+		"an unresolved idiom answer": {
+			request:  idiomCardRequest(),
+			response: TranslationResponse{SentenceTranslation: "He has a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "literal"},
+		},
+		"an ambiguous contextual-gloss abstention": {
+			request:  contextual,
+			response: TranslationResponse{SentenceTranslation: "I have a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "unclear"},
+		},
+		"a lemma_mismatch contextual-gloss abstention": {
+			request:  contextual,
+			response: TranslationResponse{SentenceTranslation: "I have a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedLemmaMismatch, UnresolvedReason: "another lexeme"},
+		},
+	} {
+		t.Run(name+" may leave translation blank", func(t *testing.T) {
+			response, err := NormalizeTranslationResponse(test.request, test.response)
+			require.NoError(t, err)
+			assert.Empty(t, response.Translation)
+		})
+	}
+
 	for name, test := range map[string]struct {
 		request  TranslationRequest
 		response TranslationResponse
@@ -133,9 +156,13 @@ func TestNormalizeTranslationResponseKeepsTheEmptyTranslationRuleOutsideUnresolv
 			request:  lemma,
 			response: TranslationResponse{SentenceTranslation: "I have a leg."},
 		},
-		"a contextual-gloss abstention": {
+		"a resolved contextual Gloss": {
 			request:  contextual,
-			response: TranslationResponse{SentenceTranslation: "I have a leg.", ContextOnly: true, UnresolvedKind: ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "unclear"},
+			response: TranslationResponse{SentenceTranslation: "I have a leg.", Gloss: "leg", ContextOnly: true},
+		},
+		"an evidence-assisted abstention": {
+			request:  evidenceAssisted,
+			response: TranslationResponse{SentenceTranslation: "I have a leg.", ContextOnly: true, UnresolvedReason: "unclear"},
 		},
 	} {
 		t.Run(name+" still needs a translation", func(t *testing.T) {

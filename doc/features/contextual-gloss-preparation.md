@@ -1,6 +1,6 @@
 # Contextual gloss preparation
 
-Status: **Core implemented; citation-form Gloss pending** · Date: 2026-09-27 · Scope revised: 2026-10-29 · Decisions:
+Status: **Implemented; citation-form Gloss v17 reviewed** · Date: 2026-09-27 · Scope revised: 2026-10-29 · Decisions:
 [ADR 0079](../adr/0079-contextual-glosses-require-llm.md),
 [ADR 0112](../adr/0112-gloss-is-lemma-sense-in-citation-form.md)
 
@@ -151,32 +151,34 @@ one-to-three-word cue would mislead, especially for function words or idioms.
       inspectable in the deck result, not stamped onto cards.
 - [x] Previous decks are unchanged, presentation rerenders read frozen data,
       and Wiktionary credits are present in deck/export metadata.
-- [ ] Explicit re-preparation may use refreshed index/prompt versions without
+- [x] Explicit re-preparation may use refreshed index/prompt versions without
       rewriting older generations (#1266).
-- [ ] Glosses are citation-form equivalents of the lemma's sense: verbs as
+- [x] Glosses are citation-form equivalents of the lemma's sense: verbs as
       "to …", nouns singular without an article, adjectives in base form; equal
       to the lemma translation unless the sense differs; no definition paraphrase;
       no sentence inflection, number or arguments (#2325).
-- [ ] A `lemma_mismatch` response omits the card with the reserved reason, and
+- [x] A `lemma_mismatch` response omits the card with the reserved reason, and
       the deck status view and JSON count and label it separately from
       `ambiguous` omissions; malformed `unresolved_kind` values are rejected
       and a stray kind beside a resolved Gloss is discarded (#2325).
-- [ ] A `lemma_mismatch` omission also raises one advisory, non-blocking lemma
+- [x] A `lemma_mismatch` omission also raises one advisory, non-blocking lemma
       review flag for the representative target occurrence, with
       provider/model/prompt provenance and no proposed lemma; it never pauses a
       freeze or changes an active reading (#2332).
-- [ ] The prompt contract version is bumped from
+- [x] The prompt contract version is bumped from
       `translation-v15-short-handles`, and the encoded request states the
       citation-form rule, the gloss/translation relationship and the
       `lemma_mismatch` instruction (#2325).
-- [ ] Review gate: an operator review command runs the frozen case set and
+- [x] Review gate: an operator review command runs the frozen case set and
       rubric against the configured provider, outside CI, and its dated report
       is committed under `doc/reviews/`. The new prompt version ships only when
       it keeps every protected win (*palazzo* → "apartment building",
       *schießen* → "to gush out"), produces no definition paraphrase and no
       sentence-inflected Gloss, and returns `lemma_mismatch` for the
       *fernsehen* case. This replaces the original reviewed-sample criterion,
-      which was never completed (#2325).
+      which was never completed (#2325). v17 passed in the
+      [2026-11-09 re-run](../reviews/contextual-gloss-v17-2026-11-09-rerun.md)
+      (#2354).
 
 ## Sources and prior contracts
 

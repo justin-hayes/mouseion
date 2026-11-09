@@ -121,9 +121,7 @@ func writeIdiomRequest(builder *strings.Builder, testCase idiomReviewCase, resul
 func writeIdiomProviderResult(builder *strings.Builder, result idiomCaseResult) {
 	builder.WriteString("\n### Provider result\n\n")
 	writef(builder, "- Outcome: %s\n", codeSpan(string(result.Outcome)))
-	if result.Err != nil {
-		writef(builder, "- Error: %s\n", codeSpan(result.Err.Error()))
-	}
+	writeProviderError(builder, result.Err)
 	writef(builder, "- Translation: %s\n", codeSpan(result.Response.Translation))
 	writef(builder, "- Raw Gloss: %s\n", codeSpan(result.Response.Gloss))
 	writef(builder, "- Evidence IDs: %s\n", codeSpan(strings.Join(result.Response.EvidenceIDs, ", ")))
@@ -209,9 +207,7 @@ func writeIdiomSampleUnconfirmed(builder *strings.Builder, unconfirmed []idiomSa
 	for i, result := range unconfirmed {
 		writeIdiomSampleItemHeading(builder, i+1, result)
 		writef(builder, "- Outcome: %s\n", codeSpan(string(result.Outcome)))
-		if result.Err != nil {
-			writef(builder, "- Error: %s\n", codeSpan(result.Err.Error()))
-		}
+		writeProviderError(builder, result.Err)
 		writef(builder, "- Unresolved reason: %s\n\n", codeSpan(result.Response.UnresolvedReason))
 	}
 }

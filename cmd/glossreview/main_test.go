@@ -529,3 +529,36 @@ func stubClientForCases(t *testing.T, answer func(providerRequestPayload) (strin
 	require.NoError(t, err)
 	return client
 }
+
+// A blank translation is accepted on a lemma_mismatch omission (#2354); a
+// rejected answer is shown in the report so the reviewer can judge it.
+func TestReviewReportsTheRejectedAnswerAndAcceptsABlankTranslationOnAnOmission(t *testing.T) {
+	client := stubClientForCases(t, func(payload providerRequestPayload) (string, string) {
+		switch payload.CanonicalLemma {
+		case "kalt":
+			return "", "cold"
+		case "palazzo":
+			return "apartment building", "apartment building"
+		default:
+			return "", ""
+		}
+	})
+	report := review(context.Background(), reviewOptions{
+		Now:      time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC),
+		Cases:    reviewTestCases(),
+		Client:   client,
+		Provider: reviewTestProviderMetadata(),
+	})
+	require.Len(t, report.Cases, 3)
+	require.Equal(t, outcomeInvalid, report.Cases[0].Outcome, "a resolved Gloss still needs a translation")
+	require.Equal(t, outcomeAbstained, report.Cases[2].Outcome)
+	require.Equal(t, enrichment.ContextualGlossUnresolvedLemmaMismatch, report.Cases[2].Response.UnresolvedKind)
+
+	var output bytes.Buffer
+	require.NoError(t, writeReport(&output, report))
+	rendered := output.String()
+	require.Contains(t, rendered, "- Error: `enrichment: invalid translation response: decode LLM translation: translation is empty`")
+	require.Contains(t, rendered, "- Rejected answer: `{")
+	require.Contains(t, rendered, `"gloss":"cold"`)
+	require.Equal(t, 1, strings.Count(rendered, "- Rejected answer:"), "only the rejected case shows its answer")
+}
