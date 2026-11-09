@@ -38,6 +38,16 @@ const (
 	classicalPreparationTimeout = 10 * time.Minute
 )
 
+// liveJobStates are the River states in which an equivalent job still counts as
+// pending work. A completed job never blocks the next submission or import.
+var liveJobStates = []rivertype.JobState{
+	rivertype.JobStateAvailable,
+	rivertype.JobStatePending,
+	rivertype.JobStateRunning,
+	rivertype.JobStateRetryable,
+	rivertype.JobStateScheduled,
+}
+
 // ErrWithdrawnClassicalDefinition refuses preparation of a Reading unit the
 // running release no longer carries.
 var ErrWithdrawnClassicalDefinition = errors.New("analysis: the Reading unit is no longer in the Classical catalog")
@@ -71,6 +81,14 @@ type ClassicalPreparationStore interface {
 	GetClassicalSource(context.Context, string) (domain.ClassicalSource, bool, error)
 	PutClassicalSource(context.Context, domain.ClassicalSource) error
 	PutClassicalPreparedDefinition(context.Context, domain.ClassicalPreparedDefinition) error
+	HasReferenceTranslations(context.Context, string) (bool, error)
+}
+
+// classicalJobInserter is the River enqueue seam the preparation worker uses to
+// start the separate translation import. It is set after the River client is
+// created, mirroring the catalogue-sync worker.
+type classicalJobInserter interface {
+	Insert(context.Context, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
 }
 
 // ClassicalPreparationConfig supplies the release's reviewed layer pins and the
@@ -151,13 +169,7 @@ func (s *Service) SubmitClassicalPreparation(ctx context.Context, owner, bookID 
 			// A completed job must not block the next submission: the job checks
 			// the prepared-definition record and no-ops. Failed and interrupted
 			// runs are submitted again.
-			ByState: []rivertype.JobState{
-				rivertype.JobStateAvailable,
-				rivertype.JobStatePending,
-				rivertype.JobStateRunning,
-				rivertype.JobStateRetryable,
-				rivertype.JobStateScheduled,
-			},
+			ByState: liveJobStates,
 		},
 	})
 	if err != nil {
@@ -180,6 +192,7 @@ type ClassicalPreparationWorker struct {
 
 	Store   ClassicalPreparationStore
 	Writer  ancientgreek.ImportWriter
+	Client  classicalJobInserter
 	Config  ClassicalPreparationConfig
 	mu      sync.Mutex
 	cached  *ancientgreek.ParsedWork
@@ -212,6 +225,7 @@ func (w *ClassicalPreparationWorker) Work(ctx context.Context, job *river.Job[Cl
 	}
 	if complete {
 		logClassicalPreparation("complete", target, 0, 0)
+		w.ensureTranslationImport(ctx, target)
 		return nil
 	}
 	data, err := w.sourceBytes(ctx, target)
@@ -256,7 +270,48 @@ func (w *ClassicalPreparationWorker) Work(ctx context.Context, job *river.Job[Cl
 		return err
 	}
 	logClassicalPreparation("published", target, unit.Report.Sentences, unit.Report.Tokens)
+	// Translation import is deliberately after the published analysis and is
+	// best effort from here: a missing translation never un-publishes a Book,
+	// and the learner sees no separate translation state.
+	w.ensureTranslationImport(ctx, target)
 	return nil
+}
+
+// ensureTranslationImport starts the separate, non-blocking translation import
+// when the definition pins a translation and the installation has no rows for
+// that pin yet. A failure to check or enqueue is logged and ignored, because the
+// Book is already analyzed and translation failure must not affect it.
+func (w *ClassicalPreparationWorker) ensureTranslationImport(ctx context.Context, target domain.ClassicalPreparationTarget) {
+	if w.Client == nil || !target.HasTranslation() {
+		return
+	}
+	exists, err := w.Store.HasReferenceTranslations(ctx, target.TranslationFileSHA256)
+	if err != nil {
+		log.Printf("mouseion: check reference translation pin=%s: %v", target.TranslationFileSHA256, err)
+		return
+	}
+	if exists {
+		return
+	}
+	if _, err := w.Client.Insert(ctx, ClassicalTranslationArgs{
+		Layer:         target.TranslationLayer,
+		FileName:      target.TranslationFileName,
+		Size:          target.TranslationFileSize,
+		SHA256:        target.TranslationFileSHA256,
+		CitationStart: target.TranslationCitationStart,
+		CitationEnd:   target.TranslationCitationEnd,
+		Language:      classical.Language,
+	}, &river.InsertOpts{
+		Queue:       ClassicalTranslationQueue,
+		MaxAttempts: classicalTranslationMaxAttempts,
+		UniqueOpts: river.UniqueOpts{
+			ByArgs:  true,
+			ByQueue: true,
+			ByState: liveJobStates,
+		},
+	}); err != nil {
+		log.Printf("mouseion: enqueue reference translation pin=%s: %v", target.TranslationFileSHA256, err)
+	}
 }
 
 // sourceBytes returns the verified pinned work file, from the installation
@@ -323,13 +378,13 @@ func (w *ClassicalPreparationWorker) download(ctx context.Context, target domain
 	if response.StatusCode != http.StatusOK {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
 	}
-	return stagePinnedSource(response.Body, target, w.Config.TempDir)
+	return stagePinnedSource(response.Body, target.SourceFileSize, target.SourceFileSHA256, w.Config.TempDir)
 }
 
 // stagePinnedSource bounds, hashes and verifies one response body into a
 // temporary file, then returns its bytes. The temporary file is removed on
 // every outcome.
-func stagePinnedSource(body io.Reader, target domain.ClassicalPreparationTarget, dir string) (data []byte, err error) {
+func stagePinnedSource(body io.Reader, size int64, digest, dir string) (data []byte, err error) {
 	file, err := os.CreateTemp(dir, "mouseion-classical-")
 	if err != nil {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
@@ -341,15 +396,15 @@ func stagePinnedSource(body io.Reader, target domain.ClassicalPreparationTarget,
 		}
 	}()
 	hasher := sha256.New()
-	written, copyErr := io.Copy(io.MultiWriter(file, hasher), io.LimitReader(body, target.SourceFileSize+1))
+	written, copyErr := io.Copy(io.MultiWriter(file, hasher), io.LimitReader(body, size+1))
 	closeErr := file.Close()
 	if copyErr != nil || closeErr != nil {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
 	}
-	if written > target.SourceFileSize {
+	if written > size {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}
 	}
-	if written != target.SourceFileSize || hex.EncodeToString(hasher.Sum(nil)) != target.SourceFileSHA256 {
+	if written != size || hex.EncodeToString(hasher.Sum(nil)) != digest {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}
 	}
 	//nolint:gosec // path is a file this function created inside the configured temp directory.
@@ -440,12 +495,14 @@ func classicalSourceURL(baseURL, fileName string) (string, error) {
 }
 
 // AddClassicalPreparationWorker registers the serial worker on a River worker
-// set.
-func AddClassicalPreparationWorker(workers *river.Workers, store *persistence.PostgresStore, config ClassicalPreparationConfig) {
+// set and returns it, so main can attach the River client used to enqueue the
+// separate translation import.
+func AddClassicalPreparationWorker(workers *river.Workers, store *persistence.PostgresStore, config ClassicalPreparationConfig) *ClassicalPreparationWorker {
 	worker := &ClassicalPreparationWorker{Store: store, Writer: NewGreekImportWriter(store), Config: config}
 	if err := river.AddWorkerSafely(workers, worker); err != nil {
 		log.Printf("mouseion: register classical preparation worker: %v", err)
 	}
+	return worker
 }
 
 // logClassicalPreparation records identifiers, counts and a state word only.

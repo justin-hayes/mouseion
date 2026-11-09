@@ -75,21 +75,21 @@ type ReferenceTranslation struct {
 	Text     string
 }
 
-// BrownsonImportRequest names the learner and the local path of the pinned
-// Brownson file.
+// BrownsonImportRequest names the local path of the pinned Brownson file. The
+// parsed rows are installation-wide, so no learner is named.
 type BrownsonImportRequest struct {
-	OwnerID    string
 	SourcePath string
 	Source     BrownsonSource
 }
 
 // ReferenceTranslationWriteRequest is the source-neutral candidate the writer
-// persists: the cited sections and the pin they were read from.
+// persists: the cited sections and the reviewed pin they were read from. The
+// pin is a 64-character lowercase SHA-256 digest and keys installation-wide
+// rows, so the request carries no owner.
 type ReferenceTranslationWriteRequest struct {
-	OwnerID      string
-	Language     string
-	SourcePin    string
-	Translations []ReferenceTranslation
+	Language             string
+	TranslationPinSHA256 string
+	Translations         []ReferenceTranslation
 }
 
 // BrownsonImportWriter persists one imported reference translation. It is the
@@ -120,16 +120,26 @@ func ImportBrownson(ctx context.Context, req BrownsonImportRequest, writer Brown
 	if err != nil {
 		return BrownsonImportReport{}, err
 	}
-	sections, err := parsePerseusEng2(data, req.Source)
+	sections, err := ParseReferenceTranslation(data, req.Source.CitationStart, req.Source.CitationEnd)
 	if err != nil {
 		return BrownsonImportReport{}, err
 	}
 	if _, err := writer.WriteReferenceTranslations(ctx, ReferenceTranslationWriteRequest{
-		OwnerID: req.OwnerID, Language: req.Source.Language, SourcePin: req.Source.Pin(), Translations: sections,
+		Language: req.Source.Language, TranslationPinSHA256: req.Source.FileSHA256, Translations: sections,
 	}); err != nil {
 		return BrownsonImportReport{}, err
 	}
 	return BrownsonImportReport{SourcePin: req.Source.Pin(), Sections: len(sections), Bytes: int64(len(data))}, nil
+}
+
+// ParseReferenceTranslation extracts every cited section of the citation range
+// from a Perseus perseus-eng2 TEI file. It is the generalised parser used for
+// any pinned reference translation, not just Brownson: Perseus notes are
+// removed, remaining text is kept as is, whitespace is collapsed, and the
+// citation depth comes from the range so section-only and book/chapter/section
+// work files are read the same way. Sections are returned in citation order.
+func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
+	return parsePerseusEng2(data, BrownsonSource{CitationStart: citationStart, CitationEnd: citationEnd})
 }
 
 // parsePerseusEng2 extracts every cited section of the reading unit from a
@@ -175,7 +185,7 @@ func parsePerseusEng2(data []byte, source BrownsonSource) ([]ReferenceTranslatio
 // and returns the number of aligned sections. It refuses a missing or extra
 // section inside the range rather than filling a gap.
 func InspectTranslation(data []byte, start, end string) (int, error) {
-	sections, err := parsePerseusEng2(data, BrownsonSource{CitationStart: start, CitationEnd: end})
+	sections, err := ParseReferenceTranslation(data, start, end)
 	if err != nil {
 		return 0, err
 	}

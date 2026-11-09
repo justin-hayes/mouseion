@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,7 +47,8 @@ func TestAncientGreekCardPassageContext(t *testing.T) {
 	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
 	require.NoError(t, err)
 	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-passage.conllu", ancientgreek.AnabasisBook1)
-	importBrownsonFixture(t, ctx, store, learner.ID, "perseus-eng2-passage.xml")
+	translationReport := importBrownsonFixture(t, ctx, store, "perseus-eng2-passage.xml")
+	setReadingUnitTranslationPin(t, ctx, pool, "xenophon-anabasis-1", translationReport)
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
@@ -116,7 +118,7 @@ func TestAncientGreekCardPassageContext(t *testing.T) {
 	assert.NotContains(t, back, "<b>", "a card back never highlights the passage")
 
 	// A re-import of the pinned Brownson file never changes the frozen deck.
-	importBrownsonFixture(t, ctx, store, learner.ID, "perseus-eng2-passage.xml")
+	importBrownsonFixture(t, ctx, store, "perseus-eng2-passage.xml")
 	unchanged := waitForPreparedDeck(t, ctx, store, learner.ID, reading.SnapshotID)
 	assert.Equal(t, artifact, unchanged.Artifact, "a re-import never changes a frozen deck")
 	assert.Equal(t, items, queryPassageItems(t, ctx, pool, learner.ID))
@@ -124,7 +126,7 @@ func TestAncientGreekCardPassageContext(t *testing.T) {
 
 // importBrownsonFixture imports a synthetic perseus-eng2 fixture with a pin
 // computed from its bytes; the real pinned file never enters the repository.
-func importBrownsonFixture(t *testing.T, ctx context.Context, store *persistence.PostgresStore, ownerID, name string) ancientgreek.BrownsonImportReport {
+func importBrownsonFixture(t *testing.T, ctx context.Context, store *persistence.PostgresStore, name string) ancientgreek.BrownsonImportReport {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", name)) //nolint:gosec // the fixture name is a test constant.
 	require.NoError(t, err)
@@ -135,10 +137,27 @@ func importBrownsonFixture(t *testing.T, ctx context.Context, store *persistence
 	path := filepath.Join(t.TempDir(), name)
 	require.NoError(t, os.WriteFile(path, data, 0o600)) //nolint:gosec // path is inside t.TempDir().
 	report, err := ancientgreek.ImportBrownson(ctx, ancientgreek.BrownsonImportRequest{
-		OwnerID: ownerID, SourcePath: path, Source: source,
+		SourcePath: path, Source: source,
 	}, analysis.NewReferenceTranslationWriter(store))
 	require.NoError(t, err)
 	return report
+}
+
+// setReadingUnitTranslationPin points a legacy registered Reading unit at the
+// pinned translation rows the import just stored, so deck preparation reads
+// the definition's translation pin the way a reconciled classical definition
+// does.
+func setReadingUnitTranslationPin(t *testing.T, ctx context.Context, pool *pgxpool.Pool, definitionKey string, report ancientgreek.BrownsonImportReport) {
+	t.Helper()
+	source := ancientgreek.BrownsonAnabasisBook1
+	pin := strings.TrimPrefix(report.SourcePin, "sha256:")
+	_, err := pool.Exec(ctx, `
+		UPDATE reading_units SET
+			translation_layer=$1, translation_file_name=$2, translation_file_size=$3,
+			translation_file_sha256=$4, translation_citation_start=$5, translation_citation_end=$6
+		WHERE definition_key=$7`,
+		"perseus-eng2-brownson", source.FileName, report.Bytes, pin, source.CitationStart, source.CitationEnd, definitionKey)
+	require.NoError(t, err)
 }
 
 type passageItem struct {
@@ -169,4 +188,82 @@ func queryCardBack(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ownerI
 	var back string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT back FROM cards WHERE owner_id=$1 AND canonical_lemma=$2`, ownerID, lemma).Scan(&back))
 	return back
+}
+
+// TestAncientGreekDeckWithoutTranslationAbstainsFromPassage proves a failed or
+// not-yet-finished translation import leaves the Book analyzed. Deck
+// preparation reads the definition's pin, finds no rows and abstains from
+// passage context, while the source evidence and LSJ meaning evidence remain.
+func TestAncientGreekDeckWithoutTranslationAbstainsFromPassage(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "ancient-greek-missing-translation-secret-0123456789")
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	require.NoError(t, analysis.MigrateRiver(ctx, pool))
+
+	learner := createAccount(t, ctx, store, "greek-no-translation-learner", "learner-password")
+	registration, err := ancientgreek.NewService(store).Register(ctx, learner.Username, ancientgreek.AnabasisBook1)
+	require.NoError(t, err)
+	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-passage.conllu", ancientgreek.AnabasisBook1)
+
+	// The definition pins a translation, but its import has not succeeded, so
+	// no installation-wide rows exist for the pin.
+	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "perseus-eng2-passage.xml"))
+	require.NoError(t, err)
+	source := ancientgreek.BrownsonAnabasisBook1
+	source.FileSize = int64(len(data))
+	sum := sha256.Sum256(data)
+	source.FileSHA256 = hex.EncodeToString(sum[:])
+	setReadingUnitTranslationPin(t, ctx, pool, "xenophon-anabasis-1", ancientgreek.BrownsonImportReport{SourcePin: source.Pin(), Bytes: int64(len(data))})
+	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
+
+	provider := &greekDeckRecordingProvider{}
+	client := startGreekDeckWorkers(t, ctx, store, pool, provider)
+	deckService := prepareddeck.NewService(store, client)
+	webAuth := auth.New(store, time.Hour)
+	h := New(Services{
+		Auth: webAuth, WebAuth: webauth.New(webAuth, false, time.Hour), Store: storeDependencies(store),
+		Analysis: analysis.NewService(store.Pool(), client), PreparedDeck: deckService,
+		Capabilities: readyGerman(), SessionLifetime: time.Hour,
+	})
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+
+	started := perform(t, h, http.MethodPost, "/reading/books/"+registration.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, started.Code, started.Body.String())
+	reading, err := store.GetCurrentReading(ctx, learner.ID, "grc")
+	require.NoError(t, err)
+	submitted := perform(t, h, http.MethodPost, "/reading/books/"+registration.BookID+"/deck/retry", url.Values{
+		"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
+	preparation := waitForPreparedDeck(t, ctx, store, learner.ID, reading.SnapshotID)
+	require.Equal(t, domain.DeckPreparationReady, preparation.State, "preparation error=%q", preparation.Error)
+	assert.Zero(t, provider.calls, "a Greek deck makes no provider request")
+
+	items := queryPassageItems(t, ctx, pool, learner.ID)
+	require.NotEmpty(t, items)
+	for identity, item := range items {
+		assert.Empty(t, item.passageContext, "%s must show no English", identity)
+		assert.Empty(t, item.passageCitation, "%s must freeze no citation", identity)
+		assert.Empty(t, item.brownsonPin, "%s must freeze no translation pin", identity)
+	}
+
+	// LSJ meaning evidence is independent of the missing translation.
+	manifest := queryGreekManifestItems(t, ctx, pool, learner.ID)
+	require.NotEmpty(t, manifest)
+	lsjEntries := 0
+	for _, item := range manifest {
+		if item.lsjEntryID != "" {
+			lsjEntries++
+		}
+	}
+	assert.NotZero(t, lsjEntries, "a work without a translation still gets LSJ meaning evidence")
+
+	var stored int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM reference_translations WHERE translation_pin_sha256=$1`, source.FileSHA256).Scan(&stored))
+	assert.Zero(t, stored, "no translation rows exist for the failed pin")
 }

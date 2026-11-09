@@ -54,7 +54,7 @@ func TestImportBrownsonExtractsCitedSectionsWithNotesRemoved(t *testing.T) {
 	source, data := brownsonFixture(t)
 	writer := &recordingReferenceWriter{}
 	report, err := ImportBrownson(context.Background(), BrownsonImportRequest{
-		OwnerID: "owner-1", SourcePath: writeFixture(t, data), Source: source,
+		SourcePath: writeFixture(t, data), Source: source,
 	}, writer)
 	require.NoError(t, err)
 	assert.Equal(t, source.Pin(), report.SourcePin)
@@ -62,9 +62,8 @@ func TestImportBrownsonExtractsCitedSectionsWithNotesRemoved(t *testing.T) {
 	assert.Equal(t, int64(len(data)), report.Bytes)
 	require.Len(t, writer.requests, 1)
 	request := writer.requests[0]
-	assert.Equal(t, "owner-1", request.OwnerID)
 	assert.Equal(t, source.Language, request.Language)
-	assert.Equal(t, source.Pin(), request.SourcePin)
+	assert.Equal(t, source.FileSHA256, request.TranslationPinSHA256)
 
 	byCitation := map[string]string{}
 	for _, translation := range request.Translations {
@@ -135,7 +134,7 @@ func TestImportBrownsonReimportIsIdempotent(t *testing.T) {
 	path := writeFixture(t, data)
 	writer := &recordingReferenceWriter{}
 	for range 2 {
-		_, err := ImportBrownson(context.Background(), BrownsonImportRequest{OwnerID: "owner-1", SourcePath: path, Source: source}, writer)
+		_, err := ImportBrownson(context.Background(), BrownsonImportRequest{SourcePath: path, Source: source}, writer)
 		require.NoError(t, err)
 	}
 	require.Len(t, writer.requests, 2)

@@ -42,17 +42,23 @@ func (fakeRiverClient) JobCancel(context.Context, int64) (*rivertype.JobRow, err
 // preparationStoreStub is an in-memory ClassicalPreparationStore for worker
 // error paths. The integration test covers the real PostgreSQL store.
 type preparationStoreStub struct {
-	target      domain.ClassicalPreparationTarget
-	loadErr     error
-	complete    bool
-	completeErr error
-	source      domain.ClassicalSource
-	sourceFound bool
-	sourceErr   error
-	putErr      error
-	putCalls    int
-	record      domain.ClassicalPreparedDefinition
-	recordErr   error
+	target            domain.ClassicalPreparationTarget
+	loadErr           error
+	complete          bool
+	completeErr       error
+	source            domain.ClassicalSource
+	sourceFound       bool
+	sourceErr         error
+	putErr            error
+	putCalls          int
+	record            domain.ClassicalPreparedDefinition
+	recordErr         error
+	translationExists bool
+	translationErr    error
+}
+
+func (s *preparationStoreStub) HasReferenceTranslations(context.Context, string) (bool, error) {
+	return s.translationExists, s.translationErr
 }
 
 func (s *preparationStoreStub) LoadClassicalPreparationTarget(context.Context, string, string) (domain.ClassicalPreparationTarget, error) {

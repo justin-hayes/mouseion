@@ -139,7 +139,6 @@ func importPinnedSources(ctx context.Context, store registrationStore, report an
 		return err
 	}
 	translationReport, err := ancientgreek.ImportBrownson(ctx, ancientgreek.BrownsonImportRequest{
-		OwnerID:    report.OwnerID,
 		SourcePath: brownsonPath,
 		Source:     sources.Translation,
 	}, referenceWriter)

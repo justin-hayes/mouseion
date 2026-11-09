@@ -18,7 +18,10 @@ func (s *PostgresStore) LoadClassicalPreparationTarget(ctx context.Context, owne
 		SELECT b.owner_id::text, b.id::text, ru.definition_key, w.title, w.author, e.label,
 		       ru.citation_start, ru.citation_end,
 		       ru.source_layer, ru.source_file_name, ru.source_file_size, ru.source_file_sha256,
-		       ru.source_format, ru.interpretation_version, ru.revision, ru.withdrawn
+		       ru.source_format, ru.interpretation_version, ru.revision, ru.withdrawn,
+		       COALESCE(ru.translation_layer, ''), COALESCE(ru.translation_file_name, ''),
+		       COALESCE(ru.translation_file_size, 0), COALESCE(ru.translation_file_sha256, ''),
+		       COALESCE(ru.translation_citation_start, ''), COALESCE(ru.translation_citation_end, '')
 		FROM books b
 		JOIN book_reading_units bru ON bru.owner_id = b.owner_id AND bru.book_id = b.id
 		JOIN reading_units ru ON ru.id = bru.reading_unit_id
@@ -28,7 +31,9 @@ func (s *PostgresStore) LoadClassicalPreparationTarget(ctx context.Context, owne
 		Scan(&target.OwnerID, &target.BookID, &target.ReadingUnitKey, &target.WorkTitle, &target.WorkAuthor, &target.EditionLabel,
 			&target.CitationStart, &target.CitationEnd,
 			&target.SourceLayer, &target.SourceFileName, &target.SourceFileSize, &target.SourceFileSHA256,
-			&target.SourceFormat, &target.InterpretationVersion, &target.DefinitionRevision, &target.Withdrawn)
+			&target.SourceFormat, &target.InterpretationVersion, &target.DefinitionRevision, &target.Withdrawn,
+			&target.TranslationLayer, &target.TranslationFileName, &target.TranslationFileSize, &target.TranslationFileSHA256,
+			&target.TranslationCitationStart, &target.TranslationCitationEnd)
 	if err != nil {
 		return domain.ClassicalPreparationTarget{}, missing(err)
 	}

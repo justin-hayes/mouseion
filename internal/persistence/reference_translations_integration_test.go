@@ -4,6 +4,7 @@ package persistence
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -11,43 +12,52 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReferenceTranslationsRoundTripAndIdempotency covers the operator import
-// seam: a re-import writes the same rows, an owner with no import reports empty
-// values, invalid input is refused, and two languages with different pins are
-// reported rather than silently relabelled.
+// TestReferenceTranslationsRoundTripAndIdempotency covers the installation-wide
+// translation store: a re-import writes the same rows, a pin with no import
+// reports empty values, invalid input is refused, and different pins for the
+// same citation coexist instead of conflicting.
 func TestReferenceTranslationsRoundTripAndIdempotency(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
-	owner, err := store.CreateUser(ctx, "reference-translation-owner", false)
-	require.NoError(t, err)
-	pin := "sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
+	pin := "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
+	otherPin := "0000000000000000000000000000000000000000000000000000000000000001"
 	translations := map[string]string{"1.2.18": "second", "1.2.17": "first"}
 
-	written, err := store.PutReferenceTranslations(ctx, owner.ID, "grc", pin, translations)
+	written, err := store.PutReferenceTranslations(ctx, pin, "grc", translations)
 	require.NoError(t, err)
 	assert.Equal(t, 2, written)
 
-	written, err = store.PutReferenceTranslations(ctx, owner.ID, "grc", pin, translations)
+	written, err = store.PutReferenceTranslations(ctx, pin, "grc", translations)
 	require.NoError(t, err)
 	assert.Equal(t, 2, written, "a re-import writes the same rows")
 
-	loaded, loadedPin, err := store.ListReferenceTranslations(ctx, owner.ID, "grc")
+	loaded, err := store.ListReferenceTranslationsByPin(ctx, pin)
 	require.NoError(t, err)
 	assert.Equal(t, translations, loaded)
-	assert.Equal(t, pin, loadedPin)
+
+	found, err := store.HasReferenceTranslations(ctx, pin)
+	require.NoError(t, err)
+	assert.True(t, found)
+	found, err = store.HasReferenceTranslations(ctx, otherPin)
+	require.NoError(t, err)
+	assert.False(t, found)
 
 	for name, attempt := range map[string]func() error{
 		"empty citation": func() error {
-			_, err := store.PutReferenceTranslations(ctx, owner.ID, "grc", pin, map[string]string{"": "x"})
+			_, err := store.PutReferenceTranslations(ctx, pin, "grc", map[string]string{"": "x"})
 			return err
 		},
-		"empty owner": func() error {
-			_, err := store.PutReferenceTranslations(ctx, "  ", "grc", pin, translations)
+		"empty language": func() error {
+			_, err := store.PutReferenceTranslations(ctx, pin, " ", translations)
+			return err
+		},
+		"invalid pin": func() error {
+			_, err := store.PutReferenceTranslations(ctx, "sha256:other", "grc", translations)
 			return err
 		},
 		"no sections": func() error {
-			_, err := store.PutReferenceTranslations(ctx, owner.ID, "grc", pin, nil)
+			_, err := store.PutReferenceTranslations(ctx, pin, "grc", nil)
 			return err
 		},
 	} {
@@ -56,25 +66,32 @@ func TestReferenceTranslationsRoundTripAndIdempotency(t *testing.T) {
 		})
 	}
 
-	_, err = store.PutReferenceTranslations(ctx, owner.ID, "de", "sha256:other", map[string]string{"1.1": "eins"})
+	// A different pin for the same citation is a separate installation-wide
+	// translation, not a per-owner conflict.
+	_, err = store.PutReferenceTranslations(ctx, otherPin, "grc", map[string]string{"1.2.17": "another first"})
 	require.NoError(t, err)
-	_, _, err = mergedReferenceTranslations(ctx, store.Pool(), owner.ID, map[string]struct{}{"grc": {}, "de": {}})
-	require.ErrorContains(t, err, "conflicting reference translation pins")
+	loaded, err = store.ListReferenceTranslationsByPin(ctx, pin)
+	require.NoError(t, err)
+	assert.Equal(t, "first", loaded["1.2.17"])
+	other, err := store.ListReferenceTranslationsByPin(ctx, otherPin)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"1.2.17": "another first"}, other)
 
-	other, err := store.CreateUser(ctx, "reference-translation-empty-owner", false)
-	require.NoError(t, err)
-	empty, emptyPin, err := store.ListReferenceTranslations(ctx, other.ID, "grc")
+	empty, err := store.ListReferenceTranslationsByPin(ctx, strings.Repeat("a", 64))
 	require.NoError(t, err)
 	assert.Empty(t, empty)
-	assert.Empty(t, emptyPin)
-	empty, emptyPin, err = store.ListReferenceTranslations(ctx, "", "grc")
+	empty, err = store.ListReferenceTranslationsByPin(ctx, "")
 	require.NoError(t, err)
 	assert.Empty(t, empty)
-	assert.Empty(t, emptyPin)
+	found, err = store.HasReferenceTranslations(ctx, "")
+	require.NoError(t, err)
+	assert.False(t, found)
 
 	var nilStore *PostgresStore
-	_, err = nilStore.PutReferenceTranslations(ctx, owner.ID, "grc", pin, translations)
+	_, err = nilStore.PutReferenceTranslations(ctx, pin, "grc", translations)
 	require.ErrorIs(t, err, errInvalidReferenceTranslation)
-	_, _, err = nilStore.ListReferenceTranslations(ctx, owner.ID, "grc")
+	_, err = nilStore.ListReferenceTranslationsByPin(ctx, pin)
+	require.Error(t, err)
+	_, err = nilStore.HasReferenceTranslations(ctx, pin)
 	require.Error(t, err)
 }

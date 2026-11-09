@@ -80,6 +80,22 @@ type ClassicalPreparationTarget struct {
 	InterpretationVersion string
 	DefinitionRevision    int
 	Withdrawn             bool
+	// Translation* describe the reviewed reference translation the definition
+	// pins. They are all empty when the definition carries no translation.
+	TranslationLayer         string
+	TranslationFileName      string
+	TranslationFileSize      int64
+	TranslationFileSHA256    string
+	TranslationCitationStart string
+	TranslationCitationEnd   string
+}
+
+// HasTranslation reports whether the definition pins a reference translation.
+func (t ClassicalPreparationTarget) HasTranslation() bool {
+	return t.TranslationLayer != "" &&
+		t.TranslationFileName != "" &&
+		t.TranslationFileSize > 0 &&
+		t.TranslationFileSHA256 != ""
 }
 
 // ClassicalPreparedDefinition is the per-Book record written when a classical

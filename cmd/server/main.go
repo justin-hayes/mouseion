@@ -230,7 +230,11 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	if err != nil {
 		return nil, fmt.Errorf("parse Classical catalog layers: %w", err)
 	}
-	analysis.AddClassicalPreparationWorker(workers, store, analysis.ClassicalPreparationConfig{
+	classicalWorker := analysis.AddClassicalPreparationWorker(workers, store, analysis.ClassicalPreparationConfig{
+		Layers:  layers,
+		TempDir: cfg.acquisitionTempDir,
+	})
+	analysis.AddClassicalTranslationWorker(workers, store, analysis.ClassicalPreparationConfig{
 		Layers:  layers,
 		TempDir: cfg.acquisitionTempDir,
 	})
@@ -239,6 +243,9 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	if err != nil {
 		return nil, err
 	}
+	// The preparation worker enqueues the separate translation import only after
+	// the analysis publishes, so the client is attached after construction.
+	classicalWorker.Client = riverClient
 	sourceStructureChecks := sourcecheck.NewService(store, riverClient, sourcecheck.ConfiguredTarget())
 	epubService.WithSourceStructureCheckEnqueuer(sourceStructureChecks)
 	catalogueWorker.Client = riverClient
