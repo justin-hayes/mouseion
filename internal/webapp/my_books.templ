@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -215,6 +216,9 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 					}
 				}
 			</p>
+			if browse.Total == 0 && browse.Language == classical.Language {
+				<p><a class="btn btn-outline" href="/catalogs/classical">Browse the Classical catalog</a></p>
+			}
 		} else if myBooksHasActiveResultFilter(browse) {
 			<p { myBooksResultAnnouncementAttributes()... }>{ myBooksResultCount(browse.Total) }</p>
 		}
@@ -278,10 +282,17 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
 		}
 		if len(books) == 0 && (!browse.Enabled || (browse.AllCount == 0 && browse.Language != "")) {
-			@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
-				<a role="button" href="/catalogs">Set up a catalog</a>
-				if hasCatalogueConnections {
-					<a class="btn btn-outline" href="/catalogs">Sync catalog</a>
+			if browse.Language == classical.Language {
+				@EmptyState("No Ancient Greek Books yet", "Add a reviewed text from the Classical catalog. Adding a work downloads nothing.") {
+					<a role="button" href="/catalogs/classical">Browse the Classical catalog</a>
+				}
+			} else {
+				@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
+					<a role="button" href="/catalogs">Set up a catalog</a>
+					<a class="btn btn-outline" href="/catalogs/classical">Browse the Classical catalog</a>
+					if hasCatalogueConnections {
+						<a class="btn btn-outline" href="/catalogs">Sync catalog</a>
+					}
 				}
 			}
 		}
@@ -290,7 +301,8 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
 			} else if browse.AllCount == 0 {
 				@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
-				<a role="button" href="/catalogs">Set up a catalog</a>
+					<a role="button" href="/catalogs">Set up a catalog</a>
+					<a class="btn btn-outline" href="/catalogs/classical">Browse the Classical catalog</a>
 					if hasCatalogueConnections {
 						<a class="btn btn-outline" href="/catalogs">Sync catalog</a>
 					}

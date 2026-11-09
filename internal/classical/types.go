@@ -14,6 +14,10 @@ import (
 // Language is the only language the Classical catalog currently ships.
 const Language = "grc"
 
+// LanguageDisplayName is the learner-facing name recorded when an Add makes
+// Ancient Greek available as a study language.
+const LanguageDisplayName = "Ancient Greek"
+
 // SourceFormatOGACoNLLU names the single-file oga_src CoNLL-U adapter.
 const SourceFormatOGACoNLLU = "oga-conllu"
 

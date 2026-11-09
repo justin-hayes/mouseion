@@ -45,13 +45,12 @@ func catalogFixtureDefinition(key, workKey, title, author, greekTitle, editionKe
 	return definition
 }
 
-// catalogFixture builds a small release: a translated constituent book, a
-// whole-work passage, a two-book work without a translation and a withdrawn
-// tombstone.
-func catalogFixture(t *testing.T) *classical.Catalog {
-	t.Helper()
+// catalogFixtureDefinitions builds a small release: a translated constituent
+// book, a whole-work passage, a two-book work without a translation and a
+// withdrawn tombstone.
+func catalogFixtureDefinitions() []classical.Definition {
 	one, two := 1, 2
-	catalog, err := classical.NewCatalog([]classical.Definition{
+	return []classical.Definition{
 		catalogFixtureDefinition("xenophon-anabasis-1", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
 			"xenophon-anabasis-marchant-1904", "1.1.1", "1.10.19", &one, 7, 9305, false, true),
 		catalogFixtureDefinition("xenophon-hellenica-1", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
@@ -62,7 +61,12 @@ func catalogFixture(t *testing.T) *classical.Catalog {
 			"homer-iliad-monro-1902", "2.1.1", "2.1.10", &two, 24, 200, false, false),
 		catalogFixtureDefinition("xenophon-cyropaedia-1", "xenophon-cyropaedia", "Cyropaedia", "Xenophon", "Κύρου παιδεία",
 			"xenophon-cyropaedia-hutchinson-1914", "1.1.1", "1.1.10", &one, 8, 999, true, false),
-	})
+	}
+}
+
+func catalogFixture(t *testing.T) *classical.Catalog {
+	t.Helper()
+	catalog, err := classical.NewCatalog(catalogFixtureDefinitions())
 	require.NoError(t, err)
 	return catalog
 }

@@ -129,6 +129,9 @@ type Querier interface {
 	GetCoverageEntryForBook(ctx context.Context, arg GetCoverageEntryForBookParams) (GetCoverageEntryForBookRow, error)
 	GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverageEntryForCorpusParams) (GetCoverageEntryForCorpusRow, error)
 	GetCurrentAnalysisOccurrenceEvidence(ctx context.Context, arg GetCurrentAnalysisOccurrenceEvidenceParams) (GetCurrentAnalysisOccurrenceEvidenceRow, error)
+	// The current, non-withdrawn Reading unit a catalog Add names, with the Work
+	// metadata the new Book copies. A withdrawn unit is never addable.
+	GetCurrentClassicalUnitByKey(ctx context.Context, definitionKey string) (GetCurrentClassicalUnitByKeyRow, error)
 	GetCurrentContentRevisionForUpdate(ctx context.Context, arg GetCurrentContentRevisionForUpdateParams) (string, error)
 	// The snapshot identity resolves through the source, but structure and units
 	// always resolve through the exact snapshot ID. Unit IDs may recur across
@@ -269,6 +272,9 @@ type Querier interface {
 	ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
+	// The current, non-withdrawn Reading units of one Work in constituent-book
+	// order. A whole-work unit sorts first.
+	ListCurrentClassicalWorkUnits(ctx context.Context, definitionKey string) ([]ListCurrentClassicalWorkUnitsRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]ListDeckPreparationVocabularyRow, error)
@@ -295,6 +301,9 @@ type Querier interface {
 	ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCoverageParams) ([]ListMyBooksCoverageRow, error)
 	ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOccurrenceLemmaCorrectionsParams) ([]ListOccurrenceLemmaCorrectionsRow, error)
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
+	// The learner's active Books associated with a Reading unit. The catalog uses
+	// this to show "In My Books" without exposing preparation state.
+	ListOwnedClassicalReadingUnits(ctx context.Context, ownerID string) ([]ListOwnedClassicalReadingUnitsRow, error)
 	ListPreparedDeckBatchChunkMembers(ctx context.Context, arg ListPreparedDeckBatchChunkMembersParams) ([]ListPreparedDeckBatchChunkMembersRow, error)
 	ListPreparedDeckBatchChunkOrdinals(ctx context.Context, arg ListPreparedDeckBatchChunkOrdinalsParams) ([]int, error)
 	ListPreparedDeckBatchChunks(ctx context.Context, arg ListPreparedDeckBatchChunksParams) ([]DeckPreparationBatchChunk, error)
