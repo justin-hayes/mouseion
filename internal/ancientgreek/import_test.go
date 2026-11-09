@@ -72,6 +72,7 @@ func TestImportInterpretsFixture(t *testing.T) {
 	assert.Equal(t, 2, report.Sentences)
 	assert.Equal(t, 10, report.Tokens)
 	assert.Equal(t, 1, report.EllipsisTokensSkipped)
+	assert.Empty(t, report.Crossings)
 	assert.Equal(t, 2, report.ProperNamesDerived)
 	assert.Equal(t, 2, report.NumberedLemmaTypes)
 	assert.Equal(t, 1, report.BareLemmasWithNumberedSibling)
@@ -163,7 +164,7 @@ func TestImportRefusesUnknownNativePOS(t *testing.T) {
 	assertImportCode(t, err, CodeUnknownPOS)
 }
 
-func TestImportRefusesStraddlingSentence(t *testing.T) {
+func TestImportAssignsACrossingSentenceToItsFirstTokensUnit(t *testing.T) {
 	data := []byte(strings.Join([]string{
 		"# source = Xenophon, Xen. Anab._1.10.19",
 		"# text = x",
@@ -172,8 +173,33 @@ func TestImportRefusesStraddlingSentence(t *testing.T) {
 		"2\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_2|0|ref=Xen. Anab._2.1.1",
 		"",
 	}, "\n"))
-	_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, &capturedWriter{})
-	assertImportCode(t, err, CodeCitationStraddle)
+	writer := &capturedWriter{}
+	report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Sentences)
+	assert.Equal(t, 2, report.Tokens, "the whole crossing sentence belongs to the unit holding its first token")
+	require.Len(t, report.Crossings, 1)
+	assert.Equal(t, []string{"1.10.19", "2.1.1"}, report.Crossings[0].Citations)
+	require.Len(t, writer.request.Result.Sentences, 1)
+	assert.Equal(t, []string{"1.10.19", "2.1.1"}, writer.request.Result.Sentences[0].Citations)
+}
+
+func TestImportSkipsASentenceWhoseFirstTokenIsOutsideTheUnit(t *testing.T) {
+	data := []byte(strings.Join([]string{
+		"# source = Xenophon, Xen. Anab._2.1.1",
+		"# text = x",
+		"# sent_id = 1",
+		"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._2.1.1",
+		"2\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_2|0|ref=Xen. Anab._1.10.19",
+		"",
+	}, "\n"))
+	writer := &capturedWriter{}
+	report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+	require.NoError(t, err)
+	assert.Zero(t, report.Sentences)
+	assert.Zero(t, report.Tokens)
+	assert.Empty(t, report.Crossings)
+	assert.Empty(t, writer.request.Result.Sentences)
 }
 
 func TestImportComputesProperNamesOverTheWholeWork(t *testing.T) {
@@ -208,6 +234,129 @@ func TestImportComputesProperNamesOverTheWholeWork(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, writer.request.Result.Sentences, 1, "only the Book 1 sentence is imported")
 	assert.Equal(t, "PROPN", writer.request.Result.Sentences[0].Tokens[1].UPOS, "the whole-work capitalization makes the in-range noun a proper name")
+}
+
+func TestImportAcceptsRepeatedIdenticalSourceHeaders(t *testing.T) {
+	source := "# source = Xenophon, Xen. Anab._1.1.1"
+	dataLine := "1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._1.1.1"
+	for name, lines := range map[string][]string{
+		"before text":   {source, source, "# text = x", "# sent_id = 1", dataLine, ""},
+		"after sent_id": {source, "# text = x", "# sent_id = 1", source, dataLine, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := []byte(strings.Join(lines, "\n"))
+			writer := &capturedWriter{}
+			report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+			require.NoError(t, err)
+			assert.Equal(t, 1, report.Sentences)
+			assert.Equal(t, 1, report.Tokens)
+		})
+	}
+}
+
+func TestImportRefusesARepeatedSourceHeaderThatDiffers(t *testing.T) {
+	data := []byte(strings.Join([]string{
+		"# source = Xenophon, Xen. Anab._1.1.1",
+		"# source = Xenophon, Xen. Anab._1.1.2",
+		"# text = x",
+		"# sent_id = 1",
+		"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._1.1.1",
+		"",
+	}, "\n"))
+	_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, &capturedWriter{})
+	assertImportCode(t, err, CodeMalformed)
+}
+
+func TestImportKeepsXTokensAndMapsThemToX(t *testing.T) {
+	data := []byte(strings.Join([]string{
+		"# source = Xenophon, Xen. Anab._1.1.1",
+		"# text = x",
+		"# sent_id = 1",
+		"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._1.1.1",
+		"2\t1\t1\tx\tx--------\t_\t1\tATR\t_\tt_2|t_1|ref=Xen. Anab._1.1.1",
+		"",
+	}, "\n"))
+	writer := &capturedWriter{}
+	report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Sentences)
+	assert.Equal(t, 2, report.Tokens)
+	assert.Zero(t, report.EllipsisTokensSkipped, "x is a real token, not an ellipsis")
+	require.Len(t, writer.request.Result.Sentences, 1)
+	tokens := writer.request.Result.Sentences[0].Tokens
+	require.Len(t, tokens, 2)
+	assert.Equal(t, "1", tokens[1].Surface)
+	assert.Equal(t, "X", tokens[1].UPOS)
+	assert.Equal(t, "λέγει 1", writer.request.Result.Sentences[0].Text)
+}
+
+func TestCheckUnitCoverageAssignsCrossingSentencesAndReportsThem(t *testing.T) {
+	data := []byte(strings.Join([]string{
+		"# source = Xenophon, Xen. Anab._1.1.9",
+		"# text = x",
+		"# sent_id = 1",
+		"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._1.1.9",
+		"2\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_2|0|ref=Xen. Anab._1.2.1",
+		"",
+		"# source = Xenophon, Xen. Anab._1.2.2",
+		"# text = x",
+		"# sent_id = 2",
+		"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_3|0|ref=Xen. Anab._1.2.2",
+		"",
+	}, "\n"))
+	report, err := CheckUnitCoverage(data, []UnitRange{
+		{Key: "one", Start: "1.1.1", End: "1.1.9"},
+		{Key: "two", Start: "1.2.1", End: "1.2.9"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, report.Sentences)
+	require.Len(t, report.Crossings, 1)
+	assert.Equal(t, "one", report.Crossings[0].UnitKey)
+	assert.Equal(t, []string{"1.1.9", "1.2.1"}, report.Crossings[0].Citations)
+}
+
+func TestCheckUnitCoverageRefusesUnassignedAndAmbiguousSentences(t *testing.T) {
+	data := func(citation string) []byte {
+		return []byte(strings.Join([]string{
+			"# source = Xenophon, Xen. Anab._" + citation,
+			"# text = x",
+			"# sent_id = 1",
+			"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._" + citation,
+			"",
+		}, "\n"))
+	}
+	units := []UnitRange{{Key: "one", Start: "1.1.1", End: "1.1.9"}}
+	overlapping := []UnitRange{
+		{Key: "one", Start: "1.1.1", End: "1.1.9"},
+		{Key: "two", Start: "1.1.5", End: "1.2.1"},
+	}
+	for name, test := range map[string]struct {
+		citation string
+		units    []UnitRange
+		code     string
+	}{
+		"unassigned": {citation: "1.3.1", units: units, code: CodeSentenceUnassigned},
+		"ambiguous":  {citation: "1.1.5", units: overlapping, code: CodeSentenceAmbiguous},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := CheckUnitCoverage(data(test.citation), test.units)
+			assertImportCode(t, err, test.code)
+		})
+	}
+}
+
+func TestImportRejectsUnrecoverableHeaders(t *testing.T) {
+	cases := map[string]string{ //nolint:gosec // synthetic CoNLL-U lines are not credentials.
+		"source without citation": "# source = Xenophon\n# text = x\n# sent_id = 1\n1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._1.1.1\n",
+		"token without reference": "# source = Xenophon, Xen. Anab._1.1.1\n# text = x\n# sent_id = 1\n1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tref=Xen. Anab._1.1.1\n",
+	}
+	for name, content := range cases {
+		t.Run(name, func(t *testing.T) {
+			data := []byte(content)
+			_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, &capturedWriter{})
+			assertImportCode(t, err, CodeMalformed)
+		})
+	}
 }
 
 func TestNoSpaceBefore(t *testing.T) {
@@ -265,6 +414,7 @@ func TestMapUPOSMapsEveryNativeValue(t *testing.T) {
 		{"m", "", "NUM"},
 		{"i", "", "INTJ"},
 		{"u", "", "PUNCT"},
+		{"x", "", "X"},
 	}
 	for _, tc := range cases {
 		upos, err := mapUPOS(tc.pos, tc.relation, false)

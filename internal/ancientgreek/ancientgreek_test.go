@@ -121,6 +121,7 @@ func TestAnabasisBook1Pin(t *testing.T) {
 	assert.Equal(t, "Marchant 1904", AnabasisBook1.EditionLabel)
 	assert.Equal(t, int64(7438037), AnabasisBook1.SourceFileSize)
 	assert.Equal(t, "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61", AnabasisBook1.SourceFileSHA256)
+	assert.Equal(t, "oga-agdt-upos/5", AnabasisBook1.InterpretationVersion)
 	require.NoError(t, AnabasisBook1.Validate())
 }
 

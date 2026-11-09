@@ -35,7 +35,7 @@ var AnabasisBook1 = domain.ReadingUnitDefinition{
 	SourceFileName:        "tlg0032.tlg006.perseus-grc2_oga020_src.conllu",
 	SourceFileSize:        7438037,
 	SourceFileSHA256:      "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61",
-	InterpretationVersion: "oga-agdt-upos/4",
+	InterpretationVersion: "oga-agdt-upos/5",
 }
 
 // Store is the persistence registration needs.

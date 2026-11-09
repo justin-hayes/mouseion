@@ -19,7 +19,7 @@ func validDefinition() ReadingUnitDefinition {
 		SourceFileName:        "example.conllu",
 		SourceFileSize:        7438037,
 		SourceFileSHA256:      "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61",
-		InterpretationVersion: "oga-agdt-upos/4",
+		InterpretationVersion: "oga-agdt-upos/5",
 	}
 }
 

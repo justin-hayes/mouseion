@@ -135,6 +135,8 @@ func ImportBrownson(ctx context.Context, req BrownsonImportRequest, writer Brown
 // parsePerseusEng2 extracts every cited section of the reading unit from a
 // Perseus perseus-eng2 TEI file. Perseus notes are removed and the remaining
 // text is shown as is, including bracketed material; whitespace is collapsed.
+// The citation depth comes from the reading unit's range, so a section-only
+// work and a book/chapter/section/subsection work are read the same way.
 // Sections are returned in citation order.
 func parsePerseusEng2(data []byte, source BrownsonSource) ([]ReferenceTranslation, error) {
 	start, ok := parseCitation(source.CitationStart)
@@ -145,7 +147,10 @@ func parsePerseusEng2(data []byte, source BrownsonSource) ([]ReferenceTranslatio
 	if !ok {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation end is not a citation"}
 	}
-	parser := &eng2Parser{start: start, end: end, seen: make(map[string]struct{})}
+	if len(start) != len(end) || compareCitation(start, end) > 0 {
+		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation range does not align"}
+	}
+	parser := &eng2Parser{start: start, end: end, depth: len(start), seen: make(map[string]struct{})}
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	decoder.Strict = true
 	for {
@@ -177,13 +182,20 @@ func xmlImportError(err error) error {
 
 // eng2Parser is the streaming state machine of parsePerseusEng2.
 type eng2Parser struct {
-	start, end             []int
-	divs                   []string
-	book, chapter, section string
-	body                   strings.Builder
-	noteDepth              int
-	sections               []ReferenceTranslation
-	seen                   map[string]struct{}
+	start, end []int
+	depth      int
+	divs       []string
+	textparts  []textpart
+	body       strings.Builder
+	noteDepth  int
+	sections   []ReferenceTranslation
+	seen       map[string]struct{}
+}
+
+// textpart is one open textpart div, whose numbers join into a citation.
+type textpart struct {
+	number        string
+	hasCitedChild bool
 }
 
 // accept feeds one XML token to the state machine.
@@ -194,18 +206,20 @@ func (p *eng2Parser) accept(token xml.Token) error {
 	case xml.EndElement:
 		return p.close(typed.Name.Local)
 	case xml.CharData:
-		if p.noteDepth == 0 && p.section != "" {
+		if p.noteDepth == 0 && len(p.textparts) == p.depth {
 			p.body.Write(typed)
 		}
 	}
 	return nil
 }
 
-// start opens a textpart div or enters a Perseus note.
+// open tracks div nesting, enters a Perseus note, or opens a textpart. A
+// textpart deeper than the reading unit's citation depth is an extra division
+// the parser refuses rather than silently folding into its parent.
 func (p *eng2Parser) open(element xml.StartElement) error {
 	switch element.Name.Local {
 	case "note":
-		if p.noteDepth == 0 && p.section != "" && !endsWithSpace(p.body.String()) {
+		if p.noteDepth == 0 && len(p.textparts) == p.depth && !endsWithSpace(p.body.String()) {
 			p.body.WriteByte(' ')
 		}
 		p.noteDepth++
@@ -219,19 +233,26 @@ func (p *eng2Parser) open(element xml.StartElement) error {
 		return err
 	}
 	p.divs = append(p.divs, kind)
-	switch kind {
-	case "book":
-		p.book, p.chapter, p.section = number, "", ""
-	case "chapter":
-		p.chapter, p.section = number, ""
-	case "section":
-		p.section = number
+	if kind == "" {
+		return nil
+	}
+	if len(p.textparts) >= p.depth {
+		return &ImportError{Code: CodeMalformed, Detail: "textpart deeper than citation depth"}
+	}
+	if len(p.textparts)+1 == p.depth {
+		for index := range p.textparts {
+			p.textparts[index].hasCitedChild = true
+		}
+	}
+	p.textparts = append(p.textparts, textpart{number: number})
+	if len(p.textparts) == p.depth {
 		p.body.Reset()
 	}
 	return nil
 }
 
-// end closes a textpart div or a Perseus note.
+// close leaves a Perseus note or closes a div. Closing the textpart that sits
+// at the reading unit's citation depth emits its section.
 func (p *eng2Parser) close(local string) error {
 	switch local {
 	case "note":
@@ -248,28 +269,30 @@ func (p *eng2Parser) close(local string) error {
 	}
 	kind := p.divs[len(p.divs)-1]
 	p.divs = p.divs[:len(p.divs)-1]
-	switch kind {
-	case "book":
-		p.book, p.chapter, p.section = "", "", ""
-	case "chapter":
-		p.chapter, p.section = "", ""
-	case "section":
-		err := p.emit()
-		p.section = ""
-		return err
+	if kind == "" {
+		return nil
 	}
+	if len(p.textparts) == 0 {
+		return &ImportError{Code: CodeMalformed, Detail: "textpart nesting is inconsistent"}
+	}
+	current := p.textparts[len(p.textparts)-1]
+	if len(p.textparts) == p.depth {
+		if err := p.emit(); err != nil {
+			return err
+		}
+	} else if !current.hasCitedChild {
+		return &ImportError{Code: CodeMalformed, Detail: "textpart has no cited section"}
+	}
+	p.textparts = p.textparts[:len(p.textparts)-1]
 	return nil
 }
 
 // emit records the closed section when it falls inside the reading unit.
 func (p *eng2Parser) emit() error {
-	if p.section == "" {
-		return nil
+	citation, ok := citationFromTextparts(p.textparts)
+	if !ok {
+		return &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
 	}
-	if p.book == "" || p.chapter == "" {
-		return &ImportError{Code: CodeMalformed, Detail: "section without book or chapter"}
-	}
-	citation := p.book + "." + p.chapter + "." + p.section
 	parsed, ok := parseCitation(citation)
 	if !ok {
 		return &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
@@ -289,7 +312,8 @@ func (p *eng2Parser) emit() error {
 	return nil
 }
 
-// finish validates the completed document and orders its sections.
+// finish validates the completed document, refuses a gap in the cited
+// numbering, and orders its sections.
 func (p *eng2Parser) finish() error {
 	if p.noteDepth != 0 {
 		return &ImportError{Code: CodeMalformed, Detail: "unterminated note"}
@@ -297,12 +321,109 @@ func (p *eng2Parser) finish() error {
 	if len(p.sections) == 0 {
 		return &ImportError{Code: CodeMalformed, Detail: "no cited sections"}
 	}
+	if err := p.checkContiguous(); err != nil {
+		return err
+	}
+	// checkContiguous validated every citation, so the sort comparator cannot
+	// see an unparseable key.
 	sort.SliceStable(p.sections, func(i, j int) bool {
 		left, _ := parseCitation(p.sections[i].Citation)
 		right, _ := parseCitation(p.sections[j].Citation)
 		return compareCitation(left, right) < 0
 	})
 	return nil
+}
+
+// checkContiguous refuses a missing section rather than letting the range fill
+// the gap. Under each parent prefix the observed child numbers must be
+// consecutive; a translation that skips 1.2.17 is misaligned even if its keys
+// otherwise compare inside the range. When the start or end parent is present,
+// its first or last number must match the range boundary.
+func (p *eng2Parser) checkContiguous() error {
+	groups, err := citationGroups(p.sections)
+	if err != nil {
+		return err
+	}
+	for prefix, values := range groups {
+		if err := checkContiguousGroup(values); err != nil {
+			return err
+		}
+		if err := checkRangeBoundary(prefix, values, p.start, p.end); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// citationGroups groups cited section numbers by every ancestor prefix, so a
+// missing whole chapter shows up as a gap in the book's chapter numbers.
+func citationGroups(sections []ReferenceTranslation) (map[string][]int, error) {
+	groups := map[string][]int{}
+	for _, section := range sections {
+		parsed, ok := parseCitation(section.Citation)
+		if !ok || len(parsed) == 0 {
+			return nil, &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
+		}
+		for length := 1; length <= len(parsed); length++ {
+			prefix := citationPrefix(parsed[:length])
+			groups[prefix] = append(groups[prefix], parsed[length-1])
+		}
+	}
+	return groups, nil
+}
+
+// checkContiguousGroup refuses a gap in one parent's child numbers. Repeated
+// ancestor entries (a book seen once per section) collapse before the check.
+func checkContiguousGroup(values []int) error {
+	sort.Ints(values)
+	last := values[0]
+	for _, value := range values[1:] {
+		if value == last {
+			continue
+		}
+		if value != last+1 {
+			return &ImportError{Code: CodeMalformed, Detail: "cited sections are not contiguous"}
+		}
+		last = value
+	}
+	return nil
+}
+
+// checkRangeBoundary refuses a group that begins after the range start or ends
+// before the range end.
+func checkRangeBoundary(prefix string, values []int, start, end []int) error {
+	if prefix == citationPrefix(start) && values[0] != start[len(start)-1] {
+		return &ImportError{Code: CodeMalformed, Detail: "cited range starts at a missing section"}
+	}
+	if prefix == citationPrefix(end) && values[len(values)-1] != end[len(end)-1] {
+		return &ImportError{Code: CodeMalformed, Detail: "cited range ends at a missing section"}
+	}
+	return nil
+}
+
+// citationFromTextparts joins an open textpart stack into a dotted citation.
+func citationFromTextparts(parts []textpart) (string, bool) {
+	if len(parts) == 0 {
+		return "", false
+	}
+	numbers := make([]string, len(parts))
+	for index, part := range parts {
+		numbers[index] = part.number
+	}
+	return strings.Join(numbers, "."), true
+}
+
+// citationPrefix returns every citation component except the last as a dotted
+// string.
+func citationPrefix(citation []int) string {
+	if len(citation) <= 1 {
+		return ""
+	}
+	parts := make([]string, len(citation)-1)
+	for index, number := range citation[:len(citation)-1] {
+		parts[index] = strconv.Itoa(number)
+	}
+	return strings.Join(parts, ".")
 }
 
 // textpartKind reports the reading-unit div kind a TEI textpart carries, and
@@ -318,7 +439,7 @@ func textpartKind(element xml.StartElement) (kind, number string, err error) {
 		}
 	}
 	switch subtype {
-	case "book", "chapter", "section":
+	case "book", "chapter", "section", "subsection":
 	default:
 		return "", "", nil
 	}
