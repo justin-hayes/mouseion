@@ -612,9 +612,47 @@ func (c *TranslationCodec) DecodeResponse(input TranslationRequest, body []byte)
 func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, body []byte) (TranslationResponse, TranslationUsage, error) {
 	response, usage, err := c.decodeResponseWithItemID(input, body, TranslationItemID(input))
 	if err != nil {
-		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("%w: %w", ErrInvalidTranslationResponse, err)
+		return TranslationResponse{}, TranslationUsage{}, &InvalidTranslationResponseError{
+			Content: rejectedMessageContent(body),
+			err:     fmt.Errorf("%w: %w", ErrInvalidTranslationResponse, err),
+		}
 	}
 	return response, usage, nil
+}
+
+// InvalidTranslationResponseError is a rejected provider response. It keeps the
+// provider's message content so review reports can show what was rejected;
+// Error omits it, so logs never repeat provider text.
+type InvalidTranslationResponseError struct {
+	// Content is the first choice's message content, or "" when the body was
+	// not a readable Chat Completions envelope.
+	Content string
+	err     error
+}
+
+func (e *InvalidTranslationResponseError) Error() string { return e.err.Error() }
+
+func (e *InvalidTranslationResponseError) Unwrap() error { return e.err }
+
+// RejectedResponseContent returns the provider's message content carried by an
+// invalid-response error, if any.
+func RejectedResponseContent(err error) (string, bool) {
+	invalid, ok := errors.AsType[*InvalidTranslationResponseError](err)
+	if !ok || invalid.Content == "" {
+		return "", false
+	}
+	return invalid.Content, true
+}
+
+func rejectedMessageContent(body []byte) string {
+	if len(body) > maxTranslationResponseBytes {
+		return ""
+	}
+	decoded, err := decodeChatCompletion(body)
+	if err != nil {
+		return ""
+	}
+	return decoded.Choices[0].Message.Content
 }
 
 // chatCompletionEnvelope is the bounded Chat Completions view the codec reads:
@@ -792,9 +830,10 @@ func validateTranslationIdentity(input TranslationRequest, expectedItemID string
 	if result.TargetLanguage == "" || result.TargetLanguage != translationTargetLanguage(input) {
 		return errors.New("decode LLM translation: target_language mismatch")
 	}
-	// An idiom answer's translation depends on its outcome, which is decoded
-	// later; NormalizeTranslationResponse enforces it there.
-	if result.Translation == "" && !input.RequireIdiomCard {
+	// An idiom or contextual-Gloss answer's translation depends on its outcome,
+	// which is decoded later; NormalizeTranslationResponse enforces it there.
+	outcomeDecidesTranslation := (input.RequireIdiomCard || input.RequireContextualGloss) && !input.RequireEvidenceAssistedPass
+	if result.Translation == "" && !outcomeDecidesTranslation {
 		return errors.New("decode LLM translation: translation is empty")
 	}
 	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
@@ -894,7 +933,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	response.UnresolvedKind = ContextualGlossUnresolvedKind(strings.TrimSpace(string(response.UnresolvedKind)))
 	response.UnresolvedReason = strings.TrimSpace(response.UnresolvedReason)
 	response.FallbackGloss = strings.TrimSpace(response.FallbackGloss)
-	if response.Translation == "" && !idiomAnswerConfirmsNoSense(input, response) {
+	if response.Translation == "" && !answerOmitsTheCard(input, response) {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.RequireEvidenceAssistedPass {
@@ -925,13 +964,18 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	return reconcileSenseSelection(input, response), nil
 }
 
-// idiomAnswerConfirmsNoSense reports an idiom answer without a Gloss. The idiom
-// prompt defines translation as the idiom in the confirmed sense, so such an
-// answer may leave it blank; it becomes an omission and is never cached.
-// validateContextualMeaning still requires its literal_use or ambiguous kind
-// and its reason.
-func idiomAnswerConfirmsNoSense(input TranslationRequest, response TranslationResponse) bool {
-	return input.RequireIdiomCard && response.Gloss == ""
+// answerOmitsTheCard reports an idiom or contextual-Gloss answer without a
+// Gloss. Such an answer becomes an omission and is never cached, so its
+// translation is unused and may be blank: an idiom the sentence does not use
+// (#2385), or a lemma whose sentence uses another lexeme (#2354).
+// validateContextualMeaning still requires its kind and its reason. The
+// evidence-assisted pass keeps a source-evidence card on abstention, so it
+// still needs a translation.
+func answerOmitsTheCard(input TranslationRequest, response TranslationResponse) bool {
+	if input.RequireEvidenceAssistedPass || response.Gloss != "" {
+		return false
+	}
+	return input.RequireIdiomCard || input.RequireContextualGloss
 }
 
 // validateContextualMeaning enforces the strict contextual-gloss contract:

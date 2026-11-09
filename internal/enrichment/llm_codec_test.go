@@ -3,6 +3,7 @@ package enrichment
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -711,4 +712,26 @@ func TestNormalizeTranslationResponseAppliesSelectionAndFallbackRules(t *testing
 		assert.Empty(t, got.FallbackGloss)
 		assert.Contains(t, got.Warnings, "fallback gloss supplied with a sense selection; ignoring it")
 	})
+}
+
+func TestDecodeResponseKeepsTheRejectedAnswerOutOfTheErrorText(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "it", TargetLanguage: "en", CanonicalLemma: "gamba", UPOS: "NOUN", ExampleSentence: "Ho una gamba.", RequireContextualGloss: true}
+	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"it","target_language":"en","translation":"","sentence_translation":"I have a leg.","sentence_translation_targets":[],"gloss":"leg","evidence_ids":[],"context_only":true,"unresolved_kind":"","unresolved_reason":""}`
+
+	_, err = codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(content)+`}}]}`))
+	require.ErrorIs(t, err, ErrInvalidTranslationResponse)
+	rejected, ok := RejectedResponseContent(err)
+	require.True(t, ok)
+	assert.Equal(t, content, rejected)
+	assert.NotContains(t, err.Error(), "I have a leg.")
+
+	_, err = codec.DecodeResponse(input, []byte(`not json`))
+	require.ErrorIs(t, err, ErrInvalidTranslationResponse)
+	_, ok = RejectedResponseContent(err)
+	assert.False(t, ok, "an unreadable body has no answer to show")
+
+	_, ok = RejectedResponseContent(errors.New("other"))
+	assert.False(t, ok)
 }

@@ -36,6 +36,24 @@
     "expected_reason": "lemma_mismatch: The sentence uses fernsehen, not sehen."
   },
   {
+    "name": "lemma mismatch with a blank translation is omitted with the reserved reason",
+    "language": "de",
+    "lemma": "kaufen",
+    "upos": "VERB",
+    "target_word": "kauft",
+    "source_sentence": "Sie kauft samstags auf dem Markt ein.",
+    "translation": "",
+    "sentence_translation": "She does her shopping at the market on Saturdays.",
+    "sentence_translation_targets": [],
+    "gloss": "",
+    "evidence_ids": [],
+    "context_only": true,
+    "unresolved_kind": "lemma_mismatch",
+    "unresolved_reason": "The sentence uses einkaufen, not kaufen.",
+    "expected_outcome": "lemma_mismatch",
+    "expected_reason": "lemma_mismatch: The sentence uses einkaufen, not kaufen."
+  },
+  {
     "name": "ambiguous omission keeps today's presentation",
     "language": "de",
     "lemma": "Bank",

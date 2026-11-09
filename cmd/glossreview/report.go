@@ -67,9 +67,7 @@ func writeCaseReport(builder *strings.Builder, result caseResult) {
 	writef(builder, "| candidate_senses | %s |\n", codeSpan(evidenceSummary(testCase.Evidence)))
 	builder.WriteString("\n### Provider result\n\n")
 	writef(builder, "- Outcome: %s\n", codeSpan(string(result.Outcome)))
-	if result.Err != nil {
-		writef(builder, "- Error: %s\n", codeSpan(result.Err.Error()))
-	}
+	writeProviderError(builder, result.Err)
 	writef(builder, "- Translation: %s\n", codeSpan(result.Response.Translation))
 	writef(builder, "- Raw Gloss: %s\n", codeSpan(result.Response.Gloss))
 	writef(builder, "- Evidence IDs: %s\n", codeSpan(strings.Join(result.Response.EvidenceIDs, ", ")))
@@ -132,6 +130,18 @@ func checkResult(check automaticCheck) string {
 
 // codeSpan renders one provider or case value inline without letting Markdown
 // metacharacters or a backtick break the report.
+// writeProviderError writes a failed call's error and, for a rejected response,
+// the provider's raw answer, so the reviewer can see what was rejected.
+func writeProviderError(builder *strings.Builder, err error) {
+	if err == nil {
+		return
+	}
+	writef(builder, "- Error: %s\n", codeSpan(err.Error()))
+	if content, ok := enrichment.RejectedResponseContent(err); ok {
+		writef(builder, "- Rejected answer: %s\n", codeSpan(content))
+	}
+}
+
 func codeSpan(value string) string {
 	value = strings.ReplaceAll(strings.TrimSpace(value), "\n", " ")
 	if value == "" {
