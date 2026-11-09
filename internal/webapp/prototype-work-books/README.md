@@ -28,6 +28,10 @@ only.
   books live on a My Books work page with a table and a range move.
 - **D, Numbered strip**: one numbered cell per book, shaped by bucket; choosing a
   cell opens that Book's own line with ordinary actions. Counts Books.
+- **E, Strip, work-level To Read**: D's strip, but a grouped work moves to To Read
+  (and back to Inbox) as a whole; Read books are skipped and the current Book stays
+  To Read. No per-book Move or Hide. Interleaving happens on a rough Reading chooser
+  (top-bar Reading link), grouped by work with the same strip. Counts Books.
 
 Shared across variants: the margin shows one badge for the work's leading bucket
 (same precedence as a Book's bucket) plus counts, and lists any problem with its

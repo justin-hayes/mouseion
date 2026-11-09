@@ -119,7 +119,7 @@ var WORK_ORDER = ['iliad', 'anabasis', 'apology', 'histories', 'odyssey'];
 
 function mk(work, n, o) { return Object.assign({ id: work + '-' + n, work: work, n: n, disp: 'Inbox', current: false, read: null, hidden: false, prep: null, cov: null }, o || {}); }
 function seed(fresh) {
-  var B = [];
+  var B = [], E = variant() === 'E';
   WORKS.iliad.books.forEach(function (_, i) {
     var n = i + 1, o = {};
     if (n === 1) o = { read: '2026-09-14', prep: 'done', cov: 88 };
@@ -128,18 +128,22 @@ function seed(fresh) {
     if (n === 4) o = { disp: 'To Read', prep: 'fetching' };
     if (n === 6) o = { disp: 'To Read', prep: 'unavailable' };
     if (n === 9) o = { hidden: true };
+    // Variant E: the Iliad was moved to To Read as a work, so every unread book is To Read.
+    if (E && n > 2) o = { disp: 'To Read', prep: n === 4 || n >= 21 ? 'fetching' : n === 6 ? 'unavailable' : 'done', cov: 55 + (n * 7) % 30 };
     B.push(mk('iliad', n, o));
   });
-  WORKS.anabasis.books.forEach(function (_, i) { var n = i + 1; B.push(mk('anabasis', n, n === 1 ? { read: '2026-06-02', prep: 'done', cov: 91 } : n === 2 ? { disp: 'To Read', prep: 'done', cov: 81 } : {})); });
+  WORKS.anabasis.books.forEach(function (_, i) { var n = i + 1; B.push(mk('anabasis', n, n === 1 ? { read: '2026-06-02', prep: 'done', cov: 91 } : n === 2 || E ? { disp: 'To Read', prep: 'done', cov: 70 + (n * 3) % 20 } : {})); });
   B.push(mk('apology', 1));
   B.push(mk('histories', 1));
   if (fresh) WORKS.odyssey.books.forEach(function (_, i) { B.push(mk('odyssey', i + 1)); });
+  if (E) B.filter(function (b) { return b.prep === 'fetching'; }).forEach(function (b, i) { setTimeout(function () { prepare(b, true); }, i * 1800); });
   return B;
 }
-var S = { books: seed(true), flash: null };
+var S = { books: [], flash: null };
 
 // ---------- URL state ----------
-var VARIANTS = [['A', 'Disclosure + selection'], ['B', 'Chosen books as rows'], ['C', 'Work page'], ['D', 'Numbered strip']];
+var VARIANTS = [['A', 'Disclosure + selection'], ['B', 'Chosen books as rows'], ['C', 'Work page'], ['D', 'Numbered strip'], ['E', 'Strip, work-level To Read']];
+S.books = seed(true);
 function P() { return new URLSearchParams(location.search); }
 function variant() { var v = P().get('variant'); return VARIANTS.some(function (x) { return x[0] === v; }) ? v : 'A'; }
 function href(over) { var p = P(); Object.keys(over).forEach(function (k) { if (over[k] == null || over[k] === '') p.delete(k); else p.set(k, over[k]); }); return '?' + p.toString(); }
@@ -237,6 +241,10 @@ document.addEventListener('click', function (e) {
       if (lo > hi) { var x = lo; lo = hi; hi = x; }
       toRead(idsOfWork(arg, function (b) { return b.n >= lo && b.n <= hi && bucket(b) === 'inbox' && !b.hidden; })); break;
     }
+    case 'work-toread': toRead(idsOfWork(arg, function (b) { return b.disp === 'Inbox' && !b.read; })); break;
+    case 'work-inbox': toInbox(idsOfWork(arg)); break;
+    case 'start': { var nb = byId(arg), was = S.books.find(function (b) { return b.current; }); S.books.forEach(function (b) { b.current = false; }); nb.current = true; flash('Now reading', bookName(nb) + (was ? '. ' + bookName(was) + ' stays To Read.' : '.')); break; }
+    case 'finish': { var fb = byId(arg); fb.current = false; fb.read = '2026-11-09'; fb.disp = 'Inbox'; flash('Finished', bookName(fb) + '. It shows as Read; choose your next reading below.'); break; }
     case 'dismiss': S.flash = null; break;
     default: return;
   }
@@ -249,7 +257,11 @@ document.addEventListener('submit', function (e) {
 
 // ---------- Shell ----------
 function shell(main) {
-  var nav = [['My Books', true], ['Reading'], ['Vocabulary'], ['Catalogs']].map(function (n) { return '<li><a class="site-nav__link' + (n[1] ? ' site-nav__link--current" aria-current="page' : '') + '" href="#">' + n[0] + '</a></li>'; }).join('');
+  var onReading = P().get('view') === 'reading';
+  var nav = [['My Books', !onReading, { view: null, sel: null }], ['Reading', onReading, { view: 'reading', sel: null, f: null, q: null }], ['Vocabulary'], ['Catalogs']].map(function (n) {
+    var cls = ' class="site-nav__link' + (n[1] ? ' site-nav__link--current" aria-current="page"' : '"');
+    return '<li>' + (n[2] && variant() === 'E' ? link(n[2], n[0], cls) : '<a' + cls + ' href="#">' + n[0] + '</a>') + '</li>';
+  }).join('');
   return '<a class="skip-link" href="#main-content">Skip to main content</a>' +
     '<header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation"><a class="site-header__brand" href="#"><strong>Mouseion</strong></a><ul class="site-header__navigation">' + nav + '</ul>' +
     '<div class="site-header__tools"><form class="site-header__language"><label for="active-study-language"><span class="site-header__language-label">Study language</span><select id="active-study-language"><option>Deutsch</option><option selected>Ancient Greek</option></select></label></form>' +
@@ -291,9 +303,9 @@ function workSummary(w) {
   return '<p class="library-book__membership">' + lead + '</p><p>' + parts.join(' · ') + '</p>';
 }
 function marginProblems(w) {
-  return workBooksInLibrary(w.key).filter(function (b) { return problem(b) || b.prep === 'fetching'; }).map(function (b) {
-    return '<p class="library-book__evidence"><strong>Book ' + b.n + ':</strong> ' + esc(note(b)) + '</p>' + recovery(b);
-  }).join('');
+  var all = workBooksInLibrary(w.key), busy = all.filter(function (b) { return b.prep === 'fetching'; }).map(function (b) { return b.n; });
+  return (busy.length ? '<p class="library-book__evidence">Preparing ' + (busy.length === 1 ? 'Book ' : 'Books ') + ranges(busy) + '…</p>' : '') +
+    all.filter(problem).map(function (b) { return '<p class="library-book__evidence"><strong>Book ' + b.n + ':</strong> ' + esc(note(b)) + '</p>' + recovery(b); }).join('');
 }
 function workIdentity(w, extra) {
   var total = workBooksInLibrary(w.key).length;
@@ -399,7 +411,7 @@ function C_workPage(w) {
 }
 
 // ---------- Variant D: numbered strip, choose a cell to open that Book ----------
-function D_row(g) {
+function D_row(g, e) {
   var w = g.work, bs = g.books, sel = P().get('sel');
   var cells = bs.map(function (b) {
     var k = bucket(b), cls = 'c-' + k + (b.hidden ? ' c-hidden' : '') + (problem(b) ? ' c-problem' : '');
@@ -409,24 +421,77 @@ function D_row(g) {
   var chosen = bs.find(function (b) { return b.id === sel; });
   var detail = chosen ? (function (b) {
     var u = unit(b);
-    return '<div class="wb-detail" role="region" aria-label="' + esc(bookName(b)) + '"><div><strong>' + esc(bookName(b)) + '</strong><span class="wb-meta">' + esc(u.range) + ' · ~' + fmt(u.words) + ' words</span></div><div>' + bucketBadge(b) + (b.hidden ? ' ' + badge('Hidden', 'neutral', 'ring') : '') + (note(b) ? ' <span class="wb-small">' + esc(note(b)) + '</span>' : '') + (b.read ? ' <span class="wb-small">Last read ' + b.read + '</span>' : '') + '</div>' + (recovery(b) ? '<div>' + recovery(b) + '</div>' : '') + '<div class="wb-acts">' + bookPrimary(b) + bookMore(b) + '</div></div>';
-  })(chosen) : '<p class="wb-small">Choose a book number to see it and move it.</p>';
+    return '<div class="wb-detail" role="region" aria-label="' + esc(bookName(b)) + '"><div><strong>' + esc(bookName(b)) + '</strong><span class="wb-meta">' + esc(u.range) + ' · ~' + fmt(u.words) + ' words</span></div><div>' + bucketBadge(b) + (b.hidden ? ' ' + badge('Hidden', 'neutral', 'ring') : '') + (note(b) ? ' <span class="wb-small">' + esc(note(b)) + '</span>' : '') + (b.read ? ' <span class="wb-small">Last read ' + b.read + '</span>' : '') + '</div>' + (recovery(b) ? '<div>' + recovery(b) + '</div>' : '') + '<div class="wb-acts">' + (e ? E_bookActs(b) : bookPrimary(b) + bookMore(b)) + '</div></div>';
+  })(chosen) : '<p class="wb-small">' + (e ? 'Choose a book number to see it.' : 'Choose a book number to see it and move it.') + '</p>';
   return '<li class="library-book">' + workIdentity(w) +
     '<div class="library-book__notes">' + workSummary(w) + marginProblems(w) + '</div>' +
-    '<div class="library-book__actions">' + readingLink(w) + ' ' + workMore(w) + '</div>' +
+    '<div class="library-book__actions">' + (e ? E_primary(w) + ' ' + E_more(w) : readingLink(w) + ' ' + workMore(w)) + '</div>' +
     '<div class="wb-group">' + narrowedLine(w, bs) + '<ul class="wb-strip" aria-label="Books of ' + esc(w.title) + '">' + cells + '</ul><p class="wb-legend">Filled blue: Currently reading · Bold edge: To Read · Grey: Read · Dashed: Inbox · ! needs attention</p>' + detail + '</div></li>';
 }
+
+// ---------- Variant E: D's strip, but To Read is a work-level move ----------
+// Rule: a grouped work moves to To Read (or back to Inbox) as a whole. Books with reading
+// history are skipped (moving them would mean "read again"); the current Book stays To Read.
+// The learner interleaves by choosing individual books as the current reading on Reading.
+function E_primary(w) {
+  var all = workBooksInLibrary(w.key), waiting = all.filter(function (b) { return b.disp === 'Inbox' && !b.read; });
+  var started = all.some(function (b) { return b.disp === 'To Read'; });
+  if (waiting.length) return btn('work-toread', w.key, '<span aria-hidden="true">+</span> ' + (started ? 'Move the other ' + waiting.length + ' books to To Read' : 'Move ' + esc(w.title) + ' to To Read'), 'btn btn-outline library-book__journey-action');
+  return started ? link({ view: 'reading', sel: null, f: null, q: null }, 'View in Reading', ' class="btn btn-outline library-book__journey-action"') : '';
+}
+function E_more(w) {
+  var all = workBooksInLibrary(w.key), back = all.filter(function (b) { return b.disp === 'To Read' && !b.current; }), cur = all.find(function (b) { return b.current; });
+  var inbox = back.length ? '<details class="confirmation"><summary>Move ' + esc(w.title) + ' back to Inbox</summary><div class="confirmation__body"><p class="wb-small">Its ' + back.length + ' To Read books return to Inbox. Prepared analyses are kept.' + (cur ? ' Book ' + cur.n + ' stays To Read because it is your current reading.' : '') + '</p>' + btn('work-inbox', w.key, 'Move ' + back.length + ' Books to Inbox') + '</div></details>' : '';
+  return workMore(w).replace('<div class="more-actions__body">', '<div class="more-actions__body">' + inbox);
+}
+function E_bookActs(b) { var k = bucket(b); return k === 'current' || k === 'toread' ? link({ view: 'reading', sel: b.id, f: null, q: null }, 'View in Reading', ' class="btn btn-outline"') : '<span class="wb-small">' + (k === 'read' ? '' : 'Moves to To Read with ' + esc(W(b).title) + '.') + '</span>'; }
+
+function E_reading() {
+  var cur = S.books.find(function (b) { return b.current; }), sel = P().get('sel');
+  var html = '<header class="page-header"><div class="page-header__content"><h1>Reading</h1><p>Ancient Greek</p></div></header>' +
+    '<p class="proto-note">Variant E, Reading (rough): the chooser lists To Read candidates grouped by work, with the same strip. Read and current books are shown for position only (#2324: a plain fact, never a pointer to the next book). Choosing a ready book makes it the current reading, so Iliad 1 → Anabasis 2 → Iliad 3 is just three choices. Switching skips the real “End current reading” confirmation, and Finish skips the receipt.</p>' + flashHTML();
+  html += cur ? '<section><h2>Current reading</h2><p><strong class="bibliographic-title">' + esc(bookName(cur)) + '</strong><span class="wb-meta">By ' + esc(W(cur).author) + ' · Book ' + cur.n + ' of ' + W(cur).books.length + ' · Known coverage ' + cur.cov + '%</span></p><div class="wb-inline">' + btn('finish', cur.id, 'Finish reading') + '</div></section>' : '<section><h2>No current reading</h2><p>Choose one of your To Read books.</p></section>';
+  var cands = S.books.filter(function (b) { return b.disp === 'To Read' && !b.current && !b.hidden; });
+  var rows = byWork(cands).map(function (g) {
+    var w = g.work;
+    if (!grouped(w.key)) { var b = g.books[0]; return '<li class="library-book"><div class="library-book__identity-link">' + cover(w) + '<div class="library-book__text"><h3 class="bibliographic-title">' + esc(bookName(b)) + '</h3><span class="library-book__author">By ' + esc(w.author) + '</span></div></div><div class="library-book__notes">' + E_candNote(b) + '</div><div class="library-book__actions">' + E_candAct(b, cur) + '</div></li>'; }
+    var all = workBooksInLibrary(w.key).filter(function (b) { return !b.hidden; });
+    var cells = all.map(function (b) {
+      var k = bucket(b), cand = k === 'toread', ready = cand && b.prep === 'done';
+      var cls = k === 'current' ? 'c-current' : k === 'read' ? 'c-read' : k === 'inbox' ? 'c-inbox' : ready ? 'c-toread' : 'c-inbox' + (problem(b) ? ' c-problem' : '');
+      var label = 'Book ' + b.n + ', ' + (k === 'current' ? 'current reading' : k === 'read' ? 'read' : k === 'inbox' ? 'Inbox, not a candidate' : ready ? 'ready, Known coverage ' + b.cov + '%' : note(b));
+      return '<li>' + link({ sel: sel === b.id ? null : b.id }, String(b.n), ' class="' + cls + '" aria-label="' + esc(label) + '"' + (sel === b.id ? ' aria-current="true"' : '')) + '</li>';
+    }).join('');
+    var chosen = all.find(function (b) { return b.id === sel; });
+    var detail = chosen ? '<div class="wb-detail"><div><strong>' + esc(bookName(chosen)) + '</strong><span class="wb-meta">Book ' + chosen.n + ' of ' + w.books.length + ' · ' + esc(unit(chosen).range) + ' · ~' + fmt(unit(chosen).words) + ' words</span></div><div>' + E_candNote(chosen) + '</div><div class="wb-acts">' + E_candAct(chosen, cur) + '</div></div>' : '<p class="wb-small">Choose a book number to see its coverage and read it.</p>';
+    var ready = g.books.filter(function (b) { return b.prep === 'done'; }).length;
+    return '<li class="library-book"><div class="library-book__identity-link">' + cover(w) + '<div class="library-book__text"><h3 class="bibliographic-title">' + esc(w.title) + '</h3><span class="library-book__author">By ' + esc(w.author) + '</span></div></div>' +
+      '<div class="library-book__notes"><p>' + ready + ' of ' + g.books.length + ' To Read books ready' + (g.books.length > ready ? '; the rest are preparing or need attention' : '') + '</p></div>' +
+      '<div class="wb-group"><ul class="wb-strip" aria-label="Books of ' + esc(w.title) + '">' + cells + '</ul><p class="wb-legend">Bold edge: ready to read · Dashed: preparing or not a candidate · Grey: Read · Filled blue: current · ! needs attention</p>' + detail + '</div></li>';
+  }).join('');
+  return html + '<section><h2>To Read</h2>' + (rows ? '<ul class="library-books" role="list">' + rows + '</ul>' : '<p>No To Read books.</p>') + '</section>';
+}
+function E_candNote(b) {
+  var k = bucket(b);
+  if (k === 'current') return badge('Currently reading', 'info', 'dot');
+  if (k === 'read') return 'Read ' + b.read + '. Not a candidate.';
+  if (k === 'inbox') return 'In Inbox. Not a candidate.';
+  if (b.prep === 'done') return 'Known coverage ' + b.cov + '%';
+  return esc(note(b)) + (recovery(b) ? ' ' + recovery(b) : '');
+}
+function E_candAct(b, cur) { return bucket(b) === 'toread' && b.prep === 'done' ? btn('start', b.id, cur ? 'Switch current reading' : 'Start reading', 'btn btn-outline') : ''; }
 
 // ---------- Page ----------
 var NOTES = {
   A: 'Variant A: the books sit in a table inside a “Books” disclosure, closed by default and opened when a filter or search narrows the work. Checkboxes and one set of “With selected” buttons replace 24 Move buttons; the current Book cannot be selected. Counts are Books. The margin keeps whole-work summary and any problem with its recovery action, so a closed disclosure hides nothing that needs attention.',
   B: 'Variant B: Books you have chosen (current, To Read, Read) are nested rows with their own margin and actions; untouched Inbox books fold into one line with a “Move Book [n] to To Read” picker. Counts are Books. Filtering To Read shows the work with only its chosen rows.',
   C: 'Variant C: the list has one entry per work, and the tabs count entries (a work appears under every tab one of its books belongs to). The books live on a My Books work page with a table and a “move a range to To Read” form. Search for “iliad 6” keeps the work entry and names Book 6 in it.',
+  E: 'Variant E: D’s strip with a work-level rule. A grouped work moves to To Read (and back to Inbox) as a whole, so the strip only shows state and opens a Book; there are no per-book Move or Hide actions. Read books are skipped by the move, and the current Book stays To Read. Interleaving happens on Reading (top bar), where you choose any ready book as the current reading. Want only Book 6? Add just that book from the Classical catalog. Counts are Books.',
   D: 'Variant D: one numbered cell per book, shaped by bucket (not colour alone; each cell has a full label). Choosing a cell opens that Book’s own line, with the same actions an ordinary row has. Counts are Books; filters and search drop non-matching cells.'
 };
 function library() {
   var v = variant(), groups = byWork(shown());
-  var rows = groups.map(function (g) { return grouped(g.work.key) ? ({ A: A_row, B: B_row, C: C_row, D: D_row })[v](g) : singleRow(g.books[0]); }).join('');
+  var rows = groups.map(function (g) { return grouped(g.work.key) ? ({ A: A_row, B: B_row, C: C_row, D: D_row, E: function (x) { return D_row(x, true); } })[v](g) : singleRow(g.books[0]); }).join('');
   return '<section class="library-masthead"><h1>My Books</h1><p class="library-language-context">Ancient Greek collection</p></section>' +
     '<p class="proto-note">' + NOTES[v] + ' Search (all variants) matches author, English or Greek title, accent-insensitively; a trailing number narrows to that book (“iliad 6”). A work with only one Book in My Books stays an ordinary row, titled “Histories, Book 1” with “Book 1 of 9”.</p>' +
     finder() + flashHTML() + (rows ? list(rows) : '<article class="empty-state"><h2>No books match</h2><p>' + link({ q: null, f: null }, 'Clear search and filters') + '</p></article>');
@@ -440,7 +505,7 @@ function render() {
     if (!fr) document.getElementById('app').innerHTML = '<iframe id="proto-frame" title="Compact width preview" src="' + esc(want) + '"></iframe>';
     else if (fr.getAttribute('src') !== want) fr.setAttribute('src', want);
   } else {
-    var main = p.get('view') === 'work' && variant() === 'C' && WORKS[p.get('work')] ? C_workPage(WORKS[p.get('work')]) : library();
+    var main = p.get('view') === 'work' && variant() === 'C' && WORKS[p.get('work')] ? C_workPage(WORKS[p.get('work')]) : p.get('view') === 'reading' && variant() === 'E' ? E_reading() : library();
     document.getElementById('app').innerHTML = shell(main);
   }
   var lab = VARIANTS.find(function (x) { return x[0] === variant(); });
@@ -454,7 +519,10 @@ function render() {
 function cycle(d) {
   var i = VARIANTS.findIndex(function (x) { return x[0] === variant(); });
   var next = VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length][0];
-  go({ variant: next, view: null, work: null, sel: null }, true);
+  var crossesE = (next === 'E') !== (variant() === 'E');
+  history.replaceState(null, '', href({ variant: next, view: null, work: null, sel: null }));
+  if (crossesE) { S.books = seed(true); S.flash = null; }
+  render();
 }
 document.getElementById('proto-prev').onclick = function () { cycle(-1); };
 document.getElementById('proto-next').onclick = function () { cycle(1); };
