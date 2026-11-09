@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/deploysecret"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -95,6 +96,10 @@ func run() (err error) {
 		return err
 	}
 	defer closeIntoResult("PostgreSQL store", store.Close, &err)
+	if err := classical.Reconcile(ctx, store, classical.ManifestJSONL); err != nil {
+		return fmt.Errorf("reconcile Classical catalog manifest: %w", err)
+	}
+	log.Print("classical catalog manifest reconciled")
 	nlp, err := analyzer.NewGRPCAnalyzer("")
 	if err != nil {
 		return err

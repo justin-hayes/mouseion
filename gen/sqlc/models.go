@@ -844,16 +844,29 @@ type ReadingHistory struct {
 }
 
 type ReadingUnit struct {
-	ID                    string
-	EditionID             string
-	DefinitionKey         string
-	CitationStart         string
-	CitationEnd           string
-	SourceFileName        string
-	SourceFileSize        int64
-	SourceFileSha256      string
-	InterpretationVersion string
-	CreatedAt             time.Time
+	ID                       string
+	EditionID                string
+	DefinitionKey            string
+	CitationStart            string
+	CitationEnd              string
+	SourceFileName           string
+	SourceFileSize           int64
+	SourceFileSha256         string
+	InterpretationVersion    string
+	CreatedAt                time.Time
+	SourceLayer              string
+	SourceFormat             string
+	ConstituentBook          pgtype.Int4
+	ConstituentBooks         int
+	WordCount                int
+	Revision                 int
+	Withdrawn                bool
+	TranslationLayer         pgtype.Text
+	TranslationFileName      pgtype.Text
+	TranslationFileSize      pgtype.Int8
+	TranslationFileSha256    pgtype.Text
+	TranslationCitationStart pgtype.Text
+	TranslationCitationEnd   pgtype.Text
 }
 
 type ReferenceTranslation struct {
@@ -1082,4 +1095,5 @@ type Work struct {
 	Title         string
 	Author        string
 	CreatedAt     time.Time
+	GreekTitle    string
 }

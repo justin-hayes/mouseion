@@ -5,14 +5,15 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus) {
-	@ConnectionsPageForBook(user, csrf, connections, message, "", "", statuses)
+templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus, catalog *classical.Catalog) {
+	@ConnectionsPageForBook(user, csrf, connections, message, "", "", statuses, catalog)
 }
 
-templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage, bookID string, statuses map[string]domain.CatalogueSyncStatus) {
+templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage, bookID string, statuses map[string]domain.CatalogueSyncStatus, catalog *classical.Catalog) {
 	@ShellLayout("Catalogs", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
 		@PageHeader("Catalogs", "Connect a catalog and add EPUB books to My Books.", nil)
 		if message != "" {
@@ -21,6 +22,7 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		if errorMessage != "" {
 			@Feedback(FeedbackError, "", errorMessage)
 		}
+		@ClassicalCatalogRecord(catalog.Counts())
 		if len(connections) == 0 {
 			@EmptyState("Add your first catalog connection", "A connection lets Mouseion sync ready-language bibliographic metadata into My Books. Your credentials stay private and are never shown again.") {
 				<a href="#catalog-connection-form">Add catalog connection</a>

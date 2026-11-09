@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
@@ -79,7 +80,9 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 
 func TestOperationalAndTaskPagesLoadCompiledStylesOnTheirHostPages(t *testing.T) {
 	var catalogs, jobs, reading bytes.Buffer
-	require.NoError(t, ConnectionsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil).Render(context.Background(), &catalogs))
+	classicalCatalog, err := classical.LoadCatalog(classical.ManifestJSONL)
+	require.NoError(t, err)
+	require.NoError(t, ConnectionsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil, classicalCatalog).Render(context.Background(), &catalogs))
 	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil).Render(context.Background(), &jobs))
 	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "").Render(context.Background(), &reading))
 
