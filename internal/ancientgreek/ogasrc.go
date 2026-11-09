@@ -108,14 +108,27 @@ func (p *ogaSrcParser) acceptHeader(body string, lineNo int) error {
 }
 
 // recoverableSource reports whether a source header carries the author or work
-// label and a citation the adapter can parse. It never guesses a missing one.
+// label and a citation or citation range the adapter can parse. It never
+// guesses a missing one.
 func recoverableSource(value string) bool {
 	label, citation, ok := strings.CutLast(value, "_")
 	if !ok || strings.TrimSpace(label) == "" {
 		return false
 	}
-	_, ok = parseCitation(citation)
-	return ok
+	return recoverableCitation(citation)
+}
+
+// recoverableCitation accepts one citation or a start-end range, the two
+// header shapes the pinned oga_src dialect uses.
+func recoverableCitation(value string) bool {
+	start, end, isRange := strings.Cut(value, "-")
+	if !isRange {
+		_, ok := parseCitation(value)
+		return ok
+	}
+	_, startOK := parseCitation(start)
+	_, endOK := parseCitation(end)
+	return startOK && endOK
 }
 
 // acceptToken appends one token to the current sentence.

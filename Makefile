@@ -34,7 +34,7 @@ DICTIONARY_LSJ_PIN ?= 56061ca127f4a2844980baffc5f2b6d1332897b3
 DICTIONARY_LSJ_ARGS := $(if $(strip $(DICTIONARY_LSJ_DIR)),--lsj-dir "$(DICTIONARY_LSJ_DIR)" --lsj-pin "$(DICTIONARY_LSJ_PIN)",)
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources check-dockerfile-go python-test-preflight french-golden
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources check-dockerfile-go python-test-preflight french-golden classical-manifest verify-classical-manifest
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
@@ -216,6 +216,20 @@ check-dockerfile-go:
 sqlc: go-tmp
 	test "$$($(SQLC) version 2>/dev/null)" = "$(SQLC_VERSION)"
 	$(SQLC) generate
+
+# Regenerate the embedded Classical catalog manifest from overrides.jsonl,
+# layers.json and the pinned upstream files. Set CLASSICAL_MANIFEST_UPSTREAM to
+# the directory that holds the reviewed files (the real files never enter the
+# repository).
+CLASSICAL_MANIFEST_UPSTREAM ?=
+classical-manifest: go-tmp
+	go run ./cmd/classicalmanifest generate $(if $(CLASSICAL_MANIFEST_UPSTREAM),-upstream "$(CLASSICAL_MANIFEST_UPSTREAM)",) $(if $(CLASSICAL_MANIFEST_NOTES),-notes "$(CLASSICAL_MANIFEST_NOTES)",)
+
+# CI gate: reproduce the committed manifest byte-for-byte. Without an upstream
+# directory it retains the committed byte pins and word counts; with one it
+# re-verifies every pinned file.
+verify-classical-manifest: go-tmp
+	go run ./cmd/classicalmanifest verify $(if $(CLASSICAL_MANIFEST_UPSTREAM),-upstream "$(CLASSICAL_MANIFEST_UPSTREAM)" -require-upstream,)
 
 dictionary-index:
 	test -n "$(DICTIONARY_DUMP_DATE)" || (printf '%s\n' 'DICTIONARY_DUMP_DATE is required (for example, 2026-09-14)' >&2; exit 1)

@@ -29,6 +29,9 @@ const (
 	// CodeSentenceAmbiguous reports a sentence whose first token belongs to
 	// more than one Reading unit in a whole-work cut.
 	CodeSentenceAmbiguous = "sentence_ambiguous"
+	// CodeEmptyCitationRange reports a Reading-unit range that does not
+	// resolve to real source tokens.
+	CodeEmptyCitationRange = "citation_range_empty"
 )
 
 // ImportAnalyzerName identifies an imported classical analysis run.

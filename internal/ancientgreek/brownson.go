@@ -171,6 +171,17 @@ func parsePerseusEng2(data []byte, source BrownsonSource) ([]ReferenceTranslatio
 	return parser.sections, nil
 }
 
+// InspectTranslation parses a pinned translation file over the citation range
+// and returns the number of aligned sections. It refuses a missing or extra
+// section inside the range rather than filling a gap.
+func InspectTranslation(data []byte, start, end string) (int, error) {
+	sections, err := parsePerseusEng2(data, BrownsonSource{CitationStart: start, CitationEnd: end})
+	if err != nil {
+		return 0, err
+	}
+	return len(sections), nil
+}
+
 // xmlImportError turns a decoder failure into a source-free refusal. The
 // decoder's own message may quote source text, so only its line is kept.
 func xmlImportError(err error) error {

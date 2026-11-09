@@ -1,5 +1,14 @@
 package ancientgreek
 
+import (
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
 // UnitRange is one Reading unit's inclusive citation range in a whole-work
 // check. Key is reported back and may be empty.
 type UnitRange struct {
@@ -146,4 +155,179 @@ func firstPrintedToken(sentence sourceSentence) (sourceToken, bool) {
 		}
 	}
 	return sourceToken{}, false
+}
+
+// ProposeUnits parses a whole oga_src file and proposes one Reading unit per
+// distinct top-level citation number, in ascending order. Each proposed range
+// covers every printed token whose citation begins with that number, so a
+// sentence that crosses a unit boundary belongs to the unit holding its first
+// token while both ranges still cover the Edition exactly. The caller supplies
+// each unit's permanent key; proposals carry none.
+func ProposeUnits(data []byte) ([]UnitRange, error) {
+	doc, err := parseManifestDocument(data)
+	if err != nil {
+		return nil, err
+	}
+	books, err := citationExtents(doc)
+	if err != nil {
+		return nil, err
+	}
+	if len(books) == 0 {
+		return nil, &ImportError{Code: CodeEmptyCitationRange, Detail: "no cited tokens"}
+	}
+	numbers := make([]int, 0, len(books))
+	for number := range books {
+		numbers = append(numbers, number)
+	}
+	sort.Ints(numbers)
+	units := make([]UnitRange, 0, len(numbers))
+	for _, number := range numbers {
+		extent := books[number]
+		units = append(units, UnitRange{Start: citationString(extent.start), End: citationString(extent.end)})
+	}
+	return units, nil
+}
+
+// citationExtent is the first and last citation seen for one top-level number.
+type citationExtent struct {
+	start, end []int
+}
+
+// citationExtents accumulates every printed token's citation under its
+// top-level number.
+func citationExtents(doc *sourceDocument) (map[int]citationExtent, error) {
+	books := map[int]citationExtent{}
+	for _, sentence := range doc.sentences {
+		for _, token := range sentence.tokens {
+			if isEllipsis(token.pos) {
+				continue
+			}
+			citation, ok := parseCitation(token.citation)
+			if !ok || len(citation) == 0 {
+				return nil, malformed(0, "token citation is not a citation")
+			}
+			addCitationExtent(books, citation[0], citation)
+		}
+	}
+	return books, nil
+}
+
+// addCitationExtent widens one top-level number's citation extent.
+func addCitationExtent(books map[int]citationExtent, book int, citation []int) {
+	current, seen := books[book]
+	if !seen {
+		books[book] = citationExtent{start: citation, end: citation}
+		return
+	}
+	if compareCitation(citation, current.start) < 0 {
+		current.start = citation
+	}
+	if compareCitation(citation, current.end) > 0 {
+		current.end = citation
+	}
+	books[book] = current
+}
+
+// UnitWordCount reports the printed words in the sentences a unit owns. It
+// counts every non-ellipsis token except punctuation, so a sentence crossing
+// the unit boundary counts whole toward the unit holding its first token. It
+// also refuses a range whose boundary citations do not resolve to real tokens,
+// and checks every token's native part of speech.
+func UnitWordCount(data []byte, start, end string) (int, error) {
+	doc, err := parseManifestDocument(data)
+	if err != nil {
+		return 0, err
+	}
+	startCitation, endCitation, err := parseUnitBounds(start, end)
+	if err != nil {
+		return 0, err
+	}
+	if err := requireBoundaryTokens(doc, startCitation, endCitation); err != nil {
+		return 0, err
+	}
+	reading, err := interpret(doc, domain.ReadingUnitDefinition{
+		Key:           "manifest-unit",
+		Language:      Language,
+		CitationStart: start,
+		CitationEnd:   end,
+	}, "manifest-unit")
+	if err != nil {
+		return 0, err
+	}
+	words := countPrintedWords(reading.Result)
+	if words == 0 {
+		return 0, &ImportError{Code: CodeEmptyCitationRange, Detail: "unit citation range has no words"}
+	}
+	return words, nil
+}
+
+// parseManifestDocument parses and validates a whole source file.
+func parseManifestDocument(data []byte) (*sourceDocument, error) {
+	doc, err := parseOgaSrc(data)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateNativePOS(doc); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// parseUnitBounds validates a unit's boundary citations.
+func parseUnitBounds(start, end string) ([]int, []int, error) {
+	startCitation, startOK := parseCitation(start)
+	endCitation, endOK := parseCitation(end)
+	if !startOK || !endOK || compareCitation(startCitation, endCitation) > 0 {
+		return nil, nil, &ImportError{Code: CodeEmptyCitationRange, Detail: "unit citation range is invalid"}
+	}
+	return startCitation, endCitation, nil
+}
+
+// requireBoundaryTokens refuses a range whose start or end citation never
+// appears on a token.
+func requireBoundaryTokens(doc *sourceDocument, start, end []int) error {
+	startSeen, endSeen := false, false
+	for _, sentence := range doc.sentences {
+		for _, token := range sentence.tokens {
+			citation, ok := parseCitation(token.citation)
+			if !ok {
+				return malformed(0, "token citation is not a citation")
+			}
+			if compareCitation(citation, start) == 0 {
+				startSeen = true
+			}
+			if compareCitation(citation, end) == 0 {
+				endSeen = true
+			}
+		}
+	}
+	if !startSeen || !endSeen {
+		return &ImportError{Code: CodeEmptyCitationRange, Detail: "unit citation range has no tokens"}
+	}
+	return nil
+}
+
+// countPrintedWords counts non-punctuation tokens in an interpretation.
+func countPrintedWords(result analyzer.Result) int {
+	words := 0
+	for _, sentence := range result.Sentences {
+		for _, token := range sentence.Tokens {
+			if token.UPOS != "PUNCT" {
+				words++
+			}
+		}
+	}
+	return words
+}
+
+// citationString joins a parsed citation back into its dotted form.
+func citationString(citation []int) string {
+	var text strings.Builder
+	for index, number := range citation {
+		if index > 0 {
+			text.WriteByte('.')
+		}
+		text.WriteString(strconv.Itoa(number))
+	}
+	return text.String()
 }
