@@ -1,6 +1,6 @@
 # Idiom cards
 
-Status: **Specified; implementation in progress** · Date: 2026-11-07 · Decisions:
+Status: **Implemented; Italian reviewed (German and Modern Greek pending)** · Date: 2026-11-07 · Decisions:
 [ADR 0114](../adr/0114-idiom-cards-from-dictionary-evidence.md),
 [ADR 0112](../adr/0112-gloss-is-lemma-sense-in-citation-form.md)
 
@@ -238,25 +238,25 @@ gush out".
 
 ## Acceptance criteria
 
-- [ ] Accepted ADR settling detection, card outcome, card-only domain model and
+- [x] Accepted ADR settling detection, card outcome, card-only domain model and
       the item-kind schema change (ADR 0114).
-- [ ] The dictionary derivation exposes a lookup from a word to the two-to-four
+- [x] The dictionary derivation exposes a lookup from a word to the two-to-four
       word multi-word entries containing it, excluding form-of and alt-of only
       entries, proper-name entries and literal-use-marker-only entries, and
       loads the reviewed idiom list for each language.
-- [ ] Freezing a deck finds idiom candidates for its frozen vocabulary, prefers
+- [x] Freezing a deck finds idiom candidates for its frozen vocabulary, prefers
       idiom-free sentences for lemma cards, and freezes one idiom item per
       distinct anchored idiom up to the bound, with evidence provenance.
-- [ ] An idiom item gets one provider request under its own prompt contract
+- [x] An idiom item gets one provider request under its own prompt contract
       version. A resolved answer yields an idiom card. `literal_use` or
       `ambiguous` omits only that card, and the deck result counts and labels
       it separately.
-- [ ] Idiom cards record no Generated vocabulary and change no snapshot, Known
+- [x] Idiom cards record no Generated vocabulary and change no snapshot, Known
       or Reserved state.
-- [ ] The idiom card renders with bold matched words, headword, Gloss and
+- [x] The idiom card renders with bold matched words, headword, Gloss and
       highlighted English, with no morphology block, under a stable namespaced
       note key.
-- [ ] The per-deck bound ranks noun-only idioms after every other idiom, and
+- [x] The per-deck bound ranks noun-only idioms after every other idiom, and
       the idiom review report lists the idioms a prepared deck would keep
       (#2379).
 - [x] Italian review report committed and passing the gate before Italian is
