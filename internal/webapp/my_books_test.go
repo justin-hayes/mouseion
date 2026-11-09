@@ -369,7 +369,7 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	for _, want := range []string{"Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account", `href="/catalogs">Set up a catalog</a>`} {
+	for _, want := range []string{"Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account", `href="/catalogs">Set up a catalog</a>`, `href="/catalogs/classical">Browse the Classical catalog</a>`} {
 		assert.Contains(t, html, want, "empty My Books onboarding missing %q: %s", want, html)
 	}
 	assert.False(t, strings.Contains(html, "Add books") || strings.Contains(html, "Add a book"), "empty My Books onboarding exposed retired acquisition wording: %s", html)
@@ -378,6 +378,16 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true, MyBooksBrowseState{}).Render(context.Background(), &output))
 	assert.Contains(t, output.String(), `href="/catalogs">Sync catalog</a>`, "connected empty state omitted sync guidance: %s", output.String())
 	assert.False(t, strings.Contains(output.String(), "Add books") || strings.Contains(output.String(), "Add a book"), "connected empty state exposed manual book creation: %s", output.String())
+}
+
+func TestMyBooksEmptyAncientGreekStateLinksToTheClassicalCatalog(t *testing.T) {
+	var output bytes.Buffer
+	browse := MyBooksBrowseState{Enabled: true, Language: "grc", LanguageLabel: "Ancient Greek", AllCount: 0}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, browse).Render(context.Background(), &output))
+	html := output.String()
+	for _, want := range []string{"No Ancient Greek Books yet", `href="/catalogs/classical">Browse the Classical catalog</a>`} {
+		assert.Contains(t, html, want, "empty Ancient Greek My Books state missing %q: %s", want, html)
+	}
 }
 
 func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {

@@ -122,7 +122,13 @@ func registerReadingUnitBookTx(ctx context.Context, q *sqlcgen.Queries, owner st
 // that predates the classical registration. It returns one entry per owner and
 // surface so the caller can refuse to mix old data with the new identities.
 func (s *PostgresStore) ListLegacyLanguageRows(ctx context.Context, language string) ([]domain.LegacyLanguageRows, error) {
-	rows, err := s.queries().ListLegacyLanguageRows(ctx, textArg(language))
+	return listLegacyLanguageRows(ctx, s.queries(), language)
+}
+
+// listLegacyLanguageRows is the transaction-aware form, so an Add can hold its
+// legacy-row precondition and its write in one transaction.
+func listLegacyLanguageRows(ctx context.Context, q *sqlcgen.Queries, language string) ([]domain.LegacyLanguageRows, error) {
+	rows, err := q.ListLegacyLanguageRows(ctx, textArg(language))
 	if err != nil {
 		return nil, err
 	}

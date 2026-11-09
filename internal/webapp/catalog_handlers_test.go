@@ -45,13 +45,12 @@ func catalogFixtureDefinition(key, workKey, title, author, greekTitle, editionKe
 	return definition
 }
 
-// catalogFixture builds a small release: a translated constituent book, a
-// whole-work passage, a two-book work without a translation and a withdrawn
-// tombstone.
-func catalogFixture(t *testing.T) *classical.Catalog {
-	t.Helper()
+// catalogFixtureDefinitions builds a small release: a translated constituent
+// book, a whole-work passage, a two-book work without a translation and a
+// withdrawn tombstone.
+func catalogFixtureDefinitions() []classical.Definition {
 	one, two := 1, 2
-	catalog, err := classical.NewCatalog([]classical.Definition{
+	return []classical.Definition{
 		catalogFixtureDefinition("xenophon-anabasis-1", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
 			"xenophon-anabasis-marchant-1904", "1.1.1", "1.10.19", &one, 7, 9305, false, true),
 		catalogFixtureDefinition("xenophon-hellenica-1", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
@@ -62,7 +61,12 @@ func catalogFixture(t *testing.T) *classical.Catalog {
 			"homer-iliad-monro-1902", "2.1.1", "2.1.10", &two, 24, 200, false, false),
 		catalogFixtureDefinition("xenophon-cyropaedia-1", "xenophon-cyropaedia", "Cyropaedia", "Xenophon", "Κύρου παιδεία",
 			"xenophon-cyropaedia-hutchinson-1914", "1.1.1", "1.1.10", &one, 8, 999, true, false),
-	})
+	}
+}
+
+func catalogFixture(t *testing.T) *classical.Catalog {
+	t.Helper()
+	catalog, err := classical.NewCatalog(catalogFixtureDefinitions())
 	require.NoError(t, err)
 	return catalog
 }
@@ -142,6 +146,63 @@ func TestClassicalCatalogAuthorIndexAuthorPageAndWorkPage(t *testing.T) {
 	require.Equal(t, http.StatusOK, whole.Code)
 	assert.Contains(t, whole.Body.String(), "Passage")
 	assert.Contains(t, whole.Body.String(), "1.1.1–1.1.10")
+}
+
+func TestClassicalAddMessageNamesOnlyMembershipChanges(t *testing.T) {
+	cases := []struct {
+		name     string
+		created  int
+		opened   int
+		expected string
+	}{
+		{name: "one reopened", opened: 1, expected: "Opened the existing Book."},
+		{name: "several reopened", opened: 2, expected: "Opened 2 existing Books."},
+		{name: "one created", created: 1, expected: "Added 1 Book to My Books."},
+		{name: "several created", created: 2, expected: "Added 2 Books to My Books."},
+		{name: "one created and one reopened", created: 1, opened: 1, expected: "Added 1 Book and opened 1 existing Book."},
+		{name: "one created and several reopened", created: 1, opened: 2, expected: "Added 1 Book and opened 2 existing Books."},
+		{name: "several created and one reopened", created: 2, opened: 1, expected: "Added 2 Books and opened 1 existing Book."},
+		{name: "several created and reopened", created: 2, opened: 2, expected: "Added 2 Books and opened 2 existing Books."},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			report := classical.AddReport{}
+			for range test.created {
+				report.Books = append(report.Books, classical.AddedBook{Created: true})
+			}
+			for range test.opened {
+				report.Books = append(report.Books, classical.AddedBook{})
+			}
+			assert.Equal(t, test.expected, classicalAddMessage(report))
+		})
+	}
+}
+
+func TestClassicalAddRoutesRejectUnknownTargetsAndMissingCSRF(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	unknownWork := readingTestRequest(t, h, "/catalogs/classical/works/no-such-work/add", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusNotFound, unknownWork.Code)
+
+	unknownUnit := readingTestRequest(t, h, "/catalogs/classical/units/no-such-unit/add", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusNotFound, unknownUnit.Code)
+
+	noWorkCSRF := readingTestRequest(t, h, "/catalogs/classical/works/homer-iliad/add", nil, cookies)
+	assert.Equal(t, http.StatusForbidden, noWorkCSRF.Code)
+
+	noUnitCSRF := readingTestRequest(t, h, "/catalogs/classical/units/homer-iliad-1/add", nil, cookies)
+	assert.Equal(t, http.StatusForbidden, noUnitCSRF.Code)
+
+	unknownWorkMyBooks := catalogPage(t, h, cookies, "/catalogs/classical/works/no-such-work/in-my-books")
+	assert.Equal(t, http.StatusNotFound, unknownWorkMyBooks.Code)
+
+	unownedWorkMyBooks := catalogPage(t, h, cookies, "/catalogs/classical/works/homer-iliad/in-my-books")
+	assert.Equal(t, http.StatusNotFound, unownedWorkMyBooks.Code)
+
+	ordinaryBook := catalogPage(t, h, cookies, "/catalogs/classical/books/"+fixtures.BookID+"/in-my-books")
+	assert.Equal(t, http.StatusNotFound, ordinaryBook.Code)
 }
 
 func TestClassicalCatalogHidesWithdrawnAndUnknownEntries(t *testing.T) {

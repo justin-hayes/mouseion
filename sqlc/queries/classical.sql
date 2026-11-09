@@ -34,6 +34,30 @@ SELECT book_id::text
 FROM book_reading_units
 WHERE owner_id = $1 AND reading_unit_id = $2;
 
+-- name: GetCurrentClassicalUnitByKey :one
+-- The current, non-withdrawn Reading unit a catalog Add names, with the Work
+-- metadata the new Book copies. A withdrawn unit is never addable.
+SELECT ru.id::text AS id,
+       ru.definition_key AS unit_key,
+       ru.constituent_book,
+       w.title AS work_title,
+       w.author AS work_author
+FROM reading_units ru
+JOIN editions e ON e.id = ru.edition_id
+JOIN works w ON w.id = e.work_id
+WHERE ru.definition_key = $1 AND ru.withdrawn = false;
+
+-- name: ListOwnedClassicalReadingUnits :many
+-- The learner's active Books associated with a Reading unit. The catalog uses
+-- this to show "In My Books" without exposing preparation state.
+SELECT ru.definition_key AS unit_key,
+       bru.book_id::text AS book_id
+FROM book_reading_units bru
+JOIN reading_units ru ON ru.id = bru.reading_unit_id
+JOIN book_membership m ON m.owner_id = bru.owner_id AND m.book_id = bru.book_id AND m.state = 'active'
+WHERE bru.owner_id = $1
+ORDER BY ru.constituent_book NULLS FIRST, ru.definition_key;
+
 -- name: InsertBookReadingUnit :exec
 INSERT INTO book_reading_units(owner_id, book_id, reading_unit_id)
 VALUES ($1, $2, $3);

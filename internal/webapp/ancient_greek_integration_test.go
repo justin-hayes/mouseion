@@ -51,7 +51,7 @@ func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 
 	library := perform(t, h, "GET", "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, "library body=%s", library.Body.String())
-	for _, want := range []string{"Ancient Greek (grc)", "Anabasis", "By Xenophon", "Marchant 1904", notPreparedYetNote} {
+	for _, want := range []string{"Ancient Greek", "Anabasis", "By Xenophon", "Marchant 1904", notPreparedYetNote} {
 		assert.Contains(t, library.Body.String(), want, "My Books missing %q", want)
 	}
 

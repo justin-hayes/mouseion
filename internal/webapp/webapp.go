@@ -98,6 +98,12 @@ type CatalogsStore interface {
 	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
 	DeleteOpdsConnection(context.Context, string, string) error
 	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
+	// The built-in Classical catalog is read from the release and writes only
+	// My Books membership: Add creates or reopens one Inbox Book per Reading
+	// unit. Legacy rows are checked installation-wide before any write.
+	ListLegacyLanguageRows(context.Context, string) ([]domain.LegacyLanguageRows, error)
+	ListOwnedClassicalReadingUnits(context.Context, string) ([]classical.OwnedReadingUnit, error)
+	AddClassicalReadingUnits(context.Context, string, []string) (classical.AddReport, error)
 }
 
 // JobsStore provides the analysis job list shown by the jobs surface.
@@ -286,6 +292,10 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /catalogs/classical", h.user(http.HandlerFunc(h.classicalAuthorIndex)))
 	h.mux.Handle("GET /catalogs/classical/authors/{author}", h.user(http.HandlerFunc(h.classicalAuthor)))
 	h.mux.Handle("GET /catalogs/classical/works/{workKey}", h.user(http.HandlerFunc(h.classicalWork)))
+	h.mux.Handle("POST /catalogs/classical/works/{workKey}/add", h.user(http.HandlerFunc(h.addClassicalWork)))
+	h.mux.Handle("POST /catalogs/classical/units/{unitKey}/add", h.user(http.HandlerFunc(h.addClassicalUnit)))
+	h.mux.Handle("GET /catalogs/classical/works/{workKey}/in-my-books", h.user(http.HandlerFunc(h.classicalWorkInMyBooks)))
+	h.mux.Handle("GET /catalogs/classical/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.classicalBookInMyBooks)))
 	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.legacyConnections)))
 	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
