@@ -160,6 +160,19 @@ func TestReconcileRefusesABrokenManifestBeforeTouchingTheStore(t *testing.T) {
 	assert.Empty(t, recorder.definitions)
 }
 
+func TestCatalogUnitFindsAWorkByReadingUnitKey(t *testing.T) {
+	catalog, err := NewCatalog(catalogDefinitions())
+	require.NoError(t, err)
+
+	work, unit, ok := catalog.Unit("alpha-2")
+	require.True(t, ok)
+	assert.Equal(t, "alpha", work.Key)
+	assert.Equal(t, 2, unit.ConstituentBook)
+
+	_, _, ok = catalog.Unit("no-such-unit")
+	assert.False(t, ok)
+}
+
 func TestLoadCatalogReadsTheEmbeddedRelease(t *testing.T) {
 	catalog, err := LoadCatalog(ManifestJSONL)
 	require.NoError(t, err)

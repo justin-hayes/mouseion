@@ -1097,3 +1097,16 @@ func TestStoreFinishCurrentReadingReleasesStudyingPreparationsByLegacyIdentity(t
 		assert.Nil(t, other.ReleasedAt)
 	})
 }
+
+func TestClassicalFixtureStubsKeepTheCatalogReadOnly(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	legacy, err := store.ListLegacyLanguageRows(ctx, "grc")
+	require.NoError(t, err)
+	assert.Empty(t, legacy)
+	owned, err := store.ListOwnedClassicalReadingUnits(ctx, OwnerID)
+	require.NoError(t, err)
+	assert.Empty(t, owned)
+	_, err = store.AddClassicalReadingUnits(ctx, OwnerID, []string{"xenophon-anabasis-1"})
+	require.ErrorContains(t, err, "classical Add is not available")
+}

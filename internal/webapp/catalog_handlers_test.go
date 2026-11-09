@@ -148,6 +148,63 @@ func TestClassicalCatalogAuthorIndexAuthorPageAndWorkPage(t *testing.T) {
 	assert.Contains(t, whole.Body.String(), "1.1.1–1.1.10")
 }
 
+func TestClassicalAddMessageNamesOnlyMembershipChanges(t *testing.T) {
+	cases := []struct {
+		name     string
+		created  int
+		opened   int
+		expected string
+	}{
+		{name: "one reopened", opened: 1, expected: "Opened the existing Book."},
+		{name: "several reopened", opened: 2, expected: "Opened 2 existing Books."},
+		{name: "one created", created: 1, expected: "Added 1 Book to My Books."},
+		{name: "several created", created: 2, expected: "Added 2 Books to My Books."},
+		{name: "one created and one reopened", created: 1, opened: 1, expected: "Added 1 Book and opened 1 existing Book."},
+		{name: "one created and several reopened", created: 1, opened: 2, expected: "Added 1 Book and opened 2 existing Books."},
+		{name: "several created and one reopened", created: 2, opened: 1, expected: "Added 2 Books and opened 1 existing Book."},
+		{name: "several created and reopened", created: 2, opened: 2, expected: "Added 2 Books and opened 2 existing Books."},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			report := classical.AddReport{}
+			for range test.created {
+				report.Books = append(report.Books, classical.AddedBook{Created: true})
+			}
+			for range test.opened {
+				report.Books = append(report.Books, classical.AddedBook{})
+			}
+			assert.Equal(t, test.expected, classicalAddMessage(report))
+		})
+	}
+}
+
+func TestClassicalAddRoutesRejectUnknownTargetsAndMissingCSRF(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	unknownWork := readingTestRequest(t, h, "/catalogs/classical/works/no-such-work/add", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusNotFound, unknownWork.Code)
+
+	unknownUnit := readingTestRequest(t, h, "/catalogs/classical/units/no-such-unit/add", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusNotFound, unknownUnit.Code)
+
+	noWorkCSRF := readingTestRequest(t, h, "/catalogs/classical/works/homer-iliad/add", nil, cookies)
+	assert.Equal(t, http.StatusForbidden, noWorkCSRF.Code)
+
+	noUnitCSRF := readingTestRequest(t, h, "/catalogs/classical/units/homer-iliad-1/add", nil, cookies)
+	assert.Equal(t, http.StatusForbidden, noUnitCSRF.Code)
+
+	unknownWorkMyBooks := catalogPage(t, h, cookies, "/catalogs/classical/works/no-such-work/in-my-books")
+	assert.Equal(t, http.StatusNotFound, unknownWorkMyBooks.Code)
+
+	unownedWorkMyBooks := catalogPage(t, h, cookies, "/catalogs/classical/works/homer-iliad/in-my-books")
+	assert.Equal(t, http.StatusNotFound, unownedWorkMyBooks.Code)
+
+	ordinaryBook := catalogPage(t, h, cookies, "/catalogs/classical/books/"+fixtures.BookID+"/in-my-books")
+	assert.Equal(t, http.StatusNotFound, ordinaryBook.Code)
+}
+
 func TestClassicalCatalogHidesWithdrawnAndUnknownEntries(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = catalogFixture(t)

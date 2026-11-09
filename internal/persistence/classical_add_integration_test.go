@@ -152,6 +152,10 @@ func TestAddClassicalReadingUnitsRefusesUnknownUnitsAndRejectsEmptyInput(t *test
 		_, err := store.AddClassicalReadingUnits(ctx, "  ", []string{"work-1"})
 		require.ErrorContains(t, err, "owner is required")
 	})
+	t.Run("blank key", func(t *testing.T) {
+		_, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"  "})
+		require.ErrorContains(t, err, "key is required")
+	})
 	t.Run("repeated key", func(t *testing.T) {
 		_, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1", "work-1"})
 		require.NoError(t, err)
@@ -159,5 +163,15 @@ func TestAddClassicalReadingUnitsRefusesUnknownUnitsAndRejectsEmptyInput(t *test
 		err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_reading_units WHERE owner_id = $1`, owner.ID).Scan(&associations)
 		require.NoError(t, err)
 		assert.Equal(t, 1, associations, "a repeated key never adds twice")
+	})
+	t.Run("owner row is required", func(t *testing.T) {
+		_, err := store.AddClassicalReadingUnits(ctx, "00000000-0000-0000-0000-0000000000ff", []string{"work-2"})
+		require.Error(t, err, "a missing learner row rolls back every write")
+	})
+	t.Run("ownership read failure", func(t *testing.T) {
+		cancelled, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := store.ListOwnedClassicalReadingUnits(cancelled, owner.ID)
+		require.Error(t, err)
 	})
 }

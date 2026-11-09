@@ -153,6 +153,33 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBooks(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, hidden, "re-adding reopens a hidden existing Book")
 
+	singleAgain := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, singleAgain.Code)
+	assert.Contains(t, singleAgain.Header().Get("Location"), url.QueryEscape("Opened the existing Book."))
+
+	// An ordinary non-classical Book never reaches the classical landing route.
+	deBook, err := store.CreateBook(ctx, domain.Book{
+		OwnerID: learner.ID, Title: "Ein anderes deutsches Buch", MetadataProvenance: domain.MetadataProvenanceCatalogueSync,
+		LanguageState: domain.LanguageChosen, LanguageTag: "de",
+	})
+	require.NoError(t, err)
+	ordinary := perform(t, h, "GET", "/catalogs/classical/books/"+deBook.ID+"/in-my-books", nil, cookies)
+	assert.Equal(t, http.StatusNotFound, ordinary.Code)
+
+	// Following the work link opens the first owned Book in book order.
+	owned, err := store.ListOwnedClassicalReadingUnits(ctx, learner.ID)
+	require.NoError(t, err)
+	firstIliadBook := ""
+	for _, unit := range owned {
+		if unit.ReadingUnitKey == "homer-iliad-1" {
+			firstIliadBook = unit.BookID
+		}
+	}
+	require.NotEmpty(t, firstIliadBook)
+	workInMyBooks := perform(t, h, "GET", "/catalogs/classical/works/homer-iliad/in-my-books", nil, cookies)
+	require.Equal(t, http.StatusSeeOther, workInMyBooks.Code)
+	assert.Contains(t, workInMyBooks.Header().Get("Location"), "#"+myBookRowID(firstIliadBook))
+
 	// Following "In My Books" makes Ancient Greek active and lands on the row.
 	inMyBooks := perform(t, h, "GET", "/catalogs/classical/books/"+ids[0]+"/in-my-books", nil, cookies)
 	require.Equal(t, http.StatusSeeOther, inMyBooks.Code)
@@ -194,6 +221,33 @@ func TestClassicalCatalogAddsOneBookAndAWholeWorkUnitFromTheAuthorPage(t *testin
 	assert.Zero(t, layerRequests.Load())
 }
 
+func TestClassicalCatalogAddReportsMixedCreatedAndReopenedBooks(t *testing.T) {
+	ctx, store, _, h, _ := classicalAddHarness(t)
+	learner := createAccount(t, ctx, store, "classical-add-mixed", "learner-password")
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+
+	single := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, single.Code)
+
+	whole := perform(t, h, "POST", "/catalogs/classical/works/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, whole.Code)
+	assert.Contains(t, whole.Header().Get("Location"), url.QueryEscape("Added 1 Book and opened 1 existing Book."))
+}
+
+func TestClassicalCatalogAddFailureRedirectsWithRecoveryMessage(t *testing.T) {
+	ctx, store, pool, h, _ := classicalAddHarness(t)
+	learner := createAccount(t, ctx, store, "classical-add-stale-unit", "learner-password")
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	_, err := pool.Exec(ctx, `UPDATE reading_units SET withdrawn = true WHERE definition_key = 'homer-iliad-1'`)
+	require.NoError(t, err)
+
+	response := perform(t, h, "POST", "/catalogs/classical/works/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, response.Code)
+	location := response.Header().Get("Location")
+	assert.Contains(t, location, url.QueryEscape("This text could not be added. Refresh the catalog and try again."))
+	assert.NotContains(t, location, "not+current")
+}
+
 func TestClassicalCatalogAddIsUnavailableWithLegacyRowsWhileOPDSStillWorks(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "classical-add-legacy", "learner-password")
@@ -210,6 +264,9 @@ func TestClassicalCatalogAddIsUnavailableWithLegacyRowsWhileOPDSStillWorks(t *te
 	refused := perform(t, h, "POST", "/catalogs/classical/works/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, refused.Code)
 	assert.Contains(t, refused.Header().Get("Location"), url.QueryEscape(classical.LegacyRowsCode))
+	refusedUnit := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, refusedUnit.Code)
+	assert.Contains(t, refusedUnit.Header().Get("Location"), url.QueryEscape(classical.LegacyRowsCode))
 	assert.Zero(t, countRows(t, pool, `SELECT count(*) FROM books WHERE owner_id = $1 AND metadata_provenance = $2`, learner.ID, domain.MetadataProvenanceOperatorRegistration))
 
 	// OPDS connection management is unaffected by the classical precondition.

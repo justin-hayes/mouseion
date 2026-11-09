@@ -196,6 +196,12 @@ func classicalAddMessage(report classical.AddReport) string {
 		return "Added 1 Book to My Books."
 	case opened == 0:
 		return fmt.Sprintf("Added %d Books to My Books.", created)
+	case created == 1 && opened == 1:
+		return "Added 1 Book and opened 1 existing Book."
+	case created == 1:
+		return fmt.Sprintf("Added 1 Book and opened %d existing Books.", opened)
+	case opened == 1:
+		return fmt.Sprintf("Added %d Books and opened 1 existing Book.", created)
 	default:
 		return fmt.Sprintf("Added %d Books and opened %d existing Books.", created, opened)
 	}
