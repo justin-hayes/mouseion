@@ -1,6 +1,6 @@
 # ADR 0107: Analysis pipeline identity and learner-confirmed Analysis updates
 
-Status: **Accepted — implementation pending** · Date: 2026-10-19 · Author: Justin + OpenCode
+Status: **Accepted — implementation pending; imported-analysis exclusion amended by [ADR 0116](0116-classical-catalog.md)** · Date: 2026-10-19 · Author: Justin + OpenCode
 
 Decided in triage of [#2240](https://github.com/justin-hayes/mouseion/issues/2240).
 Extends the reanalysis rules of [ADR 0028](0028-explicit-scoped-analysis-lifecycle.md)
@@ -83,7 +83,9 @@ its published analysis differs from the current one.
   Book's language is not ready, or capabilities do not report the language, the
   Book is treated as current.
 - **Imported analyses are excluded.** Imported Ancient Greek analyses have no
-  NLP producer and are never offered an update by this mechanism.
+  NLP producer and are never offered an update by this mechanism. *(Amended by
+  [ADR 0116](0116-classical-catalog.md): a Classical catalog Book is offered an
+  update when its definition's source pin or interpretation version changes.)*
 - **A current analysis is a no-op.** Submitting analysis for a Book whose
   published identity matches the current one returns the existing run.
 

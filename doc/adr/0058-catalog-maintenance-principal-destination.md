@@ -1,6 +1,6 @@
 # ADR 0058: Catalog maintenance is a principal destination
 
-Status: **Accepted** · Date: 2026-09-11 · Author: Justin + opencode
+Status: **Accepted; browse boundary amended by [ADR 0116](0116-classical-catalog.md)** · Date: 2026-09-11 · Author: Justin + opencode
 
 ## Context
 
@@ -40,7 +40,9 @@ Vocabulary, not an account-area or secondary link.
 - **Boundaries.** Per-book metadata refresh remains a My Books row action
   because it is contextual to the Book; operational attempts, retry,
   cancellation, and errors remain on `/jobs`, linked from Catalogs. Catalogs does
-  not become a second browse surface for synced metadata.
+  not become a second browse surface for synced metadata. *(Amended by
+  [ADR 0116](0116-classical-catalog.md): Catalogs browses only curated sources
+  that do not sync into My Books, such as the built-in Classical catalog.)*
 - **My Books.** My Books remains the sole browse surface for synced metadata and
   remains scoped to the active study language. No catalog facet, source filter,
   or per-catalog grouping is added.
