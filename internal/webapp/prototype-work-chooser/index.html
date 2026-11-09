@@ -1,0 +1,386 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not for main. Issue #2398 (map #2292).
+  Question: with a work moved to To Read as a whole, Reading's between-Books chooser
+  can hold 20+ Books of one work. How does the chooser group a work's candidates, and
+  show Known coverage at a glance without ranking them or hinting at a next book?
+  Variants, switchable via ?variant=A|B|C|D:
+    A  Bands, work folded per band — today's bands stay; inside a band, a work's
+       candidates fold into one entry with a number per book
+    B  Work entry, band table      — one entry per work; inside it, a small table
+       of band → book numbers
+    C  Work entry, strip           — one entry per work; a strip in book order with
+       each cell showing its rounded coverage (variant E of #2323, refined)
+    D  Flat bands + work filter    — today's chooser unchanged (one row per Book,
+       "Book 3 of 24"), plus a filter by work above the bands
+  Choosing a book number opens that Book's ordinary candidate entry (coverage,
+  words to the next band, start/switch confirmation, Review a word).
+  Uses the app's real /static/app.css. Data is illustrative; every action is in memory.
+  Run: python3 -m http.server -d internal/webapp 8124
+       open http://127.0.0.1:8124/prototype-work-chooser/?variant=A
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Work Books in Reading's chooser prototype · Mouseion</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  /* Prototype-only layout. Uses the app's tokens; nothing here is a pattern yet. */
+  .proto-note { font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); border-left: 3px solid var(--mouseion-color-warning); padding: .25rem .6rem; margin: .5rem 0 1rem; }
+  .wc-small { font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); }
+  .wc-entry { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) minmax(12rem, 18rem); gap: .5rem 1.25rem; padding: 1rem 0; }
+  .wc-entry .book-cover-media { width: 4.5rem; }
+  .wc-identity h3 { margin: 0 0 .15rem; }
+  .wc-identity p { margin: 0 0 .25rem; }
+  .wc-pos { display: block; font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); }
+  .wc-margin { border-left: 2px solid var(--mouseion-color-surface-quiet); padding-left: .85rem; font-size: .92rem; display: grid; gap: .35rem; align-content: start; }
+  .wc-margin p { margin: 0; }
+  .wc-group { grid-column: 2 / -1; min-width: 0; }
+  .wc-strip { display: flex; flex-wrap: wrap; gap: .3rem; list-style: none; padding: 0; margin: .25rem 0 .35rem; }
+  .wc-strip a { display: grid; place-items: center; min-width: 2.75rem; height: 2.75rem; padding: 0 .25rem; border: 1px solid var(--mouseion-color-control-border, #999); border-radius: 3px; text-decoration: none; color: var(--mouseion-color-text); font-variant-numeric: tabular-nums; font-size: .95rem; line-height: 1.05; }
+  .wc-strip a small { display: block; font-size: .72rem; color: var(--mouseion-color-text-muted); }
+  .wc-strip.wc-tall a { height: 3.1rem; min-width: 3.4rem; }
+  .wc-strip a.is-pending { border-style: dashed; color: var(--mouseion-color-text-muted); }
+  .wc-strip a.is-problem { border-style: dashed; border-color: var(--mouseion-color-warning); }
+  .wc-strip a[aria-current] { outline: 3px solid var(--mouseion-color-focus, #36c); outline-offset: 2px; font-weight: 700; }
+  .wc-bandtable { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .1rem 1rem; margin: .25rem 0; align-items: center; }
+  .wc-bandtable dt { font-size: .9rem; font-weight: 600; }
+  .wc-bandtable dd { margin: 0; }
+  .wc-bandtable .wc-strip { margin: .15rem 0; }
+  .wc-detail { margin-top: .5rem; background: var(--mouseion-color-surface-quiet); padding: 0 .75rem; }
+  .wc-detail .wc-entry { grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem); }
+  .wc-detail .wc-entry .book-cover-media { display: none; }
+  .wc-filter { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: .5rem 0 1rem; }
+  .wc-filter a { min-height: 44px; display: inline-flex; align-items: center; }
+  .wc-filter a[aria-current] { font-weight: 700; color: var(--mouseion-color-text); text-decoration: none; border-bottom: 2px solid var(--mouseion-color-text); }
+  .wc-band { margin-top: 1.5rem; }
+  .wc-band > h2 { margin-bottom: .25rem; }
+  .wc-list { list-style: none; margin: 0; padding: 0; }
+  .wc-list > li + li { border-top: 1px solid var(--mouseion-color-border); }
+  .wc-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: start; margin-top: .4rem; }
+  .wc-actions .confirmation { margin: 0; }
+  .btn-link { padding: 0; border: 0; background: none; color: var(--mouseion-color-accent); text-decoration: underline; cursor: pointer; font: inherit; }
+  @media (max-width: 40rem) {
+    .wc-entry { grid-template-columns: 3.5rem minmax(0, 1fr); }
+    .wc-entry .book-cover-media { width: 3.5rem; }
+    .wc-margin { grid-column: 1 / -1; border-left: 0; padding-left: 0; border-top: 2px solid var(--mouseion-color-surface-quiet); padding-top: .5rem; }
+    .wc-group { grid-column: 1 / -1; }
+    .wc-detail .wc-entry { grid-template-columns: minmax(0, 1fr); }
+    .wc-bandtable { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  /* Prototype chrome: deliberately not part of the design. */
+  #proto-bar { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: .5rem; background: #111; color: #fff; border-radius: 999px; padding: .35rem .5rem; box-shadow: 0 6px 24px rgba(0,0,0,.35); font: 600 14px/1.2 system-ui, sans-serif; }
+  #proto-bar button { background: #333; color: #fff; border: 0; border-radius: 999px; min-width: 2.2rem; height: 2.2rem; cursor: pointer; font: inherit; }
+  #proto-bar button:hover { background: #555; }
+  #proto-bar .label { padding: 0 .6rem; white-space: nowrap; }
+  #proto-panel { position: fixed; right: 1rem; bottom: 1rem; z-index: 1000; width: 21rem; max-height: 70vh; overflow: auto; background: #111; color: #eee; border-radius: 10px; padding: .6rem .8rem; font: 13px/1.4 system-ui, sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  #proto-panel summary { cursor: pointer; font-weight: 600; }
+  #proto-panel label { display: block; margin: .3rem 0; color: #eee; }
+  #proto-panel button { font: inherit; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: .2rem .5rem; margin: .2rem .2rem 0 0; cursor: pointer; }
+  #proto-panel pre { white-space: pre-wrap; background: #000; padding: .4rem; border-radius: 6px; font-size: 11px; max-height: 18rem; overflow: auto; }
+  #proto-frame { display: block; margin: 1rem auto 5rem; width: 390px; height: calc(100vh - 7rem); border: 1px solid #888; box-shadow: 0 6px 24px rgba(0,0,0,.25); background: #fff; }
+  body.embed #proto-bar, body.embed #proto-panel { display: none; }
+</style>
+</head>
+<body class="reading-shell">
+<div id="app"></div>
+<div id="proto-bar" role="toolbar" aria-label="Prototype variant switcher">
+  <button type="button" id="proto-prev" aria-label="Previous variant">←</button>
+  <span class="label" id="proto-label"></span>
+  <button type="button" id="proto-next" aria-label="Next variant">→</button>
+</div>
+<details id="proto-panel">
+  <summary>Prototype scenario &amp; state</summary>
+  <label><input type="checkbox" id="sc-compact"> Compact width (390px frame)</label>
+  <label><input type="checkbox" id="sc-current"> A current reading exists (Iliad, Book 2): switch mode</label>
+  <button type="button" id="sc-reset">Reset library</button>
+  <button type="button" id="sc-ready">Finish all preparation</button>
+  <p>Library: Iliad moved to To Read as a whole (Book 1 Read, 9 hidden, 4 and 21–24 preparing, 6 not assessed); Anabasis 2–7 To Read; Apology (whole work); Histories Book 1 only; the Odyssey is in Inbox, so it is not a candidate.</p>
+  <pre id="sc-state"></pre>
+</details>
+
+<script>
+(function () {
+'use strict';
+
+// ---------- Illustrative data ----------
+var ILIAD = [611,877,461,544,909,529,482,565,713,579,848,471,837,522,746,867,761,617,424,503,611,515,897,804];
+var WORKS = {
+  anabasis: { key: 'anabasis', title: 'Anabasis', greek: 'Κύρου Ἀνάβασις', author: 'Xenophon', words: [10500,8000,8800,10900,9100,7300,11300] },
+  apology: { key: 'apology', title: 'Apology', greek: 'Ἀπολογία Σωκράτους', author: 'Plato', whole: true, words: [8900] },
+  histories: { key: 'histories', title: 'Histories', greek: 'Ἱστορίαι', author: 'Herodotus', words: [33100,24800,22300,25100,17900,19700,32800,20800,18600] },
+  iliad: { key: 'iliad', title: 'Iliad', greek: 'Ἰλιάς', author: 'Homer', words: ILIAD.map(function (l) { return Math.round(l * 6.9 / 10) * 10; }) }
+};
+// Neutral title order, as the shipped chooser sorts.
+var WORK_ORDER = ['anabasis', 'apology', 'histories', 'iliad'];
+
+function mk(work, n, o) { return Object.assign({ id: work + '-' + n, work: work, n: n, disp: 'To Read', current: false, read: false, hidden: false, prep: 'done', cov: null }, o); }
+function seed() {
+  var B = [];
+  ILIAD.forEach(function (_, i) {
+    var n = i + 1, o = { cov: 88 + ((n * 37) % 95) / 10 };
+    if (n === 1) o = { disp: 'Inbox', read: true, cov: 91.2 };
+    if (n === 2) o = { current: P().get('current') === '1', cov: 92.6 };
+    if (n === 4 || n >= 21) o = { prep: 'preparing' };
+    if (n === 6) o = { prep: 'unavailable' };
+    if (n === 9) o = { hidden: true, cov: 90.1 };
+    B.push(mk('iliad', n, o));
+  });
+  WORKS.anabasis.words.forEach(function (_, i) { var n = i + 1; B.push(mk('anabasis', n, n === 1 ? { disp: 'Inbox', read: true, cov: 97.9 } : { cov: 94 + ((n * 29) % 55) / 10 })); });
+  B.push(mk('apology', 1, { cov: 96.4 }));
+  B.push(mk('histories', 1, { cov: 92.1 }));
+  return B;
+}
+var S = { books: [], flash: null };
+
+// ---------- URL state ----------
+var VARIANTS = [['A', 'Bands, work folded per band'], ['B', 'Work entry, band table'], ['C', 'Work entry, strip'], ['D', 'Flat bands + work filter']];
+function P() { return new URLSearchParams(location.search); }
+function variant() { var v = P().get('variant'); return VARIANTS.some(function (x) { return x[0] === v; }) ? v : 'A'; }
+function href(over) { var p = P(); Object.keys(over).forEach(function (k) { if (over[k] == null || over[k] === '') p.delete(k); else p.set(k, over[k]); }); return '?' + p.toString(); }
+function go(over, replace) { history[replace ? 'replaceState' : 'pushState'](null, '', href(over)); render(); }
+window.addEventListener('popstate', render);
+function link(over, text, attrs) { return '<a href="' + esc(href(over)) + '" data-go="' + esc(JSON.stringify(over)) + '"' + (attrs || '') + '>' + text + '</a>'; }
+S.books = seed();
+
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function btn(act, arg, label, cls) { return '<button type="button" class="' + (cls || 'button button--outline') + '" data-act="' + act + '" data-arg="' + esc(arg || '') + '">' + label + '</button>'; }
+function fmt(n) { return n.toLocaleString('en'); }
+function ranges(ns) { var out = [], i = 0; while (i < ns.length) { var j = i; while (j + 1 < ns.length && ns[j + 1] === ns[j] + 1) j++; out.push(j - i >= 2 ? ns[i] + '–' + ns[j] : j > i ? ns[i] + ', ' + ns[j] : String(ns[i])); i = j + 1; } return out.join(', '); }
+
+// ---------- Book model ----------
+function W(b) { return WORKS[b.work]; }
+function byId(id) { return S.books.find(function (b) { return b.id === id; }); }
+function current() { return S.books.find(function (b) { return b.current; }); }
+function candidates() { return S.books.filter(function (b) { return b.disp === 'To Read' && !b.current && !b.hidden; }); }
+// A work is grouped when it has more than one Book in My Books (#2323); otherwise it is an ordinary row.
+function grouped(wk) { return S.books.filter(function (b) { return b.work === wk; }).length > 1; }
+function bookName(b) { return W(b).whole ? W(b).title : W(b).title + ', Book ' + b.n; }
+function position(b) { return W(b).whole ? '' : 'Book ' + b.n + ' of ' + W(b).words.length; }
+function tokens(b) { return W(b).words[b.n - 1]; }
+var BANDS = [
+  ['99', '99% or above', 'At least 99% of word occurrences are already Known.'],
+  ['97', '97% to below 99%', 'At least 97%, but less than 99%, of word occurrences are already Known.'],
+  ['95', '95% to below 97%', 'At least 95%, but less than 97%, of word occurrences are already Known.'],
+  ['below', 'Below 95%', 'Less than 95% of word occurrences are already Known.'],
+  ['progress', 'Analysis in progress', 'Accepted preparation work remains visible here while it runs.'],
+  ['attention', 'Not assessed', 'These Books need current content or analysis before their coverage can be compared.']
+];
+function bandOf(b) { return b.prep === 'preparing' ? 'progress' : b.prep !== 'done' ? 'attention' : b.cov >= 99 ? '99' : b.cov >= 97 ? '97' : b.cov >= 95 ? '95' : 'below'; }
+function bandTitle(k) { return BANDS.find(function (x) { return x[0] === k; })[1]; }
+function pct(b) { return b.cov.toFixed(1) + '%'; }  // the shipped chooser shows one decimal, so 94.6% never reads as 95%
+function nextMarker(b) { return b.cov >= 99 ? null : b.cov >= 97 ? 99 : b.cov >= 95 ? 97 : 95; }
+function wordsTo(b, t) { return Math.max(1, Math.round((t - b.cov) / 100 * tokens(b) / 2.6)); }
+function cellLabel(b) { var k = bandOf(b); return bookName(b) + ', ' + (k === 'progress' ? 'analysis in progress' : k === 'attention' ? 'not assessed' : 'Known coverage ' + pct(b)); }
+function byWork(list) { var g = {}; list.forEach(function (b) { (g[b.work] = g[b.work] || []).push(b); }); return WORK_ORDER.filter(function (k) { return g[k]; }).map(function (k) { return { work: WORKS[k], books: g[k].sort(function (a, b) { return a.n - b.n; }) }; }); }
+
+// ---------- The ordinary candidate entry (shipped chooser, plus #2324's position label) ----------
+function cover(w) { return '<div class="book-cover-media"><div class="book-cover-media__placeholder" aria-hidden="true"><span class="book-cover-media__initial">' + esc(w.greek.charAt(0)) + '</span></div></div>'; }
+function startAction(b) {
+  var cur = current();
+  if (cur) return '<details class="confirmation"><summary>Switch to this book</summary><div class="confirmation__body"><p class="wc-small">Switching releases ' + esc(bookName(cur)) + ' and freezes this Book’s current analysis snapshot. ' + esc(bookName(cur)) + ' remains To Read.</p>' + btn('start', b.id, 'Confirm switch to this book', 'button') + '</div></details>';
+  return '<details class="confirmation"><summary>Start reading</summary><div class="confirmation__body"><p class="wc-small">Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.</p>' + btn('start', b.id, 'Confirm start reading', 'button') + '</div></details>';
+}
+function evidence(b) {
+  var k = bandOf(b);
+  if (k === 'progress') return '<p><strong>Analysis in progress</strong>. Fetching and analysing the reviewed source…</p>';
+  if (k === 'attention') return '<p><strong>Not assessed</strong>. The source could not be fetched.</p>';
+  var t = nextMarker(b);
+  return '<p class="numeric"><strong>Known vocabulary coverage:</strong> ' + pct(b) + ' (' + fmt(Math.round(b.cov / 100 * tokens(b))) + ' of ' + fmt(tokens(b)) + ' word occurrences)</p>' +
+    '<p class="numeric">' + (t ? fmt(wordsTo(b, t)) + ' more Known words to reach ' + t + '%.' : 'At least 99% of the words in this Book are already Known.') + '</p>';
+}
+function actions(b) {
+  var k = bandOf(b);
+  if (k === 'progress') return '<a href="#">Review analysis progress</a>';
+  if (k === 'attention') return btn('retry', b.id, 'Retry acquisition or analysis');
+  return startAction(b) + '<a href="#" style="align-self:center">Review a word in this Book</a>';
+}
+function entry(b, opts) {
+  opts = opts || {};
+  var w = W(b), pos = position(b);
+  return '<article class="wc-entry">' + cover(w) +
+    '<div class="wc-identity"><h3 class="bibliographic-title">' + esc(bookName(b)) + '</h3><p>By ' + esc(w.author) + (pos ? ' <span class="wc-pos">' + pos + '</span>' : '') + '</p>' +
+    '<div class="wc-actions">' + actions(b) + '</div></div>' +
+    '<div class="wc-margin">' + (opts.band ? '<p class="wc-small">' + bandTitle(bandOf(b)) + '</p>' : '') + evidence(b) + '</div></article>';
+}
+// Numbered cells for a list of Books; choosing one opens its ordinary entry below.
+function cells(bs, scope, showPct) {
+  var sel = P().get('sel'), sc = P().get('scope');
+  return '<ul class="wc-strip' + (showPct ? ' wc-tall' : '') + '" role="list">' + bs.map(function (b) {
+    var k = bandOf(b), on = sel === b.id && sc === scope;
+    var cls = k === 'progress' ? ' class="is-pending"' : k === 'attention' ? ' class="is-problem"' : '';
+    var inner = String(b.n) + (showPct ? '<small>' + (k === 'progress' ? '…' : k === 'attention' ? '!' : pct(b)) + '</small>' : k === 'attention' ? '!' : '');
+    return '<li>' + link({ sel: on ? null : b.id, scope: on ? null : scope }, inner, cls + ' aria-label="' + esc(cellLabel(b)) + '"' + (on ? ' aria-current="true"' : '')) + '</li>';
+  }).join('') + '</ul>';
+}
+function detailFor(bs, scope, hint) {
+  var sel = P().get('sel'), b = P().get('scope') === scope && bs.find(function (x) { return x.id === sel; });
+  return b ? '<div class="wc-detail">' + entry(b, { band: hint }) + '</div>' : '<p class="wc-small">' + (hint === false ? 'Choose a book number to see its coverage and start it.' : 'Choose a book number to see its coverage and start it.') + '</p>';
+}
+function covRange(bs) {
+  var r = bs.filter(function (b) { return b.prep === 'done'; }).map(function (b) { return b.cov; });
+  if (!r.length) return '';
+  var lo = Math.min.apply(null, r), hi = Math.max.apply(null, r);
+  return '<p>Known coverage ' + (lo === hi ? lo.toFixed(1) + '%' : lo.toFixed(1) + '% to ' + hi.toFixed(1) + '%') + '</p>';
+}
+function workHead(w, bs, extra) {
+  return cover(w) + '<div class="wc-identity"><h3 class="bibliographic-title">' + esc(w.title) + '</h3><p>By ' + esc(w.author) + ' <span class="wc-pos">' + esc(w.greek) + ' · ' + w.words.length + ' books' + (extra ? ' · ' + extra : '') + '</span></p></div>';
+}
+
+// ---------- Variant A: bands stay; a work's candidates fold per band ----------
+function A_page(cands) {
+  return BANDS.map(function (band) {
+    var bs = cands.filter(function (b) { return bandOf(b) === band[0]; });
+    if (!bs.length) return '';
+    var items = byWork(bs).map(function (g) {
+      if (!grouped(g.work.key) || g.books.length === 1) return '<li>' + entry(g.books[0]) + '</li>';
+      var scope = 'A-' + band[0] + '-' + g.work.key;
+      var margin = band[0] === 'progress' || band[0] === 'attention' ? '<p>' + g.books.length + ' Books</p>' + (band[0] === 'attention' ? btn('retry-all', g.books.map(function (b) { return b.id; }).join(','), 'Retry all ' + g.books.length) : '') : '<p>' + g.books.length + ' Books in this group</p>' + covRange(g.books);
+      return '<li><article class="wc-entry">' + workHead(g.work, g.books, 'Books ' + ranges(g.books.map(function (b) { return b.n; }))) +
+        '<div class="wc-margin">' + margin + '</div>' +
+        '<div class="wc-group">' + cells(g.books, scope, false) + detailFor(g.books, scope) + '</div></article></li>';
+    }).join('');
+    return '<section class="wc-band"><h2>' + band[1] + '</h2><p class="wc-small">' + band[2] + '</p><ul class="wc-list" role="list">' + items + '</ul></section>';
+  }).join('');
+}
+
+// ---------- Variant B: one entry per work; band table inside ----------
+function B_page(cands) {
+  var items = byWork(cands).map(function (g) {
+    if (!grouped(g.work.key) || g.books.length === 1) return '<li>' + entry(g.books[0], { band: true }) + '</li>';
+    var scope = 'B-' + g.work.key;
+    var rows = BANDS.map(function (band) {
+      var bs = g.books.filter(function (b) { return bandOf(b) === band[0]; });
+      return bs.length ? '<dt>' + band[1] + '</dt><dd>' + cells(bs, scope, false) + '</dd>' : '';
+    }).join('');
+    var ready = g.books.filter(function (b) { return b.prep === 'done'; }).length;
+    return '<li><article class="wc-entry">' + workHead(g.work, g.books) +
+      '<div class="wc-margin"><p>' + g.books.length + ' To Read Books, ' + ready + ' assessed</p>' + covRange(g.books) + '</div>' +
+      '<div class="wc-group"><dl class="wc-bandtable">' + rows + '</dl>' + detailFor(g.books, scope, true) + '</div></article></li>';
+  }).join('');
+  return '<section class="wc-band"><h2>To Read</h2><ul class="wc-list" role="list">' + items + '</ul></section>';
+}
+
+// ---------- Variant C: one entry per work; strip in book order with per-cell coverage ----------
+function C_page(cands) {
+  var items = byWork(cands).map(function (g) {
+    if (!grouped(g.work.key) || g.books.length === 1) return '<li>' + entry(g.books[0], { band: true }) + '</li>';
+    var scope = 'C-' + g.work.key;
+    var ready = g.books.filter(function (b) { return b.prep === 'done'; }).length;
+    return '<li><article class="wc-entry">' + workHead(g.work, g.books) +
+      '<div class="wc-margin"><p>' + g.books.length + ' To Read Books, ' + ready + ' assessed</p>' + covRange(g.books) + '</div>' +
+      '<div class="wc-group">' + cells(g.books, scope, true) + '<p class="wc-small">Each cell: book number and Known coverage. … preparing · ! not assessed</p>' + detailFor(g.books, scope, true) + '</div></article></li>';
+  }).join('');
+  return '<section class="wc-band"><h2>To Read</h2><ul class="wc-list" role="list">' + items + '</ul></section>';
+}
+
+// ---------- Variant D: today's flat bands, plus a work filter ----------
+function D_page(cands) {
+  var wf = P().get('work'), groups = byWork(cands);
+  var filt = '<nav class="wc-filter" aria-label="Filter candidates by work">' + link({ work: null }, 'All works (' + cands.length + ')', wf ? '' : ' aria-current="page"') +
+    groups.map(function (g) { return link({ work: g.work.key }, esc(g.work.title) + ' (' + g.books.length + ')', wf === g.work.key ? ' aria-current="page"' : ''); }).join('') + '</nav>';
+  var shown = wf ? cands.filter(function (b) { return b.work === wf; }) : cands;
+  return filt + BANDS.map(function (band) {
+    var bs = shown.filter(function (b) { return bandOf(b) === band[0]; });
+    if (!bs.length) return '';
+    bs = byWork(bs).reduce(function (a, g) { return a.concat(g.books); }, []);
+    return '<section class="wc-band"><h2>' + band[1] + ' <span class="wc-small">(' + bs.length + ')</span></h2><p class="wc-small">' + band[2] + '</p><ul class="wc-list" role="list">' + bs.map(function (b) { return '<li>' + entry(b) + '</li>'; }).join('') + '</ul></section>';
+  }).join('');
+}
+
+// ---------- Page ----------
+var NOTES = {
+  A: 'Variant A: the shipped bands stay the page’s structure. Inside a band, a work with several candidates there folds into one entry: identity, the book numbers in that band, and the band’s count and coverage range in the margin. Choosing a number opens that Book’s ordinary entry. A work appears once per band it has books in. Single-Book works are ordinary rows.',
+  B: 'Variant B: one entry per work, in title order. Inside it, a small table lists the work’s books by band (empty bands omitted); the margin gives counts and the coverage range. Single-Book works are ordinary rows that name their band. Bands become a property of each book rather than the page’s sections.',
+  C: 'Variant C: one entry per work, in title order. A strip in book order shows each candidate’s number and Known coverage, with no colour or ordering by coverage. Single-Book works are ordinary rows that name their band. Close to #2323 variant E’s rough chooser, without Read or current cells.',
+  D: 'Variant D: the shipped chooser unchanged, one row per Book with “Book 3 of 24” (#2324), sorted by title within each band; a filter by work above the bands narrows the list. Band headings show their count.'
+};
+function page() {
+  var cur = current(), cands = candidates(), v = variant();
+  var title = cur ? 'Switch current reading' : 'Choose a To Read book in Ancient Greek';
+  var desc = cur ? 'Choose another To Read Book. Your current Book will return to To Read, so you can come back to it later. Coverage groups describe your current vocabulary, not what you ought to read next.' : 'Choose a To Read book when you are ready. Coverage groups describe current vocabulary evidence, not difficulty or reading recommendations.';
+  var html = '<header class="page-header"><div class="page-header__content"><h1>' + title + '</h1><p>' + desc + '</p></div><div class="page-header__actions">' + (cur ? '<a class="button button--outline" href="#">Return to current reading</a>' : '<a class="button button--outline" href="#">Review To Read books</a>') + '</div></header>' +
+    '<p class="proto-note">' + NOTES[v] + ' Book numbers are the work’s own order, not a suggestion. Nothing refers to the Book just finished.</p>' + flashHTML() +
+    '<p>Coverage shows how often words in your Known vocabulary appear in each Book. These groups use exact counts, though the displayed percentages are rounded. They are not reading recommendations.</p>' +
+    '<p class="wc-small">' + cands.length + ' To Read Books in ' + byWork(cands).length + ' works</p>';
+  return html + ({ A: A_page, B: B_page, C: C_page, D: D_page })[v](cands);
+}
+function shell(main) {
+  var nav = ['My Books', 'Reading', 'Vocabulary', 'Catalogs'].map(function (n) { return '<li><a class="site-nav__link' + (n === 'Reading' ? ' site-nav__link--current" aria-current="page"' : '"') + ' href="#">' + n + '</a></li>'; }).join('');
+  return '<a class="skip-link" href="#main-content">Skip to main content</a>' +
+    '<header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation"><a class="site-header__brand" href="#"><strong>Mouseion</strong></a><ul class="site-header__navigation">' + nav + '</ul>' +
+    '<div class="site-header__tools"><form class="site-header__language"><label for="active-study-language"><span class="site-header__language-label">Study language</span><select id="active-study-language"><option>Deutsch</option><option selected>Ancient Greek</option></select></label></form>' +
+    '<details class="site-header__account"><summary><span class="site-header__account-name">fixture-learner</span><span class="site-header__account-compact">Account</span></summary></details></div></nav></header>' +
+    '<main id="main-content" class="page-container" tabindex="-1">' + main + '</main>';
+}
+function flashHTML() { if (!S.flash) return ''; return '<article class="feedback feedback--success" role="status" aria-live="polite"><strong>' + esc(S.flash.title) + '</strong><p>' + esc(S.flash.text) + ' ' + btn('dismiss', '', 'Dismiss', 'button button--quiet') + '</p></article>'; }
+
+// ---------- Actions ----------
+function act(a, arg) {
+  switch (a) {
+    case 'start': {
+      var b = byId(arg), was = current();
+      S.books.forEach(function (x) { x.current = false; }); b.current = true;
+      S.flash = { title: 'Now reading', text: bookName(b) + (was ? '. ' + bookName(was) + ' stays To Read.' : '.') + ' (Prototype: the chooser now shows switch mode.)' };
+      history.replaceState(null, '', href({ sel: null, scope: null, current: '1' }));
+      break;
+    }
+    case 'retry': prep([byId(arg)]); break;
+    case 'retry-all': prep(arg.split(',').map(byId)); break;
+    case 'dismiss': S.flash = null; break;
+  }
+  render();
+}
+function prep(bs) { bs.forEach(function (b) { b.prep = 'preparing'; setTimeout(function () { b.prep = 'done'; b.cov = 88 + ((b.n * 37) % 95) / 10; render(); }, 2500); }); }
+document.addEventListener('click', function (e) {
+  var g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); go(JSON.parse(g.getAttribute('data-go'))); return; }
+  var a = e.target.closest('[data-act]'); if (a) { e.preventDefault(); act(a.getAttribute('data-act'), a.getAttribute('data-arg')); }
+});
+
+function render() {
+  var p = P();
+  document.body.classList.toggle('embed', p.get('embed') === '1');
+  if (p.get('compact') === '1' && p.get('embed') !== '1') {
+    var src = new URLSearchParams(p); src.delete('compact'); src.set('embed', '1');
+    var want = '?' + src.toString(), fr = document.getElementById('proto-frame');
+    if (!fr) document.getElementById('app').innerHTML = '<iframe id="proto-frame" title="Compact width preview" src="' + esc(want) + '"></iframe>';
+    else if (fr.getAttribute('src') !== want) fr.setAttribute('src', want);
+  } else {
+    document.getElementById('app').innerHTML = shell(page());
+  }
+  var lab = VARIANTS.find(function (x) { return x[0] === variant(); });
+  document.getElementById('proto-label').textContent = lab[0] + ' (' + lab[1] + ')';
+  document.getElementById('sc-compact').checked = p.get('compact') === '1';
+  document.getElementById('sc-current').checked = !!current();
+  var summary = {}; byWork(candidates()).forEach(function (g) { summary[g.work.key] = g.books.map(function (b) { return b.n + ':' + bandOf(b) + (b.cov != null && b.prep === 'done' ? '/' + b.cov.toFixed(1) : ''); }); });
+  var cur = current();
+  document.getElementById('sc-state').textContent = JSON.stringify({ variant: variant(), current: cur ? bookName(cur) : null, selected: p.get('sel'), candidates: summary }, null, 1);
+}
+
+// ---------- Switcher and scenario panel ----------
+function cycle(d) {
+  var i = VARIANTS.findIndex(function (x) { return x[0] === variant(); });
+  history.replaceState(null, '', href({ variant: VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length][0], sel: null, scope: null, work: null }));
+  render();
+}
+document.getElementById('proto-prev').onclick = function () { cycle(-1); };
+document.getElementById('proto-next').onclick = function () { cycle(1); };
+document.addEventListener('keydown', function (e) {
+  var t = e.target; if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') cycle(-1); else if (e.key === 'ArrowRight') cycle(1);
+});
+document.getElementById('sc-compact').onchange = function (e) { go({ compact: e.target.checked ? '1' : null }, true); };
+document.getElementById('sc-current').onchange = function (e) {
+  S.books.forEach(function (b) { b.current = false; });
+  if (e.target.checked) byId('iliad-2').current = true;
+  S.flash = null; go({ current: e.target.checked ? '1' : null, sel: null, scope: null }, true);
+};
+document.getElementById('sc-reset').onclick = function () { S.books = seed(); S.flash = null; go({ sel: null, scope: null, work: null }, true); };
+document.getElementById('sc-ready').onclick = function () { S.books.forEach(function (b) { if (b.prep !== 'done') { b.prep = 'done'; b.cov = 88 + ((b.n * 37) % 95) / 10; } }); render(); };
+render();
+})();
+</script>
+</body>
+</html>
