@@ -84,7 +84,9 @@ or verdict class.
 ### What the report contains
 
 For each case the report records the request summary, the raw Gloss, the
-translation, the outcome, and two automatic checks:
+translation, the outcome, and two automatic checks. When the codec rejects an
+answer, the report also shows the rejected answer as the provider sent it, in
+both the Gloss and the idiom reports.
 
 - **Gloss equals translation** — compares the resolved Gloss with the plain
   translation, ignoring case and surrounding whitespace.
@@ -278,6 +280,12 @@ and are not re-graded.
   baseline pending; the implementation environment had no configured provider.
 - [Contextual Gloss v16 review, 2026-11-07](contextual-gloss-v16-2026-11-07.md) —
   gate failed on the *fern-sehen* `lemma_mismatch` case; v16 does not roll out.
+- [Contextual Gloss v17 review, 2026-11-09](contextual-gloss-v17-2026-11-09.md) —
+  gate failed: the codec rejected a blank `translation` on *kauft … ein*.
+  Superseded by the re-run below.
+- [Contextual Gloss v17 re-run, 2026-11-09](contextual-gloss-v17-2026-11-09-rerun.md)
+  — after the codec accepted a blank `translation` on an omitted answer; gate
+  passed, v17 approved (#2354).
 - [English target alignment quality review](english-target-alignment.md) —
   configured-model review pending.
 - [Idiom card v1 review, 2026-11-08](idiom-review-2026-11-08.md) — gate failed

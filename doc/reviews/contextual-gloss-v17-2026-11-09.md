@@ -2,6 +2,10 @@
 
 Status: **Gate failed — one missed-particle case was rejected as an invalid response** (#2354)
 
+Superseded by the [re-run](contextual-gloss-v17-2026-11-09-rerun.md), made
+after the codec fix for blank translations on omitted answers. Kept as the
+record of the failed run.
+
 - Date: 2026-11-09
 - Model: `gpt-5.6-luna`
 - Reasoning setting: `low`
