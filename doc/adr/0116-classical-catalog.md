@@ -1,4 +1,4 @@
-# ADR 0117: A curated Classical catalog of Ancient Greek Reading units
+# ADR 0116: A curated Classical catalog of Ancient Greek Reading units
 
 Status: **Accepted — implementation pending** · Date: 2026-11-09 · Author: Justin + OpenCode
 
@@ -133,7 +133,7 @@ service. Leaving To Read or hiding a Book does not cancel its preparation.
 
 Preparation selects the import adapter by the definition's source format rather
 than hard-wiring the OGA CoNLL-U adapter, so a later adapter (such as the
-graded-reader path in [ADR 0116](https://github.com/justin-hayes/mouseion/pull/2402))
+graded-reader proposal in [PR #2402](https://github.com/justin-hayes/mouseion/pull/2402))
 adds an adapter, not a new preparation job. For now there is one adapter, for
 the OGA CoNLL-U dialect, and one interpretation version for every work in
 the Classical catalog. That version recognises ellipsis only by the source's ellipsis

@@ -1,6 +1,6 @@
 # ADR 0099: Ancient Greek through imported analyses in the existing pipeline
 
-Status: **Accepted; straddle refusal, operator registration, To Read and legacy-row rules amended by [ADR 0117](0117-classical-catalog.md)** · Date: 2026-10-16 · Author: Justin + opencode
+Status: **Accepted; straddle refusal, operator registration, To Read and legacy-row rules amended by [ADR 0116](0116-classical-catalog.md)** · Date: 2026-10-16 · Author: Justin + opencode
 
 Tracked by [#2103](https://github.com/justin-hayes/mouseion/issues/2103), under
 the Ancient Greek MVP spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098)
@@ -35,7 +35,7 @@ plus one byte; a larger file is `source_oversize`, a different size or digest is
 `source_pin_mismatch`. A malformed line, an unexpected comment, a missing
 citation reference, an unknown native part of speech or a sentence that straddles
 the citation boundary stops the import with a stable code before anything is
-written. *(Amended by [ADR 0117](0117-classical-catalog.md): the straddle refusal is
+written. *(Amended by [ADR 0116](0116-classical-catalog.md): the straddle refusal is
 replaced by first-token sentence ownership. A sentence belongs to the Reading unit
 that holds its first token, and only a sentence belonging to no unit or two
 units is refused.)*
@@ -75,7 +75,7 @@ interpretation version is a new run.
 
 **To Read changes only the disposition.** A prepared imported Book already
 carries its analysis, so To Read never acquires a source and never submits EPUB
-analysis. *(Amended by [ADR 0117](0117-classical-catalog.md): To Read on an
+analysis. *(Amended by [ADR 0116](0116-classical-catalog.md): To Read on an
 unprepared Classical catalog Book enqueues classical preparation; it still never
 submits EPUB analysis.)*
 
@@ -84,7 +84,7 @@ submits EPUB analysis.)*
 - Every migration is additive; modern-language analyses, publication and
   outcomes are byte-for-byte unchanged (complete-loop characterization).
 - The import is the only path that writes `grc` rows; registration still refuses
-  when legacy `grc` rows exist. *(Amended by [ADR 0117](0117-classical-catalog.md):
+  when legacy `grc` rows exist. *(Amended by [ADR 0116](0116-classical-catalog.md):
   operator registration is retired, and legacy rows make the Classical catalog
   fail closed instead.)*
 - Native AGDT syntax is deferred. A later feature that needs it can add a
