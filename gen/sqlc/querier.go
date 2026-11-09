@@ -272,9 +272,6 @@ type Querier interface {
 	ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
-	// The current, non-withdrawn Reading units of one Work in constituent-book
-	// order. A whole-work unit sorts first.
-	ListCurrentClassicalWorkUnits(ctx context.Context, definitionKey string) ([]ListCurrentClassicalWorkUnitsRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]ListDeckPreparationVocabularyRow, error)

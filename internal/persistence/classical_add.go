@@ -33,37 +33,53 @@ func (s *PostgresStore) AddClassicalReadingUnits(ctx context.Context, owner stri
 	if err != nil {
 		return classical.AddReport{}, err
 	}
-	legacy, err := s.ListLegacyLanguageRows(ctx, classical.Language)
-	if err != nil {
-		return classical.AddReport{}, fmt.Errorf("persistence: inspect %s rows: %w", classical.Language, err)
-	}
-	if len(legacy) > 0 {
-		return classical.AddReport{}, classical.ErrLegacyRows
-	}
 	report := classical.AddReport{Books: make([]classical.AddedBook, 0, len(keys))}
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		q := sqlcgen.New(tx)
-		if err := lockClassicalAddKeys(ctx, tx, owner, keys); err != nil {
-			return err
-		}
-		if _, err := q.PutSupportedLanguage(ctx, sqlcgen.PutSupportedLanguageParams{
-			Language: classical.Language, DisplayName: classical.LanguageDisplayName,
-		}); err != nil {
-			return err
-		}
-		for _, key := range keys {
-			added, err := addClassicalReadingUnitTx(ctx, q, owner, key)
-			if err != nil {
-				return err
-			}
-			report.Books = append(report.Books, added)
-		}
-		return nil
+		return addClassicalReadingUnitsTx(ctx, tx, owner, keys, &report)
 	})
 	if err != nil {
 		return classical.AddReport{}, err
 	}
 	return report, nil
+}
+
+// addClassicalReadingUnitsTx holds the precondition and every write in one
+// transaction: legacy rows are rechecked with the same snapshot the Books are
+// written under.
+func addClassicalReadingUnitsTx(ctx context.Context, tx pgx.Tx, owner string, keys []string, report *classical.AddReport) error {
+	q := sqlcgen.New(tx)
+	if err := lockClassicalAddKeys(ctx, tx, owner, keys); err != nil {
+		return err
+	}
+	if err := refuseClassicalAddOnLegacyRows(ctx, q); err != nil {
+		return err
+	}
+	if _, err := q.PutSupportedLanguage(ctx, sqlcgen.PutSupportedLanguageParams{
+		Language: classical.Language, DisplayName: classical.LanguageDisplayName,
+	}); err != nil {
+		return err
+	}
+	for _, key := range keys {
+		added, err := addClassicalReadingUnitTx(ctx, q, owner, key)
+		if err != nil {
+			return err
+		}
+		report.Books = append(report.Books, added)
+	}
+	return nil
+}
+
+// refuseClassicalAddOnLegacyRows is the fail-closed Classical catalog
+// precondition. It is deliberately installation-wide.
+func refuseClassicalAddOnLegacyRows(ctx context.Context, q *sqlcgen.Queries) error {
+	legacy, err := listLegacyLanguageRows(ctx, q, classical.Language)
+	if err != nil {
+		return fmt.Errorf("persistence: inspect %s rows: %w", classical.Language, err)
+	}
+	if len(legacy) > 0 {
+		return classical.ErrLegacyRows
+	}
+	return nil
 }
 
 // normalizeClassicalAddKeys trims, rejects an empty part and removes duplicates
@@ -112,7 +128,7 @@ func addClassicalReadingUnitTx(ctx context.Context, q *sqlcgen.Queries, owner, k
 	if err != nil {
 		return classical.AddedBook{}, err
 	}
-	added := classical.AddedBook{ReadingUnitKey: unit.UnitKey, WorkKey: unit.WorkKey}
+	added := classical.AddedBook{ReadingUnitKey: unit.UnitKey}
 	existing, err := q.GetRegisteredBookID(ctx, sqlcgen.GetRegisteredBookIDParams{OwnerID: owner, ReadingUnitID: unit.ID})
 	err = missing(err)
 	switch {
@@ -179,7 +195,7 @@ func (s *PostgresStore) ListOwnedClassicalReadingUnits(ctx context.Context, owne
 	owned := make([]classical.OwnedReadingUnit, 0, len(rows))
 	for _, row := range rows {
 		owned = append(owned, classical.OwnedReadingUnit{
-			ReadingUnitKey: row.UnitKey, WorkKey: row.WorkKey, BookID: row.BookID,
+			ReadingUnitKey: row.UnitKey, BookID: row.BookID,
 		})
 	}
 	return owned, nil

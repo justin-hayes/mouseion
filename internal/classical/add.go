@@ -8,8 +8,9 @@ import "errors"
 const LegacyRowsCode = "classical_catalog_legacy_rows"
 
 // LegacyRowsReason is the stable learner-facing reason paired with
-// LegacyRowsCode.
-const LegacyRowsReason = "Adding is unavailable while un-converted Ancient Greek rows exist. Code: " + LegacyRowsCode + "."
+// LegacyRowsCode. It names the remedy rather than leaving the learner at a
+// blocked action.
+const LegacyRowsReason = "Adding is unavailable until this installation's legacy Ancient Greek rows are converted. Ask the operator to finish the conversion. Code: " + LegacyRowsCode + "."
 
 // ErrLegacyRows refuses an Add while the installation still holds legacy rows.
 var ErrLegacyRows = errors.New("classical: legacy " + Language + " rows exist (" + LegacyRowsCode + ")")
@@ -17,7 +18,6 @@ var ErrLegacyRows = errors.New("classical: legacy " + Language + " rows exist ("
 // AddedBook is the outcome of adding one Reading unit for one learner.
 type AddedBook struct {
 	ReadingUnitKey string
-	WorkKey        string
 	BookID         string
 	Created        bool
 }
@@ -44,7 +44,6 @@ func (r AddReport) CreatedBooks() int {
 // carries no preparation state: the catalog only needs ownership.
 type OwnedReadingUnit struct {
 	ReadingUnitKey string
-	WorkKey        string
 	BookID         string
 }
 

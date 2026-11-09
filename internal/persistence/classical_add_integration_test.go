@@ -108,7 +108,7 @@ func TestAddClassicalReadingUnitsCreatesInboxBooksAndReopensThem(t *testing.T) {
 	owned, err := store.ListOwnedClassicalReadingUnits(ctx, owner.ID)
 	require.NoError(t, err)
 	assert.Len(t, owned, 2)
-	assert.Equal(t, "work", owned[0].WorkKey)
+	assert.Equal(t, "work-1", owned[0].ReadingUnitKey)
 }
 
 func TestAddClassicalReadingUnitsRefusesLegacyGreekRows(t *testing.T) {
@@ -140,19 +140,24 @@ func TestAddClassicalReadingUnitsRefusesUnknownUnitsAndRejectsEmptyInput(t *test
 	require.NoError(t, err)
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, classicalAddDefinitions()))
 
-	_, err = store.AddClassicalReadingUnits(ctx, owner.ID, nil)
-	require.ErrorContains(t, err, "at least one Reading unit")
-
-	_, err = store.AddClassicalReadingUnits(ctx, owner.ID, []string{"nonexistent"})
-	require.ErrorContains(t, err, "not current")
-
-	_, err = store.AddClassicalReadingUnits(ctx, "  ", []string{"work-1"})
-	require.ErrorContains(t, err, "owner is required")
-
-	_, err = store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1", "work-1"})
-	require.NoError(t, err)
-	var associations int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_reading_units WHERE owner_id = $1`, owner.ID).Scan(&associations)
-	require.NoError(t, err)
-	assert.Equal(t, 1, associations, "a repeated key never adds twice")
+	t.Run("empty input", func(t *testing.T) {
+		_, err := store.AddClassicalReadingUnits(ctx, owner.ID, nil)
+		require.ErrorContains(t, err, "at least one Reading unit")
+	})
+	t.Run("unknown unit", func(t *testing.T) {
+		_, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"nonexistent"})
+		require.ErrorContains(t, err, "not current")
+	})
+	t.Run("missing owner", func(t *testing.T) {
+		_, err := store.AddClassicalReadingUnits(ctx, "  ", []string{"work-1"})
+		require.ErrorContains(t, err, "owner is required")
+	})
+	t.Run("repeated key", func(t *testing.T) {
+		_, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1", "work-1"})
+		require.NoError(t, err)
+		var associations int
+		err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_reading_units WHERE owner_id = $1`, owner.ID).Scan(&associations)
+		require.NoError(t, err)
+		assert.Equal(t, 1, associations, "a repeated key never adds twice")
+	})
 }

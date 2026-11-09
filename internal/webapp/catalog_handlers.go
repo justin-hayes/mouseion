@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -170,13 +171,15 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 }
 
 // redirectClassicalAddFailure names the stable legacy reason instead of
-// treating a refused Add as a server error.
+// treating a refused Add as a server error. Any other failure is logged for the
+// operator and the learner sees a recovery action, never the raw error.
 func (h *Handler) redirectClassicalAddFailure(w http.ResponseWriter, r *http.Request, target string, err error) {
 	if errors.Is(err, classical.ErrLegacyRows) {
 		redirect(w, r, target+"?error="+url.QueryEscape(classical.LegacyRowsReason))
 		return
 	}
-	fail(w, err)
+	log.Printf("classical catalog add: %v", err)
+	redirect(w, r, target+"?error="+url.QueryEscape("This text could not be added. Refresh the catalog and try again."))
 }
 
 // classicalAddMessage states only what changed in My Books. It never mentions

@@ -16,7 +16,6 @@ const getCurrentClassicalUnitByKey = `-- name: GetCurrentClassicalUnitByKey :one
 SELECT ru.id::text AS id,
        ru.definition_key AS unit_key,
        ru.constituent_book,
-       w.definition_key AS work_key,
        w.title AS work_title,
        w.author AS work_author
 FROM reading_units ru
@@ -29,7 +28,6 @@ type GetCurrentClassicalUnitByKeyRow struct {
 	ID              string
 	UnitKey         string
 	ConstituentBook pgtype.Int4
-	WorkKey         string
 	WorkTitle       string
 	WorkAuthor      string
 }
@@ -43,7 +41,6 @@ func (q *Queries) GetCurrentClassicalUnitByKey(ctx context.Context, definitionKe
 		&i.ID,
 		&i.UnitKey,
 		&i.ConstituentBook,
-		&i.WorkKey,
 		&i.WorkTitle,
 		&i.WorkAuthor,
 	)
@@ -124,58 +121,6 @@ func (q *Queries) ListBookReadingUnits(ctx context.Context, arg ListBookReadingU
 			&i.CitationStart,
 			&i.CitationEnd,
 			&i.EditionLabel,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCurrentClassicalWorkUnits = `-- name: ListCurrentClassicalWorkUnits :many
-SELECT ru.id::text AS id,
-       ru.definition_key AS unit_key,
-       ru.constituent_book,
-       w.definition_key AS work_key,
-       w.title AS work_title,
-       w.author AS work_author
-FROM reading_units ru
-JOIN editions e ON e.id = ru.edition_id
-JOIN works w ON w.id = e.work_id
-WHERE w.definition_key = $1 AND ru.withdrawn = false
-ORDER BY ru.constituent_book NULLS FIRST, ru.definition_key
-`
-
-type ListCurrentClassicalWorkUnitsRow struct {
-	ID              string
-	UnitKey         string
-	ConstituentBook pgtype.Int4
-	WorkKey         string
-	WorkTitle       string
-	WorkAuthor      string
-}
-
-// The current, non-withdrawn Reading units of one Work in constituent-book
-// order. A whole-work unit sorts first.
-func (q *Queries) ListCurrentClassicalWorkUnits(ctx context.Context, definitionKey string) ([]ListCurrentClassicalWorkUnitsRow, error) {
-	rows, err := q.db.Query(ctx, listCurrentClassicalWorkUnits, definitionKey)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListCurrentClassicalWorkUnitsRow{}
-	for rows.Next() {
-		var i ListCurrentClassicalWorkUnitsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.UnitKey,
-			&i.ConstituentBook,
-			&i.WorkKey,
-			&i.WorkTitle,
-			&i.WorkAuthor,
 		); err != nil {
 			return nil, err
 		}
@@ -298,12 +243,9 @@ func (q *Queries) ListLegacyLanguageRows(ctx context.Context, languageTag pgtype
 
 const listOwnedClassicalReadingUnits = `-- name: ListOwnedClassicalReadingUnits :many
 SELECT ru.definition_key AS unit_key,
-       w.definition_key AS work_key,
        bru.book_id::text AS book_id
 FROM book_reading_units bru
 JOIN reading_units ru ON ru.id = bru.reading_unit_id
-JOIN editions e ON e.id = ru.edition_id
-JOIN works w ON w.id = e.work_id
 JOIN book_membership m ON m.owner_id = bru.owner_id AND m.book_id = bru.book_id AND m.state = 'active'
 WHERE bru.owner_id = $1
 ORDER BY ru.constituent_book NULLS FIRST, ru.definition_key
@@ -311,7 +253,6 @@ ORDER BY ru.constituent_book NULLS FIRST, ru.definition_key
 
 type ListOwnedClassicalReadingUnitsRow struct {
 	UnitKey string
-	WorkKey string
 	BookID  string
 }
 
@@ -326,7 +267,7 @@ func (q *Queries) ListOwnedClassicalReadingUnits(ctx context.Context, ownerID st
 	items := []ListOwnedClassicalReadingUnitsRow{}
 	for rows.Next() {
 		var i ListOwnedClassicalReadingUnitsRow
-		if err := rows.Scan(&i.UnitKey, &i.WorkKey, &i.BookID); err != nil {
+		if err := rows.Scan(&i.UnitKey, &i.BookID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

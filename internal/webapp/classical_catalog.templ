@@ -43,7 +43,7 @@ templ ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classica
 										<span lang="grc"> · { work.GreekTitle }</span>
 									}
 									if view.OwnedWorks[work.Key] != "" {
-										<a class="classical-owned" href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>In My Books</a>
+										<a href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>In My Books</a>
 									}
 								</li>
 							}
@@ -63,11 +63,11 @@ templ ClassicalAuthorPage(user domain.User, csrf string, author classical.Catalo
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}
-		if pageError != "" {
+		if pageError != "" && view.AddAvailable {
 			@Feedback(FeedbackError, "Add is unavailable", pageError)
 		}
 		if !view.AddAvailable {
-			@Feedback(FeedbackWarning, "Add is unavailable", view.AddUnavailableReason)
+			@Feedback(FeedbackError, "Add is unavailable", view.AddUnavailableReason)
 		}
 		if len(author.Works) == 0 {
 			@EmptyState("No works by this author", "This release carries no current Reading units for this author.")
@@ -86,7 +86,7 @@ templ ClassicalAuthorPage(user domain.User, csrf string, author classical.Catalo
 							<div><dt>Words</dt><dd>{ fmt.Sprintf("%d", work.Words) }</dd></div>
 							<div><dt>Translation</dt><dd>{ classicalTranslationLabel(work.TranslationAvailable) }</dd></div>
 						</dl>
-						<footer class="classical-work-record__actions">
+						<footer class="action-group">
 							if view.OwnedWorks[work.Key] != "" {
 								<a class="button button--outline" href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>In My Books</a>
 							}
@@ -116,11 +116,11 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}
-		if pageError != "" {
+		if pageError != "" && view.AddAvailable {
 			@Feedback(FeedbackError, "Add is unavailable", pageError)
 		}
 		if !view.AddAvailable {
-			@Feedback(FeedbackWarning, "Add is unavailable", view.AddUnavailableReason)
+			@Feedback(FeedbackError, "Add is unavailable", view.AddUnavailableReason)
 		}
 		if work.GreekTitle != "" {
 			<p class="classical-work-record__greek" lang="grc">{ work.GreekTitle }</p>
@@ -160,7 +160,7 @@ templ ClassicalCatalogCounts(counts classical.CatalogCounts, className string) {
 // ClassicalAddForm is the one Add control used by the catalog. A whole-work
 // unit on the author page returns there; every other Add returns to the work.
 templ ClassicalAddForm(csrf, action, label string, primary bool, returnTo string) {
-	<form class="classical-add-form" method="post" action={ templ.SafeURL(action) }>
+	<form class="inline-action" method="post" action={ templ.SafeURL(action) }>
 		<input type="hidden" name="csrf_token" value={ csrf }/>
 		if returnTo != "" {
 			<input type="hidden" name="return" value={ returnTo }/>

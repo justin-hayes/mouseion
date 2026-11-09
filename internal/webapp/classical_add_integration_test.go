@@ -4,8 +4,8 @@ package webapp
 
 import (
 	"context"
+	"errors"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"sync/atomic"
 	"testing"
@@ -22,6 +22,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// countingTransport counts every default-client request. Add must make none.
+type countingTransport struct {
+	count *atomic.Int64
+}
+
+func (c countingTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	c.count.Add(1)
+	return nil, errors.New("unexpected network request")
+}
 
 // classicalAddHarness provisions a migrated database, reconciles the fixture
 // release, and wires the web handler to it. layerRequests counts every request
@@ -42,11 +52,9 @@ func classicalAddHarness(t *testing.T) (context.Context, *persistence.PostgresSt
 	require.NoError(t, err)
 	authService := auth.New(store, time.Hour)
 	var layerRequests atomic.Int64
-	layer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		layerRequests.Add(1)
-		http.Error(w, "Add must not fetch", http.StatusInternalServerError)
-	}))
-	t.Cleanup(layer.Close)
+	originalTransport := http.DefaultTransport
+	http.DefaultTransport = countingTransport{count: &layerRequests}
+	t.Cleanup(func() { http.DefaultTransport = originalTransport })
 	h := New(Services{
 		Auth:            authService,
 		WebAuth:         webauth.New(authService, false, time.Hour),
@@ -123,7 +131,7 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBooks(t *testing.T) {
 	// Ancient Greek joins the study languages while German stays active.
 	libraryAfterAdd := perform(t, h, "GET", "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, libraryAfterAdd.Code)
-	assert.Contains(t, libraryAfterAdd.Body.String(), "Ancient Greek (grc)")
+	assert.Contains(t, libraryAfterAdd.Body.String(), "Ancient Greek")
 	assert.Contains(t, libraryAfterAdd.Body.String(), "Deutsch")
 
 	// The added language is now a study language; the catalog shows ownership
@@ -158,7 +166,7 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBooks(t *testing.T) {
 	library := perform(t, h, "GET", "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code)
 	assert.Contains(t, library.Body.String(), "Iliad")
-	assert.Contains(t, library.Body.String(), "Ancient Greek (grc)")
+	assert.Contains(t, library.Body.String(), "Ancient Greek")
 }
 
 func TestClassicalCatalogAddsOneBookAndAWholeWorkUnitFromTheAuthorPage(t *testing.T) {

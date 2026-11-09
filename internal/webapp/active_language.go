@@ -33,6 +33,9 @@ func activeStudyLanguageLabel(option activeStudyLanguageOption) string {
 		label = "Italiano"
 	case "el":
 		label = "Ελληνικά"
+	case "grc":
+		// The catalog records the curated display name; never append a code.
+		label = option.DisplayName
 	}
 	if !option.HasBooks {
 		label += " (no books)"

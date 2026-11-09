@@ -207,14 +207,14 @@ func ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classical
 							}
 						}
 						if view.OwnedWorks[work.Key] != "" {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<a class=\"classical-owned\" href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<a href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var10 templ.SafeURL
 							templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(classicalWorkInMyBooksURL(work.Key)))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 46, Col: 94}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 46, Col: 70}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 							if templ_7745c5c3_Err != nil {
@@ -302,7 +302,7 @@ func ClassicalAuthorPage(user domain.User, csrf string, author classical.Catalog
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if pageError != "" {
+			if pageError != "" && view.AddAvailable {
 				templ_7745c5c3_Err = Feedback(FeedbackError, "Add is unavailable", pageError).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -313,7 +313,7 @@ func ClassicalAuthorPage(user domain.User, csrf string, author classical.Catalog
 				return templ_7745c5c3_Err
 			}
 			if !view.AddAvailable {
-				templ_7745c5c3_Err = Feedback(FeedbackWarning, "Add is unavailable", view.AddUnavailableReason).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = Feedback(FeedbackError, "Add is unavailable", view.AddUnavailableReason).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -434,7 +434,7 @@ func ClassicalAuthorPage(user domain.User, csrf string, author classical.Catalog
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</dd></div></dl><footer class=\"classical-work-record__actions\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</dd></div></dl><footer class=\"action-group\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -578,7 +578,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if pageError != "" {
+			if pageError != "" && view.AddAvailable {
 				templ_7745c5c3_Err = Feedback(FeedbackError, "Add is unavailable", pageError).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -589,7 +589,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 				return templ_7745c5c3_Err
 			}
 			if !view.AddAvailable {
-				templ_7745c5c3_Err = Feedback(FeedbackWarning, "Add is unavailable", view.AddUnavailableReason).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = Feedback(FeedbackError, "Add is unavailable", view.AddUnavailableReason).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -879,14 +879,14 @@ func ClassicalAddForm(csrf, action, label string, primary bool, returnTo string)
 			templ_7745c5c3_Var40 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<form class=\"classical-add-form\" method=\"post\" action=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<form class=\"inline-action\" method=\"post\" action=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var41 templ.SafeURL
 		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(action))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 163, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 163, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 		if templ_7745c5c3_Err != nil {
