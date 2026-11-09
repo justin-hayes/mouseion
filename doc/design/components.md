@@ -98,7 +98,7 @@ one-pattern/one-Templ-component implementation.
 
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
-| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Read; long title/author; compact reflow | My Books; reusable by Reading and chooser |
+| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Read; grouped Work row with one cell per owned Book; single-Book Work position; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues; shown only when no Book is current. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading, between Books |
 | `ReadingChooser` | List neutral To Read candidates in title order; group a Work's multiple To Read Books into one entry with a band table; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, grouped Work, single-Book Work, inline constituent entry, start/switch confirmation | Between-Books Reading chooser |
@@ -167,6 +167,25 @@ state is shown only for the current-reading Book. Failed-analysis and
 unavailable-content notes retain an adjacent, valid recovery action whenever
 recovery is available; do not show a dead route or offer refresh for the current
 Book.
+
+A Work with more than one owned Book in the active language uses the grouped
+form of the same row. The identity carries the Work title, author, Greek title,
+"all N books" or "M of N books", and Classical catalog provenance. The margin
+carries one `StatusBadge` for the leading bucket by the ordinary precedence —
+**Currently reading Book N**, **To Read**, **Read**, **Inbox** — followed by
+counts such as "22 more To Read · 1 Read". Under the identity, a wrapping strip
+has one 44px cell per owned Book in book order; each cell states its bucket by a
+distinct shape — filled dot for **Currently reading**, ring for **To Read**, bar
+for **Read**, filled square for **Inbox** — and links to Reading with that Book
+selected. Cells carry full accessible labels, the page has one shared legend,
+and the row has no per-Book actions. A filtered row keeps only its matching cells, and a line states the
+shape, such as "57 Books in 5 works". "M of N books" counts owned Books,
+including Hidden ones; the strip follows the current visibility scope. A
+single-Book Work stays an ordinary row
+with its position, such as "Histories, Book 1" and "Book 1 of 9"; a whole-work
+unit shows no position. On compact screens the cover stays beside title and
+author, while the margin and strip move below the text column; the strip wraps
+instead of scrolling sideways.
 
 Reading's between-Books To Read candidate list reuses the same cover/identity/edged-margin
 composition, but not My Books' bucket note or action set. The section heading

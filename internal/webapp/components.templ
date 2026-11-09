@@ -57,6 +57,10 @@ templ StatusBadge(label string, tone StatusTone) {
 	<span class={ statusBadgeClass(tone) }><span class={ statusBadgeShapeClass(label, tone) } aria-hidden="true"></span>{ label }</span>
 }
 
+templ StatusBadgeWithShape(label string, tone StatusTone, shape string) {
+	<span class={ statusBadgeClass(tone) }><span class={ shape } aria-hidden="true"></span>{ label }</span>
+}
+
 templ Feedback(kind FeedbackKind, title, message string) {
 	<article { feedbackAttributes(kind)... } class={ feedbackClass(kind) } role={ feedbackRole(kind) } aria-live={ feedbackLive(kind) }>
 		if title != "" {

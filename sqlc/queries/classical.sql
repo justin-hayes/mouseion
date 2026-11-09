@@ -68,10 +68,17 @@ SELECT bru.book_id::text AS book_id,
        ru.definition_key AS reading_unit_key,
        ru.citation_start,
        ru.citation_end,
-       e.label AS edition_label
+       e.label AS edition_label,
+       w.definition_key AS work_key,
+       w.title AS work_title,
+       w.author AS work_author,
+       w.greek_title,
+       ru.constituent_book,
+       ru.constituent_books
 FROM book_reading_units bru
 JOIN reading_units ru ON ru.id = bru.reading_unit_id
 JOIN editions e ON e.id = ru.edition_id
+JOIN works w ON w.id = e.work_id
 WHERE bru.owner_id = sqlc.arg('owner') AND bru.book_id = ANY(sqlc.arg('book_ids')::uuid[]);
 
 -- name: ListLegacyLanguageRows :many

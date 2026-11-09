@@ -12,17 +12,17 @@ import (
 // inventory counts joined to current Known vocabulary at read time. It never
 // reads corpus tokens: a Book whose counts are not ready for its current
 // analysis keeps a zero figure instead of falling back to a scan.
-func (s *PostgresStore) populateMyBooksCoverage(ctx context.Context, owner string, books []domain.MyBook) error {
+func (s *PostgresStore) populateMyBooksCoverage(ctx context.Context, owner string, books []*domain.MyBook) error {
 	if len(books) == 0 {
 		return nil
 	}
 	ids := make([]string, 0, len(books))
 	byID := make(map[string]*domain.MyBook, len(books))
-	for i := range books {
-		books[i].CoverageKnownTokens = 0
-		books[i].CoverageTotalTokens = 0
-		ids = append(ids, books[i].Book.ID)
-		byID[books[i].Book.ID] = &books[i]
+	for _, book := range books {
+		book.CoverageKnownTokens = 0
+		book.CoverageTotalTokens = 0
+		ids = append(ids, book.Book.ID)
+		byID[book.Book.ID] = book
 	}
 	rows, err := s.queries().ListMyBooksCoverage(ctx, sqlcgen.ListMyBooksCoverageParams{Owner: owner, BookIds: ids})
 	if err != nil {

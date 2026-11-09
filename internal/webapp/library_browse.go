@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -186,6 +187,11 @@ type MyBooksBrowseState struct {
 	AllCount           int
 	ScopeTotal         int
 	Total              int
+	BookTotal          int
+	WorkTotal          int
+	RowCount           int
+	HasWorks           bool
+	Rows               []domain.MyBooksBrowseRow
 	Page               int
 	PageCount          int
 	TextNoMatch        bool
@@ -409,18 +415,44 @@ func myBookDisposition(book domain.MyBook) domain.BookDisposition {
 	return domain.BookDispositionInbox
 }
 
-func myBookWorkflowLabel(book domain.MyBook) string {
-	switch book.WorkflowBucket() {
+// myBooksWorkBucketOrder is the ordinary bucket precedence a grouped Work row
+// uses for its one leading badge.
+var myBooksWorkBucketOrder = []domain.MyBookBucket{
+	domain.MyBookBucketCurrentReading,
+	domain.MyBookBucketToRead,
+	domain.MyBookBucketRead,
+	domain.MyBookBucketInbox,
+}
+
+func myBookBucketLabel(bucket domain.MyBookBucket) string {
+	switch bucket {
 	case domain.MyBookBucketCurrentReading:
 		return "Currently reading"
 	case domain.MyBookBucketToRead:
 		return "To Read"
-	case domain.MyBookBucketInbox:
-		return "Inbox"
 	case domain.MyBookBucketRead:
 		return "Read"
 	default:
 		return "Inbox"
+	}
+}
+
+func myBookWorkflowLabel(book domain.MyBook) string {
+	return myBookBucketLabel(book.WorkflowBucket())
+}
+
+// myBookWorkBucketShape gives a grouped Work's cells and leading badge four
+// distinct shapes. Ordinary rows keep the shared StatusBadge shape vocabulary.
+func myBookWorkBucketShape(bucket domain.MyBookBucket) string {
+	switch bucket {
+	case domain.MyBookBucketCurrentReading:
+		return "status-badge__shape status-badge__shape--dot"
+	case domain.MyBookBucketToRead:
+		return "status-badge__shape status-badge__shape--ring"
+	case domain.MyBookBucketRead:
+		return "status-badge__shape status-badge__shape--bar"
+	default:
+		return "status-badge__shape status-badge__shape--square"
 	}
 }
 
@@ -429,6 +461,251 @@ func myBookWorkflowTone(book domain.MyBook) StatusTone {
 		return StatusInfo
 	}
 	return StatusNeutral
+}
+
+// myBookDisplayTitle names a classical constituent Book by its Work and place,
+// such as "Histories, Book 1". A whole-work unit keeps the Work title.
+func myBookDisplayTitle(book domain.MyBook) string {
+	title := book.Book.Title
+	if unit := book.ReadingUnit; unit != nil {
+		if strings.TrimSpace(unit.WorkTitle) != "" {
+			title = unit.WorkTitle
+		}
+		if number, _, ok := unit.BookPosition(); ok {
+			return fmt.Sprintf("%s, Book %d", title, number)
+		}
+	}
+	return title
+}
+
+// myBookPositionLabel is a constituent Book's reviewed place in its Work. A
+// whole-work unit has no position.
+func myBookPositionLabel(book domain.MyBook) string {
+	if unit := book.ReadingUnit; unit != nil {
+		if number, total, ok := unit.BookPosition(); ok {
+			return fmt.Sprintf("Book %d of %d", number, total)
+		}
+	}
+	return ""
+}
+
+func myBookGreekTitle(book domain.MyBook) string {
+	if unit := book.ReadingUnit; unit != nil {
+		return strings.TrimSpace(unit.GreekTitle)
+	}
+	return ""
+}
+
+func myBooksWorkRowID(workKey string) string {
+	return "work-row-" + url.PathEscape(workKey)
+}
+
+// myBooksWorkSizeLabel states the Work's reviewed size and how much of it the
+// learner owns: "all 24 books" or "2 of 24 books".
+func myBooksWorkSizeLabel(row domain.MyBooksBrowseRow) string {
+	owned := row.OwnedBooks
+	if owned <= 0 {
+		owned = len(row.Books)
+	}
+	total := row.ConstituentBooks
+	if total <= 0 {
+		total = owned
+	}
+	if owned > total {
+		owned = total
+	}
+	switch {
+	case total == 1:
+		return "1 book"
+	case owned >= total:
+		return fmt.Sprintf("all %d books", total)
+	default:
+		return fmt.Sprintf("%d of %d books", owned, total)
+	}
+}
+
+// myBooksWorkLeadingBook applies the ordinary bucket precedence: current
+// reading, To Read, Read, Inbox.
+func myBooksWorkLeadingBook(books []domain.MyBook) (domain.MyBookBucket, domain.MyBook) {
+	for _, bucket := range myBooksWorkBucketOrder {
+		for _, book := range books {
+			if book.WorkflowBucket() == bucket {
+				return bucket, book
+			}
+		}
+	}
+	return domain.MyBookBucketInbox, domain.MyBook{}
+}
+
+// myBooksWorkLeadingBadge is the one StatusBadge a grouped Work row shows.
+func myBooksWorkLeadingBadge(books []domain.MyBook) (label string, tone StatusTone, shape string) {
+	bucket, book := myBooksWorkLeadingBook(books)
+	shape = myBookWorkBucketShape(bucket)
+	if bucket == domain.MyBookBucketCurrentReading {
+		if unit := book.ReadingUnit; unit != nil && unit.ConstituentBook > 0 {
+			return fmt.Sprintf("Currently reading Book %d", unit.ConstituentBook), StatusInfo, shape
+		}
+		return "Currently reading", StatusInfo, shape
+	}
+	return myBookBucketLabel(bucket), StatusNeutral, shape
+}
+
+// myBooksWorkCountsLabel states the rest of the Work's shape after the leading
+// badge, such as "22 more To Read · 1 Read".
+func myBooksWorkCountsLabel(books []domain.MyBook) string {
+	if len(books) == 0 {
+		return ""
+	}
+	leading, _ := myBooksWorkLeadingBook(books)
+	counts := map[domain.MyBookBucket]int{}
+	for _, book := range books {
+		counts[book.WorkflowBucket()]++
+	}
+	var parts []string
+	for _, bucket := range myBooksWorkBucketOrder {
+		count := counts[bucket]
+		if bucket == leading {
+			count--
+		}
+		if count <= 0 {
+			continue
+		}
+		label := myBookBucketLabel(bucket)
+		if bucket == leading {
+			parts = append(parts, fmt.Sprintf("%d more %s", count, label))
+		} else {
+			parts = append(parts, fmt.Sprintf("%d %s", count, label))
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
+// myBooksWorkCellLabel is the full accessible label of one Book cell.
+func myBooksWorkCellLabel(row domain.MyBooksBrowseRow, book domain.MyBook) string {
+	label := row.WorkTitle
+	if strings.TrimSpace(label) == "" {
+		label = book.Book.Title
+	}
+	if unit := book.ReadingUnit; unit != nil {
+		if number, total, ok := unit.BookPosition(); ok {
+			label = fmt.Sprintf("%s, Book %d of %d", label, number, total)
+		}
+	}
+	return fmt.Sprintf("%s, %s", label, myBookWorkflowLabel(book))
+}
+
+func myBooksWorkCellNumber(book domain.MyBook) string {
+	if unit := book.ReadingUnit; unit != nil && unit.ConstituentBook > 0 {
+		return strconv.Itoa(unit.ConstituentBook)
+	}
+	return "1"
+}
+
+func myBooksWorkCellClass(book domain.MyBook) string {
+	return "library-work__cell library-work__cell--" + string(book.WorkflowBucket())
+}
+
+// myBooksShapeLabel states the filtered collection's shape in Books and works.
+func myBooksShapeLabel(browse MyBooksBrowseState) string {
+	books := browse.BookTotal
+	if books == 0 {
+		books = browse.Total
+	}
+	works := browse.WorkTotal
+	if works == 0 {
+		works = browse.RowCount
+	}
+	if works == 0 {
+		works = books
+	}
+	switch {
+	case books == 1 && works == 1:
+		return "1 Book in 1 work"
+	case books == 1:
+		return fmt.Sprintf("1 Book in %d works", works)
+	case works == 1:
+		return fmt.Sprintf("%d Books in 1 work", books)
+	default:
+		return fmt.Sprintf("%d Books in %d works", books, works)
+	}
+}
+
+// myBooksBrowseRows is the page as rendered. Store-backed browsing supplies
+// rows directly; lightweight callers fall back to grouping their Book slice.
+func myBooksBrowseRows(browse MyBooksBrowseState, books []domain.MyBook) []domain.MyBooksBrowseRow {
+	if len(browse.Rows) > 0 {
+		return browse.Rows
+	}
+	return myBooksFallbackRows(browse, books)
+}
+
+func myBooksHasGroupedWork(rows []domain.MyBooksBrowseRow) bool {
+	for _, row := range rows {
+		if row.Grouped {
+			return true
+		}
+	}
+	return false
+}
+
+// myBooksFallbackRows groups an already-selected Book page for callers that do
+// not supply rows, such as the in-memory fixture store and legacy LibraryPage.
+func myBooksFallbackRows(browse MyBooksBrowseState, books []domain.MyBook) []domain.MyBooksBrowseRow {
+	visible, owned := myBooksFallbackVisible(browse, books)
+	rows := myBooksFallbackGroups(visible, owned)
+	for i := range rows {
+		myBooksFinalizeFallbackRow(&rows[i])
+	}
+	return rows
+}
+
+func myBooksFallbackVisible(browse MyBooksBrowseState, books []domain.MyBook) ([]domain.MyBook, map[string]int) {
+	visible := make([]domain.MyBook, 0, len(books))
+	owned := map[string]int{}
+	for _, book := range books {
+		if !myBooksBookInLanguage(browse, book) {
+			continue
+		}
+		visible = append(visible, book)
+		if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
+			owned[unit.WorkKey]++
+		}
+	}
+	return visible, owned
+}
+
+func myBooksFallbackGroups(visible []domain.MyBook, owned map[string]int) []domain.MyBooksBrowseRow {
+	rows := make([]domain.MyBooksBrowseRow, 0, len(visible))
+	index := map[string]int{}
+	for _, book := range visible {
+		key := domain.MyBookWorkGroupKey(book)
+		if i, ok := index[key]; ok {
+			rows[i].Books = append(rows[i].Books, book)
+			continue
+		}
+		row := domain.MyBooksBrowseRow{Key: key, Books: []domain.MyBook{book}}
+		if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
+			row.WorkKey = unit.WorkKey
+			row.WorkTitle = unit.WorkTitle
+			row.WorkAuthor = unit.WorkAuthor
+			row.GreekTitle = unit.GreekTitle
+			row.ConstituentBooks = unit.ConstituentBooks
+			row.OwnedBooks = owned[unit.WorkKey]
+		}
+		index[key] = len(rows)
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func myBooksFinalizeFallbackRow(row *domain.MyBooksBrowseRow) {
+	if row.WorkKey == "" {
+		return
+	}
+	row.Grouped = len(row.Books) > 1 || row.OwnedBooks > 1
+	sort.SliceStable(row.Books, func(i, j int) bool {
+		return domain.MyBookWorkOrderLess(row.Books[i], row.Books[j])
+	})
 }
 
 func myBooksAllDispositionCount(browse MyBooksBrowseState) int {

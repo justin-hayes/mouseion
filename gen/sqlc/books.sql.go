@@ -54,9 +54,21 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
        ) AS is_current_reading
+     , COALESCE(ru.definition_key, '')::text AS reading_unit_key
+     , COALESCE(w.definition_key, '')::text AS work_key
+     , COALESCE(w.title, '')::text AS work_title
+     , COALESCE(w.author, '')::text AS work_author
+     , COALESCE(w.greek_title, '')::text AS greek_title
+     , COALESCE(ed.label, '')::text AS edition_label
+     , COALESCE(ru.constituent_book, 0)::integer AS constituent_book
+     , COALESCE(ru.constituent_books, 0)::integer AS constituent_books
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
+LEFT JOIN book_reading_units bru ON bru.owner_id::text = e.book_owner_id AND bru.book_id::text = e.book_id
+LEFT JOIN reading_units ru ON ru.id = bru.reading_unit_id
+LEFT JOIN editions ed ON ed.id = ru.edition_id
+LEFT JOIN works w ON w.id = ed.work_id
 LEFT JOIN LATERAL (
     SELECT count(*) AS completion_count,
            COALESCE((SELECT h.completed_at FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1), 'epoch'::timestamptz) AS latest_completed_at,
@@ -143,6 +155,14 @@ type BrowseMyBooksEvidenceRow struct {
 	DeckTotalCards          int64
 	DeckCompletedAt         pgtype.Timestamptz
 	IsCurrentReading        bool
+	ReadingUnitKey          string
+	WorkKey                 string
+	WorkTitle               string
+	WorkAuthor              string
+	GreekTitle              string
+	EditionLabel            string
+	ConstituentBook         int
+	ConstituentBooks        int
 }
 
 func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]BrowseMyBooksEvidenceRow, error) {
@@ -205,6 +225,14 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.DeckTotalCards,
 			&i.DeckCompletedAt,
 			&i.IsCurrentReading,
+			&i.ReadingUnitKey,
+			&i.WorkKey,
+			&i.WorkTitle,
+			&i.WorkAuthor,
+			&i.GreekTitle,
+			&i.EditionLabel,
+			&i.ConstituentBook,
+			&i.ConstituentBooks,
 		); err != nil {
 			return nil, err
 		}
