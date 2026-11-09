@@ -375,8 +375,9 @@ These commands run against `MOUSEION_DATABASE_URL`.
   the import never calls the NLP service or enqueues EPUB analysis. It refuses
   a malformed or unknown-tag file before writing anything, and re-running the
   same pin and interpretation version is a no-op. It prints a report of counts
-  (sentences, tokens, ellipsis tokens skipped, proper names derived,
-  bare-versus-numbered lemmas, unmapped feature values) and no Greek text.
+  (sentences, tokens, ellipsis tokens skipped, crossing sentences, proper names
+  derived, bare-versus-numbered lemmas, unmapped feature values) and no Greek
+  text.
 - `go run ./cmd/greekregister <learner-username> <pinned-source-file>
   <brownson-translation-file>` — registers and imports as above, then imports the
   operator-supplied Brownson translation of the *Anabasis* in the Perseus

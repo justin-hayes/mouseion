@@ -114,7 +114,7 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 
 	// A new interpretation version gives a new run for the same pin.
 	versioned := definition
-	versioned.InterpretationVersion = "oga-agdt-upos/5"
+	versioned.InterpretationVersion = "oga-agdt-upos/6"
 	fresh, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
 		OwnerID:    learner.ID,
 		BookID:     registration.BookID,

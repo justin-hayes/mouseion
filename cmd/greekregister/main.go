@@ -158,8 +158,8 @@ func writeTranslationReport(output io.Writer, report ancientgreek.BrownsonImport
 
 // writeImportReport prints the import's codes and counts, never any source text.
 func writeImportReport(output io.Writer, report ancientgreek.ImportReport) error {
-	if _, err := fmt.Fprintf(output, "ancient greek import complete: book=%s sentences=%d tokens=%d ellipsis_skipped=%d proper_names=%d numbered_lemmas=%d bare_numbered_lemmas=%d reimported=%t\n",
-		report.BookID, report.Sentences, report.Tokens, report.EllipsisTokensSkipped, report.ProperNamesDerived, report.NumberedLemmaTypes, report.BareLemmasWithNumberedSibling, report.Reimported); err != nil {
+	if _, err := fmt.Fprintf(output, "ancient greek import complete: book=%s sentences=%d tokens=%d ellipsis_skipped=%d crossing_sentences=%d proper_names=%d numbered_lemmas=%d bare_numbered_lemmas=%d reimported=%t\n",
+		report.BookID, report.Sentences, report.Tokens, report.EllipsisTokensSkipped, len(report.Crossings), report.ProperNamesDerived, report.NumberedLemmaTypes, report.BareLemmasWithNumberedSibling, report.Reimported); err != nil {
 		return err
 	}
 	for _, count := range report.UnmappedFeatureValues {

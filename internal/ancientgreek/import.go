@@ -22,8 +22,13 @@ const (
 	CodePinMismatch      = "source_pin_mismatch"
 	CodeMalformed        = "source_malformed"
 	CodeUnknownPOS       = "source_unknown_pos"
-	CodeCitationStraddle = "citation_straddle"
 	CodeUnknownInterpret = "interpretation_unknown"
+	// CodeSentenceUnassigned reports a sentence whose first token belongs to no
+	// Reading unit in a whole-work cut.
+	CodeSentenceUnassigned = "sentence_unassigned"
+	// CodeSentenceAmbiguous reports a sentence whose first token belongs to
+	// more than one Reading unit in a whole-work cut.
+	CodeSentenceAmbiguous = "sentence_ambiguous"
 )
 
 // ImportAnalyzerName identifies an imported classical analysis run.
@@ -37,7 +42,7 @@ const SourceMediaType = domain.ImportedSourceMediaType
 // Interpretation slot versions recorded on an imported run. They are compiled
 // reviewed data; a new value produces a new analysis run.
 const (
-	PosMappingVersion     = "oga-agdt-upos/4"
+	PosMappingVersion     = "oga-agdt-upos/5"
 	FeatsMappingVersion   = "oga-agdt-feats/1"
 	NormalizationVersion  = "ancient-greek/1"
 	ProperNameRuleVersion = "oga-anabasis-proper-name/1"
@@ -111,6 +116,7 @@ type ImportReport struct {
 	Sentences                     int
 	Tokens                        int
 	EllipsisTokensSkipped         int
+	Crossings                     []SentenceCrossing
 	ProperNamesDerived            int
 	NumberedLemmaTypes            int
 	BareLemmasWithNumberedSibling int

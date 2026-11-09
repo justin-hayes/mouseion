@@ -212,3 +212,108 @@ func TestBrownsonAnabasisBook1Pin(t *testing.T) {
 	assert.Equal(t, "1.1.1", BrownsonAnabasisBook1.CitationStart)
 	assert.Equal(t, "1.10.19", BrownsonAnabasisBook1.CitationEnd)
 }
+
+// sourceWithRange pins data and replaces the reviewed citation range, so a
+// synthetic file can prove a citation depth other than the Anabasis shape.
+func sourceWithRange(data []byte, start, end string) BrownsonSource {
+	source := sourceFor(data)
+	source.CitationStart, source.CitationEnd = start, end
+	return source
+}
+
+func TestImportBrownsonParsesSectionOnlyTextparts(t *testing.T) {
+	body := `<TEI><div type="textpart" subtype="section" n="1"><p>First.</p></div>` +
+		`<div type="textpart" subtype="section" n="2"><p>Second.</p></div>` +
+		`<div type="textpart" subtype="section" n="3"><p>Third.</p></div></TEI>`
+	data := []byte(body)
+	writer := &recordingReferenceWriter{}
+	report, err := ImportBrownson(context.Background(), BrownsonImportRequest{
+		SourcePath: writeFixture(t, data), Source: sourceWithRange(data, "1", "3"),
+	}, writer)
+	require.NoError(t, err)
+	assert.Equal(t, 3, report.Sections)
+	require.Len(t, writer.requests, 1)
+	assert.Equal(t, []string{"1", "2", "3"}, citationsInOrder(writer.requests[0].Translations))
+	assert.Equal(t, "Second.", writer.requests[0].Translations[1].Text)
+}
+
+func TestImportBrownsonParsesDeeperCitationShapes(t *testing.T) {
+	body := `<TEI><div type="textpart" subtype="book" n="1"><div type="textpart" subtype="chapter" n="2">` +
+		`<div type="textpart" subtype="section" n="17">` +
+		`<div type="textpart" subtype="subsection" n="3"><p>First part.</p></div>` +
+		`<div type="textpart" subtype="subsection" n="4"><p>Second part.</p></div>` +
+		`</div></div></div></TEI>`
+	data := []byte(body)
+	writer := &recordingReferenceWriter{}
+	report, err := ImportBrownson(context.Background(), BrownsonImportRequest{
+		SourcePath: writeFixture(t, data), Source: sourceWithRange(data, "1.2.17.3", "1.2.17.4"),
+	}, writer)
+	require.NoError(t, err)
+	assert.Equal(t, 2, report.Sections)
+	require.Len(t, writer.requests, 1)
+	assert.Equal(t, []string{"1.2.17.3", "1.2.17.4"}, citationsInOrder(writer.requests[0].Translations))
+}
+
+func TestImportBrownsonRefusesAMissingSection(t *testing.T) {
+	body := `<TEI><div type="textpart" subtype="book" n="1"><div type="textpart" subtype="chapter" n="2">` +
+		`<div type="textpart" subtype="section" n="16"><p>Sixteen.</p></div>` +
+		`<div type="textpart" subtype="section" n="18"><p>Eighteen.</p></div>` +
+		`</div></div></TEI>`
+	data := []byte(body)
+	_, err := ImportBrownson(context.Background(), BrownsonImportRequest{
+		SourcePath: writeFixture(t, data), Source: sourceWithRange(data, "1.2.16", "1.2.18"),
+	}, &recordingReferenceWriter{})
+	assertImportCode(t, err, CodeMalformed)
+}
+
+func TestImportBrownsonRefusesAMissingFirstOrLastSection(t *testing.T) {
+	body := `<TEI><div type="textpart" subtype="book" n="1"><div type="textpart" subtype="chapter" n="2">` +
+		`<div type="textpart" subtype="section" n="17"><p>Seventeen.</p></div>` +
+		`</div></div></TEI>`
+	data := []byte(body)
+	for name, source := range map[string]BrownsonSource{
+		"missing first": sourceWithRange(data, "1.2.16", "1.2.17"),
+		"missing last":  sourceWithRange(data, "1.2.17", "1.2.18"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := ImportBrownson(context.Background(), BrownsonImportRequest{
+				SourcePath: writeFixture(t, data), Source: source,
+			}, &recordingReferenceWriter{})
+			assertImportCode(t, err, CodeMalformed)
+		})
+	}
+}
+
+func TestImportBrownsonRefusesAMissingWholeChapter(t *testing.T) {
+	body := `<TEI><div type="textpart" subtype="book" n="1">` +
+		`<div type="textpart" subtype="chapter" n="2"><div type="textpart" subtype="section" n="17"><p>Two.</p></div></div>` +
+		`<div type="textpart" subtype="chapter" n="4"><div type="textpart" subtype="section" n="1"><p>Four.</p></div>` +
+		`<div type="textpart" subtype="section" n="2"><p>Four again.</p></div></div>` +
+		`</div></TEI>`
+	data := []byte(body)
+	_, err := ImportBrownson(context.Background(), BrownsonImportRequest{
+		SourcePath: writeFixture(t, data), Source: sourceWithRange(data, "1.2.17", "1.4.2"),
+	}, &recordingReferenceWriter{})
+	assertImportCode(t, err, CodeMalformed)
+}
+
+func TestImportBrownsonRefusesAnExtraDivision(t *testing.T) {
+	body := `<TEI><div type="textpart" subtype="book" n="1"><div type="textpart" subtype="chapter" n="2">` +
+		`<div type="textpart" subtype="section" n="17">` +
+		`<div type="textpart" subtype="subsection" n="3"><p>An extra division.</p></div>` +
+		`</div></div></div></TEI>`
+	data := []byte(body)
+	_, err := ImportBrownson(context.Background(), BrownsonImportRequest{
+		SourcePath: writeFixture(t, data), Source: sourceWithRange(data, "1.2.17", "1.2.18"),
+	}, &recordingReferenceWriter{})
+	assertImportCode(t, err, CodeMalformed)
+}
+
+func TestImportBrownsonRefusesADepthThatDoesNotAlign(t *testing.T) {
+	body := `<TEI><div type="textpart" subtype="section" n="17"><p>Section only.</p></div></TEI>`
+	data := []byte(body)
+	_, err := ImportBrownson(context.Background(), BrownsonImportRequest{
+		SourcePath: writeFixture(t, data), Source: sourceWithRange(data, "1.2.17", "1.2.18"),
+	}, &recordingReferenceWriter{})
+	assertImportCode(t, err, CodeMalformed)
+}

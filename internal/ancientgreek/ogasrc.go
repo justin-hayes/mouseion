@@ -82,22 +82,40 @@ func (p *ogaSrcParser) endSentence(lineNo int) error {
 	return nil
 }
 
-// acceptHeader advances the sentence header state.
+// acceptHeader advances the sentence header state. A repeated source header is
+// accepted only when it is identical to the sentence's first one; the observed
+// OGA dialect repeats a source on every sentence in some files.
 func (p *ogaSrcParser) acceptHeader(body string, lineNo int) error {
 	name, value, _ := strings.Cut(body, " = ")
 	name = strings.TrimSpace(name)
+	value = strings.TrimSpace(value)
 	switch {
 	case p.header == 0 && name == "source":
+		if !recoverableSource(value) {
+			return malformed(lineNo, "source header is not recoverable")
+		}
 		p.current = &sourceSentence{source: value}
 		p.header = 1
-	case p.header == 1 && name == "text":
+	case p.header >= 1 && p.header <= 3 && name == "source" && p.current != nil && value == p.current.source:
+	case p.header == 1 && name == "text" && value != "":
 		p.header = 2
-	case p.header == 2 && name == "sent_id":
+	case p.header == 2 && name == "sent_id" && value != "":
 		p.header = 3
 	default:
 		return malformed(lineNo, "unexpected comment line")
 	}
 	return nil
+}
+
+// recoverableSource reports whether a source header carries the author or work
+// label and a citation the adapter can parse. It never guesses a missing one.
+func recoverableSource(value string) bool {
+	label, citation, ok := strings.CutLast(value, "_")
+	if !ok || strings.TrimSpace(label) == "" {
+		return false
+	}
+	_, ok = parseCitation(citation)
+	return ok
 }
 
 // acceptToken appends one token to the current sentence.
@@ -166,11 +184,17 @@ func parseTokenLine(line string, lineNo int) (sourceToken, error) {
 	}, nil
 }
 
-// citationFromMisc extracts the citation from an oga_src MISC field of the form
-// "<parent>|<grandparent>|ref=<abbreviation>_<citation>".
+// citationFromMisc extracts the citation from an oga_src MISC field. The
+// observed dialect is "<token reference>|<head reference>|ref=<abbreviation>_<citation>";
+// a token whose references or citation cannot be recovered is refused rather
+// than read as a different word.
 func citationFromMisc(misc string) (string, bool) {
-	_, ref, ok := strings.CutLast(misc, "|ref=")
-	if !ok {
+	prefix, ref, ok := strings.Cut(misc, "|ref=")
+	if !ok || ref == "" || strings.Contains(ref, "|") {
+		return "", false
+	}
+	references := strings.Split(prefix, "|")
+	if len(references) != 2 || !numberedReference(references[0]) || (references[1] != "0" && !numberedReference(references[1])) {
 		return "", false
 	}
 	_, citation, ok := strings.CutLast(ref, "_")
@@ -178,6 +202,27 @@ func citationFromMisc(misc string) (string, bool) {
 		return "", false
 	}
 	return citation, true
+}
+
+// numberedReference reports whether value is t_<number> or e_<number>, where
+// the number may use underscore-separated groups. The pinned dialect numbers
+// tokens from 1; the synthesized fixtures also use 0 and grouped numbers.
+func numberedReference(value string) bool {
+	prefix, number, ok := strings.Cut(value, "_")
+	if !ok || (prefix != "t" && prefix != "e") || number == "" {
+		return false
+	}
+	for group := range strings.SplitSeq(number, "_") {
+		if group == "" {
+			return false
+		}
+		for _, r := range group {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // interpretation is one versioned reading of a source document: the
@@ -252,17 +297,22 @@ func newInterpretState(definition domain.ReadingUnitDefinition, unitID string) *
 	}
 }
 
-// addSentence includes and rebuilds one sentence, or skips it.
+// addSentence includes and rebuilds one sentence, or skips it. A sentence
+// belongs to the unit that holds its first printed token; a sentence crossing
+// the unit boundary is included whole and counted as crossing.
 func (s *interpretState) addSentence(sentence sourceSentence, profile canonicalization.Profile, names map[string]nameStat, start, end []int) error {
 	if len(sentence.tokens) == 0 {
 		return nil
 	}
-	located, err := sentenceLocation(sentence, start, end)
+	located, crossing, err := sentenceLocation(sentence, start, end)
 	if err != nil {
 		return err
 	}
 	if located == locationOutside {
 		return nil
+	}
+	if crossing {
+		s.report.Crossings = append(s.report.Crossings, SentenceCrossing{UnitKey: s.unitID, Citations: sentenceCitations(sentence)})
 	}
 	relative := reconstruct(sentence)
 	if len(s.full) > 0 {
@@ -358,30 +408,39 @@ const (
 	locationOutside
 )
 
-// sentenceLocation decides whether every token of a sentence falls within the
-// citation range, or only outside it. A sentence that both enters and leaves the
-// range stops the import.
-func sentenceLocation(sentence sourceSentence, start, end []int) (locationDecision, error) {
-	inside, outside := 0, 0
+// sentenceLocation decides whether a sentence belongs to the citation range.
+// The unit that holds the sentence's first printed token owns the whole
+// sentence; the returned crossing flag reports that a later token leaves the
+// range. The citation of every token is still checked, so an unrecoverable
+// citation can never pass unnoticed.
+func sentenceLocation(sentence sourceSentence, start, end []int) (locationDecision, bool, error) {
+	first := true
+	insideFirst := false
+	crossing := false
 	for _, token := range sentence.tokens {
 		citation, ok := parseCitation(token.citation)
 		if !ok {
-			return locationOutside, malformed(0, "token citation is not a citation")
+			return locationOutside, false, malformed(0, "token citation is not a citation")
 		}
-		if compareCitation(citation, start) >= 0 && compareCitation(citation, end) <= 0 {
-			inside++
-		} else {
-			outside++
+		inside := citationWithinRange(citation, start, end)
+		if isEllipsis(token.pos) {
+			continue
+		}
+		if first {
+			first = false
+			insideFirst = inside
+		}
+		if insideFirst && !inside {
+			crossing = true
 		}
 	}
-	switch {
-	case outside == 0:
-		return locationInside, nil
-	case inside == 0:
-		return locationOutside, nil
-	default:
-		return locationOutside, &ImportError{Code: CodeCitationStraddle}
+	if first {
+		return locationOutside, false, nil
 	}
+	if !insideFirst {
+		return locationOutside, false, nil
+	}
+	return locationInside, crossing, nil
 }
 
 // reconstructed is one sentence's reconstructed text and the spans of its
@@ -423,12 +482,12 @@ func reconstruct(sentence sourceSentence) reconstructed {
 // value only satisfies the corpus-token checks and is never read as UD.
 const absentSyntaxDependency = "dep"
 
-// nativePOSValues are the native AGDT parts of speech oga-agdt-upos/4 maps.
+// nativePOSValues are the native AGDT parts of speech oga-agdt-upos/5 maps.
 // Every token in the whole parsed document is checked, including tokens outside
 // the imported citation range, so an unknown value can never pass unnoticed.
 var nativePOSValues = map[string]struct{}{
 	"n": {}, "v": {}, "a": {}, "d": {}, "l": {}, "g": {},
-	"c": {}, "r": {}, "p": {}, "m": {}, "i": {}, "u": {},
+	"c": {}, "r": {}, "p": {}, "m": {}, "i": {}, "u": {}, "x": {},
 }
 
 // validateNativePOS refuses the whole document when any token carries a native
@@ -447,7 +506,7 @@ func validateNativePOS(doc *sourceDocument) error {
 	return nil
 }
 
-// mapUPOS applies oga-agdt-upos/4: the native AGDT part of speech becomes a UD
+// mapUPOS applies oga-agdt-upos/5: the native AGDT part of speech becomes a UD
 // part of speech. An unlisted native value stops the import.
 func mapUPOS(pos, relation string, properName bool) (string, error) {
 	switch pos {
@@ -481,6 +540,10 @@ func mapUPOS(pos, relation string, properName bool) (string, error) {
 		return "INTJ", nil
 	case "u":
 		return "PUNCT", nil
+	case "x":
+		// x marks a real token (for example a numeral), not an ellipsis; it is
+		// kept and maps to UD X, which the eligible-POS set excludes.
+		return "X", nil
 	default:
 		return "", &ImportError{Code: CodeUnknownPOS, Detail: asciiValue(pos)}
 	}
@@ -548,8 +611,10 @@ func decodeLemma(lemma string) (headword, discriminator string) {
 }
 
 // isEllipsis reports whether a native part of speech marks an elliptical node.
+// The OGA dialect uses "-" for an elliptical node; native POS "x" is a real
+// token and must never be dropped as ellipsis.
 func isEllipsis(pos string) bool {
-	return pos == "-" || pos == "x"
+	return pos == "-"
 }
 
 // noSpaceBefore reports whether a token whose surface starts with rune must not
@@ -668,6 +733,12 @@ func parseCitation(value string) ([]int, bool) {
 		out = append(out, number)
 	}
 	return out, true
+}
+
+// citationWithinRange reports whether citation lies inside an inclusive
+// citation range.
+func citationWithinRange(citation, start, end []int) bool {
+	return compareCitation(citation, start) >= 0 && compareCitation(citation, end) <= 0
 }
 
 // compareCitation compares two citations component-wise, treating a missing

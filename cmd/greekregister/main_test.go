@@ -198,11 +198,16 @@ func TestWriteImportReportPrintsCountsOnly(t *testing.T) {
 	var output bytes.Buffer
 	report := ancientgreek.ImportReport{
 		BookID: "book-1", Sentences: 2, Tokens: 10, EllipsisTokensSkipped: 1,
-		ProperNamesDerived: 2, NumberedLemmaTypes: 2, BareLemmasWithNumberedSibling: 1, Reimported: true,
-		UnmappedFeatureValues: []ancientgreek.FeatureValueCount{{Feature: "Mood", Value: "n", Count: 316}},
+		Crossings:                     []ancientgreek.SentenceCrossing{{UnitKey: "unit", Citations: []string{"1.2.17", "1.2.18"}}},
+		ProperNamesDerived:            2,
+		NumberedLemmaTypes:            2,
+		BareLemmasWithNumberedSibling: 1,
+		Reimported:                    true,
+		UnmappedFeatureValues:         []ancientgreek.FeatureValueCount{{Feature: "Mood", Value: "n", Count: 316}},
 	}
 	require.NoError(t, writeImportReport(&output, report))
 	assert.Contains(t, output.String(), "ancient greek import complete: book=book-1 sentences=2 tokens=10")
+	assert.Contains(t, output.String(), "crossing_sentences=1")
 	assert.Contains(t, output.String(), "reimported=true")
 	assert.Contains(t, output.String(), "ancient greek import unmapped: feature=Mood value=n count=316")
 }

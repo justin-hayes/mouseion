@@ -103,7 +103,7 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 	// Re-importing the same pin under a new interpretation version is a new
 	// analysis run; none of the earlier decisions apply to it.
 	definition, sourcePath := browseFixtureImport(t)
-	definition.InterpretationVersion = "oga-agdt-upos/5"
+	definition.InterpretationVersion = "oga-agdt-upos/6"
 	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
 		OwnerID: learner.ID, BookID: registration.BookID, SourcePath: sourcePath, Definition: definition,
 	}, analysis.NewGreekImportWriter(store))
