@@ -374,6 +374,20 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	_, err = store.AddClassicalReadingUnits(ctx, seed.ownerID, []string{seed.definition.Key})
 	require.ErrorIs(t, err, classical.ErrLegacyRows)
 
+	// Preparation is fail-closed for the same reason. Complete the conversion's
+	// source-identity rewrite so the update path can be exercised; the
+	// differing evidence itself stays as it was.
+	_, err = pool.Exec(ctx, `UPDATE source_materials sm
+		SET source_identifier = ru.definition_key
+		FROM book_reading_units bru
+		JOIN reading_units ru ON ru.id = bru.reading_unit_id
+		WHERE sm.owner_id = bru.owner_id AND sm.book_id = bru.book_id
+		  AND sm.owner_id = $1 AND sm.id = $2`, seed.ownerID, seed.sourceID)
+	require.NoError(t, err)
+	legacy, err = store.ListLegacyLanguageRows(ctx, classical.Language)
+	require.NoError(t, err)
+	require.Empty(t, legacy)
+
 	// Confirming the offer revalidates it and queues the dedicated preparation
 	// job once the Book is not the Current reading.
 	require.NoError(t, MigrateRiver(ctx, pool))
