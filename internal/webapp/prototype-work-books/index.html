@@ -1,0 +1,472 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not for main. Issue #2323 (map #2292).
+  Question: how does My Books present a work's grouped Books (one per constituent
+  book) as one work row? Identity and bucket summary, listing the books and moving
+  them to To Read without 24 equal buttons, what All / Inbox / To Read / Read count
+  and filter, how search matches, how Hide works, and compact reflow.
+  Four variants of Ancient Greek My Books, switchable via ?variant=A|B|C|D:
+    A  Disclosure + selection — variant D of #2298 refined: books in a table inside a
+       disclosure, checkboxes and "Move selected to To Read"; counts Books
+    B  Chosen books as rows   — Books with intent or history are nested rows; Inbox books
+       fold into one line with a "Move Book [n] to To Read" picker; counts Books
+    C  Work page              — the list has one entry per work; its Books live on a
+       My Books work page with a range move; counts works (entries)
+    D  Numbered strip         — one numbered cell per book; choosing a cell opens that
+       Book's own line beneath; counts Books
+  Uses the app's real /static/app.css. Data is illustrative; every mutation is in memory.
+  Run: python3 -m http.server -d internal/webapp 8124
+       open http://127.0.0.1:8124/prototype-work-books/?variant=A
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Work Books in My Books prototype · Mouseion</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  /* Prototype-only layout. Uses the app's tokens; nothing here is a pattern yet. */
+  .proto-note { font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); border-left: 3px solid var(--mouseion-color-warning); padding: .25rem .6rem; margin: .5rem 0 1rem; }
+  .wb-small { font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); }
+  .wb-meta { display: block; font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); }
+  .wb-group { grid-column: 2 / -1; min-width: 0; margin-top: var(--mouseion-space-3, .75rem); }
+  .wb-group > details > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 550; }
+  .wb-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  .wb-table th, .wb-table td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--mouseion-color-border); vertical-align: top; }
+  .wb-table thead th { font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); font-weight: 600; }
+  .wb-table td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wb-table label { display: flex; align-items: center; min-height: 32px; gap: .4rem; margin: 0; }
+  .wb-table tr.is-hidden { opacity: .6; }
+  .wb-bulk { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; align-items: center; }
+  .wb-nested { list-style: none; margin: .5rem 0 0; padding: 0 0 0 1rem; border-left: 2px solid var(--mouseion-color-surface-quiet); }
+  .wb-nested > li { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) minmax(10rem, 16rem); gap: .25rem 1rem; padding: .6rem 0; border-bottom: 1px solid var(--mouseion-color-border); }
+  .wb-nested .wb-num { display: grid; place-items: center; width: 2.25rem; height: 3rem; background: var(--mouseion-color-surface-quiet); font-family: var(--mouseion-font-reading); font-size: 1.1rem; }
+  .wb-nested .wb-margin { border-left: 2px solid var(--mouseion-color-surface-quiet); padding-left: .75rem; font-size: var(--mouseion-font-size-metadata, 13px); color: var(--mouseion-color-text-muted); display: grid; gap: .3rem; align-content: start; }
+  .wb-nested .wb-acts { grid-column: 2; display: flex; flex-wrap: wrap; gap: .5rem; align-items: start; }
+  .wb-fold { padding: .6rem 0; display: grid; gap: .4rem; }
+  .wb-fold form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 0; }
+  .wb-fold select, .wb-range select { width: auto; min-width: 4.5rem; margin: 0; }
+  .wb-range { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1rem 0; padding: .75rem 0; border-block: 1px solid var(--mouseion-color-border); }
+  .wb-range label { margin: 0; display: flex; gap: .4rem; align-items: center; }
+  .wb-strip { display: flex; flex-wrap: wrap; gap: .3rem; list-style: none; padding: 0; margin: .25rem 0 .35rem; }
+  .wb-strip a { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 1px dashed var(--mouseion-color-control-border, #999); border-radius: 3px; text-decoration: none; color: var(--mouseion-color-text); font-variant-numeric: tabular-nums; font-size: .9rem; position: relative; }
+  .wb-strip a.c-toread { border: 2px solid var(--mouseion-color-text); font-weight: 650; }
+  .wb-strip a.c-current { border: 2px solid var(--mouseion-color-accent); background: var(--mouseion-color-accent); color: var(--mouseion-color-surface, #fff); font-weight: 700; }
+  .wb-strip a.c-read { border: 1px solid transparent; background: var(--mouseion-color-surface-quiet); color: var(--mouseion-color-text-muted); }
+  .wb-strip a.c-hidden { opacity: .45; text-decoration: line-through; }
+  .wb-strip a.c-problem::after { content: "!"; position: absolute; top: -.45rem; right: -.35rem; font-size: .7rem; font-weight: 800; background: var(--mouseion-color-warning); color: #000; border-radius: 999px; width: .95rem; height: .95rem; display: grid; place-items: center; }
+  .wb-strip a[aria-current] { outline: 3px solid var(--mouseion-color-focus, #36c); outline-offset: 2px; }
+  .wb-legend { font-size: 12px; color: var(--mouseion-color-text-muted); }
+  .wb-detail .library-book__recovery { width: auto; }
+  .wb-detail { margin-top: .5rem; padding: .6rem .75rem; background: var(--mouseion-color-surface-quiet); display: grid; gap: .4rem; }
+  .wb-detail .wb-acts { display: flex; flex-wrap: wrap; gap: .5rem; align-items: start; }
+  .wb-inline { display: flex; flex-wrap: wrap; gap: .5rem; align-items: start; }
+  .wb-entries { margin: -.25rem 0 .75rem; }
+  .btn-link { padding: 0; border: 0; background: none; color: var(--mouseion-color-accent); text-decoration: underline; cursor: pointer; font: inherit; }
+  @media (max-width: 40rem) {
+    .wb-group { grid-column: 1 / -1; }
+    .wb-nested { padding-left: .5rem; }
+    .wb-nested > li { grid-template-columns: 2.5rem minmax(0, 1fr); }
+    .wb-nested .wb-margin { grid-column: 2; border-left: 0; padding-left: 0; }
+    .wb-table .col-passage, .wb-table .col-words { display: none; }
+  }
+
+  /* Prototype chrome: deliberately not part of the design. */
+  #proto-bar { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: .5rem; background: #111; color: #fff; border-radius: 999px; padding: .35rem .5rem; box-shadow: 0 6px 24px rgba(0,0,0,.35); font: 600 14px/1.2 system-ui, sans-serif; }
+  #proto-bar button { background: #333; color: #fff; border: 0; border-radius: 999px; min-width: 2.2rem; height: 2.2rem; cursor: pointer; font: inherit; }
+  #proto-bar button:hover { background: #555; }
+  #proto-bar .label { padding: 0 .6rem; white-space: nowrap; }
+  #proto-panel { position: fixed; right: 1rem; bottom: 1rem; z-index: 1000; width: 21rem; max-height: 70vh; overflow: auto; background: #111; color: #eee; border-radius: 10px; padding: .6rem .8rem; font: 13px/1.4 system-ui, sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  #proto-panel summary { cursor: pointer; font-weight: 600; }
+  #proto-panel label { display: block; margin: .3rem 0; color: #eee; }
+  #proto-panel button { font: inherit; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: .2rem .5rem; margin: .2rem .2rem 0 0; cursor: pointer; }
+  #proto-panel pre { white-space: pre-wrap; background: #000; padding: .4rem; border-radius: 6px; font-size: 11px; max-height: 18rem; overflow: auto; }
+  #proto-frame { display: block; margin: 1rem auto 5rem; width: 390px; height: calc(100vh - 7rem); border: 1px solid #888; box-shadow: 0 6px 24px rgba(0,0,0,.25); background: #fff; }
+  body.embed #proto-bar, body.embed #proto-panel { display: none; }
+</style>
+</head>
+<body class="my-books-shell">
+<div id="app"></div>
+<div id="proto-bar" role="toolbar" aria-label="Prototype variant switcher">
+  <button type="button" id="proto-prev" aria-label="Previous variant">←</button>
+  <span class="label" id="proto-label"></span>
+  <button type="button" id="proto-next" aria-label="Next variant">→</button>
+</div>
+<details id="proto-panel">
+  <summary>Prototype scenario &amp; state</summary>
+  <label><input type="checkbox" id="sc-compact"> Compact width (390px frame)</label>
+  <button type="button" id="sc-fresh">Odyssey just added (all Inbox)</button>
+  <button type="button" id="sc-reset">Mid-way library without the Odyssey</button>
+  <p>Try: filter <em>To Read</em>, search <code>iliad 6</code>, <code>homer</code>, <code>Ἰλιάς</code>, <code>6</code>; Show hidden; hide a whole work.</p>
+  <pre id="sc-state"></pre>
+</details>
+
+<script>
+(function () {
+'use strict';
+
+// ---------- Illustrative data ----------
+var ILIAD = [611,877,461,544,909,529,482,565,713,579,848,471,837,522,746,867,761,617,424,503,611,515,897,804];
+var ODYSSEY = [444,434,497,847,493,331,347,586,566,574,640,453,440,533,557,481,606,428,604,394,434,501,372,548];
+var WORKS = {
+  iliad: { key: 'iliad', title: 'Iliad', greek: 'Ἰλιάς', author: 'Homer', books: ILIAD.map(function (l, i) { return { range: (i+1) + '.1–' + (i+1) + '.' + l, words: Math.round(l * 6.9 / 10) * 10 }; }) },
+  odyssey: { key: 'odyssey', title: 'Odyssey', greek: 'Ὀδύσσεια', author: 'Homer', books: ODYSSEY.map(function (l, i) { return { range: (i+1) + '.1–' + (i+1) + '.' + l, words: Math.round(l * 6.8 / 10) * 10 }; }) },
+  anabasis: { key: 'anabasis', title: 'Anabasis', greek: 'Κύρου Ἀνάβασις', author: 'Xenophon', books: [10500,8000,8800,10900,9100,7300,11300].map(function (w, i) { return { range: (i+1) + '.1.1–' + (i+1) + '.' + [10,6,5,8,8,6,8][i] + '.end', words: w }; }) },
+  histories: { key: 'histories', title: 'Histories', greek: 'Ἱστορίαι', author: 'Herodotus', books: [33100,24800,22300,25100,17900,19700,32800,20800,18600].map(function (w, i) { return { range: (i+1) + '.1–' + (i+1) + '.' + [216,182,160,205,126,140,239,144,122][i], words: w }; }) },
+  apology: { key: 'apology', title: 'Apology', greek: 'Ἀπολογία Σωκράτους', author: 'Plato', whole: true, books: [{ range: '17a–42a', words: 8900 }] }
+};
+var WORK_ORDER = ['iliad', 'anabasis', 'apology', 'histories', 'odyssey'];
+
+function mk(work, n, o) { return Object.assign({ id: work + '-' + n, work: work, n: n, disp: 'Inbox', current: false, read: null, hidden: false, prep: null, cov: null }, o || {}); }
+function seed(fresh) {
+  var B = [];
+  WORKS.iliad.books.forEach(function (_, i) {
+    var n = i + 1, o = {};
+    if (n === 1) o = { read: '2026-09-14', prep: 'done', cov: 88 };
+    if (n === 2) o = { disp: 'To Read', current: true, prep: 'done', cov: 79 };
+    if (n === 3) o = { disp: 'To Read', prep: 'done', cov: 74 };
+    if (n === 4) o = { disp: 'To Read', prep: 'fetching' };
+    if (n === 6) o = { disp: 'To Read', prep: 'unavailable' };
+    if (n === 9) o = { hidden: true };
+    B.push(mk('iliad', n, o));
+  });
+  WORKS.anabasis.books.forEach(function (_, i) { var n = i + 1; B.push(mk('anabasis', n, n === 1 ? { read: '2026-06-02', prep: 'done', cov: 91 } : n === 2 ? { disp: 'To Read', prep: 'done', cov: 81 } : {})); });
+  B.push(mk('apology', 1));
+  B.push(mk('histories', 1));
+  if (fresh) WORKS.odyssey.books.forEach(function (_, i) { B.push(mk('odyssey', i + 1)); });
+  return B;
+}
+var S = { books: seed(true), flash: null };
+
+// ---------- URL state ----------
+var VARIANTS = [['A', 'Disclosure + selection'], ['B', 'Chosen books as rows'], ['C', 'Work page'], ['D', 'Numbered strip']];
+function P() { return new URLSearchParams(location.search); }
+function variant() { var v = P().get('variant'); return VARIANTS.some(function (x) { return x[0] === v; }) ? v : 'A'; }
+function href(over) { var p = P(); Object.keys(over).forEach(function (k) { if (over[k] == null || over[k] === '') p.delete(k); else p.set(k, over[k]); }); return '?' + p.toString(); }
+function go(over, replace) { history[replace ? 'replaceState' : 'pushState'](null, '', href(over)); render(); }
+window.addEventListener('popstate', render);
+function link(over, text, attrs) { return '<a href="' + esc(href(over)) + '" data-go="' + esc(JSON.stringify(over)) + '"' + (attrs || '') + '>' + text + '</a>'; }
+
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function badge(label, tone, shape) { return '<span class="status-badge status-badge--' + tone + '"><span class="status-badge__shape status-badge__shape--' + shape + '" aria-hidden="true"></span>' + esc(label) + '</span>'; }
+function btn(act, arg, label, cls) { return '<button type="button" class="' + (cls || 'btn btn-outline') + '" data-act="' + act + '" data-arg="' + esc(arg || '') + '">' + label + '</button>'; }
+function fmt(n) { return n.toLocaleString('en'); }
+function norm(s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+// ---------- Book model ----------
+function bucket(b) { return b.current ? 'current' : b.disp === 'To Read' ? 'toread' : b.read ? 'read' : 'inbox'; }
+var BUCKET_LABEL = { current: 'Currently reading', toread: 'To Read', read: 'Read', inbox: 'Inbox' };
+function bucketBadge(b) { var k = bucket(b); return k === 'current' ? badge('Currently reading', 'info', 'dot') : k === 'read' ? badge('Read', 'neutral', 'ring') : badge(BUCKET_LABEL[k], 'neutral', 'ring'); }
+function inFilter(b, f) { var k = bucket(b); return !f || f === 'all' ? true : f === 'toread' ? (k === 'toread' || k === 'current') : k === f; }
+function W(b) { return WORKS[b.work]; }
+function unit(b) { return W(b).books[b.n - 1]; }
+function workBooksInLibrary(wk) { return S.books.filter(function (b) { return b.work === wk; }); }
+function grouped(wk) { return workBooksInLibrary(wk).length > 1; }
+function bookName(b) { return W(b).whole ? W(b).title : W(b).title + ', Book ' + b.n; }
+function problem(b) { return b.prep === 'unavailable' || b.prep === 'failed' || b.prep === 'mismatch'; }
+function note(b) {
+  switch (b.prep) {
+    case 'fetching': return 'Analysis incomplete. Fetching the reviewed source…';
+    case 'unavailable': return 'Assessment unavailable. The source could not be fetched.';
+    case 'failed': return 'Analysis failed.';
+    case 'done': return b.cov != null && bucket(b) !== 'inbox' ? 'Known coverage ' + b.cov + '%' + (bucket(b) === 'read' ? '' : ' · ' + pts(b.cov < 80 ? 80 - b.cov : 90 - b.cov) + ' to the next band') : '';
+    default: return '';
+  }
+}
+function pts(n) { return n + (n === 1 ? ' point' : ' points'); }
+function recovery(b) { return b.prep === 'unavailable' ? btn('retry', b.id, 'Retry acquisition', 'library-book__recovery') : b.prep === 'failed' ? btn('retry', b.id, 'Retry analysis', 'library-book__recovery') : ''; }
+function ranges(ns) { var out = [], i = 0; while (i < ns.length) { var j = i; while (j + 1 < ns.length && ns[j + 1] === ns[j] + 1) j++; out.push(j - i >= 2 ? ns[i] + '–' + ns[j] : j > i ? ns[i] + ', ' + ns[j] : String(ns[i])); i = j + 1; } return out.join(', '); }
+
+// ---------- Search (shared by every variant) ----------
+// Query text matches author, English title or Greek title (accent-insensitive). A trailing
+// number (optionally "book 6") narrows to that constituent book.
+function parseQuery() {
+  var q = (P().get('q') || '').trim(); if (!q) return null;
+  var m = q.match(/^(.*?)(?:\s*,?\s*(?:book|bk\.?)?\s*(\d{1,2}))?$/i);
+  return { text: norm((m[1] || '').trim()), n: m[2] ? +m[2] : null, raw: q };
+}
+function matchesQuery(b, pq) {
+  if (!pq) return true;
+  var w = W(b), hay = norm(w.author + ' ' + w.title + ' ' + w.greek);
+  if (pq.text && hay.indexOf(pq.text) < 0) return false;
+  if (pq.n != null && !w.whole && b.n !== pq.n) return false;
+  if (pq.n != null && w.whole && !pq.text) return false;
+  return true;
+}
+
+// The set of Books the list shows, after hidden, search and bucket filter.
+function showHidden() { return P().get('hidden') === '1'; }
+function filt() { return P().get('f') || 'all'; }
+function scoped() { var pq = parseQuery(), sh = showHidden(); return S.books.filter(function (b) { return (sh || !b.hidden) && matchesQuery(b, pq); }); }
+function shown() { var f = filt(); return scoped().filter(function (b) { return inFilter(b, f); }); }
+function hiddenOmitted() { if (showHidden()) return 0; var pq = parseQuery(), f = filt(); return S.books.filter(function (b) { return b.hidden && matchesQuery(b, pq) && inFilter(b, f); }).length; }
+function byWork(list) { var g = {}; list.forEach(function (b) { (g[b.work] = g[b.work] || []).push(b); }); return WORK_ORDER.filter(function (k) { return g[k]; }).map(function (k) { return { work: WORKS[k], books: g[k] }; }); }
+
+// ---------- Actions ----------
+function prepare(b) { if (b.prep === 'done') return; b.prep = 'fetching'; setTimeout(function () { if (b.prep === 'fetching') { b.prep = 'done'; b.cov = 60 + Math.round(Math.random() * 25); render(); } }, 2500); }
+function toRead(ids) { var bs = ids.map(byId).filter(function (b) { return b && b.disp !== 'To Read'; }); bs.forEach(function (b) { b.disp = 'To Read'; prepare(b); }); if (bs.length) flash('Moved to To Read', namesOf(bs) + '. Sources are being fetched and analysed.'); }
+function toInbox(ids) { var bs = ids.map(byId).filter(function (b) { return b && b.disp === 'To Read' && !b.current; }); bs.forEach(function (b) { b.disp = 'Inbox'; }); if (bs.length) flash('Moved to Inbox', namesOf(bs) + '.'); }
+function setHidden(ids, h) { var bs = ids.map(byId).filter(function (b) { return b && b.hidden !== h; }); bs.forEach(function (b) { b.hidden = h; }); if (bs.length) flash(h ? 'Hidden' : 'Unhidden', namesOf(bs) + (h ? '. Reading history, Known vocabulary and analysis are unchanged. Recover with Show hidden books → Unhide.' : '.')); }
+function byId(id) { return S.books.find(function (b) { return b.id === id; }); }
+function namesOf(bs) { var g = byWork(bs); return g.map(function (x) { return x.work.whole ? x.work.title : x.work.title + (x.books.length === 1 ? ', Book ' : ', Books ') + ranges(x.books.map(function (b) { return b.n; })); }).join('; '); }
+function flash(title, text) { S.flash = { title: title, text: text }; }
+function idsOfWork(wk, pred) { return workBooksInLibrary(wk).filter(pred || function () { return true; }).map(function (b) { return b.id; }); }
+
+document.addEventListener('click', function (e) {
+  var a = e.target.closest('a[data-go]');
+  if (a) { e.preventDefault(); go(JSON.parse(a.getAttribute('data-go'))); return; }
+  var t = e.target.closest('[data-act]'); if (!t) return;
+  var act = t.getAttribute('data-act'), arg = t.getAttribute('data-arg');
+  var form = t.closest('form');
+  var checked = form ? Array.prototype.map.call(form.querySelectorAll('input[name=book]:checked'), function (i) { return i.value; }) : [];
+  switch (act) {
+    case 'toread': toRead([arg]); break;
+    case 'inbox': toInbox([arg]); break;
+    case 'hide': setHidden([arg], true); break;
+    case 'unhide': setHidden([arg], false); break;
+    case 'retry': prepare(byId(arg)); flash('Retrying', bookName(byId(arg)) + ': fetching the reviewed source again.'); break;
+    case 'hide-work': setHidden(idsOfWork(arg), true); break;
+    case 'unhide-work': setHidden(idsOfWork(arg), false); break;
+    case 'sel-toread': if (!checked.length) return; toRead(checked); break;
+    case 'sel-inbox': if (!checked.length) return; toInbox(checked); break;
+    case 'sel-hide': if (!checked.length) return; setHidden(checked, true); break;
+    case 'sel-unhide': if (!checked.length) return; setHidden(checked, false); break;
+    case 'pick-toread': toRead([form.querySelector('select').value]); break;
+    case 'range-toread': {
+      var lo = +form.querySelector('[name=from]').value, hi = +form.querySelector('[name=to]').value;
+      if (lo > hi) { var x = lo; lo = hi; hi = x; }
+      toRead(idsOfWork(arg, function (b) { return b.n >= lo && b.n <= hi && bucket(b) === 'inbox' && !b.hidden; })); break;
+    }
+    case 'dismiss': S.flash = null; break;
+    default: return;
+  }
+  render();
+});
+document.addEventListener('submit', function (e) {
+  if (e.target.id === 'lib-search') { e.preventDefault(); S.flash = null; go({ q: e.target.querySelector('input').value, sel: null }); }
+  else e.preventDefault();
+});
+
+// ---------- Shell ----------
+function shell(main) {
+  var nav = [['My Books', true], ['Reading'], ['Vocabulary'], ['Catalogs']].map(function (n) { return '<li><a class="site-nav__link' + (n[1] ? ' site-nav__link--current" aria-current="page' : '') + '" href="#">' + n[0] + '</a></li>'; }).join('');
+  return '<a class="skip-link" href="#main-content">Skip to main content</a>' +
+    '<header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation"><a class="site-header__brand" href="#"><strong>Mouseion</strong></a><ul class="site-header__navigation">' + nav + '</ul>' +
+    '<div class="site-header__tools"><form class="site-header__language"><label for="active-study-language"><span class="site-header__language-label">Study language</span><select id="active-study-language"><option>Deutsch</option><option selected>Ancient Greek</option></select></label></form>' +
+    '<details class="site-header__account"><summary><span class="site-header__account-name">fixture-learner</span><span class="site-header__account-compact">Account</span></summary></details></div></nav></header>' +
+    '<main id="main-content" class="page-container" tabindex="-1">' + main + '</main>';
+}
+function flashHTML() { if (!S.flash) return ''; return '<article class="feedback feedback--success" role="status" aria-live="polite"><strong>' + esc(S.flash.title) + '</strong><p>' + esc(S.flash.text) + ' ' + btn('dismiss', '', 'Dismiss', 'button button--quiet') + '</p></article>'; }
+
+function countFor(f) { var sc = scoped(); return variant() === 'C' ? byWork(sc.filter(function (b) { return inFilter(b, f); })).length : sc.filter(function (b) { return inFilter(b, f); }).length; }
+function finder() {
+  var pq = parseQuery(), f = filt();
+  var tabs = [['all', 'All'], ['inbox', 'Inbox'], ['toread', 'To Read'], ['read', 'Read']].map(function (t) { return link({ f: t[0] === 'all' ? null : t[0], sel: null }, t[1] + ' (' + countFor(t[0]) + ')', f === t[0] ? ' aria-current="page"' : ''); }).join('');
+  var html = '<section class="library-finder" aria-label="Find books"><form id="lib-search" class="library-search" role="search"><label class="sr-only" for="library-search-query">Search My Books</label><div class="library-search__controls"><input class="input" id="library-search-query" type="search" placeholder="Title, author, or book number" value="' + esc(pq ? pq.raw : '') + '"> <button class="btn btn-outline" type="submit">Search</button></div></form>' +
+    '<nav class="library-filters" aria-label="My Books filters">' + tabs + '</nav>' +
+    '<p class="library-hidden-toggle">' + link({ hidden: showHidden() ? null : '1' }, showHidden() ? 'Hide hidden books' : 'Show hidden books') + '</p></section>';
+  if (variant() === 'C') { var sc = shown(); html += '<p class="wb-small wb-entries">Counts are entries: a work is one entry however many of its books you have. ' + fmt(byWork(sc).length) + ' entries, ' + fmt(sc.length) + ' Books.</p>'; }
+  var om = hiddenOmitted(), line = [];
+  if (pq || f !== 'all') if (variant() !== 'C' || pq) line.push(shown().length + (shown().length === 1 ? ' Book' : ' Books') + (pq ? (shown().length === 1 ? ' matches' : ' match') + ' “' + esc(pq.raw) + '”' : '') + '.');
+  if (om) line.push(om + (om === 1 ? ' hidden book' : ' hidden books') + ' not shown. ' + link({ hidden: '1' }, 'Show hidden books'));
+  if (pq) line.push(link({ q: null }, 'Clear search'));
+  if (line.length) html += '<p class="wb-small" role="status">' + line.join(' ') + '</p>';
+  return html;
+}
+
+// ---------- Pieces shared by the variants ----------
+function cover(w, n) { return '<div class="book-cover-media"><div class="book-cover-media__placeholder" aria-hidden="true"><span class="book-cover-media__initial">' + esc(n ? String(n) : w.greek.charAt(0)) + '</span></div></div>'; }
+// Whole-work summary for the margin: one StatusBadge for the work's leading bucket (same
+// precedence as a Book's bucket), then counts across all its Books in My Books.
+function workSummary(w) {
+  var all = workBooksInLibrary(w.key), c = { current: [], toread: [], read: [], inbox: [] }, hidden = 0;
+  all.forEach(function (b) { c[bucket(b)].push(b); if (b.hidden) hidden++; });
+  var lead = c.current.length ? badge('Currently reading Book ' + c.current[0].n, 'info', 'dot') : c.toread.length ? badge('To Read', 'neutral', 'ring') : c.inbox.length === 0 && c.read.length ? badge('Read', 'neutral', 'ring') : badge('Inbox', 'neutral', 'ring');
+  if (hidden === all.length) lead += ' ' + badge('Hidden', 'neutral', 'ring');
+  var parts = [];
+  if (c.toread.length) parts.push(c.toread.length + (c.current.length ? ' more' : '') + ' To Read');
+  if (c.read.length) parts.push(c.read.length + ' Read');
+  if (c.inbox.length) parts.push(c.inbox.length + ' Inbox');
+  if (hidden && hidden < all.length) parts.push(hidden + ' hidden');
+  return '<p class="library-book__membership">' + lead + '</p><p>' + parts.join(' · ') + '</p>';
+}
+function marginProblems(w) {
+  return workBooksInLibrary(w.key).filter(function (b) { return problem(b) || b.prep === 'fetching'; }).map(function (b) {
+    return '<p class="library-book__evidence"><strong>Book ' + b.n + ':</strong> ' + esc(note(b)) + '</p>' + recovery(b);
+  }).join('');
+}
+function workIdentity(w, extra) {
+  var total = workBooksInLibrary(w.key).length;
+  return '<a class="library-book__identity-link" href="#">' + cover(w) + '<div class="library-book__text"><h2 class="bibliographic-title">' + esc(w.title) + '</h2><span class="library-book__author">By ' + esc(w.author) + '</span>' +
+    '<span class="wb-meta">' + esc(w.greek) + ' · ' + (total === w.books.length ? 'all ' + total + ' books' : total + ' of ' + w.books.length + ' books') + ' · Classical catalog</span>' + (extra || '') + '</div></a>';
+}
+function workMore(w) {
+  var all = workBooksInLibrary(w.key), hiddenAll = all.every(function (b) { return b.hidden; }), any = all.some(function (b) { return b.hidden; });
+  var body = (hiddenAll ? '' : '<details class="confirmation"><summary>Hide all ' + all.length + ' books of ' + esc(w.title) + '</summary><div class="confirmation__body"><p class="wb-small">Each Book leaves default My Books and the Reading chooser. Reading history, Known vocabulary and analysis are unchanged.' + (all.some(function (b) { return b.current; }) ? ' Book ' + all.find(function (b) { return b.current; }).n + ' stays your current reading.' : '') + '</p>' + btn('hide-work', w.key, 'Hide ' + all.length + ' Books') + '</div></details>') +
+    (any && showHidden() ? btn('unhide-work', w.key, 'Unhide all books of ' + esc(w.title)) : '');
+  return '<details class="more-actions"><summary>More actions</summary><div class="more-actions__body">' + body + '</div></details>';
+}
+function readingLink(w) { return workBooksInLibrary(w.key).some(function (b) { return bucket(b) === 'current' || bucket(b) === 'toread'; }) ? '<a class="btn btn-outline library-book__journey-action" href="#">View in Reading</a>' : ''; }
+function bookMore(b) {
+  var items = (bucket(b) === 'toread' ? btn('inbox', b.id, 'Move to Inbox') : '') + (b.hidden ? btn('unhide', b.id, 'Unhide') : btn('hide', b.id, 'Hide'));
+  return '<details class="more-actions"><summary>More actions</summary><div class="more-actions__body">' + items + '</div></details>';
+}
+function bookPrimary(b) { var k = bucket(b); return k === 'inbox' ? btn('toread', b.id, '<span aria-hidden="true">+</span> Move to To Read', 'btn btn-outline library-book__journey-action') : k === 'read' ? '' : '<a class="btn btn-outline library-book__journey-action" href="#">View in Reading</a>'; }
+
+// A single Book of a work (whole work, or the only book of a work in My Books): an ordinary
+// AnnotatedBookRow with its place in the work shown as a plain fact (#2324).
+function singleRow(b) {
+  var w = W(b), u = unit(b);
+  var meta = w.whole ? esc(w.greek) + ' · ' + esc(u.range) + ' · ~' + fmt(u.words) + ' words' : 'Book ' + b.n + ' of ' + w.books.length + ' · ' + esc(u.range) + ' · ~' + fmt(u.words) + ' words';
+  return '<li class="library-book">' + '<a class="library-book__identity-link" href="#">' + cover(w) + '<div class="library-book__text"><h2 class="bibliographic-title">' + esc(bookName(b)) + '</h2><span class="library-book__author">By ' + esc(w.author) + '</span><span class="wb-meta">' + meta + ' · Classical catalog</span></div></a>' +
+    '<div class="library-book__notes"><p class="library-book__membership">' + bucketBadge(b) + (b.hidden ? ' ' + badge('Hidden', 'neutral', 'ring') : '') + '</p>' + (note(b) ? '<p class="library-book__evidence">' + esc(note(b)) + '</p>' + recovery(b) : '') + (b.read ? '<p>Last read ' + b.read + '</p>' : '') + '</div>' +
+    '<div class="library-book__actions">' + bookPrimary(b) + ' ' + bookMore(b) + '</div></li>';
+}
+function list(rows) { return '<section id="library-results"><ul class="library-books" role="list">' + rows + '</ul></section>'; }
+function visibleOfWork(w) { return workBooksInLibrary(w.key).filter(function (b) { return showHidden() || !b.hidden; }); }
+function narrowedLine(w, bs) { var all = visibleOfWork(w); return bs.length < all.length ? '<p class="wb-small">Showing ' + bs.length + ' of ' + all.length + ' books' + (filt() !== 'all' ? ' (' + BUCKET_LABEL[filt()] + ')' : '') + (parseQuery() ? ' matching “' + esc(parseQuery().raw) + '”' : '') + '.</p>' : ''; }
+function isNarrowed(w, bs) { return bs.length < visibleOfWork(w).length; }
+
+// ---------- Variant A: disclosure + selection ----------
+function A_row(g) {
+  var w = g.work, bs = g.books, narrowed = isNarrowed(w, bs) || !!parseQuery();
+  var rows = bs.map(function (b) {
+    var u = unit(b), k = bucket(b);
+    return '<tr' + (b.hidden ? ' class="is-hidden"' : '') + '><td><label><input type="checkbox" name="book" value="' + b.id + '"' + (k === 'current' ? ' disabled title="Current reading"' : '') + '><span>Book ' + b.n + '</span></label></td>' +
+      '<td class="col-passage">' + esc(u.range) + '</td><td class="num col-words">~' + fmt(u.words) + '</td><td>' + bucketBadge(b) + (b.hidden ? ' ' + badge('Hidden', 'neutral', 'ring') : '') + (note(b) ? '<br><span class="wb-small">' + esc(note(b)) + '</span>' : '') + (b.read ? '<br><span class="wb-small">Last read ' + b.read + '</span>' : '') + '</td></tr>';
+  }).join('');
+  var anyHidden = bs.some(function (b) { return b.hidden; });
+  var bulk = '<div class="wb-bulk"><span class="wb-small">With selected:</span>' + btn('sel-toread', w.key, 'Move to To Read', 'btn btn-outline') + btn('sel-inbox', w.key, 'Move to Inbox') + (anyHidden ? btn('sel-unhide', w.key, 'Unhide') : btn('sel-hide', w.key, 'Hide')) + '</div>';
+  return '<li class="library-book">' + workIdentity(w) +
+    '<div class="library-book__notes">' + workSummary(w) + marginProblems(w) + '</div>' +
+    '<div class="library-book__actions">' + readingLink(w) + ' ' + workMore(w) + '</div>' +
+    '<div class="wb-group"><details' + (narrowed ? ' open' : '') + '><summary>' + (narrowed ? 'Books (' + bs.length + ' of ' + visibleOfWork(w).length + ')' : 'Books (' + bs.length + ')') + '</summary>' + narrowedLine(w, bs) +
+    '<form><table class="wb-table"><thead><tr><th scope="col">Book</th><th scope="col" class="col-passage">Passage</th><th scope="col" class="col-words">Words</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table>' + bulk + '</form></details></div></li>';
+}
+
+// ---------- Variant B: chosen books as rows, Inbox folded ----------
+function B_row(g) {
+  var w = g.work, bs = g.books;
+  var chosen = bs.filter(function (b) { return bucket(b) !== 'inbox'; });
+  var inbox = bs.filter(function (b) { return bucket(b) === 'inbox'; });
+  var rank = { current: 0, toread: 1, read: 2 };
+  chosen.sort(function (a, b) { return rank[bucket(a)] - rank[bucket(b)] || a.n - b.n; });
+  var nested = chosen.map(function (b) {
+    var u = unit(b);
+    return '<li><span class="wb-num" aria-hidden="true">' + b.n + '</span><div><strong class="bibliographic-title" style="font-size:1.05rem">Book ' + b.n + '</strong><span class="wb-meta">' + esc(u.range) + ' · ~' + fmt(u.words) + ' words</span></div>' +
+      '<div class="wb-margin"><span>' + bucketBadge(b) + (b.hidden ? ' ' + badge('Hidden', 'neutral', 'ring') : '') + '</span>' + (note(b) ? '<span>' + esc(note(b)) + '</span>' + recovery(b) : '') + (b.read ? '<span>Last read ' + b.read + '</span>' : '') + '</div>' +
+      '<div class="wb-acts">' + bookPrimary(b) + bookMore(b) + '</div></li>';
+  }).join('');
+  var fold = '';
+  if (inbox.length) {
+    var ns = inbox.map(function (b) { return b.n; });
+    fold = '<li class="wb-fold" style="display:grid;grid-template-columns:1fr"><span><strong>' + (inbox.length === workBooksInLibrary(w.key).length ? 'All ' + inbox.length + ' books' : inbox.length + (inbox.length === 1 ? ' book' : ' books')) + ' in Inbox:</strong> ' + ranges(ns) + '</span>' +
+      '<form><label for="pick-' + w.key + '">Move Book</label><select id="pick-' + w.key + '">' + inbox.map(function (b) { return '<option value="' + b.id + '">' + b.n + '</option>'; }).join('') + '</select><span>to To Read</span>' + btn('pick-toread', w.key, 'Move') + '</form></li>';
+  }
+  return '<li class="library-book">' + workIdentity(w) +
+    '<div class="library-book__notes">' + workSummary(w) + '</div>' +
+    '<div class="library-book__actions">' + workMore(w) + '</div>' +
+    '<div class="wb-group">' + narrowedLine(w, bs) + '<ul class="wb-nested" aria-label="Books of ' + esc(w.title) + '">' + nested + fold + '</ul></div></li>';
+}
+
+// ---------- Variant C: one entry per work, Books on a My Books work page ----------
+function C_row(g) {
+  var w = g.work, bs = g.books, total = workBooksInLibrary(w.key).length;
+  var pq = parseQuery();
+  var within = '';
+  if (filt() !== 'all' || (pq && pq.n != null)) within = '<p class="wb-small">' + (pq && pq.n != null ? 'Matches ' : BUCKET_LABEL[filt()] + ' here: ') + bs.map(function (b) { return link({ view: 'work', work: w.key, f: null, q: null }, 'Book ' + b.n); }).join(', ') + '</p>';
+  return '<li class="library-book">' + workIdentity(w, within) +
+    '<div class="library-book__notes">' + workSummary(w) + marginProblems(w) + '</div>' +
+    '<div class="library-book__actions">' + link({ view: 'work', work: w.key }, 'Open ' + esc(w.title) + ' (' + total + ' Books)', ' class="btn btn-outline library-book__journey-action"') + ' ' + workMore(w) + '</div></li>';
+}
+function C_workPage(w) {
+  var all = workBooksInLibrary(w.key).filter(function (b) { return showHidden() || !b.hidden; });
+  var inboxNs = all.filter(function (b) { return bucket(b) === 'inbox'; }).map(function (b) { return b.n; });
+  var opts = function (sel) { return w.books.map(function (_, i) { return '<option' + (i + 1 === sel ? ' selected' : '') + '>' + (i + 1) + '</option>'; }).join(''); };
+  var range = inboxNs.length ? '<form class="wb-range"><span>Move the Inbox books from</span><label class="sr-only" for="rf">From book</label><select id="rf" name="from">' + opts(inboxNs[0]) + '</select><span>to</span><label class="sr-only" for="rt">To book</label><select id="rt" name="to">' + opts(inboxNs[Math.min(2, inboxNs.length - 1)]) + '</select>' + btn('range-toread', w.key, 'Move to To Read') + '<span class="wb-small" style="flex-basis:100%">Books already To Read, Read or hidden in that range are left as they are.</span></form>' : '';
+  var rows = all.map(function (b) {
+    var u = unit(b), k = bucket(b);
+    var act = k === 'inbox' ? btn('toread', b.id, 'To Read', 'btn-link') : k === 'read' ? '' : '<a href="#">Reading</a>';
+    var more = (k === 'toread' ? btn('inbox', b.id, 'Inbox', 'btn-link') + ' · ' : '') + btn(b.hidden ? 'unhide' : 'hide', b.id, b.hidden ? 'Unhide' : 'Hide', 'btn-link');
+    return '<tr id="b' + b.n + '"' + (b.hidden ? ' class="is-hidden"' : '') + '><th scope="row">Book ' + b.n + '</th><td class="col-passage">' + esc(u.range) + '</td><td class="num col-words">~' + fmt(u.words) + '</td><td>' + bucketBadge(b) + (b.hidden ? ' ' + badge('Hidden', 'neutral', 'ring') : '') + (note(b) ? '<br><span class="wb-small">' + esc(note(b)) + '</span> ' + recovery(b) : '') + (b.read ? '<br><span class="wb-small">Last read ' + b.read + '</span>' : '') + '</td><td>' + act + (act ? ' · ' : '') + more + '</td></tr>';
+  }).join('');
+  var hid = workBooksInLibrary(w.key).filter(function (b) { return b.hidden; }).length;
+  return '<nav class="breadcrumb" aria-label="Breadcrumb">' + link({ view: null, work: null }, '← My Books') + '</nav>' +
+    '<header class="page-header"><div class="page-header__content"><h1>' + esc(w.title) + '</h1><p>By ' + esc(w.author) + ' · ' + esc(w.greek) + ' · ' + workBooksInLibrary(w.key).length + ' of ' + w.books.length + ' books in My Books · <a href="#">Classical catalog page</a></p></div></header>' +
+    '<div class="wb-inline">' + workSummary(w).replace(/<p class="library-book__membership">/, '<p>') + '</div>' + workMore(w) + flashHTML() + range +
+    (hid && !showHidden() ? '<p class="wb-small">' + hid + ' hidden ' + (hid === 1 ? 'book' : 'books') + ' not shown. ' + link({ hidden: '1' }, 'Show hidden books') + '</p>' : '') +
+    '<table class="wb-table"><thead><tr><th scope="col">Book</th><th scope="col" class="col-passage">Passage</th><th scope="col" class="col-words">Words</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+// ---------- Variant D: numbered strip, choose a cell to open that Book ----------
+function D_row(g) {
+  var w = g.work, bs = g.books, sel = P().get('sel');
+  var cells = bs.map(function (b) {
+    var k = bucket(b), cls = 'c-' + k + (b.hidden ? ' c-hidden' : '') + (problem(b) ? ' c-problem' : '');
+    var label = 'Book ' + b.n + ', ' + BUCKET_LABEL[k] + (b.hidden ? ', hidden' : '') + (problem(b) ? ', ' + note(b) : '');
+    return '<li>' + link({ sel: sel === b.id ? null : b.id }, String(b.n), ' class="' + cls + '" aria-label="' + esc(label) + '"' + (sel === b.id ? ' aria-current="true"' : '')) + '</li>';
+  }).join('');
+  var chosen = bs.find(function (b) { return b.id === sel; });
+  var detail = chosen ? (function (b) {
+    var u = unit(b);
+    return '<div class="wb-detail" role="region" aria-label="' + esc(bookName(b)) + '"><div><strong>' + esc(bookName(b)) + '</strong><span class="wb-meta">' + esc(u.range) + ' · ~' + fmt(u.words) + ' words</span></div><div>' + bucketBadge(b) + (b.hidden ? ' ' + badge('Hidden', 'neutral', 'ring') : '') + (note(b) ? ' <span class="wb-small">' + esc(note(b)) + '</span>' : '') + (b.read ? ' <span class="wb-small">Last read ' + b.read + '</span>' : '') + '</div>' + (recovery(b) ? '<div>' + recovery(b) + '</div>' : '') + '<div class="wb-acts">' + bookPrimary(b) + bookMore(b) + '</div></div>';
+  })(chosen) : '<p class="wb-small">Choose a book number to see it and move it.</p>';
+  return '<li class="library-book">' + workIdentity(w) +
+    '<div class="library-book__notes">' + workSummary(w) + marginProblems(w) + '</div>' +
+    '<div class="library-book__actions">' + readingLink(w) + ' ' + workMore(w) + '</div>' +
+    '<div class="wb-group">' + narrowedLine(w, bs) + '<ul class="wb-strip" aria-label="Books of ' + esc(w.title) + '">' + cells + '</ul><p class="wb-legend">Filled blue: Currently reading · Bold edge: To Read · Grey: Read · Dashed: Inbox · ! needs attention</p>' + detail + '</div></li>';
+}
+
+// ---------- Page ----------
+var NOTES = {
+  A: 'Variant A: the books sit in a table inside a “Books” disclosure, closed by default and opened when a filter or search narrows the work. Checkboxes and one set of “With selected” buttons replace 24 Move buttons; the current Book cannot be selected. Counts are Books. The margin keeps whole-work summary and any problem with its recovery action, so a closed disclosure hides nothing that needs attention.',
+  B: 'Variant B: Books you have chosen (current, To Read, Read) are nested rows with their own margin and actions; untouched Inbox books fold into one line with a “Move Book [n] to To Read” picker. Counts are Books. Filtering To Read shows the work with only its chosen rows.',
+  C: 'Variant C: the list has one entry per work, and the tabs count entries (a work appears under every tab one of its books belongs to). The books live on a My Books work page with a table and a “move a range to To Read” form. Search for “iliad 6” keeps the work entry and names Book 6 in it.',
+  D: 'Variant D: one numbered cell per book, shaped by bucket (not colour alone; each cell has a full label). Choosing a cell opens that Book’s own line, with the same actions an ordinary row has. Counts are Books; filters and search drop non-matching cells.'
+};
+function library() {
+  var v = variant(), groups = byWork(shown());
+  var rows = groups.map(function (g) { return grouped(g.work.key) ? ({ A: A_row, B: B_row, C: C_row, D: D_row })[v](g) : singleRow(g.books[0]); }).join('');
+  return '<section class="library-masthead"><h1>My Books</h1><p class="library-language-context">Ancient Greek collection</p></section>' +
+    '<p class="proto-note">' + NOTES[v] + ' Search (all variants) matches author, English or Greek title, accent-insensitively; a trailing number narrows to that book (“iliad 6”). A work with only one Book in My Books stays an ordinary row, titled “Histories, Book 1” with “Book 1 of 9”.</p>' +
+    finder() + flashHTML() + (rows ? list(rows) : '<article class="empty-state"><h2>No books match</h2><p>' + link({ q: null, f: null }, 'Clear search and filters') + '</p></article>');
+}
+function render() {
+  var p = P();
+  document.body.classList.toggle('embed', p.get('embed') === '1');
+  if (p.get('compact') === '1' && p.get('embed') !== '1') {
+    var src = new URLSearchParams(p); src.delete('compact'); src.set('embed', '1');
+    var want = '?' + src.toString(), fr = document.getElementById('proto-frame');
+    if (!fr) document.getElementById('app').innerHTML = '<iframe id="proto-frame" title="Compact width preview" src="' + esc(want) + '"></iframe>';
+    else if (fr.getAttribute('src') !== want) fr.setAttribute('src', want);
+  } else {
+    var main = p.get('view') === 'work' && variant() === 'C' && WORKS[p.get('work')] ? C_workPage(WORKS[p.get('work')]) : library();
+    document.getElementById('app').innerHTML = shell(main);
+  }
+  var lab = VARIANTS.find(function (x) { return x[0] === variant(); });
+  document.getElementById('proto-label').textContent = lab[0] + ' (' + lab[1] + ')';
+  document.getElementById('sc-compact').checked = p.get('compact') === '1';
+  var summary = {}; S.books.forEach(function (b) { var k = b.work; (summary[k] = summary[k] || []).push(b.n + ':' + bucket(b) + (b.hidden ? '/hidden' : '') + (b.prep && b.prep !== 'done' ? '/' + b.prep : '')); });
+  document.getElementById('sc-state').textContent = JSON.stringify({ variant: variant(), filter: filt(), q: p.get('q'), showHidden: showHidden(), books: summary }, null, 1);
+}
+
+// ---------- Switcher and scenario panel ----------
+function cycle(d) {
+  var i = VARIANTS.findIndex(function (x) { return x[0] === variant(); });
+  var next = VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length][0];
+  go({ variant: next, view: null, work: null, sel: null }, true);
+}
+document.getElementById('proto-prev').onclick = function () { cycle(-1); };
+document.getElementById('proto-next').onclick = function () { cycle(1); };
+document.addEventListener('keydown', function (e) {
+  var t = e.target; if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') cycle(-1); else if (e.key === 'ArrowRight') cycle(1);
+});
+document.getElementById('sc-compact').onchange = function (e) { go({ compact: e.target.checked ? '1' : null }, true); };
+document.getElementById('sc-reset').onclick = function () { S.books = seed(false); S.flash = null; render(); };
+document.getElementById('sc-fresh').onclick = function () { S.books = seed(true); S.flash = { title: 'Added to My Books', text: 'Odyssey (24 books) is in your Ancient Greek Inbox. Move a book to To Read when you want to read it; nothing is downloaded before that.' }; go({ f: null, q: null, sel: null }); };
+render();
+})();
+</script>
+</body>
+</html>
