@@ -371,6 +371,20 @@ func myBookFromBrowseRow(row sqlcgen.BrowseMyBooksEvidenceRow) domain.MyBook {
 		CorpusID: row.CorpusID, AnalysisJobID: row.AnalysisJobID, BookAuthor: row.BookAuthor,
 		BookCoverState: row.BookCoverState, BookCoverWidth: row.BookCoverWidth, BookCoverHeight: row.BookCoverHeight,
 	})
+	if row.ReadingUnitKey != "" || row.WorkKey != "" {
+		book.ReadingUnit = &domain.BookReadingUnit{
+			OwnerID:          row.BookOwnerID,
+			BookID:           row.BookID,
+			ReadingUnitKey:   row.ReadingUnitKey,
+			WorkKey:          row.WorkKey,
+			WorkTitle:        row.WorkTitle,
+			WorkAuthor:       row.WorkAuthor,
+			GreekTitle:       row.GreekTitle,
+			EditionLabel:     row.EditionLabel,
+			ConstituentBook:  row.ConstituentBook,
+			ConstituentBooks: row.ConstituentBooks,
+		}
+	}
 	book.IsCurrentReading = row.IsCurrentReading
 	book.Hidden = row.Hidden
 	book.VisibilityRevision = row.VisibilityRevision

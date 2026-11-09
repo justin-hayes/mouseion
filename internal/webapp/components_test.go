@@ -162,6 +162,31 @@ func TestStatusBadgeShapeUsesCurrentReadyAndFailureMeaning(t *testing.T) {
 	}
 }
 
+func TestStatusBadgeKeepsOrdinaryReadAndInboxRingShapes(t *testing.T) {
+	for _, label := range []string{"To Read", "Inbox", "Read"} {
+		t.Run(label, func(t *testing.T) {
+			html := renderPattern(t, StatusBadge(label, StatusNeutral), "")
+			requireMarkup(t, html, `class="status-badge__shape status-badge__shape--ring" aria-hidden="true"`)
+		})
+	}
+}
+
+func TestWorkBookBucketShapesAreDistinct(t *testing.T) {
+	for _, tt := range []struct {
+		bucket domain.MyBookBucket
+		shape  string
+	}{
+		{bucket: domain.MyBookBucketCurrentReading, shape: "dot"},
+		{bucket: domain.MyBookBucketToRead, shape: "ring"},
+		{bucket: domain.MyBookBucketRead, shape: "bar"},
+		{bucket: domain.MyBookBucketInbox, shape: "square"},
+	} {
+		t.Run(string(tt.bucket), func(t *testing.T) {
+			assert.Contains(t, myBookWorkBucketShape(tt.bucket), "--"+tt.shape)
+		})
+	}
+}
+
 func TestBookCoverPlaceholderKeepsStateAndDecoratesInitial(t *testing.T) {
 	html := renderPattern(t, BookCoverMedia("book-1", "Die Verwandlung", "de", domain.BookCover{State: domain.BookCoverPending}), "")
 	requireMarkup(t, html,

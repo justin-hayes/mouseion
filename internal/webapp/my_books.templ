@@ -19,26 +19,22 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
 					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
 					<div class="library-book__text">
-						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
 						if author := strings.TrimSpace(book.Book.Author); author != "" {
 							<span class="library-book__author">By { author }</span>
 						}
-						if edition := myBookEditionLabel(book); edition != "" {
-							<span class="library-book__edition">{ edition }</span>
-						}
+						@MyBookIdentityDetails(book)
 					</div>
 				</a>
 			} else {
 				<div class="library-book__identity-link">
 					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
 					<div class="library-book__text">
-						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
 						if author := strings.TrimSpace(book.Book.Author); author != "" {
 							<span class="library-book__author">By { author }</span>
 						}
-						if edition := myBookEditionLabel(book); edition != "" {
-							<span class="library-book__edition">{ edition }</span>
-						}
+						@MyBookIdentityDetails(book)
 					</div>
 				</div>
 			}
@@ -120,6 +116,73 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 	</li>
 }
 
+templ MyBookIdentityDetails(book domain.MyBook) {
+	if edition := myBookEditionLabel(book); edition != "" {
+		<span class="library-book__edition">{ edition }</span>
+	}
+	if position := myBookPositionLabel(book); position != "" {
+		<span class="library-book__position">{ position }</span>
+	}
+	if greek := myBookGreekTitle(book); greek != "" {
+		<span class="library-book__greek" lang="grc">{ greek }</span>
+	}
+	if myBookGreekTitle(book) != "" || myBookPositionLabel(book) != "" || myBookEditionLabel(book) != "" {
+		<span class="library-book__provenance">Classical catalog</span>
+	}
+}
+
+templ MyBookWorkRow(row domain.MyBooksBrowseRow) {
+	if len(row.Books) > 0 {
+		<li id={ myBooksWorkRowID(row.WorkKey) } class="library-book library-work" aria-labelledby={ "work-title-" + row.WorkKey }>
+			<div class="library-work__identity">
+				@BookCoverMedia(row.Books[0].Book.ID, row.WorkTitle, row.Books[0].Book.LanguageTag, row.Books[0].Cover)
+				<div class="library-book__text">
+					<h2 id={ "work-title-" + row.WorkKey } class="bibliographic-title">{ row.WorkTitle }</h2>
+					if author := strings.TrimSpace(row.WorkAuthor); author != "" {
+						<span class="library-book__author">By { author }</span>
+					}
+					if greek := strings.TrimSpace(row.GreekTitle); greek != "" {
+						<span class="library-book__greek" lang="grc">{ greek }</span>
+					}
+					<span class="library-work__size">{ myBooksWorkSizeLabel(row) }</span>
+					<span class="library-work__provenance">Classical catalog</span>
+				</div>
+			</div>
+			<div class="library-book__notes">
+				{{ label, tone, shape := myBooksWorkLeadingBadge(row.Books) }}
+				<p class="library-book__membership">@StatusBadgeWithShape(label, tone, shape)</p>
+				if counts := myBooksWorkCountsLabel(row.Books); counts != "" {
+					<p class="library-work__counts">{ counts }</p>
+				}
+			</div>
+			<ul class="library-work__strip" role="list" aria-label={ fmt.Sprintf("Books of %s", row.WorkTitle) }>
+				for _, book := range row.Books {
+					<li class="library-work__cell-item">@MyBookWorkCell(row, book)</li>
+				}
+			</ul>
+		</li>
+	}
+}
+
+templ MyBookWorkCell(row domain.MyBooksBrowseRow, book domain.MyBook) {
+	<a id={ myBookRowID(book.Book.ID) } class={ myBooksWorkCellClass(book) } href={ templ.SafeURL(readingBookURL(book.Book.ID)) } aria-label={ myBooksWorkCellLabel(row, book) }>
+		<span class={ myBookWorkBucketShape(book.WorkflowBucket()) } aria-hidden="true"></span>
+		<span class="library-work__cell-number" aria-hidden="true">{ myBooksWorkCellNumber(book) }</span>
+	</a>
+}
+
+templ MyBooksWorkLegend() {
+	<aside class="library-work-legend" aria-label="Book status shapes">
+		<p class="library-work-legend__title">Book status</p>
+		<ul role="list">
+			<li><span class={ myBookWorkBucketShape(domain.MyBookBucketCurrentReading) } aria-hidden="true"></span>Currently reading</li>
+			<li><span class={ myBookWorkBucketShape(domain.MyBookBucketToRead) } aria-hidden="true"></span>To Read</li>
+			<li><span class={ myBookWorkBucketShape(domain.MyBookBucketRead) } aria-hidden="true"></span>Read</li>
+			<li><span class={ myBookWorkBucketShape(domain.MyBookBucketInbox) } aria-hidden="true"></span>Inbox</li>
+		</ul>
+	</aside>
+}
+
 templ BookVisibilityForm(csrf string, book domain.MyBook, returnTo string) {
 	<form class="library-book__visibility" method="post" action={ templ.SafeURL(myBookVisibilityURL(book)) }>
 		<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -185,6 +248,7 @@ templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disp
 }
 
 templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
+	{{ rows := myBooksBrowseRows(browse, books) }}
 	<section id="library-results" tabindex="-1" aria-label="My Books results" data-focus-id="library-results">
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
@@ -219,25 +283,36 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 			if browse.Total == 0 && browse.Language == classical.Language {
 				<p><a class="btn btn-outline" href="/catalogs/classical">Browse the Classical catalog</a></p>
 			}
+		} else if browse.HasWorks && browse.BookTotal == browse.Total {
+			if myBooksHasActiveResultFilter(browse) {
+				<p { myBooksResultAnnouncementAttributes()... }>{ myBooksShapeLabel(browse) }</p>
+			} else {
+				<p>{ myBooksShapeLabel(browse) }</p>
+			}
 		} else if myBooksHasActiveResultFilter(browse) {
 			<p { myBooksResultAnnouncementAttributes()... }>{ myBooksResultCount(browse.Total) }</p>
 		}
-		if len(books) > 0 {
-			if browse.NeedsLanguage {
+		if browse.NeedsLanguage {
+			if len(books) > 0 {
 				<ul class="library-diagnostic-list" role="list">
 					for _, book := range books {
 						@NeedsLanguageBookRow(csrf, book, myBooksResultsURL(browse, browse.Page))
 					}
 				</ul>
-			} else {
-				<ul class="library-books" role="list">
-					for _, book := range books {
-						if myBooksBookInLanguage(browse, book) {
-							@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "", myBooksResultsURL(browse, browse.Page))
-						}
-					}
-				</ul>
 			}
+		} else if len(rows) > 0 {
+			if myBooksHasGroupedWork(rows) {
+				@MyBooksWorkLegend()
+			}
+			<ul class="library-books" role="list">
+				for _, row := range rows {
+					if row.Grouped {
+						@MyBookWorkRow(row)
+					} else if len(row.Books) > 0 {
+						@MyBookRow(csrf, row.Books[0], browse.RefreshableBookIDs[row.Books[0].Book.ID], "", myBooksResultsURL(browse, browse.Page))
+					}
+				}
+			</ul>
 		}
 		if browse.PageCount > 1 {
 			<nav class="library-paging" aria-label="Paging">
@@ -318,7 +393,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 						<input type="hidden" name="show-hidden" value=""/>
 					}
 					<div class="library-search__controls">
-						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or edition"/>
+						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, Greek title, or Book number"/>
 						<button class="btn btn-outline" type="submit">Search</button>
 					</div>
 				</form>

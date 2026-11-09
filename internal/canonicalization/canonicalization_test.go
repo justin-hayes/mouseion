@@ -150,6 +150,15 @@ func TestModernGreekCanonicalizationPreservesAccentsAndFoldsSigma(t *testing.T) 
 	assert.NotEqual(t, profile.Canonical("πού"), profile.Canonical("που"))
 }
 
+func TestSearchKeyIgnoresAccentsCaseAndFinalSigma(t *testing.T) {
+	assert.Equal(t, SearchKey("ιλιασ"), SearchKey("Ἰλιάς"))
+	assert.Equal(t, SearchKey("αναβασισ"), SearchKey("Ἀνάβασις"))
+	assert.Equal(t, "homer", SearchKey("Hómēr"))
+	assert.Equal(t, SearchKey("ΟΔΟΣ"), SearchKey("οδός"))
+	assert.Equal(t, SearchKey("που"), SearchKey("πού"), "search folds accents that identity keeps distinct")
+	assert.Equal(t, SearchKey("Ἰλιάς"), SearchKey(SearchKey("Ἰλιάς")), "search key must be idempotent")
+}
+
 func TestModernGreekNormalizationPreservesRawLemmaAndProfile(t *testing.T) {
 	raw := "ΟΔΟΣ"
 	got, err := Normalize("el", raw)

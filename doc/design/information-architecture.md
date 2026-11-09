@@ -301,8 +301,15 @@ sections on a generic learner-facing Book page. The grid remains moderately
 dense and does not establish a generic large-card pattern.
 
 The current My Books grid presents cover, title, author, disposition, and
-explicit actions. It does not present evidence or current-reading state; those
-remain on the Reading anchor.
+explicit actions. A classical Work with more than one owned Book in the active
+language is one grouped row: Work identity and provenance, one leading bucket
+badge and counts, then a strip of one cell per owned Book in book order. The
+strip links each Book to Reading and has no per-Book actions. A single-Book Work
+stays an ordinary row with its reviewed position; a whole-work unit shows no
+position. Filters count Books and a filtered Work row keeps only its matching
+cells, with a shape line such as "57 Books in 5 works". My Books does not
+present analysis evidence or current-reading state; those remain on the Reading
+anchor.
 
 ## Reading information hierarchy
 

@@ -77,6 +77,33 @@ contracts. Reading owns current evidence and current-reading presentation.
   and catalog actions; they have no detail page.
 - The list does not expose batch-select-then-analyze behavior.
 
+### Classical works
+
+- Books of one classical Work are grouped into one row when the learner owns
+  more than one of them in the active language. The row identifies the Work by
+  title, author, Greek title, "all N books" or "M of N books", and Classical
+  catalog provenance.
+- The margin carries one bucket badge using the ordinary precedence — **Currently
+  reading Book N**, **To Read**, **Read**, **Inbox** — followed by counts such
+  as "22 more To Read · 1 Read".
+- "M of N books" counts the Books the learner owns, including Hidden Books; the
+  strip follows the current visibility scope, so a Hidden Book contributes to M
+  but has no cell until Show hidden books is on.
+- Under the identity, one cell per owned Book appears in book order. Each cell
+  shows its bucket by shape, meets the 44px target, carries a full accessible
+  label, and links to Reading with that Book selected. The row has no per-Book
+  actions, and the page has one shared legend.
+- A filtered Work row keeps only its matching cells. A line states the shape,
+  such as "57 Books in 5 works".
+- A Work with only one owned Book stays an ordinary row and shows its place,
+  such as "Histories, Book 1" and "Book 1 of 9". A whole-work unit shows no
+  position.
+- Search matches author, English title, or Greek title ignoring accents, with a
+  trailing number narrowing to that constituent Book ("iliad 6"). Greek title
+  matching uses the Go search key, never SQL `lower()`.
+- Compact layouts keep the cover beside title and author, then place the margin
+  and strip below; the strip wraps instead of scrolling sideways.
+
 ### Progressive enhancement and accessibility
 
 - The baseline is a complete server-rendered page using native links, forms,

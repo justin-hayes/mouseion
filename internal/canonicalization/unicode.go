@@ -2,6 +2,7 @@ package canonicalization
 
 import (
 	"strings"
+	"unicode"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
@@ -41,4 +42,25 @@ func (ModernGreekProfile) Version() string  { return ModernGreekProfileVersion }
 func (ModernGreekProfile) Language() string { return "el" }
 func (ModernGreekProfile) Canonical(value string) string {
 	return LanguageNeutralProfile{}.Canonical(value)
+}
+
+// SearchKey normalizes display text for learner-facing search. It applies the
+// Ancient Greek profile's NFC, simple lowercase and final-sigma folding, then
+// removes combining marks so an unaccented query matches an accented title.
+// Greek titles therefore use this Go key rather than SQL lower().
+//
+// It is a search key only, never an identity key: vocabulary identity keeps
+// accents and breathings significant (see AncientGreekProfile).
+func SearchKey(value string) string {
+	value = AncientGreekProfile{}.Canonical(value)
+	decomposed := norm.NFD.String(value)
+	var builder strings.Builder
+	builder.Grow(len(decomposed))
+	for _, r := range decomposed {
+		if unicode.Is(unicode.Mn, r) {
+			continue
+		}
+		builder.WriteRune(r)
+	}
+	return norm.NFC.String(builder.String())
 }

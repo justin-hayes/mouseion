@@ -329,13 +329,18 @@ Use when peer content and actions no longer fit comfortably side by side.
 My Books uses one semantic unordered list at every width. Each Book follows the
 [`AnnotatedBookRow`](components.md#annotatedbookrow) pattern: a small reserved
 cover, full title and author in a text column, contextual actions beneath that
-identity, and canonical bucket status in a visibly edged right margin. Reading's
+identity, and canonical bucket status in a visibly edged right margin. A Work
+with more than one owned Book in the active language is one grouped row with
+Work identity, one leading bucket badge, counts, and a wrapping strip of 44px
+Book cells whose four distinct shapes distinguish the buckets and link to
+Reading; a filtered row keeps only its matching cells.
+A single-Book Work stays an ordinary row with its reviewed position. Reading's
 between-Books candidate list reuses that cover/identity/margin composition while the section
 provides bucket context and the margin carries coverage or its recovery state.
-On compact screens the cover stays beside title and author, then the margin note
-and actions follow below the text column. Rows separate through whitespace and
-the margin edge rather than boxes or heavy rules. Neither list introduces
-horizontal page scrolling or an ARIA-grid keyboard model.
+On compact screens the cover stays beside title and author, then the margin note,
+actions, and grouped Book strip follow below the text column. Rows separate
+through whitespace and the margin edge rather than boxes or heavy rules. Neither
+list introduces horizontal page scrolling or an ARIA-grid keyboard model.
 
 ### Standard — above `40rem` and below `72rem`
 

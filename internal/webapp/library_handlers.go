@@ -106,8 +106,9 @@ func parseMyBooksLibraryRequest(rURL *url.URL) myBooksLibraryRequest {
 // the bucket's own location; an unfiltered empty scope recovers to its last page.
 // It reports the page to redirect to, and whether a redirect is needed at all.
 func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string, result persistence.MyBooksBrowseResult) (int, bool) {
-	if result.Total > 0 && myBooksPageOffset(request.page) >= result.Total {
-		return myBooksPageCount(result.Total), true
+	rowTotal := myBooksRowCount(result)
+	if rowTotal > 0 && myBooksPageOffset(request.page) >= rowTotal {
+		return myBooksPageCount(rowTotal), true
 	}
 	if request.page > 1 && result.Total == 0 {
 		if request.query == "" && requestedLanguage != "" && request.disposition == "" {
@@ -227,7 +228,7 @@ func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language
 				return offset/myBooksPageSize + 1, nil
 			}
 		}
-		if offset+myBooksPageSize >= result.Total {
+		if offset+myBooksPageSize >= myBooksRowCount(result) {
 			return 0, fmt.Errorf("book %q is not present in its visible My Books bucket", book.Book.ID)
 		}
 	}
@@ -246,9 +247,20 @@ func myBooksBrowseState(query string, page int, needsLanguage bool, disposition 
 		ReadCount:          result.ReadCount,
 		ScopeTotal:         result.ScopeTotal,
 		Total:              result.Total,
+		BookTotal:          result.BookTotal,
+		WorkTotal:          result.WorkTotal,
+		RowCount:           result.RowCount,
+		HasWorks:           result.HasWorks,
+		Rows:               result.Rows,
 		Page:               page,
-		PageCount:          myBooksPageCount(result.Total),
+		PageCount:          myBooksPageCount(myBooksRowCount(result)),
 		TextNoMatch:        query != "" && result.Total == 0,
+	}
+	if browse.BookTotal == 0 {
+		browse.BookTotal = result.Total
+	}
+	if browse.RowCount == 0 {
+		browse.RowCount = result.Total
 	}
 	for _, count := range result.DispositionCounts {
 		switch count.Disposition {
@@ -259,6 +271,15 @@ func myBooksBrowseState(query string, page int, needsLanguage bool, disposition 
 		}
 	}
 	return browse
+}
+
+// myBooksRowCount is the rendered-row count that paging uses. Ordinary Books
+// and grouped Work rows each count once.
+func myBooksRowCount(result persistence.MyBooksBrowseResult) int {
+	if result.RowCount > 0 {
+		return result.RowCount
+	}
+	return result.Total
 }
 
 func needsLanguageCount(counts []persistence.LanguageCount) int {

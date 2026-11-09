@@ -178,6 +178,8 @@ details[open] > summary::before {
 
   .status-badge__shape--dot,
   .status-badge__shape--diamond,
+  .status-badge__shape--bar,
+  .status-badge__shape--square,
   .status-analyzed::before,
   .status-active::before,
   .status-ready::before,
@@ -919,6 +921,21 @@ progress {
   border-radius: 0;
   background: currentColor;
   transform: rotate(45deg);
+}
+
+.status-badge__shape--square {
+  border: 0;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.status-badge__shape--bar {
+  width: 0.7em;
+  height: 0.2em;
+  flex-basis: 0.7em;
+  border: 0;
+  border-radius: 1px;
+  background: currentColor;
 }
 
 .status-badge--neutral {

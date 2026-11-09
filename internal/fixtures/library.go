@@ -301,6 +301,9 @@ func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query,
 	result.ScopeTotal = scopeTotal
 	sortFixtureBrowseBooks(filtered)
 	result.Total = len(filtered)
+	result.BookTotal = len(filtered)
+	result.WorkTotal = len(filtered)
+	result.RowCount = len(filtered)
 	result.Items = fixtureBrowsePage(filtered, offset, limit)
 	return result, nil
 }
