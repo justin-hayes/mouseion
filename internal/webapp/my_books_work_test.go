@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,11 +78,20 @@ func TestMyBooksGroupedWorkRowRendersAccessibleCellsAndOneLegend(t *testing.T) {
 	groupedStart := strings.Index(html, `id="work-row-homer-iliad"`)
 	require.GreaterOrEqual(t, groupedStart, 0)
 	grouped := html[groupedStart:]
-	if end := strings.Index(grouped, "</li>"); end >= 0 {
+	if end := strings.Index(grouped, `id="work-row-xenophon-anabasis"`); end >= 0 {
 		grouped = grouped[:end]
 	}
-	for _, forbidden := range []string{"Move to To Read", "More actions", "Hide", "Unhide", "Refresh metadata"} {
-		assert.NotContains(t, grouped, forbidden, "grouped Work row exposed a per-Book action %q", forbidden)
+	for _, want := range []string{
+		"Hide all 2 books of Iliad",
+		`action="/library/works/homer-iliad/hide"`,
+	} {
+		assert.Contains(t, grouped, want, "grouped Work row missing %q", want)
+	}
+	for _, forbidden := range []string{
+		"Move the work to To Read", "Move the other", "Move the work back to Inbox",
+		"Refresh metadata", `action="/library/books/iliad-1/to-read"`, `action="/library/books/iliad-2/to-read"`,
+	} {
+		assert.NotContains(t, grouped, forbidden, "grouped Work row offered an ineligible action %q", forbidden)
 	}
 }
 
@@ -211,6 +221,175 @@ func TestMyBooksWorkCellLabelFallsBackToBookIdentity(t *testing.T) {
 	book.ReadingUnit = &domain.BookReadingUnit{WorkTitle: "Iliad", ConstituentBook: 1, ConstituentBooks: 24}
 	assert.Equal(t, "Iliad, Book 1 of 24, Inbox", myBooksWorkCellLabel(domain.MyBooksBrowseRow{WorkTitle: "Iliad"}, book))
 	assert.Equal(t, "1", myBooksWorkCellNumber(book))
+}
+
+func TestMyBooksGroupedWorkRowOffersBulkWorkActions(t *testing.T) {
+	current := classicalWorkBook("iliad-1", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 1, 24, domain.BookDispositionToRead, true)
+	toRead := classicalWorkBook("iliad-2", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 2, 24, domain.BookDispositionToRead, false)
+	inbox := classicalWorkBook("iliad-3", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 3, 24, domain.BookDispositionInbox, false)
+	row := domain.MyBooksBrowseRow{
+		Key: "work:homer-iliad", Grouped: true, WorkKey: "homer-iliad", WorkTitle: "Iliad",
+		WorkAuthor: "Homer", GreekTitle: "Ἰλιάς", ConstituentBooks: 24, OwnedBooks: 3,
+		Books: []domain.MyBook{current, toRead, inbox},
+	}
+	browse := MyBooksBrowseState{
+		Enabled: true, Language: "grc", LanguageLabel: "Ancient Greek",
+		AllCount: 3, ScopeTotal: 3, Total: 3, BookTotal: 3, WorkTotal: 1, RowCount: 1, HasWorks: true,
+		Rows: []domain.MyBooksBrowseRow{row},
+	}
+	render := func(browse MyBooksBrowseState) string {
+		var output bytes.Buffer
+		require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{current, toRead, inbox}, "", "", "", false, browse).Render(context.Background(), &output))
+		return output.String()
+	}
+
+	html := render(browse)
+	for _, want := range []string{
+		"Move the other 1 book to To Read",
+		"Move the work back to Inbox",
+		"Hide all 3 books of Iliad",
+		`action="/library/works/homer-iliad/to-read"`,
+		`action="/library/works/homer-iliad/inbox"`,
+		`action="/library/works/homer-iliad/hide"`,
+	} {
+		assert.Contains(t, html, want, "grouped Work action missing %q", want)
+	}
+	assert.NotContains(t, html, `action="/library/works/homer-iliad/unhide"`, "Unhide all belongs under Show hidden books")
+
+	shown := render(MyBooksBrowseState{
+		Enabled: true, Language: "grc", LanguageLabel: "Ancient Greek",
+		AllCount: 3, ScopeTotal: 3, Total: 3, BookTotal: 3, WorkTotal: 1, RowCount: 1, HasWorks: true,
+		ShowHidden: true, Rows: []domain.MyBooksBrowseRow{row},
+	})
+	assert.Contains(t, shown, "Unhide all 3 books of Iliad")
+	assert.Contains(t, shown, `action="/library/works/homer-iliad/unhide"`)
+}
+
+func TestMyBooksWorkToReadActionNamesTheRemainingBooks(t *testing.T) {
+	inbox := classicalWorkBook("i1", "work", "Iliad", "Homer", "Ἰλιάς", 1, 24, domain.BookDispositionInbox, false)
+	toRead := classicalWorkBook("i2", "work", "Iliad", "Homer", "Ἰλιάς", 2, 24, domain.BookDispositionToRead, false)
+	current := classicalWorkBook("i3", "work", "Iliad", "Homer", "Ἰλιάς", 3, 24, domain.BookDispositionToRead, true)
+	read := classicalWorkBook("i4", "work", "Iliad", "Homer", "Ἰλιάς", 4, 24, domain.BookDispositionInbox, false)
+	read.CompletionCount = 1
+
+	for _, tt := range []struct {
+		name  string
+		books []domain.MyBook
+		label string
+		show  bool
+	}{
+		{name: "all inbox", books: []domain.MyBook{inbox, inbox}, label: "Move the work to To Read", show: true},
+		{name: "some history is still whole-work", books: []domain.MyBook{inbox, read}, label: "Move the work to To Read", show: true},
+		{name: "mixed states move only the rest", books: []domain.MyBook{current, toRead, inbox, inbox}, label: "Move the other 2 books to To Read", show: true},
+		{name: "history is skipped from the rest", books: []domain.MyBook{current, toRead, inbox, read}, label: "Move the other 1 book to To Read", show: true},
+		{name: "one remaining book", books: []domain.MyBook{current, inbox}, label: "Move the other 1 book to To Read", show: true},
+		{name: "nothing to move", books: []domain.MyBook{current, toRead, read}, show: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			label, show := myBooksWorkToReadAction(domain.MyBooksBrowseRow{Books: tt.books})
+			assert.Equal(t, tt.show, show)
+			assert.Equal(t, tt.label, label)
+		})
+	}
+}
+
+func TestMyBooksWorkInboxAndHideLabels(t *testing.T) {
+	inbox := classicalWorkBook("i1", "work", "Iliad", "Homer", "Ἰλιάς", 1, 24, domain.BookDispositionInbox, false)
+	toRead := classicalWorkBook("i2", "work", "Iliad", "Homer", "Ἰλιάς", 2, 24, domain.BookDispositionToRead, false)
+	current := classicalWorkBook("i3", "work", "Iliad", "Homer", "Ἰλιάς", 3, 24, domain.BookDispositionToRead, true)
+	row := domain.MyBooksBrowseRow{WorkTitle: "Iliad", OwnedBooks: 3, Books: []domain.MyBook{inbox, toRead, current}}
+
+	label, ok := myBooksWorkInboxAction(row)
+	assert.True(t, ok)
+	assert.Equal(t, "Move the work back to Inbox", label)
+	_, ok = myBooksWorkInboxAction(domain.MyBooksBrowseRow{Books: []domain.MyBook{inbox, current}})
+	assert.False(t, ok, "the current Book alone already keeps To Read")
+
+	assert.Equal(t, "Hide all 3 books of Iliad", myBooksWorkHideLabel(row, false))
+	assert.Equal(t, "Unhide all 3 books of Iliad", myBooksWorkHideLabel(row, true))
+	assert.Equal(t, "Hide all 2 books", myBooksWorkHideLabel(domain.MyBooksBrowseRow{OwnedBooks: 2}, false))
+	assert.Equal(t, "Hide all 2 books", myBooksWorkHideLabel(domain.MyBooksBrowseRow{Books: []domain.MyBook{{}, {}}}, false))
+}
+
+func TestMyBooksWorkProblemLabelsAndRecovery(t *testing.T) {
+	problem := func(id string, position int, disposition domain.BookDisposition, revision int64) domain.MyBook {
+		book := classicalWorkBook(id, "homer-iliad", "Iliad", "Homer", "Ἰλιάς", position, 24, disposition, false)
+		book.DispositionRevision = revision
+		book.ClassicalPreparation = &domain.ClassicalPreparationStatus{
+			Failure: domain.ClassicalPreparationFailureFetch, FailureRevision: 1, CurrentRevision: 1,
+		}
+		return book
+	}
+
+	inbox := problem("iliad-6", 6, domain.BookDispositionInbox, 5)
+	toRead := problem("iliad-7", 7, domain.BookDispositionToRead, 9)
+	state := myBooksWorkPreparation([]domain.MyBook{inbox, toRead})
+	require.Len(t, state.Problems, 2)
+	assert.Equal(t, "Book 6: Assessment unavailable", state.Problems[0].Label)
+	assert.Equal(t, "Retry acquisition", state.Problems[0].Recovery)
+	assert.Equal(t, "/library/books/iliad-6/to-read", state.Problems[0].RecoveryURL)
+	assert.EqualValues(t, 5, state.Problems[0].ExpectedRevision, "an Inbox Book carries its disposition revision")
+	assert.EqualValues(t, 0, state.Problems[1].ExpectedRevision, "a To Read recovery needs no revision")
+	assert.Equal(t, "/reading/books/iliad-7/reanalyze", state.Problems[1].RecoveryURL)
+
+	assert.Equal(t, 0, myBooksWorkBookNumber(domain.MyBook{}))
+	assert.Equal(t, "Iliad: Assessment unavailable", myBooksWorkProblemLabel(domain.MyBook{Book: domain.Book{Title: "Iliad"}}, "Assessment unavailable"))
+	assert.Equal(t, "Assessment unavailable", myBooksWorkProblemLabel(domain.MyBook{}, "Assessment unavailable"))
+}
+
+func TestWorkBooksRefusesAnEmptyWorkKeyBeforeReading(t *testing.T) {
+	h := &Handler{}
+	_, err := h.workBooks(context.Background(), "owner", "  ")
+	require.ErrorIs(t, err, persistence.ErrNotFound)
+}
+
+func TestMyBooksWorkPreparingLabelCollapsesRanges(t *testing.T) {
+	assert.Equal(t, "Preparing Books 4, 21–24…", myBooksWorkPreparingLabel([]int{24, 4, 21, 22, 23}))
+	assert.Equal(t, "Preparing Books 4, 21–24…", myBooksWorkPreparingLabel([]int{4, 21, 21, 22, 23, 24}))
+	assert.Equal(t, "Preparing Book 4…", myBooksWorkPreparingLabel([]int{4}))
+	assert.Empty(t, myBooksWorkPreparingLabel(nil))
+	assert.Equal(t, "1, 3–4", myBooksNumberRanges([]int{3, 1, 4, 3}))
+}
+
+func TestMyBooksGroupedWorkRowCollapsesPreparingAndKeepsProblemNotes(t *testing.T) {
+	preparing := func(id string, position int) domain.MyBook {
+		book := classicalWorkBook(id, "homer-iliad", "Iliad", "Homer", "Ἰλιάς", position, 24, domain.BookDispositionToRead, false)
+		book.ClassicalPreparation = &domain.ClassicalPreparationStatus{State: domain.ClassicalPreparationQueued, CurrentRevision: 1}
+		return book
+	}
+	problem := func(id string, position int, failure domain.ClassicalPreparationFailure) domain.MyBook {
+		book := classicalWorkBook(id, "homer-iliad", "Iliad", "Homer", "Ἰλιάς", position, 24, domain.BookDispositionToRead, false)
+		book.ClassicalPreparation = &domain.ClassicalPreparationStatus{Failure: failure, FailureRevision: 1, CurrentRevision: 1}
+		return book
+	}
+	books := []domain.MyBook{
+		preparing("iliad-4", 4),
+		problem("iliad-6", 6, domain.ClassicalPreparationFailureFetch),
+		problem("iliad-7", 7, domain.ClassicalPreparationFailureImport),
+		preparing("iliad-21", 21), preparing("iliad-22", 22), preparing("iliad-23", 23), preparing("iliad-24", 24),
+	}
+	row := domain.MyBooksBrowseRow{
+		Key: "work:homer-iliad", Grouped: true, WorkKey: "homer-iliad", WorkTitle: "Iliad",
+		WorkAuthor: "Homer", GreekTitle: "Ἰλιάς", ConstituentBooks: 24, OwnedBooks: len(books), Books: books,
+	}
+	browse := MyBooksBrowseState{
+		Enabled: true, Language: "grc", LanguageLabel: "Ancient Greek",
+		AllCount: len(books), ScopeTotal: len(books), Total: len(books), BookTotal: len(books), WorkTotal: 1, RowCount: 1, HasWorks: true,
+		Rows: []domain.MyBooksBrowseRow{row},
+	}
+	var output bytes.Buffer
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, browse).Render(context.Background(), &output))
+	html := output.String()
+
+	assert.Contains(t, html, "Preparing Books 4, 21–24…")
+	assert.Equal(t, 1, strings.Count(html, `class="library-work__preparing"`), "preparing Books collapse into one line")
+	assert.NotContains(t, html, "Book 4: Analysis incomplete", "a preparing Book does not keep its own note")
+	assert.Contains(t, html, "Book 6: Assessment unavailable")
+	assert.Contains(t, html, "Retry acquisition")
+	assert.Contains(t, html, "Book 7: Analysis failed")
+	assert.Contains(t, html, "Retry analysis")
+	assert.Contains(t, html, `action="/reading/books/iliad-6/reanalyze"`)
+	assert.Contains(t, html, `action="/reading/books/iliad-7/reanalyze"`)
 }
 
 func TestMyBooksGroupedWorkStylesWrapCellsAtCompactWidths(t *testing.T) {

@@ -303,13 +303,17 @@ dense and does not establish a generic large-card pattern.
 The current My Books grid presents cover, title, author, disposition, and
 explicit actions. A classical Work with more than one owned Book in the active
 language is one grouped row: Work identity and provenance, one leading bucket
-badge and counts, then a strip of one cell per owned Book in book order. The
-strip links each Book to Reading and has no per-Book actions. A single-Book Work
-stays an ordinary row with its reviewed position; a whole-work unit shows no
-position. Filters count Books and a filtered Work row keeps only its matching
-cells, with a shape line such as "57 Books in 5 works". My Books does not
-present analysis evidence or current-reading state; those remain on the Reading
-anchor.
+badge and counts, work-level bulk actions, then a strip of one cell per owned
+Book in book order. The strip links each Book to Reading and has no per-Book
+actions. Bulk To Read moves every Book without reading history, leaves the
+current Book alone, prepares Books in book order, and prepares nothing when the
+Work moves back to Inbox. Hide all and Unhide all change each Book's visibility
+without creating a Work-level state; preparing Books collapse into one line and
+each problem Book keeps its own recovery. A single-Book Work stays an ordinary
+row with its reviewed position; a whole-work unit shows no position. Filters
+count Books and a filtered Work row keeps only its matching cells, with a shape
+line such as "57 Books in 5 works". My Books does not present analysis evidence
+or current-reading state; those remain on the Reading anchor.
 
 ## Reading information hierarchy
 

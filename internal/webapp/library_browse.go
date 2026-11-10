@@ -518,6 +518,11 @@ func myBooksWorkRowID(workKey string) string {
 	return "work-row-" + url.PathEscape(workKey)
 }
 
+// myBooksWorkActionURL is the one place a grouped Work action is spelled.
+func myBooksWorkActionURL(workKey, action string) string {
+	return "/library/works/" + url.PathEscape(workKey) + "/" + action
+}
+
 // myBooksWorkSizeLabel states the Work's reviewed size and how much of it the
 // learner owns: "all 24 books" or "2 of 24 books".
 func myBooksWorkSizeLabel(row domain.MyBooksBrowseRow) string {
@@ -621,6 +626,176 @@ func myBooksWorkCellNumber(book domain.MyBook) string {
 
 func myBooksWorkCellClass(book domain.MyBook) string {
 	return "library-work__cell library-work__cell--" + string(book.WorkflowBucket())
+}
+
+// myBooksWorkToReadAction names the grouped Work row's primary action. A Work
+// with Books already in To Read or the current Reading offers to move only the
+// remaining Books, so "move" never implies reading again.
+func myBooksWorkToReadAction(row domain.MyBooksBrowseRow) (string, bool) {
+	movable := 0
+	alreadyToRead := false
+	for _, book := range row.Books {
+		bucket := book.WorkflowBucket()
+		if bucket == domain.MyBookBucketCurrentReading || bucket == domain.MyBookBucketToRead {
+			alreadyToRead = true
+			continue
+		}
+		if book.WorkToReadEligible() {
+			movable++
+		}
+	}
+	if movable == 0 {
+		return "", false
+	}
+	if alreadyToRead {
+		return "Move the other " + countNoun(movable, "book", "books") + " to To Read", true
+	}
+	return "Move the work to To Read", true
+}
+
+// myBooksWorkInboxAction names the More-actions move that returns the Work to
+// Inbox. It is absent when every Book outside the current Reading already is.
+func myBooksWorkInboxAction(row domain.MyBooksBrowseRow) (string, bool) {
+	for _, book := range row.Books {
+		if book.IsCurrentReading {
+			continue
+		}
+		if myBookDisposition(book) != domain.BookDispositionInbox {
+			return "Move the work back to Inbox", true
+		}
+	}
+	return "", false
+}
+
+// myBooksWorkHideLabel names the bulk visibility action for every Book of the
+// Work. The count is ownership, not the filtered cells the row currently shows.
+func myBooksWorkHideLabel(row domain.MyBooksBrowseRow, unhide bool) string {
+	count := row.OwnedBooks
+	if count <= 0 {
+		count = len(row.Books)
+	}
+	verb := "Hide all "
+	if unhide {
+		verb = "Unhide all "
+	}
+	label := verb + countNoun(count, "book", "books")
+	if title := strings.TrimSpace(row.WorkTitle); title != "" {
+		label += " of " + title
+	}
+	return label
+}
+
+// myBooksWorkProblemView is one Book of a grouped Work that needs the learner's
+// attention, with its own recovery action when one exists.
+type myBooksWorkProblemView struct {
+	Label            string
+	Recovery         string
+	RecoveryURL      string
+	ExpectedRevision int64
+}
+
+// myBooksWorkPreparationView collapses Books that are preparing into one line
+// and keeps each problem Book's own note and recovery.
+type myBooksWorkPreparationView struct {
+	Preparing string
+	Problems  []myBooksWorkProblemView
+}
+
+// myBooksWorkPreparation reads the same preparation presentation the ordinary
+// Book row uses and folds it into the grouped Work row.
+func myBooksWorkPreparation(books []domain.MyBook) myBooksWorkPreparationView {
+	var numbers []int
+	var problems []myBooksWorkProblemView
+	for _, book := range books {
+		view, ok := classicalPreparationFor(book)
+		if !ok {
+			continue
+		}
+		if view.InProgress {
+			if number := myBooksWorkBookNumber(book); number > 0 {
+				numbers = append(numbers, number)
+			}
+			continue
+		}
+		problem := myBooksWorkProblemView{
+			Label:       myBooksWorkProblemLabel(book, view.Label),
+			Recovery:    view.Recovery,
+			RecoveryURL: myBookEvidenceRecoveryURL(book),
+		}
+		if book.Disposition != domain.BookDispositionToRead {
+			problem.ExpectedRevision = book.DispositionRevision
+		}
+		problems = append(problems, problem)
+	}
+	return myBooksWorkPreparationView{
+		Preparing: myBooksWorkPreparingLabel(numbers),
+		Problems:  problems,
+	}
+}
+
+// myBooksWorkBookNumber is a Book's reviewed constituent position, or zero for
+// a whole-work unit.
+func myBooksWorkBookNumber(book domain.MyBook) int {
+	if unit := book.ReadingUnit; unit != nil && unit.ConstituentBook > 0 {
+		return unit.ConstituentBook
+	}
+	return 0
+}
+
+// myBooksWorkProblemLabel puts the constituent Book first so a learner can find
+// the one Book that needs attention without a note per Book.
+func myBooksWorkProblemLabel(book domain.MyBook, label string) string {
+	if number := myBooksWorkBookNumber(book); number > 0 {
+		return fmt.Sprintf("Book %d: %s", number, label)
+	}
+	if title := strings.TrimSpace(book.Book.Title); title != "" {
+		return fmt.Sprintf("%s: %s", title, label)
+	}
+	return label
+}
+
+// myBooksWorkPreparingLabel states every preparing Book once, collapsing
+// adjacent constituent numbers into ranges.
+func myBooksWorkPreparingLabel(numbers []int) string {
+	if len(numbers) == 0 {
+		return ""
+	}
+	label := "Preparing Books "
+	if len(numbers) == 1 {
+		label = "Preparing Book "
+	}
+	return label + myBooksNumberRanges(numbers) + "…"
+}
+
+// myBooksNumberRanges sorts and deduplicates constituent numbers, then writes
+// adjacent runs as ranges: 4, 21–24.
+func myBooksNumberRanges(numbers []int) string {
+	unique := make([]int, 0, len(numbers))
+	seen := make(map[int]bool, len(numbers))
+	for _, number := range numbers {
+		if number <= 0 || seen[number] {
+			continue
+		}
+		seen[number] = true
+		unique = append(unique, number)
+	}
+	sort.Ints(unique)
+	parts := make([]string, 0, len(unique))
+	for i := 0; i < len(unique); {
+		start := unique[i]
+		end := start
+		for i+1 < len(unique) && unique[i+1] == end+1 {
+			i++
+			end = unique[i]
+		}
+		if end > start {
+			parts = append(parts, fmt.Sprintf("%d–%d", start, end))
+		} else {
+			parts = append(parts, strconv.Itoa(start))
+		}
+		i++
+	}
+	return strings.Join(parts, ", ")
 }
 
 // myBooksShapeLabel states the filtered collection's shape in Books and works.

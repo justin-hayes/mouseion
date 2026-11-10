@@ -33,7 +33,7 @@
 /* A grouped Work row keeps the AnnotatedBookRow cover/identity/margin
    composition, then places the Book strip beneath the identity. */
 .library-books > .library-work {
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
 }
 
 .library-work__identity {
@@ -67,7 +67,7 @@
 
 .library-work__strip {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 3;
   display: flex;
   flex-wrap: wrap;
   gap: var(--mouseion-space-2);
@@ -110,6 +110,48 @@
   font-weight: 550;
 }
 
+.library-work__footer {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  gap: var(--mouseion-space-2);
+  min-width: 0;
+  margin-top: var(--mouseion-space-3);
+}
+
+.library-work__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--mouseion-space-2) var(--mouseion-space-3);
+  min-width: 0;
+}
+
+.library-work__actions form {
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+}
+
+.library-work__preparing,
+.library-work__problem p {
+  margin: 0;
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+  overflow-wrap: anywhere;
+}
+
+.library-work__problem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mouseion-space-1) var(--mouseion-space-3);
+}
+
+.library-work__problem form {
+  margin: 0;
+}
+
 .library-work-legend {
   display: flex;
   flex-wrap: wrap;
@@ -147,7 +189,7 @@
 
   .library-books > .library-work {
     grid-template-columns: 4rem minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto auto auto;
     column-gap: var(--mouseion-space-4);
   }
 
@@ -162,6 +204,11 @@
   }
 
   .library-work__strip {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .library-work__footer {
     grid-column: 2;
     grid-row: 3;
   }
