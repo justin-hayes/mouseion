@@ -42,7 +42,7 @@ completion** are not primary learner-facing concepts.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Catalogs** | The authenticated catalogue setup and sync-maintenance destination at `/catalogs`. | Import books, ingest books |
+| **Catalogs** | The authenticated destination at `/catalogs` for curated sources that do not sync into My Books, including the built-in, read-only Classical catalog, and for catalogue connection setup and sync maintenance. | Import books, ingest books |
 | **Move to To Read** | Express reading intent for a My Books Book. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalog sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies EPUB content download or destructive mirroring; optional Book cover retrieval is independent metadata work. | Import all books, mirror, admin sync |

@@ -171,14 +171,18 @@ The authenticated shell exposes four principal destinations:
   are not used on active screens;
 - **Vocabulary** — Concordance; the accepted target removes saved selection
   and Custom deck UI beneath this destination.
-- **Catalogs** — learner-owned catalogue connections and metadata sync.
+- **Catalogs** — curated sources that do not sync into My Books, plus
+  learner-owned catalogue connections and metadata sync.
 
-Catalogs is a configuration and sync destination, not a book-browse surface.
-My Books remains the sole **bibliographic Book** browse surface; the Browse
-working desk on Reading lists vocabulary identities, not Books or catalog entries.
+Catalogs browses only curated sources that do not sync into My Books. The
+built-in, read-only **Classical catalog** sits above the learner's OPDS
+connections with author, author-detail and work-detail pages; it is not a fifth
+destination and is not scoped to the active study language. OPDS connections
+keep their configuration and sync role. My Books remains the sole
+**bibliographic Book** browse surface for synced metadata; the Browse working
+desk on Reading lists vocabulary identities, not Books or catalog entries.
 Marking a Book To Read expresses the learner's reading intent and may trigger
-acquisition and analysis. The upstream
-catalog browser is retired.
+acquisition and analysis. The upstream catalog browser is retired.
 
 Analysis jobs, deck preparation, and historical artifact provenance are
 supporting surfaces.
@@ -215,7 +219,8 @@ My Books
 Reading (active study language)
     current Book, when present
     current Book's vocabulary Browse (working desk)
-    between Books: unordered To Read candidates grouped by current coverage evidence
+    between Books: unordered To Read candidates in neutral title order,
+        a Work's multiple To Read Books grouped into one entry with a band table
     Book anchors for current evidence and recovery
         focused deck-preparation task
         exact-analysis compatibility redirect to the Book anchor
@@ -470,7 +475,8 @@ needed.
 4. **Generated vocabulary** remains immutable
    provenance, not a current selection exclusion or knowledge claim.
 5. **Per-book analysis evidence** retains the individual threshold and unknown
-   vocabulary contract; the Reading chooser uses current coverage bands only.
+   vocabulary contract; the Reading chooser uses current coverage bands only,
+   grouping a Work's To Read Books into one entry rather than ranking them.
 6. **Routes and terminology** are reconciled in the shipped shell and supporting
     surfaces: My Books, Reading, Vocabulary, and Catalogs are the active
     navigation destinations; `/known-vocab`
