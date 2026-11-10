@@ -270,6 +270,13 @@ func (p *greekDeckRecordingProvider) Translate(context.Context, enrichment.Trans
 	return enrichment.TranslationResponse{}, errors.New("a providerless Greek deck must make no provider request")
 }
 
+// callCount reports how many provider requests the deck pipeline made.
+func (p *greekDeckRecordingProvider) callCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.calls
+}
+
 // greekDeckLexicon is the fake local dictionary index. A providerless Greek deck
 // must not consult it for Wiktionary meaning evidence, so any resolved meaning
 // would show up as a Wiktionary notice in the export. It answers the LSJ
