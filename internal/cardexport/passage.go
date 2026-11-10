@@ -4,22 +4,42 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 )
 
-// The Ancient Greek default card shows the pinned Brownson passage context of
-// the cited sections a representative sentence touches (ADR 0101). It is never
-// a translation of that sentence, so it is labelled and highlights nothing.
+// The Ancient Greek default card shows the pinned reference-translation
+// passage context of the cited sections a representative sentence touches
+// (ADR 0101). It is never a translation of that sentence, so it is labelled and
+// highlights nothing.
 const (
 	passageContextPrefix = "Passage context: "
-	passageEditionLabel  = "Brownson (1922)"                      //nolint:gosec // G101 false positive: a user-facing card label, not a credential.
-	passageWorkLabel     = "Xen. Anab."                           //nolint:gosec // G101 false positive: a user-facing card label, not a credential.
 	passageContextSuffix = ". Not a translation of this sentence" //nolint:gosec // G101 false positive: a user-facing card label, not a credential.
 )
 
+// legacyPassageAttribution credits a frozen pin that layers.json does not
+// list. Before translations were credited per file, the only translation a
+// deck could freeze was Brownson's Anabasis, imported by the retired operator
+// command, so an unlisted pin is always Brownson. The generator keeps every
+// shipped translation listed, so a new pin never falls back here.
+var legacyPassageAttribution = classical.PassageAttribution{
+	Label:  "Brownson (1922), Xen. Anab.",
+	Notice: dictionary.BrownsonSourceNotice,
+}
+
+// passageAttribution returns the credit for a frozen translation pin.
+func passageAttribution(pin string) classical.PassageAttribution {
+	if attribution, ok := classical.EmbeddedPassageAttribution(pin); ok {
+		return attribution
+	}
+	return legacyPassageAttribution
+}
+
 // passageContextLabel renders the frozen passage citation as the labelled,
-// unhighlighted card heading.
-func passageContextLabel(citation string) string {
-	return passageContextPrefix + passageEditionLabel + ", " + passageWorkLabel + " " + citation + passageContextSuffix
+// unhighlighted card heading, crediting the translation the pin names.
+func passageContextLabel(pin, citation string) string {
+	return passageContextPrefix + passageAttribution(pin).Label + " " + citation + passageContextSuffix
 }
 
 // resolvePassage returns the passage text, its citation label and the pin for a

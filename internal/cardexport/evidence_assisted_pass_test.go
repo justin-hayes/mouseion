@@ -26,7 +26,7 @@ func evidenceAssistedPassDeck(t *testing.T) (FrozenDeck, WorkItem, RunFacts) {
 		Candidate: domain.SelectionCandidate{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", LexicalDiscriminator: "morpheus:1"},
 		Entry: Entry{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", LexicalDiscriminator: "morpheus:1", Headword: "λόγος",
 			Sentence: "ἐν ἀρχῇ ἦν ὁ λόγος καὶ ὁ λόγος ἦν πρὸς τὸν θεόν.", TargetWord: "λόγος",
-			PassageContext: "In the beginning was the Word.", PassageCitation: "1.1.1", BrownsonPin: "brownson-pin"},
+			PassageContext: "In the beginning was the Word.", PassageCitation: "1.1.1", PassagePin: "brownson-pin"},
 		Provider: "openai-compatible", ProviderVersion: "model/translation-v16-evidence-assisted-greek",
 		TargetLanguage: "en", SkipMeaningEvidence: true, EvidenceAssistedPass: true,
 	}}

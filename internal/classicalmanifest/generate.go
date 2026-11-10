@@ -658,6 +658,9 @@ func (b *builder) readTranslationFile(layer classical.Layer, spec *classical.Tra
 	if err := verifyLayerPin(layer, spec.FileName, size, digest); err != nil {
 		return nil, "", false, err
 	}
+	if err := requirePassageAttribution(layer, spec.FileName); err != nil {
+		return nil, "", false, err
+	}
 	if _, err := ancientgreek.InspectTranslation(data, unit.start, unit.end); err != nil {
 		return nil, "", false, err
 	}
@@ -742,7 +745,10 @@ func (b *builder) finish() error {
 		return err
 	}
 	b.addTombstones()
-	return b.finalizeDefinitions()
+	if err := b.finalizeDefinitions(); err != nil {
+		return err
+	}
+	return b.checkRetainedTranslations()
 }
 
 // checkUnitOverrides refuses a unit override that matched no generated unit.
@@ -800,7 +806,43 @@ func (b *builder) validateLayerPins(definition classical.Definition) error {
 	if definition.Translation == nil {
 		return nil
 	}
-	return b.validateLayerPin(definition.Translation.Layer, definition.Translation.FileName, definition.Translation.Size, definition.Translation.SHA256)
+	if err := b.validateLayerPin(definition.Translation.Layer, definition.Translation.FileName, definition.Translation.Size, definition.Translation.SHA256); err != nil {
+		return err
+	}
+	layer, _ := b.layers.Layer(definition.Translation.Layer)
+	return requirePassageAttribution(layer, definition.Translation.FileName)
+}
+
+// requirePassageAttribution refuses a translation file that cannot credit the
+// passage context a card freezes from it.
+func requirePassageAttribution(layer classical.Layer, fileName string) error {
+	file, ok := layer.File(fileName)
+	if !ok || !file.HasPassageAttribution() {
+		return fmt.Errorf("classical: translation %q needs a passageLabel and deckNotice in layers.json", fileName)
+	}
+	return nil
+}
+
+// checkRetainedTranslations keeps every translation the committed manifest
+// pinned, including withdrawn and superseded pins, creditable in layers.json.
+// Prepared decks freeze the pin and find their credit by it, so a translation
+// file entry is never removed once it has shipped.
+func (b *builder) checkRetainedTranslations() error {
+	keys := make([]string, 0, len(b.previousByKey))
+	for key := range b.previousByKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		translation := b.previousByKey[key].Translation
+		if translation == nil {
+			continue
+		}
+		if _, ok := b.layers.PassageAttribution(translation.SHA256); !ok {
+			return fmt.Errorf("classical: %s was pinned by %s and must stay in layers.json with its passage credit", translation.FileName, key)
+		}
+	}
+	return nil
 }
 
 // validateLayerPin compares one recorded pin with layers.json. Verify mode

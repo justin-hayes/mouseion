@@ -179,10 +179,11 @@ type Layer struct {
 	Files               []LayerFile `json:"files,omitempty"`
 }
 
-// LayerFile records upstream metadata for one file in a layer. It is only used
-// to tell whether an override departs from what the upstream file states. When
-// Size and SHA256 are present they are the reviewed byte pin the generator
-// verifies.
+// LayerFile records upstream metadata for one file in a layer. The curatorial
+// fields tell whether an override departs from what the upstream file states.
+// When Size and SHA256 are present they are the reviewed byte pin the
+// generator verifies. A reference translation also carries the credit an
+// exported card and deck show for its passage context.
 type LayerFile struct {
 	Name         string `json:"name"`
 	WorkTitle    string `json:"workTitle,omitempty"`
@@ -191,6 +192,18 @@ type LayerFile struct {
 	EditionLabel string `json:"editionLabel,omitempty"`
 	Size         int64  `json:"size,omitempty"`
 	SHA256       string `json:"sha256,omitempty"`
+	// PassageLabel names the translation and work on a card, such as
+	// "Brownson (1922), Xen. Anab.". The card appends the cited sections.
+	PassageLabel string `json:"passageLabel,omitempty"`
+	// DeckNotice is the attribution and licence notice an exported deck
+	// carries whenever a card froze a passage from this file.
+	DeckNotice string `json:"deckNotice,omitempty"`
+}
+
+// HasPassageAttribution reports whether the file carries both its card label
+// and its deck notice.
+func (f LayerFile) HasPassageAttribution() bool {
+	return strings.TrimSpace(f.PassageLabel) != "" && strings.TrimSpace(f.DeckNotice) != ""
 }
 
 // File returns the upstream metadata registered for one file name.
@@ -271,6 +284,27 @@ func (l Layer) validateFiles() error {
 		if file.SHA256 != "" && !isLowerHexSHA256(file.SHA256) {
 			return fmt.Errorf("classical: layer %q file %q SHA-256 is not 64 lowercase hex characters", l.Key, file.Name)
 		}
+		if err := l.validatePassageAttribution(file); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validatePassageAttribution requires a passage label and deck notice together,
+// only on pinned Source content, since only Source content reaches a deck.
+func (l Layer) validatePassageAttribution(file LayerFile) error {
+	hasLabel, hasNotice := strings.TrimSpace(file.PassageLabel) != "", strings.TrimSpace(file.DeckNotice) != ""
+	if !hasLabel && !hasNotice {
+		return nil
+	}
+	switch {
+	case hasLabel != hasNotice:
+		return fmt.Errorf("classical: layer %q file %q needs both a passage label and a deck notice", l.Key, file.Name)
+	case l.LicenceClass != LicenceClassSourceContent:
+		return fmt.Errorf("classical: layer %q file %q is not Source content and cannot credit a passage", l.Key, file.Name)
+	case file.SHA256 == "":
+		return fmt.Errorf("classical: layer %q file %q credits a passage without a SHA-256 pin", l.Key, file.Name)
 	}
 	return nil
 }

@@ -15,6 +15,48 @@
           "workAuthor": "Xenophon",
           "size": 7438037,
           "sha256": "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61"
+        },
+        {
+          "name": "tlg0059.tlg002.perseus-grc2_oga020_src.conllu",
+          "workTitle": "Apology",
+          "workAuthor": "Plato",
+          "size": 1035656,
+          "sha256": "c51845a4b150c71c859c1ec7fb4fb8bfb0905d6833505d228cd5a608dbaf7c4b"
+        },
+        {
+          "name": "tlg0059.tlg003.perseus-grc2_oga020_src.conllu",
+          "workTitle": "Crito",
+          "workAuthor": "Plato",
+          "size": 510999,
+          "sha256": "6817a5792bf5dc59f0995e09fab00059903726160a3d6734ede4442fb7689b5a"
+        },
+        {
+          "name": "tlg0059.tlg004.perseus-grc2_oga020_src.conllu",
+          "workTitle": "Phaedo",
+          "workAuthor": "Plato",
+          "size": 2717034,
+          "sha256": "f1b5046b90ba96ed0d4b99615fd020fc13cb4402b7994c10feec25753a2fb335"
+        },
+        {
+          "name": "tlg0059.tlg011.perseus-grc2_oga020_src.conllu",
+          "workTitle": "Symposium",
+          "workAuthor": "Plato",
+          "size": 2081047,
+          "sha256": "f5980a70885590d4383dcfa6d135a0c0ddd73ccfd28246c291e7e4a9ce5b2ee5"
+        },
+        {
+          "name": "tlg0059.tlg024.perseus-grc2_oga020_src.conllu",
+          "workTitle": "Meno",
+          "workAuthor": "Plato",
+          "size": 1296341,
+          "sha256": "49e9126019a8926eb7a92fb2eff082a0403538dbcb10a9ec5e1eeaeaf17ba430"
+        },
+        {
+          "name": "tlg0059.tlg030.perseus-grc2_oga020_src.conllu",
+          "workTitle": "Republic",
+          "workAuthor": "Plato",
+          "size": 11141836,
+          "sha256": "2be8a6346ae4bbc5a551a99f9caea073c91186fe323315bcf3a7f19f4d20af1b"
         }
       ]
     },
@@ -31,6 +73,36 @@
           "name": "tlg0032.tlg006.perseus-grc2_oga020_src.conllu",
           "size": 7438037,
           "sha256": "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61"
+        },
+        {
+          "name": "tlg0059.tlg002.perseus-grc2_oga020_src.conllu",
+          "size": 1035656,
+          "sha256": "c51845a4b150c71c859c1ec7fb4fb8bfb0905d6833505d228cd5a608dbaf7c4b"
+        },
+        {
+          "name": "tlg0059.tlg003.perseus-grc2_oga020_src.conllu",
+          "size": 510999,
+          "sha256": "6817a5792bf5dc59f0995e09fab00059903726160a3d6734ede4442fb7689b5a"
+        },
+        {
+          "name": "tlg0059.tlg004.perseus-grc2_oga020_src.conllu",
+          "size": 2717034,
+          "sha256": "f1b5046b90ba96ed0d4b99615fd020fc13cb4402b7994c10feec25753a2fb335"
+        },
+        {
+          "name": "tlg0059.tlg011.perseus-grc2_oga020_src.conllu",
+          "size": 2081047,
+          "sha256": "f5980a70885590d4383dcfa6d135a0c0ddd73ccfd28246c291e7e4a9ce5b2ee5"
+        },
+        {
+          "name": "tlg0059.tlg024.perseus-grc2_oga020_src.conllu",
+          "size": 1296341,
+          "sha256": "49e9126019a8926eb7a92fb2eff082a0403538dbcb10a9ec5e1eeaeaf17ba430"
+        },
+        {
+          "name": "tlg0059.tlg030.perseus-grc2_oga020_src.conllu",
+          "size": 11141836,
+          "sha256": "2be8a6346ae4bbc5a551a99f9caea073c91186fe323315bcf3a7f19f4d20af1b"
         }
       ]
     },
@@ -45,7 +117,111 @@
         {
           "name": "tlg0032.tlg006.perseus-eng2.xml",
           "size": 1101217,
-          "sha256": "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
+          "sha256": "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7",
+          "passageLabel": "Brownson (1922), Xen. Anab.",
+          "deckNotice": "Passage context: Xenophon, Anabasis, translated by Carleton L. Brownson (1921-22), Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0032/tlg006/tlg0032.tlg006.perseus-eng2.xml, SHA-256 f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "perseus-eng2-fowler-apology",
+      "commit": "0189b9c8d8d1f148133f2f0af309b4ee90ea4332",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0189b9c8d8d1f148133f2f0af309b4ee90ea4332/data/tlg0059/tlg002/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Plato, Apology, translated by Harold North Fowler (1914), Perseus perseus-eng2 digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "tlg0059.tlg002.perseus-eng2.xml",
+          "size": 80175,
+          "sha256": "09ae91e79022297d5bc98d032d3e2834f908aab25652f3489425743eacee840a",
+          "passageLabel": "Fowler (1914), Pl. Ap.",
+          "deckNotice": "Passage context: Plato, Apology, translated by Harold North Fowler (1914), Plato in Twelve Volumes, vol. 1, Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0059/tlg002/tlg0059.tlg002.perseus-eng2.xml, SHA-256 09ae91e79022297d5bc98d032d3e2834f908aab25652f3489425743eacee840a). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "perseus-eng2-fowler-crito",
+      "commit": "0189b9c8d8d1f148133f2f0af309b4ee90ea4332",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0189b9c8d8d1f148133f2f0af309b4ee90ea4332/data/tlg0059/tlg003/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Plato, Crito, translated by Harold North Fowler (1914), Perseus perseus-eng2 digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "tlg0059.tlg003.perseus-eng2.xml",
+          "size": 44688,
+          "sha256": "88f984ed9fabbbbc40f6a920ffc062c90a6673055d3489384d1ebef934d9f01d",
+          "passageLabel": "Fowler (1914), Pl. Crito",
+          "deckNotice": "Passage context: Plato, Crito, translated by Harold North Fowler (1914), Plato in Twelve Volumes, vol. 1, Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0059/tlg003/tlg0059.tlg003.perseus-eng2.xml, SHA-256 88f984ed9fabbbbc40f6a920ffc062c90a6673055d3489384d1ebef934d9f01d). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "perseus-eng2-fowler-phaedo",
+      "commit": "0189b9c8d8d1f148133f2f0af309b4ee90ea4332",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0189b9c8d8d1f148133f2f0af309b4ee90ea4332/data/tlg0059/tlg004/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Plato, Phaedo, translated by Harold North Fowler (1914), Perseus perseus-eng2 digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "tlg0059.tlg004.perseus-eng2.xml",
+          "size": 272720,
+          "sha256": "34c17b222112eaf1803f9048fa74f47c1423b6ebd6d9c7dbf4933cf5e02df6af",
+          "passageLabel": "Fowler (1914), Pl. Phd.",
+          "deckNotice": "Passage context: Plato, Phaedo, translated by Harold North Fowler (1914), Plato in Twelve Volumes, vol. 1, Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0059/tlg004/tlg0059.tlg004.perseus-eng2.xml, SHA-256 34c17b222112eaf1803f9048fa74f47c1423b6ebd6d9c7dbf4933cf5e02df6af). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "perseus-eng2-lamb-symposium",
+      "commit": "0189b9c8d8d1f148133f2f0af309b4ee90ea4332",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0189b9c8d8d1f148133f2f0af309b4ee90ea4332/data/tlg0059/tlg011/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Plato, Symposium, translated by W. R. M. Lamb (1925), Perseus perseus-eng2 digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "tlg0059.tlg011.perseus-eng2.xml",
+          "size": 192332,
+          "sha256": "6f555984cdc64ae1ad230b147dac4e98693e7be1613a44ca7be7a2944a7624ab",
+          "passageLabel": "Lamb (1925), Pl. Symp.",
+          "deckNotice": "Passage context: Plato, Symposium, translated by W. R. M. Lamb (1925), Plato in Twelve Volumes, vol. 3, Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0059/tlg011/tlg0059.tlg011.perseus-eng2.xml, SHA-256 6f555984cdc64ae1ad230b147dac4e98693e7be1613a44ca7be7a2944a7624ab). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "perseus-eng2-lamb-meno",
+      "commit": "0189b9c8d8d1f148133f2f0af309b4ee90ea4332",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0189b9c8d8d1f148133f2f0af309b4ee90ea4332/data/tlg0059/tlg024/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Plato, Meno, translated by W. R. M. Lamb (1924), Perseus perseus-eng2 digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "tlg0059.tlg024.perseus-eng2.xml",
+          "size": 119965,
+          "sha256": "551882c9f7c19223a329d168d063bccb1de9f48c969afe3b56a37daba6353eb0",
+          "passageLabel": "Lamb (1924), Pl. Meno",
+          "deckNotice": "Passage context: Plato, Meno, translated by W. R. M. Lamb (1924), Plato in Twelve Volumes, vol. 2, Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0059/tlg024/tlg0059.tlg024.perseus-eng2.xml, SHA-256 551882c9f7c19223a329d168d063bccb1de9f48c969afe3b56a37daba6353eb0). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "perseus-eng2-shorey-republic",
+      "commit": "0189b9c8d8d1f148133f2f0af309b4ee90ea4332",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/0189b9c8d8d1f148133f2f0af309b4ee90ea4332/data/tlg0059/tlg030/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Plato, Republic, translated by Paul Shorey (1935-37), Perseus perseus-eng2 digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "tlg0059.tlg030.perseus-eng2.xml",
+          "size": 1786205,
+          "sha256": "da9a595341a58134c9def4af2623675abf8ff13a32ebcf9e4aadbd14c836e64f",
+          "passageLabel": "Shorey (1935-37), Pl. Rep.",
+          "deckNotice": "Passage context: Plato, Republic, translated by Paul Shorey (1935-37), Plato in Twelve Volumes, vols. 5-6, Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0059/tlg030/tlg0059.tlg030.perseus-eng2.xml, SHA-256 da9a595341a58134c9def4af2623675abf8ff13a32ebcf9e4aadbd14c836e64f). CC BY-SA 4.0; derived data remains share-alike."
         }
       ]
     }
