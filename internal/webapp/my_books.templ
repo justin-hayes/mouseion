@@ -131,7 +131,7 @@ templ MyBookIdentityDetails(book domain.MyBook) {
 	}
 }
 
-templ MyBookWorkRow(row domain.MyBooksBrowseRow) {
+templ MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, showHidden bool, returnTo string) {
 	if len(row.Books) > 0 {
 		<li id={ myBooksWorkRowID(row.WorkKey) } class="library-book library-work" aria-labelledby={ "work-title-" + row.WorkKey }>
 			<div class="library-work__identity">
@@ -155,12 +155,69 @@ templ MyBookWorkRow(row domain.MyBooksBrowseRow) {
 					<p class="library-work__counts">{ counts }</p>
 				}
 			</div>
+			<div class="library-work__footer">
+				@MyBooksWorkPreparation(row.Books, csrf)
+				<div class="library-work__actions">
+					if label, ok := myBooksWorkToReadAction(row); ok {
+						<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "to-read")) }>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<input type="hidden" name="return_to" value={ returnTo }/>
+							<button type="submit" class="btn btn-outline library-book__journey-action">{ label }</button>
+						</form>
+					}
+					<details class="more-actions">
+						<summary>More actions</summary>
+						<div class="more-actions__body">
+							if label, ok := myBooksWorkInboxAction(row); ok {
+								<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "inbox")) }>
+									<input type="hidden" name="csrf_token" value={ csrf }/>
+									<input type="hidden" name="return_to" value={ returnTo }/>
+									<button type="submit" class="btn btn-outline">{ label }</button>
+								</form>
+							}
+							<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "hide")) }>
+								<input type="hidden" name="csrf_token" value={ csrf }/>
+								<input type="hidden" name="return_to" value={ returnTo }/>
+								<button type="submit" class="btn btn-outline">{ myBooksWorkHideLabel(row, false) }</button>
+							</form>
+							if showHidden {
+								<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "unhide")) }>
+									<input type="hidden" name="csrf_token" value={ csrf }/>
+									<input type="hidden" name="return_to" value={ returnTo }/>
+									<button type="submit" class="btn btn-outline">{ myBooksWorkHideLabel(row, true) }</button>
+								</form>
+							}
+						</div>
+					</details>
+				</div>
+			</div>
 			<ul class="library-work__strip" role="list" aria-label={ fmt.Sprintf("Books of %s", row.WorkTitle) }>
 				for _, book := range row.Books {
 					<li class="library-work__cell-item">@MyBookWorkCell(row, book)</li>
 				}
 			</ul>
 		</li>
+	}
+}
+
+templ MyBooksWorkPreparation(books []domain.MyBook, csrf string) {
+	{{ preparation := myBooksWorkPreparation(books) }}
+	if preparation.Preparing != "" {
+		<p class="library-work__preparing">{ preparation.Preparing }</p>
+	}
+	for _, problem := range preparation.Problems {
+		<div class="library-work__problem">
+			<p>{ problem.Label }</p>
+			if problem.Recovery != "" && problem.RecoveryURL != "" {
+				<form method="post" action={ templ.SafeURL(problem.RecoveryURL) }>
+					<input type="hidden" name="csrf_token" value={ csrf }/>
+					if problem.ExpectedRevision > 0 {
+						<input type="hidden" name="expected_revision" value={ fmt.Sprint(problem.ExpectedRevision) }/>
+					}
+					<button type="submit" class="library-book__recovery">{ problem.Recovery }</button>
+				</form>
+			}
+		</div>
 	}
 }
 
@@ -307,7 +364,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 			<ul class="library-books" role="list">
 				for _, row := range rows {
 					if row.Grouped {
-						@MyBookWorkRow(row)
+						@MyBookWorkRow(csrf, row, browse.ShowHidden, myBooksResultsURL(browse, browse.Page))
 					} else if len(row.Books) > 0 {
 						@MyBookRow(csrf, row.Books[0], browse.RefreshableBookIDs[row.Books[0].Book.ID], "", myBooksResultsURL(browse, browse.Page))
 					}

@@ -173,6 +173,13 @@ func (m MyBook) WorkflowBucket() MyBookBucket {
 	}
 }
 
+// WorkToReadEligible reports whether a bulk Work move should change this Book.
+// The current Reading, Read Books and Books already To Read stay untouched, so
+// "move" never silently means "read again".
+func (m MyBook) WorkToReadEligible() bool {
+	return m.WorkflowBucket() == MyBookBucketInbox
+}
+
 // MatchesBrowseFilter reports whether a visible bucket belongs in the selected
 // disposition and Read-history filters.
 func (b MyBookBucket) MatchesBrowseFilter(disposition BookDisposition, readHistory bool) bool {
