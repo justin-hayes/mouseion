@@ -309,11 +309,15 @@ actions. Bulk To Read moves every Book without reading history, leaves the
 current Book alone, prepares Books in book order, and prepares nothing when the
 Work moves back to Inbox. Hide all and Unhide all change each Book's visibility
 without creating a Work-level state; preparing Books collapse into one line and
-each problem Book keeps its own recovery. A single-Book Work stays an ordinary
-row with its reviewed position; a whole-work unit shows no position. Filters
-count Books and a filtered Work row keeps only its matching cells, with a shape
-line such as "57 Books in 5 works". My Books does not present analysis evidence
-or current-reading state; those remain on the Reading anchor.
+each problem Book keeps its own recovery. A grouped Work row also carries one
+Analysis update notice and one bulk action when its definitions changed; the
+current Reading's Book is named and skipped, and one confirmation discloses the
+Work's Lemma corrections and Occurrence exclusions. A single-Book Work stays an
+ordinary row with its reviewed position and the ordinary per-Book notice; a
+whole-work unit shows no position. Filters count Books and a filtered Work row
+keeps only its matching cells, with a shape line such as "57 Books in 5 works".
+My Books does not present analysis evidence or current-reading state; those
+remain on the Reading anchor.
 
 ## Reading information hierarchy
 
@@ -328,9 +332,12 @@ Current reading is visually distinct but remains book-led rather than a large
 metric card. The between-Books chooser lists candidates in neutral title order
 and groups a Work's multiple To Read Books into one entry with a band table;
 incomplete evidence stays distinct in that table or in an ordinary candidate's
-margin. No learner order, after-reading projection, forecast, next-Book pointer,
-or recommendation is presented. Unassessed or otherwise untrustworthy Books
-remain visible with an explicit evidence gap and no fabricated coverage.
+margin. A grouped entry carries the same one Analysis update notice and bulk
+action as its My Books row, while a single-Book Work keeps the ordinary
+per-Book notice. No learner order, after-reading projection, forecast,
+next-Book pointer, or recommendation is presented. Unassessed or otherwise
+untrustworthy Books remain visible with an explicit evidence gap and no
+fabricated coverage.
 
 ## Finishing current reading and choosing what to read next
 

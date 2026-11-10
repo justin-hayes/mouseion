@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -45,6 +46,52 @@ func (h *Handler) annotateAnalysisUpdates(ctx context.Context, owner string, boo
 	})
 }
 
+// annotateWorkAnalysisUpdates attaches the whole Work's Books to every grouped
+// row, so its one Analysis update notice and bulk action are not narrowed by
+// the visible filter or a search. Ordinary rows keep their own offer.
+func (h *Handler) annotateWorkAnalysisUpdates(ctx context.Context, owner string, rows []domain.MyBooksBrowseRow) {
+	if h.services.AnalysisUpdates == nil || !hasGroupedWork(rows) {
+		return
+	}
+	books, err := h.services.Store.MyBooks.ListMyBooksWithEvidence(ctx, owner)
+	if err != nil {
+		log.Printf("work analysis update candidates unavailable: %v", err)
+		return
+	}
+	h.annotateAnalysisUpdates(ctx, owner, books)
+	byWork := booksByWork(books)
+	for i := range rows {
+		if rows[i].Grouped {
+			rows[i].WorkUpdateBooks = byWork[rows[i].WorkKey]
+		}
+	}
+}
+
+func hasGroupedWork(rows []domain.MyBooksBrowseRow) bool {
+	for _, row := range rows {
+		if row.Grouped && row.WorkKey != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// booksByWork indexes all owned Books by their reviewed Work in book order.
+func booksByWork(books []domain.MyBook) map[string][]domain.MyBook {
+	byWork := make(map[string][]domain.MyBook)
+	for _, book := range books {
+		if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
+			byWork[unit.WorkKey] = append(byWork[unit.WorkKey], book)
+		}
+	}
+	for key := range byWork {
+		sort.SliceStable(byWork[key], func(i, j int) bool {
+			return domain.MyBookWorkOrderLess(byWork[key][i], byWork[key][j])
+		})
+	}
+	return byWork
+}
+
 // sourceIDsForBooks collects the acquired source identities an offer lookup may
 // ask about, preserving the rows' order.
 func sourceIDsForBooks(books []domain.MyBook) []string {
@@ -79,13 +126,7 @@ func analysisUpdateConfirmationText(candidate domain.AnalysisUpdateCandidate) st
 }
 
 func analysisUpdateDecisionsText(corrections, exclusions int) string {
-	var decisions []string
-	if corrections > 0 {
-		decisions = append(decisions, countNoun(corrections, "confirmed lemma correction", "confirmed lemma corrections"))
-	}
-	if exclusions > 0 {
-		decisions = append(decisions, countNoun(exclusions, "occurrence exclusion", "occurrence exclusions"))
-	}
+	decisions := analysisUpdateDecisionParts(corrections, exclusions)
 	if len(decisions) == 0 {
 		return "You have no confirmed lemma corrections or occurrence exclusions on it."
 	}
@@ -96,11 +137,34 @@ func analysisUpdateDecisionsText(corrections, exclusions int) string {
 	return "Your " + strings.Join(decisions, " and ") + " on it " + verb + " not carry over to the new analysis."
 }
 
+// analysisUpdateDecisionParts names the confirmed decisions one analysis keeps
+// apart from a replacement. It is shared by the per-Book and per-Work
+// confirmations, which differ only in their surrounding sentence.
+func analysisUpdateDecisionParts(corrections, exclusions int) []string {
+	var decisions []string
+	if corrections > 0 {
+		decisions = append(decisions, countNoun(corrections, "confirmed lemma correction", "confirmed lemma corrections"))
+	}
+	if exclusions > 0 {
+		decisions = append(decisions, countNoun(exclusions, "occurrence exclusion", "occurrence exclusions"))
+	}
+	return decisions
+}
+
 func countNoun(count int, singular, plural string) string {
 	if count == 1 {
 		return "1 " + singular
 	}
 	return fmt.Sprintf("%d %s", count, plural)
+}
+
+// analysisUpdateOfferChanged reports submission failures that mean the offer
+// the learner confirmed is no longer current. Nothing is queued and the learner
+// reviews the refreshed offer.
+func analysisUpdateOfferChanged(err error) bool {
+	return errors.Is(err, analysis.ErrAnalysisUpdateChanged) ||
+		errors.Is(err, analysis.ErrEPUBRequired) ||
+		errors.Is(err, domain.ErrExtractedUnitsUnavailable)
 }
 
 // myBookAnalysisUpdate returns the Book's offer and its candidate, which is
@@ -143,7 +207,7 @@ func (h *Handler) updateToReadBookAnalysis(w http.ResponseWriter, r *http.Reques
 		redirect(w, r, "/reading?error="+url.QueryEscape("End the Reading first. The current book keeps its frozen evidence; no analysis was queued."))
 	case errors.Is(err, analysis.ErrNotFound):
 		http.NotFound(w, r)
-	case errors.Is(err, analysis.ErrAnalysisUpdateChanged), errors.Is(err, analysis.ErrEPUBRequired), errors.Is(err, domain.ErrExtractedUnitsUnavailable):
+	case analysisUpdateOfferChanged(err):
 		redirect(w, r, "/reading?error="+url.QueryEscape(analysisUpdateChangedMessage))
 	case err != nil:
 		fail(w, err)

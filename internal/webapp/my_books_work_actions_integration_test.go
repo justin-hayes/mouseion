@@ -204,6 +204,16 @@ func TestMyBooksWorkActionsRefuseUnknownWorksAndMissingCSRF(t *testing.T) {
 
 	noCSRF := perform(t, h, http.MethodPost, "/library/works/homer-iliad/to-read", url.Values{}, cookies)
 	assert.Equal(t, http.StatusForbidden, noCSRF.Code)
+
+	unknownUpdate := perform(t, h, http.MethodPost, "/library/works/not-a-work/analysis-update", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusNotFound, unknownUpdate.Code)
+
+	noCSRFUpdate := perform(t, h, http.MethodPost, "/library/works/homer-iliad/analysis-update", url.Values{}, cookies)
+	assert.Equal(t, http.StatusForbidden, noCSRFUpdate.Code)
+
+	noConfirmedBooks := perform(t, h, http.MethodPost, "/library/works/homer-iliad/analysis-update", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, noConfirmedBooks.Code)
+	assert.Contains(t, noConfirmedBooks.Header().Get("Location"), url.QueryEscape(analysisUpdateChangedMessage))
 }
 
 func TestMyBooksWorkHideAllAndUnhideAllChangeEveryBookAndTheCounts(t *testing.T) {

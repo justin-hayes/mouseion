@@ -320,10 +320,15 @@ _Avoid_: model version, pipeline generation, analyzer version (one part of it).
 **Analysis update**:
 The learner-confirmed reanalysis of a Book's unchanged content and extraction
 under a newer Analysis pipeline identity, offered when the identity that
-produced the Book's published analysis differs from the current one. It is not
-stale evidence: the published analysis stays in effect until the update
-publishes, and the update never rewrites earlier analyses, Lemma corrections,
-current-reading snapshots or prepared decks.
+produced the Book's published analysis differs from the current one. For a
+classical Book, the offer compares the prepared definition's source pin and
+interpretation version with the current definition; a curatorial or
+translation-pin change alone gives no offer. It is not stale evidence: the
+published analysis stays in effect until the update publishes, and the update
+never rewrites earlier analyses, Lemma corrections, current-reading snapshots
+or prepared decks. A grouped Work row carries one notice and one bulk action,
+names and skips the current Reading's Book, and confirms the Work's corrections
+and exclusions once.
 _Avoid_: stale analysis, outdated evidence, re-import, migration.
 
 **Vocabulary coverage band**:

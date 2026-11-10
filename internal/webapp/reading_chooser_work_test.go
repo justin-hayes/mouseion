@@ -274,6 +274,80 @@ func TestReadingChooserRendersGroupedWorkEntryAndInlineEntries(t *testing.T) {
 	assert.Less(t, strings.Index(body, "Anabasis"), strings.Index(body, "Iliad"), "grouped and ordinary entries share neutral title order")
 }
 
+func TestReadingChooserGroupedWorkShowsOneAnalysisUpdateOffer(t *testing.T) {
+	books, insights := groupedChooserBooks()
+	offers := map[string]domain.AnalysisUpdateCandidate{}
+	for i := range books {
+		if books[i].Acquired == nil {
+			continue
+		}
+		books[i].Acquired.Source.ID = "source-" + books[i].Book.ID
+		if books[i].Book.ID == "iliad-1" || books[i].Book.ID == "iliad-2" {
+			offers[books[i].Acquired.Source.ID] = workUpdateCandidate(1, 0)
+		}
+	}
+	handler := newChooserHandler(books, nil, insights)
+	handler.services.Classical = workCatalog(t)
+	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: offers}
+
+	view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, classical.Language, "Ancient Greek", "")
+	require.NoError(t, err)
+	var iliad readingChooserEntryView
+	for _, entry := range view.Entries {
+		if entry.Grouped {
+			iliad = entry
+		}
+	}
+	require.True(t, iliad.Grouped)
+	assert.True(t, iliad.Update.Offered())
+	assert.Len(t, iliad.Update.Books, 2, "only the To Read Books with offers join the bulk action")
+	assert.Equal(t, "A newer analysis is available for 2 books.", iliad.Update.Notice())
+
+	var output bytes.Buffer
+	require.NoError(t, ReadingChooserWorkEntry(iliad, "csrf", "", "").Render(context.Background(), &output))
+	body := output.String()
+	assert.Contains(t, body, "A newer analysis is available for 2 books.")
+	assert.Contains(t, body, "Update 2 books of Iliad")
+	assert.Contains(t, body, `action="/library/works/homer-iliad/analysis-update"`)
+	assert.Equal(t, 1, strings.Count(body, "Confirm analysis update"), "a grouped Work shows one bulk confirmation")
+	assert.NotContains(t, body, "Update analysis</summary>", "grouped Books keep no per-Book advice")
+}
+
+func TestReadingChooserSwitchModeNamesTheCurrentBookInItsWorkOffer(t *testing.T) {
+	books, insights := groupedChooserBooks()
+	offers := map[string]domain.AnalysisUpdateCandidate{}
+	for i := range books {
+		if books[i].Acquired == nil {
+			continue
+		}
+		books[i].Acquired.Source.ID = "source-" + books[i].Book.ID
+		if books[i].Book.ID == "iliad-1" || books[i].Book.ID == "iliad-2" {
+			offers[books[i].Acquired.Source.ID] = workUpdateCandidate(0, 0)
+		}
+	}
+	books[0].IsCurrentReading = true
+	books[0].ReadingUnit.WorkKey = "homer-iliad"
+	books[0].ReadingUnit.ConstituentBook = 1
+	handler := newChooserHandler(books, nil, insights)
+	handler.services.Classical = workCatalog(t)
+	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: offers}
+
+	view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, classical.Language, "Ancient Greek", "iliad-1")
+	require.NoError(t, err)
+	var iliad readingChooserEntryView
+	for _, entry := range view.Entries {
+		if entry.Grouped {
+			iliad = entry
+		}
+	}
+	require.True(t, iliad.Grouped)
+	require.NotNil(t, iliad.Update.Current, "the current Book is named even though it has no chooser cell")
+	assert.Equal(t, "Book 1: End the Reading first", iliad.Update.CurrentText())
+	assert.Equal(t, "A newer analysis is available for 1 book.", iliad.Update.Notice())
+	assert.Nil(t, handler.currentChooserBook(context.Background(), fixtures.OwnerID, books, ""))
+	assert.Nil(t, handler.currentChooserBook(context.Background(), fixtures.OwnerID, books, "book-not-owned"))
+}
+
 func TestReadingChooserGroupedInlineEntryOffersStartAndRetry(t *testing.T) {
 	h, cookies, _, store := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = workCatalog(t)

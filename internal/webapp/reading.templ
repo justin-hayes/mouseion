@@ -299,6 +299,7 @@ templ ReadingChooserWorkEntry(entry readingChooserEntryView, csrf, currentBookID
 						</div>
 					}
 				</dl>
+				@WorkAnalysisUpdateNotice(entry.Update, csrf, readingChooserUpdateReturnTo(currentBookID), "button button--outline")
 			</div>
 			<div class="reading-chooser-work__books">
 				for _, item := range entry.Books {
@@ -329,7 +330,9 @@ templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, 
 					<p>By { author }</p>
 				}
 			<div class="reading-chooser-entry__actions">
-				@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
+				if !inWork {
+					@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
+				}
 				@SourceStructureUpdateNotice(item.Book, csrf, "button button--outline")
 				if item.Coverage != nil {
 					if currentBookID != "" {

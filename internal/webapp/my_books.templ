@@ -132,6 +132,7 @@ templ MyBookIdentityDetails(book domain.MyBook) {
 }
 
 templ MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, showHidden bool, returnTo string) {
+	{{ update := workAnalysisUpdateFor(row.WorkKey, row.WorkTitle, myBooksWorkUpdateBooks(row), nil) }}
 	if len(row.Books) > 0 {
 		<li id={ myBooksWorkRowID(row.WorkKey) } class="library-book library-work" aria-labelledby={ "work-title-" + row.WorkKey }>
 			<div class="library-work__identity">
@@ -154,6 +155,7 @@ templ MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, showHidden bool, r
 				if counts := myBooksWorkCountsLabel(row.Books); counts != "" {
 					<p class="library-work__counts">{ counts }</p>
 				}
+				@WorkAnalysisUpdateNotice(update, csrf, returnTo, "btn btn-outline")
 			</div>
 			<div class="library-work__footer">
 				@MyBooksWorkPreparation(row.Books, csrf)

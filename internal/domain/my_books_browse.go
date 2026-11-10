@@ -27,6 +27,11 @@ type MyBooksBrowseRow struct {
 	ConstituentBooks int
 	OwnedBooks       int
 	Books            []MyBook
+	// WorkUpdateBooks carries every owned Book of a grouped Work, including
+	// Books outside the current filter, so the Work-level Analysis update
+	// notice and bulk action count the whole Work just as its other bulk
+	// actions do. Ordinary rows leave it nil.
+	WorkUpdateBooks []MyBook
 }
 
 type MyBooksBrowseResult struct {
