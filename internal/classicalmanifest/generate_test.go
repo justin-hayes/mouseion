@@ -440,12 +440,75 @@ func TestTranslationRemovalNeedsARevisionBump(t *testing.T) {
 	assert.Equal(t, 2, updated.Definitions[0].Revision)
 }
 
+// withoutPassageCredit removes the fixture translation's card label and deck
+// notice from layers.json.
+func withoutPassageCredit(t *testing.T, layers []byte) []byte {
+	t.Helper()
+	parsed, err := classical.ParseLayers(layers)
+	require.NoError(t, err)
+	for index := range parsed.Layers {
+		for fileIndex := range parsed.Layers[index].Files {
+			parsed.Layers[index].Files[fileIndex].PassageLabel = ""
+			parsed.Layers[index].Files[fileIndex].DeckNotice = ""
+		}
+	}
+	encoded, err := json.Marshal(parsed)
+	require.NoError(t, err)
+	return encoded
+}
+
+func TestTranslationWithoutPassageCreditIsRefused(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	uncredited := withoutPassageCredit(t, layers)
+
+	skipped := generate(t, Options{Layers: uncredited, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+	assert.Empty(t, skipped.Definitions, "a new candidate whose translation has no credit is skipped")
+	assert.Contains(t, skipped.Notes, "needs a passageLabel and deckNotice")
+
+	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+	_, err := Generate(Options{Layers: uncredited, Overrides: overrideFile(t, baseOverride()), Manifest: first.Manifest, AllowMissingUpstream: true})
+	require.ErrorContains(t, err, "needs a passageLabel and deckNotice", "verify mode refuses an uncredited translation without the upstream files")
+}
+
+func TestShippedTranslationStaysCreditable(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+
+	withoutTranslation := baseOverride()
+	withoutTranslation.Translation = nil
+	revision := 2
+	withoutTranslation.Revision = &revision
+	_, err := Generate(Options{Layers: withoutPassageCredit(t, layers), Overrides: overrideFile(t, withoutTranslation), Manifest: first.Manifest, UpstreamDir: upstream})
+	require.ErrorContains(t, err, "must stay in layers.json with its passage credit", "a frozen deck still needs the credit of a dropped translation")
+
+	updated := generate(t, Options{Layers: layers, Overrides: overrideFile(t, withoutTranslation), Manifest: first.Manifest, UpstreamDir: upstream})
+	assert.Nil(t, updated.Definitions[0].Translation)
+}
+
 func TestVerifyDetectsAHandEditedPinWithoutUpstreamFiles(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
 	tampered := bytes.Replace(first.Manifest, []byte("ea12338efc8169d5f688e7a8d34d6bb93e9b9d1575a31d3fcf276e086efbf2ea"), []byte(strings.Repeat("0", 64)), 1)
 	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), Manifest: tampered, AllowMissingUpstream: true})
 	require.ErrorContains(t, err, "pin does not match layers.json")
+}
+
+func TestVerifyDetectsAHandEditedTranslationPinWithoutUpstreamFiles(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+	tampered := bytes.Replace(first.Manifest, []byte("ee173f989f4e43bf1654300d50ae970eb8839798bca5c787d36ef120ac126bcd"), []byte(strings.Repeat("0", 64)), 1)
+	require.NotEqual(t, first.Manifest, tampered)
+	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), Manifest: tampered, AllowMissingUpstream: true})
+	require.ErrorContains(t, err, "pin does not match layers.json")
+}
+
+func TestAWorkWithoutATranslationNeedsNoPassageCredit(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	withoutTranslation := baseOverride()
+	withoutTranslation.Translation = nil
+	first := generate(t, Options{Layers: withoutPassageCredit(t, layers), Overrides: overrideFile(t, withoutTranslation), UpstreamDir: upstream})
+	again := generate(t, Options{Layers: withoutPassageCredit(t, layers), Overrides: overrideFile(t, withoutTranslation), Manifest: first.Manifest, UpstreamDir: upstream})
+	assert.Equal(t, first.Manifest, again.Manifest)
 }
 
 // appendFile appends text to a file.

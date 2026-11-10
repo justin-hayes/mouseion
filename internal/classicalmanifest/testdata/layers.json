@@ -30,7 +30,9 @@
         {
           "name": "work.xml",
           "size": 746,
-          "sha256": "ee173f989f4e43bf1654300d50ae970eb8839798bca5c787d36ef120ac126bcd"
+          "sha256": "ee173f989f4e43bf1654300d50ae970eb8839798bca5c787d36ef120ac126bcd",
+          "passageLabel": "Fixture (2026), Alph.",
+          "deckNotice": "Passage context: fixture translation row."
         }
       ]
     }

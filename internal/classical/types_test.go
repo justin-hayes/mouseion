@@ -122,6 +122,17 @@ func TestLayerValidateRefusesInadmissibleLayers(t *testing.T) {
 		{"file name", func(l *Layer) { l.Files[0].Name = "" }, "file without a name"},
 		{"file pin", func(l *Layer) { l.Files[0].SHA256 = "" }, "needs both size and SHA-256"},
 		{"file digest", func(l *Layer) { l.Files[0].SHA256 = "bad" }, "SHA-256 is not 64"},
+		{"label without notice", func(l *Layer) { l.Files[0].PassageLabel = "Label" }, "needs both a passage label and a deck notice"},
+		{"notice without label", func(l *Layer) { l.Files[0].DeckNotice = "Notice" }, "needs both a passage label and a deck notice"},
+		{"credited analysis file", func(l *Layer) {
+			l.LicenceClass = LicenceClassAnalysisResource
+			l.Restriction = RestrictionUnclear
+			l.Files[0].PassageLabel, l.Files[0].DeckNotice = "Label", "Notice"
+		}, "not Source content"},
+		{"credited unpinned file", func(l *Layer) {
+			l.Files[0].Size, l.Files[0].SHA256 = 0, ""
+			l.Files[0].PassageLabel, l.Files[0].DeckNotice = "Label", "Notice"
+		}, "without a SHA-256 pin"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -258,4 +269,24 @@ func mustParseDefinitions(t *testing.T, data []byte) []Definition {
 	definitions, err := ParseDefinitions(data)
 	require.NoError(t, err)
 	return definitions
+}
+
+func TestLayersPassageAttribution(t *testing.T) {
+	credited := validLayer()
+	credited.Files[0].PassageLabel, credited.Files[0].DeckNotice = "Fixture (2026), Alph.", "Fixture notice."
+	require.NoError(t, credited.Validate())
+	uncredited := validLayer()
+	uncredited.Key = "other"
+	uncredited.Files[0].SHA256 = strings.Repeat("b", 64)
+	layers := Layers{Layers: []Layer{uncredited, credited}}
+
+	for _, pin := range []string{strings.Repeat("a", 64), "sha256:" + strings.Repeat("a", 64), " sha256:" + strings.Repeat("a", 64) + " "} {
+		got, ok := layers.PassageAttribution(pin)
+		require.True(t, ok, pin)
+		assert.Equal(t, PassageAttribution{Label: "Fixture (2026), Alph.", Notice: "Fixture notice."}, got)
+	}
+	for _, pin := range []string{"", "sha256:", "sha256:" + strings.Repeat("b", 64), "sha256:" + strings.Repeat("c", 64)} {
+		_, ok := layers.PassageAttribution(pin)
+		assert.False(t, ok, pin)
+	}
 }

@@ -1,9 +1,12 @@
 package cardexport
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,7 +99,7 @@ func TestMakeNoteRendersUnhighlightedPassageContext(t *testing.T) {
 		Sentence: "ἄνθρωπος ὁρᾷ τὸν λόγον;", TargetWord: "λόγον",
 		PassageContext:  "The man sees the word <b>and</b> the passage continues.",
 		PassageCitation: "1.2.17\u201318",
-		BrownsonPin:     "sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7",
+		PassagePin:      brownsonPin,
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, "Passage context: Brownson (1922), Xen. Anab. 1.2.17\u201318. Not a translation of this sentence", note.PassageLabel)
@@ -115,14 +118,56 @@ func TestMakeNoteWithoutPassageHasNoPassageFields(t *testing.T) {
 }
 
 func TestAttributionNoticesNameBrownsonWhenAPassageWasFrozen(t *testing.T) {
-	entries := []RenderInput{{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", BrownsonPin: "sha256:abc"}}
+	entries := []RenderInput{{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", PassagePin: "sha256:abc"}}
 	notices := attributionNotices(entries)
 	assert.Contains(t, notices, "Brownson (1921-22)")
 	assert.Contains(t, notices, "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7")
 	assert.Contains(t, notices, "CC BY-SA 4.0")
-	assert.True(t, deckHasBrownsonPassage(entries))
+	assert.Equal(t, []string{dictionary.BrownsonSourceNotice}, passageNotices(entries), "an unlisted pin falls back to Brownson")
 
 	assert.NotContains(t, attributionNotices([]RenderInput{{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN"}}), "Brownson", "a deck without a passage claims no Brownson notice")
-	assert.False(t, deckHasBrownsonPassage(nil))
+	assert.Empty(t, passageNotices(nil))
 	assert.Contains(t, attributionNotices(entries), "OGA", "the OGA notice is still present")
+}
+
+const brownsonPin = "sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
+
+func TestPassageAttributionComesFromTheTranslationPin(t *testing.T) {
+	t.Run("the Brownson pin keeps its label and notice", func(t *testing.T) {
+		assert.Equal(t, "Passage context: Brownson (1922), Xen. Anab. 1.2.17. Not a translation of this sentence", passageContextLabel(brownsonPin, "1.2.17"))
+		assert.Equal(t, dictionary.BrownsonSourceNotice, passageAttribution(brownsonPin).Notice)
+	})
+
+	t.Run("an unlisted pin falls back to Brownson", func(t *testing.T) {
+		assert.Equal(t, legacyPassageAttribution, passageAttribution("sha256:"+strings.Repeat("0", 64)))
+	})
+
+	t.Run("each distinct translation adds its notice once", func(t *testing.T) {
+		other, ok := otherCreditedTranslation(t)
+		if !ok {
+			t.Skip("layers.json lists no second credited translation")
+		}
+		entries := []RenderInput{{PassagePin: brownsonPin}, {PassagePin: other}, {PassagePin: brownsonPin}, {}}
+		notices := passageNotices(entries)
+		require.Len(t, notices, 2)
+		assert.Contains(t, notices, dictionary.BrownsonSourceNotice)
+		assert.NotEqual(t, legacyPassageAttribution.Label, passageAttribution(other).Label)
+	})
+}
+
+// otherCreditedTranslation returns the pin of a credited translation in the
+// embedded layers.json other than Brownson's.
+func otherCreditedTranslation(t *testing.T) (string, bool) {
+	t.Helper()
+	layers, err := classical.ParseLayers(classical.LayersJSON)
+	require.NoError(t, err)
+	for _, layer := range layers.Layers {
+		for _, file := range layer.Files {
+			pin := "sha256:" + file.SHA256
+			if file.HasPassageAttribution() && pin != brownsonPin {
+				return pin, true
+			}
+		}
+	}
+	return "", false
 }

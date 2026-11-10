@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,9 +12,12 @@ import (
 func TestEmbeddedManifestCarriesTheAnabasisPilot(t *testing.T) {
 	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
 	require.NoError(t, err)
-	require.Len(t, definitions, 1)
-	definition := definitions[0]
-	assert.Equal(t, "xenophon-anabasis-1", definition.Key)
+	byKey := map[string]classical.Definition{}
+	for _, definition := range definitions {
+		byKey[definition.Key] = definition
+	}
+	definition, ok := byKey["xenophon-anabasis-1"]
+	require.True(t, ok)
 	assert.Equal(t, "xenophon-anabasis", definition.WorkKey)
 	assert.Equal(t, "xenophon-anabasis-marchant-1904", definition.EditionKey)
 	assert.Equal(t, "Anabasis", definition.WorkTitle)
@@ -62,4 +66,25 @@ func TestEmbeddedManifestIsSortedByKey(t *testing.T) {
 	for index := 1; index < len(keys); index++ {
 		assert.Less(t, keys[index-1], keys[index])
 	}
+}
+
+func TestEveryEmbeddedTranslationIsCredited(t *testing.T) {
+	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
+	require.NoError(t, err)
+	for _, definition := range definitions {
+		if definition.Translation == nil {
+			continue
+		}
+		attribution, ok := classical.EmbeddedPassageAttribution("sha256:" + definition.Translation.SHA256)
+		require.True(t, ok, definition.Key)
+		assert.NotEmpty(t, attribution.Label, definition.Key)
+		assert.Contains(t, attribution.Notice, definition.Translation.SHA256, "%s: the notice names the pinned file", definition.Key)
+	}
+}
+
+func TestBrownsonKeepsTheNoticeEarlierDecksCarried(t *testing.T) {
+	attribution, ok := classical.EmbeddedPassageAttribution("sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7")
+	require.True(t, ok)
+	assert.Equal(t, "Brownson (1922), Xen. Anab.", attribution.Label)
+	assert.Equal(t, dictionary.BrownsonSourceNotice, attribution.Notice)
 }

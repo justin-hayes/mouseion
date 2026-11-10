@@ -56,7 +56,7 @@ type Entry struct {
 	SentenceOrdinal                                                                   int64
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
 	Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion                     string
-	PassageContext, PassageCitation, BrownsonPin                                      string
+	PassageContext, PassageCitation, PassagePin                                       string
 	// ItemKind distinguishes a vocabulary lemma item from a dictionary-anchored
 	// idiom item. The zero value is a lemma.
 	ItemKind enrichment.ItemKind
@@ -925,7 +925,7 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		Attribution:     attributionField(input.Attribution),
 	}
 	if strings.TrimSpace(input.PassageContext) != "" && strings.TrimSpace(input.PassageCitation) != "" {
-		note.PassageLabel = escapeField(passageContextLabel(input.PassageCitation))
+		note.PassageLabel = escapeField(passageContextLabel(input.PassagePin, input.PassageCitation))
 		note.PassageText = escapeField(input.PassageContext)
 	}
 	if input.ProviderProposed {
@@ -1696,9 +1696,9 @@ const AnalysisModelsNotice = "Lemmas, parts of speech and other annotations come
 // attributionNotices returns every attribution and licence notice the entries
 // require: Wiktionary whenever dictionary evidence was used, the LSJ/Perseus
 // notice whenever a matched LSJ entry was frozen, the imported Ancient Greek
-// source notices whenever the deck is Ancient Greek, the Brownson notice
-// whenever a passage was frozen, and the analysis-models notice whenever the
-// NLP service analysed the deck.
+// source notices whenever the deck is Ancient Greek, each frozen reference
+// translation's own notice, and the analysis-models notice whenever the NLP
+// service analysed the deck.
 func attributionNotices(entries []RenderInput) string {
 	var notices []string
 	if dictionaryAttribution(entries) != "" {
@@ -1710,9 +1710,7 @@ func attributionNotices(entries []RenderInput) string {
 	if deckIsAncientGreek(entries) {
 		notices = append(notices, dictionary.AncientGreekSourceNotice)
 	}
-	if deckHasBrownsonPassage(entries) {
-		notices = append(notices, dictionary.BrownsonSourceNotice)
-	}
+	notices = append(notices, passageNotices(entries)...)
 	if deckIsNLPAnalysed(entries) {
 		notices = append(notices, AnalysisModelsNotice)
 	}
@@ -1731,14 +1729,24 @@ func deckIsNLPAnalysed(entries []RenderInput) bool {
 	return false
 }
 
-// deckHasBrownsonPassage reports whether any entry froze a Brownson passage.
-func deckHasBrownsonPassage(entries []RenderInput) bool {
+// passageNotices returns one notice per distinct reference translation the
+// entries froze a passage from, sorted so the deck text is deterministic.
+func passageNotices(entries []RenderInput) []string {
+	seen := map[string]struct{}{}
+	var notices []string
 	for _, entry := range entries {
-		if strings.TrimSpace(entry.BrownsonPin) != "" {
-			return true
+		if strings.TrimSpace(entry.PassagePin) == "" {
+			continue
 		}
+		notice := passageAttribution(entry.PassagePin).Notice
+		if _, duplicate := seen[notice]; duplicate {
+			continue
+		}
+		seen[notice] = struct{}{}
+		notices = append(notices, notice)
 	}
-	return false
+	sort.Strings(notices)
+	return notices
 }
 
 // ancientGreekLSJPin reports the pinned LSJ revision named by any entry that

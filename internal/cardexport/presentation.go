@@ -377,7 +377,7 @@ func applyPassageContext(entry *Entry, projection CandidateProjection) {
 	if !ok {
 		return
 	}
-	entry.PassageContext, entry.PassageCitation, entry.BrownsonPin = resolvePassage(sentence.Citations, projection.ReferenceTranslations, projection.ReferencePin)
+	entry.PassageContext, entry.PassageCitation, entry.PassagePin = resolvePassage(sentence.Citations, projection.ReferenceTranslations, projection.ReferencePin)
 }
 
 // bindFrozenCacheKeys gives an externally enriched manifest its exact cache

@@ -355,23 +355,25 @@ type canonicalIdiomEvidence struct {
 }
 
 type canonicalEntry struct {
-	Language                  string                    `json:"language"`
-	CanonicalLemma            string                    `json:"canonical_lemma"`
-	UPOS                      string                    `json:"upos"`
-	LexicalDiscriminator      string                    `json:"lexical_discriminator,omitempty"`
-	Headword                  string                    `json:"headword,omitempty"`
-	Idiom                     *canonicalIdiomEvidence   `json:"idiom,omitempty"`
-	Sentence                  string                    `json:"sentence"`
-	TargetWord                string                    `json:"target_word"`
-	Morphology                string                    `json:"morphology"`
-	Gloss                     string                    `json:"gloss,omitempty"`
-	Plural                    string                    `json:"plural,omitempty"`
-	IPA                       string                    `json:"ipa,omitempty"`
-	PrincipalParts            string                    `json:"principal_parts,omitempty"`
-	DictionaryProviderVersion string                    `json:"dictionary_provider_version,omitempty"`
-	PassageContext            string                    `json:"passage_context,omitempty"`
-	PassageCitation           string                    `json:"passage_citation,omitempty"`
-	BrownsonPin               string                    `json:"brownson_pin,omitempty"`
+	Language                  string                  `json:"language"`
+	CanonicalLemma            string                  `json:"canonical_lemma"`
+	UPOS                      string                  `json:"upos"`
+	LexicalDiscriminator      string                  `json:"lexical_discriminator,omitempty"`
+	Headword                  string                  `json:"headword,omitempty"`
+	Idiom                     *canonicalIdiomEvidence `json:"idiom,omitempty"`
+	Sentence                  string                  `json:"sentence"`
+	TargetWord                string                  `json:"target_word"`
+	Morphology                string                  `json:"morphology"`
+	Gloss                     string                  `json:"gloss,omitempty"`
+	Plural                    string                  `json:"plural,omitempty"`
+	IPA                       string                  `json:"ipa,omitempty"`
+	PrincipalParts            string                  `json:"principal_parts,omitempty"`
+	DictionaryProviderVersion string                  `json:"dictionary_provider_version,omitempty"`
+	PassageContext            string                  `json:"passage_context,omitempty"`
+	PassageCitation           string                  `json:"passage_citation,omitempty"`
+	// PassagePin keeps the brownson_pin key so manifests frozen before
+	// translations were credited per file keep their canonical bytes.
+	PassagePin                string                    `json:"brownson_pin,omitempty"`
 	DictionaryEntry           string                    `json:"dictionary_entry,omitempty"`
 	DictionaryEntryID         string                    `json:"dictionary_entry_id,omitempty"`
 	DictionaryPin             string                    `json:"dictionary_pin,omitempty"`
@@ -684,7 +686,7 @@ func canonicalizeManifestEntry(entry Entry, schemaVersion int) (canonicalEntry, 
 	if schemaVersion >= ManifestSchemaVersionV10 {
 		entryCanonical.PassageContext = entry.PassageContext
 		entryCanonical.PassageCitation = entry.PassageCitation
-		entryCanonical.BrownsonPin = entry.BrownsonPin
+		entryCanonical.PassagePin = entry.PassagePin
 	}
 	if schemaVersion >= ManifestSchemaVersionV13 {
 		attribution, err := canonicalizeAttribution(entry.Attribution)

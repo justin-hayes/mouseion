@@ -176,11 +176,15 @@ func TestCatalogUnitFindsAWorkByReadingUnitKey(t *testing.T) {
 func TestLoadCatalogReadsTheEmbeddedRelease(t *testing.T) {
 	catalog, err := LoadCatalog(ManifestJSONL)
 	require.NoError(t, err)
-	assert.Equal(t, 1, catalog.Counts().Works)
-	assert.Equal(t, 1, catalog.Counts().Authors)
-	assert.Equal(t, 1, catalog.Counts().Units)
+	assert.Equal(t, 7, catalog.Counts().Works)
+	assert.Equal(t, 2, catalog.Counts().Authors)
+	assert.Equal(t, 22, catalog.Counts().Units)
 	work, ok := catalog.Work("xenophon-anabasis")
 	require.True(t, ok)
 	assert.Equal(t, "Anabasis", work.Title)
-	assert.True(t, work.TranslationAvailable)
+	for _, key := range []string{"xenophon-anabasis", "plato-apology", "plato-crito", "plato-phaedo", "plato-symposium", "plato-meno", "plato-republic"} {
+		work, ok := catalog.Work(key)
+		require.True(t, ok, key)
+		assert.True(t, work.TranslationAvailable, key)
+	}
 }

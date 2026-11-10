@@ -15,7 +15,7 @@ type RenderInput struct {
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget     string
 	SentenceTranslationTargets                                                []string
 	TargetWord, Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion string
-	PassageContext, PassageCitation, BrownsonPin                              string
+	PassageContext, PassageCitation, PassagePin                               string
 	DictionaryEntry, DictionaryEntryID, DictionaryPin                         string
 	// ItemKind distinguishes a vocabulary lemma card from an idiom card. The
 	// zero value is a lemma (ADR 0114).
@@ -60,7 +60,7 @@ func renderInputFromEntry(entry Entry) RenderInput {
 		SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget,
 		TargetWord: entry.TargetWord, Gloss: entry.Gloss, Plural: entry.Plural, IPA: entry.IPA,
 		PrincipalParts: entry.PrincipalParts, DictionaryProviderVersion: entry.DictionaryProviderVersion,
-		PassageContext: entry.PassageContext, PassageCitation: entry.PassageCitation, BrownsonPin: entry.BrownsonPin,
+		PassageContext: entry.PassageContext, PassageCitation: entry.PassageCitation, PassagePin: entry.PassagePin,
 		DictionaryEntry: entry.DictionaryEntry, DictionaryEntryID: entry.DictionaryEntryID, DictionaryPin: entry.DictionaryPin,
 		LSJSummaryProviderVersion: entry.LSJSummaryProviderVersion,
 		OmittedEvidenceCount:      entry.OmittedEvidenceCount,
