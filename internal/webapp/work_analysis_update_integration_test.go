@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -132,9 +133,9 @@ func workAnalysisUpdateCandidates(t *testing.T, h workUpdateHarness, books ...do
 
 // workAnalysisUpdateForm mirrors the hidden fields the rendered confirmation
 // carries back, limited to the Books that currently have offers.
-func workAnalysisUpdateForm(t *testing.T, h workUpdateHarness, returnTo string, books ...domain.MyBook) url.Values {
+func workAnalysisUpdateForm(t *testing.T, h workUpdateHarness, books ...domain.MyBook) url.Values {
 	t.Helper()
-	form := url.Values{"csrf_token": {h.csrf}, "return_to": {returnTo}}
+	form := url.Values{"csrf_token": {h.csrf}, "return_to": {"/library"}}
 	candidates := workAnalysisUpdateCandidates(t, h, books...)
 	for _, book := range books {
 		candidate, ok := candidates[book.Acquired.Source.ID]
@@ -179,7 +180,7 @@ func TestClassicalWorkAnalysisUpdateSkippedCurrentBookReturnsAfterEnd(t *testing
 	assert.Contains(t, body, `action="/library/works/synthetic-work/analysis-update"`)
 	assert.Equal(t, 1, strings.Count(body, `action="/library/works/synthetic-work/analysis-update"`), "one bulk action per Work row")
 
-	form := workAnalysisUpdateForm(t, h, "/library", second)
+	form := workAnalysisUpdateForm(t, h, second)
 	require.Len(t, form["book_id"], 1)
 	submitted := perform(t, h.h, http.MethodPost, "/library/works/synthetic-work/analysis-update", form, h.cookies)
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
@@ -219,13 +220,20 @@ func TestClassicalWorkAnalysisUpdateQueuesEveryBookInBookOrder(t *testing.T) {
 	assert.Contains(t, body, "A newer analysis is available for 2 books.")
 	assert.Contains(t, body, "Update 2 books of Synthetic Work")
 
+	// A search that narrows the row's cells to one Book does not narrow the
+	// Work's offer: the bulk action still covers the whole Work.
+	filtered := readingGet(t, h.h, "/library?q=Synthetic+Work+1", h.cookies)
+	assert.Contains(t, filtered, "A newer analysis is available for 2 books.")
+	assert.Contains(t, filtered, `name="book_id" value="`+h.firstID+`"`)
+	assert.Contains(t, filtered, `name="book_id" value="`+h.secondID+`"`)
+
 	// Reading's chooser carries the same grouped offer.
 	chooser := readingGet(t, h.h, "/reading", h.cookies)
 	assert.Contains(t, chooser, "A newer analysis is available for 2 books.")
 	assert.Contains(t, chooser, "Update 2 books of Synthetic Work")
 	assert.Contains(t, chooser, `action="/library/works/synthetic-work/analysis-update"`)
 
-	form := workAnalysisUpdateForm(t, h, "/library", first, second)
+	form := workAnalysisUpdateForm(t, h, first, second)
 	require.Len(t, form["book_id"], 2)
 	submitted := perform(t, h.h, http.MethodPost, "/library/works/synthetic-work/analysis-update", form, h.cookies)
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
@@ -246,7 +254,7 @@ func TestClassicalWorkAnalysisUpdateRevalidatesEachBook(t *testing.T) {
 	second := h.book(t, h.secondID)
 	bumpInterpretation(t, h.pool, "oga-agdt-upos/6", h.fixture.unitOneKey, h.fixture.unitTwoKey)
 
-	form := workAnalysisUpdateForm(t, h, "/library", first, second)
+	form := workAnalysisUpdateForm(t, h, first, second)
 	require.Len(t, form["book_id"], 2)
 
 	// Another tab changes only the second Book's target after the page was
@@ -272,11 +280,87 @@ func TestClassicalWorkAnalysisUpdateRevalidatesEachBook(t *testing.T) {
 	assert.Contains(t, refreshed.Target.Key(), "oga-agdt-upos/7")
 }
 
+func TestClassicalWorkAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *testing.T) {
+	ctx, store, pool, h, service, client, requests, fixture := preparationHarness(t)
+	learner := createAccount(t, ctx, store, "work-analysis-update-publish", "learner-password")
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	addClassicalWork(t, h, cookies, csrf, "synthetic-work")
+	moved := perform(t, h, http.MethodPost, "/library/works/synthetic-work/to-read", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, moved.Code, moved.Body.String())
+	require.NoError(t, client.Start(ctx))
+	testutil.StopOnCleanup(t, "work analysis update publish client", client.Stop)
+	waitForPreparedBooks(t, pool, learner.ID, 2)
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
+	h.services.AnalysisUpdates = service
+
+	owned := booksByReadingUnit(t, store, learner.ID)
+	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
+	require.NotEmpty(t, firstID)
+	require.NotEmpty(t, secondID)
+	oldRun := preparedRunID(t, pool, learner.ID, secondID)
+	addLemmaDecisions(t, pool, learner.ID, secondID, oldRun, 1, 1)
+	_, err := store.PutKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
+	require.NoError(t, err)
+
+	// An interpretation-only change reuses the stored work file. The update
+	// publishes and rewrites the prepared-definition record, while the earlier
+	// run and its decisions stay in place.
+	bumpInterpretation(t, pool, "oga-agdt-upos/6", fixture.unitOneKey, fixture.unitTwoKey)
+	harness := workUpdateHarness{
+		ctx: ctx, store: store, pool: pool, h: h, updates: service,
+		learnerID: learner.ID, cookies: cookies, csrf: csrf, fixture: fixture,
+		firstID: firstID, secondID: secondID,
+	}
+	first := harness.book(t, firstID)
+	second := harness.book(t, secondID)
+	form := workAnalysisUpdateForm(t, harness, first, second)
+	submitted := perform(t, harness.h, http.MethodPost, "/library/works/synthetic-work/analysis-update", form, harness.cookies)
+	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
+
+	require.Eventually(t, func() bool {
+		var count int
+		if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM classical_prepared_definitions
+			WHERE owner_id=$1 AND interpretation_version=$2`, learner.ID, "oga-agdt-upos/6").Scan(&count); err != nil {
+			return false
+		}
+		return count == 2
+	}, 60*time.Second, 50*time.Millisecond, "both successful updates refresh the prepared-definition record")
+	assert.Equal(t, int64(1), requests.source.Load(), "an interpretation-only update reuses the stored work file")
+
+	newRun := preparedRunID(t, pool, learner.ID, secondID)
+	assert.NotEqual(t, oldRun, newRun)
+	var published string
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`,
+		learner.ID, secondID).Scan(&published))
+	assert.Equal(t, newRun, published, "the successful update publishes its new analysis")
+	assert.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, learner.ID, secondID, oldRun), "the earlier correction and exclusion stay frozen")
+	assert.Zero(t, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, learner.ID, secondID, newRun), "a correction does not carry over")
+	known, err := store.IsKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB")
+	require.NoError(t, err)
+	assert.True(t, known, "Known vocabulary is unchanged by an Analysis update")
+}
+
 func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *testing.T) {
 	h := newWorkUpdateHarness(t)
 
 	body := readingGet(t, h.h, "/library", h.cookies)
 	assert.NotContains(t, body, "A newer analysis is available.", "a prepared Book starts current")
+
+	// A confirmation replayed after the offer disappeared queues nothing and
+	// returns the refreshed state.
+	first := h.book(t, h.firstID)
+	stale := perform(t, h.h, http.MethodPost, "/library/works/synthetic-work/analysis-update", url.Values{
+		"csrf_token":      {h.csrf},
+		"return_to":       {"/library"},
+		"book_id":         {h.firstID},
+		"source_id":       {first.Acquired.Source.ID},
+		"expected_run_id": {"stale-run"},
+		"expected_target": {"stale-target"},
+	}, h.cookies)
+	require.Equal(t, http.StatusSeeOther, stale.Code, stale.Body.String())
+	assert.Contains(t, stale.Header().Get("Location"), url.QueryEscape("No analysis update was queued."))
+	assert.Contains(t, stale.Header().Get("Location"), url.QueryEscape("Skipped 1 book whose offer changed"))
 
 	// A curatorial correction alone is not content-bearing.
 	_, err := h.pool.Exec(context.Background(), `UPDATE works SET title='Synthetic Work Revised' WHERE title='Synthetic Work'`)

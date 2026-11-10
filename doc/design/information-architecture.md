@@ -335,8 +335,9 @@ incomplete evidence stays distinct in that table or in an ordinary candidate's
 margin. A grouped entry carries the same one Analysis update notice and bulk
 action as its My Books row, while a single-Book Work keeps the ordinary
 per-Book notice. No learner order, after-reading projection, forecast,
-next-Book pointer, or recommendation is presented. Unassessed or otherwise untrustworthy Books
-remain visible with an explicit evidence gap and no fabricated coverage.
+next-Book pointer, or recommendation is presented. Unassessed or otherwise
+untrustworthy Books remain visible with an explicit evidence gap and no
+fabricated coverage.
 
 ## Finishing current reading and choosing what to read next
 

@@ -523,6 +523,15 @@ func myBooksWorkActionURL(workKey, action string) string {
 	return "/library/works/" + url.PathEscape(workKey) + "/" + action
 }
 
+// myBooksWorkUpdateBooks is the whole Work when the handler loaded it, and the
+// visible cells for an in-memory fallback that did not.
+func myBooksWorkUpdateBooks(row domain.MyBooksBrowseRow) []domain.MyBook {
+	if len(row.WorkUpdateBooks) > 0 {
+		return row.WorkUpdateBooks
+	}
+	return row.Books
+}
+
 // myBooksWorkSizeLabel states the Work's reviewed size and how much of it the
 // learner owns: "all 24 books" or "2 of 24 books".
 func myBooksWorkSizeLabel(row domain.MyBooksBrowseRow) string {

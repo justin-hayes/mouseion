@@ -73,10 +73,19 @@ func workAnalysisUpdateFor(workKey, workTitle string, books []domain.MyBook, cur
 }
 
 func workAnalysisUpdateTitle(books []domain.MyBook, current *domain.MyBook) string {
+	fallback := ""
 	for _, book := range books {
-		if unit := book.ReadingUnit; unit != nil && strings.TrimSpace(unit.WorkTitle) != "" {
-			return unit.WorkTitle
+		if unit := book.ReadingUnit; unit != nil {
+			if strings.TrimSpace(unit.WorkTitle) != "" {
+				return unit.WorkTitle
+			}
 		}
+		if fallback == "" {
+			fallback = myBookDisplayTitle(book)
+		}
+	}
+	if fallback != "" {
+		return fallback
 	}
 	if current != nil {
 		return myBookDisplayTitle(*current)
@@ -165,9 +174,9 @@ func workAnalysisUpdateURL(workKey string) string {
 // carried too, so a Book whose acquisition changed is skipped rather than
 // queued against different content.
 type workAnalysisUpdateExpectation struct {
-	SourceID     string
-	PublishedRun string
-	Target       string
+	SourceID       string
+	PublishedRunID string
+	Target         string
 }
 
 // updateWorkAnalysis queues one ensure-once classical preparation job per
@@ -257,13 +266,13 @@ func (h *Handler) submitWorkAnalysisBook(ctx context.Context, owner string, book
 	case domain.AnalysisUpdateNone:
 		return workAnalysisUpdateSkipped
 	}
-	_, err := h.services.AnalysisUpdates.SubmitAnalysisUpdate(ctx, owner, book.Book.ID, book.Acquired.Source.ID, expected.PublishedRun, expected.Target)
+	_, err := h.services.AnalysisUpdates.SubmitAnalysisUpdate(ctx, owner, book.Book.ID, book.Acquired.Source.ID, expected.PublishedRunID, expected.Target)
 	switch {
 	case err == nil:
 		return workAnalysisUpdateQueued
 	case errors.Is(err, analysis.ErrCurrentBook):
 		return workAnalysisUpdateCurrentSkipped
-	case errors.Is(err, analysis.ErrAnalysisUpdateChanged), errors.Is(err, analysis.ErrNotFound), errors.Is(err, analysis.ErrEPUBRequired), errors.Is(err, domain.ErrExtractedUnitsUnavailable):
+	case analysisUpdateOfferChanged(err), errors.Is(err, analysis.ErrNotFound):
 		return workAnalysisUpdateSkipped
 	default:
 		log.Printf("mouseion: work analysis update failed for owner %s book %s: %s", owner, book.Book.ID, err)
@@ -313,7 +322,7 @@ func workAnalysisUpdateExpectations(r *http.Request) (map[string]workAnalysisUpd
 		if _, duplicate := expectations[bookID]; duplicate {
 			return nil, false
 		}
-		expectations[bookID] = workAnalysisUpdateExpectation{SourceID: sourceID, PublishedRun: runID, Target: target}
+		expectations[bookID] = workAnalysisUpdateExpectation{SourceID: sourceID, PublishedRunID: runID, Target: target}
 	}
 	return expectations, true
 }

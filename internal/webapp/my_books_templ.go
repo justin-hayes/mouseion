@@ -831,7 +831,7 @@ func MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, showHidden bool, re
 			templ_7745c5c3_Var42 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		update := workAnalysisUpdateFor(row.WorkKey, row.WorkTitle, row.Books, nil)
+		update := workAnalysisUpdateFor(row.WorkKey, row.WorkTitle, myBooksWorkUpdateBooks(row), nil)
 		if len(row.Books) > 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<li id=\"")
 			if templ_7745c5c3_Err != nil {
