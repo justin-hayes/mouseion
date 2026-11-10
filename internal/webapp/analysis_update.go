@@ -79,13 +79,7 @@ func analysisUpdateConfirmationText(candidate domain.AnalysisUpdateCandidate) st
 }
 
 func analysisUpdateDecisionsText(corrections, exclusions int) string {
-	var decisions []string
-	if corrections > 0 {
-		decisions = append(decisions, countNoun(corrections, "confirmed lemma correction", "confirmed lemma corrections"))
-	}
-	if exclusions > 0 {
-		decisions = append(decisions, countNoun(exclusions, "occurrence exclusion", "occurrence exclusions"))
-	}
+	decisions := analysisUpdateDecisionParts(corrections, exclusions)
 	if len(decisions) == 0 {
 		return "You have no confirmed lemma corrections or occurrence exclusions on it."
 	}
@@ -94,6 +88,20 @@ func analysisUpdateDecisionsText(corrections, exclusions int) string {
 		verb = "does"
 	}
 	return "Your " + strings.Join(decisions, " and ") + " on it " + verb + " not carry over to the new analysis."
+}
+
+// analysisUpdateDecisionParts names the confirmed decisions one analysis keeps
+// apart from a replacement. It is shared by the per-Book and per-Work
+// confirmations, which differ only in their surrounding sentence.
+func analysisUpdateDecisionParts(corrections, exclusions int) []string {
+	var decisions []string
+	if corrections > 0 {
+		decisions = append(decisions, countNoun(corrections, "confirmed lemma correction", "confirmed lemma corrections"))
+	}
+	if exclusions > 0 {
+		decisions = append(decisions, countNoun(exclusions, "occurrence exclusion", "occurrence exclusions"))
+	}
+	return decisions
 }
 
 func countNoun(count int, singular, plural string) string {

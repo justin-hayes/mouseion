@@ -63,6 +63,9 @@ type readingChooserEntryView struct {
 	WorkBooks  int
 	Books      []readingChooserBookView
 	Bands      []readingChooserBandView
+	// Update is the grouped Work's one Analysis update offer. A single-Book
+	// Work stays an ordinary entry and keeps the per-Book notice.
+	Update workAnalysisUpdate
 }
 
 // readingChooserBandView is one non-empty band row inside a grouped Work entry.
@@ -413,7 +416,47 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 		views = append(views, candidate)
 	}
 	view.Entries = readingChooserEntries(views)
+	attachReadingChooserWorkAnalysisUpdates(view.Entries, h.currentChooserBook(ctx, owner, books, excludeBookID))
 	return view, nil
+}
+
+// currentChooserBook returns the switch-mode current Book with its Analysis
+// update offer attached. The Book has no cell in the chooser, but its Work's
+// row still names it when it must End first.
+func (h *Handler) currentChooserBook(ctx context.Context, owner string, books []domain.MyBook, excludeBookID string) *domain.MyBook {
+	if strings.TrimSpace(excludeBookID) == "" {
+		return nil
+	}
+	for _, book := range books {
+		if book.Book.ID != excludeBookID {
+			continue
+		}
+		annotated := []domain.MyBook{book}
+		h.annotateAnalysisUpdates(ctx, owner, annotated)
+		return &annotated[0]
+	}
+	return nil
+}
+
+// attachReadingChooserWorkAnalysisUpdates gives each grouped Work entry one
+// Analysis update offer. current is consulted when the current Reading's Book
+// belongs to the same Work but is deliberately absent from the entry's cells.
+func attachReadingChooserWorkAnalysisUpdates(entries []readingChooserEntryView, current *domain.MyBook) {
+	for i := range entries {
+		if !entries[i].Grouped {
+			continue
+		}
+		books := make([]domain.MyBook, 0, len(entries[i].Books))
+		for _, item := range entries[i].Books {
+			books = append(books, item.Book)
+		}
+		workKey := strings.TrimPrefix(entries[i].Key, "work:")
+		var currentForWork *domain.MyBook
+		if current != nil && current.ReadingUnit != nil && current.ReadingUnit.WorkKey == workKey {
+			currentForWork = current
+		}
+		entries[i].Update = workAnalysisUpdateFor(workKey, entries[i].Title, books, currentForWork)
+	}
 }
 
 // readingChooserCandidate reports whether a Book belongs in the chooser at all:
@@ -692,6 +735,15 @@ func readingChooserPageTitle(view readingChooserPageView) string {
 		return "Switch current reading"
 	}
 	return readingChooserTitle(view)
+}
+
+// readingChooserUpdateReturnTo keeps a Work update confirmation on the chooser
+// it was offered from.
+func readingChooserUpdateReturnTo(currentBookID string) string {
+	if currentBookID != "" {
+		return "/reading/switch"
+	}
+	return "/reading"
 }
 
 func readingChooserPageDescription(view readingChooserPageView) string {

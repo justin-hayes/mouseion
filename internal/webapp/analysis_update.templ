@@ -2,6 +2,45 @@ package webapp
 
 import "github.com/justin-hayes/mouseion/internal/domain"
 
+// WorkAnalysisUpdateNotice is one grouped Work's Analysis update notice and
+// bulk action (ADR 0116). The current Reading's Book is named but never
+// included in the confirmation, and the action remains a native disclosure that
+// works without JavaScript.
+templ WorkAnalysisUpdateNotice(update workAnalysisUpdate, csrf, returnTo, buttonClass string) {
+	if update.Offered() {
+		<div class="analysis-update analysis-update--work">
+			<p>
+				<strong>{ update.Notice() }</strong>
+				if update.Current != nil {
+					<span class="analysis-update__current"> { update.CurrentText() }</span>
+				}
+			</p>
+			if len(update.Books) > 0 {
+				@Confirmation(update.ActionLabel(), update.ConfirmationText(), StatusNeutral) {
+					<form method="post" action={ templ.SafeURL(workAnalysisUpdateURL(update.WorkKey)) }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<input type="hidden" name="return_to" value={ returnTo }/>
+						for _, item := range update.Books {
+							<input type="hidden" name="book_id" value={ item.Book.Book.ID }/>
+							<input type="hidden" name="source_id" value={ item.Book.Acquired.Source.ID }/>
+							<input type="hidden" name="expected_run_id" value={ item.Candidate.PublishedRunID }/>
+							<input type="hidden" name="expected_target" value={ item.Candidate.Target.Key() }/>
+						}
+						if losses := update.Losses(); len(losses) > 0 {
+							<ul class="analysis-update__losses">
+								for _, loss := range losses {
+									<li>{ loss.BookLabel }: { loss.Text }</li>
+								}
+							</ul>
+						}
+						<button class={ buttonClass } type="submit">Confirm analysis update</button>
+					</form>
+				}
+			}
+		</div>
+	}
+}
+
 // AnalysisUpdateNotice is the Book-level Analysis update notice (ADR 0107). The
 // action is a native disclosure confirmation, so it works without JavaScript.
 templ AnalysisUpdateNotice(book domain.MyBook, csrf, buttonClass string) {

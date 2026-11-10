@@ -29,8 +29,9 @@ func classicalUpdateTarget(interpretationVersion, sourceFileSHA256 string, revis
 
 // classicalUpdateCandidates returns, by source ID, imported classical Books
 // whose prepared definition differs from the current Reading unit. A missing
-// record is an update; so is a changed source pin, interpretation version or
-// definition revision.
+// record is an update; so is a changed source pin or interpretation version. A
+// definition revision that changed only curatorial metadata or the translation
+// pin gives no offer (ADR 0116).
 func (s *Service) classicalUpdateCandidates(ctx context.Context, owner string, sourceIDs []string) (map[string]domain.AnalysisUpdateCandidate, error) {
 	candidates := map[string]domain.AnalysisUpdateCandidate{}
 	if s == nil || s.pool == nil || len(sourceIDs) == 0 {
@@ -68,8 +69,12 @@ func (s *Service) classicalUpdateCandidates(ctx context.Context, owner string, s
 			&preparedRevision, &preparedSHA, &preparedInterpretation, &corrections, &exclusions); err != nil {
 			return nil, fmt.Errorf("read classical analysis update identity: %w", err)
 		}
-		if preparedRevision != nil && *preparedRevision == revision && preparedSHA != nil &&
-			*preparedSHA == sha && preparedInterpretation != nil && *preparedInterpretation == interpretation {
+		// The prepared revision is deliberately not compared: a revision that
+		// changes only curatorial metadata or the translation pin must not offer
+		// an Analysis update. The source pin and interpretation version are the
+		// content-bearing identities (ADR 0116).
+		if preparedRevision != nil && preparedSHA != nil && *preparedSHA == sha &&
+			preparedInterpretation != nil && *preparedInterpretation == interpretation {
 			continue
 		}
 		candidates[sourceID] = domain.AnalysisUpdateCandidate{
