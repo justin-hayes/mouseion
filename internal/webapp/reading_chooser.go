@@ -57,6 +57,7 @@ const (
 type readingChooserEntryView struct {
 	Key        string
 	Grouped    bool
+	WorkKey    string
 	Title      string
 	Author     string
 	GreekTitle string
@@ -450,12 +451,11 @@ func attachReadingChooserWorkAnalysisUpdates(entries []readingChooserEntryView, 
 		for _, item := range entries[i].Books {
 			books = append(books, item.Book)
 		}
-		workKey := strings.TrimPrefix(entries[i].Key, "work:")
 		var currentForWork *domain.MyBook
-		if current != nil && current.ReadingUnit != nil && current.ReadingUnit.WorkKey == workKey {
+		if current != nil && current.ReadingUnit != nil && current.ReadingUnit.WorkKey == entries[i].WorkKey {
 			currentForWork = current
 		}
-		entries[i].Update = workAnalysisUpdateFor(workKey, entries[i].Title, books, currentForWork)
+		entries[i].Update = workAnalysisUpdateFor(entries[i].WorkKey, entries[i].Title, books, currentForWork)
 	}
 }
 
@@ -590,6 +590,7 @@ func readingChooserWorkEntry(key string, books []readingChooserBookView) reading
 	entry := readingChooserEntryView{
 		Key:        "work:" + key,
 		Grouped:    true,
+		WorkKey:    key,
 		Title:      first.WorkTitle,
 		Author:     first.WorkAuthor,
 		GreekTitle: first.WorkGreekTitle,

@@ -175,7 +175,7 @@ func TestClassicalWorkAnalysisUpdateSkippedCurrentBookReturnsAfterEnd(t *testing
 	assert.Contains(t, body, "A newer analysis is available for 1 book.")
 	assert.Contains(t, body, "Book 1: End the Reading first")
 	assert.Contains(t, body, "Update 1 book of Synthetic Work")
-	assert.Contains(t, body, "Together, the Books in this work have 2 confirmed lemma corrections and 1 occurrence exclusion, which will not carry over to their new analyses.")
+	assert.Contains(t, body, "Together, the Books to be updated have 2 confirmed lemma corrections and 1 occurrence exclusion, which will not carry over to their new analyses.")
 	assert.Contains(t, body, "Synthetic Work, Book 2: 2 confirmed lemma corrections and 1 occurrence exclusion")
 	assert.Contains(t, body, `action="/library/works/synthetic-work/analysis-update"`)
 	assert.Equal(t, 1, strings.Count(body, `action="/library/works/synthetic-work/analysis-update"`), "one bulk action per Work row")

@@ -62,7 +62,7 @@ func TestWorkAnalysisUpdateGroupsEligibleBooksAndSkipsTheCurrentReading(t *testi
 	assert.Equal(t, "A newer analysis is available for 2 books.", update.Notice())
 	assert.Equal(t, "Update 2 books of Synthetic Work", update.ActionLabel())
 	assert.Equal(t, "Book 2: End the Reading first", update.CurrentText())
-	assert.Contains(t, update.ConfirmationText(), "Together, the Books in this work have 1 confirmed lemma correction, which will not carry over to their new analyses.")
+	assert.Contains(t, update.ConfirmationText(), "Together, the Books to be updated have 1 confirmed lemma correction, which will not carry over to their new analyses.")
 	assert.Contains(t, update.ConfirmationText(), workAnalysisUpdatePublished)
 	assert.Contains(t, update.ConfirmationText(), workAnalysisUpdateFrozen)
 	assert.Contains(t, update.ConfirmationText(), "Book 2: End the Reading first; nothing is queued for it.")

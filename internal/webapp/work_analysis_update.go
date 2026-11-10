@@ -140,7 +140,7 @@ func (u workAnalysisUpdate) decisionsText() string {
 	if len(decisions) == 0 {
 		return "No Book in this work has confirmed lemma corrections or occurrence exclusions."
 	}
-	return "Together, the Books in this work have " + strings.Join(decisions, " and ") + ", which will not carry over to their new analyses."
+	return "Together, the Books to be updated have " + strings.Join(decisions, " and ") + ", which will not carry over to their new analyses."
 }
 
 // workAnalysisUpdateLoss is one Book's disclosed losses in the confirmation.
