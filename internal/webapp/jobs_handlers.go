@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -38,7 +39,16 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, preparationJobs, r.URL.Query().Get("message"), jobBookContexts))
+	catalogCode := ""
+	legacy, legacyErr := h.services.Store.Catalogs.ListLegacyLanguageRows(r.Context(), classical.Language)
+	if legacyErr != nil {
+		fail(w, legacyErr)
+		return
+	}
+	if len(legacy) > 0 {
+		catalogCode = classical.LegacyRowsCode
+	}
+	render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, preparationJobs, catalogCode, r.URL.Query().Get("message"), jobBookContexts))
 }
 func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -296,7 +306,7 @@ func classicalPreparationJobState(state string) string {
 	switch state {
 	case "completed":
 		return "Completed"
-	case "discarded", "cancelled":
+	case "failed", "discarded", "cancelled":
 		return "Failed"
 	case "running":
 		return "Running"
@@ -309,7 +319,7 @@ func classicalPreparationJobTone(state string) StatusTone {
 	switch state {
 	case "completed":
 		return StatusSuccess
-	case "discarded", "cancelled":
+	case "failed", "discarded", "cancelled":
 		return StatusDanger
 	case "running", "available", "pending", "retryable", "scheduled":
 		return StatusInfo

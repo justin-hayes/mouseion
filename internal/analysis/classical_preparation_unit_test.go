@@ -55,6 +55,14 @@ type preparationStoreStub struct {
 	recordErr         error
 	translationExists bool
 	translationErr    error
+
+	legacyRows []domain.LegacyLanguageRows
+	legacyErr  error
+
+	failure      domain.ClassicalPreparationFailureRecord
+	failureFound bool
+	failureErr   error
+	failureCalls int
 }
 
 func (s *preparationStoreStub) HasReferenceTranslations(context.Context, string) (bool, error) {
@@ -82,6 +90,20 @@ func (s *preparationStoreStub) PutClassicalSource(_ context.Context, source doma
 func (s *preparationStoreStub) PutClassicalPreparedDefinition(_ context.Context, record domain.ClassicalPreparedDefinition) error {
 	s.record = record
 	return s.recordErr
+}
+
+func (s *preparationStoreStub) ListLegacyLanguageRows(context.Context, string) ([]domain.LegacyLanguageRows, error) {
+	return s.legacyRows, s.legacyErr
+}
+
+func (s *preparationStoreStub) GetClassicalPreparationFailure(context.Context, string, string) (domain.ClassicalPreparationFailureRecord, bool, error) {
+	return s.failure, s.failureFound, s.failureErr
+}
+
+func (s *preparationStoreStub) PutClassicalPreparationFailure(_ context.Context, record domain.ClassicalPreparationFailureRecord) error {
+	s.failure, s.failureFound = record, true
+	s.failureCalls++
+	return s.failureErr
 }
 
 type preparationWriterStub struct {
@@ -178,6 +200,102 @@ func TestSubmitClassicalPreparationPreTransactionOutcomes(t *testing.T) {
 func withWithdrawn(target domain.ClassicalPreparationTarget) domain.ClassicalPreparationTarget {
 	target.Withdrawn = true
 	return target
+}
+
+func TestClassicalPreparationFailureClassification(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		err   error
+		stage domain.ClassicalPreparationFailure
+		code  string
+	}{
+		{name: "nil", err: nil, stage: domain.ClassicalPreparationFailureNone},
+		{name: "withdrawn", err: ErrWithdrawnClassicalDefinition, stage: domain.ClassicalPreparationFailureWithdrawn, code: classical.WithdrawnCode},
+		{name: "legacy", err: classical.ErrLegacyRows, stage: domain.ClassicalPreparationFailureCatalog, code: classical.LegacyRowsCode},
+		{name: "download", err: &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}, stage: domain.ClassicalPreparationFailureFetch, code: ancientgreek.CodeSourceDownloadFailed},
+		{name: "pin mismatch", err: &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}, stage: domain.ClassicalPreparationFailureSource, code: ancientgreek.CodePinMismatch},
+		{name: "oversize", err: &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}, stage: domain.ClassicalPreparationFailureSource, code: ancientgreek.CodeOversize},
+		{name: "layer", err: &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}, stage: domain.ClassicalPreparationFailureSource, code: ancientgreek.CodeSourceLayerUnknown},
+		{name: "adapter", err: &ancientgreek.ImportError{Code: ancientgreek.CodeMalformed}, stage: domain.ClassicalPreparationFailureSource, code: ancientgreek.CodeAdapterRefused},
+		{name: "unknown import code", err: &ancientgreek.ImportError{Code: ancientgreek.CodeReadFailed}, stage: domain.ClassicalPreparationFailureImport, code: classical.PreparationFailedCode},
+		{name: "generic", err: errors.New("write failed"), stage: domain.ClassicalPreparationFailureImport, code: classical.PreparationFailedCode},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			stage, code := ClassicalPreparationFailure(tt.err)
+			assert.Equal(t, tt.stage, stage)
+			assert.Equal(t, tt.code, code)
+		})
+	}
+}
+
+func TestClassicalPreparationSubmissionStateOutcomes(t *testing.T) {
+	t.Parallel()
+	target, _ := preparationFixture(t)
+	tests := map[string]struct {
+		store    *preparationStoreStub
+		complete bool
+		terminal bool
+		wantErr  string
+	}{
+		"legacy rows":    {store: &preparationStoreStub{legacyRows: []domain.LegacyLanguageRows{{OwnerID: "owner-1"}}}, wantErr: classical.LegacyRowsCode},
+		"legacy error":   {store: &preparationStoreStub{legacyErr: errors.New("legacy check failed")}, wantErr: "legacy check failed"},
+		"complete error": {store: &preparationStoreStub{completeErr: errors.New("complete failed")}, wantErr: "complete failed"},
+		"complete":       {store: &preparationStoreStub{complete: true}, complete: true},
+		"terminal error": {store: &preparationStoreStub{failureFound: true, failureErr: errors.New("failure failed")}, wantErr: "failure failed"},
+		"terminal": {store: &preparationStoreStub{failureFound: true, failure: domain.ClassicalPreparationFailureRecord{
+			DefinitionRevision: target.DefinitionRevision, Stage: domain.ClassicalPreparationFailureSource,
+		}}, terminal: true},
+		"retryable": {store: &preparationStoreStub{failureFound: true, failure: domain.ClassicalPreparationFailureRecord{
+			DefinitionRevision: target.DefinitionRevision - 1, Stage: domain.ClassicalPreparationFailureSource,
+		}}},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			service := &Service{classicalStore: tt.store}
+			got, err := service.classicalPreparationSubmissionState(context.Background(), "owner-1", "book-1", target)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.complete, got.Complete)
+			assert.Equal(t, tt.terminal, got.Terminal)
+		})
+	}
+}
+
+func TestClassicalPreparationWorkerRefusesLegacyCatalogAndRecordsFailure(t *testing.T) {
+	t.Parallel()
+	target, _ := preparationFixture(t)
+	store := &preparationStoreStub{target: target, legacyRows: []domain.LegacyLanguageRows{{OwnerID: target.OwnerID}}}
+	worker := &ClassicalPreparationWorker{Store: store, Writer: &preparationWriterStub{}, Config: ClassicalPreparationConfig{}}
+	err := worker.Work(context.Background(), preparationJob(target))
+	require.ErrorIs(t, err, classical.ErrLegacyRows)
+	require.Equal(t, 1, store.failureCalls)
+	assert.Equal(t, domain.ClassicalPreparationFailureCatalog, store.failure.Stage)
+	assert.Equal(t, classical.LegacyRowsCode, store.failure.Code)
+}
+
+func TestClassicalPreparationWorkerFailureRecording(t *testing.T) {
+	t.Parallel()
+	target, _ := preparationFixture(t)
+	worker := &ClassicalPreparationWorker{Store: &preparationStoreStub{target: target}}
+	store, ok := worker.Store.(*preparationStoreStub)
+	require.True(t, ok)
+	worker.recordFailure(context.Background(), target, nil)
+	assert.Zero(t, store.failureCalls, "a success records no failure")
+	worker.recordFailure(context.Background(), target, errors.New("write failed"))
+	assert.Equal(t, 1, store.failureCalls)
+
+	failingStore := &preparationStoreStub{target: target, failureErr: errors.New("store failed")}
+	failingWorker := &ClassicalPreparationWorker{Store: failingStore}
+	failingWorker.recordFailure(context.Background(), target, errors.New("write failed"))
+	assert.Equal(t, 1, failingStore.failureCalls, "a store failure is logged, not propagated")
 }
 
 func TestClassicalPreparationWorkerRefusesMissingDependencies(t *testing.T) {

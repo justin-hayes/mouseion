@@ -351,15 +351,17 @@ templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, 
 					}
 					<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
 				} else if item.State == readingChooserInProgress {
-					if item.Book.Acquired.AnalysisJobID > 0 {
+					if item.Book.Acquired != nil && item.Book.Acquired.AnalysisJobID > 0 {
 						<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>
+					} else if item.Book.ClassicalPreparation != nil {
+						<p>No action is needed while preparation runs.</p>
 					} else {
 						<a href="/library?disposition=to_read">Review To Read books</a>
 					}
-				} else if item.State == readingChooserNeedsAttention {
+				} else if item.State == readingChooserNeedsAttention && item.RecoveryAllowed && item.RecoveryLabel != "" {
 					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<button class="button button--outline" type="submit">Retry acquisition or analysis</button>
+						<button class="button button--outline" type="submit">{ item.RecoveryLabel }</button>
 					</form>
 				}
 			</div>

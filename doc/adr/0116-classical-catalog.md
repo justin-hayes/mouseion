@@ -193,7 +193,7 @@ owner" refusal is removed because pins now coexist.
 
 ### Migrations
 
-Two migrations carry the schema change, under ADR 0038 and ADR 0070:
+Three migrations carry the schema change, under ADR 0038 and ADR 0070:
 
 1. adds the installation-wide verified source table and the per-Book
    prepared-definition record;
@@ -205,6 +205,18 @@ Two migrations carry the schema change, under ADR 0038 and ADR 0070:
 Both migrations are **forward-only**. Their down migrations are development
 conveniences, not a production rollback. Structural DDL and data movement stay
 separable for review.
+
+A third, additive migration adds `classical_preparation_failures`, the per-Book
+record of a preparation failure. It is keyed by owner and Book, stores only a
+stage and a stable ASCII code, and carries no source text or Greek. The record
+is written when an attempt settles, and also when a submission is refused
+because the definition is withdrawn, so that refusal remains visible on the
+jobs surface without a River job. It is needed because a terminal source refusal
+must stay visible until a newer definition revision arrives, which is longer
+than River retains a discarded job; a successful preparation deletes it. The
+current Reading unit's revision is compared with the recorded revision, so a
+newer definition revision clears a terminal failure without rewriting the row.
+This table is not a per-pin failure record.
 
 The existing *Anabasis* Book 1 is converted during startup reconciliation, not
 in a migration. The conversion is one-time, idempotent and retry-safe. It

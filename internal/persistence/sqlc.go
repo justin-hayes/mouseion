@@ -383,6 +383,8 @@ func myBookFromBrowseRow(row sqlcgen.BrowseMyBooksEvidenceRow) domain.MyBook {
 			EditionLabel:     row.EditionLabel,
 			ConstituentBook:  row.ConstituentBook,
 			ConstituentBooks: row.ConstituentBooks,
+			Revision:         row.Revision,
+			Withdrawn:        row.Withdrawn,
 		}
 	}
 	book.IsCurrentReading = row.IsCurrentReading

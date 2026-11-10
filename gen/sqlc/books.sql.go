@@ -62,6 +62,8 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
      , COALESCE(ed.label, '')::text AS edition_label
      , COALESCE(ru.constituent_book, 0)::integer AS constituent_book
      , COALESCE(ru.constituent_books, 0)::integer AS constituent_books
+     , COALESCE(ru.revision, 0)::integer AS revision
+     , COALESCE(ru.withdrawn, false)::boolean AS withdrawn
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
@@ -163,6 +165,8 @@ type BrowseMyBooksEvidenceRow struct {
 	EditionLabel            string
 	ConstituentBook         int
 	ConstituentBooks        int
+	Revision                int
+	Withdrawn               bool
 }
 
 func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]BrowseMyBooksEvidenceRow, error) {
@@ -233,6 +237,8 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.EditionLabel,
 			&i.ConstituentBook,
 			&i.ConstituentBooks,
+			&i.Revision,
+			&i.Withdrawn,
 		); err != nil {
 			return nil, err
 		}

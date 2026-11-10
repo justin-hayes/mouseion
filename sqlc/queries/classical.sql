@@ -74,7 +74,9 @@ SELECT bru.book_id::text AS book_id,
        w.author AS work_author,
        w.greek_title,
        ru.constituent_book,
-       ru.constituent_books
+       ru.constituent_books,
+       ru.revision,
+       ru.withdrawn
 FROM book_reading_units bru
 JOIN reading_units ru ON ru.id = bru.reading_unit_id
 JOIN editions e ON e.id = ru.edition_id

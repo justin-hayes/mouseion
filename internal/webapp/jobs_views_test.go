@@ -24,7 +24,7 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	}
 	syncJobs := []cataloguesync.Status{{ID: 3, LogicalState: "cancelled", ConnectionName: "Archive"}}
 	bookContexts := map[string]jobBookContext{"book-1": {Title: "Der lange Weg nach Hause", ReadingURL: "/reading#book-1"}}
-	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", jobs, syncJobs, nil, "", bookContexts).Render(context.Background(), &history))
+	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", jobs, syncJobs, nil, "", "", bookContexts).Render(context.Background(), &history))
 	html := history.String()
 	assert.Contains(t, html, `<body class="jobs-shell">`)
 	assert.NotContains(t, html, "pico-2.1.1.min.css")
@@ -63,7 +63,7 @@ func TestJobsViewsShowClassicalPreparationBookAttemptAndState(t *testing.T) {
 		ID: 9, BookID: "book-9", BookTitle: "Anabasis", Attempt: 1, State: "running",
 		CreatedAt: time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC),
 	}}
-	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", nil, nil, jobs, "", nil).Render(context.Background(), &output))
+	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", nil, nil, jobs, "", "", nil).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `aria-label="Classical preparation history"`)
 	assert.Contains(t, html, "Classical preparation")
@@ -75,7 +75,7 @@ func TestJobsViewsShowClassicalPreparationBookAttemptAndState(t *testing.T) {
 func TestClassicalPreparationJobStateMapping(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{
-		"completed": "Completed", "discarded": "Failed", "cancelled": "Failed",
+		"completed": "Completed", "failed": "Failed", "discarded": "Failed", "cancelled": "Failed",
 		"running": "Running", "available": "Queued", "pending": "Queued",
 		"scheduled": "Queued", "retryable": "Queued", "unknown": "Queued",
 	}

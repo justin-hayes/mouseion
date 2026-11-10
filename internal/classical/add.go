@@ -15,6 +15,15 @@ const LegacyRowsReason = "Adding is unavailable until this installation's legacy
 // ErrLegacyRows refuses an Add while the installation still holds legacy rows.
 var ErrLegacyRows = errors.New("classical: legacy " + Language + " rows exist (" + LegacyRowsCode + ")")
 
+// WithdrawnCode is the stable code for an unprepared Book whose Reading unit is
+// a withdrawn tombstone. The Book cannot be prepared and offers no retry.
+const WithdrawnCode = "classical_definition_withdrawn"
+
+// PreparationFailedCode is the stable code for an import-stage failure that is
+// not a source refusal: the source was acquired and interpreted, but its
+// analysis could not be stored or published. Retrying analysis is meaningful.
+const PreparationFailedCode = "classical_preparation_failed"
+
 // AddedBook is the outcome of adding one Reading unit for one learner.
 type AddedBook struct {
 	ReadingUnitKey string

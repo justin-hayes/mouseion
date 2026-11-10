@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -350,11 +352,22 @@ func (h *Handler) queueClassicalPreparation(ctx context.Context, owner, bookID s
 	}
 	handle, err := h.services.ClassicalPreparation.SubmitClassicalPreparation(ctx, owner, bookID)
 	if err != nil {
-		log.Printf("mouseion: classical preparation submission failed for owner %s book %s: %s", owner, strconv.Quote(bookID), strconv.Quote(err.Error()))
-		return "Book moved to To Read, but preparation could not start. Retry analysis from Reading when ready.", true
+		stage, code := analysis.ClassicalPreparationFailure(err)
+		log.Printf("mouseion: classical preparation submission failed for owner %s book %s stage=%s code=%s", owner, strconv.Quote(bookID), strconv.Quote(string(stage)), strconv.Quote(code))
+		switch {
+		case errors.Is(err, classical.ErrLegacyRows):
+			return classical.LegacyRowsReason, true
+		case errors.Is(err, analysis.ErrWithdrawnClassicalDefinition):
+			return classicalWithdrawnRefusal, true
+		default:
+			return "Book moved to To Read, but preparation could not start. Retry analysis from Reading when ready.", true
+		}
 	}
 	if handle.Complete {
 		return "Book moved to To Read. Analysis is already current.", true
+	}
+	if handle.Terminal {
+		return classicalSourceMismatchRefusal, true
 	}
 	return "Book moved to To Read. " + fmt.Sprintf("Preparation job #%d submitted.", handle.JobID), true
 }

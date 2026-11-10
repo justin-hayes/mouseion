@@ -175,6 +175,7 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 // operator and the learner sees a recovery action, never the raw error.
 func (h *Handler) redirectClassicalAddFailure(w http.ResponseWriter, r *http.Request, target string, err error) {
 	if errors.Is(err, classical.ErrLegacyRows) {
+		log.Printf("mouseion: classical catalog add refused code=%s", classical.LegacyRowsCode)
 		redirect(w, r, target+"?error="+url.QueryEscape(classical.LegacyRowsReason))
 		return
 	}

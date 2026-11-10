@@ -44,6 +44,8 @@ func (s *PostgresStore) populateMyBooksReadingUnits(ctx context.Context, owner s
 			EditionLabel:     row.EditionLabel,
 			ConstituentBook:  int(row.ConstituentBook.Int32),
 			ConstituentBooks: row.ConstituentBooks,
+			Revision:         row.Revision,
+			Withdrawn:        row.Withdrawn,
 		}
 	}
 	return nil

@@ -1,0 +1,1 @@
+DROP TABLE public.classical_preparation_failures;

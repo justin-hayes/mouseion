@@ -66,6 +66,8 @@ SELECT e.*
      , COALESCE(ed.label, '')::text AS edition_label
      , COALESCE(ru.constituent_book, 0)::integer AS constituent_book
      , COALESCE(ru.constituent_books, 0)::integer AS constituent_books
+     , COALESCE(ru.revision, 0)::integer AS revision
+     , COALESCE(ru.withdrawn, false)::boolean AS withdrawn
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
