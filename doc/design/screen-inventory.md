@@ -36,10 +36,11 @@ rather than as independent destinations.
 Authenticated screens use one shared shell with **Mouseion**, **My Books**,
 **Reading**, **Vocabulary**, **Catalogs**, account identity, and **Log
 out**. My Books, Reading, Vocabulary, and Catalogs are the destinations.
-Catalogs owns catalogue setup and sync maintenance at `/catalogs`. My Books is
-the sole bibliographic Book browse surface; its items own acquisition and
-analysis intent. The accepted Vocabulary target adds identity Browse, not a
-second Book catalog.
+Catalogs owns catalogue setup and sync maintenance at `/catalogs`, and the
+built-in, read-only Classical catalog browsed from there. My Books is
+the sole bibliographic Book browse surface for synced metadata; its items own
+acquisition and analysis intent. The accepted Vocabulary target adds identity
+Browse, not a second Book catalog.
 
 The shell identifies the current destination, supports skip navigation and
 keyboard use, and preserves a clear path back to the parent Book or Reading.
@@ -121,7 +122,7 @@ recommendation metadata is not a current learner-facing surface.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Catalogs | Current `GET /catalogs`; legacy `GET /connections` permanently redirects while POST connection mutation routes remain | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
+| Catalogs | Current `GET /catalogs`; the Classical catalog at `GET /catalogs/classical` with author, author-detail and work-detail pages; legacy `GET /connections` permanently redirects while POST connection mutation routes remain | Browse curated Classical works, add a whole work or one constituent book, and add, edit, remove, or synchronize an owner-scoped OPDS connection. | In My Books, Sync now, My Books, or operational job status | Running-release counts, author index, translated and untranslated works, per-book word counts and ownership, withdrawn rows hidden, legacy-rows unavailability with its stable code, no connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
 | Book acquisition through reading intent | My Books disposition action | Move a Book to To Read, acquire it when needed, and ensure current analysis once. | Reading or analysis status | Adding/analyzing, success, duplicate/idempotent existing run, unsupported/non-EPUB entry, download/validation failure |
 | Per-book catalog metadata refresh | Current item action on `GET /library` with `POST /library/books/{id}/refresh` | Refresh one catalog-backed Book's metadata without downloading EPUB content or changing evidence. | My Books item | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; cover pending/unavailable; no scope or analysis invalidation |
 

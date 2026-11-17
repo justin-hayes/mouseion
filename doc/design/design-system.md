@@ -408,10 +408,12 @@ overflow.
 
 - Canonical authenticated destinations are exactly My Books, Reading,
   Vocabulary, and Catalogs. The shared top bar owns these destinations, the
-  active study-language switcher, and the account disclosure. Catalogs owns catalogue setup and sync maintenance on
-  `/catalogs`. My Books is the sole bibliographic Book browse surface, and its
-  items own per-book disposition and acquisition intent. Reading owns the
-  current Book or the between-Books candidate chooser.
+  active study-language switcher, and the account disclosure. Catalogs owns
+  curated sources that do not sync into My Books — including the built-in,
+  read-only Classical catalog — and catalogue setup and sync maintenance on
+  `/catalogs`. My Books is the sole bibliographic Book browse surface for synced
+  metadata, and its items own per-book disposition and acquisition intent.
+  Reading owns the current Book or the between-Books candidate chooser.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
 - Reading presents one current Book or, between Books, the learner's unordered To

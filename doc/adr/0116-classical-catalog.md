@@ -1,6 +1,6 @@
 # ADR 0116: A curated Classical catalog of Ancient Greek Reading units
 
-Status: **Accepted — implementation pending** · Date: 2026-11-09 · Author: Justin + OpenCode
+Status: **Accepted — implemented (#2401/#2419)** · Date: 2026-11-09 · Author: Justin + OpenCode
 
 Decided in [#2401](https://github.com/justin-hayes/mouseion/issues/2401)
 (Spec: Curated Classical catalog for learner-chosen Ancient Greek texts) and
@@ -253,6 +253,43 @@ To Read candidates in the existing neutral title order:
 Only To Read candidates appear; Read, current and hidden Books have no cells.
 Book numbers carry no coverage figures, so the chooser is still not a ranking.
 The page title, description and intro copy are unchanged.
+
+## Implementation approach
+
+The decision shipped as one vertical slice from the manifest to the learner
+surfaces, and the code follows the seams above:
+
+- `internal/classical` embeds and validates the generated
+  `manifest.jsonl`, `overrides.jsonl` and `layers.json`, builds the read-only
+  browse view, and reconciles the release into the Work, Edition and Reading
+  unit registry. `internal/classicalmanifest` is the maintainer generator; its
+  verify mode reproduces the committed bytes and CI asserts no diff.
+- `migrations/000048_classical_manifest_reconciliation` adds the registry;
+  `000049_classical_preparation` adds `classical_sources` and
+  `classical_prepared_definitions`; `000050` and `000051` replace the
+  owner-scoped translation key with the installation-wide
+  `(translation_pin_sha256, citation)` key and copy existing rows;
+  `000052_classical_preparation_failures` adds the per-Book failure record.
+- `internal/analysis` owns the `classical_preparation` and
+  `classical_translation` workers, the OGA adapter hand-off through the
+  existing Greek import writer, the prepared-definition comparison used by
+  Analysis updates, and the startup legacy conversion.
+  `cmd/server` reconciles the manifest and runs the conversion before the web
+  application starts.
+- `internal/webapp` renders the Classical catalog on Catalogs, the grouped My
+  Books row and its Work actions, the grouped Reading chooser, and the grouped
+  Analysis update notice and confirmation. Preparation status and stable
+  failure codes are shared between those surfaces and `/jobs`.
+- `internal/webapp/classical_complete_loop_integration_test.go` proves the whole loop
+  through the real HTTP routes, PostgreSQL and in-process River workers with no
+  NLP service, including the seeded pre-upgrade conversion, the legacy-row
+  precondition and one-fetch-per-installation request counts. The failure
+  matrix, catalog browsing, grouping, chooser, update and conversion seams keep
+  their dedicated slice tests.
+- The glossary entries for **definition revision**, **withdrawn definition**
+  and **Classical preparation** live in `CONTEXT.md`, and the design documents
+  name the new Catalogs browse rule and chooser contract instead of the
+  superseded ones.
 
 ## Alternatives considered
 
