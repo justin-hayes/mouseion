@@ -176,8 +176,16 @@ carries one `StatusBadge` for the leading bucket by the ordinary precedence —
 counts such as "22 more To Read · 1 Read". Under the identity, a wrapping strip
 has one 44px cell per owned Book in book order; each cell states its bucket by a
 distinct shape — filled dot for **Currently reading**, ring for **To Read**, bar
-for **Read**, filled square for **Inbox** — and links to Reading with that Book
-selected. Cells carry full accessible labels, the page has one shared legend,
+for **Read**, filled square for **Inbox**. A cell opens only the Reading entry
+its Book actually has: the current Book's cell opens the current-reading card,
+and a visible To Read Book's cell opens that Book's ordinary candidate entry
+inline in the chooser, on Reading when no Book is current or on the Switch page
+when one is. A Read or Inbox cell is a status-only cell, not a link: Reading
+lists only the current Book and To Read candidates, so there is nothing to
+select, and the strip must not imply a next Book. It keeps the 44px cell and
+full accessible label; **Read again** and **Move to To Read** remain the
+route back to a candidate. A Hidden Book's cell is likewise status-only. Cells
+carry full accessible labels, the page has one shared legend,
 and the row has no per-Book actions. A filtered row keeps only its matching cells, and a line states the
 shape, such as "57 Books in 5 works". "M of N books" counts owned Books,
 including Hidden ones; the strip follows the current visibility scope. A

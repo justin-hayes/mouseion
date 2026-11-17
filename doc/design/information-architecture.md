@@ -309,8 +309,11 @@ The current My Books grid presents cover, title, author, disposition, and
 explicit actions. A classical Work with more than one owned Book in the active
 language is one grouped row: Work identity and provenance, one leading bucket
 badge and counts, work-level bulk actions, then a strip of one cell per owned
-Book in book order. The strip links each Book to Reading and has no per-Book
-actions. Bulk To Read moves every Book without reading history, leaves the
+Book in book order. Each cell shows the Book's bucket by shape; the current
+Book's cell opens the current-reading card and a visible To Read Book's cell
+opens that Book's inline chooser candidate on Reading or the Switch page. Read,
+Inbox, and Hidden cells are status-only, because Reading has no entry for them,
+and the strip has no per-Book actions. Bulk To Read moves every Book without reading history, leaves the
 current Book alone, prepares Books in book order, and prepares nothing when the
 Work moves back to Inbox. Hide all and Unhide all change each Book's visibility
 without creating a Work-level state; preparing Books collapse into one line and

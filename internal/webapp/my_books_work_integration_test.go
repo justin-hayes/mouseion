@@ -76,10 +76,11 @@ func TestMyBooksGroupsOneWorkAndFiltersCountBooks(t *testing.T) {
 			`aria-label="Iliad, Book 1 of 24, Currently reading"`,
 			`aria-label="Iliad, Book 2 of 24, Read"`,
 			`href="/reading#journey-book-` + byPosition[1].Book.ID + `"`,
-			`href="/reading#journey-book-` + byPosition[2].Book.ID + `"`,
+			`role="img" aria-label="Iliad, Book 2 of 24, Read"`,
 		} {
 			assert.Contains(t, body, want, "grouped Work strip missing %q", want)
 		}
+		assert.NotContains(t, body, `href="/reading#journey-book-`+byPosition[2].Book.ID+`"`, "a Read cell has no Reading entry")
 	})
 	t.Run("one legend per page", func(t *testing.T) {
 		assert.Equal(t, 1, strings.Count(body, `class="library-work-legend"`), "one legend per page")
@@ -116,6 +117,106 @@ func TestMyBooksGroupsOneWorkAndFiltersCountBooks(t *testing.T) {
 		assert.NotContains(t, inbox.Body.String(), `class="library-work"`)
 		assert.Contains(t, inbox.Body.String(), "No Inbox books in your local collection are in Ancient Greek.")
 	})
+}
+
+// addClassicalUnitsByKey adds the named reviewed Reading units and returns each
+// Book by its permanent unit key.
+func addClassicalUnitsByKey(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner string, units ...string) map[string]domain.Book {
+	t.Helper()
+	report, err := store.AddClassicalReadingUnits(ctx, owner, units)
+	require.NoError(t, err)
+	books := make(map[string]domain.Book, len(units))
+	for _, added := range report.Books {
+		detail, err := store.GetBookDetail(ctx, owner, added.BookID)
+		require.NoError(t, err)
+		books[added.ReadingUnitKey] = detail.Book
+	}
+	require.Len(t, books, len(units))
+	return books
+}
+
+func TestMyBooksGroupedWorkToReadCellOpensTheCandidateEntry(t *testing.T) {
+	ctx, store, h, learner := readingChooserWorkHarness(t)
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
+	books := addClassicalUnitsByKey(t, ctx, store, learner.ID, "homer-iliad-1", "homer-iliad-2")
+	seedClassicalReadingEvidence(t, ctx, store, learner.ID, books["homer-iliad-1"], "homer-iliad-1", 99)
+	seedClassicalReadingEvidence(t, ctx, store, learner.ID, books["homer-iliad-2"], "homer-iliad-2", 92)
+	for _, book := range books {
+		require.NoError(t, store.SetBookDisposition(ctx, learner.ID, book.ID, domain.BookDispositionToRead))
+	}
+
+	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
+	page := perform(t, h, http.MethodGet, "/library", nil, cookies)
+	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
+	body := page.Body.String()
+	for _, unit := range []string{"homer-iliad-1", "homer-iliad-2"} {
+		assert.Contains(t, body, `href="/reading#reading-chooser-book-`+books[unit].ID+`"`,
+			"without a current Book the To Read cell opens the chooser on Reading")
+	}
+
+	// Following the cell lands on the grouped chooser with that Book's ordinary
+	// candidate entry rendered inline, ready to start.
+	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
+	chooserBody := chooser.Body.String()
+	for _, want := range []string{
+		`id="reading-chooser-book-` + books["homer-iliad-1"].ID + `"`,
+		`action="/reading/books/` + books["homer-iliad-1"].ID + `/start"`,
+		"Book 1 of 24",
+	} {
+		assert.Contains(t, chooserBody, want, "selected chooser entry missing %q", want)
+	}
+}
+
+func TestMyBooksGroupedWorkCellsOpenTheSelectedReadingEntry(t *testing.T) {
+	ctx, store, h, learner := readingChooserWorkHarness(t)
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
+	books := addClassicalUnitsByKey(t, ctx, store, learner.ID,
+		"homer-iliad-1", "homer-iliad-2", "homer-iliad-3", "homer-iliad-4")
+	seedClassicalReadingEvidence(t, ctx, store, learner.ID, books["homer-iliad-1"], "homer-iliad-1", 99)
+	seedClassicalReadingEvidence(t, ctx, store, learner.ID, books["homer-iliad-2"], "homer-iliad-2", 92)
+	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, books["homer-iliad-1"].ID, domain.BookDispositionToRead))
+	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, books["homer-iliad-2"].ID, domain.BookDispositionToRead))
+	_, err := store.ImportPreviouslyRead(ctx, learner.ID, books["homer-iliad-3"].ID)
+	require.NoError(t, err)
+
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	started := perform(t, h, http.MethodPost, "/reading/books/"+books["homer-iliad-1"].ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, started.Code, started.Body.String())
+	require.NotContains(t, started.Header().Get("Location"), "error=")
+
+	page := perform(t, h, http.MethodGet, "/library", nil, cookies)
+	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
+	body := page.Body.String()
+	for _, want := range []string{
+		`href="/reading#journey-book-` + books["homer-iliad-1"].ID + `"`,
+		`href="/reading/switch#reading-chooser-book-` + books["homer-iliad-2"].ID + `"`,
+		`role="img" aria-label="Iliad, Book 3 of 24, Read"`,
+		`role="img" aria-label="Iliad, Book 4 of 24, Inbox"`,
+	} {
+		assert.Contains(t, body, want, "grouped Work cell missing %q", want)
+	}
+	for _, unit := range []string{"homer-iliad-3", "homer-iliad-4"} {
+		assert.NotContains(t, body, `href="/reading#journey-book-`+books[unit].ID+`"`, "Read and Inbox cells have no Reading entry")
+		assert.NotContains(t, body, `reading-chooser-book-`+books[unit].ID, "Read and Inbox cells never name a chooser entry")
+	}
+
+	// The current Book's cell opens the current-reading card.
+	reading := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	require.Equal(t, http.StatusOK, reading.Code, reading.Body.String())
+	assert.Contains(t, reading.Body.String(), `id="journey-book-`+books["homer-iliad-1"].ID+`"`)
+
+	// The To Read cell opens the Switch chooser with that Book's entry inline.
+	switching := perform(t, h, http.MethodGet, "/reading/switch", nil, cookies)
+	require.Equal(t, http.StatusOK, switching.Code, switching.Body.String())
+	switchBody := switching.Body.String()
+	for _, want := range []string{
+		`id="reading-chooser-book-` + books["homer-iliad-2"].ID + `"`,
+		`action="/reading/books/` + books["homer-iliad-2"].ID + `/switch"`,
+		"Book 2 of 24",
+	} {
+		assert.Contains(t, switchBody, want, "selected Switch entry missing %q", want)
+	}
 }
 
 func TestMyBooksSingleBookWorkStaysOrdinaryWithPosition(t *testing.T) {

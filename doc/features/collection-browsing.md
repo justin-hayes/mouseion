@@ -90,8 +90,14 @@ contracts. Reading owns current evidence and current-reading presentation.
   strip follows the current visibility scope, so a Hidden Book contributes to M
   but has no cell until Show hidden books is on.
 - Under the identity, one cell per owned Book appears in book order. Each cell
-  shows its bucket by shape, meets the 44px target, carries a full accessible
-  label, and links to Reading with that Book selected. The row has no per-Book
+  shows its bucket by shape, meets the 44px target, and carries a full
+  accessible label. The current Book's cell opens the current-reading card; a
+  visible To Read Book's cell opens that Book's ordinary candidate entry inline
+  in the chooser, on Reading when no Book is current and on the Switch page when
+  one is. A Read or Inbox cell is status-only, not a link: Reading has no entry
+  to select, and the strip never implies a next Book. A Hidden Book's cell is
+  status-only too. Read again and the Work-level Move to To Read remain the
+  routes that make such a Book a candidate again. The row has no per-Book
   actions, and the page has one shared legend.
 - A filtered Work row keeps only its matching cells. A line states the shape,
   such as "57 Books in 5 works".

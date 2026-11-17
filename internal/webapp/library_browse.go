@@ -637,6 +637,29 @@ func myBooksWorkCellClass(book domain.MyBook) string {
 	return "library-work__cell library-work__cell--" + string(book.WorkflowBucket())
 }
 
+// myBooksWorkCellURL is the Reading location a grouped Work's cell opens. Only
+// the current Book and a visible To Read candidate have a Reading entry: the
+// current-reading card, or the ordinary candidate entry inline in the chooser
+// on Reading or the Switch page. A Read, Inbox or hidden Book has no Reading
+// entry to select, so its cell is status-only and reports no link.
+func myBooksWorkCellURL(book domain.MyBook, currentReadingBookID string) (string, bool) {
+	switch book.WorkflowBucket() {
+	case domain.MyBookBucketCurrentReading:
+		return readingBookURL(book.Book.ID), true
+	case domain.MyBookBucketToRead:
+		if book.Hidden {
+			return "", false
+		}
+		path := "/reading"
+		if currentReadingBookID != "" {
+			path = "/reading/switch"
+		}
+		return path + "#" + readingChooserBookAnchorID(book.Book.ID), true
+	default:
+		return "", false
+	}
+}
+
 // myBooksWorkToReadAction names the grouped Work row's primary action. A Work
 // with Books already in To Read or the current Reading offers to move only the
 // remaining Books, so "move" never implies reading again.
