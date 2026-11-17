@@ -26,12 +26,15 @@ type MyBooksBrowseRow struct {
 	// them the learner owns in the active language, including Hidden Books.
 	ConstituentBooks int
 	OwnedBooks       int
-	Books            []MyBook
-	// WorkUpdateBooks carries every owned Book of a grouped Work, including
-	// Books outside the current filter, so the Work-level Analysis update
-	// notice and bulk action count the whole Work just as its other bulk
-	// actions do. Ordinary rows leave it nil.
-	WorkUpdateBooks []MyBook
+	// Books are the row's visible cells: the Work's Books matching the current
+	// visibility scope, search and disposition filter. A grouped Work's
+	// Analysis update offer covers exactly the eligible Books in this slice.
+	Books []MyBook
+	// CurrentWorkBook is the current Reading's Book when it belongs to this
+	// Work, even when visibility or a filter keeps its cell out of Books. The
+	// Work offer names and skips it; it is never queued. Ordinary rows leave it
+	// nil.
+	CurrentWorkBook *MyBook
 }
 
 type MyBooksBrowseResult struct {

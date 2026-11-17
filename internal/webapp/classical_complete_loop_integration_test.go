@@ -309,7 +309,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	updateBody := library.Body.String()
 	for _, want := range []string{
-		"A newer analysis is available for 1 book.", "Book 1: End the Reading first",
+		"A newer analysis is available for 1 book shown here.", "Book 1: End the Reading first",
 		"Update 1 book of Synthetic Work", `action="/library/works/synthetic-work/analysis-update"`,
 	} {
 		assert.Contains(t, updateBody, want, "update offer missing %q", want)

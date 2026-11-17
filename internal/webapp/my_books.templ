@@ -132,7 +132,7 @@ templ MyBookIdentityDetails(book domain.MyBook) {
 }
 
 templ MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, showHidden bool, returnTo, currentReadingBookID string) {
-	{{ update := workAnalysisUpdateFor(row.WorkKey, row.WorkTitle, myBooksWorkUpdateBooks(row), nil) }}
+	{{ update := workAnalysisUpdateFor(row.WorkKey, row.WorkTitle, row.Books, row.CurrentWorkBook) }}
 	if len(row.Books) > 0 {
 		<li id={ myBooksWorkRowID(row.WorkKey) } class="library-book library-work" aria-labelledby={ "work-title-" + row.WorkKey }>
 			<div class="library-work__identity">

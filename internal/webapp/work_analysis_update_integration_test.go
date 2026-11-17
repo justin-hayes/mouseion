@@ -172,7 +172,7 @@ func TestClassicalWorkAnalysisUpdateSkippedCurrentBookReturnsAfterEnd(t *testing
 	started, err := h.store.StartCurrentReadingResult(context.Background(), h.learnerID, classical.Language, h.firstID)
 	require.NoError(t, err)
 	body := readingGet(t, h.h, "/library", h.cookies)
-	assert.Contains(t, body, "A newer analysis is available for 1 book.")
+	assert.Contains(t, body, "A newer analysis is available for 1 book shown here.")
 	assert.Contains(t, body, "Book 1: End the Reading first")
 	assert.Contains(t, body, "Update 1 book of Synthetic Work")
 	assert.Contains(t, body, "Together, the Books to be updated have 2 confirmed lemma corrections and 1 occurrence exclusion, which will not carry over to their new analyses.")
@@ -205,7 +205,7 @@ func TestClassicalWorkAnalysisUpdateSkippedCurrentBookReturnsAfterEnd(t *testing
 	// After End the Book is To Read and its offer returns with the other Book.
 	require.NoError(t, h.store.EndCurrentReading(context.Background(), h.learnerID, classical.Language, h.firstID, started.Reading.SnapshotID))
 	body = readingGet(t, h.h, "/library", h.cookies)
-	assert.Contains(t, body, "A newer analysis is available for 2 books.")
+	assert.Contains(t, body, "A newer analysis is available for 2 books shown here.")
 	assert.Contains(t, body, "Update 2 books of Synthetic Work")
 	assert.NotContains(t, body, "End the Reading first")
 }
@@ -217,19 +217,20 @@ func TestClassicalWorkAnalysisUpdateQueuesEveryBookInBookOrder(t *testing.T) {
 	bumpInterpretation(t, h.pool, "oga-agdt-upos/6", h.fixture.unitOneKey, h.fixture.unitTwoKey)
 
 	body := readingGet(t, h.h, "/library", h.cookies)
-	assert.Contains(t, body, "A newer analysis is available for 2 books.")
+	assert.Contains(t, body, "A newer analysis is available for 2 books shown here.")
 	assert.Contains(t, body, "Update 2 books of Synthetic Work")
 
-	// A search that narrows the row's cells to one Book does not narrow the
-	// Work's offer: the bulk action still covers the whole Work.
+	// A search that narrows the row's cells to one Book narrows the offer with
+	// them: the bulk action covers only the eligible Books the row shows.
 	filtered := readingGet(t, h.h, "/library?q=Synthetic+Work+1", h.cookies)
-	assert.Contains(t, filtered, "A newer analysis is available for 2 books.")
+	assert.Contains(t, filtered, "A newer analysis is available for 1 book shown here.")
+	assert.Contains(t, filtered, "Update 1 book of Synthetic Work")
 	assert.Contains(t, filtered, `name="book_id" value="`+h.firstID+`"`)
-	assert.Contains(t, filtered, `name="book_id" value="`+h.secondID+`"`)
+	assert.NotContains(t, filtered, `name="book_id" value="`+h.secondID+`"`)
 
 	// Reading's chooser carries the same grouped offer.
 	chooser := readingGet(t, h.h, "/reading", h.cookies)
-	assert.Contains(t, chooser, "A newer analysis is available for 2 books.")
+	assert.Contains(t, chooser, "A newer analysis is available for 2 books shown here.")
 	assert.Contains(t, chooser, "Update 2 books of Synthetic Work")
 	assert.Contains(t, chooser, `action="/library/works/synthetic-work/analysis-update"`)
 
@@ -246,6 +247,76 @@ func TestClassicalWorkAnalysisUpdateQueuesEveryBookInBookOrder(t *testing.T) {
 		assert.Equal(t, analysis.ClassicalPreparationQueue, queue)
 	}
 	assert.Zero(t, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind='analyze_corpus'`), "no NLP cost")
+}
+
+// TestClassicalWorkAnalysisUpdateHiddenSiblingFollowsEachSurfaceRule pins the
+// documented scope: a Work's offer covers the eligible To Read Books the
+// issuing surface shows. My Books shows the hidden sibling only under Show
+// hidden books, while the chooser never gives a hidden Book a cell.
+func TestClassicalWorkAnalysisUpdateHiddenSiblingFollowsEachSurfaceRule(t *testing.T) {
+	h := newWorkUpdateHarness(t)
+	first := h.book(t, h.firstID)
+	_, err := h.store.SetBookHidden(h.ctx, h.learnerID, h.secondID, 0, true)
+	require.NoError(t, err)
+	bumpInterpretation(t, h.pool, "oga-agdt-upos/6", h.fixture.unitOneKey, h.fixture.unitTwoKey)
+
+	t.Run("My Books default scope offers only the Books it shows", func(t *testing.T) {
+		body := readingGet(t, h.h, "/library", h.cookies)
+		require.Contains(t, body, "A newer analysis is available for 1 book shown here.")
+		require.Contains(t, body, "Update 1 book of Synthetic Work")
+		require.Contains(t, body, `name="book_id" value="`+h.firstID+`"`)
+		require.NotContains(t, body, `name="book_id" value="`+h.secondID+`"`)
+		require.Equal(t, 1, strings.Count(body, `action="/library/works/synthetic-work/analysis-update"`))
+	})
+
+	t.Run("Show hidden books widens the offer with the row", func(t *testing.T) {
+		shown := readingGet(t, h.h, "/library?show-hidden", h.cookies)
+		require.Contains(t, shown, "A newer analysis is available for 2 books shown here.")
+		require.Contains(t, shown, "Update 2 books of Synthetic Work")
+		require.Contains(t, shown, `name="book_id" value="`+h.firstID+`"`)
+		require.Contains(t, shown, `name="book_id" value="`+h.secondID+`"`)
+	})
+
+	t.Run("The chooser never offers a hidden sibling", func(t *testing.T) {
+		chooser := readingGet(t, h.h, "/reading", h.cookies)
+		require.Contains(t, chooser, "A newer analysis is available.")
+		require.Contains(t, chooser, `action="/reading/books/`+h.firstID+`/analysis-update"`)
+		require.NotContains(t, chooser, `action="/reading/books/`+h.secondID+`/analysis-update"`)
+		require.NotContains(t, chooser, `href="#reading-chooser-book-`+h.secondID+`"`)
+		require.NotContains(t, chooser, `action="/library/works/synthetic-work/analysis-update"`)
+	})
+
+	t.Run("Confirming queues exactly the Books its copy names", func(t *testing.T) {
+		beforeQueues, beforeBookIDs := workPreparationJobs(t, h.pool)
+		form := workAnalysisUpdateForm(t, h, first)
+		require.Len(t, form["book_id"], 1)
+		submitted := perform(t, h.h, http.MethodPost, "/library/works/synthetic-work/analysis-update", form, h.cookies)
+		require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
+		queues, bookIDs := workPreparationJobs(t, h.pool)
+		require.Len(t, queues, len(beforeQueues)+1, "confirming the one-Book offer queues exactly one job")
+		require.Len(t, bookIDs, len(beforeBookIDs)+1)
+		require.Equal(t, h.firstID, bookIDs[len(bookIDs)-1])
+		require.Equal(t, analysis.ClassicalPreparationQueue, queues[len(queues)-1])
+	})
+}
+
+// TestClassicalWorkAnalysisUpdateNamesHiddenCurrentBook keeps the current-Book
+// handling: the grouped offer names and skips the current Reading's Book even
+// when its hidden cell is outside the default My Books scope.
+func TestClassicalWorkAnalysisUpdateNamesHiddenCurrentBook(t *testing.T) {
+	h := newWorkUpdateHarness(t)
+	_, err := h.store.StartCurrentReadingResult(h.ctx, h.learnerID, classical.Language, h.firstID)
+	require.NoError(t, err)
+	_, err = h.store.SetBookHidden(h.ctx, h.learnerID, h.firstID, 0, true)
+	require.NoError(t, err)
+	bumpInterpretation(t, h.pool, "oga-agdt-upos/6", h.fixture.unitOneKey, h.fixture.unitTwoKey)
+
+	body := readingGet(t, h.h, "/library", h.cookies)
+	require.Contains(t, body, "A newer analysis is available for 1 book shown here.")
+	require.Contains(t, body, "Book 1: End the Reading first")
+	require.Contains(t, body, "Update 1 book of Synthetic Work")
+	require.Contains(t, body, `name="book_id" value="`+h.secondID+`"`)
+	require.NotContains(t, body, `name="book_id" value="`+h.firstID+`"`, "the current Book is named but never queued")
 }
 
 func TestClassicalWorkAnalysisUpdateRevalidatesEachBook(t *testing.T) {
@@ -386,7 +457,7 @@ func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *test
 		SET source_file_sha256=$1, revision=revision+1 WHERE definition_key=$2`, strings.Repeat("d", 64), h.fixture.unitTwoKey)
 	require.NoError(t, err)
 	body = readingGet(t, h.h, "/library", h.cookies)
-	assert.Contains(t, body, "A newer analysis is available for 1 book.")
+	assert.Contains(t, body, "A newer analysis is available for 1 book shown here.")
 	assert.Contains(t, body, "Update 1 book of Synthetic Work Revised")
 
 	// A change to the other unit as well offers both Books.
@@ -394,13 +465,13 @@ func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *test
 		SET source_file_sha256=$1, revision=revision+1 WHERE definition_key=$2`, strings.Repeat("e", 64), h.fixture.unitOneKey)
 	require.NoError(t, err)
 	body = readingGet(t, h.h, "/library", h.cookies)
-	assert.Contains(t, body, "A newer analysis is available for 2 books.")
+	assert.Contains(t, body, "A newer analysis is available for 2 books shown here.")
 
 	// An Inbox Book is not offered. The second Book is still To Read, so the
 	// Work keeps one offer.
 	require.NoError(t, h.store.SetBookDisposition(context.Background(), h.learnerID, h.firstID, domain.BookDispositionInbox))
 	body = readingGet(t, h.h, "/library", h.cookies)
-	assert.Contains(t, body, "A newer analysis is available for 1 book.")
+	assert.Contains(t, body, "A newer analysis is available for 1 book shown here.")
 
 	// A Read Book is not offered either; with both Books outside To Read the
 	// Work has no offer.

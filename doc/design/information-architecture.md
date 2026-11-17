@@ -320,7 +320,9 @@ prepares nothing when the Work moves back to Inbox. Hide all and Unhide all
 change each Book's visibility without creating a Work-level state; preparing
 Books collapse into one line and each problem Book keeps its own recovery. A
 grouped Work row also carries one Analysis update notice and one bulk action when
-its definitions changed; the
+its definitions changed; the offer covers the eligible To Read Books in the
+row's visible cells, so a Hidden Book joins only under **Show hidden books** and
+a search or filter narrows it with the cells it keeps. The
 current Reading's Book is named and skipped, and one confirmation discloses the
 Work's Lemma corrections and Occurrence exclusions. A single-Book Work stays an
 ordinary row with its reviewed position and the ordinary per-Book notice; a
@@ -342,9 +344,10 @@ Current reading is visually distinct but remains book-led rather than a large
 metric card. The between-Books chooser lists candidates in neutral title order
 and groups a Work's multiple To Read Books into one entry with a band table;
 incomplete evidence stays distinct in that table or in an ordinary candidate's
-margin. A grouped entry carries the same one Analysis update notice and bulk
-action as its My Books row, while a single-Book Work keeps the ordinary
-per-Book notice. No learner order, after-reading projection, forecast,
+margin. A grouped entry carries one Analysis update notice and bulk action covering
+only its visible To Read candidates, so a hidden sibling never joins it, while a
+single-Book Work keeps the ordinary per-Book notice. No learner order,
+after-reading projection, forecast,
 next-Book pointer, or recommendation is presented. Unassessed or otherwise
 untrustworthy Books remain visible with an explicit evidence gap and no
 fabricated coverage.
