@@ -86,14 +86,14 @@ func TestPublishedEvidenceMatchesEveryComparedFact(t *testing.T) {
 }
 
 func TestConvertLegacyClassicalBooksRequiresAStore(t *testing.T) {
-	_, err := ConvertLegacyClassicalBooks(context.Background(), nil, nil)
+	_, err := ConvertLegacyClassicalBooks(context.Background(), nil)
 	require.ErrorContains(t, err, "store is required")
 }
 
 func TestConvertLegacyClassicalCandidateRefusesUnusableSources(t *testing.T) {
 	t.Run("not the whole work file", func(t *testing.T) {
 		converted, outcome := convertLegacyClassicalCandidate(context.Background(), nil, classicalConversionCandidate{
-			content: []byte("unit text"), sourceFileSize: 100,
+			content: []byte("unit text"), SourceFileSize: 100,
 		})
 		require.False(t, converted)
 		require.Equal(t, conversionSkipped, outcome)
@@ -102,8 +102,8 @@ func TestConvertLegacyClassicalCandidateRefusesUnusableSources(t *testing.T) {
 	t.Run("unknown source format", func(t *testing.T) {
 		content := []byte("source")
 		converted, outcome := convertLegacyClassicalCandidate(context.Background(), nil, classicalConversionCandidate{
-			content: content, sourceFileSize: int64(len(content)), sourceFileSHA256: sha256Hex(content),
-			sourceFormat: "other-format",
+			content: content, SourceFileSize: int64(len(content)), SourceFileSHA256: sha256Hex(content),
+			SourceFormat: "other-format",
 		})
 		require.False(t, converted)
 		require.Equal(t, conversionSkipped, outcome)
@@ -112,8 +112,8 @@ func TestConvertLegacyClassicalCandidateRefusesUnusableSources(t *testing.T) {
 	t.Run("malformed source", func(t *testing.T) {
 		content := []byte("not a conllu document")
 		converted, outcome := convertLegacyClassicalCandidate(context.Background(), nil, classicalConversionCandidate{
-			content: content, sourceFileSize: int64(len(content)), sourceFileSHA256: sha256Hex(content),
-			sourceFormat: "oga-conllu",
+			content: content, SourceFileSize: int64(len(content)), SourceFileSHA256: sha256Hex(content),
+			SourceFormat: "oga-conllu",
 		})
 		require.False(t, converted)
 		require.Equal(t, conversionSkipped, outcome)
@@ -123,8 +123,8 @@ func TestConvertLegacyClassicalCandidateRefusesUnusableSources(t *testing.T) {
 		content, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
 		require.NoError(t, err)
 		converted, outcome := convertLegacyClassicalCandidate(context.Background(), nil, classicalConversionCandidate{
-			content: content, sourceFileSize: int64(len(content)), sourceFileSHA256: sha256Hex(content),
-			sourceFormat: "oga-conllu",
+			content: content, SourceFileSize: int64(len(content)), SourceFileSHA256: sha256Hex(content),
+			SourceFormat: "oga-conllu",
 		})
 		require.False(t, converted)
 		require.Equal(t, conversionSkipped, outcome)

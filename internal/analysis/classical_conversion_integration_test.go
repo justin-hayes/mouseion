@@ -209,7 +209,7 @@ func TestConvertLegacyAnabasisBookPreservesEveryPieceOfState(t *testing.T) {
 
 	// Startup order: reconcile the manifest first, then convert the Book.
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{seed.definition}))
-	report, err := ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{seed.definition})
+	report, err := ConvertLegacyClassicalBooks(ctx, store)
 	require.NoError(t, err)
 	assert.Equal(t, 1, report.Converted)
 	assert.Zero(t, report.EvidenceDiffers)
@@ -292,7 +292,7 @@ func TestConvertLegacyAnabasisBookPreservesEveryPieceOfState(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM source_material_unit_snapshots WHERE owner_id=$1 AND source_material_id=$2`, seed.ownerID, seed.sourceID).Scan(&beforeSnapshots))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, seed.ownerID).Scan(&beforeRuns))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM classical_prepared_definitions WHERE owner_id=$1`, seed.ownerID).Scan(&beforePrepared))
-	again, err := ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{seed.definition})
+	again, err := ConvertLegacyClassicalBooks(ctx, store)
 	require.NoError(t, err)
 	assert.Zero(t, again.Converted)
 	var afterRevisions, afterSnapshots, afterRuns, afterPrepared int
@@ -307,6 +307,222 @@ func TestConvertLegacyAnabasisBookPreservesEveryPieceOfState(t *testing.T) {
 	legacy, err := store.ListLegacyLanguageRows(ctx, classical.Language)
 	require.NoError(t, err)
 	assert.Empty(t, legacy, "a converted Book no longer blocks the catalog")
+}
+
+// survivingDefinition is a valid current manifest entry that keeps the
+// withdrawal test's installation open after the legacy unit is tombstoned.
+func survivingDefinition(t *testing.T) classical.Definition {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
+	require.NoError(t, err)
+	sum := sha256.Sum256(data)
+	return classical.Definition{
+		Key: "surviving-anabasis-1", WorkKey: "surviving-anabasis",
+		WorkTitle: "Surviving Work", WorkAuthor: "Test Author", GreekTitle: "Σῳζόμενον",
+		EditionKey: "surviving-anabasis-edition", EditionLabel: "Test Edition",
+		Language: classical.Language, ConstituentBooks: 1,
+		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7,
+		Source: classical.SourcePin{
+			Layer: "test-layer", FileName: "surviving.conllu",
+			Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:]),
+			Format: classical.SourceFormatOGACoNLLU,
+		},
+		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
+	}
+}
+
+// seedUnpublishedPreUpgradeAnabasis writes the interrupted import shape: the
+// source row and Book exist, but no analysis transaction committed. It is the
+// state the old writer left behind when an operator import failed or stopped.
+func seedUnpublishedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persistence.PostgresStore, pool *pgxpool.Pool) preUpgradeAnabasis {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
+	require.NoError(t, err)
+	definition := preUpgradeDefinition(t, data)
+	readingUnit := domain.ReadingUnitDefinition{
+		Key: definition.Key, Language: definition.Language, WorkTitle: definition.WorkTitle,
+		WorkAuthor: definition.WorkAuthor, EditionLabel: definition.EditionLabel,
+		CitationStart: definition.CitationStart, CitationEnd: definition.CitationEnd,
+		SourceFileName: definition.Source.FileName, SourceFileSize: definition.Source.Size,
+		SourceFileSHA256: definition.Source.SHA256, InterpretationVersion: definition.InterpretationVersion,
+	}
+	owner, err := store.CreateUser(ctx, "unpublished-conversion-owner", false)
+	require.NoError(t, err)
+	registration, err := store.RegisterReadingUnitBook(ctx, owner.ID, readingUnit)
+	require.NoError(t, err)
+
+	parsed, err := ancientgreek.ParseOgaSource(data)
+	require.NoError(t, err)
+	unit, err := parsed.CutUnit(readingUnit)
+	require.NoError(t, err)
+	// The old writer persisted the whole work file before its analysis
+	// transaction committed. Store exactly that source row, then leave no run.
+	request := ancientgreek.ImportWriteRequest{
+		OwnerID: owner.ID, BookID: registration.BookID, Definition: readingUnit,
+		SourceBytes: data, FullText: unit.FullText,
+		UnitID: unit.UnitID, UnitTitle: definition.WorkTitle,
+	}
+	stored, err := store.PutImportedSourceMaterial(ctx, importedSourceMaterial(request), importedUnits(request), registration.BookID)
+	require.NoError(t, err)
+
+	seed := preUpgradeAnabasis{
+		ownerID: owner.ID, bookID: registration.BookID, sourceID: stored.ID,
+		definition: definition,
+	}
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT current_content_revision_id::text, current_snapshot_id::text
+		FROM source_materials WHERE owner_id=$1 AND id=$2`, owner.ID, stored.ID).
+		Scan(&seed.oldRevisionID, &seed.oldSnapshotID))
+	// Rewrite the source identity to the pre-upgrade whole-file shape.
+	_, err = pool.Exec(ctx, `UPDATE source_materials SET source_identifier=$3 WHERE owner_id=$1 AND id=$2`,
+		owner.ID, stored.ID, definition.Source.FileName)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, registration.BookID, domain.BookDispositionToRead))
+	_, err = store.PutKnownVocabularyIdentity(ctx, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
+	require.NoError(t, err)
+	return seed
+}
+
+// TestConvertLegacyUnpublishedBookLetsOrdinaryPreparationPublish covers a Book
+// whose operator import stopped after the source row was written. The shared
+// legacy definition counts it, startup conversion rewrites it to unit-only
+// content without re-pointing a run, and ordinary classical preparation then
+// publishes its analysis.
+func TestConvertLegacyUnpublishedBookLetsOrdinaryPreparationPublish(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	seed := seedUnpublishedPreUpgradeAnabasis(t, ctx, store, pool)
+
+	// The check and conversion see the same row before conversion.
+	legacy, err := store.ListLegacyLanguageRows(ctx, classical.Language)
+	require.NoError(t, err)
+	require.Len(t, legacy, 1)
+	require.Equal(t, "source_materials", legacy[0].Surface)
+	candidates, err := store.ListLegacyClassicalSourceMaterials(ctx, classical.Language)
+	require.NoError(t, err)
+	require.Len(t, candidates, 1, "the shared definition exposes every counted legacy Book")
+	require.Equal(t, seed.sourceID, candidates[0].SourceMaterialID)
+
+	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{seed.definition}))
+	report, err := ConvertLegacyClassicalBooks(ctx, store)
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Converted)
+	assert.Equal(t, 1, report.Unpublished, "an unpublished legacy row is a source-only conversion")
+	assert.Zero(t, report.Withdrawn)
+	assert.Zero(t, report.EvidenceDiffers)
+
+	source, err := store.GetSourceMaterial(ctx, seed.ownerID, seed.sourceID)
+	require.NoError(t, err)
+	assert.Equal(t, seed.definition.Key, source.SourceIdentifier)
+	assert.NotEqual(t, seed.oldRevisionID, source.ContentRevisionID)
+	assert.Equal(t, source.FullText, string(source.Content))
+	assert.Contains(t, source.FullText, "λέγει")
+	assert.NotContains(t, source.FullText, "Ἀρταξέρξης")
+	var runs, prepared int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, seed.ownerID).Scan(&runs))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM classical_prepared_definitions WHERE owner_id=$1`, seed.ownerID).Scan(&prepared))
+	assert.Zero(t, runs, "no analysis run was published before conversion")
+	assert.Zero(t, prepared, "source-only conversion records no prepared definition")
+
+	detail, err := store.GetBookDetail(ctx, seed.ownerID, seed.bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, detail.Disposition, "the Book and its disposition survive")
+	var known int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, seed.ownerID).Scan(&known))
+	assert.Equal(t, 1, known, "learner vocabulary survives")
+	legacy, err = store.ListLegacyLanguageRows(ctx, classical.Language)
+	require.NoError(t, err)
+	assert.Empty(t, legacy, "the catalog is no longer blocked")
+
+	// Ordinary preparation publishes the analysis through product code, with
+	// no conversion-only SQL.
+	sourceData, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
+	require.NoError(t, err)
+	require.NoError(t, store.PutClassicalSource(ctx, domain.ClassicalSource{
+		SHA256: seed.definition.Source.SHA256, Layer: seed.definition.Source.Layer,
+		FileName: seed.definition.Source.FileName, Size: seed.definition.Source.Size,
+		Content: sourceData,
+	}))
+	target, err := store.LoadClassicalPreparationTarget(ctx, seed.ownerID, seed.bookID)
+	require.NoError(t, err)
+	require.False(t, target.Withdrawn)
+	worker := &ClassicalPreparationWorker{Store: store, Writer: NewGreekImportWriter(store)}
+	require.NoError(t, worker.Work(ctx, preparationJob(target)))
+	complete, err := store.ClassicalPreparationComplete(ctx, target)
+	require.NoError(t, err)
+	assert.True(t, complete)
+	legacy, err = store.ListLegacyLanguageRows(ctx, classical.Language)
+	require.NoError(t, err)
+	assert.Empty(t, legacy)
+}
+
+// TestConvertLegacyWithdrawnUnitStopsBlockingTheCatalog covers a Book linked
+// before its Reading unit was withdrawn. The check counts it but conversion
+// used to skip it; now the source identity converts and the Book behaves like
+// any other Book with a withdrawn definition.
+func TestConvertLegacyWithdrawnUnitStopsBlockingTheCatalog(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	seed := seedPreUpgradeAnabasis(t, ctx, store, pool)
+	surviving := survivingDefinition(t)
+
+	// The release no longer carries the old Reading unit, so reconciliation
+	// tombstones it. The legacy row remains counted until conversion runs.
+	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{surviving}))
+	legacy, err := store.ListLegacyLanguageRows(ctx, classical.Language)
+	require.NoError(t, err)
+	require.Len(t, legacy, 1)
+	candidates, err := store.ListLegacyClassicalSourceMaterials(ctx, classical.Language)
+	require.NoError(t, err)
+	require.Len(t, candidates, 1)
+	require.True(t, candidates[0].Withdrawn)
+
+	report, err := ConvertLegacyClassicalBooks(ctx, store)
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Converted)
+	assert.Equal(t, 1, report.Withdrawn, "a legacy row on a withdrawn unit converts as a withdrawn outcome")
+	assert.Zero(t, report.Unpublished)
+	assert.Zero(t, report.EvidenceDiffers)
+
+	source, err := store.GetSourceMaterial(ctx, seed.ownerID, seed.sourceID)
+	require.NoError(t, err)
+	assert.Equal(t, seed.definition.Key, source.SourceIdentifier)
+	assert.Equal(t, source.FullText, string(source.Content))
+	assert.Contains(t, source.FullText, "λέγει")
+	assert.NotContains(t, source.FullText, "Ἀρταξέρξης")
+	var prepared int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM classical_prepared_definitions WHERE owner_id=$1 AND book_id=$2`,
+		seed.ownerID, seed.bookID).Scan(&prepared))
+	assert.Zero(t, prepared, "a withdrawn unit records no prepared definition")
+	legacy, err = store.ListLegacyLanguageRows(ctx, classical.Language)
+	require.NoError(t, err)
+	assert.Empty(t, legacy, "the withdrawn legacy Book no longer blocks the installation")
+
+	detail, err := store.GetBookDetail(ctx, seed.ownerID, seed.bookID)
+	require.NoError(t, err)
+	require.NotNil(t, detail.ReadingUnit)
+	assert.True(t, detail.ReadingUnit.Withdrawn)
+	target, err := store.LoadClassicalPreparationTarget(ctx, seed.ownerID, seed.bookID)
+	require.NoError(t, err)
+	assert.True(t, target.Withdrawn, "the Book keeps the ordinary withdrawn-definition outcome")
+
+	// Another learner can use the catalog, while the withdrawn unit is still
+	// not addable.
+	other, err := store.CreateUser(ctx, "withdrawn-conversion-other", false)
+	require.NoError(t, err)
+	added, err := store.AddClassicalReadingUnits(ctx, other.ID, []string{surviving.Key})
+	require.NoError(t, err)
+	assert.Equal(t, 1, added.CreatedBooks())
+	_, err = store.AddClassicalReadingUnits(ctx, other.ID, []string{seed.definition.Key})
+	require.Error(t, err, "a withdrawn unit is not addable")
 }
 
 func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *testing.T) {
@@ -369,7 +585,7 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 		require.ErrorIs(t, err, classical.ErrLegacyRows)
 	})
 
-	report, err := ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{updated})
+	report, err := ConvertLegacyClassicalBooks(ctx, store)
 	require.NoError(t, err)
 	assert.Zero(t, report.Converted)
 	assert.Equal(t, 1, report.EvidenceDiffers)
@@ -434,7 +650,7 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	})
 
 	t.Run("a second startup finds nothing to convert", func(t *testing.T) {
-		again, err := ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{updated})
+		again, err := ConvertLegacyClassicalBooks(ctx, store)
 		require.NoError(t, err)
 		require.Zero(t, again.Converted)
 		require.Zero(t, again.EvidenceDiffers)
@@ -523,7 +739,7 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	t.Run("a candidate-load failure keeps the catalog fail-closed", func(t *testing.T) {
 		_, err := pool.Exec(ctx, `DROP TABLE source_materials CASCADE`)
 		require.NoError(t, err)
-		_, err = ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{updated})
+		_, err = ConvertLegacyClassicalBooks(ctx, store)
 		require.Error(t, err)
 		_, err = updates.AnalysisUpdateCandidates(ctx, seed.ownerID, []string{seed.sourceID})
 		require.Error(t, err)

@@ -160,6 +160,120 @@ func (q *Queries) ListBookReadingUnits(ctx context.Context, arg ListBookReadingU
 	return items, nil
 }
 
+const listLegacyClassicalSourceCandidates = `-- name: ListLegacyClassicalSourceCandidates :many
+SELECT sm.owner_id::text AS owner_id,
+       sm.book_id::text AS book_id,
+       sm.id::text AS source_material_id,
+       COALESCE(sm.current_content_revision_id::text, '')::text AS content_revision_id,
+       COALESCE(sm.current_snapshot_id::text, '')::text AS snapshot_id,
+       COALESCE(cai.analysis_run_id::text, '')::text AS analysis_run_id,
+       COALESCE(cai.corpus_id::text, '')::text AS corpus_id,
+       ru.definition_key AS reading_unit_key,
+       ru.citation_start,
+       ru.citation_end,
+       ru.source_file_name,
+       ru.source_file_size,
+       ru.source_file_sha256,
+       ru.source_format,
+       ru.interpretation_version,
+       ru.revision AS definition_revision,
+       ru.withdrawn,
+       w.title AS work_title,
+       w.author AS work_author,
+       e.label AS edition_label
+FROM source_materials sm
+JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
+JOIN reading_units ru ON ru.id = bru.reading_unit_id
+JOIN editions e ON e.id = ru.edition_id
+JOIN works w ON w.id = e.work_id
+LEFT JOIN current_analysis_identity cai
+  ON cai.owner_id = sm.owner_id AND cai.source_material_id = sm.id AND cai.book_id = sm.book_id
+LEFT JOIN classical_prepared_definitions p
+  ON p.owner_id = sm.owner_id AND p.book_id = sm.book_id
+WHERE sm.language = $1
+  AND sm.media_type = $2
+  AND sm.source_identifier <> ru.definition_key
+  AND p.book_id IS NULL
+ORDER BY sm.owner_id, sm.id
+`
+
+type ListLegacyClassicalSourceCandidatesParams struct {
+	Language  string
+	MediaType string
+}
+
+type ListLegacyClassicalSourceCandidatesRow struct {
+	OwnerID               string
+	BookID                string
+	SourceMaterialID      string
+	ContentRevisionID     string
+	SnapshotID            string
+	AnalysisRunID         string
+	CorpusID              string
+	ReadingUnitKey        string
+	CitationStart         string
+	CitationEnd           string
+	SourceFileName        string
+	SourceFileSize        int64
+	SourceFileSha256      string
+	SourceFormat          string
+	InterpretationVersion string
+	DefinitionRevision    int
+	Withdrawn             bool
+	WorkTitle             string
+	WorkAuthor            string
+	EditionLabel          string
+}
+
+// The one definition of a legacy classical Book. The catalog precondition
+// counts these rows through ListLegacyLanguageRows and startup conversion reads
+// them here, so a Book the check counts is always a Book the conversion sees.
+// Keep this FROM/WHERE shape authoritative: the check and conversion must not
+// grow different filters (for example withdrawn or published-analysis tests).
+// A whole-file source row can exist without a published analysis when an
+// import was interrupted before its analysis transaction committed, and a
+// Reading unit can be withdrawn after the Book was linked; both are legacy.
+func (q *Queries) ListLegacyClassicalSourceCandidates(ctx context.Context, arg ListLegacyClassicalSourceCandidatesParams) ([]ListLegacyClassicalSourceCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, listLegacyClassicalSourceCandidates, arg.Language, arg.MediaType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLegacyClassicalSourceCandidatesRow{}
+	for rows.Next() {
+		var i ListLegacyClassicalSourceCandidatesRow
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.BookID,
+			&i.SourceMaterialID,
+			&i.ContentRevisionID,
+			&i.SnapshotID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.ReadingUnitKey,
+			&i.CitationStart,
+			&i.CitationEnd,
+			&i.SourceFileName,
+			&i.SourceFileSize,
+			&i.SourceFileSha256,
+			&i.SourceFormat,
+			&i.InterpretationVersion,
+			&i.DefinitionRevision,
+			&i.Withdrawn,
+			&i.WorkTitle,
+			&i.WorkAuthor,
+			&i.EditionLabel,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLegacyLanguageRows = `-- name: ListLegacyLanguageRows :many
 WITH registered_owners AS (
     SELECT DISTINCT bru.owner_id
@@ -184,21 +298,6 @@ FROM (
           SELECT 1 FROM book_reading_units bru
           WHERE bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
       )
-    UNION ALL
-    -- A pre-upgrade classical Book keeps the whole work file under the source
-    -- file name until startup conversion rewrites it to the Reading-unit key.
-    -- Such a Book is legacy even though it already has a Reading-unit link, so
-    -- Add and preparation stay fail-closed until the conversion completes.
-    SELECT sm.owner_id::text, 'source_materials'::text
-    FROM source_materials sm
-    JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
-    JOIN reading_units ru ON ru.id = bru.reading_unit_id
-    LEFT JOIN classical_prepared_definitions p
-      ON p.owner_id = sm.owner_id AND p.book_id = sm.book_id
-    WHERE sm.language = $1
-      AND sm.media_type = $2
-      AND sm.source_identifier <> ru.definition_key
-      AND p.book_id IS NULL
     UNION ALL
     SELECT ct.owner_id::text, 'corpus_tokens'::text
     FROM corpus_tokens ct
@@ -252,11 +351,6 @@ GROUP BY t.owner_id, t.surface
 ORDER BY t.owner_id, t.surface
 `
 
-type ListLegacyLanguageRowsParams struct {
-	LanguageTag pgtype.Text
-	MediaType   string
-}
-
 type ListLegacyLanguageRowsRow struct {
 	OwnerID  string
 	Surface  string
@@ -269,8 +363,10 @@ type ListLegacyLanguageRowsRow struct {
 // first Add passes only when they own no such rows, so every derived row
 // (tokens, Known, vocabulary, candidates, decks) a registered learner owns was
 // written by this feature and never refuses an Add.
-func (q *Queries) ListLegacyLanguageRows(ctx context.Context, arg ListLegacyLanguageRowsParams) ([]ListLegacyLanguageRowsRow, error) {
-	rows, err := q.db.Query(ctx, listLegacyLanguageRows, arg.LanguageTag, arg.MediaType)
+// Legacy classical source rows are counted from the shared definition in
+// ListLegacyClassicalSourceCandidates, not from a second predicate here.
+func (q *Queries) ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error) {
+	rows, err := q.db.Query(ctx, listLegacyLanguageRows, languageTag)
 	if err != nil {
 		return nil, err
 	}

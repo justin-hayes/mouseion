@@ -113,7 +113,7 @@ func classicalPreparationViewFor(status domain.ClassicalPreparationStatus) class
 	case domain.ClassicalPreparationFailureCatalog:
 		return classicalPreparationView{
 			Label:       "Classical catalog unavailable",
-			Description: "Preparation is unavailable until this installation's legacy Ancient Greek rows are converted. No retry is available until the operator finishes the conversion.",
+			Description: "Preparation is unavailable while this installation converts its legacy Ancient Greek rows. Restart Mouseion to retry the conversion. Existing Books stay readable.",
 		}
 	case domain.ClassicalPreparationFailureWithdrawn:
 		return classicalPreparationView{

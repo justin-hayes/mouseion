@@ -21,20 +21,22 @@ var ErrClassicalConversionChanged = errors.New("persistence: classical conversio
 // ConvertLegacyClassicalSource rewrites one pre-upgrade Book's source material
 // from the whole work file to its Reading unit's own text. It keeps the source
 // row and its historical revisions, adds the unit as a new content revision and
-// snapshot, re-points the published analysis run at that evidence, sets the
-// source identifier to the permanent Reading-unit key and, when the published
-// evidence still matches, records the prepared-definition row without creating
-// another analysis run.
+// snapshot, sets the source identifier to the permanent Reading-unit key, and,
+// when a published run exists, re-points that run at the new evidence. A
+// matching published analysis also records the prepared-definition row without
+// creating another run.
 //
 // "Discarding the whole-file content" means the source's current content is the
 // unit: every current read resolves the new revision. Historical revisions stay
 // immutable because a frozen current-reading snapshot or completed Reading can
 // still name them as evidence.
 //
-// A differing-evidence conversion completes the same source-identity rewrite
-// but leaves the published run's corpus and the prepared-definition record
-// alone. The Book is no longer legacy, stays readable, and keeps its ordinary
-// Analysis update offer.
+// A differing-evidence conversion, an unpublished source with no analysis run,
+// and a withdrawn Reading unit all complete the same source-identity rewrite
+// without a prepared-definition record. The Book is no longer legacy: a
+// differing or unpublished Book keeps its ordinary preparation or Analysis
+// update offer, and a withdrawn Book behaves like any other withdrawn
+// definition.
 func (s *PostgresStore) ConvertLegacyClassicalSource(ctx context.Context, conversion domain.ClassicalSourceConversion) (bool, error) {
 	if err := validateClassicalSourceConversion(conversion); err != nil {
 		return false, err
@@ -65,7 +67,7 @@ func convertLegacyClassicalSourceTx(ctx context.Context, tx pgx.Tx, conversion d
 	if revisionID != conversion.ExpectedContentRevisionID || snapshotID != conversion.ExpectedSnapshotID {
 		return false, ErrClassicalConversionChanged
 	}
-	if err := verifyPublishedConversionRun(ctx, tx, conversion); err != nil {
+	if err := verifyPublishedConversionRunIfPresent(ctx, tx, conversion); err != nil {
 		return false, err
 	}
 	newRevisionID, err := writeConversionRevision(ctx, tx, conversion)
@@ -82,22 +84,52 @@ func convertLegacyClassicalSourceTx(ctx context.Context, tx pgx.Tx, conversion d
 	if err != nil {
 		return false, err
 	}
-	// The run names the converted evidence even when the publication differs,
-	// because every current-analysis read joins the source's current revision
-	// and snapshot to it. The run's corpus and learner evidence stay untouched.
-	if err := tx.QueryRow(ctx, `UPDATE analysis_runs
-		SET content_revision_id = $3, snapshot_id = $4, updated_at = now()
-		WHERE owner_id = $1 AND id = $2
-		RETURNING id::text`, conversion.OwnerID, conversion.AnalysisRunID, newRevisionID, newSnapshotID).Scan(new(string)); err != nil {
-		return false, fmt.Errorf("re-point converted analysis run: %w", err)
+	if err := repointConvertedAnalysisRun(ctx, tx, conversion, newRevisionID, newSnapshotID); err != nil {
+		return false, err
 	}
-	if conversion.EvidenceDiffers {
+	if !conversionRecordsPreparedDefinition(conversion) {
 		return true, nil
 	}
 	if err := recordConvertedPreparedDefinition(ctx, tx, conversion); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+// verifyPublishedConversionRunIfPresent refuses changed evidence only when a
+// published run must be re-pointed. A source with no published analysis has no
+// run to verify.
+func verifyPublishedConversionRunIfPresent(ctx context.Context, tx pgx.Tx, conversion domain.ClassicalSourceConversion) error {
+	if conversion.AnalysisRunID == "" {
+		return nil
+	}
+	return verifyPublishedConversionRun(ctx, tx, conversion)
+}
+
+// repointConvertedAnalysisRun makes a published run name the converted
+// evidence even when the publication differs, because every current-analysis
+// read joins the source's current revision and snapshot to it. The run's corpus
+// and learner evidence stay untouched. A source with no published analysis has
+// no run to re-point.
+func repointConvertedAnalysisRun(ctx context.Context, tx pgx.Tx, conversion domain.ClassicalSourceConversion, revisionID, snapshotID string) error {
+	if conversion.AnalysisRunID == "" {
+		return nil
+	}
+	if err := tx.QueryRow(ctx, `UPDATE analysis_runs
+		SET content_revision_id = $3, snapshot_id = $4, updated_at = now()
+		WHERE owner_id = $1 AND id = $2
+		RETURNING id::text`, conversion.OwnerID, conversion.AnalysisRunID, revisionID, snapshotID).Scan(new(string)); err != nil {
+		return fmt.Errorf("re-point converted analysis run: %w", err)
+	}
+	return nil
+}
+
+// conversionRecordsPreparedDefinition reports whether the converted Book is
+// prepared under its definition. A differing publication, a withdrawn unit and
+// a source with no published analysis all keep that record absent, so the
+// ordinary update or preparation offer stands.
+func conversionRecordsPreparedDefinition(conversion domain.ClassicalSourceConversion) bool {
+	return conversion.AnalysisRunID != "" && !conversion.EvidenceDiffers && !conversion.Withdrawn
 }
 
 // lockConvertedSource reads the source's current identity under a row lock.
@@ -272,8 +304,6 @@ func validateClassicalSourceConversion(conversion domain.ClassicalSourceConversi
 		return errors.New("persistence: classical conversion source SHA-256 is invalid")
 	case conversion.InterpretationVersion == "":
 		return errors.New("persistence: classical conversion interpretation version is required")
-	case conversion.AnalysisRunID == "":
-		return errors.New("persistence: classical conversion analysis run is required")
 	case conversion.ExpectedContentRevisionID == "" || conversion.ExpectedSnapshotID == "":
 		return errors.New("persistence: classical conversion expected evidence is required")
 	}

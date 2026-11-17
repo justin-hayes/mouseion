@@ -621,7 +621,7 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	manifest, err := classical.RenderDefinitions(definitions)
 	require.NoError(t, err)
 	require.NoError(t, classical.Reconcile(ctx, store, manifest), "startup reconciles the fixture manifest")
-	conversion, err := analysis.ConvertLegacyClassicalBooks(ctx, store, definitions)
+	conversion, err := analysis.ConvertLegacyClassicalBooks(ctx, store)
 	require.NoError(t, err)
 	require.Equal(t, 1, conversion.Converted, "the seeded pre-upgrade Book converts at startup")
 

@@ -285,13 +285,24 @@ type Querier interface {
 	ListKnownVocabularyForCurrentReadingSnapshot(ctx context.Context, arg ListKnownVocabularyForCurrentReadingSnapshotParams) ([]ListKnownVocabularyForCurrentReadingSnapshotRow, error)
 	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
 	ListLSJSenseSummariesByPins(ctx context.Context, pins []string) ([]ListLSJSenseSummariesByPinsRow, error)
+	// The one definition of a legacy classical Book. The catalog precondition
+	// counts these rows through ListLegacyLanguageRows and startup conversion reads
+	// them here, so a Book the check counts is always a Book the conversion sees.
+	// Keep this FROM/WHERE shape authoritative: the check and conversion must not
+	// grow different filters (for example withdrawn or published-analysis tests).
+	// A whole-file source row can exist without a published analysis when an
+	// import was interrupted before its analysis transaction committed, and a
+	// Reading unit can be withdrawn after the Book was linked; both are legacy.
+	ListLegacyClassicalSourceCandidates(ctx context.Context, arg ListLegacyClassicalSourceCandidatesParams) ([]ListLegacyClassicalSourceCandidatesRow, error)
 	// Rows carrying a language identity that predate the classical registration.
 	// A Book already associated with a Reading unit, and the source materials
 	// pointing at it, are this feature's own data and are not legacy. A learner's
 	// first Add passes only when they own no such rows, so every derived row
 	// (tokens, Known, vocabulary, candidates, decks) a registered learner owns was
 	// written by this feature and never refuses an Add.
-	ListLegacyLanguageRows(ctx context.Context, arg ListLegacyLanguageRowsParams) ([]ListLegacyLanguageRowsRow, error)
+	// Legacy classical source rows are counted from the shared definition in
+	// ListLegacyClassicalSourceCandidates, not from a second predicate here.
+	ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error)
 	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
 	// Coverage comes from the durable Vocabulary Browse inventory counts joined to
 	// the learner's current Known vocabulary. A Book without ready counts for its

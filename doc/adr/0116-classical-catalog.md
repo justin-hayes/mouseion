@@ -248,6 +248,23 @@ ordinary preparation path. In both cases the conversion maps the old one-key
 Work and Edition rows to the shared Work and Edition keys without changing any
 Book's Reading-unit link.
 
+The check that fails the catalog closed and the startup conversion share one
+definition of a legacy classical Book. That definition includes two shapes the
+first conversion missed. An operator import that was interrupted after the
+source row was written leaves a whole-file source with no published analysis:
+the conversion rewrites it to unit-only content under the Reading-unit key
+without re-pointing a run, and ordinary classical preparation later publishes
+the analysis and its prepared-definition record. A Reading unit the manifest
+later withdraws stays linked to its Book: the conversion rewrites that source
+to unit-only content and records no prepared definition, so the Book behaves
+like any other Book with a withdrawn definition instead of keeping the whole
+installation blocked. A unit withdrawn before its first reconciliation carries
+no source format because the retired registration never recorded one; the
+conversion treats that empty value as the OGA CoNLL-U dialect the old path
+required. A source the conversion still cannot reproduce (for example a
+malformed file or a pin mismatch) stays whole-file, is reported as a skipped
+outcome and keeps the catalog fail-closed for a later start.
+
 ADR 0099's legacy `grc` refusal becomes a fail-closed Classical catalog
 precondition. While un-converted legacy rows exist, adding and preparation are
 unavailable with a stable reason and code; existing Books stay readable, and

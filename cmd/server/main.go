@@ -100,19 +100,15 @@ func run() (err error) {
 		return fmt.Errorf("reconcile Classical catalog manifest: %w", err)
 	}
 	log.Print("classical catalog manifest reconciled")
-	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
-	if err != nil {
-		return fmt.Errorf("parse Classical catalog manifest: %w", err)
-	}
-	conversion, err := analysis.ConvertLegacyClassicalBooks(ctx, store, definitions)
+	conversion, err := analysis.ConvertLegacyClassicalBooks(ctx, store)
 	if err != nil {
 		// Conversion is a fail-closed catalog precondition, not a startup gate:
 		// existing Books stay readable and Add/preparation remain unavailable
 		// until a later start converts the legacy rows.
 		log.Printf("classical catalog legacy conversion could not run; catalog remains fail-closed: %v", err)
 	} else {
-		log.Printf("classical catalog legacy conversion: converted=%d evidence_differs=%d skipped=%d",
-			conversion.Converted, conversion.EvidenceDiffers, conversion.Skipped)
+		log.Printf("classical catalog legacy conversion: converted=%d unpublished=%d withdrawn=%d evidence_differs=%d skipped=%d",
+			conversion.Converted, conversion.Unpublished, conversion.Withdrawn, conversion.EvidenceDiffers, conversion.Skipped)
 	}
 	nlp, err := analyzer.NewGRPCAnalyzer("")
 	if err != nil {
