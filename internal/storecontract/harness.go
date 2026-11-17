@@ -1,17 +1,20 @@
 // Package storecontract holds the scenarios that pin Current reading lifecycle,
-// deck admission, lemma review, and Book visibility, disposition, and previously
-// read import behavior. Each store adapter that carries contractual
-// transitions (ADR 0088) implements Harness and runs every scenario, so the
-// fixtures and PostgreSQL adapters are held to the same outcomes.
+// deck admission, lemma review, Book visibility, disposition, previously read
+// import, and Classical catalog membership behavior. Each store adapter that
+// carries contractual transitions (ADR 0088) implements Harness and runs every
+// scenario, so the fixtures and PostgreSQL adapters are held to the same
+// outcomes.
 //
-// The package imports only domain. Adapters supply the transitions and the
-// seeding through Harness; they do not share types with this package.
+// The package shares only the domain and Classical catalog types. Adapters
+// supply the transitions and the seeding through Harness; they do not share
+// adapter-specific types with this package.
 package storecontract
 
 import (
 	"slices"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -71,6 +74,7 @@ type Harness interface {
 	Store() Store
 	LemmaReview() LemmaReviewStore
 	BookState() BookStateStore
+	Classical() ClassicalStore
 	Seeds() Seeder
 }
 
@@ -85,6 +89,14 @@ type BookStateStore interface {
 	SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (applied bool, err error)
 	TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error)
 	ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error)
+}
+
+// ClassicalStore is the built-in Classical catalog membership surface under
+// test. Add creates or reopens one Book per current Reading unit; the list is
+// owner-scoped and resumes an existing Book rather than creating a duplicate.
+type ClassicalStore interface {
+	AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error)
+	ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error)
 }
 
 // Store is the Current reading and deck admission surface under test.
@@ -141,6 +153,9 @@ type Seeder interface {
 	// ClearSnapshotID leaves owner's current reading without a snapshot, the
 	// shape of a legacy reading.
 	ClearSnapshotID(t *testing.T, owner, language string)
+	// SeedClassicalCatalog installs the Classical release the contract's Add
+	// scenarios resolve Reading units from.
+	SeedClassicalCatalog(t *testing.T)
 }
 
 // Scenario is one behavior every adapter must hold.
@@ -159,6 +174,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, admissionScenarios()...)
 	scenarios = append(scenarios, lemmaReviewScenarios()...)
 	scenarios = append(scenarios, greekScenarios()...)
+	scenarios = append(scenarios, classicalScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }
 

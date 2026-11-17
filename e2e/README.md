@@ -114,7 +114,10 @@ lockfile committed. This suite complements, and does not replace, Go tests.
 Reading acceptance includes My Books catalog arrivals and disposition,
 current-reading confirmation and stale-write fields, coverage-band selection,
 focus restoration, reduced-motion preference, completion receipt, Read history,
-and Read again. Read-only assertions run
+and Read again. The Classical catalog fixture journey adds a whole Work from the
+built-in catalog, checks its grouped My Books row and numbered Book strip, moves
+the Work to To Read, and opens a prepared constituent Book from Reading's
+grouped band rows. Read-only assertions run
 across desktop/compact and light/dark projects, as do the stateful
 finish/history/reread flows, which each receive a fresh file-scoped fixture.
 Migration tests separately assert retained active snapshot contents,

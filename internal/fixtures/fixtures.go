@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -88,6 +89,9 @@ type Store struct {
 	// against them.
 	lemmaOccurrences map[string][]domain.LemmaReviewOccurrence
 	browseScenario   string
+	// classicalDefinitions is the release the fixture's Add resolves Reading
+	// units from. Tests may install the shared contract's release.
+	classicalDefinitions map[string]classical.Definition
 }
 
 // Fixture Books state the typed analysis evidence they present. Eligibility is
@@ -226,6 +230,7 @@ func NewStore() *Store {
 		lemmaExclusions:      make(map[string]bool),
 		lemmaReviewFlags:     make(map[string]domain.LemmaReviewFlag),
 		lemmaOccurrences:     fixtureCannedLemmaOccurrences(),
+		classicalDefinitions: fixtureClassicalDefinitionsByKey(),
 	}
 	store.lemmaReviewFlags[fixtureLemmaCorrectionKey(OwnerID, LemmaFlagBookID, "fixture-lemma-flag-run", 4, 7)] = domain.LemmaReviewFlag{
 		Occurrence: domain.LemmaReviewOccurrence{OwnerID: OwnerID, BookID: LemmaFlagBookID, AnalysisRunID: "fixture-lemma-flag-run", SourceDocumentID: "fixture-lemma-flag-unit", StartOffset: 4, EndOffset: 7},

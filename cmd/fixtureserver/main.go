@@ -33,6 +33,10 @@ func main() {
 	authService := auth.New(authStore, auth.DefaultSessionLifetime)
 	authHandler := webauth.New(authService, false, auth.DefaultSessionLifetime)
 	store := fixtures.NewStore()
+	classicalCatalog, err := fixtures.NewClassicalCatalog()
+	if err != nil {
+		log.Fatalf("initialize fixture Classical catalog: %v", err)
+	}
 	books := fixtureBooksStore{Store: store}
 	catalogueSync := fixtures.NewCatalogueSync(store)
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, Jobs: store}
@@ -42,9 +46,11 @@ func main() {
 	})
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
-		Analysis: fixtures.Analysis{Store: store}, AnalysisInsights: fixtures.Insights{},
+		Analysis: fixtures.Analysis{Store: store}, AnalysisInsights: fixtures.ClassicalInsights{},
 		PreparedDeck: preparedDeck, Capabilities: fixtures.Capabilities{},
-		CatalogueSync: catalogueSync, LemmaReview: lemmaReview,
+		ClassicalPreparation: fixtures.ClassicalPreparation{},
+		Classical:            classicalCatalog,
+		CatalogueSync:        catalogueSync, LemmaReview: lemmaReview,
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
 	})
 	if err != nil {

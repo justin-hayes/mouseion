@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/storecontract"
 	"github.com/stretchr/testify/require"
@@ -203,4 +204,17 @@ func (h *contractHarness) ImportPreviouslyRead(owner, bookID string) (domain.Rea
 func (h *contractHarness) Store() storecontract.Store                  { return h }
 func (h *contractHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
 func (h *contractHarness) BookState() storecontract.BookStateStore     { return h }
-func (h *contractHarness) Seeds() storecontract.Seeder                 { return h }
+func (h *contractHarness) Classical() storecontract.ClassicalStore     { return h }
+
+func (h *contractHarness) AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error) {
+	return h.store.AddClassicalReadingUnits(context.Background(), owner, readingUnitKeys)
+}
+
+func (h *contractHarness) ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error) {
+	return h.store.ListOwnedClassicalReadingUnits(context.Background(), owner)
+}
+
+func (h *contractHarness) SeedClassicalCatalog(*testing.T) {
+	h.store.setClassicalDefinitions(storecontract.ClassicalDefinitions())
+}
+func (h *contractHarness) Seeds() storecontract.Seeder { return h }

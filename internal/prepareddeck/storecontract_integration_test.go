@@ -13,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
@@ -82,7 +83,21 @@ func (h *postgresHarness) ImportPreviouslyRead(owner, bookID string) (domain.Rea
 func (h *postgresHarness) Store() storecontract.Store                  { return h }
 func (h *postgresHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
 func (h *postgresHarness) BookState() storecontract.BookStateStore     { return h }
+func (h *postgresHarness) Classical() storecontract.ClassicalStore     { return h }
 func (h *postgresHarness) Seeds() storecontract.Seeder                 { return h }
+
+func (h *postgresHarness) AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error) {
+	return h.store.AddClassicalReadingUnits(h.ctx, owner, readingUnitKeys)
+}
+
+func (h *postgresHarness) ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error) {
+	return h.store.ListOwnedClassicalReadingUnits(h.ctx, owner)
+}
+
+func (h *postgresHarness) SeedClassicalCatalog(t *testing.T) {
+	t.Helper()
+	require.NoError(t, h.store.ReconcileClassicalManifest(h.ctx, storecontract.ClassicalDefinitions()))
+}
 
 func (h *postgresHarness) Owner() string      { return h.owner }
 func (h *postgresHarness) OtherOwner() string { return h.other }
