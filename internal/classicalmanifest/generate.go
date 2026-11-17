@@ -171,6 +171,9 @@ func (b *builder) buildWork(override classical.Override) error {
 	if err != nil {
 		return err
 	}
+	if err := checkSourceContentLayers(override, sourceLayer, translationLayer, hasTranslationLayer); err != nil {
+		return b.candidateFailure(override.WorkKey, "", err)
+	}
 
 	sourceData, sourcePin, sourceAvailable, sourceErr := b.loadSource(override.WorkKey, sourceLayer, *override.Source)
 	if sourceErr != nil {
@@ -214,6 +217,20 @@ func (b *builder) resolveWorkLayers(override classical.Override) (classical.Laye
 		return classical.Layer{}, classical.Layer{}, false, fmt.Errorf("classical: work override %q names unknown translation layer %q", override.WorkKey, override.Translation.Layer)
 	}
 	return sourceLayer, translationLayer, true, nil
+}
+
+// checkSourceContentLayers refuses a work whose source or translation names a
+// layer of another licence class. Another class may legitimately carry an
+// unclear or non-redistributable restriction, so it is never admissible as a
+// work's source or translation.
+func checkSourceContentLayers(override classical.Override, sourceLayer, translationLayer classical.Layer, hasTranslation bool) error {
+	if !sourceLayer.IsSourceContent() {
+		return fmt.Errorf("classical: source layer %q for %s is not Source content", sourceLayer.Key, override.WorkKey)
+	}
+	if hasTranslation && !translationLayer.IsSourceContent() {
+		return fmt.Errorf("classical: translation layer %q for %s is not Source content", translationLayer.Key, override.WorkKey)
+	}
+	return nil
 }
 
 // writeWorkNotes records the proposed split, crossings and source availability.

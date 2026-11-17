@@ -216,6 +216,13 @@ func (l Layer) File(name string) (LayerFile, bool) {
 	return LayerFile{}, false
 }
 
+// IsSourceContent reports whether the layer is classed as Source content under
+// ADR 0111. Only that class must permit redistribution and be no stricter than
+// share-alike, so only it may back a Reading unit's source or translation.
+func (l Layer) IsSourceContent() bool {
+	return l.LicenceClass == LicenceClassSourceContent
+}
+
 // Validate reports whether a layer is admissible under ADR 0111. Source
 // content must permit redistribution and be no stricter than share-alike;
 // analysis resources may be NC, research-only or unclear because the layer is
@@ -301,7 +308,7 @@ func (l Layer) validatePassageAttribution(file LayerFile) error {
 	switch {
 	case hasLabel != hasNotice:
 		return fmt.Errorf("classical: layer %q file %q needs both a passage label and a deck notice", l.Key, file.Name)
-	case l.LicenceClass != LicenceClassSourceContent:
+	case !l.IsSourceContent():
 		return fmt.Errorf("classical: layer %q file %q is not Source content and cannot credit a passage", l.Key, file.Name)
 	case file.SHA256 == "":
 		return fmt.Errorf("classical: layer %q file %q credits a passage without a SHA-256 pin", l.Key, file.Name)
