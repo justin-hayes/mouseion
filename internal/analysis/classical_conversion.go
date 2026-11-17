@@ -27,10 +27,12 @@ type ClassicalConversionReport struct {
 
 // ConvertLegacyClassicalBooks converts every published Book whose source
 // material still holds a pinned whole work file. It reproduces the Book's
-// existing published analysis under the current interpretation and rewrites the
-// source only when the evidence matches exactly. A differing reproduction is
-// left alone so the ordinary Analysis update offer stands; a refused or
-// unreadable source stays whole-file and keeps the catalog fail-closed.
+// existing published analysis under the current interpretation, then rewrites
+// the source to unit-only content under the Reading-unit key. A matching
+// reproduction also records the prepared definition; a differing one leaves
+// the published evidence and that record alone so the ordinary Analysis update
+// offer stands. A refused or unreadable source stays whole-file and keeps the
+// catalog fail-closed.
 func ConvertLegacyClassicalBooks(ctx context.Context, store *persistence.PostgresStore, definitions []classical.Definition) (ClassicalConversionReport, error) {
 	var report ClassicalConversionReport
 	if store == nil {
@@ -171,12 +173,49 @@ func convertLegacyClassicalCandidate(ctx context.Context, store *persistence.Pos
 			candidate.ownerID, candidate.bookID, candidate.readingUnitKey, err)
 		return false, conversionSkipped
 	}
+	conversion := legacyClassicalConversion(candidate, unit)
 	if !publishedEvidenceMatches(unit.Result, sentences, tokens) {
 		log.Printf("mouseion: classical conversion evidence differs owner=%s book=%s unit=%s revision=%d",
 			candidate.ownerID, candidate.bookID, candidate.readingUnitKey, candidate.definitionRevision)
-		return false, conversionEvidenceDiffers
+		conversion.EvidenceDiffers = true
+		return false, writeLegacyClassicalConversion(ctx, store, conversion, conversionEvidenceDiffers)
 	}
-	converted, err := store.ConvertLegacyClassicalSource(ctx, domain.ClassicalSourceConversion{
+	outcome := writeLegacyClassicalConversion(ctx, store, conversion, conversionConverted)
+	return outcome == conversionConverted, outcome
+}
+
+// writeLegacyClassicalConversion applies one source-identity rewrite and
+// reports the startup outcome. success names the outcome a committed write
+// produces, so the caller can keep the matched and differing cases distinct.
+func writeLegacyClassicalConversion(ctx context.Context, store *persistence.PostgresStore, conversion domain.ClassicalSourceConversion, success classicalConversionOutcome) classicalConversionOutcome {
+	converted, err := store.ConvertLegacyClassicalSource(ctx, conversion)
+	if errors.Is(err, persistence.ErrClassicalConversionChanged) {
+		log.Printf("mouseion: classical conversion evidence changed owner=%s book=%s unit=%s",
+			conversion.OwnerID, conversion.BookID, conversion.ReadingUnitKey)
+		return conversionSkipped
+	}
+	if err != nil {
+		log.Printf("mouseion: classical conversion failed owner=%s book=%s unit=%s: %v",
+			conversion.OwnerID, conversion.BookID, conversion.ReadingUnitKey, err)
+		return conversionSkipped
+	}
+	if !converted {
+		return conversionSkipped
+	}
+	if success == conversionEvidenceDiffers {
+		log.Printf("mouseion: classical conversion source complete owner=%s book=%s unit=%s revision=%d analysis_update=pending",
+			conversion.OwnerID, conversion.BookID, conversion.ReadingUnitKey, conversion.DefinitionRevision)
+	} else {
+		log.Printf("mouseion: classical conversion complete owner=%s book=%s unit=%s revision=%d",
+			conversion.OwnerID, conversion.BookID, conversion.ReadingUnitKey, conversion.DefinitionRevision)
+	}
+	return success
+}
+
+// legacyClassicalConversion builds the source-identity rewrite both conversion
+// outcomes share.
+func legacyClassicalConversion(candidate classicalConversionCandidate, unit ancientgreek.PreparedUnit) domain.ClassicalSourceConversion {
+	return domain.ClassicalSourceConversion{
 		OwnerID:                   candidate.ownerID,
 		BookID:                    candidate.bookID,
 		SourceMaterialID:          candidate.sourceID,
@@ -191,23 +230,7 @@ func convertLegacyClassicalCandidate(ctx context.Context, store *persistence.Pos
 		AnalysisRunID:             candidate.analysisRunID,
 		ExpectedContentRevisionID: candidate.contentRevisionID,
 		ExpectedSnapshotID:        candidate.snapshotID,
-	})
-	if errors.Is(err, persistence.ErrClassicalConversionChanged) {
-		log.Printf("mouseion: classical conversion evidence changed owner=%s book=%s unit=%s",
-			candidate.ownerID, candidate.bookID, candidate.readingUnitKey)
-		return false, conversionSkipped
 	}
-	if err != nil {
-		log.Printf("mouseion: classical conversion failed owner=%s book=%s unit=%s: %v",
-			candidate.ownerID, candidate.bookID, candidate.readingUnitKey, err)
-		return false, conversionSkipped
-	}
-	if !converted {
-		return false, conversionSkipped
-	}
-	log.Printf("mouseion: classical conversion complete owner=%s book=%s unit=%s revision=%d",
-		candidate.ownerID, candidate.bookID, candidate.readingUnitKey, candidate.definitionRevision)
-	return true, conversionConverted
 }
 
 // conversionDefinition is the adapter definition the Book's reconciled Reading

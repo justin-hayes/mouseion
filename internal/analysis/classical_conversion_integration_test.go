@@ -317,44 +317,100 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	seed := seedPreUpgradeAnabasis(t, ctx, store, pool)
-	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{seed.definition}))
 
-	// Change one published sentence, so the current interpretation reproduces
-	// different evidence.
+	// The release moved to a newer interpretation, and the published evidence
+	// no longer matches what it reproduces.
+	updated := seed.definition
+	updated.InterpretationVersion = "oga-agdt-upos/6"
+	updated.Revision = 2
+	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{updated}))
 	_, err = pool.Exec(ctx, `UPDATE corpus_sentences SET sentence_text='different' WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=0`,
 		seed.ownerID, seed.runID)
 	require.NoError(t, err)
-
-	report, err := ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{seed.definition})
-	require.NoError(t, err)
-	assert.Zero(t, report.Converted)
-	assert.Equal(t, 1, report.EvidenceDiffers)
-
-	// The published analysis and whole-file source are untouched.
-	source, err := store.GetSourceMaterial(ctx, seed.ownerID, seed.sourceID)
-	require.NoError(t, err)
-	assert.Equal(t, seed.definition.Source.FileName, source.SourceIdentifier)
-	assert.Equal(t, seed.oldRevisionID, source.ContentRevisionID)
 	current, err := store.GetCurrentReading(ctx, seed.ownerID, classical.Language)
 	require.NoError(t, err)
 	assert.Equal(t, seed.runID, current.AnalysisRunID)
 
-	// The persistence conversion refuses to touch evidence the comparison did
-	// not name, and an already-converted source is a no-op.
+	// The persistence conversion refuses evidence the comparison did not name.
 	conversion := domain.ClassicalSourceConversion{
 		OwnerID: seed.ownerID, BookID: seed.bookID, SourceMaterialID: seed.sourceID,
-		ReadingUnitKey: seed.definition.Key, UnitID: "classical-unit-v1:" + seed.definition.Key,
-		UnitText: "text", SourceFileName: seed.definition.Source.FileName,
-		DefinitionRevision: seed.definition.Revision, SourceFileSHA256: seed.definition.Source.SHA256,
-		InterpretationVersion: seed.definition.InterpretationVersion, AnalysisRunID: seed.runID,
+		ReadingUnitKey: updated.Key, UnitID: "classical-unit-v1:" + updated.Key,
+		UnitText: "text", SourceFileName: updated.Source.FileName,
+		DefinitionRevision: updated.Revision, SourceFileSHA256: updated.Source.SHA256,
+		InterpretationVersion: updated.InterpretationVersion, AnalysisRunID: seed.runID,
 		ExpectedContentRevisionID: "different", ExpectedSnapshotID: seed.oldSnapshotID,
 	}
-	_, err = store.ConvertLegacyClassicalSource(ctx, conversion)
-	require.ErrorIs(t, err, persistence.ErrClassicalConversionChanged)
-	conversion.ExpectedContentRevisionID = seed.oldRevisionID
-	conversion.BookID = "00000000-0000-0000-0000-000000000000"
-	_, err = store.ConvertLegacyClassicalSource(ctx, conversion)
-	require.ErrorIs(t, err, persistence.ErrClassicalConversionChanged)
+	t.Run("persistence refuses unnamed evidence", func(t *testing.T) {
+		_, err := store.ConvertLegacyClassicalSource(ctx, conversion)
+		require.ErrorIs(t, err, persistence.ErrClassicalConversionChanged)
+		staleBook := conversion
+		staleBook.BookID = "00000000-0000-0000-0000-000000000000"
+		_, err = store.ConvertLegacyClassicalSource(ctx, staleBook)
+		require.ErrorIs(t, err, persistence.ErrClassicalConversionChanged)
+	})
+
+	// Startup treats a concurrent evidence change and a failed write the same
+	// way: nothing is reported as converted and the next start retries.
+	t.Run("failed writes are retried on the next start", func(t *testing.T) {
+		require.Equal(t, conversionSkipped,
+			writeLegacyClassicalConversion(ctx, store, conversion, conversionEvidenceDiffers),
+			"changed evidence is not a conversion")
+		require.Equal(t, conversionSkipped,
+			writeLegacyClassicalConversion(ctx, store, domain.ClassicalSourceConversion{}, conversionConverted),
+			"an invalid conversion writes nothing")
+	})
+
+	// The legacy-row block still applies to a genuinely un-converted Book.
+	t.Run("an un-converted source still blocks the catalog", func(t *testing.T) {
+		legacy, err := store.ListLegacyLanguageRows(ctx, classical.Language)
+		require.NoError(t, err)
+		require.NotEmpty(t, legacy)
+		_, err = store.AddClassicalReadingUnits(ctx, seed.ownerID, []string{updated.Key})
+		require.ErrorIs(t, err, classical.ErrLegacyRows)
+	})
+
+	report, err := ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{updated})
+	require.NoError(t, err)
+	assert.Zero(t, report.Converted)
+	assert.Equal(t, 1, report.EvidenceDiffers)
+
+	t.Run("source identity converts", func(t *testing.T) {
+		source, err := store.GetSourceMaterial(ctx, seed.ownerID, seed.sourceID)
+		require.NoError(t, err)
+		require.Equal(t, updated.Key, source.SourceIdentifier)
+		require.NotEqual(t, seed.oldRevisionID, source.ContentRevisionID)
+		require.Equal(t, source.FullText, string(source.Content))
+		require.Contains(t, source.FullText, "λέγει")
+		require.NotContains(t, source.FullText, "Ἀρταξέρξης")
+
+		var runRevision, runSnapshot, sourceSnapshot string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT content_revision_id::text, snapshot_id::text
+			FROM analysis_runs WHERE owner_id=$1 AND id=$2`, seed.ownerID, seed.runID).Scan(&runRevision, &runSnapshot))
+		require.NoError(t, pool.QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials
+			WHERE owner_id=$1 AND id=$2`, seed.ownerID, seed.sourceID).Scan(&sourceSnapshot))
+		require.Equal(t, source.ContentRevisionID, runRevision)
+		require.Equal(t, sourceSnapshot, runSnapshot)
+	})
+
+	t.Run("published evidence stays", func(t *testing.T) {
+		var preparedDefinitions int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM classical_prepared_definitions
+			WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&preparedDefinitions))
+		require.Zero(t, preparedDefinitions, "a differing conversion keeps the Analysis update outstanding")
+		var publishedSentence string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT sentence_text FROM corpus_sentences
+			WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=0`, seed.ownerID, seed.runID).Scan(&publishedSentence))
+		require.Equal(t, "different", publishedSentence)
+	})
+
+	t.Run("an already-converted source is a no-op", func(t *testing.T) {
+		conversion.EvidenceDiffers = true
+		convertedAgain, err := store.ConvertLegacyClassicalSource(ctx, conversion)
+		require.NoError(t, err)
+		require.False(t, convertedAgain)
+		require.Equal(t, conversionSkipped,
+			writeLegacyClassicalConversion(ctx, store, conversion, conversionEvidenceDiffers))
+	})
 
 	// The Book keeps the ordinary Analysis update offer through its missing
 	// prepared definition.
@@ -363,37 +419,47 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	require.NoError(t, err)
 	candidate, ok := candidates[seed.sourceID]
 	require.True(t, ok, "a differing conversion offers an Analysis update")
-	assert.Equal(t, seed.runID, candidate.PublishedRunID)
-	assert.NotEmpty(t, candidate.Target.Key())
+	require.Equal(t, seed.runID, candidate.PublishedRunID)
+	require.NotEmpty(t, candidate.Target.Key())
 
-	// The catalog stays fail-closed while the conversion is incomplete, and
-	// the Add path names the stable code.
-	legacy, err := store.ListLegacyLanguageRows(ctx, classical.Language)
-	require.NoError(t, err)
-	require.NotEmpty(t, legacy)
-	_, err = store.AddClassicalReadingUnits(ctx, seed.ownerID, []string{seed.definition.Key})
-	require.ErrorIs(t, err, classical.ErrLegacyRows)
+	t.Run("the catalog opens for another learner", func(t *testing.T) {
+		legacy, err := store.ListLegacyLanguageRows(ctx, classical.Language)
+		require.NoError(t, err)
+		require.Empty(t, legacy)
+		other, err := store.CreateUser(ctx, "conversion-other-owner", false)
+		require.NoError(t, err)
+		added, err := store.AddClassicalReadingUnits(ctx, other.ID, []string{updated.Key})
+		require.NoError(t, err)
+		require.Equal(t, 1, added.CreatedBooks())
+	})
 
-	// Preparation is fail-closed for the same reason. Complete the conversion's
-	// source-identity rewrite so the update path can be exercised; the
-	// differing evidence itself stays as it was.
-	_, err = pool.Exec(ctx, `UPDATE source_materials sm
-		SET source_identifier = ru.definition_key
-		FROM book_reading_units bru
-		JOIN reading_units ru ON ru.id = bru.reading_unit_id
-		WHERE sm.owner_id = bru.owner_id AND sm.book_id = bru.book_id
-		  AND sm.owner_id = $1 AND sm.id = $2`, seed.ownerID, seed.sourceID)
-	require.NoError(t, err)
-	legacy, err = store.ListLegacyLanguageRows(ctx, classical.Language)
-	require.NoError(t, err)
-	require.Empty(t, legacy)
+	t.Run("a second startup finds nothing to convert", func(t *testing.T) {
+		again, err := ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{updated})
+		require.NoError(t, err)
+		require.Zero(t, again.Converted)
+		require.Zero(t, again.EvidenceDiffers)
+	})
 
 	// Confirming the offer revalidates it and queues the dedicated preparation
-	// job once the Book is not the Current reading.
+	// job once the Book is not the Current reading. The worker publishes a
+	// fresh analysis with no test-only SQL.
 	require.NoError(t, MigrateRiver(ctx, pool))
-	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	sourceBytes, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
+	require.NoError(t, err)
+	require.NoError(t, store.PutClassicalSource(ctx, domain.ClassicalSource{
+		SHA256: updated.Source.SHA256, Layer: updated.Source.Layer, FileName: updated.Source.FileName,
+		Size: updated.Source.Size, Content: sourceBytes,
+	}))
+	workers := river.NewWorkers()
+	preparationWorker := AddClassicalPreparationWorker(workers, store, ClassicalPreparationConfig{})
+	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Queues:  map[string]river.QueueConfig{ClassicalPreparationQueue: {MaxWorkers: 1}},
+		Workers: workers,
+	})
 	require.NoError(t, err)
 	testutil.StopOnCleanup(t, "classical update client", client.Stop)
+	preparationWorker.Client = client
+	require.NoError(t, client.Start(ctx))
 	updates := NewService(store.Pool(), client).WithClassicalPreparationStore(store)
 	_, err = updates.SubmitAnalysisUpdate(ctx, seed.ownerID, seed.bookID, seed.sourceID, candidate.PublishedRunID, candidate.Target.Key())
 	require.ErrorIs(t, err, ErrCurrentBook)
@@ -409,14 +475,57 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	require.NoError(t, store.SetBookDisposition(ctx, seed.ownerID, seed.bookID, domain.BookDispositionToRead))
 	handle, err := updates.SubmitAnalysisUpdate(ctx, seed.ownerID, seed.bookID, seed.sourceID, candidate.PublishedRunID, candidate.Target.Key())
 	require.NoError(t, err)
-	assert.NotZero(t, handle.JobID, "a confirmed classical update queues preparation")
+	require.NotZero(t, handle.JobID, "a confirmed classical update queues preparation")
 
-	// A candidate-load failure is reported to the caller so startup can keep
-	// the catalog fail-closed rather than opening on unverified evidence.
-	_, err = pool.Exec(ctx, `DROP TABLE source_materials CASCADE`)
-	require.NoError(t, err)
-	_, err = ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{seed.definition})
-	require.Error(t, err)
-	_, err = updates.AnalysisUpdateCandidates(ctx, seed.ownerID, []string{seed.sourceID})
-	require.Error(t, err)
+	t.Run("the confirmed update publishes a fresh analysis", func(t *testing.T) {
+		testutil.Eventually(t, 30*time.Second, "the confirmed update publishes", func() (bool, string) {
+			var preparedRun string
+			if err := pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM classical_prepared_definitions
+				WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&preparedRun); err != nil {
+				return false, err.Error()
+			}
+			return preparedRun != seed.runID, "the prepared definition still names the old run"
+		})
+		var preparedRun, currentRun string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM classical_prepared_definitions
+			WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&preparedRun))
+		require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses
+			WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&currentRun))
+		require.Equal(t, preparedRun, currentRun)
+		require.NotEqual(t, seed.runID, currentRun, "the update publishes a new analysis")
+		var reproduced, publishedSentence string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT sentence_text FROM corpus_sentences
+			WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=0`, seed.ownerID, currentRun).Scan(&reproduced))
+		require.NotEqual(t, "different", reproduced, "the published run carries the current interpretation")
+		require.NoError(t, pool.QueryRow(ctx, `SELECT sentence_text FROM corpus_sentences
+			WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=0`, seed.ownerID, seed.runID).Scan(&publishedSentence))
+		require.Equal(t, "different", publishedSentence, "the earlier analysis keeps its frozen evidence")
+	})
+
+	t.Run("learner state and frozen decks survive", func(t *testing.T) {
+		var corrections, exclusions, known, completed int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE NOT excluded), count(*) FILTER (WHERE excluded)
+			FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&corrections, &exclusions))
+		require.Equal(t, 1, corrections)
+		require.Equal(t, 1, exclusions)
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, seed.ownerID).Scan(&known))
+		require.Equal(t, 1, known)
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&completed))
+		require.Equal(t, 1, completed)
+		var passageContext, passageCitation string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT passage_context, passage_citation
+			FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2`,
+			seed.ownerID, seed.deckID).Scan(&passageContext, &passageCitation))
+		require.Equal(t, seed.passageContext, passageContext)
+		require.Equal(t, seed.passageCitation, passageCitation)
+	})
+
+	t.Run("a candidate-load failure keeps the catalog fail-closed", func(t *testing.T) {
+		_, err := pool.Exec(ctx, `DROP TABLE source_materials CASCADE`)
+		require.NoError(t, err)
+		_, err = ConvertLegacyClassicalBooks(ctx, store, []classical.Definition{updated})
+		require.Error(t, err)
+		_, err = updates.AnalysisUpdateCandidates(ctx, seed.ownerID, []string{seed.sourceID})
+		require.Error(t, err)
+	})
 }
