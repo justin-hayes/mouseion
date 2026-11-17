@@ -566,7 +566,8 @@ Feedback contains an optional short title and a message that answers:
 
 Use error only when the requested task failed or cannot proceed. Use warning for
 degraded capability that leaves the current task or saved data intact. Do not
-nest forms or unrelated content inside feedback.
+nest forms or unrelated content inside feedback. A confirmation may carry one
+adjacent link to the next surface, such as opening the Books an Add created.
 
 ### `EmptyState`
 

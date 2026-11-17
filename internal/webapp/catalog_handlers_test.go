@@ -178,6 +178,31 @@ func TestClassicalAddMessageNamesOnlyMembershipChanges(t *testing.T) {
 	}
 }
 
+func TestClassicalAddOutcomeNamesTheLanguageOnlyWhenAnotherIsActive(t *testing.T) {
+	created := classical.AddReport{Books: []classical.AddedBook{{Created: true}}}
+	opened := classical.AddReport{Books: []classical.AddedBook{{}}}
+	languageMessage := func(message string) string {
+		return strings.TrimSuffix(message, ".") + " in Ancient Greek. Your study language is unchanged."
+	}
+	cases := []struct {
+		name           string
+		report         classical.AddReport
+		activeLanguage string
+		expected       classicalAddConfirmation
+	}{
+		{name: "created with Ancient Greek active", report: created, activeLanguage: classical.Language, expected: classicalAddConfirmation{Message: "Added 1 Book to My Books."}},
+		{name: "created with no study language", report: created, expected: classicalAddConfirmation{Message: "Added 1 Book to My Books."}},
+		{name: "reopened with Ancient Greek active", report: opened, activeLanguage: classical.Language, expected: classicalAddConfirmation{Message: "Opened the existing Book."}},
+		{name: "created with another language active", report: created, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Added 1 Book to My Books."), WorkKey: "homer-iliad"}},
+		{name: "reopened with another language active", report: opened, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Opened the existing Book."), WorkKey: "homer-iliad"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.expected, classicalAddConfirmationFor(test.report, test.activeLanguage, "homer-iliad"))
+		})
+	}
+}
+
 func TestClassicalAddRoutesRejectUnknownTargetsAndMissingCSRF(t *testing.T) {
 	h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = catalogFixture(t)

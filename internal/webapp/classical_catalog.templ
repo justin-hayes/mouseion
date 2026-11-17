@@ -56,12 +56,12 @@ templ ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classica
 }
 
 // ClassicalAuthorPage lists one author's works with their length facts.
-templ ClassicalAuthorPage(user domain.User, csrf string, author classical.CatalogAuthor, view classicalCatalogView, message, pageError string) {
+templ ClassicalAuthorPage(user domain.User, csrf string, author classical.CatalogAuthor, view classicalCatalogView, confirmation classicalAddConfirmation, pageError string) {
 	@ShellLayout(author.Name+" · Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
 		@Breadcrumb("/catalogs/classical", "Classical catalog")
 		@PageHeader(author.Name, "Works in the Classical catalog with the length facts of this release.", nil)
-		if message != "" {
-			@Feedback(FeedbackSuccess, "", message)
+		if confirmation.Message != "" {
+			@ClassicalAddFeedback(confirmation)
 		}
 		if pageError != "" && view.AddAvailable {
 			@Feedback(FeedbackError, "Add is unavailable", pageError)
@@ -102,7 +102,7 @@ templ ClassicalAuthorPage(user domain.User, csrf string, author classical.Catalo
 }
 
 // ClassicalWorkPage lists one row per constituent book of a Work.
-templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork, view classicalCatalogView, message, pageError string) {
+templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork, view classicalCatalogView, confirmation classicalAddConfirmation, pageError string) {
 	@ShellLayout(work.Title+" · Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
 		@Breadcrumb(classicalAuthorURL(work.Author), work.Author)
 		@PageHeader(work.Title, "Constituent books in the Classical catalog. Word counts are length facts, not coverage or difficulty.", nil) {
@@ -113,8 +113,8 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 				<a class="button button--outline" href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>In My Books</a>
 			}
 		}
-		if message != "" {
-			@Feedback(FeedbackSuccess, "", message)
+		if confirmation.Message != "" {
+			@ClassicalAddFeedback(confirmation)
 		}
 		if pageError != "" && view.AddAvailable {
 			@Feedback(FeedbackError, "Add is unavailable", pageError)
@@ -144,6 +144,17 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 					</tr>
 				}
 			</tbody>
+		}
+	}
+}
+
+// ClassicalAddFeedback confirms the Add. When another study language is active
+// it also offers the "In My Books" path that opens the added Books in Ancient
+// Greek; following that path is what switches the study language.
+templ ClassicalAddFeedback(confirmation classicalAddConfirmation) {
+	@Feedback(FeedbackSuccess, "", confirmation.Message) {
+		if confirmation.InMyBooksURL() != "" {
+			<p><a href={ templ.SafeURL(confirmation.InMyBooksURL()) }>Open Ancient Greek in My Books</a></p>
 		}
 	}
 }
