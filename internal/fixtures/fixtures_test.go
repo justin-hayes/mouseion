@@ -1098,7 +1098,7 @@ func TestStoreFinishCurrentReadingReleasesStudyingPreparationsByLegacyIdentity(t
 	})
 }
 
-func TestClassicalFixtureStubsKeepTheCatalogReadOnly(t *testing.T) {
+func TestClassicalFixtureStartsWithNoOwnedUnitsAndRefusesUnknownUnits(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 	legacy, err := store.ListLegacyLanguageRows(ctx, "grc")
@@ -1107,8 +1107,8 @@ func TestClassicalFixtureStubsKeepTheCatalogReadOnly(t *testing.T) {
 	owned, err := store.ListOwnedClassicalReadingUnits(ctx, OwnerID)
 	require.NoError(t, err)
 	assert.Empty(t, owned)
-	_, err = store.AddClassicalReadingUnits(ctx, OwnerID, []string{"xenophon-anabasis-1"})
-	require.ErrorContains(t, err, "classical Add is not available")
+	_, err = store.AddClassicalReadingUnits(ctx, OwnerID, []string{"not-in-the-fixture-release"})
+	require.ErrorContains(t, err, "not current")
 }
 
 func TestClassicalFixtureListsNoPreparationJobs(t *testing.T) {

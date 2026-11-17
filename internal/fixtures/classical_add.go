@@ -1,0 +1,175 @@
+package fixtures
+
+// Contract status: contractual. The Classical catalog Add transition must
+// match internal/storecontract scenarios shared with PostgreSQL (ADR 0088).
+// The fixtures harness in storecontract_test.go runs them.
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+func fixtureClassicalBookID(owner, key string) string {
+	return "fixture-classical-" + key + "-" + owner
+}
+
+// ListLegacyLanguageRows reports no pre-catalog Ancient Greek rows, so Add is
+// available in the fixture.
+func (s *Store) ListLegacyLanguageRows(context.Context, string) ([]domain.LegacyLanguageRows, error) {
+	return nil, nil
+}
+
+// ListOwnedClassicalReadingUnits reports the fixture learner's Books that are
+// associated with a Reading unit.
+func (s *Store) ListOwnedClassicalReadingUnits(_ context.Context, owner string) ([]classical.OwnedReadingUnit, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var owned []classical.OwnedReadingUnit
+	for _, book := range s.myBooks {
+		if book.Book.OwnerID != owner || book.ReadingUnit == nil || strings.TrimSpace(book.ReadingUnit.ReadingUnitKey) == "" {
+			continue
+		}
+		owned = append(owned, classical.OwnedReadingUnit{
+			ReadingUnitKey: book.ReadingUnit.ReadingUnitKey,
+			BookID:         book.Book.ID,
+		})
+	}
+	return owned, nil
+}
+
+// AddClassicalReadingUnits creates or reopens one metadata-only Inbox Book per
+// current fixture Reading unit. It downloads nothing and starts no job.
+func (s *Store) AddClassicalReadingUnits(_ context.Context, owner string, readingUnitKeys []string) (classical.AddReport, error) {
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return classical.AddReport{}, errors.New("fixtures: classical Add owner is required")
+	}
+	keys, err := fixtureClassicalAddKeys(readingUnitKeys)
+	if err != nil {
+		return classical.AddReport{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, key := range keys {
+		if _, ok := s.classicalDefinitions[key]; !ok {
+			return classical.AddReport{}, fmt.Errorf("fixtures: classical Reading unit %q is not current", key)
+		}
+	}
+	report := classical.AddReport{Books: make([]classical.AddedBook, 0, len(keys))}
+	for _, key := range keys {
+		report.Books = append(report.Books, s.addFixtureClassicalReadingUnitLocked(owner, s.classicalDefinitions[key]))
+	}
+	s.ensureFixtureSupportedLanguageLocked(classical.Language, classical.LanguageDisplayName)
+	return report, nil
+}
+
+// setClassicalDefinitions installs the release the fixture Add resolves units
+// from, so the shared store contract can seed its own small catalog.
+func (s *Store) setClassicalDefinitions(definitions []classical.Definition) {
+	byKey := make(map[string]classical.Definition, len(definitions))
+	for _, definition := range definitions {
+		byKey[definition.Key] = definition
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.classicalDefinitions = byKey
+}
+
+// addFixtureClassicalReadingUnitLocked creates the Book or reopens the existing
+// one without changing its disposition, reading history or preparation state.
+func (s *Store) addFixtureClassicalReadingUnitLocked(owner string, definition classical.Definition) classical.AddedBook {
+	if i := s.fixtureClassicalBookIndexLocked(owner, definition.Key); i >= 0 {
+		bookID := s.myBooks[i].Book.ID
+		key := fixtureDispositionKey(owner, bookID)
+		if state := s.visibility[key]; state.hidden {
+			s.visibility[key] = fixtureVisibility{hidden: false, revision: state.revision + 1}
+		}
+		return classical.AddedBook{ReadingUnitKey: definition.Key, BookID: bookID}
+	}
+	bookID := fixtureClassicalBookID(owner, definition.Key)
+	book := domain.Book{
+		ID:                 bookID,
+		OwnerID:            owner,
+		Title:              definition.WorkTitle,
+		Author:             definition.WorkAuthor,
+		MetadataProvenance: domain.MetadataProvenanceOperatorRegistration,
+		LanguageState:      domain.LanguageChosen,
+		LanguageTag:        classical.Language,
+		CreatedAt:          fixtureJourneyTime,
+		UpdatedAt:          fixtureJourneyTime,
+	}
+	unit := &domain.BookReadingUnit{
+		OwnerID:          owner,
+		BookID:           bookID,
+		ReadingUnitID:    definition.Key,
+		ReadingUnitKey:   definition.Key,
+		WorkKey:          definition.WorkKey,
+		WorkTitle:        definition.WorkTitle,
+		WorkAuthor:       definition.WorkAuthor,
+		GreekTitle:       definition.GreekTitle,
+		CitationStart:    definition.CitationStart,
+		CitationEnd:      definition.CitationEnd,
+		EditionLabel:     definition.EditionLabel,
+		ConstituentBooks: definition.ConstituentBooks,
+		Revision:         definition.Revision,
+		Withdrawn:        definition.Withdrawn,
+	}
+	if definition.ConstituentBook != nil {
+		unit.ConstituentBook = *definition.ConstituentBook
+	}
+	s.myBooks = append(s.myBooks, domain.MyBook{
+		Book:        book,
+		Cover:       fixtureCover(bookID),
+		ReadingUnit: unit,
+	})
+	return classical.AddedBook{ReadingUnitKey: definition.Key, BookID: bookID, Created: true}
+}
+
+func (s *Store) fixtureClassicalBookIndexLocked(owner, readingUnitKey string) int {
+	for i := range s.myBooks {
+		unit := s.myBooks[i].ReadingUnit
+		if s.myBooks[i].Book.OwnerID == owner && unit != nil && unit.ReadingUnitKey == readingUnitKey {
+			return i
+		}
+	}
+	return -1
+}
+
+// ensureFixtureSupportedLanguageLocked adds the study-language display name
+// once, as the PostgreSQL Add does.
+func (s *Store) ensureFixtureSupportedLanguageLocked(language, displayName string) {
+	language = normalizeFixtureLanguage(language)
+	for _, supported := range s.supported {
+		if normalizeFixtureLanguage(supported.Language) == language {
+			return
+		}
+	}
+	s.supported = append(s.supported, domain.SupportedLanguage{Language: language, DisplayName: displayName})
+}
+
+// fixtureClassicalAddKeys trims, rejects an empty key and removes duplicates
+// while preserving constituent-book order.
+func fixtureClassicalAddKeys(keys []string) ([]string, error) {
+	if len(keys) == 0 {
+		return nil, errors.New("fixtures: classical Add needs at least one Reading unit")
+	}
+	seen := make(map[string]struct{}, len(keys))
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			return nil, errors.New("fixtures: classical Add Reading unit key is required")
+		}
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+	}
+	return out, nil
+}

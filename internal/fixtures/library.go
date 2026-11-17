@@ -163,6 +163,12 @@ func (s *Store) applyFixtureBookEvidenceLocked(book *domain.MyBook) {
 		preparedAt := fixtureJourneyTime
 		book.DeckPreparedAt = &preparedAt
 	}
+	// A classical Book represents completed preparation once it is To Read.
+	// The evidence is a read-model projection; Add still stores a
+	// metadata-only Book.
+	if book.ReadingUnit != nil && book.Disposition == domain.BookDispositionToRead && book.Acquired == nil {
+		book.Acquired = fixtureClassicalSource(book.Book.OwnerID, book.Book.ID, *book.ReadingUnit)
+	}
 	if s.fixtureBookIsCurrentReading(book.Book.OwnerID, book.Book.ID) {
 		book.IsCurrentReading = true
 	}
