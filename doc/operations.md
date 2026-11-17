@@ -374,21 +374,36 @@ These commands run against `MOUSEION_DATABASE_URL`.
   their owning OPDS connection
   ([ADR 0044](adr/0044-catalogue-entry-connection-scoped-identity.md)).
 - The retired `cmd/greekregister` command has no replacement to run. At startup
-  the binary reconciles the embedded Classical catalog manifest and converts any
-  pre-upgrade Ancient Greek Book whose source still holds the whole pinned work
-  file, when its published evidence reproduces exactly. The conversion keeps the
-  Book, its Reading-unit association, analysis, corrections, exclusions,
-  vocabulary, completions, current-reading snapshots and prepared decks. If the
-  evidence differs, the conversion still finishes the source-identity rewrite:
-  the Book stores only its Reading unit under the Reading-unit key, so it no
-  longer keeps the installation fail-closed with the stable
-  `classical_catalog_legacy_rows` code. Its published analysis, corpus evidence
-  and every learner decision stay untouched, and the ordinary Analysis update
-  is offered; confirming it publishes a fresh analysis through classical
-  preparation. The server owns the conversion; it is idempotent and retry-safe,
-  and a failed start leaves the previous schema and learner state in place to
-  retry. Historical whole-file revisions remain immutable evidence for frozen
-  Readings; the Book's current source is the Reading unit.
+  the binary reconciles the embedded Classical catalog manifest and converts
+  every pre-upgrade Ancient Greek Book its legacy-rows check counts. The same
+  check and conversion share one definition, so a counted Book is never left
+  outside the conversion:
+  - A Book with a published analysis is reproduced under the current
+    interpretation. Matching evidence also records the prepared definition;
+    differing evidence leaves the published analysis and corpus untouched so
+    the ordinary Analysis update stays outstanding.
+  - A Book whose operator import was interrupted after the whole-file source row
+    was written has no published analysis. The conversion rewrites the source to
+    unit-only content under the Reading-unit key, and the ordinary classical
+    preparation path publishes its analysis later.
+  - A Book whose Reading unit the manifest later withdrew converts to unit-only
+    content under its key and records no prepared definition, so it behaves
+    like any other Book with a withdrawn definition instead of blocking the
+    installation. A unit withdrawn before its first reconciliation has no
+    recorded source format from the retired registration; the conversion reads
+    that empty value as the OGA CoNLL-U dialect the old path required.
+
+  In every case the Book, its Reading-unit association, disposition, learner
+  decisions, vocabulary, completions, current-reading snapshots and prepared
+  decks are kept. A source that cannot be reproduced (for example malformed
+  bytes or a pin mismatch) stays whole-file, is reported as skipped in the
+  startup log and keeps the catalog fail-closed for a later start; the learner
+  copy names a restart as the retry and never a conversion command that does not
+  exist.
+  The server owns the conversion; it is idempotent and retry-safe, and a failed
+  start leaves the previous schema and learner state in place to retry.
+  Historical whole-file revisions remain immutable evidence for frozen Readings;
+  the Book's current source is the Reading unit.
 - `go run ./cmd/greekhitrate` — reports how many of the installation's Ancient
   Greek vocabulary identities resolve an unambiguous LSJ dictionary entry (the
   entry a Greek card shows) alongside the Wiktionary hit rate, so the operator

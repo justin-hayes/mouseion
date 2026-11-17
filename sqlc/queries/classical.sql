@@ -83,6 +83,50 @@ JOIN editions e ON e.id = ru.edition_id
 JOIN works w ON w.id = e.work_id
 WHERE bru.owner_id = sqlc.arg('owner') AND bru.book_id = ANY(sqlc.arg('book_ids')::uuid[]);
 
+-- name: ListLegacyClassicalSourceCandidates :many
+-- The one definition of a legacy classical Book. The catalog precondition
+-- counts these rows through ListLegacyLanguageRows and startup conversion reads
+-- them here, so a Book the check counts is always a Book the conversion sees.
+-- Keep this FROM/WHERE shape authoritative: the check and conversion must not
+-- grow different filters (for example withdrawn or published-analysis tests).
+-- A whole-file source row can exist without a published analysis when an
+-- import was interrupted before its analysis transaction committed, and a
+-- Reading unit can be withdrawn after the Book was linked; both are legacy.
+SELECT sm.owner_id::text AS owner_id,
+       sm.book_id::text AS book_id,
+       sm.id::text AS source_material_id,
+       COALESCE(sm.current_content_revision_id::text, '')::text AS content_revision_id,
+       COALESCE(sm.current_snapshot_id::text, '')::text AS snapshot_id,
+       COALESCE(cai.analysis_run_id::text, '')::text AS analysis_run_id,
+       COALESCE(cai.corpus_id::text, '')::text AS corpus_id,
+       ru.definition_key AS reading_unit_key,
+       ru.citation_start,
+       ru.citation_end,
+       ru.source_file_name,
+       ru.source_file_size,
+       ru.source_file_sha256,
+       ru.source_format,
+       ru.interpretation_version,
+       ru.revision AS definition_revision,
+       ru.withdrawn,
+       w.title AS work_title,
+       w.author AS work_author,
+       e.label AS edition_label
+FROM source_materials sm
+JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
+JOIN reading_units ru ON ru.id = bru.reading_unit_id
+JOIN editions e ON e.id = ru.edition_id
+JOIN works w ON w.id = e.work_id
+LEFT JOIN current_analysis_identity cai
+  ON cai.owner_id = sm.owner_id AND cai.source_material_id = sm.id AND cai.book_id = sm.book_id
+LEFT JOIN classical_prepared_definitions p
+  ON p.owner_id = sm.owner_id AND p.book_id = sm.book_id
+WHERE sm.language = $1
+  AND sm.media_type = $2
+  AND sm.source_identifier <> ru.definition_key
+  AND p.book_id IS NULL
+ORDER BY sm.owner_id, sm.id;
+
 -- name: ListLegacyLanguageRows :many
 -- Rows carrying a language identity that predate the classical registration.
 -- A Book already associated with a Reading unit, and the source materials
@@ -90,6 +134,8 @@ WHERE bru.owner_id = sqlc.arg('owner') AND bru.book_id = ANY(sqlc.arg('book_ids'
 -- first Add passes only when they own no such rows, so every derived row
 -- (tokens, Known, vocabulary, candidates, decks) a registered learner owns was
 -- written by this feature and never refuses an Add.
+-- Legacy classical source rows are counted from the shared definition in
+-- ListLegacyClassicalSourceCandidates, not from a second predicate here.
 WITH registered_owners AS (
     SELECT DISTINCT bru.owner_id
     FROM book_reading_units bru
@@ -113,21 +159,6 @@ FROM (
           SELECT 1 FROM book_reading_units bru
           WHERE bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
       )
-    UNION ALL
-    -- A pre-upgrade classical Book keeps the whole work file under the source
-    -- file name until startup conversion rewrites it to the Reading-unit key.
-    -- Such a Book is legacy even though it already has a Reading-unit link, so
-    -- Add and preparation stay fail-closed until the conversion completes.
-    SELECT sm.owner_id::text, 'source_materials'::text
-    FROM source_materials sm
-    JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
-    JOIN reading_units ru ON ru.id = bru.reading_unit_id
-    LEFT JOIN classical_prepared_definitions p
-      ON p.owner_id = sm.owner_id AND p.book_id = sm.book_id
-    WHERE sm.language = $1
-      AND sm.media_type = $2
-      AND sm.source_identifier <> ru.definition_key
-      AND p.book_id IS NULL
     UNION ALL
     SELECT ct.owner_id::text, 'corpus_tokens'::text
     FROM corpus_tokens ct

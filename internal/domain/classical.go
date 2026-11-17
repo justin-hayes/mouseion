@@ -112,9 +112,9 @@ type ClassicalPreparedDefinition struct {
 }
 
 // ClassicalSourceConversion rewrites one pre-upgrade Book's whole-file source
-// material to the Reading unit's own text under the same source row. The
-// analysis run keeps its evidence and is re-pointed at the new content
-// revision and snapshot.
+// material to the Reading unit's own text under the same source row. A
+// published analysis run, when one exists, keeps its evidence and is re-pointed
+// at the new content revision and snapshot.
 type ClassicalSourceConversion struct {
 	OwnerID               string
 	BookID                string
@@ -127,9 +127,13 @@ type ClassicalSourceConversion struct {
 	DefinitionRevision    int
 	SourceFileSHA256      string
 	InterpretationVersion string
-	AnalysisRunID         string
-	// ExpectedContentRevisionID and ExpectedSnapshotID are the published
-	// evidence the conversion compared. A concurrent change refuses the write.
+	// AnalysisRunID is the published run re-pointed at the converted evidence.
+	// It is empty when an interrupted import left the source without a
+	// published analysis; the source identity still converts and ordinary
+	// classical preparation publishes the analysis later.
+	AnalysisRunID string
+	// ExpectedContentRevisionID and ExpectedSnapshotID are the source evidence
+	// the conversion compared. A concurrent change refuses the write.
 	ExpectedContentRevisionID string
 	ExpectedSnapshotID        string
 	// EvidenceDiffers marks a conversion whose current interpretation no longer
@@ -137,6 +141,11 @@ type ClassicalSourceConversion struct {
 	// unit-only content under the Reading-unit key, but no prepared-definition
 	// record is written, so the ordinary Analysis update stays outstanding.
 	EvidenceDiffers bool
+	// Withdrawn marks a Book whose Reading unit is a withdrawn tombstone. The
+	// source identity converts so the Book stops blocking the catalog, but no
+	// prepared-definition record is written; the Book behaves like any other
+	// Book with a withdrawn definition.
+	Withdrawn bool
 }
 
 // ClassicalPreparationState is the visible state of an in-flight classical

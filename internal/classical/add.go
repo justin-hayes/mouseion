@@ -8,9 +8,10 @@ import "errors"
 const LegacyRowsCode = "classical_catalog_legacy_rows"
 
 // LegacyRowsReason is the stable learner-facing reason paired with
-// LegacyRowsCode. It names the remedy rather than leaving the learner at a
-// blocked action.
-const LegacyRowsReason = "Adding is unavailable until this installation's legacy Ancient Greek rows are converted. Ask the operator to finish the conversion. Code: " + LegacyRowsCode + "."
+// LegacyRowsCode. Startup retries the conversion, so a restart is the one
+// action that actually exists; the copy never asks for a conversion command the
+// product does not have.
+const LegacyRowsReason = "Adding is unavailable while this installation converts its legacy Ancient Greek rows. Restart Mouseion to retry the conversion. Existing Books stay readable. Code: " + LegacyRowsCode + "."
 
 // ErrLegacyRows refuses an Add while the installation still holds legacy rows.
 var ErrLegacyRows = errors.New("classical: legacy " + Language + " rows exist (" + LegacyRowsCode + ")")

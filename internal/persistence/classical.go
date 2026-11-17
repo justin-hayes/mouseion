@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -118,6 +119,64 @@ func registerReadingUnitBookTx(ctx context.Context, q *sqlcgen.Queries, owner st
 	return domain.ReadingUnitBookRegistration{BookID: book.ID, Created: true}, nil
 }
 
+// LegacyClassicalSourceMaterial is one source material the shared legacy-Book
+// definition counts. It carries the reviewed Reading-unit facts and the source
+// bytes startup conversion reads before rewriting the row to unit-only content.
+type LegacyClassicalSourceMaterial struct {
+	OwnerID, BookID, SourceMaterialID   string
+	ContentRevisionID, SnapshotID       string
+	AnalysisRunID, CorpusID             string
+	ReadingUnitKey                      string
+	CitationStart, CitationEnd          string
+	SourceFileName                      string
+	SourceFileSize                      int64
+	SourceFileSHA256                    string
+	SourceFormat                        string
+	InterpretationVersion               string
+	DefinitionRevision                  int
+	Withdrawn                           bool
+	WorkTitle, WorkAuthor, EditionLabel string
+}
+
+// ListLegacyClassicalSourceMaterials returns every source material the shared
+// legacy classical Book definition counts. The catalog precondition counts the
+// same rows through listLegacyLanguageRows, so conversion sees exactly the
+// Books Add and preparation are blocked by.
+func (s *PostgresStore) ListLegacyClassicalSourceMaterials(ctx context.Context, language string) ([]LegacyClassicalSourceMaterial, error) {
+	rows, err := s.queries().ListLegacyClassicalSourceCandidates(ctx, sqlcgen.ListLegacyClassicalSourceCandidatesParams{
+		Language:  language,
+		MediaType: domain.ImportedSourceMediaType,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return legacyClassicalSourceMaterials(rows), nil
+}
+
+// legacyClassicalSourceMaterials maps the shared query rows onto the
+// persistence-neutral shape conversion consumes.
+func legacyClassicalSourceMaterials(rows []sqlcgen.ListLegacyClassicalSourceCandidatesRow) []LegacyClassicalSourceMaterial {
+	materials := make([]LegacyClassicalSourceMaterial, 0, len(rows))
+	for _, row := range rows {
+		materials = append(materials, LegacyClassicalSourceMaterial{
+			OwnerID: row.OwnerID, BookID: row.BookID,
+			SourceMaterialID:  row.SourceMaterialID,
+			ContentRevisionID: row.ContentRevisionID, SnapshotID: row.SnapshotID,
+			AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID,
+			ReadingUnitKey: row.ReadingUnitKey,
+			CitationStart:  row.CitationStart, CitationEnd: row.CitationEnd,
+			SourceFileName: row.SourceFileName, SourceFileSize: row.SourceFileSize,
+			SourceFileSHA256: row.SourceFileSha256, SourceFormat: row.SourceFormat,
+			InterpretationVersion: row.InterpretationVersion, DefinitionRevision: row.DefinitionRevision,
+			Withdrawn:    row.Withdrawn,
+			WorkTitle:    row.WorkTitle,
+			WorkAuthor:   row.WorkAuthor,
+			EditionLabel: row.EditionLabel,
+		})
+	}
+	return materials
+}
+
 // ListLegacyLanguageRows counts rows carrying an existing language identity
 // that predates the classical registration. It returns one entry per owner and
 // surface so the caller can refuse to mix old data with the new identities.
@@ -126,18 +185,38 @@ func (s *PostgresStore) ListLegacyLanguageRows(ctx context.Context, language str
 }
 
 // listLegacyLanguageRows is the transaction-aware form, so an Add can hold its
-// legacy-row precondition and its write in one transaction.
+// legacy-row precondition and its write in one transaction. The classical
+// source-material surface is counted from the shared candidate query so the
+// check and startup conversion cannot drift apart.
 func listLegacyLanguageRows(ctx context.Context, q *sqlcgen.Queries, language string) ([]domain.LegacyLanguageRows, error) {
-	rows, err := q.ListLegacyLanguageRows(ctx, sqlcgen.ListLegacyLanguageRowsParams{
-		LanguageTag: textArg(language),
-		MediaType:   domain.ImportedSourceMediaType,
+	rows, err := q.ListLegacyLanguageRows(ctx, textArg(language))
+	if err != nil {
+		return nil, err
+	}
+	type key struct{ owner, surface string }
+	counts := make(map[key]int64, len(rows))
+	for _, row := range rows {
+		counts[key{row.OwnerID, row.Surface}] += row.RowCount
+	}
+	candidates, err := q.ListLegacyClassicalSourceCandidates(ctx, sqlcgen.ListLegacyClassicalSourceCandidatesParams{
+		Language:  language,
+		MediaType: domain.ImportedSourceMediaType,
 	})
 	if err != nil {
 		return nil, err
 	}
-	result := make([]domain.LegacyLanguageRows, 0, len(rows))
-	for _, row := range rows {
-		result = append(result, domain.LegacyLanguageRows{OwnerID: row.OwnerID, Surface: row.Surface, Count: row.RowCount})
+	for _, candidate := range candidates {
+		counts[key{candidate.OwnerID, "source_materials"}]++
 	}
+	result := make([]domain.LegacyLanguageRows, 0, len(counts))
+	for group, count := range counts {
+		result = append(result, domain.LegacyLanguageRows{OwnerID: group.owner, Surface: group.surface, Count: count})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].OwnerID != result[j].OwnerID {
+			return result[i].OwnerID < result[j].OwnerID
+		}
+		return result[i].Surface < result[j].Surface
+	})
 	return result, nil
 }

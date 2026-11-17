@@ -30,6 +30,19 @@ func TestValidateClassicalSourceConversion(t *testing.T) {
 		require.NoError(t, validateClassicalSourceConversion(validClassicalSourceConversion()))
 	})
 
+	t.Run("source-only conversion has no analysis run", func(t *testing.T) {
+		conversion := validClassicalSourceConversion()
+		conversion.AnalysisRunID = ""
+		require.NoError(t, validateClassicalSourceConversion(conversion))
+	})
+
+	t.Run("withdrawn conversion needs no analysis run", func(t *testing.T) {
+		conversion := validClassicalSourceConversion()
+		conversion.AnalysisRunID = ""
+		conversion.Withdrawn = true
+		require.NoError(t, validateClassicalSourceConversion(conversion))
+	})
+
 	tests := []struct {
 		name    string
 		mutate  func(*domain.ClassicalSourceConversion)
@@ -44,7 +57,6 @@ func TestValidateClassicalSourceConversion(t *testing.T) {
 		{"revision", func(c *domain.ClassicalSourceConversion) { c.DefinitionRevision = 0 }, "revision must be positive"},
 		{"source SHA-256", func(c *domain.ClassicalSourceConversion) { c.SourceFileSHA256 = "short" }, "SHA-256 is invalid"},
 		{"interpretation", func(c *domain.ClassicalSourceConversion) { c.InterpretationVersion = "" }, "interpretation version is required"},
-		{"analysis run", func(c *domain.ClassicalSourceConversion) { c.AnalysisRunID = "" }, "analysis run is required"},
 		{"expected revision", func(c *domain.ClassicalSourceConversion) { c.ExpectedContentRevisionID = "" }, "expected evidence is required"},
 		{"expected snapshot", func(c *domain.ClassicalSourceConversion) { c.ExpectedSnapshotID = "" }, "expected evidence is required"},
 	}
