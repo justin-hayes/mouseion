@@ -21,9 +21,9 @@ type PreparedDeckCandidateFacts struct {
 	Candidate domain.SelectionCandidate
 	Entry     cardexport.Entry
 	Sentences map[int64]analyzer.Sentence
-	// ReferenceTranslations and ReferencePin are the operator-imported English
+	// ReferenceTranslations and ReferencePin are the installation-wide English
 	// translations of the cited sections, and the pin they came from. They are
-	// empty when no reference translation is imported.
+	// empty when the pinned translation has not been imported.
 	ReferenceTranslations map[string]string
 	ReferencePin          string
 }

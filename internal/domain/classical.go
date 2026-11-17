@@ -15,7 +15,7 @@ import (
 const ImportedSourceMediaType = "application/x-conllu"
 
 // Work is the author and title of a classical text, independent of any edition
-// or learner. Operator registration stores it as shared reference data.
+// or learner. The manifest registry stores it as shared reference data.
 type Work struct {
 	ID            string
 	DefinitionKey string
@@ -259,8 +259,8 @@ func (b BookReadingUnit) BookPosition() (number, total int, ok bool) {
 	return b.ConstituentBook, b.ConstituentBooks, true
 }
 
-// ReadingUnitDefinition is compiled, reviewed data for one operator-registered
-// text. Adding a text means adding a value, not code.
+// ReadingUnitDefinition is compiled, reviewed data for one classical text.
+// Adding a text means adding a value, not code.
 type ReadingUnitDefinition struct {
 	// Key is the stable definition identifier; it is also the Reading unit's
 	// key, so repeated registrations upsert the same row.

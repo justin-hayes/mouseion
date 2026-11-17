@@ -2,7 +2,6 @@ package ancientgreek
 
 import (
 	"bytes"
-	"context"
 	"encoding/xml"
 	"errors"
 	"io"
@@ -13,44 +12,6 @@ import (
 	"unicode/utf8"
 )
 
-// BrownsonSource pins an operator-supplied English reference translation by
-// size and SHA-256, exactly like a pinned oga_src annotation. Its sections are
-// stored as source material keyed by citation.
-type BrownsonSource struct {
-	Language      string
-	EditionLabel  string
-	WorkLabel     string
-	FileName      string
-	FileSize      int64
-	FileSHA256    string
-	CitationStart string
-	CitationEnd   string
-}
-
-// Pin returns the stable source identity frozen on a prepared deck item. It is
-// the same digest the import checks, never any source text.
-func (s BrownsonSource) Pin() string { return "sha256:" + s.FileSHA256 }
-
-// validate refuses a source whose reviewed pin is not a positive size and a
-// lowercase SHA-256, mirroring the reading-unit definition contract.
-func (s BrownsonSource) validate() error {
-	if s.FileSize <= 0 || len(s.FileSHA256) != 64 {
-		return errors.New("ancientgreek: brownson source pin is invalid")
-	}
-	for _, r := range s.FileSHA256 {
-		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
-			return errors.New("ancientgreek: brownson source pin is invalid")
-		}
-	}
-	if _, ok := parseCitation(s.CitationStart); !ok {
-		return errors.New("ancientgreek: brownson source citation start is invalid")
-	}
-	if _, ok := parseCitation(s.CitationEnd); !ok {
-		return errors.New("ancientgreek: brownson source citation end is invalid")
-	}
-	return nil
-}
-
 // ReferenceTranslation is one cited section's English text, keyed by citation
 // such as "1.2.17".
 type ReferenceTranslation struct {
@@ -58,85 +19,17 @@ type ReferenceTranslation struct {
 	Text     string
 }
 
-// BrownsonImportRequest names the local path of the pinned Brownson file. The
-// parsed rows are installation-wide, so no learner is named.
-type BrownsonImportRequest struct {
-	SourcePath string
-	Source     BrownsonSource
-}
-
-// ReferenceTranslationWriteRequest is the source-neutral candidate the writer
-// persists: the cited sections and the reviewed pin they were read from. The
-// pin is a 64-character lowercase SHA-256 digest and keys installation-wide
-// rows, so the request carries no owner.
-type ReferenceTranslationWriteRequest struct {
-	Language             string
-	TranslationPinSHA256 string
-	Translations         []ReferenceTranslation
-}
-
-// BrownsonImportWriter persists one imported reference translation. It is the
-// only part of the Brownson seam that touches the installation.
-type BrownsonImportWriter interface {
-	WriteReferenceTranslations(context.Context, ReferenceTranslationWriteRequest) (int, error)
-}
-
-// BrownsonImportReport is the outcome of one Brownson import. It names counts
-// and the pin only, never any source text.
-type BrownsonImportReport struct {
-	SourcePin string
-	Sections  int
-	Bytes     int64
-}
-
-// ImportBrownson reads the pinned Brownson file, checks its pin, extracts the
-// cited sections of the reading unit and hands them to the writer. It never
-// logs or returns source text.
-func ImportBrownson(ctx context.Context, req BrownsonImportRequest, writer BrownsonImportWriter) (BrownsonImportReport, error) {
-	if writer == nil {
-		return BrownsonImportReport{}, errors.New("ancientgreek: brownson import writer is required")
-	}
-	if err := req.Source.validate(); err != nil {
-		return BrownsonImportReport{}, err
-	}
-	data, err := readPinnedBytes(req.SourcePath, req.Source.FileSize, req.Source.FileSHA256)
-	if err != nil {
-		return BrownsonImportReport{}, err
-	}
-	sections, err := ParseReferenceTranslation(data, req.Source.CitationStart, req.Source.CitationEnd)
-	if err != nil {
-		return BrownsonImportReport{}, err
-	}
-	if _, err := writer.WriteReferenceTranslations(ctx, ReferenceTranslationWriteRequest{
-		Language: req.Source.Language, TranslationPinSHA256: req.Source.FileSHA256, Translations: sections,
-	}); err != nil {
-		return BrownsonImportReport{}, err
-	}
-	return BrownsonImportReport{SourcePin: req.Source.Pin(), Sections: len(sections), Bytes: int64(len(data))}, nil
-}
-
 // ParseReferenceTranslation extracts every cited section of the citation range
-// from a Perseus perseus-eng2 TEI file. It is the generalised parser used for
-// any pinned reference translation, not just Brownson: Perseus notes are
-// removed, remaining text is kept as is, whitespace is collapsed, and the
-// citation depth comes from the range so section-only and book/chapter/section
-// work files are read the same way. Sections are returned in citation order.
+// from a Perseus perseus-eng2 TEI file. Perseus notes are removed, remaining
+// text is kept as is, whitespace is collapsed, and the citation depth comes
+// from the range so section-only and book/chapter/section work files are read
+// the same way. Sections are returned in citation order.
 func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
-	return parsePerseusEng2(data, BrownsonSource{CitationStart: citationStart, CitationEnd: citationEnd})
-}
-
-// parsePerseusEng2 extracts every cited section of the reading unit from a
-// Perseus perseus-eng2 TEI file. Perseus notes are removed and the remaining
-// text is shown as is, including bracketed material; whitespace is collapsed.
-// The citation depth comes from the reading unit's range, so a section-only
-// work and a book/chapter/section/subsection work are read the same way.
-// Sections are returned in citation order.
-func parsePerseusEng2(data []byte, source BrownsonSource) ([]ReferenceTranslation, error) {
-	start, ok := parseCitation(source.CitationStart)
+	start, ok := parseCitation(citationStart)
 	if !ok {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation start is not a citation"}
 	}
-	end, ok := parseCitation(source.CitationEnd)
+	end, ok := parseCitation(citationEnd)
 	if !ok {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation end is not a citation"}
 	}
@@ -184,7 +77,7 @@ func xmlImportError(err error) error {
 	return &ImportError{Code: CodeMalformed, Detail: "invalid XML"}
 }
 
-// eng2Parser is the streaming state machine of parsePerseusEng2.
+// eng2Parser is the streaming state machine of ParseReferenceTranslation.
 type eng2Parser struct {
 	start, end []int
 	depth      int

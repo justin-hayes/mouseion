@@ -11,8 +11,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// PutImportedSourceMaterial stores an operator-imported source material and its
-// extracted-unit snapshot for a Book, and links the source to the Book. It
+// PutImportedSourceMaterial stores an imported classical source material and
+// its extracted-unit snapshot for a Book, and links the source to the Book. It
 // reuses the EPUB source persistence, so revisions, snapshots and offsets behave
 // identically; a repeat with the same bytes returns the same current revision
 // and writes nothing new. The Book is not re-validated here; the caller locks

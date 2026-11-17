@@ -114,6 +114,20 @@ install, check `findmnt /tmp`; if it reports `tmpfs`, create a directory on
 disk and set the variable to it. A configured directory that is missing or not
 a directory stops startup.
 
+### Classical catalog preparation
+
+Adding an Ancient Greek Book from the Classical catalog fetches its pinned work
+file, and its pinned reference translation, over HTTPS from the upstreams named
+in the embedded manifest
+([`internal/classical/layers.json`](../internal/classical/layers.json)):
+`raw.githubusercontent.com` for the `mgbilby/oga_src` text and
+`PerseusDL/canonical-greekLit` translations. Each file is verified against its
+reviewed size and SHA-256 and stored once per installation, so a later Book of
+the same Work reuses it. The rest of the installation stays tailnet-only, but
+the web server needs outbound HTTPS to those hosts for classical preparation; a
+failed fetch is recorded as that Book's preparation failure and can be retried
+from My Books ([ADR 0116](adr/0116-classical-catalog.md)).
+
 ### Prepared-deck translation
 
 Standard execution is the default. Batch remains available for explicit

@@ -7,9 +7,9 @@ Mouseion connects to a personal ebook library, analyzes each book
 linguistically, tells a learner how much of its vocabulary they already know,
 and prepares the words worth learning, each with an example sentence from the
 book itself, as an Anki deck. It supports German, Italian, French, and Modern
-Greek, with operator-registered Ancient Greek texts; Latin is planned. Each
-language's literature is worth reading for its own sake, and Mouseion is not a
-tool for constructing scholarly editions
+Greek, plus Ancient Greek through a curated Classical catalog; Latin is
+planned. Each language's literature is worth reading for its own sake, and
+Mouseion is not a tool for constructing scholarly editions
 ([ADR 0110](doc/adr/0110-philological-reading-competence-boundary.md)).
 
 The name recalls the Mouseion of Alexandria, the scholarly community that housed

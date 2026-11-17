@@ -534,8 +534,8 @@ A learner's bibliographic identity for a defined Reading unit, owned per learner
 and stable across acquisition, analysis, and content revisions. A Book is
 addressed by its owner-scoped Book ID; its current acquired source and analysis
 evidence are resolved underneath that identity. Books are catalog-derived or,
-for a classical text, registered by an operator from a reviewed definition;
-a learner never creates one by manual entry. A
+for a classical text, added from the curated Classical catalog; a learner never
+creates one by manual entry. A
 Book is always in My Books once discovered; analysis is Book-level evidence,
 not membership state.
 _Avoid_: source material (the acquired evidence, not the identity), acquired

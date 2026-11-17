@@ -208,6 +208,8 @@ queues so a long analysis never blocks catalog sync or deck work.
 | `prepared_decks` | `prepared_deck`, `prepared_deck_finalize`, `prepared_deck_rerender`, `prepared_deck_reconcile`, `prepared_deck_batch_submit`, `prepared_deck_batch_poll`, `prepared_deck_batch_cleanup` | Deck coordination, finalization, recovery, and Batch lifecycle |
 | `prepared_deck_translation` | `prepared_deck_translation` | Standard per-item translation, with configurable concurrency |
 | `source_checks` | `check_source_structure` | Extraction-only comparison of existing EPUB snapshots with the configured extraction contract ([ADR 0103](doc/adr/0103-source-structure-and-poetry-evidence.md)) |
+| `classical_preparation` | `classical_preparation` | Serial import of one classical Book's Reading unit: fetch and verify the pinned work file, cut the unit, and publish an ordinary analysis ([ADR 0116](doc/adr/0116-classical-catalog.md)) |
+| `classical_translation` | `classical_translation` | Fetch and parse one pinned reference translation, stored once per installation |
 
 Jobs are idempotent: each records its outcome in ordinary tables, so a retry
 after a crash resumes from persisted state rather than repeating finished work.
@@ -216,7 +218,9 @@ after a crash resumes from persisted state rather than repeating finished work.
 
 The core entities and their relationships. Every table except the shared
 reference data (`normalized_corpus_artifacts`, `shared_lemmas`,
-`supported_languages`, `enrichment_cache`) is owned by a user.
+`supported_languages`, `enrichment_cache`, `classical_sources`,
+`reference_translations`, and the `works`/`editions`/`reading_units` manifest
+registry) is owned by a user.
 
 ```mermaid
 erDiagram
@@ -240,6 +244,14 @@ erDiagram
     users ||--o{ known_vocabulary : knows
     analysis_runs ||--o{ deck_preparations : "deck from"
     deck_preparations ||--o{ deck_preparation_manifest_items : "frozen cards"
+    works ||--o{ editions : contains
+    editions ||--o{ reading_units : contains
+    books ||--o| book_reading_units : "one Reading unit"
+    reading_units ||--o{ book_reading_units : "held by"
+    books ||--o| classical_prepared_definitions : "prepared as"
+    reading_units ||--o{ classical_prepared_definitions : "defined by"
+    classical_prepared_definitions }o--|| classical_sources : "imported from"
+    books ||--o| classical_preparation_failures : "last failure"
 ```
 
 Notes on naming: `primary_goal_snapshots` stores the current-reading vocabulary
@@ -247,6 +259,15 @@ snapshot (the table predates the current *Reading* terminology), and
 `source_materials` is an acquired EPUB, as distinct from the catalog-level
 `books` entry. Vocabulary identity throughout is
 `(language, canonical_lemma, upos)`.
+
+The `works`, `editions` and `reading_units` tables are the Classical catalog
+registry: the embedded manifest reconciles into them at startup, and a Book's
+`book_reading_units` association is immutable. `classical_sources` keeps one
+verified copy of each pinned work file, `classical_prepared_definitions`
+records the definition revision and source pin a Book's published analysis came
+from, `classical_preparation_failures` records one settled failure per Book, and
+`reference_translations` holds one installation-wide English translation per
+pinned citation ([ADR 0116](doc/adr/0116-classical-catalog.md)).
 
 The schema starts from a single baseline migration with numbered successors
 ([ADR 0070](doc/adr/0070-migration-and-documentation-reboot.md)); schema
@@ -290,6 +311,7 @@ flowchart TB
     subgraph data[Data]
         domain[domain]
         persistence[persistence]
+        classical[classical<br/>catalog manifest]
         opds[opds]
     end
     server --> webapp & analysis & cataloguesync & prepareddeck & sourcecheck
@@ -305,12 +327,16 @@ flowchart TB
     selection --> lexical
     analyzer --> canonicalization
     persistence --> domain
+    persistence --> classical
+    analysis --> classical
+    webapp --> classical
 ```
 
 | Package | Responsibility |
 | --- | --- |
 | [`domain`](internal/domain) | Core corpus, book, and vocabulary models |
 | [`persistence`](internal/persistence) | PostgreSQL repositories with explicit ownership boundaries |
+| [`classical`](internal/classical) | Embedded Classical catalog manifest: Reading-unit definitions, pinned source layers, and translation pins ([ADR 0116](doc/adr/0116-classical-catalog.md)) |
 | [`epub`](internal/epub) | Reading-order extraction with reproducible source locations; main-text selection |
 | [`analyzer`](internal/analyzer) | The project-owned analysis boundary and its gRPC client |
 | [`analysis`](internal/analysis) | Durable analysis jobs: chunking, persistence, promotion |

@@ -57,9 +57,9 @@ func EPUBUnitID(spineIndex uint64, manifestID string) string {
 	return "epub-unit-v1:" + strconv.FormatUint(spineIndex, 10) + ":" + manifestID
 }
 
-// ClassicalUnitID is the unit identity of an operator-imported classical text.
-// One imported Reading unit is carried by one unit, so there is no EPUB spine
-// index; the definition key names the Reading unit.
+// ClassicalUnitID is the unit identity of a classical text imported from its
+// pinned source. One imported Reading unit is carried by one unit, so there is
+// no EPUB spine index; the definition key names the Reading unit.
 func ClassicalUnitID(definitionKey string) string {
 	return "classical-unit-v1:" + definitionKey
 }
