@@ -301,12 +301,12 @@ func TestReadingChooserGroupedWorkShowsOneAnalysisUpdateOffer(t *testing.T) {
 	require.True(t, iliad.Grouped)
 	assert.True(t, iliad.Update.Offered())
 	assert.Len(t, iliad.Update.Books, 2, "only the To Read Books with offers join the bulk action")
-	assert.Equal(t, "A newer analysis is available for 2 books.", iliad.Update.Notice())
+	assert.Equal(t, "A newer analysis is available for 2 books shown here.", iliad.Update.Notice())
 
 	var output bytes.Buffer
 	require.NoError(t, ReadingChooserWorkEntry(iliad, "csrf", "", "").Render(context.Background(), &output))
 	body := output.String()
-	assert.Contains(t, body, "A newer analysis is available for 2 books.")
+	assert.Contains(t, body, "A newer analysis is available for 2 books shown here.")
 	assert.Contains(t, body, "Update 2 books of Iliad")
 	assert.Contains(t, body, `action="/library/works/homer-iliad/analysis-update"`)
 	assert.Equal(t, 1, strings.Count(body, "Confirm analysis update"), "a grouped Work shows one bulk confirmation")
@@ -343,7 +343,7 @@ func TestReadingChooserSwitchModeNamesTheCurrentBookInItsWorkOffer(t *testing.T)
 	require.True(t, iliad.Grouped)
 	require.NotNil(t, iliad.Update.Current, "the current Book is named even though it has no chooser cell")
 	assert.Equal(t, "Book 1: End the Reading first", iliad.Update.CurrentText())
-	assert.Equal(t, "A newer analysis is available for 1 book.", iliad.Update.Notice())
+	assert.Equal(t, "A newer analysis is available for 1 book shown here.", iliad.Update.Notice())
 	assert.Nil(t, handler.currentChooserBook(context.Background(), fixtures.OwnerID, books, ""))
 	assert.Nil(t, handler.currentChooserBook(context.Background(), fixtures.OwnerID, books, "book-not-owned"))
 }

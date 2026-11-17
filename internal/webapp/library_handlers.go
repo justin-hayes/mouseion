@@ -62,7 +62,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.needsLanguage, request.disposition, request.history, request.showHidden))
 		return
 	}
-	refreshableBookIDs, connectionCount, err := h.loadLibraryBrowsingExtras(r.Context(), u.ID, books, browse.Rows)
+	refreshableBookIDs, connectionCount, err := h.loadLibraryBrowsingExtras(r.Context(), u.ID, books)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
@@ -71,6 +71,12 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	currentReadingBookID := ""
 	if currentReading.IsActive() {
 		currentReadingBookID = currentReading.BookID
+		currentWorkBook, hasCurrentWorkBook, currentErr := h.currentWorkBookForMyBooks(r.Context(), u.ID, currentReading.BookID, browse.Rows)
+		if currentErr != nil {
+			h.renderMyBooksFailure(w, r, u)
+			return
+		}
+		attachCurrentWorkBook(browse.Rows, currentWorkBook, hasCurrentWorkBook)
 	}
 	if isPartialHTMXRequest(r) {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, browse, currentReadingBookID))
@@ -126,13 +132,13 @@ func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string
 // loadLibraryBrowsingExtras runs the My Books reads that decorate the result
 // rows: disposition annotations, Analysis update offers, refreshable IDs, and the OPDS
 // connection count that decides whether acquisition is offered. It keeps their
-// order, which the validated rows depend on.
-func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook, rows []domain.MyBooksBrowseRow) (map[string]bool, int, error) {
+// order, which the validated rows depend on. Books are the page's visible cells,
+// shared by pointer with the grouped rows their Work offers cover.
+func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) (map[string]bool, int, error) {
 	if err := h.annotateMyBooksWithDisposition(ctx, owner, books); err != nil {
 		return nil, 0, err
 	}
 	h.annotateAnalysisUpdates(ctx, owner, books)
-	h.annotateWorkAnalysisUpdates(ctx, owner, rows)
 	h.annotateSourceStructureUpdates(ctx, owner, books)
 	refreshableBookIDs, err := h.refreshableMyBookIDs(ctx, owner, books)
 	if err != nil {
@@ -143,6 +149,45 @@ func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, b
 		return nil, 0, err
 	}
 	return refreshableBookIDs, len(connections), nil
+}
+
+// currentWorkBookForMyBooks loads the current Reading's Book with its Analysis
+// update offer. A grouped Work row names it even when the current visibility
+// scope or a filter keeps its cell out of the row.
+func (h *Handler) currentWorkBookForMyBooks(ctx context.Context, owner, bookID string, rows []domain.MyBooksBrowseRow) (domain.MyBook, bool, error) {
+	if h.services.AnalysisUpdates == nil || !myBooksHasGroupedWork(rows) {
+		return domain.MyBook{}, false, nil
+	}
+	book, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return domain.MyBook{}, false, nil
+	}
+	if err != nil {
+		return domain.MyBook{}, false, err
+	}
+	if book.ReadingUnit == nil || strings.TrimSpace(book.ReadingUnit.WorkKey) == "" {
+		return domain.MyBook{}, false, nil
+	}
+	// GetBookDetail does not carry the current-Reading role, and this Book is
+	// here precisely because the caller resolved it as the current Reading.
+	book.IsCurrentReading = true
+	annotated := []domain.MyBook{book}
+	h.annotateAnalysisUpdates(ctx, owner, annotated)
+	return annotated[0], true, nil
+}
+
+// attachCurrentWorkBook points the matching grouped Work row at the current
+// Reading's Book. The offer names and skips it; it is never queued.
+func attachCurrentWorkBook(rows []domain.MyBooksBrowseRow, current domain.MyBook, ok bool) {
+	if !ok || current.ReadingUnit == nil {
+		return
+	}
+	for i := range rows {
+		if rows[i].Grouped && rows[i].WorkKey == current.ReadingUnit.WorkKey {
+			rows[i].CurrentWorkBook = &current
+			return
+		}
+	}
 }
 
 // redirectMyBooksBrowse preserves ordinary browser redirects while asking

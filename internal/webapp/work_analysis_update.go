@@ -37,9 +37,11 @@ type workAnalysisUpdate struct {
 	Exclusions         int
 }
 
-// workAnalysisUpdateFor groups the eligible Books of one Work. current may be
-// supplied when the caller's candidate list deliberately excludes the current
-// Reading's Book, as the chooser does in switch mode.
+// workAnalysisUpdateFor groups the eligible Books of one Work that the issuing
+// surface shows. My Books passes the grouped row's visible cells; the chooser
+// passes its visible To Read candidates. current may be supplied when the
+// caller's candidate list deliberately excludes the current Reading's Book, as
+// the chooser does in switch mode.
 func workAnalysisUpdateFor(workKey, workTitle string, books []domain.MyBook, current *domain.MyBook) workAnalysisUpdate {
 	update := workAnalysisUpdate{WorkKey: workKey, WorkTitle: workTitle}
 	seen := make(map[string]bool, len(books)+1)
@@ -104,7 +106,7 @@ func (u workAnalysisUpdate) Notice() string {
 	if len(u.Books) == 0 {
 		return analysisUpdateNotice
 	}
-	return fmt.Sprintf("A newer analysis is available for %s.", countNoun(len(u.Books), "book", "books"))
+	return fmt.Sprintf("A newer analysis is available for %s shown here.", countNoun(len(u.Books), "book", "books"))
 }
 
 // ActionLabel names the one bulk action. A single-Book Work never uses this

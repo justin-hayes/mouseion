@@ -326,9 +326,11 @@ interpretation version with the current definition; a curatorial or
 translation-pin change alone gives no offer. It is not stale evidence: the
 published analysis stays in effect until the update publishes, and the update
 never rewrites earlier analyses, Lemma corrections, current-reading snapshots
-or prepared decks. A grouped Work row carries one notice and one bulk action,
-names and skips the current Reading's Book, and confirms the Work's corrections
-and exclusions once.
+or prepared decks. A grouped Work row or chooser entry carries one notice and
+one bulk action covering the eligible To Read Books that surface shows, so a
+Hidden Book joins on My Books only under Show hidden books; it names and skips
+the current Reading's Book and confirms the Work's corrections and exclusions
+once.
 _Avoid_: stale analysis, outdated evidence, re-import, migration.
 
 **Vocabulary coverage band**:

@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -44,52 +43,6 @@ func (h *Handler) annotateAnalysisUpdates(ctx context.Context, owner string, boo
 	applyBookCandidates(books, candidates, func(acquired *domain.SourceMaterialSummary, candidate domain.AnalysisUpdateCandidate) {
 		acquired.AnalysisUpdate = &candidate
 	})
-}
-
-// annotateWorkAnalysisUpdates attaches the whole Work's Books to every grouped
-// row, so its one Analysis update notice and bulk action are not narrowed by
-// the visible filter or a search. Ordinary rows keep their own offer.
-func (h *Handler) annotateWorkAnalysisUpdates(ctx context.Context, owner string, rows []domain.MyBooksBrowseRow) {
-	if h.services.AnalysisUpdates == nil || !hasGroupedWork(rows) {
-		return
-	}
-	books, err := h.services.Store.MyBooks.ListMyBooksWithEvidence(ctx, owner)
-	if err != nil {
-		log.Printf("work analysis update candidates unavailable: %v", err)
-		return
-	}
-	h.annotateAnalysisUpdates(ctx, owner, books)
-	byWork := booksByWork(books)
-	for i := range rows {
-		if rows[i].Grouped {
-			rows[i].WorkUpdateBooks = byWork[rows[i].WorkKey]
-		}
-	}
-}
-
-func hasGroupedWork(rows []domain.MyBooksBrowseRow) bool {
-	for _, row := range rows {
-		if row.Grouped && row.WorkKey != "" {
-			return true
-		}
-	}
-	return false
-}
-
-// booksByWork indexes all owned Books by their reviewed Work in book order.
-func booksByWork(books []domain.MyBook) map[string][]domain.MyBook {
-	byWork := make(map[string][]domain.MyBook)
-	for _, book := range books {
-		if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
-			byWork[unit.WorkKey] = append(byWork[unit.WorkKey], book)
-		}
-	}
-	for key := range byWork {
-		sort.SliceStable(byWork[key], func(i, j int) bool {
-			return domain.MyBookWorkOrderLess(byWork[key][i], byWork[key][j])
-		})
-	}
-	return byWork
 }
 
 // sourceIDsForBooks collects the acquired source identities an offer lookup may

@@ -98,10 +98,10 @@ one-pattern/one-Templ-component implementation.
 
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
-| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Read; grouped Work row with one cell per owned Book and bulk Work actions; one grouped Work Analysis update notice and bulk action with current-Book End wording and one confirmation, while a single-Book Work keeps the ordinary notice; preparing Books collapsed into one line with per-Book problem recovery; single-Book Work position; long title/author; compact reflow | My Books; reusable by Reading and chooser |
+| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Read; grouped Work row with one cell per owned Book and bulk Work actions; one grouped Work Analysis update notice and bulk action covering the eligible Books the row shows, with current-Book End wording and one confirmation, while a single-Book Work keeps the ordinary notice; preparing Books collapsed into one line with per-Book problem recovery; single-Book Work position; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues; shown only when no Book is current. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading, between Books |
-| `ReadingChooser` | List neutral To Read candidates in title order; group a Work's multiple To Read Books into one entry with a band table; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, grouped Work, single-Book Work, inline constituent entry, start/switch confirmation | Between-Books Reading chooser |
+| `ReadingChooser` | List neutral To Read candidates in title order; group a Work's multiple To Read Books into one entry with a band table; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, grouped Work, single-Book Work, inline constituent entry, start/switch confirmation; a grouped Work Analysis update offer covers only its visible To Read candidates | Between-Books Reading chooser |
 | `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. The Goal leads with Book identity, shows current and after-completion coverage only, and keeps deck actions snapshot-bound. | No evidence, analysis active/failed/complete, reading active, vocabulary work active/complete, deck missing/active/ready/failed/empty | Reading Journey |
 | `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, unavailable evidence, compact viewport | Reading Journey |
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
@@ -203,6 +203,16 @@ margin carries current Known vocabulary coverage as a rounded percentage, or an
 analysis/content problem with its recovery action; it never ranks candidates or
 frames coverage as readiness. A quiet **Switch current reading** link remains
 under the identity when the Book is eligible. Keep the list unordered.
+
+A grouped Work's Analysis update offer covers exactly the eligible To Read Books
+shown on the issuing surface. On My Books that is the grouped row's visible
+cells: Hidden Books join only under **Show hidden books**, and a search or
+disposition filter narrows the offer with the cells it keeps. In the chooser it
+is the grouped entry's visible To Read candidates; a hidden or otherwise
+excluded sibling never joins the offer. The notice and action name that count,
+the current Reading's Book is named and skipped rather than counted even when a
+hidden or filtered scope keeps its cell out of the row, and confirming queues
+exactly those Books in book order.
 
 Repeated items form one native unordered list at every width, not an ARIA grid.
 Keep cover, title, author, action, and note content in document and keyboard
@@ -400,7 +410,9 @@ repair. Source lifecycle belongs to the feature/ADR, not this component guide.
   Single-Book Works and other candidates reuse the annotated Book row: cover
   beside full title, reviewed Work position, author, start/switch confirmation
   and word review beneath the author, and the band name plus rounded coverage
-  and next-band distinct-word counts in a visibly edged margin. Analysis
+  and next-band distinct-word counts in a visibly edged margin. A grouped
+  entry's Analysis update offer covers only its visible To Read candidates, so a
+  hidden sibling never joins it. Analysis
   progress and unavailable coverage occupy that margin while their review/retry
   action stays under the identity. Retry is an outline action. On compact
   screens the band label stacks above its numbers, the margin follows the
