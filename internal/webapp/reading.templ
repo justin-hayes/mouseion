@@ -299,11 +299,11 @@ templ ReadingChooserWorkEntry(entry readingChooserEntryView, csrf, currentBookID
 						</div>
 					}
 				</dl>
-				@WorkAnalysisUpdateNotice(entry.Update, csrf, readingChooserUpdateReturnTo(currentBookID), "button button--outline")
+				@WorkAnalysisUpdateNotice(entry.Update, csrf, readingChooserPath(currentBookID), "button button--outline")
 			</div>
 			<div class="reading-chooser-work__books">
 				for _, item := range entry.Books {
-					<div class="reading-chooser-work__book" id={ readingChooserCandidateAnchorID(item) }>
+					<div class="reading-chooser-work__book" id={ readingChooserCandidateAnchorID(item) } tabindex="-1">
 						@ReadingChooserCandidate(item, csrf, currentBookID, currentSnapshotID, true)
 					</div>
 				}
@@ -313,7 +313,7 @@ templ ReadingChooserWorkEntry(entry readingChooserEntryView, csrf, currentBookID
 }
 
 templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
-	<li class="reading-chooser-book" id={ readingChooserCandidateAnchorID(item) }>
+	<li class="reading-chooser-book" id={ readingChooserCandidateAnchorID(item) } tabindex="-1">
 		@ReadingChooserCandidate(item, csrf, currentBookID, currentSnapshotID, false)
 	</li>
 }

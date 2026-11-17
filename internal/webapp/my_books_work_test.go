@@ -224,12 +224,18 @@ func TestMyBooksWorkCellLabelFallsBackToBookIdentity(t *testing.T) {
 	assert.Equal(t, "1", myBooksWorkCellNumber(book))
 }
 
-func TestMyBooksWorkCellURLNamesTheReadingEntryEachBookCanOpen(t *testing.T) {
-	current := classicalWorkBook("iliad-1", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 1, 24, domain.BookDispositionToRead, true)
-	toRead := classicalWorkBook("iliad-2", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 2, 24, domain.BookDispositionToRead, false)
-	read := classicalWorkBook("iliad-3", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 3, 24, domain.BookDispositionInbox, false)
+// groupedWorkCellBooks builds one Work's Books for each grouped-strip bucket.
+func groupedWorkCellBooks() (current, toRead, read, inbox domain.MyBook) {
+	current = classicalWorkBook("iliad-1", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 1, 24, domain.BookDispositionToRead, true)
+	toRead = classicalWorkBook("iliad-2", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 2, 24, domain.BookDispositionToRead, false)
+	read = classicalWorkBook("iliad-3", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 3, 24, domain.BookDispositionInbox, false)
 	read.CompletionCount = 1
-	inbox := classicalWorkBook("iliad-4", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 4, 24, domain.BookDispositionInbox, false)
+	inbox = classicalWorkBook("iliad-4", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 4, 24, domain.BookDispositionInbox, false)
+	return current, toRead, read, inbox
+}
+
+func TestMyBooksWorkCellURLNamesTheReadingEntryEachBookCanOpen(t *testing.T) {
+	current, toRead, read, inbox := groupedWorkCellBooks()
 	hiddenToRead := classicalWorkBook("iliad-5", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 5, 24, domain.BookDispositionToRead, false)
 	hiddenToRead.Hidden = true
 
@@ -248,20 +254,23 @@ func TestMyBooksWorkCellURLNamesTheReadingEntryEachBookCanOpen(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, "/reading/switch#reading-chooser-book-iliad-2", href)
 	})
-	for name, book := range map[string]domain.MyBook{"Read": read, "Inbox": inbox, "hidden To Read": hiddenToRead} {
-		t.Run(name+" cell is status-only", func(t *testing.T) {
-			_, ok := myBooksWorkCellURL(book, "iliad-1")
-			assert.False(t, ok, "Reading has no entry for a %s Book", name)
+	for _, test := range []struct {
+		name string
+		book domain.MyBook
+	}{
+		{name: "Read", book: read},
+		{name: "Inbox", book: inbox},
+		{name: "hidden To Read", book: hiddenToRead},
+	} {
+		t.Run(test.name+" cell is status-only", func(t *testing.T) {
+			_, ok := myBooksWorkCellURL(test.book, "iliad-1")
+			assert.False(t, ok, "Reading has no entry for a %s Book", test.name)
 		})
 	}
 }
 
 func TestMyBooksGroupedWorkCellsLinkOnlyToReadingEntriesTheyCanOpen(t *testing.T) {
-	current := classicalWorkBook("iliad-1", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 1, 24, domain.BookDispositionToRead, true)
-	toRead := classicalWorkBook("iliad-2", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 2, 24, domain.BookDispositionToRead, false)
-	read := classicalWorkBook("iliad-3", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 3, 24, domain.BookDispositionInbox, false)
-	read.CompletionCount = 1
-	inbox := classicalWorkBook("iliad-4", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", 4, 24, domain.BookDispositionInbox, false)
+	current, toRead, read, inbox := groupedWorkCellBooks()
 	books := []domain.MyBook{current, toRead, read, inbox}
 
 	render := func(currentReadingBookID string, books []domain.MyBook) string {
@@ -280,21 +289,29 @@ func TestMyBooksGroupedWorkCellsLinkOnlyToReadingEntriesTheyCanOpen(t *testing.T
 		return output.String()
 	}
 
-	withCurrent := render("iliad-1", books)
-	for _, want := range []string{
-		`href="/reading#journey-book-iliad-1"`,
-		`href="/reading/switch#reading-chooser-book-iliad-2"`,
-		`role="img" aria-label="Iliad, Book 3 of 24, Read"`,
-		`role="img" aria-label="Iliad, Book 4 of 24, Inbox"`,
-	} {
-		assert.Contains(t, withCurrent, want, "grouped Work cell missing %q", want)
-	}
-	assert.NotContains(t, withCurrent, `href="/reading#journey-book-iliad-3"`, "a Read cell has no Reading entry")
-	assert.NotContains(t, withCurrent, `href="/reading#journey-book-iliad-4"`, "an Inbox cell has no Reading entry")
+	t.Run("with a current Book", func(t *testing.T) {
+		html := render("iliad-1", books)
+		t.Run("the current Book opens the current-reading card", func(t *testing.T) {
+			require.Contains(t, html, `href="/reading#journey-book-iliad-1"`)
+		})
+		t.Run("the To Read Book opens its Switch chooser entry", func(t *testing.T) {
+			require.Contains(t, html, `href="/reading/switch#reading-chooser-book-iliad-2"`)
+		})
+		t.Run("the Read cell keeps its label but has no link", func(t *testing.T) {
+			require.Contains(t, html, `role="img" aria-label="Iliad, Book 3 of 24, Read"`)
+			require.NotContains(t, html, `href="/reading#journey-book-iliad-3"`)
+		})
+		t.Run("the Inbox cell keeps its label but has no link", func(t *testing.T) {
+			require.Contains(t, html, `role="img" aria-label="Iliad, Book 4 of 24, Inbox"`)
+			require.NotContains(t, html, `href="/reading#journey-book-iliad-4"`)
+		})
+	})
 
-	noCurrent := render("", []domain.MyBook{toRead, read, inbox})
-	assert.Contains(t, noCurrent, `href="/reading#reading-chooser-book-iliad-2"`, "without a current Book the To Read cell opens the chooser on Reading")
-	assert.NotContains(t, noCurrent, `href="/reading/switch#reading-chooser-book-iliad-2"`)
+	t.Run("without a current Book the To Read cell opens the chooser on Reading", func(t *testing.T) {
+		html := render("", []domain.MyBook{toRead, read, inbox})
+		require.Contains(t, html, `href="/reading#reading-chooser-book-iliad-2"`)
+		require.NotContains(t, html, `href="/reading/switch#reading-chooser-book-iliad-2"`)
+	})
 }
 
 func TestMyBooksGroupedWorkRowOffersBulkWorkActions(t *testing.T) {

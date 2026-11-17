@@ -313,9 +313,10 @@ Book in book order. Each cell shows the Book's bucket by shape; the current
 Book's cell opens the current-reading card and a visible To Read Book's cell
 opens that Book's inline chooser candidate on Reading or the Switch page. Read,
 Inbox, and Hidden cells are status-only, because Reading has no entry for them,
-and the strip has no per-Book actions. Bulk To Read moves every Book without reading history, leaves the
-current Book alone, prepares Books in book order, and prepares nothing when the
-Work moves back to Inbox. Hide all and Unhide all change each Book's visibility
+and the strip has no per-Book actions. Bulk To Read moves every Book without
+reading history, leaves the current Book alone, prepares Books in book order,
+and prepares nothing when the Work moves back to Inbox. Hide all and Unhide all
+change each Book's visibility
 without creating a Work-level state; preparing Books collapse into one line and
 each problem Book keeps its own recovery. A grouped Work row also carries one
 Analysis update notice and one bulk action when its definitions changed; the

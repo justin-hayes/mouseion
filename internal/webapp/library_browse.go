@@ -650,11 +650,7 @@ func myBooksWorkCellURL(book domain.MyBook, currentReadingBookID string) (string
 		if book.Hidden {
 			return "", false
 		}
-		path := "/reading"
-		if currentReadingBookID != "" {
-			path = "/reading/switch"
-		}
-		return path + "#" + readingChooserBookAnchorID(book.Book.ID), true
+		return readingChooserPath(currentReadingBookID) + "#" + readingChooserBookAnchorID(book.Book.ID), true
 	default:
 		return "", false
 	}

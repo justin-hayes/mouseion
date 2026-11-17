@@ -738,9 +738,10 @@ func readingChooserPageTitle(view readingChooserPageView) string {
 	return readingChooserTitle(view)
 }
 
-// readingChooserUpdateReturnTo keeps a Work update confirmation on the chooser
-// it was offered from.
-func readingChooserUpdateReturnTo(currentBookID string) string {
+// readingChooserPath is the page that renders the chooser: Reading while the
+// learner is between Books, or the Switch page while a Book is current. A Work
+// update confirmation returns here, and My Books' To Read cells open here.
+func readingChooserPath(currentBookID string) string {
 	if currentBookID != "" {
 		return "/reading/switch"
 	}

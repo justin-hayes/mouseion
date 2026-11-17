@@ -144,28 +144,28 @@ func TestMyBooksGroupedWorkToReadCellOpensTheCandidateEntry(t *testing.T) {
 	for _, book := range books {
 		require.NoError(t, store.SetBookDisposition(ctx, learner.ID, book.ID, domain.BookDispositionToRead))
 	}
-
 	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
-	page := perform(t, h, http.MethodGet, "/library", nil, cookies)
-	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
-	body := page.Body.String()
-	for _, unit := range []string{"homer-iliad-1", "homer-iliad-2"} {
-		assert.Contains(t, body, `href="/reading#reading-chooser-book-`+books[unit].ID+`"`,
-			"without a current Book the To Read cell opens the chooser on Reading")
-	}
 
-	// Following the cell lands on the grouped chooser with that Book's ordinary
-	// candidate entry rendered inline, ready to start.
-	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
-	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
-	chooserBody := chooser.Body.String()
-	for _, want := range []string{
-		`id="reading-chooser-book-` + books["homer-iliad-1"].ID + `"`,
-		`action="/reading/books/` + books["homer-iliad-1"].ID + `/start"`,
-		"Book 1 of 24",
-	} {
-		assert.Contains(t, chooserBody, want, "selected chooser entry missing %q", want)
-	}
+	t.Run("each To Read cell opens the chooser on Reading", func(t *testing.T) {
+		page := perform(t, h, http.MethodGet, "/library", nil, cookies)
+		require.Equal(t, http.StatusOK, page.Code, page.Body.String())
+		body := page.Body.String()
+		for _, unit := range []string{"homer-iliad-1", "homer-iliad-2"} {
+			t.Run(unit, func(t *testing.T) {
+				require.Contains(t, body, `href="/reading#reading-chooser-book-`+books[unit].ID+`"`)
+			})
+		}
+	})
+
+	t.Run("the selected Book's ordinary candidate entry is rendered inline", func(t *testing.T) {
+		chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+		require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
+		body := chooser.Body.String()
+		entry := books["homer-iliad-1"]
+		require.Contains(t, body, `id="reading-chooser-book-`+entry.ID+`" tabindex="-1"`)
+		require.Contains(t, body, `action="/reading/books/`+entry.ID+`/start"`)
+		require.Contains(t, body, "Book 1 of 24")
+	})
 }
 
 func TestMyBooksGroupedWorkCellsOpenTheSelectedReadingEntry(t *testing.T) {
@@ -179,7 +179,6 @@ func TestMyBooksGroupedWorkCellsOpenTheSelectedReadingEntry(t *testing.T) {
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, books["homer-iliad-2"].ID, domain.BookDispositionToRead))
 	_, err := store.ImportPreviouslyRead(ctx, learner.ID, books["homer-iliad-3"].ID)
 	require.NoError(t, err)
-
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 	started := perform(t, h, http.MethodPost, "/reading/books/"+books["homer-iliad-1"].ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code, started.Body.String())
@@ -188,35 +187,35 @@ func TestMyBooksGroupedWorkCellsOpenTheSelectedReadingEntry(t *testing.T) {
 	page := perform(t, h, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	body := page.Body.String()
-	for _, want := range []string{
-		`href="/reading#journey-book-` + books["homer-iliad-1"].ID + `"`,
-		`href="/reading/switch#reading-chooser-book-` + books["homer-iliad-2"].ID + `"`,
-		`role="img" aria-label="Iliad, Book 3 of 24, Read"`,
-		`role="img" aria-label="Iliad, Book 4 of 24, Inbox"`,
-	} {
-		assert.Contains(t, body, want, "grouped Work cell missing %q", want)
-	}
-	for _, unit := range []string{"homer-iliad-3", "homer-iliad-4"} {
-		assert.NotContains(t, body, `href="/reading#journey-book-`+books[unit].ID+`"`, "Read and Inbox cells have no Reading entry")
-		assert.NotContains(t, body, `reading-chooser-book-`+books[unit].ID, "Read and Inbox cells never name a chooser entry")
-	}
 
-	// The current Book's cell opens the current-reading card.
-	reading := perform(t, h, http.MethodGet, "/reading", nil, cookies)
-	require.Equal(t, http.StatusOK, reading.Code, reading.Body.String())
-	assert.Contains(t, reading.Body.String(), `id="journey-book-`+books["homer-iliad-1"].ID+`"`)
-
-	// The To Read cell opens the Switch chooser with that Book's entry inline.
-	switching := perform(t, h, http.MethodGet, "/reading/switch", nil, cookies)
-	require.Equal(t, http.StatusOK, switching.Code, switching.Body.String())
-	switchBody := switching.Body.String()
-	for _, want := range []string{
-		`id="reading-chooser-book-` + books["homer-iliad-2"].ID + `"`,
-		`action="/reading/books/` + books["homer-iliad-2"].ID + `/switch"`,
-		"Book 2 of 24",
-	} {
-		assert.Contains(t, switchBody, want, "selected Switch entry missing %q", want)
-	}
+	t.Run("the current Book cell opens the current-reading card", func(t *testing.T) {
+		require.Contains(t, body, `href="/reading#journey-book-`+books["homer-iliad-1"].ID+`"`)
+	})
+	t.Run("the To Read cell opens the Switch chooser entry", func(t *testing.T) {
+		require.Contains(t, body, `href="/reading/switch#reading-chooser-book-`+books["homer-iliad-2"].ID+`"`)
+	})
+	t.Run("Read and Inbox cells stay status-only", func(t *testing.T) {
+		require.Contains(t, body, `role="img" aria-label="Iliad, Book 3 of 24, Read"`)
+		require.Contains(t, body, `role="img" aria-label="Iliad, Book 4 of 24, Inbox"`)
+		for _, unit := range []string{"homer-iliad-3", "homer-iliad-4"} {
+			require.NotContains(t, body, `href="/reading#journey-book-`+books[unit].ID+`"`)
+			require.NotContains(t, body, `reading-chooser-book-`+books[unit].ID)
+		}
+	})
+	t.Run("the current-reading card is rendered at the cell's target", func(t *testing.T) {
+		reading := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+		require.Equal(t, http.StatusOK, reading.Code, reading.Body.String())
+		require.Contains(t, reading.Body.String(), `id="journey-book-`+books["homer-iliad-1"].ID+`"`)
+	})
+	t.Run("the Switch page renders the chosen candidate inline", func(t *testing.T) {
+		switching := perform(t, h, http.MethodGet, "/reading/switch", nil, cookies)
+		require.Equal(t, http.StatusOK, switching.Code, switching.Body.String())
+		body := switching.Body.String()
+		entry := books["homer-iliad-2"]
+		require.Contains(t, body, `id="reading-chooser-book-`+entry.ID+`" tabindex="-1"`)
+		require.Contains(t, body, `action="/reading/books/`+entry.ID+`/switch"`)
+		require.Contains(t, body, "Book 2 of 24")
+	})
 }
 
 func TestMyBooksSingleBookWorkStaysOrdinaryWithPosition(t *testing.T) {
