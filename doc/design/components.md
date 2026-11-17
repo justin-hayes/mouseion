@@ -183,8 +183,9 @@ inline in the chooser, on Reading when no Book is current or on the Switch page
 when one is. A Read or Inbox cell is a status-only cell, not a link: Reading
 lists only the current Book and To Read candidates, so there is nothing to
 select, and the strip must not imply a next Book. It keeps the 44px cell and
-full accessible label; **Read again** and **Move to To Read** remain the
-route back to a candidate. A Hidden Book's cell is likewise status-only. Cells
+full accessible label but is not a link target; **Read again** and **Move to To
+Read** remain the route back to a candidate. A Hidden Book's cell is likewise
+status-only. Cells
 carry full accessible labels, the page has one shared legend,
 and the row has no per-Book actions. A filtered row keeps only its matching cells, and a line states the
 shape, such as "57 Books in 5 works". "M of N books" counts owned Books,

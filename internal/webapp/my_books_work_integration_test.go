@@ -210,11 +210,11 @@ func TestMyBooksGroupedWorkCellsOpenTheSelectedReadingEntry(t *testing.T) {
 	t.Run("the Switch page renders the chosen candidate inline", func(t *testing.T) {
 		switching := perform(t, h, http.MethodGet, "/reading/switch", nil, cookies)
 		require.Equal(t, http.StatusOK, switching.Code, switching.Body.String())
-		body := switching.Body.String()
+		switchBody := switching.Body.String()
 		entry := books["homer-iliad-2"]
-		require.Contains(t, body, `id="reading-chooser-book-`+entry.ID+`" tabindex="-1"`)
-		require.Contains(t, body, `action="/reading/books/`+entry.ID+`/switch"`)
-		require.Contains(t, body, "Book 2 of 24")
+		require.Contains(t, switchBody, `id="reading-chooser-book-`+entry.ID+`" tabindex="-1"`)
+		require.Contains(t, switchBody, `action="/reading/books/`+entry.ID+`/switch"`)
+		require.Contains(t, switchBody, "Book 2 of 24")
 	})
 }
 

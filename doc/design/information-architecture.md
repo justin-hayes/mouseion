@@ -312,14 +312,15 @@ badge and counts, work-level bulk actions, then a strip of one cell per owned
 Book in book order. Each cell shows the Book's bucket by shape; the current
 Book's cell opens the current-reading card and a visible To Read Book's cell
 opens that Book's inline chooser candidate on Reading or the Switch page. Read,
-Inbox, and Hidden cells are status-only, because Reading has no entry for them,
-and the strip has no per-Book actions. Bulk To Read moves every Book without
-reading history, leaves the current Book alone, prepares Books in book order,
-and prepares nothing when the Work moves back to Inbox. Hide all and Unhide all
-change each Book's visibility
-without creating a Work-level state; preparing Books collapse into one line and
-each problem Book keeps its own recovery. A grouped Work row also carries one
-Analysis update notice and one bulk action when its definitions changed; the
+Inbox, and Hidden cells are status-only, because Reading has no entry to select,
+and are not link targets, though they keep the 44px cell and accessible label.
+The strip has no per-Book actions. Bulk To Read moves every Book without reading
+history, leaves the current Book alone, prepares Books in book order, and
+prepares nothing when the Work moves back to Inbox. Hide all and Unhide all
+change each Book's visibility without creating a Work-level state; preparing
+Books collapse into one line and each problem Book keeps its own recovery. A
+grouped Work row also carries one Analysis update notice and one bulk action when
+its definitions changed; the
 current Reading's Book is named and skipped, and one confirmation discloses the
 Work's Lemma corrections and Occurrence exclusions. A single-Book Work stays an
 ordinary row with its reviewed position and the ordinary per-Book notice; a

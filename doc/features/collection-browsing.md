@@ -95,7 +95,8 @@ contracts. Reading owns current evidence and current-reading presentation.
   visible To Read Book's cell opens that Book's ordinary candidate entry inline
   in the chooser, on Reading when no Book is current and on the Switch page when
   one is. A Read or Inbox cell is status-only, not a link: Reading has no entry
-  to select, and the strip never implies a next Book. A Hidden Book's cell is
+  to select, and the strip never implies a next Book. It keeps the 44px cell
+  and accessible label but is not a link target. A Hidden Book's cell is
   status-only too. Read again and the Work-level Move to To Read remain the
   routes that make such a Book a candidate again. The row has no per-Book
   actions, and the page has one shared legend.
