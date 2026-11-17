@@ -22,6 +22,9 @@ type storedClassicalUnit struct {
 	EditionID             string
 	Revision              int
 	Withdrawn             bool
+	CitationStart         string
+	CitationEnd           string
+	ConstituentBook       *int
 	SourceLayer           string
 	SourceFileName        string
 	SourceFileSize        int64
@@ -30,6 +33,11 @@ type storedClassicalUnit struct {
 	InterpretationVersion string
 	Translation           *classical.TranslationPin
 }
+
+// reconciled reports whether the row carries a manifest definition. A row the
+// retired operator command registered records no source layer, so its first
+// reconciliation is the legacy conversion.
+func (u storedClassicalUnit) reconciled() bool { return u.SourceLayer != "" }
 
 // ReconcileClassicalManifest writes one release's Reading-unit definitions into
 // the shared Work, Edition and Reading-unit registry in one idempotent
@@ -54,6 +62,9 @@ func reconcileClassicalManifestTx(ctx context.Context, tx pgx.Tx, definitions []
 	}
 	stored, err := loadStoredClassicalUnits(ctx, tx)
 	if err != nil {
+		return err
+	}
+	if err := validateStoredExtents(definitions, stored); err != nil {
 		return err
 	}
 	if err := validateStoredRevisions(definitions, stored); err != nil {
@@ -97,6 +108,7 @@ func upsertClassicalDefinitions(ctx context.Context, tx pgx.Tx, definitions []cl
 func loadStoredClassicalUnits(ctx context.Context, tx pgx.Tx) (map[string]storedClassicalUnit, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT definition_key, edition_id::text, revision, withdrawn,
+		       citation_start, citation_end, constituent_book,
 		       source_layer, source_file_name, source_file_size, source_file_sha256, source_format, interpretation_version,
 		       translation_layer, translation_file_name, translation_file_size,
 		       translation_file_sha256, translation_citation_start, translation_citation_end
@@ -110,17 +122,55 @@ func loadStoredClassicalUnits(ctx context.Context, tx pgx.Tx) (map[string]stored
 	for rows.Next() {
 		var key string
 		var unit storedClassicalUnit
-		var layer, fileName, sha256, citationStart, citationEnd pgtype.Text
+		var citationStart, citationEnd pgtype.Text
+		var constituentBook pgtype.Int4
+		var layer, fileName, sha256, translationStart, translationEnd pgtype.Text
 		var size pgtype.Int8
 		if err := rows.Scan(&key, &unit.EditionID, &unit.Revision, &unit.Withdrawn,
+			&citationStart, &citationEnd, &constituentBook,
 			&unit.SourceLayer, &unit.SourceFileName, &unit.SourceFileSize, &unit.SourceFileSHA256, &unit.SourceFormat, &unit.InterpretationVersion,
-			&layer, &fileName, &size, &sha256, &citationStart, &citationEnd); err != nil {
+			&layer, &fileName, &size, &sha256, &translationStart, &translationEnd); err != nil {
 			return nil, err
 		}
-		unit.Translation = classicalTranslationPin(layer, fileName, size, sha256, citationStart, citationEnd)
+		unit.CitationStart, unit.CitationEnd = citationStart.String, citationEnd.String
+		if constituentBook.Valid {
+			book := int(constituentBook.Int32)
+			unit.ConstituentBook = &book
+		}
+		unit.Translation = classicalTranslationPin(layer, fileName, size, sha256, translationStart, translationEnd)
 		stored[key] = unit
 	}
 	return stored, rows.Err()
+}
+
+// validateStoredExtents refuses a manifest that changes the citation range or
+// constituent book of an existing Reading unit. A changed extent is a new
+// Reading unit with a new Key, so rewriting the row could re-point an existing
+// Book at different text. A revision bump does not authorize it. A pre-manifest
+// row never recorded a constituent book, so only its citation range is
+// compared; its first reconciliation is the legacy conversion.
+func validateStoredExtents(definitions []classical.Definition, stored map[string]storedClassicalUnit) error {
+	for _, definition := range definitions {
+		previous, ok := stored[definition.Key]
+		if !ok {
+			continue
+		}
+		if previous.CitationStart != definition.CitationStart || previous.CitationEnd != definition.CitationEnd {
+			return fmt.Errorf("classical: definition %q changed its citation range; use a new Reading-unit Key", definition.Key)
+		}
+		if previous.reconciled() && !sameConstituentBook(previous.ConstituentBook, definition.ConstituentBook) {
+			return fmt.Errorf("classical: definition %q changed its constituent book; use a new Reading-unit Key", definition.Key)
+		}
+	}
+	return nil
+}
+
+// sameConstituentBook compares two optional constituent-book numbers.
+func sameConstituentBook(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 // validateStoredRevisions refuses a broken build before it writes anything. A
@@ -146,7 +196,7 @@ func validateStoredRevisions(definitions []classical.Definition, stored map[stri
 // translation pin or interpretation version compared with the stored row. An
 // unrecorded translation pin on a legacy row is not a change.
 func storedContentChanged(previous storedClassicalUnit, next classical.Definition) bool {
-	if previous.SourceLayer != "" {
+	if previous.reconciled() {
 		if previous.SourceLayer != next.Source.Layer || previous.SourceFormat != next.Source.Format {
 			return true
 		}

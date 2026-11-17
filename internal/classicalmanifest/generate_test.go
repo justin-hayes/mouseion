@@ -440,6 +440,60 @@ func TestTranslationRemovalNeedsARevisionBump(t *testing.T) {
 	assert.Equal(t, 2, updated.Definitions[0].Revision)
 }
 
+// withLayerClass reclasses one fixture layer and drops any passage credit,
+// since layers.json permits credit only on Source content.
+func withLayerClass(t *testing.T, layers []byte, key, class, restriction string) []byte {
+	t.Helper()
+	parsed, err := classical.ParseLayers(layers)
+	require.NoError(t, err)
+	found := false
+	for index := range parsed.Layers {
+		if parsed.Layers[index].Key != key {
+			continue
+		}
+		found = true
+		parsed.Layers[index].LicenceClass = class
+		parsed.Layers[index].Restriction = restriction
+		for fileIndex := range parsed.Layers[index].Files {
+			parsed.Layers[index].Files[fileIndex].PassageLabel = ""
+			parsed.Layers[index].Files[fileIndex].DeckNotice = ""
+		}
+	}
+	require.True(t, found, "fixture layer %q", key)
+	encoded, err := json.Marshal(parsed)
+	require.NoError(t, err)
+	return encoded
+}
+
+func TestNonSourceContentLayersAreRefusedForBothRoles(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	cases := []struct {
+		name      string
+		layer     string
+		wantLayer string
+	}{
+		{"source", "fixture-source", "source layer"},
+		{"translation", "fixture-translation", "translation layer"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			reclassed := withLayerClass(t, layers, testCase.layer, classical.LicenceClassAnalysisResource, classical.RestrictionUnclear)
+
+			skipped := generate(t, Options{Layers: reclassed, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+			require.Empty(t, skipped.Definitions, "a new candidate whose %s is not Source content is skipped", testCase.name)
+			require.Contains(t, skipped.Notes, "Rejected new candidate alpha")
+			require.Contains(t, skipped.Notes, testCase.wantLayer)
+			require.Contains(t, skipped.Notes, "not Source content")
+
+			first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+			_, err := Generate(Options{Layers: reclassed, Overrides: overrideFile(t, baseOverride()), Manifest: first.Manifest, AllowMissingUpstream: true})
+			require.ErrorContains(t, err, "existing alpha failed a check", "an existing entry whose %s is not Source content stops the run", testCase.name)
+			require.ErrorContains(t, err, testCase.wantLayer)
+			require.ErrorContains(t, err, "not Source content")
+		})
+	}
+}
+
 // withoutPassageCredit removes the fixture translation's card label and deck
 // notice from layers.json.
 func withoutPassageCredit(t *testing.T, layers []byte) []byte {

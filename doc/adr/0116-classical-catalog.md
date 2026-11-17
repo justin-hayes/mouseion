@@ -75,9 +75,13 @@ Greek title, Edition label, reviewer note) are corrected in place. A
 content-bearing change (source pin, translation pin or interpretation version)
 requires a new definition revision; the generator refuses one without it, and
 startup rejects a manifest that reduces a revision or changes content without
-one. A removed entry becomes a withdrawn tombstone, so existing Books never
-dangle. Startup reconciles the manifest into the Work, Edition and Reading unit
-registry in one idempotent transaction and never touches learner state.
+one. Startup also rejects a manifest that changes the citation start, citation
+end or constituent book of an existing key, with or without a revision bump: a
+changed extent is a new Reading unit with a new key, so rewriting the row could
+re-point an existing Book at different text. A removed entry becomes a
+withdrawn tombstone, so existing Books never dangle. Startup reconciles the
+manifest into the Work, Edition and Reading unit registry in one idempotent
+transaction and never touches learner state.
 
 ### Catalogs browses curated sources that do not sync
 
@@ -193,30 +197,39 @@ owner" refusal is removed because pins now coexist.
 
 ### Migrations
 
-Three migrations carry the schema change, under ADR 0038 and ADR 0070:
+Five migrations carry the schema change, under ADR 0038 and ADR 0070:
 
-1. adds the installation-wide verified source table and the per-Book
-   prepared-definition record;
-2. replaces the owner-scoped key of `reference_translations` with the
-   installation-wide (translation pin SHA-256, citation) key, copying existing
-   rows, deduplicating identical pin-and-citation rows and keeping different
-   pins. Deck-frozen passage fields are untouched.
+1. `000048_classical_manifest_reconciliation` adds the reconciliation columns
+   to the Work, Edition and Reading-unit registry: the shared Work Greek title,
+   the definition revision, the source layer and format, the constituent book
+   and count, the word count, the recorded translation pin and the withdrawn
+   tombstone, with the constraints that keep a partial pin or an out-of-range
+   book impossible.
+2. `000049_classical_preparation` adds the installation-wide verified source
+   table and the per-Book prepared-definition record.
+3. `000050_reference_translation_installation_key` replaces the owner-scoped
+   key of `reference_translations` with the installation-wide (translation pin
+   SHA-256, citation) key as structural DDL.
+4. `000051_reference_translation_installation_data` copies existing rows into
+   the new key, deduplicating identical pin-and-citation rows and keeping
+   different pins. Deck-frozen passage fields are untouched. It is the data
+   movement reviewed separately from the DDL in 000050.
+5. `000052_classical_preparation_failures` adds
+   `classical_preparation_failures`, the per-Book record of a preparation
+   failure. It is keyed by owner and Book, stores only a stage and a stable
+   ASCII code, and carries no source text or Greek. The record is written when
+   an attempt settles, and also when a submission is refused because the
+   definition is withdrawn, so that refusal remains visible on the jobs surface
+   without a River job. It is needed because a terminal source refusal must
+   stay visible until a newer definition revision arrives, which is longer than
+   River retains a discarded job; a successful preparation deletes it. The
+   current Reading unit's revision is compared with the recorded revision, so a
+   newer definition revision clears a terminal failure without rewriting the
+   row. This table is not a per-pin failure record.
 
-Both migrations are **forward-only**. Their down migrations are development
+All five migrations are **forward-only**. Their down migrations are development
 conveniences, not a production rollback. Structural DDL and data movement stay
-separable for review.
-
-A third, additive migration adds `classical_preparation_failures`, the per-Book
-record of a preparation failure. It is keyed by owner and Book, stores only a
-stage and a stable ASCII code, and carries no source text or Greek. The record
-is written when an attempt settles, and also when a submission is refused
-because the definition is withdrawn, so that refusal remains visible on the
-jobs surface without a River job. It is needed because a terminal source refusal
-must stay visible until a newer definition revision arrives, which is longer
-than River retains a discarded job; a successful preparation deletes it. The
-current Reading unit's revision is compared with the recorded revision, so a
-newer definition revision clears a terminal failure without rewriting the row.
-This table is not a per-pin failure record.
+separable for review; 000050 and 000051 are split for that reason.
 
 The existing *Anabasis* Book 1 is converted during startup reconciliation, not
 in a migration. The conversion is one-time, idempotent and retry-safe. It
@@ -326,8 +339,8 @@ surfaces, and the code follows the seams above:
   so the old Catalogs, chooser and imported-analysis rules do not stay live.
 - New layers are added to `layers.json` and the deployer register in the same
   change, under ADR 0111.
-- The two migrations need human review under CODEOWNERS and must not land before
-  this ADR is accepted.
+- The five migrations need human review under CODEOWNERS and must not land
+  before this ADR is accepted.
 
 ## Related
 

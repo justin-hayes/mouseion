@@ -217,6 +217,69 @@ func TestReconcileManifestRefusesABrokenRevision(t *testing.T) {
 	assert.Equal(t, strings.Repeat("c", 64), sourceSHA)
 }
 
+// TestReconcileManifestRefusesAChangedExtent proves a changed citation range or
+// constituent book under an existing key stops startup before writing, even
+// with a revision bump, while a new key for the new extent still reconciles.
+func TestReconcileManifestRefusesAChangedExtent(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+
+	original := anabasisManifest(1, strings.Repeat("a", 64))
+	require.NoError(t, reconcileManifest(t, store, original))
+
+	changedRange := original
+	changedRange.CitationEnd = "1.10.20"
+	changedRange.WorkTitle = "Renamed"
+	otherBook := 2
+
+	t.Run("a changed citation range is refused and names the Key", func(t *testing.T) {
+		err := reconcileManifest(t, store, changedRange)
+		require.ErrorContains(t, err, `"xenophon-anabasis-1"`, "the refusal names the Key")
+		require.ErrorContains(t, err, "changed its citation range")
+	})
+
+	t.Run("a changed constituent book is refused and names the Key", func(t *testing.T) {
+		changedBook := original
+		changedBook.ConstituentBook = &otherBook
+		err := reconcileManifest(t, store, changedBook)
+		require.ErrorContains(t, err, `"xenophon-anabasis-1"`, "the refusal names the Key")
+		require.ErrorContains(t, err, "changed its constituent book")
+	})
+
+	t.Run("a revision bump does not authorize a new extent", func(t *testing.T) {
+		bumped := changedRange
+		bumped.Revision = 2
+		require.ErrorContains(t, reconcileManifest(t, store, bumped), "changed its citation range")
+	})
+
+	t.Run("a refused startup writes nothing", func(t *testing.T) {
+		var start, end, title string
+		var book, revision int
+		require.NoError(t, pool.QueryRow(ctx, `
+			SELECT ru.citation_start, ru.citation_end, ru.constituent_book, ru.revision, w.title
+			FROM reading_units ru
+			JOIN editions e ON e.id = ru.edition_id
+			JOIN works w ON w.id = e.work_id
+			WHERE ru.definition_key = 'xenophon-anabasis-1'`).Scan(&start, &end, &book, &revision, &title))
+		assert.Equal(t, "1.1.1", start)
+		assert.Equal(t, "1.10.19", end)
+		assert.Equal(t, 1, book)
+		assert.Equal(t, 1, revision)
+		assert.Equal(t, "Anabasis", title, "a refused manifest does not apply its curatorial correction")
+	})
+
+	t.Run("a new Key for the new extent reconciles", func(t *testing.T) {
+		moved := manifestDefinition("xenophon-anabasis-2", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
+			"xenophon-anabasis-marchant-1904", "Marchant 1904, reviewed", "1.11.1", "1.11.20", &otherBook, 7, 1)
+		require.NoError(t, reconcileManifest(t, store, original, moved))
+		var units int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM reading_units WHERE definition_key IN ('xenophon-anabasis-1', 'xenophon-anabasis-2')`).Scan(&units))
+		assert.Equal(t, 2, units)
+	})
+}
+
 // TestReconcileManifestUpdatesCuratorialFieldsInPlace changes only curatorial
 // facts under the same revision and keeps the row identity.
 func TestReconcileManifestUpdatesCuratorialFieldsInPlace(t *testing.T) {
