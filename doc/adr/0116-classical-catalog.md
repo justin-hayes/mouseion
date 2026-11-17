@@ -237,10 +237,16 @@ reproduces the published analysis under the current interpretation and, when
 the evidence matches, rewrites the Book's source material to unit-only content
 under the Reading-unit key while keeping the Book's identity, analysis, Reading
 history, corrections, exclusions, Known vocabulary, snapshots and prepared
-decks. When the evidence differs, it leaves the published analysis in place and
-offers the ordinary Analysis update. It also maps the old one-key Work and
-Edition rows to the shared Work and Edition keys without changing any Book's
-Reading-unit link.
+decks. When the evidence differs, the same source-identity rewrite still
+completes: the Book's current source becomes its unit-only content under the
+Reading-unit key and its published run names that evidence so the Book stays
+readable. The differing case writes no prepared-definition record and rewrites
+no corpus evidence, so the published analysis and every decision and frozen
+artifact around it stay as they were, and the ordinary Analysis update remains
+outstanding. Confirming that update publishes a fresh analysis through the
+ordinary preparation path. In both cases the conversion maps the old one-key
+Work and Edition rows to the shared Work and Edition keys without changing any
+Book's Reading-unit link.
 
 ADR 0099's legacy `grc` refusal becomes a fail-closed Classical catalog
 precondition. While un-converted legacy rows exist, adding and preparation are

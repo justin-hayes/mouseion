@@ -365,13 +365,16 @@ These commands run against `MOUSEION_DATABASE_URL`.
   file, when its published evidence reproduces exactly. The conversion keeps the
   Book, its Reading-unit association, analysis, corrections, exclusions,
   vocabulary, completions, current-reading snapshots and prepared decks. If the
-  evidence differs, the Book keeps its published analysis, an Analysis update
-  is offered, and the Classical catalog stays fail-closed with the stable
-  `classical_catalog_legacy_rows` code until it is resolved. The server owns the
-  conversion; it is idempotent and retry-safe, and a failed start leaves the
-  previous schema and learner state in place to retry. Historical whole-file
-  revisions remain immutable evidence for frozen Readings; the Book's current
-  source is the Reading unit.
+  evidence differs, the conversion still finishes the source-identity rewrite:
+  the Book stores only its Reading unit under the Reading-unit key, so it no
+  longer keeps the installation fail-closed with the stable
+  `classical_catalog_legacy_rows` code. Its published analysis, corpus evidence
+  and every learner decision stay untouched, and the ordinary Analysis update
+  is offered; confirming it publishes a fresh analysis through classical
+  preparation. The server owns the conversion; it is idempotent and retry-safe,
+  and a failed start leaves the previous schema and learner state in place to
+  retry. Historical whole-file revisions remain immutable evidence for frozen
+  Readings; the Book's current source is the Reading unit.
 - `go run ./cmd/greekhitrate` — reports how many of the installation's Ancient
   Greek vocabulary identities resolve an unambiguous LSJ dictionary entry (the
   entry a Greek card shows) alongside the Wiktionary hit rate, so the operator

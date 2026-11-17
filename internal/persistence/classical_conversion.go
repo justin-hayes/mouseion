@@ -22,13 +22,19 @@ var ErrClassicalConversionChanged = errors.New("persistence: classical conversio
 // from the whole work file to its Reading unit's own text. It keeps the source
 // row and its historical revisions, adds the unit as a new content revision and
 // snapshot, re-points the published analysis run at that evidence, sets the
-// source identifier to the permanent Reading-unit key and records the
-// prepared-definition row without creating another analysis run.
+// source identifier to the permanent Reading-unit key and, when the published
+// evidence still matches, records the prepared-definition row without creating
+// another analysis run.
 //
 // "Discarding the whole-file content" means the source's current content is the
 // unit: every current read resolves the new revision. Historical revisions stay
 // immutable because a frozen current-reading snapshot or completed Reading can
 // still name them as evidence.
+//
+// A differing-evidence conversion completes the same source-identity rewrite
+// but leaves the published run's corpus and the prepared-definition record
+// alone. The Book is no longer legacy, stays readable, and keeps its ordinary
+// Analysis update offer.
 func (s *PostgresStore) ConvertLegacyClassicalSource(ctx context.Context, conversion domain.ClassicalSourceConversion) (bool, error) {
 	if err := validateClassicalSourceConversion(conversion); err != nil {
 		return false, err
@@ -76,11 +82,17 @@ func convertLegacyClassicalSourceTx(ctx context.Context, tx pgx.Tx, conversion d
 	if err != nil {
 		return false, err
 	}
+	// The run names the converted evidence even when the publication differs,
+	// because every current-analysis read joins the source's current revision
+	// and snapshot to it. The run's corpus and learner evidence stay untouched.
 	if err := tx.QueryRow(ctx, `UPDATE analysis_runs
 		SET content_revision_id = $3, snapshot_id = $4, updated_at = now()
 		WHERE owner_id = $1 AND id = $2
 		RETURNING id::text`, conversion.OwnerID, conversion.AnalysisRunID, newRevisionID, newSnapshotID).Scan(new(string)); err != nil {
 		return false, fmt.Errorf("re-point converted analysis run: %w", err)
+	}
+	if conversion.EvidenceDiffers {
+		return true, nil
 	}
 	if err := recordConvertedPreparedDefinition(ctx, tx, conversion); err != nil {
 		return false, err

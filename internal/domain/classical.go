@@ -132,6 +132,11 @@ type ClassicalSourceConversion struct {
 	// evidence the conversion compared. A concurrent change refuses the write.
 	ExpectedContentRevisionID string
 	ExpectedSnapshotID        string
+	// EvidenceDiffers marks a conversion whose current interpretation no longer
+	// reproduces the published analysis. The source identity still converts to
+	// unit-only content under the Reading-unit key, but no prepared-definition
+	// record is written, so the ordinary Analysis update stays outstanding.
+	EvidenceDiffers bool
 }
 
 // ClassicalPreparationState is the visible state of an in-flight classical
