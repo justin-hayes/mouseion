@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -105,7 +106,7 @@ func (h *Handler) classicalAuthor(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	render(w, r, ClassicalAuthorPage(user(r), h.csrf(w, r), author, view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+	render(w, r, ClassicalAuthorPage(user(r), h.csrf(w, r), author, view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
 }
 
 // classicalWork renders one Work's constituent books.
@@ -120,7 +121,7 @@ func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work, view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work, view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
 }
 
 // addClassicalWork adds one Book per current Reading unit of a Work. It is the
@@ -148,7 +149,7 @@ func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
 	if r.PostFormValue("return") == "author" {
 		target = classicalAuthorURL(work.Author)
 	}
-	redirect(w, r, target+"?message="+url.QueryEscape(classicalAddMessage(report)))
+	h.redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, activeLanguageOf(r), work.Key))
 }
 
 // addClassicalUnit adds one constituent book or whole-work unit.
@@ -167,7 +168,83 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 		h.redirectClassicalAddFailure(w, r, classicalWorkURL(work.Key), err)
 		return
 	}
-	redirect(w, r, classicalWorkURL(work.Key)+"?message="+url.QueryEscape(classicalAddMessage(report)))
+	h.redirectClassicalAdd(w, r, classicalWorkURL(work.Key), classicalAddConfirmationFor(report, activeLanguageOf(r), work.Key))
+}
+
+// classicalAddConfirmation is what one Add reports to the page it returns to.
+// WorkKey names the added Books' work only while another study language is
+// active, so the page can offer the "In My Books" path that opens them in
+// Ancient Greek.
+type classicalAddConfirmation struct {
+	Message string
+	WorkKey string
+}
+
+// InMyBooksURL returns the existing "In My Books" path for the added Books. It
+// is empty when the Add named no work because Ancient Greek was already active.
+func (c classicalAddConfirmation) InMyBooksURL() string {
+	if c.WorkKey == "" {
+		return ""
+	}
+	return classicalWorkInMyBooksURL(c.WorkKey)
+}
+
+func classicalAddConfirmationFor(report classical.AddReport, activeLanguage, workKey string) classicalAddConfirmation {
+	message := classicalAddMessage(report)
+	if !classicalAddNamesOtherLanguage(activeLanguage) {
+		return classicalAddConfirmation{Message: message}
+	}
+	// Every membership message is one sentence ending with a period, so the
+	// language joins that sentence instead of starting a second one.
+	return classicalAddConfirmation{
+		Message: strings.TrimSuffix(message, ".") + " in " + classical.LanguageDisplayName + ". Your study language is unchanged.",
+		WorkKey: workKey,
+	}
+}
+
+// classicalAddNamesOtherLanguage reports whether the Add must name Ancient
+// Greek: the learner has a study language and it is not the language the Books
+// were added to. With no resolved language, the Add makes Ancient Greek the only
+// study language, so My Books shows the Books without a language link.
+func classicalAddNamesOtherLanguage(activeLanguage string) bool {
+	return activeLanguage != "" && canonicalization.NormalizeLanguage(activeLanguage) != classical.Language
+}
+
+// redirectClassicalAdd returns to the catalog page with the Add outcome. The
+// page never carries an arbitrary link target: it derives the "In My Books"
+// path from the catalog's own work key.
+func (h *Handler) redirectClassicalAdd(w http.ResponseWriter, r *http.Request, target string, confirmation classicalAddConfirmation) {
+	query := url.Values{"message": {confirmation.Message}}
+	if confirmation.WorkKey != "" {
+		query.Set("added_work", confirmation.WorkKey)
+	}
+	redirect(w, r, target+"?"+query.Encode())
+}
+
+// loadClassicalAddConfirmation reads the Add outcome from the page query. A work
+// key is honored only when it names a catalog work and another study language
+// is still active; the link then goes through the existing "In My Books" path,
+// which switches the study language on the learner's deliberate follow.
+func (h *Handler) loadClassicalAddConfirmation(r *http.Request) classicalAddConfirmation {
+	message := r.URL.Query().Get("message")
+	if message == "" {
+		return classicalAddConfirmation{}
+	}
+	confirmation := classicalAddConfirmation{Message: message}
+	workKey := r.URL.Query().Get("added_work")
+	if workKey == "" || !classicalAddNamesOtherLanguage(activeLanguageOf(r)) {
+		return confirmation
+	}
+	if _, ok := h.services.Classical.Work(workKey); !ok {
+		return confirmation
+	}
+	confirmation.WorkKey = workKey
+	return confirmation
+}
+
+func activeLanguageOf(r *http.Request) string {
+	language, _ := activeStudyLanguageForContext(r.Context())
+	return language
 }
 
 // redirectClassicalAddFailure names the stable legacy reason instead of

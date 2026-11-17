@@ -69,6 +69,7 @@ templ Feedback(kind FeedbackKind, title, message string) {
 		if message != "" {
 			<p>{ message }</p>
 		}
+		{ children... }
 	</article>
 }
 
