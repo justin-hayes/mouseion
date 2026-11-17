@@ -738,9 +738,10 @@ func readingChooserPageTitle(view readingChooserPageView) string {
 	return readingChooserTitle(view)
 }
 
-// readingChooserUpdateReturnTo keeps a Work update confirmation on the chooser
-// it was offered from.
-func readingChooserUpdateReturnTo(currentBookID string) string {
+// readingChooserPath is the page that renders the chooser: Reading while the
+// learner is between Books, or the Switch page while a Book is current. A Work
+// update confirmation returns here, and My Books' To Read cells open here.
+func readingChooserPath(currentBookID string) string {
 	if currentBookID != "" {
 		return "/reading/switch"
 	}
@@ -860,10 +861,16 @@ func readingChooserCandidateTitle(item readingChooserBookView, inWork bool) stri
 	return title
 }
 
-// readingChooserCandidateAnchorID is the fragment target a grouped Work's band
-// cells open inline.
+// readingChooserBookAnchorID is the fragment target a grouped Work's band cells
+// open inline. My Books' grouped strip uses the same target so a To Read cell
+// lands on that Book's ordinary candidate entry.
+func readingChooserBookAnchorID(bookID string) string {
+	return "reading-chooser-book-" + bookID
+}
+
+// readingChooserCandidateAnchorID names the anchor for one chooser candidate.
 func readingChooserCandidateAnchorID(item readingChooserBookView) string {
-	return "reading-chooser-book-" + item.Book.Book.ID
+	return readingChooserBookAnchorID(item.Book.Book.ID)
 }
 
 // readingChooserBookAccessibleLabel names one band-cell link completely: Work,

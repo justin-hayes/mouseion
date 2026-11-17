@@ -158,11 +158,14 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		"Synthetic Work", "By Synthetic Author", "Συνθετικὸν ἔργον", "all 2 books", "Classical catalog",
 		"Inbox", `aria-label="Synthetic Work, Book 1 of 2, Inbox"`,
 		`aria-label="Synthetic Work, Book 2 of 2, Inbox"`,
-		`href="/reading#journey-book-` + bookOne + `"`,
-		`href="/reading#journey-book-` + bookTwo + `"`,
+		`role="img" aria-label="Synthetic Work, Book 1 of 2, Inbox"`,
+		`role="img" aria-label="Synthetic Work, Book 2 of 2, Inbox"`,
 		"All (3)", "Inbox (3)",
 	} {
 		assert.Contains(t, grouped, want, "grouped Work row missing %q", want)
+	}
+	for _, id := range []string{bookOne, bookTwo} {
+		assert.NotContains(t, grouped, `href="/reading#journey-book-`+id+`"`, "an Inbox cell has no Reading entry")
 	}
 	assert.Equal(t, 1, strings.Count(grouped, `class="library-work-legend"`), "one legend per page")
 	assert.Contains(t, grouped, "3 Books in 2 works")

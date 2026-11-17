@@ -73,7 +73,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		currentReadingBookID = currentReading.BookID
 	}
 	if isPartialHTMXRequest(r) {
-		render(w, r, MyBooksResults(h.csrf(w, r), books, browse))
+		render(w, r, MyBooksResults(h.csrf(w, r), books, browse, currentReadingBookID))
 		return
 	}
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), currentReadingBookID, connectionCount > 0, browse))

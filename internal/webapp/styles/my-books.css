@@ -99,8 +99,8 @@
   color: var(--mouseion-color-info);
 }
 
-.library-work__cell:hover,
-.library-work__cell:focus-visible {
+a.library-work__cell:hover,
+a.library-work__cell:focus-visible {
   border-color: var(--mouseion-color-text);
   color: var(--mouseion-color-text);
 }
