@@ -288,9 +288,9 @@ type Querier interface {
 	// Rows carrying a language identity that predate the classical registration.
 	// A Book already associated with a Reading unit, and the source materials
 	// pointing at it, are this feature's own data and are not legacy. A learner's
-	// first registration passes only when they own no such rows, so every derived
-	// row (tokens, Known, vocabulary, candidates, decks) a registered learner owns
-	// was written by this feature: an operator re-import is not refused by them.
+	// first Add passes only when they own no such rows, so every derived row
+	// (tokens, Known, vocabulary, candidates, decks) a registered learner owns was
+	// written by this feature and never refuses an Add.
 	ListLegacyLanguageRows(ctx context.Context, arg ListLegacyLanguageRowsParams) ([]ListLegacyLanguageRowsRow, error)
 	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
 	// Coverage comes from the durable Vocabulary Browse inventory counts joined to

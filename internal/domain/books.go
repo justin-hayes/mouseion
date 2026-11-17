@@ -17,9 +17,10 @@ const (
 	AliasStrongBibliographic        = "strong_bibliographic"
 	NamespaceSourceIdentifier       = "source_identifier"
 	MetadataProvenanceBackfill      = "source_materials_backfill"
-	// MetadataProvenanceOperatorRegistration marks a Book an operator
-	// registered for a classical Reading unit, whose analysis comes from an
-	// import rather than EPUB acquisition.
+	// MetadataProvenanceOperatorRegistration marks a Book added for a classical
+	// Reading unit, whose analysis comes from an import rather than EPUB
+	// acquisition. The stored value predates the Classical catalog and is kept
+	// for existing rows.
 	MetadataProvenanceOperatorRegistration = "operator_registration"
 	BookCoverNone                          = "none"
 	BookCoverPending                       = "pending"
@@ -236,10 +237,10 @@ func (m MyBook) EvidenceState() BookEvidenceState {
 	return m.Classification().Evidence
 }
 
-// AwaitingPreparation reports an operator-registered Book whose imported
-// analysis is not yet in effect. Ordinary catalogue and acquisition Books are
-// never awaiting preparation, and a registered Book stops awaiting preparation
-// once its current analysis is published.
+// AwaitingPreparation reports a classical Book whose imported analysis is not
+// yet in effect. Ordinary catalogue and acquisition Books are never awaiting
+// preparation, and a classical Book stops awaiting preparation once its
+// current analysis is published.
 func (m MyBook) AwaitingPreparation() bool {
 	return m.ReadingUnit != nil && !m.Classification().AnalysisInEffect()
 }

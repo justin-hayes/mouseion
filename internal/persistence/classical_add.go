@@ -14,9 +14,9 @@ import (
 )
 
 // classicalAddLockSalt namespaces the per-owner/Reading-unit advisory lock that
-// Add shares with the retired operator registration. Using the same key lets an
-// Add and a registration of one unit serialize rather than racing the unique
-// constraint.
+// Add takes. Using one key lets concurrent Adds of one unit serialize rather
+// than racing the unique constraint. The salt is retained from the retired
+// registration path.
 const classicalAddLockSalt = 469
 
 // AddClassicalReadingUnits gives the learner one Inbox Book per named current

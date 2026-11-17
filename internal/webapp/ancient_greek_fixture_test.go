@@ -40,12 +40,20 @@ func registerGreekDefinition(t *testing.T, ctx context.Context, store *persisten
 	return store.RegisterReadingUnitBook(ctx, ownerID, definition)
 }
 
-// brownsonTestSource is the synthetic Brownson fixture's source identity.
-func brownsonTestSource() ancientgreek.BrownsonSource {
-	return ancientgreek.BrownsonSource{
-		Language:      ancientgreek.Language,
-		EditionLabel:  "Brownson (1922)",
-		WorkLabel:     "Xen. Anab.",
+// referenceTranslationPin is the synthetic Brownson fixture's reviewed source
+// pin.
+type referenceTranslationPin struct {
+	FileName      string
+	FileSize      int64
+	FileSHA256    string
+	CitationStart string
+	CitationEnd   string
+}
+
+// referenceTranslationFixturePin is the fixture's pin before its size and
+// SHA-256 are recomputed from the bytes actually used.
+func referenceTranslationFixturePin() referenceTranslationPin {
+	return referenceTranslationPin{
 		FileName:      "tlg0032.tlg006.perseus-eng2.xml",
 		FileSize:      1101217,
 		FileSHA256:    "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7",

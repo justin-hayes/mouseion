@@ -15,13 +15,13 @@ import (
 
 const (
 	myBooksPageSize = 25
-	// notPreparedYetNote is shown while an operator-registered Book has no
-	// current analysis, and is the refusal To Read gives for it.
+	// notPreparedYetNote is shown while a classical Book has no current
+	// analysis, and is the refusal To Read gives for it.
 	notPreparedYetNote = "Not prepared yet."
 )
 
-// myBookEditionLabel is the edition an operator-registered Book shows under its
-// author. It is empty for every other Book.
+// myBookEditionLabel is the edition a classical Book shows under its author.
+// It is empty for every other Book.
 func myBookEditionLabel(book domain.MyBook) string {
 	if book.ReadingUnit == nil {
 		return ""

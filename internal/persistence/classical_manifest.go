@@ -34,8 +34,8 @@ type storedClassicalUnit struct {
 	Translation           *classical.TranslationPin
 }
 
-// reconciled reports whether the row carries a manifest definition. A row the
-// retired operator command registered records no source layer, so its first
+// reconciled reports whether the row carries a manifest definition. A row from
+// before the first reconciliation records no source layer, so its first
 // reconciliation is the legacy conversion.
 func (u storedClassicalUnit) reconciled() bool { return u.SourceLayer != "" }
 

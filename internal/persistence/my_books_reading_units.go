@@ -7,8 +7,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// populateMyBooksReadingUnits attaches the Reading unit association of an
-// operator-registered Book. Ordinary catalogue and acquisition Books keep a nil
+// populateMyBooksReadingUnits attaches the Reading unit association of a
+// classical Book. Ordinary catalogue and acquisition Books keep a nil
 // association, so their My Books row is unchanged.
 func (s *PostgresStore) populateMyBooksReadingUnits(ctx context.Context, owner string, books []domain.MyBook) error {
 	if len(books) == 0 {

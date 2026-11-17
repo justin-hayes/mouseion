@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -47,7 +46,7 @@ func TestAncientGreekCardPassageContext(t *testing.T) {
 	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
 	importGreekFixtureWithDefinition(t, ctx, store, learner.ID, registration.BookID, "oga-src-passage.conllu", greekTestDefinition())
-	translationReport := importBrownsonFixture(t, ctx, store, "perseus-eng2-passage.xml")
+	translationReport := seedReferenceTranslation(t, ctx, store, "perseus-eng2-passage.xml")
 	setReadingUnitTranslationPin(t, ctx, pool, "xenophon-anabasis-1", translationReport)
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
@@ -118,45 +117,53 @@ func TestAncientGreekCardPassageContext(t *testing.T) {
 	assert.NotContains(t, back, "<b>", "a card back never highlights the passage")
 
 	// A re-import of the pinned Brownson file never changes the frozen deck.
-	importBrownsonFixture(t, ctx, store, "perseus-eng2-passage.xml")
+	seedReferenceTranslation(t, ctx, store, "perseus-eng2-passage.xml")
 	unchanged := waitForPreparedDeck(t, ctx, store, learner.ID, reading.SnapshotID)
 	assert.Equal(t, artifact, unchanged.Artifact, "a re-import never changes a frozen deck")
 	assert.Equal(t, items, queryPassageItems(t, ctx, pool, learner.ID))
 }
 
-// importBrownsonFixture imports a synthetic perseus-eng2 fixture with a pin
-// computed from its bytes; the real pinned file never enters the repository.
-func importBrownsonFixture(t *testing.T, ctx context.Context, store *persistence.PostgresStore, name string) ancientgreek.BrownsonImportReport {
+// seedReferenceTranslation parses a synthetic perseus-eng2 fixture and stores
+// its cited sections as the installation-wide reference translation for its
+// pin. It writes the rows directly instead of running the classical
+// translation worker, which would download the real pinned file. The real file
+// never enters the repository.
+func seedReferenceTranslation(t *testing.T, ctx context.Context, store *persistence.PostgresStore, name string) referenceTranslationPin {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", name)) //nolint:gosec // the fixture name is a test constant.
 	require.NoError(t, err)
-	source := brownsonTestSource()
+	source := pinFixtureBytes(referenceTranslationFixturePin(), data)
+	sections, err := ancientgreek.ParseReferenceTranslation(data, source.CitationStart, source.CitationEnd)
+	require.NoError(t, err)
+	translations := make(map[string]string, len(sections))
+	for _, section := range sections {
+		translations[section.Citation] = section.Text
+	}
+	_, err = store.PutReferenceTranslations(ctx, source.FileSHA256, ancientgreek.Language, translations)
+	require.NoError(t, err)
+	return source
+}
+
+// pinFixtureBytes sets a fixture pin's size and SHA-256 from the bytes used.
+func pinFixtureBytes(source referenceTranslationPin, data []byte) referenceTranslationPin {
 	source.FileSize = int64(len(data))
 	sum := sha256.Sum256(data)
 	source.FileSHA256 = hex.EncodeToString(sum[:])
-	path := filepath.Join(t.TempDir(), name)
-	require.NoError(t, os.WriteFile(path, data, 0o600)) //nolint:gosec // path is inside t.TempDir().
-	report, err := ancientgreek.ImportBrownson(ctx, ancientgreek.BrownsonImportRequest{
-		SourcePath: path, Source: source,
-	}, analysis.NewReferenceTranslationWriter(store))
-	require.NoError(t, err)
-	return report
+	return source
 }
 
 // setReadingUnitTranslationPin points a legacy registered Reading unit at the
 // pinned translation rows the import just stored, so deck preparation reads
 // the definition's translation pin the way a reconciled classical definition
 // does.
-func setReadingUnitTranslationPin(t *testing.T, ctx context.Context, pool *pgxpool.Pool, definitionKey string, report ancientgreek.BrownsonImportReport) {
+func setReadingUnitTranslationPin(t *testing.T, ctx context.Context, pool *pgxpool.Pool, definitionKey string, source referenceTranslationPin) {
 	t.Helper()
-	source := brownsonTestSource()
-	pin := strings.TrimPrefix(report.SourcePin, "sha256:")
 	_, err := pool.Exec(ctx, `
 		UPDATE reading_units SET
 			translation_layer=$1, translation_file_name=$2, translation_file_size=$3,
 			translation_file_sha256=$4, translation_citation_start=$5, translation_citation_end=$6
 		WHERE definition_key=$7`,
-		"perseus-eng2-brownson", source.FileName, report.Bytes, pin, source.CitationStart, source.CitationEnd, definitionKey)
+		"perseus-eng2-brownson", source.FileName, source.FileSize, source.FileSHA256, source.CitationStart, source.CitationEnd, definitionKey)
 	require.NoError(t, err)
 }
 
@@ -213,11 +220,8 @@ func TestAncientGreekDeckWithoutTranslationAbstainsFromPassage(t *testing.T) {
 	// no installation-wide rows exist for the pin.
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "perseus-eng2-passage.xml"))
 	require.NoError(t, err)
-	source := brownsonTestSource()
-	source.FileSize = int64(len(data))
-	sum := sha256.Sum256(data)
-	source.FileSHA256 = hex.EncodeToString(sum[:])
-	setReadingUnitTranslationPin(t, ctx, pool, "xenophon-anabasis-1", ancientgreek.BrownsonImportReport{SourcePin: source.Pin(), Bytes: int64(len(data))})
+	source := pinFixtureBytes(referenceTranslationFixturePin(), data)
+	setReadingUnitTranslationPin(t, ctx, pool, "xenophon-anabasis-1", source)
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
