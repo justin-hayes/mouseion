@@ -910,20 +910,12 @@ func eligibleLanguages(languages opds.Feed, capabilities analyzer.Capabilities) 
 }
 
 func sameLanguage(left, right string) bool {
-	left, right = canonicalization.NormalizeLanguage(left), canonicalization.NormalizeLanguage(right)
-	return left == right || baseLanguage(left) == baseLanguage(right)
-}
-
-func baseLanguage(language string) string {
-	if before, _, ok := strings.Cut(language, "-"); ok {
-		return before
-	}
-	return language
+	return canonicalization.NormalizeLanguage(left) == canonicalization.NormalizeLanguage(right)
 }
 
 func isEnglish(language string) bool {
 	language = canonicalization.NormalizeLanguage(language)
-	return language == "en" || language == "eng" || baseLanguage(language) == "en"
+	return language == "en" || language == "eng"
 }
 
 // languageTag returns the normalized language tag for newly created

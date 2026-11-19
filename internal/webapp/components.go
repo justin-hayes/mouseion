@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/a-h/templ"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -130,12 +131,11 @@ func bookCoverStripArticle(title, lowerTitle, article string) (string, bool) {
 // bookCoverArticles lists the articles a cover initial ignores. The language is
 // reduced to its primary subtag so regional variants share one list.
 func bookCoverArticles(language string) []string {
-	canonicalLanguage := strings.ToLower(strings.SplitN(strings.ReplaceAll(language, "_", "-"), "-", 2)[0])
 	return map[string][]string{
 		"de": {"der", "die", "das"},
 		"it": {"il", "la", "lo", "gli", "le", "l'", "l’"},
 		"el": {"ο", "η", "το", "οι"},
-	}[canonicalLanguage]
+	}[canonicalization.NormalizeLanguage(language)]
 }
 
 type StatusTone string

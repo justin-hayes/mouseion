@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
 
 // ErrProviderAssessmentNotRecorded marks a provider call whose exact payload
@@ -216,10 +217,5 @@ func (a ProviderAssessment) allows(contract payloadContract) error {
 // sameAssessmentLanguage compares two language tags by their lowercase base
 // language.
 func sameAssessmentLanguage(left, right string) bool {
-	normalize := func(tag string) string {
-		tag = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(tag), "_", "-"))
-		base, _, _ := strings.Cut(tag, "-")
-		return base
-	}
-	return normalize(left) == normalize(right)
+	return canonicalization.NormalizeLanguage(left) == canonicalization.NormalizeLanguage(right)
 }
