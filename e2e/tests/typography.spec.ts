@@ -38,6 +38,54 @@ test('locally served fonts shape Latin and Greek text on the sign-in page', asyn
   expect(fontRequests.every((url) => url.startsWith(new URL('/static/vendor/fonts/', page.url()).origin))).toBe(true);
 });
 
+test('loads the Greek Extended subset only when a page contains polytonic Greek', async ({ page }) => {
+  const fontRequests: string[] = [];
+  page.on('request', (request) => {
+    if (/\.woff2(?:\?|$)/.test(request.url())) fontRequests.push(request.url());
+  });
+
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  expect(fontRequests.some((url) => url.includes('greek-ext'))).toBe(false);
+
+  const polytonic = 'ὅτι μὲν ὑμεῖς, ὦ ἄνδρες Ἀθηναῖοι, πεπόνθατε ὑπὸ τῶν ἐμῶν κατηγόρων· ᾳ ῃ ῳ';
+  await page.locator('main').evaluate((main, sample) => {
+    main.insertAdjacentHTML(
+      'beforeend',
+      `<p id="polytonic-upright" class="reading-text">${sample}</p>
+       <p id="polytonic-italic" class="reading-text" style="font-style: italic">${sample}</p>`,
+    );
+  }, polytonic);
+
+  const rendering = await page.evaluate(async (sample) => {
+    const uprightFaces = await document.fonts.load('400 17px "Literata Variable"', sample);
+    const italicFaces = await document.fonts.load('italic 400 17px "Literata Variable"', sample);
+    const usesGreekExtended = (faces: FontFace[]) =>
+      faces.some((face) =>
+        face.status === 'loaded' &&
+        face.unicodeRange.split(',').map((range) => range.trim()).includes('U+1F00-1FFF'),
+      );
+    return {
+      uprightFamily: getComputedStyle(document.querySelector('#polytonic-upright')!).fontFamily,
+      italicStyle: getComputedStyle(document.querySelector('#polytonic-italic')!).fontStyle,
+      uprightRenders: usesGreekExtended(uprightFaces),
+      italicRenders: usesGreekExtended(italicFaces),
+    };
+  }, polytonic);
+
+  expect(rendering.uprightFamily).toContain('Literata Variable');
+  expect(rendering.italicStyle).toBe('italic');
+  expect(rendering.uprightRenders).toBe(true);
+  expect(rendering.italicRenders).toBe(true);
+  await expect
+    .poll(() => fontRequests.some((url) => url.includes('literata-greek-ext-opsz-normal.woff2')))
+    .toBe(true);
+  await expect
+    .poll(() => fontRequests.some((url) => url.includes('literata-greek-ext-opsz-italic.woff2')))
+    .toBe(true);
+});
+
 test('applies Literata to actual Book identity and passage text', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('Username').fill('fixture-learner');
