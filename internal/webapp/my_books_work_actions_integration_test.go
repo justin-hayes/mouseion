@@ -175,6 +175,66 @@ func TestMyBooksWorkBackToInboxLeavesTheCurrentBookToRead(t *testing.T) {
 	assert.Equal(t, other.DispositionRevision, otherAgain.DispositionRevision)
 }
 
+func TestMyBooksWorkToReadNamesTheLegacyRowsCause(t *testing.T) {
+	ctx, store, pool, h, _, _, _, fixture := preparationHarness(t)
+	learner := createAccount(t, ctx, store, "work-to-read-legacy-rows", "learner-password")
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	addClassicalWork(t, h, cookies, csrf, "synthetic-work")
+
+	owned := booksByReadingUnit(t, store, learner.ID)
+	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
+	require.NotEmpty(t, firstID)
+	require.NotEmpty(t, secondID)
+
+	// One unconverted Ancient Greek row blocks preparation installation-wide.
+	_, err := pool.Exec(ctx, `INSERT INTO books(owner_id, title, metadata_provenance, language_state, language_tag)
+		VALUES ($1, 'Legacy Greek', 'catalog_sync', 'chosen', $2)`, learner.ID, classical.Language)
+	require.NoError(t, err)
+
+	moved := perform(t, h, http.MethodPost, "/library/works/synthetic-work/to-read", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, moved.Code, moved.Body.String())
+	location := moved.Header().Get("Location")
+	require.Contains(t, location, url.QueryEscape("Moved 2 Books to To Read. 2 Books cannot be prepared while this installation converts its legacy Ancient Greek rows."))
+	require.NotContains(t, location, url.QueryEscape("Preparation could not start"))
+
+	for _, id := range []string{firstID, secondID} {
+		detail, err := store.GetBookDetail(ctx, learner.ID, id)
+		require.NoError(t, err)
+		assert.Equal(t, domain.BookDispositionToRead, detail.Disposition, "the Book still moves when preparation cannot start")
+	}
+	_, bookIDs := workPreparationJobs(t, pool)
+	assert.Empty(t, bookIDs, "a legacy-row refusal submits no preparation")
+}
+
+func TestMyBooksWorkToReadNamesTheWithdrawnDefinitionCause(t *testing.T) {
+	ctx, store, pool, h, _, _, _, fixture := preparationHarness(t)
+	learner := createAccount(t, ctx, store, "work-to-read-withdrawn", "learner-password")
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	addClassicalWork(t, h, cookies, csrf, "synthetic-work")
+
+	owned := booksByReadingUnit(t, store, learner.ID)
+	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
+	require.NotEmpty(t, firstID)
+	require.NotEmpty(t, secondID)
+
+	fixture.definitions[1].Withdrawn = true
+	require.NoError(t, store.ReconcileClassicalManifest(ctx, fixture.definitions))
+
+	moved := perform(t, h, http.MethodPost, "/library/works/synthetic-work/to-read", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, moved.Code, moved.Body.String())
+	location := moved.Header().Get("Location")
+	require.Contains(t, location, url.QueryEscape("Moved 2 Books to To Read. 1 Book has a withdrawn definition and cannot be prepared."))
+	require.NotContains(t, location, url.QueryEscape("Preparation could not start"))
+
+	for _, id := range []string{firstID, secondID} {
+		detail, err := store.GetBookDetail(ctx, learner.ID, id)
+		require.NoError(t, err)
+		assert.Equal(t, domain.BookDispositionToRead, detail.Disposition, "the Book still moves when its definition is withdrawn")
+	}
+	_, bookIDs := workPreparationJobs(t, pool)
+	assert.Equal(t, []string{firstID}, bookIDs, "only the current definition queues preparation")
+}
+
 func TestMyBooksWorkToReadWithoutPreparationServiceStillMovesTheBooks(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "work-to-read-no-prep", "learner-password")
