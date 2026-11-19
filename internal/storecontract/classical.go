@@ -56,6 +56,7 @@ func classicalDefinition(workKey, title, author, greekTitle, key string, book *i
 		CitationStart:         citationStart,
 		CitationEnd:           citationEnd,
 		WordCount:             100,
+		Opening:               "ἄρχεται ὁ λόγος.",
 		Source:                classical.SourcePin{Layer: "contract-source", FileName: workKey + ".conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
 		InterpretationVersion: "contract/1",
 		Revision:              1,

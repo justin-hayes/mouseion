@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // Reconciler writes one release's manifest into the shared Work, Edition and
@@ -68,6 +69,9 @@ func validateCurrentDefinitions(definitions []Definition) error {
 	for _, definition := range definitions {
 		if definition.Withdrawn {
 			continue
+		}
+		if strings.TrimSpace(definition.Opening) == "" {
+			return fmt.Errorf("classical: current definition %q has no Opening", definition.Key)
 		}
 		if err := validateWorkDefinition(works, definition); err != nil {
 			return err
@@ -163,6 +167,8 @@ type CatalogWork struct {
 	Title                string
 	Author               string
 	GreekTitle           string
+	EditionLabel         string
+	Opening              string
 	ConstituentBooks     int
 	WholeWork            bool
 	Words                int
@@ -177,6 +183,7 @@ type CatalogUnit struct {
 	CitationStart   string
 	CitationEnd     string
 	Words           int
+	Opening         string
 }
 
 // Catalog is the read-only view of the embedded, reconciled manifest. It is
@@ -208,6 +215,9 @@ func NewCatalog(definitions []Definition) (*Catalog, error) {
 	for key, work := range worksByKey {
 		work.TranslationAvailable = translationAvailable(definitions, key)
 		sortUnits(work.Units)
+		if len(work.Units) > 0 {
+			work.Opening = work.Units[0].Opening
+		}
 		catalog.works[key] = *work
 	}
 	catalog.authors = buildCatalogAuthors(worksByKey)
@@ -233,6 +243,7 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 				Title:            definition.WorkTitle,
 				Author:           definition.WorkAuthor,
 				GreekTitle:       definition.GreekTitle,
+				EditionLabel:     definition.EditionLabel,
 				ConstituentBooks: definition.ConstituentBooks,
 			}
 			worksByKey[definition.WorkKey] = work
@@ -245,6 +256,7 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 			CitationStart: definition.CitationStart,
 			CitationEnd:   definition.CitationEnd,
 			Words:         definition.WordCount,
+			Opening:       definition.Opening,
 		}
 		if definition.ConstituentBook != nil {
 			unit.ConstituentBook = *definition.ConstituentBook

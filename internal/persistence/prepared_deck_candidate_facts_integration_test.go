@@ -180,6 +180,7 @@ func TestLoadPreparedDeckCandidateFactsUsesDefinitionTranslationPin(t *testing.T
 		Key: "translation-facts-unit", WorkKey: "translation-facts-work", WorkTitle: "Translation Facts Work", WorkAuthor: "Author",
 		EditionKey: "translation-facts-edition", EditionLabel: "Edition", Language: classical.Language,
 		ConstituentBooks: 1, CitationStart: "1.1.1", CitationEnd: "1.1.1", WordCount: 1,
+		Opening: "ἄρχεται ὁ λόγος.",
 		Source: classical.SourcePin{
 			Layer: "translation-facts-layer", FileName: "translation-facts.conllu", Size: 10,
 			SHA256: strings.Repeat("b", 64), Format: classical.SourceFormatOGACoNLLU,

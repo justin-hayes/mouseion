@@ -24,6 +24,7 @@ func contentTestDefinition() classical.Definition {
 		CitationStart:         "1.1.1",
 		CitationEnd:           "1.1.2",
 		WordCount:             2,
+		Opening:               "ἄρχεται ὁ λόγος.",
 		Source:                classical.SourcePin{Layer: "source", FileName: "work.conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
 		InterpretationVersion: "oga-agdt-upos/5",
 		Revision:              1,

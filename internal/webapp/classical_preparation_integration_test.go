@@ -154,7 +154,7 @@ func preparationDefinition(key, title string, pin classical.SourcePin, book *int
 		Key: key, WorkKey: "synthetic-work", WorkTitle: title, WorkAuthor: "Author",
 		EditionKey: "synthetic-edition", EditionLabel: "Synthetic Edition", Language: classical.Language,
 		ConstituentBook: book, ConstituentBooks: 2,
-		CitationStart: start, CitationEnd: end, WordCount: words,
+		CitationStart: start, CitationEnd: end, WordCount: words, Opening: "ἄρχεται ὁ λόγος.",
 		Source: pin, InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 }

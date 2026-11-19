@@ -592,14 +592,14 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 		Key: "xenophon-anabasis-1", WorkKey: "xenophon-anabasis", WorkTitle: "Anabasis",
 		WorkAuthor: "Xenophon", GreekTitle: "Ἀνάβασις", EditionKey: "xenophon-anabasis-marchant-1904",
 		EditionLabel: "Marchant 1904", Language: classical.Language, ConstituentBook: &one, ConstituentBooks: 7,
-		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Source: anabasisPin,
+		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.", Source: anabasisPin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 	firstUnit := classical.Definition{
 		Key: "synthetic-work-1", WorkKey: "synthetic-work", WorkTitle: "Synthetic Work",
 		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν ἔργον", EditionKey: "synthetic-work-edition",
 		EditionLabel: "Synthetic Edition", Language: classical.Language, ConstituentBook: &one, ConstituentBooks: 2,
-		CitationStart: "1.1.1", CitationEnd: "1.1.3", WordCount: 16, Source: pin, Translation: translationPin,
+		CitationStart: "1.1.1", CitationEnd: "1.1.3", WordCount: 16, Opening: "ἄρχεται ὁ λόγος.", Source: pin, Translation: translationPin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 	secondUnit := firstUnit
@@ -612,7 +612,7 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 		Key: "synthetic-whole-1", WorkKey: "synthetic-whole", WorkTitle: "Synthetic Whole",
 		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν ὅλον", EditionKey: "synthetic-whole-edition",
 		EditionLabel: "Synthetic Whole Edition", Language: classical.Language, ConstituentBooks: 1,
-		CitationStart: "1.1.1", CitationEnd: "1.1.6", WordCount: 32, Source: pin,
+		CitationStart: "1.1.1", CitationEnd: "1.1.6", WordCount: 32, Opening: "ἄρχεται ὁ λόγος.", Source: pin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 	definitions := []classical.Definition{anabasis, firstUnit, secondUnit, wholeUnit}
@@ -825,7 +825,7 @@ func (h *classicalLoopHarness) replacementDefinition() classical.Definition {
 		Key: "replacement-work-1", WorkKey: "replacement-work", WorkTitle: "Replacement",
 		WorkAuthor: "Synthetic Author", EditionKey: "replacement-edition", EditionLabel: "Replacement Edition",
 		Language: classical.Language, ConstituentBooks: 1, CitationStart: "1.1.1", CitationEnd: "1.1.1",
-		WordCount: 1, InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
+		WordCount: 1, Opening: "ἄρχεται ὁ λόγος.", InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 		Source: classical.SourcePin{
 			Layer: "loop-layer", FileName: "replacement.conllu", Size: 1,
 			SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU,

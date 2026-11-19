@@ -31,6 +31,7 @@ func catalogFixtureDefinition(key, workKey, title, author, greekTitle, editionKe
 		CitationStart:         citationStart,
 		CitationEnd:           citationEnd,
 		WordCount:             words,
+		Opening:               "ἄρχεται ὁ λόγος.",
 		Source:                classical.SourcePin{Layer: "oga-src", FileName: "work.conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
 		InterpretationVersion: "oga-agdt-upos/5",
 		Revision:              1,

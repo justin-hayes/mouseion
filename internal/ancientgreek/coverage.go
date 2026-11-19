@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -228,22 +229,40 @@ func addCitationExtent(books map[int]citationExtent, book int, citation []int) {
 	books[book] = current
 }
 
+// UnitSummary is the source-derived facts of one Reading unit.
+type UnitSummary struct {
+	WordCount int
+	Opening   string
+}
+
 // UnitWordCount reports the printed words in the sentences a unit owns. It
 // counts every non-ellipsis token except punctuation, so a sentence crossing
 // the unit boundary counts whole toward the unit holding its first token. It
 // also refuses a range whose boundary citations do not resolve to real tokens,
 // and checks every token's native part of speech.
 func UnitWordCount(data []byte, start, end string) (int, error) {
-	doc, err := parseManifestDocument(data)
+	summary, err := SummarizeUnit(data, start, end)
 	if err != nil {
 		return 0, err
+	}
+	return summary.WordCount, nil
+}
+
+// SummarizeUnit derives one Reading unit's word count and Opening in one parse.
+// The Opening is the first sentence the unit owns that is not a speaker label,
+// reconstructed exactly as the source prints it. A unit with no other sentence
+// refuses rather than guessing one.
+func SummarizeUnit(data []byte, start, end string) (UnitSummary, error) {
+	doc, err := parseManifestDocument(data)
+	if err != nil {
+		return UnitSummary{}, err
 	}
 	startCitation, endCitation, err := parseUnitBounds(start, end)
 	if err != nil {
-		return 0, err
+		return UnitSummary{}, err
 	}
 	if err := requireBoundaryTokens(doc, startCitation, endCitation); err != nil {
-		return 0, err
+		return UnitSummary{}, err
 	}
 	reading, err := interpret(doc, domain.ReadingUnitDefinition{
 		Key:           "manifest-unit",
@@ -252,13 +271,74 @@ func UnitWordCount(data []byte, start, end string) (int, error) {
 		CitationEnd:   end,
 	}, "manifest-unit")
 	if err != nil {
-		return 0, err
+		return UnitSummary{}, err
 	}
 	words := countPrintedWords(reading.Result)
 	if words == 0 {
-		return 0, &ImportError{Code: CodeEmptyCitationRange, Detail: "unit citation range has no words"}
+		return UnitSummary{}, &ImportError{Code: CodeEmptyCitationRange, Detail: "unit citation range has no words"}
 	}
-	return words, nil
+	opening, err := unitOpening(doc, startCitation, endCitation)
+	if err != nil {
+		return UnitSummary{}, err
+	}
+	return UnitSummary{WordCount: words, Opening: opening}, nil
+}
+
+// unitOpening returns the reconstructed first sentence the unit owns that is not
+// a speaker label.
+func unitOpening(doc *sourceDocument, start, end []int) (string, error) {
+	for _, sentence := range doc.sentences {
+		if len(sentence.tokens) == 0 {
+			continue
+		}
+		located, _, err := sentenceLocation(sentence, start, end)
+		if err != nil {
+			return "", err
+		}
+		if located != locationInside || isSpeakerLabel(sentence) {
+			continue
+		}
+		opening := reconstruct(sentence).text
+		if strings.TrimSpace(opening) != "" {
+			return opening, nil
+		}
+	}
+	return "", &ImportError{Code: CodeOpeningMissing, Detail: "unit has no sentence after speaker labels"}
+}
+
+// isSpeakerLabel reports whether a sentence is only a dialogue speaker's
+// abbreviation. The pinned treebank marks every such abbreviation as a single
+// all-uppercase nominal token, optionally beside an elliptical node.
+func isSpeakerLabel(sentence sourceSentence) bool {
+	words := 0
+	var only sourceToken
+	for _, token := range sentence.tokens {
+		if isEllipsis(token.pos) || token.pos == "u" {
+			continue
+		}
+		words++
+		only = token
+		if words > 1 {
+			return false
+		}
+	}
+	return words == 1 && only.pos == "n" && isUppercaseAbbreviation(only.surface)
+}
+
+// isUppercaseAbbreviation reports whether a surface form has letters and every
+// one is uppercase, so an ordinary capitalised name is not mistaken for one.
+func isUppercaseAbbreviation(surface string) bool {
+	hasLetter := false
+	for _, r := range surface {
+		if !unicode.IsLetter(r) {
+			continue
+		}
+		hasLetter = true
+		if !unicode.IsUpper(r) {
+			return false
+		}
+	}
+	return hasLetter
 }
 
 // parseManifestDocument parses and validates a whole source file.

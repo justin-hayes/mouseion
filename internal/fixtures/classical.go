@@ -21,7 +21,7 @@ func NewClassicalCatalog() (*classical.Catalog, error) {
 
 // fixtureClassicalDefinition builds one valid definition for the fixture
 // release. The source pin values are illustrative; no fixture path reads them.
-func fixtureClassicalDefinition(key, workKey, title, author, greekTitle, editionKey, citationStart, citationEnd string, book *int, books, words int) classical.Definition {
+func fixtureClassicalDefinition(key, workKey, title, author, greekTitle, editionKey, citationStart, citationEnd, opening string, book *int, books, words int) classical.Definition {
 	return classical.Definition{
 		Key:                   key,
 		WorkKey:               workKey,
@@ -36,6 +36,7 @@ func fixtureClassicalDefinition(key, workKey, title, author, greekTitle, edition
 		CitationStart:         citationStart,
 		CitationEnd:           citationEnd,
 		WordCount:             words,
+		Opening:               opening,
 		Source:                classical.SourcePin{Layer: "fixture-oga-src", FileName: workKey + ".conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
 		InterpretationVersion: "fixture-oga/1",
 		Revision:              1,
@@ -49,13 +50,13 @@ func fixtureClassicalDefinitions() []classical.Definition {
 	one, two, three := 1, 2, 3
 	return []classical.Definition{
 		fixtureClassicalDefinition("fixture-iliad-1", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",
-			"fixture-iliad-monro-1902", "1.1.1", "1.10.19", &one, 3, 100),
+			"fixture-iliad-monro-1902", "1.1.1", "1.10.19", "μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος", &one, 3, 100),
 		fixtureClassicalDefinition("fixture-iliad-2", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",
-			"fixture-iliad-monro-1902", "2.1.1", "2.10.19", &two, 3, 200),
+			"fixture-iliad-monro-1902", "2.1.1", "2.10.19", "ἄλλοι μέν ῥα θεοί τε καὶ ἀνέρες ἱπποκορυσταὶ", &two, 3, 200),
 		fixtureClassicalDefinition("fixture-iliad-3", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",
-			"fixture-iliad-monro-1902", "3.1.1", "3.10.19", &three, 3, 300),
+			"fixture-iliad-monro-1902", "3.1.1", "3.10.19", "αὐτὰρ ἐπεὶ κόσμηθεν ἅμʼ ἡγεμόνεσσιν ἕκαστοι", &three, 3, 300),
 		fixtureClassicalDefinition("fixture-hellenica", "fixture-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
-			"fixture-hellenica-dindorf-1866", "1.1.1", "1.1.10", nil, 1, 500),
+			"fixture-hellenica-dindorf-1866", "1.1.1", "1.1.10", "μετὰ δὲ ταῦτα οὐ πολλαῖς ἡμέραις ὕστερον", nil, 1, 500),
 	}
 }
 
