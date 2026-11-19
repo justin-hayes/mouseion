@@ -263,23 +263,26 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 	case readingintent.OutcomeNotFound, readingintent.OutcomeNotToRead:
 		http.NotFound(w, r)
 		return
-	case readingintent.OutcomeCurrentBookRefused:
-		rejectCurrentBookRefresh(w, r)
-		return
 	default:
 	}
 	message, isError := retryMessage(r.Context(), h.services.Store.Catalogs, owner, outcome)
-	key := "message"
+	queryParam := "message"
 	if isError {
-		key = "error"
+		queryParam = "error"
 	}
-	redirect(w, r, "/reading?"+key+"="+url.QueryEscape(message))
+	redirect(w, r, "/reading?"+queryParam+"="+url.QueryEscape(message))
 }
+
+// analysisCouldNotStartMessage is the retry sentence for a submission that
+// failed without a stable cause.
+const analysisCouldNotStartMessage = "Analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again."
 
 // retryMessage maps a Retry outcome to the learner-facing sentence and whether
 // it is an error. Every sentence here predates the module and must not change.
 func retryMessage(ctx context.Context, catalog CatalogsStore, owner string, outcome readingintent.Outcome) (message string, isError bool) {
 	switch outcome.Kind {
+	case readingintent.OutcomeCurrentBookRefused:
+		return "The current book cannot be refreshed. Its frozen evidence remains unchanged.", true
 	case readingintent.OutcomePreparationUnavailable:
 		return "Classical preparation is unavailable.", true
 	case readingintent.OutcomeAlreadyCurrent:
@@ -299,17 +302,16 @@ func retryMessage(ctx context.Context, catalog CatalogsStore, owner string, outc
 		if outcome.Route == readingintent.RouteClassical {
 			return "Preparation could not be started. Retry when ready.", true
 		}
-		return reanalysisError(ctx, catalog, owner, outcome.Book.Book.ID, outcome.Title, outcome.Target, outcome.AcquisitionFailed, outcome.Err), true
+		if outcome.AcquisitionFailed {
+			return readingAcquisitionError(ctx, catalog, owner, outcome.Book.Book.ID, outcome.Title, outcome.Target, outcome.Err) + " The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.", true
+		}
+		return analysisCouldNotStartMessage, true
 	case readingintent.OutcomeNoUsableEPUBUnits:
 		return "The current source has no usable EPUB units. The To Read choice is retained; analysis is unavailable.", true
 	default:
 		// Retry returns only the kinds above; a new kind must be mapped here.
-		return "Analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again.", true
+		return analysisCouldNotStartMessage, true
 	}
-}
-
-func rejectCurrentBookRefresh(w http.ResponseWriter, r *http.Request) {
-	redirect(w, r, "/reading?error="+url.QueryEscape("The current book cannot be refreshed. Its frozen evidence remains unchanged."))
 }
 
 func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {

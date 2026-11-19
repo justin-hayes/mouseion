@@ -360,17 +360,17 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	switch outcome.Kind {
-	case readingintent.OutcomeNotFound:
+	if outcome.Kind == readingintent.OutcomeNotFound {
 		http.NotFound(w, r)
 		return
-	case readingintent.OutcomeStaleRevision:
-		redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, outcome.Book.Hidden)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
-		return
-	default:
 	}
 	message := moveToReadMessage(r.Context(), h.services.Store.Catalogs, owner, bookID, outcome)
-	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, outcome.Book.Hidden)+"&message="+url.QueryEscape(message))
+	queryParam := "message"
+	// A stale form is the only move outcome reported as an error notice.
+	if outcome.Kind == readingintent.OutcomeStaleRevision {
+		queryParam = "error"
+	}
+	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, outcome.Book.Hidden)+"&"+queryParam+"="+url.QueryEscape(message))
 }
 
 // moveToReadMessage maps a reading-intent outcome to the learner-facing
@@ -378,6 +378,8 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 // it and must not change.
 func moveToReadMessage(ctx context.Context, catalog CatalogsStore, owner, bookID string, outcome readingintent.Outcome) string {
 	switch outcome.Kind {
+	case readingintent.OutcomeStaleRevision:
+		return "This Book's decision changed in another tab. No changes were made; refresh My Books and try again."
 	case readingintent.OutcomeAlreadyCurrent:
 		return "Book moved to To Read. Analysis is already current."
 	case readingintent.OutcomeJobQueued:

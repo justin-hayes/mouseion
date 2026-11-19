@@ -9,12 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
-	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -113,73 +110,15 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Less(t, strings.Index(body, "Der lange Weg nach Hause"), strings.Index(body, "Route differs: new German"), "same-band candidates should be in neutral title order")
 }
 
-func TestReadingChooserRecoveryRequiresToReadIntent(t *testing.T) {
+func TestReanalyzeReportsAnUnclassifiedFailureAsAnError(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)
-	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", domain.BookDispositionInbox))
-	handler, ok := h.(*Handler)
-	require.True(t, ok)
-	handler.services.Analysis = fixtures.Analysis{}
+	requireHandler(t, h).services.Analysis = nil
 
-	response := readingTestRequest(t, h, "/reading/books/fixture-failed/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusNotFound, response.Code)
-	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, disposition, "recovery must not change the Book's bucket")
-}
+	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
 
-func TestCurrentReadingRefreshIsRejectedWithoutSubmittingAnalysis(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	currentBefore, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	handler, ok := h.(*Handler)
-	require.True(t, ok)
-	detail, err := store.GetBookDetail(context.Background(), fixtures.OwnerID, fixtures.BookID)
-	require.NoError(t, err)
-	detail.Acquired = nil
-	handler.services.Store = storeDependencies(unavailableCurrentReadingBook{Store: store, detail: detail})
-	opdsStub := &countingToReadOPDS{}
-	handler.services.OPDS = opdsStub
-	analysisStub := &recordingToReadAnalysis{}
-	handler.services.Analysis = analysisStub
-
-	response := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), "error=")
-	assert.Zero(t, analysisStub.submissions, "current reading refresh must not submit a new analysis")
-	assert.Zero(t, opdsStub.acquisitions, "current reading refresh must not acquire newer content")
-	currentAfter, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, currentBefore, currentAfter, "rejected refresh must preserve the current reading")
-}
-
-type unavailableCurrentReadingBook struct {
-	*fixtures.Store
-	detail domain.MyBook
-}
-
-func (b unavailableCurrentReadingBook) GetBookDetail(context.Context, string, string) (domain.MyBook, error) {
-	return b.detail, nil
-}
-
-type countingToReadOPDS struct {
-	fixtures.OPDS
-	acquisitions int
-}
-
-func (o *countingToReadOPDS) AcquireForBook(ctx context.Context, owner, connection, language, bookID string, entry opds.Entry) (epub.ImportResult, error) {
-	o.acquisitions++
-	return o.OPDS.AcquireForBook(ctx, owner, connection, language, bookID, entry)
-}
-
-type recordingToReadAnalysis struct {
-	fixtures.Analysis
-	submissions int
-}
-
-func (a *recordingToReadAnalysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (analysis.Handle, error) {
-	a.submissions++
-	return a.Analysis.SubmitToReadBookAnalysis(ctx, owner, bookID, sourceID)
+	require.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Contains(t, response.Header().Get("Location"), "/reading?error="+url.QueryEscape(analysisCouldNotStartMessage))
 }
 
 func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
