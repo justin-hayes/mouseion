@@ -281,12 +281,14 @@ func newGreekPassClient(t *testing.T, ctx context.Context, store *persistence.Po
 	metrics := prepareddeck.NewMetricsCollector()
 	assessments := []enrichment.ProviderAssessment{
 		{
+			Kind:     enrichment.EvidenceAssistedPassPayload,
 			Language: "grc", Provider: codec.ProviderName(),
 			PromptVersion: codec.EvidenceAssistedPassPromptContract(),
 			Fields:        enrichment.EvidenceAssistedPassPayloadFields(),
 			Disposition:   "recorded for this test", Ticket: "#2171", Recorded: recorded,
 		},
 		{
+			Kind:     enrichment.LSJSenseSummaryPayload,
 			Language: "grc", Provider: codec.ProviderName(),
 			PromptVersion: codec.LSJSenseSummaryPromptContract(),
 			Fields:        enrichment.LSJSenseSummaryPayloadFields(),

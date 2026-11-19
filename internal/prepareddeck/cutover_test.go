@@ -543,6 +543,7 @@ func TestInputAssemblerRejectsSourceOffsetBeyondPostgresRange(t *testing.T) {
 func recordedPassAssessment(t *testing.T, codec *enrichment.TranslationCodec) []enrichment.ProviderAssessment {
 	t.Helper()
 	return []enrichment.ProviderAssessment{{
+		Kind:     enrichment.EvidenceAssistedPassPayload,
 		Language: "grc", Provider: codec.ProviderName(),
 		PromptVersion: codec.EvidenceAssistedPassPromptContract(),
 		Fields:        enrichment.EvidenceAssistedPassPayloadFields(),
@@ -612,7 +613,7 @@ func TestBatchPlannerPlansEvidenceAssistedPassWithRecordedAssessment(t *testing.
 func TestBatchPlannerPlansDefaultGreekDeckWithoutProvider(t *testing.T) {
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverGreekProjection()}, deckName: "Book", language: "grc"}
 	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), nil, false, BatchConfig{})
-	planner.Assessments = []enrichment.ProviderAssessment{{Language: "grc", Recorded: true}}
+	planner.Assessments = []enrichment.ProviderAssessment{{Kind: enrichment.EvidenceAssistedPassPayload, Language: "grc", Recorded: true}}
 
 	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)

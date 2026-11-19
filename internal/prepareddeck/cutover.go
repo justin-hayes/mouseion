@@ -252,10 +252,10 @@ type BatchPlanner struct {
 	// IdiomCardLanguages is the operator-enabled per-language switch. Context
 	// comes from PreparedDeckConfig so the planner and presentation agree.
 	IdiomCardLanguages map[string]bool
-	// Assessments are the recorded personal-use payload assessments the pass is
-	// gated against. They default to the compiled reviewed set; a caller may
-	// install a recorded assessment to exercise the pass.
-	Assessments []enrichment.ProviderAssessment
+	// Assessments are the recorded personal-use payload assessments the assessed
+	// payloads are gated against. They default to the compiled reviewed set; a
+	// caller may install a recorded assessment to exercise a gated payload.
+	Assessments enrichment.ProviderAssessmentSet
 }
 
 // StandardPlanner freezes the same manifest and cache identity as BatchPlanner
@@ -380,25 +380,23 @@ func (p *BatchPlanner) validateIdiomAssessment(languages []string) error {
 	if p == nil || p.Codec == nil {
 		return errTranslationProviderRequired
 	}
-	provider := p.Codec.ProviderName()
-	contract := p.Codec.IdiomCardPromptContract()
-	fields := enrichment.IdiomCardPayloadFields()
 	for _, language := range languages {
-		if err := enrichment.AllowIdiomCardCall(p.assessments(), language, provider, contract, fields); err != nil {
+		if err := p.assessments().MaySend(enrichment.IdiomCardPayload, language, p.Codec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// evidenceAssistedPassAllowed reports whether the configured provider, prompt
-// contract and payload match a recorded assessment. A drifted or unrecorded
-// assessment sends nothing: the deck falls back to the default card.
+// evidenceAssistedPassAllowed reports whether the configured codec and one
+// candidate's language match a recorded evidence-assisted pass assessment. A
+// drifted or unrecorded assessment sends nothing: the deck falls back to the
+// default card.
 func (p *BatchPlanner) evidenceAssistedPassAllowed(projections []cardexport.CandidateProjection) bool {
-	if p.Codec == nil || len(projections) == 0 || !enrichment.EvidenceAssistedPassOffered(p.assessments()) {
+	if p.Codec == nil || len(projections) == 0 {
 		return false
 	}
-	return enrichment.AllowExternalProviderCall(p.assessments(), projections[0].Candidate.Language, p.Codec.ProviderName(), p.Codec.EvidenceAssistedPassPromptContract(), enrichment.EvidenceAssistedPassPayloadFields()) == nil
+	return p.assessments().MaySend(enrichment.EvidenceAssistedPassPayload, projections[0].Candidate.Language, p.Codec) == nil
 }
 
 // planExternalRun freezes a deck whose contextual Glosses come from the
@@ -531,12 +529,10 @@ func (p *BatchPlanner) planEvidenceAssistedRun(ctx context.Context, preparation 
 		return persistence.FreezePreparedDeckRunParams{}, errTranslationProviderRequired
 	}
 	provider := p.Codec.ProviderName()
-	if !enrichment.EvidenceAssistedPassOffered(p.assessments()) {
-		// The pass runs only while its exact payload assessment is recorded:
-		// otherwise no request is transmitted.
-		return persistence.FreezePreparedDeckRunParams{}, enrichment.ErrProviderAssessmentNotRecorded
-	}
-	if err := enrichment.AllowExternalProviderCall(p.assessments(), projections[0].Candidate.Language, provider, p.Codec.EvidenceAssistedPassPromptContract(), enrichment.EvidenceAssistedPassPayloadFields()); err != nil {
+	language := projections[0].Candidate.Language
+	// The pass runs only while its exact payload assessment is recorded:
+	// otherwise no request is transmitted.
+	if err := p.assessments().MaySend(enrichment.EvidenceAssistedPassPayload, language, p.Codec); err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, err
 	}
 	// The context-free LSJ sense summary is a second, separately assessed
@@ -544,7 +540,7 @@ func (p *BatchPlanner) planEvidenceAssistedRun(ctx context.Context, preparation 
 	// and it rides along with the pass: when it is not offered the pass deck is
 	// unchanged and no summary is requested (ADR 0101).
 	summaryVersion := ""
-	if enrichment.LSJSenseSummaryOffered(p.assessments()) && enrichment.AllowExternalProviderCall(p.assessments(), projections[0].Candidate.Language, provider, p.Codec.LSJSenseSummaryPromptContract(), enrichment.LSJSenseSummaryPayloadFields()) == nil {
+	if p.assessments().MaySend(enrichment.LSJSenseSummaryPayload, language, p.Codec) == nil {
 		summaryVersion = p.Codec.LSJSenseSummaryProviderVersion()
 	}
 	config := persistence.PreparedDeckRunConfig{
@@ -578,8 +574,8 @@ func (p *BatchPlanner) planEvidenceAssistedRun(ctx context.Context, preparation 
 }
 
 // assessments resolves the recorded personal-use payload assessments this
-// planner gates the pass against.
-func (p *BatchPlanner) assessments() []enrichment.ProviderAssessment {
+// planner gates assessed payloads against.
+func (p *BatchPlanner) assessments() enrichment.ProviderAssessmentSet {
 	if p == nil || p.Assessments == nil {
 		return enrichment.ProviderAssessments()
 	}
@@ -671,10 +667,10 @@ func AddPreparedDeckWorker(workers *river.Workers, store *persistence.PostgresSt
 // explicit set of recorded personal-use payload assessments. Production uses
 // the compiled reviewed set through AddPreparedDeckWorker; a caller installs a
 // recorded assessment here to exercise a gated payload.
-func AddPreparedDeckWorkerWithAssessments(workers *river.Workers, store *persistence.PostgresStore, presentation *cardexport.Presentation, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, preparedConfig PreparedDeckConfig, externalEnabled bool, assessments []enrichment.ProviderAssessment) {
+func AddPreparedDeckWorkerWithAssessments(workers *river.Workers, store *persistence.PostgresStore, presentation *cardexport.Presentation, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, preparedConfig PreparedDeckConfig, externalEnabled bool, assessments enrichment.ProviderAssessmentSet) {
 	planner := NewPreparedDeckPlanner(NewInputAssembler(store), presentation, codec, externalEnabled, batchConfig, preparedConfig)
 	if setter, ok := planner.(interface {
-		SetAssessments([]enrichment.ProviderAssessment)
+		SetAssessments(enrichment.ProviderAssessmentSet)
 	}); ok {
 		setter.SetAssessments(assessments)
 	}
@@ -682,8 +678,8 @@ func AddPreparedDeckWorkerWithAssessments(workers *river.Workers, store *persist
 }
 
 // SetAssessments installs the recorded personal-use payload assessments the
-// pass is gated against.
-func (p *BatchPlanner) SetAssessments(assessments []enrichment.ProviderAssessment) {
+// assessed payloads are gated against.
+func (p *BatchPlanner) SetAssessments(assessments enrichment.ProviderAssessmentSet) {
 	if p != nil {
 		p.Assessments = assessments
 	}

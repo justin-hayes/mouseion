@@ -35,6 +35,7 @@ func TestIdiomAssessmentBlocksACoveredLanguageBeforeFreeze(t *testing.T) {
 	require.ErrorIs(t, planner.validateIdiomAssessment([]string{"it"}), enrichment.ErrProviderAssessmentNotRecorded, "an empty assessment set blocks Italian")
 
 	recorded := enrichment.ProviderAssessment{
+		Kind:     enrichment.IdiomCardPayload,
 		Language: "it", Provider: codec.ProviderName(), PromptVersion: codec.IdiomCardPromptContract(),
 		Fields: enrichment.IdiomCardPayloadFields(), Disposition: "recorded for this test", Ticket: "#2362", Recorded: true,
 	}
