@@ -78,13 +78,17 @@ type Definition struct {
 	Language     string `json:"language"`
 	// ConstituentBook is absent for a whole-work unit and present for one
 	// constituent book.
-	ConstituentBook  *int            `json:"constituentBook,omitempty"`
-	ConstituentBooks int             `json:"constituentBooks"`
-	CitationStart    string          `json:"citationStart"`
-	CitationEnd      string          `json:"citationEnd"`
-	WordCount        int             `json:"wordCount"`
-	Source           SourcePin       `json:"source"`
-	Translation      *TranslationPin `json:"translation,omitempty"`
+	ConstituentBook  *int   `json:"constituentBook,omitempty"`
+	ConstituentBooks int    `json:"constituentBooks"`
+	CitationStart    string `json:"citationStart"`
+	CitationEnd      string `json:"citationEnd"`
+	WordCount        int    `json:"wordCount"`
+	// Opening is the first sentence that is not a speaker label, exactly as
+	// the Edition prints it. It is derived from the source pin, so changing it
+	// alone does not bump the revision. A withdrawn tombstone may omit it.
+	Opening     string          `json:"opening,omitempty"`
+	Source      SourcePin       `json:"source"`
+	Translation *TranslationPin `json:"translation,omitempty"`
 	// InterpretationVersion names the versioned interpretation recipe.
 	InterpretationVersion string `json:"interpretationVersion"`
 	// Revision increases monotonically whenever a content-bearing field

@@ -3,6 +3,7 @@ package classicalmanifest
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,12 +117,14 @@ func TestGenerateAndVerifyProduceDeterministicSortedJSONL(t *testing.T) {
 	assert.Equal(t, 1, *first.Definitions[0].ConstituentBook)
 	assert.Equal(t, 2, first.Definitions[0].ConstituentBooks)
 	assert.Equal(t, 8, first.Definitions[0].WordCount)
+	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", first.Definitions[0].Opening)
 	require.NotNil(t, first.Definitions[0].Translation)
 	assert.Contains(t, first.Notes, "Crossing sentences: none")
 	assert.Contains(t, first.Notes, "translation available")
 
 	verified := generate(t, Options{Layers: layers, Overrides: overrides, Manifest: first.Manifest, AllowMissingUpstream: true})
 	assert.Equal(t, first.Manifest, verified.Manifest)
+	assert.Equal(t, first.Definitions[0].Opening, verified.Definitions[0].Opening, "a run without upstream retains the committed Opening")
 
 	definition, err := classical.ParseDefinitions(first.Manifest)
 	require.NoError(t, err)
@@ -321,6 +324,87 @@ func TestWholeWorkSplitCreatesOneUnit(t *testing.T) {
 	assert.Equal(t, "1.1.1", definition.CitationStart)
 	assert.Equal(t, "2.1.1", definition.CitationEnd)
 	assert.Equal(t, 10, definition.WordCount)
+	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", definition.Opening)
+}
+
+func TestGenerateOpeningSkipsASpeakerLabel(t *testing.T) {
+	cases := []struct {
+		name  string
+		label string
+	}{
+		{"abbreviation", speakerLabelSentence("ΣΩ", "σω", false)},
+		{"elliptical abbreviation", speakerLabelSentence("ΜΕΝ", "μεν", true)},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			layers := fixtureLayers(t)
+			upstream := copyUpstream(t)
+			original, err := os.ReadFile(filepath.Join(upstream, "work.conllu")) //nolint:gosec // test temp path.
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(filepath.Join(upstream, "work.conllu"), append([]byte(testCase.label), original...), 0o600)) //nolint:gosec // test temp path.
+
+			result := generate(t, Options{Layers: layersForUpstream(t, layers, upstream), Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+			require.Len(t, result.Definitions, 1)
+			assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", result.Definitions[0].Opening)
+		})
+	}
+}
+
+func TestGenerateFailsWhenAUnitHasOnlySpeakerLabels(t *testing.T) {
+	layers := fixtureLayers(t)
+	upstream := copyUpstream(t)
+	require.NoError(t, os.WriteFile(filepath.Join(upstream, "work.conllu"), []byte(speakerLabelSentence("ΜΕΝ", "μεν", true)), 0o600))
+	override := baseOverride()
+	override.Translation = nil
+
+	_, err := Generate(Options{Layers: layersForUpstream(t, layers, upstream), Overrides: overrideFile(t, override), UpstreamDir: upstream})
+	require.ErrorContains(t, err, "opening_missing", "the generator fails rather than guessing an Opening")
+}
+
+func TestVerifyWithoutUpstreamFailsWhenTheCommittedOpeningIsMissing(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+	definitions, err := classical.ParseDefinitions(first.Manifest)
+	require.NoError(t, err)
+	definitions[0].Opening = ""
+	withoutOpening, err := classical.RenderDefinitions(definitions)
+	require.NoError(t, err)
+
+	_, err = Generate(Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), Manifest: withoutOpening, AllowMissingUpstream: true})
+	require.ErrorContains(t, err, "has no generated Opening", "a run without upstream cannot invent a missing Opening")
+}
+
+func TestOpeningChangeNeedsNoRevisionBump(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+	definitions, err := classical.ParseDefinitions(first.Manifest)
+	require.NoError(t, err)
+	definitions[0].Opening = "a drifted Opening"
+	tampered, err := classical.RenderDefinitions(definitions)
+	require.NoError(t, err)
+
+	updated := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), Manifest: tampered, UpstreamDir: upstream})
+	assert.Equal(t, first.Manifest, updated.Manifest, "the source-derived Opening replaces the drifted one")
+	assert.Equal(t, 1, updated.Definitions[0].Revision, "an Opening change alone needs no revision bump")
+}
+
+// speakerLabelSentence renders one source sentence that is only a dialogue
+// speaker's abbreviation, optionally with an elliptical node.
+func speakerLabelSentence(surface, lemma string, elliptical bool) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# source = Xenophon, Xen. Anab._1.1.1\n# text = %s", surface)
+	if elliptical {
+		b.WriteString(" [0]")
+	}
+	b.WriteString(" .\n# sent_id = label\n")
+	fmt.Fprintf(&b, "1\t%s\t%s\tn\tn-s---mv-\tCase=v|Gender=m|Number=s\t0\tExD\t_\tt_101|0|ref=Xen. Anab._1.1.1\n", surface, lemma)
+	terminal := 2
+	if elliptical {
+		b.WriteString("2\t[0]\t[0]\t-\t---------\t_\t0\tPRED\t_\te_101|0|ref=Xen. Anab._1.1.1\n")
+		terminal = 3
+	}
+	fmt.Fprintf(&b, "%d\t.\t.\tu\tu--------\t_\t1\tAuxK\t_\tt_102|t_101|ref=Xen. Anab._1.1.1\n\n", terminal)
+	return b.String()
 }
 
 func TestExplicitUnitSplitSelectsOneBook(t *testing.T) {

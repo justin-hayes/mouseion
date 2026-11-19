@@ -551,7 +551,7 @@ func (b *builder) buildDefinition(override, unitOverride classical.Override, uni
 	if err := b.checkUpstreamDeparture(definition); err != nil {
 		return classical.Definition{}, err
 	}
-	if err := applyWordCount(&definition, unit, sourceData, sourceAvailable, previous, hadPrevious); err != nil {
+	if err := applyGeneratedFacts(&definition, unit, sourceData, sourceAvailable, previous, hadPrevious); err != nil {
 		return classical.Definition{}, err
 	}
 	if err := b.applyTranslation(&definition, override, unit, translationLayer, hasTranslationLayer, previous, hadPrevious); err != nil {
@@ -590,24 +590,33 @@ func baseDefinition(override, unitOverride classical.Override, unit plannedUnit,
 	return definition
 }
 
-// applyWordCount reads the generated word count from the source, or retains the
-// committed value when verify mode has no bytes.
-func applyWordCount(definition *classical.Definition, unit plannedUnit, sourceData []byte, sourceAvailable bool, previous classical.Definition, hadPrevious bool) error {
+// applyGeneratedFacts reads the word count and Opening from the source in one
+// pass, or retains the committed values when verify mode has no bytes.
+func applyGeneratedFacts(definition *classical.Definition, unit plannedUnit, sourceData []byte, sourceAvailable bool, previous classical.Definition, hadPrevious bool) error {
 	if sourceAvailable {
-		words, err := ancientgreek.UnitWordCount(sourceData, unit.start, unit.end)
+		summary, err := ancientgreek.SummarizeUnit(sourceData, unit.start, unit.end)
 		if err != nil {
 			return err
 		}
-		definition.WordCount = words
+		definition.WordCount = summary.WordCount
+		definition.Opening = summary.Opening
 	}
-	if definition.WordCount > 0 {
+	if definition.WordCount <= 0 {
+		if !hadPrevious {
+			return fmt.Errorf("classical: %s has no generated word count", unit.key)
+		}
+		definition.WordCount = previous.WordCount
+	}
+	if strings.TrimSpace(definition.Opening) != "" {
 		return nil
 	}
 	if hadPrevious {
-		definition.WordCount = previous.WordCount
-		return nil
+		definition.Opening = previous.Opening
 	}
-	return fmt.Errorf("classical: %s has no generated word count", unit.key)
+	if strings.TrimSpace(definition.Opening) == "" {
+		return fmt.Errorf("classical: %s has no generated Opening", unit.key)
+	}
+	return nil
 }
 
 // applyTranslation verifies a declared translation pin and aligns it to the
@@ -735,8 +744,13 @@ func (b *builder) checkUpstreamDeparture(definition classical.Definition) error 
 }
 
 // candidateFailure stops on an existing entry and records a new one as
-// rejected.
+// rejected. A unit with no Opening is never skipped: the generator must fail
+// rather than publish a unit whose first sentence it could not derive.
 func (b *builder) candidateFailure(workKey, key string, err error) error {
+	var refusal *ancientgreek.ImportError
+	if errors.As(err, &refusal) && refusal.Code == ancientgreek.CodeOpeningMissing {
+		return fmt.Errorf("classical: %s has no Opening: %w", displayKey(workKey, key), err)
+	}
 	existing := false
 	if key != "" {
 		_, existing = b.previousByKey[key]

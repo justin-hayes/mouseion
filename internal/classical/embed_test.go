@@ -29,6 +29,7 @@ func TestEmbeddedManifestCarriesTheAnabasisPilot(t *testing.T) {
 	assert.Equal(t, "1.1.1", definition.CitationStart)
 	assert.Equal(t, "1.10.19", definition.CitationEnd)
 	assert.Positive(t, definition.WordCount)
+	assert.Equal(t, "Δαρείου καὶ Παρυσάτιδος γίγνονται παῖδες δύο, πρεσβύτερος μὲν Ἀρταξέρξης, νεώτερος δὲ Κῦρος·", definition.Opening)
 	assert.False(t, definition.Withdrawn)
 
 	assert.Equal(t, int64(7438037), definition.Source.Size)
@@ -41,6 +42,25 @@ func TestEmbeddedManifestCarriesTheAnabasisPilot(t *testing.T) {
 	assert.Equal(t, "tlg0032.tlg006.perseus-eng2.xml", definition.Translation.FileName)
 	assert.Equal(t, "1.1.1", definition.Translation.CitationStart)
 	assert.Equal(t, "1.10.19", definition.Translation.CitationEnd)
+}
+
+func TestEveryEmbeddedDefinitionCarriesItsOpening(t *testing.T) {
+	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
+	require.NoError(t, err)
+	expected := map[string]string{
+		"plato-apology":       "ὅτι μὲν ὑμεῖς, ὦ ἄνδρες Ἀθηναῖοι, πεπόνθατε ὑπὸ τῶν ἐμῶν κατηγόρων, οὐκ οἶδα·",
+		"plato-crito":         "τί τηνικάδε ἀφῖξαι, ὦ Κρίτων;",
+		"plato-symposium":     "δοκῶ μοι περὶ ὧν πυνθάνεσθε οὐκ ἀμελέτητος εἶναι.",
+		"plato-republic-8":    "εἶεν·",
+		"xenophon-anabasis-2": "ἅμα δὲ τῇ ἡμέρᾳ συνελθόντες οἱ στρατηγοὶ ἐθαύμαζον ὅτι Κῦρος οὔ τε ἄλλον πέμπει σημανοῦντα ὅ τι χρὴ ποιεῖν οὔ τε αὐτὸς φαίνοιτο.",
+	}
+	require.Len(t, definitions, 22)
+	for _, definition := range definitions {
+		assert.NotEmpty(t, definition.Opening, definition.Key)
+		if want, ok := expected[definition.Key]; ok {
+			assert.Equal(t, want, definition.Opening, definition.Key)
+		}
+	}
 }
 
 func TestEmbeddedInputsParse(t *testing.T) {

@@ -20,6 +20,8 @@ func TestFixtureClassicalCatalogCarriesConstituentBooksAndAWholeWork(t *testing.
 	require.True(t, ok)
 	assert.Equal(t, "Iliad", iliad.Title)
 	assert.Equal(t, "Homer", iliad.Author)
+	assert.Equal(t, "Fixture reviewed edition", iliad.EditionLabel)
+	assert.Equal(t, "μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος", iliad.Opening)
 	assert.Equal(t, 3, iliad.ConstituentBooks)
 	assert.False(t, iliad.WholeWork)
 	require.Len(t, iliad.Units, 3)

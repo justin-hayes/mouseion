@@ -32,6 +32,9 @@ const (
 	// CodeEmptyCitationRange reports a Reading-unit range that does not
 	// resolve to real source tokens.
 	CodeEmptyCitationRange = "citation_range_empty"
+	// CodeOpeningMissing reports a Reading unit whose only sentences are
+	// speaker labels, so it has no Opening to derive.
+	CodeOpeningMissing = "opening_missing"
 	// CodeUnknownSourceFormat reports a definition whose source format has no
 	// import adapter.
 	CodeUnknownSourceFormat = "source_format_unknown"

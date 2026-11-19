@@ -42,7 +42,7 @@ func preUpgradeDefinition(t *testing.T, data []byte) classical.Definition {
 		WorkTitle: "Anabasis", WorkAuthor: "Xenophon", GreekTitle: "Ἀνάβασις",
 		EditionKey: "xenophon-anabasis-marchant-1904", EditionLabel: "Marchant 1904",
 		Language: classical.Language, ConstituentBook: &book, ConstituentBooks: 7,
-		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7,
+		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.",
 		Source: classical.SourcePin{
 			Layer: "oga-src-v0.2.0-text", FileName: "tlg0032.tlg006.perseus-grc2_oga020_src.conllu",
 			Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:]), Format: classical.SourceFormatOGACoNLLU,
@@ -321,7 +321,7 @@ func survivingDefinition(t *testing.T) classical.Definition {
 		WorkTitle: "Surviving Work", WorkAuthor: "Test Author", GreekTitle: "Σῳζόμενον",
 		EditionKey: "surviving-anabasis-edition", EditionLabel: "Test Edition",
 		Language: classical.Language, ConstituentBooks: 1,
-		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7,
+		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.",
 		Source: classical.SourcePin{
 			Layer: "test-layer", FileName: "surviving.conllu",
 			Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:]),

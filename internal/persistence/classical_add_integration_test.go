@@ -34,6 +34,7 @@ func classicalAddDefinition(key, workKey, title string, book *int) classical.Def
 		CitationStart:         "1.1.1",
 		CitationEnd:           "1.1.10",
 		WordCount:             100,
+		Opening:               "ἄρχεται ὁ λόγος.",
 		Source:                classical.SourcePin{Layer: "fixture", FileName: "work.conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
 		InterpretationVersion: "oga-agdt-upos/5",
 		Revision:              1,

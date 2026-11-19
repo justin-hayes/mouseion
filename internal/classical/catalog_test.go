@@ -19,6 +19,7 @@ func catalogDefinitions() []Definition {
 	second.CitationStart = "1.1.3"
 	second.CitationEnd = "1.1.4"
 	second.WordCount = 12
+	second.Opening = "δεύτερος λόγος."
 	second.Translation = nil
 
 	whole := validDefinition()
@@ -31,6 +32,7 @@ func catalogDefinitions() []Definition {
 	whole.ConstituentBook = nil
 	whole.ConstituentBooks = 1
 	whole.WordCount = 5
+	whole.Opening = "ἄλλος λόγος."
 	whole.Translation = nil
 
 	withdrawn := validDefinition()
@@ -57,19 +59,24 @@ func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 	alpha, ok := catalog.Work("alpha")
 	require.True(t, ok)
 	assert.Equal(t, "Ἄλφα", alpha.GreekTitle)
+	assert.Equal(t, "Test Edition", alpha.EditionLabel)
 	assert.Equal(t, 2, alpha.ConstituentBooks)
 	assert.False(t, alpha.WholeWork)
 	assert.Equal(t, 20, alpha.Words)
+	assert.Equal(t, "ἄρχεται ὁ λόγος.", alpha.Opening, "a Work's Opening is its first Reading unit's")
 	assert.False(t, alpha.TranslationAvailable, "a work with one translated book and one without does not promise a translation")
 	require.Len(t, alpha.Units, 2)
 	assert.Equal(t, 1, alpha.Units[0].ConstituentBook)
+	assert.Equal(t, "ἄρχεται ὁ λόγος.", alpha.Units[0].Opening)
 	assert.Equal(t, 2, alpha.Units[1].ConstituentBook)
+	assert.Equal(t, "δεύτερος λόγος.", alpha.Units[1].Opening)
 
 	beta, ok := catalog.Work("beta")
 	require.True(t, ok)
 	assert.True(t, beta.WholeWork)
 	assert.Equal(t, 1, beta.ConstituentBooks)
 	assert.Equal(t, 5, beta.Words)
+	assert.Equal(t, "ἄλλος λόγος.", beta.Opening)
 	assert.Equal(t, 0, beta.Units[0].ConstituentBook, "a whole-work unit has no constituent book number")
 
 	authors := catalog.Authors()
@@ -113,6 +120,16 @@ func TestValidateManifestRefusesInconsistentDefinitions(t *testing.T) {
 		definitions := catalogDefinitions()
 		definitions[1].ConstituentBook = definitions[0].ConstituentBook
 		require.ErrorContains(t, ValidateManifest(definitions), "repeats constituent book")
+	})
+	t.Run("empty opening", func(t *testing.T) {
+		definitions := catalogDefinitions()
+		definitions[0].Opening = ""
+		require.ErrorContains(t, ValidateManifest(definitions), "has no Opening")
+	})
+	t.Run("withdrawn tombstone needs no opening", func(t *testing.T) {
+		definitions := catalogDefinitions()
+		definitions[3].Opening = ""
+		require.NoError(t, ValidateManifest(definitions))
 	})
 	t.Run("empty manifest", func(t *testing.T) {
 		require.ErrorContains(t, ValidateManifest(nil), "has no definitions")

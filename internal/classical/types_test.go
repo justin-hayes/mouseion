@@ -24,6 +24,7 @@ func validDefinition() Definition {
 		CitationStart:         "1.1.1",
 		CitationEnd:           "1.1.2",
 		WordCount:             8,
+		Opening:               "ἄρχεται ὁ λόγος.",
 		Source:                SourcePin{Layer: "source", FileName: "work.conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: SourceFormatOGACoNLLU},
 		Translation:           &TranslationPin{Layer: "translation", FileName: "work.xml", Size: 10, SHA256: strings.Repeat("b", 64), CitationStart: "1.1.1", CitationEnd: "1.1.2"},
 		InterpretationVersion: "oga-agdt-upos/5",
@@ -40,6 +41,11 @@ func TestDefinitionValidateAcceptsACompleteDefinition(t *testing.T) {
 	whole.ConstituentBooks = 1
 	whole.Key = "alpha"
 	require.NoError(t, whole.Validate())
+
+	withdrawn := validDefinition()
+	withdrawn.Withdrawn = true
+	withdrawn.Opening = ""
+	require.NoError(t, withdrawn.Validate(), "a withdrawn tombstone needs no Opening")
 }
 
 func TestDefinitionValidateRefusesIncompleteFields(t *testing.T) {
