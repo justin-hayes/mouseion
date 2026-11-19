@@ -37,7 +37,7 @@ func fixtureClassicalDefinition(key, workKey, title, author, greekTitle, edition
 		CitationEnd:           citationEnd,
 		WordCount:             words,
 		Opening:               opening,
-		Source:                classical.SourcePin{Layer: "fixture-oga-src", FileName: workKey + ".conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
+		Source:                classical.SourcePin{Layer: "oga-src-v0.2.0-text", FileName: workKey + ".conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
 		InterpretationVersion: "fixture-oga/1",
 		Revision:              1,
 	}

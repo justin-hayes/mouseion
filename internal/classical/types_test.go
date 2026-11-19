@@ -277,6 +277,23 @@ func mustParseDefinitions(t *testing.T, data []byte) []Definition {
 	return definitions
 }
 
+func TestLayersSourceAttribution(t *testing.T) {
+	layers := Layers{Layers: []Layer{validLayer()}}
+
+	got, ok := layers.SourceAttribution("source")
+	require.True(t, ok)
+	assert.Equal(t, SourceAttribution{Layer: "source", Text: "Fixture row"}, got)
+
+	_, ok = layers.SourceAttribution("missing")
+	assert.False(t, ok)
+
+	blank := validLayer()
+	blank.DeployerRegisterRow = "  "
+	layers = Layers{Layers: []Layer{blank}}
+	_, ok = layers.SourceAttribution("source")
+	assert.False(t, ok, "a layer without attribution data invents none")
+}
+
 func TestLayersPassageAttribution(t *testing.T) {
 	credited := validLayer()
 	credited.Files[0].PassageLabel, credited.Files[0].DeckNotice = "Fixture (2026), Alph.", "Fixture notice."

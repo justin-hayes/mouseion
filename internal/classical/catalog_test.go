@@ -46,6 +46,23 @@ func catalogDefinitions() []Definition {
 	return []Definition{first, second, whole, withdrawn}
 }
 
+func TestCatalogCreditsEachSourceLayerOnce(t *testing.T) {
+	definitions := catalogDefinitions()
+	for i := range definitions {
+		if !definitions[i].Withdrawn {
+			definitions[i].Source.Layer = "oga-src-v0.2.0-text"
+		}
+	}
+	catalog, err := NewCatalog(definitions)
+	require.NoError(t, err)
+
+	attributions := catalog.SourceAttributions()
+	require.Len(t, attributions, 1, "two Works on one layer produce one credit")
+	assert.Equal(t, "oga-src-v0.2.0-text", attributions[0].Layer)
+	assert.Contains(t, attributions[0].Text, "OGA oga_src v0.2.0")
+	assert.Contains(t, attributions[0].Text, "CC BY-SA 4.0")
+}
+
 func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 	catalog, err := NewCatalog(catalogDefinitions())
 	require.NoError(t, err)
