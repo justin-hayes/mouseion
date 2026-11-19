@@ -21,3 +21,22 @@ const (
 	// front, back and stable note identity (ADR 0114).
 	PresentationVersion = 10
 )
+
+// DecidePreparedDeckFreshness reports whether a completed run's published deck
+// is current for the requested versions, and the presentation version a
+// rerender should publish.
+//
+// A deck is current when the run's presentation version is at least the
+// requested one and the newer of the run's frozen render inputs and the
+// preparation's rendered artifact inputs is at least the current render-input
+// version. A rerendered artifact records the version it was rendered at on the
+// preparation while the run keeps the version its inputs were frozen at, so
+// both must be considered.
+//
+// The published version is the requested one, raised to the run's own when the
+// run is already ahead.
+func DecidePreparedDeckFreshness(runPresentationVersion, runRenderInputVersion, preparationRenderInputVersion, requestedPresentationVersion int) (upToDate bool, publishPresentationVersion int) {
+	publishPresentationVersion = max(requestedPresentationVersion, runPresentationVersion)
+	upToDate = runPresentationVersion >= publishPresentationVersion && max(runRenderInputVersion, preparationRenderInputVersion) >= RenderInputVersion
+	return upToDate, publishPresentationVersion
+}

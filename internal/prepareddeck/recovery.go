@@ -123,11 +123,15 @@ func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.Prepar
 	// preparation.
 	var runPresentationVersion, runRenderInputVersion int
 	err = tx.QueryRow(ctx, `SELECT presentation_version, render_input_version FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3::uuid AND state='completed'`, item.OwnerID, item.PreparationID, currentRunID).Scan(&runPresentationVersion, &runRenderInputVersion)
-	if errors.Is(err, pgx.ErrNoRows) || (runPresentationVersion >= item.PresentationVersion && max(runRenderInputVersion, artifactRenderInputVersion) >= cardexport.RenderInputVersion) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return tx.Commit(ctx)
 	}
 	if err != nil {
 		return err
+	}
+	upToDate, _ := cardexport.DecidePreparedDeckFreshness(runPresentationVersion, runRenderInputVersion, artifactRenderInputVersion, item.PresentationVersion)
+	if upToDate {
+		return tx.Commit(ctx)
 	}
 	args := RerenderJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: currentRunID, PresentationVersion: item.PresentationVersion}
 	inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOpts())

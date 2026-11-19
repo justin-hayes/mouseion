@@ -340,13 +340,11 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if preparation.State != domain.DeckPreparationReady || preparation.CurrentRunID != runID || preparation.RetiredAt != nil {
 		return domain.DeckPreparation{}, persistence.ErrInvalidTransition
 	}
-	if run.PresentationVersion > presentationVersion {
-		presentationVersion = run.PresentationVersion
-	}
 	// The run keeps the render-input version its inputs were frozen at, which
 	// legacy recovery below still needs; a rerendered artifact records the
 	// version it was rendered at on the preparation.
-	if run.PresentationVersion >= presentationVersion && max(run.RenderInputVersion, preparation.RenderInputVersion) >= cardexport.RenderInputVersion {
+	upToDate, publishPresentationVersion := cardexport.DecidePreparedDeckFreshness(run.PresentationVersion, run.RenderInputVersion, preparation.RenderInputVersion, presentationVersion)
+	if upToDate {
 		return preparation, nil
 	}
 	projection, stored, err := r.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
@@ -367,7 +365,7 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 		return domain.DeckPreparation{}, fmt.Errorf("render prepared deck revision: %w", err)
 	}
 	logFinalizeDiagnostics(diagnostics)
-	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, presentationVersion, artifact)
+	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, publishPresentationVersion, artifact)
 }
 
 func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, owner string, renderInputVersion int, projection cardexport.StorageProjection) (cardexport.StorageProjection, []cardexport.RecoveredRenderInput, error) {
