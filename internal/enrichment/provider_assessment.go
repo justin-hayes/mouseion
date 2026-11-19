@@ -12,12 +12,33 @@ import (
 // request is transmitted.
 var ErrProviderAssessmentNotRecorded = errors.New("enrichment: provider payload assessment is not recorded")
 
+// ProviderPayloadKind names one exact external-provider payload an assessment
+// covers. A recorded assessment answers for its own kind alone: the same
+// language and provider never carry over to a different payload.
+type ProviderPayloadKind string
+
+const (
+	// EvidenceAssistedPassPayload is the Ancient Greek evidence-assisted pass:
+	// the representative sentence, its passage context, and the pinned LSJ
+	// definitions as short evidence handles (ADR 0101, ADR 0105).
+	EvidenceAssistedPassPayload ProviderPayloadKind = "evidence-assisted-pass"
+	// LSJSenseSummaryPayload is the context-free summary of a pinned LSJ entry:
+	// its headword, sense IDs and English glosses alone (ADR 0101).
+	LSJSenseSummaryPayload ProviderPayloadKind = "lsj-sense-summary"
+	// IdiomCardPayload is the dictionary-anchored idiom card: the headword,
+	// matched forms, representative sentence and bounded candidate senses alone
+	// (ADR 0114).
+	IdiomCardPayload ProviderPayloadKind = "idiom-card"
+)
+
 // ProviderAssessment is the reviewed personal-use disposition for sending one
 // language's exact external-provider payload to the configured provider. It is
 // compiled reviewed data, not runtime configuration: changing the provider, the
 // prompt contract, or the transmitted field set invalidates the recorded
 // assessment and must fail closed until it is re-recorded.
 type ProviderAssessment struct {
+	// Kind names the payload this assessment covers.
+	Kind ProviderPayloadKind
 	// Language is the dedicated language the assessment covers.
 	Language string
 	// Provider and PromptVersion pin the reviewed contract.
@@ -49,6 +70,7 @@ type ProviderAssessment struct {
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
 var evidenceAssistedPassAssessment = ProviderAssessment{
+	Kind:          EvidenceAssistedPassPayload,
 	Language:      "grc",
 	Provider:      "openai-compatible",
 	PromptVersion: "translation-v16-evidence-assisted-greek",
@@ -76,6 +98,7 @@ var evidenceAssistedPassAssessment = ProviderAssessment{
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
 var lsjSenseSummaryAssessment = ProviderAssessment{
+	Kind:          LSJSenseSummaryPayload,
 	Language:      "grc",
 	Provider:      "openai-compatible",
 	PromptVersion: "translation-v17-lsj-sense-summary-greek",
@@ -93,6 +116,7 @@ var lsjSenseSummaryAssessment = ProviderAssessment{
 // review in doc/reviews/idiom-review-v3-gate2-2026-11-08.md under the ADR 0115
 // gate. Any other language still fails closed and sends nothing (ADR 0114).
 var idiomCardAssessment = ProviderAssessment{
+	Kind:          IdiomCardPayload,
 	Language:      "it",
 	Provider:      "openai-compatible",
 	PromptVersion: "idiom-card-v3",
@@ -105,109 +129,88 @@ var idiomCardAssessment = ProviderAssessment{
 	Recorded:    true,
 }
 
+// ProviderAssessmentSet is the recorded personal-use payload assessments. Its
+// one question decides whether an assessed payload may be sent.
+type ProviderAssessmentSet []ProviderAssessment
+
 // ProviderAssessments returns the compiled reviewed personal-use payload
 // assessments. A caller that can install a recorded assessment for a test
-// passes its own set to AllowExternalProviderCall instead.
-func ProviderAssessments() []ProviderAssessment {
-	return []ProviderAssessment{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment}
+// passes its own set to MaySend instead.
+func ProviderAssessments() ProviderAssessmentSet {
+	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment}
 }
 
-// Gate reports whether a language's provider call may proceed. A language the
-// installation records no assessment for is unaffected. A covered language
-// fails closed when the assessment is unrecorded or the configured provider,
-// prompt contract, or transmitted field set does not match the recorded one.
-func (a ProviderAssessment) Gate(language, provider, promptVersion string, fields []string) error {
-	if !sameAssessmentLanguage(language, a.Language) {
-		return nil
+// MaySend reports whether one payload kind may be sent for a language with the
+// configured codec. The provider name and the current prompt contract and field
+// set come from the codec, never from the record, so a drifted record fails
+// closed until it is re-recorded. A missing codec, an unrecorded assessment, a
+// language with no record for that kind, or any provider, prompt version or
+// field list mismatch returns ErrProviderAssessmentNotRecorded. A payload that
+// is not assessed does not consult this set.
+func (s ProviderAssessmentSet) MaySend(kind ProviderPayloadKind, language string, codec *TranslationCodec) error {
+	contract, ok := currentPayloadContract(kind, codec)
+	if !ok {
+		return fmt.Errorf("%w: no current contract for %s", ErrProviderAssessmentNotRecorded, kind)
 	}
+	covered := false
+	var lastErr error
+	for i := range s {
+		assessment := s[i]
+		if assessment.Kind != kind || !sameAssessmentLanguage(language, assessment.Language) {
+			continue
+		}
+		covered = true
+		if err := assessment.allows(contract); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+	if covered {
+		return lastErr
+	}
+	return fmt.Errorf("%w: no recorded %s assessment for %s", ErrProviderAssessmentNotRecorded, kind, language)
+}
+
+// payloadContract is the provider name and the current prompt contract and
+// transmitted field set one payload kind requires.
+type payloadContract struct {
+	provider      string
+	promptVersion string
+	fields        []string
+}
+
+// currentPayloadContract returns the current contract for one payload kind, read
+// from the codec's own constants. It reports false when the codec is missing or
+// the kind has no contract.
+func currentPayloadContract(kind ProviderPayloadKind, codec *TranslationCodec) (payloadContract, bool) {
+	if codec == nil {
+		return payloadContract{}, false
+	}
+	switch kind {
+	case EvidenceAssistedPassPayload:
+		return payloadContract{codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields()}, true
+	case LSJSenseSummaryPayload:
+		return payloadContract{codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()}, true
+	case IdiomCardPayload:
+		return payloadContract{codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()}, true
+	default:
+		return payloadContract{}, false
+	}
+}
+
+// allows reports whether one record pins the given contract exactly.
+func (a ProviderAssessment) allows(contract payloadContract) error {
 	if !a.Recorded {
 		return fmt.Errorf("%w: %s (%s)", ErrProviderAssessmentNotRecorded, a.Ticket, a.Disposition)
 	}
-	if provider != a.Provider || promptVersion != a.PromptVersion {
-		return fmt.Errorf("%w: configured provider does not match the recorded assessment for %s (%s)", ErrProviderAssessmentNotRecorded, a.Ticket, a.Language)
+	if contract.provider != a.Provider || contract.promptVersion != a.PromptVersion {
+		return fmt.Errorf("%w: configured provider or prompt does not match the recorded %s assessment for %s (%s)", ErrProviderAssessmentNotRecorded, a.Kind, a.Language, a.Ticket)
 	}
-	if !slices.Equal(fields, a.Fields) {
-		return fmt.Errorf("%w: transmitted field set does not match the recorded assessment for %s (%s)", ErrProviderAssessmentNotRecorded, a.Ticket, a.Language)
-	}
-	return nil
-}
-
-// AllowExternalProviderCall applies the supplied recorded assessments to one
-// provider call. The prepared-deck pass consults it when it freezes a run: a
-// frozen run is immutable, so revoking a recorded assessment later never
-// rewrites a deck that was already planned. A language with no recorded
-// assessment is unaffected. A language may carry several assessed payloads (the
-// evidence-assisted pass and the LSJ sense summary), so a call is allowed when
-// any assessment for its language matches it, and fails closed only when the
-// language is assessed but none of its assessments matches.
-func AllowExternalProviderCall(assessments []ProviderAssessment, language, provider, promptVersion string, fields []string) error {
-	covered := false
-	var lastErr error
-	for i := range assessments {
-		assessment := assessments[i]
-		if !sameAssessmentLanguage(language, assessment.Language) {
-			continue
-		}
-		covered = true
-		if err := assessment.Gate(language, provider, promptVersion, fields); err == nil {
-			return nil
-		} else {
-			lastErr = err
-		}
-	}
-	if covered {
-		return lastErr
+	if !slices.Equal(contract.fields, a.Fields) {
+		return fmt.Errorf("%w: transmitted field set does not match the recorded %s assessment for %s (%s)", ErrProviderAssessmentNotRecorded, a.Kind, a.Language, a.Ticket)
 	}
 	return nil
-}
-
-// AllowIdiomCardCall applies the compiled assessments to one idiom-card
-// payload. Unlike a generic call, every enabled language must have a recorded
-// assessment that matches the provider, prompt contract and exact field set;
-// a language with no assessment sends nothing (ADR 0114).
-func AllowIdiomCardCall(assessments []ProviderAssessment, language, provider, promptVersion string, fields []string) error {
-	covered := false
-	var lastErr error
-	for i := range assessments {
-		assessment := assessments[i]
-		if !sameAssessmentLanguage(language, assessment.Language) {
-			continue
-		}
-		covered = true
-		if err := assessment.Gate(language, provider, promptVersion, fields); err == nil {
-			return nil
-		} else {
-			lastErr = err
-		}
-	}
-	if covered {
-		return lastErr
-	}
-	return fmt.Errorf("%w: no recorded idiom-card assessment for %s", ErrProviderAssessmentNotRecorded, language)
-}
-
-// EvidenceAssistedPassOffered reports whether a matching recorded assessment
-// makes the evidence-assisted pass available. While it is false the pass does
-// not run and nothing is sent for it (ADR 0101, ADR 0105).
-func EvidenceAssistedPassOffered(assessments []ProviderAssessment) bool {
-	for _, assessment := range assessments {
-		if assessment.Recorded && sameAssessmentLanguage(assessment.Language, evidenceAssistedPassAssessment.Language) && assessment.Provider == evidenceAssistedPassAssessment.Provider && assessment.PromptVersion == evidenceAssistedPassPromptVersion && slices.Equal(assessment.Fields, EvidenceAssistedPassPayloadFields()) {
-			return true
-		}
-	}
-	return false
-}
-
-// LSJSenseSummaryOffered reports whether a matching recorded assessment makes
-// the LSJ sense summary available. While it is false the summary does not run
-// and nothing is sent for it (ADR 0101).
-func LSJSenseSummaryOffered(assessments []ProviderAssessment) bool {
-	for _, assessment := range assessments {
-		if assessment.Recorded && sameAssessmentLanguage(assessment.Language, lsjSenseSummaryAssessment.Language) && assessment.Provider == lsjSenseSummaryAssessment.Provider && assessment.PromptVersion == lsjSenseSummaryPromptVersion && slices.Equal(assessment.Fields, LSJSenseSummaryPayloadFields()) {
-			return true
-		}
-	}
-	return false
 }
 
 // sameAssessmentLanguage compares two language tags by their lowercase base

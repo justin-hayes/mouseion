@@ -710,12 +710,14 @@ _Avoid_: NLP analysis, corpus sync.
 
 **Provider payload assessment**:
 The reviewed, recorded disposition for sending one language's exact
-external-provider payload (contextual Glosses and translations) to the
-configured provider for personal use. It is compiled reviewed data, pinned to a
-provider, prompt contract and transmitted field set. A covered language whose
+external-provider payload (the Evidence-assisted provider pass, the LSJ sense
+summary, or the Idiom card) to the configured provider for personal use. An
+assessment names the payload kind it covers. It is compiled reviewed data,
+pinned to a provider, prompt contract and transmitted field set. A payload whose
 assessment is unrecorded, or whose configured provider, prompt or fields no
-longer match the record, fails closed before any request is transmitted; a
-language the installation records no assessment for is unaffected.
+longer match the record, fails closed before any request is transmitted. An
+assessed payload with no recorded assessment for its kind and language also
+fails closed; a payload that is not assessed does not consult the gate.
 _Avoid_: consent flag, provider allowlist.
 
 **Vocabulary Browse inventory**:
