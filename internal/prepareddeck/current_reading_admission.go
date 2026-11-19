@@ -120,13 +120,18 @@ func (s *Service) Rerender(ctx context.Context, owner, id, expectedSnapshotID st
 	if err != nil {
 		return Handle{}, err
 	}
-	if p.PresentationVersion >= cardexport.PresentationVersion {
+	var runPresentationVersion, runRenderInputVersion int
+	if err := tx.QueryRow(ctx, currentRunVersionsSQL, owner, p.ID, p.CurrentRunID).Scan(&runPresentationVersion, &runRenderInputVersion); err != nil {
+		return Handle{}, err
+	}
+	upToDate, publishPresentationVersion := cardexport.DecidePreparedDeckFreshness(runPresentationVersion, runRenderInputVersion, p.RenderInputVersion, cardexport.PresentationVersion)
+	if upToDate {
 		if err := tx.Commit(ctx); err != nil {
 			return Handle{}, err
 		}
 		return Handle{Preparation: p}, nil
 	}
-	args := RerenderJobArgs{OwnerID: owner, PreparationID: p.ID, RunID: p.CurrentRunID, PresentationVersion: cardexport.PresentationVersion}
+	args := RerenderJobArgs{OwnerID: owner, PreparationID: p.ID, RunID: p.CurrentRunID, PresentationVersion: publishPresentationVersion}
 	inserted, err := s.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
 	if err != nil {
 		return Handle{}, err
@@ -134,7 +139,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id, expectedSnapshotID st
 	var jobID int64
 	if inserted != nil && inserted.Job != nil && isLivePreparationJobState(inserted.Job.State) {
 		jobID = inserted.Job.ID
-	} else if confirmed, confirmErr := liveRerenderJobID(ctx, tx, owner, p.ID, p.CurrentRunID, cardexport.PresentationVersion); confirmErr == nil {
+	} else if confirmed, confirmErr := liveRerenderJobID(ctx, tx, owner, p.ID, p.CurrentRunID, publishPresentationVersion); confirmErr == nil {
 		jobID = confirmed
 	} else if !errors.Is(confirmErr, pgx.ErrNoRows) {
 		return Handle{}, confirmErr
@@ -333,6 +338,7 @@ func (s *Service) enqueuePreparationJob(ctx context.Context, tx pgx.Tx, owner, i
 const (
 	requeueFailedPreparationSQL   = "UPDATE deck_preparations SET state='queued',error='',current_run_id=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING " + preparationColumns
 	livePreparationForSnapshotSQL = "SELECT " + preparationColumns + " FROM deck_preparations WHERE owner_id=$1 AND goal_snapshot_id=$2::uuid AND retired_at IS NULL FOR UPDATE"
+	currentRunVersionsSQL         = "SELECT presentation_version, render_input_version FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3::uuid"
 )
 
 // lockLivePreparationForSnapshot returns the non-retired preparation bound to

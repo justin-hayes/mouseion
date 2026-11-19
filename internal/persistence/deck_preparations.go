@@ -165,11 +165,8 @@ func preparedDeckRerenderDecision(preparation domain.DeckPreparation, run domain
 	if preparation.CurrentRunID != runID || preparation.State != domain.DeckPreparationReady || preparation.RetiredAt != nil || run.State != domain.PreparedDeckRunCompleted {
 		return 0, false, ErrInvalidTransition
 	}
-	if run.PresentationVersion > presentationVersion {
-		presentationVersion = run.PresentationVersion
-	}
-	upToDate := run.PresentationVersion >= presentationVersion && max(run.RenderInputVersion, preparation.RenderInputVersion) >= cardexport.RenderInputVersion
-	return presentationVersion, upToDate, nil
+	upToDate, nextPresentationVersion := cardexport.DecidePreparedDeckFreshness(run.PresentationVersion, run.RenderInputVersion, preparation.RenderInputVersion, presentationVersion)
+	return nextPresentationVersion, upToDate, nil
 }
 
 // putPreparedDeckArtifactCards republishes every generated card through the
