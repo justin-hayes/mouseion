@@ -6,6 +6,8 @@ Amended 2026-10-13 by [ADR 0092](0092-retire-known-vocabulary-import.md): `inter
 
 Amended 2026-11-09 by [ADR 0116](0116-classical-catalog.md): the web app may read the built-in Classical catalog from `internal/classical`, a leaf package of reviewed manifest artifacts.
 
+Amended 2026-11-19 by [issue #2458](https://github.com/justin-hayes/mouseion/issues/2458): the web app composes `internal/readingintent`, which owns a Book's reading intent — the To Read transition, the route between Classical preparation and EPUB acquisition and analysis, and the operator log line for a failed submission. It is added to §6's allow list.
+
 Tracked by [issue #1973](https://github.com/justin-hayes/mouseion/issues/1973), under parent [#1811](https://github.com/justin-hayes/mouseion/issues/1811). Enforcement with golangci-lint's `depguard` follows in [#1974](https://github.com/justin-hayes/mouseion/issues/1974) (test infrastructure and fixtures) and [#1975](https://github.com/justin-hayes/mouseion/issues/1975) (persistence layering).
 
 ## Context
@@ -87,7 +89,7 @@ The test-infrastructure packages are `internal/storecontract`, `internal/testuti
 
 ### 6. Web app: domain, services and store interfaces
 
-- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/classical`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`), `internal/auth` and `internal/webauth`. It may import `internal/persistence` **only** for sentinel errors and value types that appear in its store interfaces.
+- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/classical`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`, `readingintent`), `internal/auth` and `internal/webauth`. It may import `internal/persistence` **only** for sentinel errors and value types that appear in its store interfaces.
 - **Enforcement:** the allow list states intent. Lint enforces the deny entries below. A new internal dependency outside the allow list needs this ADR amended, and review checks for one.
 - **Deny (non-test files):** pgx, `gen/sqlc`, `internal/fixtures` and every test-infrastructure package.
 - **Deny (test files):** `gen/sqlc`. Web app tests may import fixtures, test infrastructure and pgx.

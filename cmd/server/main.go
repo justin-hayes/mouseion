@@ -31,6 +31,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
+	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/sourcecheck"
 	"github.com/justin-hayes/mouseion/internal/webapp"
@@ -303,7 +304,15 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
+	readingIntent, err := readingintent.New(readingintent.Config{
+		Books: store, Dispositions: store,
+		Preparation: analysisService, Analysis: analysisService,
+		Acquisition: readingintent.SourceAcquisition{Targets: catalogueSyncService, Acquirer: deps.opdsService},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initialize reading intent: %w", err)
+	}
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, ReadingIntent: readingIntent, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
 	if err != nil {
 		return nil, fmt.Errorf("initialize web application: %w", err)
 	}

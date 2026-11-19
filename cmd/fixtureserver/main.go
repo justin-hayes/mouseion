@@ -15,6 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
@@ -44,13 +45,23 @@ func main() {
 	lemmaReview := lemmareview.New(lemmareview.Config{
 		Store: books, Suggestions: fixtureLemmaSuggestions{}, Preparer: preparedDeck, BrowseCounts: fixtures.Analysis{Store: store},
 	})
+	readingIntent, err := readingintent.New(readingintent.Config{
+		Books:        books,
+		Dispositions: books,
+		Preparation:  fixtures.ClassicalPreparation{},
+		Analysis:     fixtures.Analysis{Store: store},
+		Acquisition:  readingintent.SourceAcquisition{Targets: catalogueSync, Acquirer: fixtures.OPDS{}},
+	})
+	if err != nil {
+		log.Fatalf("initialize fixture reading intent: %v", err)
+	}
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
 		Analysis: fixtures.Analysis{Store: store}, AnalysisInsights: fixtures.ClassicalInsights{},
 		PreparedDeck: preparedDeck, Capabilities: fixtures.Capabilities{},
-		ClassicalPreparation: fixtures.ClassicalPreparation{},
-		Classical:            classicalCatalog,
-		CatalogueSync:        catalogueSync, LemmaReview: lemmaReview,
+		ClassicalPreparation: fixtures.ClassicalPreparation{}, ReadingIntent: readingIntent,
+		Classical:     classicalCatalog,
+		CatalogueSync: catalogueSync, LemmaReview: lemmaReview,
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
 	})
 	if err != nil {
