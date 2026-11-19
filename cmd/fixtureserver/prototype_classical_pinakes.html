@@ -1,0 +1,299 @@
+{{/* PROTOTYPE — throwaway. See prototype_classical_pinakes.go. */}}
+
+{{define "variant"}}
+{{template "styles"}}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/catalogs">← Catalogs</a></nav>
+<header class="page-header">
+  <div class="page-header__content">
+    <h1>Classical catalog</h1>
+    <p>{{.Works}} Ancient Greek works by {{len .Authors}} authors, in {{.Units}} books and passages. Sources are fetched when a Book moves to To Read; adding downloads nothing.</p>
+  </div>
+  <div class="page-header__actions"></div>
+</header>
+{{if eq .Variant "B"}}{{template "B" .}}{{else if eq .Variant "C"}}{{template "C" .}}{{else}}{{template "A" .}}{{end}}
+{{end}}
+
+{{/* ---------- A: Openings. Each work is identified the way the Pinakes did it:
+     author, title, opening words, length. ---------- */}}
+{{define "A"}}
+<div class="px">
+  {{range .Authors}}
+  <section class="px-author" aria-label="{{.Name}}">
+    <h2 class="px-author__name">{{.Name}}</h2>
+    <ul class="px-works">
+      {{range .Works}}
+      <li class="px-work" id="work-{{.Key}}">
+        <div class="px-work__identity">
+          <h3 class="px-work__title bibliographic-title">
+            <a href="/catalogs/classical/works/{{.Key}}">{{.Title}}</a>
+            <span class="px-work__greek" lang="grc">{{.Greek}}</span>
+          </h3>
+          <p class="px-opening" lang="grc"><span class="px-opening__ref" lang="en"><span class="proto-vh">Begins at </span>{{.OpeningRef}}</span>{{.Opening}}</p>
+          <p class="px-length__caption">
+            {{n .Words}} words{{if .Whole}}, read whole{{else}} in {{len .Units}} books{{end}}
+          </p>
+          <div class="px-length" aria-hidden="true">
+            {{range .Units}}<span class="px-length__unit{{if .Owned}} px-length__unit--owned{{end}}" style="{{css "width:%.3f%%" .Pct}}">{{if .Book}}<i>{{.Book}}</i>{{end}}</span>{{end}}
+          </div>
+          {{if not .Whole}}
+          <details class="px-books">
+            <summary>Choose books</summary>
+            <table class="px-books__table">
+              <thead><tr><th>Book</th><th>Passage</th><th class="px-num">Words</th><th></th></tr></thead>
+              <tbody>
+                {{range .Units}}
+                <tr>
+                  <th scope="row">Book {{.Book}}</th>
+                  <td class="numeric">{{.Start}}–{{.End}}</td>
+                  <td class="px-num numeric">{{n .Words}}</td>
+                  <td class="px-books__action">{{if .Owned}}<a href="#">In My Books</a>{{else}}<button class="button button--outline" type="button">Add</button>{{end}}</td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+          </details>
+          {{end}}
+        </div>
+        <div class="px-work__margin">
+          <p>{{.Edition}}</p>
+          <p class="numeric">Passage {{passage .}}</p>
+          <p>English translation available</p>
+          {{if .OwnedCount}}
+            <p class="px-work__owned"><span class="px-dot" aria-hidden="true"></span>{{if .Whole}}<a href="#">In My Books</a>{{else}}<a href="#">{{.OwnedCount}} of {{len .Units}} books in My Books</a>{{end}}</p>
+          {{end}}
+          {{if or (not .Whole) (not .OwnedCount)}}
+          <div class="action-group"><button class="button button--outline" type="button">{{if .Whole}}Add the work{{else if .OwnedCount}}Add the remaining books{{else}}Add the whole work{{end}}</button></div>
+          {{end}}
+        </div>
+      </li>
+      {{end}}
+    </ul>
+  </section>
+  {{end}}
+</div>
+{{end}}
+
+{{/* ---------- B: Shelf-list. One dense ruled table that keeps working at
+     several hundred works. ---------- */}}
+{{define "B"}}
+<div class="sl-wrap" role="region" aria-label="Works in the Classical catalog" tabindex="0">
+<table class="sl">
+  <thead>
+    <tr><th>Work</th><th>Edition</th><th>Passage</th><th class="px-num">Books</th><th class="px-num">Words</th><th class="sl-lengthcol">Length, one scale</th><th>My Books</th></tr>
+  </thead>
+  {{range .Authors}}
+  <tbody>
+    <tr class="sl-author"><th colspan="7" scope="rowgroup">{{.Name}}</th></tr>
+    {{range .Works}}
+    <tr>
+      <th scope="row" class="sl-work">
+        <a class="bibliographic-title" href="/catalogs/classical/works/{{.Key}}">{{.Title}}</a>
+        <span class="sl-greek" lang="grc">{{.Greek}}</span>
+      </th>
+      <td>{{.Edition}}</td>
+      <td class="numeric">{{passage .}}</td>
+      <td class="px-num numeric">{{if .Whole}}<span class="sl-whole">whole</span>{{else}}{{len .Units}}{{end}}</td>
+      <td class="px-num numeric">{{n .Words}}</td>
+      <td class="sl-lengthcol"><div class="px-length px-length--bare" aria-hidden="true">{{range .Units}}<span class="px-length__unit{{if .Owned}} px-length__unit--owned{{end}}" style="{{css "width:%.3f%%" .Pct}}"></span>{{end}}</div></td>
+      <td class="sl-action">
+        {{if and .OwnedCount .Whole}}<a href="#">In My Books</a>
+        {{else if .OwnedCount}}<a href="#">{{.OwnedCount}} of {{len .Units}}</a>
+        {{else}}<button class="button button--outline" type="button">Add</button>{{end}}
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+  {{end}}
+</table>
+</div>
+{{end}}
+
+{{/* ---------- C: By length. The whole catalog as one figure on one scale;
+     every segment is a Book. ---------- */}}
+{{define "C"}}
+<figure class="bl">
+  <figcaption class="bl-caption">Width shows length in words, on one scale. Works are in title order under each author; length says nothing about difficulty.</figcaption>
+  <div class="bl-axis" aria-hidden="true">
+    <span></span>
+    <div class="bl-axis__track">{{range .Ticks}}<span style="{{css "left:%.3f%%" .Pct}}">{{.Label}}</span>{{end}}</div>
+  </div>
+  {{$ticks := .Ticks}}
+  {{range .Authors}}
+  <section class="bl-author" aria-label="{{.Name}}">
+    <h2 class="bl-author__name">{{.Name}}</h2>
+    {{range .Works}}
+    <div class="bl-row">
+      <div class="bl-row__label">
+        <a class="bibliographic-title" href="/catalogs/classical/works/{{.Key}}">{{.Title}}</a>
+        <span class="sl-greek" lang="grc">{{.Greek}}</span>
+      </div>
+      <div class="bl-row__track">
+        {{range $ticks}}<i class="bl-grid" style="{{css "left:%.3f%%" .Pct}}"></i>{{end}}
+        <ol class="bl-units">
+          {{range .Units}}<li class="bl-unit{{if .Owned}} bl-unit--owned{{end}}" style="{{css "width:%.3f%%" .Pct}}"><a href="#" title="{{if .Book}}Book {{.Book}}, {{end}}{{.Start}}–{{.End}}, {{n .Words}} words"><span class="proto-vh">{{if .Book}}Book {{else}}Whole work{{end}}</span>{{if .Book}}{{.Book}}{{end}}<span class="proto-vh">, {{n .Words}} words{{if .Owned}}, in My Books{{end}}</span></a></li>{{end}}
+        </ol>
+        <span class="bl-row__total numeric">{{n .Words}}</span>
+      </div>
+    </div>
+    {{end}}
+  </section>
+  {{end}}
+  <p class="bl-legend"><span class="bl-key bl-key--owned" aria-hidden="true"></span>In My Books <span class="bl-key" aria-hidden="true"></span>Not added. Select a Book to add it.</p>
+</figure>
+{{end}}
+
+{{define "styles"}}
+<style>
+/* PROTOTYPE: the shipped Greek subset has no polytonic glyphs (U+1F00–1FFF). */
+@font-face {
+  font-family: "Literata Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 600;
+  src: url("/prototype/literata-greek-ext.woff2") format("woff2-variations");
+  unicode-range: U+1F00-1FFF;
+}
+.proto-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.px-num { text-align: right; }
+
+/* ---- shared length strip ---- */
+.px-length { display: flex; align-items: flex-start; }
+.px-length__unit {
+  flex: none; box-sizing: border-box; min-width: 4px;
+  border-inline-end: 2px solid var(--mouseion-color-surface);
+  border-top: 5px solid var(--mouseion-color-control-border);
+  padding-top: 2px; text-align: center;
+  color: var(--mouseion-color-text-muted); font-size: 0.8125rem; line-height: 1.2;
+}
+.px-length__unit i { font-style: normal; font-variant-numeric: tabular-nums; }
+.px-length__unit--owned { border-top-color: var(--mouseion-color-accent); color: var(--mouseion-color-accent); font-weight: 600; }
+.px-length--bare .px-length__unit { padding: 0; }
+
+/* ---- A ---- */
+.px { max-width: none; }
+.px-author + .px-author { margin-top: var(--mouseion-space-7); }
+.px-author__name { margin: 0; padding-bottom: var(--mouseion-space-2); border-bottom: 1px solid var(--mouseion-color-text); }
+.px-works { list-style: none; margin: 0; padding: 0; }
+.px-work {
+  display: grid; grid-template-columns: minmax(0, 1fr) 15rem;
+  gap: var(--mouseion-space-4) var(--mouseion-space-6);
+  padding: var(--mouseion-space-5) 0 var(--mouseion-space-6);
+  border-bottom: 1px solid var(--mouseion-color-border);
+}
+.px-work__title { margin: 0 0 var(--mouseion-space-2); font-size: 1.25rem; line-height: 1.3; }
+.px-work__title a { color: inherit; text-decoration-color: var(--mouseion-color-border); }
+.px-work__title a:hover { color: var(--mouseion-color-accent); }
+.px-work__greek { margin-inline-start: var(--mouseion-space-2); color: var(--mouseion-color-text-muted); font-weight: 400; }
+.px-opening {
+  max-width: 34em; margin: 0 0 var(--mouseion-space-4);
+  font-family: var(--mouseion-font-reading); font-optical-sizing: auto;
+  font-size: 1.5625rem; line-height: 1.45; text-wrap: pretty;
+}
+.px-opening__ref {
+  display: inline-block; margin-inline-end: 0.75rem; vertical-align: 0.5em;
+  font-family: var(--mouseion-font-application); font-size: 0.8125rem; font-variant-numeric: tabular-nums;
+  color: var(--mouseion-color-text-muted);
+}
+.px-length__caption { margin: 0 0 var(--mouseion-space-1); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); font-variant-numeric: tabular-nums; }
+.px-books { margin-top: var(--mouseion-space-3); }
+.px-books > summary { min-height: 2.75rem; display: inline-flex; align-items: center; color: var(--mouseion-color-accent); font-size: var(--mouseion-font-size-metadata); font-weight: 550; cursor: pointer; }
+.px-books__table { width: 100%; max-width: 34rem; border-collapse: collapse; font-size: var(--mouseion-font-size-metadata); }
+.px-books__table th, .px-books__table td { padding: var(--mouseion-space-1) var(--mouseion-space-3) var(--mouseion-space-1) 0; border-bottom: 1px solid var(--mouseion-color-border); text-align: left; font-weight: 400; }
+.px-books__table tbody :is(th, td) { height: 2.75rem; }
+.px-books__table thead th { color: var(--mouseion-color-text-muted); }
+.px-books__table .px-num { text-align: right; }
+.px-books__action { text-align: right !important; padding-right: 0 !important; }
+.px-books__action .button { min-height: 2.25rem; padding-block: 0; }
+.px-work__margin {
+  align-self: start; border-inline-start: 1px solid var(--mouseion-color-control-border);
+  padding-inline-start: var(--mouseion-space-4);
+  color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata);
+}
+.px-work__margin p { margin: 0 0 var(--mouseion-space-1); }
+.px-work__margin .action-group { margin-top: var(--mouseion-space-3); }
+.px-work__owned { margin-top: var(--mouseion-space-3) !important; color: var(--mouseion-color-text); font-weight: 550; }
+.px-dot { display: inline-block; width: 0.5rem; height: 0.5rem; margin-inline-end: 0.5rem; border-radius: 50%; background: var(--mouseion-color-accent); }
+@media (max-width: 40rem) {
+  .px-work { grid-template-columns: minmax(0, 1fr); }
+  .px-opening { font-size: 1.25rem; }
+  .px-length { flex-wrap: wrap; row-gap: var(--mouseion-space-2); }
+  .px-work__margin { border-inline-start: 0; border-top: 1px solid var(--mouseion-color-border); padding: var(--mouseion-space-3) 0 0; }
+}
+
+/* ---- B ---- */
+.sl-wrap { overflow-x: auto; }
+.sl { width: 100%; border-collapse: collapse; font-size: var(--mouseion-font-size-metadata); }
+.sl th, .sl td { padding: var(--mouseion-space-2) var(--mouseion-space-4) var(--mouseion-space-2) 0; border-bottom: 1px solid var(--mouseion-color-border); text-align: left; vertical-align: baseline; font-weight: 400; white-space: nowrap; }
+.sl thead th { color: var(--mouseion-color-text-muted); border-bottom-color: var(--mouseion-color-text); }
+.sl .px-num { text-align: right; }
+.sl-author th { padding-top: var(--mouseion-space-5); font-size: 1rem; font-weight: 650; border-bottom-color: var(--mouseion-color-control-border); }
+.sl-work a { font-size: 1.0625rem; color: var(--mouseion-color-text); }
+.sl-greek { margin-inline-start: var(--mouseion-space-2); color: var(--mouseion-color-text-muted); font-family: var(--mouseion-font-reading); }
+.sl-whole { color: var(--mouseion-color-text-muted); }
+.sl-lengthcol { width: 30%; min-width: 12rem; vertical-align: middle !important; }
+.sl tbody td { height: 3.25rem; }
+.sl-author th { height: auto; }
+.sl-action { padding-right: 0 !important; }
+.sl-action .button { min-height: 2.25rem; padding-block: 0; }
+
+/* ---- C ---- */
+.bl { margin: 0; }
+.bl-caption { max-width: var(--mouseion-width-reading); margin-bottom: var(--mouseion-space-5); color: var(--mouseion-color-text-muted); }
+.bl-axis, .bl-row { display: grid; grid-template-columns: 17rem minmax(0, 1fr); column-gap: var(--mouseion-space-5); }
+.bl-axis__track { position: relative; height: 1.5rem; margin-inline-end: 4.5rem; color: var(--mouseion-color-text-muted); font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.bl-axis__track span { position: absolute; transform: translateX(-50%); }
+.bl-axis__track span:first-child { transform: none; }
+.bl-author__name { margin: var(--mouseion-space-5) 0 var(--mouseion-space-2); font-size: 1rem; }
+.bl-row { align-items: center; padding: var(--mouseion-space-2) 0; border-top: 1px solid var(--mouseion-color-border); }
+.bl-row__label a { font-size: 1.0625rem; color: var(--mouseion-color-text); }
+.bl-row__track { position: relative; margin-inline-end: 4.5rem; }
+.bl-grid { position: absolute; top: calc(-1 * var(--mouseion-space-2)); bottom: calc(-1 * var(--mouseion-space-2)); width: 1px; background: var(--mouseion-color-border); }
+.bl-units { position: relative; display: flex; gap: 2px; list-style: none; margin: 0; padding: 0; }
+.bl-unit { flex: none; box-sizing: border-box; min-width: 4px; margin: 0; }
+.bl-unit a {
+  display: flex; align-items: center; justify-content: center; height: 2.75rem;
+  border: 1px solid var(--mouseion-color-control-border); border-radius: 2px;
+  background: var(--mouseion-color-surface-raised); color: var(--mouseion-color-text);
+  font-size: var(--mouseion-font-size-metadata); font-variant-numeric: tabular-nums; text-decoration: none;
+}
+.bl-unit a:hover { border-color: var(--mouseion-color-accent); color: var(--mouseion-color-accent); }
+.bl-unit--owned a { border-color: var(--mouseion-color-accent); background: var(--mouseion-color-accent); color: var(--mouseion-color-surface-raised); font-weight: 600; }
+.bl-unit--owned a:hover { color: var(--mouseion-color-surface-raised); background: var(--mouseion-color-accent-hover); }
+.bl-row__total { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); width: 4.5rem; text-align: right; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
+.bl-legend { margin-top: var(--mouseion-space-5); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
+.bl-key { display: inline-block; width: 1rem; height: 0.75rem; margin: 0 0.4rem 0 1rem; vertical-align: -1px; border: 1px solid var(--mouseion-color-control-border); border-radius: 2px; background: var(--mouseion-color-surface-raised); }
+.bl-key:first-child { margin-inline-start: 0; }
+.bl-key--owned { border-color: var(--mouseion-color-accent); background: var(--mouseion-color-accent); }
+@media (max-width: 40rem) {
+  .bl-axis { display: none; }
+  .bl-row { grid-template-columns: minmax(0, 1fr); row-gap: var(--mouseion-space-2); }
+}
+</style>
+{{end}}
+
+{{define "switcher"}}
+<style>
+.proto-bar { position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem; border-radius: 999px; background: #1b1b1b; color: #fff; font: 600 13px/1 system-ui, sans-serif; box-shadow: 0 6px 24px rgb(0 0 0 / 0.35); }
+.proto-bar a { display: grid; place-items: center; min-width: 2.25rem; height: 2.25rem; padding: 0 0.6rem; border-radius: 999px; color: #fff; text-decoration: none; }
+.proto-bar a:hover { background: #3a3a3a; }
+.proto-bar a[aria-current] { background: #fff; color: #1b1b1b; }
+.proto-bar span { padding: 0 0.6rem; opacity: 0.7; font-weight: 400; }
+main { padding-bottom: 5rem; }
+</style>
+<div class="proto-bar" role="navigation" aria-label="Prototype variants">
+  <span>Prototype</span>
+  <a href="?variant=current" {{if eq .Variant "current"}}aria-current="page"{{end}}>Shipped</a>
+  <a href="?variant=A" {{if eq .Variant "A"}}aria-current="page"{{end}}>A Openings</a>
+  <a href="?variant=B" {{if eq .Variant "B"}}aria-current="page"{{end}}>B Shelf-list</a>
+  <a href="?variant=C" {{if eq .Variant "C"}}aria-current="page"{{end}}>C By length</a>
+</div>
+<script>
+document.addEventListener('keydown', function (e) {
+  if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  var links = Array.from(document.querySelectorAll('.proto-bar a'));
+  var i = links.findIndex(function (a) { return a.hasAttribute('aria-current'); });
+  location.search = new URL(links[(i + (e.key === 'ArrowRight' ? 1 : -1) + links.length) % links.length].href).search;
+});
+</script>
+{{end}}

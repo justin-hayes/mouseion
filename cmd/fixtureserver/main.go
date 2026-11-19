@@ -76,6 +76,9 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.Handle("/static/", webapp.StaticHandler())
+	// PROTOTYPE: Classical catalog variants, see prototype_classical_pinakes.go.
+	mux.Handle("GET /catalogs/classical", prototypeClassical(h))
+	mux.HandleFunc("GET /prototype/literata-greek-ext.woff2", prototypeGreekExtFontHandler)
 	mux.Handle("/", h)
 	log.Print("mouseion fixture server listening")
 	log.Fatal((&http.Server{
