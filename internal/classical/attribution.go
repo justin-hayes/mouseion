@@ -5,6 +5,14 @@ import (
 	"sync"
 )
 
+// SourceAttribution credits one source layer's content in the learner-facing
+// catalog. Text is the layer's deployer-register row, which names the source
+// and its licence.
+type SourceAttribution struct {
+	Layer string
+	Text  string
+}
+
 // PassageAttribution is how an exported card and deck credit the reference
 // translation a frozen passage context came from.
 type PassageAttribution struct {
@@ -31,6 +39,31 @@ func (l Layers) PassageAttribution(pin string) (PassageAttribution, bool) {
 		}
 	}
 	return PassageAttribution{}, false
+}
+
+// SourceAttribution returns the credit for one source layer. The layer's
+// deployer-register row is the reviewed attribution data that names both the
+// source and its licence.
+func (l Layers) SourceAttribution(layerKey string) (SourceAttribution, bool) {
+	layer, ok := l.Layer(layerKey)
+	if !ok {
+		return SourceAttribution{}, false
+	}
+	text := strings.TrimSpace(layer.DeployerRegisterRow)
+	if text == "" {
+		return SourceAttribution{}, false
+	}
+	return SourceAttribution{Layer: layer.Key, Text: text}, true
+}
+
+// EmbeddedSourceAttribution looks a source layer up in the release's
+// layers.json.
+func EmbeddedSourceAttribution(layerKey string) (SourceAttribution, bool) {
+	layers, err := embeddedLayers()
+	if err != nil {
+		return SourceAttribution{}, false
+	}
+	return layers.SourceAttribution(layerKey)
 }
 
 // embeddedLayers parses the release's layers.json once.

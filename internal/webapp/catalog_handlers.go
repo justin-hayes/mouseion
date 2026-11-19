@@ -83,15 +83,16 @@ func (h *Handler) loadClassicalCatalogView(ctx context.Context, owner string, ca
 	return view, nil
 }
 
-// classicalAuthorIndex renders the built-in Classical catalog's authors and
-// their works. It is deliberately not scoped to the active study language.
+// classicalAuthorIndex renders the built-in Classical catalog index: every
+// author's Works with their Openings, lengths, facts and Add controls. It is
+// deliberately not scoped to the active study language.
 func (h *Handler) classicalAuthorIndex(w http.ResponseWriter, r *http.Request) {
 	view, err := h.loadClassicalCatalogView(r.Context(), user(r).ID, h.services.Classical)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	render(w, r, ClassicalAuthorIndexPage(user(r), h.csrf(w, r), h.services.Classical.Authors(), h.services.Classical.Counts(), view))
+	render(w, r, ClassicalAuthorIndexPage(user(r), h.csrf(w, r), h.services.Classical.Authors(), h.services.Classical.Counts(), h.services.Classical.SourceAttributions(), view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
 }
 
 // classicalAuthor renders one author's works.
@@ -141,12 +142,15 @@ func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
 		keys = append(keys, unit.Key)
 	}
 	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), user(r).ID, keys)
+	target := classicalWorkURL(work.Key)
+	if r.PostFormValue("return") == classicalAddReturnIndex {
+		target = classicalCatalogURL()
+	}
 	if err != nil {
-		h.redirectClassicalAddFailure(w, r, classicalWorkURL(work.Key), err)
+		h.redirectClassicalAddFailure(w, r, target, err)
 		return
 	}
-	target := classicalWorkURL(work.Key)
-	if r.PostFormValue("return") == "author" {
+	if r.PostFormValue("return") == classicalAddReturnAuthor {
 		target = classicalAuthorURL(work.Author)
 	}
 	h.redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, activeLanguageOf(r), work.Key))
@@ -164,12 +168,23 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), user(r).ID, []string{key})
+	target := classicalWorkURL(work.Key)
+	if r.PostFormValue("return") == classicalAddReturnIndex {
+		target = classicalCatalogURL()
+	}
 	if err != nil {
-		h.redirectClassicalAddFailure(w, r, classicalWorkURL(work.Key), err)
+		h.redirectClassicalAddFailure(w, r, target, err)
 		return
 	}
-	h.redirectClassicalAdd(w, r, classicalWorkURL(work.Key), classicalAddConfirmationFor(report, activeLanguageOf(r), work.Key))
+	h.redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, activeLanguageOf(r), work.Key))
 }
+
+const (
+	// classicalAddReturnIndex returns the learner to the catalog index.
+	classicalAddReturnIndex = "index"
+	// classicalAddReturnAuthor returns the learner to the author page.
+	classicalAddReturnAuthor = "author"
+)
 
 // classicalAddConfirmation is what one Add reports to the page it returns to.
 // WorkKey names the added Books' work only while another study language is

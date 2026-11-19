@@ -32,7 +32,7 @@ func catalogFixtureDefinition(key, workKey, title, author, greekTitle, editionKe
 		CitationEnd:           citationEnd,
 		WordCount:             words,
 		Opening:               "ἄρχεται ὁ λόγος.",
-		Source:                classical.SourcePin{Layer: "oga-src", FileName: "work.conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
+		Source:                classical.SourcePin{Layer: "oga-src-v0.2.0-text", FileName: "work.conllu", Size: 10, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
 		InterpretationVersion: "oga-agdt-upos/5",
 		Revision:              1,
 		Withdrawn:             withdrawn,
@@ -147,6 +147,119 @@ func TestClassicalCatalogAuthorIndexAuthorPageAndWorkPage(t *testing.T) {
 	require.Equal(t, http.StatusOK, whole.Code)
 	assert.Contains(t, whole.Body.String(), "Passage")
 	assert.Contains(t, whole.Body.String(), "1.1.1–1.1.10")
+}
+
+func TestClassicalCatalogIndexRendersOpeningsLengthsAndAttribution(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		catalog, err := fixtures.NewClassicalCatalog()
+		require.NoError(t, err)
+		services.Classical = catalog
+	})
+
+	index := catalogPage(t, h, cookies, "/catalogs/classical")
+	require.Equal(t, http.StatusOK, index.Code)
+	body := index.Body.String()
+	for _, want := range []string{
+		"Homer",
+		"Xenophon",
+		"μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος",
+		"μετὰ δὲ ταῦτα οὐ πολλαῖς ἡμέραις ὕστερον",
+		`lang="grc"`,
+		"Begins at",
+		"1.1.1",
+		"600 words in 3 books",
+		"500 words, read whole",
+		"Fixture reviewed edition",
+		"Passage 1.1.1–3.10.19",
+		"Passage 1.1.1–1.1.10",
+		"English translation not available",
+		"Choose books",
+		"Add the whole work",
+		"Add the work",
+		"Greek text source:",
+		"OGA oga_src v0.2.0 Greek text",
+		"CC BY-SA 4.0",
+		`style="width:1.000%;"`,
+		`style="width:2.000%;"`,
+		`style="width:3.000%;"`,
+		`style="width:5.000%;"`,
+		`action="/catalogs/classical/works/fixture-iliad/add"`,
+		`action="/catalogs/classical/units/fixture-iliad-2/add"`,
+		`name="csrf_token" value="`,
+		`name="return" value="index"`,
+	} {
+		assert.Contains(t, body, want, "catalog index missing %q", want)
+	}
+}
+
+func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
+	ctx := t.Context()
+	h, cookies, csrf, store := readingFixtureSessionWith(t, func(services *Services) {
+		catalog, err := fixtures.NewClassicalCatalog()
+		require.NoError(t, err)
+		services.Classical = catalog
+	})
+
+	index := catalogPage(t, h, cookies, "/catalogs/classical")
+	require.Equal(t, http.StatusOK, index.Code)
+	body := index.Body.String()
+	assert.Contains(t, body, "Add the whole work", "a multi-book Work with none owned offers the whole Work")
+	assert.Contains(t, body, "Add the work", "a whole-work unit offers the work")
+	assert.NotContains(t, body, "books in My Books")
+	assert.NotContains(t, body, "In My Books")
+
+	// Add one constituent book from the "Choose books" table. The existing
+	// endpoint returns to the index with the existing confirmation.
+	addedBook := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad-1/add", url.Values{
+		"csrf_token": {csrf},
+		"return":     {"index"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, addedBook.Code)
+	location := addedBook.Header().Get("Location")
+	assert.Contains(t, location, "/catalogs/classical?")
+	assert.Contains(t, location, url.QueryEscape("Added 1 Book to My Books"))
+
+	partial := catalogPage(t, h, cookies, location)
+	require.Equal(t, http.StatusOK, partial.Code)
+	partialBody := partial.Body.String()
+	for _, want := range []string{
+		"Added 1 Book to My Books",
+		"1 of 3 books in My Books",
+		"Add the remaining books",
+		`action="/catalogs/classical/units/fixture-iliad-2/add"`,
+	} {
+		assert.Contains(t, partialBody, want, "partly owned index missing %q", want)
+	}
+	assert.NotContains(t, partialBody, `action="/catalogs/classical/units/fixture-iliad-1/add"`, "an owned book offers no Add")
+	assert.NotContains(t, partialBody, "Add the whole work")
+
+	// Add a whole-work unit from the index margin.
+	addedWork := readingTestRequest(t, h, "/catalogs/classical/works/fixture-hellenica/add", url.Values{
+		"csrf_token": {csrf},
+		"return":     {"index"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, addedWork.Code)
+	workLocation := addedWork.Header().Get("Location")
+	assert.Contains(t, workLocation, "/catalogs/classical?")
+	assert.Contains(t, workLocation, url.QueryEscape("Added 1 Book to My Books"))
+
+	ownedWhole := catalogPage(t, h, cookies, workLocation)
+	require.Equal(t, http.StatusOK, ownedWhole.Code)
+	ownedBody := ownedWhole.Body.String()
+	assert.Contains(t, ownedBody, "In My Books")
+	assert.NotContains(t, ownedBody, `action="/catalogs/classical/works/fixture-hellenica/add"`, "a fully owned whole-work unit offers no Add")
+
+	// Complete the Work: every Book owned means no Add control for it.
+	_, err := store.AddClassicalReadingUnits(ctx, fixtures.OwnerID, []string{"fixture-iliad-2", "fixture-iliad-3"})
+	require.NoError(t, err)
+	full := catalogPage(t, h, cookies, "/catalogs/classical")
+	require.Equal(t, http.StatusOK, full.Code)
+	fullBody := full.Body.String()
+	assert.Contains(t, fullBody, "3 of 3 books in My Books")
+	assert.NotContains(t, fullBody, `action="/catalogs/classical/works/fixture-iliad/add"`)
+	assert.NotContains(t, fullBody, `action="/catalogs/classical/units/fixture-iliad-1/add"`)
+	assert.NotContains(t, fullBody, `action="/catalogs/classical/units/fixture-iliad-2/add"`)
+	assert.NotContains(t, fullBody, `action="/catalogs/classical/units/fixture-iliad-3/add"`)
 }
 
 func TestClassicalAddMessageNamesOnlyMembershipChanges(t *testing.T) {

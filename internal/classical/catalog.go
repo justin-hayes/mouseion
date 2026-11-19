@@ -189,9 +189,10 @@ type CatalogUnit struct {
 // Catalog is the read-only view of the embedded, reconciled manifest. It is
 // built once from the release and never scoped to a learner's study language.
 type Catalog struct {
-	counts  CatalogCounts
-	authors []CatalogAuthor
-	works   map[string]CatalogWork
+	counts       CatalogCounts
+	authors      []CatalogAuthor
+	works        map[string]CatalogWork
+	attributions []SourceAttribution
 }
 
 // LoadCatalog parses a release manifest and builds its browse view.
@@ -221,6 +222,7 @@ func NewCatalog(definitions []Definition) (*Catalog, error) {
 		catalog.works[key] = *work
 	}
 	catalog.authors = buildCatalogAuthors(worksByKey)
+	catalog.attributions = buildCatalogAttributions(definitions)
 	units := 0
 	for _, work := range catalog.works {
 		units += len(work.Units)
@@ -265,6 +267,29 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 		work.Words += definition.WordCount
 	}
 	return worksByKey
+}
+
+// buildCatalogAttributions credits each source layer the current catalog uses,
+// once, in manifest order. A layer without reviewed attribution data adds no
+// line rather than inventing credit.
+func buildCatalogAttributions(definitions []Definition) []SourceAttribution {
+	seen := map[string]struct{}{}
+	attributions := make([]SourceAttribution, 0, 1)
+	for _, definition := range definitions {
+		if definition.Withdrawn {
+			continue
+		}
+		if _, duplicate := seen[definition.Source.Layer]; duplicate {
+			continue
+		}
+		attribution, ok := EmbeddedSourceAttribution(definition.Source.Layer)
+		if !ok {
+			continue
+		}
+		seen[definition.Source.Layer] = struct{}{}
+		attributions = append(attributions, attribution)
+	}
+	return attributions
 }
 
 // buildCatalogAuthors groups works by author in author-name order.
@@ -325,6 +350,10 @@ func sortUnits(units []CatalogUnit) {
 
 // Counts returns the running release's catalog counts.
 func (c *Catalog) Counts() CatalogCounts { return c.counts }
+
+// SourceAttributions returns the credits of the source layers the current
+// catalog uses, once each.
+func (c *Catalog) SourceAttributions() []SourceAttribution { return c.attributions }
 
 // Authors returns the author index in name order.
 func (c *Catalog) Authors() []CatalogAuthor { return c.authors }
