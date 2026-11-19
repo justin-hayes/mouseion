@@ -463,6 +463,14 @@ A sentence belongs to the Reading unit that holds its first word, so each
 sentence of an Edition belongs to exactly one of its Reading units.
 _Avoid_: readable unit (an extracted structural unit), annotation coverage.
 
+**Opening**:
+The first sentence of a Reading unit that is not a speaker label, exactly as
+its Edition prints it and as the learner will read it. A Work's Opening is that
+of its first Reading unit. It is derived from the source pin and the citation
+range, so it never raises the Definition revision by itself. It identifies a
+text by its words and says nothing about difficulty.
+_Avoid_: incipit, first line, excerpt, preview.
+
 **Constituent book**:
 A Work's conventional top-level division that its citation scheme names a book,
 such as Anabasis 1–7 or Iliad 1–24. It is not a chapter, a page, or a line, even
