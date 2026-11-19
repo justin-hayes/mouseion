@@ -107,7 +107,7 @@ func TestCatalogsRendersTheClassicalCatalogRecordAndMarginCounts(t *testing.T) {
 	assert.NotContains(t, body, "Cyropaedia", "a withdrawn definition is hidden")
 }
 
-func TestClassicalCatalogAuthorIndexAuthorPageAndWorkPage(t *testing.T) {
+func TestClassicalCatalogIndexRetiredAuthorPageAndWorkPage(t *testing.T) {
 	h, cookies, _, store := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = catalogFixture(t)
 	})
@@ -121,27 +121,21 @@ func TestClassicalCatalogAuthorIndexAuthorPageAndWorkPage(t *testing.T) {
 		assert.Contains(t, index.Body.String(), want, "author index missing %q", want)
 	}
 	assert.NotContains(t, index.Body.String(), "Cyropaedia")
+	assert.NotContains(t, index.Body.String(), "/catalogs/classical/authors/", "the index never links to the retired author page")
 
-	author := catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("Xenophon"))
-	require.Equal(t, http.StatusOK, author.Code)
-	for _, want := range []string{
-		"<h1>Xenophon</h1>",
-		"Ἀνάβασις",
-		"7 books",
-		"9305",
-		"English translation available",
-		"passage",
-		"English translation not available",
-	} {
-		assert.Contains(t, author.Body.String(), want, "author page missing %q", want)
-	}
-	assert.NotContains(t, author.Body.String(), "Cyropaedia")
+	retired := catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("Xenophon"))
+	require.Equal(t, http.StatusMovedPermanently, retired.Code)
+	assert.Equal(t, "/catalogs/classical#author-Xenophon", retired.Header().Get("Location"))
 
 	work := catalogPage(t, h, cookies, "/catalogs/classical/works/xenophon-anabasis")
 	require.Equal(t, http.StatusOK, work.Code)
-	for _, want := range []string{"<th>Book</th>", "<th>Passage</th>", "<th>Words</th>", "Book 1", "1.1.1–1.10.19", "9305"} {
+	for _, want := range []string{
+		"<th>Book</th>", "<th>Passage</th>", "<th>Words</th>", "Book 1", "1.1.1–1.10.19", "9305",
+		`href="/catalogs/classical#author-Xenophon"`,
+	} {
 		assert.Contains(t, work.Body.String(), want, "work page missing %q", want)
 	}
+	assert.NotContains(t, work.Body.String(), "/catalogs/classical/authors/", "the work breadcrumb leads to the index section")
 
 	whole := catalogPage(t, h, cookies, "/catalogs/classical/works/xenophon-hellenica")
 	require.Equal(t, http.StatusOK, whole.Code)
@@ -232,6 +226,7 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	}
 	assert.NotContains(t, partialBody, `action="/catalogs/classical/units/fixture-iliad-1/add"`, "an owned book offers no Add")
 	assert.NotContains(t, partialBody, "Add the whole work")
+	assert.NotContains(t, partialBody, "/catalogs/classical/authors/", "the Add confirmation never links to the retired author page")
 
 	// Add a whole-work unit from the index margin.
 	addedWork := readingTestRequest(t, h, "/catalogs/classical/works/fixture-hellenica/add", url.Values{

@@ -116,9 +116,10 @@ a directory stops startup.
 
 ### Classical catalog preparation
 
-Adding an Ancient Greek Book from the Classical catalog fetches its pinned work
-file, and its pinned reference translation, over HTTPS from the upstreams named
-in the embedded manifest
+The release already carries each Work's Opening, a short excerpt of the Greek
+text shown on the catalog index. Adding an Ancient Greek Book from the Classical
+catalog fetches its full pinned work file, and its pinned reference translation,
+over HTTPS from the upstreams named in the embedded manifest
 ([`internal/classical/layers.json`](../internal/classical/layers.json)):
 `raw.githubusercontent.com` for the `mgbilby/oga_src` text and
 `PerseusDL/canonical-greekLit` translations. Each file is verified against its
