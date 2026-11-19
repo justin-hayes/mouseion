@@ -287,6 +287,41 @@ func TestMoveUnchangedDoesNotSubmit(t *testing.T) {
 	assert.Zero(t, h.analysis.calls, "an unchanged disposition starts no analysis")
 }
 
+func TestMoveAlreadyToReadIsUnchangedEvenWhenApplied(t *testing.T) {
+	t.Parallel()
+	for name, book := range map[string]domain.MyBook{
+		"classical": toReadClassicalBook(),
+		"epub":      toReadEPUBBook("source-1"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			h := newHarness(t, book, nil)
+			h.dispositions.applied = true
+
+			outcome := move(t, h)
+
+			assert.Equal(t, OutcomeUnchanged, outcome.Kind)
+			assert.Equal(t, 1, h.dispositions.calls)
+			assert.Zero(t, h.preparation.calls, "moving a To Read Book again starts no preparation")
+			assert.Zero(t, h.analysis.calls, "moving a To Read Book again starts no analysis")
+		})
+	}
+}
+
+// A Book deleted between the load and the transition is an unexpected
+// infrastructure error, exactly as the handlers treated it before the module.
+func TestMoveTransitionNotFoundIsReturned(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, classicalBook(), nil)
+	h.dispositions.err = domain.ErrNotFound
+
+	_, err := h.module.Move(context.Background(), "owner", "book-1", 3)
+
+	require.ErrorIs(t, err, domain.ErrNotFound)
+	assert.Zero(t, h.preparation.calls)
+	assert.Zero(t, h.analysis.calls)
+}
+
 func TestMoveClassicalOutcomes(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -374,6 +409,42 @@ func TestSourceAcquisitionWithoutTargetsOrAcquirer(t *testing.T) {
 	acquisition.Targets = &fakeAcquisition{}
 	_, err = acquisition.AcquireForBook(context.Background(), "owner", "connection-1", "de", "book-1", opds.Entry{})
 	require.ErrorIs(t, err, ErrAcquisitionUnavailable)
+}
+
+// fakeAcquirer records the arguments SourceAcquisition passes through.
+type fakeAcquirer struct {
+	connectionID, language, bookID string
+	entry                          opds.Entry
+	err                            error
+}
+
+func (f *fakeAcquirer) AcquireForBook(_ context.Context, _, connectionID, language, bookID string, entry opds.Entry) (epub.ImportResult, error) {
+	f.connectionID, f.language, f.bookID, f.entry = connectionID, language, bookID, entry
+	return epub.ImportResult{}, f.err
+}
+
+func TestSourceAcquisitionDelegates(t *testing.T) {
+	t.Parallel()
+	target := cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Language: "de", Entry: opds.Entry{ID: "entry-1"}}
+	finderErr := errors.New("lookup failed")
+	acquirerErr := errors.New("download failed")
+	acquirer := &fakeAcquirer{err: acquirerErr}
+	acquisition := SourceAcquisition{Targets: &fakeAcquisition{target: target}, Acquirer: acquirer}
+
+	found, err := acquisition.FindAcquisitionTarget(context.Background(), "owner", "book-1")
+	require.NoError(t, err)
+	assert.Equal(t, target, found)
+
+	_, err = acquisition.AcquireForBook(context.Background(), "owner", "connection-1", "de", "book-1", target.Entry)
+	require.ErrorIs(t, err, acquirerErr)
+	assert.Equal(t, "connection-1", acquirer.connectionID)
+	assert.Equal(t, "de", acquirer.language)
+	assert.Equal(t, "book-1", acquirer.bookID)
+	assert.Equal(t, target.Entry, acquirer.entry)
+
+	acquisition.Targets = &fakeAcquisition{findErr: finderErr}
+	_, err = acquisition.FindAcquisitionTarget(context.Background(), "owner", "book-1")
+	require.ErrorIs(t, err, finderErr)
 }
 
 func TestMoveEPUBAcquisitionReloadFailure(t *testing.T) {
@@ -782,7 +853,7 @@ func TestEPUBAnalysisFailureLogNamesTheStep(t *testing.T) {
 	outcome := move(t, h)
 
 	require.Equal(t, OutcomeCouldNotStart, outcome.Kind)
-	assert.Contains(t, logs.String(), "mouseion: To Read analysis submission failed for owner owner book ")
+	assert.Contains(t, logs.String(), `mouseion: To Read analysis submission failed for owner "owner" book "book-1": "submission failed"`, "identifiers are quoted")
 }
 
 func TestCurrentBookRefusalIsNotLoggedAsFailure(t *testing.T) {
