@@ -45,10 +45,7 @@ func classicalPreparationFor(book domain.MyBook) (classicalPreparationView, bool
 		return classicalPreparationView{}, false
 	}
 	if status == nil && book.ReadingUnit.Withdrawn {
-		return classicalPreparationView{
-			Label:       classicalWithdrawnLabel,
-			Description: classicalWithdrawnDescription,
-		}, true
+		return classicalPreparationViewFor(domain.WithdrawnClassicalPreparationStatus(*book.ReadingUnit)), true
 	}
 	if status == nil {
 		return classicalPreparationView{}, false

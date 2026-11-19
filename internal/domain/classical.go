@@ -215,6 +215,59 @@ type ClassicalPreparationFailureRecord struct {
 	Code               string
 }
 
+// Stable preparation failure codes the domain classifies. They are the durable
+// values recorded by internal/classical and internal/ancientgreek; the domain
+// spells them here because ADR 0091 keeps it free of those packages.
+const (
+	classicalPreparationCodeDownloadFailed = "source_download_failed"
+	classicalPreparationCodePinMismatch    = "source_pin_mismatch"
+	classicalPreparationCodeOversize       = "source_oversize"
+	classicalPreparationCodeLayerUnknown   = "source_layer_unknown"
+	classicalPreparationCodeFormatUnknown  = "source_format_unknown"
+	classicalPreparationCodeAdapterRefused = "source_adapter_refused"
+	classicalPreparationCodeWithdrawn      = "classical_definition_withdrawn"
+	classicalPreparationCodeLegacyRows     = "classical_catalog_legacy_rows"
+	classicalPreparationCodeFailed         = "classical_preparation_failed"
+)
+
+// ClassicalPreparationFailureForCode returns the stage that owns a stable
+// preparation failure code. It is the one code-to-stage table every producer
+// and reader uses. An unrecognised code is an import-stage failure: the source
+// was acquired, but its analysis was not published.
+func ClassicalPreparationFailureForCode(code string) ClassicalPreparationFailure {
+	switch code {
+	case classicalPreparationCodeDownloadFailed:
+		return ClassicalPreparationFailureFetch
+	case classicalPreparationCodeWithdrawn:
+		return ClassicalPreparationFailureWithdrawn
+	case classicalPreparationCodeLegacyRows:
+		return ClassicalPreparationFailureCatalog
+	case classicalPreparationCodePinMismatch, classicalPreparationCodeOversize,
+		classicalPreparationCodeLayerUnknown, classicalPreparationCodeFormatUnknown,
+		classicalPreparationCodeAdapterRefused:
+		return ClassicalPreparationFailureSource
+	case classicalPreparationCodeFailed:
+		return ClassicalPreparationFailureImport
+	case "":
+		return ClassicalPreparationFailureNone
+	default:
+		return ClassicalPreparationFailureImport
+	}
+}
+
+// WithdrawnClassicalPreparationStatus is the stable status of an unprepared
+// Book whose current Reading unit is a withdrawn tombstone. Persistence and the
+// Reading page both construct it here, so the learner sees one status.
+func WithdrawnClassicalPreparationStatus(unit BookReadingUnit) ClassicalPreparationStatus {
+	return ClassicalPreparationStatus{
+		Failure:         ClassicalPreparationFailureWithdrawn,
+		Code:            classicalPreparationCodeWithdrawn,
+		FailureRevision: unit.Revision,
+		CurrentRevision: unit.Revision,
+		Withdrawn:       true,
+	}
+}
+
 // ClassicalPreparationJob is one classical preparation shown in the jobs
 // surface. BookTitle is the learner's Book title; State is River's job state.
 // Code is the stable code recorded for a failed attempt.

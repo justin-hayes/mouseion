@@ -105,6 +105,20 @@ func TestClassicalPreparationRecoveryAfterCompletionOffersReadingAgain(t *testin
 	assert.Equal(t, "/library/books/greek/read-again", myBookEvidenceRecoveryURL(book))
 }
 
+func TestClassicalPreparationForWithdrawnUnitWithoutStatus(t *testing.T) {
+	t.Parallel()
+	book := domain.MyBook{
+		Book:        domain.Book{ID: "greek", Title: "Anabasis", LanguageState: domain.LanguageChosen, LanguageTag: "grc"},
+		Disposition: domain.BookDispositionToRead,
+		ReadingUnit: &domain.BookReadingUnit{ReadingUnitKey: "greek-1", Revision: 2, Withdrawn: true},
+	}
+	view, ok := classicalPreparationFor(book)
+	require.True(t, ok)
+	assert.Equal(t, classicalWithdrawnLabel, view.Label)
+	assert.Equal(t, classicalWithdrawnDescription, view.Description)
+	assert.False(t, view.Actionable)
+}
+
 func TestReadingClassicalWithdrawnFallbackAndCatalogState(t *testing.T) {
 	t.Parallel()
 	withdrawn := readingBookView{

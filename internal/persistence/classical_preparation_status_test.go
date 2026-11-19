@@ -78,6 +78,28 @@ func TestClassicalPreparationStatusResolution(t *testing.T) {
 	}
 }
 
+// TestClassicalPreparationCodesMatchDomainTable locks the stable code values
+// the producing packages record to the domain's one code-to-stage table. ADR
+// 0091 keeps the domain free of those packages, so both sides spell the codes;
+// this test fails if either side drifts.
+func TestClassicalPreparationCodesMatchDomainTable(t *testing.T) {
+	t.Parallel()
+	cases := map[string]domain.ClassicalPreparationFailure{
+		ancientgreek.CodeSourceDownloadFailed: domain.ClassicalPreparationFailureFetch,
+		ancientgreek.CodePinMismatch:          domain.ClassicalPreparationFailureSource,
+		ancientgreek.CodeOversize:             domain.ClassicalPreparationFailureSource,
+		ancientgreek.CodeSourceLayerUnknown:   domain.ClassicalPreparationFailureSource,
+		ancientgreek.CodeUnknownSourceFormat:  domain.ClassicalPreparationFailureSource,
+		ancientgreek.CodeAdapterRefused:       domain.ClassicalPreparationFailureSource,
+		classical.WithdrawnCode:               domain.ClassicalPreparationFailureWithdrawn,
+		classical.LegacyRowsCode:              domain.ClassicalPreparationFailureCatalog,
+		classical.PreparationFailedCode:       domain.ClassicalPreparationFailureImport,
+	}
+	for code, want := range cases {
+		assert.Equal(t, want, domain.ClassicalPreparationFailureForCode(code), code)
+	}
+}
+
 func TestValidatePreparationFailure(t *testing.T) {
 	t.Parallel()
 	valid := domain.ClassicalPreparationFailureRecord{
@@ -124,21 +146,5 @@ func TestValidatePreparedDefinition(t *testing.T) {
 			mutate(&record)
 			assert.Error(t, validatePreparedDefinition(record))
 		})
-	}
-}
-
-func TestClassicalFailureStageFromCode(t *testing.T) {
-	t.Parallel()
-	cases := map[string]domain.ClassicalPreparationFailure{
-		ancientgreek.CodeSourceDownloadFailed: domain.ClassicalPreparationFailureFetch,
-		ancientgreek.CodePinMismatch:          domain.ClassicalPreparationFailureSource,
-		ancientgreek.CodeOversize:             domain.ClassicalPreparationFailureSource,
-		ancientgreek.CodeAdapterRefused:       domain.ClassicalPreparationFailureSource,
-		classical.WithdrawnCode:               domain.ClassicalPreparationFailureWithdrawn,
-		classical.LegacyRowsCode:              domain.ClassicalPreparationFailureCatalog,
-		classical.PreparationFailedCode:       domain.ClassicalPreparationFailureImport,
-	}
-	for code, want := range cases {
-		assert.Equal(t, want, classicalFailureStageFromCode(code), code)
 	}
 }
