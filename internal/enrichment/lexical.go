@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
 
 // LexicalLookupRequest contains the lexical context needed to resolve one
@@ -346,7 +347,7 @@ func isContextWord(language, word string) bool {
 	if _, stop := contextStopWords[word]; stop {
 		return false
 	}
-	switch baseLanguage(language) {
+	switch canonicalization.NormalizeLanguage(language) {
 	case "el":
 		_, stop := greekContextStopWords[word]
 		return !stop
@@ -356,12 +357,6 @@ func isContextWord(language, word string) bool {
 	default:
 		return true
 	}
-}
-
-func baseLanguage(language string) string {
-	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
-	base, _, _ := strings.Cut(language, "-")
-	return base
 }
 
 func sensePhrase(value string) []string {

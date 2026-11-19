@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -507,7 +508,7 @@ func IsAncientGreek(language string) bool {
 }
 
 func nounArticle(language, upos, lemma, morphology string) (article, genderLabel string) {
-	baseLanguage := baseLanguageCode(language)
+	baseLanguage := canonicalization.NormalizeLanguage(language)
 	if !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
 		return "", ""
 	}
@@ -622,13 +623,6 @@ func morphologyHStatus(variants []map[string]string) string {
 		}
 	}
 	return ""
-}
-
-// baseLanguageCode normalises a language tag to its lowercase base language.
-func baseLanguageCode(language string) string {
-	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
-	base, _, _ := strings.Cut(language, "-")
-	return base
 }
 
 // genderDerivedArticle resolves the article from the candidate's gender
