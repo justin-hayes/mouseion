@@ -6,13 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
@@ -353,34 +350,6 @@ func (h *Handler) deckReadingStatus(ctx context.Context, owner, bookID string) (
 
 func (h *Handler) resolveBookID(ctx context.Context, owner, id string) (string, bool, error) {
 	return h.services.Store.Reading.ResolveBookID(ctx, owner, id)
-}
-
-// reanalysisError names why a Reading retry could not start analysis.
-func reanalysisError(ctx context.Context, catalog CatalogsStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
-	if acquisitionFailed {
-		return readingAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + " The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired."
-	}
-	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
-		return "The current source has no usable EPUB units. The To Read choice is retained; analysis is unavailable."
-	}
-	return "Analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again."
-}
-
-// logToReadAnalysisFailure records the underlying error behind a failed
-// acquisition or analysis submission. The page message shows only a
-// classified reason, once, so the log is the only lasting record of the cause.
-// A refused refresh of the current book is an expected outcome, not a failure.
-func logToReadAnalysisFailure(owner, bookID string, acquisitionFailed bool, err error) {
-	if errors.Is(err, analysis.ErrCurrentBook) {
-		return
-	}
-	stage := "analysis submission"
-	if acquisitionFailed {
-		stage = "acquisition"
-	}
-	// The book id comes from the request path, and the error may echo it;
-	// quoting keeps a crafted id from forging log lines.
-	log.Printf("mouseion: To Read %s failed for owner %s book %s: %s", stage, owner, strconv.Quote(bookID), strconv.Quote(err.Error()))
 }
 
 func (h *Handler) annotateMyBooksWithDisposition(ctx context.Context, owner string, books []domain.MyBook) error {

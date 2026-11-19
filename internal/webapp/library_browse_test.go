@@ -396,8 +396,6 @@ func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 
 func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
-	analysisService := &readingIntentAnalysis{}
-	requireHandler(t, h).services.Analysis = analysisService
 	bookState, err := store.GetBookDetail(context.Background(), fixtures.OwnerID, fixtures.BookID)
 	require.NoError(t, err)
 	retiredCurrent := readingTestRequest(t, h, "/library/books/"+fixtures.BookID+"/set-aside", url.Values{
@@ -424,7 +422,6 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, toRead.Code)
 	assert.NotContains(t, toRead.Header().Get("Location"), "error=")
 	assert.Contains(t, toRead.Header().Get("Location"), "disposition=to_read")
-	assert.Equal(t, 1, analysisService.calls, "moving to To Read should ensure analysis once")
 	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
@@ -433,7 +430,6 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
-	assert.Equal(t, 1, analysisService.calls, "idempotent move should not submit duplicate analysis")
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition, "repeated disposition write changed state")

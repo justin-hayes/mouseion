@@ -60,6 +60,14 @@ func (acceptingDispositions) TransitionBookDisposition(context.Context, string, 
 	return true, nil
 }
 
+// failingClassicalPreparation supplies a stable preparation cause to the
+// module's route.
+type failingClassicalPreparation struct{ err error }
+
+func (f failingClassicalPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
+	return analysis.ClassicalPreparationHandle{}, f.err
+}
+
 func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 	t.Parallel()
 	eligible := domain.MyBook{Book: domain.Book{ID: "book-1"}}
@@ -118,8 +126,9 @@ func TestMoveWorkBookToReadCountsNamedPreparationCauses(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			module, err := readingintent.New(readingintent.Config{
-				Books: staticBookReader{book: eligible}, Dispositions: acceptingDispositions{},
-				Preparation: fakeClassicalPreparation{err: tc.err}, Analysis: fixtures.Analysis{},
+				Books: staticBookReader{book: eligible}, CurrentReadings: fixtures.NewStore(),
+				Dispositions: acceptingDispositions{},
+				Preparation:  failingClassicalPreparation{err: tc.err}, Analysis: fixtures.Analysis{},
 			})
 			require.NoError(t, err)
 			h := &Handler{services: Services{ReadingIntent: module}}
@@ -177,6 +186,7 @@ func TestMoveToReadMessages(t *testing.T) {
 		outcome readingintent.Outcome
 		want    string
 	}{
+		{name: "stale revision", outcome: readingintent.Outcome{Kind: readingintent.OutcomeStaleRevision}, want: "This Book's decision changed in another tab. No changes were made; refresh My Books and try again."},
 		{name: "unchanged", outcome: readingintent.Outcome{Kind: readingintent.OutcomeUnchanged}, want: "Book moved to To Read."},
 		{name: "moved with nothing to submit", outcome: readingintent.Outcome{Kind: readingintent.OutcomeMoved}, want: "Book moved to To Read."},
 		{name: "no preparation seam", outcome: readingintent.Outcome{Kind: readingintent.OutcomePreparationUnavailable}, want: "Book moved to To Read."},
@@ -206,6 +216,22 @@ func TestMoveToReadMessages(t *testing.T) {
 			},
 			want: `Book moved to To Read, but Could not acquire "Der Weg" from connection connection-1: This book is not available as an EPUB. Choose another edition or format. The To Read status is retained; analysis is unavailable until the current EPUB can be acquired.`,
 		},
+		{
+			name: "acquisition download limit",
+			outcome: readingintent.Outcome{
+				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
+				Title: "Der lange Weg", Err: opds.ErrDownloadTooLarge, AcquisitionFailed: true,
+			},
+			want: `Book moved to To Read, but Could not acquire "Der lange Weg" from connection catalog connection: This EPUB is larger than the 512 MiB download limit. Choose a smaller edition. The To Read status is retained; analysis is unavailable until the current EPUB can be acquired.`,
+		},
+		{
+			name: "acquisition stored-content limit",
+			outcome: readingintent.Outcome{
+				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
+				Title: "Der lange Weg", Err: opds.ErrRetainedEPUBTooLarge, AcquisitionFailed: true,
+			},
+			want: `Book moved to To Read, but Could not acquire "Der lange Weg" from connection catalog connection: This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition. The To Read status is retained; analysis is unavailable until the current EPUB can be acquired.`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -227,6 +253,7 @@ func TestRetryMessages(t *testing.T) {
 		want    string
 		isError bool
 	}{
+		{name: "current book refused", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCurrentBookRefused}, want: "The current book cannot be refreshed. Its frozen evidence remains unchanged.", isError: true},
 		{name: "no preparation seam", outcome: readingintent.Outcome{Kind: readingintent.OutcomePreparationUnavailable}, want: "Classical preparation is unavailable.", isError: true},
 		{name: "already current", outcome: readingintent.Outcome{Kind: readingintent.OutcomeAlreadyCurrent}, want: "The analysis is already current."},
 		{name: "classical job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteClassical, JobNumber: 7}, want: "Preparation job #7 submitted."},
@@ -259,6 +286,30 @@ func TestRetryMessages(t *testing.T) {
 				Title:  "Book", Err: opds.ErrNoEPUB, AcquisitionFailed: true,
 			},
 			want:    `Could not acquire "Der Weg" from connection connection-1: This book is not available as an EPUB. Choose another edition or format. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
+			isError: true,
+		},
+		{
+			name: "acquisition download limit",
+			outcome: readingintent.Outcome{
+				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
+				Title: "Der lange Weg", Err: opds.ErrDownloadTooLarge, AcquisitionFailed: true,
+			},
+			want:    `Could not acquire "Der lange Weg" from connection catalog connection: This EPUB is larger than the 512 MiB download limit. Choose a smaller edition. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
+			isError: true,
+		},
+		{
+			name: "acquisition stored-content limit",
+			outcome: readingintent.Outcome{
+				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
+				Title: "Der lange Weg", Err: opds.ErrRetainedEPUBTooLarge, AcquisitionFailed: true,
+			},
+			want:    `Could not acquire "Der lange Weg" from connection catalog connection: This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
+			isError: true,
+		},
+		{
+			name:    "unknown outcome",
+			outcome: readingintent.Outcome{Kind: readingintent.OutcomeKind("unknown")},
+			want:    analysisCouldNotStartMessage,
 			isError: true,
 		},
 	}

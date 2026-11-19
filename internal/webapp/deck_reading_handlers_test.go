@@ -3,7 +3,6 @@ package webapp
 import (
 	"context"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -60,17 +59,4 @@ func (s *readingIntentStore) TransitionBookDisposition(_ context.Context, _, _ s
 	s.detail.Disposition = disposition
 	s.detail.DispositionRevision++
 	return true, nil
-}
-
-type readingIntentAnalysis struct {
-	fixtures.Analysis
-	calls int
-}
-
-func (a *readingIntentAnalysis) SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
-	a.calls++
-	return analysis.Handle{ID: int64(a.calls), DisplayNumber: int64(a.calls)}, nil
-}
-func (*readingIntentAnalysis) Get(context.Context, string, int64) (analysis.Status, error) {
-	return analysis.Status{}, nil
 }
