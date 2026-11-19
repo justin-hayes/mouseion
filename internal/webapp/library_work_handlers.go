@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/readingintent"
 )
 
 // workBooks loads every owned Book of one reviewed Work in constituent-book
@@ -101,26 +101,38 @@ type moveWorkToReadOutcome struct {
 }
 
 // moveWorkBookToRead applies the bulk rule to one Book: no reading history,
-// never the current Book, and preparation only after a real move.
+// never the current Book, and preparation only after a real move. The
+// reading-intent module owns the transition, the route and the log line; this
+// loop keeps only the Work eligibility rule and its tally. Every Book in a Work
+// carries a Reading unit, so the module's EPUB route is not reached here.
 func (h *Handler) moveWorkBookToRead(ctx context.Context, owner string, book domain.MyBook) moveWorkToReadOutcome {
 	if !book.WorkToReadEligible() {
 		return moveWorkToReadOutcome{unchanged: 1}
 	}
-	applied, err := h.services.Store.MyBooks.TransitionBookDisposition(ctx, owner, book.Book.ID, book.DispositionRevision, domain.BookDispositionToRead)
-	if workTransitionUnchanged(err) {
-		return moveWorkToReadOutcome{unchanged: 1}
-	} else if err != nil {
+	intent, err := h.readingIntentModule()
+	if err != nil {
 		logWorkActionFailure(owner, book.Book.ID, "To Read", err)
 		return moveWorkToReadOutcome{failed: 1}
 	}
-	if !applied {
+	outcome, err := intent.Move(ctx, owner, book.Book.ID, book.DispositionRevision)
+	if err != nil {
+		if workTransitionUnchanged(err) {
+			return moveWorkToReadOutcome{unchanged: 1}
+		}
+		logWorkActionFailure(owner, book.Book.ID, "To Read", err)
+		return moveWorkToReadOutcome{failed: 1}
+	}
+	switch outcome.Kind {
+	case readingintent.OutcomeUnchanged, readingintent.OutcomeStaleRevision, readingintent.OutcomeNotFound:
 		return moveWorkToReadOutcome{unchanged: 1}
+	case readingintent.OutcomeLegacyRows, readingintent.OutcomeWithdrawnDefinition,
+		readingintent.OutcomeSourceRefused, readingintent.OutcomeCouldNotStart,
+		readingintent.OutcomeAcquisitionFailed, readingintent.OutcomeNoUsableEPUBUnits,
+		readingintent.OutcomePreparationUnavailable:
+		return moveWorkToReadOutcome{moved: 1, prepFailed: 1}
+	default:
+		return moveWorkToReadOutcome{moved: 1}
 	}
-	outcome := moveWorkToReadOutcome{moved: 1}
-	if book.ReadingUnit != nil && !book.Classification().AnalysisInEffect() && !h.queueWorkClassicalPreparation(ctx, owner, book.Book.ID) {
-		outcome.prepFailed = 1
-	}
-	return outcome
 }
 
 // moveWorkToInbox returns every Book outside the current Reading to Inbox. The
@@ -223,23 +235,6 @@ func workTransitionUnchanged(err error) bool {
 func logWorkActionFailure(owner, bookID, action string, err error) {
 	log.Printf("mouseion: work %s update failed for owner %s book %s: %s",
 		strconv.Quote(action), strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(err.Error()))
-}
-
-// queueWorkClassicalPreparation submits one Book's ensure-once preparation and
-// reports whether the submission started. A failure is logged with stable codes
-// and identifiers only, then the rest of the Work continues.
-func (h *Handler) queueWorkClassicalPreparation(ctx context.Context, owner, bookID string) bool {
-	if h.services.ClassicalPreparation == nil {
-		return false
-	}
-	handle, err := h.services.ClassicalPreparation.SubmitClassicalPreparation(ctx, owner, bookID)
-	if err != nil {
-		stage, code := analysis.ClassicalPreparationFailure(err)
-		log.Printf("mouseion: classical preparation submission failed for owner %s book %s stage=%s code=%s",
-			strconv.Quote(owner), strconv.Quote(strings.TrimSpace(bookID)), strconv.Quote(string(stage)), strconv.Quote(code))
-		return false
-	}
-	return !handle.Terminal
 }
 
 func myBooksRedirectWithNotice(w http.ResponseWriter, r *http.Request, returnTo, text string) {

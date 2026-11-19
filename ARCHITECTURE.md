@@ -286,6 +286,7 @@ flowchart TB
     end
     subgraph web[Web]
         webapp[webapp]
+        readingintent[readingintent]
         webauth[webauth]
         auth[auth]
     end
@@ -318,6 +319,9 @@ flowchart TB
     fixture --> webapp
     webapp --> webauth --> auth
     webapp --> persistence & lemmarisk
+    webapp --> readingintent
+    readingintent --> analysis & cataloguesync & classical & domain
+    readingintent --> opds & epub
     analysis --> epub & analyzer & selection & persistence
     sourcecheck --> epub & persistence
     cataloguesync --> opds --> epub
@@ -340,6 +344,7 @@ flowchart TB
 | [`epub`](internal/epub) | Reading-order extraction with reproducible source locations; main-text selection |
 | [`analyzer`](internal/analyzer) | The project-owned analysis boundary and its gRPC client |
 | [`analysis`](internal/analysis) | Durable analysis jobs: chunking, persistence, promotion |
+| [`readingintent`](internal/readingintent) | A Book's reading intent: the To Read transition, the Classical-or-EPUB route, and the submission log line ([ADR 0049](doc/adr/0049-reading-intent-triggers-analysis.md)) |
 | [`sourcecheck`](internal/sourcecheck) | Extraction-only checks of existing EPUB snapshots against the configured contract |
 | [`canonicalization`](internal/canonicalization) | Language-specific canonical lemma profiles |
 | [`lexical`](internal/lexical), [`selection`](internal/selection) | Eligibility rules and deterministic vocabulary candidates |

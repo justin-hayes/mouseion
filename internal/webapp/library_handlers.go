@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
@@ -350,72 +350,108 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
 		return
 	}
-	detail, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	intent, err := h.readingIntentModule()
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	outcome, err := intent.Move(r.Context(), owner, bookID, expectedRevision)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	switch outcome.Kind {
+	case readingintent.OutcomeNotFound:
 		http.NotFound(w, r)
 		return
-	} else if err != nil {
-		fail(w, err)
+	case readingintent.OutcomeStaleRevision:
+		redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, outcome.Book.Hidden)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
 		return
+	default:
 	}
-	// A classical Book is prepared on its dedicated queue when it moves to To
-	// Read. The disposition change is the learner's intent; no EPUB acquisition
-	// or analysis is involved.
-	wasToRead := detail.Disposition == domain.BookDispositionToRead
-	applied, transitionErr := h.services.Store.MyBooks.TransitionBookDisposition(r.Context(), owner, bookID, expectedRevision, domain.BookDispositionToRead)
-	if transitionErr != nil {
-		err = transitionErr
-		if errors.Is(err, persistence.ErrStaleBookDisposition) {
-			redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, detail.Hidden)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
-			return
-		}
-		fail(w, err)
-		return
-	}
-	message := "Book moved to To Read."
-	switch {
-	case applied && !wasToRead && detail.ReadingUnit != nil && !detail.Classification().AnalysisInEffect():
-		if prepared, ok := h.queueClassicalPreparation(r.Context(), owner, bookID); ok {
-			message = prepared
-		}
-	case applied && !wasToRead && detail.ReadingUnit == nil && h.services.Analysis != nil:
-		handle, target, title, acquisitionFailed, analysisErr := h.ensureToReadAnalysis(r.Context(), owner, bookID)
-		if analysisErr != nil {
-			logToReadAnalysisFailure(owner, bookID, acquisitionFailed, analysisErr)
-			message = toReadAnalysisError(r.Context(), h.services.Store.Catalogs, owner, bookID, title, target, acquisitionFailed, analysisErr)
-		} else {
-			message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)
-		}
-	}
-	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, detail.Hidden)+"&message="+url.QueryEscape(message))
+	message := moveToReadMessage(r.Context(), h.services.Store.Catalogs, owner, bookID, outcome)
+	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, outcome.Book.Hidden)+"&message="+url.QueryEscape(message))
 }
 
-// queueClassicalPreparation submits the Book's ensure-once preparation job.
-// It reports the learner-facing message and whether the seam was available.
-func (h *Handler) queueClassicalPreparation(ctx context.Context, owner, bookID string) (string, bool) {
-	if h.services.ClassicalPreparation == nil {
-		return "", false
-	}
-	handle, err := h.services.ClassicalPreparation.SubmitClassicalPreparation(ctx, owner, bookID)
-	if err != nil {
-		stage, code := analysis.ClassicalPreparationFailure(err)
-		log.Printf("mouseion: classical preparation submission failed for owner %s book %s stage=%s code=%s", owner, strconv.Quote(bookID), strconv.Quote(string(stage)), strconv.Quote(code))
-		switch {
-		case errors.Is(err, classical.ErrLegacyRows):
-			return classical.LegacyRowsReason, true
-		case errors.Is(err, analysis.ErrWithdrawnClassicalDefinition):
-			return classicalWithdrawnRefusal, true
-		default:
-			return "Book moved to To Read, but preparation could not start. Retry analysis from Reading when ready.", true
+// moveToReadMessage maps a reading-intent outcome to the learner-facing
+// sentence. The module returns no text of its own; every sentence here predates
+// it and must not change.
+func moveToReadMessage(ctx context.Context, catalog CatalogsStore, owner, bookID string, outcome readingintent.Outcome) string {
+	switch outcome.Kind {
+	case readingintent.OutcomeAlreadyCurrent:
+		return "Book moved to To Read. Analysis is already current."
+	case readingintent.OutcomeJobQueued:
+		if outcome.Route == readingintent.RouteClassical {
+			return fmt.Sprintf("Book moved to To Read. Preparation job #%d submitted.", outcome.JobNumber)
 		}
+		return fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", outcome.JobNumber)
+	case readingintent.OutcomeLegacyRows:
+		return classical.LegacyRowsReason
+	case readingintent.OutcomeWithdrawnDefinition:
+		return classicalWithdrawnRefusal
+	case readingintent.OutcomeSourceRefused:
+		return classicalSourceMismatchRefusal
+	case readingintent.OutcomeCouldNotStart:
+		if outcome.Route == readingintent.RouteClassical {
+			return "Book moved to To Read, but preparation could not start. Retry analysis from Reading when ready."
+		}
+		return "Book moved to To Read, but analysis could not start. Retry analysis from Reading when ready."
+	case readingintent.OutcomeAcquisitionFailed:
+		return "Book moved to To Read, but " + readingAcquisitionError(ctx, catalog, owner, bookID, outcome.Title, outcome.Target, outcome.Err) + " The To Read status is retained; analysis is unavailable until the current EPUB can be acquired."
+	case readingintent.OutcomeNoUsableEPUBUnits:
+		return "Book moved to To Read, but the current source has no usable EPUB units. The To Read status is retained; analysis is unavailable."
+	case readingintent.OutcomePreparationUnavailable:
+		return "Book moved to To Read."
+	default:
+		// A real move with nothing to submit, and an unchanged Book, keep the
+		// familiar confirmation.
+		return "Book moved to To Read."
 	}
-	if handle.Complete {
-		return "Book moved to To Read. Analysis is already current.", true
+}
+
+var errReadingIntentAnalysisUnavailable = errors.New("reading intent: To Read analysis is not configured")
+
+// unavailableClassicalPreparation stands in for a deployment with no
+// preparation seam. The move still changes disposition and starts no job.
+type unavailableClassicalPreparation struct{}
+
+func (unavailableClassicalPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
+	return analysis.ClassicalPreparationHandle{}, readingintent.ErrPreparationUnavailable
+}
+
+// unavailableAnalysis stands in for a deployment with no analysis seam.
+type unavailableAnalysis struct{}
+
+func (unavailableAnalysis) SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
+	return analysis.Handle{}, errReadingIntentAnalysisUnavailable
+}
+
+// readingIntentModule returns the module the server composed. A handler without
+// one, as in a test that replaces a service before moving, composes the real
+// module over its live services so the replacement is observed.
+func (h *Handler) readingIntentModule() (*readingintent.Module, error) {
+	if h.services.ReadingIntent != nil {
+		return h.services.ReadingIntent, nil
 	}
-	if handle.Terminal {
-		return classicalSourceMismatchRefusal, true
+	preparation := h.services.ClassicalPreparation
+	if preparation == nil {
+		preparation = unavailableClassicalPreparation{}
 	}
-	return "Book moved to To Read. " + fmt.Sprintf("Preparation job #%d submitted.", handle.JobID), true
+	var analysisService readingintent.Analysis = unavailableAnalysis{}
+	if h.services.Analysis != nil {
+		analysisService = h.services.Analysis
+	}
+	var acquisition readingintent.CatalogAcquisition
+	if h.services.CatalogueSync != nil {
+		acquisition = readingintent.SourceAcquisition{Targets: h.services.CatalogueSync, Acquirer: h.services.OPDS}
+	}
+	return readingintent.New(readingintent.Config{
+		Books:        h.services.Store.MyBooks,
+		Dispositions: h.services.Store.MyBooks,
+		Preparation:  preparation,
+		Analysis:     analysisService,
+		Acquisition:  acquisition,
+	})
 }
 
 func expectedDispositionRevision(r *http.Request) (int64, bool) {

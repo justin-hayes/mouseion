@@ -28,6 +28,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
+	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
@@ -202,9 +203,15 @@ type Services struct {
 	SourceStructures SourceStructureUpdates
 	// ClassicalPreparation prepares a classical Book when it moves to To Read.
 	ClassicalPreparation ClassicalPreparation
-	AnalysisInsights     AnalysisInsights
-	PreparedDeck         PreparedDeck
-	Capabilities         analyzer.CapabilityProvider
+	// ReadingIntent carries out a Book's reading intent: the To Read
+	// disposition transition, the route to Classical preparation or EPUB
+	// analysis, and the operator log line. A nil module composes one from the
+	// handler's live services, so a test that replaces one service before a
+	// move is observed.
+	ReadingIntent    *readingintent.Module
+	AnalysisInsights AnalysisInsights
+	PreparedDeck     PreparedDeck
+	Capabilities     analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
 	// the Reading store, PreparedDeck, and Analysis when it is nil.
 	LemmaReview   *lemmareview.Service

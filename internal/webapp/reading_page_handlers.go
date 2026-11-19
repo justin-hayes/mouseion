@@ -384,18 +384,7 @@ func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string
 	return handle, target, detail.Book.Title, false, err
 }
 
-func toReadAnalysisError(ctx context.Context, catalog CatalogsStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
-	if acquisitionFailed {
-		return "Book moved to To Read, but " + readingAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + " The To Read status is retained; analysis is unavailable until the current EPUB can be acquired."
-	}
-	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
-		return "Book moved to To Read, but the current source has no usable EPUB units. The To Read status is retained; analysis is unavailable."
-	}
-	return "Book moved to To Read, but analysis could not start. Retry analysis from Reading when ready."
-}
-
-// reanalysisError names why a Reading retry could not start analysis, with
-// the same classification toReadAnalysisError gives a move to To Read.
+// reanalysisError names why a Reading retry could not start analysis.
 func reanalysisError(ctx context.Context, catalog CatalogsStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {
 		return readingAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + " The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired."

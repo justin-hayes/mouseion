@@ -181,36 +181,6 @@ func TestRetryClassicalPreparationRoutesEveryOutcome(t *testing.T) {
 	}
 }
 
-func TestQueueClassicalPreparationOutcomes(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name    string
-		service ClassicalPreparation
-		message string
-	}{
-		{name: "unavailable", service: nil, message: ""},
-		{name: "legacy", service: fakeClassicalPreparation{err: classical.ErrLegacyRows}, message: classical.LegacyRowsReason},
-		{name: "withdrawn", service: fakeClassicalPreparation{err: analysis.ErrWithdrawnClassicalDefinition}, message: classicalWithdrawnLabel},
-		{name: "generic", service: fakeClassicalPreparation{err: errors.New("boom")}, message: "preparation could not start"},
-		{name: "complete", service: fakeClassicalPreparation{handle: analysis.ClassicalPreparationHandle{Complete: true}}, message: "already current"},
-		{name: "terminal", service: fakeClassicalPreparation{handle: analysis.ClassicalPreparationHandle{Terminal: true}}, message: classicalSourceMismatchLabel},
-		{name: "queued", service: fakeClassicalPreparation{handle: analysis.ClassicalPreparationHandle{JobID: 7, Queued: true}}, message: "Preparation job #7"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			h := &Handler{services: Services{ClassicalPreparation: tt.service}}
-			message, ok := h.queueClassicalPreparation(context.Background(), "owner", "greek")
-			if tt.service == nil {
-				assert.False(t, ok)
-				return
-			}
-			assert.True(t, ok)
-			assert.Contains(t, message, tt.message)
-		})
-	}
-}
-
 func TestClassicalPreparationChooserRecovery(t *testing.T) {
 	t.Parallel()
 	h := &Handler{}
