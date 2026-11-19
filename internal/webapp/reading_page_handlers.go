@@ -111,11 +111,7 @@ func readingClassicalPreparationStatus(item readingBookView) (domain.ClassicalPr
 		return *item.ClassicalPreparation, true
 	}
 	if item.ReadingUnit != nil && item.ReadingUnit.Withdrawn {
-		return domain.ClassicalPreparationStatus{
-			Failure:         domain.ClassicalPreparationFailureWithdrawn,
-			CurrentRevision: item.ReadingUnit.Revision,
-			Withdrawn:       true,
-		}, true
+		return domain.WithdrawnClassicalPreparationStatus(*item.ReadingUnit), true
 	}
 	return domain.ClassicalPreparationStatus{}, false
 }

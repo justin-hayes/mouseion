@@ -54,6 +54,37 @@ func TestReadingUnitDefinitionValidate(t *testing.T) {
 	}
 }
 
+func TestClassicalPreparationFailureForCode(t *testing.T) {
+	t.Parallel()
+	cases := map[string]ClassicalPreparationFailure{
+		"":                               ClassicalPreparationFailureNone,
+		"source_download_failed":         ClassicalPreparationFailureFetch,
+		"classical_definition_withdrawn": ClassicalPreparationFailureWithdrawn,
+		"classical_catalog_legacy_rows":  ClassicalPreparationFailureCatalog,
+		"source_pin_mismatch":            ClassicalPreparationFailureSource,
+		"source_oversize":                ClassicalPreparationFailureSource,
+		"source_layer_unknown":           ClassicalPreparationFailureSource,
+		"source_format_unknown":          ClassicalPreparationFailureSource,
+		"source_adapter_refused":         ClassicalPreparationFailureSource,
+		"classical_preparation_failed":   ClassicalPreparationFailureImport,
+		"an_unrecognised_failure_code":   ClassicalPreparationFailureImport,
+	}
+	for code, want := range cases {
+		assert.Equal(t, want, ClassicalPreparationFailureForCode(code), code)
+	}
+}
+
+func TestWithdrawnClassicalPreparationStatus(t *testing.T) {
+	t.Parallel()
+	status := WithdrawnClassicalPreparationStatus(BookReadingUnit{Revision: 3})
+	assert.True(t, status.Withdrawn)
+	assert.True(t, status.Failed())
+	assert.Equal(t, ClassicalPreparationFailureWithdrawn, status.Failure)
+	assert.Equal(t, "classical_definition_withdrawn", status.Code)
+	assert.Equal(t, 3, status.FailureRevision)
+	assert.Equal(t, 3, status.CurrentRevision)
+}
+
 func TestMyBookAwaitingPreparation(t *testing.T) {
 	t.Parallel()
 	ordinary := MyBook{Book: Book{LanguageState: LanguageChosen, LanguageTag: "de"}}

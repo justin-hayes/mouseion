@@ -112,7 +112,8 @@ func classicalPreparationStatus(unit *domain.BookReadingUnit, row classicalPrepa
 		return nil
 	}
 	if unit.Withdrawn {
-		return withdrawnPreparationStatus(unit)
+		status := domain.WithdrawnClassicalPreparationStatus(*unit)
+		return &status
 	}
 	status := &domain.ClassicalPreparationStatus{CurrentRevision: unit.Revision}
 	applyLivePreparationJob(status, unit.Revision, row)
@@ -122,18 +123,6 @@ func classicalPreparationStatus(unit *domain.BookReadingUnit, row classicalPrepa
 		return nil
 	}
 	return status
-}
-
-// withdrawnPreparationStatus is the stable state of an unprepared Book whose
-// Reading unit is a withdrawn tombstone.
-func withdrawnPreparationStatus(unit *domain.BookReadingUnit) *domain.ClassicalPreparationStatus {
-	return &domain.ClassicalPreparationStatus{
-		Failure:         domain.ClassicalPreparationFailureWithdrawn,
-		Code:            classical.WithdrawnCode,
-		FailureRevision: unit.Revision,
-		CurrentRevision: unit.Revision,
-		Withdrawn:       true,
-	}
 }
 
 // applyLivePreparationJob reports a queued or running job only while it targets
@@ -189,7 +178,7 @@ func applyJobErrorFallback(status *domain.ClassicalPreparationStatus, revision i
 		// failure rather than leaving the Book with no state and no recovery.
 		code = classical.PreparationFailedCode
 	}
-	status.Failure = classicalFailureStageFromCode(code)
+	status.Failure = domain.ClassicalPreparationFailureForCode(code)
 	status.Code = code
 	status.FailureRevision = revision
 }
@@ -218,24 +207,6 @@ func classicalFailureCodeFromError(message string) string {
 		return classical.PreparationFailedCode
 	}
 	return ""
-}
-
-// classicalFailureStageFromCode maps a stable code to the stage that owns its
-// recovery.
-func classicalFailureStageFromCode(code string) domain.ClassicalPreparationFailure {
-	switch code {
-	case ancientgreek.CodeSourceDownloadFailed:
-		return domain.ClassicalPreparationFailureFetch
-	case classical.WithdrawnCode:
-		return domain.ClassicalPreparationFailureWithdrawn
-	case classical.LegacyRowsCode:
-		return domain.ClassicalPreparationFailureCatalog
-	case ancientgreek.CodePinMismatch, ancientgreek.CodeOversize, ancientgreek.CodeSourceLayerUnknown,
-		ancientgreek.CodeUnknownSourceFormat, ancientgreek.CodeAdapterRefused:
-		return domain.ClassicalPreparationFailureSource
-	default:
-		return domain.ClassicalPreparationFailureImport
-	}
 }
 
 // GetClassicalPreparationFailure reads the per-Book failure record, or reports

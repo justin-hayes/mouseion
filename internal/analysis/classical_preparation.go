@@ -281,36 +281,45 @@ func classicalPreparationTerminal(ctx context.Context, store ClassicalPreparatio
 }
 
 // ClassicalPreparationFailure returns the stable stage and code to record for a
-// failed preparation. It never returns error text, source text or Greek.
+// failed preparation. It never returns error text, source text or Greek. The
+// stage is read from the domain's one code-to-stage table.
 func ClassicalPreparationFailure(err error) (domain.ClassicalPreparationFailure, string) {
+	code := classicalPreparationFailureCode(err)
+	if code == "" {
+		return domain.ClassicalPreparationFailureNone, ""
+	}
+	return domain.ClassicalPreparationFailureForCode(code), code
+}
+
+// classicalPreparationFailureCode maps a preparation error to the stable code
+// recorded for it. Adapter refusals collapse to their one aggregate code, and
+// an unrecognised import failure uses the import-stage code.
+func classicalPreparationFailureCode(err error) string {
 	switch {
 	case err == nil:
-		return domain.ClassicalPreparationFailureNone, ""
+		return ""
 	case errors.Is(err, ErrWithdrawnClassicalDefinition):
-		return domain.ClassicalPreparationFailureWithdrawn, classical.WithdrawnCode
+		return classical.WithdrawnCode
 	case errors.Is(err, classical.ErrLegacyRows):
-		return domain.ClassicalPreparationFailureCatalog, classical.LegacyRowsCode
+		return classical.LegacyRowsCode
 	}
 	if importErr, ok := errors.AsType[*ancientgreek.ImportError](err); ok {
 		switch importErr.Code {
-		case ancientgreek.CodeSourceDownloadFailed:
-			return domain.ClassicalPreparationFailureFetch, importErr.Code
-		case ancientgreek.CodePinMismatch:
-			return domain.ClassicalPreparationFailureSource, importErr.Code
-		case ancientgreek.CodeOversize:
-			return domain.ClassicalPreparationFailureSource, importErr.Code
-		case ancientgreek.CodeSourceLayerUnknown:
-			return domain.ClassicalPreparationFailureSource, importErr.Code
+		case ancientgreek.CodeSourceDownloadFailed,
+			ancientgreek.CodePinMismatch,
+			ancientgreek.CodeOversize,
+			ancientgreek.CodeSourceLayerUnknown:
+			return importErr.Code
 		case ancientgreek.CodeUnknownSourceFormat,
 			ancientgreek.CodeMalformed, ancientgreek.CodeUnknownPOS,
 			ancientgreek.CodeUnknownInterpret, ancientgreek.CodeSentenceUnassigned,
 			ancientgreek.CodeSentenceAmbiguous, ancientgreek.CodeEmptyCitationRange:
-			return domain.ClassicalPreparationFailureSource, ancientgreek.CodeAdapterRefused
+			return ancientgreek.CodeAdapterRefused
 		default:
-			return domain.ClassicalPreparationFailureImport, classical.PreparationFailedCode
+			return classical.PreparationFailedCode
 		}
 	}
-	return domain.ClassicalPreparationFailureImport, classical.PreparationFailedCode
+	return classical.PreparationFailedCode
 }
 
 // ClassicalPreparationWorker prepares one classical Book: it makes the pinned
