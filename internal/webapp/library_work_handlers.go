@@ -73,31 +73,56 @@ func (h *Handler) moveWorkToRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	moved, unchanged, prepFailed, failed := 0, 0, 0, 0
+	total := moveWorkToReadOutcome{}
 	for _, book := range books {
-		outcome := h.moveWorkBookToRead(r.Context(), owner, book)
-		moved += outcome.moved
-		unchanged += outcome.unchanged
-		prepFailed += outcome.prepFailed
-		failed += outcome.failed
+		total.add(h.moveWorkBookToRead(r.Context(), owner, book))
 	}
-
-	message := fmt.Sprintf("Moved %s to To Read.", countNoun(moved, "Book", "Books"))
-	if unchanged > 0 {
-		message += fmt.Sprintf(" Left %s unchanged.", countNoun(unchanged, "Book", "Books"))
-	}
-	if failed > 0 {
-		message += fmt.Sprintf(" Could not update %s.", countNoun(failed, "Book", "Books"))
-	}
-	if prepFailed > 0 {
-		message += fmt.Sprintf(" Preparation could not start for %s.", countNoun(prepFailed, "Book", "Books"))
-	}
-	myBooksRedirectWithNotice(w, r, returnTo, message)
+	myBooksRedirectWithNotice(w, r, returnTo, workToReadNotice(total))
 }
 
 // moveWorkToReadOutcome is one Book's independent result in a Work move.
+// legacyRows and withdrawn name causes no retry can fix; prepFailed counts only
+// every other preparation failure.
 type moveWorkToReadOutcome struct {
-	moved, unchanged, prepFailed, failed int
+	moved, unchanged, prepFailed, failed, legacyRows, withdrawn int
+}
+
+// add folds one Book's result into the Work total.
+func (o *moveWorkToReadOutcome) add(other moveWorkToReadOutcome) {
+	o.moved += other.moved
+	o.unchanged += other.unchanged
+	o.prepFailed += other.prepFailed
+	o.failed += other.failed
+	o.legacyRows += other.legacyRows
+	o.withdrawn += other.withdrawn
+}
+
+// workToReadNotice states what happened to the Work and names the preparation
+// causes a learner cannot fix by retrying.
+func workToReadNotice(outcome moveWorkToReadOutcome) string {
+	message := fmt.Sprintf("Moved %s to To Read.", countNoun(outcome.moved, "Book", "Books"))
+	if outcome.unchanged > 0 {
+		message += fmt.Sprintf(" Left %s unchanged.", countNoun(outcome.unchanged, "Book", "Books"))
+	}
+	if outcome.failed > 0 {
+		message += fmt.Sprintf(" Could not update %s.", countNoun(outcome.failed, "Book", "Books"))
+	}
+	if outcome.prepFailed > 0 {
+		message += fmt.Sprintf(" Preparation could not start for %s.", countNoun(outcome.prepFailed, "Book", "Books"))
+	}
+	if outcome.legacyRows > 0 {
+		message += fmt.Sprintf(" %s cannot be prepared while this installation converts its legacy Ancient Greek rows.",
+			countNoun(outcome.legacyRows, "Book", "Books"))
+	}
+	if outcome.withdrawn > 0 {
+		verb := "have"
+		if outcome.withdrawn == 1 {
+			verb = "has"
+		}
+		message += fmt.Sprintf(" %s %s a withdrawn definition and cannot be prepared.",
+			countNoun(outcome.withdrawn, "Book", "Books"), verb)
+	}
+	return message
 }
 
 // moveWorkBookToRead applies the bulk rule to one Book: no reading history,
@@ -125,8 +150,11 @@ func (h *Handler) moveWorkBookToRead(ctx context.Context, owner string, book dom
 	switch outcome.Kind {
 	case readingintent.OutcomeUnchanged, readingintent.OutcomeStaleRevision, readingintent.OutcomeNotFound:
 		return moveWorkToReadOutcome{unchanged: 1}
-	case readingintent.OutcomeLegacyRows, readingintent.OutcomeWithdrawnDefinition,
-		readingintent.OutcomeSourceRefused, readingintent.OutcomeCouldNotStart,
+	case readingintent.OutcomeLegacyRows:
+		return moveWorkToReadOutcome{moved: 1, legacyRows: 1}
+	case readingintent.OutcomeWithdrawnDefinition:
+		return moveWorkToReadOutcome{moved: 1, withdrawn: 1}
+	case readingintent.OutcomeSourceRefused, readingintent.OutcomeCouldNotStart,
 		readingintent.OutcomeAcquisitionFailed, readingintent.OutcomeNoUsableEPUBUnits,
 		readingintent.OutcomePreparationUnavailable:
 		return moveWorkToReadOutcome{moved: 1, prepFailed: 1}
