@@ -4,18 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -250,82 +249,67 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r).ID
 	bookID := r.PathValue("id")
-	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	intent, err := h.readingIntentModule()
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	outcome, err := intent.Retry(r.Context(), owner, bookID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	switch outcome.Kind {
+	case readingintent.OutcomeNotFound, readingintent.OutcomeNotToRead:
 		http.NotFound(w, r)
 		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, detail.Book.LanguageTag)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if current.IsActive() && current.BookID == detail.Book.ID {
+	case readingintent.OutcomeCurrentBookRefused:
 		rejectCurrentBookRefresh(w, r)
 		return
+	default:
 	}
-	if detail.Disposition != domain.BookDispositionToRead {
-		http.NotFound(w, r)
-		return
+	message, isError := retryMessage(r.Context(), h.services.Store.Catalogs, owner, outcome)
+	key := "message"
+	if isError {
+		key = "error"
 	}
-	if detail.ReadingUnit != nil {
-		h.retryClassicalPreparation(w, r, owner, detail.Book.ID)
-		return
-	}
-	handle, target, title, acquisitionFailed, err := h.ensureToReadAnalysis(r.Context(), owner, bookID)
-	if err != nil {
-		if errors.Is(err, analysis.ErrCurrentBook) {
-			rejectCurrentBookRefresh(w, r)
-			return
+	redirect(w, r, "/reading?"+key+"="+url.QueryEscape(message))
+}
+
+// retryMessage maps a Retry outcome to the learner-facing sentence and whether
+// it is an error. Every sentence here predates the module and must not change.
+func retryMessage(ctx context.Context, catalog CatalogsStore, owner string, outcome readingintent.Outcome) (message string, isError bool) {
+	switch outcome.Kind {
+	case readingintent.OutcomePreparationUnavailable:
+		return "Classical preparation is unavailable.", true
+	case readingintent.OutcomeAlreadyCurrent:
+		return "The analysis is already current.", false
+	case readingintent.OutcomeJobQueued:
+		if outcome.Route == readingintent.RouteClassical {
+			return fmt.Sprintf("Preparation job #%d submitted.", outcome.JobNumber), false
 		}
-		logToReadAnalysisFailure(owner, bookID, acquisitionFailed, err)
-		redirect(w, r, "/reading?error="+url.QueryEscape(reanalysisError(r.Context(), h.services.Store.Catalogs, owner, bookID, title, target, acquisitionFailed, err)))
-		return
+		return fmt.Sprintf("Analysis job #%d submitted.", outcome.JobNumber), false
+	case readingintent.OutcomeLegacyRows:
+		return classical.LegacyRowsReason, true
+	case readingintent.OutcomeWithdrawnDefinition:
+		return classicalWithdrawnRefusal, true
+	case readingintent.OutcomeSourceRefused:
+		return classicalSourceMismatchRefusal, true
+	case readingintent.OutcomeCouldNotStart, readingintent.OutcomeAcquisitionFailed:
+		if outcome.Route == readingintent.RouteClassical {
+			return "Preparation could not be started. Retry when ready.", true
+		}
+		return reanalysisError(ctx, catalog, owner, outcome.Book.Book.ID, outcome.Title, outcome.Target, outcome.AcquisitionFailed, outcome.Err), true
+	case readingintent.OutcomeNoUsableEPUBUnits:
+		return "The current source has no usable EPUB units. The To Read choice is retained; analysis is unavailable.", true
+	default:
+		// Retry returns only the kinds above; a new kind must be mapped here.
+		return "Analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again.", true
 	}
-	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
 }
 
 func rejectCurrentBookRefresh(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/reading?error="+url.QueryEscape("The current book cannot be refreshed. Its frozen evidence remains unchanged."))
-}
-
-// retryClassicalPreparation submits a classical Book's preparation again. A
-// completed run for the current definition is reported as current rather than
-// as a second job.
-func (h *Handler) retryClassicalPreparation(w http.ResponseWriter, r *http.Request, owner, bookID string) {
-	if h.services.ClassicalPreparation == nil {
-		redirect(w, r, "/reading?error="+url.QueryEscape("Classical preparation is unavailable."))
-		return
-	}
-	handle, err := h.services.ClassicalPreparation.SubmitClassicalPreparation(r.Context(), owner, bookID)
-	if err != nil {
-		stage, code := analysis.ClassicalPreparationFailure(err)
-		// Log the stable code and identifiers only. Raw error text could carry
-		// source detail, and Greek never belongs in operator logs.
-		log.Printf("mouseion: classical preparation retry failed for owner %s book %s stage=%s code=%s", owner, strconv.Quote(bookID), stage, code)
-		switch {
-		case errors.Is(err, classical.ErrLegacyRows):
-			redirect(w, r, "/reading?error="+url.QueryEscape(classical.LegacyRowsReason))
-		case errors.Is(err, analysis.ErrWithdrawnClassicalDefinition):
-			redirect(w, r, "/reading?error="+url.QueryEscape(classicalWithdrawnRefusal))
-		default:
-			redirect(w, r, "/reading?error="+url.QueryEscape("Preparation could not be started. Retry when ready."))
-		}
-		return
-	}
-	if handle.Complete {
-		redirect(w, r, "/reading?message="+url.QueryEscape("The analysis is already current."))
-		return
-	}
-	if handle.Terminal {
-		redirect(w, r, "/reading?error="+url.QueryEscape(classicalSourceMismatchRefusal))
-		return
-	}
-	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Preparation job #%d submitted.", handle.JobID)))
 }
 
 func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {

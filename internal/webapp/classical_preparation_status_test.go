@@ -2,27 +2,12 @@ package webapp
 
 import (
 	"context"
-	"errors"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type fakeClassicalPreparation struct {
-	handle analysis.ClassicalPreparationHandle
-	err    error
-}
-
-func (f fakeClassicalPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
-	return f.handle, f.err
-}
 
 func classicalStatusBook(status domain.ClassicalPreparationStatus) domain.MyBook {
 	return domain.MyBook{
@@ -142,43 +127,6 @@ func TestReadingClassicalWithdrawnFallbackAndCatalogState(t *testing.T) {
 	}
 	assert.Equal(t, readingEvidenceUnavailable, readingEvidenceState(catalog))
 	assert.Empty(t, readingAnalysisAction(catalog).Label)
-}
-
-func TestRetryClassicalPreparationRoutesEveryOutcome(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name       string
-		service    ClassicalPreparation
-		wantError  string
-		wantSubmit bool
-	}{
-		{name: "unavailable", service: nil, wantError: "Classical preparation is unavailable"},
-		{name: "legacy", service: fakeClassicalPreparation{err: classical.ErrLegacyRows}, wantError: classical.LegacyRowsCode},
-		{name: "withdrawn", service: fakeClassicalPreparation{err: analysis.ErrWithdrawnClassicalDefinition}, wantError: classicalWithdrawnLabel},
-		{name: "generic failure", service: fakeClassicalPreparation{err: errors.New("boom")}, wantError: "Preparation could not be started"},
-		{name: "complete", service: fakeClassicalPreparation{handle: analysis.ClassicalPreparationHandle{Complete: true}}},
-		{name: "terminal", service: fakeClassicalPreparation{handle: analysis.ClassicalPreparationHandle{Terminal: true}}, wantError: classicalSourceMismatchLabel},
-		{name: "queued", service: fakeClassicalPreparation{handle: analysis.ClassicalPreparationHandle{JobID: 7, Queued: true}}, wantSubmit: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			h := &Handler{services: Services{ClassicalPreparation: tt.service}}
-			recorder := httptest.NewRecorder()
-			request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/reading/books/greek/reanalyze", nil)
-			h.retryClassicalPreparation(recorder, request, "owner", "greek")
-			location := recorder.Header().Get("Location")
-			if tt.wantError != "" {
-				assert.Contains(t, location, "error=")
-				assert.Contains(t, location, url.QueryEscape(tt.wantError))
-				return
-			}
-			if tt.wantSubmit {
-				assert.Contains(t, location, "message=")
-				assert.Contains(t, location, "Preparation+job")
-			}
-		})
-	}
 }
 
 func TestClassicalPreparationChooserRecovery(t *testing.T) {

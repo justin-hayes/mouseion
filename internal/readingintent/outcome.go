@@ -37,6 +37,11 @@ const (
 	OutcomeAcquisitionFailed OutcomeKind = "acquisition_failed"
 	// OutcomeNoUsableEPUBUnits reports a source with no units analysis can use.
 	OutcomeNoUsableEPUBUnits OutcomeKind = "no_usable_epub_units"
+	// OutcomeCurrentBookRefused reports a retry of the current Book, whose
+	// frozen evidence must stay unchanged.
+	OutcomeCurrentBookRefused OutcomeKind = "current_book_refused"
+	// OutcomeNotToRead reports a retry of a Book that is not To Read.
+	OutcomeNotToRead OutcomeKind = "not_to_read"
 )
 
 // Route names the submission a moved Book took.
@@ -49,11 +54,11 @@ const (
 	RouteEPUB Route = "epub"
 )
 
-// Outcome is what Move decided. Book is the Book the module loaded, so a caller
-// can render its hidden scope without reading it again. The acquisition fields
-// are set for EPUB failures: Target, Title and Err describe where acquisition
-// looked, and AcquisitionFailed says whether acquisition itself was the failing
-// step.
+// Outcome is what Move or Retry decided. Book is the Book the module loaded,
+// so a caller can render its hidden scope without reading it again. The
+// acquisition fields are set for EPUB failures: Target, Title and Err describe
+// where acquisition looked, and AcquisitionFailed says whether acquisition
+// itself was the failing step.
 type Outcome struct {
 	Kind              OutcomeKind
 	Route             Route

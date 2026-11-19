@@ -305,7 +305,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
 	readingIntent, err := readingintent.New(readingintent.Config{
-		Books: store, Dispositions: store,
+		Books: store, CurrentReadings: store, Dispositions: store,
 		Preparation: analysisService, Analysis: analysisService,
 		Acquisition: readingintent.SourceAcquisition{Targets: catalogueSyncService, Acquirer: deps.opdsService},
 	})

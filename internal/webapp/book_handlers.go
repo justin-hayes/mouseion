@@ -199,18 +199,6 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, target)
 }
 
-func (h *Handler) acquireBookForReadingContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
-	target, err := h.services.CatalogueSync.FindAcquisitionTarget(ctx, owner, bookID)
-	if err != nil {
-		return target, err
-	}
-	if h.services.OPDS == nil {
-		return target, errors.New("catalogue acquisition cannot promote this book")
-	}
-	_, err = h.services.OPDS.AcquireForBook(ctx, owner, target.ConnectionID, target.Language, bookID, target.Entry)
-	return target, err
-}
-
 func readingAcquisitionError(ctx context.Context, catalog CatalogsStore, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
 	connectionName, entryTitle := "catalog connection", "this book"
 	if strings.TrimSpace(target.Entry.Title) != "" {

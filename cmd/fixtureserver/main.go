@@ -46,11 +46,12 @@ func main() {
 		Store: books, Suggestions: fixtureLemmaSuggestions{}, Preparer: preparedDeck, BrowseCounts: fixtures.Analysis{Store: store},
 	})
 	readingIntent, err := readingintent.New(readingintent.Config{
-		Books:        books,
-		Dispositions: books,
-		Preparation:  fixtures.ClassicalPreparation{},
-		Analysis:     fixtures.Analysis{Store: store},
-		Acquisition:  readingintent.SourceAcquisition{Targets: catalogueSync, Acquirer: fixtures.OPDS{}},
+		Books:           books,
+		CurrentReadings: books,
+		Dispositions:    books,
+		Preparation:     fixtures.ClassicalPreparation{},
+		Analysis:        fixtures.Analysis{Store: store},
+		Acquisition:     readingintent.SourceAcquisition{Targets: catalogueSync, Acquirer: fixtures.OPDS{}},
 	})
 	if err != nil {
 		log.Fatalf("initialize fixture reading intent: %v", err)
