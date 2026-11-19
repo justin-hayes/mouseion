@@ -816,9 +816,6 @@ func (b *builder) finalizeDefinitions() error {
 		if err := definition.Validate(); err != nil {
 			return fmt.Errorf("classical: generated definition %q is invalid: %w", definition.Key, err)
 		}
-		if !definition.Withdrawn && strings.TrimSpace(definition.Opening) == "" {
-			return fmt.Errorf("classical: generated definition %q has no Opening", definition.Key)
-		}
 		if !definition.Withdrawn {
 			if err := b.validateLayerPins(definition); err != nil {
 				return err

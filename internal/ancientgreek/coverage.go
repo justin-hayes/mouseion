@@ -235,20 +235,11 @@ type UnitSummary struct {
 	Opening   string
 }
 
-// UnitWordCount reports the printed words in the sentences a unit owns. It
-// counts every non-ellipsis token except punctuation, so a sentence crossing
+// SummarizeUnit derives one Reading unit's word count and Opening in one parse.
+// It counts every non-ellipsis token except punctuation, so a sentence crossing
 // the unit boundary counts whole toward the unit holding its first token. It
 // also refuses a range whose boundary citations do not resolve to real tokens,
 // and checks every token's native part of speech.
-func UnitWordCount(data []byte, start, end string) (int, error) {
-	summary, err := SummarizeUnit(data, start, end)
-	if err != nil {
-		return 0, err
-	}
-	return summary.WordCount, nil
-}
-
-// SummarizeUnit derives one Reading unit's word count and Opening in one parse.
 // The Opening is the first sentence the unit owns that is not a speaker label,
 // reconstructed exactly as the source prints it. A unit with no other sentence
 // refuses rather than guessing one.

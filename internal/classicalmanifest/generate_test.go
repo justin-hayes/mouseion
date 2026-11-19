@@ -398,10 +398,12 @@ func speakerLabelSentence(surface, lemma string, elliptical bool) string {
 	}
 	b.WriteString(" .\n# sent_id = label\n")
 	fmt.Fprintf(&b, "1\t%s\t%s\tn\tn-s---mv-\tCase=v|Gender=m|Number=s\t0\tExD\t_\tt_101|0|ref=Xen. Anab._1.1.1\n", surface, lemma)
+	terminal := 2
 	if elliptical {
 		b.WriteString("2\t[0]\t[0]\t-\t---------\t_\t0\tPRED\t_\te_101|0|ref=Xen. Anab._1.1.1\n")
+		terminal = 3
 	}
-	fmt.Fprintf(&b, "%d\t.\t.\tu\tu--------\t_\t1\tAuxK\t_\tt_102|t_101|ref=Xen. Anab._1.1.1\n\n", map[bool]int{true: 3, false: 2}[elliptical])
+	fmt.Fprintf(&b, "%d\t.\t.\tu\tu--------\t_\t1\tAuxK\t_\tt_102|t_101|ref=Xen. Anab._1.1.1\n\n", terminal)
 	return b.String()
 }
 
