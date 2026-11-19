@@ -39,6 +39,21 @@ func (f *fakeBooks) GetBookDetail(context.Context, string, string) (domain.MyBoo
 	return f.results[index].book, f.results[index].err
 }
 
+// fakeCurrentReadings returns one current reading and records the language it
+// was asked about.
+type fakeCurrentReadings struct {
+	current  domain.CurrentReading
+	err      error
+	calls    int
+	language string
+}
+
+func (f *fakeCurrentReadings) GetCurrentReading(_ context.Context, _, language string) (domain.CurrentReading, error) {
+	f.calls++
+	f.language = language
+	return f.current, f.err
+}
+
 type fakeDispositions struct {
 	applied     bool
 	err         error
@@ -104,6 +119,7 @@ func (f *fakeAcquisition) AcquireForBook(context.Context, string, string, string
 // harness wires a module over in-memory fakes.
 type harness struct {
 	books        *fakeBooks
+	current      *fakeCurrentReadings
 	dispositions *fakeDispositions
 	preparation  *fakePreparation
 	analysis     *fakeAnalysis
@@ -115,14 +131,15 @@ func newHarness(t *testing.T, book domain.MyBook, acquisition CatalogAcquisition
 	t.Helper()
 	h := &harness{
 		books:        &fakeBooks{results: []bookResult{{book: book}}},
+		current:      &fakeCurrentReadings{},
 		dispositions: &fakeDispositions{applied: true},
 		preparation:  &fakePreparation{},
 		analysis:     &fakeAnalysis{},
 		acquisition:  acquisition,
 	}
 	module, err := New(Config{
-		Books: h.books, Dispositions: h.dispositions, Preparation: h.preparation,
-		Analysis: h.analysis, Acquisition: h.acquisition,
+		Books: h.books, CurrentReadings: h.current, Dispositions: h.dispositions,
+		Preparation: h.preparation, Analysis: h.analysis, Acquisition: h.acquisition,
 	})
 	require.NoError(t, err)
 	h.module = module
@@ -132,6 +149,13 @@ func newHarness(t *testing.T, book domain.MyBook, acquisition CatalogAcquisition
 func move(t *testing.T, h *harness) Outcome {
 	t.Helper()
 	outcome, err := h.module.Move(context.Background(), "owner", "book-1", 3)
+	require.NoError(t, err)
+	return outcome
+}
+
+func retry(t *testing.T, h *harness) Outcome {
+	t.Helper()
+	outcome, err := h.module.Retry(context.Background(), "owner", "book-1")
 	require.NoError(t, err)
 	return outcome
 }
@@ -173,17 +197,40 @@ func analyzedBook() domain.MyBook {
 	return book
 }
 
+func toRead(book domain.MyBook) domain.MyBook {
+	book.Disposition = domain.BookDispositionToRead
+	return book
+}
+
+func toReadClassicalBook() domain.MyBook {
+	return toRead(classicalBook())
+}
+
+func toReadAnalyzedBook() domain.MyBook {
+	return toRead(analyzedBook())
+}
+
+func toReadEPUBBook(sourceID string) domain.MyBook {
+	return toRead(epubBook(sourceID))
+}
+
+func toReadEPUBBookWithoutSource() domain.MyBook {
+	return toRead(epubBookWithoutSource())
+}
+
 func TestNewRequiresCollaborators(t *testing.T) {
 	t.Parallel()
 	full := Config{
-		Books: &fakeBooks{}, Dispositions: &fakeDispositions{},
-		Preparation: &fakePreparation{}, Analysis: &fakeAnalysis{},
+		Books: &fakeBooks{}, CurrentReadings: &fakeCurrentReadings{},
+		Dispositions: &fakeDispositions{},
+		Preparation:  &fakePreparation{}, Analysis: &fakeAnalysis{},
 	}
 	tests := []struct {
 		name   string
 		change func(*Config)
 	}{
 		{name: "books", change: func(c *Config) { c.Books = nil }},
+		{name: "current readings", change: func(c *Config) { c.CurrentReadings = nil }},
 		{name: "dispositions", change: func(c *Config) { c.Dispositions = nil }},
 		{name: "classical preparation", change: func(c *Config) { c.Preparation = nil }},
 		{name: "analysis", change: func(c *Config) { c.Analysis = nil }},
@@ -435,6 +482,256 @@ func TestMoveReturnsUnexpectedErrors(t *testing.T) {
 			require.ErrorIs(t, err, boom)
 		})
 	}
+}
+
+func TestRetryNotFound(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, domain.MyBook{}, nil)
+	h.books.results = []bookResult{{err: domain.ErrNotFound}}
+
+	outcome := retry(t, h)
+
+	assert.Equal(t, OutcomeNotFound, outcome.Kind)
+	assert.Zero(t, h.current.calls, "a missing Book is never checked against the current reading")
+	assert.Zero(t, h.dispositions.calls)
+	assert.Zero(t, h.preparation.calls)
+	assert.Zero(t, h.analysis.calls)
+}
+
+func TestRetryReturnsLoadError(t *testing.T) {
+	t.Parallel()
+	boom := errors.New("database unavailable")
+	h := newHarness(t, domain.MyBook{}, nil)
+	h.books.results = []bookResult{{err: boom}}
+
+	_, err := h.module.Retry(context.Background(), "owner", "book-1")
+
+	require.ErrorIs(t, err, boom)
+	assert.Zero(t, h.current.calls)
+	assert.Zero(t, h.preparation.calls)
+	assert.Zero(t, h.analysis.calls)
+}
+
+func TestRetryReturnsCurrentReadingError(t *testing.T) {
+	t.Parallel()
+	boom := errors.New("current reading read failed")
+	h := newHarness(t, toReadClassicalBook(), nil)
+	h.current.err = boom
+
+	_, err := h.module.Retry(context.Background(), "owner", "book-1")
+
+	require.ErrorIs(t, err, boom)
+	assert.Zero(t, h.dispositions.calls)
+	assert.Zero(t, h.preparation.calls)
+	assert.Zero(t, h.analysis.calls)
+}
+
+func TestRetryRefusesCurrentBook(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		book domain.MyBook
+	}{
+		{name: "To Read", book: toReadClassicalBook()},
+		{name: "not To Read", book: classicalBook()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			h := newHarness(t, tt.book, nil)
+			h.current.current = domain.CurrentReading{BookID: "book-1"}
+
+			outcome := retry(t, h)
+
+			assert.Equal(t, OutcomeCurrentBookRefused, outcome.Kind, "the current Book guard runs before the To Read guard")
+			assert.Equal(t, "book-1", outcome.Book.Book.ID)
+			assert.Zero(t, h.dispositions.calls, "Retry never transitions the disposition")
+			assert.Zero(t, h.preparation.calls, "the current Book is not prepared again")
+			assert.Zero(t, h.analysis.calls, "the current Book is not analyzed again")
+		})
+	}
+}
+
+func TestRetryRefusesBookNotToRead(t *testing.T) {
+	t.Parallel()
+	book := classicalBook()
+	book.Book.LanguageTag = "grc"
+	h := newHarness(t, book, nil)
+
+	outcome := retry(t, h)
+
+	assert.Equal(t, OutcomeNotToRead, outcome.Kind)
+	assert.Equal(t, "grc", h.current.language, "the current reading is read for the Book's language")
+	assert.Zero(t, h.dispositions.calls, "Retry never transitions the disposition")
+	assert.Zero(t, h.preparation.calls)
+	assert.Zero(t, h.analysis.calls)
+}
+
+func TestRetryClassicalOutcomes(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		book      domain.MyBook
+		handle    analysis.ClassicalPreparationHandle
+		err       error
+		want      OutcomeKind
+		job       int64
+		prepCalls int
+	}{
+		{name: "already current", book: toReadAnalyzedBook(), handle: analysis.ClassicalPreparationHandle{Complete: true}, want: OutcomeAlreadyCurrent, prepCalls: 1},
+		{name: "settled evidence with a withdrawn definition", book: toReadAnalyzedBook(), err: analysis.ErrWithdrawnClassicalDefinition, want: OutcomeWithdrawnDefinition, prepCalls: 1},
+		{name: "queued", book: toReadClassicalBook(), handle: analysis.ClassicalPreparationHandle{JobID: 7, Queued: true}, want: OutcomeJobQueued, job: 7, prepCalls: 1},
+		{name: "legacy rows", book: toReadClassicalBook(), err: classical.ErrLegacyRows, want: OutcomeLegacyRows, prepCalls: 1},
+		{name: "withdrawn definition", book: toReadClassicalBook(), err: analysis.ErrWithdrawnClassicalDefinition, want: OutcomeWithdrawnDefinition, prepCalls: 1},
+		{name: "source refused", book: toReadClassicalBook(), handle: analysis.ClassicalPreparationHandle{Terminal: true}, want: OutcomeSourceRefused, prepCalls: 1},
+		{name: "could not start", book: toReadClassicalBook(), err: errors.New("preparation failed"), want: OutcomeCouldNotStart, prepCalls: 1},
+		{name: "preparation unavailable", book: toReadClassicalBook(), err: ErrPreparationUnavailable, want: OutcomePreparationUnavailable, prepCalls: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			h := newHarness(t, tt.book, nil)
+			h.preparation.handle, h.preparation.err = tt.handle, tt.err
+
+			outcome := retry(t, h)
+
+			assert.Equal(t, tt.want, outcome.Kind)
+			assert.Equal(t, RouteClassical, outcome.Route)
+			assert.Equal(t, tt.job, outcome.JobNumber)
+			assert.Equal(t, tt.prepCalls, h.preparation.calls)
+			assert.Zero(t, h.analysis.calls, "a classical Book never uses EPUB analysis")
+			assert.Zero(t, h.dispositions.calls, "Retry never transitions the disposition")
+			assert.Equal(t, "book-1", outcome.Book.Book.ID)
+		})
+	}
+}
+
+func TestRetryEPUBAcquiresThenQueuesAnalysis(t *testing.T) {
+	t.Parallel()
+	target := cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Language: "de", Entry: opds.Entry{Title: "Der lange Weg"}}
+	acquisition := &fakeAcquisition{target: target}
+	h := newHarness(t, toReadEPUBBookWithoutSource(), acquisition)
+	h.books.results = []bookResult{{book: toReadEPUBBookWithoutSource()}, {book: toReadEPUBBook("source-9")}}
+	h.analysis.handle = analysis.Handle{ID: 4, DisplayNumber: 12, RunID: "run-1"}
+
+	outcome := retry(t, h)
+
+	assert.Equal(t, OutcomeJobQueued, outcome.Kind)
+	assert.Equal(t, RouteEPUB, outcome.Route)
+	assert.EqualValues(t, 12, outcome.JobNumber)
+	assert.Equal(t, "source-9", h.analysis.sourceID, "analysis uses the source acquired and reloaded")
+	assert.Equal(t, target, outcome.Target)
+	assert.Equal(t, 2, h.books.calls, "the Book is reloaded after acquisition")
+	assert.Equal(t, 1, acquisition.bookCalls)
+	assert.Zero(t, h.preparation.calls)
+	assert.Zero(t, h.dispositions.calls, "Retry never transitions the disposition")
+}
+
+func TestRetryEPUBAcquisitionFailures(t *testing.T) {
+	t.Parallel()
+	target := cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Entry: opds.Entry{Title: "Der lange Weg"}}
+	acquireErr := errors.New("catalog refused the download")
+	tests := []struct {
+		name        string
+		acquisition CatalogAcquisition
+		target      cataloguesync.AcquisitionTarget
+		wantErr     error
+	}{
+		{name: "no acquisition seam", acquisition: nil, wantErr: ErrAcquisitionUnavailable},
+		{name: "lookup failed", acquisition: &fakeAcquisition{target: target, findErr: acquireErr}, wantErr: acquireErr},
+		{name: "download failed", acquisition: &fakeAcquisition{target: target, acquireErr: acquireErr}, target: target, wantErr: acquireErr},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			h := newHarness(t, toReadEPUBBookWithoutSource(), tt.acquisition)
+
+			outcome := retry(t, h)
+
+			assert.Equal(t, OutcomeAcquisitionFailed, outcome.Kind)
+			assert.Equal(t, RouteEPUB, outcome.Route)
+			assert.True(t, outcome.AcquisitionFailed, "the failing step is acquisition")
+			assert.Equal(t, tt.target, outcome.Target)
+			assert.Equal(t, "Der lange Weg", outcome.Title)
+			require.ErrorIs(t, outcome.Err, tt.wantErr)
+			assert.Zero(t, h.analysis.calls, "a failed acquisition submits nothing")
+			assert.Zero(t, h.dispositions.calls, "Retry never transitions the disposition")
+		})
+	}
+}
+
+func TestRetryEPUBAcquisitionReloadFailure(t *testing.T) {
+	t.Parallel()
+	boom := errors.New("detail read failed")
+	h := newHarness(t, toReadEPUBBookWithoutSource(), &fakeAcquisition{})
+	h.books.results = []bookResult{{book: toReadEPUBBookWithoutSource()}, {err: boom}}
+
+	outcome := retry(t, h)
+
+	assert.Equal(t, OutcomeAcquisitionFailed, outcome.Kind)
+	require.ErrorIs(t, outcome.Err, boom)
+	assert.Empty(t, outcome.Title, "a failed reload has no Book title to name")
+	assert.True(t, outcome.AcquisitionFailed)
+	assert.Zero(t, h.analysis.calls)
+}
+
+func TestRetryEPUBAnalysisOutcomes(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		err  error
+		want OutcomeKind
+	}{
+		{name: "no usable units", err: domain.ErrExtractedUnitsUnavailable, want: OutcomeNoUsableEPUBUnits},
+		{name: "EPUB required", err: analysis.ErrEPUBRequired, want: OutcomeNoUsableEPUBUnits},
+		{name: "could not start", err: errors.New("analysis failed"), want: OutcomeCouldNotStart},
+		{name: "current book raced", err: analysis.ErrCurrentBook, want: OutcomeCurrentBookRefused},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			h := newHarness(t, toReadEPUBBook("source-1"), nil)
+			h.analysis.err = tt.err
+
+			outcome := retry(t, h)
+
+			assert.Equal(t, tt.want, outcome.Kind)
+			assert.Equal(t, RouteEPUB, outcome.Route)
+			assert.False(t, outcome.AcquisitionFailed)
+			assert.Equal(t, 1, h.analysis.calls)
+			assert.Zero(t, h.preparation.calls)
+			assert.Zero(t, h.dispositions.calls, "Retry never transitions the disposition")
+		})
+	}
+}
+
+func TestRetryClassicalFailureLogMatchesMove(t *testing.T) {
+	h := newHarness(t, toReadClassicalBook(), nil)
+	h.preparation.err = errors.New("cannot import Ἀνάβασις from source")
+	logs := captureLog(t)
+
+	outcome := retry(t, h)
+
+	require.Equal(t, OutcomeCouldNotStart, outcome.Kind)
+	line := logs.String()
+	assert.Contains(t, line, "mouseion: classical preparation submission failed")
+	assert.Contains(t, line, `stage="import"`)
+	assert.Contains(t, line, `code="classical_preparation_failed"`)
+	assert.Contains(t, line, `owner "owner"`, "identifiers are quoted")
+	assert.Contains(t, line, `book "book-1"`)
+	assert.NotContains(t, line, "Ἀνάβασις", "raw error text must not reach operator logs")
+	assert.NotContains(t, line, "cannot import")
+}
+
+func TestRetryCurrentBookRaceIsNotLoggedAsFailure(t *testing.T) {
+	h := newHarness(t, toReadEPUBBook("source-1"), nil)
+	h.analysis.err = analysis.ErrCurrentBook
+	logs := captureLog(t)
+
+	outcome := retry(t, h)
+
+	require.Equal(t, OutcomeCurrentBookRefused, outcome.Kind)
+	assert.Empty(t, logs.String(), "a refused current Book is an expected outcome")
 }
 
 // captureLog redirects the standard logger for one test.

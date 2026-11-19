@@ -71,7 +71,7 @@ func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 	t.Run("move reports an unexpected error", func(t *testing.T) {
 		t.Parallel()
 		module, err := readingintent.New(readingintent.Config{
-			Books: failingBookReader{}, Dispositions: fixtures.NewStore(),
+			Books: failingBookReader{}, CurrentReadings: fixtures.NewStore(), Dispositions: fixtures.NewStore(),
 			Preparation: fixtures.ClassicalPreparation{}, Analysis: fixtures.Analysis{},
 		})
 		require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 	t.Run("missing Book is unchanged", func(t *testing.T) {
 		t.Parallel()
 		module, err := readingintent.New(readingintent.Config{
-			Books: fixtures.NewStore(), Dispositions: fixtures.NewStore(),
+			Books: fixtures.NewStore(), CurrentReadings: fixtures.NewStore(), Dispositions: fixtures.NewStore(),
 			Preparation: fixtures.ClassicalPreparation{}, Analysis: fixtures.Analysis{},
 		})
 		require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 	t.Run("vanished Book is unchanged", func(t *testing.T) {
 		t.Parallel()
 		module, err := readingintent.New(readingintent.Config{
-			Books: staticBookReader{book: eligible}, Dispositions: missingDispositions{},
+			Books: staticBookReader{book: eligible}, CurrentReadings: fixtures.NewStore(), Dispositions: missingDispositions{},
 			Preparation: fixtures.ClassicalPreparation{}, Analysis: fixtures.Analysis{},
 		})
 		require.NoError(t, err)
@@ -211,6 +211,63 @@ func TestMoveToReadMessages(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, tt.want, moveToReadMessage(context.Background(), catalog, "owner", "book-1", tt.outcome))
+		})
+	}
+}
+
+// TestRetryMessages proves the mapping from each Retry outcome to the
+// learner-facing sentence. Every sentence predates the module and must not
+// change with it.
+func TestRetryMessages(t *testing.T) {
+	t.Parallel()
+	catalog := fixtures.NewStore()
+	tests := []struct {
+		name    string
+		outcome readingintent.Outcome
+		want    string
+		isError bool
+	}{
+		{name: "no preparation seam", outcome: readingintent.Outcome{Kind: readingintent.OutcomePreparationUnavailable}, want: "Classical preparation is unavailable.", isError: true},
+		{name: "already current", outcome: readingintent.Outcome{Kind: readingintent.OutcomeAlreadyCurrent}, want: "The analysis is already current."},
+		{name: "classical job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteClassical, JobNumber: 7}, want: "Preparation job #7 submitted."},
+		{name: "analysis job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteEPUB, JobNumber: 9}, want: "Analysis job #9 submitted."},
+		{name: "legacy rows", outcome: readingintent.Outcome{Kind: readingintent.OutcomeLegacyRows}, want: classical.LegacyRowsReason, isError: true},
+		{name: "withdrawn definition", outcome: readingintent.Outcome{Kind: readingintent.OutcomeWithdrawnDefinition}, want: classicalWithdrawnRefusal, isError: true},
+		{name: "source refused", outcome: readingintent.Outcome{Kind: readingintent.OutcomeSourceRefused}, want: classicalSourceMismatchRefusal, isError: true},
+		{name: "classical could not start", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCouldNotStart, Route: readingintent.RouteClassical}, want: "Preparation could not be started. Retry when ready.", isError: true},
+		{
+			name:    "analysis could not start",
+			outcome: readingintent.Outcome{Kind: readingintent.OutcomeCouldNotStart, Route: readingintent.RouteEPUB, Err: assert.AnError},
+			want:    "Analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again.",
+			isError: true,
+		},
+		{name: "no usable EPUB units", outcome: readingintent.Outcome{Kind: readingintent.OutcomeNoUsableEPUBUnits}, want: "The current source has no usable EPUB units. The To Read choice is retained; analysis is unavailable.", isError: true},
+		{
+			name: "acquisition failed",
+			outcome: readingintent.Outcome{
+				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
+				Title: "Der lange Weg", Err: opds.ErrNoEPUB, AcquisitionFailed: true,
+			},
+			want:    `Could not acquire "Der lange Weg" from connection catalog connection: This book is not available as an EPUB. Choose another edition or format. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
+			isError: true,
+		},
+		{
+			name: "acquisition names the connection and entry",
+			outcome: readingintent.Outcome{
+				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
+				Target: cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Entry: opds.Entry{Title: "Der Weg"}},
+				Title:  "Book", Err: opds.ErrNoEPUB, AcquisitionFailed: true,
+			},
+			want:    `Could not acquire "Der Weg" from connection connection-1: This book is not available as an EPUB. Choose another edition or format. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
+			isError: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			message, isError := retryMessage(context.Background(), catalog, "owner", tt.outcome)
+			assert.Equal(t, tt.want, message)
+			assert.Equal(t, tt.isError, isError)
 		})
 	}
 }

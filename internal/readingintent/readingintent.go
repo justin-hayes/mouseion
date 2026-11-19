@@ -33,6 +33,12 @@ type BookReader interface {
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
 }
 
+// CurrentReadingReader loads the owner's current reading for a language, so a
+// retry can refuse the Book whose evidence is frozen.
+type CurrentReadingReader interface {
+	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
+}
+
 // DispositionWriter applies the To Read transition against an expected revision.
 type DispositionWriter interface {
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
@@ -89,24 +95,26 @@ func (s SourceAcquisition) AcquireForBook(ctx context.Context, owner, connection
 	return s.Acquirer.AcquireForBook(ctx, owner, connectionID, language, bookID, entry)
 }
 
-// Config supplies Move's collaborators. Books, Dispositions, Preparation and
-// Analysis are required; a missing one is a wiring mistake. Acquisition is
-// optional, because a deployment may have no catalog connection.
+// Config supplies Move's collaborators. Books, CurrentReadings, Dispositions,
+// Preparation and Analysis are required; a missing one is a wiring mistake.
+// Acquisition is optional, because a deployment may have no catalog connection.
 type Config struct {
-	Books        BookReader
-	Dispositions DispositionWriter
-	Preparation  ClassicalPreparation
-	Analysis     Analysis
-	Acquisition  CatalogAcquisition
+	Books           BookReader
+	CurrentReadings CurrentReadingReader
+	Dispositions    DispositionWriter
+	Preparation     ClassicalPreparation
+	Analysis        Analysis
+	Acquisition     CatalogAcquisition
 }
 
 // Module carries out reading intent for one Book.
 type Module struct {
-	books        BookReader
-	dispositions DispositionWriter
-	preparation  ClassicalPreparation
-	analysis     Analysis
-	acquisition  CatalogAcquisition
+	books           BookReader
+	currentReadings CurrentReadingReader
+	dispositions    DispositionWriter
+	preparation     ClassicalPreparation
+	analysis        Analysis
+	acquisition     CatalogAcquisition
 }
 
 // New validates the required collaborators and returns the module.
@@ -114,6 +122,8 @@ func New(cfg Config) (*Module, error) {
 	switch {
 	case cfg.Books == nil:
 		return nil, errors.New("reading intent: a Book reader is required")
+	case cfg.CurrentReadings == nil:
+		return nil, errors.New("reading intent: a current reading reader is required")
 	case cfg.Dispositions == nil:
 		return nil, errors.New("reading intent: a disposition writer is required")
 	case cfg.Preparation == nil:
@@ -122,11 +132,12 @@ func New(cfg Config) (*Module, error) {
 		return nil, errors.New("reading intent: To Read analysis is required")
 	}
 	return &Module{
-		books:        cfg.Books,
-		dispositions: cfg.Dispositions,
-		preparation:  cfg.Preparation,
-		analysis:     cfg.Analysis,
-		acquisition:  cfg.Acquisition,
+		books:           cfg.Books,
+		currentReadings: cfg.CurrentReadings,
+		dispositions:    cfg.Dispositions,
+		preparation:     cfg.Preparation,
+		analysis:        cfg.Analysis,
+		acquisition:     cfg.Acquisition,
 	}, nil
 }
 
@@ -153,18 +164,55 @@ func (m *Module) Move(ctx context.Context, owner, bookID string, expectedRevisio
 	if !applied || book.Disposition == domain.BookDispositionToRead {
 		return Outcome{Kind: OutcomeUnchanged, Book: book}, nil
 	}
+	if book.ReadingUnit != nil && book.Classification().AnalysisInEffect() {
+		// Settled evidence is not prepared again merely because the learner
+		// moved the Book.
+		return Outcome{Kind: OutcomeMoved, Route: RouteClassical, Book: book}, nil
+	}
 	return m.route(ctx, owner, book)
 }
 
-// route chooses the submission a moved Book needs. The disposition change is
+// Retry re-runs the submission route for a Book that is already To Read. It
+// refuses the current Book, whose evidence is frozen, and any Book that is not
+// To Read, because analysis only follows reading intent. It never transitions
+// the disposition.
+func (m *Module) Retry(ctx context.Context, owner, bookID string) (Outcome, error) {
+	book, err := m.books.GetBookDetail(ctx, owner, bookID)
+	if errors.Is(err, domain.ErrNotFound) {
+		return Outcome{Kind: OutcomeNotFound}, nil
+	}
+	if err != nil {
+		return Outcome{}, err
+	}
+	current, err := m.currentReadings.GetCurrentReading(ctx, owner, book.Book.LanguageTag)
+	if err != nil {
+		return Outcome{Book: book}, err
+	}
+	if current.IsActive() && current.BookID == book.Book.ID {
+		return Outcome{Kind: OutcomeCurrentBookRefused, Book: book}, nil
+	}
+	if book.Disposition != domain.BookDispositionToRead {
+		return Outcome{Kind: OutcomeNotToRead, Book: book}, nil
+	}
+
+	outcome, err := m.route(ctx, owner, book)
+	if err != nil {
+		return outcome, err
+	}
+	if outcome.Kind == OutcomeCouldNotStart && errors.Is(outcome.Err, analysis.ErrCurrentBook) {
+		// The submission lost a race with Start. The current Book's evidence
+		// is frozen, exactly as the guard above reports.
+		outcome.Kind = OutcomeCurrentBookRefused
+	}
+	return outcome, nil
+}
+
+// route chooses the submission a To Read Book needs. The disposition change is
 // the learner's intent; the route only decides how its analysis reaches the
 // Book.
 func (m *Module) route(ctx context.Context, owner string, book domain.MyBook) (Outcome, error) {
 	if book.ReadingUnit == nil {
 		return m.submitAnalysis(ctx, owner, book)
-	}
-	if book.Classification().AnalysisInEffect() {
-		return Outcome{Kind: OutcomeMoved, Route: RouteClassical, Book: book}, nil
 	}
 	return m.submitClassical(ctx, owner, book)
 }
@@ -226,7 +274,7 @@ func (m *Module) submitAnalysis(ctx context.Context, owner string, book domain.M
 		if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
 			return Outcome{Kind: OutcomeNoUsableEPUBUnits, Route: RouteEPUB, Book: book}, nil
 		}
-		return Outcome{Kind: OutcomeCouldNotStart, Route: RouteEPUB, Book: book}, nil
+		return Outcome{Kind: OutcomeCouldNotStart, Route: RouteEPUB, Book: book, Err: err}, nil
 	}
 	return Outcome{Kind: OutcomeJobQueued, Route: RouteEPUB, JobNumber: handle.DisplayNumber, Book: book, Target: target}, nil
 }

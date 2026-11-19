@@ -355,35 +355,6 @@ func (h *Handler) resolveBookID(ctx context.Context, owner, id string) (string, 
 	return h.services.Store.Reading.ResolveBookID(ctx, owner, id)
 }
 
-func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string) (analysis.Handle, cataloguesync.AcquisitionTarget, string, bool, error) {
-	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
-	if err != nil {
-		return analysis.Handle{}, cataloguesync.AcquisitionTarget{}, "", false, err
-	}
-	target := cataloguesync.AcquisitionTarget{}
-	acquisitionAttempted := false
-	if detail.Acquired == nil || detail.Acquired.EvidenceState() == domain.BookUnavailable {
-		// A missing or unavailable source cannot meet current-reading eligibility,
-		// which requires a completed current analysis. It cannot become current
-		// during acquisition; the guarded submission below serializes analyzable
-		// books against a concurrent start.
-		acquisitionAttempted = true
-		target, err = h.acquireBookForReadingContext(ctx, owner, bookID)
-		if err != nil {
-			return analysis.Handle{}, target, detail.Book.Title, true, err
-		}
-		detail, err = h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
-		if err != nil {
-			return analysis.Handle{}, target, detail.Book.Title, true, err
-		}
-	}
-	if detail.Acquired == nil {
-		return analysis.Handle{}, target, detail.Book.Title, acquisitionAttempted, errors.New("the current EPUB could not be loaded after acquisition")
-	}
-	handle, err := h.services.Analysis.SubmitToReadBookAnalysis(ctx, owner, bookID, detail.Acquired.Source.ID)
-	return handle, target, detail.Book.Title, false, err
-}
-
 // reanalysisError names why a Reading retry could not start analysis.
 func reanalysisError(ctx context.Context, catalog CatalogsStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {

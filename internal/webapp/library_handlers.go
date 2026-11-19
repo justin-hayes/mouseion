@@ -446,11 +446,12 @@ func (h *Handler) readingIntentModule() (*readingintent.Module, error) {
 		acquisition = readingintent.SourceAcquisition{Targets: h.services.CatalogueSync, Acquirer: h.services.OPDS}
 	}
 	return readingintent.New(readingintent.Config{
-		Books:        h.services.Store.MyBooks,
-		Dispositions: h.services.Store.MyBooks,
-		Preparation:  preparation,
-		Analysis:     analysisService,
-		Acquisition:  acquisition,
+		Books:           h.services.Store.MyBooks,
+		CurrentReadings: h.services.Store.Reading,
+		Dispositions:    h.services.Store.MyBooks,
+		Preparation:     preparation,
+		Analysis:        analysisService,
+		Acquisition:     acquisition,
 	})
 }
 
