@@ -27,9 +27,17 @@ The source CSS and original assets are preserved in the prototype at commit
 | `fonts/literata-latin-opsz-normal.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-latin-opsz-normal.woff2` | OFL (`fonts/literata-OFL.txt`) | `29de894c768689feef6ab4ef274a9a16d19bfc5b0c3cbfcdac80ef220816210c` |
 | `fonts/literata-latin-ext-opsz-normal.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-latin-ext-opsz-normal.woff2` | OFL (`fonts/literata-OFL.txt`) | `1160835f4cdae6a86572ed501c13b62b341480cc7c13fc88ba0c21efdf1fcd73` |
 | `fonts/literata-greek-opsz-normal.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-greek-opsz-normal.woff2` | OFL (`fonts/literata-OFL.txt`) | `1a7f2e3f1b37ae8c92b57eb8f164da44ac369783bd58ad6295368bbc7b9f7d08` |
+| `fonts/literata-greek-ext-opsz-normal.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-greek-ext-opsz-normal.woff2` | OFL (`fonts/literata-OFL.txt`) | `ddec2c8446e758de47732823748e46d677c359e4c7d28b8a6f5a105e232127b6` |
 | `fonts/literata-latin-opsz-italic.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-latin-opsz-italic.woff2` | OFL (`fonts/literata-OFL.txt`) | `97bc5aa317653eb249d66782c8533e5f1bd7d27a97b5265155a3d1700e785b7b` |
 | `fonts/literata-latin-ext-opsz-italic.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-latin-ext-opsz-italic.woff2` | OFL (`fonts/literata-OFL.txt`) | `09e48237261b84a90f2d6011c050d10d4bacd060cd884a10fe4edf69c0bf3870` |
 | `fonts/literata-greek-opsz-italic.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-greek-opsz-italic.woff2` | OFL (`fonts/literata-OFL.txt`) | `6d7605de1880b037552f30e47477a4bb37d97f1be7387b61ef35ae800a272e29` |
+| `fonts/literata-greek-ext-opsz-italic.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-greek-ext-opsz-italic.woff2` | OFL (`fonts/literata-OFL.txt`) | `d10f79be056e2ca47cac7602877d256ee25c58d184ab32f35719514109ef8226` |
+
+Both Literata Greek Extended files carry 233 glyphs in U+1F00–1FFF, the same
+coverage in the upright and italic faces. `@fontsource-variable/commissioner@5.3.0`
+publishes no Greek Extended subset and its Greek subset has no U+1F00–1FFF
+glyphs, so polytonic Greek in interface text still falls back to a system face
+until an upstream Commissioner release provides those glyphs.
 
 HTMX and build-tool upstream licenses are under [`licenses/`](licenses/);
 the two font OFL texts are alongside the font assets in [`fonts/`](fonts/).

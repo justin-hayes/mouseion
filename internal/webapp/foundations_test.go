@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -260,6 +261,8 @@ func TestTypographyAssetsAreEmbeddedAndServedLocally(t *testing.T) {
 		"/static/vendor/fonts/literata-latin-opsz-normal.woff2",
 		"/static/vendor/fonts/literata-latin-ext-opsz-normal.woff2",
 		"/static/vendor/fonts/literata-greek-opsz-normal.woff2",
+		"/static/vendor/fonts/literata-greek-ext-opsz-normal.woff2",
+		"/static/vendor/fonts/literata-greek-ext-opsz-italic.woff2",
 	} {
 		t.Run(path, func(t *testing.T) {
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
@@ -279,6 +282,9 @@ func TestTypographyAssetsAreEmbeddedAndServedLocally(t *testing.T) {
 	assert.Contains(t, css, `font-family: "Literata Variable"`)
 	assert.Contains(t, css, `url("/static/vendor/fonts/commissioner-greek-wght-normal.woff2")`)
 	assert.Contains(t, css, `url("/static/vendor/fonts/literata-greek-opsz-normal.woff2")`)
+	assert.Contains(t, css, `url("/static/vendor/fonts/literata-greek-ext-opsz-normal.woff2")`)
+	assert.Contains(t, css, `url("/static/vendor/fonts/literata-greek-ext-opsz-italic.woff2")`)
+	assert.Equal(t, 2, strings.Count(css, "unicode-range: U+1F00-1FFF;"), "both Greek Extended faces must be range-restricted")
 	assert.NotRegexp(t, `url\(https?://`, css, "font CSS must not make third-party requests")
 }
 

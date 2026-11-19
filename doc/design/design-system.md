@@ -227,8 +227,11 @@ Commissioner (Kostas Bartsokas, OFL) is the application face. Literata
 (Google Fonts/TypeTogether, OFL) is reserved for Book identity and source text.
 Both are self-hosted variable WOFF2 fonts with Latin, Latin-ext, and Greek
 subsets; Commissioner exposes only weights 400–700, Literata 400–600 in upright
-and italic styles, and Literata uses its optical-size axis. Italic Literata is a
-separate subset and loads only when italic text is used. The scale is a major third from
+and italic styles, and Literata uses its optical-size axis. Literata adds a Greek
+Extended subset (U+1F00–1FFF) in upright and italic for polytonic text, while the
+pinned Commissioner package has no Greek Extended subset and falls back for
+those glyphs. Italic Literata is a separate subset and loads only when italic
+text is used. The scale is a major third from
 16px: 13 / 16 / 20 / 25 / 31 / 39 / 49px. Page headings orient at 25px;
 ordinary section headings use 20px; only a current Book title may reach
 39–49px. Reading passages use 17–19px Literata at approximately 1.65 line
@@ -244,8 +247,9 @@ title. Titles everywhere else wrap without truncation.
 
 Font faces use `font-display: swap`, generic sans-serif/serif fallback stacks, and
 local URLs through the embedded static handler. Preload only the Commissioner
-Latin subset used immediately by the interface; Greek, extended-Latin, and
-Literata subsets load when their glyphs are needed. The nine font subsets and
+Latin subset used immediately by the interface; Greek, Greek Extended,
+extended-Latin, and Literata subsets load when their glyphs are needed. The
+eleven font subsets and
 their OFL texts, pinned source paths, and SHA-256 checksums are listed in the
 [vendor inventory](../../internal/webapp/static/vendor/README.md).
 
