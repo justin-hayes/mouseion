@@ -176,8 +176,10 @@ The authenticated shell exposes four principal destinations:
 
 Catalogs browses only curated sources that do not sync into My Books. The
 built-in, read-only **Classical catalog** sits above the learner's OPDS
-connections with author, author-detail and work-detail pages; it is not a fifth
-destination and is not scoped to the active study language. OPDS connections
+connections with one index and a work page; the index groups every Work under
+its author and shows each Work's Opening, length and Add controls, and the
+retired author-detail URL redirects to that author's index section. It is not a
+fifth destination and is not scoped to the active study language. OPDS connections
 keep their configuration and sync role. My Books remains the sole
 **bibliographic Book** browse surface for synced metadata; the Browse working
 desk on Reading lists vocabulary identities, not Books or catalog entries.
@@ -229,6 +231,10 @@ Reading (active study language)
         choose what to read next -> Reading chooser (`/reading`)
 
 Catalogs
+    built-in Classical catalog index (`/catalogs/classical`): every Work
+        grouped under its author, with its Opening and length strip
+    work page (`/catalogs/classical/works/{work-key}`)
+    retired author-detail URLs permanently redirect to that author's index section
     connection setup and sync status
 
 Vocabulary (partially shipped)

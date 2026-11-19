@@ -310,7 +310,7 @@ func TestClassicalCatalogAddNamesAncientGreekForOneBook(t *testing.T) {
 	})
 }
 
-func TestClassicalCatalogAddsOneBookAndAWholeWorkUnitFromTheAuthorPage(t *testing.T) {
+func TestClassicalCatalogAddsOneBookAndAWholeWorkUnitFromTheIndex(t *testing.T) {
 	ctx, store, pool, h, layerRequests := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "classical-add-single", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
@@ -320,15 +320,15 @@ func TestClassicalCatalogAddsOneBookAndAWholeWorkUnitFromTheAuthorPage(t *testin
 	assert.Contains(t, single.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books."))
 	require.Len(t, ownerBooks(t, pool, learner.ID), 1)
 
-	author := perform(t, h, "GET", "/catalogs/classical/authors/"+url.PathEscape("Xenophon"), nil, cookies)
-	require.Equal(t, http.StatusOK, author.Code)
-	for _, want := range []string{`action="/catalogs/classical/works/xenophon-hellenica/add"`, `name="return" value="author"`} {
-		assert.Contains(t, author.Body.String(), want, "whole-work unit is added from the author page")
+	index := perform(t, h, "GET", "/catalogs/classical", nil, cookies)
+	require.Equal(t, http.StatusOK, index.Code)
+	for _, want := range []string{`action="/catalogs/classical/works/xenophon-hellenica/add"`, `name="return" value="index"`} {
+		assert.Contains(t, index.Body.String(), want, "whole-work unit is added from the index")
 	}
 
-	whole := perform(t, h, "POST", "/catalogs/classical/works/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}, "return": {"author"}}, cookies)
+	whole := perform(t, h, "POST", "/catalogs/classical/works/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}, "return": {"index"}}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code)
-	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical/authors/"+url.PathEscape("Xenophon"))
+	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical?")
 	assert.Contains(t, whole.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books."))
 	assert.Len(t, ownerBooks(t, pool, learner.ID), 2)
 	assert.Zero(t, countRows(t, pool, `SELECT count(*) FROM river_job`))

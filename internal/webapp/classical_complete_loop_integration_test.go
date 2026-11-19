@@ -81,22 +81,20 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	learner := createAccount(t, h.ctx, h.store, "classical-loop-learner", "learner-password")
 	cookies, csrf := loginCookies(t, h.handler, learner.Username, "learner-password")
 
-	// 1. Catalogs -> author index -> author -> work.
+	// 1. Catalogs -> catalog index -> work. The retired author page redirects
+	// to that author's section of the index.
 	index := perform(t, h.handler, http.MethodGet, "/catalogs/classical", nil, cookies)
 	require.Equal(t, http.StatusOK, index.Code, index.Body.String())
-	for _, want := range []string{"Classical catalog", "Synthetic Author", "Synthetic Work", "Synthetic Whole"} {
-		assert.Contains(t, index.Body.String(), want, "author index missing %q", want)
-	}
-	author := perform(t, h.handler, http.MethodGet, "/catalogs/classical/authors/"+url.PathEscape("Synthetic Author"), nil, cookies)
-	require.Equal(t, http.StatusOK, author.Code, author.Body.String())
-	authorBody := author.Body.String()
 	for _, want := range []string{
-		"Synthetic Work", "Synthetic Whole",
+		"Classical catalog", "Synthetic Author", "Synthetic Work", "Synthetic Whole",
 		"English translation available", "English translation not available",
 		`action="/catalogs/classical/works/synthetic-whole/add"`,
 	} {
-		assert.Contains(t, authorBody, want, "author page missing %q", want)
+		assert.Contains(t, index.Body.String(), want, "catalog index missing %q", want)
 	}
+	retired := perform(t, h.handler, http.MethodGet, "/catalogs/classical/authors/"+url.PathEscape("Synthetic Author"), nil, cookies)
+	require.Equal(t, http.StatusMovedPermanently, retired.Code)
+	assert.Equal(t, "/catalogs/classical#author-Synthetic-Author", retired.Header().Get("Location"))
 	work := perform(t, h.handler, http.MethodGet, "/catalogs/classical/works/synthetic-work", nil, cookies)
 	require.Equal(t, http.StatusOK, work.Code, work.Body.String())
 	for _, want := range []string{
@@ -107,8 +105,8 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	}
 
 	// 2. Add a single book from the work page, then the whole work, then the
-	// whole-work unit from the author page. Re-adding reopens without a
-	// duplicate or a download.
+	// whole-work unit from the index. Re-adding reopens without a duplicate or
+	// a download.
 	single := perform(t, h.handler, http.MethodPost, "/catalogs/classical/units/synthetic-work-2/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, single.Code, single.Body.String())
 	assert.Contains(t, single.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books."))
@@ -116,10 +114,10 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
 	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 1 Book and opened 1 existing Book."))
 	whole := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-whole/add", url.Values{
-		"csrf_token": {csrf}, "return": {"author"},
+		"csrf_token": {csrf}, "return": {"index"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code, whole.Body.String())
-	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical/authors/"+url.PathEscape("Synthetic Author"))
+	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical?")
 	owned := h.booksByUnit(t, learner.ID)
 	require.Len(t, owned, 3)
 	bookOne, bookTwo := owned[h.unitOneKey], owned[h.unitTwoKey]

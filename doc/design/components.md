@@ -107,10 +107,55 @@ one-pattern/one-Templ-component implementation.
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
 | `EvidenceDelta` | State a current, prior, conditional, or lower-bound value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, lower bound, stale/unavailable evidence | Journey books |
 | `OutcomeSummary` | Identify the completed Book, report exact newly-Known and already-Known counts, and return to the neutral chooser without implying mastery or selecting another Book. | Non-empty snapshot, empty snapshot, zero counts, retry/idempotent completion | Reading completion receipt |
+| `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note. | None, partial or full ownership; whole-work or multi-book Work; Choose books open or closed; compact reflow | Catalogs |
 
 The patterns above should compose mostly through typography, ordered lists,
 definition lists, actions, disclosures, and fine rules. They are not permission
 to wrap every region in a card.
+
+### `ClassicalCatalogEntry`
+
+**Answers:** Which Works does the Classical catalog carry, by which author, and
+what do their words and lengths look like before I add one?
+
+The catalog index is one page, not a set of author pages. Each author's section
+is a heading with a stable anchor and an unordered list of Works. A Work entry
+keeps its identity first: linked title with its Greek title beside it. Under the
+identity, the Opening is set whole in the reading typeface at the page-title
+size on wide screens and the section-title size on compact screens, marked as
+Ancient Greek, preceded by its starting citation and a visually hidden "Begins
+at". A caption states the word count and whether the Work is read whole or in
+constituent books; the length strip below it draws one segment per Reading unit
+on a single page-wide word scale ending at the next 10,000 words above the
+longest Work, with owned segments in the accent colour. The strip is hidden from
+assistive technology because the caption, books table and ownership line carry
+the same facts.
+
+The margin note carries the Edition, the passage range, translation
+availability, ownership and one whole-Work Add control. A Work split into
+constituent books adds a native `details` **Choose books** disclosure, closed by
+default, with a table of book, passage, word count and per-book Add or "In My
+Books". The Add label names what it will add: "Add the work" for a whole-work
+unit, "Add the whole work" when none of a multi-book Work is owned, and "Add the
+remaining books" when some are; a fully owned Work offers no Add. A page-level
+attribution line credits the Greek text to its source layer and licence. The
+index shows no preparation state, coverage or difficulty.
+
+The Opening is announced as Ancient Greek, and its starting citation is preceded
+by a visually hidden "Begins at" so the reference is not read as part of the
+sentence. The length strip is `aria-hidden` and adds no focus stop. Title links,
+the native **Choose books** summary and every Add submit button follow document
+order and keep the shared focus ring and 44px target; the summary is operated by
+Enter or Space. Add posts the existing form with CSRF and returns to the
+confirmation through the shared `Feedback` live region. No interaction requires
+a pointer.
+
+On compact screens the margin note moves below the identity and the strip wraps
+instead of scrolling sideways. The author-detail page is retired; its old URL
+permanently redirects to that author's section, Work-page breadcrumbs point
+there instead, and no page links to the retired author URL.
+
+Canonical surface: Catalogs.
 
 ## Book cover patterns
 

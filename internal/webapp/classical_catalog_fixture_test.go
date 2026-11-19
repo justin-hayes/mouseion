@@ -32,10 +32,9 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 		assert.Contains(t, index.Body.String(), want)
 	}
 
-	author := catalogPage(t, h, cookies, "/catalogs/classical/authors/Homer")
-	require.Equal(t, http.StatusOK, author.Code)
-	assert.Contains(t, author.Body.String(), "Iliad")
-	assert.Contains(t, author.Body.String(), "3 books")
+	retired := catalogPage(t, h, cookies, "/catalogs/classical/authors/Homer")
+	require.Equal(t, http.StatusMovedPermanently, retired.Code)
+	assert.Equal(t, "/catalogs/classical#author-Homer", retired.Header().Get("Location"))
 
 	work := catalogPage(t, h, cookies, "/catalogs/classical/works/fixture-iliad")
 	require.Equal(t, http.StatusOK, work.Code)

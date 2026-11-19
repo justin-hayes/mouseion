@@ -160,8 +160,8 @@ type CatalogAuthor struct {
 	Works []CatalogWork
 }
 
-// CatalogWork is one Work as the author page and work page render it. Units are
-// ordered by constituent book.
+// CatalogWork is one Work as the catalog index and work page render it. Units
+// are ordered by constituent book.
 type CatalogWork struct {
 	Key                  string
 	Title                string
@@ -313,7 +313,7 @@ func buildCatalogAuthors(worksByKey map[string]*CatalogWork) []CatalogAuthor {
 }
 
 // translationAvailable reports whether every current unit of a work carries a
-// translation pin, so the author page never promises a partial translation.
+// translation pin, so the catalog never promises a partial translation.
 func translationAvailable(definitions []Definition, workKey string) bool {
 	found := false
 	for _, definition := range definitions {
@@ -328,7 +328,7 @@ func translationAvailable(definitions []Definition, workKey string) bool {
 	return found
 }
 
-// sortWorks orders works by title, then key, so the author page is stable.
+// sortWorks orders works by title, then key, so the catalog index is stable.
 func sortWorks(works []CatalogWork) {
 	sort.Slice(works, func(i, j int) bool {
 		if works[i].Title != works[j].Title {

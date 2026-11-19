@@ -1,6 +1,21 @@
 # ADR 0116: A curated Classical catalog of Ancient Greek Reading units
 
-Status: **Accepted — implemented (#2401/#2419)** · Date: 2026-11-09 · Author: Justin + OpenCode
+Status: **Accepted — implemented (#2401/#2419); amended 2026-11-19 (catalog page set
+and carried excerpts)** · Date: 2026-11-09 · Author: Justin + OpenCode
+
+> **Amendment (2026-11-19):** The Classical catalog's pages are the index and
+> the work page. The index groups every Work under its author and identifies it
+> by its **Opening** and a length strip drawn on one page-wide word scale. The
+> author-detail page is retired: its URL answers with a permanent redirect to
+> that author's section of the index, an unknown author stays not found, and the
+> work page's breadcrumb and any Add confirmation that named the author lead to
+> the index section instead. The
+> release therefore carries Openings — short excerpts of share-alike Source
+> content permitted by [ADR 0111](0111-third-party-licence-posture.md), credited
+> to their source layer on the index — while the full source and translation
+> files are still fetched when a Book moves to To Read. The rule that the catalog
+> never shows preparation state, coverage or difficulty stands, and Adding still
+> downloads nothing.
 
 Decided in [#2401](https://github.com/justin-hayes/mouseion/issues/2401)
 (Spec: Curated Classical catalog for learner-chosen Ancient Greek texts) and

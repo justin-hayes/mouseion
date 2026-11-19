@@ -422,6 +422,16 @@ overflow.
   `/catalogs`. My Books is the sole bibliographic Book browse surface for synced
   metadata, and its items own per-book disposition and acquisition intent.
   Reading owns the current Book or the between-Books candidate chooser.
+- The Classical catalog is one author-grouped index and the work page. Each
+  Work's Opening is set whole in the reading typeface at the page-title size on
+  wide screens and the section-title size on compact screens. Its length strip
+  shares one page-wide word scale and is hidden from assistive technology,
+  because the caption, books table and ownership line state the same facts.
+  Edition, passage, translation, ownership and Add sit in a margin note, and
+  **Choose books** is a native disclosure. The author-detail page is retired:
+  its URL permanently redirects to that author's index section. The index uses
+  existing tokens and typefaces only and never states preparation, coverage or
+  difficulty.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
 - Reading presents one current Book or, between Books, the learner's unordered To

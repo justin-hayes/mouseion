@@ -95,19 +95,16 @@ func (h *Handler) classicalAuthorIndex(w http.ResponseWriter, r *http.Request) {
 	render(w, r, ClassicalAuthorIndexPage(user(r), h.csrf(w, r), h.services.Classical.Authors(), h.services.Classical.Counts(), h.services.Classical.SourceAttributions(), view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
 }
 
-// classicalAuthor renders one author's works.
+// classicalAuthor retires the author-detail page. The index now lists every
+// Work under its author, so an old author URL permanently redirects to that
+// author's section of the index while an unknown author stays not found.
 func (h *Handler) classicalAuthor(w http.ResponseWriter, r *http.Request) {
 	author, ok := h.services.Classical.Author(r.PathValue("author"))
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	view, err := h.loadClassicalCatalogView(r.Context(), user(r).ID, h.services.Classical)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, ClassicalAuthorPage(user(r), h.csrf(w, r), author, view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
+	http.Redirect(w, r, classicalAuthorIndexURL(author.Name), http.StatusMovedPermanently)
 }
 
 // classicalWork renders one Work's constituent books.
@@ -126,8 +123,8 @@ func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
 }
 
 // addClassicalWork adds one Book per current Reading unit of a Work. It is the
-// primary action on a work; a whole-work unit reaches it from the author page
-// with return=author so the learner stays there.
+// primary action on a work; the index posts it with return=index so the learner
+// stays there.
 func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {
 		return
@@ -149,9 +146,6 @@ func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.redirectClassicalAddFailure(w, r, target, err)
 		return
-	}
-	if r.PostFormValue("return") == classicalAddReturnAuthor {
-		target = classicalAuthorURL(work.Author)
 	}
 	h.redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, activeLanguageOf(r), work.Key))
 }
@@ -182,8 +176,6 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 const (
 	// classicalAddReturnIndex returns the learner to the catalog index.
 	classicalAddReturnIndex = "index"
-	// classicalAddReturnAuthor returns the learner to the author page.
-	classicalAddReturnAuthor = "author"
 )
 
 // classicalAddConfirmation is what one Add reports to the page it returns to.

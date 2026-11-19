@@ -19,6 +19,11 @@ test('adds a single book and a whole work from the Classical catalog index', asy
   await expect(page.getByRole('heading', { name: 'Homer', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Xenophon', exact: true })).toBeVisible();
 
+  // An old author URL lands on that author's section of the index.
+  await page.goto('/catalogs/classical/authors/Homer');
+  await expect(page).toHaveURL(/\/catalogs\/classical#author-Homer$/);
+  await expect(page.getByRole('heading', { name: 'Homer', exact: true })).toBeVisible();
+
   const iliad = page.locator('#work-fixture-iliad');
   await expect(iliad).toContainText('μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος');
   await expect(iliad).toContainText('600 words in 3 books');
