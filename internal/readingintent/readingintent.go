@@ -315,6 +315,7 @@ func logAnalysisFailure(owner, bookID, step string, err error) {
 		return
 	}
 	// The Book id comes from the request path, and the error may echo it;
-	// quoting keeps a crafted id from forging log lines.
-	log.Printf("mouseion: To Read %s failed for owner %s book %s: %s", step, owner, strconv.Quote(bookID), strconv.Quote(err.Error()))
+	// quoting every identifier keeps a crafted one from forging log lines and
+	// matches the classical failure line.
+	log.Printf("mouseion: To Read %s failed for owner %s book %s: %s", step, strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(err.Error()))
 }
