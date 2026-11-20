@@ -33,7 +33,9 @@ type preUpgradeAnabasis struct {
 	passageContext, passageCitation, brownsonPin           string
 }
 
-func preUpgradeDefinition(t *testing.T, data []byte) classical.Definition {
+// preUpgradeDefinition builds the pre-manifest definition with the
+// interpretation version the old operator registration recorded.
+func preUpgradeDefinition(t *testing.T, data []byte, interpretationVersion string) classical.Definition {
 	t.Helper()
 	sum := sha256.Sum256(data)
 	book := 1
@@ -47,18 +49,18 @@ func preUpgradeDefinition(t *testing.T, data []byte) classical.Definition {
 			Layer: "oga-src-v0.2.0-text", FileName: "tlg0032.tlg006.perseus-grc2_oga020_src.conllu",
 			Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:]), Format: classical.SourceFormatOGACoNLLU,
 		},
-		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
+		InterpretationVersion: interpretationVersion, Revision: 1,
 	}
 }
 
 // seedPreUpgradeAnabasis writes the old operator registration shape: a Book
 // linked to the Reading unit, a whole-file source, a published unit analysis,
 // and the learner state that must survive conversion.
-func seedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persistence.PostgresStore, pool *pgxpool.Pool) preUpgradeAnabasis {
+func seedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persistence.PostgresStore, pool *pgxpool.Pool, interpretationVersion string) preUpgradeAnabasis {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
 	require.NoError(t, err)
-	definition := preUpgradeDefinition(t, data)
+	definition := preUpgradeDefinition(t, data, interpretationVersion)
 	owner, err := store.CreateUser(ctx, "conversion-owner", false)
 	require.NoError(t, err)
 	registration, err := store.RegisterReadingUnitBook(ctx, owner.ID, domain.ReadingUnitDefinition{
@@ -205,7 +207,7 @@ func TestConvertLegacyAnabasisBookPreservesEveryPieceOfState(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	seed := seedPreUpgradeAnabasis(t, ctx, store, pool)
+	seed := seedPreUpgradeAnabasis(t, ctx, store, pool, "oga-agdt-upos/5")
 
 	// Startup order: reconcile the manifest first, then convert the Book.
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{seed.definition}))
@@ -309,6 +311,70 @@ func TestConvertLegacyAnabasisBookPreservesEveryPieceOfState(t *testing.T) {
 	assert.Empty(t, legacy, "a converted Book no longer blocks the catalog")
 }
 
+// TestConvertLegacyV4BookRecordsItsPublishedInterpretationAndOffersAnUpdate
+// covers an installation that ran the Anabasis pilot before the manifest
+// existed. Its unreconciled Reading unit is v4, the manifest pins v5, and the
+// published run recorded v4 on its analyzer version. The first reconciliation
+// must adopt v5 instead of refusing startup, while conversion must record the
+// v4 the analysis actually ran under so the Book is offered an update.
+func TestConvertLegacyV4BookRecordsItsPublishedInterpretationAndOffersAnUpdate(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	// The fixture has none of the tokens v5 changed (no native "x" and no
+	// sentence crossing a citation boundary), so its evidence is also what a
+	// real v4 run stored; only the recorded analyzer version differs.
+	seed := seedPreUpgradeAnabasis(t, ctx, store, pool, "oga-agdt-upos/4")
+
+	var runVersion string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analyzer_version FROM analysis_runs WHERE owner_id=$1 AND id=$2`,
+		seed.ownerID, seed.runID).Scan(&runVersion))
+	require.True(t, strings.HasPrefix(runVersion, "oga-agdt-upos/4+"), "the published run records its real v4 interpretation")
+
+	// The current manifest pins v5 at revision 1. Only the interpretation
+	// version differs from the unreconciled row, so startup adopts it.
+	manifest := seed.definition
+	manifest.InterpretationVersion = "oga-agdt-upos/5"
+	manifestJSONL, err := classical.RenderDefinitions([]classical.Definition{manifest})
+	require.NoError(t, err)
+	require.NoError(t, classical.Reconcile(ctx, store, manifestJSONL), "startup reconciles a never-reconciled v4 row")
+
+	var readingUnitVersion string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT interpretation_version FROM reading_units WHERE definition_key=$1`,
+		seed.definition.Key).Scan(&readingUnitVersion))
+	assert.Equal(t, "oga-agdt-upos/5", readingUnitVersion, "the first reconciliation adopts the manifest's interpretation version")
+
+	report, err := ConvertLegacyClassicalBooks(ctx, store)
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Converted)
+
+	// The prepared-definition record names the version the published analysis
+	// actually ran under, not the Reading unit's updated value.
+	var preparedVersion, preparedRun string
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT interpretation_version, analysis_run_id::text
+		FROM classical_prepared_definitions WHERE owner_id=$1 AND book_id=$2`,
+		seed.ownerID, seed.bookID).Scan(&preparedVersion, &preparedRun))
+	assert.Equal(t, "oga-agdt-upos/4", preparedVersion)
+	assert.Equal(t, seed.runID, preparedRun, "the published analysis stays the prepared evidence")
+
+	// That mismatch is exactly the classical Analysis update offer, and the v4
+	// analysis stays published until the learner confirms (ADR 0107, ADR 0116).
+	service := NewService(store.Pool(), nil)
+	candidates, err := service.AnalysisUpdateCandidates(ctx, seed.ownerID, []string{seed.sourceID})
+	require.NoError(t, err)
+	candidate, ok := candidates[seed.sourceID]
+	require.True(t, ok, "a converted v4 Book is offered an Analysis update")
+	assert.Equal(t, seed.runID, candidate.PublishedRunID)
+	assert.Equal(t, "oga-agdt-upos/5", candidate.Target.AnalyzerVersion, "the offer targets the current definition")
+	current, err := store.GetCurrentReading(ctx, seed.ownerID, classical.Language)
+	require.NoError(t, err)
+	assert.Equal(t, seed.runID, current.AnalysisRunID, "the v4 analysis stays in effect until confirmation")
+}
+
 // survivingDefinition is a valid current manifest entry that keeps the
 // withdrawal test's installation open after the legacy unit is tombstoned.
 func survivingDefinition(t *testing.T) classical.Definition {
@@ -338,7 +404,7 @@ func seedUnpublishedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store 
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
 	require.NoError(t, err)
-	definition := preUpgradeDefinition(t, data)
+	definition := preUpgradeDefinition(t, data, "oga-agdt-upos/5")
 	readingUnit := domain.ReadingUnitDefinition{
 		Key: definition.Key, Language: definition.Language, WorkTitle: definition.WorkTitle,
 		WorkAuthor: definition.WorkAuthor, EditionLabel: definition.EditionLabel,
@@ -471,7 +537,7 @@ func TestConvertLegacyWithdrawnUnitStopsBlockingTheCatalog(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	seed := seedPreUpgradeAnabasis(t, ctx, store, pool)
+	seed := seedPreUpgradeAnabasis(t, ctx, store, pool, "oga-agdt-upos/5")
 	surviving := survivingDefinition(t)
 
 	// The release no longer carries the old Reading unit, so reconciliation
@@ -532,7 +598,7 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	seed := seedPreUpgradeAnabasis(t, ctx, store, pool)
+	seed := seedPreUpgradeAnabasis(t, ctx, store, pool, "oga-agdt-upos/5")
 
 	// The release moved to a newer interpretation, and the published evidence
 	// no longer matches what it reproduces.

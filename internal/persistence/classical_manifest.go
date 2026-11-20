@@ -194,7 +194,8 @@ func validateStoredRevisions(definitions []classical.Definition, stored map[stri
 
 // storedContentChanged reports whether the manifest changes a source pin,
 // translation pin or interpretation version compared with the stored row. An
-// unrecorded translation pin on a legacy row is not a change.
+// unrecorded translation pin or interpretation version on a legacy row is not a
+// change: its first reconciliation adopts them.
 func storedContentChanged(previous storedClassicalUnit, next classical.Definition) bool {
 	if previous.reconciled() {
 		if previous.SourceLayer != next.Source.Layer || previous.SourceFormat != next.Source.Format {
@@ -206,12 +207,13 @@ func storedContentChanged(previous storedClassicalUnit, next classical.Definitio
 			previous.InterpretationVersion != next.InterpretationVersion ||
 			!sameClassicalTranslation(previous.Translation, next.Translation)
 	}
-	// A row that predates reconciliation never recorded its layer, format or
-	// translation pin, so only the pins it did store can be compared.
+	// A row that predates reconciliation never recorded its layer, format,
+	// translation pin or manifest interpretation version, so only the pins it
+	// did store can be compared. Its first reconciliation adopts the manifest's
+	// interpretation version; a later change still needs a revision bump.
 	return previous.SourceFileName != next.Source.FileName ||
 		previous.SourceFileSize != next.Source.Size ||
-		previous.SourceFileSHA256 != next.Source.SHA256 ||
-		previous.InterpretationVersion != next.InterpretationVersion
+		previous.SourceFileSHA256 != next.Source.SHA256
 }
 
 // sameClassicalTranslation compares two optional translation pins, including

@@ -53,15 +53,35 @@ func TestStoredContentChangedIgnoresAnUnrecordedLegacyRow(t *testing.T) {
 	legacy.SourceLayer = ""
 	legacy.SourceFormat = ""
 
-	translated := definition
-	translated.Translation = &classical.TranslationPin{
-		Layer: "translation", FileName: "work.xml", Size: 20,
-		SHA256: strings.Repeat("b", 64), CitationStart: "1.1.1", CitationEnd: "1.1.2",
-	}
-	assert.False(t, storedContentChanged(legacy, translated), "a legacy row never recorded a translation pin")
+	t.Run("a translation pin recorded only by the manifest is not a change", func(t *testing.T) {
+		translated := definition
+		translated.Translation = &classical.TranslationPin{
+			Layer: "translation", FileName: "work.xml", Size: 20,
+			SHA256: strings.Repeat("b", 64), CitationStart: "1.1.1", CitationEnd: "1.1.2",
+		}
+		require.False(t, storedContentChanged(legacy, translated))
+	})
 
-	legacy.SourceFileSHA256 = strings.Repeat("c", 64)
-	assert.True(t, storedContentChanged(legacy, definition), "a recorded source pin still compares")
+	t.Run("a first reconciliation adopts the manifest interpretation version", func(t *testing.T) {
+		adopted := definition
+		adopted.InterpretationVersion = "oga-agdt-upos/6"
+		require.False(t, storedContentChanged(legacy, adopted))
+	})
+
+	for _, tt := range []struct {
+		name   string
+		mutate func(*classical.Definition)
+	}{
+		{"a mismatched file name is still a change", func(d *classical.Definition) { d.Source.FileName = "another.conllu" }},
+		{"a mismatched file size is still a change", func(d *classical.Definition) { d.Source.Size = 11 }},
+		{"a mismatched file SHA-256 is still a change", func(d *classical.Definition) { d.Source.SHA256 = strings.Repeat("c", 64) }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			changed := definition
+			tt.mutate(&changed)
+			require.True(t, storedContentChanged(legacy, changed))
+		})
+	}
 }
 
 func TestStoredContentChangedComparesEveryRecordedContentBearingField(t *testing.T) {

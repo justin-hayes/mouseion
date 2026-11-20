@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
@@ -210,12 +211,30 @@ func legacyClassicalConversion(candidate classicalConversionCandidate, unit anci
 		SourceFileName:            candidate.SourceFileName,
 		DefinitionRevision:        candidate.DefinitionRevision,
 		SourceFileSHA256:          candidate.SourceFileSHA256,
-		InterpretationVersion:     candidate.InterpretationVersion,
+		InterpretationVersion:     conversionInterpretationVersion(candidate),
 		AnalysisRunID:             candidate.AnalysisRunID,
 		ExpectedContentRevisionID: candidate.ContentRevisionID,
 		ExpectedSnapshotID:        candidate.SnapshotID,
 		Withdrawn:                 candidate.Withdrawn,
 	}
+}
+
+// conversionInterpretationVersion is the version the prepared-definition record
+// must store. An imported run names the interpretation it actually ran under as
+// the first slot of its analyzer version, joined to the other mapping slots
+// with "+". The reconciled Reading unit may already name a newer version (v5
+// landed before the manifest), so recording its value would hide the stale
+// analysis from the Analysis update offer (ADR 0116). A source with no published
+// run keeps the Reading unit's value and records no prepared definition anyway.
+func conversionInterpretationVersion(candidate classicalConversionCandidate) string {
+	if candidate.AnalysisRunID == "" {
+		return candidate.InterpretationVersion
+	}
+	published, _, _ := strings.Cut(candidate.AnalyzerVersion, "+")
+	if published = strings.TrimSpace(published); published != "" {
+		return published
+	}
+	return candidate.InterpretationVersion
 }
 
 // conversionDefinition is the adapter definition the Book's reconciled Reading

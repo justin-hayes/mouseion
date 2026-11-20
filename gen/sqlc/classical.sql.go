@@ -168,6 +168,7 @@ SELECT sm.owner_id::text AS owner_id,
        COALESCE(sm.current_snapshot_id::text, '')::text AS snapshot_id,
        COALESCE(cai.analysis_run_id::text, '')::text AS analysis_run_id,
        COALESCE(cai.corpus_id::text, '')::text AS corpus_id,
+       COALESCE(r.analyzer_version, '')::text AS analyzer_version,
        ru.definition_key AS reading_unit_key,
        ru.citation_start,
        ru.citation_end,
@@ -188,6 +189,8 @@ JOIN editions e ON e.id = ru.edition_id
 JOIN works w ON w.id = e.work_id
 LEFT JOIN current_analysis_identity cai
   ON cai.owner_id = sm.owner_id AND cai.source_material_id = sm.id AND cai.book_id = sm.book_id
+LEFT JOIN analysis_runs r
+  ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
 LEFT JOIN classical_prepared_definitions p
   ON p.owner_id = sm.owner_id AND p.book_id = sm.book_id
 WHERE sm.language = $1
@@ -210,6 +213,7 @@ type ListLegacyClassicalSourceCandidatesRow struct {
 	SnapshotID            string
 	AnalysisRunID         string
 	CorpusID              string
+	AnalyzerVersion       string
 	ReadingUnitKey        string
 	CitationStart         string
 	CitationEnd           string
@@ -250,6 +254,7 @@ func (q *Queries) ListLegacyClassicalSourceCandidates(ctx context.Context, arg L
 			&i.SnapshotID,
 			&i.AnalysisRunID,
 			&i.CorpusID,
+			&i.AnalyzerVersion,
 			&i.ReadingUnitKey,
 			&i.CitationStart,
 			&i.CitationEnd,
