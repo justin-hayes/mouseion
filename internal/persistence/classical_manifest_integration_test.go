@@ -185,6 +185,52 @@ func TestReconcileManifestCorrectsLegacyKeysAndKeepsTheBook(t *testing.T) {
 	assert.Equal(t, 2, iliadRows, "a withdrawn definition keeps its rows so Books never dangle")
 }
 
+// TestReconcileManifestAdoptsInterpretationOnFirstLegacyReconciliation proves a
+// Reading unit the retired operator registration wrote under an older
+// interpretation version still reconciles: its first reconciliation adopts the
+// manifest's version, while its recorded source pins are still enforced.
+func TestReconcileManifestAdoptsInterpretationOnFirstLegacyReconciliation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "legacy-interpretation-owner", false)
+	require.NoError(t, err)
+
+	legacy := legacyAnabasisDefinition()
+	legacy.InterpretationVersion = "oga-agdt-upos/4"
+	_, err = store.RegisterReadingUnitBook(ctx, owner.ID, legacy)
+	require.NoError(t, err)
+
+	for _, tt := range []struct {
+		name    string
+		changed func(*classical.Definition)
+	}{
+		{"a mismatched file name is refused", func(d *classical.Definition) { d.Source.FileName = "another.conllu" }},
+		{"a mismatched file size is refused", func(d *classical.Definition) { d.Source.Size = 7438038 }},
+		{"a mismatched file SHA-256 is refused", func(d *classical.Definition) { d.Source.SHA256 = strings.Repeat("c", 64) }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mismatched := anabasisManifest(1, strings.Repeat("a", 64))
+			tt.changed(&mismatched)
+			require.ErrorContains(t, reconcileManifest(t, store, mismatched), "changed content without a revision bump")
+		})
+	}
+
+	var version string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT interpretation_version FROM reading_units WHERE definition_key = $1`, legacy.Key).Scan(&version))
+	assert.Equal(t, "oga-agdt-upos/4", version, "a refused first reconciliation leaves the legacy row untouched")
+
+	require.NoError(t, reconcileManifest(t, store, anabasisManifest(1, strings.Repeat("a", 64))))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT interpretation_version FROM reading_units WHERE definition_key = $1`, legacy.Key).Scan(&version))
+	assert.Equal(t, "oga-agdt-upos/5", version, "the first reconciliation adopts the manifest's interpretation version")
+
+	// Once reconciled, the same interpretation change needs a revision bump.
+	regressed := anabasisManifest(1, strings.Repeat("a", 64))
+	regressed.InterpretationVersion = "oga-agdt-upos/4"
+	require.ErrorContains(t, reconcileManifest(t, store, regressed), "changed content without a revision bump")
+}
+
 // TestReconcileManifestRefusesABrokenRevision proves a reduced revision or a
 // content-bearing change without a bump stops startup and writes nothing.
 func TestReconcileManifestRefusesABrokenRevision(t *testing.T) {

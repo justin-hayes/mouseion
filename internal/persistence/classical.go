@@ -123,9 +123,12 @@ func registerReadingUnitBookTx(ctx context.Context, q *sqlcgen.Queries, owner st
 // definition counts. It carries the reviewed Reading-unit facts and the source
 // bytes startup conversion reads before rewriting the row to unit-only content.
 type LegacyClassicalSourceMaterial struct {
-	OwnerID, BookID, SourceMaterialID   string
-	ContentRevisionID, SnapshotID       string
-	AnalysisRunID, CorpusID             string
+	OwnerID, BookID, SourceMaterialID string
+	ContentRevisionID, SnapshotID     string
+	AnalysisRunID, CorpusID           string
+	// AnalyzerVersion is the published run's recorded identity. Imported runs
+	// prefix it with the interpretation version they actually ran under.
+	AnalyzerVersion                     string
 	ReadingUnitKey                      string
 	CitationStart, CitationEnd          string
 	SourceFileName                      string
@@ -163,8 +166,9 @@ func legacyClassicalSourceMaterials(rows []sqlcgen.ListLegacyClassicalSourceCand
 			SourceMaterialID:  row.SourceMaterialID,
 			ContentRevisionID: row.ContentRevisionID, SnapshotID: row.SnapshotID,
 			AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID,
-			ReadingUnitKey: row.ReadingUnitKey,
-			CitationStart:  row.CitationStart, CitationEnd: row.CitationEnd,
+			AnalyzerVersion: row.AnalyzerVersion,
+			ReadingUnitKey:  row.ReadingUnitKey,
+			CitationStart:   row.CitationStart, CitationEnd: row.CitationEnd,
 			SourceFileName: row.SourceFileName, SourceFileSize: row.SourceFileSize,
 			SourceFileSHA256: row.SourceFileSha256, SourceFormat: row.SourceFormat,
 			InterpretationVersion: row.InterpretationVersion, DefinitionRevision: row.DefinitionRevision,

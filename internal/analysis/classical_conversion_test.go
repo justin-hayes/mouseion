@@ -7,8 +7,44 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/require"
 )
+
+func TestConversionInterpretationVersionUsesThePublishedRun(t *testing.T) {
+	candidate := func(runID, analyzerVersion, readingUnitVersion string) classicalConversionCandidate {
+		material := persistence.LegacyClassicalSourceMaterial{
+			AnalysisRunID: runID, AnalyzerVersion: analyzerVersion, InterpretationVersion: readingUnitVersion,
+		}
+		return classicalConversionCandidate{LegacyClassicalSourceMaterial: material}
+	}
+	cases := []struct {
+		name      string
+		candidate classicalConversionCandidate
+		want      string
+	}{
+		{
+			name:      "a published run wins over the reconciled Reading unit",
+			candidate: candidate("run", "oga-agdt-upos/4+oga-agdt-feats/1+ancient-greek/1", "oga-agdt-upos/5"),
+			want:      "oga-agdt-upos/4",
+		},
+		{
+			name:      "a source without a published run keeps the Reading unit version",
+			candidate: candidate("", "", "oga-agdt-upos/5"),
+			want:      "oga-agdt-upos/5",
+		},
+		{
+			name:      "an absent recorded version falls back to the Reading unit version",
+			candidate: candidate("run", "", "oga-agdt-upos/5"),
+			want:      "oga-agdt-upos/5",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, conversionInterpretationVersion(tt.candidate))
+		})
+	}
+}
 
 func conversionEvidenceResult() analyzer.Result {
 	return analyzer.Result{Sentences: []analyzer.Sentence{{
