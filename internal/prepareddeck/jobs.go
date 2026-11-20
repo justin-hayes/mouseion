@@ -163,8 +163,12 @@ func loadCompletedAnalysis(ctx context.Context, q queryRower, owner, analysisID 
 		return completedAnalysis{}, fmt.Errorf("%w: analysis result ID must be a result ID", ErrAnalysisUnavailable)
 	}
 	args := []any{owner, strings.TrimSpace(analysisID)}
+	// A classical preparation publishes its run without an analysis job. Its
+	// evidence is then the run's own content revision, never the source row's
+	// insert-time digest: a converted pre-upgrade Book keeps the whole-work
+	// digest there while its revision holds only the Reading unit.
 	err := q.QueryRow(ctx, `SELECT COALESCE(r.id::text,''),s.id::text,s.owner_id::text,s.language,s.source_identifier,s.title,s.media_type,
-		COALESCE(j.content_hash,s.content_hash),COALESCE(j.corpus_id::text,r.corpus_id::text,''),
+		COALESCE(j.content_hash,CASE WHEN rev.digest_version=1 THEN rev.content_digest ELSE s.content_hash END),COALESCE(j.corpus_id::text,r.corpus_id::text,''),
 		COALESCE(rev.content_digest,''),
 		COALESCE(r.state,''),COALESCE(r.snapshot_id::text,''),COALESCE(r.content_revision_id::text,''),COALESCE(r.corpus_id::text,''),
 		COALESCE(c.owner_id::text,''),COALESCE(c.source_material_id::text,''),COALESCE(c.analysis_run_id::text,''),COALESCE(c.status,'')

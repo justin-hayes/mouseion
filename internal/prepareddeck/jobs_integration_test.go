@@ -374,6 +374,39 @@ func seedAnalyzedReading(t *testing.T, ctx context.Context, store *persistence.P
 	return source, book, analysisHandle, reading
 }
 
+// A classical preparation publishes its run without an analysis job, and a
+// converted pre-upgrade Book's source row keeps the whole-work digest it was
+// first stored with. The run's own content revision is that run's evidence, so
+// its deck must still prepare.
+func TestPrepareCurrentReadingDeckAcceptsAJoblessRunOnARevisedSource(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "jobless-run-owner", false)
+	require.NoError(t, err)
+	source, book, handle, reading := seedAnalyzedReading(t, ctx, store, owner, "jobless-run-source")
+	_, err = store.Pool().Exec(ctx, `DELETE FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID)
+	require.NoError(t, err)
+	// Source content is immutable, so the test lifts that guard to recreate the
+	// converted row's original digest. The per-test database clone discards it.
+	_, err = store.Pool().Exec(ctx, `ALTER TABLE source_materials DISABLE TRIGGER source_materials_content_immutable`)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE source_materials SET content_hash='sha256:whole-work-file' WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID)
+	require.NoError(t, err)
+
+	workers := river.NewWorkers()
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
+	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
+	service := &Service{pool: store.Pool(), client: client, store: store}
+	_, err = service.PrepareCurrentReadingDeck(ctx, owner.ID, book.ID, reading.SnapshotID)
+	require.NoError(t, err, "a job-less run is judged by its own content revision")
+}
+
 func TestReprepareRefusesPreparationWhoseBookIsMissing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
