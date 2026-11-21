@@ -2,6 +2,8 @@
 
 Status: **Accepted; the "Always the complete scope" clause is partially superseded by [ADR 0066](0066-main-text-selection-from-epub-structure.md)** · Date: 2026-09-06 · Author: Justin + opencode
 
+Amended by [ADR 0117](0117-one-catalog-my-books-holds-chosen-books.md) ("A failed EPUB acquisition is Book evidence"): acquisition still runs in the request, but a failure is now recorded per Book with a stable stage and code and shown on My Books with Retry, not only reported inline.
+
 ## Context
 
 Mouseion's current flow separates content acquisition from analysis as two

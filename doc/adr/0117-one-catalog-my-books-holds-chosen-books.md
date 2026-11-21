@@ -2,8 +2,11 @@
 
 Status: **Accepted** · Date: 2026-11-21 · Author: Justin + OpenCode
 
+Amended 2026-11-21 by [issue #2505](https://github.com/justin-hayes/mouseion/issues/2505): a failed EPUB acquisition is recorded as Book evidence ("A failed EPUB acquisition is Book evidence"), which adds ADR 0047 to the ADRs this one amends.
+
 Amends [ADR 0035](0035-my-books-membership-and-source-provenance.md),
 [ADR 0041](0041-catalog-sync-metadata-first.md),
+[ADR 0047](0047-acquisition-folded-into-analysis.md),
 [ADR 0058](0058-catalog-maintenance-principal-destination.md),
 [ADR 0078](0078-book-dispositions-and-current-reading.md),
 [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) and
@@ -116,6 +119,19 @@ Book leaves My Books before its entry is browsable. A language-less Book with
 reading history is reported, not changed. Retired `book_visibility` data is left
 in place for a separately reviewed cleanup.
 
+### A failed EPUB acquisition is Book evidence
+
+Add creates a Book before its EPUB is acquired, so a failure that is only
+reported in the response would leave a To Read Book with no visible reason and
+no recovery. Acquisition still runs in the request, as ADR 0047 decided, but its
+failure is now recorded per Book with a stable stage and code, and cleared by
+the next successful acquisition. The stages and codes reuse Classical
+preparation's vocabulary where the meaning matches; the one new stage, `entry`,
+covers a catalog entry that has left the index. The domain classifies both
+failure kinds when it classifies Book evidence (ADR 0052), and My Books shows the
+reason with Retry where retrying can help. This amends ADR 0047's "On failure
+the request fails inline with the existing OPDS error messaging".
+
 ## Alternatives considered
 
 - **Keep sync into My Books and add OPDS browsing to Catalogs.** Rejected: the
@@ -131,6 +147,13 @@ in place for a separately reviewed cleanup.
 - **Merge duplicate entries across sources.** Rejected: ADR 0035/0044
   identity rules already decide Book identity, and with the expected single
   connection duplicates do not arise.
+- **Acquire the EPUB in a durable job, as Classical preparation does.**
+  Deferred, not rejected: it would give both sources one shape, but it reopens
+  ADR 0047 and belongs with a shared status vocabulary for analysis and
+  Classical preparation. One Add acquires one EPUB, as Move to To Read does
+  today, and a recorded failure is enough for recovery.
+- **Keep acquisition failures in the response only.** Rejected: with Add
+  creating the Book, a failed first acquisition would strand it.
 
 ## Consequences
 
@@ -140,9 +163,12 @@ in place for a separately reviewed cleanup.
   copy must say so.
 - The catalog index needs a migration (human review under CODEOWNERS). The
   Inbox backfill is a second, data-only migration or job, reviewed separately.
+- Recording EPUB acquisition failures needs a second additive migration (human
+  review under CODEOWNERS).
 - Delivery in three slices:
   1. the index, its migration, and sync writing to it alongside today's sync, with no
-     learner-visible change;
+     learner-visible change; then recorded EPUB acquisition failures with Retry
+     on My Books, which also fixes today's Move to To Read;
   2. the unified Catalog page, Add as To Read, I've read this, and Remove;
   3. retiring the Inbox, Hidden and needs-language features from My Books, plus the
      backfill.
@@ -157,6 +183,7 @@ in place for a separately reviewed cleanup.
 - [ADR 0035: Separate My Books membership from acquired source provenance](0035-my-books-membership-and-source-provenance.md)
 - [ADR 0041: Catalogue sync is metadata-first and non-destructive](0041-catalog-sync-metadata-first.md)
 - [ADR 0044: Catalogue-entry alias identity retains the catalogue connection](0044-catalogue-entry-connection-scoped-identity.md)
+- [ADR 0047: Content acquisition is folded into analysis](0047-acquisition-folded-into-analysis.md)
 - [ADR 0058: Catalog maintenance is a principal destination](0058-catalog-maintenance-principal-destination.md)
 - [ADR 0078: Book dispositions and current reading](0078-book-dispositions-and-current-reading.md)
 - [ADR 0086: Reading Working desk, independent Hidden visibility, and corpus-wide Concordance](0086-reading-working-desk-hidden-visibility-and-concordance.md)
