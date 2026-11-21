@@ -200,6 +200,11 @@ func (h *contractHarness) Store() storecontract.Store                  { return 
 func (h *contractHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
 func (h *contractHarness) BookState() storecontract.BookStateStore     { return h }
 func (h *contractHarness) Classical() storecontract.ClassicalStore     { return h }
+func (h *contractHarness) Catalogue() storecontract.CatalogueStore     { return h }
+
+func (h *contractHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
+	return h.store.BrowseCatalogueEntries(context.Background(), owner, connectionID, query)
+}
 
 func (h *contractHarness) AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	return h.store.AddClassicalReadingUnits(context.Background(), owner, readingUnitKeys)
@@ -215,6 +220,38 @@ func (h *contractHarness) ListStudyLanguages(owner string) ([]domain.StudyLangua
 
 func (h *contractHarness) SeedClassicalCatalog(*testing.T) {
 	h.store.setClassicalDefinitions(storecontract.ClassicalDefinitions())
+}
+
+func (h *contractHarness) SeedCatalogueConnection(t *testing.T, owner, name string) string {
+	t.Helper()
+	connection, err := h.store.CreateOpdsConnection(context.Background(), owner, domain.OpdsConnection{Name: name, URL: "https://contract.example/opds"})
+	require.NoError(t, err)
+	return connection.ID
+}
+
+func (h *contractHarness) SeedCatalogueEntries(t *testing.T, owner, connectionID string, seeds []storecontract.CatalogueEntrySeed) {
+	t.Helper()
+	entries := make([]domain.CatalogueIndexEntry, 0, len(seeds))
+	h.store.mu.Lock()
+	for i, seed := range seeds {
+		entry := seed.Entry
+		entry.ConnectionID = connectionID
+		entries = append(entries, entry)
+		if seed.BookID == "" {
+			continue
+		}
+		h.store.aliases = append(h.store.aliases, domain.BookAlias{
+			ID:           fmt.Sprintf("contract-catalogue-alias-%d", i),
+			OwnerID:      owner,
+			BookID:       seed.BookID,
+			ConnectionID: connectionID,
+			AliasType:    domain.AliasCatalogEntry,
+			Namespace:    domain.NamespaceSourceIdentifier,
+			Value:        entry.EntryIdentifier,
+		})
+	}
+	h.store.mu.Unlock()
+	require.NoError(t, h.store.SeedCatalogueEntries(owner, connectionID, entries))
 }
 
 func (h *contractHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.ClassicalPreparationFailure) {

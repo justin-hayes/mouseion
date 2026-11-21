@@ -273,6 +273,9 @@ type Querier interface {
 	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
 	ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error)
 	ListCatalogueEntries(ctx context.Context, arg ListCatalogueEntriesParams) ([]ListCatalogueEntriesRow, error)
+	// The learner's active Books linked by catalog-entry alias, keyed by the entry
+	// identifier the index browses. A removed Book contributes no ownership.
+	ListCatalogueEntryBooksForConnection(ctx context.Context, arg ListCatalogueEntryBooksForConnectionParams) ([]ListCatalogueEntryBooksForConnectionRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)

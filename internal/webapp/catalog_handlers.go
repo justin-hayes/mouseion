@@ -20,14 +20,34 @@ import (
 )
 
 // connections renders the Catalog. The route name is historical; the
-// destination, its classical record, and its source status lines are not.
+// destination, its Classical record, its OPDS sections, and its source status
+// lines are not.
 func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 	u, connections, statuses, err := h.catalogPageState(r)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	render(w, r, CatalogPage(u, h.csrf(w, r), connections, r.URL.Query().Get("message"), r.URL.Query().Get("error"), statuses, h.services.Classical))
+	classicalView, err := h.catalogClassicalView(r, u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	browse, err := h.loadCatalogBrowse(r, u.ID, connections, classicalView)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, CatalogPage(u, h.csrf(w, r), connections, r.URL.Query().Get("message"), r.URL.Query().Get("error"), statuses, browse))
+}
+
+// catalogClassicalView loads ownership and the legacy-row precondition for the
+// Classical catalog when the release carries any Works.
+func (h *Handler) catalogClassicalView(r *http.Request, owner string) (classicalCatalogView, error) {
+	if h.services.Classical == nil || h.services.Classical.Counts().Works == 0 {
+		return classicalCatalogView{}, nil
+	}
+	return h.loadClassicalCatalogView(r.Context(), owner, h.services.Classical)
 }
 
 // manageSources configures the OPDS connections that feed the Catalog.
@@ -416,10 +436,23 @@ func classicalAddMessage(report classical.AddReport) string {
 	}
 }
 
-// classicalBookInMyBooks makes Ancient Greek the active study language and
-// lands on the existing Book's row.
+// classicalBookInMyBooks makes the Book's language active and lands on the
+// existing Book's row.
 func (h *Handler) classicalBookInMyBooks(w http.ResponseWriter, r *http.Request) {
 	h.openClassicalBookInMyBooks(w, r, r.PathValue("bookID"))
+}
+
+// catalogBookInMyBooks opens any owned Book from a Catalog entry row.
+func (h *Handler) catalogBookInMyBooks(w http.ResponseWriter, r *http.Request) {
+	h.openCatalogBookInMyBooks(w, r, r.PathValue("bookID"))
+}
+
+func (h *Handler) openClassicalBookInMyBooks(w http.ResponseWriter, r *http.Request, bookID string) {
+	h.openBookInMyBooks(w, r, bookID, true)
+}
+
+func (h *Handler) openCatalogBookInMyBooks(w http.ResponseWriter, r *http.Request, bookID string) {
+	h.openBookInMyBooks(w, r, bookID, false)
 }
 
 // classicalWorkInMyBooks lands on the first owned Book of a Work in book order.
@@ -453,9 +486,10 @@ func (h *Handler) classicalWorkInMyBooks(w http.ResponseWriter, r *http.Request)
 	h.openClassicalBookInMyBooks(w, r, bookID)
 }
 
-// openClassicalBookInMyBooks switches the active language and redirects to the
-// row's visible bucket page. Only an owned classical Book can be opened.
-func (h *Handler) openClassicalBookInMyBooks(w http.ResponseWriter, r *http.Request, bookID string) {
+// openBookInMyBooks switches the active language and redirects to the row's
+// visible bucket page. A classical Book must still carry its Reading unit; an
+// OPDS Book only needs an owned membership and a chosen language.
+func (h *Handler) openBookInMyBooks(w http.ResponseWriter, r *http.Request, bookID string, requireReadingUnit bool) {
 	owner := user(r).ID
 	book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
@@ -465,15 +499,20 @@ func (h *Handler) openClassicalBookInMyBooks(w http.ResponseWriter, r *http.Requ
 		fail(w, err)
 		return
 	}
-	if book.ReadingUnit == nil {
+	if requireReadingUnit && book.ReadingUnit == nil {
 		http.NotFound(w, r)
 		return
 	}
-	if err := h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), owner, classical.Language); err != nil {
+	language := canonicalization.NormalizeLanguage(book.Book.LanguageTag)
+	if book.Book.LanguageState != domain.LanguageChosen || language == "" {
+		http.NotFound(w, r)
+		return
+	}
+	if err := h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), owner, language); err != nil {
 		fail(w, err)
 		return
 	}
-	page, err := myBooksPageForBook(r.Context(), h.services.Store.MyBooks, owner, classical.Language, book)
+	page, err := myBooksPageForBook(r.Context(), h.services.Store.MyBooks, owner, language, book)
 	if err != nil {
 		fail(w, err)
 		return

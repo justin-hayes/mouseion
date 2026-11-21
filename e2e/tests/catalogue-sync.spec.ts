@@ -9,8 +9,8 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library/);
 }
 
-test.describe('catalog sources', () => {
-  test('shows each connection state and its recovery path on the Catalog', async ({ page }) => {
+test.describe('catalog sources and browsing', () => {
+  test('shows each connection state, its recovery path, and its OPDS section on the Catalog', async ({ page }) => {
     await signIn(page);
     await page.goto('/catalogs');
 
@@ -36,10 +36,88 @@ test.describe('catalog sources', () => {
     await expect(page.locator('.page-header__actions').getByRole('link', { name: 'Manage sources', exact: true })).toHaveAttribute('href', '/catalogs/sources');
     await expect(page.getByRole('link', { name: 'View job status' }).first()).toHaveAttribute('href', '/jobs');
 
-    // The Catalog keeps the built-in Classical source and does not manage connections.
-    await expect(page.getByRole('heading', { name: 'Classical catalog', exact: true })).toBeVisible();
+    // The Catalog owns one search and one language filter over every source.
+    const search = page.getByLabel('Search the Catalog');
+    await expect(search).toBeVisible();
+    await expect(page.getByLabel('Language', { exact: true })).toHaveValue('de');
+    await expect(page.locator('#catalog-result-summary')).toHaveAttribute('role', 'status');
+    await expect(page.locator('#catalog-result-summary')).toHaveAttribute('aria-live', 'polite');
+
+    // The default study language selects the German OPDS section, paged in
+    // title-then-author order with ownership only.
+    const fixture = page.locator('#catalog-source-fixture-connection');
+    await expect(fixture).toBeVisible();
+    await expect(fixture).toContainText('Der lange Weg nach Hause');
+    await expect(fixture).toContainText('Mara Weiss');
+    await expect(fixture).toContainText('Page 1 of 2');
+    await expect(fixture.getByRole('link', { name: 'Next' })).toHaveAttribute('href', /language=de.*page_fixture-connection=2/);
+    await expect(fixture.getByRole('link', { name: 'Add', exact: true })).toHaveCount(0);
+    await expect(page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In My Books', exact: true }).first()).toBeVisible();
+
+    // The Classical source keeps its own page, and connection management stays
+    // off the Catalog.
+    await expect(page.locator('.page-header__actions').getByRole('link', { name: 'Classical catalog', exact: true })).toHaveAttribute('href', '/catalogs/classical');
+    await expect(page.locator('#catalog-source-classical')).toHaveCount(0);
     await expect(page.locator('#catalog-connection-form')).toHaveCount(0);
   });
+
+  test('one search covers the Classical catalog and OPDS without contacting a server', async ({ page }) => {
+    await signIn(page);
+    const contacted: string[] = [];
+    page.on('request', request => {
+      const host = new URL(request.url()).host;
+      if (host.endsWith('.invalid')) contacted.push(request.url());
+    });
+
+    await page.goto('/catalogs?language=&q=homer');
+    await expect(page.locator('#catalog-source-classical')).toBeVisible();
+    await expect(page.locator('#catalog-source-classical')).toContainText('Homer');
+    await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Ödipus auf Kolonos');
+    await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Hómēr Nachfolger');
+    await expect(page.locator('#catalog-result-summary')).toHaveText('2 results from 2 sources.');
+    await expect(page.locator('#catalog-source-fixture-connection')).not.toContainText('Der lange Weg nach Hause');
+    expect(contacted, `Catalog search contacted ${contacted.join(', ')}`).toEqual([]);
+
+    // Empty states are distinct: no match and nothing in this language.
+    await page.goto('/catalogs?language=&q=nothing-matches');
+    await expect(page.getByRole('heading', { name: 'No matches' })).toBeVisible();
+    await expect(page.locator('#catalog-results').getByRole('link', { name: 'Clear search' })).toBeVisible();
+    await page.goto('/catalogs?language=fr');
+    await expect(page.getByRole('heading', { name: 'Nothing in fr' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Show all languages' })).toBeVisible();
+  });
+
+  test('Catalog search, paging, and filter work without JavaScript', async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
+    const page = await context.newPage();
+    try {
+      await signIn(page);
+      await page.goto('/catalogs');
+
+      await page.getByLabel('Search the Catalog').fill('uber');
+      await page.getByLabel('Language', { exact: true }).selectOption('');
+      await page.getByRole('button', { name: 'Search' }).click();
+      await expect(page).toHaveURL(/\/catalogs\?.*q=uber/);
+      await expect(page).toHaveURL(/language=/);
+      await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Über die Berge');
+      await expect(page.locator('#catalog-source-fixture-connection')).not.toContainText('Der lange Weg nach Hause');
+
+      await page.goto('/catalogs?language=de');
+      await page.locator('#catalog-source-fixture-connection').getByRole('link', { name: 'Next' }).click();
+      await expect(page).toHaveURL(/page_fixture-connection=2/);
+      await expect(page).toHaveURL(/language=de/);
+      await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Page 2 of 2');
+      await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Über die Berge');
+
+      // Ownership links are ordinary links.
+      await page.goto('/catalogs?language=de');
+      const owned = page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In My Books', exact: true }).first();
+      await expect(owned).toHaveAttribute('href', /\/catalogs\/books\/[^/]+\/in-my-books$/);
+    } finally {
+      await context.close();
+    }
+  });
+
 
   test('Manage sources preserves enabled, disabled, and field states', async ({ page }) => {
     await signIn(page);
@@ -124,7 +202,7 @@ test.describe('catalog sources', () => {
     }
   });
 
-  test('Catalog source controls follow keyboard order at narrow widths', async ({ page }) => {
+  test('Catalog search, filter, source controls, and results follow keyboard order at narrow widths', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/catalogs');
@@ -132,12 +210,17 @@ test.describe('catalog sources', () => {
     const manage = page.locator('.page-header__actions').getByRole('link', { name: 'Manage sources', exact: true });
     await manage.focus();
     await page.keyboard.press('Tab');
+    await expect(page.getByLabel('Search the Catalog')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByLabel('Language', { exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Search' })).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(page.locator('#source-status-fixture-connection').getByRole('button', { name: 'Sync now' })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.locator('#source-status-fixture-failed-connection').getByRole('link', { name: 'Manage sources' })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.locator('#source-status-fixture-failed-connection').getByRole('button', { name: 'Sync now' })).toBeFocused();
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+    const entryBox = await page.locator('#catalog-source-fixture-connection .catalog-entry').first().boundingBox();
+    expect(entryBox?.width ?? 0).toBeLessThanOrEqual(375);
   });
 });

@@ -12,8 +12,7 @@ test('adds a single book and a whole work from the Classical catalog index', asy
   await signIn(page);
 
   await page.goto('/catalogs');
-  await expect(page.getByRole('heading', { name: 'Classical catalog', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Browse the Classical catalog', exact: true }).click();
+  await page.getByRole('link', { name: 'Classical catalog', exact: true }).click();
   await expect(page).toHaveURL(/\/catalogs\/classical$/);
 
   await expect(page.getByRole('heading', { name: 'Homer', exact: true })).toBeVisible();

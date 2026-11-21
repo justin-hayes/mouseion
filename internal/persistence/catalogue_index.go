@@ -100,6 +100,31 @@ func (s *PostgresStore) ListCatalogueEntries(ctx context.Context, owner, connect
 	return entries, nil
 }
 
+// BrowseCatalogueEntries reads one connection's Catalog index for the Catalog
+// page: the search key is folded in Go, the language filter and paging apply to
+// the same ordered matches, and ownership comes from the learner's active
+// catalog-entry aliases. It never contacts the OPDS server.
+func (s *PostgresStore) BrowseCatalogueEntries(ctx context.Context, owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
+	entries, err := s.ListCatalogueEntries(ctx, owner, connectionID)
+	if err != nil {
+		return domain.CataloguePage{}, err
+	}
+	rows, err := s.queries().ListCatalogueEntryBooksForConnection(ctx, sqlcgen.ListCatalogueEntryBooksForConnectionParams{
+		OwnerID:      owner,
+		ConnectionID: uuidArg(connectionID),
+		AliasType:    domain.AliasCatalogEntry,
+		Namespace:    domain.NamespaceSourceIdentifier,
+	})
+	if err != nil {
+		return domain.CataloguePage{}, err
+	}
+	owned := make(map[string]string, len(rows))
+	for _, row := range rows {
+		owned[row.EntryIdentifier] = row.BookID
+	}
+	return domain.BrowseCataloguePage(entries, owned, query), nil
+}
+
 // GetCatalogueEntry returns one owner-scoped Catalog entry by its
 // connection-scoped identity.
 func (s *PostgresStore) GetCatalogueEntry(ctx context.Context, owner, connectionID, entryIdentifier string) (domain.CatalogueIndexEntry, error) {

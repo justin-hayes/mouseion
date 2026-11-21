@@ -108,6 +108,7 @@ one-pattern/one-Templ-component implementation.
 | `EvidenceDelta` | State a current, prior, conditional, or lower-bound value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, lower bound, stale/unavailable evidence | Journey books |
 | `OutcomeSummary` | Identify the completed Book, report exact newly-Known and already-Known counts, and return to the neutral chooser without implying mastery or selecting another Book. | Non-empty snapshot, empty snapshot, zero counts, retry/idempotent completion | Reading completion receipt |
 | `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note. | None, partial or full ownership; whole-work or multi-book Work; Choose books open or closed; compact reflow | Catalog |
+| `CatalogSourceSection` | Group Catalog results under the source that offers them, with one search and language filter above every source. | Classical author index or OPDS cover grid; paged; no sources, no match, nothing in this language; owned or unowned entry; compact reflow | Catalog |
 
 The patterns above should compose mostly through typography, ordered lists,
 definition lists, actions, disclosures, and fine rules. They are not permission
@@ -156,6 +157,41 @@ On compact screens the margin note moves below the identity and the strip wraps
 instead of scrolling sideways. The author-detail page is retired; its old URL
 permanently redirects to that author's section, Work-page breadcrumbs point
 there instead, and no page links to the retired author URL.
+
+Canonical surface: Catalog.
+
+### `CatalogSourceSection`
+
+**Answers:** Which sources offer something for my search in this language, and
+what does each one hold?
+
+The Catalog has one search field and one language filter above every source.
+The filter defaults to the active study language and offers **All languages**;
+a learner with no study language starts on all languages. Both controls and any
+per-source page are ordinary GET parameters carried in real links and forms, so
+the surface works without JavaScript. Results are grouped by source and keep
+document order: the Classical catalog first when it matches, then each OPDS
+connection in its configured order.
+
+The Classical group reuses the author-grouped index above unchanged. A search
+matches author, English title and Greek title through the Go search key, and a
+trailing number narrows the match to a Work carrying that constituent Book,
+displaying only that Book's cell and length segment while the Work's reviewed
+totals and Add controls stay whole.
+Each OPDS group is a cover grid with cover, title and author, ordered by title
+then author and paged locally per connection. The cover frame shows the title's
+initial until locally retained index covers exist; the Catalog never sends an
+upstream cover URL to the browser. An entry linked to an active Book
+shows **In My Books** as a link to that Book's My Books row; an unowned entry
+shows no disposition, analysis, preparation or Add control in this slice.
+
+There is one result-summary live region, which announces the number of results
+and sources after every search, filter or page change. Distinct empty states
+explain no OPDS sources, no match for the query, nothing in this language, and
+nothing to browse yet; each says whether to connect a source, rephrase, or
+change the filter. The cover grid reflows to one column on compact screens
+without horizontal scrolling, and search, filter, paging, source controls and
+ownership links follow document order with a 44px target.
 
 Canonical surface: Catalog.
 

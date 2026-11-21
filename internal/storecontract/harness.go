@@ -75,6 +75,7 @@ type Harness interface {
 	LemmaReview() LemmaReviewStore
 	BookState() BookStateStore
 	Classical() ClassicalStore
+	Catalogue() CatalogueStore
 	Seeds() Seeder
 }
 
@@ -105,6 +106,21 @@ type ClassicalStore interface {
 	// ListStudyLanguages includes the languages of Books with active My Books
 	// membership, so a removed Book contributes nothing until Add restores it.
 	ListStudyLanguages(owner string) ([]domain.StudyLanguage, error)
+}
+
+// CatalogueStore is the Catalog browse read surface under test. It returns one
+// connection's local index entries in title-then-author order with the
+// learner's ownership attached, and it never contacts the OPDS server.
+type CatalogueStore interface {
+	BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error)
+}
+
+// CatalogueEntrySeed is one local Catalog index entry and, optionally, an
+// existing Book the learner owns for it. An empty BookID leaves the entry
+// unowned, so the Catalog offers Add in a later slice.
+type CatalogueEntrySeed struct {
+	Entry  domain.CatalogueIndexEntry
+	BookID string
 }
 
 // Store is the Current reading and deck admission surface under test.
@@ -165,6 +181,13 @@ type Seeder interface {
 	// for an already added Book. The adapter derives the Reading unit and
 	// definition revision from the Book, exactly as a worker would.
 	SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.ClassicalPreparationFailure)
+	// SeedCatalogueConnection creates one owner-scoped OPDS connection and
+	// returns its ID.
+	SeedCatalogueConnection(t *testing.T, owner, name string) string
+	// SeedCatalogueEntries installs the connection's local Catalog index and
+	// links each seeded entry to its Book through an active catalog-entry
+	// alias.
+	SeedCatalogueEntries(t *testing.T, owner, connectionID string, entries []CatalogueEntrySeed)
 }
 
 // Scenario is one behavior every adapter must hold.
@@ -185,6 +208,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, greekScenarios()...)
 	scenarios = append(scenarios, classicalScenarios()...)
 	scenarios = append(scenarios, classicalPreparationFailureScenarios()...)
+	scenarios = append(scenarios, catalogueScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }
 

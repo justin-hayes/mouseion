@@ -1,16 +1,18 @@
 package webapp
 
 import (
-	"github.com/justin-hayes/mouseion/internal/classical"
+	"fmt"
+
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// CatalogPage is the single learner-facing Catalog. It keeps the built-in
-// Classical catalog and shows one sync status line per OPDS source; connection
-// configuration lives on Manage sources.
-templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage string, statuses map[string]domain.CatalogueSyncStatus, catalog *classical.Catalog) {
+// CatalogPage is the single learner-facing Catalog. One search and language
+// filter cover the built-in Classical catalog and every OPDS source; results
+// are grouped by source and connection configuration stays on Manage sources.
+templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage string, statuses map[string]domain.CatalogueSyncStatus, browse catalogBrowseView) {
 	@ShellLayout("Catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
-		@PageHeader("Catalog", "Browse the Classical catalog and check that your OPDS sources are in sync.", nil) {
+		@PageHeader("Catalog", "Find a text in the Classical catalog or your OPDS sources. Search and the language filter cover every source.", nil) {
+			<a class="button button--outline" href="/catalogs/classical">Classical catalog</a>
 			<a class="button button--outline" href="/catalogs/sources">Manage sources</a>
 		}
 		if message != "" {
@@ -19,9 +21,116 @@ templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnec
 		if errorMessage != "" {
 			@Feedback(FeedbackError, "", errorMessage)
 		}
+		@CatalogSearchForm(browse)
 		@CatalogSourceStatuses(csrf, connections, statuses)
-		@ClassicalCatalogRecord(catalog.Counts())
+		@CatalogResults(csrf, browse)
 	}
+}
+
+// CatalogSearchForm is the one search and language filter over every source.
+// It is an ordinary GET form, so the Catalog works without JavaScript and the
+// filter is carried in real links.
+templ CatalogSearchForm(browse catalogBrowseView) {
+	<section class="catalog-finder" aria-label="Find in the Catalog">
+		<form class="catalog-search" role="search" method="get" action="/catalogs">
+			<div class="catalog-search__text">
+				<label class="sr-only" for="catalog-search-query">Search the Catalog</label>
+				<input class="input" id="catalog-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, Greek title, or Book number"/>
+			</div>
+			<div class="catalog-search__language">
+				<label for="catalog-language-filter">Language</label>
+				<select id="catalog-language-filter" name="language">
+					for _, option := range browse.LanguageOptions {
+						if option.Selected {
+							<option value={ option.Value } selected>{ option.Label }</option>
+						} else {
+							<option value={ option.Value }>{ option.Label }</option>
+						}
+					}
+				</select>
+			</div>
+			<button class="button" type="submit">Search</button>
+			if browse.Query != "" {
+				<a class="button button--outline" href={ templ.SafeURL(browse.ClearSearchURL) }>Clear search</a>
+			}
+		</form>
+	</section>
+}
+
+// CatalogResults groups every matching Work or entry under its source. One
+// status line announces the result update; the sources render their own
+// existing presentation below it.
+templ CatalogResults(csrf string, browse catalogBrowseView) {
+	<div id="catalog-results" aria-labelledby="catalog-results-heading">
+		<h2 id="catalog-results-heading" class="sr-only">Catalog results</h2>
+		<p id="catalog-result-summary" class="catalog-result-summary" role="status" aria-live="polite" aria-atomic="true">{ browse.ResultSummary }</p>
+		if browse.EmptyTitle != "" {
+			@EmptyState(browse.EmptyTitle, browse.EmptyMessage) {
+				if browse.EmptyActionURL != "" {
+					<a href={ templ.SafeURL(browse.EmptyActionURL) }>{ browse.EmptyActionLabel }</a>
+				}
+			}
+		}
+		if browse.ClassicalTotal > 0 {
+			<section class="catalog-source" id="catalog-source-classical" aria-labelledby="catalog-source-classical-title">
+				<header class="catalog-source__header">
+					<h2 id="catalog-source-classical-title">Classical catalog</h2>
+					<p>{ catalogCountLabel(browse.ClassicalTotal, "work", "works") }</p>
+				</header>
+				@ClassicalCatalogIndexSections(csrf, browse.ClassicalAuthors, browse.ClassicalView, browse.NarrowedUnits)
+			</section>
+		}
+		for _, section := range browse.Sources {
+			if section.Total > 0 {
+				@CatalogOpdsSection(section)
+			}
+		}
+	</div>
+}
+
+// CatalogOpdsSection is one connection's cover grid and paging. It reads only
+// the local Catalog index.
+templ CatalogOpdsSection(section catalogOpdsSection) {
+	<section class="catalog-source" id={ "catalog-source-" + section.Connection.ID } aria-labelledby={ "catalog-source-title-" + section.Connection.ID }>
+		<header class="catalog-source__header">
+			<h2 id={ "catalog-source-title-" + section.Connection.ID }>{ section.Connection.Name }</h2>
+			<p>{ catalogCountLabel(section.Total, "entry", "entries") }</p>
+		</header>
+		<ul class="catalog-cover-grid" role="list">
+			for _, entry := range section.Entries {
+				<li>@CatalogEntryCard(entry)</li>
+			}
+		</ul>
+		if section.PageCount > 1 {
+			<nav class="catalog-pagination" aria-label={ "Pages of " + section.Connection.Name }>
+				if section.PreviousURL != "" {
+					<a class="button button--outline" href={ templ.SafeURL(section.PreviousURL) }>Previous</a>
+				}
+				<span>Page { fmt.Sprintf("%d", section.Page) } of { fmt.Sprintf("%d", section.PageCount) }</span>
+				if section.NextURL != "" {
+					<a class="button button--outline" href={ templ.SafeURL(section.NextURL) }>Next</a>
+				}
+			</nav>
+		}
+	</section>
+}
+
+// CatalogEntryCard is one OPDS Catalog entry: cover, title, author, and only
+// its ownership state. Add arrives in a later slice. The Catalog index stores
+// advertised cover provenance, but upstream URLs are never sent to the browser
+// (ADR 0077); until local cover retention reaches index entries, the shared
+// cover frame shows the title's initial.
+templ CatalogEntryCard(entry domain.CatalogueEntry) {
+	<article class="catalog-entry" aria-labelledby={ "catalog-entry-title-" + entry.Index.EntryIdentifier }>
+		@BookCoverMedia("", entry.Index.Title, entry.Index.LanguageTag, domain.BookCover{})
+		<h3 class="catalog-entry__title bibliographic-title" id={ "catalog-entry-title-" + entry.Index.EntryIdentifier }>{ entry.Index.Title }</h3>
+		if entry.Index.Author != "" {
+			<p class="catalog-entry__author">{ entry.Index.Author }</p>
+		}
+		if entry.BookID != "" {
+			<p class="catalog-entry__ownership"><a href={ templ.SafeURL(catalogBookInMyBooksURL(entry.BookID)) }>In My Books</a></p>
+		}
+	</article>
 }
 
 // CatalogSourceStatuses is the Catalog page's compact source summary. Each

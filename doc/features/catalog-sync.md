@@ -25,8 +25,9 @@ the learner's study-language set.
 This feature covers automated per-connection metadata sync, explicit **Sync
 now**, per-book metadata refresh, connection-level status, and the transition
 from a metadata-only Book to per-book content acquisition through Reading
-Journey intent. My Books is the sole browse surface for the synced collection.
-Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md); its capability-driven language scope is reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md).
+Journey intent. The **Catalog** at `/catalogs` browses the Classical catalog and
+each connection's local Catalog index; My Books remains the learner's
+bibliographic Book surface. Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md); its capability-driven language scope is reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md).
 
 ## Requirements
 
@@ -60,6 +61,24 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
   appropriate.
 - Detailed attempts, retry, cancellation, and errors remain operationally
   visible through `/jobs`.
+
+### Catalog browsing
+
+- The Catalog at `/catalogs` has one search and one language filter over the
+  Classical catalog and every connection's local Catalog index. The filter
+  defaults to the active study language, or to all languages when the learner
+  has none.
+- Each connection appears as a section whose entries are a cover grid with
+  cover, title and author, ordered by title then author and paged locally.
+- Search compares the Go search key for title and author, so it ignores accents
+  and case. A trailing number narrows a Classical match to that constituent
+  Book. Search and browsing never contact the OPDS server.
+- An entry linked to one of the learner's active Books shows **In My Books**
+  linked to that Book and no disposition, analysis or preparation state. Add is
+  a later slice.
+- Distinct empty states cover no OPDS sources, no match, nothing in this
+  language, and nothing to browse yet. One live region announces result
+  updates; search, filter, paging and ownership links work without JavaScript.
 
 ### Language scope
 

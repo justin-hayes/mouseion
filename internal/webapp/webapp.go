@@ -99,6 +99,10 @@ type CatalogsStore interface {
 	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
 	DeleteOpdsConnection(context.Context, string, string) error
 	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
+	// BrowseCatalogueEntries reads one connection's local Catalog index for
+	// browsing. It filters through the Go search key and attaches ownership;
+	// it never contacts the OPDS server.
+	BrowseCatalogueEntries(context.Context, string, string, domain.CatalogueQuery) (domain.CataloguePage, error)
 	// The built-in Classical catalog is read from the release and writes only
 	// My Books membership: Add creates or restores one To Read Book per Reading
 	// unit. Legacy rows are checked installation-wide before any write.
@@ -322,6 +326,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /catalogs/classical/units/{unitKey}/add", h.user(http.HandlerFunc(h.addClassicalUnit)))
 	h.mux.Handle("GET /catalogs/classical/works/{workKey}/in-my-books", h.user(http.HandlerFunc(h.classicalWorkInMyBooks)))
 	h.mux.Handle("GET /catalogs/classical/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.classicalBookInMyBooks)))
+	h.mux.Handle("GET /catalogs/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.catalogBookInMyBooks)))
 	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.legacyConnections)))
 	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))

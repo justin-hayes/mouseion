@@ -88,7 +88,12 @@ func (h *postgresHarness) Store() storecontract.Store                  { return 
 func (h *postgresHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
 func (h *postgresHarness) BookState() storecontract.BookStateStore     { return h }
 func (h *postgresHarness) Classical() storecontract.ClassicalStore     { return h }
+func (h *postgresHarness) Catalogue() storecontract.CatalogueStore     { return h }
 func (h *postgresHarness) Seeds() storecontract.Seeder                 { return h }
+
+func (h *postgresHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
+	return h.store.BrowseCatalogueEntries(h.ctx, owner, connectionID, query)
+}
 
 func (h *postgresHarness) AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	return h.store.AddClassicalReadingUnits(h.ctx, owner, readingUnitKeys)
@@ -105,6 +110,31 @@ func (h *postgresHarness) ListStudyLanguages(owner string) ([]domain.StudyLangua
 func (h *postgresHarness) SeedClassicalCatalog(t *testing.T) {
 	t.Helper()
 	require.NoError(t, h.store.ReconcileClassicalManifest(h.ctx, storecontract.ClassicalDefinitions()))
+}
+
+func (h *postgresHarness) SeedCatalogueConnection(t *testing.T, owner, name string) string {
+	t.Helper()
+	connection, err := h.store.CreateOpdsConnection(h.ctx, owner, domain.OpdsConnection{Name: name, URL: "https://contract.example/opds"})
+	require.NoError(t, err)
+	return connection.ID
+}
+
+func (h *postgresHarness) SeedCatalogueEntries(t *testing.T, owner, connectionID string, seeds []storecontract.CatalogueEntrySeed) {
+	t.Helper()
+	entries := make([]domain.CatalogueIndexEntry, 0, len(seeds))
+	for _, seed := range seeds {
+		entry := seed.Entry
+		entry.ConnectionID = connectionID
+		entries = append(entries, entry)
+	}
+	require.NoError(t, h.store.ReconcileCatalogueIndex(h.ctx, owner, connectionID, entries, time.Now()))
+	for _, seed := range seeds {
+		if seed.BookID == "" {
+			continue
+		}
+		h.exec(t, `INSERT INTO book_aliases(owner_id,book_id,connection_id,alias_type,namespace,value)
+			VALUES($1,$2,$3,$4,$5,$6)`, owner, seed.BookID, connectionID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, seed.Entry.EntryIdentifier)
+	}
 }
 
 func (h *postgresHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.ClassicalPreparationFailure) {

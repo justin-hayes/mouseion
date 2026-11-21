@@ -21,9 +21,10 @@ cross-language "All languages" default ([ADR 0050](../adr/0050-active-study-lang
 ## Scope
 
 This feature applies to My Books at `/library`. It defines collection controls,
-collection hierarchy, progressive enhancement, and accessibility. My Books is the sole
-browse surface for synced catalog metadata; there is no live OPDS browse or
-search surface.
+collection hierarchy, progressive enhancement, and accessibility. My Books is the
+sole browse surface for Books; the Catalog at `/catalogs` separately browses the
+Classical catalog and each connection's local Catalog index. There is no live
+OPDS browse or search surface.
 
 ## Shipped cover-grid extension
 

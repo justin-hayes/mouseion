@@ -132,6 +132,53 @@ func (q *Queries) ListCatalogueEntries(ctx context.Context, arg ListCatalogueEnt
 	return items, nil
 }
 
+const listCatalogueEntryBooksForConnection = `-- name: ListCatalogueEntryBooksForConnection :many
+SELECT a.value AS entry_identifier, a.book_id::text AS book_id
+FROM book_aliases a
+JOIN book_membership m ON m.owner_id = a.owner_id AND m.book_id = a.book_id AND m.state = 'active'
+WHERE a.owner_id = $1 AND a.connection_id = $2
+  AND a.alias_type = $3 AND a.namespace = $4
+`
+
+type ListCatalogueEntryBooksForConnectionParams struct {
+	OwnerID      string
+	ConnectionID pgtype.UUID
+	AliasType    string
+	Namespace    string
+}
+
+type ListCatalogueEntryBooksForConnectionRow struct {
+	EntryIdentifier string
+	BookID          string
+}
+
+// The learner's active Books linked by catalog-entry alias, keyed by the entry
+// identifier the index browses. A removed Book contributes no ownership.
+func (q *Queries) ListCatalogueEntryBooksForConnection(ctx context.Context, arg ListCatalogueEntryBooksForConnectionParams) ([]ListCatalogueEntryBooksForConnectionRow, error) {
+	rows, err := q.db.Query(ctx, listCatalogueEntryBooksForConnection,
+		arg.OwnerID,
+		arg.ConnectionID,
+		arg.AliasType,
+		arg.Namespace,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCatalogueEntryBooksForConnectionRow{}
+	for rows.Next() {
+		var i ListCatalogueEntryBooksForConnectionRow
+		if err := rows.Scan(&i.EntryIdentifier, &i.BookID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockCatalogueIndexConnection = `-- name: LockCatalogueIndexConnection :one
 
 SELECT id::text
