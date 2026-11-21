@@ -196,6 +196,69 @@ flowchart TD
   re-analysis or re-translation
   ([ADR 0071](doc/adr/0071-decouple-deck-data-from-presentation.md)).
 
+## Prepared-deck state
+
+SQL update predicates in
+[`sqlc/queries/prepared_decks.sql`](sqlc/queries/prepared_decks.sql) are the
+authority for the translation-outcome and Batch-chunk state transitions shown
+below. The domain holds no transition table for either machine; it only names
+their state sets. A write whose predicate matches no row returns the
+invalid-transition error, so a write against a disallowed state can never
+silently succeed.
+
+### Translation outcome
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: run frozen with pending work
+    [*] --> completed: run frozen with an exact cache hit
+    pending --> running: standard worker claims the item
+    pending --> pending: Batch item retried in the next generation
+    running --> pending: provider retry, expired lease, or Batch retry
+    pending --> completed: exact cache hit, or Batch result accepted
+    pending --> failed: Batch result rejected
+    running --> completed: standard or Batch result accepted
+    running --> failed: standard or Batch result rejected
+    pending --> cancelled: bulk cancellation
+    running --> cancelled: bulk cancellation
+    completed --> [*]
+    failed --> [*]
+    cancelled --> [*]
+```
+
+### Batch chunk
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: chunk planned
+    pending --> submitting: submission claim
+    submitting --> submitting: re-claim after an expired lease
+    submitting --> pending: retry before provider creation
+    submitting --> submitted: provider Batch created
+    submitting --> completed: every item was an exact cache hit
+    submitting --> failed: pre-network terminal failure
+    submitting --> ambiguous: provider acknowledgement unknown
+    submitted --> reconciling: reconciliation claim
+    polling --> reconciling: reconciliation claim
+    reconciling --> reconciling: re-claim after an expired lease
+    reconciling --> polling: nonterminal provider status
+    reconciling --> completed: trusted results reconciled
+    reconciling --> failed: untrustworthy result or provider failure
+    pending --> cancelled: bulk cancellation
+    submitting --> cancelled: bulk cancellation
+    submitted --> cancelled: bulk cancellation
+    polling --> cancelled: bulk cancellation
+    reconciling --> cancelled: bulk cancellation
+    ambiguous --> cancelled: bulk cancellation
+    completed --> [*]
+    failed --> [*]
+    cancelled --> [*]
+```
+
+Provider file cleanup is a separate per-file projection (`pending`, `deleted`,
+`failed`, `not_needed`); it records the durable result of deleting the Batch
+input, output and error files and never feeds back into the chunk state.
+
 ## Background jobs
 
 All background work runs in River inside the Go server process, on named

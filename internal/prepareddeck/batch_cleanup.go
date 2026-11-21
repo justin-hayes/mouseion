@@ -77,7 +77,7 @@ func (w *BatchCleanupWorker) claimCleanup(ctx context.Context, args BatchCleanup
 	if err != nil {
 		return domain.PreparedDeckBatchChunk{}, "", false, err
 	}
-	if chunk.State != domain.PreparedDeckBatchCompleted && chunk.State != domain.PreparedDeckBatchCancelled {
+	if !chunk.State.CleanupEligible() {
 		return domain.PreparedDeckBatchChunk{}, "", false, nil
 	}
 	token := uuid.NewString()
@@ -93,7 +93,7 @@ func (w *BatchCleanupWorker) claimCleanup(ctx context.Context, args BatchCleanup
 
 // cleanupFileOutcome is the durable result of one provider file deletion.
 type cleanupFileOutcome struct {
-	state    string
+	state    domain.PreparedDeckBatchFileCleanupState
 	attempts int
 	failed   bool
 }
@@ -102,9 +102,9 @@ type cleanupFileOutcome struct {
 // cleanup projection to persist. Each file has its own durable state, so a
 // retry never makes a successful deletion depend on another file.
 func (w *BatchCleanupWorker) cleanupFiles(ctx context.Context, args BatchCleanupJobArgs, claimed domain.PreparedDeckBatchChunk) persistence.PreparedDeckBatchCleanupUpdate {
-	input := w.cleanupFile(ctx, args, "input", claimed.InputFileID, claimed.InputFileCleanupState, claimed.InputFileCleanupAttempts)
-	output := w.cleanupFile(ctx, args, "output", claimed.OutputFileID, claimed.OutputFileCleanupState, claimed.OutputFileCleanupAttempts)
-	errorFile := w.cleanupFile(ctx, args, "error", claimed.ErrorFileID, claimed.ErrorFileCleanupState, claimed.ErrorFileCleanupAttempts)
+	input := w.cleanupFile(ctx, args, "input", claimed.InputFileID, domain.PreparedDeckBatchFileCleanupState(claimed.InputFileCleanupState), claimed.InputFileCleanupAttempts)
+	output := w.cleanupFile(ctx, args, "output", claimed.OutputFileID, domain.PreparedDeckBatchFileCleanupState(claimed.OutputFileCleanupState), claimed.OutputFileCleanupAttempts)
+	errorFile := w.cleanupFile(ctx, args, "error", claimed.ErrorFileID, domain.PreparedDeckBatchFileCleanupState(claimed.ErrorFileCleanupState), claimed.ErrorFileCleanupAttempts)
 	update := persistence.PreparedDeckBatchCleanupUpdate{
 		InputFileState: input.state, OutputFileState: output.state, ErrorFileState: errorFile.state,
 		InputFileAttempts: input.attempts, OutputFileAttempts: output.attempts, ErrorFileAttempts: errorFile.attempts,
@@ -119,22 +119,22 @@ func (w *BatchCleanupWorker) cleanupFiles(ctx context.Context, args BatchCleanup
 // is absent, already settled, or out of attempts keeps its prior state; a
 // successful or already-gone deletion becomes "deleted". Cleanup is best
 // effort, so a provider failure is recorded for durable recovery to retry.
-func (w *BatchCleanupWorker) cleanupFile(ctx context.Context, args BatchCleanupJobArgs, role, fileID, state string, attempts int) cleanupFileOutcome {
+func (w *BatchCleanupWorker) cleanupFile(ctx context.Context, args BatchCleanupJobArgs, role, fileID string, state domain.PreparedDeckBatchFileCleanupState, attempts int) cleanupFileOutcome {
 	if fileID == "" {
-		return cleanupFileOutcome{state: "not_needed", attempts: attempts}
+		return cleanupFileOutcome{state: domain.PreparedDeckBatchCleanupNotNeeded, attempts: attempts}
 	}
-	if state == "deleted" || state == "not_needed" || attempts >= 3 {
+	if state.Settled() || attempts >= 3 {
 		return cleanupFileOutcome{state: state, attempts: attempts}
 	}
 	attempts++
 	_, deleteErr := w.Provider.DeleteFile(ctx, fileID)
 	if deleteErr == nil || providerFileGone(deleteErr) {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "deleted", Provider: "openai", Value: 1})
-		return cleanupFileOutcome{state: "deleted", attempts: attempts}
+		return cleanupFileOutcome{state: domain.PreparedDeckBatchCleanupDeleted, attempts: attempts}
 	}
 	log.Printf("prepared deck batch cleanup warning: provider file deletion failed; durable recovery will retry while attempts remain: owner_id=%s preparation_id=%s run_id=%s chunk_id=%s generation=%d file_role=%s: %v", args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, role, deleteErr)
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "failed", ErrorClass: "provider", Provider: "openai", Value: 1})
-	return cleanupFileOutcome{state: "failed", attempts: attempts, failed: true}
+	return cleanupFileOutcome{state: domain.PreparedDeckBatchCleanupFailed, attempts: attempts, failed: true}
 }
 
 // logImmediateBatchCleanupFailure reports an immediate cleanup attempt that

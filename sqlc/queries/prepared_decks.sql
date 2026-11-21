@@ -492,6 +492,7 @@ SET state = 'completed', provider_status = sqlc.arg('provider_status'), output_f
     error_class = sqlc.arg('error_class'), error_code = sqlc.arg('error_code'), provider_completed_at = sqlc.arg('provider_completed_at'), reconciled_at = now(), last_polled_at = now(),
     reconciliation_claim_token = NULL, reconciliation_claimed_at = NULL, reconciliation_lease_expires_at = NULL, updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND preparation_id = sqlc.arg('preparation') AND run_id = sqlc.arg('run') AND id = sqlc.arg('id')
+  AND state = 'reconciling'
 RETURNING *;
 
 -- name: UpsertEnrichmentCache :exec
@@ -505,12 +506,13 @@ WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos =
   AND item_kind = $5
   AND provider = $6 AND provider_version = $7 AND sentence_hash = $8 AND dictionary_provider_version = $9 AND meaning_evidence_hash = $10;
 
--- name: UpdatePreparedDeckOutcomeFromBatch :exec
+-- name: UpdatePreparedDeckOutcomeFromBatch :execrows
 UPDATE deck_preparation_translation_outcomes
 SET state = $5, provider_attempt_count = GREATEST(provider_attempt_count, $6), next_attempt_at = now(),
     claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL, terminal_at = $7,
     error_class = $8, error_code = $9, omission_reason = $10, provider_call_count = provider_call_count + 1, updated_at = now()
-WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4;
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
+  AND state IN ('pending', 'running');
 
 -- name: NextPreparedDeckBatchChunkIndex :one
 SELECT COALESCE(max(chunk_index), -1) + 1 FROM deck_preparation_batch_chunks

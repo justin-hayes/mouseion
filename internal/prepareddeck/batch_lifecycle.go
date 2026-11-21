@@ -86,20 +86,10 @@ func (w *BatchPollWorker) loadPollChunk(ctx context.Context, args BatchPollJobAr
 	if err != nil {
 		return domain.PreparedDeckBatchChunk{}, false, err
 	}
-	if chunk.ReconciliationGeneration != args.Generation || pollChunkSettled(chunk.State) {
+	if chunk.ReconciliationGeneration != args.Generation || chunk.State.Terminal() {
 		return chunk, false, nil
 	}
 	return chunk, true, nil
-}
-
-func pollChunkSettled(state domain.PreparedDeckBatchChunkState) bool {
-	switch state {
-	case domain.PreparedDeckBatchCompleted, domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
-		return true
-	default:
-		// Every other state is still pollable.
-		return false
-	}
 }
 
 // claimPollWork fences the chunk for this observation, preserving the exact

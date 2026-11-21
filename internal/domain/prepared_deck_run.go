@@ -98,20 +98,43 @@ const (
 	PreparedDeckOutcomeCancelled PreparedDeckOutcomeState = "cancelled"
 )
 
-func (s PreparedDeckOutcomeState) CanTransitionTo(next PreparedDeckOutcomeState) bool {
-	if s == next {
-		return true
-	}
+// Terminal reports whether the outcome can no longer change.
+func (s PreparedDeckOutcomeState) Terminal() bool {
 	switch s {
-	case PreparedDeckOutcomePending:
-		return next == PreparedDeckOutcomeRunning || next == PreparedDeckOutcomeCancelled
-	case PreparedDeckOutcomeRunning:
-		return next == PreparedDeckOutcomePending || next == PreparedDeckOutcomeCompleted || next == PreparedDeckOutcomeFailed || next == PreparedDeckOutcomeCancelled
 	case PreparedDeckOutcomeCompleted, PreparedDeckOutcomeFailed, PreparedDeckOutcomeCancelled:
-		return false
-	default: // Invalid persisted states cannot transition.
+		return true
+	default:
 		return false
 	}
+}
+
+// Active reports whether the outcome is still awaiting or running a
+// translation. Only active outcomes may be settled by a new result.
+func (s PreparedDeckOutcomeState) Active() bool {
+	return s == PreparedDeckOutcomePending || s == PreparedDeckOutcomeRunning
+}
+
+// TranslationSettled reports the outcomes a standard translation result may
+// set: a completed card or a recorded failure.
+func (s PreparedDeckOutcomeState) TranslationSettled() bool {
+	return s == PreparedDeckOutcomeCompleted || s == PreparedDeckOutcomeFailed
+}
+
+// BatchSettable reports the outcomes a Batch result may set. A retryable item
+// stays pending for the next generation.
+func (s PreparedDeckOutcomeState) BatchSettable() bool {
+	switch s {
+	case PreparedDeckOutcomeCompleted, PreparedDeckOutcomePending, PreparedDeckOutcomeFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// BatchSubmittable reports the outcomes that may remain in an uploaded Batch
+// chunk: pending work, or an exact cache hit already completed locally.
+func (s PreparedDeckOutcomeState) BatchSubmittable() bool {
+	return s == PreparedDeckOutcomePending || s == PreparedDeckOutcomeCompleted
 }
 
 type PreparedDeckTranslationOutcome struct {
@@ -168,24 +191,96 @@ const (
 	PreparedDeckBatchAmbiguous   PreparedDeckBatchChunkState = "ambiguous"
 )
 
-func (s PreparedDeckBatchChunkState) CanTransitionTo(next PreparedDeckBatchChunkState) bool {
-	if s == next {
-		return true
-	}
+// Terminal reports whether the chunk has settled for work scheduling: it is
+// never polled, submitted or reconciled again. Bulk cancellation is the only
+// write that may still move an ambiguous chunk.
+func (s PreparedDeckBatchChunkState) Terminal() bool {
 	switch s {
-	case PreparedDeckBatchPending:
-		return next == PreparedDeckBatchSubmitting || next == PreparedDeckBatchFailed || next == PreparedDeckBatchCancelled
-	case PreparedDeckBatchSubmitting:
-		return next == PreparedDeckBatchPending || next == PreparedDeckBatchSubmitted || next == PreparedDeckBatchAmbiguous || next == PreparedDeckBatchFailed || next == PreparedDeckBatchCancelled
-	case PreparedDeckBatchSubmitted, PreparedDeckBatchPolling:
-		return next == PreparedDeckBatchPolling || next == PreparedDeckBatchReconciling || next == PreparedDeckBatchFailed || next == PreparedDeckBatchCancelled
-	case PreparedDeckBatchReconciling:
-		return next == PreparedDeckBatchPolling || next == PreparedDeckBatchCompleted || next == PreparedDeckBatchFailed || next == PreparedDeckBatchCancelled
 	case PreparedDeckBatchCompleted, PreparedDeckBatchFailed, PreparedDeckBatchCancelled, PreparedDeckBatchAmbiguous:
-		return false
-	default: // Invalid persisted states cannot transition.
+		return true
+	default:
 		return false
 	}
+}
+
+// AwaitingSubmission reports the states from which a submission claim may
+// start work.
+func (s PreparedDeckBatchChunkState) AwaitingSubmission() bool {
+	return s == PreparedDeckBatchPending || s == PreparedDeckBatchSubmitting
+}
+
+// AwaitingPoll reports the states where a submitted provider Batch is waiting
+// for its next reconciliation.
+func (s PreparedDeckBatchChunkState) AwaitingPoll() bool {
+	return s == PreparedDeckBatchSubmitted || s == PreparedDeckBatchPolling
+}
+
+// SubmissionClosed reports whether the chunk has left the submission phase, so
+// a submission attempt must not start. An unknown persisted state stays open so
+// the submission claim remains the authority that rejects it.
+func (s PreparedDeckBatchChunkState) SubmissionClosed() bool {
+	return s.Terminal() || s.AwaitingPoll() || s == PreparedDeckBatchReconciling
+}
+
+// CleanupEligible reports the settled states whose provider files are cleaned
+// up after reconciliation or cancellation.
+func (s PreparedDeckBatchChunkState) CleanupEligible() bool {
+	return s == PreparedDeckBatchCompleted || s == PreparedDeckBatchCancelled
+}
+
+// SubmissionSettled reports the states a submission attempt may settle to
+// without reaching the provider: completed cache hits, a pre-network failure or
+// an ambiguous provider acknowledgment.
+func (s PreparedDeckBatchChunkState) SubmissionSettled() bool {
+	switch s {
+	case PreparedDeckBatchCompleted, PreparedDeckBatchFailed, PreparedDeckBatchAmbiguous:
+		return true
+	default:
+		return false
+	}
+}
+
+// ReconciliationUpdateAllowed reports the states a reconciliation attempt may
+// set: another poll, completion or failure.
+func (s PreparedDeckBatchChunkState) ReconciliationUpdateAllowed() bool {
+	switch s {
+	case PreparedDeckBatchCompleted, PreparedDeckBatchFailed, PreparedDeckBatchPolling:
+		return true
+	default:
+		return false
+	}
+}
+
+// FailureReported reports the chunks that carry a run-level failure class.
+func (s PreparedDeckBatchChunkState) FailureReported() bool {
+	return s == PreparedDeckBatchFailed || s == PreparedDeckBatchAmbiguous
+}
+
+// PreparedDeckBatchFileCleanupState is one provider file's durable cleanup
+// state. The values match the database check constraint.
+type PreparedDeckBatchFileCleanupState string
+
+const (
+	PreparedDeckBatchCleanupPending   PreparedDeckBatchFileCleanupState = "pending"
+	PreparedDeckBatchCleanupDeleted   PreparedDeckBatchFileCleanupState = "deleted"
+	PreparedDeckBatchCleanupFailed    PreparedDeckBatchFileCleanupState = "failed"
+	PreparedDeckBatchCleanupNotNeeded PreparedDeckBatchFileCleanupState = "not_needed"
+)
+
+// Valid reports whether the state is one the database accepts.
+func (s PreparedDeckBatchFileCleanupState) Valid() bool {
+	switch s {
+	case PreparedDeckBatchCleanupPending, PreparedDeckBatchCleanupDeleted, PreparedDeckBatchCleanupFailed, PreparedDeckBatchCleanupNotNeeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Settled reports whether the file has reached a final cleanup state. Pending
+// and failed files remain retryable.
+func (s PreparedDeckBatchFileCleanupState) Settled() bool {
+	return s == PreparedDeckBatchCleanupDeleted || s == PreparedDeckBatchCleanupNotNeeded
 }
 
 type PreparedDeckBatchChunk struct {
