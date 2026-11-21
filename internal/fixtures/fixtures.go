@@ -73,6 +73,9 @@ type Store struct {
 	dispositions           map[string]domain.BookDisposition
 	dispositionRevisions   map[string]int64
 	visibility             map[string]fixtureVisibility
+	// epubAcquisitionFailures is the latest failed EPUB acquisition per Book,
+	// keyed by fixtureDispositionKey. A successful acquisition deletes the row.
+	epubAcquisitionFailures map[string]domain.EPUBAcquisitionFailureRecord
 	// removedBooks holds the Books whose My Books membership is inactive. The
 	// Book and its evidence stay so a later Add can restore them.
 	removedBooks         map[string]struct{}
@@ -188,27 +191,37 @@ func NewStore() *Store {
 		}, {
 			Book:            domain.Book{ID: "fixture-read-history", OwnerID: OwnerID, Title: "Previously finished fixture", Author: "Elise Sommer", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			CompletionCount: 1, LatestCompletionAt: new(fixtureJourneyTime.AddDate(0, 0, -12)), LatestCompletionSource: domain.ReadingCompletionPreviouslyRead,
+		}, {
+			Book: domain.Book{ID: "fixture-acquisition-failed", OwnerID: OwnerID, Title: "Nicht herunterladbar", Author: "Hanna Voss", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}},
 		dispositions: map[string]domain.BookDisposition{
-			fixtureDispositionKey(OwnerID, BookID):                   domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, "fixture-failed"):         domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, "fixture-running"):        domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, "fixture-not-analyzed"):   domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, routeMatchBookID):         domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, LemmaFlagBookID):          domain.BookDispositionInbox,
-			fixtureDispositionKey(OwnerID, routeDiffersBookID):       domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, routeTieABookID):          domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, routeTieBBookID):          domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, routeUnavailableBookID):   domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, "fixture-empty"):          domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, edgeBookID):               domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, italianRouteBookID):       domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, ItalianGoalBookID):        domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, staleBookID):              domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, cancelledBookID):          domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, publicationPendingBookID): domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, reAnalysisRunningBookID):  domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, reAnalysisFailedBookID):   domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, BookID):                       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-failed"):             domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-running"):            domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-not-analyzed"):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeMatchBookID):             domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, LemmaFlagBookID):              domain.BookDispositionInbox,
+			fixtureDispositionKey(OwnerID, routeDiffersBookID):           domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeTieABookID):              domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeTieBBookID):              domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeUnavailableBookID):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-empty"):              domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, edgeBookID):                   domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, italianRouteBookID):           domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, ItalianGoalBookID):            domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, staleBookID):                  domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, cancelledBookID):              domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, publicationPendingBookID):     domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, reAnalysisRunningBookID):      domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, reAnalysisFailedBookID):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-acquisition-failed"): domain.BookDispositionToRead,
+		},
+		epubAcquisitionFailures: map[string]domain.EPUBAcquisitionFailureRecord{
+			fixtureDispositionKey(OwnerID, "fixture-acquisition-failed"): {
+				OwnerID: OwnerID, BookID: "fixture-acquisition-failed",
+				ConnectionID: "fixture-connection", EntryIdentifier: "fixture-entry",
+				Stage: domain.EPUBAcquisitionFailureFetch, Code: domain.EPUBAcquisitionCodeSourceDownloadFailed,
+			},
 		},
 		dispositionRevisions: make(map[string]int64),
 		visibility:           make(map[string]fixtureVisibility),
@@ -236,6 +249,10 @@ func NewStore() *Store {
 		lemmaOccurrences:     fixtureCannedLemmaOccurrences(),
 		classicalDefinitions: fixtureClassicalDefinitionsByKey(),
 	}
+	// The acquisition-failure row is Hidden so it never displaces the visible
+	// My Books collection or the Reading chooser; browser acceptance reveals it
+	// with Show hidden books.
+	store.visibility[fixtureDispositionKey(OwnerID, "fixture-acquisition-failed")] = fixtureVisibility{hidden: true}
 	store.lemmaReviewFlags[fixtureLemmaCorrectionKey(OwnerID, LemmaFlagBookID, "fixture-lemma-flag-run", 4, 7)] = domain.LemmaReviewFlag{
 		Occurrence: domain.LemmaReviewOccurrence{OwnerID: OwnerID, BookID: LemmaFlagBookID, AnalysisRunID: "fixture-lemma-flag-run", SourceDocumentID: "fixture-lemma-flag-unit", StartOffset: 4, EndOffset: 7},
 		Reason:     "The analyzer lemma is a local-index miss and sentence evidence supports a competing recurring lemma.",

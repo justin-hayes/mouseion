@@ -14,7 +14,56 @@ import (
 func bookStateScenarios() []Scenario {
 	scenarios := visibilityScenarios()
 	scenarios = append(scenarios, dispositionScenarios()...)
-	return append(scenarios, importScenarios()...)
+	scenarios = append(scenarios, importScenarios()...)
+	return append(scenarios, epubAcquisitionFailureScenarios()...)
+}
+
+// epubAcquisitionFailureScenarios pin the durable reason a failed EPUB
+// acquisition leaves on a To Read Book, and its removal after success.
+func epubAcquisitionFailureScenarios() []Scenario {
+	return []Scenario{{
+		Name: "an EPUB acquisition failure is recorded against the Book and cleared on success",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID := seedBook(t, h, BookSeed{MetadataOnly: true, ToRead: true})
+			record := domain.EPUBAcquisitionFailureRecord{
+				OwnerID: owner, BookID: bookID,
+				Stage: domain.EPUBAcquisitionFailureFetch, Code: domain.EPUBAcquisitionCodeSourceDownloadFailed,
+			}
+			require.NoError(t, h.BookState().RecordEPUBAcquisitionFailure(record))
+
+			detail := requireDetail(t, h, owner, bookID)
+			require.NotNil(t, detail.EPUBAcquisition)
+			assert.Equal(t, domain.EPUBAcquisitionFailureFetch, detail.EPUBAcquisition.Stage)
+			assert.Equal(t, domain.EPUBAcquisitionCodeSourceDownloadFailed, detail.EPUBAcquisition.Code)
+			classification := detail.Classification()
+			assert.Equal(t, domain.AcquisitionFetchFailed, classification.Acquisition.State)
+			assert.Equal(t, domain.BookUnavailable, classification.Evidence)
+			assert.Equal(t, domain.RecoveryRetryAcquisition, classification.Recovery)
+
+			_, err := h.BookState().GetBookDetail(h.Seeds().OtherOwner(), bookID)
+			require.ErrorIs(t, err, domain.ErrNotFound, "the failure never crosses owners")
+
+			require.NoError(t, h.BookState().ClearEPUBAcquisitionFailure(owner, bookID))
+			detail = requireDetail(t, h, owner, bookID)
+			assert.Nil(t, detail.EPUBAcquisition)
+			assert.Equal(t, domain.AcquisitionNone, detail.Classification().Acquisition.State)
+		},
+	}, {
+		Name: "a source-stage EPUB acquisition failure offers no retry",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID := seedBook(t, h, BookSeed{MetadataOnly: true, ToRead: true})
+			require.NoError(t, h.BookState().RecordEPUBAcquisitionFailure(domain.EPUBAcquisitionFailureRecord{
+				OwnerID: owner, BookID: bookID,
+				Stage: domain.EPUBAcquisitionFailureSource, Code: domain.EPUBAcquisitionCodeSourceOversize,
+			}))
+			detail := requireDetail(t, h, owner, bookID)
+			classification := detail.Classification()
+			assert.Equal(t, domain.AcquisitionSourceOversize, classification.Acquisition.State)
+			assert.Equal(t, domain.RecoveryNone, classification.Recovery)
+		},
+	}}
 }
 
 // seedBook seeds an analyzed Book for the learner under test, in the Inbox

@@ -59,6 +59,8 @@ type MyBooksStore interface {
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 	SetBookHidden(context.Context, string, string, int64, bool) (bool, error)
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
+	RecordEPUBAcquisitionFailure(context.Context, domain.EPUBAcquisitionFailureRecord) error
+	ClearEPUBAcquisitionFailure(context.Context, string, string) error
 }
 
 // ReadingStore provides the Reading (/reading/**) surface: the owner-scoped

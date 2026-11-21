@@ -27,10 +27,12 @@ const (
 )
 
 var (
-	ErrNoEPUB               = errors.New("opds: entry has no EPUB acquisition link")
-	ErrDownloadTooLarge     = errors.New("opds: catalog EPUB exceeds the 512 MiB download limit")
-	ErrRetainedEPUBTooLarge = errors.New("opds: EPUB exceeds the 100 MiB retained-EPUB limit")
-	ErrSearchUnavailable    = errors.New("opds: catalog does not advertise search")
+	ErrNoEPUB                = errors.New("opds: entry has no EPUB acquisition link")
+	ErrDownloadTooLarge      = errors.New("opds: catalog EPUB exceeds the 512 MiB download limit")
+	ErrRetainedEPUBTooLarge  = errors.New("opds: EPUB exceeds the 100 MiB retained-EPUB limit")
+	ErrIncompatibleMediaType = errors.New("opds: incompatible media type")
+	ErrImportFailed          = errors.New("opds: downloaded EPUB could not be imported")
+	ErrSearchUnavailable     = errors.New("opds: catalog does not advertise search")
 )
 
 type Auth struct {

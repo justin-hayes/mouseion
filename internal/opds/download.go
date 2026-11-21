@@ -129,7 +129,7 @@ func catalogResponseError(resp *http.Response) error {
 	}
 	mediaType := strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
 	if mediaType != "" && !strings.EqualFold(mediaType, EPUBMediaType) && !strings.EqualFold(mediaType, "application/octet-stream") {
-		return fmt.Errorf("opds: download EPUB: incompatible media type %q", mediaType)
+		return fmt.Errorf("opds: download EPUB: incompatible media type %q: %w", mediaType, ErrIncompatibleMediaType)
 	}
 	return nil
 }

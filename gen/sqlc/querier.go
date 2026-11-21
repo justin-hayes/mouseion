@@ -71,6 +71,7 @@ type Querier interface {
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
 	DeleteCatalogueEntriesNotSeen(ctx context.Context, arg DeleteCatalogueEntriesNotSeenParams) (int64, error)
 	DeleteCurrentReading(ctx context.Context, arg DeleteCurrentReadingParams) error
+	DeleteEPUBAcquisitionFailure(ctx context.Context, arg DeleteEPUBAcquisitionFailureParams) error
 	DeleteOccurrenceLemmaCorrection(ctx context.Context, arg DeleteOccurrenceLemmaCorrectionParams) (int64, error)
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeleteSelectedSentences(ctx context.Context, arg DeleteSelectedSentencesParams) error
@@ -279,6 +280,7 @@ type Querier interface {
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]ListDeckPreparationVocabularyRow, error)
 	ListDeckPreparationsForSourceMaterial(ctx context.Context, arg ListDeckPreparationsForSourceMaterialParams) ([]DeckPreparation, error)
+	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
 	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
 	ListGeneratedVocabulary(ctx context.Context, arg ListGeneratedVocabularyParams) ([]ListGeneratedVocabularyRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
@@ -380,6 +382,9 @@ type Querier interface {
 	PutCorpus(ctx context.Context, arg PutCorpusParams) (PutCorpusRow, error)
 	PutCuratedSentence(ctx context.Context, arg PutCuratedSentenceParams) (PutCuratedSentenceRow, error)
 	PutDeck(ctx context.Context, arg PutDeckParams) (PutDeckRow, error)
+	// EPUB acquisition failure queries. The row is keyed by owner and Book and
+	// holds the latest failed attempt only; a successful acquisition deletes it.
+	PutEPUBAcquisitionFailure(ctx context.Context, arg PutEPUBAcquisitionFailureParams) error
 	PutExampleSentence(ctx context.Context, arg PutExampleSentenceParams) (PutExampleSentenceRow, error)
 	PutGeneratedCard(ctx context.Context, arg PutGeneratedCardParams) error
 	PutGeneratedVocabulary(ctx context.Context, arg PutGeneratedVocabularyParams) error

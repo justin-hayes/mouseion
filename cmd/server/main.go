@@ -305,8 +305,9 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
 		Books: store, Classical: analysisService, Analysis: analysisService,
-		FindTarget: catalogueSyncService.FindAcquisitionTarget,
-		Acquire:    deps.opdsService.AcquireForBook,
+		FindTarget:   catalogueSyncService.FindAcquisitionTarget,
+		Acquire:      deps.opdsService.AcquireForBook,
+		Acquisitions: store,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize reading intent preparation: %w", err)

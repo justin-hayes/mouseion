@@ -52,6 +52,9 @@ type BookSeed struct {
 	// LanguageUnknown reports that the Book's language is not chosen, so it
 	// cannot be imported as previously read.
 	LanguageUnknown bool
+	// MetadataOnly reports a Book with no acquired source, as a chosen Book
+	// looks before its EPUB is acquired.
+	MetadataOnly bool
 }
 
 // OccurrenceSeed is one observed token of a Book's analysis. LexicalDiscriminator
@@ -93,6 +96,12 @@ type BookStateStore interface {
 	// evidence. A later Add restores the same Book.
 	RemoveBookFromMyBooks(owner, bookID string) error
 	ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error)
+	// RecordEPUBAcquisitionFailure records the latest failed EPUB acquisition
+	// for a Book, replacing any previous record.
+	RecordEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) error
+	// ClearEPUBAcquisitionFailure deletes a Book's failure after a successful
+	// acquisition. A missing row is not an error.
+	ClearEPUBAcquisitionFailure(owner, bookID string) error
 }
 
 // ClassicalStore is the built-in Classical catalog membership surface under

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -1027,6 +1028,211 @@ func TestCurrentBookRefusalIsNotLoggedAsFailure(t *testing.T) {
 
 	require.Equal(t, SubmissionCouldNotStart, got.Kind)
 	assert.Empty(t, logs.String())
+}
+
+type fakeAcquisitionFailures struct {
+	records   []domain.EPUBAcquisitionFailureRecord
+	cleared   []string
+	recordErr error
+	clearErr  error
+}
+
+func (f *fakeAcquisitionFailures) RecordEPUBAcquisitionFailure(_ context.Context, record domain.EPUBAcquisitionFailureRecord) error {
+	f.records = append(f.records, record)
+	return f.recordErr
+}
+
+func (f *fakeAcquisitionFailures) ClearEPUBAcquisitionFailure(_ context.Context, owner, bookID string) error {
+	f.cleared = append(f.cleared, owner+"/"+bookID)
+	return f.clearErr
+}
+
+func TestEPUBAcquisitionFailureRecordingClassifiesTheStage(t *testing.T) {
+	t.Parallel()
+	target := cataloguesync.AcquisitionTarget{
+		ConnectionID: "connection-1",
+		Language:     "de",
+		Entry:        opds.Entry{ID: "entry-1", Title: "Der lange Weg"},
+	}
+	tests := []struct {
+		name       string
+		err        error
+		stage      domain.EPUBAcquisitionFailureStage
+		code       string
+		wantRecord bool
+	}{
+		{
+			name:       "download refused",
+			err:        errors.New("catalog refused the download"),
+			stage:      domain.EPUBAcquisitionFailureFetch,
+			code:       domain.EPUBAcquisitionCodeSourceDownloadFailed,
+			wantRecord: true,
+		},
+		{
+			name:       "download too large",
+			err:        fmt.Errorf("opds: download EPUB: %w", opds.ErrDownloadTooLarge),
+			stage:      domain.EPUBAcquisitionFailureSource,
+			code:       domain.EPUBAcquisitionCodeSourceOversize,
+			wantRecord: true,
+		},
+		{
+			name:       "retained EPUB too large",
+			err:        fmt.Errorf("opds: ingest downloaded EPUB: %w", fmt.Errorf("%w: %w", opds.ErrImportFailed, opds.ErrRetainedEPUBTooLarge)),
+			stage:      domain.EPUBAcquisitionFailureSource,
+			code:       domain.EPUBAcquisitionCodeSourceOversize,
+			wantRecord: true,
+		},
+		{
+			name:       "no EPUB link",
+			err:        opds.ErrNoEPUB,
+			stage:      domain.EPUBAcquisitionFailureSource,
+			code:       domain.EPUBAcquisitionCodeSourceFormatUnknown,
+			wantRecord: true,
+		},
+		{
+			name:       "invalid EPUB",
+			err:        fmt.Errorf("opds: retain downloaded EPUB: %w", epub.ErrInvalidEPUB),
+			stage:      domain.EPUBAcquisitionFailureSource,
+			code:       domain.EPUBAcquisitionCodeSourceFormatUnknown,
+			wantRecord: true,
+		},
+		{
+			name:       "incompatible media type",
+			err:        fmt.Errorf("opds: download EPUB: %w", opds.ErrIncompatibleMediaType),
+			stage:      domain.EPUBAcquisitionFailureSource,
+			code:       domain.EPUBAcquisitionCodeSourceFormatUnknown,
+			wantRecord: true,
+		},
+		{
+			name:       "import failed",
+			err:        fmt.Errorf("opds: ingest downloaded EPUB: %w", fmt.Errorf("%w: database unavailable", opds.ErrImportFailed)),
+			stage:      domain.EPUBAcquisitionFailureImport,
+			code:       domain.EPUBAcquisitionCodeEPUBImportFailed,
+			wantRecord: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			acquisitions := &fakeAcquisitionFailures{}
+			preparation := epubPreparation{
+				books:    &fakeBooks{results: []bookResult{{book: epubBookWithoutSource()}}},
+				analysis: &fakeAnalysis{},
+				findTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+					return target, nil
+				},
+				acquire: func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {
+					return epub.ImportResult{}, tt.err
+				},
+				acquisitions: acquisitions,
+			}
+
+			got := preparation.Prepare(context.Background(), "owner", epubBookWithoutSource())
+
+			require.Equal(t, SubmissionCouldNotStart, got.Kind)
+			if !tt.wantRecord {
+				assert.Empty(t, acquisitions.records)
+				assert.Empty(t, acquisitions.cleared)
+				return
+			}
+			require.Len(t, acquisitions.records, 1)
+			record := acquisitions.records[0]
+			assert.Equal(t, "owner", record.OwnerID)
+			assert.Equal(t, "book-1", record.BookID)
+			assert.Equal(t, "connection-1", record.ConnectionID)
+			assert.Equal(t, "entry-1", record.EntryIdentifier)
+			assert.Equal(t, tt.stage, record.Stage)
+			assert.Equal(t, tt.code, record.Code)
+			assert.Empty(t, acquisitions.cleared)
+		})
+	}
+}
+
+func TestEPUBAcquisitionWithoutAnAttemptRecordsNoFailure(t *testing.T) {
+	t.Parallel()
+	lookupErr := errors.New("catalog lookup failed")
+	tests := []struct {
+		name       string
+		findTarget func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
+		acquire    func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
+	}{
+		{name: "no acquisition seam"},
+		{
+			name: "lookup failed",
+			findTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+				return cataloguesync.AcquisitionTarget{}, lookupErr
+			},
+		},
+		{
+			name: "no acquirer",
+			findTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+				return cataloguesync.AcquisitionTarget{ConnectionID: "connection-1"}, nil
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			acquisitions := &fakeAcquisitionFailures{}
+			preparation := epubPreparation{
+				books:        &fakeBooks{results: []bookResult{{book: epubBookWithoutSource()}}},
+				analysis:     &fakeAnalysis{},
+				findTarget:   tt.findTarget,
+				acquire:      tt.acquire,
+				acquisitions: acquisitions,
+			}
+
+			got := preparation.Prepare(context.Background(), "owner", epubBookWithoutSource())
+
+			require.Equal(t, SubmissionCouldNotStart, got.Kind)
+			assert.Empty(t, acquisitions.records, "a missing seam or failed lookup is not acquisition evidence")
+			assert.Empty(t, acquisitions.cleared)
+		})
+	}
+}
+
+func TestEPUBAcquisitionSuccessClearsTheRecordedFailure(t *testing.T) {
+	t.Parallel()
+	acquisitions := &fakeAcquisitionFailures{}
+	opdsServer := newFakeOPDS(t, http.StatusOK)
+	preparation := epubPreparation{
+		books:    &fakeBooks{results: []bookResult{{book: epubBook("source-9")}}},
+		analysis: &fakeAnalysis{handle: analysis.Handle{DisplayNumber: 12}},
+		findTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+			return opdsServer.target(), nil
+		},
+		acquire:      opdsServer.service.AcquireForBook,
+		acquisitions: acquisitions,
+	}
+
+	got := preparation.Prepare(context.Background(), "owner", epubBookWithoutSource())
+
+	require.Equal(t, SubmissionQueued, got.Kind)
+	assert.Equal(t, []string{"owner/book-1"}, acquisitions.cleared)
+	assert.Empty(t, acquisitions.records)
+}
+
+func TestEPUBAcquisitionRecordingFailureKeepsTheOriginalOutcome(t *testing.T) {
+	t.Parallel()
+	acquisitions := &fakeAcquisitionFailures{recordErr: errors.New("database unavailable")}
+	preparation := epubPreparation{
+		books:    &fakeBooks{results: []bookResult{{book: epubBookWithoutSource()}}},
+		analysis: &fakeAnalysis{},
+		findTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+			return cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Entry: opds.Entry{ID: "entry-1"}}, nil
+		},
+		acquire: func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {
+			return epub.ImportResult{}, errors.New("download failed")
+		},
+		acquisitions: acquisitions,
+	}
+	logs := captureLog(t)
+
+	got := preparation.Prepare(context.Background(), "owner", epubBookWithoutSource())
+
+	require.Equal(t, SubmissionCouldNotStart, got.Kind)
+	require.ErrorContains(t, got.Err, "download failed")
+	assert.Contains(t, logs.String(), "record EPUB acquisition failure")
 }
 
 // captureLog redirects the standard logger for one test.

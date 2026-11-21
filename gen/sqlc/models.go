@@ -650,6 +650,16 @@ type EnrichmentCache struct {
 	ItemKind string
 }
 
+type EpubAcquisitionFailure struct {
+	OwnerID         string
+	BookID          string
+	ConnectionID    pgtype.UUID
+	EntryIdentifier pgtype.Text
+	Stage           string
+	Code            string
+	FailedAt        time.Time
+}
+
 type ExampleSentence struct {
 	ID               string
 	OwnerID          string

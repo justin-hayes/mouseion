@@ -29,6 +29,8 @@ test.describe('My Books Hide and Unhide', () => {
 
     await page.goto('/library');
     await expect(page.locator('#book-row-fixture-not-analyzed')).toHaveCount(1);
-    await expect(page.locator('#library-show-hidden')).toHaveText('Show hidden books');
+    // The fixture seeds one Hidden acquisition-failure row, so the recovery
+    // link keeps its count after this Book is unhidden.
+    await expect(page.locator('#library-show-hidden')).toHaveText('Show hidden books (1)');
   });
 });

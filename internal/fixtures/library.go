@@ -162,6 +162,7 @@ func (s *Store) applyFixtureBookEvidence(books []domain.MyBook) {
 // applyFixtureBookEvidenceLocked decorates one assembled Book with the evidence
 // the fixture models. Callers hold s.mu.
 func (s *Store) applyFixtureBookEvidenceLocked(book *domain.MyBook) {
+	s.applyEPUBAcquisitionFailure(book)
 	if book.Book.ID == BookID {
 		book.CoverageKnownTokens = 974
 		book.CoverageTotalTokens = 1000

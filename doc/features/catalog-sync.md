@@ -1,6 +1,6 @@
 # Catalog Sync
 
-Status: Implemented, including independent cover retrieval · Date: 2026-09-02 · Updated: 2026-09-23
+Status: Implemented, including independent cover retrieval · Date: 2026-09-02 · Updated: 2026-11-21
 
 ## Motivation
 
@@ -122,6 +122,30 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 - If the individual upstream entry is no longer present, refresh is a calm
   no-op that preserves the Book and its current metadata.
 
+### EPUB acquisition failures
+
+A failed EPUB acquisition never rolls back the learner's To Read choice.
+There is no Inbox step to undo: the move commits first, and the acquisition
+runs inside the request (ADR 0047). The per-Book failure is recorded after the
+attempt and deleted when an acquisition succeeds, so My Books keeps showing the
+reason until recovery.
+
+The stages and stable codes are defined once in the domain:
+
+| Stage | Code | Retry |
+|---|---|---|
+| `entry` | `catalog_entry_missing` | Yes, after a sync restores the entry |
+| `fetch` | `source_download_failed` | Yes |
+| `source` | `source_oversize`, `source_format_unknown` | No |
+| `import` | `epub_import_failed` | Yes |
+
+My Books renders the reason and, where retrying can help, **Retry**, which goes
+through reading intent's Retry. A source-stage refusal offers no Retry because
+the file itself cannot be acquired. Book evidence classification takes the
+failure as an input beside Classical preparation's, and a failure never
+overrides an analysis already in effect. The operator log line for the failed
+attempt remains.
+
 ## State model
 
 | State | Required presentation | Primary action |
@@ -132,6 +156,7 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 | Last synced | Show the last successful time and metadata-only reconciliation. Manage sources keeps the ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason linked to Manage sources. | Edit connection in Manage sources or retry |
 | Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Move to To Read |
+| EPUB acquisition failed | Keep the Book To Read, name the reason (entry missing, download failed, unusable source, or import failed), and offer Retry only for entry, fetch and import stages. The reason stays until an acquisition succeeds and never overrides an analysis in effect. | Retry, or fix the catalog and retry |
 | Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |
 | Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Retry from My Books or Reading |
 | Individual metadata refresh complete | Show refreshed metadata/last-refreshed state without implying content changed. | Return to My Books |

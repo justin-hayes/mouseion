@@ -38,6 +38,9 @@ func myBookMarginEvidence(book domain.MyBook) string {
 	if preparation, ok := classicalPreparationFor(book); ok {
 		return preparation.Label + "."
 	}
+	if acquisition, ok := epubAcquisitionFor(book); ok {
+		return acquisition.Label
+	}
 	if book.AwaitingPreparation() {
 		return notPreparedYetNote
 	}
@@ -146,29 +149,38 @@ func myBookEvidenceRecovery(book domain.MyBook) string {
 	if book.IsCurrentReading {
 		return ""
 	}
-	if preparation, ok := classicalPreparationFor(book); ok {
-		if !preparation.Actionable {
-			return ""
-		}
-		if book.Disposition == domain.BookDispositionToRead {
-			return preparation.Recovery
-		}
-		if book.CompletionCount > 0 {
-			return preparation.Recovery + " by reading again"
-		}
-		return preparation.Recovery + " by moving to To Read"
-	}
-	if book.Acquired == nil {
+	action := myBookActionableRecovery(book)
+	if action == "" {
 		return ""
 	}
-	action := classicalRecoveryLabel(book.Classification().Recovery)
-	if action == "" || book.Disposition == domain.BookDispositionToRead {
+	if book.Disposition == domain.BookDispositionToRead {
 		return action
 	}
 	if book.CompletionCount > 0 {
 		return action + " by reading again"
 	}
 	return action + " by moving to To Read"
+}
+
+// myBookActionableRecovery names the recovery the Book's applicable evidence
+// offers. The caller adds the disposition-specific suffix.
+func myBookActionableRecovery(book domain.MyBook) string {
+	if preparation, ok := classicalPreparationFor(book); ok {
+		if !preparation.Actionable {
+			return ""
+		}
+		return preparation.Recovery
+	}
+	if acquisition, ok := epubAcquisitionFor(book); ok {
+		if !acquisition.Actionable {
+			return ""
+		}
+		return acquisition.Recovery
+	}
+	if book.Acquired == nil {
+		return ""
+	}
+	return classicalRecoveryLabel(book.Classification().Recovery)
 }
 
 func myBookEvidenceRecoveryURL(book domain.MyBook) string {
