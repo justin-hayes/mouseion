@@ -300,6 +300,163 @@ func TestMyBookClassificationUsesDispositionAndChosenLanguage(t *testing.T) {
 	assert.Equal(t, CurrentReadingNotToRead, MyBook{Book: book.Book, Disposition: BookDispositionInbox, Acquired: acquired}.Classification().Eligibility)
 }
 
+func TestClassifyBookEvidenceClassicalPreparationStages(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		status      ClassicalPreparationStatus
+		preparation PreparationState
+		evidence    BookEvidenceState
+		phase       AnalysisPhase
+		recovery    BookEvidenceRecovery
+	}{
+		{
+			name:        "queued",
+			status:      ClassicalPreparationStatus{State: ClassicalPreparationQueued, CurrentRevision: 1},
+			preparation: PreparationQueued, evidence: BookAcquiredUnassessed, phase: PhaseAnalyzing, recovery: RecoveryNone,
+		},
+		{
+			name:        "running",
+			status:      ClassicalPreparationStatus{State: ClassicalPreparationRunning, CurrentRevision: 1},
+			preparation: PreparationRunning, evidence: BookAcquiredUnassessed, phase: PhaseAnalyzing, recovery: RecoveryNone,
+		},
+		{
+			name:        "fetch",
+			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch, CurrentRevision: 1},
+			preparation: PreparationFetchFailed, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,
+		},
+		{
+			name:        "import",
+			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureImport, CurrentRevision: 1},
+			preparation: PreparationImportFailed, evidence: BookAcquiredUnassessed, phase: PhaseFailed, recovery: RecoveryRetryAnalysis,
+		},
+		{
+			name:        "source",
+			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureSource, CurrentRevision: 1},
+			preparation: PreparationSourceRefused, evidence: BookAcquiredUnassessed, phase: PhaseFailed, recovery: RecoveryNone,
+		},
+		{
+			name:        "withdrawn",
+			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureWithdrawn, Withdrawn: true, CurrentRevision: 1},
+			preparation: PreparationWithdrawn, evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryNone,
+		},
+		{
+			name:        "withdrawn failure without the tombstone flag",
+			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureWithdrawn, CurrentRevision: 1},
+			preparation: PreparationWithdrawn, evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryNone,
+		},
+		{
+			name:        "catalog",
+			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureCatalog, CurrentRevision: 1},
+			preparation: PreparationCatalogUnavailable, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
+		},
+		{
+			name:        "cleared",
+			status:      ClassicalPreparationStatus{Cleared: true, FailureRevision: 1, CurrentRevision: 2},
+			preparation: PreparationCleared, evidence: BookAcquiredUnassessed, phase: PhaseNotAnalyzed, recovery: RecoveryRetryPreparation,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := ClassifyBookEvidence(AnalysisSignals{ClassicalPreparation: &tt.status}, BookDispositionToRead, "grc")
+			assert.Equal(t, tt.preparation, got.Preparation.State, "preparation")
+			assert.Equal(t, tt.evidence, got.Evidence, "evidence")
+			assert.Equal(t, tt.phase, got.Phase, "phase")
+			assert.Equal(t, tt.recovery, got.Recovery, "recovery")
+			assert.False(t, got.AnalysisInEffect(), "a preparation state is not an analysis in effect")
+		})
+	}
+}
+
+func TestClassicalPreparationDoesNotChangeAnalysisEligibility(t *testing.T) {
+	t.Parallel()
+	signals := AnalysisSignals{
+		Content:              ContentCurrentImported,
+		Published:            PublishedNone,
+		LatestRun:            RunNone,
+		ClassicalPreparation: &ClassicalPreparationStatus{State: ClassicalPreparationQueued, CurrentRevision: 1},
+	}
+	withPreparation := ClassifyBookEvidence(signals, BookDispositionToRead, "grc")
+	signals.ClassicalPreparation = nil
+	withoutPreparation := ClassifyBookEvidence(signals, BookDispositionToRead, "grc")
+	assert.Equal(t, CurrentReadingNoCompletedAnalysis, withPreparation.Eligibility)
+	assert.Equal(t, withoutPreparation.Eligibility, withPreparation.Eligibility)
+}
+
+func TestClassicalPreparationNeverOverridesAnalysisInEffect(t *testing.T) {
+	t.Parallel()
+	statuses := []struct {
+		name   string
+		status ClassicalPreparationStatus
+	}{
+		{name: "fetch", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch, CurrentRevision: 1}},
+		{name: "import", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureImport, CurrentRevision: 1}},
+		{name: "source", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureSource, CurrentRevision: 1}},
+		{name: "withdrawn", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureWithdrawn, Withdrawn: true, CurrentRevision: 1}},
+		{name: "catalog", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureCatalog, CurrentRevision: 1}},
+		{name: "cleared", status: ClassicalPreparationStatus{Cleared: true, FailureRevision: 1, CurrentRevision: 2}},
+		{name: "running", status: ClassicalPreparationStatus{State: ClassicalPreparationRunning, CurrentRevision: 1}},
+	}
+	for _, tt := range statuses {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			signals := AnalysisSignals{
+				Content:              ContentCurrentImported,
+				Published:            PublishedCurrent,
+				LatestRun:            RunCompleted,
+				ClassicalPreparation: &tt.status,
+			}
+			got := ClassifyBookEvidence(signals, BookDispositionToRead, "grc")
+			assert.Equal(t, PreparationNone, got.Preparation.State, "a published analysis is ordinary evidence")
+			assert.Equal(t, BookAnalyzed, got.Evidence)
+			assert.Equal(t, PhaseAnalyzed, got.Phase)
+			assert.Equal(t, RecoveryNone, got.Recovery)
+			assert.True(t, got.AnalysisInEffect())
+		})
+	}
+
+	// A newer run shadowed by the published analysis keeps that analysis in
+	// effect, so the preparation failure still does not apply.
+	status := ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch, CurrentRevision: 1}
+	shadowed := ClassifyBookEvidence(AnalysisSignals{
+		Content:              ContentCurrentImported,
+		Published:            PublishedCurrent,
+		LatestRun:            RunFailed,
+		ClassicalPreparation: &status,
+	}, BookDispositionToRead, "grc")
+	assert.Equal(t, PreparationNone, shadowed.Preparation.State)
+	assert.True(t, shadowed.AnalysisInEffect())
+	assert.Equal(t, BookAnalyzed, shadowed.Evidence)
+}
+
+func TestMyBookClassificationCarriesClassicalPreparation(t *testing.T) {
+	t.Parallel()
+	book := MyBook{
+		Book:                 Book{LanguageState: LanguageChosen, LanguageTag: "grc"},
+		Disposition:          BookDispositionToRead,
+		ReadingUnit:          &BookReadingUnit{ReadingUnitKey: "greek-1", Revision: 1},
+		ClassicalPreparation: &ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch, CurrentRevision: 1},
+	}
+	classification := book.Classification()
+	assert.Equal(t, PreparationFetchFailed, classification.Preparation.State)
+	assert.Equal(t, RecoveryRetryAcquisition, classification.Recovery)
+
+	withdrawn := MyBook{
+		Book:        Book{LanguageState: LanguageChosen, LanguageTag: "grc"},
+		Disposition: BookDispositionToRead,
+		ReadingUnit: &BookReadingUnit{ReadingUnitKey: "greek-1", Revision: 1, Withdrawn: true},
+	}
+	assert.Equal(t, PreparationWithdrawn, withdrawn.Classification().Preparation.State)
+
+	analyzed := book
+	analyzed.Acquired = &SourceMaterialSummary{
+		Source:  SourceMaterial{MediaType: ImportedSourceMediaType},
+		Signals: AnalysisSignals{Content: ContentCurrentImported, Published: PublishedCurrent, LatestRun: RunCompleted},
+	}
+	assert.Equal(t, PreparationNone, analyzed.Classification().Preparation.State, "an analysis in effect ignores the failure")
+}
+
 func TestClassificationCarriesContentAndCompletedAnalysis(t *testing.T) {
 	completed := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunCompleted}, BookDispositionToRead, "de")
 	assert.Equal(t, ContentCurrentEPUB, completed.Content)

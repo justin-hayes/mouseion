@@ -37,95 +37,79 @@ type classicalPreparationView struct {
 // ok=false for an ordinary Book, a prepared Book, or a Book that never
 // attempted preparation.
 func classicalPreparationFor(book domain.MyBook) (classicalPreparationView, bool) {
-	status := book.ClassicalPreparation
-	if book.ReadingUnit == nil {
+	return classicalPreparationForClassification(book.Classification())
+}
+
+// classicalPreparationForClassification returns the presentation for a
+// classification's preparation state. The domain decides whether preparation
+// applies; the web app only names it.
+func classicalPreparationForClassification(classification domain.BookEvidenceClassification) (classicalPreparationView, bool) {
+	if !classification.Preparation.Applies() {
 		return classicalPreparationView{}, false
 	}
-	if book.Classification().AnalysisInEffect() {
-		return classicalPreparationView{}, false
-	}
-	if status == nil && book.ReadingUnit.Withdrawn {
-		return classicalPreparationViewFor(domain.WithdrawnClassicalPreparationStatus(*book.ReadingUnit)), true
-	}
-	if status == nil {
-		return classicalPreparationView{}, false
-	}
-	return classicalPreparationViewFor(*status), true
+	return classicalPreparationViewFor(classification), true
 }
 
 // classicalPreparationTone is the status tone for a preparation state. A
 // terminal refusal is an error; a recoverable failure or a cleared failure is a
 // warning; in-progress preparation is informational.
-func classicalPreparationTone(status domain.ClassicalPreparationStatus) StatusTone {
-	if status.InProgress() || status.Cleared {
+func classicalPreparationTone(classification domain.BookEvidenceClassification) StatusTone {
+	switch classification.Preparation.State {
+	case domain.PreparationQueued, domain.PreparationRunning, domain.PreparationCleared,
+		domain.PreparationFetchFailed, domain.PreparationImportFailed:
 		return StatusWarning
-	}
-	switch status.Failure {
-	case domain.ClassicalPreparationFailureFetch, domain.ClassicalPreparationFailureImport:
-		return StatusWarning
-	case domain.ClassicalPreparationFailureSource, domain.ClassicalPreparationFailureWithdrawn,
-		domain.ClassicalPreparationFailureCatalog:
+	case domain.PreparationSourceRefused, domain.PreparationWithdrawn,
+		domain.PreparationCatalogUnavailable:
 		return StatusDanger
-	case domain.ClassicalPreparationFailureNone:
+	case domain.PreparationNone:
 	}
 	return StatusInfo
 }
 
-// classicalPreparationViewFor maps the durable status onto learner words and
-// the one valid recovery.
-func classicalPreparationViewFor(status domain.ClassicalPreparationStatus) classicalPreparationView {
-	if status.Withdrawn {
-		return classicalPreparationView{
-			Label:       classicalWithdrawnLabel,
-			Description: classicalWithdrawnDescription,
-		}
+// classicalPreparationViewFor maps the classified preparation state onto
+// learner words and the one recovery the classification returned.
+func classicalPreparationViewFor(classification domain.BookEvidenceClassification) classicalPreparationView {
+	recovery := classicalRecoveryLabel(classification.Recovery)
+	view := classicalPreparationView{Recovery: recovery, Actionable: recovery != ""}
+	switch classification.Preparation.State {
+	case domain.PreparationWithdrawn:
+		view.Label = classicalWithdrawnLabel
+		view.Description = classicalWithdrawnDescription
+	case domain.PreparationQueued, domain.PreparationRunning:
+		view.Label = classicalAnalysisIncompleteLabel
+		view.Description = "Preparation is queued or running. No action is needed; this Book appears in Reading when its analysis is ready."
+		view.InProgress = true
+	case domain.PreparationFetchFailed:
+		view.Label = classicalAssessmentUnavailable
+		view.Description = "The reviewed source could not be downloaded, so there is no assessment yet. Retry acquisition to prepare this Book."
+	case domain.PreparationImportFailed:
+		view.Label = classicalAnalysisFailedLabel
+		view.Description = "The source was acquired, but its analysis could not be published. Retry analysis to prepare this Book."
+	case domain.PreparationSourceRefused:
+		view.Label = classicalSourceMismatchLabel
+		view.Description = "The pinned source failed its reviewed checks, so preparation stopped. This Book stays To Read; a newer definition revision is needed before it can be prepared."
+	case domain.PreparationCatalogUnavailable:
+		view.Label = "Classical catalog unavailable"
+		view.Description = "Preparation is unavailable while this installation converts its legacy Ancient Greek rows. Restart Mouseion to retry the conversion. Existing Books stay readable."
+	case domain.PreparationCleared:
+		view.Label = classicalAnalysisNotStarted
+		view.Description = "A newer definition revision is available. Retry preparation to prepare this Book."
+	case domain.PreparationNone:
 	}
-	if status.InProgress() {
-		return classicalPreparationView{
-			Label:       classicalAnalysisIncompleteLabel,
-			Description: "Preparation is queued or running. No action is needed; this Book appears in Reading when its analysis is ready.",
-			InProgress:  true,
-		}
+	return view
+}
+
+// classicalRecoveryLabel names the recovery action the domain classification
+// chose. Empty means no recovery is offered.
+func classicalRecoveryLabel(recovery domain.BookEvidenceRecovery) string {
+	switch recovery {
+	case domain.RecoveryRetryAcquisition:
+		return classicalRetryAcquisitionLabel
+	case domain.RecoveryRetryAnalysis:
+		return classicalRetryAnalysisLabel
+	case domain.RecoveryRetryPreparation:
+		return classicalRetryPreparationLabel
+	case domain.RecoveryNone:
 	}
-	switch status.Failure {
-	case domain.ClassicalPreparationFailureFetch:
-		return classicalPreparationView{
-			Label:       classicalAssessmentUnavailable,
-			Description: "The reviewed source could not be downloaded, so there is no assessment yet. Retry acquisition to prepare this Book.",
-			Recovery:    classicalRetryAcquisitionLabel,
-			Actionable:  true,
-		}
-	case domain.ClassicalPreparationFailureImport:
-		return classicalPreparationView{
-			Label:       classicalAnalysisFailedLabel,
-			Description: "The source was acquired, but its analysis could not be published. Retry analysis to prepare this Book.",
-			Recovery:    classicalRetryAnalysisLabel,
-			Actionable:  true,
-		}
-	case domain.ClassicalPreparationFailureSource:
-		return classicalPreparationView{
-			Label:       classicalSourceMismatchLabel,
-			Description: "The pinned source failed its reviewed checks, so preparation stopped. This Book stays To Read; a newer definition revision is needed before it can be prepared.",
-		}
-	case domain.ClassicalPreparationFailureCatalog:
-		return classicalPreparationView{
-			Label:       "Classical catalog unavailable",
-			Description: "Preparation is unavailable while this installation converts its legacy Ancient Greek rows. Restart Mouseion to retry the conversion. Existing Books stay readable.",
-		}
-	case domain.ClassicalPreparationFailureWithdrawn:
-		return classicalPreparationView{
-			Label:       classicalWithdrawnLabel,
-			Description: classicalWithdrawnDescription,
-		}
-	case domain.ClassicalPreparationFailureNone:
-	}
-	if status.Cleared {
-		return classicalPreparationView{
-			Label:       classicalAnalysisNotStarted,
-			Description: "A newer definition revision is available. Retry preparation to prepare this Book.",
-			Recovery:    classicalRetryPreparationLabel,
-			Actionable:  true,
-		}
-	}
-	return classicalPreparationView{}
+	return ""
 }

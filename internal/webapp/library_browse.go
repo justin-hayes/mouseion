@@ -161,14 +161,7 @@ func myBookEvidenceRecovery(book domain.MyBook) string {
 	if book.Acquired == nil {
 		return ""
 	}
-	action := ""
-	switch book.Classification().Recovery {
-	case domain.RecoveryRetryAnalysis:
-		action = "Retry analysis"
-	case domain.RecoveryRetryAcquisition:
-		action = "Retry acquisition"
-	case domain.RecoveryNone:
-	}
+	action := classicalRecoveryLabel(book.Classification().Recovery)
 	if action == "" || book.Disposition == domain.BookDispositionToRead {
 		return action
 	}

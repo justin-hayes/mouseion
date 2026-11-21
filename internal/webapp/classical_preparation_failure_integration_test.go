@@ -370,7 +370,7 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 		detail := h.detail(learner.ID, bookID)
 		assert.Equal(t, domain.BookDispositionToRead, detail.Disposition, "a terminal failure leaves the Book To Read")
 		require.NotNil(t, detail.ClassicalPreparation)
-		assert.Equal(t, classicalSourceMismatchLabel, classicalPreparationViewFor(*detail.ClassicalPreparation).Label)
+		assert.Equal(t, classicalSourceMismatchLabel, classicalPreparationViewFor(detail.Classification()).Label)
 
 		page := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
 		assert.Contains(t, page.Body.String(), html.EscapeString(classicalSourceMismatchLabel))

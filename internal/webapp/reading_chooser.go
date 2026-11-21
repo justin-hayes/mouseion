@@ -482,6 +482,12 @@ func (h *Handler) readingBookWork(book domain.MyBook) (work classical.CatalogWor
 	return h.services.Classical.Unit(book.ReadingUnit.ReadingUnitKey)
 }
 
+// readingChooserPreparationInProgress reports a classical candidate whose
+// preparation is queued or running, as the domain classification decided.
+func readingChooserPreparationInProgress(item readingChooserBookView) bool {
+	return item.Book.Classification().Preparation.InProgress()
+}
+
 // classifyReadingChooserCandidate resolves one eligible Book's coverage and
 // evidence state. A missing or untrustworthy reading leaves Coverage nil.
 func (h *Handler) classifyReadingChooserCandidate(ctx context.Context, owner string, candidate *readingChooserBookView) error {

@@ -2259,7 +2259,7 @@ func ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, c
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-			} else if item.Book.ClassicalPreparation != nil {
+			} else if readingChooserPreparationInProgress(item) {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, "<p>No action is needed while preparation runs.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err

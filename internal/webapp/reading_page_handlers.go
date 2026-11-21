@@ -100,45 +100,30 @@ func currentReadingSectionFocusID(bookID string) string {
 	return readingBookAnchorID(bookID)
 }
 
-// readingClassicalPreparationStatus resolves a classical Book's preparation
-// state for Reading. A published analysis in effect is ordinary evidence, so the
-// status is ignored.
-func readingClassicalPreparationStatus(item readingBookView) (domain.ClassicalPreparationStatus, bool) {
-	if item.Book.EvidenceClassification().AnalysisInEffect() {
-		return domain.ClassicalPreparationStatus{}, false
-	}
-	if item.ClassicalPreparation != nil {
-		return *item.ClassicalPreparation, true
-	}
-	if item.ReadingUnit != nil && item.ReadingUnit.Withdrawn {
-		return domain.WithdrawnClassicalPreparationStatus(*item.ReadingUnit), true
-	}
-	return domain.ClassicalPreparationStatus{}, false
+// classification classifies the Reading view's Book with its preparation
+// evidence, so a failure applies only while no analysis is in effect.
+func (item readingBookView) classification() domain.BookEvidenceClassification {
+	return item.Book.EvidenceClassificationWithPreparation(
+		domain.ClassicalPreparationSignalFor(item.ClassicalPreparation, item.ReadingUnit))
 }
 
-// readingEvidenceState combines the Book's Analysis evidence classification with
-// whether its coverage statistics are available to present.
+// readingEvidenceState combines the Book's evidence classification with whether
+// its coverage statistics are available to present.
 func readingEvidenceState(item readingBookView) readingEvidenceStatus {
-	if status, ok := readingClassicalPreparationStatus(item); ok {
-		switch status.Failure {
-		case domain.ClassicalPreparationFailureFetch, domain.ClassicalPreparationFailureCatalog:
-			return readingEvidenceUnavailable
-		case domain.ClassicalPreparationFailureImport, domain.ClassicalPreparationFailureSource,
-			domain.ClassicalPreparationFailureWithdrawn:
-			return readingEvidenceFailed
-		case domain.ClassicalPreparationFailureNone:
-		}
-		return readingEvidenceIncomplete
+	classification := item.classification()
+	if classification.Preparation.Applies() {
+		return readingEvidenceStatusFor(classification, false)
 	}
-	if item.CountsUpdating && item.Book.EvidenceClassification().Evidence == domain.BookAnalyzed {
+	if item.CountsUpdating && classification.Evidence == domain.BookAnalyzed {
 		return readingEvidenceUpdating
 	}
-	return readingEvidenceStatusFor(item.Book.EvidenceClassification(), item.Coverage != nil && !item.StatisticsUnavailable)
+	return readingEvidenceStatusFor(classification, item.Coverage != nil && !item.StatisticsUnavailable)
 }
 
 func readingEvidenceLabel(item readingBookView) string {
-	if status, ok := readingClassicalPreparationStatus(item); ok {
-		return classicalPreparationViewFor(status).Label
+	classification := item.classification()
+	if classification.Preparation.Applies() {
+		return classicalPreparationViewFor(classification).Label
 	}
 	switch readingEvidenceState(item) {
 	case readingEvidenceStale:
@@ -161,8 +146,9 @@ func readingEvidenceLabel(item readingBookView) string {
 }
 
 func readingEvidenceDescription(item readingBookView) string {
-	if status, ok := readingClassicalPreparationStatus(item); ok {
-		return classicalPreparationViewFor(status).Description
+	classification := item.classification()
+	if classification.Preparation.Applies() {
+		return classicalPreparationViewFor(classification).Description
 	}
 	switch readingEvidenceState(item) {
 	case readingEvidenceStale:
@@ -196,9 +182,10 @@ func reservedVocabularySummary(count int) string {
 
 func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 	bookID := readingBookID(item)
-	if status, ok := readingClassicalPreparationStatus(item); ok {
-		view := classicalPreparationViewFor(status)
-		action := bookLifecycleAction{Status: view.Label, Description: view.Description, Tone: classicalPreparationTone(status)}
+	classification := item.classification()
+	if classification.Preparation.Applies() {
+		view := classicalPreparationViewFor(classification)
+		action := bookLifecycleAction{Status: view.Label, Description: view.Description, Tone: classicalPreparationTone(classification)}
 		if view.Actionable {
 			action.Label = view.Recovery
 			action.URL = readingReanalyzeURL(bookID)
@@ -206,7 +193,6 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 		}
 		return action
 	}
-	classification := item.Book.EvidenceClassification()
 	if !classification.Content.IsCurrentContent() {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
