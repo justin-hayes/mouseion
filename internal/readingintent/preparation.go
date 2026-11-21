@@ -147,10 +147,10 @@ func (p epubPreparation) Prepare(ctx context.Context, owner string, book domain.
 	target := cataloguesync.AcquisitionTarget{}
 	title := book.Book.Title
 	if needsAcquisition(book) {
-		acquired, attempted, err := p.acquireForBook(ctx, owner, book.Book.ID)
+		acquired, durableFailure, err := p.acquireForBook(ctx, owner, book.Book.ID)
 		target = acquired
 		if err != nil {
-			if attempted {
+			if durableFailure {
 				p.recordFailure(ctx, owner, book.Book.ID, target, err)
 			}
 			return failedAcquisition(owner, book, target, title, err)
@@ -184,16 +184,18 @@ func needsAcquisition(book domain.MyBook) bool {
 	return book.Acquired == nil || book.Acquired.EvidenceState() == domain.BookUnavailable
 }
 
-// acquireForBook resolves the catalogue entry and downloads it. attempted
-// reports that a download was really tried; a missing seam or a failed lookup
-// never becomes durable acquisition evidence.
-func (p epubPreparation) acquireForBook(ctx context.Context, owner, bookID string) (target cataloguesync.AcquisitionTarget, attempted bool, err error) {
+// acquireForBook resolves the Book's indexed catalogue entry and downloads it.
+// durableFailure reports that a durable acquisition failure really happened; a
+// missing seam or an unrelated lookup failure never becomes durable acquisition
+// evidence. A catalog entry that has left the index is the exception: that is
+// the `entry` stage failure the learner can retry after a sync.
+func (p epubPreparation) acquireForBook(ctx context.Context, owner, bookID string) (target cataloguesync.AcquisitionTarget, durableFailure bool, err error) {
 	if p.findTarget == nil {
 		return cataloguesync.AcquisitionTarget{}, false, ErrAcquisitionUnavailable
 	}
 	target, err = p.findTarget(ctx, owner, bookID)
 	if err != nil {
-		return target, false, err
+		return target, errors.Is(err, cataloguesync.ErrCatalogEntryMissing), err
 	}
 	if p.acquire == nil {
 		return target, false, ErrAcquisitionUnavailable
@@ -241,6 +243,8 @@ func (p epubPreparation) clearFailure(ctx context.Context, owner, bookID string)
 // missing seam or a failed lookup: those have no catalog attempt to record.
 func classifyAcquisitionFailure(err error) (domain.EPUBAcquisitionFailureStage, string) {
 	switch {
+	case errors.Is(err, cataloguesync.ErrCatalogEntryMissing):
+		return domain.EPUBAcquisitionFailureEntry, domain.EPUBAcquisitionCodeCatalogEntryMissing
 	case errors.Is(err, opds.ErrDownloadTooLarge), errors.Is(err, opds.ErrRetainedEPUBTooLarge):
 		return domain.EPUBAcquisitionFailureSource, domain.EPUBAcquisitionCodeSourceOversize
 	case errors.Is(err, opds.ErrNoEPUB),
@@ -251,8 +255,7 @@ func classifyAcquisitionFailure(err error) (domain.EPUBAcquisitionFailureStage, 
 		return domain.EPUBAcquisitionFailureImport, domain.EPUBAcquisitionCodeEPUBImportFailed
 	default:
 		// A refused or failed download is retryable, including a catalog that
-		// could not be reached. A missing entry is classified by #2493 when the
-		// Catalog index resolves it.
+		// could not be reached.
 		return domain.EPUBAcquisitionFailureFetch, domain.EPUBAcquisitionCodeSourceDownloadFailed
 	}
 }
