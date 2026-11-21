@@ -1,7 +1,6 @@
 package persistence
 
 import (
-	"context"
 	"testing"
 
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
@@ -47,12 +46,4 @@ func TestAnalysisFromTokenEvidenceRejectsInvalidSentenceOffsets(t *testing.T) {
 			require.ErrorContains(t, err, "decode persisted sentence")
 		})
 	}
-}
-
-// TestAnalysisRunSnapshotIDWithoutRunIsEmpty reports a legacy run's absent
-// snapshot without touching the transaction.
-func TestAnalysisRunSnapshotIDWithoutRunIsEmpty(t *testing.T) {
-	snapshot, err := analysisRunSnapshotID(context.Background(), nil, "owner", "")
-	require.NoError(t, err)
-	assert.Empty(t, snapshot)
 }

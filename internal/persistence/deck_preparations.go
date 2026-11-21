@@ -485,7 +485,6 @@ func (s *PostgresStore) ClaimDeckPreparation(ctx context.Context, owner, id stri
 // CompleteDeckPreparation stores the final artifact exactly once. Repeating
 // the identical completion is idempotent; any different ready value is rejected.
 func (s *PostgresStore) CompleteDeckPreparation(ctx context.Context, owner, id string, ready domain.DeckPreparation) (domain.DeckPreparation, error) {
-	legacyVersionRequest := ready.RenderInputVersion == 0 && ready.PresentationVersion == 0
 	if ready.RenderInputVersion == 0 {
 		ready.RenderInputVersion = cardexport.RenderInputVersion
 	}
@@ -506,9 +505,6 @@ func (s *PostgresStore) CompleteDeckPreparation(ctx context.Context, owner, id s
 		return p, ErrInvalidTransition
 	}
 	versionsMatch := existing.RenderInputVersion == ready.RenderInputVersion && existing.PresentationVersion == ready.PresentationVersion
-	if legacyVersionRequest {
-		versionsMatch = versionsMatch || (existing.RenderInputVersion == 0 && existing.PresentationVersion == 0)
-	}
 	if bytes.Equal(existing.Artifact, ready.Artifact) && existing.Filename == ready.Filename && existing.DeckName == ready.DeckName && existing.TotalCards == ready.TotalCards && existing.CardsWithEnglish == ready.CardsWithEnglish && existing.CardsWithContextualSentenceTranslations == ready.CardsWithContextualSentenceTranslations && existing.CardsWithFallbackGloss == ready.CardsWithFallbackGloss && existing.QualityOmissions == ready.QualityOmissions && versionsMatch {
 		return existing, nil
 	}

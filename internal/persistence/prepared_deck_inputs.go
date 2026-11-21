@@ -69,7 +69,7 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 	if err := attachPreparedDeckAnalysisFactsTx(ctx, tx, q, preparation, corpusID, &result, languages); err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
-	if err := attachPreparedDeckStructureFactsTx(ctx, tx, preparation, &result); err != nil {
+	if err := attachPreparedDeckStructureFactsTx(ctx, tx, preparation, corpusID, &result); err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
 	if err := attachPreparedDeckVocabularyFacts(ctx, tx, preparation.OwnerID, languages, &result); err != nil {
@@ -132,10 +132,13 @@ func attachPreparedDeckAnalysisFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcge
 // attachPreparedDeckStructureFactsTx resolves the exact analysis snapshot's
 // recorded roles and units. It runs for a direct projection and for a Current
 // reading snapshot: attribution is source evidence, not a re-filter of the
-// frozen selection. A legacy run without a snapshot records no structure.
-func attachPreparedDeckStructureFactsTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, result *PreparedDeckInputFacts) error {
+// frozen selection. A preparation without a corpus has no analysis snapshot.
+func attachPreparedDeckStructureFactsTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, corpusID string, result *PreparedDeckInputFacts) error {
+	if corpusID == "" {
+		return nil
+	}
 	snapshotID, err := analysisRunSnapshotID(ctx, tx, preparation.OwnerID, preparation.AnalysisRunID)
-	if err != nil || snapshotID == "" {
+	if err != nil {
 		return err
 	}
 	result.Structure, err = LoadSnapshotStructure(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, snapshotID)
@@ -165,13 +168,11 @@ func loadSnapshotSourceUnits(ctx context.Context, db sqlcgen.DBTX, owner, source
 }
 
 // analysisRunSnapshotID resolves the exact snapshot an analysis run was bound
-// to. A legacy run without a snapshot yields the empty string.
+// to. The run identifier is analysis_runs' primary key, and the snapshot column
+// is NOT NULL.
 func analysisRunSnapshotID(ctx context.Context, tx pgx.Tx, owner, runID string) (string, error) {
-	if runID == "" {
-		return "", nil
-	}
 	var snapshotID string
-	if err := tx.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).Scan(&snapshotID); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT snapshot_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).Scan(&snapshotID); err != nil {
 		return "", fmt.Errorf("load analysis run snapshot: %w", err)
 	}
 	return snapshotID, nil
