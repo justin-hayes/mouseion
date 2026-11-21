@@ -175,7 +175,7 @@ func TestFreezePreparedDeckRunValidatesBeforeWriting(t *testing.T) {
 	})
 	t.Run("manifest schema is not current", func(t *testing.T) {
 		projection := local.projection
-		projection.SchemaVersion = cardexport.LegacyManifestSchemaVersion
+		projection.SchemaVersion = cardexport.ManifestSchemaVersion - 1
 		_, freezeErr := attemptPreparedDeckFreeze(t, ctx, store, FreezePreparedDeckRunParams{OwnerID: local.ownerID, PreparationID: local.preparation.ID, Projection: projection})
 		require.ErrorIs(t, freezeErr, ErrImmutable)
 	})

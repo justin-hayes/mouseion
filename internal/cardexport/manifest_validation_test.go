@@ -10,6 +10,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestManifestSnapshotRejectsVersionsOutsideTheSupportedRange pins the single
+// range check that accepts every manifest version from the oldest supported one
+// through the current codec, so adding a version needs no new validation clause.
+func TestManifestSnapshotRejectsVersionsOutsideTheSupportedRange(t *testing.T) {
+	tests := []struct {
+		name    string
+		version int
+	}{
+		{name: "below the oldest supported version", version: cardexport.MinimumManifestSchemaVersion - 1},
+		{name: "above the current version", version: cardexport.ManifestSchemaVersion + 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := lifecycleRestoreSnapshot()
+			snapshot.SchemaVersion = test.version
+			_, err := snapshot.Digest()
+			require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+			require.ErrorContains(t, err, "invalid manifest header")
+
+			_, err = cardexport.CandidateDigestVersion(snapshot.Items[0], test.version)
+			require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+			require.ErrorContains(t, err, "invalid manifest schema version")
+		})
+	}
+}
+
 // TestManifestSnapshotRejectsInvalidItems pins each manifest-item
 // canonicalization rule through the public digest seam. Splitting the item rule
 // into named steps must not change which malformed item is rejected, or the

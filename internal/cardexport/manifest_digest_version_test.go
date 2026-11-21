@@ -9,51 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Verify that v1 and v2 snapshots still hash to their historical digests while
-// later manifest versions retain distinct identities.
-func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
-	entries := []Entry{
-		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
-		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: "Buch", FirstEncounter: 20},
-	}
-	manifest := newManifest("owner-1", "Buch", entries)
-	candidate := manifest.enrichmentCandidatesProjection()[0]
-	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
-	bound, err := manifest.bindCacheKeys([]enrichment.CacheKey{key})
-	require.NoError(t, err)
-	snapshot := bound.Snapshot()
-
-	// Legacy v1 persisted manifests were created with target language empty in
-	// the canonical cache key (it was never part of v1 digest inputs). Rebuild
-	// with an empty target to verify the historical digest is preserved.
-	legacyKey := key
-	legacyKey.TargetLanguage = ""
-	legacyBound, err := manifest.bindCacheKeys([]enrichment.CacheKey{legacyKey})
-	require.NoError(t, err)
-	legacy := legacyBound.Snapshot()
-	legacy.SchemaVersion = LegacyManifestSchemaVersion
-	legacyDigest, err := legacy.Digest()
-	require.NoError(t, err)
-	const wantLegacyDigest = "1e8f4112b54cb863b2beba9e2a6be9715f3e9e468fecedee2165d8937cb2c50c"
-	assert.Equal(t, wantLegacyDigest, legacyDigest, "legacy v1 digest=%q want=%q", legacyDigest, wantLegacyDigest)
-
-	v2 := snapshot
-	v2.SchemaVersion = PreviousManifestSchemaVersion
-	digest, err := v2.Digest()
-	require.NoError(t, err)
-	const wantV2Digest = "bcb85683d3ac96c8bc645898d7e98b5bea39cdb058259c8310818bae5930bfa6"
-	assert.Equal(t, wantV2Digest, digest, "v2 digest=%q want=%q", digest, wantV2Digest)
-	assert.NotEqual(t, digest, legacyDigest, "v1 and v2 digests must differ")
-	v3Digest, err := snapshot.Digest()
-	require.NoError(t, err)
-	assert.NotEqual(t, digest, v3Digest, "v2 and v4 digests must differ")
-	v3 := snapshot
-	v3.SchemaVersion = ManifestSchemaVersionV3
-	historicalV3Digest, err := v3.Digest()
-	require.NoError(t, err)
-	assert.NotEqual(t, historicalV3Digest, v3Digest, "v3 and v4 digests must differ")
-}
-
 // TestAttributionIsAV13ManifestDigestInput proves the optional typed
 // attribution is frozen by the current codec and ignored by the historical v12
 // codec, so old manifests keep their digest and render without it.
@@ -177,101 +132,10 @@ func TestQualityDiagnosticsAffectTheCurrentManifestDigest(t *testing.T) {
 	snapshot := manifest.Snapshot()
 	snapshot.Items[0].Quality.GDEXScore = 0.9
 
-	v2 := snapshot
-	v2.Items = cloneManifestItems(snapshot.Items)
-	v2.SchemaVersion = PreviousManifestSchemaVersion
-	v2Before, err := v2.Digest()
-	require.NoError(t, err)
-	v2.Items[0].Quality.GDEXScore = 0.1
-	v2After, err := v2.Digest()
-	require.NoError(t, err)
-	assert.Equal(t, v2Before, v2After, "v2 digest must ignore the additive GDEX field")
-
-	v3Before, err := snapshot.Digest()
+	before, err := snapshot.Digest()
 	require.NoError(t, err)
 	snapshot.Items[0].Quality.GDEXScore = 0.1
-	v3After, err := snapshot.Digest()
+	after, err := snapshot.Digest()
 	require.NoError(t, err)
-	assert.NotEqual(t, v3Before, v3After, "v3 digest must include the GDEX field")
-}
-
-func TestPluralIsAV5ManifestDigestInput(t *testing.T) {
-	snapshot := newManifest("owner-1", "Buch", []Entry{{
-		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
-		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Plural: "Häuser",
-	}}).Snapshot()
-	withoutPlural := snapshot
-	withoutPlural.Items = cloneManifestItems(snapshot.Items)
-	withoutPlural.Items[0].Entry.Plural = ""
-	withoutPlural.SchemaVersion = ManifestSchemaVersionV4
-	withPluralV4 := snapshot
-	withPluralV4.Items = cloneManifestItems(snapshot.Items)
-	withPluralV4.SchemaVersion = ManifestSchemaVersionV4
-	withoutPluralV4Digest, err := withoutPlural.Digest()
-	require.NoError(t, err)
-	withPluralV4Digest, err := withPluralV4.Digest()
-	require.NoError(t, err)
-	assert.Equal(t, withoutPluralV4Digest, withPluralV4Digest, "v4 must ignore the new plural field")
-
-	withoutPlural.SchemaVersion = ManifestSchemaVersion
-	withoutPluralCurrentDigest, err := withoutPlural.Digest()
-	require.NoError(t, err)
-	withPluralCurrentDigest, err := snapshot.Digest()
-	require.NoError(t, err)
-	assert.NotEqual(t, withoutPluralCurrentDigest, withPluralCurrentDigest, "v5 must include the plural field")
-}
-
-func TestPronunciationAndPrincipalPartsAreV5ManifestDigestInputs(t *testing.T) {
-	snapshot := newManifest("owner-1", "Buch", []Entry{{
-		Language: "de", CanonicalLemma: "gehen", UPOS: "VERB",
-		Sentence: "Wir gehen heute gemeinsam zum Bahnhof.", TargetWord: "gehen",
-		IPA: "/ˈɡeːən/", PrincipalParts: "geht · ging · gegangen",
-	}}).Snapshot()
-	withoutForms := snapshot
-	withoutForms.Items = cloneManifestItems(snapshot.Items)
-	withoutForms.Items[0].Entry.IPA = ""
-	withoutForms.Items[0].Entry.PrincipalParts = ""
-	withoutForms.SchemaVersion = ManifestSchemaVersionV4
-	withFormsV4 := snapshot
-	withFormsV4.Items = cloneManifestItems(snapshot.Items)
-	withFormsV4.SchemaVersion = ManifestSchemaVersionV4
-	withoutFormsV4Digest, err := withoutForms.Digest()
-	require.NoError(t, err)
-	withFormsV4Digest, err := withFormsV4.Digest()
-	require.NoError(t, err)
-	assert.Equal(t, withoutFormsV4Digest, withFormsV4Digest, "v4 must ignore pronunciation and principal parts")
-
-	withoutForms.SchemaVersion = ManifestSchemaVersion
-	withoutFormsCurrentDigest, err := withoutForms.Digest()
-	require.NoError(t, err)
-	withFormsCurrentDigest, err := snapshot.Digest()
-	require.NoError(t, err)
-	assert.NotEqual(t, withoutFormsCurrentDigest, withFormsCurrentDigest, "v5 must include pronunciation and principal parts")
-}
-
-func TestCandidateSensesAreV6ManifestDigestInputs(t *testing.T) {
-	snapshot := newManifest("owner-1", "Buch", []Entry{{
-		Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN",
-		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "building",
-		CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}},
-	}}).Snapshot()
-	withoutCandidates := snapshot
-	withoutCandidates.Items = cloneManifestItems(snapshot.Items)
-	withoutCandidates.Items[0].Entry.CandidateSenses = nil
-	withoutCandidates.SchemaVersion = ManifestSchemaVersionV5
-	withCandidatesV5 := snapshot
-	withCandidatesV5.Items = cloneManifestItems(snapshot.Items)
-	withCandidatesV5.SchemaVersion = ManifestSchemaVersionV5
-	withoutV5, err := withoutCandidates.Digest()
-	require.NoError(t, err)
-	withV5, err := withCandidatesV5.Digest()
-	require.NoError(t, err)
-	assert.Equal(t, withoutV5, withV5, "v5 must ignore candidate senses")
-
-	withoutCandidates.SchemaVersion = ManifestSchemaVersion
-	withoutV6, err := withoutCandidates.Digest()
-	require.NoError(t, err)
-	withV6, err := snapshot.Digest()
-	require.NoError(t, err)
-	assert.NotEqual(t, withoutV6, withV6, "v6 must include candidate senses")
+	assert.NotEqual(t, before, after, "the current digest must include the GDEX field")
 }

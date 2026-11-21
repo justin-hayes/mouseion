@@ -24,19 +24,6 @@ func TestManifestSnapshotRetainsHistoricalDigestAndRenderParity(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "ec1552d70f19d524bfe2a02517f0c57045346216706105e6c30b2f5b6a1960e6", digest)
 
-	historicalV10 := snapshot
-	historicalV10.SchemaVersion = ManifestSchemaVersionV10
-	v10Digest, err := historicalV10.Digest()
-	require.NoError(t, err)
-	assert.Equal(t, "6740c332e8166497cb2edb3965ad7b6d668d6ad567b1088cd892226133f90a9a", v10Digest, "the v10 digest stays stable")
-
-	historicalV9 := snapshot
-	historicalV9.SchemaVersion = ManifestSchemaVersionV9
-	v9Digest, err := historicalV9.Digest()
-	require.NoError(t, err)
-	assert.Equal(t, "44c23bc1f640e6389c0cf995190a1bb46f09b22acc6f6c2a34d3c6a949153d80", v9Digest, "the v9 digest stays stable")
-	assert.NotEqual(t, v9Digest, digest, "later schemas add frozen render inputs")
-
 	rebuilt, err := manifestFromSnapshot(snapshot)
 	require.NoError(t, err)
 	provenance := enrichment.Provenance{Provider: key.Provider, ProviderVersion: key.ProviderVersion}

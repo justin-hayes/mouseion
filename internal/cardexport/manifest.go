@@ -17,23 +17,17 @@ import (
 // ManifestSchemaVersion identifies the canonical durable manifest codec. A
 // new version is required for any change that alters digest inputs.
 const (
-	LegacyManifestSchemaVersion   = 1
-	PreviousManifestSchemaVersion = 2
-	ManifestSchemaVersionV3       = 3
-	ManifestSchemaVersionV4       = 4
-	ManifestSchemaVersionV5       = 5
-	ManifestSchemaVersionV6       = 6
-	ManifestSchemaVersionV7       = 7
-	ManifestSchemaVersionV8       = 8
-	ManifestSchemaVersionV9       = 9
-	ManifestSchemaVersionV10      = 10
-	ManifestSchemaVersionV11      = 11
-	ManifestSchemaVersionV12      = 12
-	ManifestSchemaVersionV13      = 13
-	ManifestSchemaVersionV14      = 14
-	ManifestSchemaVersionV15      = 15
-	ManifestSchemaVersionV16      = 16
-	ManifestSchemaVersion         = ManifestSchemaVersionV16
+	ManifestSchemaVersionV12 = 12
+	ManifestSchemaVersionV13 = 13
+	ManifestSchemaVersionV14 = 14
+	ManifestSchemaVersionV15 = 15
+	ManifestSchemaVersionV16 = 16
+	ManifestSchemaVersion    = ManifestSchemaVersionV16
+
+	// MinimumManifestSchemaVersion is the oldest manifest codec this build
+	// decodes. Every caller that reads a stored manifest reads a live deck or a
+	// deck whose run is in flight, so no reachable manifest predates it.
+	MinimumManifestSchemaVersion = ManifestSchemaVersionV12
 )
 
 type ManifestDisposition string
@@ -131,43 +125,15 @@ func (s ManifestSnapshot) Digest() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cardexport: encode manifest: %w", err)
 	}
-	var prefix string
-	switch s.SchemaVersion {
-	case LegacyManifestSchemaVersion:
-		prefix = "mouseion-prepared-deck-manifest-v1\x00"
-	case PreviousManifestSchemaVersion:
-		prefix = "mouseion-prepared-deck-manifest-v2\x00"
-	case ManifestSchemaVersionV3:
-		prefix = "mouseion-prepared-deck-manifest-v3\x00"
-	case ManifestSchemaVersionV4:
-		prefix = "mouseion-prepared-deck-manifest-v4\x00"
-	case ManifestSchemaVersionV5:
-		prefix = "mouseion-prepared-deck-manifest-v5\x00"
-	case ManifestSchemaVersionV6:
-		prefix = "mouseion-prepared-deck-manifest-v6\x00"
-	case ManifestSchemaVersionV7:
-		prefix = "mouseion-prepared-deck-manifest-v7\x00"
-	case ManifestSchemaVersionV8:
-		prefix = "mouseion-prepared-deck-manifest-v8\x00"
-	case ManifestSchemaVersionV9:
-		prefix = "mouseion-prepared-deck-manifest-v9\x00"
-	case ManifestSchemaVersionV10:
-		prefix = "mouseion-prepared-deck-manifest-v10\x00"
-	case ManifestSchemaVersionV11:
-		prefix = "mouseion-prepared-deck-manifest-v11\x00"
-	case ManifestSchemaVersionV12:
-		prefix = "mouseion-prepared-deck-manifest-v12\x00"
-	case ManifestSchemaVersionV13:
-		prefix = "mouseion-prepared-deck-manifest-v13\x00"
-	case ManifestSchemaVersionV14:
-		prefix = "mouseion-prepared-deck-manifest-v14\x00"
-	case ManifestSchemaVersionV15:
-		prefix = "mouseion-prepared-deck-manifest-v15\x00"
-	default:
-		prefix = "mouseion-prepared-deck-manifest-v16\x00"
-	}
+	return digestDomain("manifest", s.SchemaVersion, payload), nil
+}
+
+// digestDomain prefixes a digest so no two codec domains or schema versions
+// share an identity.
+func digestDomain(kind string, version int, payload []byte) string {
+	prefix := fmt.Sprintf("mouseion-prepared-deck-%s-v%d\x00", kind, version)
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
-	return hex.EncodeToString(sum[:]), nil
+	return hex.EncodeToString(sum[:])
 }
 
 // Digests validates a storage projection and returns the manifest and item
@@ -216,54 +182,18 @@ func CandidateDigest(item ManifestItem) (string, error) {
 // CandidateDigestVersion preserves historical digest codecs for durable
 // manifests written before later render inputs were added.
 func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error) {
+	if schemaVersion < MinimumManifestSchemaVersion || schemaVersion > ManifestSchemaVersion {
+		return "", fmt.Errorf("%w: invalid manifest schema version", ErrInvalidInput)
+	}
 	canonical, err := canonicalizeManifestItem(item, schemaVersion)
 	if err != nil {
 		return "", err
-	}
-	if schemaVersion == LegacyManifestSchemaVersion && canonical.CacheKey != nil {
-		canonical.CacheKey.TargetLanguage = ""
 	}
 	payload, err := json.Marshal(canonical)
 	if err != nil {
 		return "", fmt.Errorf("cardexport: encode manifest item: %w", err)
 	}
-	var prefix string
-	switch schemaVersion {
-	case LegacyManifestSchemaVersion:
-		prefix = "mouseion-prepared-deck-candidate-v1\x00"
-	case PreviousManifestSchemaVersion:
-		prefix = "mouseion-prepared-deck-candidate-v2\x00"
-	case ManifestSchemaVersionV3:
-		prefix = "mouseion-prepared-deck-candidate-v3\x00"
-	case ManifestSchemaVersionV4:
-		prefix = "mouseion-prepared-deck-candidate-v4\x00"
-	case ManifestSchemaVersionV5:
-		prefix = "mouseion-prepared-deck-candidate-v5\x00"
-	case ManifestSchemaVersionV6:
-		prefix = "mouseion-prepared-deck-candidate-v6\x00"
-	case ManifestSchemaVersionV7:
-		prefix = "mouseion-prepared-deck-candidate-v7\x00"
-	case ManifestSchemaVersionV8:
-		prefix = "mouseion-prepared-deck-candidate-v8\x00"
-	case ManifestSchemaVersionV9:
-		prefix = "mouseion-prepared-deck-candidate-v9\x00"
-	case ManifestSchemaVersionV10:
-		prefix = "mouseion-prepared-deck-candidate-v10\x00"
-	case ManifestSchemaVersionV11:
-		prefix = "mouseion-prepared-deck-candidate-v11\x00"
-	case ManifestSchemaVersionV12:
-		prefix = "mouseion-prepared-deck-candidate-v12\x00"
-	case ManifestSchemaVersionV13:
-		prefix = "mouseion-prepared-deck-candidate-v13\x00"
-	case ManifestSchemaVersionV14:
-		prefix = "mouseion-prepared-deck-candidate-v14\x00"
-	case ManifestSchemaVersionV15:
-		prefix = "mouseion-prepared-deck-candidate-v15\x00"
-	default:
-		prefix = "mouseion-prepared-deck-candidate-v16\x00"
-	}
-	sum := sha256.Sum256(append([]byte(prefix), payload...))
-	return hex.EncodeToString(sum[:]), nil
+	return digestDomain("candidate", schemaVersion, payload), nil
 }
 
 // manifestFromSnapshot validates a persisted snapshot and rebuilds the exact
@@ -438,10 +368,11 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 	return result, nil
 }
 
-// validateHeader rejects a snapshot whose schema version is unknown or whose
-// owner and deck identity are missing or inconsistent with the download name.
+// validateHeader rejects a snapshot whose schema version is outside the
+// supported range or whose owner and deck identity are missing or inconsistent
+// with the download name.
 func (s ManifestSnapshot) validateHeader() error {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8 && s.SchemaVersion != ManifestSchemaVersionV9 && s.SchemaVersion != ManifestSchemaVersionV10 && s.SchemaVersion != ManifestSchemaVersionV11 && s.SchemaVersion != ManifestSchemaVersionV12 && s.SchemaVersion != ManifestSchemaVersionV13 && s.SchemaVersion != ManifestSchemaVersionV14 && s.SchemaVersion != ManifestSchemaVersionV15 && s.SchemaVersion != ManifestSchemaVersionV16) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if s.SchemaVersion < MinimumManifestSchemaVersion || s.SchemaVersion > ManifestSchemaVersion || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	return nil
@@ -457,9 +388,6 @@ func canonicalizeSnapshotItem(item ManifestItem, ordinal, schemaVersion int, see
 	canonical, err := canonicalizeManifestItem(item, schemaVersion)
 	if err != nil {
 		return canonicalManifestItem{}, false, fmt.Errorf("manifest item %d: %w", ordinal, err)
-	}
-	if schemaVersion == LegacyManifestSchemaVersion && canonical.CacheKey != nil {
-		canonical.CacheKey.TargetLanguage = ""
 	}
 	// Candidate digests include the ordinal because the persisted identity is
 	// order-sensitive. Duplicate validation must ignore that position so a
@@ -487,7 +415,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	if err := validateManifestItemKind(item); err != nil {
 		return canonicalManifestItem{}, err
 	}
-	if err := validateManifestQuality(item, schemaVersion); err != nil {
+	if err := validateManifestQuality(item); err != nil {
 		return canonicalManifestItem{}, err
 	}
 	if item.Entry.TargetWord != testedEntryTarget(item.Entry) {
@@ -515,7 +443,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	canonical := canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,
 		Entry:    entryCanonical,
-		Quality:  canonicalizeManifestQuality(item.Quality, schemaVersion),
+		Quality:  canonicalizeManifestQuality(item.Quality),
 		CacheKey: key,
 	}
 	if schemaVersion >= ManifestSchemaVersionV14 {
@@ -584,16 +512,16 @@ func validateManifestEntry(entry Entry) error {
 }
 
 // validateManifestQuality requires the accepted flag to agree with the
-// disposition, bounds the score and reason count, applies the schema-versioned
-// GDEX bound, and rejects reasons outside the fixed vocabulary.
-func validateManifestQuality(item ManifestItem, schemaVersion int) error {
+// disposition, bounds the score, reason count and GDEX score, and rejects
+// reasons outside the fixed vocabulary.
+func validateManifestQuality(item ManifestItem) error {
 	if item.Quality.Accepted != (item.Disposition == ManifestAccepted) {
 		return fmt.Errorf("%w: disposition contradicts quality decision", ErrInvalidInput)
 	}
 	if item.Quality.Score < 0 || item.Quality.Score > 110 || len(item.Quality.Reasons) > 16 {
 		return fmt.Errorf("%w: invalid manifest quality result", ErrInvalidInput)
 	}
-	if schemaVersion >= ManifestSchemaVersionV4 && (math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1) {
+	if math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1 {
 		return fmt.Errorf("%w: invalid manifest GDEX score", ErrInvalidInput)
 	}
 	for _, reason := range item.Quality.Reasons {
@@ -605,26 +533,14 @@ func validateManifestQuality(item ManifestItem, schemaVersion int) error {
 }
 
 // canonicalizeManifestCacheKey validates the frozen cache identity against the
-// manifest entry and returns its canonical form. The target language is ignored
-// by the legacy v1 codec because that codec never persisted it. The dictionary
-// identity, sentence hash, and meaning-evidence hash are enforced only once
-// their schema version introduced them.
+// manifest entry and returns its canonical form. The dictionary identity,
+// sentence hash and meaning-evidence hash are part of every supported codec.
 func canonicalizeManifestCacheKey(item ManifestItem, schemaVersion int) (canonicalCacheKey, error) {
 	entry := item.Entry
-	// Legacy v1 manifests persisted cache keys with an empty target language
-	// (it was never part of the v1 digest). The normalized storage projection
-	// may carry the database default, which is also ignored by the v1 codec.
-	targetOK := item.CacheKey.TargetLanguage != ""
-	if schemaVersion == LegacyManifestSchemaVersion {
-		targetOK = true
-	}
-	if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (schemaVersion >= ManifestSchemaVersionV4 && item.CacheKey.DictionaryProviderVersion != entry.DictionaryProviderVersion) || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) || (schemaVersion >= ManifestSchemaVersionV8 && item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(entry.CandidateSenses)) {
+	if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || item.CacheKey.TargetLanguage == "" || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || item.CacheKey.DictionaryProviderVersion != entry.DictionaryProviderVersion || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) || (item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(entry.CandidateSenses)) {
 		return canonicalCacheKey{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)
 	}
-	key := canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
-	if schemaVersion >= ManifestSchemaVersionV8 {
-		key.MeaningEvidenceHash = item.CacheKey.MeaningEvidenceHash
-	}
+	key := canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash, MeaningEvidenceHash: item.CacheKey.MeaningEvidenceHash}
 	if schemaVersion >= ManifestSchemaVersionV14 {
 		keyKind := item.CacheKey.ItemKind.Normalized()
 		if !keyKind.Valid() || keyKind != item.ItemKind.Normalized() {
@@ -635,59 +551,35 @@ func canonicalizeManifestCacheKey(item ManifestItem, schemaVersion int) (canonic
 	return key, nil
 }
 
-// canonicalizeManifestQuality copies the quality result, adding the GDEX score
-// only for schemas that persist it.
-func canonicalizeManifestQuality(quality SentenceQuality, schemaVersion int) canonicalSentenceQuality {
-	canonical := canonicalSentenceQuality{Accepted: quality.Accepted, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)}
-	if schemaVersion >= ManifestSchemaVersionV4 {
-		canonical.GDEXScore = quality.GDEXScore
-	}
-	return canonical
+// canonicalizeManifestQuality copies the quality result, including the GDEX
+// score that every supported schema persists.
+func canonicalizeManifestQuality(quality SentenceQuality) canonicalSentenceQuality {
+	return canonicalSentenceQuality{Accepted: quality.Accepted, Score: quality.Score, GDEXScore: quality.GDEXScore, Reasons: append([]string(nil), quality.Reasons...)}
 }
 
-// canonicalizeManifestEntry copies the render inputs that each schema version
-// persists, enforcing the bounded candidate-sense and non-negative omitted
-// evidence counts introduced by v6 and v7.
+// canonicalizeManifestEntry copies the render inputs every supported schema
+// version persists, enforcing the bounded candidate-sense and non-negative
+// omitted evidence counts.
 func canonicalizeManifestEntry(entry Entry, schemaVersion int) (canonicalEntry, error) {
-	entryCanonical := canonicalEntry{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Sentence: entry.Sentence, TargetWord: entry.TargetWord, Morphology: entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes, FirstEncounter: entry.FirstEncounter}
-	if schemaVersion >= ManifestSchemaVersionV9 {
-		entryCanonical.LexicalDiscriminator = entry.LexicalDiscriminator
-		entryCanonical.Headword = entry.Headword
+	entryCanonical := canonicalEntry{
+		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
+		LexicalDiscriminator: entry.LexicalDiscriminator, Headword: entry.Headword,
+		Sentence: entry.Sentence, TargetWord: entry.TargetWord, Morphology: entry.Morphology,
+		Gloss: entry.Gloss, Plural: entry.Plural, IPA: entry.IPA, PrincipalParts: entry.PrincipalParts,
+		DictionaryProviderVersion: entry.DictionaryProviderVersion,
+		PassageContext:            entry.PassageContext, PassageCitation: entry.PassageCitation, PassagePin: entry.PassagePin,
+		DictionaryEntry: entry.DictionaryEntry, DictionaryEntryID: entry.DictionaryEntryID, DictionaryPin: entry.DictionaryPin,
+		SourceDocument: entry.SourceDocument, Notes: entry.Notes, FirstEncounter: entry.FirstEncounter,
 	}
-	if schemaVersion >= ManifestSchemaVersionV4 {
-		entryCanonical.Gloss = entry.Gloss
-		entryCanonical.DictionaryProviderVersion = entry.DictionaryProviderVersion
+	if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
+		return canonicalEntry{}, fmt.Errorf("%w: too many manifest candidate senses", ErrInvalidInput)
 	}
-	if schemaVersion >= ManifestSchemaVersionV5 {
-		entryCanonical.Plural = entry.Plural
-		entryCanonical.IPA = entry.IPA
-		entryCanonical.PrincipalParts = entry.PrincipalParts
+	entryCanonical.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses)
+	if entry.OmittedEvidenceCount < 0 {
+		return canonicalEntry{}, fmt.Errorf("%w: invalid omitted evidence count", ErrInvalidInput)
 	}
-	if schemaVersion >= ManifestSchemaVersionV6 {
-		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
-			return canonicalEntry{}, fmt.Errorf("%w: too many manifest candidate senses", ErrInvalidInput)
-		}
-		entryCanonical.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses)
-	}
-	if schemaVersion >= ManifestSchemaVersionV11 {
-		entryCanonical.DictionaryEntry = entry.DictionaryEntry
-		entryCanonical.DictionaryEntryID = entry.DictionaryEntryID
-		entryCanonical.DictionaryPin = entry.DictionaryPin
-	}
-	if schemaVersion >= ManifestSchemaVersionV12 {
-		entryCanonical.LSJSummaryProviderVersion = entry.LSJSummaryProviderVersion
-	}
-	if schemaVersion >= ManifestSchemaVersionV7 {
-		if entry.OmittedEvidenceCount < 0 {
-			return canonicalEntry{}, fmt.Errorf("%w: invalid omitted evidence count", ErrInvalidInput)
-		}
-		entryCanonical.OmittedEvidenceCount = entry.OmittedEvidenceCount
-	}
-	if schemaVersion >= ManifestSchemaVersionV10 {
-		entryCanonical.PassageContext = entry.PassageContext
-		entryCanonical.PassageCitation = entry.PassageCitation
-		entryCanonical.PassagePin = entry.PassagePin
-	}
+	entryCanonical.OmittedEvidenceCount = entry.OmittedEvidenceCount
+	entryCanonical.LSJSummaryProviderVersion = entry.LSJSummaryProviderVersion
 	if schemaVersion >= ManifestSchemaVersionV13 {
 		attribution, err := canonicalizeAttribution(entry.Attribution)
 		if err != nil {
