@@ -178,6 +178,7 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 UPDATE deck_preparations
 SET state = 'cancelled', error = '', completed_at = now(), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
+  AND state IN ('queued', 'preparing')
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -215,6 +216,20 @@ SET state = sqlc.arg('next_state'), error = sqlc.arg('message'),
     updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
   AND state = ANY(sqlc.arg('from_states')::text[])
+RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
+          created_at, updated_at, started_at, completed_at, analysis_run_id,
+          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
+              book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+            presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass;
+
+-- name: RequeueDeckPreparation :one
+UPDATE deck_preparations
+SET state = 'queued', error = '', current_run_id = NULL, started_at = NULL,
+    completed_at = NULL, updated_at = now()
+WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
+  AND state IN ('failed', 'cancelled')
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,

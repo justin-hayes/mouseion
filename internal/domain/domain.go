@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"slices"
 	"strings"
 	"time"
 )
@@ -75,23 +76,23 @@ const (
 	DeckPreparationCancelled DeckPreparationState = "cancelled"
 )
 
-// CanTransitionTo describes the persisted deck-preparation state machine.
-func (s DeckPreparationState) CanTransitionTo(next DeckPreparationState) bool {
-	if s == next {
-		return true
-	}
-	switch s {
-	case DeckPreparationQueued:
-		return next == DeckPreparationPreparing || next == DeckPreparationCancelled
-	case DeckPreparationPreparing:
-		return next == DeckPreparationReady || next == DeckPreparationFailed || next == DeckPreparationCancelled
-	case DeckPreparationReady:
-		return false
-	case DeckPreparationFailed, DeckPreparationCancelled:
-		return next == DeckPreparationQueued
-	default: // Invalid persisted states cannot transition.
-		return false
-	}
+// Active reports whether the preparation is still in flight. The SQL
+// predicates that attach a run or cancel a preparation accept exactly these
+// states.
+func (s DeckPreparationState) Active() bool {
+	return s == DeckPreparationQueued || s == DeckPreparationPreparing
+}
+
+// RequeueableDeckPreparationStates is the set a settled attempt may requeue
+// from. The SQL predicate that requeues a preparation accepts exactly these
+// states.
+func RequeueableDeckPreparationStates() []DeckPreparationState {
+	return []DeckPreparationState{DeckPreparationFailed, DeckPreparationCancelled}
+}
+
+// Requeueable reports whether a settled attempt may start again.
+func (s DeckPreparationState) Requeueable() bool {
+	return slices.Contains(RequeueableDeckPreparationStates(), s)
 }
 
 type DeckPreparation struct {

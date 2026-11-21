@@ -192,7 +192,7 @@ func (s *PostgresStore) loadPreparedDeckFinalizationInputs(ctx context.Context, 
 	if err != nil {
 		return cardexport.StorageProjection{}, nil, err
 	}
-	if (run.State != domain.PreparedDeckRunFinalizing && run.State != domain.PreparedDeckRunCompleted) || run.TranslationState != domain.PreparedDeckTranslationCompleted {
+	if !run.State.FinalizingOrLater() || run.TranslationState != domain.PreparedDeckTranslationCompleted {
 		return cardexport.StorageProjection{}, nil, ErrInvalidTransition
 	}
 	projection, _, err := s.LoadPreparedDeckStorageProjection(ctx, owner, preparationID, runID)
@@ -282,9 +282,6 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 	if p.State == domain.DeckPreparationCancelled {
 		return p, tx.Commit(ctx)
 	}
-	if p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing {
-		return p, ErrInvalidTransition
-	}
 	p, err = cancelPreparedDeckPreparationTx(ctx, q, owner, preparationID, p)
 	if err != nil {
 		return p, err
@@ -314,6 +311,9 @@ func lockPreparedDeckPreparationForCancellation(ctx context.Context, q *sqlcgen.
 func cancelPreparedDeckPreparationTx(ctx context.Context, q *sqlcgen.Queries, owner, preparationID string, p domain.DeckPreparation) (domain.DeckPreparation, error) {
 	runID := p.CurrentRunID
 	model, cancelErr := q.CancelDeckPreparation(ctx, sqlcgen.CancelDeckPreparationParams{Owner: owner, ID: preparationID})
+	if errors.Is(cancelErr, pgx.ErrNoRows) {
+		return p, ErrInvalidTransition
+	}
 	p = deckPreparationFromModel(model)
 	if err := missing(cancelErr); err != nil {
 		return p, err

@@ -111,7 +111,7 @@ func lockPreparedDeckBatchForReconciliation(ctx context.Context, tx pgx.Tx, para
 		return domain.PreparedDeckRun{}, domain.PreparedDeckBatchChunk{}, missing(err)
 	}
 	run := preparedDeckRunFromModel(runModel)
-	if run.State != domain.PreparedDeckRunTranslating || (run.TranslationState != domain.PreparedDeckTranslationPending && run.TranslationState != domain.PreparedDeckTranslationRunning) {
+	if run.State != domain.PreparedDeckRunTranslating || !run.TranslationState.Active() {
 		return domain.PreparedDeckRun{}, domain.PreparedDeckBatchChunk{}, ErrPreparedDeckClaimLost
 	}
 	chunkModel, err := sqlcgen.New(tx).GetPreparedDeckBatchChunkForUpdate(ctx, sqlcgen.GetPreparedDeckBatchChunkForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, ID: params.ChunkID})
@@ -432,10 +432,10 @@ func (s *PostgresStore) AdvancePreparedDeckRunIfTerminal(ctx context.Context, ow
 	if err != nil {
 		return run, missing(err)
 	}
-	if run.State == domain.PreparedDeckRunFinalizing || run.State == domain.PreparedDeckRunCompleted {
+	if run.State.FinalizingOrLater() {
 		return run, tx.Commit(ctx)
 	}
-	if run.State != domain.PreparedDeckRunTranslating {
+	if !run.State.Active() {
 		return run, ErrInvalidTransition
 	}
 	run, err = advancePreparedDeckRunTx(ctx, tx, run, insertFinalizer)

@@ -17,7 +17,7 @@ type Querier interface {
 	AssignPreparedDeckFinalizationJob(ctx context.Context, arg AssignPreparedDeckFinalizationJobParams) (AssignPreparedDeckFinalizationJobRow, error)
 	AttachDeckPreparationVocabulary(ctx context.Context, arg AttachDeckPreparationVocabularyParams) error
 	AttachPreparedDeckBatchReconciliationJob(ctx context.Context, arg AttachPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
-	AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) error
+	AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) (int64, error)
 	BookCoverCandidateExists(ctx context.Context, arg BookCoverCandidateExistsParams) (bool, error)
 	// Book identity and My Books evidence queries. The read models select from
 	// the my_books_evidence view (migration 000066, rebuilt over the shared
@@ -399,6 +399,7 @@ type Querier interface {
 	RegisterBookCoverCandidate(ctx context.Context, arg RegisterBookCoverCandidateParams) (int64, error)
 	ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
+	RequeueDeckPreparation(ctx context.Context, arg RequeueDeckPreparationParams) (DeckPreparation, error)
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveBookCoverAfterConnectionDeletion(ctx context.Context, ownerID string) error
 	ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error)

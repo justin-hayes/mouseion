@@ -47,6 +47,7 @@ const cancelDeckPreparation = `-- name: CancelDeckPreparation :one
 UPDATE deck_preparations
 SET state = 'cancelled', error = '', completed_at = now(), updated_at = now()
 WHERE owner_id = $1 AND id = $2
+  AND state IN ('queued', 'preparing')
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -1213,6 +1214,65 @@ func (q *Queries) PutPreparedDeckCard(ctx context.Context, arg PutPreparedDeckCa
 		arg.Back,
 	)
 	return err
+}
+
+const requeueDeckPreparation = `-- name: RequeueDeckPreparation :one
+UPDATE deck_preparations
+SET state = 'queued', error = '', current_run_id = NULL, started_at = NULL,
+    completed_at = NULL, updated_at = now()
+WHERE owner_id = $1 AND id = $2
+  AND state IN ('failed', 'cancelled')
+RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
+          created_at, updated_at, started_at, completed_at, analysis_run_id,
+          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
+              book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+            presentation_version, deck_revision, goal_snapshot_id, evidence_assisted_provider_pass
+`
+
+type RequeueDeckPreparationParams struct {
+	Owner string
+	ID    string
+}
+
+func (q *Queries) RequeueDeckPreparation(ctx context.Context, arg RequeueDeckPreparationParams) (DeckPreparation, error) {
+	row := q.db.QueryRow(ctx, requeueDeckPreparation, arg.Owner, arg.ID)
+	var i DeckPreparation
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.SourceMaterialID,
+		&i.State,
+		&i.Artifact,
+		&i.Filename,
+		&i.DeckName,
+		&i.ContentHash,
+		&i.TotalCards,
+		&i.CardsWithEnglish,
+		&i.CardsWithContextualSentenceTranslations,
+		&i.QualityOmissions,
+		&i.Error,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.AnalysisRunID,
+		&i.CurrentRunID,
+		&i.StudyingAt,
+		&i.ReviewedAt,
+		&i.GraduatedAt,
+		&i.ReleasedAt,
+		&i.BookID,
+		&i.RetiredAt,
+		&i.CardsWithFallbackGloss,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
+		&i.DeckRevision,
+		&i.GoalSnapshotID,
+		&i.EvidenceAssistedProviderPass,
+	)
+	return i, err
 }
 
 const retireDeckPreparationForSnapshot = `-- name: RetireDeckPreparationForSnapshot :exec

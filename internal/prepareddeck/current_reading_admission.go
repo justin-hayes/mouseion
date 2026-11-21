@@ -262,12 +262,12 @@ func (s *Service) advanceTx(ctx context.Context, tx pgx.Tx, owner, id string, fo
 		if err != nil {
 			return Handle{}, err
 		}
-	case p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled:
+	case p.State.Requeueable():
 		p, err = requeueFailedPreparation(ctx, tx, owner, id, p)
 		if err != nil {
 			return Handle{}, err
 		}
-	case p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing:
+	case !p.State.Active():
 		return Handle{}, persistence.ErrInvalidTransition
 	}
 	p, jobID, err := s.enqueuePreparationJob(ctx, tx, owner, id, p)
@@ -309,12 +309,11 @@ func (s *Service) rollPreparationForward(ctx context.Context, tx pgx.Tx, owner s
 // requeueFailedPreparation returns a Failed or Cancelled preparation to Queued
 // and records the transition in the preparation's history.
 func requeueFailedPreparation(ctx context.Context, tx pgx.Tx, owner, id string, previous domain.DeckPreparation) (domain.DeckPreparation, error) {
-	previousState := previous.State
-	p, err := scanPreparation(tx.QueryRow(ctx, requeueFailedPreparationSQL, owner, id))
+	p, err := persistence.RequeueDeckPreparationTx(ctx, tx, owner, id)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	if err := recordPreparationHistoryTx(ctx, tx, owner, id, string(domain.DeckPreparationQueued), map[string]any{"from": previousState}); err != nil {
+	if err := recordPreparationHistoryTx(ctx, tx, owner, id, string(domain.DeckPreparationQueued), map[string]any{"from": previous.State}); err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	return p, nil
@@ -336,7 +335,6 @@ func (s *Service) enqueuePreparationJob(ctx context.Context, tx pgx.Tx, owner, i
 // The statements are package constants; the column list is a constant too, so
 // no request value is ever spliced into SQL text.
 const (
-	requeueFailedPreparationSQL   = "UPDATE deck_preparations SET state='queued',error='',current_run_id=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING " + preparationColumns
 	livePreparationForSnapshotSQL = "SELECT " + preparationColumns + " FROM deck_preparations WHERE owner_id=$1 AND goal_snapshot_id=$2::uuid AND retired_at IS NULL FOR UPDATE"
 	currentRunVersionsSQL         = "SELECT presentation_version, render_input_version FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3::uuid"
 )

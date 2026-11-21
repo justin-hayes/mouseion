@@ -401,11 +401,11 @@ func (q *Queries) AttachPreparedDeckBatchReconciliationJob(ctx context.Context, 
 	return i, err
 }
 
-const attachPreparedDeckRun = `-- name: AttachPreparedDeckRun :exec
+const attachPreparedDeckRun = `-- name: AttachPreparedDeckRun :execrows
 UPDATE deck_preparations
 SET state = 'preparing', current_run_id = $3, started_at = COALESCE(started_at, now()),
     completed_at = NULL, error = '', updated_at = now()
-WHERE owner_id = $1 AND id = $2
+WHERE owner_id = $1 AND id = $2 AND state IN ('queued', 'preparing')
 `
 
 type AttachPreparedDeckRunParams struct {
@@ -414,9 +414,12 @@ type AttachPreparedDeckRunParams struct {
 	CurrentRunID pgtype.UUID
 }
 
-func (q *Queries) AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) error {
-	_, err := q.db.Exec(ctx, attachPreparedDeckRun, arg.OwnerID, arg.ID, arg.CurrentRunID)
-	return err
+func (q *Queries) AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) (int64, error) {
+	result, err := q.db.Exec(ctx, attachPreparedDeckRun, arg.OwnerID, arg.ID, arg.CurrentRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const cancelPreparedDeckBatchChunks = `-- name: CancelPreparedDeckBatchChunks :exec

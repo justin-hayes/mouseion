@@ -88,10 +88,11 @@ func freezePreparedDeckRun(t *testing.T, ctx context.Context, store *PostgresSto
 	return result
 }
 
-// TestFreezePreparedDeckRunValidatesBeforeWriting pins every rejection rule that
-// runs before a run is written. Each case rolls its transaction back, so one
-// fixture can drive them all.
-func TestFreezePreparedDeckRunValidatesBeforeWriting(t *testing.T) {
+// TestFreezePreparedDeckRunRejectsInvalidFreezes pins every freeze rejection
+// rule. Cases that reject an input before writing roll their transaction back;
+// the preparation-state case fails at the attach write and rolls back the rows
+// written before it, so one fixture can drive them all.
+func TestFreezePreparedDeckRunRejectsInvalidFreezes(t *testing.T) {
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
@@ -250,6 +251,42 @@ func TestFreezePreparedDeckRunValidatesBeforeWriting(t *testing.T) {
 	})
 }
 
+// TestFreezePreparedDeckRunRejectsDisallowedPreparationState pins the attach
+// write's SQL from-state predicate: a preparation that has already settled
+// cannot accept a run, and the rejected attempt leaves it untouched.
+func TestFreezePreparedDeckRunRejectsDisallowedPreparationState(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+
+	states := []domain.DeckPreparationState{domain.DeckPreparationReady, domain.DeckPreparationFailed, domain.DeckPreparationCancelled}
+	for _, state := range states {
+		t.Run(string(state), func(t *testing.T) {
+			fixture := newPreparedDeckFreezeFixture(t, ctx, store, testutil.PresentationProvider{}, []cardexport.Entry{preparedDeckFreezeEntry()})
+			if state == domain.DeckPreparationReady {
+				_, err := store.Pool().Exec(ctx, `UPDATE deck_preparations SET state='ready', artifact=$3, completed_at=now() WHERE owner_id=$1 AND id=$2`, fixture.ownerID, fixture.preparation.ID, []byte("deck"))
+				require.NoError(t, err)
+			} else {
+				_, err := store.Pool().Exec(ctx, `UPDATE deck_preparations SET state=$3 WHERE owner_id=$1 AND id=$2`, fixture.ownerID, fixture.preparation.ID, string(state))
+				require.NoError(t, err)
+			}
+
+			_, freezeErr := attemptPreparedDeckFreeze(t, ctx, store, FreezePreparedDeckRunParams{OwnerID: fixture.ownerID, PreparationID: fixture.preparation.ID, Projection: fixture.projection})
+			require.ErrorIs(t, freezeErr, ErrInvalidTransition)
+
+			var storedState string
+			require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM deck_preparations WHERE owner_id=$1 AND id=$2`, fixture.ownerID, fixture.preparation.ID).Scan(&storedState))
+			var runs int
+			require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2`, fixture.ownerID, fixture.preparation.ID).Scan(&runs))
+			t.Run("the state is unchanged", func(t *testing.T) {
+				assert.Equal(t, string(state), storedState)
+			})
+			t.Run("no run is written", func(t *testing.T) {
+				assert.Zero(t, runs)
+			})
+		})
+	}
+}
+
 // TestPreparedDeckRunProgressReportsIdentityAndAge pins the public progress
 // projection: an unknown run is not found, a fresh run reports its counts, and a
 // submitted chunk reports an age.
@@ -326,6 +363,29 @@ func TestCancelCurrentPreparedDeckRunOutcomes(t *testing.T) {
 		require.NoError(t, err)
 		_, err = store.CancelCurrentPreparedDeckRun(ctx, fixture.ownerID, fixture.preparation.ID)
 		require.ErrorIs(t, err, ErrInvalidTransition)
+		reloaded, err := store.GetDeckPreparation(ctx, fixture.ownerID, fixture.preparation.ID)
+		require.NoError(t, err)
+		t.Run("the state is unchanged", func(t *testing.T) {
+			assert.Equal(t, domain.DeckPreparationFailed, reloaded.State)
+		})
+		t.Run("no completion time is written", func(t *testing.T) {
+			assert.Nil(t, reloaded.CompletedAt)
+		})
+	})
+	t.Run("a ready preparation cannot be cancelled", func(t *testing.T) {
+		fixture := newPreparedDeckFreezeFixture(t, ctx, store, testutil.PresentationProvider{}, []cardexport.Entry{preparedDeckFreezeEntry()})
+		_, err := store.Pool().Exec(ctx, `UPDATE deck_preparations SET state='ready', artifact=$3, completed_at=now() WHERE owner_id=$1 AND id=$2`, fixture.ownerID, fixture.preparation.ID, []byte("deck"))
+		require.NoError(t, err)
+		_, err = store.CancelCurrentPreparedDeckRun(ctx, fixture.ownerID, fixture.preparation.ID)
+		require.ErrorIs(t, err, ErrInvalidTransition)
+		reloaded, err := store.GetDeckPreparation(ctx, fixture.ownerID, fixture.preparation.ID)
+		require.NoError(t, err)
+		t.Run("the state is unchanged", func(t *testing.T) {
+			assert.Equal(t, domain.DeckPreparationReady, reloaded.State)
+		})
+		t.Run("the artifact is unchanged", func(t *testing.T) {
+			assert.Equal(t, "deck", string(reloaded.Artifact))
+		})
 	})
 	t.Run("an unknown preparation is not found", func(t *testing.T) {
 		fixture := newPreparedDeckFreezeFixture(t, ctx, store, testutil.PresentationProvider{}, []cardexport.Entry{preparedDeckFreezeEntry()})

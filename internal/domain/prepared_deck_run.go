@@ -19,20 +19,16 @@ const (
 	PreparedDeckRunCancelled   PreparedDeckRunState = "cancelled"
 )
 
-func (s PreparedDeckRunState) CanTransitionTo(next PreparedDeckRunState) bool {
-	if s == next {
-		return true
-	}
-	switch s {
-	case PreparedDeckRunTranslating:
-		return next == PreparedDeckRunFinalizing || next == PreparedDeckRunFailed || next == PreparedDeckRunCancelled
-	case PreparedDeckRunFinalizing:
-		return next == PreparedDeckRunCompleted || next == PreparedDeckRunFailed || next == PreparedDeckRunCancelled
-	case PreparedDeckRunCompleted, PreparedDeckRunFailed, PreparedDeckRunCancelled:
-		return false
-	default: // Invalid persisted states cannot transition.
-		return false
-	}
+// Active reports whether the run is still in flight. The SQL predicate that
+// cancels a run accepts exactly these states.
+func (s PreparedDeckRunState) Active() bool {
+	return s == PreparedDeckRunTranslating || s == PreparedDeckRunFinalizing
+}
+
+// FinalizingOrLater reports whether translation has finished and the run is
+// finalizing or already complete.
+func (s PreparedDeckRunState) FinalizingOrLater() bool {
+	return s == PreparedDeckRunFinalizing || s == PreparedDeckRunCompleted
 }
 
 type PreparedDeckTranslationState string
@@ -45,20 +41,10 @@ const (
 	PreparedDeckTranslationCancelled PreparedDeckTranslationState = "cancelled"
 )
 
-func (s PreparedDeckTranslationState) CanTransitionTo(next PreparedDeckTranslationState) bool {
-	if s == next {
-		return true
-	}
-	switch s {
-	case PreparedDeckTranslationPending:
-		return next == PreparedDeckTranslationRunning || next == PreparedDeckTranslationCompleted || next == PreparedDeckTranslationFailed || next == PreparedDeckTranslationCancelled
-	case PreparedDeckTranslationRunning:
-		return next == PreparedDeckTranslationCompleted || next == PreparedDeckTranslationFailed || next == PreparedDeckTranslationCancelled
-	case PreparedDeckTranslationCompleted, PreparedDeckTranslationFailed, PreparedDeckTranslationCancelled:
-		return false
-	default: // Invalid persisted states cannot transition.
-		return false
-	}
+// Active reports whether translation work is still in flight. The SQL
+// predicate that cancels translation accepts exactly these states.
+func (s PreparedDeckTranslationState) Active() bool {
+	return s == PreparedDeckTranslationPending || s == PreparedDeckTranslationRunning
 }
 
 type PreparedDeckRun struct {
