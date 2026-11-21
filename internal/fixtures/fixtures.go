@@ -55,11 +55,15 @@ func fixtureReadingHistoryKey(owner, language, snapshotID string) string {
 }
 
 type Store struct {
-	mu                     sync.Mutex
-	books                  []domain.SourceMaterialSummary
-	jobs                   []domain.AnalysisJob
-	supported              []domain.SupportedLanguage
-	connections            []domain.OpdsConnection
+	mu          sync.Mutex
+	books       []domain.SourceMaterialSummary
+	jobs        []domain.AnalysisJob
+	supported   []domain.SupportedLanguage
+	connections []domain.OpdsConnection
+	// catalogueEntries is each connection's Catalog index, keyed by connection
+	// ID. It mirrors upstream metadata only; ownership stays in aliases and
+	// Book membership.
+	catalogueEntries       map[string][]domain.CatalogueIndexEntry
 	aliases                []domain.BookAlias
 	preps                  []domain.DeckPreparation
 	deckVocabulary         []domain.DeckPreparationVocabulary
@@ -157,9 +161,11 @@ func NewStore() *Store {
 			{ID: "fixture-never-synced-connection", OwnerID: OwnerID, Name: "Fixture never-synced catalog", URL: "https://never.fixture.invalid/opds"},
 			{ID: "fixture-browser-sync-connection", OwnerID: OwnerID, Name: "Browser sync catalog", URL: "https://browser-sync.fixture.invalid/opds"},
 		},
+		catalogueEntries: fixtureCatalogueIndexEntries(),
 		aliases: []domain.BookAlias{
 			{ID: "fixture-metadata-only-alias", OwnerID: OwnerID, BookID: "fixture-metadata-only", ConnectionID: "fixture-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-entry"},
 			{ID: "fixture-browser-sync-alias", OwnerID: OwnerID, BookID: BrowserSyncBookID, ConnectionID: "fixture-browser-sync-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-browser-sync-entry"},
+			{ID: "fixture-catalog-owned-alias", OwnerID: OwnerID, BookID: BookID, ConnectionID: "fixture-browser-sync-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-browser-second"},
 		},
 		syncStatuses: []domain.CatalogueSyncStatus{
 			{OwnerID: OwnerID, ConnectionID: "fixture-connection", State: domain.CatalogueSyncSynced, LastSyncedAt: &lastSyncedAt, LastUpsertedCount: 3, UpdatedAt: fixtureJourneyTime},

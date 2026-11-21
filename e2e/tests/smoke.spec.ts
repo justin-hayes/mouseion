@@ -879,7 +879,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
 
   test('acquisition, Reading Journey, Vocabulary, and operational jobs are reachable', async ({ page }) => {
     await page.goto('/catalogs');
-    await expect(page.getByText('Fixture catalog')).toBeVisible();
+    await expect(page.locator('#source-status-fixture-connection')).toContainText('Fixture catalog');
     await page.goto('/library');
     const libraryLanguage = page.getByLabel('Study language');
     if (await libraryLanguage.inputValue() !== 'de') await libraryLanguage.selectOption('de');

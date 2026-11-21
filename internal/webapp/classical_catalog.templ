@@ -17,21 +17,6 @@ const (
 	classicalAddWholeWorkLabel = "Add and prepare the whole work"
 )
 
-// ClassicalCatalogRecord is the built-in, read-only source on the Catalog. It
-// appears below the OPDS source status lines and carries no setup, sync or
-// credentials.
-templ ClassicalCatalogRecord(counts classical.CatalogCounts) {
-	<article class="classical-catalog-record" id="classical-catalog" aria-labelledby="classical-catalog-title">
-		<header>
-			<h2 id="classical-catalog-title">Classical catalog</h2>
-			<p>Reviewed Ancient Greek texts that ship with this release. The catalog is built in and read-only: it needs no setup, sync or credentials.</p>
-		</header>
-		@ClassicalCatalogCounts(counts, "classical-catalog-record__margin")
-		<p class="classical-catalog-record__note">Adding a work puts it in To Read and downloads and prepares the text.</p>
-		<div class="action-group"><a role="button" href="/catalogs/classical">Browse the Classical catalog</a></div>
-	</article>
-}
-
 // ClassicalAuthorIndexPage is the catalog index. Every Work under its author
 // carries its Opening and length on one page-wide word scale, with the facts
 // and Add controls in a margin note.
@@ -52,79 +37,85 @@ templ ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classica
 		if len(authors) == 0 {
 			@EmptyState("No Ancient Greek works", "This release carries no Classical catalog definitions.")
 		} else {
-			{{ axis := classicalLengthAxis(authors) }}
-			<div class="classical-work-index">
-				for _, author := range authors {
-					<section class="classical-author-section" id={ classicalAuthorAnchor(author.Name) } aria-label={ author.Name }>
-						<h2 class="classical-author-section__name">{ author.Name }</h2>
-						<ul class="classical-author-section__works">
-							for _, work := range author.Works {
-								<li class="classical-work-entry" id={ "work-" + work.Key }>
-									<div class="classical-work-entry__identity">
-										<h3 class="classical-work-entry__title bibliographic-title">
-											<a href={ templ.SafeURL(classicalWorkURL(work.Key)) }>{ work.Title }</a>
-											if work.GreekTitle != "" {
-												<span class="classical-work-entry__greek" lang="grc">{ work.GreekTitle }</span>
-											}
-										</h3>
-										<p class="classical-opening" lang="grc"><span class="classical-opening__citation" lang="en"><span class="sr-only">Begins at </span>{ classicalWorkOpeningCitation(work) }</span>{ work.Opening }</p>
-										<p class="classical-length-caption">{ classicalWorkLengthCaption(work) }</p>
-										<div class="classical-length" aria-hidden="true">
-											for _, unit := range work.Units {
-												<span class={ classicalLengthSegmentClass(unit, view) } style={ classicalLengthWidth(unit.Words, axis) }>
-													if unit.ConstituentBook != 0 {
-														<i>{ fmt.Sprintf("%d", unit.ConstituentBook) }</i>
-													}
-												</span>
-											}
-										</div>
-										if !work.WholeWork {
-											<details class="classical-books">
-												<summary>Choose books</summary>
-												<table class="classical-books__table">
-													<thead>
-														<tr><th scope="col">Book</th><th scope="col">Passage</th><th scope="col" class="classical-books__number">Words</th><th scope="col"><span class="sr-only">Add</span></th></tr>
-													</thead>
-													<tbody>
-														for _, unit := range work.Units {
-															<tr>
-																<th scope="row">{ classicalBookLabel(unit.ConstituentBook) }</th>
-																<td class="numeric">{ classicalCitationRange(unit) }</td>
-																<td class="classical-books__number numeric">{ fmt.Sprintf("%d", unit.Words) }</td>
-																<td class="classical-books__action">
-																	if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
-																		<a href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
-																	} else if view.AddAvailable {
-																		@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddUnitLabel, false, classicalAddReturnIndex)
-																	}
-																</td>
-															</tr>
-														}
-													</tbody>
-												</table>
-											</details>
-										}
-									</div>
-									<div class="classical-work-entry__margin">
-										<p>{ work.EditionLabel }</p>
-										<p class="numeric">Passage { classicalWorkCitationRange(work) }</p>
-										<p>{ classicalTranslationLabel(work.TranslationAvailable) }</p>
-										if ownership := classicalWorkOwnershipLabel(work, view); ownership != "" {
-											<p class="classical-work-entry__owned"><span class="classical-work-entry__owned-marker" aria-hidden="true"></span><a href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>{ ownership }</a></p>
-										}
-										if classicalWorkCanAdd(work, view) {
-											<div class="action-group">@ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), classicalWorkAddLabel(work, view), false, classicalAddReturnIndex)</div>
-										}
-									</div>
-								</li>
-							}
-						</ul>
-					</section>
-				}
-			</div>
+			@ClassicalCatalogIndexSections(csrf, authors, view, nil)
 			@ClassicalCatalogAttribution(attributions)
 		}
 	}
+}
+
+// ClassicalCatalogIndexSections is the author-grouped Classical index that both
+// the Classical page and the Catalog results reuse unchanged.
+templ ClassicalCatalogIndexSections(csrf string, authors []classical.CatalogAuthor, view classicalCatalogView, narrowed map[string]int) {
+	{{ axis := classicalLengthAxis(authors) }}
+	<div class="classical-work-index">
+		for _, author := range authors {
+			<section class="classical-author-section" id={ classicalAuthorAnchor(author.Name) } aria-label={ author.Name }>
+				<h2 class="classical-author-section__name">{ author.Name }</h2>
+				<ul class="classical-author-section__works">
+					for _, work := range author.Works {
+						<li class="classical-work-entry" id={ "work-" + work.Key }>
+							<div class="classical-work-entry__identity">
+								<h3 class="classical-work-entry__title bibliographic-title">
+									<a href={ templ.SafeURL(classicalWorkURL(work.Key)) }>{ work.Title }</a>
+									if work.GreekTitle != "" {
+										<span class="classical-work-entry__greek" lang="grc">{ work.GreekTitle }</span>
+									}
+								</h3>
+								<p class="classical-opening" lang="grc"><span class="classical-opening__citation" lang="en"><span class="sr-only">Begins at </span>{ classicalWorkOpeningCitation(work) }</span>{ work.Opening }</p>
+								<p class="classical-length-caption">{ classicalWorkLengthCaption(work) }</p>
+								<div class="classical-length" aria-hidden="true">
+									for _, unit := range classicalDisplayUnits(work, narrowed[work.Key]) {
+										<span class={ classicalLengthSegmentClass(unit, view) } style={ classicalLengthWidth(unit.Words, axis) }>
+											if unit.ConstituentBook != 0 {
+												<i>{ fmt.Sprintf("%d", unit.ConstituentBook) }</i>
+											}
+										</span>
+									}
+								</div>
+								if !work.WholeWork {
+									<details class="classical-books">
+										<summary>Choose books</summary>
+										<table class="classical-books__table">
+											<thead>
+												<tr><th scope="col">Book</th><th scope="col">Passage</th><th scope="col" class="classical-books__number">Words</th><th scope="col"><span class="sr-only">Add</span></th></tr>
+											</thead>
+											<tbody>
+												for _, unit := range classicalDisplayUnits(work, narrowed[work.Key]) {
+													<tr>
+														<th scope="row">{ classicalBookLabel(unit.ConstituentBook) }</th>
+														<td class="numeric">{ classicalCitationRange(unit) }</td>
+														<td class="classical-books__number numeric">{ fmt.Sprintf("%d", unit.Words) }</td>
+														<td class="classical-books__action">
+															if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
+																<a href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
+															} else if view.AddAvailable {
+																@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddUnitLabel, false, classicalAddReturnIndex)
+															}
+														</td>
+													</tr>
+												}
+											</tbody>
+										</table>
+									</details>
+								}
+							</div>
+							<div class="classical-work-entry__margin">
+								<p>{ work.EditionLabel }</p>
+								<p class="numeric">Passage { classicalWorkCitationRange(work) }</p>
+								<p>{ classicalTranslationLabel(work.TranslationAvailable) }</p>
+								if ownership := classicalWorkOwnershipLabel(work, view); ownership != "" {
+									<p class="classical-work-entry__owned"><span class="classical-work-entry__owned-marker" aria-hidden="true"></span><a href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>{ ownership }</a></p>
+								}
+								if classicalWorkCanAdd(work, view) {
+									<div class="action-group">@ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), classicalWorkAddLabel(work, view), false, classicalAddReturnIndex)</div>
+								}
+							</div>
+						</li>
+					}
+				</ul>
+			</section>
+		}
+	</div>
 }
 
 // ClassicalCatalogAttribution credits the Greek text to each source layer and

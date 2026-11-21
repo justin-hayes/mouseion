@@ -40,3 +40,12 @@ SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.au
 FROM catalogue_entries e
 JOIN opds_connections c ON c.id = e.connection_id
 WHERE c.owner_id = $1 AND e.connection_id = $2 AND e.entry_identifier = $3;
+
+-- name: ListCatalogueEntryBooksForConnection :many
+-- The learner's active Books linked by catalog-entry alias, keyed by the entry
+-- identifier the index browses. A removed Book contributes no ownership.
+SELECT a.value AS entry_identifier, a.book_id::text AS book_id
+FROM book_aliases a
+JOIN book_membership m ON m.owner_id = a.owner_id AND m.book_id = a.book_id AND m.state = 'active'
+WHERE a.owner_id = $1 AND a.connection_id = $2
+  AND a.alias_type = $3 AND a.namespace = $4;

@@ -88,7 +88,7 @@ func catalogPage(t *testing.T, h http.Handler, cookies []*http.Cookie, path stri
 	return response
 }
 
-func TestCatalogKeepsTheClassicalRecordAndShowsSourceStatusLines(t *testing.T) {
+func TestCatalogShowsSearchFilterSourceStatusLinesAndOpdsSections(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = catalogFixture(t)
 	})
@@ -101,14 +101,16 @@ func TestCatalogKeepsTheClassicalRecordAndShowsSourceStatusLines(t *testing.T) {
 		"<title>Catalog · Mouseion</title>",
 		"<h1>Catalog</h1>",
 		`href="/catalogs" aria-current="page"`,
+		`href="/catalogs/classical">Classical catalog</a>`,
 		`href="/catalogs/sources">Manage sources</a>`,
-		"Classical catalog",
-		`aria-label="Running release counts"`,
-		"<dt>Works</dt><dd>3</dd>",
-		"<dt>Authors</dt><dd>2</dd>",
-		"<dt>Reading units</dt><dd>4</dd>",
-		"Adding a work puts it in To Read and downloads and prepares the text.",
-		`href="/catalogs/classical"`,
+		`<form class="catalog-search" role="search" method="get" action="/catalogs">`,
+		`id="catalog-search-query"`,
+		`placeholder="Title, author, Greek title, or Book number"`,
+		`id="catalog-language-filter"`,
+		`<option value="de" selected>German</option>`,
+		`<option value="">All languages</option>`,
+		`<option value="grc">Ancient Greek</option>`,
+		`<button class="button" type="submit">Search</button>`,
 		`id="source-status-fixture-connection"`,
 		`id="source-status-fixture-failed-connection"`,
 		`id="source-status-fixture-syncing-connection"`,
@@ -120,12 +122,103 @@ func TestCatalogKeepsTheClassicalRecordAndShowsSourceStatusLines(t *testing.T) {
 		`action="/catalogs/sources/fixture-connection/sync"`,
 		`name="return" value="catalog"`,
 		`href="/catalogs/sources#connection-fixture-failed-connection"`,
+		`id="catalog-result-summary"`,
+		`role="status" aria-live="polite" aria-atomic="true"`,
+		`id="catalog-source-fixture-connection"`,
+		`id="catalog-source-fixture-browser-sync-connection"`,
+		`id="catalog-source-title-fixture-connection"`,
+		"Der lange Weg nach Hause",
+		`class="catalog-cover-grid"`,
+		`aria-label="Pages of Fixture catalog"`,
+		`href="/catalogs?language=de&amp;page_fixture-connection=2"`,
+		`href="/catalogs/books/fixture-book/in-my-books">In My Books</a>`,
 	} {
 		assert.Contains(t, body, want, "GET /catalogs missing %q", want)
 	}
 	assert.NotContains(t, body, `id="catalog-connection-form"`, "connection management belongs on Manage sources")
 	assert.NotContains(t, body, "Cyropaedia", "a withdrawn definition is hidden")
-	assert.Less(t, strings.Index(body, `id="catalog-sources-heading"`), strings.Index(body, `id="classical-catalog"`), "source status lines sit above the Classical catalog")
+	assert.NotContains(t, body, `id="catalog-source-classical"`, "the default language filter shows German sources, not Ancient Greek")
+	assert.Less(t, strings.Index(body, `id="catalog-sources-heading"`), strings.Index(body, `id="catalog-source-fixture-connection"`), "source status lines sit above the OPDS sections")
+}
+
+func TestCatalogSearchAndLanguageFilterCoverClassicalAndOpdsSources(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	// One query, all languages: Homer matches the Classical author and the
+	// accented OPDS author without contacting either server.
+	response := catalogPage(t, h, cookies, "/catalogs?language=&q=homer")
+	require.Equal(t, http.StatusOK, response.Code)
+	body := response.Body.String()
+	for _, want := range []string{
+		"2 results from 2 sources.",
+		`id="catalog-source-classical"`,
+		`id="catalog-source-fixture-connection"`,
+		`id="work-homer-iliad"`,
+		"Ödipus auf Kolonos",
+		"Hómēr Nachfolger",
+		`href="/catalogs?language=">Clear search</a>`,
+	} {
+		assert.Contains(t, body, want, "combined search missing %q", want)
+	}
+	assert.NotContains(t, body, "Der lange Weg nach Hause", "non-matching entries stay out of the results")
+	assert.NotContains(t, body, "Xenophon", "the Classical side uses the same search key")
+
+	// The language filter narrows to one source language and is carried in the
+	// paging link.
+	italian := catalogPage(t, h, cookies, "/catalogs?language=it")
+	require.Equal(t, http.StatusOK, italian.Code)
+	assert.Contains(t, italian.Body.String(), "La città delle meraviglie")
+	assert.NotContains(t, italian.Body.String(), "Der lange Weg nach Hause")
+	assert.Contains(t, italian.Body.String(), `<option value="it" selected>Italian</option>`)
+}
+
+func TestCatalogEmptyStatesAreDistinct(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	noMatch := catalogPage(t, h, cookies, "/catalogs?language=&q=zzzz-nothing")
+	require.Equal(t, http.StatusOK, noMatch.Code)
+	assert.Contains(t, noMatch.Body.String(), "No matches")
+	assert.Contains(t, noMatch.Body.String(), "No entry in the Catalog matches “zzzz-nothing”.")
+	assert.Contains(t, noMatch.Body.String(), `href="/catalogs?language=">Clear search</a>`)
+
+	nothingInLanguage := catalogPage(t, h, cookies, "/catalogs?language=fr")
+	require.Equal(t, http.StatusOK, nothingInLanguage.Code)
+	assert.Contains(t, nothingInLanguage.Body.String(), "Nothing in fr")
+	assert.Contains(t, nothingInLanguage.Body.String(), "No Catalog entry is in fr.")
+	assert.Contains(t, nothingInLanguage.Body.String(), `href="/catalogs?language=">Show all languages</a>`)
+
+	noSources := catalogPage(t, h, cookies, "/catalogs?language=&q=zzzz-nothing")
+	assert.Contains(t, noSources.Body.String(), "No matches")
+}
+
+func TestCatalogWithoutConnectionsOffersConnectAnOPDSCatalog(t *testing.T) {
+	h, cookies, _, store := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+	connections, err := store.ListOpdsConnections(t.Context(), fixtures.OwnerID)
+	require.NoError(t, err)
+	for _, connection := range connections {
+		require.NoError(t, store.DeleteOpdsConnection(t.Context(), fixtures.OwnerID, connection.ID))
+	}
+
+	var catalog bytes.Buffer
+	classicalCatalog := catalogFixture(t)
+	browse := catalogBrowseView{ClassicalAuthors: classicalCatalog.Authors(), ClassicalTotal: catalogAuthorsWorkCount(classicalCatalog.Authors()), HasClassical: true}
+	require.NoError(t, CatalogPage(domain.User{Username: "learner"}, "csrf", nil, "", "", nil, browse).Render(t.Context(), &catalog))
+	for _, want := range []string{
+		"No OPDS catalogs connected",
+		`href="/catalogs/sources">Connect an OPDS catalog</a>`,
+		"Classical catalog",
+	} {
+		assert.Contains(t, catalog.String(), want, "empty Catalog missing %q", want)
+	}
+	response := catalogPage(t, h, cookies, "/catalogs?language=")
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), "No OPDS catalogs connected")
 }
 
 func TestClassicalCatalogIndexRetiredAuthorPageAndWorkPage(t *testing.T) {
@@ -389,21 +482,20 @@ func TestClassicalCatalogHidesWithdrawnAndUnknownEntries(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code)
 }
 
-func TestCatalogWithoutConnectionsOffersConnectAnOPDSCatalog(t *testing.T) {
+func TestCatalogLanguageFilterDefaultsToAllWithoutAStudyLanguage(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = catalogFixture(t)
+		store, ok := services.Store.Shell.(*fixtures.Store)
+		require.True(t, ok)
+		services.Store.Shell = noStudyLanguageShell{Store: store}
 	})
 
-	var catalog bytes.Buffer
-	require.NoError(t, CatalogPage(domain.User{Username: "learner"}, "csrf", nil, "", "", nil, catalogFixture(t)).Render(t.Context(), &catalog))
-	for _, want := range []string{
-		"No OPDS catalogs connected",
-		`href="/catalogs/sources">Connect an OPDS catalog</a>`,
-		"Classical catalog",
-	} {
-		assert.Contains(t, catalog.String(), want, "empty Catalog missing %q", want)
-	}
-	assert.Equal(t, http.StatusOK, catalogPage(t, h, cookies, "/catalogs").Code)
+	response := catalogPage(t, h, cookies, "/catalogs")
+	require.Equal(t, http.StatusOK, response.Code)
+	body := response.Body.String()
+	assert.Contains(t, body, `<option value="" selected>All languages</option>`)
+	assert.Contains(t, body, `id="catalog-source-classical"`, "all languages includes the Classical catalog")
+	assert.Contains(t, body, "La città delle meraviglie", "all languages includes every OPDS language")
 }
 
 func TestManageSourcesRendersConnectionManagement(t *testing.T) {
@@ -628,4 +720,56 @@ type addDispositions struct{}
 
 func (addDispositions) TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error) {
 	return true, nil
+}
+
+// noStudyLanguageShell removes every derived and remembered study language so
+// the Catalog's default filter can be exercised.
+type noStudyLanguageShell struct {
+	*fixtures.Store
+}
+
+func (noStudyLanguageShell) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+	return nil, nil
+}
+
+func (noStudyLanguageShell) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+	return nil, nil
+}
+
+func (noStudyLanguageShell) GetStoredActiveStudyLanguage(context.Context, string) (string, error) {
+	return "", nil
+}
+
+func (noStudyLanguageShell) MostRecentlyActivatedStudyLanguage(context.Context, string) (string, error) {
+	return "", nil
+}
+
+func TestCatalogOwnedEntryOpensTheBookInMyBooks(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	opened := catalogPage(t, h, cookies, "/catalogs/books/"+fixtures.BookID+"/in-my-books")
+	require.Equal(t, http.StatusSeeOther, opened.Code)
+	location := opened.Header().Get("Location")
+	assert.Contains(t, location, "/library?")
+	assert.Contains(t, location, "disposition=to_read")
+	assert.Contains(t, location, "#book-row-"+fixtures.BookID)
+
+	unknown := catalogPage(t, h, cookies, "/catalogs/books/no-such-book/in-my-books")
+	assert.Equal(t, http.StatusNotFound, unknown.Code)
+}
+
+func TestCatalogSearchNeverReadsAnOpdsServer(t *testing.T) {
+	// The Catalog handler has no OPDS client dependency: search and the OPDS
+	// sections are rendered only from the store's local index. A nil OPDS seam
+	// therefore still returns matches.
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+		services.OPDS = nil
+	})
+
+	response := catalogPage(t, h, cookies, "/catalogs?language=&q=uber")
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), "Über die Berge")
 }

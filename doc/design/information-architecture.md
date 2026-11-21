@@ -86,7 +86,8 @@ an out-of-band **needs language** strip (fix the language in the catalog, then
 re-sync; display-only, no per-book actions). For a fresh account, its empty
 state explains catalogue setup and enters `/catalogs`; catalogue setup and sync
 maintenance are owned by the Catalog destination and its Manage sources page.
-Synced catalogue metadata is browsed only here.
+Synced catalogue metadata's Book surface is here; the Catalog separately browses
+each connection's local Catalog index.
 
 ### Reading
 
@@ -171,18 +172,23 @@ The authenticated shell exposes four principal destinations:
   are not used on active screens;
 - **Vocabulary** — Concordance; the accepted target removes saved selection
   and Custom deck UI beneath this destination.
-- **Catalog** — the built-in Classical catalog and the sync status of each
-  learner-owned OPDS source.
+- **Catalog** — the built-in Classical catalog, every OPDS source's local
+  Catalog index, and the sync status of each learner-owned source.
 
 Catalog keeps the built-in, read-only **Classical catalog** with one index and a
 work page; the index groups every Work under its author and shows each Work's
 Opening, length and Add controls, and the retired author-detail URL redirects to
-that author's index section. At the top of the page it shows one status line per OPDS
-connection — never synced, syncing, last synced or sync failed — with **Sync
-now**; a failed line names the connection and links to **Manage sources**.
+that author's index section. One search and one language filter cover the
+Classical catalog and every OPDS source; results are grouped by source, and each
+OPDS source shows its local Catalog index as a paged cover grid ordered by title
+then author. The language filter defaults to the active study language, or to
+all languages when the learner has none. At the top of the page it shows one
+status line per OPDS connection — never synced, syncing, last synced or sync
+failed — with **Sync now**; a failed line names the connection and links to
+**Manage sources**.
 Connection setup, credentials, editing, deletion, sync and failure recovery live
 on **Manage sources** at `/catalogs/sources`. The Catalog is not a fifth
-destination and is not scoped to the active study language. My Books remains the
+destination. My Books remains the
 sole **bibliographic Book** browse surface for synced metadata; the Browse
 working desk on Reading lists vocabulary identities, not Books or catalog
 entries. Marking a Book To Read expresses the learner's reading intent and may
@@ -235,10 +241,13 @@ Reading (active study language)
         choose what to read next -> Reading chooser (`/reading`)
 
 Catalog
+    one search and one language filter over every source
     built-in Classical catalog index (`/catalogs/classical`): every Work
         grouped under its author, with its Opening and length strip
     work page (`/catalogs/classical/works/{work-key}`)
     retired author-detail URLs permanently redirect to that author's index section
+    each OPDS source section: paged local Catalog index cover grid
+    In My Books (`/catalogs/books/{book-id}/in-my-books`)
     one status line per OPDS source with Sync now
     Manage sources (`/catalogs/sources`): connection setup, credentials,
         editing, deletion, sync, and failure recovery

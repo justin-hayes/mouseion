@@ -10,11 +10,12 @@ It synchronizes a learner's ready-language catalog into My Books, acquires conte
 
 The authenticated shell has exactly four primary destinations: **My Books** at
 `/library`, **Reading** at `/reading`, **Vocabulary** at `/vocabulary`, and
-**Catalogs** at `/catalogs`. Catalogs owns curated sources that do not sync into
-My Books — including the built-in, read-only Classical catalog — and catalogue
-setup and sync maintenance;
-the legacy `GET /connections` route permanently redirects there while preserving
-`book_id`, `message`, and `error`. My Books is the sole browse surface for the synced collection,
+**Catalog** at `/catalogs`. Catalog browses the Classical catalog and each
+connection's local Catalog index through one search and language filter; source
+setup, credentials and sync maintenance live on Manage sources at
+`/catalogs/sources`.
+The legacy `GET /connections` route permanently redirects there while preserving
+`book_id`, `message`, and `error`. My Books is the sole browse surface for Books,
 and EPUB content is acquired when a Book is moved to To Read. The upstream catalog
 browser is retired. `/` redirects to My Books. The active vocabulary consequence
 belongs to the current reading: starting a Book freezes its vocabulary snapshot
@@ -28,7 +29,7 @@ and documents the retired Goal/ordered-Journey model. Prepared-deck work belongs
 to the focused preparation task, with historical provenance remaining an
 operational supporting artifact rather than a second learner-facing plan.
 
-Catalogue synchronization status is part of the learner-owned Catalogs surface
+Catalogue synchronization status is part of the learner-owned Catalog surface
 at `/catalogs`, with detailed work under `/jobs`.
 
 Study languages are derived from the distinct normalized language tags of the

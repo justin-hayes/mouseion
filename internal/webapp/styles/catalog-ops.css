@@ -556,6 +556,7 @@
 .catalog-pagination {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--mouseion-space-3);
   margin-top: var(--mouseion-space-4);
 }
@@ -634,5 +635,147 @@
   .async-status:has(> .operational-metadata) > .operational-metadata {
     grid-column: 1;
     grid-row: auto;
+  }
+}
+
+/* Catalog browsing: one search and language filter over every source, then
+   one cover grid per OPDS section. The Classical index keeps its own layout. */
+.catalog-finder {
+  margin-block: var(--mouseion-space-5) var(--mouseion-space-4);
+}
+
+.catalog-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--mouseion-space-3);
+}
+
+.catalog-search__text {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.catalog-search__text .input,
+.catalog-search__language select {
+  width: 100%;
+}
+
+.catalog-search__language {
+  display: flex;
+  flex: 0 1 14rem;
+  flex-direction: column;
+  gap: var(--mouseion-space-1);
+  min-width: 0;
+}
+
+.catalog-search__language label {
+  font-weight: 600;
+}
+
+.catalog-search > .button {
+  flex: 0 0 auto;
+}
+
+.catalog-result-summary {
+  min-height: 1.5em;
+  margin: 0 0 var(--mouseion-space-4);
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+}
+
+.catalog-source {
+  margin-block: var(--mouseion-space-7);
+}
+
+.catalog-source__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mouseion-space-2) var(--mouseion-space-4);
+  border-bottom: 1px solid var(--mouseion-color-text);
+  padding-bottom: var(--mouseion-space-2);
+}
+
+.catalog-source__header h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.catalog-source__header p {
+  margin: 0;
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+  font-variant-numeric: tabular-nums;
+}
+
+.catalog-cover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+  gap: var(--mouseion-space-4) var(--mouseion-space-4);
+  margin: var(--mouseion-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.catalog-entry {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: var(--mouseion-space-2);
+  min-width: 0;
+  align-content: start;
+}
+
+.catalog-entry > .book-cover-media {
+  width: 100%;
+}
+
+.catalog-entry .book-cover-media__label {
+  display: none;
+}
+
+.catalog-entry__title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--mouseion-font-size-section-title);
+  line-height: 1.2;
+}
+
+.catalog-entry__author {
+  margin: 0;
+  color: var(--mouseion-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.catalog-entry__ownership {
+  margin: 0;
+}
+
+.catalog-entry__ownership a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+
+.catalog-pagination span {
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 40rem) {
+  .catalog-search,
+  .catalog-search__language,
+  .catalog-search > .button {
+    width: 100%;
+  }
+
+  .catalog-search > .button {
+    justify-content: center;
+  }
+
+  .catalog-cover-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr));
   }
 }

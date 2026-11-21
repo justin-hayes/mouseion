@@ -115,3 +115,46 @@ func TestCatalogueIndexListEmptyForUnknownConnection(t *testing.T) {
 	_, err = store.GetCatalogueEntry(ctx, owner.ID, "00000000-0000-0000-0000-000000000000", "entry")
 	require.ErrorIs(t, err, ErrNotFound)
 }
+
+func TestCatalogueBrowseFiltersOwnershipAndPaging(t *testing.T) {
+	ctx := context.Background()
+	databaseURL := integrationDatabase(t, ctx)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	alice, err := store.CreateUser(ctx, "browse-alice", false)
+	require.NoError(t, err)
+	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Browse catalog", URL: "https://browse.example/opds"})
+	require.NoError(t, err)
+	require.NoError(t, store.ReconcileCatalogueIndex(ctx, alice.ID, connection.ID, []domain.CatalogueIndexEntry{
+		{EntryIdentifier: "owned", Title: "Über die Berge", Author: "Anna Berg", LanguageTag: "de", EPUBHref: "https://browse.example/owned.epub"},
+		{EntryIdentifier: "unowned", Title: "Über das Meer", Author: "Bernd Alt", LanguageTag: "de", EPUBHref: "https://browse.example/unowned.epub"},
+		{EntryIdentifier: "italian", Title: "La città", Author: "Luca Bianchi", LanguageTag: "it", EPUBHref: "https://browse.example/italian.epub"},
+	}, time.Now()))
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Über die Berge", LanguageState: domain.LanguageChosen, LanguageTag: "de", MetadataProvenance: domain.MetadataProvenanceCatalogueSync})
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,connection_id,alias_type,namespace,value)
+		VALUES($1,$2,$3,$4,$5,$6)`, alice.ID, book.ID, connection.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "owned")
+	require.NoError(t, err)
+
+	page, err := store.BrowseCatalogueEntries(ctx, alice.ID, connection.ID, domain.CatalogueQuery{Search: "UBER", Language: "DE", Limit: 1})
+	require.NoError(t, err)
+	assert.Equal(t, 2, page.Total)
+	require.Len(t, page.Entries, 1)
+	assert.Equal(t, "unowned", page.Entries[0].Index.EntryIdentifier)
+	assert.Empty(t, page.Entries[0].BookID, "an unlinked entry has no Book")
+
+	second, err := store.BrowseCatalogueEntries(ctx, alice.ID, connection.ID, domain.CatalogueQuery{Search: "uber", Language: "de", Offset: 1, Limit: 1})
+	require.NoError(t, err)
+	require.Len(t, second.Entries, 1)
+	assert.Equal(t, "owned", second.Entries[0].Index.EntryIdentifier)
+	assert.Equal(t, book.ID, second.Entries[0].BookID, "the active catalog-entry alias supplies ownership")
+
+	italian, err := store.BrowseCatalogueEntries(ctx, alice.ID, connection.ID, domain.CatalogueQuery{Language: "it"})
+	require.NoError(t, err)
+	require.Len(t, italian.Entries, 1)
+	assert.Equal(t, "italian", italian.Entries[0].Index.EntryIdentifier)
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = store.BrowseCatalogueEntries(cancelled, alice.ID, connection.ID, domain.CatalogueQuery{})
+	require.Error(t, err, "a cancelled read reports its failure")
+}
