@@ -3,7 +3,8 @@
 Mouseion is a self-hosted reading environment for the languages of classical
 philology: Ancient Greek and Latin, and German, French, Italian and Modern Greek
 ([ADR 0110](doc/adr/0110-philological-reading-competence-boundary.md)).
-A learner connects their own OPDS catalog, syncs books into a personal
+A learner finds texts in one Catalog, which holds the curated Classical catalog
+and the learner's own OPDS catalogs, adds the ones they choose to a personal
 library, analyzes each Book according to its declared EPUB structure, and prepares
 Anki recognition decks from unknown vocabulary.
 
@@ -25,6 +26,11 @@ definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-bo
 [ADR 0100](doc/adr/0100-retryable-provider-omissions-preparation.md) records how
 a standard preparation finishes with the successful cards and reports retryable
 provider omissions instead of failing the whole run.
+[ADR 0117](doc/adr/0117-one-catalog-my-books-holds-chosen-books.md) (proposed)
+defines **Catalog**, **Catalog index**, **Catalog entry**, **Book**, **Book
+disposition**, **Book workflow bucket**, **My Books** and **Previously read**
+below, and retires **Inbox** and **Hidden**. Until its slices ship, the code
+still syncs entries into Inbox Books.
 
 ## Language
 
@@ -48,9 +54,9 @@ selection left the set with no remaining candidate).
 _Avoid_: current language, mode, active profile.
 
 **Catalog sync scope**:
-The set of offerings eligible for discovery from a connected catalog. In the
-current OPDS flow, this is the non-English language feeds whose NLP service
-reports ready, independent of learner configuration.
+The set of offerings eligible for a connection's Catalog index. In the OPDS
+flow, this is the non-English language feeds whose NLP service reports ready,
+independent of learner configuration.
 _Avoid_: study-language scope, synced languages.
 
 **Known vocabulary**:
@@ -272,7 +278,8 @@ _Avoid_: Journey completion, deck completion, mastery.
 **Previously read**:
 A one-time assertion that the learner read a Book outside its current-reading
 workflow. It records assertion time, not a historical reading date, and implies
-no analysis or vocabulary transition.
+no acquisition, analysis or vocabulary transition. Recording it from the Catalog
+adds the Book as Read.
 _Avoid_: reading completion, known vocabulary.
 
 **Vocabulary transition**:
@@ -327,8 +334,8 @@ translation-pin change alone gives no offer. It is not stale evidence: the
 published analysis stays in effect until the update publishes, and the update
 never rewrites earlier analyses, Lemma corrections, current-reading snapshots
 or prepared decks. A grouped Work row or chooser entry carries one notice and
-one bulk action covering the eligible To Read Books that surface shows, so a
-Hidden Book joins on My Books only under Show hidden books; it names and skips
+one bulk action covering the eligible To Read Books that surface shows; it
+names and skips
 the current Reading's Book and confirms the Work's corrections and exclusions
 once.
 _Avoid_: stale analysis, outdated evidence, re-import, migration.
@@ -419,16 +426,33 @@ state. A chosen tag is stored in one canonical base form — lowercased, with `_
 as `-` and region subtags collapsed, so `de_DE` and `de-de` are the same as `de`.
 Chosen book languages are the raw material from which a learner's study
 languages are derived. A Book without a chosen language belongs to no study
-language partition and remains visible in Needs language.
+language partition; a Catalog entry without a language is never offered.
 _Avoid_: detected language, inferred language (nothing is ever inferred from
 content).
 
+**Catalog**:
+The one surface where a learner finds and adds texts from every source: the
+Classical catalog and each OPDS catalog connection. It shows whether an entry is
+in My Books, never its disposition, analysis or preparation. Sources are shown
+side by side and never merged.
+_Avoid_: Catalogs (the retired plural label), library, Browse (the vocabulary
+view).
+
+**Catalog index**:
+A connection's local, synced mirror of the Catalog entries its OPDS catalog
+offers within the Catalog sync scope. It follows upstream, including removals,
+and is not learner state.
+_Avoid_: My Books, cache, feed.
+
 **Catalog entry**:
 An offering from a learner-owned catalog, identified by the catalog
-connection plus that connection's stable entry identifier. A Book may carry one
-catalog-entry alias per connection in the current OPDS flow; two connections may
-each offer the same entry identifier without identifying the same offering.
-_Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
+connection plus that connection's stable entry identifier. It is not a Book:
+adding it creates the learner's Book, or restores the one it had. A Book may
+carry one catalog-entry alias per connection in the current OPDS flow; two
+connections may each offer the same entry identifier without identifying the
+same offering.
+_Avoid_: source identifier on its own, OPDS entry (as a standalone identity),
+Book.
 
 **Catalog file**:
 The EPUB exactly as a Catalog entry's acquisition link serves it. Mouseion
@@ -541,11 +565,12 @@ _Avoid_: source span (its textual anchor), native token ID (source-scoped eviden
 A learner's bibliographic identity for a defined Reading unit, owned per learner
 and stable across acquisition, analysis, and content revisions. A Book is
 addressed by its owner-scoped Book ID; its current acquired source and analysis
-evidence are resolved underneath that identity. Books are catalog-derived or,
-for a classical text, added from the curated Classical catalog; a learner never
-creates one by manual entry. A
-Book is always in My Books once discovered; analysis is Book-level evidence,
-not membership state.
+evidence are resolved underneath that identity. A Book comes into being only
+when the learner adds a Catalog entry or Reading unit, or records it as
+Previously read; a learner never creates one by manual entry, and listing or
+syncing an entry never creates one. Removing a Book from My Books ends its
+membership but not the Book, and adding the same entry again restores it.
+Analysis is Book-level evidence, not membership state.
 _Avoid_: source material (the acquired evidence, not the identity), acquired
 book.
 
@@ -556,13 +581,14 @@ Book's title and author but is never its sole learner-facing identity.
 _Avoid_: cover art, thumbnail (a presentation size, not the Book metadata).
 
 **Book disposition**:
-A learner-and-Book-scoped triage relationship: Inbox or To Read. It
-follows the Book across language corrections and is independent of analysis,
+Whether a learner's Book is To Read. Adding a Book or reading it again makes it
+To Read; finishing it or marking it Previously read clears it. It follows the Book across language corrections and is independent of analysis,
 deck state, and reading history; the current Book remains To Read underneath.
 _Avoid_: book status, reading state, workflow state.
 
-**Hidden (Book visibility)**:
-An owner-and-Book choice stored apart from disposition (`book_visibility`; a
+**Hidden (Book visibility)** (retired):
+Retired by ADR 0117; removing the Book from My Books replaces it. Formerly an
+owner-and-Book choice stored apart from disposition (`book_visibility`; a
 missing row is a visible Book at revision 0). Hide/Unhide request a desired
 value against the expected visibility revision. It only removes the Book from
 default My Books and the default Reading chooser; it never changes disposition,
@@ -572,15 +598,15 @@ _Avoid_: archived, deleted, set aside.
 
 **Book workflow bucket**:
 The one visible My Books placement of a Book, derived in precedence order from
-Current reading, To Read, Read when history exists, then Inbox.
+Current reading, To Read, then Read. Every Book in My Books has one.
 Current reading is included in the To Read tab while retaining its distinct
 Currently reading label.
 _Avoid_: Book disposition, shelf.
 
 **My Books**:
-The learner's Book collection, browsed by study language, including untriaged
-Inbox Books and Books without a usable language. It owns disposition choices,
-not the decision to start reading.
+The learner's chosen Books, browsed by study language: each is Currently
+reading, To Read or Read. It owns To Read, Read again and Remove, but not
+finding texts (Catalog) or the decision to start reading (Reading).
 _Avoid_: library queue, reading plan.
 
 **Reading**:
@@ -592,8 +618,11 @@ position comes from the reviewed definition; a whole-work unit has none. It
 maintains no learner-authored order or automatic next Book.
 _Avoid_: Reading Journey, Primary Goal, reading queue.
 
-**Inbox**:
-The disposition of a Book with no explicit future-reading intent. It is the default for a newly discovered Book, and it does not mean the Book was never triaged.
+**Inbox** (retired):
+Retired by ADR 0117: a Book does not exist before the learner chooses it, so
+nothing is untriaged. Unread Inbox Books leave My Books and their entries stay
+in the Catalog. Formerly the disposition of a Book with no explicit
+future-reading intent. It is the default for a newly discovered Book, and it does not mean the Book was never triaged.
 Metadata changes or catalog reappearance do not recreate Inbox work. A Book
 marked previously read, and a Book whose reading was finished, leaves the
 visible Inbox for Read while Inbox remains its underlying disposition.
