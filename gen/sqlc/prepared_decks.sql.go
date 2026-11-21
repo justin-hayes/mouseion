@@ -1005,6 +1005,7 @@ SET state = 'completed', provider_status = $1, output_file_id = NULLIF($2::text,
     error_class = $9, error_code = $10, provider_completed_at = $11, reconciled_at = now(), last_polled_at = now(),
     reconciliation_claim_token = NULL, reconciliation_claimed_at = NULL, reconciliation_lease_expires_at = NULL, updated_at = now()
 WHERE owner_id = $12 AND preparation_id = $13 AND run_id = $14 AND id = $15
+  AND state = 'reconciling'
 RETURNING id, owner_id, preparation_id, run_id, chunk_index, generation, state, provider_status, model, endpoint, split_reason, first_ordinal, last_ordinal, input_digest, request_count, input_bytes, estimated_prompt_tokens, completed_count, failed_count, expired_count, input_file_id, batch_id, output_file_id, error_file_id, submission_job_id, submission_generation, submission_claim_token, submission_claimed_at, submission_lease_expires_at, reconciliation_job_id, reconciliation_generation, reconciliation_claim_token, reconciliation_claimed_at, reconciliation_lease_expires_at, error_class, error_code, input_tokens, output_tokens, total_tokens, created_at, updated_at, submitted_at, last_polled_at, provider_completed_at, reconciled_at, input_file_cleanup_state, output_file_cleanup_state, error_file_cleanup_state, input_file_cleanup_attempts, output_file_cleanup_attempts, error_file_cleanup_attempts, cleanup_error_class, cleanup_error_code, cleanup_claim_token, cleanup_claimed_at, cleanup_lease_expires_at, cleanup_completed_at
 `
 
@@ -4038,12 +4039,13 @@ func (q *Queries) StartPreparedDeckTranslation(ctx context.Context, arg StartPre
 	return err
 }
 
-const updatePreparedDeckOutcomeFromBatch = `-- name: UpdatePreparedDeckOutcomeFromBatch :exec
+const updatePreparedDeckOutcomeFromBatch = `-- name: UpdatePreparedDeckOutcomeFromBatch :execrows
 UPDATE deck_preparation_translation_outcomes
 SET state = $5, provider_attempt_count = GREATEST(provider_attempt_count, $6), next_attempt_at = now(),
     claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL, terminal_at = $7,
     error_class = $8, error_code = $9, omission_reason = $10, provider_call_count = provider_call_count + 1, updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
+  AND state IN ('pending', 'running')
 `
 
 type UpdatePreparedDeckOutcomeFromBatchParams struct {
@@ -4059,8 +4061,8 @@ type UpdatePreparedDeckOutcomeFromBatchParams struct {
 	OmissionReason       string
 }
 
-func (q *Queries) UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) error {
-	_, err := q.db.Exec(ctx, updatePreparedDeckOutcomeFromBatch,
+func (q *Queries) UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updatePreparedDeckOutcomeFromBatch,
 		arg.OwnerID,
 		arg.PreparationID,
 		arg.RunID,
@@ -4072,7 +4074,10 @@ func (q *Queries) UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg Up
 		arg.ErrorCode,
 		arg.OmissionReason,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updatePreparedDeckRunTranslationRunning = `-- name: UpdatePreparedDeckRunTranslationRunning :one

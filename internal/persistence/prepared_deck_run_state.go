@@ -248,7 +248,7 @@ func derivePreparedDeckStoredResults(projection cardexport.StorageProjection, ou
 // input, or reports that the outcome is not a match.
 func derivePreparedDeckStoredResult(item cardexport.ManifestItem, byOrdinal map[int]domain.PreparedDeckTranslationOutcome, byStoredOrdinal map[int]PreparedDeckStoredRecord) (cardexport.StoredResult, bool, error) {
 	outcome, ok := byOrdinal[item.Ordinal]
-	if !ok || (outcome.State != domain.PreparedDeckOutcomeCompleted && outcome.State != domain.PreparedDeckOutcomeFailed) || item.CacheKey == nil {
+	if !ok || !outcome.State.TranslationSettled() || item.CacheKey == nil {
 		return cardexport.StoredResult{}, false, ErrPreparedDeckIdentity
 	}
 	key := *item.CacheKey

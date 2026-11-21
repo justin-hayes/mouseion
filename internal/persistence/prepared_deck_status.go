@@ -265,7 +265,7 @@ func preparedDeckFailureClass(run domain.PreparedDeckRun, chunks []domain.Prepar
 		return run.ErrorClass
 	}
 	for _, chunk := range chunks {
-		if (chunk.State == domain.PreparedDeckBatchFailed || chunk.State == domain.PreparedDeckBatchAmbiguous) && chunk.ErrorClass != "" {
+		if chunk.State.FailureReported() && chunk.ErrorClass != "" {
 			return chunk.ErrorClass
 		}
 	}
@@ -301,14 +301,14 @@ func preparationPhase(state domain.DeckPreparationState, run domain.PreparedDeck
 		return "retrying"
 	}
 	for _, chunk := range chunks {
-		switch chunk.State {
-		case domain.PreparedDeckBatchReconciling:
-			return "reconciling"
-		case domain.PreparedDeckBatchSubmitted, domain.PreparedDeckBatchPolling:
-			return "waiting"
-		case domain.PreparedDeckBatchSubmitting, domain.PreparedDeckBatchPending:
+		switch {
+		case chunk.State.AwaitingSubmission():
 			return "submitting"
-		case domain.PreparedDeckBatchCompleted, domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
+		case chunk.State.AwaitingPoll():
+			return "waiting"
+		case chunk.State == domain.PreparedDeckBatchReconciling:
+			return "reconciling"
+		default:
 			// Terminal chunks do not determine an active phase.
 		}
 	}

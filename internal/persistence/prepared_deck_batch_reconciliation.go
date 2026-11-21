@@ -171,10 +171,10 @@ func reconcilePreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params Prepa
 		return false, missing(err)
 	}
 	outcome := preparedDeckOutcomeFromModel(outcomeModel)
-	if preparedDeckBatchOutcomeIsTerminal(outcome.State) {
+	if outcome.State.Terminal() {
 		return false, nil
 	}
-	if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeRunning {
+	if !outcome.State.Active() {
 		return false, ErrPreparedDeckIdentity
 	}
 	if item.State == domain.PreparedDeckOutcomePending && chunk.Generation >= run.MaxBatchGenerations {
@@ -186,7 +186,7 @@ func reconcilePreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params Prepa
 // validatePreparedDeckBatchItem enforces the per-item shape rules before any
 // durable outcome is touched.
 func validatePreparedDeckBatchItem(item PreparedDeckBatchItemReconciliation) error {
-	if item.State != domain.PreparedDeckOutcomeCompleted && item.State != domain.PreparedDeckOutcomePending && item.State != domain.PreparedDeckOutcomeFailed {
+	if !item.State.BatchSettable() {
 		return ErrInvalidTransition
 	}
 	if item.OmissionReason != "" && (item.State != domain.PreparedDeckOutcomeCompleted || strings.TrimSpace(item.OmissionReason) == "" || len([]rune(item.OmissionReason)) > 200 || strings.ContainsAny(item.OmissionReason, "<>") || item.ErrorClass != "" || item.ErrorCode != "" || item.CacheEntry != nil) {
@@ -196,12 +196,6 @@ func validatePreparedDeckBatchItem(item PreparedDeckBatchItemReconciliation) err
 		return ErrInvalidTransition
 	}
 	return validateBoundedError(item.ErrorClass, item.ErrorCode)
-}
-
-// preparedDeckBatchOutcomeIsTerminal reports whether an outcome is already
-// settled and must not be rewritten by a later reconciliation.
-func preparedDeckBatchOutcomeIsTerminal(state domain.PreparedDeckOutcomeState) bool {
-	return state == domain.PreparedDeckOutcomeCompleted || state == domain.PreparedDeckOutcomeFailed || state == domain.PreparedDeckOutcomeCancelled
 }
 
 // persistPreparedDeckBatchItem persists one item's cache entry and durable
@@ -250,11 +244,21 @@ func persistPreparedDeckBatchCache(ctx context.Context, tx pgx.Tx, member prepar
 }
 
 func updatePreparedDeckBatchOutcome(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, chunk domain.PreparedDeckBatchChunk, item PreparedDeckBatchItemReconciliation, terminalAt *time.Time) error {
-	return sqlcgen.New(tx).UpdatePreparedDeckOutcomeFromBatch(ctx, sqlcgen.UpdatePreparedDeckOutcomeFromBatchParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal, State: string(item.State), ProviderAttemptCount: chunk.Generation, TerminalAt: pgTimeArgPtr(terminalAt), ErrorClass: item.ErrorClass, ErrorCode: item.ErrorCode, OmissionReason: item.OmissionReason})
+	rows, err := sqlcgen.New(tx).UpdatePreparedDeckOutcomeFromBatch(ctx, sqlcgen.UpdatePreparedDeckOutcomeFromBatchParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal, State: string(item.State), ProviderAttemptCount: chunk.Generation, TerminalAt: pgTimeArgPtr(terminalAt), ErrorClass: item.ErrorClass, ErrorCode: item.ErrorCode, OmissionReason: item.OmissionReason})
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return ErrInvalidTransition
+	}
+	return nil
 }
 
 func completePreparedDeckBatchChunk(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams) (domain.PreparedDeckBatchChunk, error) {
 	model, err := sqlcgen.New(tx).CompletePreparedDeckBatchChunk(ctx, sqlcgen.CompletePreparedDeckBatchChunkParams{Owner: params.OwnerID, Preparation: params.PreparationID, Run: params.RunID, ID: params.ChunkID, ProviderStatus: textArg(params.Chunk.ProviderStatus), OutputFileID: params.Chunk.OutputFileID, ErrorFileID: params.Chunk.ErrorFileID, CompletedCount: params.Chunk.CompletedCount, FailedCount: params.Chunk.FailedCount, ExpiredCount: params.Chunk.ExpiredCount, InputTokens: params.Chunk.InputTokens, OutputTokens: params.Chunk.OutputTokens, ErrorClass: params.Chunk.ErrorClass, ErrorCode: params.Chunk.ErrorCode, ProviderCompletedAt: pgTimeArgPtr(params.Chunk.ProviderCompletedAt)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
+	}
 	if err != nil {
 		return domain.PreparedDeckBatchChunk{}, missing(err)
 	}
@@ -498,7 +502,7 @@ func preparedDeckRunReconciliationErrorClass(chunkClass string) string {
 }
 
 func (s *PostgresStore) FailPreparedDeckBatchSubmission(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string, state domain.PreparedDeckBatchChunkState, errorClass, errorCode string) (err error) {
-	if state != domain.PreparedDeckBatchFailed && state != domain.PreparedDeckBatchAmbiguous || validateBoundedError(errorClass, errorCode) != nil {
+	if !state.FailureReported() || validateBoundedError(errorClass, errorCode) != nil {
 		return ErrInvalidTransition
 	}
 	tx, err := s.pool.Begin(ctx)

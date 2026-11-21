@@ -90,16 +90,10 @@ func (w *BatchSubmitWorker) loadSubmissionChunk(ctx context.Context, args BatchS
 	if err != nil {
 		return domain.PreparedDeckBatchChunk{}, false, err
 	}
-	if chunk.Generation != args.Generation {
+	if chunk.Generation != args.Generation || chunk.State.SubmissionClosed() {
 		return chunk, false, nil
 	}
-	switch chunk.State {
-	case domain.PreparedDeckBatchSubmitted, domain.PreparedDeckBatchPolling, domain.PreparedDeckBatchReconciling, domain.PreparedDeckBatchCompleted,
-		domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
-		return chunk, false, nil
-	default:
-		return chunk, true, nil
-	}
+	return chunk, true, nil
 }
 
 // claimSubmissionWork fences the chunk for this attempt and closes exact cache
@@ -395,7 +389,7 @@ func submissionBatchItems(deck cardexport.FrozenDeck, ordinals []int, outcomes m
 		if !ok || !outcomeOK {
 			return nil, errors.New("invalid durable Batch item")
 		}
-		if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeCompleted {
+		if !outcome.State.BatchSubmittable() {
 			return nil, errors.New("invalid durable Batch outcome state")
 		}
 		work = append(work, item)

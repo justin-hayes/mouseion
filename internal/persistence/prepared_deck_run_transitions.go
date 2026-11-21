@@ -150,7 +150,7 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 }
 
 func validatePreparedDeckTerminalUpdate(update PreparedDeckOutcomeTerminalUpdate) error {
-	if update.State != domain.PreparedDeckOutcomeCompleted && update.State != domain.PreparedDeckOutcomeFailed {
+	if !update.State.TranslationSettled() {
 		return ErrInvalidTransition
 	}
 	if update.OmissionReason != "" && (update.State != domain.PreparedDeckOutcomeCompleted || update.ErrorClass != "" || update.ErrorCode != "" || len([]rune(update.OmissionReason)) > 200 || strings.ContainsAny(update.OmissionReason, "<>")) {
@@ -511,7 +511,7 @@ func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, 
 // (for example, a chunk whose remaining items became cache hits) behind the
 // submission fence.
 func (s *PostgresStore) FinishPreparedDeckBatchSubmission(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string, state domain.PreparedDeckBatchChunkState, errorClass, errorCode string) (domain.PreparedDeckBatchChunk, error) {
-	if state != domain.PreparedDeckBatchCompleted && state != domain.PreparedDeckBatchFailed && state != domain.PreparedDeckBatchAmbiguous {
+	if !state.SubmissionSettled() {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	if err := validateBoundedError(errorClass, errorCode); err != nil {
@@ -566,7 +566,7 @@ func (s *PostgresStore) VerifyPreparedDeckBatchSubmissionClaim(ctx context.Conte
 }
 
 func (s *PostgresStore) FinishPreparedDeckBatchReconciliation(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string, update PreparedDeckBatchReconciliationUpdate) (domain.PreparedDeckBatchChunk, error) {
-	if update.State != domain.PreparedDeckBatchCompleted && update.State != domain.PreparedDeckBatchFailed && update.State != domain.PreparedDeckBatchPolling {
+	if !update.State.ReconciliationUpdateAllowed() {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	if update.CompletedCount < 0 || update.FailedCount < 0 || update.ExpiredCount < 0 || update.InputTokens < 0 || update.OutputTokens < 0 {
