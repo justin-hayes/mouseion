@@ -114,7 +114,8 @@ func TestCatalogKeepsTheClassicalRecordAndShowsSourceStatusLines(t *testing.T) {
 		"Sync failed",
 		"Syncing",
 		"Never synced",
-		`action="/connections/fixture-connection/sync"`,
+		`action="/catalogs/sources/fixture-connection/sync"`,
+		`name="return" value="catalog"`,
 		`href="/catalogs/sources#connection-fixture-failed-connection"`,
 	} {
 		assert.Contains(t, body, want, "GET /catalogs missing %q", want)
@@ -457,9 +458,14 @@ func TestConnectionMutationsLandOnManageSources(t *testing.T) {
 	assert.Equal(t, "/catalogs/sources?message=Catalog+sync+submitted.", synced.Header().Get("Location"))
 
 	// The Catalog's own status lines keep returning to the Catalog.
-	catalogSync := readingTestRequest(t, h, "/connections/fixture-connection/sync", url.Values{"csrf_token": {csrf}}, cookies)
+	catalogSync := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/sync", url.Values{"csrf_token": {csrf}, "return": {"catalog"}}, cookies)
 	require.Equal(t, http.StatusSeeOther, catalogSync.Code)
 	assert.Equal(t, "/catalogs?message=Catalog+sync+submitted.", catalogSync.Header().Get("Location"))
+
+	// The retired legacy sync route remains supported and returns to the Catalog.
+	legacySync := readingTestRequest(t, h, "/connections/fixture-connection/sync", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, legacySync.Code)
+	assert.Equal(t, "/catalogs?message=Catalog+sync+submitted.", legacySync.Header().Get("Location"))
 
 	// The legacy mutation endpoints remain supported and land on Manage sources.
 	legacy := readingTestRequest(t, h, "/connections", url.Values{

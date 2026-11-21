@@ -19,7 +19,7 @@ import (
 )
 
 // ClassicalCatalogRecord is the built-in, read-only source on the Catalog. It
-// appears above the learner's OPDS connections and carries no setup, sync or
+// appears below the OPDS source status lines and carries no setup, sync or
 // credentials.
 func ClassicalCatalogRecord(counts classical.CatalogCounts) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

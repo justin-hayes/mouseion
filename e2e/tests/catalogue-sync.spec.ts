@@ -33,7 +33,7 @@ test.describe('catalog sources', () => {
     await expect(page.locator('#source-status-fixture-syncing-connection button[disabled]')).toHaveCount(1);
     await expect(page.locator('#source-status-fixture-syncing-connection').getByText('Sync already in progress.')).toBeVisible();
     await expect(page.locator('#source-status-fixture-failed-connection').getByRole('link', { name: 'Manage sources' })).toHaveAttribute('href', '/catalogs/sources#connection-fixture-failed-connection');
-    await expect(page.locator('.page-header__actions').getByRole('button', { name: 'Manage sources', exact: true })).toHaveAttribute('href', '/catalogs/sources');
+    await expect(page.locator('.page-header__actions').getByRole('link', { name: 'Manage sources', exact: true })).toHaveAttribute('href', '/catalogs/sources');
     await expect(page.getByRole('link', { name: 'View job status' }).first()).toHaveAttribute('href', '/jobs');
 
     // The Catalog keeps the built-in Classical source and does not manage connections.
@@ -102,7 +102,7 @@ test.describe('catalog sources', () => {
     try {
       await signIn(page);
       await page.goto('/catalogs');
-      const manageSources = page.locator('.page-header__actions').getByRole('button', { name: 'Manage sources', exact: true });
+      const manageSources = page.locator('.page-header__actions').getByRole('link', { name: 'Manage sources', exact: true });
       await expect(manageSources).toBeVisible();
       await manageSources.click();
       await expect(page).toHaveURL(/\/catalogs\/sources$/);
@@ -129,7 +129,7 @@ test.describe('catalog sources', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/catalogs');
 
-    const manage = page.locator('.page-header__actions').getByRole('button', { name: 'Manage sources', exact: true });
+    const manage = page.locator('.page-header__actions').getByRole('link', { name: 'Manage sources', exact: true });
     await manage.focus();
     await page.keyboard.press('Tab');
     await expect(page.locator('#source-status-fixture-connection').getByRole('button', { name: 'Sync now' })).toBeFocused();

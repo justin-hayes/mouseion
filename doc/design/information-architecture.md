@@ -177,7 +177,7 @@ The authenticated shell exposes four principal destinations:
 Catalog keeps the built-in, read-only **Classical catalog** with one index and a
 work page; the index groups every Work under its author and shows each Work's
 Opening, length and Add controls, and the retired author-detail URL redirects to
-that author's index section. In its header it shows one status line per OPDS
+that author's index section. At the top of the page it shows one status line per OPDS
 connection — never synced, syncing, last synced or sync failed — with **Sync
 now**; a failed line names the connection and links to **Manage sources**.
 Connection setup, credentials, editing, deletion, sync and failure recovery live

@@ -426,11 +426,13 @@ func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) redirectSyncOutcome(w http.ResponseWriter, r *http.Request, key, message string) {
-	if strings.HasPrefix(r.URL.Path, "/catalogs/sources") {
-		redirect(w, r, "/catalogs/sources?"+key+"="+url.QueryEscape(message))
-		return
+	target := "/catalogs/sources"
+	// The hidden field is the current contract; the legacy path stays a
+	// fallback for the retired POST /connections form while it is supported.
+	if r.PostFormValue("return") == "catalog" || strings.HasPrefix(r.URL.Path, "/connections") {
+		target = "/catalogs"
 	}
-	redirect(w, r, "/catalogs?"+key+"="+url.QueryEscape(message))
+	redirect(w, r, target+"?"+key+"="+url.QueryEscape(message))
 }
 
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {

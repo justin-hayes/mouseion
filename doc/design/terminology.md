@@ -42,7 +42,7 @@ completion** are not primary learner-facing concepts.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Catalog** | The authenticated destination at `/catalogs` for finding and adding texts from every source, including the built-in, read-only Classical catalog. It shows one sync status line per OPDS connection, with **Sync now**. | Catalogs (the retired plural label), library, Browse (the vocabulary view), Import books, ingest books |
+| **Catalog** | The authenticated destination at `/catalogs` for the built-in, read-only Classical catalog and one sync status line per OPDS connection, with **Sync now**. Connection setup lives on Manage sources. | Catalogs (the retired plural label), library, Browse (the vocabulary view), Import books, ingest books |
 | **Manage sources** | The connection-management page at `/catalogs/sources` for adding, editing and deleting an OPDS connection, saving credentials, running Sync now, and recovering a failed sync. | Catalog settings, admin catalog |
 | **Move to To Read** | Express reading intent for a My Books Book. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |

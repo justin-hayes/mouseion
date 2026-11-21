@@ -228,7 +228,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Catalog', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Manage sources', exact: true })).toBeVisible();
+    await expect(page.locator('.page-header__actions').getByRole('link', { name: 'Manage sources', exact: true })).toBeVisible();
     await expect(page.locator('#source-status-fixture-connection')).toContainText('Last synced');
     await expect(page.locator('#source-status-fixture-failed-connection')).toContainText('Authentication failed for this connection.');
     await expect(page.locator('#source-status-fixture-failed-connection').getByRole('link', { name: 'Manage sources' })).toHaveAttribute('href', '/catalogs/sources#connection-fixture-failed-connection');

@@ -212,7 +212,7 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	return view
 }
 
-func catalogueSyncStatusTone(view catalogueSyncConnectionView) StatusTone {
+func (view catalogueSyncConnectionView) Tone() StatusTone {
 	switch {
 	case view.Failed:
 		return StatusDanger

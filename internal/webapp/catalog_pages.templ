@@ -10,8 +10,8 @@ import (
 // configuration lives on Manage sources.
 templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage string, statuses map[string]domain.CatalogueSyncStatus, catalog *classical.Catalog) {
 	@ShellLayout("Catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
-		@PageHeader("Catalog", "Find texts from the Classical catalog and your OPDS sources, and add them to My Books.", nil) {
-			<a role="button" class="button button--outline" href="/catalogs/sources">Manage sources</a>
+		@PageHeader("Catalog", "Browse the Classical catalog and check that your OPDS sources are in sync.", nil) {
+			<a class="button button--outline" href="/catalogs/sources">Manage sources</a>
 		}
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
@@ -24,13 +24,13 @@ templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnec
 	}
 }
 
-// CatalogSourceStatuses is the Catalog header's compact source summary. Each
+// CatalogSourceStatuses is the Catalog page's compact source summary. Each
 // connection names itself, shows its sync state, and offers Sync now. A failed
 // sync points at Manage sources for recovery.
 templ CatalogSourceStatuses(csrf string, connections []domain.OpdsConnection, statuses map[string]domain.CatalogueSyncStatus) {
 	if len(connections) == 0 {
-		@EmptyState("No OPDS catalogs connected", "Connect a Calibre-Web or other OPDS catalog to find its ready-language books in the Catalog.") {
-			<a role="button" href="/catalogs/sources">Connect an OPDS catalog</a>
+		@EmptyState("No OPDS catalogs connected", "Connect a Calibre-Web or other OPDS catalog to sync its ready-language metadata.") {
+			<a href="/catalogs/sources">Connect an OPDS catalog</a>
 		}
 	} else {
 		<section class="catalog-sources" aria-labelledby="catalog-sources-heading">
@@ -39,7 +39,7 @@ templ CatalogSourceStatuses(csrf string, connections []domain.OpdsConnection, st
 				for _, connection := range connections {
 					{{ view := catalogueSyncConnectionViewFor(connection, statuses) }}
 					<li id={ "source-status-" + connection.ID } aria-labelledby={ "source-status-name-" + connection.ID }>
-						<p class="catalog-source-status__line"><strong id={ "source-status-name-" + connection.ID }>{ connection.Name }</strong> @StatusBadge(view.State, catalogueSyncStatusTone(view))</p>
+						<p class="catalog-source-status__line" role="status" aria-live="polite" aria-atomic="true"><strong id={ "source-status-name-" + connection.ID }>{ connection.Name }</strong> @StatusBadge(view.State, view.Tone())</p>
 						if view.HasLastSyncedAt {
 							<p>Last successful sync: <time datetime={ view.LastSyncedAtISO }>{ view.LastSyncedAt }</time></p>
 						}
@@ -51,13 +51,7 @@ templ CatalogSourceStatuses(csrf string, connections []domain.OpdsConnection, st
 						if view.UpsertSummary != "" {
 							<p>{ view.UpsertSummary }</p>
 						}
-						<div class="action-group">
-							<form method="post" action={ templ.SafeURL("/connections/" + connection.ID + "/sync") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit" disabled?={ view.Syncing }>Sync now</button></form>
-							if view.Syncing {
-								<span>Sync already in progress.</span>
-								<a href="/jobs">View job status</a>
-							}
-						</div>
+						<div class="action-group">@CatalogueSyncControl(csrf, connection, view, "catalog")</div>
 					</li>
 				}
 			</ul>
@@ -78,7 +72,7 @@ templ ManageSourcesPage(user domain.User, csrf string, connections []domain.Opds
 			@Feedback(FeedbackError, "", errorMessage)
 		}
 		if len(connections) == 0 {
-			@EmptyState("Add your first catalog connection", "A connection lets Mouseion sync ready-language bibliographic metadata into the Catalog. Your credentials stay private and are never shown again.") {
+			@EmptyState("Add your first catalog connection", "A connection lets Mouseion sync ready-language bibliographic metadata into My Books. Your credentials stay private and are never shown again.") {
 				<a href="#catalog-connection-form">Add catalog connection</a>
 			}
 		}
