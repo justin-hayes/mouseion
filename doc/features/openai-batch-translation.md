@@ -341,7 +341,7 @@ The implementation dependency waves were `#348 + #349` in parallel, then
 - [ADR 0021: Contextual translation cache and privacy](../adr/0021-contextual-translation-cache.md)
 - `internal/enrichment/llm.go:OpenAITranslationClient.Translate`
 - `internal/enrichment/enrichment.go:Service.EnrichExternal`
-- `internal/prepareddeck/cutover.go:BatchPlanner`
+- `internal/prepareddeck/planning.go:BatchPlanner`
 - `internal/prepareddeck/batch_submit.go:BatchSubmitWorker`
 - `cmd/server/main.go`
 - [OpenAI Batch API guide](https://developers.openai.com/api/docs/guides/batch.md)
