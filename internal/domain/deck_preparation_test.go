@@ -7,44 +7,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDeckPreparationStateTransitions(t *testing.T) {
+func TestDeckPreparationStateSets(t *testing.T) {
 	tests := []struct {
-		from, to DeckPreparationState
-		want     bool
+		state               DeckPreparationState
+		active, requeueable bool
 	}{
-		{DeckPreparationQueued, DeckPreparationPreparing, true},
-		{DeckPreparationQueued, DeckPreparationCancelled, true},
-		{DeckPreparationPreparing, DeckPreparationReady, true},
-		{DeckPreparationPreparing, DeckPreparationFailed, true},
-		{DeckPreparationPreparing, DeckPreparationCancelled, true},
-		{DeckPreparationFailed, DeckPreparationQueued, true},
-		{DeckPreparationCancelled, DeckPreparationQueued, true},
-		{DeckPreparationReady, DeckPreparationQueued, false},
-		{DeckPreparationFailed, DeckPreparationReady, false},
-		{DeckPreparationQueued, DeckPreparationReady, false},
+		{DeckPreparationQueued, true, false},
+		{DeckPreparationPreparing, true, false},
+		{DeckPreparationReady, false, false},
+		{DeckPreparationFailed, false, true},
+		{DeckPreparationCancelled, false, true},
 	}
 	for _, tt := range tests {
-		got := tt.from.CanTransitionTo(tt.to)
-		assert.Equal(t, tt.want, got, "%s -> %s = %v, want %v", tt.from, tt.to, got, tt.want)
+		t.Run(string(tt.state), func(t *testing.T) {
+			assert.Equal(t, tt.active, tt.state.Active(), "Active")
+			assert.Equal(t, tt.requeueable, tt.state.Requeueable(), "Requeueable")
+		})
 	}
 }
 
-func TestTerminalLifecycleStatesRejectCrossTransitions(t *testing.T) {
+func TestPreparedDeckRunStateSets(t *testing.T) {
 	tests := []struct {
-		name string
-		got  bool
+		state                     PreparedDeckRunState
+		active, finalizingOrLater bool
 	}{
-		{"deck preparation ready", DeckPreparationReady.CanTransitionTo(DeckPreparationQueued)},
-		{"run completed", PreparedDeckRunCompleted.CanTransitionTo(PreparedDeckRunFailed)},
-		{"run failed", PreparedDeckRunFailed.CanTransitionTo(PreparedDeckRunTranslating)},
-		{"run cancelled", PreparedDeckRunCancelled.CanTransitionTo(PreparedDeckRunTranslating)},
-		{"translation completed", PreparedDeckTranslationCompleted.CanTransitionTo(PreparedDeckTranslationRunning)},
-		{"translation failed", PreparedDeckTranslationFailed.CanTransitionTo(PreparedDeckTranslationPending)},
-		{"translation cancelled", PreparedDeckTranslationCancelled.CanTransitionTo(PreparedDeckTranslationPending)},
+		{PreparedDeckRunTranslating, true, false},
+		{PreparedDeckRunFinalizing, true, true},
+		{PreparedDeckRunCompleted, false, true},
+		{PreparedDeckRunFailed, false, false},
+		{PreparedDeckRunCancelled, false, false},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.False(t, tt.got, "terminal lifecycle state accepted a cross-transition")
+		t.Run(string(tt.state), func(t *testing.T) {
+			assert.Equal(t, tt.active, tt.state.Active(), "Active")
+			assert.Equal(t, tt.finalizingOrLater, tt.state.FinalizingOrLater(), "FinalizingOrLater")
+		})
+	}
+}
+
+func TestPreparedDeckTranslationStateSets(t *testing.T) {
+	tests := []struct {
+		state  PreparedDeckTranslationState
+		active bool
+	}{
+		{PreparedDeckTranslationPending, true},
+		{PreparedDeckTranslationRunning, true},
+		{PreparedDeckTranslationCompleted, false},
+		{PreparedDeckTranslationFailed, false},
+		{PreparedDeckTranslationCancelled, false},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.state), func(t *testing.T) {
+			assert.Equal(t, tt.active, tt.state.Active(), "Active")
 		})
 	}
 }

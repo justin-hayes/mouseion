@@ -156,14 +156,12 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	return FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, PendingOrdinals: pendingOrdinals, NeedsFinalizer: runFreeze.state == domain.PreparedDeckRunFinalizing}, err
 }
 
-// validateNewPreparedDeckRunFreeze checks everything that must hold before a new
-// run may be written: an accepting preparation, a valid frozen configuration,
-// and a manifest whose shape, cache identity and Batch plans match it.
+// validateNewPreparedDeckRunFreeze checks the inputs a new run needs: a valid
+// frozen configuration and a manifest whose shape, cache identity and Batch
+// plans match it. The attach write owns the accepting-state predicate, so a
+// settled preparation fails there and the caller rolls back what this freeze
+// wrote.
 func validateNewPreparedDeckRunFreeze(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, freezeState sqlcgen.GetDeckPreparationFreezeStateRow) (PreparedDeckRunConfig, preparedDeckManifestWork, error) {
-	preparationState := domain.DeckPreparationState(freezeState.State)
-	if preparationState != domain.DeckPreparationQueued && preparationState != domain.DeckPreparationPreparing {
-		return PreparedDeckRunConfig{}, preparedDeckManifestWork{}, ErrInvalidTransition
-	}
 	config, err := validatePreparedDeckRunConfig(params.Config)
 	if err != nil {
 		return PreparedDeckRunConfig{}, preparedDeckManifestWork{}, err
@@ -245,8 +243,12 @@ func writePreparedDeckRunFreeze(ctx context.Context, tx pgx.Tx, params FreezePre
 	if err != nil {
 		return nil, err
 	}
-	if err := sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: params.OwnerID, ID: params.PreparationID, CurrentRunID: uuidArg(freeze.runID)}); err != nil {
+	attached, err := sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: params.OwnerID, ID: params.PreparationID, CurrentRunID: uuidArg(freeze.runID)})
+	if err != nil {
 		return nil, err
+	}
+	if attached == 0 {
+		return nil, ErrInvalidTransition
 	}
 	return chunks, nil
 }

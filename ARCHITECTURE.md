@@ -198,13 +198,69 @@ flowchart TD
 
 ## Prepared-deck state
 
-SQL update predicates in
-[`sqlc/queries/prepared_decks.sql`](sqlc/queries/prepared_decks.sql) are the
-authority for the translation-outcome and Batch-chunk state transitions shown
-below. The domain holds no transition table for either machine; it only names
-their state sets. A write whose predicate matches no row returns the
-invalid-transition error, so a write against a disallowed state can never
-silently succeed.
+Each machine below is drawn from the SQL update predicates that write its state
+column, whether the statement lives in `sqlc/queries` or beside its caller. The
+domain deliberately holds no transition table: it names reusable state sets for
+Go code that chooses between outcomes, but a write against a row in any other
+state matches no row and returns the invalid-transition error.
+
+A ready preparation is terminal in this machine. Re-preparation retires it and
+creates a successor for the same Current reading snapshot, so no ready row ever
+changes state.
+
+### Deck preparation
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued: created
+    queued --> preparing: claimed, or a run is attached
+    preparing --> preparing: a run is attached
+    queued --> failed: enqueue failed
+    preparing --> failed: preparation or translation failed
+    preparing --> ready: artifact completed
+    queued --> cancelled
+    preparing --> cancelled
+    failed --> queued: retry or reprepare
+    cancelled --> queued: retry or reprepare
+    ready --> [*]
+```
+
+### Run
+
+```mermaid
+stateDiagram-v2
+    [*] --> translating: created with provider work
+    [*] --> finalizing: created with no provider work
+    translating --> finalizing: all translation work settled
+    translating --> failed: translation failed
+    translating --> cancelled
+    finalizing --> completed: artifact published
+    finalizing --> failed: finalization failed
+    finalizing --> cancelled
+    completed --> [*]
+    failed --> [*]
+    cancelled --> [*]
+```
+
+### Translation
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: created with provider work
+    [*] --> completed: created with no provider work
+    pending --> running: provider work starts
+    running --> running: a repeated run update marks it running
+    pending --> completed: translation settles as the run finalizes
+    running --> completed: translation settles as the run finalizes
+    pending --> failed: translation or run failed
+    running --> failed: translation or run failed
+    pending --> cancelled
+    running --> cancelled
+    completed --> failed: finalization fails (questioned in #2513)
+    completed --> [*]
+    failed --> [*]
+    cancelled --> [*]
+```
 
 ### Translation outcome
 
@@ -258,7 +314,6 @@ stateDiagram-v2
 Provider file cleanup is a separate per-file projection (`pending`, `deleted`,
 `failed`, `not_needed`); it records the durable result of deleting the Batch
 input, output and error files and never feeds back into the chunk state.
-
 ## Background jobs
 
 All background work runs in River inside the Go server process, on named

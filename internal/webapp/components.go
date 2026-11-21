@@ -481,7 +481,7 @@ func deckPreparationAttributes(preparation domain.DeckPreparation) templ.Attribu
 }
 
 func deckPreparationActive(preparation domain.DeckPreparation) bool {
-	return preparation.State == domain.DeckPreparationQueued || preparation.State == domain.DeckPreparationPreparing
+	return preparation.State.Active()
 }
 
 func preparationProgress(preparation domain.DeckPreparation) int {

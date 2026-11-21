@@ -197,7 +197,7 @@ func finishPreparedDeckTranslationOutcomeTx(ctx context.Context, tx pgx.Tx, owne
 }
 
 func preparedDeckRunAcceptsOutcome(run domain.PreparedDeckRun) bool {
-	return run.State == domain.PreparedDeckRunTranslating && (run.TranslationState == domain.PreparedDeckTranslationPending || run.TranslationState == domain.PreparedDeckTranslationRunning)
+	return run.State == domain.PreparedDeckRunTranslating && run.TranslationState.Active()
 }
 
 // standardRunMustFailForOutcomes reports whether a standard run's terminal

@@ -512,7 +512,7 @@ func (s *PostgresStore) CompleteDeckPreparation(ctx context.Context, owner, id s
 }
 
 func (s *PostgresStore) FailDeckPreparation(ctx context.Context, owner, id, message string) (domain.DeckPreparation, error) {
-	return s.transitionDeckPreparation(ctx, owner, id, domain.DeckPreparationFailed, message, "preparing")
+	return s.transitionDeckPreparation(ctx, owner, id, domain.DeckPreparationFailed, message, domain.DeckPreparationPreparing)
 }
 
 // FailPreparedDeckFinalization fences a completeness failure after a run has
@@ -541,16 +541,33 @@ func (s *PostgresStore) CancelDeckPreparation(ctx context.Context, owner, id str
 }
 
 func (s *PostgresStore) RetryDeckPreparation(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
-	return s.transitionDeckPreparation(ctx, owner, id, domain.DeckPreparationQueued, "", "failed", "cancelled")
+	return s.transitionDeckPreparation(ctx, owner, id, domain.DeckPreparationQueued, "", domain.RequeueableDeckPreparationStates()...)
 }
 
-func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id string, next domain.DeckPreparationState, message string, from ...string) (result domain.DeckPreparation, err error) {
+// RequeueDeckPreparationTx returns a failed or cancelled preparation to queued
+// inside the caller's transaction. The SQL predicate owns the allowed states.
+func RequeueDeckPreparationTx(ctx context.Context, tx pgx.Tx, owner, id string) (domain.DeckPreparation, error) {
+	model, err := sqlcgen.New(tx).RequeueDeckPreparation(ctx, sqlcgen.RequeueDeckPreparationParams{Owner: owner, ID: id})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.DeckPreparation{}, ErrInvalidTransition
+	}
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return deckPreparationFromModel(model), nil
+}
+
+func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id string, next domain.DeckPreparationState, message string, from ...domain.DeckPreparationState) (result domain.DeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	model, err := sqlcgen.New(tx).TransitionDeckPreparation(ctx, sqlcgen.TransitionDeckPreparationParams{NextState: string(next), Message: message, Owner: owner, ID: id, FromStates: from})
+	fromStates := make([]string, len(from))
+	for i, state := range from {
+		fromStates[i] = string(state)
+	}
+	model, err := sqlcgen.New(tx).TransitionDeckPreparation(ctx, sqlcgen.TransitionDeckPreparationParams{NextState: string(next), Message: message, Owner: owner, ID: id, FromStates: fromStates})
 	err = missing(err)
 	p := deckPreparationFromModel(model)
 	if errors.Is(err, ErrNotFound) {

@@ -344,11 +344,11 @@ SELECT sqlc.arg('owner')::uuid, sqlc.arg('preparation')::uuid, sqlc.arg('run')::
 FROM deck_preparation_manifest_items
 WHERE owner_id = sqlc.arg('owner') AND preparation_id = sqlc.arg('preparation') AND run_id = sqlc.arg('run') AND ordinal = sqlc.arg('ordinal');
 
--- name: AttachPreparedDeckRun :exec
+-- name: AttachPreparedDeckRun :execrows
 UPDATE deck_preparations
 SET state = 'preparing', current_run_id = $3, started_at = COALESCE(started_at, now()),
     completed_at = NULL, error = '', updated_at = now()
-WHERE owner_id = $1 AND id = $2;
+WHERE owner_id = $1 AND id = $2 AND state IN ('queued', 'preparing');
 
 -- name: SetPreparedDeckBatchSubmissionJob :execrows
 UPDATE deck_preparation_batch_chunks

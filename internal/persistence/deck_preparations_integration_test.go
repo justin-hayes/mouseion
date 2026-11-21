@@ -292,3 +292,46 @@ func createPreparation(t *testing.T, ctx context.Context, store *PostgresStore, 
 	require.NoError(t, err)
 	return p
 }
+
+// TestRequeueDeckPreparationStatePredicate pins the requeue write's SQL
+// from-state predicate against every preparation state, and checks that the
+// predicate agrees with the domain's named requeueable set.
+func TestRequeueDeckPreparationStatePredicate(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "requeue-owner", false)
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "requeue-book", Title: "Book", MediaType: "text/plain", ContentHash: "requeue-hash", Content: []byte("Buch"), FullText: "Buch"})
+	require.NoError(t, err)
+
+	states := []domain.DeckPreparationState{domain.DeckPreparationQueued, domain.DeckPreparationPreparing, domain.DeckPreparationReady, domain.DeckPreparationFailed, domain.DeckPreparationCancelled}
+	for _, state := range states {
+		t.Run(string(state), func(t *testing.T) {
+			preparation := createPreparation(t, ctx, store, owner.ID, source.ID, "requeue-"+string(state))
+			if state == domain.DeckPreparationReady {
+				_, err := store.Pool().Exec(ctx, `UPDATE deck_preparations SET state='ready', artifact=$3, completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID, []byte("deck"))
+				require.NoError(t, err)
+			} else {
+				_, err := store.Pool().Exec(ctx, `UPDATE deck_preparations SET state=$3 WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID, string(state))
+				require.NoError(t, err)
+			}
+
+			tx, err := store.Pool().Begin(ctx)
+			require.NoError(t, err)
+			defer rollbackIntegrationTx(t, ctx, tx)
+			requeued, err := RequeueDeckPreparationTx(ctx, tx, owner.ID, preparation.ID)
+			if state.Requeueable() {
+				require.NoError(t, err)
+				assert.Equal(t, domain.DeckPreparationQueued, requeued.State)
+				return
+			}
+			require.ErrorIs(t, err, ErrInvalidTransition)
+
+			var storedState string
+			require.NoError(t, tx.QueryRow(ctx, `SELECT state FROM deck_preparations WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID).Scan(&storedState))
+			t.Run("the state is unchanged", func(t *testing.T) {
+				assert.Equal(t, string(state), storedState)
+			})
+		})
+	}
+}
