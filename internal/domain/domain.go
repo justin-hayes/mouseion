@@ -332,9 +332,17 @@ type SourceMaterialSummary struct {
 // is reported as if the Book were To Read with its source language chosen;
 // callers that need the learner's actual eligibility use MyBook.Classification.
 func (s SourceMaterialSummary) EvidenceClassification() BookEvidenceClassification {
+	return s.EvidenceClassificationWithPreparation(nil)
+}
+
+// EvidenceClassificationWithPreparation classifies this source's Analysis
+// evidence with the Book's preparation state. The preparation state applies
+// only while no analysis is in effect.
+func (s SourceMaterialSummary) EvidenceClassificationWithPreparation(preparation *ClassicalPreparationStatus) BookEvidenceClassification {
 	signals := s.Signals
 	signals.CurrentReading = s.IsCurrentReading
 	signals.PipelineOutdated = s.AnalysisUpdate != nil
+	signals.ClassicalPreparation = preparation
 	return ClassifyBookEvidence(signals, BookDispositionToRead, s.Source.Language)
 }
 

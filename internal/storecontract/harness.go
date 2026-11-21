@@ -156,6 +156,9 @@ type Seeder interface {
 	// SeedClassicalCatalog installs the Classical release the contract's Add
 	// scenarios resolve Reading units from.
 	SeedClassicalCatalog(t *testing.T)
+	// SeedClassicalPreparationFailure records the preparation failure the Book
+	// presents while no analysis is in effect.
+	SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, failure domain.ClassicalPreparationFailure)
 }
 
 // Scenario is one behavior every adapter must hold.
@@ -175,6 +178,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, lemmaReviewScenarios()...)
 	scenarios = append(scenarios, greekScenarios()...)
 	scenarios = append(scenarios, classicalScenarios()...)
+	scenarios = append(scenarios, classicalPreparationScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }
 

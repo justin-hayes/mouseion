@@ -156,6 +156,43 @@ func classicalScenarios() []Scenario {
 	}}
 }
 
+// classicalPreparationScenarios pin the classification a seeded Classical
+// preparation failure presents. Both adapters must feed the same preparation
+// state into the domain classification.
+func classicalPreparationScenarios() []Scenario {
+	cases := []struct {
+		failure  domain.ClassicalPreparationFailure
+		evidence domain.BookEvidenceState
+		recovery domain.BookEvidenceRecovery
+	}{
+		{failure: domain.ClassicalPreparationFailureFetch, evidence: domain.BookUnavailable, recovery: domain.RecoveryRetryAcquisition},
+		{failure: domain.ClassicalPreparationFailureImport, evidence: domain.BookAcquiredUnassessed, recovery: domain.RecoveryRetryAnalysis},
+		{failure: domain.ClassicalPreparationFailureSource, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
+		{failure: domain.ClassicalPreparationFailureWithdrawn, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
+		{failure: domain.ClassicalPreparationFailureCatalog, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
+	}
+	return []Scenario{{
+		Name: "a seeded classical preparation failure classifies for every stage",
+		Run: func(t *testing.T, h Harness) {
+			h.Seeds().SeedClassicalCatalog(t)
+			owner := h.Seeds().Owner()
+			report, err := h.Classical().AddClassicalReadingUnits(owner, []string{ClassicalUnitBook1Key})
+			require.NoError(t, err)
+			bookID := report.Books[0].BookID
+			for _, tc := range cases {
+				t.Run(string(tc.failure), func(t *testing.T) {
+					h.Seeds().SeedClassicalPreparationFailure(t, owner, bookID, tc.failure)
+					classification := requireDetail(t, h, owner, bookID).Classification()
+					require.NotNil(t, classification.ClassicalPreparation, "%s", tc.failure)
+					assert.Equal(t, tc.failure, classification.ClassicalPreparation.Failure, "%s", tc.failure)
+					assert.Equal(t, tc.evidence, classification.Evidence, "%s", tc.failure)
+					assert.Equal(t, tc.recovery, classification.Recovery, "%s", tc.failure)
+				})
+			}
+		},
+	}}
+}
+
 func ownedClassicalUnits(t *testing.T, h Harness, owner string) map[string]classical.OwnedReadingUnit {
 	t.Helper()
 	owned, err := h.Classical().ListOwnedClassicalReadingUnits(owner)

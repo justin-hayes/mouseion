@@ -217,7 +217,8 @@ func (b MyBookBucket) PersistedDisposition() (BookDisposition, bool) {
 
 // Classification classifies this Book's Analysis evidence with its disposition
 // and chosen language, so eligibility reflects the learner's Book. A Book with
-// no acquired source has no signals.
+// no acquired source has no signals. A Classical preparation state shapes the
+// evidence only while no analysis is in effect.
 func (m MyBook) Classification() BookEvidenceClassification {
 	var signals AnalysisSignals
 	if m.Acquired != nil {
@@ -225,6 +226,7 @@ func (m MyBook) Classification() BookEvidenceClassification {
 		signals.PipelineOutdated = m.Acquired.AnalysisUpdate != nil
 	}
 	signals.CurrentReading = m.IsCurrentReading
+	signals.ClassicalPreparation = BookClassicalPreparation(m.ReadingUnit, m.ClassicalPreparation)
 	language := ""
 	if m.Book.LanguageState == LanguageChosen {
 		language = m.Book.LanguageTag

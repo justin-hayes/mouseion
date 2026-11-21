@@ -165,8 +165,10 @@ func (s *Store) applyFixtureBookEvidenceLocked(book *domain.MyBook) {
 	}
 	// A classical Book represents completed preparation once it is To Read.
 	// The evidence is a read-model projection; Add still stores a
-	// metadata-only Book.
-	if book.ReadingUnit != nil && book.Disposition == domain.BookDispositionToRead && book.Acquired == nil {
+	// metadata-only Book. A seeded preparation state is the Book's evidence, so
+	// the fixture does not project a completed analysis over it.
+	if book.ReadingUnit != nil && book.Disposition == domain.BookDispositionToRead &&
+		book.Acquired == nil && book.ClassicalPreparation == nil {
 		book.Acquired = fixtureClassicalSource(book.Book.OwnerID, book.Book.ID, *book.ReadingUnit)
 	}
 	if s.fixtureBookIsCurrentReading(book.Book.OwnerID, book.Book.ID) {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClassifyBookEvidenceReproducesPresentationStates(t *testing.T) {
@@ -221,6 +222,133 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestClassifyBookEvidenceClassifiesClassicalPreparation(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   ClassicalPreparationStatus
+		evidence BookEvidenceState
+		phase    AnalysisPhase
+		recovery BookEvidenceRecovery
+	}{
+		{
+			name:     "fetch failure offers retry acquisition",
+			status:   ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch},
+			evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,
+		},
+		{
+			name:     "import failure is a failed analysis with retry",
+			status:   ClassicalPreparationStatus{Failure: ClassicalPreparationFailureImport},
+			evidence: BookAcquiredUnassessed, phase: PhaseFailed, recovery: RecoveryRetryAnalysis,
+		},
+		{
+			name:     "refused source is terminal",
+			status:   ClassicalPreparationStatus{Failure: ClassicalPreparationFailureSource},
+			evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryNone,
+		},
+		{
+			name:     "withdrawn definition keeps its own state",
+			status:   ClassicalPreparationStatus{Failure: ClassicalPreparationFailureWithdrawn, Withdrawn: true},
+			evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryNone,
+		},
+		{
+			name:     "catalog precondition is terminal",
+			status:   ClassicalPreparationStatus{Failure: ClassicalPreparationFailureCatalog},
+			evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
+		},
+		{
+			name:     "in-progress preparation offers no recovery",
+			status:   ClassicalPreparationStatus{State: ClassicalPreparationRunning},
+			evidence: BookAcquiredUnassessed, phase: PhaseAnalyzing, recovery: RecoveryNone,
+		},
+		{
+			name:     "cleared failure offers retry preparation",
+			status:   ClassicalPreparationStatus{Cleared: true, FailureRevision: 1, CurrentRevision: 2},
+			evidence: BookAcquiredUnassessed, phase: PhaseNotAnalyzed, recovery: RecoveryRetryPreparation,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := tt.status
+			signals := AnalysisSignals{Content: ContentNotAcquired, ClassicalPreparation: &status}
+			got := ClassifyBookEvidence(signals, BookDispositionToRead, "grc")
+			require.NotNil(t, got.ClassicalPreparation)
+			assert.Equal(t, status, *got.ClassicalPreparation)
+			assert.Equal(t, tt.evidence, got.Evidence, "evidence")
+			assert.Equal(t, tt.phase, got.Phase, "phase")
+			assert.Equal(t, tt.recovery, got.Recovery, "recovery")
+		})
+	}
+}
+
+func TestClassifyBookEvidenceIgnoresPreparationWhileAnalysisInEffect(t *testing.T) {
+	for _, failure := range []ClassicalPreparationFailure{
+		ClassicalPreparationFailureFetch, ClassicalPreparationFailureImport,
+		ClassicalPreparationFailureSource, ClassicalPreparationFailureWithdrawn,
+		ClassicalPreparationFailureCatalog,
+	} {
+		t.Run(string(failure), func(t *testing.T) {
+			status := ClassicalPreparationStatus{Failure: failure, Withdrawn: failure == ClassicalPreparationFailureWithdrawn}
+			signals := AnalysisSignals{
+				Content:              ContentCurrentImported,
+				Published:            PublishedCurrent,
+				LatestRun:            RunCompleted,
+				ClassicalPreparation: &status,
+			}
+			got := ClassifyBookEvidence(signals, BookDispositionToRead, "grc")
+			assert.Nil(t, got.ClassicalPreparation, "a %s failure never overrides an analysis", failure)
+			assert.Equal(t, BookAnalyzed, got.Evidence)
+			assert.Equal(t, PhaseAnalyzed, got.Phase)
+			assert.Equal(t, RecoveryNone, got.Recovery)
+			assert.True(t, got.AnalysisInEffect())
+		})
+	}
+
+	t.Run("shadowed run", func(t *testing.T) {
+		shadowed := ClassicalPreparationStatus{Failure: ClassicalPreparationFailureImport}
+		got := ClassifyBookEvidence(AnalysisSignals{
+			Content:              ContentCurrentImported,
+			Published:            PublishedCurrent,
+			LatestRun:            RunFailed,
+			ClassicalPreparation: &shadowed,
+		}, BookDispositionToRead, "grc")
+		assert.Nil(t, got.ClassicalPreparation, "a failure never overrides a published analysis under a shadowed run")
+		assert.Equal(t, BookAnalyzed, got.Evidence)
+		assert.Equal(t, RecoveryRetryAnalysis, got.Recovery)
+	})
+}
+
+func TestClassifyBookEvidenceIgnoresAZeroPreparationStatus(t *testing.T) {
+	status := ClassicalPreparationStatus{}
+	got := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, ClassicalPreparation: &status}, BookDispositionToRead, "grc")
+	assert.Nil(t, got.ClassicalPreparation)
+	assert.Equal(t, BookAcquiredUnassessed, got.Evidence)
+	assert.Equal(t, RecoveryNone, got.Recovery)
+}
+
+func TestApplyClassicalPreparationFailureLeavesAnEmptyStageAlone(t *testing.T) {
+	classification := BookEvidenceClassification{
+		Evidence: BookAnalyzed, Phase: PhaseAnalyzed, Recovery: RecoveryRetryAnalysis,
+	}
+	applyClassicalPreparationFailure(&classification, ClassicalPreparationFailureNone)
+	assert.Equal(t, BookAnalyzed, classification.Evidence)
+	assert.Equal(t, PhaseAnalyzed, classification.Phase)
+	assert.Equal(t, RecoveryRetryAnalysis, classification.Recovery)
+}
+
+func TestMyBookClassificationIncludesWithdrawnPreparation(t *testing.T) {
+	book := MyBook{
+		Book:        Book{LanguageState: LanguageChosen, LanguageTag: "grc"},
+		Disposition: BookDispositionToRead,
+		ReadingUnit: &BookReadingUnit{Revision: 2, Withdrawn: true},
+	}
+	got := book.Classification()
+	require.NotNil(t, got.ClassicalPreparation)
+	assert.True(t, got.ClassicalPreparation.Withdrawn)
+	assert.Equal(t, ClassicalPreparationFailureWithdrawn, got.ClassicalPreparation.Failure)
+	assert.Equal(t, BookUnavailable, got.Evidence)
+	assert.Equal(t, RecoveryNone, got.Recovery)
 }
 
 func TestBookEvidenceClassificationReAnalysisShadowedByPublishedAnalysis(t *testing.T) {

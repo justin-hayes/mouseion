@@ -103,6 +103,31 @@ func TestFixtureClassicalToReadProjectionMakesOneBookReadyForTheChooser(t *testi
 	assert.True(t, detail.Classification().AnalysisInEffect())
 }
 
+func TestFixtureClassicalPreparationFailureClassifiesLikePostgres(t *testing.T) {
+	store := NewStore()
+	report, err := store.AddClassicalReadingUnits(context.Background(), OwnerID, []string{"fixture-iliad-1"})
+	require.NoError(t, err)
+	bookID := report.Books[0].BookID
+	detail, err := store.GetBookDetail(context.Background(), OwnerID, bookID)
+	require.NoError(t, err)
+	require.NotNil(t, detail.ReadingUnit)
+
+	revision := detail.ReadingUnit.Revision
+	require.True(t, store.seedClassicalPreparationFailure(OwnerID, bookID, domain.ClassicalPreparationStatus{
+		Failure: domain.ClassicalPreparationFailureFetch, FailureRevision: revision, CurrentRevision: revision,
+	}))
+	detail, err = store.GetBookDetail(context.Background(), OwnerID, bookID)
+	require.NoError(t, err)
+	require.NotNil(t, detail.ClassicalPreparation)
+	classification := detail.Classification()
+	require.NotNil(t, classification.ClassicalPreparation)
+	assert.Equal(t, domain.ClassicalPreparationFailureFetch, classification.ClassicalPreparation.Failure)
+	assert.Equal(t, domain.BookUnavailable, classification.Evidence)
+	assert.Equal(t, domain.RecoveryRetryAcquisition, classification.Recovery)
+
+	assert.False(t, store.seedClassicalPreparationFailure(OwnerID, "missing-book", domain.ClassicalPreparationStatus{}))
+}
+
 func TestFixtureClassicalAddRejectsIncompleteRequests(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()

@@ -268,6 +268,21 @@ func WithdrawnClassicalPreparationStatus(unit BookReadingUnit) ClassicalPreparat
 	}
 }
 
+// BookClassicalPreparation resolves the preparation state that applies to a
+// Book from its Reading unit and durable status. A withdrawn unit without a
+// durable status has the stable withdrawn status, so every reader shows the same
+// state.
+func BookClassicalPreparation(unit *BookReadingUnit, status *ClassicalPreparationStatus) *ClassicalPreparationStatus {
+	if status != nil {
+		return status
+	}
+	if unit != nil && unit.Withdrawn {
+		withdrawn := WithdrawnClassicalPreparationStatus(*unit)
+		return &withdrawn
+	}
+	return nil
+}
+
 // ClassicalPreparationJob is one classical preparation shown in the jobs
 // surface. BookTitle is the learner's Book title; State is River's job state.
 // Code is the stable code recorded for a failed attempt.

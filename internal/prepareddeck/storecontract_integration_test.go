@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
+	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -97,6 +98,45 @@ func (h *postgresHarness) ListOwnedClassicalReadingUnits(owner string) ([]classi
 func (h *postgresHarness) SeedClassicalCatalog(t *testing.T) {
 	t.Helper()
 	require.NoError(t, h.store.ReconcileClassicalManifest(h.ctx, storecontract.ClassicalDefinitions()))
+}
+
+// SeedClassicalPreparationFailure writes the durable failure row the Book would
+// carry after a preparation attempt settled.
+func (h *postgresHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, failure domain.ClassicalPreparationFailure) {
+	t.Helper()
+	detail, err := h.store.GetBookDetail(h.ctx, owner, bookID)
+	require.NoError(t, err)
+	require.NotNil(t, detail.ReadingUnit)
+	h.exec(t, `
+		INSERT INTO classical_preparation_failures
+			(owner_id, book_id, reading_unit_key, definition_revision, stage, code)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (owner_id, book_id) DO UPDATE
+		SET reading_unit_key = EXCLUDED.reading_unit_key,
+		    definition_revision = EXCLUDED.definition_revision,
+		    stage = EXCLUDED.stage,
+		    code = EXCLUDED.code`,
+		owner, bookID, detail.ReadingUnit.ReadingUnitKey, detail.ReadingUnit.Revision,
+		string(failure), classicalPreparationFailureCode(failure))
+}
+
+// classicalPreparationFailureCode is a representative durable code for each
+// stage, so the seeded row satisfies the schema's stage and code checks.
+func classicalPreparationFailureCode(failure domain.ClassicalPreparationFailure) string {
+	switch failure {
+	case domain.ClassicalPreparationFailureFetch:
+		return ancientgreek.CodeSourceDownloadFailed
+	case domain.ClassicalPreparationFailureSource:
+		return ancientgreek.CodePinMismatch
+	case domain.ClassicalPreparationFailureWithdrawn:
+		return classical.WithdrawnCode
+	case domain.ClassicalPreparationFailureCatalog:
+		return classical.LegacyRowsCode
+	case domain.ClassicalPreparationFailureImport:
+		return classical.PreparationFailedCode
+	case domain.ClassicalPreparationFailureNone:
+	}
+	return classical.PreparationFailedCode
 }
 
 func (h *postgresHarness) Owner() string      { return h.owner }

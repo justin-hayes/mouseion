@@ -35,22 +35,24 @@ type classicalPreparationView struct {
 
 // classicalPreparationFor returns the Book's preparation presentation, or
 // ok=false for an ordinary Book, a prepared Book, or a Book that never
-// attempted preparation.
+// attempted preparation. The domain classification decides whether the state
+// applies and which recovery it offers; this function only maps it to prose.
 func classicalPreparationFor(book domain.MyBook) (classicalPreparationView, bool) {
-	status := book.ClassicalPreparation
 	if book.ReadingUnit == nil {
 		return classicalPreparationView{}, false
 	}
-	if book.Classification().AnalysisInEffect() {
-		return classicalPreparationView{}, false
-	}
-	if status == nil && book.ReadingUnit.Withdrawn {
-		return classicalPreparationViewFor(domain.WithdrawnClassicalPreparationStatus(*book.ReadingUnit)), true
-	}
+	return classicalPreparationViewForClassification(book.Classification())
+}
+
+// classicalPreparationViewForClassification renders the preparation state the
+// classification carries. An Analysis in effect drops the state, so a failure
+// never replaces a published analysis.
+func classicalPreparationViewForClassification(classification domain.BookEvidenceClassification) (classicalPreparationView, bool) {
+	status := classification.ClassicalPreparation
 	if status == nil {
 		return classicalPreparationView{}, false
 	}
-	return classicalPreparationViewFor(*status), true
+	return classicalPreparationViewFor(*status, classification.Recovery), true
 }
 
 // classicalPreparationTone is the status tone for a preparation state. A
@@ -71,9 +73,27 @@ func classicalPreparationTone(status domain.ClassicalPreparationStatus) StatusTo
 	return StatusInfo
 }
 
-// classicalPreparationViewFor maps the durable status onto learner words and
-// the one valid recovery.
-func classicalPreparationViewFor(status domain.ClassicalPreparationStatus) classicalPreparationView {
+// classicalPreparationViewFor maps the durable status onto learner words. The
+// recovery action is the classification's; the label and description stay here.
+func classicalPreparationViewFor(status domain.ClassicalPreparationStatus, recovery domain.BookEvidenceRecovery) classicalPreparationView {
+	view := classicalPreparationViewForStatus(status)
+	switch recovery {
+	case domain.RecoveryRetryAcquisition:
+		view.Recovery = classicalRetryAcquisitionLabel
+		view.Actionable = true
+	case domain.RecoveryRetryAnalysis:
+		view.Recovery = classicalRetryAnalysisLabel
+		view.Actionable = true
+	case domain.RecoveryRetryPreparation:
+		view.Recovery = classicalRetryPreparationLabel
+		view.Actionable = true
+	case domain.RecoveryNone:
+	}
+	return view
+}
+
+// classicalPreparationViewForStatus chooses the learner words for one state.
+func classicalPreparationViewForStatus(status domain.ClassicalPreparationStatus) classicalPreparationView {
 	if status.Withdrawn {
 		return classicalPreparationView{
 			Label:       classicalWithdrawnLabel,
@@ -87,20 +107,22 @@ func classicalPreparationViewFor(status domain.ClassicalPreparationStatus) class
 			InProgress:  true,
 		}
 	}
+	if status.Cleared {
+		return classicalPreparationView{
+			Label:       classicalAnalysisNotStarted,
+			Description: "A newer definition revision is available. Retry preparation to prepare this Book.",
+		}
+	}
 	switch status.Failure {
 	case domain.ClassicalPreparationFailureFetch:
 		return classicalPreparationView{
 			Label:       classicalAssessmentUnavailable,
 			Description: "The reviewed source could not be downloaded, so there is no assessment yet. Retry acquisition to prepare this Book.",
-			Recovery:    classicalRetryAcquisitionLabel,
-			Actionable:  true,
 		}
 	case domain.ClassicalPreparationFailureImport:
 		return classicalPreparationView{
 			Label:       classicalAnalysisFailedLabel,
 			Description: "The source was acquired, but its analysis could not be published. Retry analysis to prepare this Book.",
-			Recovery:    classicalRetryAnalysisLabel,
-			Actionable:  true,
 		}
 	case domain.ClassicalPreparationFailureSource:
 		return classicalPreparationView{
@@ -118,14 +140,6 @@ func classicalPreparationViewFor(status domain.ClassicalPreparationStatus) class
 			Description: classicalWithdrawnDescription,
 		}
 	case domain.ClassicalPreparationFailureNone:
-	}
-	if status.Cleared {
-		return classicalPreparationView{
-			Label:       classicalAnalysisNotStarted,
-			Description: "A newer definition revision is available. Retry preparation to prepare this Book.",
-			Recovery:    classicalRetryPreparationLabel,
-			Actionable:  true,
-		}
 	}
 	return classicalPreparationView{}
 }

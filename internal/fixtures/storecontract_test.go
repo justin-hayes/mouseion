@@ -217,4 +217,17 @@ func (h *contractHarness) ListOwnedClassicalReadingUnits(owner string) ([]classi
 func (h *contractHarness) SeedClassicalCatalog(*testing.T) {
 	h.store.setClassicalDefinitions(storecontract.ClassicalDefinitions())
 }
+
+func (h *contractHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, failure domain.ClassicalPreparationFailure) {
+	t.Helper()
+	detail, err := h.store.GetBookDetail(context.Background(), owner, bookID)
+	require.NoError(t, err)
+	require.NotNil(t, detail.ReadingUnit)
+	revision := detail.ReadingUnit.Revision
+	status := domain.ClassicalPreparationStatus{
+		Failure: failure, FailureRevision: revision, CurrentRevision: revision,
+		Withdrawn: failure == domain.ClassicalPreparationFailureWithdrawn,
+	}
+	require.True(t, h.store.seedClassicalPreparationFailure(owner, bookID, status))
+}
 func (h *contractHarness) Seeds() storecontract.Seeder { return h }

@@ -65,6 +65,10 @@ type AnalysisSignals struct {
 	// an Analysis pipeline identity other than the current one. It never changes
 	// the evidence state; it only feeds the Analysis update offer (ADR 0107).
 	PipelineOutdated bool
+	// ClassicalPreparation is a classical Book's preparation state. It applies
+	// only while no analysis is in effect: a preparation failure never hides a
+	// published analysis.
+	ClassicalPreparation *ClassicalPreparationStatus
 }
 
 // AnalysisPhase is the Book's analysis status as My Books and Reading present
@@ -90,18 +94,23 @@ const (
 	RecoveryNone             BookEvidenceRecovery = "none"
 	RecoveryRetryAcquisition BookEvidenceRecovery = "retry-acquisition"
 	RecoveryRetryAnalysis    BookEvidenceRecovery = "retry-analysis"
+	RecoveryRetryPreparation BookEvidenceRecovery = "retry-preparation"
 )
 
 // BookEvidenceClassification is the domain's reading of a Book's signals,
 // disposition, and language. Presentation reads these results rather than
 // re-deriving them from signals.
 type BookEvidenceClassification struct {
-	Content     ContentSignal
-	Evidence    BookEvidenceState
-	Phase       AnalysisPhase
-	Run         LatestRunSignal
-	Eligibility CurrentReadingEligibilityReason
-	Recovery    BookEvidenceRecovery
+	Content  ContentSignal
+	Evidence BookEvidenceState
+	Phase    AnalysisPhase
+	Run      LatestRunSignal
+	// ClassicalPreparation is the preparation state that shaped Evidence and
+	// Recovery. It is nil when the Book is not classical, has no preparation
+	// state, or has an analysis in effect.
+	ClassicalPreparation *ClassicalPreparationStatus
+	Eligibility          CurrentReadingEligibilityReason
+	Recovery             BookEvidenceRecovery
 	// Update is the Analysis update offer, which is independent of Evidence.
 	Update AnalysisUpdateOffer
 }
@@ -154,14 +163,15 @@ func newerRun(run LatestRunSignal) bool {
 // ClassifyBookEvidence is the single domain entry point for Analysis evidence,
 // Current reading eligibility, and recovery. Disposition and language affect
 // only eligibility; a zero disposition or an empty language is not To Read or
-// chosen.
+// chosen. A Classical preparation state decides Evidence and Recovery only
+// while no analysis is in effect (ADR 0052).
 func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, language string) BookEvidenceClassification {
 	content := signals.Content
 	if content == "" {
 		content = ContentNotAcquired
 	}
 	phase := analysisPhase(signals)
-	return BookEvidenceClassification{
+	classification := BookEvidenceClassification{
 		Content:     content,
 		Evidence:    evidenceState(content, phase),
 		Phase:       phase,
@@ -170,6 +180,85 @@ func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, 
 		Recovery:    recoveryAction(content, signals, phase),
 		Update:      analysisUpdateOffer(content, signals, disposition),
 	}
+	if preparation := applicableClassicalPreparation(signals, classification); preparation != nil {
+		classification.ClassicalPreparation = preparation
+		applyClassicalPreparation(&classification, preparation)
+	}
+	return classification
+}
+
+// applicableClassicalPreparation returns the preparation state that shapes the
+// classification. A settled failure or an in-flight preparation applies only
+// while no analysis is in effect, so it never overrides a published analysis.
+func applicableClassicalPreparation(signals AnalysisSignals, classification BookEvidenceClassification) *ClassicalPreparationStatus {
+	preparation := signals.ClassicalPreparation
+	if preparation == nil || classification.AnalysisInEffect() {
+		return nil
+	}
+	if !preparation.InProgress() && !preparation.Cleared && !preparation.Withdrawn &&
+		preparation.Failure == ClassicalPreparationFailureNone {
+		return nil
+	}
+	return preparation
+}
+
+// applyClassicalPreparation maps a preparation state onto the learner-facing
+// evidence state and the one recovery action it offers. Labels stay in the web
+// app; the decision is the domain's.
+func applyClassicalPreparation(classification *BookEvidenceClassification, preparation *ClassicalPreparationStatus) {
+	switch {
+	case preparation.Withdrawn:
+		applyClassicalPreparationFailure(classification, ClassicalPreparationFailureWithdrawn)
+	case preparation.InProgress():
+		classification.Evidence = BookAcquiredUnassessed
+		classification.Phase = PhaseAnalyzing
+		classification.Recovery = RecoveryNone
+	case preparation.Cleared:
+		classification.Evidence = BookAcquiredUnassessed
+		classification.Phase = PhaseNotAnalyzed
+		classification.Recovery = RecoveryRetryPreparation
+	default:
+		applyClassicalPreparationFailure(classification, preparation.Failure)
+	}
+}
+
+// classicalPreparationOutcome is the evidence and recovery a preparation
+// failure stage maps to. Labels stay in the web app.
+type classicalPreparationOutcome struct {
+	evidence BookEvidenceState
+	phase    AnalysisPhase
+	recovery BookEvidenceRecovery
+}
+
+// classicalPreparationOutcomes is the one stage-to-evidence table. Withdrawn is
+// reached through its own branch; None has no outcome because it is filtered
+// before a state applies.
+var classicalPreparationOutcomes = map[ClassicalPreparationFailure]classicalPreparationOutcome{
+	ClassicalPreparationFailureFetch: {
+		evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,
+	},
+	ClassicalPreparationFailureImport: {
+		evidence: BookAcquiredUnassessed, phase: PhaseFailed, recovery: RecoveryRetryAnalysis,
+	},
+	ClassicalPreparationFailureSource: {
+		evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryNone,
+	},
+	ClassicalPreparationFailureCatalog: {
+		evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
+	},
+	ClassicalPreparationFailureWithdrawn: {
+		evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryNone,
+	},
+}
+
+func applyClassicalPreparationFailure(classification *BookEvidenceClassification, failure ClassicalPreparationFailure) {
+	outcome, ok := classicalPreparationOutcomes[failure]
+	if !ok {
+		return
+	}
+	classification.Evidence = outcome.evidence
+	classification.Phase = outcome.phase
+	classification.Recovery = outcome.recovery
 }
 
 func analysisPhase(signals AnalysisSignals) AnalysisPhase {
