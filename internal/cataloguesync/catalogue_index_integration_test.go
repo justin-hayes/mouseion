@@ -4,6 +4,7 @@ package cataloguesync
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -170,7 +171,7 @@ func TestSyncWorkerFailedRunLeavesTheCatalogueIndexUnchanged(t *testing.T) {
 	// traversal has already reconciled German Books. The index must not move.
 	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{indexEntry("entry-de", "Partially seen title", "", "", "https://catalog.example/de.epub"), indexEntry("entry-new", "New title", "", "", "https://catalog.example/new.epub")}}
 	reader.feeds["10"] = opds.Feed{}
-	reader.fail = map[string]error{"10": errIndexFeedUnavailable}
+	reader.fail = map[string]error{"10": errors.New("feed unavailable")}
 	err = worker.Work(ctx, job)
 	require.Error(t, err)
 	after, listErr := store.ListCatalogueEntries(ctx, owner.ID, connection.ID)
@@ -178,13 +179,7 @@ func TestSyncWorkerFailedRunLeavesTheCatalogueIndexUnchanged(t *testing.T) {
 	assert.Equal(t, before, after, "a failed run changed the index")
 }
 
-var errIndexFeedUnavailable = &indexFeedError{}
-
-type indexFeedError struct{}
-
-func (*indexFeedError) Error() string { return "feed unavailable" }
-
-func TestSyncWorkerSameEntryIDGivesOneIndexEntryPerConnection(t *testing.T) {
+func TestSyncWorkerScopesSameEntryIDPerConnection(t *testing.T) {
 	ctx := context.Background()
 	store, owner, first, _, worker := newCatalogueIndexFixture(t)
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second index catalog", URL: "https://second.example/opds"})

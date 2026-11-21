@@ -36,13 +36,7 @@ func (s *PostgresStore) ReconcileCatalogueIndex(ctx context.Context, owner, conn
 func normalizedCatalogueIndexEntries(entries []domain.CatalogueIndexEntry) ([]domain.CatalogueIndexEntry, error) {
 	normalized := make([]domain.CatalogueIndexEntry, len(entries))
 	for i, entry := range entries {
-		entry.EntryIdentifier = strings.TrimSpace(entry.EntryIdentifier)
-		entry.Title = strings.TrimSpace(entry.Title)
-		entry.Author = strings.TrimSpace(entry.Author)
-		entry.LanguageTag = strings.TrimSpace(entry.LanguageTag)
-		entry.CoverHref = strings.TrimSpace(entry.CoverHref)
-		entry.CoverMediaType = strings.TrimSpace(entry.CoverMediaType)
-		entry.EPUBHref = strings.TrimSpace(entry.EPUBHref)
+		entry = entry.Normalized()
 		if entry.EntryIdentifier == "" || entry.Title == "" || entry.LanguageTag == "" || entry.EPUBHref == "" {
 			return nil, fmt.Errorf("persistence: catalog index entry %d is incomplete", i)
 		}
@@ -91,7 +85,17 @@ func (s *PostgresStore) ListCatalogueEntries(ctx context.Context, owner, connect
 	}
 	entries := make([]domain.CatalogueIndexEntry, 0, len(rows))
 	for _, row := range rows {
-		entries = append(entries, catalogueIndexEntry(row.ConnectionID, row.EntryIdentifier, row.Title, row.Author, row.LanguageTag, row.CoverHref, row.CoverMediaType, row.EpubHref, row.LastSeenSync))
+		entries = append(entries, domain.CatalogueIndexEntry{
+			ConnectionID:    row.ConnectionID,
+			EntryIdentifier: row.EntryIdentifier,
+			Title:           row.Title,
+			Author:          row.Author,
+			LanguageTag:     row.LanguageTag,
+			CoverHref:       row.CoverHref,
+			CoverMediaType:  row.CoverMediaType,
+			EPUBHref:        row.EpubHref,
+			LastSeenSync:    row.LastSeenSync,
+		})
 	}
 	return entries, nil
 }
@@ -106,19 +110,15 @@ func (s *PostgresStore) GetCatalogueEntry(ctx context.Context, owner, connection
 		}
 		return domain.CatalogueIndexEntry{}, err
 	}
-	return catalogueIndexEntry(row.ConnectionID, row.EntryIdentifier, row.Title, row.Author, row.LanguageTag, row.CoverHref, row.CoverMediaType, row.EpubHref, row.LastSeenSync), nil
-}
-
-func catalogueIndexEntry(connectionID, entryIdentifier, title, author, languageTag, coverHref, coverMediaType, epubHref string, lastSeenSync time.Time) domain.CatalogueIndexEntry {
 	return domain.CatalogueIndexEntry{
-		ConnectionID:    connectionID,
-		EntryIdentifier: entryIdentifier,
-		Title:           title,
-		Author:          author,
-		LanguageTag:     languageTag,
-		CoverHref:       coverHref,
-		CoverMediaType:  coverMediaType,
-		EPUBHref:        epubHref,
-		LastSeenSync:    lastSeenSync,
-	}
+		ConnectionID:    row.ConnectionID,
+		EntryIdentifier: row.EntryIdentifier,
+		Title:           row.Title,
+		Author:          row.Author,
+		LanguageTag:     row.LanguageTag,
+		CoverHref:       row.CoverHref,
+		CoverMediaType:  row.CoverMediaType,
+		EPUBHref:        row.EpubHref,
+		LastSeenSync:    row.LastSeenSync,
+	}, nil
 }

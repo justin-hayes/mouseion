@@ -971,6 +971,15 @@ type coverAdvertisement struct {
 	advertised       bool
 }
 
+// syncReconcileResult collects what one complete traversal observed: the Book
+// metadata rows it upserted, the cover advertisements to apply, and the Catalog
+// index entries to store.
+type syncReconcileResult struct {
+	upserted       int
+	advertisements []coverAdvertisement
+	indexEntries   []domain.CatalogueIndexEntry
+}
+
 func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	connection, found, err := s.loadSyncConnection(ctx, args)
 	if err != nil {
@@ -986,19 +995,20 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	upserted, advertisements, entries, err := s.reconcileSyncFeeds(ctx, args, connection, scope)
+	result, err := s.reconcileSyncFeeds(ctx, args, connection, scope)
 	if err != nil {
-		return upserted, err
-	}
-	// The index is replaced only after a complete traversal, so a failed or
-	// partial run never deletes entries it did not see.
-	if err := s.catalogue.ReconcileCatalogueIndex(ctx, args.OwnerID, args.ConnectionID, entries, time.Now()); err != nil {
-		return upserted, fmt.Errorf("catalog index could not be reconciled: %w", err)
+		return result.upserted, err
 	}
 	// Only a complete, successful traversal may change retained cover state:
-	// this is the point at which explicit upstream absence is conclusive.
-	s.applyCoverAdvertisements(ctx, args.OwnerID, args.ConnectionID, advertisements)
-	return upserted, nil
+	// this is the point at which explicit upstream absence is conclusive. Cover
+	// work stays independent of the index write below.
+	s.applyCoverAdvertisements(ctx, args.OwnerID, args.ConnectionID, result.advertisements)
+	// The index is replaced only after a complete traversal, so a failed or
+	// partial run never deletes entries it did not see.
+	if err := s.catalogue.ReconcileCatalogueIndex(ctx, args.OwnerID, args.ConnectionID, result.indexEntries, time.Now()); err != nil {
+		return result.upserted, fmt.Errorf("catalog index could not be reconciled: %w", err)
+	}
+	return result.upserted, nil
 }
 
 // loadSyncConnection reloads the owner-scoped connection for a job. A
@@ -1036,80 +1046,76 @@ func (s *Service) syncLanguageScope(ctx context.Context, args SyncArgs, connecti
 // entries. A feed read failure aborts immediately; entry conflicts are
 // collected so the first one is reported after the traversal completes. The
 // returned index entries describe only what a complete traversal observed.
-func (s *Service) reconcileSyncFeeds(ctx context.Context, args SyncArgs, connection domain.OpdsConnection, scope []languageScope) (int, []coverAdvertisement, []domain.CatalogueIndexEntry, error) {
-	upserted := 0
-	var advertisements []coverAdvertisement
-	var entries []domain.CatalogueIndexEntry
+func (s *Service) reconcileSyncFeeds(ctx context.Context, args SyncArgs, connection domain.OpdsConnection, scope []languageScope) (syncReconcileResult, error) {
+	var result syncReconcileResult
 	var firstConflict error
 	for _, language := range scope {
 		feed, err := s.reader.BrowseLanguage(ctx, args.OwnerID, args.ConnectionID, language.languageID)
 		if err != nil {
-			return upserted, nil, nil, safeSyncError(err, connection)
+			return result, safeSyncError(err, connection)
 		}
-		feedUpserted, feedAdvertisements, feedEntries, conflict := s.reconcileSyncEntries(ctx, args, languageTag(language), feed)
-		upserted += feedUpserted
-		advertisements = append(advertisements, feedAdvertisements...)
-		entries = append(entries, feedEntries...)
+		feedResult, conflict := s.reconcileSyncEntries(ctx, args, languageTag(language), feed)
+		result.upserted += feedResult.upserted
+		result.advertisements = append(result.advertisements, feedResult.advertisements...)
+		result.indexEntries = append(result.indexEntries, feedResult.indexEntries...)
 		if conflict != nil && firstConflict == nil {
 			firstConflict = conflict
 		}
 	}
 	if firstConflict != nil {
-		return upserted, nil, nil, firstConflict
+		return result, firstConflict
 	}
-	return upserted, advertisements, entries, nil
+	return result, nil
 }
 
 // reconcileSyncEntries reconciles the EPUB entries of one language feed,
 // skipping entries the catalogue did not identify or title. It also builds the
 // Catalog index entries the same scope offers.
-func (s *Service) reconcileSyncEntries(ctx context.Context, args SyncArgs, entryLanguage string, feed opds.Feed) (int, []coverAdvertisement, []domain.CatalogueIndexEntry, error) {
-	upserted := 0
-	var advertisements []coverAdvertisement
-	var entries []domain.CatalogueIndexEntry
+func (s *Service) reconcileSyncEntries(ctx context.Context, args SyncArgs, entryLanguage string, feed opds.Feed) (syncReconcileResult, error) {
+	var result syncReconcileResult
 	var firstConflict error
 	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
 		if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.Title) == "" {
 			continue
 		}
-		result, err := s.catalogue.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entry.Author, entryLanguage)
+		reconciled, err := s.catalogue.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entry.Author, entryLanguage)
 		if err != nil {
 			if firstConflict == nil {
 				firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", entry.ID, err)
 			}
 			continue
 		}
-		if result.Upserted() {
-			upserted++
+		if reconciled.Upserted() {
+			result.upserted++
 		}
-		advertisements = append(advertisements, coverAdvertisement{bookID: result.Book.ID, sourceIdentifier: entry.ID, advertised: opds.FindCoverImage(entry) != nil})
-		if indexed, ok := catalogueIndexEntry(entry, entryLanguage); ok {
-			entries = append(entries, indexed)
+		result.advertisements = append(result.advertisements, coverAdvertisement{bookID: reconciled.Book.ID, sourceIdentifier: entry.ID, advertised: opds.FindCoverImage(entry) != nil})
+		if indexed, ok := projectCatalogueIndexEntry(entry, entryLanguage); ok {
+			result.indexEntries = append(result.indexEntries, indexed)
 		}
 	}
-	return upserted, advertisements, entries, firstConflict
+	return result, firstConflict
 }
 
-// catalogueIndexEntry projects a feed entry into the Catalog index. An entry
-// without a usable EPUB acquisition link cannot be added from the Catalog and
-// is left out of the index.
-func catalogueIndexEntry(entry opds.Entry, language string) (domain.CatalogueIndexEntry, bool) {
+// projectCatalogueIndexEntry projects a feed entry into the Catalog index. An
+// entry without a usable EPUB acquisition link cannot be added from the Catalog
+// and is left out of the index.
+func projectCatalogueIndexEntry(entry opds.Entry, language string) (domain.CatalogueIndexEntry, bool) {
 	href, ok := acquisitionHref(entry)
 	if !ok {
 		return domain.CatalogueIndexEntry{}, false
 	}
 	indexed := domain.CatalogueIndexEntry{
-		EntryIdentifier: strings.TrimSpace(entry.ID),
-		Title:           strings.TrimSpace(entry.Title),
-		Author:          strings.TrimSpace(entry.Author),
+		EntryIdentifier: entry.ID,
+		Title:           entry.Title,
+		Author:          entry.Author,
 		LanguageTag:     language,
 		EPUBHref:        href,
 	}
 	if link := opds.FindCoverImage(entry); link != nil {
-		indexed.CoverHref = strings.TrimSpace(link.Href)
-		indexed.CoverMediaType = strings.TrimSpace(link.Type)
+		indexed.CoverHref = link.Href
+		indexed.CoverMediaType = link.Type
 	}
-	return indexed, true
+	return indexed.Normalized(), true
 }
 
 // applyCoverAdvertisements records advertised provenance and schedules
