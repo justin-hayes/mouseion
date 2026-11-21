@@ -88,11 +88,3 @@ func AddPreparedDeckWorkerWithAssessments(workers *river.Workers, store *persist
 	}
 	river.AddWorker(workers, &Worker{Coordinator: NewDurableCoordinator(store, client, planner), Store: store})
 }
-
-// SetAssessments installs the recorded personal-use payload assessments the
-// assessed payloads are gated against.
-func (p *BatchPlanner) SetAssessments(assessments enrichment.ProviderAssessmentSet) {
-	if p != nil {
-		p.Assessments = assessments
-	}
-}

@@ -581,6 +581,14 @@ func (p *BatchPlanner) assessments() enrichment.ProviderAssessmentSet {
 	return p.Assessments
 }
 
+// SetAssessments installs the recorded personal-use payload assessments the
+// assessed payloads are gated against.
+func (p *BatchPlanner) SetAssessments(assessments enrichment.ProviderAssessmentSet) {
+	if p != nil {
+		p.Assessments = assessments
+	}
+}
+
 type glossCoverageEvent struct {
 	Event  string                     `json:"event"`
 	Groups []cardexport.GlossCoverage `json:"groups"`
