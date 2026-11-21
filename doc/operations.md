@@ -364,9 +364,6 @@ decision, not a downgrade procedure.
 
 These commands run against `MOUSEION_DATABASE_URL`.
 
-- `go run ./cmd/cataloguebackfill` — assigns legacy catalogue-entry aliases to
-  their owning OPDS connection
-  ([ADR 0044](adr/0044-catalogue-entry-connection-scoped-identity.md)).
 - The retired `cmd/greekregister` command has no replacement to run. At startup
   the binary reconciles the embedded Classical catalog manifest and converts
   every pre-upgrade Ancient Greek Book its legacy-rows check counts. The same

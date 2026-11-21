@@ -55,9 +55,6 @@ func (f *fakeReader) BrowseLanguage(_ context.Context, _ string, connection, id 
 	}
 	return f.feeds[id], nil
 }
-func (f *fakeReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, id string) (opds.Feed, error) {
-	return f.BrowseLanguage(ctx, owner, connection, id)
-}
 
 func testEntry(id, title string) opds.Entry {
 	return opds.Entry{ID: id, Title: title, Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/opds/epub/" + id}}}
@@ -366,7 +363,7 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Status catalog", URL: "https://catalog.example/opds"})
 	require.NoError(t, err)
 	require.NoError(t, store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner.ID, ConnectionID: connection.ID, State: domain.CatalogueSyncSyncing}))
-	service := NewService(StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}, nil, nil, nil)
+	service := NewService(StoreDependencies{Connections: store, Catalogue: store, Statuses: store, Pool: store.Pool()}, nil, nil, nil)
 	statuses, err := service.ListCatalogueSyncStatuses(ctx, owner.ID)
 	require.NoError(t, err)
 	require.Len(t, statuses, 1)

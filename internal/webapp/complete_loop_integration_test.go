@@ -95,7 +95,7 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	workers := river.NewWorkers()
 	epPubService := epub.NewService(store)
 	opdsService := opds.NewService(store, epPubService, nil)
-	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
+	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Statuses: store, Pool: store.Pool()}
 	cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
 	selectionService := selection.NewService(store)
 	analysisClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), &analyzertest.Fake{AnalyzeFunc: completeLoopAnalysis}, analyzertest.ReadyDepparseCapabilityProvider(), selectionService, 1, workers)

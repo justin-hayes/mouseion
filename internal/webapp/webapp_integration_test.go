@@ -78,10 +78,6 @@ func (emptyCatalogueSyncReader) BrowseLanguage(context.Context, string, string, 
 	return opds.Feed{}, nil
 }
 
-func (reader emptyCatalogueSyncReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, language string) (opds.Feed, error) {
-	return reader.BrowseLanguage(ctx, owner, connection, language)
-}
-
 func (catalogueLanguageCorrectionRefresher) RegisterConnection(context.Context, string, string) error {
 	return nil
 }

@@ -10,6 +10,8 @@ Amended 2026-11-19 by [issue #2458](https://github.com/justin-hayes/mouseion/iss
 
 Amended 2026-11-21 by [ADR 0119](0119-retire-german-vocabulary-backfill.md): `cmd/vocabularybackfill` was retired, so the pgx-owner explanation now names only `cmd/cataloguebackfill`.
 
+Amended 2026-11-21 by [ADR 0120](0120-retire-catalogue-alias-backfill.md): `cmd/cataloguebackfill` was retired, so no operator backfill command remains; operator commands reach the database through persistence instead.
+
 Tracked by [issue #1973](https://github.com/justin-hayes/mouseion/issues/1973), under parent [#1811](https://github.com/justin-hayes/mouseion/issues/1811). Enforcement with golangci-lint's `depguard` follows in [#1974](https://github.com/justin-hayes/mouseion/issues/1974) (test infrastructure and fixtures) and [#1975](https://github.com/justin-hayes/mouseion/issues/1975) (persistence layering).
 
 ## Context

@@ -31,6 +31,4 @@ func TestBookAliasConnectionContract(t *testing.T) {
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1`, owner.ID).Scan(&aliasCount)
 	require.NoError(t, err)
 	assert.Equal(t, 1, aliasCount)
-	err = store.SetCatalogueEntryAliasConnection(ctx, owner.ID, "00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000000")
-	assert.ErrorIs(t, err, ErrNotFound)
 }

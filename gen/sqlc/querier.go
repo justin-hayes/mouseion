@@ -95,7 +95,6 @@ type Querier interface {
 	GetActiveBookCoverResource(ctx context.Context, arg GetActiveBookCoverResourceParams) (GetActiveBookCoverResourceRow, error)
 	GetActiveCurrentReadingSnapshotForPreparation(ctx context.Context, arg GetActiveCurrentReadingSnapshotForPreparationParams) (GetActiveCurrentReadingSnapshotForPreparationRow, error)
 	GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error)
-	GetBookAliasConnection(ctx context.Context, arg GetBookAliasConnectionParams) (string, error)
 	GetBookByAlias(ctx context.Context, arg GetBookByAliasParams) (GetBookByAliasRow, error)
 	GetBookByUnscopedAliasForUpdate(ctx context.Context, arg GetBookByUnscopedAliasForUpdateParams) (GetBookByUnscopedAliasForUpdateRow, error)
 	GetBookCatalogEntryAlias(ctx context.Context, arg GetBookCatalogEntryAliasParams) (GetBookCatalogEntryAliasRow, error)
@@ -355,7 +354,6 @@ type Querier interface {
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
-	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
 	ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error)
 	LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error)
 	// Catalog index queries. A sync reconciles one connection's run of entries in
@@ -417,7 +415,6 @@ type Querier interface {
 	SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error)
 	SetActiveStudyLanguage(ctx context.Context, arg SetActiveStudyLanguageParams) (int64, error)
 	SetBookCoverPending(ctx context.Context, arg SetBookCoverPendingParams) error
-	SetCatalogueEntryAliasConnection(ctx context.Context, arg SetCatalogueEntryAliasConnectionParams) (int64, error)
 	SetCatalogueSyncStatus(ctx context.Context, arg SetCatalogueSyncStatusParams) error
 	SetCurrentContentRevision(ctx context.Context, arg SetCurrentContentRevisionParams) error
 	SetCurrentSnapshot(ctx context.Context, arg SetCurrentSnapshotParams) error

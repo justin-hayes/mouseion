@@ -48,10 +48,6 @@ func (visibilityDiscoveryReader) BrowseLanguage(_ context.Context, _, _, languag
 	}}}, nil
 }
 
-func (reader visibilityDiscoveryReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, language string) (opds.Feed, error) {
-	return reader.BrowseLanguage(ctx, owner, connection, language)
-}
-
 func openVisibilityStore(t *testing.T, ctx context.Context) *persistence.PostgresStore {
 	t.Helper()
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
