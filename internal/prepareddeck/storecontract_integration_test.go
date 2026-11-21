@@ -76,6 +76,10 @@ func (h *postgresHarness) TransitionBookDisposition(owner, bookID string, expect
 	return h.store.TransitionBookDisposition(h.ctx, owner, bookID, expectedRevision, disposition)
 }
 
+func (h *postgresHarness) RemoveBookFromMyBooks(owner, bookID string) error {
+	return h.store.RemoveBookFromMyBooks(h.ctx, owner, bookID)
+}
+
 func (h *postgresHarness) ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error) {
 	return h.store.ImportPreviouslyRead(h.ctx, owner, bookID)
 }
@@ -92,6 +96,10 @@ func (h *postgresHarness) AddClassicalReadingUnits(owner string, readingUnitKeys
 
 func (h *postgresHarness) ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error) {
 	return h.store.ListOwnedClassicalReadingUnits(h.ctx, owner)
+}
+
+func (h *postgresHarness) ListStudyLanguages(owner string) ([]domain.StudyLanguage, error) {
+	return h.store.ListStudyLanguages(h.ctx, owner)
 }
 
 func (h *postgresHarness) SeedClassicalCatalog(t *testing.T) {

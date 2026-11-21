@@ -1,6 +1,7 @@
 package storecontract
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -140,6 +141,51 @@ func classicalScenarios() []Scenario {
 			assert.Equal(t, domain.BookDispositionToRead, requireDetail(t, h, owner, bookID).Disposition)
 		},
 	}, {
+		Name: "classical re-add restores a removed book and its evidence",
+		Run: func(t *testing.T, h Harness) {
+			h.Seeds().SeedClassicalCatalog(t)
+			owner := h.Seeds().Owner()
+			report, err := h.Classical().AddClassicalReadingUnits(owner, []string{ClassicalUnitBook1Key})
+			require.NoError(t, err)
+			bookID := report.Books[0].BookID
+			completion, err := h.BookState().ImportPreviouslyRead(owner, bookID)
+			require.NoError(t, err)
+			knownLemma := domain.SnapshotIdentity{Language: classical.Language, CanonicalLemma: "λόγοσ", UPOS: "NOUN"}
+			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{knownLemma})
+			assert.True(t, hasStudyLanguage(t, h, owner, classical.Language), "the added Book contributes its study language")
+
+			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
+			_, err = h.BookState().GetBookDetail(owner, bookID)
+			require.ErrorIs(t, err, domain.ErrNotFound)
+			assert.NotContains(t, ownedClassicalUnits(t, h, owner), ClassicalUnitBook1Key)
+			assert.False(t, hasStudyLanguage(t, h, owner, classical.Language), "a removed Book contributes no study language")
+
+			again, err := h.Classical().AddClassicalReadingUnits(owner, []string{ClassicalUnitBook1Key})
+			require.NoError(t, err)
+			assert.Zero(t, again.CreatedBooks(), "re-adding restores rather than creates")
+			assert.Equal(t, bookID, again.Books[0].BookID, "re-adding resumes the removed Book")
+			assert.Equal(t, ClassicalUnitBook1Key, again.Books[0].ReadingUnitKey)
+
+			restored := requireDetail(t, h, owner, bookID)
+			assert.Equal(t, domain.BookDispositionToRead, restored.Disposition)
+			assert.False(t, restored.Hidden)
+			require.NotNil(t, restored.ReadingUnit)
+			assert.Equal(t, ClassicalUnitBook1Key, restored.ReadingUnit.ReadingUnitKey)
+			assert.Equal(t, 1, restored.CompletionCount, "the removed Book keeps its reading history")
+			assert.Equal(t, domain.ReadingCompletionPreviouslyRead, restored.LatestCompletionSource)
+			require.NotNil(t, restored.LatestCompletionAt)
+			assert.True(t, restored.LatestCompletionAt.Equal(completion.CompletedAt), "the recorded completion is unchanged")
+			known, err := h.Store().ListKnownVocabulary(owner, classical.Language)
+			require.NoError(t, err)
+			assert.True(t, slices.ContainsFunc(known, func(vocabulary domain.KnownVocabulary) bool {
+				return vocabulary.OwnerID == owner && vocabulary.Language == knownLemma.Language &&
+					vocabulary.CanonicalLemma == knownLemma.CanonicalLemma && vocabulary.UPOS == knownLemma.UPOS &&
+					vocabulary.LexicalDiscriminator == knownLemma.LexicalDiscriminator
+			}), "the removed Book keeps its Known vocabulary")
+			assert.True(t, hasStudyLanguage(t, h, owner, classical.Language), "restoring brings the study language back")
+			assert.Len(t, ownedClassicalUnits(t, h, owner), 1, "restoring never duplicates the Reading unit")
+		},
+	}, {
 		Name: "classical add is owner-scoped",
 		Run: func(t *testing.T, h Harness) {
 			h.Seeds().SeedClassicalCatalog(t)
@@ -194,6 +240,17 @@ func classicalPreparationFailureScenarios() []Scenario {
 			}
 		},
 	}}
+}
+
+// hasStudyLanguage reports whether the learner's active Books contribute
+// language to their study languages.
+func hasStudyLanguage(t *testing.T, h Harness, owner, language string) bool {
+	t.Helper()
+	languages, err := h.Classical().ListStudyLanguages(owner)
+	require.NoError(t, err)
+	return slices.ContainsFunc(languages, func(studyLanguage domain.StudyLanguage) bool {
+		return studyLanguage.Language == language
+	})
 }
 
 func ownedClassicalUnits(t *testing.T, h Harness, owner string) map[string]classical.OwnedReadingUnit {

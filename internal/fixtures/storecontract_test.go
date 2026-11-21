@@ -197,6 +197,10 @@ func (h *contractHarness) TransitionBookDisposition(owner, bookID string, expect
 	return h.store.TransitionBookDisposition(context.Background(), owner, bookID, expectedRevision, disposition)
 }
 
+func (h *contractHarness) RemoveBookFromMyBooks(owner, bookID string) error {
+	return h.store.RemoveBookFromMyBooks(context.Background(), owner, bookID)
+}
+
 func (h *contractHarness) ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error) {
 	return h.store.ImportPreviouslyRead(context.Background(), owner, bookID)
 }
@@ -212,6 +216,10 @@ func (h *contractHarness) AddClassicalReadingUnits(owner string, readingUnitKeys
 
 func (h *contractHarness) ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error) {
 	return h.store.ListOwnedClassicalReadingUnits(context.Background(), owner)
+}
+
+func (h *contractHarness) ListStudyLanguages(owner string) ([]domain.StudyLanguage, error) {
+	return h.store.ListStudyLanguages(context.Background(), owner)
 }
 
 func (h *contractHarness) SeedClassicalCatalog(*testing.T) {

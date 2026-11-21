@@ -73,17 +73,20 @@ type Store struct {
 	dispositions           map[string]domain.BookDisposition
 	dispositionRevisions   map[string]int64
 	visibility             map[string]fixtureVisibility
-	currentReadings        map[string]domain.CurrentReading
-	goalSnapshotSequence   map[string]int
-	snapshotLifecycles     map[string]domain.CurrentReadingSnapshotLifecycle
-	readingHistory         map[string]domain.ReadingCompletion
-	importedHistory        map[string]domain.ReadingCompletion
-	syncStatuses           []domain.CatalogueSyncStatus
-	storedActiveLanguage   *string
-	mostRecentLanguage     string
-	lemmaCorrections       map[string]string
-	lemmaExclusions        map[string]bool
-	lemmaReviewFlags       map[string]domain.LemmaReviewFlag
+	// removedBooks holds the Books whose My Books membership is inactive. The
+	// Book and its evidence stay so a later Add can restore them.
+	removedBooks         map[string]struct{}
+	currentReadings      map[string]domain.CurrentReading
+	goalSnapshotSequence map[string]int
+	snapshotLifecycles   map[string]domain.CurrentReadingSnapshotLifecycle
+	readingHistory       map[string]domain.ReadingCompletion
+	importedHistory      map[string]domain.ReadingCompletion
+	syncStatuses         []domain.CatalogueSyncStatus
+	storedActiveLanguage *string
+	mostRecentLanguage   string
+	lemmaCorrections     map[string]string
+	lemmaExclusions      map[string]bool
+	lemmaReviewFlags     map[string]domain.LemmaReviewFlag
 	// lemmaOccurrences are the occurrences each Book's analysis contributes to
 	// lemma review, keyed by lemmaOccurrenceKey. Decisions and flags validate
 	// against them.
@@ -209,6 +212,7 @@ func NewStore() *Store {
 		},
 		dispositionRevisions: make(map[string]int64),
 		visibility:           make(map[string]fixtureVisibility),
+		removedBooks:         make(map[string]struct{}),
 		importedHistory:      make(map[string]domain.ReadingCompletion),
 		currentReadings: map[string]domain.CurrentReading{
 			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},

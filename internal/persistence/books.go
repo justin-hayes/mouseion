@@ -814,21 +814,6 @@ func activateMembership(ctx context.Context, tx pgx.Tx, owner, bookID string) er
 	return sqlcgen.New(tx).ActivateBookMembership(ctx, sqlcgen.ActivateBookMembershipParams{OwnerID: owner, BookID: bookID})
 }
 
-func (s *PostgresStore) AddBookToMyBooks(ctx context.Context, owner, bookID string) (err error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	if err := ensureBookExists(ctx, tx, owner, bookID); err != nil {
-		return err
-	}
-	if err := activateMembership(ctx, tx, owner, bookID); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
 func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID string) (err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

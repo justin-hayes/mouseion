@@ -44,10 +44,11 @@ func TestBookDispositionCatalogueLifecycle(t *testing.T) {
 
 	require.NoError(t, store.RemoveBookFromMyBooks(ctx, alice.ID, bookID))
 	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, alice.ID, bookID), "removal from My Books rewrote disposition")
-	require.NoError(t, store.AddBookToMyBooks(ctx, alice.ID, bookID))
 	_, err = store.ReconcileCatalogueEntry(ctx, alice.ID, connection.ID, "disposition-entry", "Refreshed after reappearance", "New author", "de")
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, alice.ID, bookID), "reappearance reset disposition")
+	reappeared, err := store.GetBookDetail(ctx, alice.ID, bookID)
+	require.NoError(t, err, "reappearance restores active membership")
+	assert.Equal(t, domain.BookDispositionToRead, reappeared.Disposition, "reappearance reset disposition")
 
 	toReadBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "To Read disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)

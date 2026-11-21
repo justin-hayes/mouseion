@@ -34,6 +34,9 @@ func (s *Store) ListOwnedClassicalReadingUnits(_ context.Context, owner string) 
 		if book.Book.OwnerID != owner || book.ReadingUnit == nil || strings.TrimSpace(book.ReadingUnit.ReadingUnitKey) == "" {
 			continue
 		}
+		if !s.fixtureBookActiveLocked(owner, book.Book.ID) {
+			continue
+		}
 		owned = append(owned, classical.OwnedReadingUnit{
 			ReadingUnitKey: book.ReadingUnit.ReadingUnitKey,
 			BookID:         book.Book.ID,
@@ -87,6 +90,7 @@ func (s *Store) addFixtureClassicalReadingUnitLocked(owner string, definition cl
 	if i := s.fixtureClassicalBookIndexLocked(owner, definition.Key); i >= 0 {
 		bookID := s.myBooks[i].Book.ID
 		key := fixtureDispositionKey(owner, bookID)
+		delete(s.removedBooks, key)
 		if state := s.visibility[key]; state.hidden {
 			s.visibility[key] = fixtureVisibility{hidden: false, revision: state.revision + 1}
 		}

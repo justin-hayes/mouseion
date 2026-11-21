@@ -85,6 +85,32 @@ func TestFixtureClassicalReAddReopensTheSameBooks(t *testing.T) {
 	assert.False(t, visible, "re-adding reopens a hidden Book")
 }
 
+func TestFixtureClassicalRemoveEndsMembershipAndAddRestores(t *testing.T) {
+	store := NewStore()
+	ctx := context.Background()
+	first, err := store.AddClassicalReadingUnits(ctx, OwnerID, []string{"fixture-iliad-1"})
+	require.NoError(t, err)
+	bookID := first.Books[0].BookID
+
+	require.NoError(t, store.RemoveBookFromMyBooks(ctx, OwnerID, bookID))
+	_, err = store.GetBookDetail(ctx, OwnerID, bookID)
+	require.ErrorIs(t, err, domain.ErrNotFound)
+	owned, err := store.ListOwnedClassicalReadingUnits(ctx, OwnerID)
+	require.NoError(t, err)
+	assert.Empty(t, owned)
+	languages, err := store.ListStudyLanguages(ctx, OwnerID)
+	require.NoError(t, err)
+	assert.NotContains(t, languages, domain.StudyLanguage{Language: classical.Language, DisplayName: classical.LanguageDisplayName})
+
+	again, err := store.AddClassicalReadingUnits(ctx, OwnerID, []string{"fixture-iliad-1"})
+	require.NoError(t, err)
+	assert.Zero(t, again.CreatedBooks(), "re-adding restores rather than creates")
+	assert.Equal(t, bookID, again.Books[0].BookID)
+	detail, err := store.GetBookDetail(ctx, OwnerID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
+}
+
 func TestFixtureClassicalToReadProjectionMakesOneBookReadyForTheChooser(t *testing.T) {
 	store := NewStore()
 	report, err := store.AddClassicalReadingUnits(context.Background(), OwnerID, []string{"fixture-iliad-1"})

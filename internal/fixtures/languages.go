@@ -125,6 +125,9 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 		if book.Book.OwnerID != owner || book.Book.LanguageState != domain.LanguageChosen || strings.TrimSpace(book.Book.LanguageTag) == "" {
 			continue
 		}
+		if !s.fixtureBookActiveLocked(owner, book.Book.ID) {
+			continue
+		}
 		out = addFixtureStudyLanguage(out, seen, displayNames, book.Book.LanguageTag)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })

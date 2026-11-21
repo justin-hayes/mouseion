@@ -100,7 +100,7 @@ type CatalogsStore interface {
 	DeleteOpdsConnection(context.Context, string, string) error
 	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
 	// The built-in Classical catalog is read from the release and writes only
-	// My Books membership: Add creates or reopens one Inbox Book per Reading
+	// My Books membership: Add creates or restores one To Read Book per Reading
 	// unit. Legacy rows are checked installation-wide before any write.
 	ListLegacyLanguageRows(context.Context, string) ([]domain.LegacyLanguageRows, error)
 	ListOwnedClassicalReadingUnits(context.Context, string) ([]classical.OwnedReadingUnit, error)
