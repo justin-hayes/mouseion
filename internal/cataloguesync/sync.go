@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -108,17 +107,10 @@ type RefreshResult struct {
 	CurrentReadingEnded bool
 }
 
-// AliasBackfillResult reports the deterministic legacy alias migration.
-type AliasBackfillResult struct {
-	Examined int
-	Updated  int
-}
-
 // ConnectionStore contains only the owner-scoped connection lookups used by
 // catalogue sync scheduling and feed access.
 type ConnectionStore interface {
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
-	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
 	OpdsConnectionExists(context.Context, string, string) (bool, error)
 	ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsConnection, error)
 }
@@ -143,12 +135,6 @@ type coverStore interface {
 	GetBookCoverForRetrieval(context.Context, string, string) (domain.BookCoverRetrieval, error)
 }
 
-// CatalogueAliasStore contains the explicit legacy alias backfill operations.
-type CatalogueAliasStore interface {
-	ListUnscopedCatalogueEntryAliases(context.Context) ([]domain.BookAlias, error)
-	SetCatalogueEntryAliasConnection(context.Context, string, string, string) error
-}
-
 // CatalogueSyncStatusStore contains the durable sync status operations.
 type CatalogueSyncStatusStore interface {
 	SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error
@@ -159,7 +145,6 @@ type CatalogueSyncStatusStore interface {
 type StoreDependencies struct {
 	Connections ConnectionStore
 	Catalogue   CatalogueStore
-	Aliases     CatalogueAliasStore
 	Statuses    CatalogueSyncStatusStore
 	Pool        *pgxpool.Pool
 }
@@ -167,7 +152,6 @@ type StoreDependencies struct {
 type catalogueReader interface {
 	Languages(context.Context, string, string) (opds.Feed, error)
 	BrowseLanguage(context.Context, string, string, string) (opds.Feed, error)
-	BrowseLanguageUnfiltered(context.Context, string, string, string) (opds.Feed, error)
 }
 
 type coverReader interface {
@@ -178,7 +162,6 @@ type coverReader interface {
 type Service struct {
 	connections  ConnectionStore
 	catalogue    CatalogueStore
-	aliases      CatalogueAliasStore
 	statuses     CatalogueSyncStatusStore
 	pool         *pgxpool.Pool
 	client       *river.Client[pgx.Tx]
@@ -189,91 +172,7 @@ type Service struct {
 }
 
 func NewService(deps StoreDependencies, client *river.Client[pgx.Tx], reader catalogueReader, capabilities analyzer.CapabilityProvider) *Service {
-	return &Service{connections: deps.Connections, catalogue: deps.Catalogue, aliases: deps.Aliases, statuses: deps.Statuses, pool: deps.Pool, client: client, reader: reader, capabilities: capabilities, periodicIDs: make(map[string]struct{})}
-}
-
-// BackfillCatalogueEntryAliases resolves each legacy catalogue-entry alias
-// against all language feeds of every owner connection. It deliberately does
-// not guess around feed errors, missing entries, or cross-connection matches.
-// The operation is explicit so an operator can run it after the expand
-// migration and retry it after correcting catalogue data or credentials.
-func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackfillResult, error) {
-	if s == nil || s.aliases == nil || s.connections == nil || s.reader == nil {
-		return AliasBackfillResult{}, errors.New("catalogue alias backfill service is unavailable")
-	}
-	aliases, err := s.aliases.ListUnscopedCatalogueEntryAliases(ctx)
-	if err != nil {
-		return AliasBackfillResult{}, fmt.Errorf("list unscoped catalogue aliases: %w", err)
-	}
-	result := AliasBackfillResult{}
-	for _, alias := range aliases {
-		if alias.ConnectionID != "" || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier {
-			continue
-		}
-		result.Examined++
-		connectionID, err := s.findCatalogueEntryAliasConnection(ctx, alias)
-		if err != nil {
-			return result, err
-		}
-		if err := s.aliases.SetCatalogueEntryAliasConnection(ctx, alias.OwnerID, alias.ID, connectionID); err != nil {
-			return result, fmt.Errorf("assign connection %s to alias %s: %w", connectionID, alias.ID, err)
-		}
-		result.Updated++
-	}
-	return result, nil
-}
-
-// findCatalogueEntryAliasConnection derives the one owner connection whose
-// feeds advertise the legacy alias value, rejecting a value that is absent
-// from every feed or present in more than one connection.
-func (s *Service) findCatalogueEntryAliasConnection(ctx context.Context, alias domain.BookAlias) (string, error) {
-	connections, err := s.connections.ListOpdsConnections(ctx, alias.OwnerID)
-	if err != nil {
-		return "", fmt.Errorf("list connections for alias %s: %w", alias.ID, err)
-	}
-	sort.SliceStable(connections, func(i, j int) bool {
-		return connections[i].ID < connections[j].ID
-	})
-	var matches []string
-	for _, connection := range connections {
-		languages, err := s.reader.Languages(ctx, alias.OwnerID, connection.ID)
-		if err != nil {
-			return "", fmt.Errorf("read languages for alias %s from connection %s: %w", alias.ID, connection.ID, err)
-		}
-		advertises, err := s.connectionAdvertisesAlias(ctx, alias, connection, languages)
-		if err != nil {
-			return "", err
-		}
-		if advertises {
-			matches = append(matches, connection.ID)
-		}
-	}
-	if len(matches) == 0 {
-		return "", fmt.Errorf("catalogue alias %s value %q is absent from every owner connection feed", alias.ID, alias.Value)
-	}
-	if len(matches) != 1 {
-		return "", fmt.Errorf("catalogue alias %s value %q is present in %d owner connections", alias.ID, alias.Value, len(matches))
-	}
-	return matches[0], nil
-}
-
-// connectionAdvertisesAlias walks every language feed of one connection for
-// the alias's source identifier.
-func (s *Service) connectionAdvertisesAlias(ctx context.Context, alias domain.BookAlias, connection domain.OpdsConnection, languages opds.Feed) (bool, error) {
-	found := false
-	for _, languageID := range opds.LanguageIDs(languages) {
-		feed, err := s.reader.BrowseLanguageUnfiltered(ctx, alias.OwnerID, connection.ID, languageID)
-		if err != nil {
-			return false, fmt.Errorf("read feed %s for alias %s from connection %s: %w", languageID, alias.ID, connection.ID, err)
-		}
-		for _, entry := range feed.Entries {
-			if strings.TrimSpace(entry.ID) == strings.TrimSpace(alias.Value) {
-				found = true
-				break
-			}
-		}
-	}
-	return found, nil
+	return &Service{connections: deps.Connections, catalogue: deps.Catalogue, statuses: deps.Statuses, pool: deps.Pool, client: client, reader: reader, capabilities: capabilities, periodicIDs: make(map[string]struct{})}
 }
 
 // PeriodicJobID is stable across process restarts and unique per owner and

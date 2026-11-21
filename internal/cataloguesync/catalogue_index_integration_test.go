@@ -37,10 +37,6 @@ func (r *indexReader) BrowseLanguage(_ context.Context, _, _, languageID string)
 	return r.feeds[languageID], nil
 }
 
-func (r *indexReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, languageID string) (opds.Feed, error) {
-	return r.BrowseLanguage(ctx, owner, connection, languageID)
-}
-
 func indexEntry(id, title, author, languageType, href string) opds.Entry {
 	entry := opds.Entry{ID: id, Title: title, Author: author, Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: href}}}
 	if languageType != "" {

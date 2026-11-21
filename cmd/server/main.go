@@ -233,7 +233,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		}
 	}
 	batchMetrics := prepareddeck.NewMetricsCollector()
-	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
+	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Statuses: store, Pool: store.Pool()}
 	workers := river.NewWorkers()
 	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
 	sourcecheck.AddWorker(workers, store)

@@ -2,6 +2,11 @@
 
 Status: **Accepted** · Date: 2026-09-05 · Author: Justin + opencode
 
+Amended 2026-11-21 by [ADR 0120](0120-retire-catalogue-alias-backfill.md): the
+one-time operator backfill was retired after completing its work in the only
+deployment. The connection-scoped identity decision above is unchanged, and
+migration `000054` validates the connection contract.
+
 ## Context
 
 ADR 0035 defines a catalogue-entry alias as *catalogue connection plus stable

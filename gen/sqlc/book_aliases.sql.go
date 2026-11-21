@@ -100,23 +100,6 @@ func (q *Queries) GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, e
 	return i, err
 }
 
-const getBookAliasConnection = `-- name: GetBookAliasConnection :one
-SELECT (COALESCE(connection_id::text, ''))::text AS connection_id
-FROM book_aliases WHERE owner_id = $1 AND id = $2
-`
-
-type GetBookAliasConnectionParams struct {
-	OwnerID string
-	ID      string
-}
-
-func (q *Queries) GetBookAliasConnection(ctx context.Context, arg GetBookAliasConnectionParams) (string, error) {
-	row := q.db.QueryRow(ctx, getBookAliasConnection, arg.OwnerID, arg.ID)
-	var connection_id string
-	err := row.Scan(&connection_id)
-	return connection_id, err
-}
-
 const getBookByAlias = `-- name: GetBookByAlias :one
 SELECT b.id::text, b.owner_id::text, b.title, b.author, b.metadata_provenance, b.language_state,
        COALESCE(b.language_tag, '') AS language_tag, b.created_at, b.updated_at
@@ -595,59 +578,6 @@ func (q *Queries) ListStudyLanguages(ctx context.Context, ownerID string) ([]Lis
 	return items, nil
 }
 
-const listUnscopedCatalogueEntryAliases = `-- name: ListUnscopedCatalogueEntryAliases :many
-SELECT id::text, owner_id::text, book_id::text, (COALESCE(connection_id::text, ''))::text AS connection_id,
-       alias_type, namespace, value, created_at
-FROM book_aliases
-WHERE connection_id IS NULL AND alias_type = $1 AND namespace = $2
-ORDER BY owner_id, id
-`
-
-type ListUnscopedCatalogueEntryAliasesParams struct {
-	AliasType string
-	Namespace string
-}
-
-type ListUnscopedCatalogueEntryAliasesRow struct {
-	ID           string
-	OwnerID      string
-	BookID       string
-	ConnectionID string
-	AliasType    string
-	Namespace    string
-	Value        string
-	CreatedAt    time.Time
-}
-
-func (q *Queries) ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error) {
-	rows, err := q.db.Query(ctx, listUnscopedCatalogueEntryAliases, arg.AliasType, arg.Namespace)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListUnscopedCatalogueEntryAliasesRow{}
-	for rows.Next() {
-		var i ListUnscopedCatalogueEntryAliasesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.BookID,
-			&i.ConnectionID,
-			&i.AliasType,
-			&i.Namespace,
-			&i.Value,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const removeBookMembership = `-- name: RemoveBookMembership :exec
 INSERT INTO book_membership(owner_id, book_id, state, removed_at)
 VALUES ($1, $2, 'removed', now())
@@ -664,36 +594,6 @@ type RemoveBookMembershipParams struct {
 func (q *Queries) RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error {
 	_, err := q.db.Exec(ctx, removeBookMembership, arg.OwnerID, arg.BookID)
 	return err
-}
-
-const setCatalogueEntryAliasConnection = `-- name: SetCatalogueEntryAliasConnection :execrows
-UPDATE book_aliases a
-SET connection_id = $3
-WHERE a.owner_id = $1 AND a.id = $2 AND a.connection_id IS NULL
-  AND a.alias_type = $4 AND a.namespace = $5
-  AND EXISTS (SELECT 1 FROM opds_connections c WHERE c.owner_id = $1 AND c.id = $3)
-`
-
-type SetCatalogueEntryAliasConnectionParams struct {
-	OwnerID      string
-	ID           string
-	ConnectionID pgtype.UUID
-	AliasType    string
-	Namespace    string
-}
-
-func (q *Queries) SetCatalogueEntryAliasConnection(ctx context.Context, arg SetCatalogueEntryAliasConnectionParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setCatalogueEntryAliasConnection,
-		arg.OwnerID,
-		arg.ID,
-		arg.ConnectionID,
-		arg.AliasType,
-		arg.Namespace,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const setSourceMaterialBook = `-- name: SetSourceMaterialBook :exec

@@ -2,6 +2,10 @@
 
 Status: **Accepted** · Date: 2026-11-21 · Author: Justin + OpenCode
 
+Amended 2026-11-21 by [ADR 0120](0120-retire-catalogue-alias-backfill.md): the
+catalogue alias backfill named in the consequences was also retired, so no
+operator backfill command remains.
+
 Amends [ADR 0065](0065-german-pre-1996-sharp-s-canonicalization.md) by retiring
 its operator-run vocabulary backfill, and
 [ADR 0091](0091-go-package-layering.md)'s example of that command as a pgx

@@ -685,45 +685,6 @@ func (s *PostgresStore) GetBookCatalogEntryAliasForConnection(ctx context.Contex
 	return domain.BookAlias{ID: row.AID, OwnerID: row.AOwnerID, BookID: row.ABookID, ConnectionID: row.ConnectionID, AliasType: row.AliasType, Namespace: row.Namespace, Value: row.Value, CreatedAt: row.CreatedAt}, nil
 }
 
-// ListUnscopedCatalogueEntryAliases returns only legacy catalogue-entry aliases
-// that still need the application-logic connection backfill. Strong
-// bibliographic aliases are intentionally excluded.
-func (s *PostgresStore) ListUnscopedCatalogueEntryAliases(ctx context.Context) ([]domain.BookAlias, error) {
-	rows, err := s.queries().ListUnscopedCatalogueEntryAliases(ctx, sqlcgen.ListUnscopedCatalogueEntryAliasesParams{AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier})
-	if err != nil {
-		return nil, err
-	}
-	var aliases []domain.BookAlias
-	for _, row := range rows {
-		aliases = append(aliases, domain.BookAlias(row))
-	}
-	return aliases, nil
-}
-
-// SetCatalogueEntryAliasConnection assigns a legacy alias only while it is
-// unscoped and only to a connection owned by the same learner.
-func (s *PostgresStore) SetCatalogueEntryAliasConnection(ctx context.Context, owner, aliasID, connectionID string) error {
-	tag, err := s.queries().SetCatalogueEntryAliasConnection(ctx, sqlcgen.SetCatalogueEntryAliasConnectionParams{OwnerID: owner, ID: aliasID, ConnectionID: uuidArg(connectionID), AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier})
-	if err != nil {
-		return aliasConflictError(err)
-	}
-	if tag == 0 {
-		current, lookupErr := s.queries().GetBookAliasConnection(ctx, sqlcgen.GetBookAliasConnectionParams{OwnerID: owner, ID: aliasID})
-		err = lookupErr
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		if err != nil {
-			return err
-		}
-		if current == connectionID {
-			return nil
-		}
-		return ErrAliasConflict
-	}
-	return nil
-}
-
 func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.Book, error) {
 	b.Title = strings.TrimSpace(b.Title)
 	b.Author = strings.TrimSpace(b.Author)

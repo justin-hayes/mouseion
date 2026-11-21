@@ -33,24 +33,6 @@ FROM book_aliases a
 WHERE a.owner_id = $1 AND a.book_id = $2 AND a.connection_id = $3
   AND a.alias_type = $4 AND a.namespace = $5;
 
--- name: ListUnscopedCatalogueEntryAliases :many
-SELECT id::text, owner_id::text, book_id::text, (COALESCE(connection_id::text, ''))::text AS connection_id,
-       alias_type, namespace, value, created_at
-FROM book_aliases
-WHERE connection_id IS NULL AND alias_type = $1 AND namespace = $2
-ORDER BY owner_id, id;
-
--- name: SetCatalogueEntryAliasConnection :execrows
-UPDATE book_aliases a
-SET connection_id = $3
-WHERE a.owner_id = $1 AND a.id = $2 AND a.connection_id IS NULL
-  AND a.alias_type = $4 AND a.namespace = $5
-  AND EXISTS (SELECT 1 FROM opds_connections c WHERE c.owner_id = $1 AND c.id = $3);
-
--- name: GetBookAliasConnection :one
-SELECT (COALESCE(connection_id::text, ''))::text AS connection_id
-FROM book_aliases WHERE owner_id = $1 AND id = $2;
-
 -- name: InsertBook :one
 INSERT INTO books(owner_id, title, author, metadata_provenance, language_state, language_tag)
 VALUES ($1, $2, $3, $4, $5, $6)
