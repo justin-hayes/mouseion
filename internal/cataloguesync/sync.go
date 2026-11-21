@@ -132,6 +132,7 @@ type CatalogueStore interface {
 	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
 	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
 	ReconcileCatalogueEntry(context.Context, string, string, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
+	ReconcileCatalogueIndex(context.Context, string, string, []domain.CatalogueIndexEntry, time.Time) error
 }
 
 type coverStore interface {
@@ -985,9 +986,14 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	upserted, advertisements, err := s.reconcileSyncFeeds(ctx, args, connection, scope)
+	upserted, advertisements, entries, err := s.reconcileSyncFeeds(ctx, args, connection, scope)
 	if err != nil {
 		return upserted, err
+	}
+	// The index is replaced only after a complete traversal, so a failed or
+	// partial run never deletes entries it did not see.
+	if err := s.catalogue.ReconcileCatalogueIndex(ctx, args.OwnerID, args.ConnectionID, entries, time.Now()); err != nil {
+		return upserted, fmt.Errorf("catalog index could not be reconciled: %w", err)
 	}
 	// Only a complete, successful traversal may change retained cover state:
 	// this is the point at which explicit upstream absence is conclusive.
@@ -1028,34 +1034,39 @@ func (s *Service) syncLanguageScope(ctx context.Context, args SyncArgs, connecti
 
 // reconcileSyncFeeds walks each eligible language feed, reconciling its EPUB
 // entries. A feed read failure aborts immediately; entry conflicts are
-// collected so the first one is reported after the traversal completes.
-func (s *Service) reconcileSyncFeeds(ctx context.Context, args SyncArgs, connection domain.OpdsConnection, scope []languageScope) (int, []coverAdvertisement, error) {
+// collected so the first one is reported after the traversal completes. The
+// returned index entries describe only what a complete traversal observed.
+func (s *Service) reconcileSyncFeeds(ctx context.Context, args SyncArgs, connection domain.OpdsConnection, scope []languageScope) (int, []coverAdvertisement, []domain.CatalogueIndexEntry, error) {
 	upserted := 0
 	var advertisements []coverAdvertisement
+	var entries []domain.CatalogueIndexEntry
 	var firstConflict error
 	for _, language := range scope {
 		feed, err := s.reader.BrowseLanguage(ctx, args.OwnerID, args.ConnectionID, language.languageID)
 		if err != nil {
-			return upserted, nil, safeSyncError(err, connection)
+			return upserted, nil, nil, safeSyncError(err, connection)
 		}
-		feedUpserted, feedAdvertisements, conflict := s.reconcileSyncEntries(ctx, args, languageTag(language), feed)
+		feedUpserted, feedAdvertisements, feedEntries, conflict := s.reconcileSyncEntries(ctx, args, languageTag(language), feed)
 		upserted += feedUpserted
 		advertisements = append(advertisements, feedAdvertisements...)
+		entries = append(entries, feedEntries...)
 		if conflict != nil && firstConflict == nil {
 			firstConflict = conflict
 		}
 	}
 	if firstConflict != nil {
-		return upserted, nil, firstConflict
+		return upserted, nil, nil, firstConflict
 	}
-	return upserted, advertisements, nil
+	return upserted, advertisements, entries, nil
 }
 
 // reconcileSyncEntries reconciles the EPUB entries of one language feed,
-// skipping entries the catalogue did not identify or title.
-func (s *Service) reconcileSyncEntries(ctx context.Context, args SyncArgs, entryLanguage string, feed opds.Feed) (int, []coverAdvertisement, error) {
+// skipping entries the catalogue did not identify or title. It also builds the
+// Catalog index entries the same scope offers.
+func (s *Service) reconcileSyncEntries(ctx context.Context, args SyncArgs, entryLanguage string, feed opds.Feed) (int, []coverAdvertisement, []domain.CatalogueIndexEntry, error) {
 	upserted := 0
 	var advertisements []coverAdvertisement
+	var entries []domain.CatalogueIndexEntry
 	var firstConflict error
 	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
 		if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.Title) == "" {
@@ -1072,8 +1083,33 @@ func (s *Service) reconcileSyncEntries(ctx context.Context, args SyncArgs, entry
 			upserted++
 		}
 		advertisements = append(advertisements, coverAdvertisement{bookID: result.Book.ID, sourceIdentifier: entry.ID, advertised: opds.FindCoverImage(entry) != nil})
+		if indexed, ok := catalogueIndexEntry(entry, entryLanguage); ok {
+			entries = append(entries, indexed)
+		}
 	}
-	return upserted, advertisements, firstConflict
+	return upserted, advertisements, entries, firstConflict
+}
+
+// catalogueIndexEntry projects a feed entry into the Catalog index. An entry
+// without a usable EPUB acquisition link cannot be added from the Catalog and
+// is left out of the index.
+func catalogueIndexEntry(entry opds.Entry, language string) (domain.CatalogueIndexEntry, bool) {
+	href, ok := acquisitionHref(entry)
+	if !ok {
+		return domain.CatalogueIndexEntry{}, false
+	}
+	indexed := domain.CatalogueIndexEntry{
+		EntryIdentifier: strings.TrimSpace(entry.ID),
+		Title:           strings.TrimSpace(entry.Title),
+		Author:          strings.TrimSpace(entry.Author),
+		LanguageTag:     language,
+		EPUBHref:        href,
+	}
+	if link := opds.FindCoverImage(entry); link != nil {
+		indexed.CoverHref = strings.TrimSpace(link.Href)
+		indexed.CoverMediaType = strings.TrimSpace(link.Type)
+	}
+	return indexed, true
 }
 
 // applyCoverAdvertisements records advertised provenance and schedules
@@ -1100,7 +1136,7 @@ func (s *Service) applyCoverAdvertisements(ctx context.Context, owner, connectio
 }
 
 func safeSyncError(err error, connection domain.OpdsConnection) error {
-	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalog connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalog returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
+	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "catalog index ") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalog connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalog returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
 		return errors.New(err.Error())
 	}
 	host := "the catalog"

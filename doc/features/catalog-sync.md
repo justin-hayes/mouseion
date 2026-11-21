@@ -74,6 +74,13 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 
 - Sync walks the applicable Calibre-Web language feeds using the connection's
   existing origin-scoped OPDS client and bounded pagination.
+- It maintains the connection's **Catalog index**: a local mirror of the
+  entries the connection offers within the sync scope, keyed by connection and
+  entry identifier. Each entry records title, author, language tag, advertised
+  cover provenance and the EPUB acquisition link, plus when the entry was last
+  seen. The index holds no learner state. A complete run deletes entries it no
+  longer saw; a partial or failed run deletes nothing; deleting the connection
+  deletes its index.
 - It upserts title, author when supplied, language, and catalog identity through the owner-scoped
   Book alias and duplicate rules in ADR 0035.
 - A new match becomes an active metadata-only My Books entry. No placeholder

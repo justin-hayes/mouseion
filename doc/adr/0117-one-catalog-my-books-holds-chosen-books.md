@@ -1,6 +1,6 @@
 # ADR 0117: One Catalog for every source; My Books holds only chosen Books
 
-Status: **Proposed** · Date: 2026-11-21 · Author: Justin + OpenCode
+Status: **Accepted** · Date: 2026-11-21 · Author: Justin + OpenCode
 
 Amends [ADR 0035](0035-my-books-membership-and-source-provenance.md),
 [ADR 0041](0041-catalog-sync-metadata-first.md),
