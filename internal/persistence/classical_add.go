@@ -19,11 +19,12 @@ import (
 // registration path.
 const classicalAddLockSalt = 469
 
-// AddClassicalReadingUnits gives the learner one Inbox Book per named current
+// AddClassicalReadingUnits gives the learner one To Read Book per named current
 // Reading unit, linked immutably to that unit and chosen for Ancient Greek. It
-// downloads nothing, starts no job and never changes the active study language.
-// Re-adding returns the existing Book, restoring an active membership and
-// clearing Hidden, so the operation is idempotent.
+// downloads nothing, starts no job and never changes the active study language;
+// the Add route submits preparation after this transaction commits. Re-adding
+// returns the existing Book, restoring an active membership, clearing Hidden
+// and setting To Read, so the operation is idempotent.
 func (s *PostgresStore) AddClassicalReadingUnits(ctx context.Context, owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	owner = strings.TrimSpace(owner)
 	if owner == "" {
@@ -155,7 +156,7 @@ func addClassicalReadingUnitTx(ctx context.Context, q *sqlcgen.Queries, owner, k
 	if err := q.InsertBookMembership(ctx, sqlcgen.InsertBookMembershipParams{OwnerID: owner, BookID: book.ID}); err != nil {
 		return classical.AddedBook{}, err
 	}
-	if err := q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: book.ID}); err != nil {
+	if err := upsertBookDisposition(ctx, q, owner, book.ID, domain.BookDispositionToRead); err != nil {
 		return classical.AddedBook{}, err
 	}
 	if err := q.InsertBookReadingUnit(ctx, sqlcgen.InsertBookReadingUnitParams{OwnerID: owner, BookID: book.ID, ReadingUnitID: unit.ID}); err != nil {
@@ -166,9 +167,10 @@ func addClassicalReadingUnitTx(ctx context.Context, q *sqlcgen.Queries, owner, k
 	return added, nil
 }
 
-// reopenClassicalBookTx makes an existing Book reachable again without
-// changing its disposition, Reading history or analysis. A removed membership
-// returns to active and a Hidden Book becomes visible at the next revision.
+// reopenClassicalBookTx makes an existing Book reachable again and restores
+// the To Read intent Add expresses. Reading history, analysis and every other
+// piece of evidence stay untouched. A removed membership returns to active and
+// a Hidden Book becomes visible at the next revision.
 func reopenClassicalBookTx(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
 	visibility, err := q.GetBookVisibilityForUpdate(ctx, sqlcgen.GetBookVisibilityForUpdateParams{Owner: owner, Book: bookID})
 	if err != nil {
@@ -180,6 +182,9 @@ func reopenClassicalBookTx(ctx context.Context, q *sqlcgen.Queries, owner, bookI
 		}); err != nil {
 			return err
 		}
+	}
+	if err := upsertBookDisposition(ctx, q, owner, bookID, domain.BookDispositionToRead); err != nil {
+		return err
 	}
 	return q.ActivateBookMembership(ctx, sqlcgen.ActivateBookMembershipParams{OwnerID: owner, BookID: bookID})
 }

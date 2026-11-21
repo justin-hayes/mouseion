@@ -42,8 +42,9 @@ func (s *Store) ListOwnedClassicalReadingUnits(_ context.Context, owner string) 
 	return owned, nil
 }
 
-// AddClassicalReadingUnits creates or reopens one metadata-only Inbox Book per
-// current fixture Reading unit. It downloads nothing and starts no job.
+// AddClassicalReadingUnits creates or reopens one metadata-only To Read Book
+// per current fixture Reading unit. The fixture preparation seam reports the
+// text already prepared, so the Add route starts no real job.
 func (s *Store) AddClassicalReadingUnits(_ context.Context, owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	owner = strings.TrimSpace(owner)
 	if owner == "" {
@@ -81,7 +82,7 @@ func (s *Store) setClassicalDefinitions(definitions []classical.Definition) {
 }
 
 // addFixtureClassicalReadingUnitLocked creates the Book or reopens the existing
-// one without changing its disposition, reading history or preparation state.
+// one as To Read without changing its reading history or preparation state.
 func (s *Store) addFixtureClassicalReadingUnitLocked(owner string, definition classical.Definition) classical.AddedBook {
 	if i := s.fixtureClassicalBookIndexLocked(owner, definition.Key); i >= 0 {
 		bookID := s.myBooks[i].Book.ID
@@ -89,6 +90,7 @@ func (s *Store) addFixtureClassicalReadingUnitLocked(owner string, definition cl
 		if state := s.visibility[key]; state.hidden {
 			s.visibility[key] = fixtureVisibility{hidden: false, revision: state.revision + 1}
 		}
+		s.restoreFixtureToReadLocked(owner, bookID)
 		return classical.AddedBook{ReadingUnitKey: definition.Key, BookID: bookID}
 	}
 	bookID := fixtureClassicalBookID(owner, definition.Key)
@@ -127,7 +129,18 @@ func (s *Store) addFixtureClassicalReadingUnitLocked(owner string, definition cl
 		Cover:       fixtureCover(bookID),
 		ReadingUnit: unit,
 	})
+	s.restoreFixtureToReadLocked(owner, bookID)
 	return classical.AddedBook{ReadingUnitKey: definition.Key, BookID: bookID, Created: true}
+}
+
+// restoreFixtureToReadLocked sets the Add's reading intent, advancing the
+// disposition revision only when the disposition really changes.
+func (s *Store) restoreFixtureToReadLocked(owner, bookID string) {
+	key := fixtureDispositionKey(owner, bookID)
+	if s.bookDispositionLocked(owner, bookID) != domain.BookDispositionToRead {
+		s.dispositionRevisions[key] = s.bookDispositionRevisionLocked(owner, bookID) + 1
+	}
+	s.dispositions[key] = domain.BookDispositionToRead
 }
 
 func (s *Store) fixtureClassicalBookIndexLocked(owner, readingUnitKey string) int {

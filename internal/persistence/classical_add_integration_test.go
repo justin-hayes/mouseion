@@ -50,7 +50,7 @@ func classicalAddDefinitions() []classical.Definition {
 	}
 }
 
-func TestAddClassicalReadingUnitsCreatesInboxBooksAndReopensThem(t *testing.T) {
+func TestAddClassicalReadingUnitsCreatesToReadBooksAndReopensThem(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
@@ -72,7 +72,7 @@ func TestAddClassicalReadingUnitsCreatesInboxBooksAndReopensThem(t *testing.T) {
 	assert.Equal(t, "Work", first.Book.Title)
 	assert.Equal(t, "Xenophon", first.Book.Author)
 	assert.Equal(t, classical.Language, first.Book.LanguageTag)
-	assert.Equal(t, domain.BookDispositionInbox, first.Disposition)
+	assert.Equal(t, domain.BookDispositionToRead, first.Disposition)
 	require.NotNil(t, first.ReadingUnit)
 
 	active, err := store.GetStoredActiveStudyLanguage(ctx, owner.ID)
@@ -83,8 +83,8 @@ func TestAddClassicalReadingUnitsCreatesInboxBooksAndReopensThem(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id = $1`, owner.ID).Scan(&jobs))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM source_materials WHERE owner_id = $1`, owner.ID).Scan(&sources))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM books WHERE owner_id = $1`, owner.ID).Scan(&books))
-	assert.Zero(t, jobs, "Add starts no job")
-	assert.Zero(t, sources, "Add downloads nothing")
+	assert.Zero(t, jobs, "the store holds no preparation seam and starts no job")
+	assert.Zero(t, sources, "the store itself downloads nothing")
 	assert.Equal(t, 2, books)
 
 	again, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1", "work-2"})
@@ -95,12 +95,16 @@ func TestAddClassicalReadingUnitsCreatesInboxBooksAndReopensThem(t *testing.T) {
 
 	_, err = store.SetBookHidden(ctx, owner.ID, report.Books[0].BookID, 0, true)
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, report.Books[0].BookID, domain.BookDispositionInbox))
 	reopened, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1"})
 	require.NoError(t, err)
 	assert.False(t, reopened.Books[0].Created)
 	hidden, _, err := store.GetBookVisibility(ctx, owner.ID, report.Books[0].BookID)
 	require.NoError(t, err)
 	assert.False(t, hidden, "re-adding reopens a hidden existing Book")
+	readded, err := store.GetBookDetail(ctx, owner.ID, report.Books[0].BookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, readded.Disposition, "re-adding restores To Read")
 
 	var bookCount int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM books WHERE owner_id = $1 AND language_tag = $2`, owner.ID, classical.Language).Scan(&bookCount))
@@ -110,6 +114,23 @@ func TestAddClassicalReadingUnitsCreatesInboxBooksAndReopensThem(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, owned, 2)
 	assert.Equal(t, "work-1", owned[0].ReadingUnitKey)
+}
+
+func TestAddClassicalReadingUnitsPropagatesDispositionWriteFailure(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "classical-disposition-failure", false)
+	require.NoError(t, err)
+	require.NoError(t, store.ReconcileClassicalManifest(ctx, classicalAddDefinitions()))
+
+	_, err = store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1"})
+	require.NoError(t, err)
+	raiseOnWrite(t, ctx, store, "book_dispositions", "INSERT OR UPDATE", "")
+
+	_, err = store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1"})
+	require.Error(t, err, "reopening a Book propagates a failed To Read write")
 }
 
 func TestAddClassicalReadingUnitsRefusesLegacyGreekRows(t *testing.T) {

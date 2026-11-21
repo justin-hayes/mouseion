@@ -15,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -187,13 +186,13 @@ func (h *classicalFailureHarness) addBook(owner string) string {
 	return report.Books[0].BookID
 }
 
-func (h *classicalFailureHarness) moveToRead(owner, bookID string, cookies []*http.Cookie, csrf string) *httptest.ResponseRecorder {
+// moveToRead submits the preparation Add already queued for its To Read Book.
+// It uses Reading's retry route so every failure-table test exercises the same
+// reading-intent submission the Add route uses.
+func (h *classicalFailureHarness) moveToRead(_ string, bookID string, cookies []*http.Cookie, csrf string) *httptest.ResponseRecorder {
 	h.t.Helper()
-	detail, err := h.store.GetBookDetail(h.ctx, owner, bookID)
-	require.NoError(h.t, err)
-	return perform(h.t, h.h, http.MethodPost, "/library/books/"+bookID+"/to-read", url.Values{
-		"csrf_token":        {csrf},
-		"expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
+	return perform(h.t, h.h, http.MethodPost, "/reading/books/"+bookID+"/reanalyze", url.Values{
+		"csrf_token": {csrf},
 	}, cookies)
 }
 

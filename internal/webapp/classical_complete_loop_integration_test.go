@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -104,75 +103,17 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		assert.Contains(t, work.Body.String(), want, "work page missing %q", want)
 	}
 
-	// 2. Add a single book from the work page, then the whole work, then the
-	// whole-work unit from the index. Re-adding reopens without a duplicate or
-	// a download.
-	single := perform(t, h.handler, http.MethodPost, "/catalogs/classical/units/synthetic-work-2/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, single.Code, single.Body.String())
-	assert.Contains(t, single.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books."))
+	// 2. Add a whole Work. Every current Reading unit becomes a To Read Book and
+	// one preparation is queued in constituent-book order. The whole-work unit
+	// from the index is added separately.
 	added := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
-	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 1 Book and opened 1 existing Book."))
-	whole := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-whole/add", url.Values{
-		"csrf_token": {csrf}, "return": {"index"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, whole.Code, whole.Body.String())
-	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical?")
+	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 2 Books to My Books. Downloading and preparing the text."))
 	owned := h.booksByUnit(t, learner.ID)
-	require.Len(t, owned, 3)
+	require.Len(t, owned, 2)
 	bookOne, bookTwo := owned[h.unitOneKey], owned[h.unitTwoKey]
-	wholeBook := owned[h.wholeUnitKey]
 	require.NotEmpty(t, bookOne)
 	require.NotEmpty(t, bookTwo)
-	require.NotEmpty(t, wholeBook)
-	assert.Zero(t, h.sourceServed(), "Add downloads nothing")
-	assert.Zero(t, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue), "Add starts no preparation job")
-	require.NoError(t, h.store.SetActiveStudyLanguage(h.ctx, learner.ID, classical.Language))
-	require.Equal(t, domain.BookDispositionInbox, h.detail(t, learner.ID, bookOne).Disposition)
-
-	// A whole-work unit stays an ordinary row without a position.
-	library := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
-	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
-	assert.Contains(t, library.Body.String(), "Synthetic Whole")
-	assert.NotContains(t, library.Body.String(), "Book 1 of 1")
-
-	// Re-add is idempotent, and reopens the hidden Book without a duplicate.
-	_, err := h.store.SetBookHidden(h.ctx, learner.ID, bookOne, 0, true)
-	require.NoError(t, err)
-	again := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, again.Code, again.Body.String())
-	assert.Contains(t, again.Header().Get("Location"), url.QueryEscape("Opened 2 existing Books."))
-	require.Equal(t, owned, h.booksByUnit(t, learner.ID))
-	hidden, _, err := h.store.GetBookVisibility(h.ctx, learner.ID, bookOne)
-	require.NoError(t, err)
-	assert.False(t, hidden, "re-adding reopens the hidden Book")
-
-	// 3. My Books groups the reviewed work: identity, one badge, counts, strip,
-	// one legend, Book-counting filters.
-	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
-	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
-	grouped := library.Body.String()
-	for _, want := range []string{
-		"Synthetic Work", "By Synthetic Author", "Συνθετικὸν ἔργον", "all 2 books", "Classical catalog",
-		"Inbox", `aria-label="Synthetic Work, Book 1 of 2, Inbox"`,
-		`aria-label="Synthetic Work, Book 2 of 2, Inbox"`,
-		`role="img" aria-label="Synthetic Work, Book 1 of 2, Inbox"`,
-		`role="img" aria-label="Synthetic Work, Book 2 of 2, Inbox"`,
-		"All (3)", "Inbox (3)",
-	} {
-		assert.Contains(t, grouped, want, "grouped Work row missing %q", want)
-	}
-	for _, id := range []string{bookOne, bookTwo} {
-		assert.NotContains(t, grouped, `href="/reading#journey-book-`+id+`"`, "an Inbox cell has no Reading entry")
-	}
-	assert.Equal(t, 1, strings.Count(grouped, `class="library-work-legend"`), "one legend per page")
-	assert.Contains(t, grouped, "3 Books in 2 works")
-
-	// 4. Bulk To Read first meets a fetch failure, then recovers through the
-	// Reading retry route. Jobs are enqueued in constituent-book order.
-	h.layer.failSource.Store(true)
-	moved := perform(t, h.handler, http.MethodPost, "/library/works/synthetic-work/to-read", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, moved.Code, moved.Body.String())
 	for _, id := range []string{bookOne, bookTwo} {
 		assert.Equal(t, domain.BookDispositionToRead, h.detail(t, learner.ID, id).Disposition)
 	}
@@ -181,8 +122,66 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	for _, queue := range queues {
 		assert.Equal(t, analysis.ClassicalPreparationQueue, queue)
 	}
+	assert.Zero(t, h.sourceServed(), "the worker, not Add, downloads the source")
 	assert.Zero(t, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE queue='analysis'`), "classical preparation never delays EPUB analysis")
 
+	whole := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-whole/add", url.Values{
+		"csrf_token": {csrf}, "return": {"index"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, whole.Code, whole.Body.String())
+	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical?")
+	assert.Contains(t, whole.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books. Downloading and preparing the text."))
+	wholeBook := h.booksByUnit(t, learner.ID)[h.wholeUnitKey]
+	require.NotEmpty(t, wholeBook)
+	assert.Equal(t, domain.BookDispositionToRead, h.detail(t, learner.ID, wholeBook).Disposition)
+	_, bookIDs = h.preparationJobs(t)
+	require.Equal(t, []string{bookOne, bookTwo, wholeBook}, bookIDs, "each Add appends its own preparation")
+
+	// A whole-work unit stays an ordinary row without a position.
+	require.NoError(t, h.store.SetActiveStudyLanguage(h.ctx, learner.ID, classical.Language))
+	library := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
+	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
+	assert.Contains(t, library.Body.String(), "Synthetic Whole")
+	assert.NotContains(t, library.Body.String(), "Book 1 of 1")
+
+	// Re-add is idempotent, reopens the hidden Book, and keeps one live job per
+	// Book.
+	_, err := h.store.SetBookHidden(h.ctx, learner.ID, bookOne, 0, true)
+	require.NoError(t, err)
+	again := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, again.Code, again.Body.String())
+	assert.Contains(t, again.Header().Get("Location"), url.QueryEscape("Opened 2 existing Books. Downloading and preparing the text."))
+	afterReAdd := h.booksByUnit(t, learner.ID)
+	assert.Equal(t, bookOne, afterReAdd[h.unitOneKey])
+	assert.Equal(t, bookTwo, afterReAdd[h.unitTwoKey])
+	assert.Equal(t, wholeBook, afterReAdd[h.wholeUnitKey])
+	hidden, _, err := h.store.GetBookVisibility(h.ctx, learner.ID, bookOne)
+	require.NoError(t, err)
+	assert.False(t, hidden, "re-adding reopens the hidden Book")
+	assert.Equal(t, 3, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue), "ensure-once keeps one live job per Book")
+
+	// 3. My Books groups the reviewed work: identity, one badge, counts, strip,
+	// one legend, Book-counting filters.
+	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
+	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
+	grouped := library.Body.String()
+	for _, want := range []string{
+		"Synthetic Work", "By Synthetic Author", "Συνθετικὸν ἔργον", "all 2 books", "Classical catalog",
+		"To Read", `aria-label="Synthetic Work, Book 1 of 2, To Read"`,
+		`aria-label="Synthetic Work, Book 2 of 2, To Read"`,
+		"All (3)", "To Read (3)",
+	} {
+		assert.Contains(t, grouped, want, "grouped Work row missing %q", want)
+	}
+	for _, id := range []string{bookOne, bookTwo} {
+		assert.Contains(t, grouped, `href="/reading#reading-chooser-book-`+id+`"`, "a To Read cell opens the chooser")
+	}
+	assert.Equal(t, 1, strings.Count(grouped, `class="library-work-legend"`), "one legend per page")
+	assert.Contains(t, grouped, "3 Books in 2 works")
+
+	// 4. The Add's queued preparation first meets a fetch failure, then
+	// recovers through the Reading retry route.
+	h.layer.failSource.Store(true)
 	queuedPage := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, queuedPage.Code, queuedPage.Body.String())
 	assert.Contains(t, queuedPage.Body.String(), "Preparing Books 1–2…", "a grouped Work collapses queued Books into one line")
@@ -380,8 +379,6 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	otherCookies, otherCSRF := loginCookies(t, h.handler, other.Username, "learner-password")
 	otherAdd := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {otherCSRF}}, otherCookies)
 	require.Equal(t, http.StatusSeeOther, otherAdd.Code, otherAdd.Body.String())
-	otherMoved := perform(t, h.handler, http.MethodPost, "/library/works/synthetic-work/to-read", url.Values{"csrf_token": {otherCSRF}}, otherCookies)
-	require.Equal(t, http.StatusSeeOther, otherMoved.Code, otherMoved.Body.String())
 	otherOwned := h.booksByUnit(t, other.ID)
 	require.Len(t, otherOwned, 2)
 	h.waitForBookAnalysis(t, other.ID, otherOwned[h.unitOneKey])
@@ -437,9 +434,8 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.Equal(t, bookOne, withdrawnReading.BookID, "a prepared withdrawn Book stays readable")
 
 	beforeWithdrawnJobs := countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue)
-	wholeDetail := h.detail(t, learner.ID, wholeBook)
-	refusedWhole := perform(t, h.handler, http.MethodPost, "/library/books/"+wholeBook+"/to-read", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(wholeDetail.DispositionRevision, 10)},
+	refusedWhole := perform(t, h.handler, http.MethodPost, "/reading/books/"+wholeBook+"/reanalyze", url.Values{
+		"csrf_token": {csrf},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, refusedWhole.Code, refusedWhole.Body.String())
 	assert.Contains(t, refusedWhole.Header().Get("Location"), url.QueryEscape(classicalWithdrawnLabel))
