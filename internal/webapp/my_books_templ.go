@@ -2969,7 +2969,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = EmptyState("No Ancient Greek Books yet", "Add a reviewed text from the Classical catalog. Adding a work downloads nothing.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var156), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = EmptyState("No Ancient Greek Books yet", "Add a reviewed text from the Classical catalog. Adding a work downloads and prepares the text.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var156), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

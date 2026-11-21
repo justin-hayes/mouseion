@@ -424,7 +424,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		}
 		if len(books) == 0 && (!browse.Enabled || (browse.AllCount == 0 && browse.Language != "")) {
 			if browse.Language == classical.Language {
-				@EmptyState("No Ancient Greek Books yet", "Add a reviewed text from the Classical catalog. Adding a work downloads nothing.") {
+				@EmptyState("No Ancient Greek Books yet", "Add a reviewed text from the Classical catalog. Adding a work downloads and prepares the text.") {
 					<a role="button" href="/catalogs/classical">Browse the Classical catalog</a>
 				}
 			} else {

@@ -69,6 +69,7 @@ type Querier interface {
 	DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
+	DeleteCatalogueEntriesNotSeen(ctx context.Context, arg DeleteCatalogueEntriesNotSeenParams) (int64, error)
 	DeleteCurrentReading(ctx context.Context, arg DeleteCurrentReadingParams) error
 	DeleteOccurrenceLemmaCorrection(ctx context.Context, arg DeleteOccurrenceLemmaCorrectionParams) (int64, error)
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
@@ -119,6 +120,7 @@ type Querier interface {
 	GetBookVisibility(ctx context.Context, arg GetBookVisibilityParams) (GetBookVisibilityRow, error)
 	GetBookVisibilityForUpdate(ctx context.Context, arg GetBookVisibilityForUpdateParams) (GetBookVisibilityForUpdateRow, error)
 	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
+	GetCatalogueEntry(ctx context.Context, arg GetCatalogueEntryParams) (GetCatalogueEntryRow, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
 	// An owned Book in the study language, with whether it has a current analysis
 	// that can contribute occurrences.
@@ -271,6 +273,7 @@ type Querier interface {
 	ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error)
 	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
 	ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error)
+	ListCatalogueEntries(ctx context.Context, arg ListCatalogueEntriesParams) ([]ListCatalogueEntriesRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
@@ -355,6 +358,10 @@ type Querier interface {
 	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
 	ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error)
 	LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error)
+	// Catalog index queries. A sync reconciles one connection's run of entries in
+	// a single transaction: upsert everything it saw, then delete what the
+	// complete run did not see. Ownership is checked through the connection.
+	LockCatalogueIndexConnection(ctx context.Context, arg LockCatalogueIndexConnectionParams) (string, error)
 	LockCurrentReadingSnapshot(ctx context.Context, arg LockCurrentReadingSnapshotParams) (string, error)
 	LockCurrentReadingsExceptLanguage(ctx context.Context, arg LockCurrentReadingsExceptLanguageParams) ([]string, error)
 	LockCurrentReadingsForAllLanguages(ctx context.Context, arg LockCurrentReadingsForAllLanguagesParams) ([]string, error)
@@ -436,6 +443,7 @@ type Querier interface {
 	UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) error
 	UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error)
 	UpsertBookDisposition(ctx context.Context, arg UpsertBookDispositionParams) error
+	UpsertCatalogueEntry(ctx context.Context, arg UpsertCatalogueEntryParams) error
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
 	UpsertEdition(ctx context.Context, arg UpsertEditionParams) (UpsertEditionRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error

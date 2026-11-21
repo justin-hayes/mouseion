@@ -95,6 +95,10 @@ type refreshStore struct {
 	bookErr        error
 	supportedErr   error
 	reconcileErr   error
+	indexErr       error
+	indexRuns      int
+	indexEntries   []domain.CatalogueIndexEntry
+	indexObserved  time.Time
 }
 
 func (s *refreshStore) ListUnscopedCatalogueEntryAliases(context.Context) ([]domain.BookAlias, error) {
@@ -204,6 +208,15 @@ func (s *refreshStore) ReconcileCatalogueEntry(_ context.Context, owner, connect
 		return persistence.CatalogueEntryReconcileResult{}, errors.New("missing source identifier")
 	}
 	return s.reconcile, nil
+}
+func (s *refreshStore) ReconcileCatalogueIndex(_ context.Context, _ string, _ string, entries []domain.CatalogueIndexEntry, observedAt time.Time) error {
+	if s.indexErr != nil {
+		return s.indexErr
+	}
+	s.indexRuns++
+	s.indexEntries = append([]domain.CatalogueIndexEntry(nil), entries...)
+	s.indexObserved = observedAt
+	return nil
 }
 func (s *refreshStore) SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error {
 	return nil
@@ -649,6 +662,30 @@ func TestSyncWorkReconcilesEntriesAndReportsFirstConflict(t *testing.T) {
 		worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: capabilities}
 		require.NoError(t, worker.Work(context.Background(), job()))
 		require.Equal(t, 1, store.reconciles)
+		require.Equal(t, 1, store.indexRuns)
+		require.Len(t, store.indexEntries, 1)
+		assert.Equal(t, "good", store.indexEntries[0].EntryIdentifier)
+	})
+
+	t.Run("writes the index only after a complete run", func(t *testing.T) {
+		store := newStore(nil)
+		indexed := entry("entry-1", "First title")
+		indexed.Author = "First author"
+		indexed.Links = append(indexed.Links, opds.Link{Rel: opds.CoverImageRel, Type: "image/png", Href: "https://catalog.example/cover.png"})
+		reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{indexed}}}
+		worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: capabilities}
+		require.NoError(t, worker.Work(context.Background(), job()))
+		require.Equal(t, 1, store.indexRuns)
+		require.Len(t, store.indexEntries, 1)
+		got := store.indexEntries[0]
+		assert.Equal(t, "entry-1", got.EntryIdentifier)
+		assert.Equal(t, "First title", got.Title)
+		assert.Equal(t, "First author", got.Author)
+		assert.Equal(t, "de", got.LanguageTag)
+		assert.Equal(t, "https://catalog.example/cover.png", got.CoverHref)
+		assert.Equal(t, "image/png", got.CoverMediaType)
+		assert.Equal(t, "https://catalog.example/entry-1.epub", got.EPUBHref)
+		assert.False(t, store.indexObserved.IsZero())
 	})
 
 	t.Run("reports the first conflict and keeps reconciling", func(t *testing.T) {
@@ -659,6 +696,7 @@ func TestSyncWorkReconcilesEntriesAndReportsFirstConflict(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), `catalog entry "bad-1" could not be reconciled`)
 		require.Equal(t, 1, store.reconciles)
+		assert.Zero(t, store.indexRuns, "a failed run reconciled the Catalog index")
 	})
 
 	t.Run("surfaces a feed read failure", func(t *testing.T) {
@@ -668,6 +706,16 @@ func TestSyncWorkReconcilesEntriesAndReportsFirstConflict(t *testing.T) {
 		err := worker.Work(context.Background(), job())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "could not reach")
+		assert.Zero(t, store.indexRuns, "a failed run reconciled the Catalog index")
+	})
+
+	t.Run("surfaces an index failure", func(t *testing.T) {
+		store := newStore(nil)
+		store.indexErr = errors.New("index unavailable")
+		worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: &refreshReader{feed: opds.Feed{Entries: []opds.Entry{entry("good", "Good")}}}, Capabilities: capabilities}
+		err := worker.Work(context.Background(), job())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "catalog index could not be reconciled")
 	})
 
 	t.Run("surfaces a capability failure", func(t *testing.T) {

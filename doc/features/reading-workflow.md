@@ -23,8 +23,11 @@ language, or presents the learner with an unordered chooser between Books.
    until catalog metadata is corrected and synchronized again.
 2. In My Books, move an Inbox Book to **To Read** to express intent. This records
    the disposition and ensures content acquisition and current analysis when
-   needed. Analysis may be queued, running, ready, stale, failed, or unavailable;
-   evidence status does not create a recommendation or order.
+   needed. Add on the Catalog, including the Classical catalog, performs that
+   intent step directly: it creates or restores the Book as To Read and starts
+   the same download and preparation. Analysis may be queued, running, ready,
+   stale, failed, or unavailable; evidence status does not create a
+   recommendation or order.
 3. Reading shows either the current Book or To Read candidates in neutral title
    order. A Work with more than one To Read Book is one entry whose band table
    lists constituent Book numbers in the shipped band order, omitting empty

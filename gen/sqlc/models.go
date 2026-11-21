@@ -163,6 +163,18 @@ type Card struct {
 	CreatedAt      time.Time
 }
 
+type CatalogueEntry struct {
+	ConnectionID    string
+	EntryIdentifier string
+	Title           string
+	Author          string
+	LanguageTag     string
+	CoverHref       string
+	CoverMediaType  string
+	EpubHref        string
+	LastSeenSync    time.Time
+}
+
 type CatalogueSyncStatus struct {
 	OwnerID      string
 	ConnectionID string

@@ -10,6 +10,13 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+const (
+	// classicalAddUnitLabel and classicalAddWholeWorkLabel are the one Add copy
+	// shared by every catalog control.
+	classicalAddUnitLabel      = "Add and prepare"
+	classicalAddWholeWorkLabel = "Add and prepare the whole work"
+)
+
 // ClassicalCatalogRecord is the built-in, read-only source on the Catalog. It
 // appears below the OPDS source status lines and carries no setup, sync or
 // credentials.
@@ -20,7 +27,7 @@ templ ClassicalCatalogRecord(counts classical.CatalogCounts) {
 			<p>Reviewed Ancient Greek texts that ship with this release. The catalog is built in and read-only: it needs no setup, sync or credentials.</p>
 		</header>
 		@ClassicalCatalogCounts(counts, "classical-catalog-record__margin")
-		<p class="classical-catalog-record__note">Sources are fetched at To Read. Adding a work downloads nothing.</p>
+		<p class="classical-catalog-record__note">Adding a work puts it in To Read and downloads and prepares the text.</p>
 		<div class="action-group"><a role="button" href="/catalogs/classical">Browse the Classical catalog</a></div>
 	</article>
 }
@@ -31,7 +38,7 @@ templ ClassicalCatalogRecord(counts classical.CatalogCounts) {
 templ ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classical.CatalogAuthor, counts classical.CatalogCounts, attributions []classical.SourceAttribution, view classicalCatalogView, confirmation classicalAddConfirmation, pageError string) {
 	@ShellLayout("Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
 		@Breadcrumb("/catalogs", "Catalog")
-		@PageHeader("Classical catalog", "Browse the Ancient Greek works this release carries. Sources are fetched when a Book moves to To Read; adding downloads nothing.", nil)
+		@PageHeader("Classical catalog", "Browse the Ancient Greek works this release carries. Adding a Book puts it in To Read and downloads and prepares the text.", nil)
 		@ClassicalCatalogCounts(counts, "classical-catalog-margin")
 		if confirmation.Message != "" {
 			@ClassicalAddFeedback(confirmation)
@@ -88,7 +95,7 @@ templ ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classica
 																	if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
 																		<a href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
 																	} else if view.AddAvailable {
-																		@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), "Add", false, classicalAddReturnIndex)
+																		@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddUnitLabel, false, classicalAddReturnIndex)
 																	}
 																</td>
 															</tr>
@@ -138,7 +145,7 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 		@Breadcrumb(classicalAuthorIndexURL(work.Author), work.Author)
 		@PageHeader(work.Title, "Constituent books in the Classical catalog. Word counts are length facts, not coverage or difficulty.", nil) {
 			if view.AddAvailable {
-				@ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), "Add the whole work", true, "")
+				@ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), classicalAddWholeWorkLabel, true, "")
 			}
 			if view.OwnedWorks[work.Key] != "" {
 				<a class="button button--outline" href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>In My Books</a>
@@ -169,7 +176,7 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 							if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
 								<a href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
 							} else if view.AddAvailable {
-								@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), "Add", false, "")
+								@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddUnitLabel, false, "")
 							}
 						</td>
 					</tr>
@@ -337,12 +344,12 @@ func classicalWorkCanAdd(work classical.CatalogWork, view classicalCatalogView) 
 // classicalWorkAddLabel names the whole-Work Add by what it will actually add.
 func classicalWorkAddLabel(work classical.CatalogWork, view classicalCatalogView) string {
 	if work.WholeWork {
-		return "Add the work"
+		return "Add and prepare the work"
 	}
 	if classicalOwnedUnitCount(work, view) == 0 {
-		return "Add the whole work"
+		return classicalAddWholeWorkLabel
 	}
-	return "Add the remaining books"
+	return "Add and prepare the remaining books"
 }
 
 // classicalAuthorIndexURL names one author's section of the catalog index.

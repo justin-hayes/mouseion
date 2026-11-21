@@ -428,10 +428,11 @@ overflow.
   shares one page-wide word scale and is hidden from assistive technology,
   because the caption, books table and ownership line state the same facts.
   Edition, passage, translation, ownership and Add sit in a margin note, and
-  **Choose books** is a native disclosure. The author-detail page is retired:
-  its URL permanently redirects to that author's index section. The index uses
-  existing tokens and typefaces only and never states preparation, coverage or
-  difficulty.
+  **Choose books** is a native disclosure. Add creates or restores the Book as
+  To Read and starts downloading and preparing the text; its control and
+  confirmation say so. The author-detail page is retired: its URL permanently
+  redirects to that author's index section. The index uses existing tokens and
+  typefaces only and never states preparation, coverage or difficulty.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
 - Reading presents one current Book or, between Books, the learner's unordered To

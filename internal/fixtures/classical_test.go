@@ -34,7 +34,7 @@ func TestFixtureClassicalCatalogCarriesConstituentBooksAndAWholeWork(t *testing.
 	assert.Zero(t, hellenica.Units[0].ConstituentBook)
 }
 
-func TestFixtureClassicalAddCreatesMetadataOnlyInboxBooks(t *testing.T) {
+func TestFixtureClassicalAddCreatesMetadataOnlyToReadBooks(t *testing.T) {
 	store := NewStore()
 	report, err := store.AddClassicalReadingUnits(context.Background(), OwnerID, []string{
 		"fixture-iliad-1", "fixture-iliad-2", "fixture-iliad-3",
@@ -54,11 +54,10 @@ func TestFixtureClassicalAddCreatesMetadataOnlyInboxBooks(t *testing.T) {
 		assert.Equal(t, "Iliad", detail.Book.Title)
 		assert.Equal(t, "Homer", detail.Book.Author)
 		assert.Equal(t, classical.Language, detail.Book.LanguageTag)
-		assert.Equal(t, domain.BookDispositionInbox, detail.Disposition)
+		assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
 		require.NotNil(t, detail.ReadingUnit)
 		assert.Equal(t, unit.ReadingUnitKey, detail.ReadingUnit.ReadingUnitKey)
 		assert.Equal(t, "fixture-iliad", detail.ReadingUnit.WorkKey)
-		assert.Nil(t, detail.Acquired, "Add creates a metadata-only Book and downloads nothing")
 	}
 
 	supported, err := store.ListSupportedLanguages(context.Background())
@@ -91,7 +90,6 @@ func TestFixtureClassicalToReadProjectionMakesOneBookReadyForTheChooser(t *testi
 	report, err := store.AddClassicalReadingUnits(context.Background(), OwnerID, []string{"fixture-iliad-1"})
 	require.NoError(t, err)
 	bookID := report.Books[0].BookID
-	require.NoError(t, store.SetBookDisposition(context.Background(), OwnerID, bookID, domain.BookDispositionToRead))
 
 	preparation := ClassicalPreparation{}
 	handle, err := preparation.SubmitClassicalPreparation(context.Background(), OwnerID, bookID)

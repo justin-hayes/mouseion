@@ -26,7 +26,7 @@ definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-bo
 [ADR 0100](doc/adr/0100-retryable-provider-omissions-preparation.md) records how
 a standard preparation finishes with the successful cards and reports retryable
 provider omissions instead of failing the whole run.
-[ADR 0117](doc/adr/0117-one-catalog-my-books-holds-chosen-books.md) (proposed)
+[ADR 0117](doc/adr/0117-one-catalog-my-books-holds-chosen-books.md) (accepted)
 defines **Catalog**, **Catalog index**, **Catalog entry**, **Book**, **Book
 disposition**, **Book workflow bucket**, **My Books** and **Previously read**
 below, and retires **Inbox** and **Hidden**. Until its slices ship, the code
@@ -554,6 +554,13 @@ stage that failed: fetch, import, a refused source, the catalog precondition, or
 a withdrawn definition. It is recorded per Book, never per pinned file, so one
 Book's failure does not fail its siblings.
 _Avoid_: pin failure, download cache failure.
+
+**EPUB acquisition failure**:
+The per-Book evidence of the latest failed attempt to fetch and import a
+Catalog entry's Catalog file, classified by the stage that failed: the entry,
+fetch, a refused source, or import. It is recorded per Book and cleared when an
+acquisition succeeds.
+_Avoid_: download error, acquisition flash.
 
 **Annotation occurrence**:
 A text-attested linguistic occurrence distinguished within one exact analysis,

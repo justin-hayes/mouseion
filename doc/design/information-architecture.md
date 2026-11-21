@@ -186,7 +186,9 @@ destination and is not scoped to the active study language. My Books remains the
 sole **bibliographic Book** browse surface for synced metadata; the Browse
 working desk on Reading lists vocabulary identities, not Books or catalog
 entries. Marking a Book To Read expresses the learner's reading intent and may
-trigger acquisition and analysis. The upstream catalog browser is retired.
+trigger acquisition and analysis; Add in the Classical catalog creates or
+restores its Book as To Read and starts the same download and preparation. The
+upstream catalog browser is retired.
 
 Analysis jobs, deck preparation, and historical artifact provenance are
 supporting surfaces.

@@ -225,6 +225,7 @@ registry) is owned by a user.
 ```mermaid
 erDiagram
     users ||--o{ opds_connections : configures
+    opds_connections ||--o{ catalogue_entries : indexes
     users ||--o{ books : owns
     books ||--o{ source_materials : "acquired as"
     source_materials ||--o{ source_content_revisions : "has revisions"
@@ -262,7 +263,12 @@ snapshot (the table predates the current *Reading* terminology), and
 
 The `works`, `editions` and `reading_units` tables are the Classical catalog
 registry: the embedded manifest reconciles into them at startup, and a Book's
-`book_reading_units` association is immutable. `classical_sources` keeps one
+`book_reading_units` association is immutable. `catalogue_entries` is the
+per-connection Catalog index: a local mirror of the entries a connection offers
+within the catalog sync scope, holding title, author, language, cover
+provenance and the EPUB acquisition link but no learner state
+([ADR 0117](doc/adr/0117-one-catalog-my-books-holds-chosen-books.md)).
+`classical_sources` keeps one
 verified copy of each pinned work file, `classical_prepared_definitions`
 records the definition revision and source pin a Book's published analysis came
 from, `classical_preparation_failures` records one settled failure per Book, and
