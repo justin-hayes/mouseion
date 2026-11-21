@@ -130,6 +130,7 @@ type MyBook struct {
 	Cover                  BookCover
 	ReadingUnit            *BookReadingUnit
 	ClassicalPreparation   *ClassicalPreparationStatus
+	EPUBAcquisition        *EPUBAcquisitionStatus
 	Acquired               *SourceMaterialSummary
 	Disposition            BookDisposition
 	DispositionRevision    int64
@@ -227,6 +228,9 @@ func (m MyBook) Classification() BookEvidenceClassification {
 	signals.CurrentReading = m.IsCurrentReading
 	if m.ReadingUnit != nil {
 		signals.ClassicalPreparation = ClassicalPreparationSignalFor(m.ClassicalPreparation, m.ReadingUnit)
+	}
+	if m.EPUBAcquisition != nil {
+		signals.EPUBAcquisition = m.EPUBAcquisition
 	}
 	language := ""
 	if m.Book.LanguageState == LanguageChosen {

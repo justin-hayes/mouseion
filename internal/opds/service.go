@@ -35,6 +35,14 @@ type AcquisitionImporter interface {
 type AcquisitionImporterForBook interface {
 	ImportForAcquisitionForBook(context.Context, string, string, string, epub.AcquisitionContent) (epub.ImportResult, error)
 }
+
+// importFailure keeps the existing operator-facing import error text while
+// making errors.Is report opds.ErrImportFailed as well as the underlying cause.
+type importFailureError struct{ err error }
+
+func (e importFailureError) Error() string   { return e.err.Error() }
+func (e importFailureError) Unwrap() []error { return []error{ErrImportFailed, e.err} }
+
 type Service struct {
 	store    ConnectionStore
 	importer Importer
@@ -223,7 +231,7 @@ func (s *Service) acquire(ctx context.Context, ownerID, connectionID, language, 
 		result, err = s.importer.Import(acquisitionCtx, ownerID, language, retained.Content)
 	}
 	if err != nil {
-		return epub.ImportResult{}, fmt.Errorf("opds: ingest downloaded EPUB: %w", err)
+		return epub.ImportResult{}, fmt.Errorf("opds: ingest downloaded EPUB: %w", importFailureError{err})
 	}
 	return result, nil
 }

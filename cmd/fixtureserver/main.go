@@ -47,11 +47,12 @@ func main() {
 	})
 	fixtureOPDS := fixtures.OPDS{}
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
-		Books:      books,
-		Classical:  fixtures.ClassicalPreparation{},
-		Analysis:   fixtures.Analysis{Store: store},
-		FindTarget: catalogueSync.FindAcquisitionTarget,
-		Acquire:    fixtureOPDS.AcquireForBook,
+		Books:        books,
+		Classical:    fixtures.ClassicalPreparation{},
+		Analysis:     fixtures.Analysis{Store: store},
+		FindTarget:   catalogueSync.FindAcquisitionTarget,
+		Acquire:      fixtureOPDS.AcquireForBook,
+		Acquisitions: store,
 	})
 	if err != nil {
 		log.Fatalf("initialize fixture reading intent preparation: %v", err)

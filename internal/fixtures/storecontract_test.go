@@ -53,6 +53,19 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 	}
 	h.store.mu.Lock()
 	defer h.store.mu.Unlock()
+	if seed.MetadataOnly {
+		languageState, languageTag := domain.LanguageChosen, language
+		if seed.LanguageUnknown {
+			languageState, languageTag = domain.LanguageUnknown, ""
+		}
+		h.store.myBooks = append(h.store.myBooks, domain.MyBook{
+			Book: domain.Book{ID: bookID, OwnerID: owner, Title: "Contract Book", LanguageState: languageState, LanguageTag: languageTag},
+		})
+		if seed.ToRead {
+			h.store.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
+		}
+		return bookID
+	}
 	h.store.books = append(h.store.books, domain.SourceMaterialSummary{
 		Source: domain.SourceMaterial{
 			ID: bookID, OwnerID: owner, Language: language, Title: "Contract Book",
@@ -194,6 +207,14 @@ func (h *contractHarness) RemoveBookFromMyBooks(owner, bookID string) error {
 
 func (h *contractHarness) ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error) {
 	return h.store.ImportPreviouslyRead(context.Background(), owner, bookID)
+}
+
+func (h *contractHarness) RecordEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) error {
+	return h.store.RecordEPUBAcquisitionFailure(context.Background(), record)
+}
+
+func (h *contractHarness) ClearEPUBAcquisitionFailure(owner, bookID string) error {
+	return h.store.ClearEPUBAcquisitionFailure(context.Background(), owner, bookID)
 }
 
 func (h *contractHarness) Store() storecontract.Store                  { return h }

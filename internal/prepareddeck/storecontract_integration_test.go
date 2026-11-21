@@ -84,6 +84,14 @@ func (h *postgresHarness) ImportPreviouslyRead(owner, bookID string) (domain.Rea
 	return h.store.ImportPreviouslyRead(h.ctx, owner, bookID)
 }
 
+func (h *postgresHarness) RecordEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) error {
+	return h.store.RecordEPUBAcquisitionFailure(h.ctx, record)
+}
+
+func (h *postgresHarness) ClearEPUBAcquisitionFailure(owner, bookID string) error {
+	return h.store.ClearEPUBAcquisitionFailure(h.ctx, owner, bookID)
+}
+
 func (h *postgresHarness) Store() storecontract.Store                  { return h }
 func (h *postgresHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
 func (h *postgresHarness) BookState() storecontract.BookStateStore     { return h }
@@ -175,12 +183,20 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 	if language == "" {
 		language = storecontract.Language
 	}
-	source, err := h.store.PutSourceMaterialWithExtractedUnits(h.ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: "Contract Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
-	require.NoError(t, err)
 	languageState, languageTag := domain.LanguageChosen, language
 	if seed.LanguageUnknown {
 		languageState, languageTag = domain.LanguageUnknown, ""
 	}
+	if seed.MetadataOnly {
+		book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: "Contract Book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: languageState, LanguageTag: languageTag})
+		require.NoError(t, err)
+		if seed.ToRead {
+			require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, book.ID, domain.BookDispositionToRead))
+		}
+		return book.ID
+	}
+	source, err := h.store.PutSourceMaterialWithExtractedUnits(h.ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: "Contract Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
+	require.NoError(t, err)
 	book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: languageState, LanguageTag: languageTag})
 	require.NoError(t, err)
 	require.NoError(t, h.store.LinkSourceToBook(h.ctx, owner, book.ID, source.ID))

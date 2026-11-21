@@ -455,11 +455,12 @@ func (h *Handler) readingIntentModule() (*readingintent.Module, error) {
 		bookAcquirer = h.services.OPDS.AcquireForBook
 	}
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
-		Books:      h.services.Store.MyBooks,
-		Classical:  classicalPreparation,
-		Analysis:   analysisService,
-		FindTarget: acquisitionTargets,
-		Acquire:    bookAcquirer,
+		Books:        h.services.Store.MyBooks,
+		Classical:    classicalPreparation,
+		Analysis:     analysisService,
+		FindTarget:   acquisitionTargets,
+		Acquire:      bookAcquirer,
+		Acquisitions: h.services.Store.MyBooks,
 	})
 	if err != nil {
 		return nil, err

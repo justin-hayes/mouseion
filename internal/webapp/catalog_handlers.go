@@ -642,7 +642,7 @@ func opdsErrorMessage(err error) string {
 	message := "The catalog request failed. Check the connection and try again."
 	lower := strings.ToLower(err.Error())
 	switch {
-	case errors.Is(err, opds.ErrNoEPUB), strings.Contains(lower, "incompatible media type"):
+	case errors.Is(err, opds.ErrNoEPUB), errors.Is(err, opds.ErrIncompatibleMediaType):
 		message = "This book is not available as an EPUB. Choose another edition or format."
 	case errors.Is(err, opds.ErrDownloadTooLarge):
 		message = "This EPUB is larger than the 512 MiB download limit. Choose a smaller edition."
@@ -654,7 +654,7 @@ func opdsErrorMessage(err error) string {
 		message = "The catalog returned a web page instead of an OPDS feed. Check the catalog URL."
 	case errors.Is(err, epub.ErrInvalidEPUB), strings.Contains(lower, "invalid epub"):
 		message = "The catalog item was not a valid EPUB. No book was added; choose another item or try again."
-	case strings.Contains(lower, "ingest downloaded epub"), strings.Contains(lower, "validate epub"):
+	case errors.Is(err, opds.ErrImportFailed), strings.Contains(lower, "ingest downloaded epub"), strings.Contains(lower, "validate epub"):
 		message = "The downloaded EPUB could not be added. Choose another book or try again."
 	case strings.Contains(lower, "invalid acquisition"):
 		message = "The catalog could not acquire this book. Check the connection and try again."

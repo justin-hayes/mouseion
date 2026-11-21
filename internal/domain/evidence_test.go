@@ -6,6 +6,119 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestClassifyBookEvidenceEPUBAcquisitionStages(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		status      EPUBAcquisitionStatus
+		acquisition AcquisitionState
+		evidence    BookEvidenceState
+		phase       AnalysisPhase
+		recovery    BookEvidenceRecovery
+	}{
+		{
+			name:        "entry missing",
+			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureEntry, Code: EPUBAcquisitionCodeCatalogEntryMissing},
+			acquisition: AcquisitionEntryMissing, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,
+		},
+		{
+			name:        "download failed",
+			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureFetch, Code: EPUBAcquisitionCodeSourceDownloadFailed},
+			acquisition: AcquisitionFetchFailed, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,
+		},
+		{
+			name:        "oversize source",
+			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureSource, Code: EPUBAcquisitionCodeSourceOversize},
+			acquisition: AcquisitionSourceOversize, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
+		},
+		{
+			name:        "unknown source format",
+			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureSource, Code: EPUBAcquisitionCodeSourceFormatUnknown},
+			acquisition: AcquisitionSourceFormatUnknown, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
+		},
+		{
+			name:        "import failed",
+			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureImport, Code: EPUBAcquisitionCodeEPUBImportFailed},
+			acquisition: AcquisitionImportFailed, evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryRetryAcquisition,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			classification := ClassifyBookEvidence(AnalysisSignals{EPUBAcquisition: &tt.status}, BookDispositionToRead, "de")
+			assert.Equal(t, tt.acquisition, classification.Acquisition.State)
+			assert.Equal(t, tt.evidence, classification.Evidence)
+			assert.Equal(t, tt.phase, classification.Phase)
+			assert.Equal(t, tt.recovery, classification.Recovery)
+			assert.Equal(t, CurrentReadingNeedsCurrentContent, classification.Eligibility)
+		})
+	}
+}
+
+func TestClassifyBookEvidenceDerivesTheStageFromTheCode(t *testing.T) {
+	t.Parallel()
+	classification := ClassifyBookEvidence(AnalysisSignals{
+		EPUBAcquisition: &EPUBAcquisitionStatus{Code: EPUBAcquisitionCodeSourceFormatUnknown},
+	}, BookDispositionToRead, "de")
+	assert.Equal(t, AcquisitionSourceFormatUnknown, classification.Acquisition.State)
+	assert.Equal(t, RecoveryNone, classification.Recovery)
+}
+
+func TestEPUBAcquisitionFailureNeverOverridesAnAnalysisInEffect(t *testing.T) {
+	t.Parallel()
+	status := EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureFetch, Code: EPUBAcquisitionCodeSourceDownloadFailed}
+	classification := ClassifyBookEvidence(AnalysisSignals{
+		Content:         ContentCurrentEPUB,
+		Published:       PublishedCurrent,
+		LatestRun:       RunCompleted,
+		EPUBAcquisition: &status,
+	}, BookDispositionToRead, "de")
+	assert.Equal(t, AcquisitionNone, classification.Acquisition.State)
+	assert.Equal(t, BookAnalyzed, classification.Evidence)
+	assert.Equal(t, PhaseAnalyzed, classification.Phase)
+	assert.True(t, classification.AnalysisInEffect())
+}
+
+func TestMyBookClassificationCarriesEPUBAcquisition(t *testing.T) {
+	t.Parallel()
+	book := MyBook{
+		Book:        Book{LanguageState: LanguageChosen, LanguageTag: "de"},
+		Disposition: BookDispositionToRead,
+		EPUBAcquisition: &EPUBAcquisitionStatus{
+			Stage: EPUBAcquisitionFailureFetch, Code: EPUBAcquisitionCodeSourceDownloadFailed,
+		},
+	}
+	classification := book.Classification()
+	assert.Equal(t, AcquisitionFetchFailed, classification.Acquisition.State)
+	assert.Equal(t, RecoveryRetryAcquisition, classification.Recovery)
+
+	book.Acquired = &SourceMaterialSummary{
+		Source:  SourceMaterial{MediaType: "application/epub+zip"},
+		Signals: AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunCompleted},
+	}
+	assert.Equal(t, AcquisitionNone, book.Classification().Acquisition.State, "an analysis in effect ignores the failure")
+}
+
+func TestEPUBAcquisitionFailureVocabularyMatchesTheStages(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		code  string
+		stage EPUBAcquisitionFailureStage
+	}{
+		{code: EPUBAcquisitionCodeCatalogEntryMissing, stage: EPUBAcquisitionFailureEntry},
+		{code: EPUBAcquisitionCodeSourceDownloadFailed, stage: EPUBAcquisitionFailureFetch},
+		{code: EPUBAcquisitionCodeSourceOversize, stage: EPUBAcquisitionFailureSource},
+		{code: EPUBAcquisitionCodeSourceFormatUnknown, stage: EPUBAcquisitionFailureSource},
+		{code: EPUBAcquisitionCodeEPUBImportFailed, stage: EPUBAcquisitionFailureImport},
+	}
+	for _, tt := range tests {
+		t.Run(tt.code, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.stage, EPUBAcquisitionFailureForCode(tt.code))
+		})
+	}
+}
+
 func TestClassifyBookEvidenceReproducesPresentationStates(t *testing.T) {
 	current := AnalysisSignals{Content: ContentCurrentEPUB}
 	with := func(published PublishedAnalysisSignal, run LatestRunSignal) AnalysisSignals {

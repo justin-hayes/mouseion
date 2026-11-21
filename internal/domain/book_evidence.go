@@ -69,6 +69,9 @@ type AnalysisSignals struct {
 	// applies only while no analysis is in effect; classification ignores it
 	// once a published analysis is what Reading uses.
 	ClassicalPreparation *ClassicalPreparationStatus
+	// EPUBAcquisition is the Book's durable EPUB acquisition failure. Like
+	// ClassicalPreparation it applies only while no analysis is in effect.
+	EPUBAcquisition *EPUBAcquisitionStatus
 }
 
 // PreparationState is the learner-facing state of a Book's classical
@@ -145,6 +148,9 @@ type BookEvidenceClassification struct {
 	// Preparation is the classical preparation state while no analysis is in
 	// effect. Presentation reads it instead of the raw preparation failure.
 	Preparation PreparationClassification
+	// Acquisition is the EPUB acquisition state while no analysis is in
+	// effect. Presentation reads it instead of the raw failure.
+	Acquisition AcquisitionClassification
 	// Update is the Analysis update offer, which is independent of Evidence.
 	Update AnalysisUpdateOffer
 }
@@ -214,25 +220,30 @@ func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, 
 	evidence := evidenceState(content, evidencePhase)
 	recovery := recoveryAction(content, signals, evidencePhase)
 	preparation := classifyPreparation(signals.ClassicalPreparation)
+	acquisition := classifyEPUBAcquisition(signals.EPUBAcquisition)
 	if preparation.classification.Applies() && !analysisInEffect(evidencePhase, runOrNone(signals.LatestRun)) {
 		evidence = preparation.evidence
 		phase = preparation.phase
 		recovery = preparation.recovery
+	} else if acquisition.classification.Applies() && !analysisInEffect(evidencePhase, runOrNone(signals.LatestRun)) {
+		evidence = acquisition.evidence
+		phase = acquisition.phase
+		recovery = acquisition.recovery
 	} else {
 		// A failure never applies beside an analysis in effect, and an empty
-		// status never presents a preparation state.
+		// status never presents a preparation or acquisition state.
 		preparation = preparationEvidence{}
+		acquisition = acquisitionEvidence{}
 	}
 	return BookEvidenceClassification{
-		Content:  content,
-		Evidence: evidence,
-		Phase:    phase,
-		Run:      runOrNone(signals.LatestRun),
-		// Eligibility stays a fact about the Analysis evidence. Preparation
-		// changes what the Book shows, not whether its analysis is eligible.
+		Content:     content,
+		Evidence:    evidence,
+		Phase:       phase,
+		Run:         runOrNone(signals.LatestRun),
 		Eligibility: eligibilityReason(content, signals, evidencePhase, disposition, language),
 		Recovery:    recovery,
 		Preparation: preparation.classification,
+		Acquisition: acquisition.classification,
 		Update:      analysisUpdateOffer(content, signals, disposition),
 	}
 }
