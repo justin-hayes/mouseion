@@ -197,7 +197,7 @@ func countProviderOmissions(outcomes []domain.PreparedDeckTranslationOutcome, it
 	}
 	count := 0
 	for _, outcome := range outcomes {
-		if outcome.State == domain.PreparedDeckOutcomeFailed && tolerablePreparedDeckFailure(byOrdinal[outcome.Ordinal], outcome.ErrorClass, outcome.ErrorCode) {
+		if outcome.State == domain.PreparedDeckOutcomeFailed && failedOutcomeBecomesOmission(byOrdinal[outcome.Ordinal], outcome.ErrorClass, outcome.ErrorCode) {
 			count++
 		}
 	}

@@ -132,6 +132,28 @@ type PreparedDeckTranslationOutcome struct {
 	UpdatedAt                             time.Time
 }
 
+// IsDeckPreparationFailureOmission reports whether a failed translation outcome
+// may be left out instead of failing the deck. An idiom card is optional, so any
+// failure omits it; an idiom has no vocabulary identity, so it is never a
+// vocabulary omission (ADR 0114). A lemma card is omitted only for the four
+// bounded provider response-validation failures ADR 0100 allows; any other
+// failure fails the deck, and widening the four codes is a deliberate ADR
+// change.
+func IsDeckPreparationFailureOmission(isIdiom bool, errorClass, errorCode string) bool {
+	if isIdiom {
+		return true
+	}
+	if errorClass != "validation" {
+		return false
+	}
+	switch errorCode {
+	case "invalid_response", "invalid_translation_response", "malformed_response", "response_too_large":
+		return true
+	default:
+		return false
+	}
+}
+
 type PreparedDeckBatchChunkState string
 
 const (
