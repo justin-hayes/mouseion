@@ -131,7 +131,7 @@ contracts. Reading owns current evidence and current-reading presentation.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| Empty collection | Explain My Books and the Catalogs path to catalogue setup. | Add a catalogue connection |
+| Empty collection | Explain My Books and the Catalog path to catalogue setup. | Add a catalogue connection |
 | Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading or Move to To Read |
 | Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | View in Reading or Move to To Read |
 | Needs-language Books exist | Show the out-of-band **needs language** strip; do not infer a language. | Fix catalog metadata and re-sync |

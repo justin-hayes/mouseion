@@ -10,7 +10,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// ClassicalCatalogRecord is the built-in, read-only source on Catalogs. It
+// ClassicalCatalogRecord is the built-in, read-only source on the Catalog. It
 // appears above the learner's OPDS connections and carries no setup, sync or
 // credentials.
 templ ClassicalCatalogRecord(counts classical.CatalogCounts) {
@@ -30,7 +30,7 @@ templ ClassicalCatalogRecord(counts classical.CatalogCounts) {
 // and Add controls in a margin note.
 templ ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classical.CatalogAuthor, counts classical.CatalogCounts, attributions []classical.SourceAttribution, view classicalCatalogView, confirmation classicalAddConfirmation, pageError string) {
 	@ShellLayout("Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
-		@Breadcrumb("/catalogs", "Catalogs")
+		@Breadcrumb("/catalogs", "Catalog")
 		@PageHeader("Classical catalog", "Browse the Ancient Greek works this release carries. Sources are fetched when a Book moves to To Read; adding downloads nothing.", nil)
 		@ClassicalCatalogCounts(counts, "classical-catalog-margin")
 		if confirmation.Message != "" {

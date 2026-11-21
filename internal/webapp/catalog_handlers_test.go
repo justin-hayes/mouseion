@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/stretchr/testify/assert"
@@ -83,7 +85,7 @@ func catalogPage(t *testing.T, h http.Handler, cookies []*http.Cookie, path stri
 	return response
 }
 
-func TestCatalogsRendersTheClassicalCatalogRecordAndMarginCounts(t *testing.T) {
+func TestCatalogKeepsTheClassicalRecordAndShowsSourceStatusLines(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = catalogFixture(t)
 	})
@@ -93,6 +95,10 @@ func TestCatalogsRendersTheClassicalCatalogRecordAndMarginCounts(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
 	for _, want := range []string{
+		"<title>Catalog · Mouseion</title>",
+		"<h1>Catalog</h1>",
+		`href="/catalogs" aria-current="page"`,
+		`href="/catalogs/sources">Manage sources</a>`,
 		"Classical catalog",
 		`aria-label="Running release counts"`,
 		"<dt>Works</dt><dd>3</dd>",
@@ -100,11 +106,22 @@ func TestCatalogsRendersTheClassicalCatalogRecordAndMarginCounts(t *testing.T) {
 		"<dt>Reading units</dt><dd>4</dd>",
 		"Sources are fetched at To Read",
 		`href="/catalogs/classical"`,
+		`id="source-status-fixture-connection"`,
+		`id="source-status-fixture-failed-connection"`,
+		`id="source-status-fixture-syncing-connection"`,
+		`id="source-status-fixture-never-synced-connection"`,
+		"Last synced",
+		"Sync failed",
+		"Syncing",
+		"Never synced",
+		`action="/connections/fixture-connection/sync"`,
+		`href="/catalogs/sources#connection-fixture-failed-connection"`,
 	} {
 		assert.Contains(t, body, want, "GET /catalogs missing %q", want)
 	}
-	assert.Less(t, strings.Index(body, "Classical catalog"), strings.Index(body, "Add catalog connection"), "the Classical catalog is above OPDS connections")
+	assert.NotContains(t, body, `id="catalog-connection-form"`, "connection management belongs on Manage sources")
 	assert.NotContains(t, body, "Cyropaedia", "a withdrawn definition is hidden")
+	assert.Less(t, strings.Index(body, `id="catalog-sources-heading"`), strings.Index(body, `id="classical-catalog"`), "source status lines sit above the Classical catalog")
 }
 
 func TestClassicalCatalogIndexRetiredAuthorPageAndWorkPage(t *testing.T) {
@@ -349,9 +366,26 @@ func TestClassicalCatalogHidesWithdrawnAndUnknownEntries(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code)
 }
 
-func TestCatalogsRouteRendersCatalogManagementScreen(t *testing.T) {
+func TestCatalogWithoutConnectionsOffersConnectAnOPDSCatalog(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	var catalog bytes.Buffer
+	require.NoError(t, CatalogPage(domain.User{Username: "learner"}, "csrf", nil, "", "", nil, catalogFixture(t)).Render(t.Context(), &catalog))
+	for _, want := range []string{
+		"No OPDS catalogs connected",
+		`href="/catalogs/sources">Connect an OPDS catalog</a>`,
+		"Classical catalog",
+	} {
+		assert.Contains(t, catalog.String(), want, "empty Catalog missing %q", want)
+	}
+	assert.Equal(t, http.StatusOK, catalogPage(t, h, cookies, "/catalogs").Code)
+}
+
+func TestManageSourcesRendersConnectionManagement(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/catalogs?error=Sync+failed", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/catalogs/sources?error=Sync+failed", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -359,16 +393,105 @@ func TestCatalogsRouteRendersCatalogManagementScreen(t *testing.T) {
 	h.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusOK, response.Code)
+	body := response.Body.String()
 	for _, want := range []string{
-		"<title>Catalogs · Mouseion</title>",
-		"<h1>Catalogs</h1>",
+		"<title>Manage sources · Mouseion</title>",
+		"<h1>Manage sources</h1>",
 		`href="/catalogs" aria-current="page"`,
+		`href="/catalogs">← Catalog</a>`,
 		"Add catalog connection",
+		`action="/catalogs/sources"`,
+		`action="/catalogs/sources/fixture-connection"`,
+		`action="/catalogs/sources/fixture-connection/delete"`,
+		`action="/catalogs/sources/fixture-connection/sync"`,
+		"Authentication failed for this connection.",
 		`class="feedback feedback--error"`,
 		"Sync failed",
 	} {
-		assert.Contains(t, response.Body.String(), want, "GET /catalogs missing %q: %s", want, response.Body.String())
+		assert.Contains(t, body, want, "GET /catalogs/sources missing %q", want)
 	}
+	assert.NotContains(t, body, "Classical catalog", "connection management does not duplicate the Catalog's classical record")
+}
+
+func TestManageSourcesWithoutConnectionsOffersTheFirstConnection(t *testing.T) {
+	var sources bytes.Buffer
+	require.NoError(t, ManageSourcesPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", nil).Render(t.Context(), &sources))
+	for _, want := range []string{
+		"Add your first catalog connection",
+		`href="#catalog-connection-form"`,
+		`action="/catalogs/sources"`,
+	} {
+		assert.Contains(t, sources.String(), want, "empty Manage sources missing %q", want)
+	}
+}
+
+func TestConnectionMutationsLandOnManageSources(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSession(t)
+
+	created := readingTestRequest(t, h, "/catalogs/sources", url.Values{
+		"csrf_token": {csrf},
+		"name":       {"New catalog"},
+		"url":        {"https://example.invalid/opds"},
+		"book_id":    {"book/1"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, created.Code)
+	createdLocation, err := url.Parse(created.Header().Get("Location"))
+	require.NoError(t, err)
+	assert.Equal(t, "/catalogs/sources", createdLocation.Path)
+	assert.Equal(t, "Catalog added", createdLocation.Query().Get("message"))
+	assert.Equal(t, "book/1", createdLocation.Query().Get("book_id"))
+
+	updated := readingTestRequest(t, h, "/catalogs/sources/fixture-connection", url.Values{
+		"csrf_token": {csrf},
+		"name":       {"Renamed catalog"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, updated.Code)
+	assert.Equal(t, "/catalogs/sources?message=Catalog+updated", updated.Header().Get("Location"))
+
+	deleted := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/delete", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, deleted.Code)
+	assert.Equal(t, "/catalogs/sources?message=Catalog+deleted", deleted.Header().Get("Location"))
+
+	synced := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/sync", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, synced.Code)
+	assert.Equal(t, "/catalogs/sources?message=Catalog+sync+submitted.", synced.Header().Get("Location"))
+
+	// The Catalog's own status lines keep returning to the Catalog.
+	catalogSync := readingTestRequest(t, h, "/connections/fixture-connection/sync", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, catalogSync.Code)
+	assert.Equal(t, "/catalogs?message=Catalog+sync+submitted.", catalogSync.Header().Get("Location"))
+
+	// The legacy mutation endpoints remain supported and land on Manage sources.
+	legacy := readingTestRequest(t, h, "/connections", url.Values{
+		"csrf_token": {csrf},
+		"name":       {"Legacy catalog"},
+		"url":        {"https://example.invalid/opds"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, legacy.Code)
+	assert.Equal(t, "/catalogs/sources?message=Catalog+added", legacy.Header().Get("Location"))
+}
+
+func TestManageSourcesShowsValidationAndMissingConnectionErrors(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSession(t)
+
+	invalid := readingTestRequest(t, h, "/catalogs/sources", url.Values{
+		"csrf_token": {csrf},
+		"name":       {"Bad catalog"},
+		"url":        {"ftp://example.invalid/opds"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, invalid.Code)
+	location, err := url.Parse(invalid.Header().Get("Location"))
+	require.NoError(t, err)
+	assert.Equal(t, "/catalogs/sources", location.Path)
+	assert.Equal(t, "The catalog URL must use HTTP or HTTPS.", location.Query().Get("error"))
+
+	invalidUpdate := readingTestRequest(t, h, "/catalogs/sources/fixture-connection", url.Values{
+		"csrf_token": {csrf},
+		"name":       {"Bad catalog"},
+		"url":        {"ftp://example.invalid/opds"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, invalidUpdate.Code)
+	assert.Contains(t, invalidUpdate.Header().Get("Location"), "The+catalog+URL+must+use+HTTP+or+HTTPS.")
 }
 
 func TestLegacyConnectionsRoutePermanentlyRedirectsAndPreservesSupportedQuery(t *testing.T) {

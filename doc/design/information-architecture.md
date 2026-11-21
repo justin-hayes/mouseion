@@ -85,8 +85,8 @@ chosen language belong to no language partition and are surfaced only through
 an out-of-band **needs language** strip (fix the language in the catalog, then
 re-sync; display-only, no per-book actions). For a fresh account, its empty
 state explains catalogue setup and enters `/catalogs`; catalogue setup and sync
-maintenance are owned by the Catalogs destination. Synced catalogue metadata is
-browsed only here.
+maintenance are owned by the Catalog destination and its Manage sources page.
+Synced catalogue metadata is browsed only here.
 
 ### Reading
 
@@ -171,20 +171,22 @@ The authenticated shell exposes four principal destinations:
   are not used on active screens;
 - **Vocabulary** — Concordance; the accepted target removes saved selection
   and Custom deck UI beneath this destination.
-- **Catalogs** — curated sources that do not sync into My Books, plus
-  learner-owned catalogue connections and metadata sync.
+- **Catalog** — the built-in Classical catalog and the sync status of each
+  learner-owned OPDS source.
 
-Catalogs browses only curated sources that do not sync into My Books. The
-built-in, read-only **Classical catalog** sits above the learner's OPDS
-connections with one index and a work page; the index groups every Work under
-its author and shows each Work's Opening, length and Add controls, and the
-retired author-detail URL redirects to that author's index section. It is not a
-fifth destination and is not scoped to the active study language. OPDS connections
-keep their configuration and sync role. My Books remains the sole
-**bibliographic Book** browse surface for synced metadata; the Browse working
-desk on Reading lists vocabulary identities, not Books or catalog entries.
-Marking a Book To Read expresses the learner's reading intent and may trigger
-acquisition and analysis. The upstream catalog browser is retired.
+Catalog keeps the built-in, read-only **Classical catalog** with one index and a
+work page; the index groups every Work under its author and shows each Work's
+Opening, length and Add controls, and the retired author-detail URL redirects to
+that author's index section. In its header it shows one status line per OPDS
+connection — never synced, syncing, last synced or sync failed — with **Sync
+now**; a failed line names the connection and links to **Manage sources**.
+Connection setup, credentials, editing, deletion, sync and failure recovery live
+on **Manage sources** at `/catalogs/sources`. The Catalog is not a fifth
+destination and is not scoped to the active study language. My Books remains the
+sole **bibliographic Book** browse surface for synced metadata; the Browse
+working desk on Reading lists vocabulary identities, not Books or catalog
+entries. Marking a Book To Read expresses the learner's reading intent and may
+trigger acquisition and analysis. The upstream catalog browser is retired.
 
 Analysis jobs, deck preparation, and historical artifact provenance are
 supporting surfaces.
@@ -200,9 +202,9 @@ languages plus any known-vocabulary-only language marked "no books", marks a
 newly arrived study language "new", and never auto-switches on navigation or
 sync.
 
-There is no separate **Catalogues / Browse** sub-navigation. `/catalogs` is for
-connection and sync maintenance; `/library` is the canonical local browse
-surface.
+There is no separate **Catalogues / Browse** sub-navigation. `/catalogs` is the
+Catalog, `/catalogs/sources` is Manage sources, and `/library` remains the
+canonical local browse surface.
 
 ## Route and screen hierarchy
 
@@ -230,12 +232,14 @@ Reading (active study language)
     finish current reading
         choose what to read next -> Reading chooser (`/reading`)
 
-Catalogs
+Catalog
     built-in Classical catalog index (`/catalogs/classical`): every Work
         grouped under its author, with its Opening and length strip
     work page (`/catalogs/classical/works/{work-key}`)
     retired author-detail URLs permanently redirect to that author's index section
-    connection setup and sync status
+    one status line per OPDS source with Sync now
+    Manage sources (`/catalogs/sources`): connection setup, credentials,
+        editing, deletion, sync, and failure recovery
 
 Vocabulary (partially shipped)
     Concordance exact lookup and KWIC context (shipped landing slice)
@@ -261,7 +265,7 @@ The application does not present a duplicate Book-detail, analysis-result, queue
 campaign, or plan surface.
 
 The authenticated shell therefore exposes exactly My Books, Reading,
-Vocabulary, and Catalogs in the top navigation. `/jobs` remains a supporting
+Vocabulary, and Catalog in the top navigation. `/jobs` remains a supporting
 surface reached from direct routes, not a navigation destination. Historical My Library, Learning,
 queue, and learner-facing Campaign labels are not active navigation concepts;
 compatibility aliases and operational terminology remain only where required by
@@ -492,7 +496,7 @@ needed.
    vocabulary contract; the Reading chooser uses current coverage bands only,
    grouping a Work's To Read Books into one entry rather than ranking them.
 6. **Routes and terminology** are reconciled in the shipped shell and supporting
-    surfaces: My Books, Reading, Vocabulary, and Catalogs are the active
+    surfaces: My Books, Reading, Vocabulary, and Catalog are the active
     navigation destinations; `/known-vocab`
    is retired and returns 404 without a redirect. Campaign routes
    are not learner-facing webapp routes.

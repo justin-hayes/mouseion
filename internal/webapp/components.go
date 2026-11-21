@@ -212,6 +212,19 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	return view
 }
 
+func catalogueSyncStatusTone(view catalogueSyncConnectionView) StatusTone {
+	switch {
+	case view.Failed:
+		return StatusDanger
+	case view.Syncing:
+		return StatusInfo
+	case view.HasLastSyncedAt:
+		return StatusSuccess
+	default:
+		return StatusNeutral
+	}
+}
+
 // NavigationContext identifies the authenticated shell context.
 type NavigationContext string
 
@@ -232,7 +245,7 @@ func navigationContextForTitle(title string) NavigationContext {
 		return NavigationReading
 	case "Vocabulary", "Known vocabulary":
 		return NavigationVocabulary
-	case "Catalogs":
+	case "Catalog", "Catalogs":
 		return NavigationCatalogs
 	default:
 		return NavigationNone

@@ -28,7 +28,8 @@ const representativePages: Array<[string, RegExp]> = [
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Jobs/],
-  ['/catalogs', /Catalogs/],
+  ['/catalogs', /Catalog/],
+  ['/catalogs/sources', /Manage sources/],
   ['/reading', /Der lange Weg nach Hause/],
   ['/vocabulary', /Vocabulary/],
 ];
@@ -218,7 +219,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
   });
 
-  test('Catalogs owns its styling and preserves legible, recoverable controls', async ({ page, browser, baseURL }) => {
+  test('Catalog and Manage sources own their styling and preserve legible, recoverable controls', async ({ page, browser, baseURL }) => {
     await signIn(page);
 
     // Runs at the project's viewport; desktop and compact are separate projects.
@@ -226,7 +227,15 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('body')).toHaveClass('catalogs-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Catalog', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Manage sources', exact: true })).toBeVisible();
+    await expect(page.locator('#source-status-fixture-connection')).toContainText('Last synced');
+    await expect(page.locator('#source-status-fixture-failed-connection')).toContainText('Authentication failed for this connection.');
+    await expect(page.locator('#source-status-fixture-failed-connection').getByRole('link', { name: 'Manage sources' })).toHaveAttribute('href', '/catalogs/sources#connection-fixture-failed-connection');
+    await expectNoPageOverflow(page);
+
+    await page.goto('/catalogs/sources');
+    await expect(page.getByRole('heading', { name: 'Manage sources', exact: true })).toBeVisible();
     const addConnectionForm = page.locator('#catalog-connection-form');
     await expect(addConnectionForm.getByLabel('Name', { exact: true })).toBeVisible();
     await expect(addConnectionForm.getByLabel('Catalog URL', { exact: true })).toBeVisible();
@@ -578,7 +587,7 @@ test.describe('responsive and theme regression coverage', () => {
       ['/library', 'My Books'],
       ['/reading', 'Reading'],
       ['/vocabulary', 'Vocabulary'],
-      ['/catalogs', 'Catalogs'],
+      ['/catalogs', 'Catalog'],
       ['/jobs', 'My Books'],
       ['/deck-preparations/fixture-preparation/status', 'My Books'],
     ] as const) {
@@ -586,7 +595,7 @@ test.describe('responsive and theme regression coverage', () => {
       const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
       const destinations = navigation.locator('.site-header__navigation a');
       await expect(destinations).toHaveCount(4);
-      await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalogs']);
+      await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
       await expect(navigation.getByLabel('Study language')).toBeVisible();
 

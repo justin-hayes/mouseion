@@ -18,23 +18,58 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
+// connections renders the Catalog. The route name is historical; the
+// destination, its classical record, and its source status lines are not.
 func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	c, e := h.services.Store.Catalogs.ListOpdsConnections(r.Context(), u.ID)
-	if e != nil {
-		fail(w, e)
+	u, connections, statuses, err := h.catalogPageState(r)
+	if err != nil {
+		fail(w, err)
 		return
 	}
-	items, statusErr := h.services.CatalogueSync.ListCatalogueSyncStatuses(r.Context(), u.ID)
-	if statusErr != nil {
-		fail(w, statusErr)
+	render(w, r, CatalogPage(u, h.csrf(w, r), connections, r.URL.Query().Get("message"), r.URL.Query().Get("error"), statuses, h.services.Classical))
+}
+
+// manageSources configures the OPDS connections that feed the Catalog.
+func (h *Handler) manageSources(w http.ResponseWriter, r *http.Request) {
+	u, connections, statuses, err := h.catalogPageState(r)
+	if err != nil {
+		fail(w, err)
 		return
+	}
+	render(w, r, ManageSourcesPage(u, h.csrf(w, r), connections, r.URL.Query().Get("message"), r.URL.Query().Get("error"), r.URL.Query().Get("book_id"), statuses))
+}
+
+func (h *Handler) catalogPageState(r *http.Request) (domain.User, []domain.OpdsConnection, map[string]domain.CatalogueSyncStatus, error) {
+	u := user(r)
+	connections, err := h.services.Store.Catalogs.ListOpdsConnections(r.Context(), u.ID)
+	if err != nil {
+		return u, nil, nil, err
+	}
+	items, err := h.services.CatalogueSync.ListCatalogueSyncStatuses(r.Context(), u.ID)
+	if err != nil {
+		return u, nil, nil, err
 	}
 	statuses := make(map[string]domain.CatalogueSyncStatus, len(items))
 	for _, status := range items {
 		statuses[status.ConnectionID] = status
 	}
-	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("error"), r.URL.Query().Get("book_id"), statuses, h.services.Classical))
+	return u, connections, statuses, nil
+}
+
+// redirectManageSources returns to the Manage sources page with one outcome.
+func redirectManageSources(w http.ResponseWriter, r *http.Request, key, message, bookID string) {
+	query := url.Values{}
+	if message != "" {
+		query.Set(key, message)
+	}
+	if bookID != "" {
+		query.Set("book_id", bookID)
+	}
+	location := "/catalogs/sources"
+	if encoded := query.Encode(); encoded != "" {
+		location += "?" + encoded
+	}
+	redirect(w, r, location)
 }
 
 // classicalCatalogView is the learner-specific state the release catalog pages
@@ -371,6 +406,9 @@ func (h *Handler) legacyConnections(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, location, http.StatusMovedPermanently)
 }
 
+// syncConnection enqueues the connection's ordinary sync. Its return target
+// follows the page that submitted it: the Catalog's status line or Manage
+// sources.
 func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {
 		return
@@ -381,19 +419,29 @@ func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		redirect(w, r, "/catalogs?error="+url.QueryEscape("The catalog sync could not be started. Try again."))
+		h.redirectSyncOutcome(w, r, "error", "The catalog sync could not be started. Try again.")
 		return
 	}
-	redirect(w, r, "/catalogs?message="+url.QueryEscape("Catalog sync submitted."))
+	h.redirectSyncOutcome(w, r, "message", "Catalog sync submitted.")
 }
+
+func (h *Handler) redirectSyncOutcome(w http.ResponseWriter, r *http.Request, key, message string) {
+	if strings.HasPrefix(r.URL.Path, "/catalogs/sources") {
+		redirect(w, r, "/catalogs/sources?"+key+"="+url.QueryEscape(message))
+		return
+	}
+	redirect(w, r, "/catalogs?"+key+"="+url.QueryEscape(message))
+}
+
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	u := user(r)
+	bookID := strings.TrimSpace(r.FormValue("book_id"))
 	connectionURL, err := opds.NormalizeCatalogURL(r.FormValue("url"))
 	if err != nil {
-		http.Error(w, "catalog URL must use HTTP or HTTPS", http.StatusBadRequest)
+		redirectManageSources(w, r, "error", "The catalog URL must use HTTP or HTTPS.", bookID)
 		return
 	}
 	created, e := h.services.Store.Catalogs.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: r.FormValue("password")})
@@ -407,11 +455,7 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	location := "/catalogs?message=Catalog+added"
-	if bookID := strings.TrimSpace(r.FormValue("book_id")); bookID != "" {
-		location += "&book_id=" + url.QueryEscape(bookID)
-	}
-	redirect(w, r, location)
+	redirectManageSources(w, r, "message", "Catalog added", bookID)
 }
 func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {
@@ -433,7 +477,7 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	connectionURL, e = opds.NormalizeCatalogURL(connectionURL)
 	if e != nil {
-		http.Error(w, "catalog URL must use HTTP or HTTPS", http.StatusBadRequest)
+		redirectManageSources(w, r, "error", "The catalog URL must use HTTP or HTTPS.", "")
 		return
 	}
 	_, e = h.services.Store.Catalogs.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: password})
@@ -441,7 +485,7 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/catalogs?message=Catalog+updated")
+	redirectManageSources(w, r, "message", "Catalog updated", "")
 }
 func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {
@@ -450,7 +494,7 @@ func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	if e := h.services.Store.Catalogs.DeleteOpdsConnection(r.Context(), u.ID, r.PathValue("id")); e != nil {
 		if errors.Is(e, persistence.ErrNotFound) {
-			http.NotFound(w, r)
+			redirectManageSources(w, r, "error", "That catalog connection no longer exists.", "")
 			return
 		}
 		fail(w, e)
@@ -462,7 +506,7 @@ func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	redirect(w, r, "/catalogs?message=Catalog+deleted")
+	redirectManageSources(w, r, "message", "Catalog deleted", "")
 }
 func opdsErrorMessage(err error) string {
 	message := "The catalog request failed. Check the connection and try again."

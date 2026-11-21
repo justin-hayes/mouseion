@@ -195,7 +195,7 @@ templ CatalogueSyncConnectionStatus(view catalogueSyncConnectionView) {
 
 templ CatalogueSyncConnectionActions(csrf string, connection domain.OpdsConnection, view catalogueSyncConnectionView) {
 	<div class="action-group">
-		<form method="post" action={ templ.SafeURL("/connections/" + connection.ID + "/sync") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit" disabled?={ view.Syncing }>Sync now</button></form>
+		<form method="post" action={ templ.SafeURL("/catalogs/sources/" + connection.ID + "/sync") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit" disabled?={ view.Syncing }>Sync now</button></form>
 		if view.Syncing {
 			<span>Sync already in progress.</span>
 			<a href="/jobs">View job status</a>

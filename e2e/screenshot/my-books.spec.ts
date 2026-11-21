@@ -106,7 +106,7 @@ function connectionRecord(page: Page) {
 }
 
 async function addCatalog(page: Page): Promise<void> {
-  await page.goto('/catalogs');
+  await page.goto('/catalogs/sources');
   const form = page.locator('#catalog-connection-form form');
   await form.getByLabel('Name', { exact: true }).fill(catalogName);
   await form.getByLabel('Catalog URL', { exact: true }).fill(catalogURL);
@@ -115,11 +115,11 @@ async function addCatalog(page: Page): Promise<void> {
 }
 
 async function syncCatalog(page: Page): Promise<void> {
-  await page.goto('/catalogs');
+  await page.goto('/catalogs/sources');
   await connectionRecord(page).getByRole('button', { name: 'Sync now' }).click();
   await pollUntil(
     async () => {
-      await page.goto('/catalogs');
+      await page.goto('/catalogs/sources');
       const text = await connectionRecord(page).innerText();
       if (text.includes('Sync failed')) {
         throw new Error(`Catalog sync failed. Connection status: ${text.replace(/\s+/g, ' ').trim()}`);

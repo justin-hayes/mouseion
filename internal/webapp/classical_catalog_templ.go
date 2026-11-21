@@ -18,7 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// ClassicalCatalogRecord is the built-in, read-only source on Catalogs. It
+// ClassicalCatalogRecord is the built-in, read-only source on the Catalog. It
 // appears above the learner's OPDS connections and carries no setup, sync or
 // credentials.
 func ClassicalCatalogRecord(counts classical.CatalogCounts) templ.Component {
@@ -94,7 +94,7 @@ func ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classical
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = Breadcrumb("/catalogs", "Catalogs").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = Breadcrumb("/catalogs", "Catalog").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

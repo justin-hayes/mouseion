@@ -121,7 +121,7 @@ test.describe('authenticated learner smoke', () => {
     await expect(switcher.locator('option[value="fr"]')).toContainText('(no books)');
 
     await page.goto('/catalogs');
-    await page.locator('#connection-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
+    await page.locator('#source-status-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
     await expect(page).toHaveURL(/\/catalogs\?message=/);
     await page.goto('/library');
     const arrivedNewLanguageOption = page.getByLabel('Study language').locator('option').filter({ hasText: '(new)' });

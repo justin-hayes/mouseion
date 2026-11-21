@@ -98,7 +98,7 @@ the superseded Goal/ordered-Journey model as historical context.
   enhancement. Mutation outcomes preserve a useful route and announce feedback;
   focus and keyboard order follow document order.
 - Empty To Read, failed or stale analysis, unsupported-language, and recovery
-  states retain a clear path back to My Books, Catalogs, or the relevant retry.
+  states retain a clear path back to My Books, Catalog, or the relevant retry.
 - Working desk dependency states stay distinct and never become a successful
   zero: missing or stale analysis withholds Browse and keeps identity, Finish,
   Switch, End, and retained downloads; **Updating vocabulary counts** and

@@ -39,7 +39,7 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 		{name: "library", context: NavigationLibrary, currentLink: `href="/library"`, currentCSS: "site-nav__link--current"},
 		{name: "learning", context: NavigationLearning, currentLink: `href="/reading"`, currentCSS: "site-nav__link--current"},
 		{name: "vocabulary", context: NavigationVocabulary, currentLink: `href="/vocabulary"`, currentCSS: "site-nav__link--current"},
-		{name: "catalogs", context: NavigationCatalogs, currentLink: `href="/catalogs"`, currentCSS: "site-nav__link--current"},
+		{name: "catalog", context: NavigationCatalogs, currentLink: `href="/catalogs"`, currentCSS: "site-nav__link--current"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			html := renderShell(t, test.context)

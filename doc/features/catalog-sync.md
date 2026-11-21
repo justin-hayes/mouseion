@@ -35,24 +35,29 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 - When My Books is empty and the learner has no catalog connections, explain
   that Mouseion needs a learner-owned catalog connection to synchronize the
   ready-language collection.
-- The primary empty-state action enters the Catalogs destination at `/catalogs`.
-  It does not silently create a connection.
+- The primary empty-state action enters the Catalog at `/catalogs`. Its OPDS
+  area offers **Connect an OPDS catalog**, which leads to **Manage sources** at
+  `/catalogs/sources`; it does not silently create a connection.
 - Books enter My Books through catalogue synchronization; there is no manual
   metadata-entry path.
 
 ### Connection configuration and status
 
-- `/catalogs` is the learner-owned configuration and maintenance surface for
-  name, URL, username, encrypted credential, sync, edit, and delete behavior.
-  `GET /connections` permanently redirects there while preserving supported
-  deep-link parameters.
+- **Manage sources** at `/catalogs/sources` is the learner-owned configuration
+  and maintenance surface for name, URL, username, encrypted credential, sync,
+  edit, and delete behavior. Connection mutations land there.
+- The **Catalog** at `/catalogs` shows one status line per connection with
+  **Sync now**, above the Classical catalog. `GET /connections` permanently
+  redirects to `/catalogs` while preserving supported deep-link parameters, and
+  the legacy `POST /connections` mutation routes remain supported.
 - Each connection distinguishes **Never synced**, **Syncing**, **Last synced**,
   and **Sync failed**. Last-synced information belongs to the connection, not a
   global dashboard.
 - **Sync now** enqueues the same River work used by the periodic schedule. It
   must not create a parallel execution contract.
-- A failure names the connection, preserves prior My Books data, and offers edit
-  connection or retry as appropriate.
+- A failure names the connection, preserves prior My Books data, and links to
+  Manage sources, where the learner can edit the connection or retry as
+  appropriate.
 - Detailed attempts, retry, cancellation, and errors remain operationally
   visible through `/jobs`.
 
@@ -117,8 +122,8 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 | No connections and empty My Books | Explain why a connection is needed and that sync records metadata before content. | Add catalog connection |
 | Never synced | Identify the connection and explain that every offered non-English language with a ready NLP pipeline is eligible. | Sync now |
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
-| Last synced | Show the last successful time and metadata-only reconciliation, with ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
-| Sync failed | Name the connection, preserve prior data, and show an actionable reason. | Edit connection or retry |
+| Last synced | Show the last successful time and metadata-only reconciliation. Manage sources keeps the ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
+| Sync failed | Name the connection, preserve prior data, and show an actionable reason linked to Manage sources. | Edit connection in Manage sources or retry |
 | Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Move to To Read |
 | Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |
 | Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Retry from My Books or Reading |
@@ -131,8 +136,9 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 - Destructively reconciling upstream removals.
 - Synchronizing English, languages whose NLP pipeline is not ready, or languages
   the connected catalogue does not expose.
-- Adding a global sync dashboard or an upstream catalog browser. Catalogs is a
-  primary destination for connection setup and sync maintenance.
+- Adding a global sync dashboard or an upstream catalog browser. Catalog is a
+  primary destination for browsing and source status; Manage sources owns
+  connection setup and sync maintenance.
 - Batch-selecting Books for analysis; whether a future batch contract exists is
   an open product question.
 - Reintroducing an administrator role or administrator-managed catalogs.

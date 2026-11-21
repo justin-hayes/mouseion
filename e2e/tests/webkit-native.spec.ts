@@ -126,7 +126,7 @@ test.describe('native WebKit smoke journey', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('authenticated shell navigation, language return, and Catalogs controls are usable', async ({ page }) => {
+  test('authenticated shell navigation, language return, and Manage sources controls are usable', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
@@ -153,7 +153,7 @@ test.describe('native WebKit smoke journey', () => {
       { name: 'My Books', href: '/library', active: '/library' },
       { name: 'Reading', href: '/reading', active: '/reading' },
       { name: 'Vocabulary', href: '/vocabulary', active: '/vocabulary' },
-      { name: 'Catalogs', href: '/catalogs', active: '/catalogs' },
+      { name: 'Catalog', href: '/catalogs', active: '/catalogs' },
     ];
     for (const destination of destinations) {
       const link = navigation.getByRole('link', { name: destination.name, exact: true });
@@ -170,14 +170,14 @@ test.describe('native WebKit smoke journey', () => {
     await expect(page.locator('main h1')).toContainText(/italian/i);
     await expect(page.getByLabel('Study language')).toHaveValue('it');
 
-    await page.goto('/catalogs');
+    await page.goto('/catalogs/sources');
     const addForm = page.locator('#catalog-connection-form form');
     await expect(addForm.getByLabel('Name', { exact: true })).toBeVisible();
     await expect(addForm.getByLabel('Catalog URL', { exact: true })).toHaveAttribute('type', 'url');
     await expect(addForm.getByLabel('Username (optional)', { exact: true })).toBeVisible();
     await expect(addForm.getByLabel('Password (optional, encrypted at rest)', { exact: true })).toHaveAttribute('type', 'password');
     await expect(addForm).toHaveAttribute('method', 'post');
-    await expect(addForm).toHaveAttribute('action', '/connections');
+    await expect(addForm).toHaveAttribute('action', '/catalogs/sources');
     await addForm.getByLabel('Name', { exact: true }).fill('WebKit smoke catalog');
     await addForm.getByLabel('Catalog URL', { exact: true }).fill('https://catalog.example.invalid/opds');
     await addForm.getByLabel('Username (optional)', { exact: true }).fill('fixture-user');
@@ -223,7 +223,7 @@ test.describe('native WebKit smoke journey', () => {
     await chooseStudyLanguage(page, 'de');
   });
 
-  test('Catalogs confirmations and job recovery remain native without JavaScript', async ({ browser, baseURL }) => {
+  test('Manage sources confirmations and job recovery remain native without JavaScript', async ({ browser, baseURL }) => {
     const context = await browser.newContext({
       baseURL,
       javaScriptEnabled: false,
@@ -233,10 +233,10 @@ test.describe('native WebKit smoke journey', () => {
     const page = await context.newPage();
     try {
       await signIn(page);
-      await page.goto('/catalogs');
+      await page.goto('/catalogs/sources');
       const addForm = page.locator('#catalog-connection-form form');
       await expect(addForm).toHaveAttribute('method', 'post');
-      await expect(addForm).toHaveAttribute('action', '/connections');
+      await expect(addForm).toHaveAttribute('action', '/catalogs/sources');
       const name = addForm.getByLabel('Name', { exact: true });
       const url = addForm.getByLabel('Catalog URL', { exact: true });
       await expect(name).toHaveAttribute('required', '');
@@ -307,7 +307,7 @@ test.describe('native WebKit smoke journey', () => {
       { name: 'My Books', path: '/library' },
       { name: 'Reading', path: '/reading' },
       { name: 'Vocabulary', path: '/vocabulary' },
-      { name: 'Catalogs', path: '/catalogs' },
+      { name: 'Catalog', path: '/catalogs' },
     ]) {
       await page.goto(destination.path);
       const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
@@ -534,7 +534,7 @@ test.describe('native WebKit smoke journey', () => {
       await page.goto('/reading');
       await expect(page.locator('main h1')).toContainText(/italian/i);
 
-      await page.goto('/catalogs');
+      await page.goto('/catalogs/sources');
       const confirmation = page.locator('#connection-fixture-connection details').last();
       const summary = confirmation.locator('summary');
       await expect(confirmation).not.toHaveAttribute('open', '');

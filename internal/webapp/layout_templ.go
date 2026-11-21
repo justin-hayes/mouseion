@@ -147,7 +147,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, ">Catalogs</a></li></ul><div class=\"site-header__tools\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, ">Catalog</a></li></ul><div class=\"site-header__tools\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
