@@ -156,6 +156,46 @@ func classicalScenarios() []Scenario {
 	}}
 }
 
+// classicalPreparationFailureScenarios pin the classification both adapters
+// return for a seeded Classical preparation failure. The web app renders this
+// classification instead of re-deriving a label or recovery from the failure.
+func classicalPreparationFailureScenarios() []Scenario {
+	cases := []struct {
+		name        string
+		stage       domain.ClassicalPreparationFailure
+		preparation domain.PreparationState
+		evidence    domain.BookEvidenceState
+		recovery    domain.BookEvidenceRecovery
+	}{
+		{name: "fetch", stage: domain.ClassicalPreparationFailureFetch, preparation: domain.PreparationFetchFailed, evidence: domain.BookUnavailable, recovery: domain.RecoveryRetryAcquisition},
+		{name: "import", stage: domain.ClassicalPreparationFailureImport, preparation: domain.PreparationImportFailed, evidence: domain.BookAcquiredUnassessed, recovery: domain.RecoveryRetryAnalysis},
+		{name: "source", stage: domain.ClassicalPreparationFailureSource, preparation: domain.PreparationSourceRefused, evidence: domain.BookAcquiredUnassessed, recovery: domain.RecoveryNone},
+		{name: "withdrawn", stage: domain.ClassicalPreparationFailureWithdrawn, preparation: domain.PreparationWithdrawn, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
+		{name: "catalog", stage: domain.ClassicalPreparationFailureCatalog, preparation: domain.PreparationCatalogUnavailable, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
+	}
+	return []Scenario{{
+		Name: "classical preparation failure classifies the Book's evidence",
+		Run: func(t *testing.T, h Harness) {
+			h.Seeds().SeedClassicalCatalog(t)
+			owner := h.Seeds().Owner()
+			report, err := h.Classical().AddClassicalReadingUnits(owner, []string{ClassicalUnitBook1Key})
+			require.NoError(t, err)
+			bookID := report.Books[0].BookID
+
+			for _, tc := range cases {
+				h.Seeds().SeedClassicalPreparationFailure(t, owner, bookID, tc.stage)
+				detail := requireDetail(t, h, owner, bookID)
+				require.NotNil(t, detail.ClassicalPreparation, tc.name)
+				assert.Equal(t, tc.stage, detail.ClassicalPreparation.Failure, tc.name)
+				classification := detail.Classification()
+				assert.Equal(t, tc.preparation, classification.Preparation.State, tc.name)
+				assert.Equal(t, tc.evidence, classification.Evidence, tc.name)
+				assert.Equal(t, tc.recovery, classification.Recovery, tc.name)
+			}
+		},
+	}}
+}
+
 func ownedClassicalUnits(t *testing.T, h Harness, owner string) map[string]classical.OwnedReadingUnit {
 	t.Helper()
 	owned, err := h.Classical().ListOwnedClassicalReadingUnits(owner)

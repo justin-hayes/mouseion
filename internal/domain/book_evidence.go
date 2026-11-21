@@ -65,6 +65,45 @@ type AnalysisSignals struct {
 	// an Analysis pipeline identity other than the current one. It never changes
 	// the evidence state; it only feeds the Analysis update offer (ADR 0107).
 	PipelineOutdated bool
+	// ClassicalPreparation is the Book's durable preparation evidence. It
+	// applies only while no analysis is in effect; classification ignores it
+	// once a published analysis is what Reading uses.
+	ClassicalPreparation *ClassicalPreparationStatus
+}
+
+// PreparationState is the learner-facing state of a Book's classical
+// preparation, derived from ClassicalPreparationStatus. It names the stage
+// without carrying prose, a raw code, or source detail.
+type PreparationState string
+
+const (
+	PreparationNone               PreparationState = ""
+	PreparationQueued             PreparationState = "queued"
+	PreparationRunning            PreparationState = "running"
+	PreparationFetchFailed        PreparationState = "fetch-failed"
+	PreparationImportFailed       PreparationState = "import-failed"
+	PreparationSourceRefused      PreparationState = "source-refused"
+	PreparationWithdrawn          PreparationState = "withdrawn"
+	PreparationCatalogUnavailable PreparationState = "catalog-unavailable"
+	PreparationCleared            PreparationState = "cleared"
+)
+
+// PreparationClassification is the Book's classical preparation state. It is
+// empty when preparation does not apply, which includes every Book whose
+// analysis is already in effect.
+type PreparationClassification struct {
+	State PreparationState
+}
+
+// Applies reports whether the classification presents a classical preparation
+// state for the Book.
+func (p PreparationClassification) Applies() bool {
+	return p.State != PreparationNone
+}
+
+// InProgress reports preparation that is queued or running.
+func (p PreparationClassification) InProgress() bool {
+	return p.State == PreparationQueued || p.State == PreparationRunning
 }
 
 // AnalysisPhase is the Book's analysis status as My Books and Reading present
@@ -90,6 +129,7 @@ const (
 	RecoveryNone             BookEvidenceRecovery = "none"
 	RecoveryRetryAcquisition BookEvidenceRecovery = "retry-acquisition"
 	RecoveryRetryAnalysis    BookEvidenceRecovery = "retry-analysis"
+	RecoveryRetryPreparation BookEvidenceRecovery = "retry-preparation"
 )
 
 // BookEvidenceClassification is the domain's reading of a Book's signals,
@@ -102,6 +142,9 @@ type BookEvidenceClassification struct {
 	Run         LatestRunSignal
 	Eligibility CurrentReadingEligibilityReason
 	Recovery    BookEvidenceRecovery
+	// Preparation is the classical preparation state while no analysis is in
+	// effect. Presentation reads it instead of the raw preparation failure.
+	Preparation PreparationClassification
 	// Update is the Analysis update offer, which is independent of Evidence.
 	Update AnalysisUpdateOffer
 }
@@ -136,7 +179,13 @@ func (c BookEvidenceClassification) ReAnalysisShadowed() bool {
 // AnalysisInEffect reports that the published analysis is what Reading and the
 // chooser use: its latest run completed, or a newer run is shadowed by it.
 func (c BookEvidenceClassification) AnalysisInEffect() bool {
-	return c.Phase == PhaseAnalyzed && (c.Run == RunCompleted || newerRun(c.Run))
+	return analysisInEffect(c.Phase, c.Run)
+}
+
+// analysisInEffect is the shared phase-and-run test for a published analysis
+// that Reading uses.
+func analysisInEffect(phase AnalysisPhase, run LatestRunSignal) bool {
+	return phase == PhaseAnalyzed && (run == RunCompleted || newerRun(run))
 }
 
 // newerRun reports the runs that a published analysis outlives while its
@@ -160,16 +209,77 @@ func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, 
 	if content == "" {
 		content = ContentNotAcquired
 	}
-	phase := analysisPhase(signals)
+	evidencePhase := analysisPhase(signals)
+	phase := evidencePhase
+	evidence := evidenceState(content, evidencePhase)
+	recovery := recoveryAction(content, signals, evidencePhase)
+	preparation := classifyPreparation(signals.ClassicalPreparation)
+	if preparation.classification.Applies() && !analysisInEffect(evidencePhase, runOrNone(signals.LatestRun)) {
+		evidence = preparation.evidence
+		phase = preparation.phase
+		recovery = preparation.recovery
+	} else {
+		// A failure never applies beside an analysis in effect, and an empty
+		// status never presents a preparation state.
+		preparation = preparationEvidence{}
+	}
 	return BookEvidenceClassification{
-		Content:     content,
-		Evidence:    evidenceState(content, phase),
-		Phase:       phase,
-		Run:         runOrNone(signals.LatestRun),
-		Eligibility: eligibilityReason(content, signals, phase, disposition, language),
-		Recovery:    recoveryAction(content, signals, phase),
+		Content:  content,
+		Evidence: evidence,
+		Phase:    phase,
+		Run:      runOrNone(signals.LatestRun),
+		// Eligibility stays a fact about the Analysis evidence. Preparation
+		// changes what the Book shows, not whether its analysis is eligible.
+		Eligibility: eligibilityReason(content, signals, evidencePhase, disposition, language),
+		Recovery:    recovery,
+		Preparation: preparation.classification,
 		Update:      analysisUpdateOffer(content, signals, disposition),
 	}
+}
+
+// preparationEvidence is the classification fragment a preparation state
+// contributes while no analysis is in effect.
+type preparationEvidence struct {
+	classification PreparationClassification
+	evidence       BookEvidenceState
+	phase          AnalysisPhase
+	recovery       BookEvidenceRecovery
+}
+
+// classifyPreparation maps durable classical preparation evidence onto the
+// evidence state, phase and one recovery action the learner sees. A nil or
+// empty status classifies as no preparation.
+func classifyPreparation(status *ClassicalPreparationStatus) preparationEvidence {
+	if status == nil {
+		return preparationEvidence{}
+	}
+	if status.Withdrawn {
+		return preparationEvidence{PreparationClassification{State: PreparationWithdrawn}, BookUnavailable, PhaseFailed, RecoveryNone}
+	}
+	switch status.State {
+	case ClassicalPreparationQueued:
+		return preparationEvidence{PreparationClassification{State: PreparationQueued}, BookAcquiredUnassessed, PhaseAnalyzing, RecoveryNone}
+	case ClassicalPreparationRunning:
+		return preparationEvidence{PreparationClassification{State: PreparationRunning}, BookAcquiredUnassessed, PhaseAnalyzing, RecoveryNone}
+	case "":
+	}
+	switch status.Failure {
+	case ClassicalPreparationFailureFetch:
+		return preparationEvidence{PreparationClassification{State: PreparationFetchFailed}, BookUnavailable, PhaseNotAnalyzed, RecoveryRetryAcquisition}
+	case ClassicalPreparationFailureImport:
+		return preparationEvidence{PreparationClassification{State: PreparationImportFailed}, BookAcquiredUnassessed, PhaseFailed, RecoveryRetryAnalysis}
+	case ClassicalPreparationFailureSource:
+		return preparationEvidence{PreparationClassification{State: PreparationSourceRefused}, BookAcquiredUnassessed, PhaseFailed, RecoveryNone}
+	case ClassicalPreparationFailureWithdrawn:
+		return preparationEvidence{PreparationClassification{State: PreparationWithdrawn}, BookUnavailable, PhaseFailed, RecoveryNone}
+	case ClassicalPreparationFailureCatalog:
+		return preparationEvidence{PreparationClassification{State: PreparationCatalogUnavailable}, BookUnavailable, PhaseNotAnalyzed, RecoveryNone}
+	case ClassicalPreparationFailureNone:
+	}
+	if status.Cleared {
+		return preparationEvidence{PreparationClassification{State: PreparationCleared}, BookAcquiredUnassessed, PhaseNotAnalyzed, RecoveryRetryPreparation}
+	}
+	return preparationEvidence{}
 }
 
 func analysisPhase(signals AnalysisSignals) AnalysisPhase {

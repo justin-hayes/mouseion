@@ -126,9 +126,7 @@ func TestReadingClassicalWithdrawnFallbackAndCatalogState(t *testing.T) {
 		BookID:      "greek",
 		ReadingUnit: &domain.BookReadingUnit{ReadingUnitKey: "greek-1", Revision: 2, Withdrawn: true},
 	}
-	status, ok := readingClassicalPreparationStatus(withdrawn)
-	require.True(t, ok)
-	assert.True(t, status.Withdrawn)
+	assert.Equal(t, domain.PreparationWithdrawn, withdrawn.classification().Preparation.State)
 	assert.Equal(t, classicalWithdrawnLabel, readingEvidenceLabel(withdrawn))
 	assert.Equal(t, readingEvidenceFailed, readingEvidenceState(withdrawn))
 

@@ -225,6 +225,9 @@ func (m MyBook) Classification() BookEvidenceClassification {
 		signals.PipelineOutdated = m.Acquired.AnalysisUpdate != nil
 	}
 	signals.CurrentReading = m.IsCurrentReading
+	if m.ReadingUnit != nil {
+		signals.ClassicalPreparation = ClassicalPreparationSignalFor(m.ClassicalPreparation, m.ReadingUnit)
+	}
 	language := ""
 	if m.Book.LanguageState == LanguageChosen {
 		language = m.Book.LanguageTag

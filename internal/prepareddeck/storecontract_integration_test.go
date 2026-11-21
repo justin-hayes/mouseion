@@ -99,6 +99,21 @@ func (h *postgresHarness) SeedClassicalCatalog(t *testing.T) {
 	require.NoError(t, h.store.ReconcileClassicalManifest(h.ctx, storecontract.ClassicalDefinitions()))
 }
 
+func (h *postgresHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.ClassicalPreparationFailure) {
+	t.Helper()
+	detail, err := h.store.GetBookDetail(h.ctx, owner, bookID)
+	require.NoError(t, err)
+	require.NotNil(t, detail.ReadingUnit, "a classical failure needs a Reading unit")
+	require.NoError(t, h.store.PutClassicalPreparationFailure(h.ctx, domain.ClassicalPreparationFailureRecord{
+		OwnerID:            owner,
+		BookID:             bookID,
+		ReadingUnitKey:     detail.ReadingUnit.ReadingUnitKey,
+		DefinitionRevision: detail.ReadingUnit.Revision,
+		Stage:              stage,
+		Code:               "contract_" + string(stage),
+	}))
+}
+
 func (h *postgresHarness) Owner() string      { return h.owner }
 func (h *postgresHarness) OtherOwner() string { return h.other }
 

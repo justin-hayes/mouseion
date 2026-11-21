@@ -268,6 +268,21 @@ func WithdrawnClassicalPreparationStatus(unit BookReadingUnit) ClassicalPreparat
 	}
 }
 
+// ClassicalPreparationSignalFor resolves the preparation status a Book's
+// evidence classification should use. A withdrawn Reading unit without a
+// durable status still presents its tombstone state, so every surface derives
+// the same preparation signal.
+func ClassicalPreparationSignalFor(status *ClassicalPreparationStatus, unit *BookReadingUnit) *ClassicalPreparationStatus {
+	if status != nil {
+		return status
+	}
+	if unit == nil || !unit.Withdrawn {
+		return nil
+	}
+	withdrawn := WithdrawnClassicalPreparationStatus(*unit)
+	return &withdrawn
+}
+
 // ClassicalPreparationJob is one classical preparation shown in the jobs
 // surface. BookTitle is the learner's Book title; State is River's job state.
 // Code is the stable code recorded for a failed attempt.
