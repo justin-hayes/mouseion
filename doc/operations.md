@@ -364,13 +364,6 @@ decision, not a downgrade procedure.
 
 These commands run against `MOUSEION_DATABASE_URL`.
 
-- `go run ./cmd/vocabularybackfill` — re-applies the active German
-  canonicalization profile (for example pre-1996 ß spellings,
-  [ADR 0065](adr/0065-german-pre-1996-sharp-s-canonicalization.md)) to
-  mutable learner vocabulary. Stop the web server and other vocabulary writers
-  first. The command exits non-zero for curated-sentence conflicts; resolve
-  them before restarting. Immutable normalized-corpus runs and prepared-deck
-  manifests are not rewritten.
 - `go run ./cmd/cataloguebackfill` — assigns legacy catalogue-entry aliases to
   their owning OPDS connection
   ([ADR 0044](adr/0044-catalogue-entry-connection-scoped-identity.md)).

@@ -8,6 +8,8 @@ Amended 2026-11-09 by [ADR 0116](0116-classical-catalog.md): the web app may rea
 
 Amended 2026-11-19 by [issue #2458](https://github.com/justin-hayes/mouseion/issues/2458): the web app composes `internal/readingintent`, which owns a Book's reading intent — the To Read transition, the route between Classical preparation and EPUB acquisition and analysis, and the operator log line for a failed submission. It is added to §6's allow list.
 
+Amended 2026-11-21 by [ADR 0119](0119-retire-german-vocabulary-backfill.md): `cmd/vocabularybackfill` was retired, so the pgx-owner explanation now names only `cmd/cataloguebackfill`.
+
 Tracked by [issue #1973](https://github.com/justin-hayes/mouseion/issues/1973), under parent [#1811](https://github.com/justin-hayes/mouseion/issues/1811). Enforcement with golangci-lint's `depguard` follows in [#1974](https://github.com/justin-hayes/mouseion/issues/1974) (test infrastructure and fixtures) and [#1975](https://github.com/justin-hayes/mouseion/issues/1975) (persistence layering).
 
 ## Context
