@@ -22,7 +22,7 @@ func TestLoadPreparedDeckStorageProjectionSupportsHistoricalSchemas(t *testing.T
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
-	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
+	for schema := cardexport.MinimumManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		t.Run(fmt.Sprintf("v%d", schema), func(t *testing.T) {
 			owner, preparationID, runID, snapshot := insertProjectionFixture(t, ctx, store, projectionSnapshot(t, "", schema), nil)
 			loaded, digest, err := store.LoadPreparedDeckStorageProjection(ctx, owner, preparationID, runID)

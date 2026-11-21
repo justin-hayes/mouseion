@@ -169,19 +169,8 @@ func TestEvidenceCoverageReportsConfiguredMissingAndTruncatedEvidence(t *testing
 	assert.Equal(t, []cardexport.EvidenceCoverage{{Source: "wiktionary"}}, deck.Diagnostics().EvidenceCoverage)
 }
 
-func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T) {
+func TestPresentationLifecycleRestoresEverySupportedManifestSchemaAndDigest(t *testing.T) {
 	wantManifestDigests := map[int]string{
-		1:  "85cfe6352a1ae28d06519c4d94adfcbb9c01e1277ed7f24c7178e54b5f4edeba",
-		2:  "cd1d97d3530526b88e3c5dcab590d639b80fe1170b693d57ab3f21c43a9ec20c",
-		3:  "9d0ee64714e48bfaccda265690a53ce73e3ff73c7a9672a6219ef212c43b7cc7",
-		4:  "9cbcdf53153d35561e67e6fc0c6047d4998f9c4f54e870e48ac85edeeae909d9",
-		5:  "5e63d298cf4abd79295cad9e647d54bae78c8f5d9e9541c550d0efcd77b9952d",
-		6:  "689341753a71cd9c14609d5337668cc7503f5233ca4396f35909d75e293ea6ca",
-		7:  "e142c96d63e34e44c47330688a5f12ea5c710fbc5443ac1f15750ecef68c0b94",
-		8:  "aef994b625a4f881e7d5af369f196ff259a583d4adc4fbe72b02061b1fc6f5e1",
-		9:  "567090f6ca9d948c85d56770a93e7225cf80ecc26270d2a44035fc7d83b40f5d",
-		10: "f61ed15a76dbd3adfe130cae430da09ad1a5e977020b36ab2e589281da6b14e2",
-		11: "2a97907a1c9cbf2d49e1bb83c2cf3e3d97927d239544c5bf5ad064125328d96d",
 		12: "3e893f789653dcb849986c6efbe41fd025007370bce690e957184d71f492ab6a",
 		13: "ede4bde767fb8e3d2a90cf73db3d3d304b86c84fc4a429af7cf45797d5046a72",
 		14: "3dfca4e0f35c615c1d6e076af463a19f164e1c9f50f05079576eb8e59165cff5",
@@ -189,29 +178,15 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		16: "ccb682644bb0221c554e74f4392d023362f9ff881a463285532a14f14fa909dd",
 	}
 	wantCandidateDigests := map[int]string{
-		1:  "43552493d6d8cc96b17112bc9ee667bdd1a0379e38df85c4eb691aa6c788b1cf",
-		2:  "8e145364594d48f70d70131efc6921655bc3cf7830347eb93ca09c4521d8908a",
-		3:  "a6daea9cee8b8c3f8be0ef6d1d7fdb0c98b8fec3e04a2cf75fa7614d14aef71f",
-		4:  "81ac05b57e64637efb78936bfa0352f821e6222d2feda13c6eb18862aa39014f",
-		5:  "651de8c35431d328a63e6b6cd358dc3299ce0314c1fafb74302bbbbf28ba5698",
-		6:  "7f94e44ed363cbbcad66e81060a234507d3c2cb1bd2814802ea05c01721f5dc5",
-		7:  "3beec077590b7a3d4ccc853022cb479baf80a809fcded5d34dbfa3dd56050dbf",
-		8:  "ea1d876cf5e2992d99fd1761f2b9fdd8b59ee5392d4af29e6889cdc372384b75",
-		9:  "50b56b2d0ce0c5e0602a0d7ae9807a37e3262eda665b47d36bb253181b91c63b",
-		10: "2534cb888051cd83f550fe2b4c9852f1a597df13e099fa2f9a5e55d28b5980eb",
-		11: "f5eb9ac6c14dc9292621e41aa2b458538f5772d7b8304271d1adb736503fabdf",
 		12: "b505c59c87ffe28e1db3a0b94abff70f15ab4d3071cf25a51f75edb9402d2bb1",
 		13: "02d61232cab298a7ff37c0eb5539722e50200962981000476903a1405d45882e",
 		14: "6ceac178a8d515d8a666a809ee6424a7e4eb10849832d355c668401f0d73055c",
 		15: "50e825f779409d573bf69902bfec8e28e77ab2fb3ceddd43bd390bd87f75e3c4",
 		16: "9bb61a4c06613c2fcab2c6d1ee539b84ae28eb5e794e93edf01d6bad3a36f5ca",
 	}
-	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
+	for schema := cardexport.MinimumManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		snapshot := lifecycleRestoreSnapshot()
 		snapshot.SchemaVersion = schema
-		if schema == cardexport.LegacyManifestSchemaVersion {
-			snapshot.Items[0].CacheKey.TargetLanguage = ""
-		}
 		manifestDigest, err := snapshot.Digest()
 		require.NoError(t, err, "schema %d", schema)
 		candidateDigest, err := cardexport.CandidateDigestVersion(snapshot.Items[0], schema)
@@ -229,11 +204,6 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		assert.Equal(t, manifestDigest, gotManifestDigest, "schema %d", schema)
 		assert.Equal(t, candidateDigest, gotCandidateDigest, "schema %d", schema)
 		assert.Equal(t, "house", stored.Items[0].Entry.Gloss)
-		if schema == cardexport.LegacyManifestSchemaVersion {
-			work := deck.WorkProjection()
-			_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house stands there today."}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
-			require.NoError(t, err, "schema %d finalization", schema)
-		}
 	}
 }
 
@@ -260,27 +230,6 @@ func TestContextualGlossCacheIdentityBindsEvidenceAndRendersOneModelGloss(t *tes
 
 	changed := makeDeck("wikt:seat", "a seat")
 	assert.NotEqual(t, work[0].CacheKey.MeaningEvidenceHash, changed.WorkProjection()[0].CacheKey.MeaningEvidenceHash)
-}
-
-func TestPresentationLifecycleRestoresPersistedV1TargetLanguage(t *testing.T) {
-	key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash("Das Haus steht heute dort.")}
-	snapshot := cardexport.ManifestSnapshot{
-		SchemaVersion: cardexport.LegacyManifestSchemaVersion, Owner: "owner-1", DeckName: "Book", Filename: cardexport.DownloadFilename("Book"),
-		Items: []cardexport.ManifestItem{{Ordinal: 0, Disposition: cardexport.ManifestAccepted,
-			Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute dort.", TargetWord: "Haus", Gloss: "frozen gloss"},
-			Quality: cardexport.SentenceQuality{Accepted: true, Score: 12, Reasons: []string{"target present"}}, CacheKey: key}},
-	}
-	wantDigest, err := snapshot.Digest()
-	require.NoError(t, err)
-	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
-	require.NoError(t, err)
-	got := deck.StorageProjection()
-	gotDigest, err := got.Digest()
-	require.NoError(t, err)
-	assert.Equal(t, wantDigest, gotDigest)
-	work, ok := deck.WorkByOrdinal(0)
-	require.True(t, ok)
-	assert.Equal(t, "en", work.Request.TargetLanguage)
 }
 
 func TestPresentationLifecycleRestoreRejectsMalformedSnapshots(t *testing.T) {

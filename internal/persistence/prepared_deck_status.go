@@ -110,7 +110,7 @@ func runlessPreparationPhase(state domain.DeckPreparationState) string {
 // reportContextualGlosses counts the contextual glosses of a ready deck whose
 // manifest records meaning evidence.
 func (s *PostgresStore) reportContextualGlosses(ctx context.Context, p *domain.DeckPreparation, projection cardexport.StorageProjection) error {
-	if p.State != domain.DeckPreparationReady || projection.SchemaVersion < cardexport.ManifestSchemaVersionV8 {
+	if p.State != domain.DeckPreparationReady {
 		return nil
 	}
 	records, err := s.loadPreparedDeckStoredRecords(ctx, projection)

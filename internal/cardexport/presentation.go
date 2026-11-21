@@ -702,11 +702,10 @@ func validateExternalRunFacts(manifest manifest, facts RunFacts) error {
 		return fmt.Errorf("%w: incomplete external run facts", ErrInvalidInput)
 	}
 	for _, key := range manifest.cacheKeys {
-		historicalV1Target := manifest.schemaVersion == LegacyManifestSchemaVersion && key.TargetLanguage == ""
 		// Idiom items use a separate prompt contract and therefore carry their
 		// own frozen provider version; the manifest digest pins it (ADR 0114).
 		versionMatches := key.ProviderVersion == facts.ProviderVersion || key.ItemKind.IsIdiom()
-		if (!historicalV1Target && key.TargetLanguage != facts.TargetLanguage) || key.Provider != facts.Provider || !versionMatches {
+		if key.TargetLanguage != facts.TargetLanguage || key.Provider != facts.Provider || !versionMatches {
 			return fmt.Errorf("%w: run facts contradict manifest cache identity", ErrInvalidInput)
 		}
 	}
