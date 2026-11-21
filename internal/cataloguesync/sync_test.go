@@ -86,6 +86,11 @@ type refreshStore struct {
 	lastConnection string
 	reconcile      persistence.CatalogueEntryReconcileResult
 	aliasErr       error
+	// catalogueEntry is the Catalog index row a Book's acquisition resolves.
+	// A zero EntryIdentifier means the index no longer holds the entry.
+	catalogueEntry    domain.CatalogueIndexEntry
+	catalogueEntryErr error
+	catalogueReads    int
 	// Error injection pins the failure branches of each step.
 	connectionsErr error
 	bookErr        error
@@ -184,6 +189,17 @@ func (s *refreshStore) ReconcileCatalogueIndex(_ context.Context, _ string, _ st
 	s.indexEntries = append([]domain.CatalogueIndexEntry(nil), entries...)
 	s.indexObserved = observedAt
 	return nil
+}
+func (s *refreshStore) GetCatalogueEntry(_ context.Context, owner, connectionID, entryIdentifier string) (domain.CatalogueIndexEntry, error) {
+	s.catalogueReads++
+	if s.catalogueEntryErr != nil {
+		return domain.CatalogueIndexEntry{}, s.catalogueEntryErr
+	}
+	entry := s.catalogueEntry
+	if entry.EntryIdentifier == "" || entry.ConnectionID != connectionID || entry.EntryIdentifier != entryIdentifier {
+		return domain.CatalogueIndexEntry{}, persistence.ErrNotFound
+	}
+	return entry, nil
 }
 func (s *refreshStore) SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error {
 	return nil
@@ -346,23 +362,38 @@ func TestRefreshEntryUsesSupportedLanguageDisplayName(t *testing.T) {
 	assert.Equal(t, 1, store.reconciles)
 }
 
-func TestFindAcquisitionTargetUsesSupportedLanguageDisplayName(t *testing.T) {
+func TestFindAcquisitionTargetReadsTheCatalogIndex(t *testing.T) {
 	store := &refreshStore{
 		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
 		alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
 		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
-		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "Deutsch"}},
+		catalogueEntry: domain.CatalogueIndexEntry{
+			ConnectionID: "connection-1", EntryIdentifier: "entry-1", Title: "Indexed title",
+			LanguageTag: "de", EPUBHref: "https://catalog.example/book.epub",
+		},
 	}
-	reader := &refreshReader{
-		languages: opds.Feed{Entries: []opds.Entry{{Title: "Deutsch", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}}}},
-		feed:      opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Old title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}},
-	}
+	reader := &refreshReader{}
+
 	target, err := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
+
 	require.NoError(t, err)
-	assert.Equal(t, "https://catalog.example/book.epub", target.Href)
-	assert.Equal(t, "connection-1", target.ConnectionID)
-	assert.Equal(t, "de", target.Language)
-	assert.Equal(t, "connection-1,connection-1", strings.Join(reader.connections, ","))
+	t.Run("resolves the stored EPUB link", func(t *testing.T) {
+		require.Equal(t, "https://catalog.example/book.epub", target.Href)
+		require.Equal(t, []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}, target.Entry.Links)
+	})
+	t.Run("reports the Book's connection and language", func(t *testing.T) {
+		require.Equal(t, "connection-1", target.ConnectionID)
+		require.Equal(t, "de", target.Language)
+	})
+	t.Run("projects the indexed entry identity", func(t *testing.T) {
+		require.Equal(t, "entry-1", target.Entry.ID)
+		require.Equal(t, "Indexed title", target.Entry.Title)
+	})
+	t.Run("reads only the Catalog index", func(t *testing.T) {
+		require.Equal(t, 1, store.catalogueReads)
+		require.Zero(t, reader.reads, "acquisition must not walk a language feed")
+		require.Empty(t, reader.connections, "acquisition must not read the language navigation feed")
+	})
 }
 
 func TestRefreshEntryUsesOnlyAliasConnection(t *testing.T) {
@@ -405,36 +436,24 @@ func TestFindAcquisitionTargetRejectsIncompleteOrUnreadableSources(t *testing.T)
 	book := domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"}
 	connection := []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}}
 	validAlias := domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"}
-	german := opds.Feed{Entries: []opds.Entry{{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}}}}
-	entry := func(id, href string) opds.Entry {
-		return opds.Entry{ID: id, Title: "Title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: href}}}
-	}
 	unavailable := errors.New("store unavailable")
-	readyStore := func() *refreshStore {
-		return &refreshStore{book: book, alias: validAlias, connections: connection, supported: []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}}}
-	}
 	tests := []struct {
 		name    string
 		store   *refreshStore
-		reader  *refreshReader
 		wantErr error
 	}{
-		{name: "book not found", store: &refreshStore{}, reader: &refreshReader{}, wantErr: ErrNotFound},
-		{name: "book load fails", store: &refreshStore{bookErr: unavailable}, reader: &refreshReader{}, wantErr: unavailable},
-		{name: "alias not found", store: &refreshStore{book: book, aliasErr: persistence.ErrNotFound}, reader: &refreshReader{}, wantErr: ErrNotFound},
-		{name: "alias load fails", store: &refreshStore{book: book, aliasErr: unavailable}, reader: &refreshReader{}, wantErr: unavailable},
-		{name: "blank alias value", store: &refreshStore{book: book, alias: domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier}}, reader: &refreshReader{}, wantErr: ErrNotFound},
-		{name: "connection load fails", store: &refreshStore{book: book, alias: validAlias, connectionsErr: unavailable}, reader: &refreshReader{}, wantErr: unavailable},
-		{name: "supported languages fail", store: &refreshStore{book: book, alias: validAlias, connections: connection, supportedErr: unavailable}, reader: &refreshReader{}, wantErr: unavailable},
-		{name: "languages read fails", store: readyStore(), reader: &refreshReader{err: unavailable}, wantErr: ErrNotFound},
-		{name: "language absent from feed", store: &refreshStore{book: book, alias: validAlias, connections: connection}, reader: &refreshReader{languages: opds.Feed{Entries: []opds.Entry{{Title: "Esperanto"}}}}, wantErr: ErrNotFound},
-		{name: "language feed read fails", store: readyStore(), reader: &refreshReader{languages: german, browseErr: unavailable}, wantErr: ErrNotFound},
-		{name: "entry absent from feed", store: readyStore(), reader: &refreshReader{languages: german, feed: opds.Feed{Entries: []opds.Entry{entry("other", "https://catalog.example/other.epub")}}}, wantErr: ErrNotFound},
-		{name: "entry advertises no usable href", store: readyStore(), reader: &refreshReader{languages: german, feed: opds.Feed{Entries: []opds.Entry{entry("entry-1", "")}}}, wantErr: ErrNotFound},
+		{name: "book not found", store: &refreshStore{}, wantErr: ErrNotFound},
+		{name: "book load fails", store: &refreshStore{bookErr: unavailable}, wantErr: unavailable},
+		{name: "alias not found", store: &refreshStore{book: book, aliasErr: persistence.ErrNotFound}, wantErr: ErrNotFound},
+		{name: "alias load fails", store: &refreshStore{book: book, aliasErr: unavailable}, wantErr: unavailable},
+		{name: "blank alias value", store: &refreshStore{book: book, alias: domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier}}, wantErr: ErrNotFound},
+		{name: "connection load fails", store: &refreshStore{book: book, alias: validAlias, connectionsErr: unavailable}, wantErr: unavailable},
+		{name: "entry absent from the index", store: &refreshStore{book: book, alias: validAlias, connections: connection}, wantErr: ErrCatalogEntryMissing},
+		{name: "entry load fails", store: &refreshStore{book: book, alias: validAlias, connections: connection, catalogueEntryErr: unavailable}, wantErr: unavailable},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := newRefreshService(tc.store, tc.reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
+			_, err := newRefreshService(tc.store, &refreshReader{}).FindAcquisitionTarget(context.Background(), "alice", "book-1")
 			require.ErrorIs(t, err, tc.wantErr)
 		})
 	}
@@ -446,26 +465,21 @@ func TestFindAcquisitionTargetRejectsIncompleteOrUnreadableSources(t *testing.T)
 	})
 }
 
-// TestFindAcquisitionTargetSkipsEntriesWithoutAUsableHref pins the scan
-// continuing past a matching identifier with no usable EPUB link, so a later
-// duplicate identity can still resolve.
-func TestFindAcquisitionTargetSkipsEntriesWithoutAUsableHref(t *testing.T) {
+// TestFindAcquisitionTargetNamesTheMissingEntry pins the identity carried by a
+// missing-index failure, which becomes the durable `entry` failure record.
+func TestFindAcquisitionTargetNamesTheMissingEntry(t *testing.T) {
 	store := &refreshStore{
 		book:        domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
 		alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
 		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
-		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
 	}
-	entry := func(href string) opds.Entry {
-		return opds.Entry{ID: "entry-1", Title: "Title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: href}}}
-	}
-	reader := &refreshReader{
-		languages: opds.Feed{Entries: []opds.Entry{{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}}}},
-		feed:      opds.Feed{Entries: []opds.Entry{entry(""), entry("https://catalog.example/book.epub")}},
-	}
-	target, err := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
-	require.NoError(t, err)
-	assert.Equal(t, "https://catalog.example/book.epub", target.Href)
+
+	target, err := newRefreshService(store, &refreshReader{}).FindAcquisitionTarget(context.Background(), "alice", "book-1")
+
+	require.ErrorIs(t, err, ErrCatalogEntryMissing)
+	assert.Equal(t, "connection-1", target.ConnectionID)
+	assert.Equal(t, "de", target.Language)
+	assert.Equal(t, "entry-1", target.Entry.ID)
 }
 
 // TestSyncWorkReconcilesEntriesAndReportsFirstConflict pins the sync worker's

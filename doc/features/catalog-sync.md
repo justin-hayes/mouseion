@@ -102,7 +102,8 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   entries the connection offers within the sync scope, keyed by connection and
   entry identifier. Each entry records title, author, language tag, advertised
   cover provenance and the EPUB acquisition link, plus when the entry was last
-  seen. The index holds no learner state. A complete run deletes entries it no
+  seen. Acquisition reads that stored link instead of re-walking a language
+  feed. The index holds no learner state. A complete run deletes entries it no
   longer saw; a partial or failed run deletes nothing; deleting the connection
   deletes its index.
 - It upserts title, author when supplied, language, and catalog identity through the owner-scoped
@@ -132,8 +133,14 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 
 - Sync never downloads or re-downloads EPUB content.
 - Metadata-only Books have no detail page. **Move to To Read** acquires,
-  validates, and analyzes the EPUB in one ensure-once flow; the My Books row
-  remains the place to refresh metadata or remove the Book.
+  validates, and analyzes the EPUB in one ensure-once flow using the EPUB
+  acquisition link stored in the Catalog index; it never walks the connection's
+  language feeds. The My Books row remains the place to refresh metadata or
+  remove the Book.
+- When the Book's catalog entry is no longer in the index, acquisition fails
+  with stage `entry` and code `catalog_entry_missing`; the Book stays To Read
+  and My Books shows the reason with Retry. A later sync that restores the
+  entry makes Retry acquire it without any other change.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035.
 - Each catalog-backed Book offers a metadata refresh for that entry. Refresh

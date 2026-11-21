@@ -642,6 +642,8 @@ func opdsErrorMessage(err error) string {
 	message := "The catalog request failed. Check the connection and try again."
 	lower := strings.ToLower(err.Error())
 	switch {
+	case errors.Is(err, cataloguesync.ErrCatalogEntryMissing):
+		message = "The catalog no longer offers this Book. Sync the connection, then retry."
 	case errors.Is(err, opds.ErrNoEPUB), errors.Is(err, opds.ErrIncompatibleMediaType):
 		message = "This book is not available as an EPUB. Choose another edition or format."
 	case errors.Is(err, opds.ErrDownloadTooLarge):

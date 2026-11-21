@@ -1148,6 +1148,53 @@ func TestEPUBAcquisitionFailureRecordingClassifiesTheStage(t *testing.T) {
 	}
 }
 
+func TestEPUBAcquisitionMissingCatalogEntryRecordsEntryFailure(t *testing.T) {
+	t.Parallel()
+	acquisitions := &fakeAcquisitionFailures{}
+	target := cataloguesync.AcquisitionTarget{
+		ConnectionID: "connection-1",
+		Language:     "de",
+		Entry:        opds.Entry{ID: "entry-1", Title: "Der lange Weg"},
+	}
+	preparation := epubPreparation{
+		books:    &fakeBooks{results: []bookResult{{book: epubBookWithoutSource()}}},
+		analysis: &fakeAnalysis{},
+		findTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+			return target, cataloguesync.ErrCatalogEntryMissing
+		},
+		acquire: func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {
+			t.Fatal("a missing index entry is never downloaded")
+			return epub.ImportResult{}, nil
+		},
+		acquisitions: acquisitions,
+	}
+
+	got := preparation.Prepare(context.Background(), "owner", epubBookWithoutSource())
+
+	require.Equal(t, SubmissionCouldNotStart, got.Kind)
+	require.True(t, got.AcquisitionFailed)
+	require.ErrorIs(t, got.Err, cataloguesync.ErrCatalogEntryMissing)
+	require.Equal(t, target, got.Target)
+	require.Len(t, acquisitions.records, 1)
+	record := acquisitions.records[0]
+	t.Run("records the entry stage and code", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, domain.EPUBAcquisitionFailureEntry, record.Stage)
+		require.Equal(t, domain.EPUBAcquisitionCodeCatalogEntryMissing, record.Code)
+	})
+	t.Run("records the Book and where acquisition looked", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, "owner", record.OwnerID)
+		require.Equal(t, "book-1", record.BookID)
+		require.Equal(t, "connection-1", record.ConnectionID)
+		require.Equal(t, "entry-1", record.EntryIdentifier)
+	})
+	t.Run("clears nothing", func(t *testing.T) {
+		t.Parallel()
+		require.Empty(t, acquisitions.cleared)
+	})
+}
+
 func TestEPUBAcquisitionWithoutAnAttemptRecordsNoFailure(t *testing.T) {
 	t.Parallel()
 	lookupErr := errors.New("catalog lookup failed")

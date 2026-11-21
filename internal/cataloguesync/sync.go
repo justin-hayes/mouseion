@@ -37,6 +37,10 @@ const (
 var (
 	ErrNotFound           = errors.New("catalogue sync job: not found")
 	ErrConnectionNotFound = errors.New("catalogue sync: alias connection not found")
+	// ErrCatalogEntryMissing reports that a Book's catalog entry is no longer
+	// in the Catalog index. It is a durable, retryable acquisition failure: a
+	// later sync that restores the entry makes the same Book acquirable again.
+	ErrCatalogEntryMissing = errors.New("catalogue sync: Catalog entry is no longer indexed")
 )
 
 var liveJobStates = []rivertype.JobState{
@@ -84,8 +88,8 @@ type Status struct {
 }
 
 // AcquisitionTarget is the owner-scoped catalogue entry used to acquire a
-// metadata-only Book. The web layer signs the Href before placing it in a
-// form; callers never receive credentials from this lookup.
+// metadata-only Book, resolved from the Catalog index. Callers never receive
+// credentials from this lookup.
 type AcquisitionTarget struct {
 	ConnectionID string
 	Language     string
@@ -125,6 +129,7 @@ type CatalogueStore interface {
 	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
 	ReconcileCatalogueEntry(context.Context, string, string, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
 	ReconcileCatalogueIndex(context.Context, string, string, []domain.CatalogueIndexEntry, time.Time) error
+	GetCatalogueEntry(context.Context, string, string, string) (domain.CatalogueIndexEntry, error)
 }
 
 type coverStore interface {
@@ -463,22 +468,18 @@ func (s *Service) entryLanguageScopes(ctx context.Context, languages opds.Feed) 
 	return scopes, nil
 }
 
-// FindAcquisitionTarget resolves the current EPUB link for a synced Book.
-// The alias is stable across catalog feed changes, while the download Href is
-// looked up again immediately before acquisition.
+// FindAcquisitionTarget resolves a metadata-only Book's EPUB link from the
+// Catalog index. Acquisition never re-walks a language feed: the index stores
+// the acquisition link sync last observed for the entry.
 func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID string) (AcquisitionTarget, error) {
-	if s == nil || s.catalogue == nil || s.connections == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
+	if s == nil || s.catalogue == nil || s.connections == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
 		return AcquisitionTarget{}, ErrNotFound
 	}
 	book, alias, err := s.loadAcquisitionIdentity(ctx, owner, bookID)
 	if err != nil {
 		return AcquisitionTarget{}, err
 	}
-	connectionID, entry, href, err := s.resolveAcquisitionEntry(ctx, owner, book, alias)
-	if err != nil {
-		return AcquisitionTarget{}, err
-	}
-	return AcquisitionTarget{ConnectionID: connectionID, Language: book.LanguageTag, Entry: entry, Href: href}, nil
+	return s.resolveAcquisitionEntry(ctx, owner, book, alias)
 }
 
 // loadAcquisitionIdentity loads the owner-scoped Book and its catalog-entry
@@ -504,44 +505,45 @@ func (s *Service) loadAcquisitionIdentity(ctx context.Context, owner, bookID str
 	return book, alias, nil
 }
 
-// resolveAcquisitionEntry finds the current feed entry the alias identifies,
-// through the alias connection's feed for the Book's language. An entry whose
-// identifier matches but that advertises no usable EPUB link is skipped, so a
-// later duplicate identity can still resolve.
-func (s *Service) resolveAcquisitionEntry(ctx context.Context, owner string, book domain.Book, alias domain.BookAlias) (string, opds.Entry, string, error) {
+// resolveAcquisitionEntry loads the alias connection and reads the Book's
+// stored Catalog index entry. A missing entry returns ErrCatalogEntryMissing
+// with the identity the durable failure record needs, so a later sync that
+// restores the entry makes Retry acquire it without re-walking the feed.
+func (s *Service) resolveAcquisitionEntry(ctx context.Context, owner string, book domain.Book, alias domain.BookAlias) (AcquisitionTarget, error) {
 	connection, err := s.connections.GetOpdsConnection(ctx, owner, alias.ConnectionID)
 	if errors.Is(err, persistence.ErrNotFound) {
-		return "", opds.Entry{}, "", fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
+		return AcquisitionTarget{}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
 	}
 	if err != nil {
-		return "", opds.Entry{}, "", err
+		return AcquisitionTarget{}, err
 	}
-	supported, err := s.catalogue.ListSupportedLanguages(ctx)
+	target := AcquisitionTarget{
+		ConnectionID: connection.ID,
+		Language:     book.LanguageTag,
+		Entry:        opds.Entry{ID: alias.Value},
+	}
+	indexed, err := s.catalogue.GetCatalogueEntry(ctx, owner, connection.ID, alias.Value)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return target, ErrCatalogEntryMissing
+	}
 	if err != nil {
-		return "", opds.Entry{}, "", err
+		return target, err
 	}
-	displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
-	languages, err := s.reader.Languages(ctx, owner, connection.ID)
-	if err != nil {
-		return "", opds.Entry{}, "", ErrNotFound
+	target.Entry = indexedAcquisitionEntry(indexed)
+	target.Href = indexed.EPUBHref
+	return target, nil
+}
+
+// indexedAcquisitionEntry projects an index row into the entry acquisition
+// reads. The index is the authority for the EPUB link; title and author only
+// name the entry in a learner-facing failure sentence.
+func indexedAcquisitionEntry(indexed domain.CatalogueIndexEntry) opds.Entry {
+	return opds.Entry{
+		ID:     indexed.EntryIdentifier,
+		Title:  indexed.Title,
+		Author: indexed.Author,
+		Links:  []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: indexed.EPUBHref}},
 	}
-	languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
-	if languageID == "" {
-		return "", opds.Entry{}, "", ErrNotFound
-	}
-	feed, err := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
-	if err != nil {
-		return "", opds.Entry{}, "", ErrNotFound
-	}
-	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
-		if strings.TrimSpace(entry.ID) != alias.Value {
-			continue
-		}
-		if href, ok := acquisitionHref(entry); ok {
-			return connection.ID, entry, href, nil
-		}
-	}
-	return "", opds.Entry{}, "", ErrNotFound
 }
 
 // acquisitionHref returns the first non-blank EPUB download target advertised
