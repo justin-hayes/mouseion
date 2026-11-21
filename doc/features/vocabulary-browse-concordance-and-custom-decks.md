@@ -34,7 +34,7 @@ high-occurrence vocabulary in the Book they are currently reading that is not
 already Known, Reserved, or in a Book deck prepared for that Book. They can
 investigate actual occurrences and syntax across Books and save chosen
 identities for independent Anki study. Vocabulary remains one of four primary
-destinations (My Books, Reading, Vocabulary, Catalogs). Its peer views are
+destinations (My Books, Reading, Vocabulary, Catalog). Its peer views are
 **Browse** (landing), **Concordance**, and **Import known vocabulary**.
 Browse is a vocabulary-identity browser, not a second catalog of Books;
 My Books remains the sole bibliographic Book browser. A Browse identity opens

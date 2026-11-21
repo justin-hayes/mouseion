@@ -172,7 +172,7 @@ test.describe('My Books collection browsing', () => {
         return rect.top < height && rect.bottom > 0;
       }, viewport.height)).toBe(true);
       await notice.getByText('Why?', { exact: true }).click();
-      await expect(notice.getByRole('link', { name: 'Catalogs' })).toBeVisible();
+      await expect(notice.getByRole('link', { name: 'Catalog' })).toBeVisible();
     }
   });
 
@@ -426,7 +426,7 @@ test.describe('My Books collection browsing', () => {
       await expect(needsRow.locator('form')).toHaveAttribute('action', /\/hide$/);
 
       await page.goto('/catalogs');
-      const sync = page.locator('#connection-fixture-browser-sync-connection').getByRole('button', { name: 'Sync now' });
+      const sync = page.locator('#source-status-fixture-browser-sync-connection').getByRole('button', { name: 'Sync now' });
       if (await sync.count()) {
         await sync.click();
         await expect(page).toHaveURL(/\/catalogs\?/);

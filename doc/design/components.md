@@ -43,7 +43,7 @@ markup.
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Reading, Catalogs, Jobs, Vocabulary |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Reading, Catalog, Jobs, Vocabulary |
 | `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Reading Journey |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the focused-task/Job workflow | Focused deck preparation and analysis status |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, Goal and artifact surfaces            |
@@ -107,7 +107,7 @@ one-pattern/one-Templ-component implementation.
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
 | `EvidenceDelta` | State a current, prior, conditional, or lower-bound value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, lower bound, stale/unavailable evidence | Journey books |
 | `OutcomeSummary` | Identify the completed Book, report exact newly-Known and already-Known counts, and return to the neutral chooser without implying mastery or selecting another Book. | Non-empty snapshot, empty snapshot, zero counts, retry/idempotent completion | Reading completion receipt |
-| `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note. | None, partial or full ownership; whole-work or multi-book Work; Choose books open or closed; compact reflow | Catalogs |
+| `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note. | None, partial or full ownership; whole-work or multi-book Work; Choose books open or closed; compact reflow | Catalog |
 
 The patterns above should compose mostly through typography, ordered lists,
 definition lists, actions, disclosures, and fine rules. They are not permission
@@ -157,7 +157,7 @@ instead of scrolling sideways. The author-detail page is retired; its old URL
 permanently redirects to that author's section, Work-page breadcrumbs point
 there instead, and no page links to the retired author URL.
 
-Canonical surface: Catalogs.
+Canonical surface: Catalog.
 
 ## Book cover patterns
 
@@ -535,9 +535,9 @@ how can I reach the main task quickly?
 
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
 `Primary navigation`. The canonical authenticated destinations are exactly My Books,
-Reading, Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync
-maintenance at `/catalogs`; My Books is the sole browse surface and its rows own
-per-book acquisition.
+Reading, Vocabulary, and Catalog. Catalog owns the built-in Classical catalog and source status at `/catalogs`;
+Manage sources owns catalogue setup and sync maintenance at `/catalogs/sources`.
+My Books is the sole browse surface and its rows own per-book acquisition.
 Reading owns current reading or the between-Books chooser. The shipped shell
 marks the current context while compatibility routes redirect without exposing
 Learning as a peer destination.

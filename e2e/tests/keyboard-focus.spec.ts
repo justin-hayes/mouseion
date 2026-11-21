@@ -96,7 +96,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Mouseion' })).toBeFocused();
-    for (const name of ['My Books', 'Reading', 'Vocabulary', 'Catalogs']) {
+    for (const name of ['My Books', 'Reading', 'Vocabulary', 'Catalog']) {
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
     }
@@ -117,9 +117,9 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
-    for (const name of ['Mouseion', 'My Books', 'Reading', 'Vocabulary', 'Catalogs']) {
+    for (const name of ['Mouseion', 'My Books', 'Reading', 'Vocabulary', 'Catalog']) {
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
-      if (name !== 'Catalogs') await page.keyboard.press('Tab');
+      if (name !== 'Catalog') await page.keyboard.press('Tab');
     }
     await page.keyboard.press('Tab');
     await expect(page.getByLabel('Study language')).toBeFocused();

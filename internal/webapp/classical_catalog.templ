@@ -17,8 +17,8 @@ const (
 	classicalAddWholeWorkLabel = "Add and prepare the whole work"
 )
 
-// ClassicalCatalogRecord is the built-in, read-only source on Catalogs. It
-// appears above the learner's OPDS connections and carries no setup, sync or
+// ClassicalCatalogRecord is the built-in, read-only source on the Catalog. It
+// appears below the OPDS source status lines and carries no setup, sync or
 // credentials.
 templ ClassicalCatalogRecord(counts classical.CatalogCounts) {
 	<article class="classical-catalog-record" id="classical-catalog" aria-labelledby="classical-catalog-title">
@@ -37,7 +37,7 @@ templ ClassicalCatalogRecord(counts classical.CatalogCounts) {
 // and Add controls in a margin note.
 templ ClassicalAuthorIndexPage(user domain.User, csrf string, authors []classical.CatalogAuthor, counts classical.CatalogCounts, attributions []classical.SourceAttribution, view classicalCatalogView, confirmation classicalAddConfirmation, pageError string) {
 	@ShellLayout("Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
-		@Breadcrumb("/catalogs", "Catalogs")
+		@Breadcrumb("/catalogs", "Catalog")
 		@PageHeader("Classical catalog", "Browse the Ancient Greek works this release carries. Adding a Book puts it in To Read and downloads and prepares the text.", nil)
 		@ClassicalCatalogCounts(counts, "classical-catalog-margin")
 		if confirmation.Message != "" {

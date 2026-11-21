@@ -63,7 +63,15 @@ func (s *Store) UpdateOpdsConnection(_ context.Context, _ string, c domain.OpdsC
 	return c, nil
 }
 
-func (s *Store) DeleteOpdsConnection(context.Context, string, string) error { return nil }
+func (s *Store) DeleteOpdsConnection(_ context.Context, owner, id string) error {
+	for i, connection := range s.connections {
+		if connection.ID == id && connection.OwnerID == owner {
+			s.connections = append(s.connections[:i], s.connections[i+1:]...)
+			return nil
+		}
+	}
+	return errNotFound
+}
 
 func (s *Store) admitFixtureCatalogueLanguage(owner, connectionID string) {
 	if connectionID != "fixture-browser-sync-connection" {

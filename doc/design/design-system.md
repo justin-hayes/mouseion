@@ -110,7 +110,7 @@ by the one build entry point and are available before any no-JavaScript or
 enhanced interaction is used.
 
 The shared-controls rollout and Preflight cutover are complete across shell,
-My Books, Reading, Vocabulary, Concordance, Catalogs, and operational tasks.
+My Books, Reading, Vocabulary, Concordance, Catalog, and operational tasks.
 Route-owned stylesheets own layout and composition; the shared foundation owns
 typography, native controls, focus, disabled/busy states, theme, and reduced
 motion. Keep route rules from overriding sign-in's shared controls. Vocabulary
@@ -415,11 +415,11 @@ overflow.
 ## Established and canonical interaction contracts
 
 - Canonical authenticated destinations are exactly My Books, Reading,
-  Vocabulary, and Catalogs. The shared top bar owns these destinations, the
-  active study-language switcher, and the account disclosure. Catalogs owns
-  curated sources that do not sync into My Books — including the built-in,
-  read-only Classical catalog — and catalogue setup and sync maintenance on
-  `/catalogs`. My Books is the sole bibliographic Book browse surface for synced
+  Vocabulary, and Catalog. The shared top bar owns these destinations, the
+  active study-language switcher, and the account disclosure. Catalog owns
+  the built-in, read-only Classical catalog and per-source sync status at
+  `/catalogs`; Manage sources owns catalogue setup and sync maintenance on
+  `/catalogs/sources`. My Books is the sole bibliographic Book browse surface for synced
   metadata, and its items own per-book disposition and acquisition intent.
   Reading owns the current Book or the between-Books candidate chooser.
 - The Classical catalog is one author-grouped index and the work page. Each
@@ -495,7 +495,7 @@ The first rollout is complete and preserved as history in
 current My Books / Reading architecture.
 
 Current implementation adoption covers My Books (`/library`), Reading (`/reading`),
-Catalogs (`/catalogs`), analysis/catalog-sync jobs, enrichment progress, focused
+Catalog (`/catalogs`), analysis/catalog-sync jobs, enrichment progress, focused
 deck preparation,
 Vocabulary Browse/selection/Concordance/sentence study,
 occurrence-level lemma review, and Custom decks. `/journey` is

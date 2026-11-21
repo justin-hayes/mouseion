@@ -1,5 +1,45 @@
 /* Catalog connection and operational-history composition. Shared controls own
    field, action, focus, disabled, theme, and reduced-motion presentation. */
+.catalog-sources {
+  margin-block: var(--mouseion-space-5);
+}
+
+.catalog-source-status {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--mouseion-color-border);
+}
+
+.catalog-source-status > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mouseion-space-2) var(--mouseion-space-4);
+  padding-block: var(--mouseion-space-3);
+  border-bottom: 1px solid var(--mouseion-color-border);
+}
+
+.catalog-source-status > li > p {
+  flex: 1 1 18rem;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.catalog-source-status > li > .action-group {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.catalog-source-status__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mouseion-space-2);
+}
+
 .catalog-list,
 .catalog-list article {
   min-width: 0;
