@@ -158,9 +158,6 @@ type Seeder interface {
 	SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity)
 	// SeedReadyPreparation makes the snapshot's preparation ready and returns its ID.
 	SeedReadyPreparation(t *testing.T, owner, bookID, snapshotID string) string
-	// ClearSnapshotID leaves owner's current reading without a snapshot, the
-	// shape of a legacy reading.
-	ClearSnapshotID(t *testing.T, owner, language string)
 	// SeedClassicalCatalog installs the Classical release the contract's Add
 	// scenarios resolve Reading units from.
 	SeedClassicalCatalog(t *testing.T)

@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"testing"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -29,9 +29,6 @@ type finalizerStoreStub struct {
 	loadCalls, completeCalls, getCalls, supersedeCalls int
 	supersedeVersion                                   int
 	repreparationCalls                                 int
-	corpusSentences                                    map[string]map[int64]analyzer.Sentence
-	corpusCalls                                        int
-	corpusErr                                          error
 	failCalls                                          int
 	failClass, failCode                                string
 	loadErr, claimErr, completeErr, failErr            error
@@ -77,20 +74,6 @@ func (s *finalizerStoreStub) SupersedePreparedDeckArtifact(_ context.Context, _,
 	return s.preparation, nil
 }
 
-func (s *finalizerStoreStub) ListCorpusSentences(_ context.Context, _, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error) {
-	s.corpusCalls++
-	if s.corpusErr != nil {
-		return nil, s.corpusErr
-	}
-	result := make(map[int64]analyzer.Sentence)
-	for _, ordinal := range ordinals {
-		if sentence, ok := s.corpusSentences[corpusID][ordinal]; ok {
-			result[ordinal] = sentence
-		}
-	}
-	return result, nil
-}
-
 func (s *finalizerStoreStub) FailPreparedDeckFinalization(_ context.Context, _, _, _, _, class, code string) error {
 	s.failCalls++
 	s.failClass, s.failCode = class, code
@@ -109,39 +92,9 @@ func (r *finalizerRendererStub) Restore(cardexport.StorageProjection) (cardexpor
 	return cardexport.FrozenDeck{}, r.restoreErr
 }
 
-func (r *finalizerRendererStub) RestoreWithRecoveredRenderInputs(projection cardexport.StorageProjection, _ []cardexport.RecoveredRenderInput) (cardexport.FrozenDeck, error) {
-	return r.Restore(projection)
-}
-
 func (r *finalizerRendererStub) Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
 	r.calls++
 	return r.artifact, r.diagnostics, r.err
-}
-
-// rerenderStoreWithoutCorpus implements durableRerenderStore but not the corpus
-// reader, so legacy render-input recovery reports that the corpus is unavailable.
-type rerenderStoreWithoutCorpus struct {
-	projection cardexport.StorageProjection
-}
-
-func (rerenderStoreWithoutCorpus) GetPreparedDeckRun(context.Context, string, string, string) (domain.PreparedDeckRun, error) {
-	return domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0}, nil
-}
-
-func (s rerenderStoreWithoutCorpus) LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.StorageProjection, []cardexport.StoredResult, error) {
-	return s.projection, nil, nil
-}
-
-func (rerenderStoreWithoutCorpus) SupersedePreparedDeckArtifact(context.Context, string, string, string, int, cardexport.Artifact) (domain.DeckPreparation, error) {
-	return domain.DeckPreparation{}, nil
-}
-
-func (rerenderStoreWithoutCorpus) GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error) {
-	return domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run"}, nil
-}
-
-func (rerenderStoreWithoutCorpus) MarkPreparedDeckRequiresRepreparation(context.Context, string, string, string) error {
-	return nil
 }
 
 type corpusRendererStub struct {
@@ -151,10 +104,6 @@ type corpusRendererStub struct {
 
 func (r *corpusRendererStub) Restore(projection cardexport.StorageProjection) (cardexport.FrozenDeck, error) {
 	return cardexport.NewPresentation(nil).Restore(projection)
-}
-
-func (r *corpusRendererStub) RestoreWithRecoveredRenderInputs(projection cardexport.StorageProjection, recovered []cardexport.RecoveredRenderInput) (cardexport.FrozenDeck, error) {
-	return cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(projection, recovered)
 }
 
 func (r *corpusRendererStub) Finalize(ctx context.Context, deck cardexport.FrozenDeck, stored []cardexport.StoredResult, facts cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
@@ -470,7 +419,7 @@ func TestDurableFinalizerLogsFallbackGlossUsageOnlyForConsentedRuns(t *testing.T
 
 func TestDurableRerendererReplaysCompletedRunAndIsIdempotent(t *testing.T) {
 	store := &finalizerStoreStub{
-		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, PresentationVersion: 1},
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: 1},
 		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
 	}
 	renderer := &finalizerRendererStub{artifact: cardexport.Artifact{APKG: []byte("rerendered")}}
@@ -503,7 +452,7 @@ func TestDurableRerendererLogsInvalidSenseSelectionFromDiagnostics(t *testing.T)
 	}()
 
 	store := &finalizerStoreStub{
-		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, PresentationVersion: 1},
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: 1},
 		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run"},
 	}
 	renderer := &finalizerRendererStub{diagnostics: cardexport.FinalizeDiagnostics{DegradationCodes: []string{cardexport.DegradationInvalidSenseSelection}}}
@@ -535,73 +484,24 @@ func TestDurableRerendererDoesNotRenderRetiredPreparation(t *testing.T) {
 	})
 }
 
-func TestDurableRerendererRecoversLegacyParseFromCorpus(t *testing.T) {
-	store := &finalizerStoreStub{
-		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
-		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
-		corpusSentences: map[string]map[int64]analyzer.Sentence{
-			"corpus": {7: {Text: "Ich stehe heute auf.", Tokens: []analyzer.Token{
-				{Surface: "Ich", Dependency: "nsubj", Head: 1},
-				{Surface: "stehe", Dependency: "root", Head: 1},
-				{Surface: "heute", Dependency: "advmod", Head: 1},
-				{Surface: "auf", Dependency: "compound:prt", Head: 1},
-			}}},
-		},
+func TestDurableRerendererRefusesLegacyRenderInputs(t *testing.T) {
+	for _, version := range []int{0, cardexport.RenderInputVersion - 1} {
+		t.Run(fmt.Sprintf("render inputs version %d", version), func(t *testing.T) {
+			store := &finalizerStoreStub{
+				run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: version, PresentationVersion: 0},
+				preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+			}
+			renderer := &finalizerRendererStub{}
+
+			_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
+
+			require.ErrorIs(t, err, ErrRequiresRepreparation)
+			require.ErrorContains(t, err, fmt.Sprintf("render inputs version %d is below the required version %d", version, cardexport.RenderInputVersion))
+			assert.Zero(t, store.loadCalls, "a refused rerender loads no manifest")
+			assert.Zero(t, renderer.calls, "a refused rerender renders nothing")
+			assert.Zero(t, store.supersedeCalls, "a refused rerender publishes nothing")
+		})
 	}
-	store.projection = legacyRerenderManifest(t)
-	renderer := &corpusRendererStub{}
-
-	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
-
-	require.NoError(t, err)
-	assert.Equal(t, 2, updated.DeckRevision)
-	assert.Equal(t, 1, store.corpusCalls)
-	assert.Equal(t, 1, renderer.calls)
-	require.Len(t, renderer.artifact.Generated, 1)
-	assert.Equal(t, "Ich <b>stehe</b> heute <b>auf</b>.", renderer.artifact.Generated[0].Note.Text)
-	assert.Equal(t, cardexport.PresentationVersion, store.supersedeVersion)
-}
-
-func TestDurableRerendererReportsMissingLegacyInputWithoutPublishing(t *testing.T) {
-	store := &finalizerStoreStub{
-		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 1},
-		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
-		corpusSentences: map[string]map[int64]analyzer.Sentence{},
-	}
-	store.projection = legacyRerenderManifest(t)
-	renderer := &corpusRendererStub{}
-
-	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 1)
-
-	t.Run("classifies the missing input as requiring repreparation", func(t *testing.T) {
-		require.ErrorIs(t, err, ErrRequiresRepreparation)
-	})
-	t.Run("reads the corpus once", func(t *testing.T) {
-		require.Equal(t, 1, store.corpusCalls)
-	})
-	t.Run("does not render", func(t *testing.T) {
-		require.Zero(t, renderer.calls)
-	})
-	t.Run("does not publish", func(t *testing.T) {
-		require.Zero(t, store.supersedeCalls)
-	})
-}
-
-func TestDurableRerendererSkipsLegacyRecoveryWhenRenderInputsAreCurrent(t *testing.T) {
-	store := &finalizerStoreStub{
-		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: 0},
-		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
-		corpusSentences: map[string]map[int64]analyzer.Sentence{},
-	}
-	store.projection = legacyRerenderManifest(t)
-	renderer := &corpusRendererStub{}
-
-	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
-
-	require.NoError(t, err)
-	assert.Equal(t, 2, updated.DeckRevision)
-	assert.Zero(t, store.corpusCalls, "a run already carrying current render inputs must not read the corpus")
-	assert.Equal(t, 1, renderer.calls)
 }
 
 // TestDurableRerendererKeepsFrozenAttributionWithoutEvidenceCalls proves a
@@ -628,96 +528,29 @@ func TestDurableRerendererKeepsFrozenAttributionWithoutEvidenceCalls(t *testing.
 	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
 	require.NoError(t, err)
 	assert.Equal(t, 2, updated.DeckRevision)
-	assert.Zero(t, store.corpusCalls, "a presentation-only rebuild must not read corpus/NLP evidence")
 	require.Len(t, renderer.artifact.Generated, 1)
 	assert.Equal(t, "Erster", renderer.artifact.Generated[0].Note.Attribution)
 	assert.Contains(t, renderer.artifact.Generated[0].Note.Text, `<span class="source-line">`)
 	assert.Contains(t, renderer.artifact.Generated[0].Note.Text, `<b>Dichter</b>`)
 }
 
-func TestDurableRerendererLeavesManifestsWithNothingToRecoverUnchanged(t *testing.T) {
-	projection := legacyRerenderManifest(t)
-	projection.Items[0].Entry.SentenceTokens = []analyzer.Token{{Surface: "stehe", Dependency: "root", Head: 0}}
-	store := &finalizerStoreStub{
-		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
-		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
-		corpusSentences: map[string]map[int64]analyzer.Sentence{},
-	}
-	store.projection = projection
-	renderer := &corpusRendererStub{}
-
-	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
-
-	require.NoError(t, err)
-	assert.Equal(t, 2, updated.DeckRevision)
-	assert.Zero(t, store.corpusCalls, "items that already carry tokens are not recovered again")
-	assert.Equal(t, 1, renderer.calls)
-}
-
-func TestDurableRerendererReportsManifestWithoutCorpusCoordinate(t *testing.T) {
-	projection := legacyRerenderManifest(t)
-	projection.Items[0].CorpusID = ""
+func TestRerenderWorkerMarksLegacyRenderInputsForRepreparation(t *testing.T) {
 	store := &finalizerStoreStub{
 		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
 		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
-	}
-	store.projection = projection
-	renderer := &corpusRendererStub{}
-
-	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
-
-	require.ErrorIs(t, err, ErrRequiresRepreparation)
-	assert.Zero(t, store.corpusCalls)
-	assert.Zero(t, renderer.calls)
-	assert.Zero(t, store.supersedeCalls)
-}
-
-func TestDurableRerendererSurfacesCorpusReadFailure(t *testing.T) {
-	corpusErr := errors.New("corpus unavailable")
-	store := &finalizerStoreStub{
-		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
-		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
-		corpusSentences: map[string]map[int64]analyzer.Sentence{},
-		corpusErr:       corpusErr,
-	}
-	store.projection = legacyRerenderManifest(t)
-	renderer := &corpusRendererStub{}
-
-	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
-
-	require.ErrorIs(t, err, corpusErr)
-	assert.Zero(t, renderer.calls)
-	assert.Zero(t, store.supersedeCalls)
-}
-
-func TestDurableRerendererReportsUnavailableCorpusReader(t *testing.T) {
-	store := rerenderStoreWithoutCorpus{projection: legacyRerenderManifest(t)}
-	renderer := &corpusRendererStub{}
-
-	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
-
-	require.ErrorIs(t, err, ErrRequiresRepreparation)
-	assert.Zero(t, renderer.calls)
-}
-
-func TestRerenderWorkerSurfacesMissingLegacyInputWithoutRetrying(t *testing.T) {
-	store := &finalizerStoreStub{
-		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
-		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
-		corpusSentences: map[string]map[int64]analyzer.Sentence{},
-		projection:      legacyRerenderManifest(t),
 	}
 	worker := &RerenderWorker{Rerenderer: &DurableRerenderer{Store: store, Renderer: &corpusRendererStub{}}}
 
 	err := worker.Work(context.Background(), &river.Job[RerenderJobArgs]{Args: RerenderJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run", PresentationVersion: 1}})
 
-	require.NoError(t, err)
+	require.NoError(t, err, "a legacy deck is marked for repreparation, not retried")
 	assert.Equal(t, 1, store.repreparationCalls)
+	assert.Zero(t, store.supersedeCalls)
 }
 
 func TestRerenderWorkerMarksIdentityCorruptionForRepreparation(t *testing.T) {
 	store := &finalizerStoreStub{
-		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 1, PresentationVersion: 1},
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: 1},
 		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run"},
 		loadErr:     persistence.ErrPreparedDeckIdentity,
 	}
@@ -727,19 +560,4 @@ func TestRerenderWorkerMarksIdentityCorruptionForRepreparation(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, store.repreparationCalls)
-}
-
-func legacyRerenderManifest(t *testing.T) cardexport.StorageProjection {
-	t.Helper()
-	return cardexport.StorageProjection{
-		SchemaVersion: cardexport.ManifestSchemaVersion,
-		Owner:         "owner",
-		DeckName:      "Legacy",
-		Filename:      cardexport.DownloadFilename("Legacy"),
-		Items: []cardexport.ManifestItem{{
-			Ordinal: 0, Disposition: cardexport.ManifestAccepted, CorpusID: "corpus", SentenceOrdinal: 7,
-			Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB", Sentence: "Ich stehe heute auf.", TargetWord: "stehe", SourceDocument: "Legacy", FirstEncounter: 1},
-			Quality: cardexport.SentenceQuality{Accepted: true, Reasons: []string{"target present"}},
-		}},
-	}
 }

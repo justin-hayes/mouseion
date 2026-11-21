@@ -1,12 +1,12 @@
 package cardexport
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
-	"github.com/justin-hayes/mouseion/internal/dictionary"
 )
 
 // The Ancient Greek default card shows the pinned reference-translation
@@ -18,28 +18,33 @@ const (
 	passageContextSuffix = ". Not a translation of this sentence" //nolint:gosec // G101 false positive: a user-facing card label, not a credential.
 )
 
-// legacyPassageAttribution credits a frozen pin that layers.json does not
-// list. Before translations were credited per file, the only translation a
-// deck could freeze was Brownson's Anabasis, imported by the retired operator
-// command, so an unlisted pin is always Brownson. The generator keeps every
-// shipped translation listed, so a new pin never falls back here.
-var legacyPassageAttribution = classical.PassageAttribution{
-	Label:  "Brownson (1922), Xen. Anab.",
-	Notice: dictionary.BrownsonSourceNotice,
-}
+// embeddedPassageAttribution looks a frozen translation pin up in the release's
+// translation register. It is a variable so a card-export test can exercise a
+// register that fails to parse.
+var embeddedPassageAttribution = classical.EmbeddedPassageAttribution
 
-// passageAttribution returns the credit for a frozen translation pin.
-func passageAttribution(pin string) classical.PassageAttribution {
-	if attribution, ok := classical.EmbeddedPassageAttribution(pin); ok {
-		return attribution
+// passageAttribution returns the credit for a frozen translation pin. A pin the
+// register does not list, or a register that cannot be parsed, is an error:
+// silently crediting another translation would ship a misattribution (ADR 0111).
+func passageAttribution(pin string) (classical.PassageAttribution, error) {
+	attribution, ok, err := embeddedPassageAttribution(pin)
+	if err != nil {
+		return classical.PassageAttribution{}, fmt.Errorf("cardexport: read translation register: %w", err)
 	}
-	return legacyPassageAttribution
+	if !ok {
+		return classical.PassageAttribution{}, fmt.Errorf("%w: passage pin %q is not listed in the translation register", ErrInvalidInput, pin)
+	}
+	return attribution, nil
 }
 
 // passageContextLabel renders the frozen passage citation as the labelled,
 // unhighlighted card heading, crediting the translation the pin names.
-func passageContextLabel(pin, citation string) string {
-	return passageContextPrefix + passageAttribution(pin).Label + " " + citation + passageContextSuffix
+func passageContextLabel(pin, citation string) (string, error) {
+	attribution, err := passageAttribution(pin)
+	if err != nil {
+		return "", err
+	}
+	return passageContextPrefix + attribution.Label + " " + citation + passageContextSuffix, nil
 }
 
 // resolvePassage returns the passage text, its citation label and the pin for a

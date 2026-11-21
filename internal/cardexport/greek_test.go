@@ -58,9 +58,10 @@ func TestAncientGreekExportCarriesAttributionAndLicenceNotices(t *testing.T) {
 		Sentence: "ἐν ἀρχῇ ἦν ὁ λόγος καὶ ὁ λόγος ἦν πρὸς τὸν θεόν.", TargetWord: "λόγος",
 		DictionaryProviderVersion: "kaikki-2026-09", CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:1", Gloss: "word"}},
 	}}
-	attribution := attributionNotices(entries)
+	attribution, err := attributionNotices(entries)
+	require.NoError(t, err)
 	for _, want := range []string{"OGA", "Perseus/canonical-greekLit", "oga_src", "Wiktionary"} {
 		assert.Contains(t, attribution, want)
 	}
-	assert.Contains(t, deckDescription(entries), "Wiktionary")
+	assert.Contains(t, mustDeckDescription(t, entries), "Wiktionary")
 }

@@ -523,73 +523,34 @@ func TestCurrentReadingCompletionAcceptsEmptySnapshot(t *testing.T) {
 	assert.NotEmpty(t, result.Completion.SnapshotID)
 }
 
-func TestCurrentReadingCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
+func TestCurrentReadingCompletionRejectsReadingWithoutSnapshot(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-missing-snapshot", false)
 	require.NoError(t, err)
-	otherOwner, err := store.CreateUser(ctx, "goal-missing-snapshot-other", false)
-	require.NoError(t, err)
 
 	book, _, _ := createReadingFixture(t, ctx, store, owner.ID, "missing-snapshot")
-	italianBook, _, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "missing-snapshot-italian")
-	otherBook, _, _ := createReadingFixture(t, ctx, store, otherOwner.ID, "missing-snapshot-other")
-	for _, item := range []struct {
-		owner, language, book string
-	}{
-		{owner.ID, "de", book.ID},
-		{owner.ID, "it", italianBook.ID},
-		{otherOwner.ID, "de", otherBook.ID},
-	} {
-		require.NoError(t, store.SetBookDisposition(ctx, item.owner, item.book, domain.BookDispositionToRead))
-	}
-	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id, language, book_id) VALUES ($1, 'de', $2), ($1, 'it', $3), ($4, 'de', $5)`, owner.ID, book.ID, italianBook.ID, otherOwner.ID, otherBook.ID)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	// A current reading without a snapshot is corrupt data, not a legacy reading.
+	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id, language, book_id) VALUES ($1, 'de', $2)`, owner.ID, book.ID)
 	require.NoError(t, err)
 
-	start := make(chan struct{})
-	results := make(chan domain.CurrentReadingFinishResult, 2)
-	errors := make(chan error, 2)
-	for range 2 {
-		go func() {
-			<-start
-			result, finishErr := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, "")
-			results <- result
-			errors <- finishErr
-		}()
-	}
-	close(start)
-	for range 2 {
-		require.NoError(t, <-errors)
-	}
-	first, second := <-results, <-results
-	assert.Equal(t, first.Completion, second.Completion)
-	assert.Empty(t, first.Completion.SnapshotID)
-	assert.Zero(t, first.Completion.SnapshotVocabularyCount)
-	assert.Zero(t, first.Completion.EligibleVocabularyCount)
-	assert.Zero(t, first.Completion.GraduatedVocabularyCount)
-	assert.Zero(t, first.Completion.AlreadyKnownVocabularyCount)
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, "")
+	require.ErrorIs(t, err, ErrCurrentReadingStale)
 
-	repeated, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, "")
-	require.NoError(t, err)
-	assert.Equal(t, first.Completion, repeated.Completion)
 	var historyCount, knownCount int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, owner.ID, book.ID).Scan(&historyCount)
 	require.NoError(t, err)
-	assert.Equal(t, 1, historyCount)
+	assert.Zero(t, historyCount, "a rejected Finish records no completion")
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&knownCount)
 	require.NoError(t, err)
-	assert.Zero(t, knownCount)
+	assert.Zero(t, knownCount, "a rejected Finish accepts no Known vocabulary")
 
-	goal, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	assert.Empty(t, goal.BookID)
-	italianGoal, err := store.GetCurrentReading(ctx, owner.ID, "it")
-	require.NoError(t, err)
-	assert.Equal(t, italianBook.ID, italianGoal.BookID, "completion crossed the language boundary")
-	otherGoal, err := store.GetCurrentReading(ctx, otherOwner.ID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, otherBook.ID, otherGoal.BookID, "completion crossed the owner boundary")
+	assert.Equal(t, book.ID, current.BookID, "a rejected Finish leaves the current reading in place")
+	assert.Empty(t, current.SnapshotID)
 }
 
 // TestCurrentReadingStartAndSwitchRejectIncompleteIdentity pins the validation

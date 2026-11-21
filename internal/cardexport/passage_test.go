@@ -1,6 +1,8 @@
 package cardexport
 
 import (
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -118,28 +120,53 @@ func TestMakeNoteWithoutPassageHasNoPassageFields(t *testing.T) {
 }
 
 func TestAttributionNoticesNameBrownsonWhenAPassageWasFrozen(t *testing.T) {
-	entries := []RenderInput{{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", PassagePin: "sha256:abc"}}
-	notices := attributionNotices(entries)
+	entries := []RenderInput{{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", PassagePin: brownsonPin}}
+	notices, err := attributionNotices(entries)
+	require.NoError(t, err)
 	assert.Contains(t, notices, "Brownson (1921-22)")
 	assert.Contains(t, notices, "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7")
 	assert.Contains(t, notices, "CC BY-SA 4.0")
-	assert.Equal(t, []string{dictionary.BrownsonSourceNotice}, passageNotices(entries), "an unlisted pin falls back to Brownson")
+	passage, err := passageNotices(entries)
+	require.NoError(t, err)
+	assert.Equal(t, []string{dictionary.BrownsonSourceNotice}, passage)
 
-	assert.NotContains(t, attributionNotices([]RenderInput{{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN"}}), "Brownson", "a deck without a passage claims no Brownson notice")
-	assert.Empty(t, passageNotices(nil))
-	assert.Contains(t, attributionNotices(entries), "OGA", "the OGA notice is still present")
+	withoutPassage, err := attributionNotices([]RenderInput{{Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN"}})
+	require.NoError(t, err)
+	assert.NotContains(t, withoutPassage, "Brownson", "a deck without a passage claims no Brownson notice")
+	emptyPassages, err := passageNotices(nil)
+	require.NoError(t, err)
+	assert.Empty(t, emptyPassages)
+	assert.Contains(t, notices, "OGA", "the OGA notice is still present")
 }
 
 const brownsonPin = "sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
 
 func TestPassageAttributionComesFromTheTranslationPin(t *testing.T) {
 	t.Run("the Brownson pin keeps its label and notice", func(t *testing.T) {
-		assert.Equal(t, "Passage context: Brownson (1922), Xen. Anab. 1.2.17. Not a translation of this sentence", passageContextLabel(brownsonPin, "1.2.17"))
-		assert.Equal(t, dictionary.BrownsonSourceNotice, passageAttribution(brownsonPin).Notice)
+		label, err := passageContextLabel(brownsonPin, "1.2.17")
+		require.NoError(t, err)
+		assert.Equal(t, "Passage context: Brownson (1922), Xen. Anab. 1.2.17. Not a translation of this sentence", label)
+		attribution, err := passageAttribution(brownsonPin)
+		require.NoError(t, err)
+		assert.Equal(t, dictionary.BrownsonSourceNotice, attribution.Notice)
 	})
 
-	t.Run("an unlisted pin falls back to Brownson", func(t *testing.T) {
-		assert.Equal(t, legacyPassageAttribution, passageAttribution("sha256:"+strings.Repeat("0", 64)))
+	t.Run("an unlisted pin is an error", func(t *testing.T) {
+		_, err := passageAttribution("sha256:" + strings.Repeat("0", 64))
+		require.ErrorIs(t, err, ErrInvalidInput)
+		require.ErrorContains(t, err, "not listed in the translation register")
+	})
+
+	t.Run("a register that fails to parse is an error", func(t *testing.T) {
+		previous := embeddedPassageAttribution
+		embeddedPassageAttribution = func(string) (classical.PassageAttribution, bool, error) {
+			return classical.PassageAttribution{}, false, errors.New("classical: layers.json: unexpected end of JSON input")
+		}
+		t.Cleanup(func() { embeddedPassageAttribution = previous })
+
+		_, err := passageAttribution(brownsonPin)
+		require.ErrorContains(t, err, "read translation register")
+		require.ErrorContains(t, err, "layers.json")
 	})
 
 	t.Run("each distinct translation adds its notice once", func(t *testing.T) {
@@ -148,11 +175,71 @@ func TestPassageAttributionComesFromTheTranslationPin(t *testing.T) {
 			t.Skip("layers.json lists no second credited translation")
 		}
 		entries := []RenderInput{{PassagePin: brownsonPin}, {PassagePin: other}, {PassagePin: brownsonPin}, {}}
-		notices := passageNotices(entries)
+		notices, err := passageNotices(entries)
+		require.NoError(t, err)
 		require.Len(t, notices, 2)
 		assert.Contains(t, notices, dictionary.BrownsonSourceNotice)
-		assert.NotEqual(t, legacyPassageAttribution.Label, passageAttribution(other).Label)
+		otherAttribution, err := passageAttribution(other)
+		require.NoError(t, err)
+		assert.NotEmpty(t, otherAttribution.Label)
+		assert.NotEqual(t, dictionary.BrownsonSourceNotice, otherAttribution.Notice)
 	})
+}
+
+// TestCardExportRefusesAnUnlistedPassagePin pins that a frozen pin missing from
+// the translation register fails the export instead of crediting Brownson.
+func TestCardExportRefusesAnUnlistedPassagePin(t *testing.T) {
+	unlisted := "sha256:" + strings.Repeat("0", 64)
+	_, err := makeNote("owner-1", RenderInput{
+		Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", Headword: "λόγος",
+		Sentence: "ἄνθρωπος ὁρᾷ τὸν λόγον;", TargetWord: "λόγον",
+		PassageContext: "A passage.", PassageCitation: "1.2.17",
+		PassagePin: unlisted,
+	})
+	require.ErrorIs(t, err, ErrInvalidInput)
+	require.ErrorContains(t, err, "not listed in the translation register")
+
+	// The deck-level notices and the whole render refuse the same pin, even
+	// when the card carries no passage text of its own.
+	entries := []RenderInput{{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Das Haus steht dort.", TargetWord: "Haus", PassagePin: unlisted,
+	}}
+	_, err = attributionNotices(entries)
+	require.ErrorIs(t, err, ErrInvalidInput)
+	_, err = renderAccepted(t.Context(), "owner-1", "Buch", entries, nil)
+	require.ErrorIs(t, err, ErrInvalidInput)
+	require.ErrorContains(t, err, "attribute prepared deck")
+}
+
+func TestCardExportRefusesAnUnparseableTranslationRegister(t *testing.T) {
+	previous := embeddedPassageAttribution
+	embeddedPassageAttribution = func(string) (classical.PassageAttribution, bool, error) {
+		return classical.PassageAttribution{}, false, errors.New("classical: layers.json: unexpected end of JSON input")
+	}
+	t.Cleanup(func() { embeddedPassageAttribution = previous })
+
+	entries := []RenderInput{{
+		Language: "grc", CanonicalLemma: "λόγος", UPOS: "NOUN", Headword: "λόγος",
+		Sentence: "ἄνθρωπος ὁρᾷ τὸν λόγον;", TargetWord: "λόγον",
+		PassageContext: "A passage.", PassageCitation: "1.2.17", PassagePin: brownsonPin,
+	}}
+	_, err := makeNote("owner-1", entries[0])
+	require.ErrorContains(t, err, "read translation register")
+	_, err = attributionNotices(entries)
+	require.ErrorContains(t, err, "read translation register")
+}
+
+func TestCardExportSurfacesAnkiPackageFailure(t *testing.T) {
+	// A missing temporary directory makes the Anki package build fail after the
+	// attribution and TSV steps succeeded.
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+	entries := []RenderInput{{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Das Haus steht dort.", TargetWord: "Haus",
+	}}
+	_, err := renderAccepted(t.Context(), "owner-1", "Buch", entries, nil)
+	require.ErrorContains(t, err, "render Anki package")
 }
 
 // otherCreditedTranslation returns the pin of a credited translation in the

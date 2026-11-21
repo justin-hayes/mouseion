@@ -170,15 +170,6 @@ type StorageProjection = ManifestSnapshot
 // FinalArtifact is the complete rendered prepared-deck result.
 type FinalArtifact = Artifact
 
-// RecoveredRenderInput supplies a render input read from the immutable corpus
-// for a legacy manifest that did not freeze its dependency parse.
-type RecoveredRenderInput struct {
-	ManifestOrdinal     int
-	Sentence            string
-	SentenceTokens      []analyzer.Token
-	SentenceStartOffset uint64
-}
-
 // Presentation owns the prepared-deck presentation lifecycle. The lexical
 // provider is the only replaceable implementation seam.
 type Presentation struct {
@@ -435,17 +426,6 @@ func bindFrozenCacheKeys(built manifest, ordered []CandidateProjection) (manifes
 // Restore validates a durable projection with its historical schema codec and
 // rebuilds the frozen plan without selection, lexical lookup, or quality work.
 func (p *Presentation) Restore(projection StorageProjection) (FrozenDeck, error) {
-	return p.restore(projection, nil)
-}
-
-// RestoreWithRecoveredRenderInputs restores a legacy projection and applies
-// render inputs recovered from the immutable corpus. The durable projection is
-// never changed; the recovered inputs belong to this in-memory presentation.
-func (p *Presentation) RestoreWithRecoveredRenderInputs(projection StorageProjection, recovered []RecoveredRenderInput) (FrozenDeck, error) {
-	return p.restore(projection, recovered)
-}
-
-func (p *Presentation) restore(projection StorageProjection, recovered []RecoveredRenderInput) (FrozenDeck, error) {
 	if p == nil {
 		return FrozenDeck{}, ErrInvalidInput
 	}
@@ -453,62 +433,7 @@ func (p *Presentation) restore(projection StorageProjection, recovered []Recover
 	if err != nil {
 		return FrozenDeck{}, err
 	}
-	if err := applyRecoveredRenderInputs(&manifest, recovered); err != nil {
-		return FrozenDeck{}, err
-	}
 	return FrozenDeck{manifest: manifest.clone()}, nil
-}
-
-func applyRecoveredRenderInputs(manifest *manifest, recovered []RecoveredRenderInput) error {
-	if manifest == nil {
-		return ErrInvalidInput
-	}
-	acceptedIndexes := make(map[int]int)
-	for index := range manifest.accepted {
-		acceptedIndexes[manifest.decisionsOrdinalForAccepted(index)] = index
-	}
-	seen := make(map[int]struct{}, len(recovered))
-	for _, input := range recovered {
-		if _, duplicate := seen[input.ManifestOrdinal]; duplicate {
-			return fmt.Errorf("%w: duplicate recovered render input %d", ErrInvalidInput, input.ManifestOrdinal)
-		}
-		seen[input.ManifestOrdinal] = struct{}{}
-		decisionIndex, acceptedIndex, err := matchRecoveredRenderInput(manifest, input, acceptedIndexes)
-		if err != nil {
-			return err
-		}
-		manifest.decisions[decisionIndex].Entry.SentenceTokens = cloneTokens(input.SentenceTokens)
-		manifest.decisions[decisionIndex].Entry.SentenceStartOffset = input.SentenceStartOffset
-		manifest.accepted[acceptedIndex].SentenceTokens = cloneTokens(input.SentenceTokens)
-		manifest.accepted[acceptedIndex].SentenceStartOffset = input.SentenceStartOffset
-	}
-	return nil
-}
-
-// matchRecoveredRenderInput locates the accepted decision a recovered render
-// input belongs to. It rejects an input whose ordinal is unknown, omitted or
-// duplicated, whose sentence disagrees with the manifest, or that is already
-// present.
-func matchRecoveredRenderInput(manifest *manifest, input RecoveredRenderInput, acceptedIndexes map[int]int) (decisionIndex, acceptedIndex int, err error) {
-	decisionIndex = -1
-	for index, decision := range manifest.decisions {
-		if decision.Ordinal == input.ManifestOrdinal {
-			decisionIndex = index
-			break
-		}
-	}
-	acceptedIndex, accepted := acceptedIndexes[input.ManifestOrdinal]
-	if decisionIndex < 0 || !accepted || manifest.decisions[decisionIndex].Disposition != ManifestAccepted {
-		return -1, -1, fmt.Errorf("%w: recovered render input %d is not accepted", ErrInvalidInput, input.ManifestOrdinal)
-	}
-	decision := manifest.decisions[decisionIndex]
-	if input.Sentence != decision.Entry.Sentence || strings.TrimSpace(input.Sentence) == "" || len(input.SentenceTokens) == 0 {
-		return -1, -1, fmt.Errorf("%w: recovered render input %d does not match the manifest", ErrInvalidInput, input.ManifestOrdinal)
-	}
-	if len(decision.Entry.SentenceTokens) > 0 {
-		return -1, -1, fmt.Errorf("%w: render input %d is already present", ErrInvalidInput, input.ManifestOrdinal)
-	}
-	return decisionIndex, acceptedIndex, nil
 }
 
 func (d FrozenDeck) StorageProjection() StorageProjection {

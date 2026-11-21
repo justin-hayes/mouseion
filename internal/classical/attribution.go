@@ -70,11 +70,13 @@ func EmbeddedSourceAttribution(layerKey string) (SourceAttribution, bool) {
 var embeddedLayers = sync.OnceValues(func() (Layers, error) { return ParseLayers(LayersJSON) })
 
 // EmbeddedPassageAttribution looks a frozen translation pin up in the
-// release's layers.json.
-func EmbeddedPassageAttribution(pin string) (PassageAttribution, bool) {
+// release's layers.json. A register that fails to parse is reported, never
+// hidden as an unlisted pin.
+func EmbeddedPassageAttribution(pin string) (PassageAttribution, bool, error) {
 	layers, err := embeddedLayers()
 	if err != nil {
-		return PassageAttribution{}, false
+		return PassageAttribution{}, false, err
 	}
-	return layers.PassageAttribution(pin)
+	attribution, ok := layers.PassageAttribution(pin)
+	return attribution, ok, nil
 }

@@ -118,15 +118,6 @@ func (h *contractHarness) SeedReadyPreparation(t *testing.T, owner, bookID, snap
 	return id
 }
 
-func (h *contractHarness) ClearSnapshotID(_ *testing.T, owner, language string) {
-	h.store.mu.Lock()
-	defer h.store.mu.Unlock()
-	key := fixtureGoalKey(owner, language)
-	goal := h.store.currentReadings[key]
-	goal.SnapshotID = ""
-	h.store.currentReadings[key] = goal
-}
-
 func (h *contractHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {
 	return h.store.GetCurrentReading(context.Background(), owner, language)
 }

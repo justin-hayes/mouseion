@@ -270,11 +270,6 @@ func (h *postgresHarness) SeedReadyPreparation(t *testing.T, owner, bookID, snap
 	return preparation.ID
 }
 
-func (h *postgresHarness) ClearSnapshotID(t *testing.T, owner, language string) {
-	t.Helper()
-	h.exec(t, `UPDATE primary_goals SET snapshot_id=NULL WHERE owner_id=$1 AND language=$2`, owner, language)
-}
-
 func (h *postgresHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {
 	return h.store.GetCurrentReading(h.ctx, owner, language)
 }

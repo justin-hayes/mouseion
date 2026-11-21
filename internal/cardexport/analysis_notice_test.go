@@ -72,7 +72,7 @@ func TestDeckDescriptionNamesAnalysisModelsOnlyForNLPAnalysedDecks(t *testing.T)
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, deckDescription(tc.entries))
+			require.Equal(t, tc.want, mustDeckDescription(t, tc.entries))
 		})
 	}
 }

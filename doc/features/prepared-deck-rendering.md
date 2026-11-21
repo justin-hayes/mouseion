@@ -128,8 +128,8 @@ timestamps remain available for provenance.
   any provider call, and advances the deck revision.
 - Re-render is idempotent on `(run_id, presentation_version)`: a repeated run
   does not change the artifact.
-- An input-stale specification with corpus coordinates recovers the missing
-  input; one without them is reported as requiring re-preparation.
+- A specification whose render inputs predate version 6 is reported as
+  requiring re-preparation; a re-render reads no corpus.
 - Re-importing a re-rendered package updates the same Anki notes and does not
   change Goal snapshot or Reserved-vocabulary state.
 - A deck reported as requiring re-preparation keeps its old artifact and

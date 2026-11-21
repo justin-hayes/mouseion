@@ -233,9 +233,9 @@ func exactCommitment(bookID, snapshotID string) bool {
 // identities that become Known nor counts them.
 func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (result domain.CurrentReadingFinishResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
-	// A legacy reading that never received a snapshot has no snapshot identity to
-	// name; the empty expectation still has to match the current row exactly.
-	if !validCurrentReadingFinishCommitment(expectedBookID, expectedSnapshotID) {
+	// A Finish always names the snapshot it accepts. A current reading without
+	// one is corrupt, never a legacy reading.
+	if !exactCommitment(expectedBookID, expectedSnapshotID) {
 		return domain.CurrentReadingFinishResult{}, ErrCurrentReadingStale
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -275,19 +275,6 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 		return domain.CurrentReadingFinishResult{}, err
 	}
 	return result, nil
-}
-
-// validCurrentReadingFinishCommitment reports whether the Book identity is a
-// UUID and the snapshot identity is either a UUID or the empty legacy marker.
-func validCurrentReadingFinishCommitment(bookID, snapshotID string) bool {
-	if _, err := uuid.Parse(bookID); err != nil {
-		return false
-	}
-	if snapshotID == "" {
-		return true
-	}
-	_, err := uuid.Parse(snapshotID)
-	return err == nil
 }
 
 // loadCurrentReadingFinishFacts reads the Current reading, any recorded

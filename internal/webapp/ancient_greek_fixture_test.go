@@ -50,8 +50,10 @@ type referenceTranslationPin struct {
 	CitationEnd   string
 }
 
-// referenceTranslationFixturePin is the fixture's pin before its size and
-// SHA-256 are recomputed from the bytes actually used.
+// referenceTranslationFixturePin is the reviewed Brownson pin. Tests seed
+// sections parsed from a synthetic excerpt under this listed identity, because
+// card export now refuses an unlisted passage pin; the excerpt is not the real
+// pinned file's bytes.
 func referenceTranslationFixturePin() referenceTranslationPin {
 	return referenceTranslationPin{
 		FileName:      "tlg0032.tlg006.perseus-eng2.xml",

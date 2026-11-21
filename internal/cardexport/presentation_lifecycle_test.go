@@ -283,36 +283,6 @@ func TestPresentationLifecycleRestoresPersistedV1TargetLanguage(t *testing.T) {
 	assert.Equal(t, "en", work.Request.TargetLanguage)
 }
 
-func TestPresentationLifecycleRestoresLegacyRenderInputsWithoutChangingProjection(t *testing.T) {
-	sentence := "Ich stehe heute auf."
-	key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "aufstehen", UPOS: "VERB", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash(sentence)}
-	snapshot := cardexport.ManifestSnapshot{
-		SchemaVersion: cardexport.ManifestSchemaVersion,
-		Owner:         "owner-1",
-		DeckName:      "Book",
-		Filename:      cardexport.DownloadFilename("Book"),
-		Items: []cardexport.ManifestItem{{
-			Ordinal: 0, Disposition: cardexport.ManifestAccepted,
-			Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB", Sentence: sentence, TargetWord: "stehe"},
-			Quality: cardexport.SentenceQuality{Accepted: true, Score: 12, Reasons: []string{"target present"}}, CacheKey: key,
-		}},
-	}
-	tokens := []analyzer.Token{
-		{Surface: "Ich", Dependency: "nsubj", Head: 1},
-		{Surface: "stehe", Dependency: "root", Head: 1},
-		{Surface: "heute", Dependency: "advmod", Head: 1},
-		{Surface: "auf", Dependency: "compound:prt", Head: 1},
-	}
-	deck, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(snapshot, []cardexport.RecoveredRenderInput{{ManifestOrdinal: 0, Sentence: sentence, SentenceTokens: tokens}})
-	require.NoError(t, err)
-	assert.Empty(t, snapshot.Items[0].Entry.SentenceTokens)
-	assert.Equal(t, tokens, deck.StorageProjection().Items[0].Entry.SentenceTokens)
-
-	artifact, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: *key}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
-	require.NoError(t, err)
-	assert.Equal(t, "Ich <b>stehe</b> heute <b>auf</b>.", artifact.Generated[0].Note.Text)
-}
-
 func TestPresentationLifecycleRestoreRejectsMalformedSnapshots(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -913,63 +883,6 @@ func TestPresentationLifecycleReportsLexicalLookupFailure(t *testing.T) {
 	_, _, err := cardexport.NewPresentation(failingLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
 	require.ErrorContains(t, err, "resolve lexical entry")
-}
-
-// TestPresentationLifecycleRejectsInvalidRecoveredRenderInputs pins the rules
-// that match a recovered render input to its accepted decision. Separating
-// matching from applying must not change which input is rejected or the message.
-func TestPresentationLifecycleRejectsInvalidRecoveredRenderInputs(t *testing.T) {
-	sentence := "Das Haus steht heute dort."
-	tokens := []analyzer.Token{{Surface: "Das", Dependency: "det", Head: 2}}
-	valid := cardexport.RecoveredRenderInput{ManifestOrdinal: 0, Sentence: sentence, SentenceTokens: tokens}
-
-	t.Run("nil presentation", func(t *testing.T) {
-		var presentation *cardexport.Presentation
-		_, err := presentation.RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{valid})
-		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
-	})
-
-	t.Run("duplicate ordinal", func(t *testing.T) {
-		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{valid, valid})
-		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
-		require.ErrorContains(t, err, "duplicate recovered render input 0")
-	})
-
-	t.Run("unknown ordinal", func(t *testing.T) {
-		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{{ManifestOrdinal: 7, Sentence: sentence, SentenceTokens: tokens}})
-		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
-		require.ErrorContains(t, err, "recovered render input 7 is not accepted")
-	})
-
-	t.Run("omitted ordinal", func(t *testing.T) {
-		snapshot := lifecycleRestoreSnapshot()
-		snapshot.Items[0].Disposition = cardexport.ManifestQualityOmitted
-		snapshot.Items[0].Quality = cardexport.SentenceQuality{Accepted: false, Score: 1, Reasons: []string{"too short or fragmented"}}
-		snapshot.Items[0].CacheKey = nil
-		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(snapshot, []cardexport.RecoveredRenderInput{valid})
-		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
-		require.ErrorContains(t, err, "is not accepted")
-	})
-
-	t.Run("sentence mismatch", func(t *testing.T) {
-		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{{ManifestOrdinal: 0, Sentence: "Anders.", SentenceTokens: tokens}})
-		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
-		require.ErrorContains(t, err, "does not match the manifest")
-	})
-
-	t.Run("missing tokens", func(t *testing.T) {
-		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(lifecycleRestoreSnapshot(), []cardexport.RecoveredRenderInput{{ManifestOrdinal: 0, Sentence: sentence}})
-		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
-		require.ErrorContains(t, err, "does not match the manifest")
-	})
-
-	t.Run("already present", func(t *testing.T) {
-		snapshot := lifecycleRestoreSnapshot()
-		snapshot.Items[0].Entry.SentenceTokens = tokens
-		_, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(snapshot, []cardexport.RecoveredRenderInput{valid})
-		require.ErrorIs(t, err, cardexport.ErrInvalidInput)
-		require.ErrorContains(t, err, "is already present")
-	})
 }
 
 func lifecycleRestoreSnapshot() cardexport.ManifestSnapshot {

@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -280,7 +279,6 @@ type durableFinalizerStore interface {
 
 type durablePresentation interface {
 	Restore(cardexport.StorageProjection) (cardexport.FrozenDeck, error)
-	RestoreWithRecoveredRenderInputs(cardexport.StorageProjection, []cardexport.RecoveredRenderInput) (cardexport.FrozenDeck, error)
 	Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error)
 }
 
@@ -306,10 +304,6 @@ type durableRerenderStore interface {
 	SupersedePreparedDeckArtifact(context.Context, string, string, string, int, cardexport.Artifact) (domain.DeckPreparation, error)
 	GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error)
 	MarkPreparedDeckRequiresRepreparation(context.Context, string, string, string) error
-}
-
-type durableRerenderCorpusStore interface {
-	ListCorpusSentences(context.Context, string, string, []int64) (map[int64]analyzer.Sentence, error)
 }
 
 type DurableRerenderer struct {
@@ -340,22 +334,24 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if preparation.State != domain.DeckPreparationReady || preparation.CurrentRunID != runID || preparation.RetiredAt != nil {
 		return domain.DeckPreparation{}, persistence.ErrInvalidTransition
 	}
-	// The run keeps the render-input version its inputs were frozen at, which
-	// legacy recovery below still needs; a rerendered artifact records the
-	// version it was rendered at on the preparation.
+	// The run keeps the render-input version its inputs were frozen at; a
+	// rerendered artifact records the version it was rendered at on the
+	// preparation.
 	upToDate, publishPresentationVersion := cardexport.DecidePreparedDeckFreshness(run.PresentationVersion, run.RenderInputVersion, preparation.RenderInputVersion, presentationVersion)
 	if upToDate {
 		return preparation, nil
+	}
+	// A deck whose frozen render inputs predate the current contract cannot be
+	// rebuilt. The corpus-based recovery for those runs is gone, so refuse the
+	// rerender instead of rendering inputs the presentation no longer supports.
+	if run.RenderInputVersion < cardexport.RenderInputVersion {
+		return domain.DeckPreparation{}, fmt.Errorf("%w: run render inputs version %d is below the required version %d", ErrRequiresRepreparation, run.RenderInputVersion, cardexport.RenderInputVersion)
 	}
 	projection, stored, err := r.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	projection, recovered, err := recoverLegacyRenderInputs(ctx, r.Store, owner, run.RenderInputVersion, projection)
-	if err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	deck, err := r.Renderer.RestoreWithRecoveredRenderInputs(projection, recovered)
+	deck, err := r.Renderer.Restore(projection)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
@@ -366,85 +362,6 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	}
 	logFinalizeDiagnostics(diagnostics)
 	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, publishPresentationVersion, artifact)
-}
-
-func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, owner string, renderInputVersion int, projection cardexport.StorageProjection) (cardexport.StorageProjection, []cardexport.RecoveredRenderInput, error) {
-	if renderInputVersion >= cardexport.RenderInputVersion {
-		return projection, nil, nil
-	}
-	ordinalsByCorpus, itemsByCorpus, err := legacyRecoveryCoordinates(projection)
-	if err != nil {
-		return cardexport.StorageProjection{}, nil, err
-	}
-	if len(itemsByCorpus) == 0 {
-		return projection, nil, nil
-	}
-	corpusStore, ok := store.(durableRerenderCorpusStore)
-	if !ok {
-		return cardexport.StorageProjection{}, nil, fmt.Errorf("%w: corpus reader is unavailable", ErrRequiresRepreparation)
-	}
-	recovered, err := recoverCorpusRenderInputs(ctx, corpusStore, owner, ordinalsByCorpus, itemsByCorpus)
-	if err != nil {
-		return cardexport.StorageProjection{}, nil, err
-	}
-	return projection, recovered, nil
-}
-
-// legacyRecoveryCoordinates groups the accepted manifest items that predate
-// stored sentence tokens by the corpus and ordinals they need recovered. An
-// item without a corpus coordinate cannot be recovered.
-func legacyRecoveryCoordinates(projection cardexport.StorageProjection) (map[string][]int64, map[string][]cardexport.ManifestItem, error) {
-	ordinalsByCorpus := make(map[string][]int64)
-	itemsByCorpus := make(map[string][]cardexport.ManifestItem)
-	for _, item := range projection.Items {
-		if item.Disposition != cardexport.ManifestAccepted || len(item.Entry.SentenceTokens) > 0 {
-			continue
-		}
-		if strings.TrimSpace(item.CorpusID) == "" || item.SentenceOrdinal < 0 {
-			return nil, nil, fmt.Errorf("%w: manifest item %d has no corpus coordinate", ErrRequiresRepreparation, item.Ordinal)
-		}
-		if _, ok := itemsByCorpus[item.CorpusID]; !ok {
-			ordinalsByCorpus[item.CorpusID] = nil
-		}
-		ordinalsByCorpus[item.CorpusID] = append(ordinalsByCorpus[item.CorpusID], item.SentenceOrdinal)
-		itemsByCorpus[item.CorpusID] = append(itemsByCorpus[item.CorpusID], item)
-	}
-	return ordinalsByCorpus, itemsByCorpus, nil
-}
-
-// recoverCorpusRenderInputs reads each affected corpus once and rebuilds the
-// exact render inputs, refusing any sentence whose stored parse is unavailable.
-func recoverCorpusRenderInputs(ctx context.Context, corpusStore durableRerenderCorpusStore, owner string, ordinalsByCorpus map[string][]int64, itemsByCorpus map[string][]cardexport.ManifestItem) ([]cardexport.RecoveredRenderInput, error) {
-	recovered := make([]cardexport.RecoveredRenderInput, 0)
-	for corpusID, items := range itemsByCorpus {
-		sentences, err := corpusStore.ListCorpusSentences(ctx, owner, corpusID, ordinalsByCorpus[corpusID])
-		if err != nil {
-			return nil, fmt.Errorf("recover corpus %s: %w", corpusID, err)
-		}
-		for _, item := range items {
-			sentence, found := sentences[item.SentenceOrdinal]
-			if !found || strings.TrimSpace(sentence.Text) == "" || sentence.Text != item.Entry.Sentence || !hasDependencyParse(sentence) {
-				return nil, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
-			}
-			recovered = append(recovered, cardexport.RecoveredRenderInput{ManifestOrdinal: item.Ordinal, Sentence: sentence.Text, SentenceTokens: sentence.Tokens, SentenceStartOffset: sentence.Location.StartOffset})
-		}
-	}
-	return recovered, nil
-}
-
-func hasDependencyParse(sentence analyzer.Sentence) bool {
-	if len(sentence.Tokens) == 0 {
-		return false
-	}
-	for index, token := range sentence.Tokens {
-		if strings.TrimSpace(token.Dependency) == "" || uint64(token.Head) >= uint64(len(sentence.Tokens)) {
-			return false
-		}
-		if token.Dependency == "root" && uint64(token.Head) != uint64(index) {
-			return false
-		}
-	}
-	return true
 }
 
 type RerenderWorker struct {

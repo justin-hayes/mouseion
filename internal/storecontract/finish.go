@@ -19,9 +19,6 @@ type finishCase struct {
 	// OtherLearnerKnown holds Known rows of another learner. They never count for
 	// the finishing learner.
 	OtherLearnerKnown []domain.SnapshotIdentity
-	// Legacy names a reading that never received a snapshot, so Finish is named
-	// by an empty snapshot ID.
-	Legacy bool
 	// Expected Completion counts.
 	SnapshotCount, EligibleCount, GraduatedCount, AlreadyKnownCount int
 	// KnownAfter lists "lemma|UPOS" for every Known row after Finish.
@@ -59,11 +56,6 @@ func finishCases() []finishCase {
 		Known:      []domain.SnapshotIdentity{german("haus", "NOUN")},
 		KnownAfter: []string{"haus|NOUN"},
 	}, {
-		Name:       "empty legacy reading without a snapshot",
-		Legacy:     true,
-		Known:      []domain.SnapshotIdentity{german("haus", "NOUN")},
-		KnownAfter: []string{"haus|NOUN"},
-	}, {
 		Name:              "identities Known only to another learner",
 		Snapshot:          []domain.SnapshotIdentity{german("haus", "NOUN"), german("gehen", "VERB")},
 		OtherLearnerKnown: []domain.SnapshotIdentity{german("haus", ""), german("gehen", "VERB")},
@@ -84,10 +76,6 @@ func finishScenario(tc finishCase) Scenario {
 			h.Seeds().SeedKnownVocabulary(t, owner, tc.Known)
 			h.Seeds().SeedKnownVocabulary(t, h.Seeds().OtherOwner(), tc.OtherLearnerKnown)
 			expectedSnapshot := reading.SnapshotID
-			if tc.Legacy {
-				h.Seeds().ClearSnapshotID(t, owner, Language)
-				expectedSnapshot = ""
-			}
 
 			_, err := h.Store().FinishCurrentReading(owner, Language, unknownBookID, expectedSnapshot)
 			require.ErrorIs(t, err, domain.ErrCurrentReadingStale)
