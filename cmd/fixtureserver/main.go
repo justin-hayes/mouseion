@@ -45,13 +45,22 @@ func main() {
 	lemmaReview := lemmareview.New(lemmareview.Config{
 		Store: books, Suggestions: fixtureLemmaSuggestions{}, Preparer: preparedDeck, BrowseCounts: fixtures.Analysis{Store: store},
 	})
+	fixtureOPDS := fixtures.OPDS{}
+	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
+		Books:      books,
+		Classical:  fixtures.ClassicalPreparation{},
+		Analysis:   fixtures.Analysis{Store: store},
+		FindTarget: catalogueSync.FindAcquisitionTarget,
+		Acquire:    fixtureOPDS.AcquireForBook,
+	})
+	if err != nil {
+		log.Fatalf("initialize fixture reading intent preparation: %v", err)
+	}
 	readingIntent, err := readingintent.New(readingintent.Config{
 		Books:           books,
 		CurrentReadings: books,
 		Dispositions:    books,
-		Preparation:     fixtures.ClassicalPreparation{},
-		Analysis:        fixtures.Analysis{Store: store},
-		Acquisition:     readingintent.SourceAcquisition{Targets: catalogueSync, Acquirer: fixtures.OPDS{}},
+		Preparation:     preparation,
 	})
 	if err != nil {
 		log.Fatalf("initialize fixture reading intent: %v", err)

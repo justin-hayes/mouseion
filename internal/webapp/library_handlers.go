@@ -10,8 +10,11 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -435,25 +438,37 @@ func (h *Handler) readingIntentModule() (*readingintent.Module, error) {
 	if h.services.ReadingIntent != nil {
 		return h.services.ReadingIntent, nil
 	}
-	preparation := h.services.ClassicalPreparation
-	if preparation == nil {
-		preparation = unavailableClassicalPreparation{}
+	classicalPreparation := h.services.ClassicalPreparation
+	if classicalPreparation == nil {
+		classicalPreparation = unavailableClassicalPreparation{}
 	}
 	var analysisService readingintent.Analysis = unavailableAnalysis{}
 	if h.services.Analysis != nil {
 		analysisService = h.services.Analysis
 	}
-	var acquisition readingintent.CatalogAcquisition
+	var acquisitionTargets func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
 	if h.services.CatalogueSync != nil {
-		acquisition = readingintent.SourceAcquisition{Targets: h.services.CatalogueSync, Acquirer: h.services.OPDS}
+		acquisitionTargets = h.services.CatalogueSync.FindAcquisitionTarget
+	}
+	var bookAcquirer func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
+	if h.services.OPDS != nil {
+		bookAcquirer = h.services.OPDS.AcquireForBook
+	}
+	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
+		Books:      h.services.Store.MyBooks,
+		Classical:  classicalPreparation,
+		Analysis:   analysisService,
+		FindTarget: acquisitionTargets,
+		Acquire:    bookAcquirer,
+	})
+	if err != nil {
+		return nil, err
 	}
 	return readingintent.New(readingintent.Config{
 		Books:           h.services.Store.MyBooks,
 		CurrentReadings: h.services.Store.Reading,
 		Dispositions:    h.services.Store.MyBooks,
 		Preparation:     preparation,
-		Analysis:        analysisService,
-		Acquisition:     acquisition,
 	})
 }
 

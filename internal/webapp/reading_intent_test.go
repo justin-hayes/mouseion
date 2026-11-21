@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -45,6 +44,13 @@ func (s staticBookReader) GetBookDetail(context.Context, string, string) (domain
 	return s.book, nil
 }
 
+// noopPreparation stands in for the seam when a Move returns before preparing.
+type noopPreparation struct{}
+
+func (noopPreparation) Prepare(context.Context, string, domain.MyBook) readingintent.Submission {
+	return readingintent.Submission{}
+}
+
 // missingDispositions reports a Book that left the collection between the
 // Work list and its move.
 type missingDispositions struct{}
@@ -60,12 +66,11 @@ func (acceptingDispositions) TransitionBookDisposition(context.Context, string, 
 	return true, nil
 }
 
-// failingClassicalPreparation supplies a stable preparation cause to the
-// module's route.
-type failingClassicalPreparation struct{ err error }
+// refusedPreparation returns a stable refusal for the Book.
+type refusedPreparation struct{ refusal readingintent.RefusalCode }
 
-func (f failingClassicalPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
-	return analysis.ClassicalPreparationHandle{}, f.err
+func (f refusedPreparation) Prepare(_ context.Context, _ string, book domain.MyBook) readingintent.Submission {
+	return readingintent.Submission{Kind: readingintent.SubmissionRefused, Refusal: f.refusal, Route: readingintent.RouteClassical, Book: book}
 }
 
 func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
@@ -80,7 +85,7 @@ func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 		t.Parallel()
 		module, err := readingintent.New(readingintent.Config{
 			Books: failingBookReader{}, CurrentReadings: fixtures.NewStore(), Dispositions: fixtures.NewStore(),
-			Preparation: fixtures.ClassicalPreparation{}, Analysis: fixtures.Analysis{},
+			Preparation: noopPreparation{},
 		})
 		require.NoError(t, err)
 		h := &Handler{services: Services{ReadingIntent: module}}
@@ -90,7 +95,7 @@ func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 		t.Parallel()
 		module, err := readingintent.New(readingintent.Config{
 			Books: fixtures.NewStore(), CurrentReadings: fixtures.NewStore(), Dispositions: fixtures.NewStore(),
-			Preparation: fixtures.ClassicalPreparation{}, Analysis: fixtures.Analysis{},
+			Preparation: noopPreparation{},
 		})
 		require.NoError(t, err)
 		h := &Handler{services: Services{ReadingIntent: module}}
@@ -100,7 +105,7 @@ func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 		t.Parallel()
 		module, err := readingintent.New(readingintent.Config{
 			Books: staticBookReader{book: eligible}, CurrentReadings: fixtures.NewStore(), Dispositions: missingDispositions{},
-			Preparation: fixtures.ClassicalPreparation{}, Analysis: fixtures.Analysis{},
+			Preparation: noopPreparation{},
 		})
 		require.NoError(t, err)
 		h := &Handler{services: Services{ReadingIntent: module}}
@@ -115,12 +120,12 @@ func TestMoveWorkBookToReadCountsNamedPreparationCauses(t *testing.T) {
 		ReadingUnit: &domain.BookReadingUnit{ReadingUnitKey: "unit-1"},
 	}
 	tests := []struct {
-		name string
-		err  error
-		want moveWorkToReadOutcome
+		name    string
+		refusal readingintent.RefusalCode
+		want    moveWorkToReadOutcome
 	}{
-		{name: "legacy rows", err: classical.ErrLegacyRows, want: moveWorkToReadOutcome{moved: 1, legacyRows: 1}},
-		{name: "withdrawn definition", err: analysis.ErrWithdrawnClassicalDefinition, want: moveWorkToReadOutcome{moved: 1, withdrawn: 1}},
+		{name: "legacy rows", refusal: readingintent.RefusalLegacyRows, want: moveWorkToReadOutcome{moved: 1, legacyRows: 1}},
+		{name: "withdrawn definition", refusal: readingintent.RefusalWithdrawnDefinition, want: moveWorkToReadOutcome{moved: 1, withdrawn: 1}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -128,7 +133,7 @@ func TestMoveWorkBookToReadCountsNamedPreparationCauses(t *testing.T) {
 			module, err := readingintent.New(readingintent.Config{
 				Books: staticBookReader{book: eligible}, CurrentReadings: fixtures.NewStore(),
 				Dispositions: acceptingDispositions{},
-				Preparation:  failingClassicalPreparation{err: tc.err}, Analysis: fixtures.Analysis{},
+				Preparation:  refusedPreparation{refusal: tc.refusal},
 			})
 			require.NoError(t, err)
 			h := &Handler{services: Services{ReadingIntent: module}}

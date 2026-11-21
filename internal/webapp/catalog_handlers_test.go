@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
@@ -587,7 +586,7 @@ func TestPrepareAddedClassicalBooksHandlesEmptyUnavailableAndFailedReads(t *test
 
 	module, err := readingintent.New(readingintent.Config{
 		Books: failingAddBooks{}, CurrentReadings: inactiveAddCurrentReadings{},
-		Dispositions: addDispositions{}, Preparation: addPreparation{}, Analysis: addAnalysis{},
+		Dispositions: addDispositions{}, Preparation: noopPreparation{},
 	})
 	require.NoError(t, err)
 	failedRead := (&Handler{services: Services{ReadingIntent: module}}).prepareAddedClassicalBooks(t.Context(), "owner", classical.AddReport{Books: []classical.AddedBook{{BookID: "book-1"}}})
@@ -595,7 +594,7 @@ func TestPrepareAddedClassicalBooksHandlesEmptyUnavailableAndFailedReads(t *test
 
 	withdrawnModule, err := readingintent.New(readingintent.Config{
 		Books: withdrawnAddBooks{}, CurrentReadings: inactiveAddCurrentReadings{},
-		Dispositions: addDispositions{}, Preparation: withdrawnAddPreparation{}, Analysis: addAnalysis{},
+		Dispositions: addDispositions{}, Preparation: refusedPreparation{refusal: readingintent.RefusalWithdrawnDefinition},
 	})
 	require.NoError(t, err)
 	withdrawn := (&Handler{services: Services{ReadingIntent: withdrawnModule}}).prepareAddedClassicalBooks(t.Context(), "owner", classical.AddReport{Books: []classical.AddedBook{{BookID: "book-1"}}})
@@ -629,22 +628,4 @@ type addDispositions struct{}
 
 func (addDispositions) TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error) {
 	return true, nil
-}
-
-type addPreparation struct{}
-
-func (addPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
-	return analysis.ClassicalPreparationHandle{}, nil
-}
-
-type withdrawnAddPreparation struct{}
-
-func (withdrawnAddPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
-	return analysis.ClassicalPreparationHandle{}, analysis.ErrWithdrawnClassicalDefinition
-}
-
-type addAnalysis struct{}
-
-func (addAnalysis) SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
-	return analysis.Handle{}, nil
 }

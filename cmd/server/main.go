@@ -304,10 +304,17 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
+	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
+		Books: store, Classical: analysisService, Analysis: analysisService,
+		FindTarget: catalogueSyncService.FindAcquisitionTarget,
+		Acquire:    deps.opdsService.AcquireForBook,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initialize reading intent preparation: %w", err)
+	}
 	readingIntent, err := readingintent.New(readingintent.Config{
 		Books: store, CurrentReadings: store, Dispositions: store,
-		Preparation: analysisService, Analysis: analysisService,
-		Acquisition: readingintent.SourceAcquisition{Targets: catalogueSyncService, Acquirer: deps.opdsService},
+		Preparation: preparation,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize reading intent: %w", err)
