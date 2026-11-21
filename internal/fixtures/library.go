@@ -74,8 +74,15 @@ func (s *Store) GetBookDetail(_ context.Context, owner, id string) (domain.MyBoo
 }
 
 func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
-	out := s.fixtureBooksFromSources(owner)
-	out = append(out, s.fixtureBooksFromMetadata(owner)...)
+	all := s.fixtureBooksFromSources(owner)
+	all = append(all, s.fixtureBooksFromMetadata(owner)...)
+	out := make([]domain.MyBook, 0, len(all))
+	for _, book := range all {
+		if !s.fixtureBookActiveLocked(book.Book.OwnerID, book.Book.ID) {
+			continue
+		}
+		out = append(out, book)
+	}
 	s.applyFixtureBookEvidence(out)
 	return out
 }
@@ -671,18 +678,18 @@ func (s *Store) clearFixtureGoalsForRetaggedBook(owner, bookID, languageState, l
 	}
 }
 
-func (s *Store) AddBookToMyBooks(context.Context, string, string) error { return nil }
-
 func (s *Store) RemoveBookFromMyBooks(_ context.Context, owner, bookID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for i := range s.myBooks {
-		if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == bookID {
-			s.myBooks = append(s.myBooks[:i], s.myBooks[i+1:]...)
-			return nil
-		}
-	}
+	s.removedBooks[fixtureDispositionKey(owner, bookID)] = struct{}{}
 	return nil
+}
+
+// fixtureBookActiveLocked reports whether the Book still has active My Books
+// membership. Callers hold s.mu.
+func (s *Store) fixtureBookActiveLocked(owner, bookID string) bool {
+	_, removed := s.removedBooks[fixtureDispositionKey(owner, bookID)]
+	return !removed
 }
 
 func (s *Store) ResolveBookByAlias(ctx context.Context, owner, namespace, value string) (domain.Book, bool, error) {

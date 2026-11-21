@@ -31,8 +31,9 @@ func TestBookCoverEndpointRequiresActiveMyBooksMembership(t *testing.T) {
 	bob := createAccount(t, ctx, store, "cover-bob", "bob-password")
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Cover catalog", URL: "https://cover.example/opds"})
 	require.NoError(t, err)
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Retained cover", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	reconciled, err := store.ReconcileCatalogueEntry(ctx, alice.ID, connection.ID, "cover-entry", "Retained cover", "", "de")
 	require.NoError(t, err)
+	book := reconciled.Book
 	_, advertisedAt, err := store.RecordBookCoverAdvertisement(ctx, alice.ID, book.ID, connection.ID, "cover-entry", true)
 	require.NoError(t, err)
 	require.NoError(t, store.SaveBookCover(ctx, alice.ID, book.ID, connection.ID, "cover-entry", advertisedAt, "image/png", 1, 1, "cover-v1", []byte("cover bytes")))
@@ -83,7 +84,8 @@ func TestBookCoverEndpointRequiresActiveMyBooksMembership(t *testing.T) {
 		assert.Equal(t, removed.Body.String(), response.Body.String())
 	}
 
-	require.NoError(t, store.AddBookToMyBooks(ctx, alice.ID, book.ID))
+	_, err = store.ReconcileCatalogueEntry(ctx, alice.ID, connection.ID, "cover-entry", "Retained cover", "", "de")
+	require.NoError(t, err)
 	reactivated := perform(t, h, http.MethodGet, "/books/"+book.ID+"/cover", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, reactivated.Code)
 	assert.Equal(t, []byte("cover bytes"), reactivated.Body.Bytes())

@@ -78,9 +78,10 @@ type Harness interface {
 	Seeds() Seeder
 }
 
-// BookStateStore is the Book visibility, workflow disposition, and previously
-// read import surface under test. Each write takes the revision the learner
-// rendered; the adapter returns its own stale and not-found errors.
+// BookStateStore is the Book visibility, workflow disposition, My Books
+// membership, and previously read import surface under test. Each write takes
+// the revision the learner rendered; the adapter returns its own stale and
+// not-found errors.
 type BookStateStore interface {
 	// GetBookDetail returns the Book with its disposition and visibility and
 	// the revisions a write must present.
@@ -88,15 +89,22 @@ type BookStateStore interface {
 	GetBookVisibility(owner, bookID string) (hidden bool, revision int64, err error)
 	SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (applied bool, err error)
 	TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error)
+	// RemoveBookFromMyBooks ends the Book's membership without deleting its
+	// evidence. A later Add restores the same Book.
+	RemoveBookFromMyBooks(owner, bookID string) error
 	ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error)
 }
 
 // ClassicalStore is the built-in Classical catalog membership surface under
-// test. Add creates or reopens one Book per current Reading unit; the list is
-// owner-scoped and resumes an existing Book rather than creating a duplicate.
+// test. Add creates one To Read Book per current Reading unit or restores the
+// learner's existing Book as To Read; the list is owner-scoped and resumes an
+// existing Book rather than creating a duplicate.
 type ClassicalStore interface {
 	AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error)
 	ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error)
+	// ListStudyLanguages includes the languages of Books with active My Books
+	// membership, so a removed Book contributes nothing until Add restores it.
+	ListStudyLanguages(owner string) ([]domain.StudyLanguage, error)
 }
 
 // Store is the Current reading and deck admission surface under test.
