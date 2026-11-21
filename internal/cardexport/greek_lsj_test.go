@@ -223,18 +223,20 @@ func TestAncientGreekLSJNoticeNamesPinAndLicence(t *testing.T) {
 		DictionaryEntryID: "n61607", DictionaryPin: testLSJPin, DictionaryEntry: "<div></div>",
 	}}
 
-	attribution := attributionNotices(entries)
+	attribution, err := attributionNotices(entries)
+	require.NoError(t, err)
 	assert.Contains(t, attribution, "LSJ")
 	assert.Contains(t, attribution, "PerseusDL/lexica@"+testLSJPin)
 	assert.Contains(t, attribution, "CC BY-SA 4.0")
 	assert.Contains(t, attribution, "OGA")
-	assert.Contains(t, deckDescription(entries), "PerseusDL/lexica@"+testLSJPin)
+	assert.Contains(t, mustDeckDescription(t, entries), "PerseusDL/lexica@"+testLSJPin)
 }
 
 // TestAncientGreekDeckWithoutMatchedEntryCarriesNoLSJNotice proves a Greek deck
 // with no matched LSJ entry does not claim one.
 func TestAncientGreekDeckWithoutMatchedEntryCarriesNoLSJNotice(t *testing.T) {
-	attribution := attributionNotices([]RenderInput{{Language: "grc", CanonicalLemma: "δέω", UPOS: "VERB"}})
+	attribution, err := attributionNotices([]RenderInput{{Language: "grc", CanonicalLemma: "δέω", UPOS: "VERB"}})
+	require.NoError(t, err)
 
 	assert.NotContains(t, attribution, "LSJ")
 }

@@ -20,7 +20,8 @@ type CurrentReadingFinishFacts struct {
 	// Current is the language's current reading; inactive when none exists.
 	Current CurrentReading
 	// ExpectedBookID and ExpectedSnapshotID are the caller's commitment. A
-	// legacy reading without a snapshot is named by an empty snapshot ID.
+	// current reading always names a snapshot; a missing one is corrupt, not a
+	// legacy reading.
 	ExpectedBookID, ExpectedSnapshotID string
 	// Completion is the existing completion for the expected snapshot, if any.
 	Completion *CurrentReadingCompletion
@@ -90,14 +91,14 @@ func PlanCurrentReadingFinish(facts CurrentReadingFinishFacts) CurrentReadingFin
 	reject := func(reason CurrentReadingFinishRejection) CurrentReadingFinishDecision {
 		return CurrentReadingFinishDecision{Outcome: CurrentReadingFinishRejected, Rejection: reason}
 	}
-	if facts.ExpectedBookID == "" {
+	if facts.ExpectedBookID == "" || facts.ExpectedSnapshotID == "" {
 		return reject(CurrentReadingFinishStale)
 	}
 	if !facts.Current.IsActive() {
 		if facts.Completion == nil {
 			return reject(CurrentReadingFinishUnknown)
 		}
-	} else if facts.Current.BookID != facts.ExpectedBookID || facts.Current.SnapshotID != facts.ExpectedSnapshotID {
+	} else if facts.Current.BookID != facts.ExpectedBookID || facts.Current.SnapshotID != facts.ExpectedSnapshotID || facts.Current.SnapshotID == "" {
 		return reject(CurrentReadingFinishStale)
 	}
 	if facts.Completion != nil {

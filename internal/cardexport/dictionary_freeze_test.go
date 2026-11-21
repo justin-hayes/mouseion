@@ -229,7 +229,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	note, err = makeNote("owner", renderInputFromEntry(unindexed))
 	require.NoError(t, err)
 	assert.Equal(t, "der", note.Article)
-	assert.NotContains(t, deckDescription([]RenderInput{renderInputFromEntry(unindexed)}), dictionary.AttributionNotice)
+	assert.NotContains(t, mustDeckDescription(t, []RenderInput{renderInputFromEntry(unindexed)}), dictionary.AttributionNotice)
 }
 
 func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {

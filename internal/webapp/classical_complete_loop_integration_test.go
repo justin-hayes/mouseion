@@ -218,7 +218,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	}
 	assert.Equal(t, int64(1), h.sourceServed(), "two Books and one installation fetch the work file once")
 	h.waitForTranslationSections(t, 4)
-	assert.Equal(t, int64(1), h.translationServed(), "the translation is fetched once")
+	assert.Zero(t, h.translationServed(), "the listed pin already has its translations; no fetch is needed")
 
 	// Each Book stores only its own Reading unit, and the prepared-definition
 	// record names the definition it used.
@@ -384,7 +384,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	h.waitForBookAnalysis(t, other.ID, otherOwned[h.unitOneKey])
 	h.waitForBookAnalysis(t, other.ID, otherOwned[h.unitTwoKey])
 	assert.Equal(t, int64(1), h.sourceServed(), "a second learner reuses the installation-wide work file")
-	assert.Equal(t, int64(1), h.translationServed(), "a second learner reuses the installation-wide translation")
+	assert.Zero(t, h.translationServed(), "a second learner reuses the installation-wide translation")
 
 	// 11. Startup reconciliation prunes a stored work file no current
 	// definition pins.
@@ -575,12 +575,22 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 		Layer: "loop-layer", FileName: "anabasis.conllu",
 		Size: int64(len(anabasisSource)), SHA256: hex.EncodeToString(anabasisSum[:]), Format: classical.SourceFormatOGACoNLLU,
 	}
-	translationSum := sha256.Sum256(translation)
+	// The synthetic layer stands in for the pinned Brownson translation. Its
+	// frozen pin must be the listed one, because a card export now refuses an
+	// unlisted passage pin instead of silently crediting Brownson.
 	translationPin := &classical.TranslationPin{
 		Layer: "loop-layer", FileName: "synthetic-translation.xml",
-		Size: int64(len(translation)), SHA256: hex.EncodeToString(translationSum[:]),
+		Size: int64(len(translation)), SHA256: referenceTranslationFixturePin().FileSHA256,
 		CitationStart: "1.1.1", CitationEnd: "1.2.18",
 	}
+	translationSections, err := ancientgreek.ParseReferenceTranslation(translation, translationPin.CitationStart, translationPin.CitationEnd)
+	require.NoError(t, err)
+	translations := make(map[string]string, len(translationSections))
+	for _, section := range translationSections {
+		translations[section.Citation] = section.Text
+	}
+	_, err = store.PutReferenceTranslations(ctx, translationPin.SHA256, classical.Language, translations)
+	require.NoError(t, err)
 	one, two := 1, 2
 	anabasis := classical.Definition{
 		Key: "xenophon-anabasis-1", WorkKey: "xenophon-anabasis", WorkTitle: "Anabasis",

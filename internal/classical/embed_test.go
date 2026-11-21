@@ -95,7 +95,8 @@ func TestEveryEmbeddedTranslationIsCredited(t *testing.T) {
 		if definition.Translation == nil {
 			continue
 		}
-		attribution, ok := classical.EmbeddedPassageAttribution("sha256:" + definition.Translation.SHA256)
+		attribution, ok, err := classical.EmbeddedPassageAttribution("sha256:" + definition.Translation.SHA256)
+		require.NoError(t, err, definition.Key)
 		require.True(t, ok, definition.Key)
 		assert.NotEmpty(t, attribution.Label, definition.Key)
 		assert.Contains(t, attribution.Notice, definition.Translation.SHA256, "%s: the notice names the pinned file", definition.Key)
@@ -103,7 +104,8 @@ func TestEveryEmbeddedTranslationIsCredited(t *testing.T) {
 }
 
 func TestBrownsonKeepsTheNoticeEarlierDecksCarried(t *testing.T) {
-	attribution, ok := classical.EmbeddedPassageAttribution("sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7")
+	attribution, ok, err := classical.EmbeddedPassageAttribution("sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7")
+	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, "Brownson (1922), Xen. Anab.", attribution.Label)
 	assert.Equal(t, dictionary.BrownsonSourceNotice, attribution.Notice)

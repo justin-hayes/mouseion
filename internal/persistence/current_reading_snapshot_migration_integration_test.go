@@ -196,15 +196,12 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, languageOwner.ID, languageP
 	err = pool.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM primary_goals WHERE owner_id=$1 AND language='de'`, missingSnapshotOwner.ID).Scan(&missingSnapshot)
 	require.NoError(t, err)
 	assert.Empty(t, missingSnapshot, "a Goal without current analysis unexpectedly received a snapshot")
-	firstCompletion, err := store.FinishCurrentReading(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
-	require.NoError(t, err)
-	secondCompletion, err := store.FinishCurrentReading(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
-	require.NoError(t, err)
-	assert.Equal(t, firstCompletion.Completion, secondCompletion.Completion, "missing-snapshot completion retry changed the outcome")
+	_, err = store.FinishCurrentReading(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
+	require.ErrorIs(t, err, ErrCurrentReadingStale, "a current reading without a snapshot is corrupt, not a legacy reading")
 	var missingSnapshotHistoryCount int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, missingSnapshotOwner.ID, missingSnapshotBook.ID).Scan(&missingSnapshotHistoryCount)
 	require.NoError(t, err)
-	assert.Equal(t, 1, missingSnapshotHistoryCount, "missing-snapshot completion retry duplicated history")
+	assert.Zero(t, missingSnapshotHistoryCount, "a rejected missing-snapshot Finish records no history")
 
 	emptyCompletion, err := store.FinishCurrentReading(ctx, emptyOwner.ID, "de", emptyBook, emptySnapshot)
 	require.NoError(t, err)

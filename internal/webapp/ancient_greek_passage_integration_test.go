@@ -4,8 +4,6 @@ package webapp
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
 	"net/url"
 	"os"
@@ -123,16 +121,16 @@ func TestAncientGreekCardPassageContext(t *testing.T) {
 	assert.Equal(t, items, queryPassageItems(t, ctx, pool, learner.ID))
 }
 
-// seedReferenceTranslation parses a synthetic perseus-eng2 fixture and stores
-// its cited sections as the installation-wide reference translation for its
-// pin. It writes the rows directly instead of running the classical
-// translation worker, which would download the real pinned file. The real file
-// never enters the repository.
+// seedReferenceTranslation parses a synthetic perseus-eng2 excerpt and stores
+// its cited sections under the reviewed Brownson pin, which is listed in the
+// embedded translation register. The excerpt stands in for the real pinned
+// file, whose bytes never enter the repository; the pin is what attribution
+// reads.
 func seedReferenceTranslation(t *testing.T, ctx context.Context, store *persistence.PostgresStore, name string) referenceTranslationPin {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", name)) //nolint:gosec // the fixture name is a test constant.
 	require.NoError(t, err)
-	source := pinFixtureBytes(referenceTranslationFixturePin(), data)
+	source := referenceTranslationFixturePin()
 	sections, err := ancientgreek.ParseReferenceTranslation(data, source.CitationStart, source.CitationEnd)
 	require.NoError(t, err)
 	translations := make(map[string]string, len(sections))
@@ -141,14 +139,6 @@ func seedReferenceTranslation(t *testing.T, ctx context.Context, store *persiste
 	}
 	_, err = store.PutReferenceTranslations(ctx, source.FileSHA256, ancientgreek.Language, translations)
 	require.NoError(t, err)
-	return source
-}
-
-// pinFixtureBytes sets a fixture pin's size and SHA-256 from the bytes used.
-func pinFixtureBytes(source referenceTranslationPin, data []byte) referenceTranslationPin {
-	source.FileSize = int64(len(data))
-	sum := sha256.Sum256(data)
-	source.FileSHA256 = hex.EncodeToString(sum[:])
 	return source
 }
 
@@ -218,9 +208,7 @@ func TestAncientGreekDeckWithoutTranslationAbstainsFromPassage(t *testing.T) {
 
 	// The definition pins a translation, but its import has not succeeded, so
 	// no installation-wide rows exist for the pin.
-	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "perseus-eng2-passage.xml"))
-	require.NoError(t, err)
-	source := pinFixtureBytes(referenceTranslationFixturePin(), data)
+	source := referenceTranslationFixturePin()
 	setReadingUnitTranslationPin(t, ctx, pool, "xenophon-anabasis-1", source)
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))

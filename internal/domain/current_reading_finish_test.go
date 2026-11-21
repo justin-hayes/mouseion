@@ -129,15 +129,15 @@ func TestPlanCurrentReadingFinishRejectsStaleExpectations(t *testing.T) {
 	}
 }
 
-func TestPlanCurrentReadingFinishAcceptsLegacyReadingWithoutSnapshot(t *testing.T) {
+func TestPlanCurrentReadingFinishRejectsReadingWithoutSnapshot(t *testing.T) {
 	facts := finishFacts()
 	facts.Current.SnapshotID = ""
-	facts.ExpectedSnapshotID = ""
 
 	decision := PlanCurrentReadingFinish(facts)
 
-	require.Equal(t, CurrentReadingFinishPlanned, decision.Outcome)
-	assert.Equal(t, CurrentReadingFinishPlan{}, decision.Plan)
+	require.Equal(t, CurrentReadingFinishRejected, decision.Outcome)
+	assert.Equal(t, CurrentReadingFinishStale, decision.Rejection)
+	assert.Empty(t, decision.Plan.Accept)
 }
 
 // A Known identity with no discriminator never marks a discriminated sibling

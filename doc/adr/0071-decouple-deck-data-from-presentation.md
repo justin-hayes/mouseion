@@ -5,6 +5,8 @@ Status: **Accepted** · Date: 2026-09-15 · Author: Justin + opencode
 Amends the byte-immutable ready artifact of **ADR 0030** and the
 roll-forward-only delivery posture of **ADR 0067** and **ADR 0068**. The
 explicit re-preparation exception is amended by [ADR 0076](0076-reprepare-ready-deck.md).
+The automatic-regeneration and immutable-corpus recovery clauses are amended by
+[ADR 0118](0118-remove-legacy-deck-fallbacks.md).
 
 ## Context
 
