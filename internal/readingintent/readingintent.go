@@ -8,15 +8,9 @@ package readingintent
 import (
 	"context"
 	"errors"
-	"log"
-	"strconv"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
-	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
 // ErrAcquisitionUnavailable reports a deployment with no catalogue connection
@@ -44,67 +38,13 @@ type DispositionWriter interface {
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 }
 
-// ClassicalPreparation submits the ensure-once preparation job a classical
-// Book needs before its analysis can publish.
-type ClassicalPreparation interface {
-	SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error)
-}
-
-// Analysis submits the analysis job an EPUB Book needs.
-type Analysis interface {
-	SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error)
-}
-
-// CatalogAcquisition finds a Book's catalogue entry and acquires its source. It
-// is optional: without it, a Book that needs a source cannot be promoted.
-type CatalogAcquisition interface {
-	FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
-	AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
-}
-
-// AcquisitionTargetFinder is the catalogue-sync half of a CatalogAcquisition.
-type AcquisitionTargetFinder interface {
-	FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
-}
-
-// BookAcquirer is the OPDS half of a CatalogAcquisition.
-type BookAcquirer interface {
-	AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
-}
-
-// SourceAcquisition composes the catalogue lookup with the OPDS acquirer. A
-// nil Acquirer keeps ErrAcquisitionUnavailable for a deployment without OPDS.
-type SourceAcquisition struct {
-	Targets  AcquisitionTargetFinder
-	Acquirer BookAcquirer
-}
-
-// FindAcquisitionTarget names the connection and entry a Book can be acquired from.
-func (s SourceAcquisition) FindAcquisitionTarget(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
-	if s.Targets == nil {
-		return cataloguesync.AcquisitionTarget{}, ErrAcquisitionUnavailable
-	}
-	return s.Targets.FindAcquisitionTarget(ctx, owner, bookID)
-}
-
-// AcquireForBook downloads and imports the target entry.
-func (s SourceAcquisition) AcquireForBook(ctx context.Context, owner, connectionID, language, bookID string, entry opds.Entry) (epub.ImportResult, error) {
-	if s.Acquirer == nil {
-		return epub.ImportResult{}, ErrAcquisitionUnavailable
-	}
-	return s.Acquirer.AcquireForBook(ctx, owner, connectionID, language, bookID, entry)
-}
-
-// Config supplies Move's collaborators. Books, CurrentReadings, Dispositions,
-// Preparation and Analysis are required; a missing one is a wiring mistake.
-// Acquisition is optional, because a deployment may have no catalog connection.
+// Config supplies Move's collaborators. Books, CurrentReadings, Dispositions
+// and Preparation are required; a missing one is a wiring mistake.
 type Config struct {
 	Books           BookReader
 	CurrentReadings CurrentReadingReader
 	Dispositions    DispositionWriter
-	Preparation     ClassicalPreparation
-	Analysis        Analysis
-	Acquisition     CatalogAcquisition
+	Preparation     Preparation
 }
 
 // Module carries out reading intent for one Book.
@@ -112,9 +52,7 @@ type Module struct {
 	books           BookReader
 	currentReadings CurrentReadingReader
 	dispositions    DispositionWriter
-	preparation     ClassicalPreparation
-	analysis        Analysis
-	acquisition     CatalogAcquisition
+	preparation     Preparation
 }
 
 // New validates the required collaborators and returns the module.
@@ -127,17 +65,13 @@ func New(cfg Config) (*Module, error) {
 	case cfg.Dispositions == nil:
 		return nil, errors.New("reading intent: a disposition writer is required")
 	case cfg.Preparation == nil:
-		return nil, errors.New("reading intent: Classical preparation is required")
-	case cfg.Analysis == nil:
-		return nil, errors.New("reading intent: To Read analysis is required")
+		return nil, errors.New("reading intent: a preparation seam is required")
 	}
 	return &Module{
 		books:           cfg.Books,
 		currentReadings: cfg.CurrentReadings,
 		dispositions:    cfg.Dispositions,
 		preparation:     cfg.Preparation,
-		analysis:        cfg.Analysis,
-		acquisition:     cfg.Acquisition,
 	}, nil
 }
 
@@ -169,7 +103,7 @@ func (m *Module) Move(ctx context.Context, owner, bookID string, expectedRevisio
 		// moved the Book.
 		return Outcome{Kind: OutcomeMoved, Route: RouteClassical, Book: book}, nil
 	}
-	return m.route(ctx, owner, book)
+	return m.route(ctx, owner, book), nil
 }
 
 // Retry re-runs the submission route for a Book that is already To Read. It
@@ -195,10 +129,7 @@ func (m *Module) Retry(ctx context.Context, owner, bookID string) (Outcome, erro
 		return Outcome{Kind: OutcomeNotToRead, Book: book}, nil
 	}
 
-	outcome, err := m.route(ctx, owner, book)
-	if err != nil {
-		return outcome, err
-	}
+	outcome := m.route(ctx, owner, book)
 	if outcome.Kind == OutcomeCouldNotStart && errors.Is(outcome.Err, analysis.ErrCurrentBook) {
 		// The submission lost a race with Start. The current Book's evidence
 		// is frozen, exactly as the guard above reports.
@@ -207,115 +138,52 @@ func (m *Module) Retry(ctx context.Context, owner, bookID string) (Outcome, erro
 	return outcome, nil
 }
 
-// route chooses the submission a To Read Book needs. The disposition change is
-// the learner's intent; the route only decides how its analysis reaches the
-// Book.
-func (m *Module) route(ctx context.Context, owner string, book domain.MyBook) (Outcome, error) {
-	if book.ReadingUnit == nil {
-		return m.submitAnalysis(ctx, owner, book)
-	}
-	return m.submitClassical(ctx, owner, book)
+// route prepares the Book through the one seam and classifies its submission.
+// The disposition change is the learner's intent; preparation only decides how
+// its evidence reaches the Book.
+func (m *Module) route(ctx context.Context, owner string, book domain.MyBook) Outcome {
+	return classifySubmission(m.preparation.Prepare(ctx, owner, book))
 }
 
-func (m *Module) submitClassical(ctx context.Context, owner string, book domain.MyBook) (Outcome, error) {
-	handle, err := m.preparation.SubmitClassicalPreparation(ctx, owner, book.Book.ID)
-	if err != nil {
-		if errors.Is(err, ErrPreparationUnavailable) {
-			return Outcome{Kind: OutcomePreparationUnavailable, Route: RouteClassical, Book: book}, nil
-		}
-		logClassicalFailure(owner, book.Book.ID, err)
-		switch {
-		case errors.Is(err, classical.ErrLegacyRows):
-			return Outcome{Kind: OutcomeLegacyRows, Route: RouteClassical, Book: book}, nil
-		case errors.Is(err, analysis.ErrWithdrawnClassicalDefinition):
-			return Outcome{Kind: OutcomeWithdrawnDefinition, Route: RouteClassical, Book: book}, nil
-		default:
-			return Outcome{Kind: OutcomeCouldNotStart, Route: RouteClassical, Book: book}, nil
-		}
+// classifySubmission maps the seam's typed submission to the outcome the web
+// app renders. Reading intent owns this classification so both implementations
+// stay free of learner-facing outcomes.
+func classifySubmission(submission Submission) Outcome {
+	outcome := Outcome{
+		Kind:              OutcomeCouldNotStart,
+		Route:             submission.Route,
+		JobNumber:         submission.JobNumber,
+		Book:              submission.Book,
+		Target:            submission.Target,
+		Title:             submission.Title,
+		Err:               submission.Err,
+		AcquisitionFailed: submission.AcquisitionFailed,
 	}
-	switch {
-	case handle.Complete:
-		return Outcome{Kind: OutcomeAlreadyCurrent, Route: RouteClassical, Book: book}, nil
-	case handle.Terminal:
-		return Outcome{Kind: OutcomeSourceRefused, Route: RouteClassical, Book: book}, nil
+	switch submission.Kind {
+	case SubmissionQueued:
+		outcome.Kind = OutcomeJobQueued
+	case SubmissionAlreadyCurrent:
+		outcome.Kind = OutcomeAlreadyCurrent
+	case SubmissionCouldNotStart:
+		if submission.AcquisitionFailed {
+			outcome.Kind = OutcomeAcquisitionFailed
+		}
+	case SubmissionRefused:
+		switch submission.Refusal {
+		case RefusalPreparationUnavailable:
+			outcome.Kind = OutcomePreparationUnavailable
+		case RefusalLegacyRows:
+			outcome.Kind = OutcomeLegacyRows
+		case RefusalWithdrawnDefinition:
+			outcome.Kind = OutcomeWithdrawnDefinition
+		case RefusalSourceRefused:
+			outcome.Kind = OutcomeSourceRefused
+		case RefusalNoUsableEPUBUnits:
+			outcome.Kind = OutcomeNoUsableEPUBUnits
+		}
 	default:
-		return Outcome{Kind: OutcomeJobQueued, Route: RouteClassical, JobNumber: handle.JobID, Book: book}, nil
+		// The zero and unknown kinds are wiring mistakes: report them as a
+		// submission that could not start.
 	}
-}
-
-func (m *Module) submitAnalysis(ctx context.Context, owner string, book domain.MyBook) (Outcome, error) {
-	target := cataloguesync.AcquisitionTarget{}
-	title := book.Book.Title
-	needsAcquisition := book.Acquired == nil || book.Acquired.EvidenceState() == domain.BookUnavailable
-	if needsAcquisition {
-		acquired, err := m.acquire(ctx, owner, book.Book.ID)
-		target = acquired
-		if err != nil {
-			logAnalysisFailure(owner, book.Book.ID, "acquisition", err)
-			return analysisFailure(book, target, title, err), nil
-		}
-		reloaded, err := m.books.GetBookDetail(ctx, owner, book.Book.ID)
-		if err != nil {
-			logAnalysisFailure(owner, book.Book.ID, "acquisition", err)
-			return analysisFailure(book, target, "", err), nil
-		}
-		book = reloaded
-		title = book.Book.Title
-		if book.Acquired == nil {
-			err = errors.New("the current EPUB could not be loaded after acquisition")
-			logAnalysisFailure(owner, book.Book.ID, "acquisition", err)
-			return analysisFailure(book, target, title, err), nil
-		}
-	}
-
-	handle, err := m.analysis.SubmitToReadBookAnalysis(ctx, owner, book.Book.ID, book.Acquired.Source.ID)
-	if err != nil {
-		logAnalysisFailure(owner, book.Book.ID, "analysis submission", err)
-		if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
-			return Outcome{Kind: OutcomeNoUsableEPUBUnits, Route: RouteEPUB, Book: book}, nil
-		}
-		return Outcome{Kind: OutcomeCouldNotStart, Route: RouteEPUB, Book: book, Err: err}, nil
-	}
-	return Outcome{Kind: OutcomeJobQueued, Route: RouteEPUB, JobNumber: handle.DisplayNumber, Book: book, Target: target}, nil
-}
-
-// analysisFailure carries the facts the web app needs to name the acquisition
-// connection and entry in the learner-facing sentence.
-func analysisFailure(book domain.MyBook, target cataloguesync.AcquisitionTarget, title string, err error) Outcome {
-	return Outcome{
-		Kind: OutcomeAcquisitionFailed, Route: RouteEPUB, Book: book,
-		Target: target, Title: title, Err: err, AcquisitionFailed: true,
-	}
-}
-
-func (m *Module) acquire(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
-	if m.acquisition == nil {
-		return cataloguesync.AcquisitionTarget{}, ErrAcquisitionUnavailable
-	}
-	target, err := m.acquisition.FindAcquisitionTarget(ctx, owner, bookID)
-	if err != nil {
-		return target, err
-	}
-	_, err = m.acquisition.AcquireForBook(ctx, owner, target.ConnectionID, target.Language, bookID, target.Entry)
-	return target, err
-}
-
-// logClassicalFailure writes the stable stage and code only: raw error text can
-// carry source detail, and Greek never belongs in operator logs.
-func logClassicalFailure(owner, bookID string, err error) {
-	stage, code := analysis.ClassicalPreparationFailure(err)
-	log.Printf("mouseion: classical preparation submission failed for owner %s book %s stage=%s code=%s",
-		strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(string(stage)), strconv.Quote(code))
-}
-
-// logAnalysisFailure writes the failing step and the quoted error. A refused
-// refresh of the current Book is an expected outcome, not a failure.
-func logAnalysisFailure(owner, bookID, step string, err error) {
-	if errors.Is(err, analysis.ErrCurrentBook) {
-		return
-	}
-	// The Book id comes from the request path, and the error may echo it;
-	// quoting every identifier keeps a crafted one from forging log lines and
-	// matches the classical failure line.
-	log.Printf("mouseion: To Read %s failed for owner %s book %s: %s", step, strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(err.Error()))
+	return outcome
 }
