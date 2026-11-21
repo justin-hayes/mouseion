@@ -2,6 +2,8 @@
 
 Status: **Accepted** · Date: 2026-09-14 · Author: Justin + opencode
 
+Amended 2026-11-21 by [ADR 0119](0119-retire-german-vocabulary-backfill.md): the operator-run vocabulary backfill was retired after a production-data copy showed it changes nothing ([#2531](https://github.com/justin-hayes/mouseion/issues/2531)).
+
 Amends **ADR 0005** (vocabulary identity and normalization). Builds on
 **ADR 0064** and the shared normalization policy introduced for the dictionary
 index.
