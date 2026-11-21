@@ -555,6 +555,13 @@ a withdrawn definition. It is recorded per Book, never per pinned file, so one
 Book's failure does not fail its siblings.
 _Avoid_: pin failure, download cache failure.
 
+**EPUB acquisition failure**:
+The per-Book evidence of the latest failed attempt to fetch and import a
+Catalog entry's Catalog file, classified by the stage that failed: the entry,
+fetch, a refused source, or import. It is recorded per Book and cleared when an
+acquisition succeeds.
+_Avoid_: download error, acquisition flash.
+
 **Annotation occurrence**:
 A text-attested linguistic occurrence distinguished within one exact analysis,
 even when it shares a source span with another occurrence. An unprinted syntax
