@@ -16,6 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/readingintent"
 )
 
 func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +139,8 @@ func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
 	for _, unit := range work.Units {
 		keys = append(keys, unit.Key)
 	}
-	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), user(r).ID, keys)
+	owner := user(r).ID
+	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), owner, keys)
 	target := classicalWorkURL(work.Key)
 	if r.PostFormValue("return") == classicalAddReturnIndex {
 		target = classicalCatalogURL()
@@ -147,7 +149,7 @@ func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
 		h.redirectClassicalAddFailure(w, r, target, err)
 		return
 	}
-	h.redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, activeLanguageOf(r), work.Key))
+	h.completeClassicalAdd(w, r, target, report, work.Key)
 }
 
 // addClassicalUnit adds one constituent book or whole-work unit.
@@ -161,7 +163,8 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), user(r).ID, []string{key})
+	owner := user(r).ID
+	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), owner, []string{key})
 	target := classicalWorkURL(work.Key)
 	if r.PostFormValue("return") == classicalAddReturnIndex {
 		target = classicalCatalogURL()
@@ -170,7 +173,76 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 		h.redirectClassicalAddFailure(w, r, target, err)
 		return
 	}
-	h.redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, activeLanguageOf(r), work.Key))
+	h.completeClassicalAdd(w, r, target, report, work.Key)
+}
+
+// completeClassicalAdd submits the preparation the Add expresses, then returns
+// to the catalog with one confirmation. Both Add routes end here.
+func (h *Handler) completeClassicalAdd(w http.ResponseWriter, r *http.Request, target string, report classical.AddReport, workKey string) {
+	preparation := h.prepareAddedClassicalBooks(r.Context(), user(r).ID, report)
+	h.redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, preparation, activeLanguageOf(r), workKey))
+}
+
+// classicalAddPreparation is the preparation outcome of one Add, aggregated
+// over its Books. The store has already made every Book To Read; this only
+// reports what the reading-intent route did with them.
+type classicalAddPreparation struct {
+	Queued          int
+	AlreadyPrepared int
+	CouldNotStart   int
+	Refusal         string
+}
+
+// prepareAddedClassicalBooks sends each added Book through the reading-intent
+// route. Books are visited in constituent-book order, so a whole-Work Add
+// enqueues its preparation jobs in that order. Preparation is ensure-once, so
+// re-adding a prepared Book queues nothing. A submission failure never undoes
+// the Add; it is reported in the confirmation.
+func (h *Handler) prepareAddedClassicalBooks(ctx context.Context, owner string, report classical.AddReport) classicalAddPreparation {
+	var preparation classicalAddPreparation
+	if len(report.Books) == 0 {
+		return preparation
+	}
+	intent, err := h.readingIntentModule()
+	if err != nil {
+		log.Printf("classical catalog add: reading intent unavailable: %v", err)
+		preparation.CouldNotStart = len(report.Books)
+		return preparation
+	}
+	for _, book := range report.Books {
+		outcome, err := intent.Retry(ctx, owner, book.BookID)
+		if err != nil {
+			log.Printf("classical catalog add: prepare book %q: %v", book.BookID, err)
+			preparation.CouldNotStart++
+			continue
+		}
+		prepared := classicalAddPreparationFor(outcome)
+		preparation.Queued += prepared.Queued
+		preparation.AlreadyPrepared += prepared.AlreadyPrepared
+		preparation.CouldNotStart += prepared.CouldNotStart
+		if prepared.Refusal != "" {
+			preparation.Refusal = prepared.Refusal
+		}
+	}
+	return preparation
+}
+
+// classicalAddPreparationFor classifies one reading-intent outcome for the Add
+// confirmation. A definition that can no longer be prepared keeps its specific
+// stable refusal; every other non-start is the generic recovery sentence.
+func classicalAddPreparationFor(outcome readingintent.Outcome) classicalAddPreparation {
+	switch outcome.Kind {
+	case readingintent.OutcomeJobQueued:
+		return classicalAddPreparation{Queued: 1}
+	case readingintent.OutcomeAlreadyCurrent, readingintent.OutcomeCurrentBookRefused:
+		return classicalAddPreparation{AlreadyPrepared: 1}
+	case readingintent.OutcomeWithdrawnDefinition:
+		return classicalAddPreparation{CouldNotStart: 1, Refusal: classicalWithdrawnRefusal}
+	case readingintent.OutcomeSourceRefused:
+		return classicalAddPreparation{CouldNotStart: 1, Refusal: classicalSourceMismatchRefusal}
+	default:
+		return classicalAddPreparation{CouldNotStart: 1}
+	}
 }
 
 const (
@@ -196,16 +268,33 @@ func (c classicalAddConfirmation) InMyBooksURL() string {
 	return classicalWorkInMyBooksURL(c.WorkKey)
 }
 
-func classicalAddConfirmationFor(report classical.AddReport, activeLanguage, workKey string) classicalAddConfirmation {
+func classicalAddConfirmationFor(report classical.AddReport, preparation classicalAddPreparation, activeLanguage, workKey string) classicalAddConfirmation {
 	message := classicalAddMessage(report)
 	if !classicalAddNamesOtherLanguage(activeLanguage) {
-		return classicalAddConfirmation{Message: message}
+		return classicalAddConfirmation{Message: message + classicalAddPreparationMessage(preparation)}
 	}
 	// Every membership message is one sentence ending with a period, so the
 	// language joins that sentence instead of starting a second one.
 	return classicalAddConfirmation{
-		Message: strings.TrimSuffix(message, ".") + " in " + classical.LanguageDisplayName + ". Your study language is unchanged.",
+		Message: strings.TrimSuffix(message, ".") + " in " + classical.LanguageDisplayName + ". Your study language is unchanged." + classicalAddPreparationMessage(preparation),
 		WorkKey: workKey,
+	}
+}
+
+// classicalAddPreparationMessage states what happens to the text after Add.
+// The catalog never promises work that is already done or that could not start.
+func classicalAddPreparationMessage(preparation classicalAddPreparation) string {
+	switch {
+	case preparation.Refusal != "":
+		return " " + preparation.Refusal
+	case preparation.CouldNotStart > 0:
+		return " The text could not be prepared. Retry preparation from My Books when ready."
+	case preparation.Queued > 0:
+		return " Downloading and preparing the text."
+	case preparation.AlreadyPrepared > 0:
+		return " The text is already prepared."
+	default:
+		return ""
 	}
 }
 

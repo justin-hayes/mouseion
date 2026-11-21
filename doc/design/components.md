@@ -135,8 +135,10 @@ The margin note carries the Edition, the passage range, translation
 availability, ownership and one whole-Work Add control. A Work split into
 constituent books adds a native `details` **Choose books** disclosure, closed by
 default, with a table of book, passage, word count and per-book Add or "In My
-Books". The Add label names what it will add: "Add the work" for a whole-work
-unit, "Add the whole work" when none of a multi-book Work is owned, and "Add the
+Books". Add creates or restores the Book as **To Read** and starts downloading
+and preparing the text; the confirmation says so. The Add label names what it
+will add: "Add and prepare the work" for a whole-work unit, "Add and prepare the
+whole work" when none of a multi-book Work is owned, and "Add and prepare the
 remaining books" when some are; a fully owned Work offers no Add. A page-level
 attribution line credits the Greek text to its source layer and licence. The
 index shows no preparation state, coverage or difficulty.

@@ -1,6 +1,8 @@
 package webapp
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -8,9 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/opds"
+	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -98,7 +103,7 @@ func TestCatalogsRendersTheClassicalCatalogRecordAndMarginCounts(t *testing.T) {
 		"<dt>Works</dt><dd>3</dd>",
 		"<dt>Authors</dt><dd>2</dd>",
 		"<dt>Reading units</dt><dd>4</dd>",
-		"Sources are fetched at To Read",
+		"Adding a work puts it in To Read and downloads and prepares the text.",
 		`href="/catalogs/classical"`,
 	} {
 		assert.Contains(t, body, want, "GET /catalogs missing %q", want)
@@ -168,8 +173,8 @@ func TestClassicalCatalogIndexRendersOpeningsLengthsAndAttribution(t *testing.T)
 		"Passage 1.1.1–1.1.10",
 		"English translation not available",
 		"Choose books",
-		"Add the whole work",
-		"Add the work",
+		"Add and prepare the whole work",
+		"Add and prepare the work",
 		"Greek text source:",
 		"OGA oga_src v0.2.0 Greek text",
 		"CC BY-SA 4.0",
@@ -197,8 +202,8 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	index := catalogPage(t, h, cookies, "/catalogs/classical")
 	require.Equal(t, http.StatusOK, index.Code)
 	body := index.Body.String()
-	assert.Contains(t, body, "Add the whole work", "a multi-book Work with none owned offers the whole Work")
-	assert.Contains(t, body, "Add the work", "a whole-work unit offers the work")
+	assert.Contains(t, body, "Add and prepare the whole work", "a multi-book Work with none owned offers the whole Work")
+	assert.Contains(t, body, "Add and prepare the work", "a whole-work unit offers the work")
 	assert.NotContains(t, body, "books in My Books")
 	assert.NotContains(t, body, "In My Books")
 
@@ -219,13 +224,13 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	for _, want := range []string{
 		"Added 1 Book to My Books",
 		"1 of 3 books in My Books",
-		"Add the remaining books",
+		"Add and prepare the remaining books",
 		`action="/catalogs/classical/units/fixture-iliad-2/add"`,
 	} {
 		assert.Contains(t, partialBody, want, "partly owned index missing %q", want)
 	}
 	assert.NotContains(t, partialBody, `action="/catalogs/classical/units/fixture-iliad-1/add"`, "an owned book offers no Add")
-	assert.NotContains(t, partialBody, "Add the whole work")
+	assert.NotContains(t, partialBody, "Add and prepare the whole work")
 	assert.NotContains(t, partialBody, "/catalogs/classical/authors/", "the Add confirmation never links to the retired author page")
 
 	// Add a whole-work unit from the index margin.
@@ -307,7 +312,26 @@ func TestClassicalAddOutcomeNamesTheLanguageOnlyWhenAnotherIsActive(t *testing.T
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.expected, classicalAddConfirmationFor(test.report, test.activeLanguage, "homer-iliad"))
+			require.Equal(t, test.expected, classicalAddConfirmationFor(test.report, classicalAddPreparation{}, test.activeLanguage, "homer-iliad"))
+		})
+	}
+}
+
+func TestClassicalAddPreparationMessageStatesDownloadAndPreparation(t *testing.T) {
+	cases := []struct {
+		name        string
+		preparation classicalAddPreparation
+		expected    string
+	}{
+		{name: "queued", preparation: classicalAddPreparation{Queued: 2}, expected: " Downloading and preparing the text."},
+		{name: "already prepared", preparation: classicalAddPreparation{AlreadyPrepared: 1}, expected: " The text is already prepared."},
+		{name: "could not start", preparation: classicalAddPreparation{CouldNotStart: 1}, expected: " The text could not be prepared. Retry preparation from My Books when ready."},
+		{name: "withdrawn", preparation: classicalAddPreparation{CouldNotStart: 1, Refusal: classicalWithdrawnRefusal}, expected: " " + classicalWithdrawnRefusal},
+		{name: "nothing to submit", preparation: classicalAddPreparation{}, expected: ""},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, classicalAddPreparationMessage(test.preparation))
 		})
 	}
 }
@@ -400,4 +424,95 @@ func TestOPDSErrorMessageNamesTheEPUBSizeLimits(t *testing.T) {
 		err := fmt.Errorf("opds: ingest downloaded EPUB: %w", opds.ErrRetainedEPUBTooLarge)
 		assert.Equal(t, "This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition.", opdsErrorMessage(err))
 	})
+}
+
+func TestClassicalAddPreparationForClassifiesReadingIntentOutcomes(t *testing.T) {
+	cases := []struct {
+		name    string
+		outcome readingintent.Outcome
+		want    classicalAddPreparation
+	}{
+		{name: "queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued}, want: classicalAddPreparation{Queued: 1}},
+		{name: "already current", outcome: readingintent.Outcome{Kind: readingintent.OutcomeAlreadyCurrent}, want: classicalAddPreparation{AlreadyPrepared: 1}},
+		{name: "current book", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCurrentBookRefused}, want: classicalAddPreparation{AlreadyPrepared: 1}},
+		{name: "withdrawn", outcome: readingintent.Outcome{Kind: readingintent.OutcomeWithdrawnDefinition}, want: classicalAddPreparation{CouldNotStart: 1, Refusal: classicalWithdrawnRefusal}},
+		{name: "source refused", outcome: readingintent.Outcome{Kind: readingintent.OutcomeSourceRefused}, want: classicalAddPreparation{CouldNotStart: 1, Refusal: classicalSourceMismatchRefusal}},
+		{name: "could not start", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCouldNotStart}, want: classicalAddPreparation{CouldNotStart: 1}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, classicalAddPreparationFor(test.outcome))
+		})
+	}
+}
+
+func TestPrepareAddedClassicalBooksHandlesEmptyUnavailableAndFailedReads(t *testing.T) {
+	empty := &Handler{}
+	assert.Zero(t, empty.prepareAddedClassicalBooks(t.Context(), "owner", classical.AddReport{}))
+
+	unavailable := empty.prepareAddedClassicalBooks(t.Context(), "owner", classical.AddReport{Books: []classical.AddedBook{{BookID: "book-1"}}})
+	assert.Equal(t, 1, unavailable.CouldNotStart, "a handler without reading-intent collaborators reports the recovery sentence")
+
+	module, err := readingintent.New(readingintent.Config{
+		Books: failingAddBooks{}, CurrentReadings: inactiveAddCurrentReadings{},
+		Dispositions: addDispositions{}, Preparation: addPreparation{}, Analysis: addAnalysis{},
+	})
+	require.NoError(t, err)
+	failedRead := (&Handler{services: Services{ReadingIntent: module}}).prepareAddedClassicalBooks(t.Context(), "owner", classical.AddReport{Books: []classical.AddedBook{{BookID: "book-1"}}})
+	assert.Equal(t, 1, failedRead.CouldNotStart, "a Book that cannot be read never blocks the Add")
+
+	withdrawnModule, err := readingintent.New(readingintent.Config{
+		Books: withdrawnAddBooks{}, CurrentReadings: inactiveAddCurrentReadings{},
+		Dispositions: addDispositions{}, Preparation: withdrawnAddPreparation{}, Analysis: addAnalysis{},
+	})
+	require.NoError(t, err)
+	withdrawn := (&Handler{services: Services{ReadingIntent: withdrawnModule}}).prepareAddedClassicalBooks(t.Context(), "owner", classical.AddReport{Books: []classical.AddedBook{{BookID: "book-1"}}})
+	assert.Equal(t, 1, withdrawn.CouldNotStart)
+	assert.Equal(t, classicalWithdrawnRefusal, withdrawn.Refusal, "the specific stable refusal survives the aggregate")
+}
+
+type failingAddBooks struct{}
+
+func (failingAddBooks) GetBookDetail(context.Context, string, string) (domain.MyBook, error) {
+	return domain.MyBook{}, errors.New("book read failed")
+}
+
+type withdrawnAddBooks struct{}
+
+func (withdrawnAddBooks) GetBookDetail(context.Context, string, string) (domain.MyBook, error) {
+	return domain.MyBook{
+		Book:        domain.Book{ID: "book-1"},
+		ReadingUnit: &domain.BookReadingUnit{ReadingUnitKey: "unit-1"},
+		Disposition: domain.BookDispositionToRead,
+	}, nil
+}
+
+type inactiveAddCurrentReadings struct{}
+
+func (inactiveAddCurrentReadings) GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error) {
+	return domain.CurrentReading{}, nil
+}
+
+type addDispositions struct{}
+
+func (addDispositions) TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error) {
+	return true, nil
+}
+
+type addPreparation struct{}
+
+func (addPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
+	return analysis.ClassicalPreparationHandle{}, nil
+}
+
+type withdrawnAddPreparation struct{}
+
+func (withdrawnAddPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
+	return analysis.ClassicalPreparationHandle{}, analysis.ErrWithdrawnClassicalDefinition
+}
+
+type addAnalysis struct{}
+
+func (addAnalysis) SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
+	return analysis.Handle{}, nil
 }

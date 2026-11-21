@@ -38,13 +38,13 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 
 	work := catalogPage(t, h, cookies, "/catalogs/classical/works/fixture-iliad")
 	require.Equal(t, http.StatusOK, work.Code)
-	for _, want := range []string{"Add the whole work", "Book 1", "Book 2", "Book 3"} {
+	for _, want := range []string{"Add and prepare the whole work", "Book 1", "Book 2", "Book 3"} {
 		assert.Contains(t, work.Body.String(), want)
 	}
 
 	added := readingTestRequest(t, h, "/catalogs/classical/works/fixture-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
-	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 3 Books to My Books in Ancient Greek. Your study language is unchanged."))
+	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 3 Books to My Books in Ancient Greek. Your study language is unchanged. The text is already prepared."))
 
 	owned := catalogPage(t, h, cookies, "/catalogs/classical/works/fixture-iliad")
 	require.Equal(t, http.StatusOK, owned.Code)
@@ -66,12 +66,8 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 		assert.Contains(t, library.Body.String(), want)
 	}
 
-	moved := readingTestRequest(t, h, "/library/works/fixture-iliad/to-read", url.Values{
-		"csrf_token": {csrf},
-		"return_to":  {"/library"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, moved.Code)
-
+	// Add already put the Books in To Read, so the chooser lists them without
+	// another move.
 	chooser := catalogPage(t, h, cookies, "/reading")
 	require.Equal(t, http.StatusOK, chooser.Code)
 	for _, want := range []string{

@@ -64,13 +64,12 @@ func classicalDefinition(workKey, title, author, greekTitle, key string, book *i
 	return definition
 }
 
-// classicalScenarios pin the Classical catalog Add transition: one Book per
-// current Reading unit, an owner-scoped membership that reopens rather than
-// duplicates, and a hidden Book made visible again without losing its
-// disposition.
+// classicalScenarios pin the Classical catalog Add transition: one To Read
+// Book per current Reading unit, an owner-scoped membership that reopens rather
+// than duplicates, and a hidden Book made visible again with its evidence.
 func classicalScenarios() []Scenario {
 	return []Scenario{{
-		Name: "classical add creates one metadata-only Inbox book per unit",
+		Name: "classical add creates one metadata-only To Read book per unit",
 		Run: func(t *testing.T, h Harness) {
 			h.Seeds().SeedClassicalCatalog(t)
 			owner := h.Seeds().Owner()
@@ -86,14 +85,13 @@ func classicalScenarios() []Scenario {
 			assert.Equal(t, domain.MetadataProvenanceOperatorRegistration, first.Book.MetadataProvenance)
 			assert.Equal(t, domain.LanguageChosen, first.Book.LanguageState)
 			assert.Equal(t, classical.Language, first.Book.LanguageTag)
-			assert.Equal(t, domain.BookDispositionInbox, first.Disposition)
+			assert.Equal(t, domain.BookDispositionToRead, first.Disposition)
 			require.NotNil(t, first.ReadingUnit)
 			assert.Equal(t, ClassicalUnitBook1Key, first.ReadingUnit.ReadingUnitKey)
 			assert.Equal(t, ClassicalWorkKey, first.ReadingUnit.WorkKey)
 			assert.Equal(t, 1, first.ReadingUnit.ConstituentBook)
 			assert.Equal(t, 2, first.ReadingUnit.ConstituentBooks)
 			assert.Equal(t, ClassicalWorkGreek, first.ReadingUnit.GreekTitle)
-			assert.Nil(t, first.Acquired, "Add downloads nothing and leaves the Book metadata-only")
 
 			whole := requireDetail(t, h, owner, owned[ClassicalWholeUnitKey].BookID)
 			assert.Equal(t, ClassicalWholeWorkName, whole.Book.Title)
@@ -114,7 +112,7 @@ func classicalScenarios() []Scenario {
 			require.ErrorContains(t, err, "not current", "an unknown Reading unit is refused")
 		},
 	}, {
-		Name: "classical re-add reopens a hidden book and keeps its disposition",
+		Name: "classical re-add reopens a hidden book and restores To Read",
 		Run: func(t *testing.T, h Harness) {
 			h.Seeds().SeedClassicalCatalog(t)
 			owner := h.Seeds().Owner()
@@ -122,7 +120,7 @@ func classicalScenarios() []Scenario {
 			require.NoError(t, err)
 			bookID := report.Books[0].BookID
 			detail := requireDetail(t, h, owner, bookID)
-			applied, err := h.BookState().TransitionBookDisposition(owner, bookID, detail.DispositionRevision, domain.BookDispositionToRead)
+			applied, err := h.BookState().TransitionBookDisposition(owner, bookID, detail.DispositionRevision, domain.BookDispositionInbox)
 			require.NoError(t, err)
 			require.True(t, applied)
 			applied, err = h.BookState().SetBookHidden(owner, bookID, 0, true)

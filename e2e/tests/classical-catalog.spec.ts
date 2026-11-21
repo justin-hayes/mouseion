@@ -18,6 +18,7 @@ test('adds a single book and a whole work from the Classical catalog index', asy
 
   await expect(page.getByRole('heading', { name: 'Homer', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Xenophon', exact: true })).toBeVisible();
+  await expect(page.getByText(/Adding a Book puts it in To Read and downloads and prepares the text/)).toBeVisible();
 
   // An old author URL lands on that author's section of the index.
   await page.goto('/catalogs/classical/authors/Homer');
@@ -28,32 +29,34 @@ test('adds a single book and a whole work from the Classical catalog index', asy
   await expect(iliad).toContainText('μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος');
   await expect(iliad).toContainText('600 words in 3 books');
   await expect(iliad).toContainText('Fixture reviewed edition');
-  await expect(iliad.getByRole('button', { name: 'Add the whole work', exact: true })).toBeVisible();
+  await expect(iliad.getByRole('button', { name: 'Add and prepare the whole work', exact: true })).toBeVisible();
 
   // Add only Book 1 from the native "Choose books" disclosure.
   await iliad.getByText('Choose books', { exact: true }).click();
   const bookOne = iliad.getByRole('row', { name: /Book 1/ });
   await expect(bookOne).toContainText('1.1.1–1.10.19');
-  await bookOne.getByRole('button', { name: 'Add', exact: true }).click();
+  await bookOne.getByRole('button', { name: 'Add and prepare', exact: true }).click();
 
   await expect(page).toHaveURL(/\/catalogs\/classical\?/);
   await expect(page.getByText(/Added 1 Book to My Books/)).toBeVisible();
+  await expect(page.getByText(/The text is already prepared/)).toBeVisible();
   await expect(iliad).toContainText('1 of 3 books in My Books');
-  await expect(iliad.getByRole('button', { name: 'Add the remaining books', exact: true })).toBeVisible();
+  await expect(iliad.getByRole('button', { name: 'Add and prepare the remaining books', exact: true })).toBeVisible();
 
   await iliad.getByText('Choose books', { exact: true }).click();
   await expect(iliad.getByRole('row', { name: /Book 1/ }).getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
-  await expect(iliad.getByRole('row', { name: /Book 2/ }).getByRole('button', { name: 'Add', exact: true })).toBeVisible();
+  await expect(iliad.getByRole('row', { name: /Book 2/ }).getByRole('button', { name: 'Add and prepare', exact: true })).toBeVisible();
 
   // Add the whole-work unit from the margin note.
   const hellenica = page.locator('#work-fixture-hellenica');
   await expect(hellenica).toContainText('500 words, read whole');
-  await hellenica.getByRole('button', { name: 'Add the work', exact: true }).click();
+  await hellenica.getByRole('button', { name: 'Add and prepare the work', exact: true }).click();
 
   await expect(page).toHaveURL(/\/catalogs\/classical\?/);
   await expect(page.getByText(/Added 1 Book to My Books/)).toBeVisible();
+  await expect(page.getByText(/The text is already prepared/)).toBeVisible();
   await expect(hellenica.getByText('In My Books', { exact: true })).toBeVisible();
-  await expect(hellenica.getByRole('button', { name: 'Add the work', exact: true })).toHaveCount(0);
+  await expect(hellenica.getByRole('button', { name: 'Add and prepare the work', exact: true })).toHaveCount(0);
 
   // The same index fits a phone without sideways scrolling, and its controls
   // stay keyboard-operable and large enough to tap.
