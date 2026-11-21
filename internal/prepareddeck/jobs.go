@@ -38,17 +38,6 @@ var livePreparationJobStates = []rivertype.JobState{
 var ErrInvalidInput = errors.New("prepareddeck: invalid input")
 var ErrAnalysisUnavailable = errors.New("prepareddeck: completed scoped analysis required")
 
-type JobArgs struct {
-	// PreparationID is the logical idempotency key. The other fields are
-	// immutable worker input and must not create competing jobs for the same
-	// preparation.
-	PreparationID    string `json:"preparation_id" river:"unique"`
-	OwnerID          string `json:"owner_id"`
-	SourceMaterialID string `json:"source_material_id"`
-	ContentHash      string `json:"content_hash"`
-	AnalysisRunID    string `json:"analysis_run_id,omitempty"`
-}
-
 // StandardTranslationWorker executes one durable manifest item per River
 // invocation. Its dependencies are optional so worker registration tests can
 // still validate the job type without a database or provider.
@@ -82,8 +71,6 @@ func AddStandardTranslationWorkerWithDependencies(workers *river.Workers, store 
 	}
 	river.AddWorker(workers, &StandardTranslationWorker{Store: store, Client: client, Provider: provider, Config: config, AttemptTimeout: timeout, Metrics: collector})
 }
-
-func (JobArgs) Kind() string { return "prepared_deck" }
 
 type Handle struct {
 	Preparation domain.DeckPreparation
