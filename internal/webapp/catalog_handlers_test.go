@@ -449,10 +449,6 @@ func TestConnectionMutationsLandOnManageSources(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, updated.Code)
 	assert.Equal(t, "/catalogs/sources?message=Catalog+updated", updated.Header().Get("Location"))
 
-	deleted := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/delete", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, deleted.Code)
-	assert.Equal(t, "/catalogs/sources?message=Catalog+deleted", deleted.Header().Get("Location"))
-
 	synced := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/sync", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, synced.Code)
 	assert.Equal(t, "/catalogs/sources?message=Catalog+sync+submitted.", synced.Header().Get("Location"))
@@ -466,6 +462,14 @@ func TestConnectionMutationsLandOnManageSources(t *testing.T) {
 	legacySync := readingTestRequest(t, h, "/connections/fixture-connection/sync", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, legacySync.Code)
 	assert.Equal(t, "/catalogs?message=Catalog+sync+submitted.", legacySync.Header().Get("Location"))
+
+	deleted := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/delete", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, deleted.Code)
+	assert.Equal(t, "/catalogs/sources?message=Catalog+deleted", deleted.Header().Get("Location"))
+
+	missingDelete := readingTestRequest(t, h, "/catalogs/sources/no-such-connection/delete", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, missingDelete.Code)
+	assert.Equal(t, "/catalogs/sources?error=That+catalog+connection+no+longer+exists.", missingDelete.Header().Get("Location"))
 
 	// The legacy mutation endpoints remain supported and land on Manage sources.
 	legacy := readingTestRequest(t, h, "/connections", url.Values{
