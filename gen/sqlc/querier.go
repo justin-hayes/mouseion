@@ -70,6 +70,7 @@ type Querier interface {
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
 	DeleteCatalogueEntriesNotSeen(ctx context.Context, arg DeleteCatalogueEntriesNotSeenParams) (int64, error)
+	DeleteClassicalPreparationFailure(ctx context.Context, arg DeleteClassicalPreparationFailureParams) error
 	DeleteCurrentReading(ctx context.Context, arg DeleteCurrentReadingParams) error
 	DeleteEPUBAcquisitionFailure(ctx context.Context, arg DeleteEPUBAcquisitionFailureParams) error
 	DeleteOccurrenceLemmaCorrection(ctx context.Context, arg DeleteOccurrenceLemmaCorrectionParams) (int64, error)
@@ -122,6 +123,7 @@ type Querier interface {
 	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
 	GetCatalogueEntry(ctx context.Context, arg GetCatalogueEntryParams) (GetCatalogueEntryRow, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
+	GetClassicalPreparationFailure(ctx context.Context, arg GetClassicalPreparationFailureParams) (GetClassicalPreparationFailureRow, error)
 	// An owned Book in the study language, with whether it has a current analysis
 	// that can contribute occurrences.
 	GetConcordancePriorityBook(ctx context.Context, arg GetConcordancePriorityBookParams) (GetConcordancePriorityBookRow, error)
@@ -382,11 +384,14 @@ type Querier interface {
 	PreparedDeckCacheExists(ctx context.Context, arg PreparedDeckCacheExistsParams) (bool, error)
 	PreparedDeckRunExists(ctx context.Context, arg PreparedDeckRunExistsParams) (bool, error)
 	PutCard(ctx context.Context, arg PutCardParams) (PutCardRow, error)
+	// One Book preparation failure record (ADR 0121). Classical preparation and
+	// EPUB acquisition share the table, key, stage and code vocabulary; they differ
+	// only in provenance. Each kind reads and writes only its own rows so clearing
+	// one kind never removes the other's evidence.
+	PutClassicalPreparationFailure(ctx context.Context, arg PutClassicalPreparationFailureParams) error
 	PutCorpus(ctx context.Context, arg PutCorpusParams) (PutCorpusRow, error)
 	PutCuratedSentence(ctx context.Context, arg PutCuratedSentenceParams) (PutCuratedSentenceRow, error)
 	PutDeck(ctx context.Context, arg PutDeckParams) (PutDeckRow, error)
-	// EPUB acquisition failure queries. The row is keyed by owner and Book and
-	// holds the latest failed attempt only; a successful acquisition deletes it.
 	PutEPUBAcquisitionFailure(ctx context.Context, arg PutEPUBAcquisitionFailureParams) error
 	PutExampleSentence(ctx context.Context, arg PutExampleSentenceParams) (PutExampleSentenceRow, error)
 	PutGeneratedCard(ctx context.Context, arg PutGeneratedCardParams) error

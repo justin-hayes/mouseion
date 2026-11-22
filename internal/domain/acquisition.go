@@ -65,11 +65,7 @@ func classifyEPUBAcquisition(status *EPUBAcquisitionStatus) acquisitionEvidence 
 	if status == nil {
 		return acquisitionEvidence{}
 	}
-	stage := status.Stage
-	if stage == BookPreparationStageNone {
-		stage = EPUBAcquisitionStageForCode(status.Code)
-	}
-	switch stage {
+	switch status.Stage {
 	case BookPreparationStageEntry:
 		return acquisitionEvidence{AcquisitionClassification{State: AcquisitionEntryMissing}, BookUnavailable, PhaseNotAnalyzed, RecoveryRetryAcquisition}
 	case BookPreparationStageFetch:

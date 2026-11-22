@@ -22,6 +22,8 @@ func (s *Store) RecordEPUBAcquisitionFailure(_ context.Context, record domain.EP
 		return errors.New("fixtures: EPUB acquisition failure code is required")
 	case (record.ConnectionID == "") != (record.EntryIdentifier == ""):
 		return errors.New("fixtures: EPUB acquisition failure connection and entry are recorded together")
+	case record.Stage != domain.BookPreparationStageEntry && record.ConnectionID == "":
+		return errors.New("fixtures: EPUB acquisition failure outside the entry stage requires a catalog entry")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

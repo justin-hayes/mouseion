@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"context"
+	"math"
 	"strings"
 	"testing"
 
@@ -56,29 +58,9 @@ func TestClassicalPreparationStatusResolution(t *testing.T) {
 			assert.Empty(t, status.Stage)
 			assert.False(t, status.Failed())
 		}},
-		{name: "job error fallback", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, jobError: "ancientgreek: import refused: " + ancientgreek.CodeOversize}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
+		{name: "discarded job without a failure row has no state", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
 			t.Helper()
-			require.NotNil(t, status)
-			assert.Equal(t, domain.BookPreparationStageSource, status.Stage)
-			assert.Equal(t, domain.BookPreparationCodeSourceOversize, status.Code)
-		}},
-		{name: "job error adapter refusal", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, jobError: "ancientgreek: import refused: malformed"}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
-			t.Helper()
-			require.NotNil(t, status)
-			assert.Equal(t, domain.BookPreparationStageSource, status.Stage)
-			assert.Equal(t, domain.BookPreparationCodeSourceAdapterRefused, status.Code)
-		}},
-		{name: "job error classical failure", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, jobError: "failed: " + classical.PreparationFailedCode}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
-			t.Helper()
-			require.NotNil(t, status)
-			assert.Equal(t, domain.BookPreparationStageImport, status.Stage)
-			assert.Equal(t, domain.BookPreparationCodeClassicalFailed, status.Code)
-		}},
-		{name: "job error without a recognised code", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, jobError: "the worker disappeared"}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
-			t.Helper()
-			require.NotNil(t, status)
-			assert.Equal(t, domain.BookPreparationStageImport, status.Stage)
-			assert.Equal(t, domain.BookPreparationCodeClassicalFailed, status.Code)
+			assert.Nil(t, status)
 		}},
 		{name: "withdrawn", unit: &domain.BookReadingUnit{ReadingUnitKey: "greek-1", Revision: 2, Withdrawn: true}, row: classicalPreparationRow{}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
 			t.Helper()
@@ -143,6 +125,47 @@ func TestValidatePreparationFailure(t *testing.T) {
 			assert.Error(t, validatePreparationFailure(record))
 		})
 	}
+}
+
+func TestPutClassicalPreparationFailureRejectsOutOfRangeRevision(t *testing.T) {
+	t.Parallel()
+	store := &PostgresStore{}
+	err := store.PutClassicalPreparationFailure(context.Background(), domain.ClassicalPreparationFailureRecord{
+		OwnerID: "owner", BookID: "book", ReadingUnitKey: "greek-1",
+		DefinitionRevision: math.MaxInt32 + 1,
+		Stage:              domain.BookPreparationStageSource,
+		Code:               domain.BookPreparationCodeSourcePinMismatch,
+	})
+	require.Error(t, err, "a revision the database integer cannot hold is refused before the write")
+}
+
+func TestValidateEPUBAcquisitionFailureRequiresCatalogIdentity(t *testing.T) {
+	t.Parallel()
+	valid := domain.EPUBAcquisitionFailureRecord{
+		OwnerID: "owner", BookID: "book", ConnectionID: "connection", EntryIdentifier: "entry",
+		Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
+	}
+	require.NoError(t, validateEPUBAcquisitionFailure(valid))
+	for name, mutate := range map[string]func(*domain.EPUBAcquisitionFailureRecord){
+		"entry without connection": func(r *domain.EPUBAcquisitionFailureRecord) { r.ConnectionID = "" },
+		"connection without entry": func(r *domain.EPUBAcquisitionFailureRecord) { r.EntryIdentifier = "" },
+		"non-entry without identity": func(r *domain.EPUBAcquisitionFailureRecord) {
+			r.ConnectionID, r.EntryIdentifier = "", ""
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			record := valid
+			mutate(&record)
+			assert.Error(t, validateEPUBAcquisitionFailure(record))
+		})
+	}
+	entry := valid
+	entry.Stage = domain.BookPreparationStageEntry
+	entry.ConnectionID, entry.EntryIdentifier = "", ""
+	t.Run("an unresolved entry-stage failure has no catalog identity", func(t *testing.T) {
+		assert.NoError(t, validateEPUBAcquisitionFailure(entry))
+	})
 }
 
 func TestValidatePreparedDefinition(t *testing.T) {

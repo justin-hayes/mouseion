@@ -58,6 +58,10 @@ func validateEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) 
 		return errors.New("persistence: EPUB acquisition failure code is required")
 	case (record.ConnectionID == "") != (record.EntryIdentifier == ""):
 		return errors.New("persistence: EPUB acquisition failure connection and entry are recorded together")
+	case record.Stage != domain.BookPreparationStageEntry && record.ConnectionID == "":
+		// Only an entry-stage failure may omit the catalog identity; it is
+		// recorded when acquisition could not resolve an entry at all.
+		return errors.New("persistence: EPUB acquisition failure outside the entry stage requires a catalog entry")
 	}
 	return nil
 }

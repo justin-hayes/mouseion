@@ -112,7 +112,9 @@ disappeared mid-run).
 - It carries `stage`, `code` and `failed_at`, plus each kind's provenance
   columns (Reading unit key and definition revision; connection and entry
   identifier). These are nullable, and a constraint requires exactly one kind's
-  set.
+  set. An EPUB row may omit both catalog identities only at the `entry` stage,
+  when acquisition could not resolve an entry at all; every other failure names
+  its entry.
 - The stage check allows the six stages before analysis.
 - The stage is read from the row. The two existing fallbacks that infer a stage
   from an unrecognised code disagree (`fetch` for EPUB, `import` for Classical)

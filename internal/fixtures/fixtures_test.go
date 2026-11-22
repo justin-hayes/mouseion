@@ -1117,3 +1117,28 @@ func TestClassicalFixtureListsNoPreparationJobs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, jobs)
 }
+
+func TestFixtureEPUBAcquisitionFailureRequiresCatalogIdentityOutsideEntryStage(t *testing.T) {
+	cases := []struct {
+		name    string
+		stage   domain.BookPreparationStage
+		wantErr bool
+	}{
+		{name: "a fetch failure names its catalog entry", stage: domain.BookPreparationStageFetch, wantErr: true},
+		{name: "an unresolved entry-stage failure has no catalog identity", stage: domain.BookPreparationStageEntry},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			store := NewStore()
+			err := store.RecordEPUBAcquisitionFailure(context.Background(), domain.EPUBAcquisitionFailureRecord{
+				OwnerID: OwnerID, BookID: BookID,
+				Stage: tc.stage, Code: domain.BookPreparationCodeSourceDownloadFailed,
+			})
+			if tc.wantErr {
+				require.ErrorContains(t, err, "requires a catalog entry")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
