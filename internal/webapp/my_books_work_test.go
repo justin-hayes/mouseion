@@ -54,7 +54,7 @@ func TestMyBooksGroupedWorkRowRendersAccessibleCellsAndOneLegend(t *testing.T) {
 		Rows: rows,
 	}
 	var output bytes.Buffer
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{first, second, third, fourth}, "", "", "", false, browse).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{first, second, third, fourth}, "", "", "", browse).Render(context.Background(), &output))
 	html := output.String()
 
 	assert.Equal(t, 1, strings.Count(html, `class="library-work-legend"`), "one legend per page")
@@ -99,7 +99,7 @@ func TestMyBooksSingleBookWorkRowKeepsItsPositionAndOrdinaryActions(t *testing.T
 		AllCount: 1, ScopeTotal: 1, Total: 1, BookTotal: 1, WorkTotal: 1, RowCount: 1, HasWorks: true,
 	}
 	var output bytes.Buffer
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, browse).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", browse).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{"Histories, Book 1", "Book 1 of 9", "Ἱστορίαι", "Classical catalog", "More actions"} {
 		assert.Contains(t, html, want, "single-Book Work row missing %q", want)
@@ -277,7 +277,7 @@ func TestMyBooksGroupedWorkCellsLinkOnlyToReadingEntriesTheyCanOpen(t *testing.T
 			WorkTotal: 1, RowCount: 1, HasWorks: true, Rows: []domain.MyBooksBrowseRow{row},
 		}
 		var output bytes.Buffer
-		require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", currentReadingBookID, false, browse).Render(context.Background(), &output))
+		require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", currentReadingBookID, browse).Render(context.Background(), &output))
 		return output.String()
 	}
 
@@ -323,7 +323,7 @@ func TestMyBooksGroupedWorkRowOffersBulkWorkActions(t *testing.T) {
 	}
 	render := func(browse MyBooksBrowseState) string {
 		var output bytes.Buffer
-		require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{current, toRead, inbox}, "", "", "", false, browse).Render(context.Background(), &output))
+		require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{current, toRead, inbox}, "", "", "", browse).Render(context.Background(), &output))
 		return output.String()
 	}
 
@@ -351,10 +351,13 @@ func TestMyBooksWorkToReadActionNamesTheRemainingBooks(t *testing.T) {
 	for _, tt := range []struct {
 		name  string
 		books []domain.MyBook
+		owned int
 		label string
 		show  bool
 	}{
 		{name: "all read", books: []domain.MyBook{readOne, readOne}, label: "Move the work to To Read", show: true},
+		{name: "all owned books are read", books: []domain.MyBook{readOne, readOne}, owned: 2, label: "Move the work to To Read", show: true},
+		{name: "books outside the tab move the remaining ones", books: []domain.MyBook{readOne, readOne}, owned: 4, label: "Move the remaining books to To Read", show: true},
 		{name: "read and reread are both movable", books: []domain.MyBook{readOne, read}, label: "Move the work to To Read", show: true},
 		{name: "mixed states move only the rest", books: []domain.MyBook{current, toRead, readOne, readOne}, label: "Move the other 2 books to To Read", show: true},
 		{name: "history is movable", books: []domain.MyBook{current, toRead, readOne, read}, label: "Move the other 2 books to To Read", show: true},
@@ -362,11 +365,18 @@ func TestMyBooksWorkToReadActionNamesTheRemainingBooks(t *testing.T) {
 		{name: "nothing to move", books: []domain.MyBook{current, toRead}, show: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			label, show := myBooksWorkToReadAction(domain.MyBooksBrowseRow{Books: tt.books})
+			label, show := myBooksWorkToReadAction(domain.MyBooksBrowseRow{Books: tt.books, OwnedBooks: tt.owned})
 			assert.Equal(t, tt.show, show)
 			assert.Equal(t, tt.label, label)
 		})
 	}
+}
+
+func TestMyBookSearchURLLandsOnTheTabThatListsTheBook(t *testing.T) {
+	toRead := domain.MyBook{Book: domain.Book{Title: "Erstes Buch"}, Disposition: domain.BookDispositionToRead}
+	read := domain.MyBook{Book: domain.Book{Title: "Erstes Buch"}, Disposition: domain.BookDispositionInbox, CompletionCount: 1}
+	assert.Equal(t, "/library?disposition=to_read&q=Erstes+Buch", myBookSearchURL(toRead))
+	assert.Equal(t, "/library?history=read&q=Erstes+Buch", myBookSearchURL(read))
 }
 
 func TestMyBooksCurrentReadingNameUsesTheWorkRowsWhenPresent(t *testing.T) {
@@ -445,7 +455,7 @@ func TestMyBooksGroupedWorkRowCollapsesPreparingAndKeepsProblemNotes(t *testing.
 		Rows: []domain.MyBooksBrowseRow{row},
 	}
 	var output bytes.Buffer
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, browse).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", browse).Render(context.Background(), &output))
 	html := output.String()
 
 	assert.Contains(t, html, "Preparing Books 4, 21–24…")

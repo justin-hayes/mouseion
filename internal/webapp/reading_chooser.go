@@ -131,7 +131,7 @@ func (h *Handler) renderReadingBrowseOriginExpired(w http.ResponseWriter, r *htt
 			fail(w, err)
 			return
 		case detail.Book.LanguageTag == language:
-			myBooksURL = "/library?" + url.Values{"q": {detail.Book.Title}}.Encode()
+			myBooksURL = myBookSearchURL(detail)
 		}
 	}
 	renderStatus(w, r, http.StatusConflict, ReadingBrowseOriginExpiredPage(owner, h.csrf(w, r), hasCurrent, myBooksURL))

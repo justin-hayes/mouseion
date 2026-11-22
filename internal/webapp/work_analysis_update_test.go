@@ -285,6 +285,9 @@ func TestCurrentWorkBookForMyBooksReturnsNoBookWhenItCannotNameOne(t *testing.T)
 func TestAnalysisUpdateReturnURLKeepsOnlyLearnerSurfaces(t *testing.T) {
 	assert.Equal(t, "/library?disposition=to_read", analysisUpdateReturnURL("/library?disposition=to_read"))
 	assert.Equal(t, "/reading/switch", analysisUpdateReturnURL("/reading/switch"))
+	for _, retired := range []string{"/library?disposition=inbox", "/library?needs-language", "/library?disposition=all"} {
+		assert.Equal(t, "/library", analysisUpdateReturnURL(retired), retired)
+	}
 	assert.Equal(t, "/library", analysisUpdateReturnURL("https://example.com/elsewhere"))
 	assert.Equal(t, "/library", analysisUpdateReturnURL("/jobs"))
 }

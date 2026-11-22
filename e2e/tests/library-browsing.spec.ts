@@ -404,10 +404,10 @@ test.describe('My Books collection browsing', () => {
 
   test('retires the needs-language and Inbox browse states', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library?needs-language');
-    await expect(page.locator('body')).toContainText('404');
-    await page.goto('/library?disposition=inbox');
-    await expect(page.locator('body')).toContainText('404');
+    for (const retired of ['/library?needs-language', '/library?disposition=inbox']) {
+      const response = await page.goto(retired);
+      expect(response?.status(), retired).toBe(404);
+    }
 
     await page.goto('/library');
     const tabs = page.getByRole('navigation', { name: 'My Books tabs' }).getByRole('link');

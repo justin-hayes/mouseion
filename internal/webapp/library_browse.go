@@ -296,6 +296,17 @@ func myBooksReturnURL(raw string) string {
 	return myBooksScopedURL(request.query, request.page, request.disposition, request.history)
 }
 
+// myBookSearchURL searches the tab that lists the Book for its title, so a
+// Read Book is found on the Read tab and every other Book on To Read.
+func myBookSearchURL(book domain.MyBook) string {
+	history := book.WorkflowBucket() == domain.MyBookBucketRead
+	disposition := domain.BookDispositionToRead
+	if history {
+		disposition = ""
+	}
+	return myBooksScopedURL(book.Book.Title, 1, disposition, history)
+}
+
 func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
 	return myBooksScopedURL(browse.Query, page, browse.Disposition, browse.History)
 }
@@ -581,6 +592,11 @@ func myBooksWorkToReadAction(row domain.MyBooksBrowseRow) (string, bool) {
 	}
 	if alreadyToRead {
 		return "Move the other " + countNoun(movable, "book", "books") + " to To Read", true
+	}
+	if row.OwnedBooks > len(row.Books) {
+		// The tab shows only some of the Work's Books; the rest are in To Read,
+		// the current Reading or another tab, and the move leaves them be.
+		return "Move the remaining books to To Read", true
 	}
 	return "Move the work to To Read", true
 }

@@ -336,7 +336,12 @@ func analysisUpdateReturnURL(raw string) string {
 	if err != nil {
 		return "/library"
 	}
-	if parsed.Path == "/library" || strings.HasPrefix(parsed.Path, "/library/") ||
+	if parsed.Path == "/library" {
+		// A stale My Books location falls back to My Books like every other
+		// My Books return.
+		return myBooksReturnURL(path)
+	}
+	if strings.HasPrefix(parsed.Path, "/library/") ||
 		parsed.Path == "/reading" || parsed.Path == "/reading/switch" {
 		return path
 	}
