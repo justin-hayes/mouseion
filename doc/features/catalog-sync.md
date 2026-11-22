@@ -166,8 +166,8 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035. The worker then
   submits the existing analysis job unchanged.
-- No store operation leaves an unchosen member in My Books (ADR 0117). Every
-  Book creation and every membership activation yields a To Read Book (or a
+- No Book creation or membership activation leaves an unchosen member in My
+  Books (ADR 0117). Each yields a To Read Book (or a
   Read Book, for "I've read this"). EPUB ingest that matches a Book by its
   source identifier and finds it removed from My Books restores it as To Read,
   exactly as Add does; its analysis, history and Known vocabulary stay. A Book

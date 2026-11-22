@@ -70,5 +70,5 @@ func requireChosen(t *testing.T, h Harness, owner, bookID, operation string) {
 	detail, err := h.BookState().GetBookDetail(owner, bookID)
 	require.NoError(t, err, "%s leaves the Book in My Books", operation)
 	chosen := detail.Disposition == domain.BookDispositionToRead || detail.CompletionCount > 0
-	assert.True(t, chosen, "%s leaves the Book To Read or Read, got %s with %d completions", operation, detail.Disposition, detail.CompletionCount)
+	require.True(t, chosen, "%s leaves the Book To Read or Read, got %s with %d completions", operation, detail.Disposition, detail.CompletionCount)
 }
