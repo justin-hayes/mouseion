@@ -18,10 +18,13 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	var history bytes.Buffer
 	jobs := []domain.AnalysisJob{
 		{ID: 1, DisplayNumber: 1, SourceMaterialID: "book-1", Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, Progress: 100},
-		{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, Progress: 42, Error: "Analyzer stopped."},
+		{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, Progress: 42, FailureCode: domain.BookPreparationCodeAnalysisFailed},
 		{ID: 3, DisplayNumber: 3, Lifecycle: domain.JobLifecycleQueued, Stage: domain.BookPreparationStageAnalysis},
 		{ID: 4, DisplayNumber: 4, Lifecycle: domain.JobLifecycleRunning, Stage: domain.BookPreparationStageAnalysis},
 		{ID: 5, DisplayNumber: 5, Lifecycle: domain.JobLifecycleCancelled, Stage: domain.BookPreparationStageAnalysis},
+		{ID: 6, DisplayNumber: 6, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, FailureCode: domain.BookPreparationCodeDependencyParsingUnavailable},
+		{ID: 7, DisplayNumber: 7, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, FailureCode: domain.BookPreparationCodeAnalysisInterrupted},
+		{ID: 8, DisplayNumber: 8, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis},
 	}
 	syncJobs := []cataloguesync.Status{{ID: 3, Lifecycle: domain.JobLifecycleCancelled, ConnectionName: "Archive"}}
 	bookContexts := map[string]jobBookContext{"book-1": {Title: "Der lange Weg nach Hause", ReadingURL: "/reading#book-1"}}
@@ -36,6 +39,9 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.Contains(t, html, "Running")
 	assert.NotContains(t, html, "Processing")
 	assert.Contains(t, html, "Cancelled")
+	assert.Contains(t, html, "Analysis failed because dependency parsing is unavailable.")
+	assert.Contains(t, html, "The analysis was interrupted.")
+	assert.Contains(t, html, "Analysis failed.")
 	assert.Contains(t, html, `aria-label="Analysis job 1 progress"`)
 	assert.Contains(t, html, "Der lange Weg nach Hause")
 	var analysisHistory bytes.Buffer
@@ -46,7 +52,7 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.NotContains(t, analysisHistory.String(), "0001-01-01")
 
 	var detail bytes.Buffer
-	status := analysis.Status{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, State: "failed", SourceMaterialID: "book-1", Error: "Analyzer stopped."}
+	status := analysis.Status{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, State: "failed", SourceMaterialID: "book-1", FailureCode: domain.BookPreparationCodeDependencyParsingUnavailable}
 	require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", status, "", "Der lange Weg nach Hause").Render(context.Background(), &detail))
 	detailHTML := detail.String()
 	assert.Contains(t, detailHTML, `<body class="jobs-shell">`)
@@ -55,8 +61,19 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.Contains(t, detailHTML, "Failed")
 	assert.Contains(t, detailHTML, "Der lange Weg nach Hause")
 	assert.Contains(t, detailHTML, "Unavailable")
+	assert.Contains(t, detailHTML, "Analysis failed because dependency parsing is unavailable. Retry the analysis when you are ready.")
 	assert.NotContains(t, detailHTML, "0001-01-01")
 	assert.Contains(t, detailHTML, `role="status"`)
+
+	var legacyDetail bytes.Buffer
+	legacyStatus := analysis.Status{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, State: "failed", SourceMaterialID: "book-1"}
+	require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", legacyStatus, "", "Der lange Weg nach Hause").Render(context.Background(), &legacyDetail))
+	assert.Contains(t, legacyDetail.String(), "Analysis failed. Retry the analysis when you are ready.")
+
+	var interruptedDetail bytes.Buffer
+	interruptedStatus := analysis.Status{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, State: "failed", SourceMaterialID: "book-1", FailureCode: domain.BookPreparationCodeAnalysisInterrupted}
+	require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", interruptedStatus, "", "Der lange Weg nach Hause").Render(context.Background(), &interruptedDetail))
+	assert.Contains(t, interruptedDetail.String(), "The analysis was interrupted. Retry the analysis when you are ready.")
 }
 
 func TestJobsViewsShowClassicalPreparationBookAttemptAndState(t *testing.T) {

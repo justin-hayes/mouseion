@@ -794,14 +794,14 @@ SELECT j.river_job_id,
           WHEN r.state = 'completed' AND attempt.state IS NOT NULL THEN 'finalize'
           ELSE 'analysis'
         END)::text AS analysis_stage,
+       (COALESCE(r.failure_code, attempt.failure_code, ''))::text AS failure_code,
        j.progress,
-       j.error,
        j.created_at,
        j.updated_at
 FROM analysis_jobs j
 LEFT JOIN analysis_runs r ON r.owner_id = j.owner_id AND r.id = j.analysis_run_id
 LEFT JOIN LATERAL (
-    SELECT state
+    SELECT state, failure_code
     FROM analysis_run_attempts
     WHERE run_id = r.id
     ORDER BY attempt_number DESC
@@ -822,8 +822,8 @@ type ListAnalysisJobsRow struct {
 	AnalysisRunID     string
 	AnalysisState     string
 	AnalysisStage     string
+	FailureCode       string
 	Progress          int
-	Error             string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -847,8 +847,8 @@ func (q *Queries) ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListA
 			&i.AnalysisRunID,
 			&i.AnalysisState,
 			&i.AnalysisStage,
+			&i.FailureCode,
 			&i.Progress,
-			&i.Error,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

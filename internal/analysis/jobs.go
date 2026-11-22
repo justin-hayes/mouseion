@@ -75,6 +75,7 @@ type Status struct {
 	State            rivertype.JobState
 	Progress         int
 	Error            string
+	FailureCode      domain.BookPreparationCode
 	CorpusID         string
 	Attempt          int
 	CreatedAt        time.Time
@@ -152,9 +153,9 @@ func (s *Service) ensureAttemptTx(ctx context.Context, tx pgx.Tx, args JobArgs, 
 	}
 	if state != "queued" && state != "completed" {
 		if state == "running" && failOrphaned {
-			_, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$2,updated_at=now(),completed_at=now() WHERE id=$1 AND state='running'`, runID, safeAnalysisError(errors.New("analysis worker is no longer active")))
+			_, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',failure_code=$2,updated_at=now(),completed_at=now() WHERE id=$1 AND state='running'`, runID, domain.BookPreparationCodeAnalysisInterrupted)
 			if err == nil {
-				_, err = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',error=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, runID, safeAnalysisError(errors.New("analysis worker is no longer active")))
+				_, err = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',failure_code=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, runID, domain.BookPreparationCodeAnalysisInterrupted)
 			}
 			return 0, err
 		}
@@ -218,7 +219,7 @@ func (s *Service) retryCompletedPublicationTx(ctx context.Context, tx pgx.Tx, ar
 }
 
 func completePublicationAttempt(ctx context.Context, tx pgx.Tx, runID string, riverJobID int64) error {
-	_, err := tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='completed',error='',finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, runID, riverJobID)
+	_, err := tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='completed',failure_code=NULL,finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, runID, riverJobID)
 	return err
 }
 
@@ -418,7 +419,7 @@ func (s *Service) resumeExistingRun(ctx context.Context, tx pgx.Tx, args JobArgs
 // requeueExistingRun resets a failed or cancelled run to queued, enqueues a
 // fresh attempt, and records the retry in operational history.
 func (s *Service) requeueExistingRun(ctx context.Context, tx pgx.Tx, owner string, args JobArgs, runID, state string, id, display int64) (Handle, bool, error) {
-	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',failure_code=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID); err != nil {
 		return Handle{}, false, err
 	}
 	args.RunID = runID
@@ -461,8 +462,8 @@ func (s *Service) createAnalysisRun(ctx context.Context, tx pgx.Tx, owner string
 func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, error) {
 	var status Status
 	var runID string
-	err := s.pool.QueryRow(ctx, `SELECT river_job_id,display_number,source_material_id::text,progress,error,COALESCE(corpus_id::text,''),created_at,COALESCE(analysis_run_id::text,'') FROM analysis_jobs WHERE owner_id=$1 AND river_job_id=$2`, owner, id).
-		Scan(&status.ID, &status.DisplayNumber, &status.SourceMaterialID, &status.Progress, &status.Error, &status.CorpusID, &status.CreatedAt, &runID)
+	err := s.pool.QueryRow(ctx, `SELECT river_job_id,display_number,source_material_id::text,progress,COALESCE(corpus_id::text,''),created_at,COALESCE(analysis_run_id::text,'') FROM analysis_jobs WHERE owner_id=$1 AND river_job_id=$2`, owner, id).
+		Scan(&status.ID, &status.DisplayNumber, &status.SourceMaterialID, &status.Progress, &status.CorpusID, &status.CreatedAt, &runID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Status{}, ErrNotFound
 	}
@@ -476,21 +477,23 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 }
 
 // analysisRunState is the durable state of one analysis run, read by status,
-// cancellation and retry through loadRunState. It carries the run's state, last
-// error, corpus and attempt count, and the latest run attempt when there is one.
+// cancellation and retry through loadRunState. It carries the run's state,
+// failure code, corpus and attempt count, and the latest run attempt when there
+// is one.
 type analysisRunState struct {
 	State        string
-	LastError    string
+	FailureCode  string
 	CorpusID     string
 	AttemptCount int
 	Attempt      *analysisRunAttempt
 }
 
 type analysisRunAttempt struct {
-	Number int
-	JobID  int64
-	State  string
-	Error  string
+	Number      int
+	JobID       int64
+	State       string
+	Error       string
+	FailureCode string
 }
 
 // loadRunState reads the durable state of one analysis run through q. The
@@ -506,13 +509,13 @@ func (s *Service) loadRunState(ctx context.Context, q analysisQueryer, owner, ru
 		}
 		return run, nil
 	}
-	if err := q.QueryRow(ctx, `SELECT state,last_error,COALESCE(corpus_id::text,''),attempt_count FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).
-		Scan(&run.State, &run.LastError, &run.CorpusID, &run.AttemptCount); err != nil {
+	if err := q.QueryRow(ctx, `SELECT state,COALESCE(failure_code,''),COALESCE(corpus_id::text,''),attempt_count FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).
+		Scan(&run.State, &run.FailureCode, &run.CorpusID, &run.AttemptCount); err != nil {
 		return analysisRunState{}, fmt.Errorf("get snapshot analysis run: %w", err)
 	}
 	attempt := analysisRunAttempt{}
-	err := q.QueryRow(ctx, `SELECT attempt_number,river_job_id,state,error FROM analysis_run_attempts WHERE run_id=$1 ORDER BY attempt_number DESC LIMIT 1`, runID).
-		Scan(&attempt.Number, &attempt.JobID, &attempt.State, &attempt.Error)
+	err := q.QueryRow(ctx, `SELECT attempt_number,river_job_id,state,COALESCE(failure_code,'') FROM analysis_run_attempts WHERE run_id=$1 ORDER BY attempt_number DESC LIMIT 1`, runID).
+		Scan(&attempt.Number, &attempt.JobID, &attempt.State, &attempt.FailureCode)
 	if err == nil {
 		run.Attempt = &attempt
 		return run, nil
@@ -532,19 +535,20 @@ func (s *Service) snapshotJobStatus(ctx context.Context, owner string, status St
 	}
 	status.RunID = runID
 	status.Lifecycle = domain.JobLifecycleForRiverState(run.State)
-	status.Stage = domain.BookPreparationStageAnalysis
 	status.State = logicalStateRiverState(run.State)
 	status.CorpusID = run.CorpusID
 	status.AttemptCount = run.AttemptCount
 	status.Attempt = run.AttemptCount
-	if run.LastError != "" {
-		status.Error = run.LastError
-	}
+	status.FailureCode = domain.BookPreparationCode(run.FailureCode)
+	status.Stage = analysisStageForRunState(run.State)
 	if run.Attempt == nil {
 		return status, nil
 	}
 	attempt := s.resolveFinalizationAttempt(ctx, run.State, *run.Attempt)
 	status.Attempt = attempt.Number
+	if attempt.State == "failed" && attempt.FailureCode != "" {
+		status.FailureCode = domain.BookPreparationCode(attempt.FailureCode)
+	}
 	status.FinalizedAt = nil
 	if run.State == "completed" {
 		applyFinalizationStatus(&status, attempt)
@@ -600,6 +604,9 @@ func applyFinalizationStatus(status *Status, attempt analysisRunAttempt) {
 	case "failed":
 		status.Lifecycle = domain.JobLifecycleFailed
 		status.State = rivertype.JobStateDiscarded
+		if attempt.FailureCode != "" {
+			status.FailureCode = domain.BookPreparationCode(attempt.FailureCode)
+		}
 		if attempt.Error != "" {
 			status.Error = attempt.Error
 		}
@@ -703,6 +710,16 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 	return result, nil
 }
 
+// analysisStageForRunState derives the Book preparation stage a failure
+// belongs to. The stage is never stored: an active or failed run is at analysis,
+// and a completed run is at finalize.
+func analysisStageForRunState(state string) domain.BookPreparationStage {
+	if state == "completed" {
+		return domain.BookPreparationStageFinalize
+	}
+	return domain.BookPreparationStageAnalysis
+}
+
 func logicalStateRiverState(state string) rivertype.JobState {
 	switch state {
 	case "queued":
@@ -799,7 +816,7 @@ func (s *Service) cancelCompletedFinalization(ctx context.Context, tx pgx.Tx, ow
 	if txErr != nil {
 		return Status{}, fmt.Errorf("find live finalization attempt: %w", txErr)
 	}
-	if _, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',error='',finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, status.RunID, riverJobID); txErr != nil {
+	if _, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',failure_code=NULL,finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, status.RunID, riverJobID); txErr != nil {
 		return Status{}, txErr
 	}
 	if txErr := tx.Commit(ctx); txErr != nil {
@@ -816,7 +833,7 @@ func (s *Service) cancelCompletedFinalization(ctx context.Context, tx pgx.Tx, ow
 // cancelActiveRun cancels a queued or running run and its live attempts, then
 // clears the River work best-effort after the durable cancellation commits.
 func (s *Service) cancelActiveRun(ctx context.Context, tx pgx.Tx, owner string, id int64, status Status) (Status, error) {
-	updated, txErr := tx.Exec(ctx, `UPDATE analysis_runs SET state='cancelled',last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, owner, status.RunID)
+	updated, txErr := tx.Exec(ctx, `UPDATE analysis_runs SET state='cancelled',failure_code=NULL,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, owner, status.RunID)
 	if txErr != nil {
 		return Status{}, txErr
 	}
@@ -826,7 +843,7 @@ func (s *Service) cancelActiveRun(ctx context.Context, tx pgx.Tx, owner string, 
 		}
 		return s.Get(ctx, owner, id)
 	}
-	if _, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, status.RunID); txErr != nil {
+	if _, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',failure_code=NULL,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, status.RunID); txErr != nil {
 		return Status{}, txErr
 	}
 	if txErr := tx.Commit(ctx); txErr != nil {
@@ -841,6 +858,8 @@ func (s *Service) cancelActiveRun(ctx context.Context, tx pgx.Tx, owner string, 
 	status.Lifecycle = domain.JobLifecycleCancelled
 	status.Stage = domain.BookPreparationStageAnalysis
 	status.Error = ""
+	status.FailureCode = domain.BookPreparationCodeNone
+	status.Stage = domain.BookPreparationStageAnalysis
 	return status, nil
 }
 
@@ -915,7 +934,11 @@ func (s *Service) retryPendingRun(ctx context.Context, tx pgx.Tx, owner string, 
 		return Handle{}, false, jobErr
 	}
 	if state == "running" {
-		_, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID, safeAnalysisError(errors.New("analysis worker is no longer active")))
+		_, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',failure_code=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID, domain.BookPreparationCodeAnalysisInterrupted)
+		if err != nil {
+			return Handle{}, false, err
+		}
+		_, err = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',failure_code=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, status.RunID, domain.BookPreparationCodeAnalysisInterrupted)
 		if err != nil {
 			return Handle{}, false, err
 		}
@@ -958,7 +981,7 @@ func (s *Service) retryCompletedRun(ctx context.Context, tx pgx.Tx, owner string
 // requeueRun resets a failed or cancelled run to queued, enqueues a fresh
 // attempt, and records the retry in operational history.
 func (s *Service) requeueRun(ctx context.Context, tx pgx.Tx, owner string, id int64, status Status, state string) (Handle, error) {
-	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',failure_code=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID); err != nil {
 		return Handle{}, err
 	}
 	args, err := snapshotArgsTx(ctx, tx, owner, status.RunID)
@@ -1049,11 +1072,10 @@ var errOrphanedRunUpdateDeferred = errors.New("running run update deferred to co
 // failOrphanedRunningRun marks a running run without viable River work as
 // failed and fails its open attempts.
 func failOrphanedRunningRun(ctx context.Context, tx pgx.Tx, owner, runID string) error {
-	message := safeAnalysisError(errors.New("analysis worker is no longer active"))
-	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID, message); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',failure_code=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID, domain.BookPreparationCodeAnalysisInterrupted); err != nil {
 		return errOrphanedRunUpdateDeferred
 	}
-	_, err := tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',error=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, runID, message)
+	_, err := tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',failure_code=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, runID, domain.BookPreparationCodeAnalysisInterrupted)
 	return err
 }
 
@@ -1341,19 +1363,17 @@ func (w *Worker) beginSnapshotRun(ctx context.Context, a JobArgs, riverJobID int
 // joined onto the original work error.
 func (w *Worker) recordSnapshotFailure(ctx context.Context, workErr error, a JobArgs, riverJobID int64) error {
 	failureCtx := context.WithoutCancel(ctx)
-	message := safeAnalysisError(workErr)
+	failureCode := analysisFailureCode(workErr)
 	recordFailure := func(operation string, recordErr error) {
 		if recordErr != nil {
 			workErr = errors.Join(workErr, fmt.Errorf("record analysis failure in %s: %w", operation, recordErr))
 		}
 	}
-	_, recordErr := w.Pool.Exec(failureCtx, `UPDATE analysis_runs SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,last_error=CASE WHEN state='cancelled' THEN last_error ELSE $3 END,updated_at=now(),completed_at=CASE WHEN state='cancelled' THEN completed_at ELSE now() END WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, a.OwnerID, a.RunID, message)
+	_, recordErr := w.Pool.Exec(failureCtx, `UPDATE analysis_runs SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,failure_code=CASE WHEN state='cancelled' THEN failure_code ELSE $3 END,updated_at=now(),completed_at=CASE WHEN state='cancelled' THEN completed_at ELSE now() END WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, a.OwnerID, a.RunID, failureCode)
 	recordFailure("analysis run", recordErr)
-	_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_run_attempts SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,error=CASE WHEN state='cancelled' THEN error ELSE $3 END,finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running','completed')`, a.RunID, riverJobID, message)
+	_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_run_attempts SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,failure_code=CASE WHEN state='cancelled' THEN failure_code ELSE $3 END,finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running','completed')`, a.RunID, riverJobID, failureCode)
 	recordFailure("analysis attempt", recordErr)
-	_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_jobs SET error=$3,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, message)
-	recordFailure("analysis job", recordErr)
-	details, marshalErr := json.Marshal(map[string]any{"run_id": a.RunID, "attempt": a.Attempt, "error": message})
+	details, marshalErr := json.Marshal(map[string]any{"run_id": a.RunID, "attempt": a.Attempt, "failure_code": failureCode})
 	if marshalErr != nil {
 		recordFailure("analysis failure history encoding", marshalErr)
 		return workErr
@@ -1599,10 +1619,10 @@ func completeSnapshotRun(ctx context.Context, tx pgx.Tx, a JobArgs, plan snapsho
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'analysis','complete',$3,now())`, a.OwnerID, corpusID, details); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$3::uuid,last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state<>'cancelled'`, a.OwnerID, a.RunID, corpusID); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$3::uuid,failure_code=NULL,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state<>'cancelled'`, a.OwnerID, a.RunID, corpusID); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$3::uuid,progress=100,error='',updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, corpusID); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$3::uuid,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, corpusID); err != nil {
 		return err
 	}
 	// The run lock is acquired before the owner/book lock for every snapshot
@@ -1863,7 +1883,7 @@ func (w *Worker) publishCompletedRun(ctx context.Context, a JobArgs, riverJobID 
 	if err = completePublicationAttempt(ctx, tx, a.RunID, riverJobID); err != nil {
 		return fmt.Errorf("complete analysis publication attempt: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET error='',progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID); err != nil {
 		return fmt.Errorf("complete analysis publication status: %w", err)
 	}
 	return tx.Commit(ctx)
@@ -2121,11 +2141,14 @@ func (w *Worker) recordCandidateGenerationFailure(ctx context.Context, owner, co
 	return nil
 }
 
-func safeAnalysisError(err error) string {
+// analysisFailureCode classifies a worker error as one of the stable analysis
+// failure codes. A run found orphaned while running is classified separately as
+// analysis_interrupted by the paths that record it.
+func analysisFailureCode(err error) domain.BookPreparationCode {
 	if errors.Is(err, ErrDependencyParsingUnavailable) {
-		return err.Error()
+		return domain.BookPreparationCodeDependencyParsingUnavailable
 	}
-	return "Analysis could not be completed. Retry the analysis or review the current source."
+	return domain.BookPreparationCodeAnalysisFailed
 }
 
 func requireDependencyParsing(ctx context.Context, provider analyzer.CapabilityProvider, language string) error {

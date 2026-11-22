@@ -31,33 +31,36 @@ SELECT source_id,
        analysis_run_id,
        corpus_id,
        analysis_job_id,
-       book_author
-FROM source_material_evidence
+       book_author,
+       COALESCE(f.failure_code, '')::text AS analysis_failure_code
+FROM source_material_evidence e
+LEFT JOIN latest_analysis_failure f ON f.owner_id::text = e.source_owner_id AND f.source_material_id::text = e.source_id
 WHERE source_owner_id = $1
 ORDER BY source_created_at DESC, source_title, source_id
 `
 
 type ListSourceMaterialsRow struct {
-	SourceID          string
-	SourceOwnerID     string
-	SourceLanguage    string
-	SourceIdentifier  string
-	SourceTitle       string
-	SourceMediaType   string
-	BookID            string
-	BookTitle         string
-	ContentHash       string
-	ContentDigest     string
-	ContentRevisionID string
-	ContentSnapshotID string
-	DigestVersion     int
-	SourceCreatedAt   time.Time
-	AnalysisStatus    string
-	AnalysisState     string
-	AnalysisRunID     string
-	CorpusID          string
-	AnalysisJobID     int64
-	BookAuthor        string
+	SourceID            string
+	SourceOwnerID       string
+	SourceLanguage      string
+	SourceIdentifier    string
+	SourceTitle         string
+	SourceMediaType     string
+	BookID              string
+	BookTitle           string
+	ContentHash         string
+	ContentDigest       string
+	ContentRevisionID   string
+	ContentSnapshotID   string
+	DigestVersion       int
+	SourceCreatedAt     time.Time
+	AnalysisStatus      string
+	AnalysisState       string
+	AnalysisRunID       string
+	CorpusID            string
+	AnalysisJobID       int64
+	BookAuthor          string
+	AnalysisFailureCode string
 }
 
 // Source-material library queries. The current-analysis identity and the
@@ -94,6 +97,7 @@ func (q *Queries) ListSourceMaterials(ctx context.Context, owner string) ([]List
 			&i.CorpusID,
 			&i.AnalysisJobID,
 			&i.BookAuthor,
+			&i.AnalysisFailureCode,
 		); err != nil {
 			return nil, err
 		}

@@ -17,11 +17,12 @@ func TestAnalysisJobFromRowMapsTheSharedLifecycleAndStage(t *testing.T) {
 		AnalysisRunID: "run",
 		AnalysisState: "failed",
 		AnalysisStage: "finalize",
+		FailureCode:   "analysis_failed",
 		Progress:      42,
-		Error:         "finalization failed",
 	})
 	assert.Equal(t, domain.JobLifecycleFailed, job.Lifecycle)
 	assert.Equal(t, domain.BookPreparationStageFinalize, job.Stage)
+	assert.Equal(t, domain.BookPreparationCodeAnalysisFailed, job.FailureCode)
 	assert.Equal(t, int64(7), job.ID)
 	assert.Equal(t, 42, job.Progress)
 }

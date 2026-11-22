@@ -37,6 +37,11 @@ const (
 	BookPreparationCodeClassicalWithdrawn         BookPreparationCode = "classical_definition_withdrawn"
 	BookPreparationCodeClassicalCatalogLegacyRows BookPreparationCode = "classical_catalog_legacy_rows"
 	BookPreparationCodeClassicalFailed            BookPreparationCode = "classical_preparation_failed"
+	// Analysis failure codes stay on the analysis run and its attempt; they
+	// are not written to the Book preparation failure record.
+	BookPreparationCodeAnalysisFailed               BookPreparationCode = "analysis_failed"
+	BookPreparationCodeDependencyParsingUnavailable BookPreparationCode = "dependency_parsing_unavailable"
+	BookPreparationCodeAnalysisInterrupted          BookPreparationCode = "analysis_interrupted"
 )
 
 // IsEPUBAcquisitionStage reports whether an EPUB acquisition failure can record

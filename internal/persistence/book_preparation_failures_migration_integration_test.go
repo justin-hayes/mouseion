@@ -89,9 +89,10 @@ func TestBookPreparationFailuresBackfillCopiesBothKindsUnchanged(t *testing.T) {
 
 	// The test database is already at the latest migration, so force the
 	// version to the structural migration and let the backfill run as a real
-	// successor data migration.
+	// successor data migration. Stop at the backfill's version so later
+	// structural migrations do not run against schema that already has them.
 	forceApplicationMigration(t, f.databaseURL, 57)
-	migrateApplicationMigrationsToLatest(t, f.databaseURL)
+	moveApplicationMigrationsTo(t, f.databaseURL, 58)
 
 	type failureRow struct {
 		owner, book, unitKey, entry string
@@ -146,7 +147,7 @@ func TestBookPreparationFailuresBackfillCopiesBothKindsUnchanged(t *testing.T) {
 	})
 	t.Run("a repeated backfill changes nothing", func(t *testing.T) {
 		forceApplicationMigration(t, f.databaseURL, 57)
-		migrateApplicationMigrationsToLatest(t, f.databaseURL)
+		moveApplicationMigrationsTo(t, f.databaseURL, 58)
 		assert.Equal(t, first, readRows(t))
 	})
 }

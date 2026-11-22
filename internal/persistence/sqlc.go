@@ -156,10 +156,11 @@ func analysisJobFromRow(row sqlcgen.ListAnalysisJobsRow) domain.AnalysisJob {
 		ID: row.RiverJobID, DisplayNumber: row.DisplayNumber, OwnerID: row.JOwnerID,
 		SourceMaterialID: row.JSourceMaterialID, ContentHash: row.ContentHash,
 		CorpusID: row.CorpusID, AnalysisRunID: row.AnalysisRunID,
-		Lifecycle: domain.JobLifecycleForRiverState(row.AnalysisState),
-		Stage:     domain.BookPreparationStage(row.AnalysisStage),
-		Progress:  row.Progress, Error: row.Error,
-		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		Lifecycle:   domain.JobLifecycleForRiverState(row.AnalysisState),
+		Stage:       domain.BookPreparationStage(row.AnalysisStage),
+		FailureCode: domain.BookPreparationCode(row.FailureCode),
+		Progress:    row.Progress,
+		CreatedAt:   row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }
 
@@ -240,7 +241,7 @@ func opdsFromFields(id, ownerID, name, url, username string, encrypted []byte, c
 	}, nil
 }
 
-func myBookFromEvidence(e sqlcgen.MyBooksEvidence) domain.MyBook {
+func myBookFromEvidence(e sqlcgen.MyBooksEvidence, failureCode string) domain.MyBook {
 	item := domain.MyBook{
 		Book: domain.Book{
 			ID:                 e.BookID,
@@ -282,7 +283,7 @@ func myBookFromEvidence(e sqlcgen.MyBooksEvidence) domain.MyBook {
 			BookTitle:     e.BookTitle,
 			BookAuthor:    e.BookAuthor,
 			BookID:        e.BookID,
-			Signals:       analysisSignalsFromView(e.SourceID, e.SourceMediaType, e.SourceContentRevisionID, e.SourceContentSnapshotID, e.AnalysisStatus, e.AnalysisState, e.AnalysisRunID),
+			Signals:       analysisSignalsFromView(e.SourceID, e.SourceMediaType, e.SourceContentRevisionID, e.SourceContentSnapshotID, e.AnalysisStatus, e.AnalysisState, e.AnalysisRunID, failureCode),
 			AnalysisRunID: e.AnalysisRunID,
 			CorpusID:      e.CorpusID,
 			AnalysisJobID: e.AnalysisJobID,
@@ -294,11 +295,12 @@ func myBookFromEvidence(e sqlcgen.MyBooksEvidence) domain.MyBook {
 // analysisSignalsFromView maps source_material_evidence columns to the typed
 // analysis signals. It is the only place that reads the view's status and state
 // strings; the domain classifier never sees them.
-func analysisSignalsFromView(sourceID, mediaType, revisionID, snapshotID, status, state, runID string) domain.AnalysisSignals {
+func analysisSignalsFromView(sourceID, mediaType, revisionID, snapshotID, status, state, runID, failureCode string) domain.AnalysisSignals {
 	return domain.AnalysisSignals{
-		Content:   contentSignalFromView(sourceID, mediaType, revisionID, snapshotID),
-		Published: publishedSignalFromView(status, runID),
-		LatestRun: latestRunSignalFromView(status, state),
+		Content:     contentSignalFromView(sourceID, mediaType, revisionID, snapshotID),
+		Published:   publishedSignalFromView(status, runID),
+		LatestRun:   latestRunSignalFromView(status, state),
+		FailureCode: domain.BookPreparationCode(failureCode),
 	}
 }
 
@@ -372,7 +374,7 @@ func myBookFromBrowseRow(row sqlcgen.BrowseMyBooksEvidenceRow) domain.MyBook {
 		AnalysisStatus: row.AnalysisStatus, AnalysisState: row.AnalysisState, AnalysisRunID: row.AnalysisRunID,
 		CorpusID: row.CorpusID, AnalysisJobID: row.AnalysisJobID, BookAuthor: row.BookAuthor,
 		BookCoverState: row.BookCoverState, BookCoverWidth: row.BookCoverWidth, BookCoverHeight: row.BookCoverHeight,
-	})
+	}, row.AnalysisFailureCode)
 	if row.ReadingUnitKey != "" || row.WorkKey != "" {
 		book.ReadingUnit = &domain.BookReadingUnit{
 			OwnerID:          row.BookOwnerID,
@@ -434,7 +436,7 @@ func sourceMaterialSummaryFromRow(row sqlcgen.ListSourceMaterialsRow) domain.Sou
 		BookID:        row.BookID,
 		BookTitle:     row.BookTitle,
 		BookAuthor:    row.BookAuthor,
-		Signals:       analysisSignalsFromView(row.SourceID, row.SourceMediaType, row.ContentRevisionID, row.ContentSnapshotID, row.AnalysisStatus, row.AnalysisState, row.AnalysisRunID),
+		Signals:       analysisSignalsFromView(row.SourceID, row.SourceMediaType, row.ContentRevisionID, row.ContentSnapshotID, row.AnalysisStatus, row.AnalysisState, row.AnalysisRunID, row.AnalysisFailureCode),
 		AnalysisRunID: row.AnalysisRunID,
 		CorpusID:      row.CorpusID,
 		AnalysisJobID: row.AnalysisJobID,

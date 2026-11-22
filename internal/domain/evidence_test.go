@@ -68,6 +68,27 @@ func TestClassifyBookEvidenceDoesNotDeriveTheStageFromTheCode(t *testing.T) {
 	assert.Equal(t, AcquisitionNone, classification.Acquisition.State, "a row without a stage makes no acquisition claim")
 }
 
+func TestClassifyBookEvidenceKeepsAnalysisFailureCodeOnlyForAFailedRun(t *testing.T) {
+	t.Parallel()
+	failed := ClassifyBookEvidence(AnalysisSignals{
+		Content:     ContentCurrentEPUB,
+		LatestRun:   RunFailed,
+		FailureCode: BookPreparationCodeDependencyParsingUnavailable,
+	}, BookDispositionToRead, "de")
+	assert.Equal(t, PhaseFailed, failed.Phase)
+	assert.Equal(t, BookPreparationCodeDependencyParsingUnavailable, failed.FailureCode)
+
+	queued := ClassifyBookEvidence(AnalysisSignals{
+		Content:     ContentCurrentEPUB,
+		LatestRun:   RunQueued,
+		FailureCode: BookPreparationCodeAnalysisFailed,
+	}, BookDispositionToRead, "de")
+	assert.Equal(t, BookPreparationCodeNone, queued.FailureCode, "a queued run carries no failure")
+
+	legacy := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, LatestRun: RunFailed}, BookDispositionToRead, "de")
+	assert.Equal(t, BookPreparationCodeNone, legacy.FailureCode, "a run that failed before codes still classifies")
+}
+
 func TestEPUBAcquisitionFailureNeverOverridesAnAnalysisInEffect(t *testing.T) {
 	t.Parallel()
 	status := EPUBAcquisitionStatus{Stage: BookPreparationStageFetch, Code: BookPreparationCodeSourceDownloadFailed}

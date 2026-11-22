@@ -698,7 +698,9 @@ func loadStartEvidence(ctx context.Context, q *sqlcgen.Queries, owner, bookID st
 	}
 	// A Book without an evidence row has no acquired content, no analysis, and
 	// no disposition, so the zero row reads as exactly that.
-	facts.Signals = analysisSignalsFromView(evidence.SourceID, evidence.SourceMediaType, evidence.SourceContentRevisionID, evidence.SourceContentSnapshotID, evidence.AnalysisStatus, evidence.AnalysisState, evidence.AnalysisRunID)
+	// Eligibility does not read a failure code: the classifier treats every
+	// failed run the same way, and the query selects no display-only column.
+	facts.Signals = analysisSignalsFromView(evidence.SourceID, evidence.SourceMediaType, evidence.SourceContentRevisionID, evidence.SourceContentSnapshotID, evidence.AnalysisStatus, evidence.AnalysisState, evidence.AnalysisRunID, "")
 	facts.Disposition = domain.BookDisposition(evidence.Disposition)
 	facts.BookLanguage = ""
 	if evidence.BookLanguageState == domain.LanguageChosen {

@@ -39,6 +39,7 @@ func (q *Queries) BookExists(ctx context.Context, arg BookExistsParams) (bool, e
 
 const browseMyBooksEvidence = `-- name: BrowseMyBooksEvidence :many
 SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
+      , COALESCE(f.failure_code, '')::text AS analysis_failure_code
       , lower(e.book_title)::text AS sort_title
       , d.disposition::text AS disposition
      , d.revision AS disposition_revision
@@ -66,6 +67,7 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
      , COALESCE(ru.withdrawn, false)::boolean AS withdrawn
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN latest_analysis_failure f ON f.owner_id::text = e.book_owner_id AND f.source_material_id::text = e.source_id
 LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
 LEFT JOIN book_reading_units bru ON bru.owner_id::text = e.book_owner_id AND bru.book_id::text = e.book_id
 LEFT JOIN reading_units ru ON ru.id = bru.reading_unit_id
@@ -145,6 +147,7 @@ type BrowseMyBooksEvidenceRow struct {
 	BookCoverState          string
 	BookCoverWidth          int
 	BookCoverHeight         int
+	AnalysisFailureCode     string
 	SortTitle               string
 	Disposition             string
 	DispositionRevision     int64
@@ -217,6 +220,7 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.BookCoverState,
 			&i.BookCoverWidth,
 			&i.BookCoverHeight,
+			&i.AnalysisFailureCode,
 			&i.SortTitle,
 			&i.Disposition,
 			&i.DispositionRevision,
@@ -369,6 +373,25 @@ func (q *Queries) GetBookForUpdate(ctx context.Context, arg GetBookForUpdatePara
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getLatestAnalysisFailureCode = `-- name: GetLatestAnalysisFailureCode :one
+SELECT COALESCE((
+    SELECT failure_code FROM latest_analysis_failure
+    WHERE owner_id = $1 AND source_material_id = $2
+), '')::text AS failure_code
+`
+
+type GetLatestAnalysisFailureCodeParams struct {
+	Owner  string
+	Source string
+}
+
+func (q *Queries) GetLatestAnalysisFailureCode(ctx context.Context, arg GetLatestAnalysisFailureCodeParams) (string, error) {
+	row := q.db.QueryRow(ctx, getLatestAnalysisFailureCode, arg.Owner, arg.Source)
+	var failure_code string
+	err := row.Scan(&failure_code)
+	return failure_code, err
 }
 
 const getMyBookCompletionSummary = `-- name: GetMyBookCompletionSummary :one

@@ -23,7 +23,9 @@ SELECT source_id,
        analysis_run_id,
        corpus_id,
        analysis_job_id,
-       book_author
-FROM source_material_evidence
+       book_author,
+       COALESCE(f.failure_code, '')::text AS analysis_failure_code
+FROM source_material_evidence e
+LEFT JOIN latest_analysis_failure f ON f.owner_id::text = e.source_owner_id AND f.source_material_id::text = e.source_id
 WHERE source_owner_id = sqlc.arg('owner')
 ORDER BY source_created_at DESC, source_title, source_id;

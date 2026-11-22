@@ -61,6 +61,7 @@ func TestRequireDependencyParsing(t *testing.T) {
 	err := requireDependencyParsing(context.Background(), missing, "de")
 	require.ErrorIs(t, err, ErrDependencyParsingUnavailable)
 	assert.Contains(t, err.Error(), `language "de"`)
+	assert.Equal(t, domain.BookPreparationCodeDependencyParsingUnavailable, analysisFailureCode(err))
 
 	degraded := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{
 		Degraded:  true,
@@ -74,7 +75,8 @@ func TestRequireDependencyParsing(t *testing.T) {
 	err = requireDependencyParsing(context.Background(), outage, "de")
 	require.Error(t, err)
 	require.NotErrorIs(t, err, ErrDependencyParsingUnavailable)
-	assert.Equal(t, "Analysis could not be completed. Retry the analysis or review the current source.", safeAnalysisError(err))
+	assert.Equal(t, domain.BookPreparationCodeAnalysisFailed, analysisFailureCode(err))
+	assert.Equal(t, domain.BookPreparationCodeAnalysisFailed, analysisFailureCode(errors.New("stanza failed")))
 }
 
 func TestSnapshotAnalysisExcludesSpeakerLabelsFromStatisticsButKeepsEvidence(t *testing.T) {

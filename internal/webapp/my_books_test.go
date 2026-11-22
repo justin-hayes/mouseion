@@ -53,6 +53,8 @@ func TestMyBookMarginEvidenceUsesOnlyPresentCurrentEvidence(t *testing.T) {
 		{name: "metadata only is neutral", book: domain.MyBook{}, omit: "0%"},
 		{name: "analysis running", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testRunning}}, want: "Analysis running."},
 		{name: "failed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testFailed}}, want: "Analysis failed."},
+		{name: "dependency parsing unavailable", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, LatestRun: domain.RunFailed, FailureCode: domain.BookPreparationCodeDependencyParsingUnavailable}}}, want: "Analysis failed because dependency parsing is unavailable."},
+		{name: "analysis interrupted", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, LatestRun: domain.RunFailed, FailureCode: domain.BookPreparationCodeAnalysisInterrupted}}}, want: "The analysis was interrupted."},
 		{name: "cancelled", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testCancelled}}, want: "Analysis cancelled."},
 		{name: "stale", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testStale}}, want: "Analysis out of date."},
 		{name: "unavailable", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testNoContent}}, want: "Content unavailable."},
@@ -109,6 +111,15 @@ func TestMyBookMarginEvidenceShowsLatestCompletionForReadBucket(t *testing.T) {
 		LatestCompletionAt: &completedAt,
 	}
 	assert.Equal(t, "Finished 2 Aug 2026.", myBookMarginEvidence(book))
+}
+
+func TestReanalysisMarginNoteNamesTheFailureReason(t *testing.T) {
+	shadowed := func(code domain.BookPreparationCode) domain.BookEvidenceClassification {
+		return domain.BookEvidenceClassification{Phase: domain.PhaseAnalyzed, Run: domain.RunFailed, FailureCode: code}
+	}
+	assert.Equal(t, "Re-analysis failed. Dependency parsing is unavailable.", reanalysisMarginNote(shadowed(domain.BookPreparationCodeDependencyParsingUnavailable)))
+	assert.Equal(t, "Re-analysis failed. The analysis was interrupted.", reanalysisMarginNote(shadowed(domain.BookPreparationCodeAnalysisInterrupted)))
+	assert.Equal(t, "Re-analysis failed.", reanalysisMarginNote(shadowed(domain.BookPreparationCodeAnalysisFailed)))
 }
 
 func TestMyBookEvidenceRecoveryHonorsToReadAndCurrentReadingPolicy(t *testing.T) {
