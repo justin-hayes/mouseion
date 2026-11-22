@@ -1,0 +1,4 @@
+-- The backfill is intentionally irreversible: the old failure tables stay in
+-- place until the reviewed cleanup migration, so deleting the copied rows would
+-- only destroy the evidence it was introduced to preserve. Production
+-- migrations are forward-only (ADR 0038, ADR 0070).

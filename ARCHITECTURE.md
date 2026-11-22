@@ -370,7 +370,7 @@ erDiagram
     books ||--o| classical_prepared_definitions : "prepared as"
     reading_units ||--o{ classical_prepared_definitions : "defined by"
     classical_prepared_definitions }o--|| classical_sources : "imported from"
-    books ||--o| classical_preparation_failures : "last failure"
+    books ||--o| book_preparation_failures : "last failure"
 ```
 
 Notes on naming: `primary_goal_snapshots` stores the current-reading vocabulary
@@ -389,9 +389,11 @@ provenance and the EPUB acquisition link but no learner state
 `classical_sources` keeps one
 verified copy of each pinned work file, `classical_prepared_definitions`
 records the definition revision and source pin a Book's published analysis came
-from, `classical_preparation_failures` records one settled failure per Book, and
+from, `book_preparation_failures` records one settled Book preparation failure
+per Book for either kind, and
 `reference_translations` holds one installation-wide English translation per
-pinned citation ([ADR 0116](doc/adr/0116-classical-catalog.md)).
+pinned citation ([ADR 0116](doc/adr/0116-classical-catalog.md),
+[ADR 0121](doc/adr/0121-book-preparation-status-vocabulary-and-durable-epub-acquisition.md)).
 
 The schema starts from a single baseline migration with numbered successors
 ([ADR 0070](doc/adr/0070-migration-and-documentation-reboot.md)); schema

@@ -136,6 +136,18 @@ type BookMembership struct {
 	RemovedAt   pgtype.Timestamptz
 }
 
+type BookPreparationFailure struct {
+	OwnerID            string
+	BookID             string
+	ReadingUnitKey     pgtype.Text
+	DefinitionRevision pgtype.Int4
+	ConnectionID       pgtype.UUID
+	EntryIdentifier    pgtype.Text
+	Stage              string
+	Code               string
+	FailedAt           time.Time
+}
+
 type BookReadingUnit struct {
 	OwnerID       string
 	BookID        string

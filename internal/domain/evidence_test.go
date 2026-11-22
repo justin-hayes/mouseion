@@ -60,13 +60,12 @@ func TestClassifyBookEvidenceEPUBAcquisitionStages(t *testing.T) {
 	}
 }
 
-func TestClassifyBookEvidenceDerivesTheStageFromTheCode(t *testing.T) {
+func TestClassifyBookEvidenceDoesNotDeriveTheStageFromTheCode(t *testing.T) {
 	t.Parallel()
 	classification := ClassifyBookEvidence(AnalysisSignals{
 		EPUBAcquisition: &EPUBAcquisitionStatus{Code: BookPreparationCodeSourceFormatUnknown},
 	}, BookDispositionToRead, "de")
-	assert.Equal(t, AcquisitionSourceFormatUnknown, classification.Acquisition.State)
-	assert.Equal(t, RecoveryNone, classification.Recovery)
+	assert.Equal(t, AcquisitionNone, classification.Acquisition.State, "a row without a stage makes no acquisition claim")
 }
 
 func TestEPUBAcquisitionFailureNeverOverridesAnAnalysisInEffect(t *testing.T) {

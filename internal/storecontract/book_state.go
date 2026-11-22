@@ -102,8 +102,10 @@ func epubAcquisitionFailureScenarios() []Scenario {
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			bookID := seedBook(t, h, BookSeed{MetadataOnly: true, ToRead: true})
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Acquisition catalog")
 			record := domain.EPUBAcquisitionFailureRecord{
 				OwnerID: owner, BookID: bookID,
+				ConnectionID: connectionID, EntryIdentifier: "entry",
 				Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
 			}
 			require.NoError(t, h.BookState().RecordEPUBAcquisitionFailure(record))
@@ -130,8 +132,10 @@ func epubAcquisitionFailureScenarios() []Scenario {
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			bookID := seedBook(t, h, BookSeed{MetadataOnly: true, ToRead: true})
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Acquisition catalog")
 			require.NoError(t, h.BookState().RecordEPUBAcquisitionFailure(domain.EPUBAcquisitionFailureRecord{
 				OwnerID: owner, BookID: bookID,
+				ConnectionID: connectionID, EntryIdentifier: "entry",
 				Stage: domain.BookPreparationStageSource, Code: domain.BookPreparationCodeSourceOversize,
 			}))
 			detail := requireDetail(t, h, owner, bookID)

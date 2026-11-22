@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -87,9 +88,12 @@ func (s *PostgresStore) PutClassicalPreparedDefinition(ctx context.Context, reco
 		if err != nil {
 			return fmt.Errorf("write classical prepared definition: %w", err)
 		}
-		// A successful preparation replaces any failure evidence for the Book.
-		if _, err := tx.Exec(ctx, `DELETE FROM classical_preparation_failures WHERE owner_id = $1 AND book_id = $2`,
-			record.OwnerID, record.BookID); err != nil {
+		// A successful preparation replaces the Book's Classical failure
+		// evidence, leaving an EPUB row for the same key untouched.
+		if err := sqlcgen.New(tx).DeleteClassicalPreparationFailure(ctx, sqlcgen.DeleteClassicalPreparationFailureParams{
+			OwnerID: record.OwnerID,
+			BookID:  record.BookID,
+		}); err != nil {
 			return fmt.Errorf("clear classical preparation failure: %w", err)
 		}
 		return nil
@@ -97,24 +101,25 @@ func (s *PostgresStore) PutClassicalPreparedDefinition(ctx context.Context, reco
 }
 
 // PutClassicalPreparationFailure records one settled preparation failure for a
-// Book, replacing any previous record. It stores a stage and stable code only,
-// never source text. A newer definition revision makes the record stale without
-// rewriting it.
+// Book in the shared Book preparation failure record, replacing any previous
+// Classical record. It stores a stage and stable code only, never source text.
+// A newer definition revision makes the record stale without rewriting it.
 func (s *PostgresStore) PutClassicalPreparationFailure(ctx context.Context, record domain.ClassicalPreparationFailureRecord) error {
 	if err := validatePreparationFailure(record); err != nil {
 		return err
 	}
-	_, err := s.pool.Exec(ctx, `
-		INSERT INTO classical_preparation_failures(
-			owner_id, book_id, reading_unit_key, definition_revision, stage, code)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (owner_id, book_id) DO UPDATE SET
-			reading_unit_key = EXCLUDED.reading_unit_key,
-			definition_revision = EXCLUDED.definition_revision,
-			stage = EXCLUDED.stage,
-			code = EXCLUDED.code,
-			failed_at = now()`,
-		record.OwnerID, record.BookID, record.ReadingUnitKey, record.DefinitionRevision, string(record.Stage), string(record.Code))
+	revision, err := intArg(record.DefinitionRevision)
+	if err != nil {
+		return err
+	}
+	err = s.queries().PutClassicalPreparationFailure(ctx, sqlcgen.PutClassicalPreparationFailureParams{
+		OwnerID:            record.OwnerID,
+		BookID:             record.BookID,
+		ReadingUnitKey:     nullableTextArg(record.ReadingUnitKey),
+		DefinitionRevision: revision,
+		Stage:              string(record.Stage),
+		Code:               string(record.Code),
+	})
 	if err != nil {
 		return fmt.Errorf("write classical preparation failure: %w", err)
 	}
@@ -240,8 +245,9 @@ func (s *PostgresStore) ListClassicalPreparationJobs(ctx context.Context, owner 
 			       job.created_at
 			FROM river_job job
 			JOIN books book ON book.owner_id = $1::uuid AND book.id = (job.args->>'book_id')::uuid
-			LEFT JOIN classical_preparation_failures failure
+			LEFT JOIN book_preparation_failures failure
 			       ON failure.owner_id = book.owner_id AND failure.book_id = book.id
+			      AND failure.reading_unit_key IS NOT NULL
 			      AND failure.definition_revision = COALESCE((job.args->>'definition_revision')::integer, 0)
 			WHERE job.kind = 'classical_preparation' AND job.args->>'owner_id' = $1::text
 		)
@@ -249,9 +255,10 @@ func (s *PostgresStore) ListClassicalPreparationJobs(ctx context.Context, owner 
 		FROM history
 		UNION ALL
 		SELECT 0, book.id::text, book.title, 0, 'failed', failure.code, failure.failed_at
-		FROM classical_preparation_failures failure
+		FROM book_preparation_failures failure
 		JOIN books book ON book.owner_id = failure.owner_id AND book.id = failure.book_id
 		WHERE failure.owner_id = $1
+		  AND failure.reading_unit_key IS NOT NULL
 		  AND NOT EXISTS (
 		      SELECT 1 FROM river_job job
 		      WHERE job.kind = 'classical_preparation'
