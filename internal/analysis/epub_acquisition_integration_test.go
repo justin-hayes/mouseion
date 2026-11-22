@@ -178,6 +178,120 @@ func TestEPUBAcquisitionWorkerMissingEntryRecordsEntryFailure(t *testing.T) {
 	assert.Zero(t, h.requests.Load(), "a missing index entry contacts no Catalog page")
 }
 
+// assertEntryFailureWithoutCatalogIdentity checks the durable shape both
+// unresolvable-entry routes record: stage entry, code catalog_entry_missing,
+// and no connection or entry identifier.
+func (h *acquisitionWorkerHarness) assertEntryFailureWithoutCatalogIdentity(t *testing.T) {
+	t.Helper()
+	detail := h.detail(t)
+	require.NotNil(t, detail.EPUBAcquisition)
+	assert.Equal(t, domain.BookPreparationStageEntry, detail.EPUBAcquisition.Stage)
+	assert.Equal(t, domain.BookPreparationCodeCatalogEntryMissing, detail.EPUBAcquisition.Code)
+	assert.Equal(t, domain.RecoveryRetryAcquisition, detail.Classification().Recovery)
+	assert.Zero(t, h.analysis.calls)
+	assert.Zero(t, h.requests.Load(), "an unresolved entry contacts no Catalog page")
+
+	var connectionID, entryIdentifier string
+	require.NoError(t, h.pool.QueryRow(context.Background(), `
+		SELECT COALESCE(connection_id::text, ''), COALESCE(entry_identifier, '')
+		FROM book_preparation_failures
+		WHERE owner_id = $1 AND book_id = $2`, h.owner.ID, h.book.ID).Scan(&connectionID, &entryIdentifier))
+	assert.Empty(t, connectionID, "an unresolved entry names no connection")
+	assert.Empty(t, entryIdentifier, "an unresolved entry names no entry")
+}
+
+func TestEPUBAcquisitionWorkerWithoutCatalogAliasRecordsEntryFailure(t *testing.T) {
+	h := newAcquisitionWorkerHarness(t, true)
+	_, err := h.pool.Exec(context.Background(), `DELETE FROM book_aliases WHERE owner_id = $1 AND book_id = $2`, h.owner.ID, h.book.ID)
+	require.NoError(t, err)
+
+	err = h.work(t, h.worker(h.opds.AcquireForBook, h.analysis))
+
+	require.ErrorIs(t, err, cataloguesync.ErrCatalogEntryAliasMissing)
+	h.assertEntryFailureWithoutCatalogIdentity(t)
+
+	// Restoring the alias lets a later attempt succeed and clears the failure.
+	_, err = h.pool.Exec(context.Background(), `
+		INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value)
+		VALUES ($1, $2, $3, $4, $5, 'worker-entry')`,
+		h.owner.ID, h.book.ID, h.connection.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier)
+	require.NoError(t, err)
+	require.NoError(t, h.work(t, h.worker(h.opds.AcquireForBook, h.analysis)))
+
+	detail := h.detail(t)
+	assert.Nil(t, detail.EPUBAcquisition, "a later successful acquisition clears the failure")
+	require.NotNil(t, detail.Acquired)
+	assert.Equal(t, 1, h.analysis.calls)
+	assert.Equal(t, int64(1), h.requests.Load())
+}
+
+func TestEPUBAcquisitionWorkerDeletedConnectionRecordsEntryFailure(t *testing.T) {
+	h := newAcquisitionWorkerHarness(t, true)
+	require.NoError(t, h.store.DeleteOpdsConnection(context.Background(), h.owner.ID, h.connection.ID))
+
+	err := h.work(t, h.worker(h.opds.AcquireForBook, h.analysis))
+
+	// Deleting a connection cascades to its catalog-entry aliases, so the
+	// worker sees a Book with no alias rather than a dangling connection.
+	require.ErrorIs(t, err, cataloguesync.ErrCatalogEntryAliasMissing)
+	h.assertEntryFailureWithoutCatalogIdentity(t)
+}
+
+func TestEPUBAcquisitionWorkerSkipsAMissingBook(t *testing.T) {
+	h := newAcquisitionWorkerHarness(t, true)
+	var found atomic.Int64
+	worker := &EPUBAcquisitionWorker{
+		Store: h.store,
+		FindTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+			found.Add(1)
+			return cataloguesync.AcquisitionTarget{}, errors.New("must not look up a missing Book")
+		},
+		Acquire:  h.opds.AcquireForBook,
+		Analysis: h.analysis,
+	}
+
+	err := worker.Work(context.Background(), &river.Job[EPUBAcquisitionArgs]{
+		Args: EPUBAcquisitionArgs{OwnerID: h.owner.ID, BookID: "00000000-0000-0000-0000-000000000000"},
+	})
+
+	require.NoError(t, err)
+	assert.Zero(t, found.Load(), "the worker checks the Book before resolving its target")
+	assert.Zero(t, h.requests.Load())
+	assert.Zero(t, h.analysis.calls)
+	var failures int
+	require.NoError(t, h.pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM book_preparation_failures WHERE owner_id = $1`, h.owner.ID).Scan(&failures))
+	assert.Zero(t, failures, "a missing Book records no failure")
+}
+
+func TestEPUBAcquisitionWorkerSkipsTheCurrentBook(t *testing.T) {
+	h := newAcquisitionWorkerHarness(t, true)
+	// StartCurrentReading needs a completed analysis, which acquisition has not
+	// produced yet. The worker only reads the current Book's identity, so a
+	// directly seeded current reading is enough to prove the skip.
+	_, err := h.pool.Exec(context.Background(),
+		`INSERT INTO primary_goals(owner_id, book_id, language) VALUES ($1, $2, 'de')`, h.owner.ID, h.book.ID)
+	require.NoError(t, err)
+	var found atomic.Int64
+	worker := &EPUBAcquisitionWorker{
+		Store: h.store,
+		FindTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+			found.Add(1)
+			return cataloguesync.AcquisitionTarget{}, errors.New("must not look up the current Book")
+		},
+		Acquire:  h.opds.AcquireForBook,
+		Analysis: h.analysis,
+	}
+
+	require.NoError(t, h.work(t, worker))
+
+	assert.Zero(t, found.Load(), "the worker checks current reading before resolving its target")
+	assert.Zero(t, h.requests.Load())
+	assert.Zero(t, h.analysis.calls)
+	detail := h.detail(t)
+	assert.Nil(t, detail.EPUBAcquisition, "a current Book records no failure")
+}
+
 func TestEPUBAcquisitionWorkerDownloadFailureRecordsFetchFailure(t *testing.T) {
 	h := newAcquisitionWorkerHarness(t, false)
 

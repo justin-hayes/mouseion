@@ -14,6 +14,12 @@ and the "original bytes" wording of
 [ADR 0103](0103-source-structure-and-poetry-evidence.md). Leaves ADR 0035's
 digest-version-1 invariant unchanged.
 
+Amended by
+[ADR 0121](0121-book-preparation-status-vocabulary-and-durable-epub-acquisition.md):
+EPUB acquisition now runs as the durable `epub_acquisition` River job rather
+than synchronously inside the request. This ADR's streaming, Retained EPUB and
+size decisions still hold.
+
 ## Context
 
 Acquisition reads the catalog's EPUB into memory, refuses it over 100 MiB,
@@ -115,7 +121,10 @@ decision.
   needs them, such as rendering illustrations, has to re-acquire.
 - Acquisition stays synchronous inside the request. EPUB bodies get their own
   deadline instead of the 30-second feed timeout, and acquisition must finish
-  even when the response deadline passes.
+  even when the response deadline passes. *(Amended by
+  [ADR 0121](0121-book-preparation-status-vocabulary-and-durable-epub-acquisition.md):
+  acquisition now runs as a durable River job, so no response deadline applies;
+  the per-body deadline remains.)*
 - Temporary disk space up to 512 MiB per concurrent acquisition replaces the
   equivalent memory.
 

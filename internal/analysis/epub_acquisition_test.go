@@ -212,6 +212,13 @@ func TestEPUBAcquisitionWorkerAcquireBranches(t *testing.T) {
 			},
 		},
 		{
+			name: "Book vanished from the catalogue",
+			findTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+				return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
+			},
+			store: &acquisitionStoreStub{},
+		},
+		{
 			name: "missing entry",
 			findTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
 				return target, cataloguesync.ErrCatalogEntryMissing
@@ -243,6 +250,37 @@ func TestEPUBAcquisitionWorkerAcquireBranches(t *testing.T) {
 			require.Error(t, worker.acquireAndSubmit(context.Background(), "owner", "book"))
 			assert.Equal(t, tt.wantRecord, len(store.records) == 1)
 			assert.Len(t, store.clears, tt.wantClears)
+		})
+	}
+}
+
+func TestEPUBAcquisitionWorkerRecordsAnEntryFailureWithoutCatalogIdentity(t *testing.T) {
+	t.Parallel()
+	for _, targetErr := range []error{cataloguesync.ErrCatalogEntryAliasMissing, cataloguesync.ErrConnectionNotFound} {
+		t.Run(targetErr.Error(), func(t *testing.T) {
+			t.Parallel()
+			store := &acquisitionStoreStub{}
+			worker := &EPUBAcquisitionWorker{
+				Store: store,
+				FindTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+					return cataloguesync.AcquisitionTarget{}, targetErr
+				},
+				Acquire: func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {
+					t.Fatal("an unresolved entry must not be acquired")
+					return epub.ImportResult{}, nil
+				},
+				Analysis: &acquisitionAnalysisStub{},
+			}
+
+			err := worker.acquireAndSubmit(context.Background(), "owner", "book")
+
+			require.ErrorIs(t, err, targetErr)
+			require.Len(t, store.records, 1)
+			record := store.records[0]
+			assert.Equal(t, domain.BookPreparationStageEntry, record.Stage)
+			assert.Equal(t, domain.BookPreparationCodeCatalogEntryMissing, record.Code)
+			assert.Empty(t, record.ConnectionID, "an unresolved entry names no connection")
+			assert.Empty(t, record.EntryIdentifier, "an unresolved entry names no entry")
 		})
 	}
 }
@@ -301,6 +339,8 @@ func TestClassifyAcquisitionFailure(t *testing.T) {
 		code  domain.BookPreparationCode
 	}{
 		{err: cataloguesync.ErrCatalogEntryMissing, stage: domain.BookPreparationStageEntry, code: domain.BookPreparationCodeCatalogEntryMissing},
+		{err: cataloguesync.ErrCatalogEntryAliasMissing, stage: domain.BookPreparationStageEntry, code: domain.BookPreparationCodeCatalogEntryMissing},
+		{err: cataloguesync.ErrConnectionNotFound, stage: domain.BookPreparationStageEntry, code: domain.BookPreparationCodeCatalogEntryMissing},
 		{err: opds.ErrDownloadTooLarge, stage: domain.BookPreparationStageSource, code: domain.BookPreparationCodeSourceOversize},
 		{err: opds.ErrRetainedEPUBTooLarge, stage: domain.BookPreparationStageSource, code: domain.BookPreparationCodeSourceOversize},
 		{err: opds.ErrNoEPUB, stage: domain.BookPreparationStageSource, code: domain.BookPreparationCodeSourceFormatUnknown},

@@ -18,6 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -80,6 +81,7 @@ func newAcquisitionHandlerFixture(t *testing.T) acquisitionHandlerFixture {
 		OPDS:            opds.NewService(store, epub.NewService(store), catalog.Client()),
 		Analysis:        recorder,
 		EPUBAcquisition: analysis.NewService(store.Pool(), client),
+		CatalogueSync:   fixtures.NewCatalogueSync(fixtures.NewStore()),
 		Capabilities:    readyGerman(), SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
@@ -224,6 +226,29 @@ func TestEPUBAcquisitionLifecycleOnMyBooks(t *testing.T) {
 	assert.NotContains(t, completed, epubAcquisitionDownloadFailedLabel, "the later success clears the recorded failure")
 	assert.Contains(t, completed, "Analysis running.", "the Book shows its analysis state as today")
 	assert.NotContains(t, completed, retryAction, "an analysis under way offers no Retry")
+}
+
+// TestEPUBAcquisitionEntryFailureWithoutCatalogIdentityShowsEverywhere covers
+// the failure shape acquisition records when it cannot resolve an entry at all.
+// My Books explains it with Retry, and /jobs lists the same failed preparation.
+func TestEPUBAcquisitionEntryFailureWithoutCatalogIdentityShowsEverywhere(t *testing.T) {
+	fixture := newAcquisitionHandlerFixture(t)
+	book := fixture.createToReadBook(t, "No catalog identity")
+	require.NoError(t, fixture.store.RecordEPUBAcquisitionFailure(context.Background(), domain.EPUBAcquisitionFailureRecord{
+		OwnerID: fixture.owner.ID, BookID: book.ID,
+		Stage: domain.BookPreparationStageEntry, Code: domain.BookPreparationCodeCatalogEntryMissing,
+	}))
+	retryAction := `action="/reading/books/` + book.ID + `/reanalyze"`
+
+	myBooks := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
+	require.Equal(t, http.StatusOK, myBooks.Code, myBooks.Body.String())
+	assert.Contains(t, myBooks.Body.String(), epubAcquisitionEntryMissingLabel)
+	assert.Contains(t, myBooks.Body.String(), retryAction)
+
+	jobs := perform(t, fixture.handler, http.MethodGet, "/jobs", nil, fixture.cookies)
+	require.Equal(t, http.StatusOK, jobs.Code, jobs.Body.String())
+	assert.Contains(t, jobs.Body.String(), "No catalog identity")
+	assert.Contains(t, jobs.Body.String(), epubAcquisitionEntryMissingLabel)
 }
 
 func TestEPUBAcquisitionMoveAndRetryEnqueueOneLiveJob(t *testing.T) {

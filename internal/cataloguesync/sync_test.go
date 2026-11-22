@@ -350,9 +350,9 @@ func TestFindAcquisitionTargetRejectsIncompleteOrUnreadableSources(t *testing.T)
 	}{
 		{name: "book not found", store: &refreshStore{}, wantErr: ErrNotFound},
 		{name: "book load fails", store: &refreshStore{bookErr: unavailable}, wantErr: unavailable},
-		{name: "alias not found", store: &refreshStore{book: book, aliasErr: persistence.ErrNotFound}, wantErr: ErrNotFound},
+		{name: "alias not found", store: &refreshStore{book: book, aliasErr: persistence.ErrNotFound}, wantErr: ErrCatalogEntryAliasMissing},
 		{name: "alias load fails", store: &refreshStore{book: book, aliasErr: unavailable}, wantErr: unavailable},
-		{name: "blank alias value", store: &refreshStore{book: book, alias: domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier}}, wantErr: ErrNotFound},
+		{name: "blank alias value", store: &refreshStore{book: book, alias: domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier}}, wantErr: ErrCatalogEntryAliasMissing},
 		{name: "connection load fails", store: &refreshStore{book: book, alias: validAlias, connectionsErr: unavailable}, wantErr: unavailable},
 		{name: "entry absent from the index", store: &refreshStore{book: book, alias: validAlias, connections: connection}, wantErr: ErrCatalogEntryMissing},
 		{name: "entry load fails", store: &refreshStore{book: book, alias: validAlias, connections: connection, catalogueEntryErr: unavailable}, wantErr: unavailable},
