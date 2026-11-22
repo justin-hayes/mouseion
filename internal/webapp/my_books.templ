@@ -407,7 +407,17 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			}
 		} else if browse.Enabled && (browse.AllCount > 0 || browse.NeedsLanguage) {
 			<section class="library-finder" aria-label="Find books">
-				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksClearSearchURL(browse)) } hx-get={ myBooksClearSearchURL(browse) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
+				<form class="library-search" role="search" method="get" action="/library" hx-get="/library" hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
+					// A GET submit replaces the action's query string with the form fields, so the active tab travels as hidden fields.
+					if browse.NeedsLanguage {
+						<input type="hidden" name="needs-language" value=""/>
+					}
+					if browse.Disposition != "" {
+						<input type="hidden" name="disposition" value={ string(browse.Disposition) }/>
+					}
+					if browse.History {
+						<input type="hidden" name="history" value="read"/>
+					}
 					<label class="sr-only" for="library-search-query">Search My Books</label>
 					<div class="library-search__controls">
 						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, Greek title, or Book number"/>
